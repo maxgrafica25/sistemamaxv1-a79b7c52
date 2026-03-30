@@ -45,8 +45,11 @@ export default function ProcessosProducao() {
   return (
     <div className="p-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-foreground">Processos de Produção</h1>
-        <p className="mt-1 text-muted-foreground">Gerencie etapas individuais e grupos de etapas reutilizáveis</p>
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Factory className="h-6 w-6 text-primary" />
+          Processos de Produção
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">Gerencie etapas individuais e grupos de etapas reutilizáveis</p>
       </div>
 
       {/* Tabs styled like Equipamentos */}
