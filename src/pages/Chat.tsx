@@ -8,6 +8,7 @@ import ChannelHeader from "@/components/chat/ChannelHeader";
 import ChatMessages from "@/components/chat/ChatMessages";
 import ChatInput from "@/components/chat/ChatInput";
 import ChannelDetailsPanel from "@/components/chat/ChannelDetailsPanel";
+import AddMemberDialog from "@/components/chat/AddMemberDialog";
 
 interface Channel {
   id: string;
@@ -35,7 +36,7 @@ interface Message {
 }
 
 export default function Chat() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
@@ -43,13 +44,17 @@ export default function Chat() {
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [memberCount, setMemberCount] = useState(0);
+  const [memberIds, setMemberIds] = useState<string[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
+  const [showAddMember, setShowAddMember] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
 
+  const canManageMembers = profile?.role === "admin" || 
+    channels.find(c => c.id === activeChannelId)?.created_by === user?.id;
 
   // Load channels
   const loadChannels = useCallback(async () => {
@@ -102,9 +107,10 @@ export default function Chat() {
       setMessages((data || []).map(m => ({ ...m, profiles: profileMap[m.user_id] || null, reactions: reactionMap[m.id] || [] })) as Message[]);
     }
 
-    // Update member count
-    const { count } = await supabase.from("channel_members").select("*", { count: "exact", head: true }).eq("channel_id", activeChannelId);
-    setMemberCount(count || 0);
+    // Update member count and ids
+    const { data: membersData } = await supabase.from("channel_members").select("user_id").eq("channel_id", activeChannelId);
+    setMemberCount(membersData?.length || 0);
+    setMemberIds((membersData || []).map(m => m.user_id));
 
     // Mark as read
     if (user) {
@@ -168,6 +174,7 @@ export default function Chat() {
           channel={activeChannel}
           memberCount={memberCount}
           onToggleDetails={() => setShowDetails(p => !p)}
+          onAddMember={canManageMembers ? () => setShowAddMember(true) : undefined}
         />
 
         {activeChannelId ? (
@@ -202,6 +209,16 @@ export default function Chat() {
         <ChannelDetailsPanel
           channel={activeChannel}
           onClose={() => setShowDetails(false)}
+        />
+      )}
+
+      {activeChannelId && (
+        <AddMemberDialog
+          channelId={activeChannelId}
+          existingMemberIds={memberIds}
+          open={showAddMember}
+          onOpenChange={setShowAddMember}
+          onMemberAdded={() => { loadMessages(); setShowAddMember(false); }}
         />
       )}
     </div>

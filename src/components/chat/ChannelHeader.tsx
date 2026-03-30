@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Hash, Lock, Users, Pin, Search, PanelRightOpen } from "lucide-react";
+import { Hash, Lock, Users, UserPlus, PanelRightOpen } from "lucide-react";
 
 interface Channel {
   id: string;
@@ -13,9 +13,10 @@ interface Props {
   channel: Channel | null;
   memberCount: number;
   onToggleDetails: () => void;
+  onAddMember?: () => void;
 }
 
-export default function ChannelHeader({ channel, memberCount, onToggleDetails }: Props) {
+export default function ChannelHeader({ channel, memberCount, onToggleDetails, onAddMember }: Props) {
   if (!channel) {
     return (
       <div className="flex h-14 items-center border-b border-border bg-card px-4">
@@ -42,7 +43,12 @@ export default function ChannelHeader({ channel, memberCount, onToggleDetails }:
       </div>
 
       <div className="flex items-center gap-1">
-        <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs">
+        {onAddMember && (
+          <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs" onClick={onAddMember} title="Adicionar participante">
+            <UserPlus className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs" onClick={onToggleDetails}>
           <Users className="h-3.5 w-3.5" /> {memberCount}
         </Button>
         <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onToggleDetails}>
