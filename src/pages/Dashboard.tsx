@@ -48,8 +48,11 @@ export default function Dashboard() {
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="mt-1 text-muted-foreground">Visão geral dos seus orçamentos</p>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <LayoutDashboard className="h-6 w-6 text-primary" />
+            Dashboard
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">Visão geral dos seus orçamentos</p>
         </div>
         <Link to="/orcamento/novo">
           <Button size="lg" className="gap-2 bg-accent hover:bg-accent-hover">
