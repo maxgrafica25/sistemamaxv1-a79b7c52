@@ -325,13 +325,43 @@ function GruposTab() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label>Etapas de Produção *</Label>
-                  <Button variant="outline" size="sm" onClick={addStep} className="gap-2"><Plus className="h-4 w-4" /> Adicionar Etapa</Button>
+                  <Button variant="outline" size="sm" onClick={addBlankStep} className="gap-2"><Plus className="h-4 w-4" /> Nova Etapa Manual</Button>
                 </div>
-                {groupSteps.map((step) => (
+
+                {/* Picker for existing steps */}
+                {availableSteps.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Selecionar etapa existente:</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {availableSteps.map(s => (
+                        <Button
+                          key={s.id}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addExistingStep(s)}
+                          className="gap-1.5 text-xs"
+                        >
+                          <Plus className="h-3 w-3" />
+                          {s.description} ({s.time_minutes} min)
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {groupSteps.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Selecione etapas existentes acima ou crie uma nova etapa manual
+                  </p>
+                )}
+
+                {groupSteps.map((step, idx) => (
                   <div key={step.id} className="flex gap-3 items-start">
+                    <span className="flex h-10 w-8 items-center justify-center text-xs font-medium text-muted-foreground">{idx + 1}</span>
                     <div className="flex-1"><Input placeholder="Descrição da etapa" value={step.description} onChange={(e) => updateStep(step.id, "description", e.target.value)} /></div>
-                    <div className="w-40"><Input type="number" placeholder="Minutos" value={step.time_minutes || ""} onChange={(e) => updateStep(step.id, "time_minutes", parseFloat(e.target.value) || 0)} /></div>
-                    <Button variant="ghost" size="icon" onClick={() => removeStep(step.id)} className="text-destructive hover:bg-destructive/10" disabled={groupSteps.length === 1}><Trash2 className="h-4 w-4" /></Button>
+                    <div className="w-32"><Input type="number" placeholder="Min" value={step.time_minutes || ""} onChange={(e) => updateStep(step.id, "time_minutes", parseFloat(e.target.value) || 0)} /></div>
+                    <Button variant="ghost" size="icon" onClick={() => removeStep(step.id)} className="text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 ))}
               </div>
