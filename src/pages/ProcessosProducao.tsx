@@ -216,6 +216,7 @@ function EtapasTab() {
 // ─── Grupos Tab ──────────────────────────────────────────────────────
 function GruposTab() {
   const [groups, setGroups] = useState<StepGroup[]>([]);
+  const [availableSteps, setAvailableSteps] = useState<Step[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<StepGroup | null>(null);
@@ -225,9 +226,10 @@ function GruposTab() {
 
   const fetchGroups = async () => {
     setLoading(true);
-    const [gRes, iRes] = await Promise.all([
+    const [gRes, iRes, sRes] = await Promise.all([
       supabase.from("step_groups").select("*").order("created_at"),
       supabase.from("step_group_items").select("*").order("sort_order"),
+      supabase.from("production_steps").select("*").order("description"),
     ]);
     if (gRes.data && iRes.data) {
       setGroups(gRes.data.map(g => ({
@@ -235,6 +237,7 @@ function GruposTab() {
         items: iRes.data.filter(i => i.step_group_id === g.id),
       })));
     }
+    if (sRes.data) setAvailableSteps(sRes.data);
     setLoading(false);
   };
 
@@ -242,7 +245,7 @@ function GruposTab() {
 
   const openNewGroupDialog = () => {
     setEditingGroup(null); setGroupName("");
-    setGroupSteps([{ id: Date.now().toString(), description: "", time_minutes: 0 }]);
+    setGroupSteps([]);
     setIsDialogOpen(true);
   };
 
@@ -252,7 +255,11 @@ function GruposTab() {
     setIsDialogOpen(true);
   };
 
-  const addStep = () => setGroupSteps([...groupSteps, { id: Date.now().toString(), description: "", time_minutes: 0 }]);
+  const addExistingStep = (step: Step) => {
+    setGroupSteps(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, description: step.description, time_minutes: step.time_minutes }]);
+  };
+
+  const addBlankStep = () => setGroupSteps(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, description: "", time_minutes: 0 }]);
   const removeStep = (id: string) => setGroupSteps(groupSteps.filter(s => s.id !== id));
   const updateStep = (id: string, field: string, value: string | number) =>
     setGroupSteps(groupSteps.map(s => s.id === id ? { ...s, [field]: value } : s));
@@ -318,13 +325,43 @@ function GruposTab() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label>Etapas de Produção *</Label>
-                  <Button variant="outline" size="sm" onClick={addStep} className="gap-2"><Plus className="h-4 w-4" /> Adicionar Etapa</Button>
+                  <Button variant="outline" size="sm" onClick={addBlankStep} className="gap-2"><Plus className="h-4 w-4" /> Nova Etapa Manual</Button>
                 </div>
-                {groupSteps.map((step) => (
+
+                {/* Picker for existing steps */}
+                {availableSteps.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Selecionar etapa existente:</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {availableSteps.map(s => (
+                        <Button
+                          key={s.id}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addExistingStep(s)}
+                          className="gap-1.5 text-xs"
+                        >
+                          <Plus className="h-3 w-3" />
+                          {s.description} ({s.time_minutes} min)
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {groupSteps.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Selecione etapas existentes acima ou crie uma nova etapa manual
+                  </p>
+                )}
+
+                {groupSteps.map((step, idx) => (
                   <div key={step.id} className="flex gap-3 items-start">
+                    <span className="flex h-10 w-8 items-center justify-center text-xs font-medium text-muted-foreground">{idx + 1}</span>
                     <div className="flex-1"><Input placeholder="Descrição da etapa" value={step.description} onChange={(e) => updateStep(step.id, "description", e.target.value)} /></div>
-                    <div className="w-40"><Input type="number" placeholder="Minutos" value={step.time_minutes || ""} onChange={(e) => updateStep(step.id, "time_minutes", parseFloat(e.target.value) || 0)} /></div>
-                    <Button variant="ghost" size="icon" onClick={() => removeStep(step.id)} className="text-destructive hover:bg-destructive/10" disabled={groupSteps.length === 1}><Trash2 className="h-4 w-4" /></Button>
+                    <div className="w-32"><Input type="number" placeholder="Min" value={step.time_minutes || ""} onChange={(e) => updateStep(step.id, "time_minutes", parseFloat(e.target.value) || 0)} /></div>
+                    <Button variant="ghost" size="icon" onClick={() => removeStep(step.id)} className="text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 ))}
               </div>
