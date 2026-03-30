@@ -216,6 +216,7 @@ function EtapasTab() {
 // ─── Grupos Tab ──────────────────────────────────────────────────────
 function GruposTab() {
   const [groups, setGroups] = useState<StepGroup[]>([]);
+  const [availableSteps, setAvailableSteps] = useState<Step[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<StepGroup | null>(null);
@@ -225,9 +226,10 @@ function GruposTab() {
 
   const fetchGroups = async () => {
     setLoading(true);
-    const [gRes, iRes] = await Promise.all([
+    const [gRes, iRes, sRes] = await Promise.all([
       supabase.from("step_groups").select("*").order("created_at"),
       supabase.from("step_group_items").select("*").order("sort_order"),
+      supabase.from("production_steps").select("*").order("description"),
     ]);
     if (gRes.data && iRes.data) {
       setGroups(gRes.data.map(g => ({
@@ -235,6 +237,7 @@ function GruposTab() {
         items: iRes.data.filter(i => i.step_group_id === g.id),
       })));
     }
+    if (sRes.data) setAvailableSteps(sRes.data);
     setLoading(false);
   };
 
@@ -242,7 +245,7 @@ function GruposTab() {
 
   const openNewGroupDialog = () => {
     setEditingGroup(null); setGroupName("");
-    setGroupSteps([{ id: Date.now().toString(), description: "", time_minutes: 0 }]);
+    setGroupSteps([]);
     setIsDialogOpen(true);
   };
 
@@ -252,7 +255,11 @@ function GruposTab() {
     setIsDialogOpen(true);
   };
 
-  const addStep = () => setGroupSteps([...groupSteps, { id: Date.now().toString(), description: "", time_minutes: 0 }]);
+  const addExistingStep = (step: Step) => {
+    setGroupSteps(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, description: step.description, time_minutes: step.time_minutes }]);
+  };
+
+  const addBlankStep = () => setGroupSteps(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, description: "", time_minutes: 0 }]);
   const removeStep = (id: string) => setGroupSteps(groupSteps.filter(s => s.id !== id));
   const updateStep = (id: string, field: string, value: string | number) =>
     setGroupSteps(groupSteps.map(s => s.id === id ? { ...s, [field]: value } : s));
