@@ -30,11 +30,11 @@ const stats = [
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "approved":
-      return <Badge variant="approved">Aprovado</Badge>;
+      return <Badge className="bg-green-100 text-green-800 border-green-300">Aprovado</Badge>;
     case "sent":
-      return <Badge variant="sent">Enviado</Badge>;
+      return <Badge className="bg-blue-100 text-blue-800 border-blue-300">Enviado</Badge>;
     case "rejected":
-      return <Badge variant="rejected">Recusado</Badge>;
+      return <Badge className="bg-red-100 text-red-800 border-red-300">Recusado</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
