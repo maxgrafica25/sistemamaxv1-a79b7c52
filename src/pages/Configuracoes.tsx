@@ -50,7 +50,7 @@ export default function Configuracoes() {
     <div className="p-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Settings className="h-6 w-6 text-primary" />
+          <Cog className="h-6 w-6 text-primary" />
           Configurações
         </h1>
         <p className="text-sm text-muted-foreground mt-1">Configure os parâmetros de cálculo dos orçamentos</p>
