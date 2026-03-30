@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Save, Info, Loader2 } from "lucide-react";
+import { Save, Info, Loader2, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
@@ -49,8 +49,11 @@ export default function Configuracoes() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Configurações</h1>
-        <p className="mt-1 text-muted-foreground">Configure os parâmetros de cálculo dos orçamentos</p>
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Settings className="h-6 w-6 text-primary" />
+          Configurações
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">Configure os parâmetros de cálculo dos orçamentos</p>
       </div>
 
       <div className="max-w-3xl space-y-6">
