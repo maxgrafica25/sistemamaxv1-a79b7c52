@@ -152,9 +152,29 @@ export default function DespesasFixas() {
           <span className="text-muted-foreground">Folha c/ encargos: <strong className="text-foreground">{formatCurrency(totalSalariesWithCharges)}</strong></span>
           <span className="text-muted-foreground">Depreciação: <strong className="text-foreground">{formatCurrency(totalDepreciation)}</strong></span>
           <span className="text-muted-foreground">Total: <strong className="text-primary">{formatCurrency(totalFixedCosts)}</strong></span>
-          <span className="ml-auto rounded-md bg-accent/10 border border-accent px-3 py-1 font-semibold text-accent">
-            Valor Hora: {formatCurrency(hourlyRate)}
-          </span>
+          <HoverCard>
+            <HoverCardTrigger asChild>
+              <span className="ml-auto rounded-md bg-accent/10 border border-accent px-3 py-1 font-semibold text-accent cursor-help flex items-center gap-1.5">
+                Valor Hora: {formatCurrency(hourlyRate)} <Info className="h-3.5 w-3.5 opacity-60" />
+              </span>
+            </HoverCardTrigger>
+            <HoverCardContent className="w-80 text-sm" side="bottom" align="end">
+              <p className="font-semibold mb-2 text-foreground">Como chegamos ao Valor Hora:</p>
+              <div className="space-y-1 text-muted-foreground">
+                <div className="flex justify-between"><span>Despesas mensais</span><span className="font-medium text-foreground">{formatCurrency(totalExpenses)}</span></div>
+                <div className="flex justify-between"><span>Folha c/ encargos (×1,45)</span><span className="font-medium text-foreground">{formatCurrency(totalSalariesWithCharges)}</span></div>
+                <div className="flex justify-between"><span>Depreciação</span><span className="font-medium text-foreground">{formatCurrency(totalDepreciation)}</span></div>
+                <Separator className="my-1.5" />
+                <div className="flex justify-between font-semibold text-foreground"><span>Total custos fixos</span><span>{formatCurrency(totalFixedCosts)}</span></div>
+                <Separator className="my-1.5" />
+                <div className="flex justify-between"><span>Func. produção</span><span className="font-medium text-foreground">{productionEmployeeCount}</span></div>
+                <div className="flex justify-between"><span>Horas/mês por pessoa</span><span className="font-medium text-foreground">{capacity.hours_per_month}h</span></div>
+                <div className="flex justify-between"><span>Total horas/mês</span><span className="font-medium text-foreground">{totalHoursMonth.toFixed(0)}h</span></div>
+                <Separator className="my-1.5" />
+                <div className="flex justify-between font-bold text-primary"><span>Valor Hora</span><span>{formatCurrency(totalFixedCosts)} ÷ {totalHoursMonth.toFixed(0)}h = {formatCurrency(hourlyRate)}</span></div>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
         </div>
 
         <div>
