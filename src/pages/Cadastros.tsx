@@ -232,7 +232,7 @@ export default function Cadastros() {
                       <TableHead>Nome da Empresa</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Telefone</TableHead>
-                      <TableHead>Empresa</TableHead>
+                      <TableHead>Vendedor</TableHead>
                       <TableHead>Município</TableHead>
                       <TableHead>Tags</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
