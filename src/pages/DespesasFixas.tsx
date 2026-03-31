@@ -144,10 +144,6 @@ export default function DespesasFixas() {
             </h1>
             <p className="text-sm text-muted-foreground mt-1">Lance despesas para calcular o valor da hora</p>
           </div>
-          <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Salvar Tudo
-          </Button>
         </div>
 
         {/* Summary line */}
@@ -353,6 +349,14 @@ export default function DespesasFixas() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Floating save button */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <Button size="lg" onClick={handleSave} disabled={saving} className="gap-2 shadow-lg rounded-full px-6">
+          {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+          Salvar Tudo
+        </Button>
       </div>
 
       <ConfirmDialog

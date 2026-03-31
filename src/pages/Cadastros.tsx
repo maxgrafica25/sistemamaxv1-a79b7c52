@@ -229,10 +229,10 @@ export default function Cadastros() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nome da Empresa</TableHead>
+                      <TableHead>Nome</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Telefone</TableHead>
-                      <TableHead>Vendedor</TableHead>
+                      <TableHead>Vendedor/Contato</TableHead>
                       <TableHead>Município</TableHead>
                       <TableHead>Tags</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
@@ -307,8 +307,8 @@ export default function Cadastros() {
             </div>
 
             <div className="space-y-2">
-              <Label>Nome da Empresa *</Label>
-              <Input placeholder="Razão social ou nome fantasia" value={nome} onChange={e => setNome(e.target.value)} />
+              <Label>{tipo === "fornecedor" ? "Nome da Empresa *" : tipo === "ambos" ? "Nome / Empresa *" : "Nome *"}</Label>
+              <Input placeholder={tipo === "fornecedor" ? "Razão social ou nome fantasia" : tipo === "ambos" ? "Nome do cliente ou empresa" : "Nome do cliente"} value={nome} onChange={e => setNome(e.target.value)} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -322,11 +322,13 @@ export default function Cadastros() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Vendedor</Label>
-                <Input placeholder="Nome do vendedor/contato" value={empresa} onChange={e => setEmpresa(e.target.value)} />
-              </div>
+            <div className={`grid gap-3 ${showSupplierFields ? "grid-cols-2" : "grid-cols-1"}`}>
+              {showSupplierFields && (
+                <div className="space-y-2">
+                  <Label>Vendedor</Label>
+                  <Input placeholder="Nome do vendedor/contato" value={empresa} onChange={e => setEmpresa(e.target.value)} />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>CNPJ/CPF</Label>
                 <Input placeholder="00.000.000/0000-00" value={cnpj} onChange={e => setCnpj(e.target.value)} />
