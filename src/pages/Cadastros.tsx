@@ -96,9 +96,12 @@ export default function Cadastros() {
   };
 
   const addTag = () => {
-    const t = tagInput.trim();
-    if (t && !tags.includes(t)) {
-      setTags([...tags, t]);
+    const newTags = tagInput
+      .split(",")
+      .map(t => t.trim())
+      .filter(t => t && !tags.includes(t));
+    if (newTags.length > 0) {
+      setTags([...tags, ...newTags]);
     }
     setTagInput("");
   };
@@ -226,10 +229,10 @@ export default function Cadastros() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nome</TableHead>
+                      <TableHead>Nome da Empresa</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Telefone</TableHead>
-                      <TableHead>Empresa</TableHead>
+                      <TableHead>Vendedor</TableHead>
                       <TableHead>Município</TableHead>
                       <TableHead>Tags</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
@@ -304,8 +307,8 @@ export default function Cadastros() {
             </div>
 
             <div className="space-y-2">
-              <Label>Nome *</Label>
-              <Input placeholder="Nome completo ou razão social" value={nome} onChange={e => setNome(e.target.value)} />
+              <Label>Nome da Empresa *</Label>
+              <Input placeholder="Razão social ou nome fantasia" value={nome} onChange={e => setNome(e.target.value)} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -321,8 +324,8 @@ export default function Cadastros() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Empresa</Label>
-                <Input placeholder="Nome da empresa" value={empresa} onChange={e => setEmpresa(e.target.value)} />
+                <Label>Vendedor</Label>
+                <Input placeholder="Nome do vendedor/contato" value={empresa} onChange={e => setEmpresa(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>CNPJ/CPF</Label>
