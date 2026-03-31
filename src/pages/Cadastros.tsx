@@ -229,7 +229,7 @@ export default function Cadastros() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nome</TableHead>
+                      <TableHead>Nome da Empresa</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Telefone</TableHead>
                       <TableHead>Empresa</TableHead>
