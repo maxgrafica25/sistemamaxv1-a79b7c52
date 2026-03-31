@@ -144,10 +144,6 @@ export default function DespesasFixas() {
             </h1>
             <p className="text-sm text-muted-foreground mt-1">Lance despesas para calcular o valor da hora</p>
           </div>
-          <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Salvar Tudo
-          </Button>
         </div>
 
         {/* Summary line */}
