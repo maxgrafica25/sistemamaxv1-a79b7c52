@@ -351,6 +351,14 @@ export default function DespesasFixas() {
         </div>
       </div>
 
+      {/* Floating save button */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <Button size="lg" onClick={handleSave} disabled={saving} className="gap-2 shadow-lg rounded-full px-6">
+          {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+          Salvar Tudo
+        </Button>
+      </div>
+
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
