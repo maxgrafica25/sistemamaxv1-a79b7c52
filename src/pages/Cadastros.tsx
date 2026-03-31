@@ -96,9 +96,12 @@ export default function Cadastros() {
   };
 
   const addTag = () => {
-    const t = tagInput.trim();
-    if (t && !tags.includes(t)) {
-      setTags([...tags, t]);
+    const newTags = tagInput
+      .split(",")
+      .map(t => t.trim())
+      .filter(t => t && !tags.includes(t));
+    if (newTags.length > 0) {
+      setTags([...tags, ...newTags]);
     }
     setTagInput("");
   };
