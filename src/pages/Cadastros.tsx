@@ -324,8 +324,8 @@ export default function Cadastros() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Empresa</Label>
-                <Input placeholder="Nome da empresa" value={empresa} onChange={e => setEmpresa(e.target.value)} />
+                <Label>Vendedor</Label>
+                <Input placeholder="Nome do vendedor/contato" value={empresa} onChange={e => setEmpresa(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>CNPJ/CPF</Label>
