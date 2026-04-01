@@ -17,7 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus, Trash2, Edit2, Printer, Cpu, Gauge, ClipboardList, History, Wrench, AlertTriangle, MailWarning,
+  Plus, Trash2, Edit2, Printer, Cpu, Gauge, ClipboardList, History, Wrench, AlertTriangle, MailWarning, BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,7 @@ import ConsumablePriceHistoryTab from "@/components/equipamentos/ConsumablePrice
 import MaintenanceTab from "@/components/equipamentos/MaintenanceTab";
 import ProductionLossesTab from "@/components/equipamentos/ProductionLossesTab";
 import MaintenanceRequestsTab from "@/components/equipamentos/MaintenanceRequestsTab";
+import EquipmentDashboardTab from "@/components/equipamentos/EquipmentDashboardTab";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Equipment {
@@ -389,6 +390,9 @@ export default function Equipamentos() {
                   <TabsTrigger value="solicitacoes" className="gap-1.5 text-xs">
                     <MailWarning className="h-3.5 w-3.5" /> Solicitar Manutenção
                   </TabsTrigger>
+                  <TabsTrigger value="dashboard" className="gap-1.5 text-xs">
+                    <BarChart3 className="h-3.5 w-3.5" /> Dashboard
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* ── Consumíveis Tab ── */}
@@ -525,6 +529,14 @@ export default function Equipamentos() {
                 {/* ── Solicitações de Manutenção Tab ── */}
                 <TabsContent value="solicitacoes" className="mt-4">
                   <MaintenanceRequestsTab
+                    equipmentId={eq.id}
+                    equipmentName={eq.name}
+                  />
+                </TabsContent>
+
+                {/* ── Dashboard Tab ── */}
+                <TabsContent value="dashboard" className="mt-4">
+                  <EquipmentDashboardTab
                     equipmentId={eq.id}
                     equipmentName={eq.name}
                   />
