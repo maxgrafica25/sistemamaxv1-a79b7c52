@@ -72,7 +72,6 @@ export default function ProductionLossesTab({ equipmentId, equipmentName }: Prop
   }, [losses]);
 
   const resetForm = () => {
-    setOperatorName("");
     setQuantity("1");
     setErrorType("operational");
     setDescription("");
