@@ -36,12 +36,12 @@ interface Loss {
 }
 
 export default function ProductionLossesTab({ equipmentId, equipmentName }: Props) {
+  const { profile } = useAuth();
   const [losses, setLosses] = useState<Loss[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
 
   // Form
-  const [operatorName, setOperatorName] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [errorType, setErrorType] = useState("operational");
   const [description, setDescription] = useState("");
