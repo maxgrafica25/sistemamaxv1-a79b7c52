@@ -87,7 +87,6 @@ export default function MaintenanceRequestsTab({ equipmentId, equipmentName }: P
   };
 
   const handleSave = async () => {
-    if (!requestedBy.trim()) return toast.error("Informe quem está solicitando");
     if (!description.trim()) return toast.error("Descreva o problema");
 
     setUploading(true);
