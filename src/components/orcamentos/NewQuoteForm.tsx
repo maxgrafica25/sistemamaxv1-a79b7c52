@@ -71,6 +71,7 @@ const STEPS = [
 ];
 
 export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, initialStep }: NewQuoteFormProps) {
+  const { profile } = useAuth();
   const isEditing = !!editingQuote;
   const [currentStep, setCurrentStep] = useState(initialStep ?? 0);
   const [quoteNumber] = useState(editingQuote?.quote_number || nextId);
@@ -79,9 +80,21 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const [validity, setValidity] = useState(editingQuote?.validity || "7");
 
   const [hourlyRate, setHourlyRate] = useState(80);
-  const [invoicePercentage] = useState(10);
-  const [wastePercentage] = useState(5);
-  const [collectionCostPercentage] = useState(7);
+  
+  // Exemption toggles (only visible to authorized users)
+  const AUTHORIZED_NAMES = ["Marcelle", "Juliano"];
+  const canToggleExemptions = AUTHORIZED_NAMES.some(
+    name => profile?.display_name?.toLowerCase().includes(name.toLowerCase())
+  );
+  const [includeInvoice, setIncludeInvoice] = useState(true);
+  const [includeWaste, setIncludeWaste] = useState(true);
+  const [includeCollection, setIncludeCollection] = useState(true);
+  
+  const invoicePercentage = includeInvoice ? 10 : 0;
+  const wastePercentage = includeWaste ? 5 : 0;
+  const collectionCostPercentage = includeCollection ? 7 : 0;
+  const hasExemptions = !includeInvoice || !includeWaste || !includeCollection;
+
   const [profitMargin, setProfitMargin] = useState(editingQuote?.profitMargin || "33");
 
   const [laborSteps, setLaborSteps] = useState<LaborStep[]>(editingQuote?.laborSteps || []);
