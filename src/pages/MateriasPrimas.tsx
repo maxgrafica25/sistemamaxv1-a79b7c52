@@ -831,7 +831,7 @@ export default function MateriasPrimas() {
                   <Label>Finalidade</Label>
                   <Select value={finalidade} onValueChange={setFinalidade}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{FINALIDADES_SUPRIMENTO.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent></Select>
                 </div>
-                <div className="space-y-2"><Label>Fornecedor</Label><Input placeholder="Nome" value={fornecedor} onChange={(e) => setFornecedor(e.target.value)} /></div>
+                <div className="space-y-2"><Label>Fornecedor</Label><SupplierCombobox value={fornecedor} onChange={setFornecedor} onSelectSupplier={(s) => { setFornecedor(s.nome); if (!contato) setContato(s.empresa || ""); }} /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Quantidade *</Label><Input type="number" step="0.01" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} /></div>
