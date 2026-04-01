@@ -294,6 +294,7 @@ export type Database = {
       }
       equipment_maintenances: {
         Row: {
+          attachments: string[] | null
           cost: number
           created_at: string
           date: string
@@ -309,6 +310,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attachments?: string[] | null
           cost?: number
           created_at?: string
           date?: string
@@ -324,6 +326,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attachments?: string[] | null
           cost?: number
           created_at?: string
           date?: string
