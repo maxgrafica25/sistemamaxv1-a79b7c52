@@ -533,6 +533,14 @@ export default function Equipamentos() {
                     equipmentName={eq.name}
                   />
                 </TabsContent>
+
+                {/* ── Dashboard Tab ── */}
+                <TabsContent value="dashboard" className="mt-4">
+                  <EquipmentDashboardTab
+                    equipmentId={eq.id}
+                    equipmentName={eq.name}
+                  />
+                </TabsContent>
               </Tabs>
             </TabsContent>
             );
