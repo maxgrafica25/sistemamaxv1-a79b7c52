@@ -122,7 +122,7 @@ export default function NotificationBell() {
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
   const todayReminders = reminders.filter(r => isToday(new Date(r.remind_at)) || isBefore(new Date(r.remind_at), new Date()));
-  const totalBadge = unreadCount + todayReminders.length;
+  const totalBadge = unreadCount;
 
   const markAsRead = async (id: string) => {
     await supabase.from("notifications").update({ is_read: true }).eq("id", id);
