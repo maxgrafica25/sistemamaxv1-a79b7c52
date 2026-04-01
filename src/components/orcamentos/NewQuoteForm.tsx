@@ -622,6 +622,12 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
           <Separator />
           <div className="flex justify-between"><span className="text-muted-foreground">Custo Produtivo</span><span className="font-medium">R$ {totalDespesasProdutivas.toFixed(2)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Desp. Venda</span><span className="font-medium">R$ {totalDespesasVenda.toFixed(2)}</span></div>
+          {hasExemptions && (
+            <div className="flex items-center gap-1 text-[10px] text-orange-600 font-medium">
+              <ShieldAlert className="h-3 w-3" />
+              Isenções: {[!includeInvoice && "Imp", !includeWaste && "Perda", !includeCollection && "Cobr"].filter(Boolean).join(", ")}
+            </div>
+          )}
           <div className="flex justify-between"><span className="text-muted-foreground">Lucro ({profitMargin}%)</span><span className="font-medium text-primary">R$ {lucroValue.toFixed(2)}</span></div>
         </div>
         <div className="mt-4 pt-4 border-t">
