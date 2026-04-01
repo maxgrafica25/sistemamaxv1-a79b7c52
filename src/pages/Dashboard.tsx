@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, FileText, TrendingUp, Clock, CheckCircle2, AlertTriangle, LayoutDashboard } from "lucide-react";
+import { Search, FileText, Clock, CheckCircle2, AlertTriangle, LayoutDashboard } from "lucide-react";
 
 // Mock data
 const recentQuotes = [
