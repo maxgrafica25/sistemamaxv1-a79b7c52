@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -49,6 +50,7 @@ const statusConfig: Record<string, { label: string; class: string }> = {
 };
 
 export default function MaintenanceRequestsTab({ equipmentId, equipmentName }: Props) {
+  const { profile } = useAuth();
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewDialog, setShowNewDialog] = useState(false);
@@ -56,7 +58,6 @@ export default function MaintenanceRequestsTab({ equipmentId, equipmentName }: P
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
 
   // Form
-  const [requestedBy, setRequestedBy] = useState("");
   const [description, setDescription] = useState("");
   const [urgency, setUrgency] = useState("normal");
   const [files, setFiles] = useState<File[]>([]);
@@ -80,14 +81,12 @@ export default function MaintenanceRequestsTab({ equipmentId, equipmentName }: P
   useEffect(() => { fetchRequests(); }, [equipmentId]);
 
   const resetForm = () => {
-    setRequestedBy("");
     setDescription("");
     setUrgency("normal");
     setFiles([]);
   };
 
   const handleSave = async () => {
-    if (!requestedBy.trim()) return toast.error("Informe quem está solicitando");
     if (!description.trim()) return toast.error("Descreva o problema");
 
     setUploading(true);
@@ -105,7 +104,7 @@ export default function MaintenanceRequestsTab({ equipmentId, equipmentName }: P
 
     const { error } = await supabase.from("maintenance_requests").insert({
       equipment_id: equipmentId,
-      requested_by: requestedBy.trim(),
+      requested_by: profile?.display_name || "Desconhecido",
       description: description.trim(),
       urgency,
       attachments: attachmentUrls,
@@ -249,8 +248,8 @@ export default function MaintenanceRequestsTab({ equipmentId, equipmentName }: P
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Quem está solicitando? *</Label>
-                <Input placeholder="Nome do operador" value={requestedBy} onChange={e => setRequestedBy(e.target.value)} />
+                <Label>Solicitante</Label>
+                <Input value={profile?.display_name || ""} disabled className="bg-muted" />
               </div>
               <div className="space-y-2">
                 <Label>Urgência *</Label>

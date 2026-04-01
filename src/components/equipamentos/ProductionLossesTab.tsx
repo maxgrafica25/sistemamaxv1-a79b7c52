@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -35,12 +36,12 @@ interface Loss {
 }
 
 export default function ProductionLossesTab({ equipmentId, equipmentName }: Props) {
+  const { profile } = useAuth();
   const [losses, setLosses] = useState<Loss[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
 
   // Form
-  const [operatorName, setOperatorName] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [errorType, setErrorType] = useState("operational");
   const [description, setDescription] = useState("");
@@ -71,19 +72,17 @@ export default function ProductionLossesTab({ equipmentId, equipmentName }: Prop
   }, [losses]);
 
   const resetForm = () => {
-    setOperatorName("");
     setQuantity("1");
     setErrorType("operational");
     setDescription("");
   };
 
   const handleSave = async () => {
-    if (!operatorName.trim()) return toast.error("Nome do operador é obrigatório");
     if (!description.trim()) return toast.error("Descreva o ocorrido");
 
     const { error } = await supabase.from("production_losses").insert({
       equipment_id: equipmentId,
-      operator_name: operatorName.trim(),
+      operator_name: profile?.display_name || "Desconhecido",
       quantity: parseInt(quantity) || 1,
       error_type: errorType,
       description: description.trim(),
@@ -214,8 +213,8 @@ export default function ProductionLossesTab({ equipmentId, equipmentName }: Prop
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Operador *</Label>
-                <Input placeholder="Nome do operador" value={operatorName} onChange={e => setOperatorName(e.target.value)} />
+                <Label>Operador</Label>
+                <Input value={profile?.display_name || ""} disabled className="bg-muted" />
               </div>
               <div className="space-y-2">
                 <Label>Quantidade *</Label>

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Printer, Wrench, Package, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface PrinterReading {
   id: string;

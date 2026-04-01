@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -52,13 +53,13 @@ const getTypeBadge = (type: string) => {
 };
 
 export default function PrinterReadingsTab({ equipmentId, equipmentName, printerType }: PrinterReadingsTabProps) {
+  const { profile } = useAuth();
   const [readings, setReadings] = useState<Reading[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
 
   // Form state
   const [readingType, setReadingType] = useState("daily");
-  const [operatorName, setOperatorName] = useState("");
   const [copiesBw, setCopiesBw] = useState("");
   const [colorPrints, setColorPrints] = useState("");
   const [bwPrints, setBwPrints] = useState("");
@@ -96,7 +97,6 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
 
   const resetForm = () => {
     setReadingType("daily");
-    setOperatorName("");
     setCopiesBw("");
     setColorPrints("");
     setBwPrints("");
@@ -117,7 +117,7 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
       reading_time: new Date().toISOString(),
       counter: parseInt(totalPrints) || 0,
       type: readingType,
-      operator_name: operatorName || null,
+      operator_name: profile?.display_name || null,
       copies_bw: copiesBw ? parseInt(copiesBw) : null,
       color_prints: colorPrints ? parseInt(colorPrints) : null,
       bw_prints: bwPrints ? parseInt(bwPrints) : null,
@@ -282,11 +282,11 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Operador *</Label>
+                <Label>Operador</Label>
                 <Input
-                  placeholder="Nome do operador"
-                  value={operatorName}
-                  onChange={(e) => setOperatorName(e.target.value)}
+                  value={profile?.display_name || ""}
+                  disabled
+                  className="bg-muted"
                 />
               </div>
             </div>
