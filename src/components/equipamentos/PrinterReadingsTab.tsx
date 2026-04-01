@@ -282,11 +282,11 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Operador *</Label>
+                <Label>Operador</Label>
                 <Input
-                  placeholder="Nome do operador"
-                  value={operatorName}
-                  onChange={(e) => setOperatorName(e.target.value)}
+                  value={profile?.display_name || ""}
+                  disabled
+                  className="bg-muted"
                 />
               </div>
             </div>

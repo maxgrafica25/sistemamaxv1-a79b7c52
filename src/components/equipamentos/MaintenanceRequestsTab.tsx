@@ -104,7 +104,7 @@ export default function MaintenanceRequestsTab({ equipmentId, equipmentName }: P
 
     const { error } = await supabase.from("maintenance_requests").insert({
       equipment_id: equipmentId,
-      requested_by: requestedBy.trim(),
+      requested_by: profile?.display_name || "Desconhecido",
       description: description.trim(),
       urgency,
       attachments: attachmentUrls,

@@ -78,12 +78,11 @@ export default function ProductionLossesTab({ equipmentId, equipmentName }: Prop
   };
 
   const handleSave = async () => {
-    if (!operatorName.trim()) return toast.error("Nome do operador é obrigatório");
     if (!description.trim()) return toast.error("Descreva o ocorrido");
 
     const { error } = await supabase.from("production_losses").insert({
       equipment_id: equipmentId,
-      operator_name: operatorName.trim(),
+      operator_name: profile?.display_name || "Desconhecido",
       quantity: parseInt(quantity) || 1,
       error_type: errorType,
       description: description.trim(),
