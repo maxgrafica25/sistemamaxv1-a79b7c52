@@ -28,6 +28,7 @@ import ConsumablePriceHistoryTab from "@/components/equipamentos/ConsumablePrice
 import MaintenanceTab from "@/components/equipamentos/MaintenanceTab";
 import ProductionLossesTab from "@/components/equipamentos/ProductionLossesTab";
 import MaintenanceRequestsTab from "@/components/equipamentos/MaintenanceRequestsTab";
+import EquipmentDashboardTab from "@/components/equipamentos/EquipmentDashboardTab";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Equipment {
