@@ -110,18 +110,37 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
       return;
     }
 
+    const newTotal = parseInt(totalPrints) || 0;
+
+    // Validation: block values less than previous reading
+    if (readings.length > 0) {
+      const lastTotal = readings[0].total_prints || 0;
+      if (newTotal < lastTotal) {
+        toast.error(`O valor (${newTotal.toLocaleString("pt-BR")}) é menor que a última leitura (${lastTotal.toLocaleString("pt-BR")}). Verifique o numerador.`);
+        return;
+      }
+
+      // Warn if daily volume is unusually high (>500)
+      const dailyDiff = newTotal - lastTotal;
+      if (dailyDiff > 500 && !window.confirm(
+        `Atenção: O volume registrado (${dailyDiff.toLocaleString("pt-BR")} impressões desde a última leitura) é muito alto. Deseja continuar?`
+      )) {
+        return;
+      }
+    }
+
     const { error } = await supabase.from("printer_readings").insert({
       equipment_id: equipmentId,
       printer_model: equipmentName,
       date: new Date().toISOString().split("T")[0],
       reading_time: new Date().toISOString(),
-      counter: parseInt(totalPrints) || 0,
+      counter: newTotal,
       type: readingType,
       operator_name: profile?.display_name || null,
       copies_bw: copiesBw ? parseInt(copiesBw) : null,
       color_prints: colorPrints ? parseInt(colorPrints) : null,
       bw_prints: bwPrints ? parseInt(bwPrints) : null,
-      total_prints: totalPrints ? parseInt(totalPrints) : null,
+      total_prints: newTotal,
       notes: notes || null,
     });
 
@@ -130,10 +149,49 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
       return;
     }
 
+    // Check toner life alert
+    await checkTonerAlert(newTotal);
+
     toast.success("Leitura registrada!");
     resetForm();
     setShowDialog(false);
     fetchReadings();
+  };
+
+  const checkTonerAlert = async (currentTotal: number) => {
+    try {
+      // Get consumables for this equipment (toner items)
+      const { data: consumables } = await supabase
+        .from("equipment_consumables")
+        .select("name, yield_pages")
+        .eq("equipment_id", equipmentId);
+
+      if (!consumables?.length) return;
+
+      // Find last toner change reading
+      const lastTonerChange = readings.find(r => r.type === "toner_change");
+      const printsSinceToner = lastTonerChange
+        ? currentTotal - (lastTonerChange.total_prints || 0)
+        : currentTotal;
+
+      for (const cons of consumables) {
+        if (cons.yield_pages <= 0) continue;
+        const remaining = cons.yield_pages - printsSinceToner;
+        if (remaining <= 1000 && remaining > 0) {
+          toast.warning(
+            `⚠️ ${cons.name} de "${equipmentName}" está próximo do fim: ~${remaining.toLocaleString("pt-BR")} impressões restantes`,
+            { duration: 8000 }
+          );
+        } else if (remaining <= 0) {
+          toast.error(
+            `🔴 ${cons.name} de "${equipmentName}" ultrapassou o rendimento esperado! Considere a troca.`,
+            { duration: 10000 }
+          );
+        }
+      }
+    } catch {
+      // silently ignore alert errors
+    }
   };
 
   const fmtDate = (dateStr: string) => {
