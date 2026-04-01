@@ -513,6 +513,22 @@ export default function Equipamentos() {
                     printerType={eq.printer_type}
                   />
                 </TabsContent>
+
+                {/* ── Perdas Tab ── */}
+                <TabsContent value="perdas" className="mt-4">
+                  <ProductionLossesTab
+                    equipmentId={eq.id}
+                    equipmentName={eq.name}
+                  />
+                </TabsContent>
+
+                {/* ── Solicitações de Manutenção Tab ── */}
+                <TabsContent value="solicitacoes" className="mt-4">
+                  <MaintenanceRequestsTab
+                    equipmentId={eq.id}
+                    equipmentName={eq.name}
+                  />
+                </TabsContent>
               </Tabs>
             </TabsContent>
             );
