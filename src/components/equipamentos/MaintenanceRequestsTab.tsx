@@ -50,6 +50,7 @@ const statusConfig: Record<string, { label: string; class: string }> = {
 };
 
 export default function MaintenanceRequestsTab({ equipmentId, equipmentName }: Props) {
+  const { profile } = useAuth();
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewDialog, setShowNewDialog] = useState(false);
@@ -57,7 +58,6 @@ export default function MaintenanceRequestsTab({ equipmentId, equipmentName }: P
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
 
   // Form
-  const [requestedBy, setRequestedBy] = useState("");
   const [description, setDescription] = useState("");
   const [urgency, setUrgency] = useState("normal");
   const [files, setFiles] = useState<File[]>([]);
