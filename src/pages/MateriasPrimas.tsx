@@ -801,7 +801,7 @@ export default function MateriasPrimas() {
               <div className="grid grid-cols-3 gap-4 items-end">
                 <div className="space-y-2">
                   <Label>Fornecedor</Label>
-                  <Input placeholder="Nome" value={paperSupplier} onChange={(e) => setPaperSupplier(e.target.value)} />
+                  <SupplierCombobox value={paperSupplier} onChange={setPaperSupplier} onSelectSupplier={(s) => { setPaperSupplier(s.nome); if (!paperContact) setPaperContact(s.empresa || ""); }} />
                 </div>
                 <div className="space-y-2">
                   <Label>Data Cotação</Label>
