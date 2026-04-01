@@ -23,6 +23,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import SupplierCombobox from "@/components/SupplierCombobox";
 
 // ─── Types ───────────────────────────────────────────────────────────
 type ActiveTab = "suprimento" | "papel";
@@ -800,7 +801,7 @@ export default function MateriasPrimas() {
               <div className="grid grid-cols-3 gap-4 items-end">
                 <div className="space-y-2">
                   <Label>Fornecedor</Label>
-                  <Input placeholder="Nome" value={paperSupplier} onChange={(e) => setPaperSupplier(e.target.value)} />
+                  <SupplierCombobox value={paperSupplier} onChange={setPaperSupplier} onSelectSupplier={(s) => { setPaperSupplier(s.nome); if (!paperContact) setPaperContact(s.empresa || ""); }} />
                 </div>
                 <div className="space-y-2">
                   <Label>Data Cotação</Label>
@@ -830,7 +831,7 @@ export default function MateriasPrimas() {
                   <Label>Finalidade</Label>
                   <Select value={finalidade} onValueChange={setFinalidade}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{FINALIDADES_SUPRIMENTO.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent></Select>
                 </div>
-                <div className="space-y-2"><Label>Fornecedor</Label><Input placeholder="Nome" value={fornecedor} onChange={(e) => setFornecedor(e.target.value)} /></div>
+                <div className="space-y-2"><Label>Fornecedor</Label><SupplierCombobox value={fornecedor} onChange={setFornecedor} onSelectSupplier={(s) => { setFornecedor(s.nome); if (!contato) setContato(s.empresa || ""); }} /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Quantidade *</Label><Input type="number" step="0.01" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} /></div>
