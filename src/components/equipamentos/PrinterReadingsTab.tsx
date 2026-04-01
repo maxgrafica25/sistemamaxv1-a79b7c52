@@ -117,7 +117,7 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
       reading_time: new Date().toISOString(),
       counter: parseInt(totalPrints) || 0,
       type: readingType,
-      operator_name: operatorName || null,
+      operator_name: profile?.display_name || null,
       copies_bw: copiesBw ? parseInt(copiesBw) : null,
       color_prints: colorPrints ? parseInt(colorPrints) : null,
       bw_prints: bwPrints ? parseInt(bwPrints) : null,
