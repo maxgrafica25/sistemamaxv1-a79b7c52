@@ -53,13 +53,13 @@ const getTypeBadge = (type: string) => {
 };
 
 export default function PrinterReadingsTab({ equipmentId, equipmentName, printerType }: PrinterReadingsTabProps) {
+  const { profile } = useAuth();
   const [readings, setReadings] = useState<Reading[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
 
   // Form state
   const [readingType, setReadingType] = useState("daily");
-  const [operatorName, setOperatorName] = useState("");
   const [copiesBw, setCopiesBw] = useState("");
   const [colorPrints, setColorPrints] = useState("");
   const [bwPrints, setBwPrints] = useState("");
