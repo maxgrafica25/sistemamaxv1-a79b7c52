@@ -81,7 +81,6 @@ export default function MaintenanceRequestsTab({ equipmentId, equipmentName }: P
   useEffect(() => { fetchRequests(); }, [equipmentId]);
 
   const resetForm = () => {
-    setRequestedBy("");
     setDescription("");
     setUrgency("normal");
     setFiles([]);
