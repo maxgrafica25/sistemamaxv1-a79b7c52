@@ -26,6 +26,8 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import PrinterReadingsTab from "@/components/equipamentos/PrinterReadingsTab";
 import ConsumablePriceHistoryTab from "@/components/equipamentos/ConsumablePriceHistoryTab";
 import MaintenanceTab from "@/components/equipamentos/MaintenanceTab";
+import ProductionLossesTab from "@/components/equipamentos/ProductionLossesTab";
+import MaintenanceRequestsTab from "@/components/equipamentos/MaintenanceRequestsTab";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Equipment {
