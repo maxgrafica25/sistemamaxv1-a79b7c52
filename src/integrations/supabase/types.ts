@@ -381,6 +381,56 @@ export type Database = {
         }
         Relationships: []
       }
+      maintenance_requests: {
+        Row: {
+          admin_notes: string | null
+          attachments: string[] | null
+          created_at: string
+          description: string
+          equipment_id: string
+          id: string
+          requested_by: string
+          resolved_at: string | null
+          status: string
+          updated_at: string
+          urgency: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          attachments?: string[] | null
+          created_at?: string
+          description: string
+          equipment_id: string
+          id?: string
+          requested_by: string
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+          urgency?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          attachments?: string[] | null
+          created_at?: string
+          description?: string
+          equipment_id?: string
+          id?: string
+          requested_by?: string
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+          urgency?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_requests_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       markup_tiers: {
         Row: {
           created_at: string
@@ -891,6 +941,47 @@ export type Database = {
             columns: ["printer_category_id"]
             isOneToOne: false
             referencedRelation: "printer_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_losses: {
+        Row: {
+          created_at: string
+          date: string
+          description: string
+          equipment_id: string
+          error_type: string
+          id: string
+          operator_name: string
+          quantity: number
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          description?: string
+          equipment_id: string
+          error_type?: string
+          id?: string
+          operator_name: string
+          quantity?: number
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          description?: string
+          equipment_id?: string
+          error_type?: string
+          id?: string
+          operator_name?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_losses_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipments"
             referencedColumns: ["id"]
           },
         ]
