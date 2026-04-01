@@ -533,6 +533,29 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Terceirizados:</span><span className="font-medium">R$ {thirdPartyTotal.toFixed(2)}</span></div>
                   <Separator /><div className="flex justify-between font-semibold"><span>Total:</span><span>R$ {totalDespesasProdutivas.toFixed(2)}</span></div>
                 </div>
+                {/* Exemption toggles - only for authorized users */}
+                {canToggleExemptions && (
+                  <div className="rounded-lg border border-dashed border-muted-foreground/30 p-3 space-y-2">
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      <ShieldAlert className="h-3 w-3" /> Isenções
+                    </p>
+                    <div className="flex flex-wrap gap-4">
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <Switch checked={!includeInvoice} onCheckedChange={(v) => setIncludeInvoice(!v)} className="scale-75" />
+                        <span className={!includeInvoice ? "text-orange-600 font-medium" : "text-muted-foreground"}>S/ Imposto</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <Switch checked={!includeWaste} onCheckedChange={(v) => setIncludeWaste(!v)} className="scale-75" />
+                        <span className={!includeWaste ? "text-orange-600 font-medium" : "text-muted-foreground"}>S/ Perda</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <Switch checked={!includeCollection} onCheckedChange={(v) => setIncludeCollection(!v)} className="scale-75" />
+                        <span className={!includeCollection ? "text-orange-600 font-medium" : "text-muted-foreground"}>S/ Cobrança</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
                 <div className="rounded-lg bg-muted/50 p-4 space-y-2">
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Despesas de Venda</h3>
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Impostos ({invoicePercentage}%):</span><span>R$ {impostosCost.toFixed(2)}</span></div>
@@ -540,6 +563,17 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Custos de Cobrança ({collectionCostPercentage}%):</span><span>R$ {cobrancaCost.toFixed(2)}</span></div>
                   <Separator /><div className="flex justify-between font-semibold"><span>Total:</span><span>R$ {totalDespesasVenda.toFixed(2)}</span></div>
                 </div>
+
+                {/* Alert badge when exemptions are active */}
+                {hasExemptions && (
+                  <div className="flex items-center gap-2 rounded-lg bg-orange-50 border border-orange-200 px-3 py-2">
+                    <ShieldAlert className="h-4 w-4 text-orange-600 shrink-0" />
+                    <p className="text-xs text-orange-700">
+                      <span className="font-semibold">Atenção:</span> Este orçamento possui isenções ativas
+                      ({[!includeInvoice && "Imposto", !includeWaste && "Perda", !includeCollection && "Cobrança"].filter(Boolean).join(", ")})
+                    </p>
+                  </div>
+                )}
                 <div className="flex items-end gap-4">
                   <div className="flex-1 space-y-2"><Label>Margem de Lucro / BDI (%)</Label><Input type="number" step="0.01" value={profitMargin} onChange={(e) => setProfitMargin(e.target.value)} /></div>
                   <div className="w-48 text-right pb-2"><div className="text-xs text-muted-foreground">Lucro</div><div className="text-base font-semibold text-primary">+ R$ {lucroValue.toFixed(2)}</div></div>
