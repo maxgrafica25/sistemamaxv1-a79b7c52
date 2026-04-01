@@ -24,7 +24,6 @@ const stats = [
   { name: "Total de Orçamentos", value: "124", icon: FileText, change: "+12%" },
   { name: "Aprovados", value: "87", icon: CheckCircle2, change: "+8%" },
   { name: "Aguardando", value: "23", icon: Clock, change: "+3%" },
-  { name: "Valor Total (mês)", value: "R$ 45.680", icon: TrendingUp, change: "+15%" },
 ];
 
 const getStatusBadge = (status: string) => {
