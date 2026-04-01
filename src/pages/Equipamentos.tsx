@@ -383,6 +383,12 @@ export default function Equipamentos() {
                   <TabsTrigger value="manutencoes" className="gap-1.5 text-xs">
                     <Wrench className="h-3.5 w-3.5" /> Manutenções
                   </TabsTrigger>
+                  <TabsTrigger value="perdas" className="gap-1.5 text-xs">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Perdas
+                  </TabsTrigger>
+                  <TabsTrigger value="solicitacoes" className="gap-1.5 text-xs">
+                    <MailWarning className="h-3.5 w-3.5" /> Solicitar Manutenção
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* ── Consumíveis Tab ── */}
