@@ -17,7 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus, Trash2, Edit2, Printer, Cpu, Gauge, ClipboardList, History, Wrench,
+  Plus, Trash2, Edit2, Printer, Cpu, Gauge, ClipboardList, History, Wrench, AlertTriangle, MailWarning,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
