@@ -23,6 +23,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import SupplierCombobox from "@/components/SupplierCombobox";
 
 // ─── Types ───────────────────────────────────────────────────────────
 type ActiveTab = "suprimento" | "papel";
