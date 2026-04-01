@@ -248,8 +248,8 @@ export default function MaintenanceRequestsTab({ equipmentId, equipmentName }: P
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Quem está solicitando? *</Label>
-                <Input placeholder="Nome do operador" value={requestedBy} onChange={e => setRequestedBy(e.target.value)} />
+                <Label>Solicitante</Label>
+                <Input value={profile?.display_name || ""} disabled className="bg-muted" />
               </div>
               <div className="space-y-2">
                 <Label>Urgência *</Label>

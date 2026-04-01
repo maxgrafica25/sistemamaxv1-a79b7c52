@@ -213,8 +213,8 @@ export default function ProductionLossesTab({ equipmentId, equipmentName }: Prop
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Operador *</Label>
-                <Input placeholder="Nome do operador" value={operatorName} onChange={e => setOperatorName(e.target.value)} />
+                <Label>Operador</Label>
+                <Input value={profile?.display_name || ""} disabled className="bg-muted" />
               </div>
               <div className="space-y-2">
                 <Label>Quantidade *</Label>
