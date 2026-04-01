@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,15 +21,17 @@ export default function QuoteReminderButton({ quoteId, quoteNumber, clientName }
   const [reminderId, setReminderId] = useState<string | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [intervalDays, setIntervalDays] = useState(3);
+  const [recurrence, setRecurrence] = useState("none");
 
   useEffect(() => {
     if (!user) return;
     supabase
-      .from("quote_reminders")
-      .select("id, is_active")
-      .eq("quote_id", quoteId)
+      .from("reminders")
+      .select("id")
+      .eq("source_id", quoteId)
       .eq("user_id", user.id)
-      .eq("is_active", true)
+      .eq("category", "quote")
+      .eq("is_completed", false)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
@@ -43,35 +46,27 @@ export default function QuoteReminderButton({ quoteId, quoteNumber, clientName }
     const nextDate = new Date();
     nextDate.setDate(nextDate.getDate() + intervalDays);
 
-    const { data } = await supabase.from("quote_reminders").insert({
-      quote_id: quoteId,
+    const { data } = await supabase.from("reminders").insert({
       user_id: user.id,
-      interval_days: intervalDays,
-      next_reminder_at: nextDate.toISOString(),
-    }).select("id").single();
-
-    // Also create the first notification
-    await supabase.from("notifications").insert({
-      user_id: user.id,
-      title: `Lembrete: Orçamento ${quoteNumber}`,
-      message: `Pedir posição ao cliente ${clientName} sobre o orçamento ${quoteNumber}`,
-      type: "reminder",
-      source_type: "quote",
+      title: `Cobrar posição: ${quoteNumber}`,
+      description: `Pedir posição ao cliente ${clientName} sobre o orçamento ${quoteNumber}`,
+      remind_at: nextDate.toISOString(),
+      recurrence,
+      category: "quote",
       source_id: quoteId,
-      due_date: nextDate.toISOString(),
-    });
+    }).select("id").single();
 
     if (data) {
       setHasReminder(true);
       setReminderId(data.id);
     }
     setShowDialog(false);
-    toast.success(`Lembrete criado! Você será notificado a cada ${intervalDays} dias.`);
+    toast.success(`Lembrete criado para ${nextDate.toLocaleDateString("pt-BR")}!`);
   };
 
   const removeReminder = async () => {
     if (!reminderId) return;
-    await supabase.from("quote_reminders").update({ is_active: false }).eq("id", reminderId);
+    await supabase.from("reminders").delete().eq("id", reminderId);
     setHasReminder(false);
     setReminderId(null);
     toast.success("Lembrete removido");
@@ -103,14 +98,20 @@ export default function QuoteReminderButton({ quoteId, quoteNumber, clientName }
               Lembrete para pedir posição ao cliente <strong>{clientName}</strong> sobre o orçamento <strong>{quoteNumber}</strong>.
             </p>
             <div className="space-y-2">
-              <Label>Intervalo (dias)</Label>
-              <Input
-                type="number"
-                min={1}
-                value={intervalDays}
-                onChange={(e) => setIntervalDays(parseInt(e.target.value) || 1)}
-              />
-              <p className="text-xs text-muted-foreground">Você será notificado a cada {intervalDays} dia(s)</p>
+              <Label>Lembrar em (dias)</Label>
+              <Input type="number" min={1} value={intervalDays} onChange={(e) => setIntervalDays(parseInt(e.target.value) || 1)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Recorrência</Label>
+              <Select value={recurrence} onValueChange={setRecurrence}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem repetição</SelectItem>
+                  <SelectItem value="daily">Diário</SelectItem>
+                  <SelectItem value="weekly">Semanal</SelectItem>
+                  <SelectItem value="monthly">Mensal</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

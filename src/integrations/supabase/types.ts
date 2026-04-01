@@ -1155,6 +1155,48 @@ export type Database = {
         }
         Relationships: []
       }
+      reminders: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          is_completed: boolean
+          recurrence: string
+          remind_at: string
+          source_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_completed?: boolean
+          recurrence?: string
+          remind_at: string
+          source_id?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_completed?: boolean
+          recurrence?: string
+          remind_at?: string
+          source_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       salaries: {
         Row: {
           created_at: string
