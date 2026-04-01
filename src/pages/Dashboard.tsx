@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, FileText, TrendingUp, Clock, CheckCircle2, AlertTriangle, LayoutDashboard } from "lucide-react";
+import { Search, FileText, Clock, CheckCircle2, AlertTriangle, LayoutDashboard } from "lucide-react";
 
 // Mock data
 const recentQuotes = [
@@ -24,7 +24,6 @@ const stats = [
   { name: "Total de Orçamentos", value: "124", icon: FileText, change: "+12%" },
   { name: "Aprovados", value: "87", icon: CheckCircle2, change: "+8%" },
   { name: "Aguardando", value: "23", icon: Clock, change: "+3%" },
-  { name: "Valor Total (mês)", value: "R$ 45.680", icon: TrendingUp, change: "+15%" },
 ];
 
 const getStatusBadge = (status: string) => {
@@ -46,7 +45,7 @@ export default function Dashboard() {
   return (
     <div className="p-8">
       {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <LayoutDashboard className="h-6 w-6 text-primary" />
@@ -54,12 +53,6 @@ export default function Dashboard() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Visão geral dos seus orçamentos</p>
         </div>
-        <Link to="/orcamento/novo">
-          <Button size="lg" className="gap-2 bg-accent hover:bg-accent-hover">
-            <Plus className="h-5 w-5" />
-            Criar Novo Orçamento
-          </Button>
-        </Link>
       </div>
 
       {/* Stats Grid */}
