@@ -97,7 +97,6 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
 
   const resetForm = () => {
     setReadingType("daily");
-    setOperatorName("");
     setCopiesBw("");
     setColorPrints("");
     setBwPrints("");
