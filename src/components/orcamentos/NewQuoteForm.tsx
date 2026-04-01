@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, FileDown, Copy, X, Package, Wrench, ChevronLeft, ChevronRight, Check, User, Clock, FileText, Layers, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, FileDown, Copy, X, Package, Wrench, ChevronLeft, ChevronRight, Check, User, Clock, FileText, Layers, ChevronDown, ChevronUp, ShieldAlert } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -69,6 +71,7 @@ const STEPS = [
 ];
 
 export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, initialStep }: NewQuoteFormProps) {
+  const { profile } = useAuth();
   const isEditing = !!editingQuote;
   const [currentStep, setCurrentStep] = useState(initialStep ?? 0);
   const [quoteNumber] = useState(editingQuote?.quote_number || nextId);
@@ -77,9 +80,21 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const [validity, setValidity] = useState(editingQuote?.validity || "7");
 
   const [hourlyRate, setHourlyRate] = useState(80);
-  const [invoicePercentage] = useState(10);
-  const [wastePercentage] = useState(5);
-  const [collectionCostPercentage] = useState(7);
+  
+  // Exemption toggles (only visible to authorized users)
+  const AUTHORIZED_NAMES = ["Marcelle", "Juliano"];
+  const canToggleExemptions = AUTHORIZED_NAMES.some(
+    name => profile?.display_name?.toLowerCase().includes(name.toLowerCase())
+  );
+  const [includeInvoice, setIncludeInvoice] = useState(true);
+  const [includeWaste, setIncludeWaste] = useState(true);
+  const [includeCollection, setIncludeCollection] = useState(true);
+  
+  const invoicePercentage = includeInvoice ? 10 : 0;
+  const wastePercentage = includeWaste ? 5 : 0;
+  const collectionCostPercentage = includeCollection ? 7 : 0;
+  const hasExemptions = !includeInvoice || !includeWaste || !includeCollection;
+
   const [profitMargin, setProfitMargin] = useState(editingQuote?.profitMargin || "33");
 
   const [laborSteps, setLaborSteps] = useState<LaborStep[]>(editingQuote?.laborSteps || []);
@@ -518,6 +533,29 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Terceirizados:</span><span className="font-medium">R$ {thirdPartyTotal.toFixed(2)}</span></div>
                   <Separator /><div className="flex justify-between font-semibold"><span>Total:</span><span>R$ {totalDespesasProdutivas.toFixed(2)}</span></div>
                 </div>
+                {/* Exemption toggles - only for authorized users */}
+                {canToggleExemptions && (
+                  <div className="rounded-lg border border-dashed border-muted-foreground/30 p-3 space-y-2">
+                    <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      <ShieldAlert className="h-3 w-3" /> Isenções
+                    </p>
+                    <div className="flex flex-wrap gap-4">
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <Switch checked={!includeInvoice} onCheckedChange={(v) => setIncludeInvoice(!v)} className="scale-75" />
+                        <span className={!includeInvoice ? "text-orange-600 font-medium" : "text-muted-foreground"}>S/ Imposto</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <Switch checked={!includeWaste} onCheckedChange={(v) => setIncludeWaste(!v)} className="scale-75" />
+                        <span className={!includeWaste ? "text-orange-600 font-medium" : "text-muted-foreground"}>S/ Perda</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <Switch checked={!includeCollection} onCheckedChange={(v) => setIncludeCollection(!v)} className="scale-75" />
+                        <span className={!includeCollection ? "text-orange-600 font-medium" : "text-muted-foreground"}>S/ Cobrança</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
                 <div className="rounded-lg bg-muted/50 p-4 space-y-2">
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Despesas de Venda</h3>
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Impostos ({invoicePercentage}%):</span><span>R$ {impostosCost.toFixed(2)}</span></div>
@@ -525,6 +563,17 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Custos de Cobrança ({collectionCostPercentage}%):</span><span>R$ {cobrancaCost.toFixed(2)}</span></div>
                   <Separator /><div className="flex justify-between font-semibold"><span>Total:</span><span>R$ {totalDespesasVenda.toFixed(2)}</span></div>
                 </div>
+
+                {/* Alert badge when exemptions are active */}
+                {hasExemptions && (
+                  <div className="flex items-center gap-2 rounded-lg bg-orange-50 border border-orange-200 px-3 py-2">
+                    <ShieldAlert className="h-4 w-4 text-orange-600 shrink-0" />
+                    <p className="text-xs text-orange-700">
+                      <span className="font-semibold">Atenção:</span> Este orçamento possui isenções ativas
+                      ({[!includeInvoice && "Imposto", !includeWaste && "Perda", !includeCollection && "Cobrança"].filter(Boolean).join(", ")})
+                    </p>
+                  </div>
+                )}
                 <div className="flex items-end gap-4">
                   <div className="flex-1 space-y-2"><Label>Margem de Lucro / BDI (%)</Label><Input type="number" step="0.01" value={profitMargin} onChange={(e) => setProfitMargin(e.target.value)} /></div>
                   <div className="w-48 text-right pb-2"><div className="text-xs text-muted-foreground">Lucro</div><div className="text-base font-semibold text-primary">+ R$ {lucroValue.toFixed(2)}</div></div>
@@ -573,6 +622,12 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
           <Separator />
           <div className="flex justify-between"><span className="text-muted-foreground">Custo Produtivo</span><span className="font-medium">R$ {totalDespesasProdutivas.toFixed(2)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Desp. Venda</span><span className="font-medium">R$ {totalDespesasVenda.toFixed(2)}</span></div>
+          {hasExemptions && (
+            <div className="flex items-center gap-1 text-[10px] text-orange-600 font-medium">
+              <ShieldAlert className="h-3 w-3" />
+              Isenções: {[!includeInvoice && "Imp", !includeWaste && "Perda", !includeCollection && "Cobr"].filter(Boolean).join(", ")}
+            </div>
+          )}
           <div className="flex justify-between"><span className="text-muted-foreground">Lucro ({profitMargin}%)</span><span className="font-medium text-primary">R$ {lucroValue.toFixed(2)}</span></div>
         </div>
         <div className="mt-4 pt-4 border-t">
