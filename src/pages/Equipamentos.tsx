@@ -17,7 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus, Trash2, Edit2, Printer, Cpu, Gauge, ClipboardList, History, Wrench,
+  Plus, Trash2, Edit2, Printer, Cpu, Gauge, ClipboardList, History, Wrench, AlertTriangle, MailWarning,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,8 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import PrinterReadingsTab from "@/components/equipamentos/PrinterReadingsTab";
 import ConsumablePriceHistoryTab from "@/components/equipamentos/ConsumablePriceHistoryTab";
 import MaintenanceTab from "@/components/equipamentos/MaintenanceTab";
+import ProductionLossesTab from "@/components/equipamentos/ProductionLossesTab";
+import MaintenanceRequestsTab from "@/components/equipamentos/MaintenanceRequestsTab";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Equipment {
@@ -381,6 +383,12 @@ export default function Equipamentos() {
                   <TabsTrigger value="manutencoes" className="gap-1.5 text-xs">
                     <Wrench className="h-3.5 w-3.5" /> Manutenções
                   </TabsTrigger>
+                  <TabsTrigger value="perdas" className="gap-1.5 text-xs">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Perdas
+                  </TabsTrigger>
+                  <TabsTrigger value="solicitacoes" className="gap-1.5 text-xs">
+                    <MailWarning className="h-3.5 w-3.5" /> Solicitar Manutenção
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* ── Consumíveis Tab ── */}
@@ -503,6 +511,22 @@ export default function Equipamentos() {
                     equipmentId={eq.id}
                     equipmentName={eq.name}
                     printerType={eq.printer_type}
+                  />
+                </TabsContent>
+
+                {/* ── Perdas Tab ── */}
+                <TabsContent value="perdas" className="mt-4">
+                  <ProductionLossesTab
+                    equipmentId={eq.id}
+                    equipmentName={eq.name}
+                  />
+                </TabsContent>
+
+                {/* ── Solicitações de Manutenção Tab ── */}
+                <TabsContent value="solicitacoes" className="mt-4">
+                  <MaintenanceRequestsTab
+                    equipmentId={eq.id}
+                    equipmentName={eq.name}
                   />
                 </TabsContent>
               </Tabs>
