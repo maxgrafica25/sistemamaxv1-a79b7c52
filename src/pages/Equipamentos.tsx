@@ -17,7 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus, Trash2, Edit2, Printer, Cpu, Gauge, ClipboardList, History, Wrench, AlertTriangle, MailWarning, BarChart3,
+  Plus, Trash2, Edit2, Printer, Cpu, Gauge, ClipboardList, History, Wrench, AlertTriangle, MailWarning, BarChart3, Calculator,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +29,7 @@ import MaintenanceTab from "@/components/equipamentos/MaintenanceTab";
 import ProductionLossesTab from "@/components/equipamentos/ProductionLossesTab";
 import MaintenanceRequestsTab from "@/components/equipamentos/MaintenanceRequestsTab";
 import EquipmentDashboardTab from "@/components/equipamentos/EquipmentDashboardTab";
+import CostPerPageTab from "@/components/equipamentos/CostPerPageTab";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Equipment {
