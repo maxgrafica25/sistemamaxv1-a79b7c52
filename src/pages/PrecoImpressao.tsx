@@ -363,14 +363,6 @@ export default function PrecoImpressao() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            {equipments.length > 0 && (
-              <div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-1.5">
-                <label className="text-xs text-muted-foreground">Cobertura:</label>
-                <select className="text-xs font-medium bg-transparent border-none outline-none text-foreground" value={coveragePct} onChange={(e) => setCoveragePct(Number(e.target.value))}>
-                  <option value={5}>5%</option><option value={10}>10%</option><option value={20}>20%</option><option value={50}>50%</option><option value={100}>100%</option>
-                </select>
-              </div>
-            )}
             <Button onClick={() => openCategoryDialog()} size="sm" className="gap-1.5">
               <Plus className="h-4 w-4" /> Nova Categoria
             </Button>
