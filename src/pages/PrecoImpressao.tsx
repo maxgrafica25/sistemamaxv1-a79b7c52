@@ -629,38 +629,64 @@ export default function PrecoImpressao() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {activeItems.map(item => {
-                              const printCostPerSide = getEffectivePrintingCost(item);
-                              const isFV = item.side === "F/V";
-                              const printCost = isFV ? printCostPerSide * 2 : printCostPerSide;
-                              const baseCost = item.paper_cost + printCost;
-                              return (
-                                <TableRow key={item.id}>
-                                  <TableCell className="font-mono text-xs text-muted-foreground">{item.code || "—"}</TableCell>
-                                  <TableCell className="font-medium">{item.paper_type}</TableCell>
-                                  <TableCell>{item.grammage || "—"}</TableCell>
-                                  <TableCell>{item.size}</TableCell>
-                                  <TableCell><Badge variant={item.side === "F/V" ? "default" : "outline"} className="text-[10px]">{item.side}</Badge></TableCell>
-                                  <TableCell className="text-right font-mono text-xs">{fmt4(item.paper_cost)}</TableCell>
-                                  <TableCell className="text-right font-mono text-xs">
-                                    <span className="flex items-center gap-1 justify-end">
-                                      {fmt4(printCost)}
-                                      {item.equipment_id && <span title={getEquipmentName(item.equipment_id)}><Cpu className="h-3 w-3 text-muted-foreground inline" /></span>}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell className="text-right font-mono text-xs font-semibold">{fmt4(baseCost)}</TableCell>
-                                  {activeTiers.map(tier => (
-                                    <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPrice(baseCost, tier))}</TableCell>
-                                  ))}
-                                  <TableCell>
-                                    <div className="flex gap-1 justify-end">
-                                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openItemDialog(item)}><Edit2 className="h-3.5 w-3.5" /></Button>
-                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => requestDeleteItem(item.id, item.paper_type)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
+                            {(() => {
+                              // Group items by paper_type for visual separation
+                              const groups: { type: string; items: typeof activeItems }[] = [];
+                              activeItems.forEach(item => {
+                                const existing = groups.find(g => g.type === item.paper_type);
+                                if (existing) existing.items.push(item);
+                                else groups.push({ type: item.paper_type, items: [item] });
+                              });
+                              const showGroupHeaders = groups.length > 1;
+                              return groups.map((group, gi) => (
+                                <>
+                                  {showGroupHeaders && (
+                                    <TableRow key={`group-${gi}`} className="bg-muted/30 hover:bg-muted/30">
+                                      <TableCell colSpan={8 + activeTiers.length + 1} className="py-1.5 px-4">
+                                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                          {group.type}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground ml-2">
+                                          ({group.items.length} {group.items.length === 1 ? 'item' : 'itens'})
+                                        </span>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                  {group.items.map(item => {
+                                    const printCostPerSide = getEffectivePrintingCost(item);
+                                    const isFV = item.side === "F/V";
+                                    const printCost = isFV ? printCostPerSide * 2 : printCostPerSide;
+                                    const baseCost = item.paper_cost + printCost;
+                                    return (
+                                      <TableRow key={item.id}>
+                                        <TableCell className="font-mono text-xs text-muted-foreground">{item.code || "—"}</TableCell>
+                                        <TableCell className="font-medium">{item.paper_type}</TableCell>
+                                        <TableCell>{item.grammage || "—"}</TableCell>
+                                        <TableCell>{item.size}</TableCell>
+                                        <TableCell><Badge variant={item.side === "F/V" ? "default" : "outline"} className="text-[10px]">{item.side}</Badge></TableCell>
+                                        <TableCell className="text-right font-mono text-xs">{fmt4(item.paper_cost)}</TableCell>
+                                        <TableCell className="text-right font-mono text-xs">
+                                          <span className="flex items-center gap-1 justify-end">
+                                            {fmt4(printCost)}
+                                            {item.equipment_id && <span title={getEquipmentName(item.equipment_id)}><Cpu className="h-3 w-3 text-muted-foreground inline" /></span>}
+                                          </span>
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-xs font-semibold">{fmt4(baseCost)}</TableCell>
+                                        {activeTiers.map(tier => (
+                                          <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPrice(baseCost, tier))}</TableCell>
+                                        ))}
+                                        <TableCell>
+                                          <div className="flex gap-1 justify-end">
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openItemDialog(item)}><Edit2 className="h-3.5 w-3.5" /></Button>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => requestDeleteItem(item.id, item.paper_type)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </>
+                              ));
+                            })()}
                           </TableBody>
                         </Table>
                       </div>
