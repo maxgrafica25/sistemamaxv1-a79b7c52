@@ -226,11 +226,13 @@ export default function Equipamentos() {
       setConsName(cons.name);
       setConsPrice(String(cons.price));
       setConsYield(String(cons.yield_pages));
+      setConsMode(cons.mode || "shared");
     } else {
       setEditingCons(null);
       setConsName("");
       setConsPrice("0");
       setConsYield("1");
+      setConsMode("shared");
     }
     setShowConsDialog(true);
   };
@@ -251,12 +253,12 @@ export default function Equipamentos() {
         });
       }
       await supabase.from("equipment_consumables").update({
-        name: consName, price: newPrice, yield_pages: newYield,
+        name: consName, price: newPrice, yield_pages: newYield, mode: consMode,
       }).eq("id", editingCons.id);
       await logAudit({ action: "edição", entity_type: "Consumível", entity_id: editingCons.id, entity_name: `${consName} (${activeEq?.name})` });
     } else {
       const { data } = await supabase.from("equipment_consumables").insert({
-        equipment_id: activeEquipment, name: consName, price: newPrice, yield_pages: newYield, sort_order: activeConsumables.length,
+        equipment_id: activeEquipment, name: consName, price: newPrice, yield_pages: newYield, sort_order: activeConsumables.length, mode: consMode,
       }).select("id").single();
       await logAudit({ action: "criação", entity_type: "Consumível", entity_id: data?.id, entity_name: `${consName} (${activeEq?.name})` });
     }
