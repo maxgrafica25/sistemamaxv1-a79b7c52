@@ -621,6 +621,21 @@ export default function Equipamentos() {
               <Label>Nome</Label>
               <Input value={consName} onChange={(e) => setConsName(e.target.value)} placeholder="Ex: Toner Preto" />
             </div>
+            <div className="space-y-2">
+              <Label>Modo de uso</Label>
+              <Select value={consMode} onValueChange={setConsMode}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="shared">Compartilhado (PB + Color)</SelectItem>
+                  <SelectItem value="color_only">Somente Color</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                {consMode === "shared" 
+                  ? "Ex: Cilindro, Fusor, Belt — usados em impressões PB e Color" 
+                  : "Ex: Toner Cyan, Magenta, Yellow — usados apenas em impressões coloridas"}
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Preço (R$)</Label>
