@@ -385,25 +385,32 @@ export default function PrecoImpressao() {
               <TabsList className="bg-muted/60 h-auto p-1 gap-1">
                 {categories.map(cat => {
                   const isActive = activeCategory === cat.id;
+                  const isColor = isColorCategory(cat.name);
+                  const catCoverage = getCategoryCoverage(cat.name);
+                  const dotColor = isActive
+                    ? (isColor ? 'hsl(270 70% 55%)' : 'hsl(var(--muted-foreground))')
+                    : (isColor ? 'hsl(270 50% 70% / 0.5)' : 'hsl(var(--muted-foreground) / 0.3)');
+                  const activeBorder = isColor ? 'hsl(270 70% 55%)' : 'hsl(var(--muted-foreground))';
+                  const activeBg = isColor ? 'hsl(270 70% 55% / 0.08)' : 'hsl(var(--muted-foreground) / 0.06)';
                   return (
                     <TabsTrigger
                       key={cat.id}
                       value={cat.id}
                       className="gap-2 text-xs sm:text-sm py-2.5 px-4 data-[state=active]:shadow-md relative"
                       style={isActive ? {
-                        borderBottom: '3px solid hsl(var(--primary))',
-                        backgroundColor: 'hsl(var(--primary) / 0.08)',
+                        borderBottom: `3px solid ${activeBorder}`,
+                        backgroundColor: activeBg,
                       } : {}}
                     >
                       <div
                         className="h-2.5 w-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground) / 0.4)' }}
+                        style={{ backgroundColor: dotColor }}
                       />
                       <div className="text-left">
                         <span className="font-medium block leading-tight">{cat.name}</span>
-                        {cat.description && (
-                          <span className="text-[10px] text-muted-foreground block leading-tight">{cat.description}</span>
-                        )}
+                        <span className="text-[10px] text-muted-foreground block leading-tight">
+                          Cobertura {catCoverage}%
+                        </span>
                       </div>
                     </TabsTrigger>
                   );
