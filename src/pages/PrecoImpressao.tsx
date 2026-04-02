@@ -589,7 +589,7 @@ export default function PrecoImpressao() {
                               const printCostPerSide = getEffectivePrintingCost(item);
                               const isFV = item.side === "F/V";
                               const printCost = isFV ? printCostPerSide * 2 : printCostPerSide;
-                              const baseCost = isFV ? printCost : item.paper_cost + printCost;
+                              const baseCost = item.paper_cost + printCost;
                               return (
                                 <TableRow key={item.id}>
                                   <TableCell className="font-mono text-xs text-muted-foreground">{item.code || "—"}</TableCell>
