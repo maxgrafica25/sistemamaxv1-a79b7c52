@@ -46,6 +46,7 @@ interface Consumable {
   price: number;
   yield_pages: number;
   sort_order: number;
+  mode: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -130,6 +131,7 @@ export default function Equipamentos() {
   const [consName, setConsName] = useState("");
   const [consPrice, setConsPrice] = useState("0");
   const [consYield, setConsYield] = useState("1");
+  const [consMode, setConsMode] = useState("shared");
 
 
   // ─── Data loading ──────────────────────────────────────────────────
