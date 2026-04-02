@@ -443,95 +443,102 @@ export default function PrecoImpressao() {
                   <span>Margem média: <strong className="text-foreground">{fmtPct(avgMargin)}</strong></span>
                 </div>
 
-                {/* Markup tiers → Regras de Preço por Quantidade */}
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-3">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Settings2 className="h-4 w-4 text-primary" />
-                        Regras de Preço por Quantidade
-                      </CardTitle>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>Defina faixas de quantidade (ex: 1-10 cópias, 11-50 cópias) e os percentuais que compõem o preço de venda. Quanto maior a quantidade, menor pode ser o preço.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Nova Regra</Button>
-                  </CardHeader>
-                  <CardContent>
-                    {activeTiers.length === 0 ? (
-                      <div className="text-center py-6 space-y-2">
-                        <p className="text-sm text-muted-foreground">Nenhuma regra cadastrada.</p>
-                        <p className="text-xs text-muted-foreground">Crie regras para definir quanto cobrar em cada faixa de quantidade. Ex: de 1 a 10 cópias, de 11 a 50, etc.</p>
+                {/* Markup tiers → Regras de Preço por Quantidade (Collapsible) */}
+                <Collapsible>
+                  <div className="rounded-lg border bg-card">
+                    <CollapsibleTrigger asChild>
+                      <button className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors rounded-lg group">
+                        <div className="flex items-center gap-2">
+                          <Settings2 className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-semibold text-foreground">Regras de Preço por Quantidade</span>
+                          <Badge variant="secondary" className="text-[10px] ml-1">
+                            {activeTiers.length} faixa{activeTiers.length !== 1 ? "s" : ""} configurada{activeTiers.length !== 1 ? "s" : ""}
+                          </Badge>
+                          {activeTiers.length > 0 && (
+                            <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                              • Margem média: {fmtPct(avgMargin)}
+                            </span>
+                          )}
+                        </div>
+                        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="px-4 pb-4 pt-1 border-t">
+                        <div className="flex justify-end mb-3">
+                          <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Nova Regra</Button>
+                        </div>
+                        {activeTiers.length === 0 ? (
+                          <div className="text-center py-6 space-y-2">
+                            <p className="text-sm text-muted-foreground">Nenhuma regra cadastrada.</p>
+                            <p className="text-xs text-muted-foreground">Crie regras para definir quanto cobrar em cada faixa de quantidade. Ex: de 1 a 10 cópias, de 11 a 50, etc.</p>
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Faixa</TableHead>
+                                  <TableHead className="text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      Custos Fixos
+                                      <Tooltip>
+                                        <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                                        <TooltipContent><p>Aluguel, contas, salários e outros custos que não mudam com a produção</p></TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                  </TableHead>
+                                  <TableHead className="text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      Custos Variáveis
+                                      <Tooltip>
+                                        <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                                        <TooltipContent><p>Comissão, impostos e custos que variam conforme o volume vendido</p></TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                  </TableHead>
+                                  <TableHead className="text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      Lucro
+                                      <Tooltip>
+                                        <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                                        <TooltipContent><p>Sua margem de lucro desejada sobre o preço de venda</p></TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                  </TableHead>
+                                  <TableHead className="w-[80px]" />
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {activeTiers.map(tier => (
+                                  <TableRow key={tier.id}>
+                                    <TableCell>
+                                      <div>
+                                        <Badge variant="secondary" className="font-mono text-xs">{tier.label}</Badge>
+                                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                                          {tier.min_qty}{tier.max_qty ? ` a ${tier.max_qty}` : "+"} cópias
+                                        </p>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-center">{fmtPct(tier.fixed_cost_pct)}</TableCell>
+                                    <TableCell className="text-center">{fmtPct(tier.variable_cost_pct)}</TableCell>
+                                    <TableCell className="text-center font-semibold text-primary">{fmtPct(tier.margin_pct)}</TableCell>
+                                    <TableCell>
+                                      <div className="flex gap-1 justify-end">
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openTierDialog(tier)}><Edit2 className="h-3.5 w-3.5" /></Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => requestDeleteTier(tier.id, tier.label)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Faixa</TableHead>
-                              <TableHead className="text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  Custos Fixos
-                                  <Tooltip>
-                                    <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                                    <TooltipContent><p>Aluguel, contas, salários e outros custos que não mudam com a produção</p></TooltipContent>
-                                  </Tooltip>
-                                </div>
-                              </TableHead>
-                              <TableHead className="text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  Custos Variáveis
-                                  <Tooltip>
-                                    <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                                    <TooltipContent><p>Comissão, impostos e custos que variam conforme o volume vendido</p></TooltipContent>
-                                  </Tooltip>
-                                </div>
-                              </TableHead>
-                              <TableHead className="text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  Lucro
-                                  <Tooltip>
-                                    <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                                    <TooltipContent><p>Sua margem de lucro desejada sobre o preço de venda</p></TooltipContent>
-                                  </Tooltip>
-                                </div>
-                              </TableHead>
-                              <TableHead className="w-[80px]" />
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {activeTiers.map(tier => (
-                              <TableRow key={tier.id}>
-                                <TableCell>
-                                  <div>
-                                    <Badge variant="secondary" className="font-mono text-xs">{tier.label}</Badge>
-                                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                                      {tier.min_qty}{tier.max_qty ? ` a ${tier.max_qty}` : "+"} cópias
-                                    </p>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-center">{fmtPct(tier.fixed_cost_pct)}</TableCell>
-                                <TableCell className="text-center">{fmtPct(tier.variable_cost_pct)}</TableCell>
-                                <TableCell className="text-center font-semibold text-primary">{fmtPct(tier.margin_pct)}</TableCell>
-                                <TableCell>
-                                  <div className="flex gap-1 justify-end">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openTierDialog(tier)}><Edit2 className="h-3.5 w-3.5" /></Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => requestDeleteTier(tier.id, tier.label)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
 
                 {/* Price table */}
                 <Card>
