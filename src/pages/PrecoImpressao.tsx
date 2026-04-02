@@ -551,7 +551,9 @@ export default function PrecoImpressao() {
                     <CardTitle className="text-base flex items-center gap-2">
                       <Calculator className="h-4 w-4 text-accent" />
                       Tabela de Preços
-                      {equipments.length > 0 && <Badge variant="outline" className="text-[10px] gap-1 ml-2"><Cpu className="h-3 w-3" />Cobertura {coveragePct}%</Badge>}
+                      <Badge variant={isColorCategory(cat.name) ? "default" : "secondary"} className="text-[10px] gap-1 ml-2">
+                        Cobertura {coveragePct}%
+                      </Badge>
                     </CardTitle>
                     <div className="flex gap-2">
                       {paperRecords.length > 0 && activeItems.length > 0 && (
