@@ -170,6 +170,22 @@ export default function PrecoImpressao() {
   const activeTiers = useMemo(() => tiers.filter(t => t.printer_category_id === activeCategory).sort((a, b) => a.sort_order - b.sort_order), [tiers, activeCategory]);
   const activeItems = useMemo(() => items.filter(i => i.printer_category_id === activeCategory && i.is_active).sort((a, b) => a.sort_order - b.sort_order), [items, activeCategory]);
 
+  // Unique paper types for sub-tabs
+  const paperTypes = useMemo(() => {
+    const types: string[] = [];
+    activeItems.forEach(item => { if (!types.includes(item.paper_type)) types.push(item.paper_type); });
+    return types;
+  }, [activeItems]);
+
+  // Filtered items by active paper type sub-tab
+  const filteredItems = useMemo(() => {
+    if (activePaperType === "__all__") return activeItems;
+    return activeItems.filter(i => i.paper_type === activePaperType);
+  }, [activeItems, activePaperType]);
+
+  // Reset paper type sub-tab when category changes
+  useEffect(() => { setActivePaperType("__all__"); }, [activeCategory]);
+
   const getEffectivePrintingCost = (item: PrintingPriceItem) => {
     if (item.equipment_id) return getEquipmentCostPerPage(item.equipment_id, coveragePct);
     return item.printing_cost;
