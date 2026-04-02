@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ import {
 import {
   Plus, Printer, Settings2, Trash2, Edit2, Calculator, Layers, Cpu, Info,
   RefreshCw, FileText, Check, AlertCircle, HelpCircle, ChevronDown, Lightbulb,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -132,6 +133,7 @@ export default function PrecoImpressao() {
 
   // Sync state
   const [syncSize, setSyncSize] = useState<"A4" | "SRA3">("A4");
+  const tabsScrollRef = useRef<HTMLDivElement>(null);
 
   // ─── Data loading ──────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
@@ -381,47 +383,75 @@ export default function PrecoImpressao() {
           </Card>
         ) : (
           <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-            <div className="flex items-center gap-3 overflow-x-auto pb-1">
-              <TabsList className="bg-muted/60 h-auto p-1 gap-1">
-                {categories.map(cat => {
-                  const isActive = activeCategory === cat.id;
-                  const isColor = isColorCategory(cat.name);
-                  const catCoverage = getCategoryCoverage(cat.name);
-                  const dotColor = isActive
-                    ? (isColor ? 'hsl(270 70% 55%)' : 'hsl(var(--muted-foreground))')
-                    : (isColor ? 'hsl(270 50% 70% / 0.5)' : 'hsl(var(--muted-foreground) / 0.3)');
-                  const activeBorder = isColor ? 'hsl(270 70% 55%)' : 'hsl(var(--muted-foreground))';
-                  const activeBg = isColor ? 'hsl(270 70% 55% / 0.08)' : 'hsl(var(--muted-foreground) / 0.06)';
-                  return (
-                    <TabsTrigger
-                      key={cat.id}
-                      value={cat.id}
-                      className="gap-2 text-xs sm:text-sm py-2.5 px-4 data-[state=active]:shadow-md relative"
-                      style={isActive ? {
-                        borderBottom: `3px solid ${activeBorder}`,
-                        backgroundColor: activeBg,
-                      } : {}}
-                    >
-                      <div
-                        className="h-2.5 w-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: dotColor }}
-                      />
-                      <div className="text-left">
-                        <span className="font-medium block leading-tight">{cat.name}</span>
-                        <span className="text-[10px] text-muted-foreground block leading-tight">
-                          Cobertura {catCoverage}%
-                        </span>
-                      </div>
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => { const cat = categories.find(c => c.id === activeCategory); if (cat) openCategoryDialog(cat); }}>
-                <Edit2 className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost" size="icon"
+                className="h-8 w-8 shrink-0 border border-border/50"
+                onClick={() => {
+                  const ref = tabsScrollRef.current;
+                  if (ref) ref.scrollBy({ left: -200, behavior: 'smooth' });
+                }}
+              >
+                <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive hover:text-destructive" onClick={() => { const cat = categories.find(c => c.id === activeCategory); if (cat) requestDeleteCategory(activeCategory, cat.name); }}>
-                <Trash2 className="h-3.5 w-3.5" />
+              <div
+                ref={tabsScrollRef}
+                className="overflow-x-auto scrollbar-hide flex-1"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                <TabsList className="bg-muted/60 h-auto p-1 gap-1 w-max">
+                  {categories.map(cat => {
+                    const isActive = activeCategory === cat.id;
+                    const isColor = isColorCategory(cat.name);
+                    const catCoverage = getCategoryCoverage(cat.name);
+                    const dotColor = isActive
+                      ? (isColor ? 'hsl(270 70% 55%)' : 'hsl(var(--muted-foreground))')
+                      : (isColor ? 'hsl(270 50% 70% / 0.5)' : 'hsl(var(--muted-foreground) / 0.3)');
+                    const activeBorder = isColor ? 'hsl(270 70% 55%)' : 'hsl(var(--muted-foreground))';
+                    const activeBg = isColor ? 'hsl(270 70% 55% / 0.08)' : 'hsl(var(--muted-foreground) / 0.06)';
+                    return (
+                      <TabsTrigger
+                        key={cat.id}
+                        value={cat.id}
+                        className="gap-2 text-xs sm:text-sm py-2.5 px-4 data-[state=active]:shadow-md relative whitespace-nowrap"
+                        style={isActive ? {
+                          borderBottom: `3px solid ${activeBorder}`,
+                          backgroundColor: activeBg,
+                        } : {}}
+                      >
+                        <div
+                          className="h-2.5 w-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: dotColor }}
+                        />
+                        <div className="text-left">
+                          <span className="font-medium block leading-tight">{cat.name}</span>
+                          <span className="text-[10px] text-muted-foreground block leading-tight">
+                            Cobertura {catCoverage}%
+                          </span>
+                        </div>
+                      </TabsTrigger>
+                    );
+                  })}
+                </TabsList>
+              </div>
+              <Button
+                variant="ghost" size="icon"
+                className="h-8 w-8 shrink-0 border border-border/50"
+                onClick={() => {
+                  const ref = tabsScrollRef.current;
+                  if (ref) ref.scrollBy({ left: 200, behavior: 'smooth' });
+                }}
+              >
+                <ChevronRight className="h-4 w-4" />
               </Button>
+              <div className="flex gap-1 shrink-0 ml-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { const cat = categories.find(c => c.id === activeCategory); if (cat) openCategoryDialog(cat); }}>
+                  <Edit2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => { const cat = categories.find(c => c.id === activeCategory); if (cat) requestDeleteCategory(activeCategory, cat.name); }}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
 
             {/* Orientation banner */}
@@ -599,38 +629,64 @@ export default function PrecoImpressao() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {activeItems.map(item => {
-                              const printCostPerSide = getEffectivePrintingCost(item);
-                              const isFV = item.side === "F/V";
-                              const printCost = isFV ? printCostPerSide * 2 : printCostPerSide;
-                              const baseCost = item.paper_cost + printCost;
-                              return (
-                                <TableRow key={item.id}>
-                                  <TableCell className="font-mono text-xs text-muted-foreground">{item.code || "—"}</TableCell>
-                                  <TableCell className="font-medium">{item.paper_type}</TableCell>
-                                  <TableCell>{item.grammage || "—"}</TableCell>
-                                  <TableCell>{item.size}</TableCell>
-                                  <TableCell><Badge variant={item.side === "F/V" ? "default" : "outline"} className="text-[10px]">{item.side}</Badge></TableCell>
-                                  <TableCell className="text-right font-mono text-xs">{fmt4(item.paper_cost)}</TableCell>
-                                  <TableCell className="text-right font-mono text-xs">
-                                    <span className="flex items-center gap-1 justify-end">
-                                      {fmt4(printCost)}
-                                      {item.equipment_id && <span title={getEquipmentName(item.equipment_id)}><Cpu className="h-3 w-3 text-muted-foreground inline" /></span>}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell className="text-right font-mono text-xs font-semibold">{fmt4(baseCost)}</TableCell>
-                                  {activeTiers.map(tier => (
-                                    <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPrice(baseCost, tier))}</TableCell>
-                                  ))}
-                                  <TableCell>
-                                    <div className="flex gap-1 justify-end">
-                                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openItemDialog(item)}><Edit2 className="h-3.5 w-3.5" /></Button>
-                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => requestDeleteItem(item.id, item.paper_type)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
+                            {(() => {
+                              // Group items by paper_type for visual separation
+                              const groups: { type: string; items: typeof activeItems }[] = [];
+                              activeItems.forEach(item => {
+                                const existing = groups.find(g => g.type === item.paper_type);
+                                if (existing) existing.items.push(item);
+                                else groups.push({ type: item.paper_type, items: [item] });
+                              });
+                              const showGroupHeaders = groups.length > 1;
+                              return groups.map((group, gi) => (
+                                <>
+                                  {showGroupHeaders && (
+                                    <TableRow key={`group-${gi}`} className="bg-muted/30 hover:bg-muted/30">
+                                      <TableCell colSpan={8 + activeTiers.length + 1} className="py-1.5 px-4">
+                                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                          {group.type}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground ml-2">
+                                          ({group.items.length} {group.items.length === 1 ? 'item' : 'itens'})
+                                        </span>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                  {group.items.map(item => {
+                                    const printCostPerSide = getEffectivePrintingCost(item);
+                                    const isFV = item.side === "F/V";
+                                    const printCost = isFV ? printCostPerSide * 2 : printCostPerSide;
+                                    const baseCost = item.paper_cost + printCost;
+                                    return (
+                                      <TableRow key={item.id}>
+                                        <TableCell className="font-mono text-xs text-muted-foreground">{item.code || "—"}</TableCell>
+                                        <TableCell className="font-medium">{item.paper_type}</TableCell>
+                                        <TableCell>{item.grammage || "—"}</TableCell>
+                                        <TableCell>{item.size}</TableCell>
+                                        <TableCell><Badge variant={item.side === "F/V" ? "default" : "outline"} className="text-[10px]">{item.side}</Badge></TableCell>
+                                        <TableCell className="text-right font-mono text-xs">{fmt4(item.paper_cost)}</TableCell>
+                                        <TableCell className="text-right font-mono text-xs">
+                                          <span className="flex items-center gap-1 justify-end">
+                                            {fmt4(printCost)}
+                                            {item.equipment_id && <span title={getEquipmentName(item.equipment_id)}><Cpu className="h-3 w-3 text-muted-foreground inline" /></span>}
+                                          </span>
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-xs font-semibold">{fmt4(baseCost)}</TableCell>
+                                        {activeTiers.map(tier => (
+                                          <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPrice(baseCost, tier))}</TableCell>
+                                        ))}
+                                        <TableCell>
+                                          <div className="flex gap-1 justify-end">
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openItemDialog(item)}><Edit2 className="h-3.5 w-3.5" /></Button>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => requestDeleteItem(item.id, item.paper_type)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </>
+                              ));
+                            })()}
                           </TableBody>
                         </Table>
                       </div>
