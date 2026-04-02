@@ -57,6 +57,10 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 const fmt4 = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 4, maximumFractionDigits: 4 });
 const fmtPct = (v: number) => `${v.toFixed(0)}%`;
 
+const isColorCategory = (name: string) => /color/i.test(name);
+const isPBCategory = (name: string) => /p\s*[&e]?\s*b|preto\s*(e|&)\s*branco|mono/i.test(name);
+const getCategoryCoverage = (name: string) => isColorCategory(name) ? 20 : 5;
+
 const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
   const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
   const divisor = 1 - soma;
@@ -122,7 +126,9 @@ export default function PrecoImpressao() {
   const [itemPrintingCost, setItemPrintingCost] = useState("0");
   const [itemEquipmentId, setItemEquipmentId] = useState<string>("");
   const [itemPaperSource, setItemPaperSource] = useState<string>("manual");
-  const [coveragePct, setCoveragePct] = useState(20);
+  // Coverage is auto-determined per category
+  const activeCategoryObj = categories.find(c => c.id === activeCategory);
+  const coveragePct = activeCategoryObj ? getCategoryCoverage(activeCategoryObj.name) : 5;
 
   // Sync state
   const [syncSize, setSyncSize] = useState<"A4" | "SRA3">("A4");
@@ -357,14 +363,6 @@ export default function PrecoImpressao() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            {equipments.length > 0 && (
-              <div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-1.5">
-                <label className="text-xs text-muted-foreground">Cobertura:</label>
-                <select className="text-xs font-medium bg-transparent border-none outline-none text-foreground" value={coveragePct} onChange={(e) => setCoveragePct(Number(e.target.value))}>
-                  <option value={5}>5%</option><option value={10}>10%</option><option value={20}>20%</option><option value={50}>50%</option><option value={100}>100%</option>
-                </select>
-              </div>
-            )}
             <Button onClick={() => openCategoryDialog()} size="sm" className="gap-1.5">
               <Plus className="h-4 w-4" /> Nova Categoria
             </Button>
@@ -387,25 +385,32 @@ export default function PrecoImpressao() {
               <TabsList className="bg-muted/60 h-auto p-1 gap-1">
                 {categories.map(cat => {
                   const isActive = activeCategory === cat.id;
+                  const isColor = isColorCategory(cat.name);
+                  const catCoverage = getCategoryCoverage(cat.name);
+                  const dotColor = isActive
+                    ? (isColor ? 'hsl(270 70% 55%)' : 'hsl(var(--muted-foreground))')
+                    : (isColor ? 'hsl(270 50% 70% / 0.5)' : 'hsl(var(--muted-foreground) / 0.3)');
+                  const activeBorder = isColor ? 'hsl(270 70% 55%)' : 'hsl(var(--muted-foreground))';
+                  const activeBg = isColor ? 'hsl(270 70% 55% / 0.08)' : 'hsl(var(--muted-foreground) / 0.06)';
                   return (
                     <TabsTrigger
                       key={cat.id}
                       value={cat.id}
                       className="gap-2 text-xs sm:text-sm py-2.5 px-4 data-[state=active]:shadow-md relative"
                       style={isActive ? {
-                        borderBottom: '3px solid hsl(var(--primary))',
-                        backgroundColor: 'hsl(var(--primary) / 0.08)',
+                        borderBottom: `3px solid ${activeBorder}`,
+                        backgroundColor: activeBg,
                       } : {}}
                     >
                       <div
                         className="h-2.5 w-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground) / 0.4)' }}
+                        style={{ backgroundColor: dotColor }}
                       />
                       <div className="text-left">
                         <span className="font-medium block leading-tight">{cat.name}</span>
-                        {cat.description && (
-                          <span className="text-[10px] text-muted-foreground block leading-tight">{cat.description}</span>
-                        )}
+                        <span className="text-[10px] text-muted-foreground block leading-tight">
+                          Cobertura {catCoverage}%
+                        </span>
                       </div>
                     </TabsTrigger>
                   );
@@ -546,7 +551,9 @@ export default function PrecoImpressao() {
                     <CardTitle className="text-base flex items-center gap-2">
                       <Calculator className="h-4 w-4 text-accent" />
                       Tabela de Preços
-                      {equipments.length > 0 && <Badge variant="outline" className="text-[10px] gap-1 ml-2"><Cpu className="h-3 w-3" />Cobertura {coveragePct}%</Badge>}
+                      <Badge variant={isColorCategory(cat.name) ? "default" : "secondary"} className="text-[10px] gap-1 ml-2">
+                        Cobertura {coveragePct}%
+                      </Badge>
                     </CardTitle>
                     <div className="flex gap-2">
                       {paperRecords.length > 0 && activeItems.length > 0 && (
