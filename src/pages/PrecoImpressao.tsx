@@ -57,6 +57,10 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 const fmt4 = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 4, maximumFractionDigits: 4 });
 const fmtPct = (v: number) => `${v.toFixed(0)}%`;
 
+const isColorCategory = (name: string) => /color/i.test(name);
+const isPBCategory = (name: string) => /p\s*[&e]?\s*b|preto\s*(e|&)\s*branco|mono/i.test(name);
+const getCategoryCoverage = (name: string) => isColorCategory(name) ? 20 : 5;
+
 const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
   const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
   const divisor = 1 - soma;
