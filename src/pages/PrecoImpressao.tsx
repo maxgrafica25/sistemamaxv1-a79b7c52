@@ -126,7 +126,7 @@ export default function PrecoImpressao() {
   const [itemPrintingCost, setItemPrintingCost] = useState("0");
   const [itemEquipmentId, setItemEquipmentId] = useState<string>("");
   const [itemPaperSource, setItemPaperSource] = useState<string>("manual");
-  const [coveragePct, setCoveragePct] = useState(20);
+  // Coverage is auto-determined per category
 
   // Sync state
   const [syncSize, setSyncSize] = useState<"A4" | "SRA3">("A4");
