@@ -17,7 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus, Trash2, Edit2, Printer, Cpu, Gauge, ClipboardList, History, Wrench, AlertTriangle, MailWarning, BarChart3, Calculator,
+  Plus, Trash2, Edit2, Printer, Cpu, Gauge, ClipboardList, History, Wrench, AlertTriangle, MailWarning, BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,7 +29,6 @@ import MaintenanceTab from "@/components/equipamentos/MaintenanceTab";
 import ProductionLossesTab from "@/components/equipamentos/ProductionLossesTab";
 import MaintenanceRequestsTab from "@/components/equipamentos/MaintenanceRequestsTab";
 import EquipmentDashboardTab from "@/components/equipamentos/EquipmentDashboardTab";
-import CostPerPageTab from "@/components/equipamentos/CostPerPageTab";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Equipment {
@@ -47,7 +46,6 @@ interface Consumable {
   price: number;
   yield_pages: number;
   sort_order: number;
-  mode: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -132,7 +130,6 @@ export default function Equipamentos() {
   const [consName, setConsName] = useState("");
   const [consPrice, setConsPrice] = useState("0");
   const [consYield, setConsYield] = useState("1");
-  const [consMode, setConsMode] = useState("shared");
 
 
   // ─── Data loading ──────────────────────────────────────────────────
@@ -227,13 +224,11 @@ export default function Equipamentos() {
       setConsName(cons.name);
       setConsPrice(String(cons.price));
       setConsYield(String(cons.yield_pages));
-      setConsMode(cons.mode || "shared");
     } else {
       setEditingCons(null);
       setConsName("");
       setConsPrice("0");
       setConsYield("1");
-      setConsMode("shared");
     }
     setShowConsDialog(true);
   };
@@ -254,12 +249,12 @@ export default function Equipamentos() {
         });
       }
       await supabase.from("equipment_consumables").update({
-        name: consName, price: newPrice, yield_pages: newYield, mode: consMode,
+        name: consName, price: newPrice, yield_pages: newYield,
       }).eq("id", editingCons.id);
       await logAudit({ action: "edição", entity_type: "Consumível", entity_id: editingCons.id, entity_name: `${consName} (${activeEq?.name})` });
     } else {
       const { data } = await supabase.from("equipment_consumables").insert({
-        equipment_id: activeEquipment, name: consName, price: newPrice, yield_pages: newYield, sort_order: activeConsumables.length, mode: consMode,
+        equipment_id: activeEquipment, name: consName, price: newPrice, yield_pages: newYield, sort_order: activeConsumables.length,
       }).select("id").single();
       await logAudit({ action: "criação", entity_type: "Consumível", entity_id: data?.id, entity_name: `${consName} (${activeEq?.name})` });
     }
@@ -378,9 +373,6 @@ export default function Equipamentos() {
                   <TabsTrigger value="consumiveis" className="gap-1.5 text-xs">
                     <Gauge className="h-3.5 w-3.5" /> Consumíveis
                   </TabsTrigger>
-                  <TabsTrigger value="custo-pagina" className="gap-1.5 text-xs">
-                    <Calculator className="h-3.5 w-3.5" /> Custo por Página
-                  </TabsTrigger>
                   {(eq.printer_type === "pb" || eq.printer_type === "color") && (
                     <TabsTrigger value="contadores" className="gap-1.5 text-xs">
                       <ClipboardList className="h-3.5 w-3.5" /> Contadores
@@ -433,7 +425,6 @@ export default function Equipamentos() {
                             <TableHeader>
                               <TableRow>
                                 <TableHead>Consumível</TableHead>
-                                <TableHead className="text-center">Modo</TableHead>
                                 <TableHead className="text-right">Preço (R$)</TableHead>
                                 <TableHead className="text-right">Rendimento</TableHead>
                                 <TableHead className="text-right">Custo/Página</TableHead>
@@ -448,11 +439,6 @@ export default function Equipamentos() {
                                 return (
                                   <TableRow key={c.id}>
                                     <TableCell className="font-medium">{c.name}</TableCell>
-                                    <TableCell className="text-center">
-                                      <Badge variant={c.mode === "color_only" ? "default" : "secondary"} className="text-[10px]">
-                                        {c.mode === "color_only" ? "Color" : "Compart."}
-                                      </Badge>
-                                    </TableCell>
                                     <TableCell className="text-right font-mono text-sm">{fmt(c.price)}</TableCell>
                                     <TableCell className="text-right font-mono text-sm">{fmtNum(c.yield_pages)}</TableCell>
                                     <TableCell className="text-right font-mono text-sm">{fmt4(cpp)}</TableCell>
@@ -474,7 +460,6 @@ export default function Equipamentos() {
                               })}
                               <TableRow className="bg-muted/30 font-semibold">
                                 <TableCell>TOTAL</TableCell>
-                                <TableCell />
                                 <TableCell className="text-right">—</TableCell>
                                 <TableCell className="text-right">—</TableCell>
                                 <TableCell className="text-right font-mono">{fmt4(costPerPage)}</TableCell>
@@ -507,15 +492,7 @@ export default function Equipamentos() {
                   )}
                 </TabsContent>
 
-                {/* ── Custo por Página Tab ── */}
-                <TabsContent value="custo-pagina" className="mt-4">
-                  <CostPerPageTab
-                    consumables={activeConsumables}
-                    printerType={eq.printer_type}
-                  />
-                </TabsContent>
-
-
+                {/* ── Contadores Tab ── */}
                 <TabsContent value="contadores" className="mt-4">
                   <PrinterReadingsTab
                     equipmentId={eq.id}
@@ -620,21 +597,6 @@ export default function Equipamentos() {
             <div className="space-y-2">
               <Label>Nome</Label>
               <Input value={consName} onChange={(e) => setConsName(e.target.value)} placeholder="Ex: Toner Preto" />
-            </div>
-            <div className="space-y-2">
-              <Label>Modo de uso</Label>
-              <Select value={consMode} onValueChange={setConsMode}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="shared">Compartilhado (PB + Color)</SelectItem>
-                  <SelectItem value="color_only">Somente Color</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-muted-foreground">
-                {consMode === "shared" 
-                  ? "Ex: Cilindro, Fusor, Belt — usados em impressões PB e Color" 
-                  : "Ex: Toner Cyan, Magenta, Yellow — usados apenas em impressões coloridas"}
-              </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">

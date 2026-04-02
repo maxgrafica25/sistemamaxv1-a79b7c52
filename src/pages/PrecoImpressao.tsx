@@ -47,7 +47,7 @@ interface PrintingPriceItem {
   sort_order: number; equipment_id: string | null;
 }
 interface Equipment { id: string; name: string; }
-interface EquipmentConsumable { equipment_id: string; price: number; yield_pages: number; mode: string; }
+interface EquipmentConsumable { equipment_id: string; price: number; yield_pages: number; }
 interface PaperRecord {
   id: string; name: string; grammage: string | null;
   sheet_qty: number; pack_price: number; freight_price: number;
@@ -144,7 +144,7 @@ export default function PrecoImpressao() {
       supabase.from("markup_tiers").select("*").order("sort_order"),
       supabase.from("printing_price_items").select("*").order("sort_order"),
       supabase.from("equipments").select("id, name").order("sort_order"),
-      supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
+      supabase.from("equipment_consumables").select("equipment_id, price, yield_pages"),
       supabase.from("papers").select("id, name, grammage, sheet_qty, pack_price, freight_price").eq("is_active", true).order("sort_order"),
     ]);
     if (catRes.data) setCategories(catRes.data);
@@ -161,15 +161,8 @@ export default function PrecoImpressao() {
 
   const getEquipmentCostPerPage = (equipmentId: string, coverage: number = 20) => {
     const cons = equipConsumables.filter(c => c.equipment_id === equipmentId);
-    if (coverage <= 5) {
-      // PB: only shared consumables, 5% coverage
-      const sharedCons = cons.filter(c => c.mode === "shared");
-      return sharedCons.reduce((sum, c) => c.yield_pages <= 0 ? sum : sum + c.price / c.yield_pages, 0);
-    } else {
-      // Color: all consumables, scaled coverage
-      const baseCost = cons.reduce((sum, c) => c.yield_pages <= 0 ? sum : sum + c.price / c.yield_pages, 0);
-      return baseCost * (coverage / 5);
-    }
+    const baseCost = cons.reduce((sum, c) => c.yield_pages <= 0 ? sum : sum + c.price / c.yield_pages, 0);
+    return baseCost * (coverage / 5);
   };
 
   const getEquipmentName = (id: string) => equipments.find(e => e.id === id)?.name || "—";
