@@ -474,6 +474,7 @@ export default function Equipamentos() {
                               })}
                               <TableRow className="bg-muted/30 font-semibold">
                                 <TableCell>TOTAL</TableCell>
+                                <TableCell />
                                 <TableCell className="text-right">—</TableCell>
                                 <TableCell className="text-right">—</TableCell>
                                 <TableCell className="text-right font-mono">{fmt4(costPerPage)}</TableCell>
@@ -506,7 +507,15 @@ export default function Equipamentos() {
                   )}
                 </TabsContent>
 
-                {/* ── Contadores Tab ── */}
+                {/* ── Custo por Página Tab ── */}
+                <TabsContent value="custo-pagina" className="mt-4">
+                  <CostPerPageTab
+                    consumables={activeConsumables}
+                    printerType={eq.printer_type}
+                  />
+                </TabsContent>
+
+
                 <TabsContent value="contadores" className="mt-4">
                   <PrinterReadingsTab
                     equipmentId={eq.id}
