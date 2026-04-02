@@ -378,6 +378,9 @@ export default function Equipamentos() {
                   <TabsTrigger value="consumiveis" className="gap-1.5 text-xs">
                     <Gauge className="h-3.5 w-3.5" /> Consumíveis
                   </TabsTrigger>
+                  <TabsTrigger value="custo-pagina" className="gap-1.5 text-xs">
+                    <Calculator className="h-3.5 w-3.5" /> Custo por Página
+                  </TabsTrigger>
                   {(eq.printer_type === "pb" || eq.printer_type === "color") && (
                     <TabsTrigger value="contadores" className="gap-1.5 text-xs">
                       <ClipboardList className="h-3.5 w-3.5" /> Contadores
@@ -430,6 +433,7 @@ export default function Equipamentos() {
                             <TableHeader>
                               <TableRow>
                                 <TableHead>Consumível</TableHead>
+                                <TableHead className="text-center">Modo</TableHead>
                                 <TableHead className="text-right">Preço (R$)</TableHead>
                                 <TableHead className="text-right">Rendimento</TableHead>
                                 <TableHead className="text-right">Custo/Página</TableHead>
@@ -444,6 +448,11 @@ export default function Equipamentos() {
                                 return (
                                   <TableRow key={c.id}>
                                     <TableCell className="font-medium">{c.name}</TableCell>
+                                    <TableCell className="text-center">
+                                      <Badge variant={c.mode === "color_only" ? "default" : "secondary"} className="text-[10px]">
+                                        {c.mode === "color_only" ? "Color" : "Compart."}
+                                      </Badge>
+                                    </TableCell>
                                     <TableCell className="text-right font-mono text-sm">{fmt(c.price)}</TableCell>
                                     <TableCell className="text-right font-mono text-sm">{fmtNum(c.yield_pages)}</TableCell>
                                     <TableCell className="text-right font-mono text-sm">{fmt4(cpp)}</TableCell>
