@@ -133,6 +133,7 @@ export default function PrecoImpressao() {
 
   // Sync state
   const [syncSize, setSyncSize] = useState<"A4" | "SRA3">("A4");
+  const [activePaperType, setActivePaperType] = useState<string>("__all__");
   const tabsScrollRef = useRef<HTMLDivElement>(null);
 
   // ─── Data loading ──────────────────────────────────────────────────
