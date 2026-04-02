@@ -382,47 +382,75 @@ export default function PrecoImpressao() {
           </Card>
         ) : (
           <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-            <div className="flex items-center gap-3 overflow-x-auto pb-1">
-              <TabsList className="bg-muted/60 h-auto p-1 gap-1">
-                {categories.map(cat => {
-                  const isActive = activeCategory === cat.id;
-                  const isColor = isColorCategory(cat.name);
-                  const catCoverage = getCategoryCoverage(cat.name);
-                  const dotColor = isActive
-                    ? (isColor ? 'hsl(270 70% 55%)' : 'hsl(var(--muted-foreground))')
-                    : (isColor ? 'hsl(270 50% 70% / 0.5)' : 'hsl(var(--muted-foreground) / 0.3)');
-                  const activeBorder = isColor ? 'hsl(270 70% 55%)' : 'hsl(var(--muted-foreground))';
-                  const activeBg = isColor ? 'hsl(270 70% 55% / 0.08)' : 'hsl(var(--muted-foreground) / 0.06)';
-                  return (
-                    <TabsTrigger
-                      key={cat.id}
-                      value={cat.id}
-                      className="gap-2 text-xs sm:text-sm py-2.5 px-4 data-[state=active]:shadow-md relative"
-                      style={isActive ? {
-                        borderBottom: `3px solid ${activeBorder}`,
-                        backgroundColor: activeBg,
-                      } : {}}
-                    >
-                      <div
-                        className="h-2.5 w-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: dotColor }}
-                      />
-                      <div className="text-left">
-                        <span className="font-medium block leading-tight">{cat.name}</span>
-                        <span className="text-[10px] text-muted-foreground block leading-tight">
-                          Cobertura {catCoverage}%
-                        </span>
-                      </div>
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => { const cat = categories.find(c => c.id === activeCategory); if (cat) openCategoryDialog(cat); }}>
-                <Edit2 className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost" size="icon"
+                className="h-8 w-8 shrink-0 border border-border/50"
+                onClick={() => {
+                  const ref = tabsScrollRef.current;
+                  if (ref) ref.scrollBy({ left: -200, behavior: 'smooth' });
+                }}
+              >
+                <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive hover:text-destructive" onClick={() => { const cat = categories.find(c => c.id === activeCategory); if (cat) requestDeleteCategory(activeCategory, cat.name); }}>
-                <Trash2 className="h-3.5 w-3.5" />
+              <div
+                ref={tabsScrollRef}
+                className="overflow-x-auto scrollbar-hide flex-1"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                <TabsList className="bg-muted/60 h-auto p-1 gap-1 w-max">
+                  {categories.map(cat => {
+                    const isActive = activeCategory === cat.id;
+                    const isColor = isColorCategory(cat.name);
+                    const catCoverage = getCategoryCoverage(cat.name);
+                    const dotColor = isActive
+                      ? (isColor ? 'hsl(270 70% 55%)' : 'hsl(var(--muted-foreground))')
+                      : (isColor ? 'hsl(270 50% 70% / 0.5)' : 'hsl(var(--muted-foreground) / 0.3)');
+                    const activeBorder = isColor ? 'hsl(270 70% 55%)' : 'hsl(var(--muted-foreground))';
+                    const activeBg = isColor ? 'hsl(270 70% 55% / 0.08)' : 'hsl(var(--muted-foreground) / 0.06)';
+                    return (
+                      <TabsTrigger
+                        key={cat.id}
+                        value={cat.id}
+                        className="gap-2 text-xs sm:text-sm py-2.5 px-4 data-[state=active]:shadow-md relative whitespace-nowrap"
+                        style={isActive ? {
+                          borderBottom: `3px solid ${activeBorder}`,
+                          backgroundColor: activeBg,
+                        } : {}}
+                      >
+                        <div
+                          className="h-2.5 w-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: dotColor }}
+                        />
+                        <div className="text-left">
+                          <span className="font-medium block leading-tight">{cat.name}</span>
+                          <span className="text-[10px] text-muted-foreground block leading-tight">
+                            Cobertura {catCoverage}%
+                          </span>
+                        </div>
+                      </TabsTrigger>
+                    );
+                  })}
+                </TabsList>
+              </div>
+              <Button
+                variant="ghost" size="icon"
+                className="h-8 w-8 shrink-0 border border-border/50"
+                onClick={() => {
+                  const ref = tabsScrollRef.current;
+                  if (ref) ref.scrollBy({ left: 200, behavior: 'smooth' });
+                }}
+              >
+                <ChevronRight className="h-4 w-4" />
               </Button>
+              <div className="flex gap-1 shrink-0 ml-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { const cat = categories.find(c => c.id === activeCategory); if (cat) openCategoryDialog(cat); }}>
+                  <Edit2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => { const cat = categories.find(c => c.id === activeCategory); if (cat) requestDeleteCategory(activeCategory, cat.name); }}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
 
             {/* Orientation banner */}
