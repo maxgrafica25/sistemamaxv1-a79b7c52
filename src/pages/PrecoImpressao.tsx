@@ -586,7 +586,8 @@ export default function PrecoImpressao() {
                           </TableHeader>
                           <TableBody>
                             {activeItems.map(item => {
-                              const printCost = getEffectivePrintingCost(item);
+                              const printCostPerSide = getEffectivePrintingCost(item);
+                              const printCost = item.side === "F/V" ? printCostPerSide * 2 : printCostPerSide;
                               const baseCost = item.paper_cost + printCost;
                               return (
                                 <TableRow key={item.id}>
