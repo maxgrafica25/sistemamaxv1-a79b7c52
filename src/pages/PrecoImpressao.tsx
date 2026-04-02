@@ -127,6 +127,8 @@ export default function PrecoImpressao() {
   const [itemEquipmentId, setItemEquipmentId] = useState<string>("");
   const [itemPaperSource, setItemPaperSource] = useState<string>("manual");
   // Coverage is auto-determined per category
+  const activeCategoryObj = categories.find(c => c.id === activeCategory);
+  const coveragePct = activeCategoryObj ? getCategoryCoverage(activeCategoryObj.name) : 5;
 
   // Sync state
   const [syncSize, setSyncSize] = useState<"A4" | "SRA3">("A4");
