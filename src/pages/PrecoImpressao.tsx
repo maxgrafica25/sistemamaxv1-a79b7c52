@@ -147,14 +147,14 @@ export default function PrecoImpressao() {
   const [showFilters, setShowFilters] = useState(false);
 
   // Column visibility
-  type ColumnKey = "code" | "type" | "grammage" | "size" | "side" | "paperCost" | "printCost" | "totalCost";
+  type ColumnKey = "code" | "type" | "grammage" | "size" | "side" | "equipment" | "paperCost" | "printCost" | "totalCost";
   const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>({
     code: true, type: true, grammage: true, size: true, side: true,
-    paperCost: true, printCost: true, totalCost: true,
+    equipment: true, paperCost: true, printCost: true, totalCost: true,
   });
   const columnLabels: Record<ColumnKey, string> = {
     code: "Código", type: "Tipo", grammage: "Gramatura", size: "Tamanho",
-    side: "Lado", paperCost: "C. Papel", printCost: "C. Impressão", totalCost: "Custo Total",
+    side: "Lado", equipment: "Impressora", paperCost: "C. Papel", printCost: "C. Impressão", totalCost: "Custo Total",
   };
   const toggleColumn = (key: ColumnKey) => setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
 
