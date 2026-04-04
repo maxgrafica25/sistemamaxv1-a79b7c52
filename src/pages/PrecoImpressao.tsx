@@ -169,8 +169,8 @@ export default function PrecoImpressao() {
     const eq = equipments.find(e => e.id === equipmentId);
     const isColorPrinter = eq?.printer_type === 'color';
     const usePB = forcePB ?? categoryCoverage <= 5;
-    // Cobertura: PB = 5%, Color = 20%
-    const coverage = usePB && !isColorPrinter ? 5 : (usePB ? 5 : 20);
+    // Cobertura: impressora PB nativa = 5%, impressora color (tanto Color quanto PB) = 20%
+    const coverage = isColorPrinter ? 20 : 5;
     // Consumíveis: modo PB → só compartilhados; Color → todos
     const cons = equipConsumables.filter(c =>
       c.equipment_id === equipmentId && (usePB ? c.mode === "shared" : true)
@@ -1020,7 +1020,7 @@ export default function PrecoImpressao() {
                                   <span className="flex items-center gap-2">
                                     <Cpu className="h-3.5 w-3.5 text-gray-500" />
                                     {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 border-gray-300 text-gray-600">PB</Badge>
-                                    <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id, 5, true))}/pág</span>
+                                    <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id, 20, true))}/pág</span>
                                   </span>
                                 </SelectItem>
                               </>
