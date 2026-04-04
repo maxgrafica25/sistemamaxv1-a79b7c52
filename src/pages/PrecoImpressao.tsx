@@ -169,8 +169,8 @@ export default function PrecoImpressao() {
     const eq = equipments.find(e => e.id === equipmentId);
     const isColorPrinter = eq?.printer_type === 'color';
     const usePB = forcePB ?? categoryCoverage <= 5;
-    // Cobertura: impressora PB nativa = 5%, impressora color (tanto Color quanto PB) = 20%
-    const coverage = isColorPrinter ? 20 : 5;
+    // Cobertura: impressora color em modo color = 20%; PB (nativa ou forçada) = 5%
+    const coverage = (isColorPrinter && !usePB) ? 20 : 5;
     // Consumíveis: modo PB → só compartilhados; Color → todos
     const cons = equipConsumables.filter(c =>
       c.equipment_id === equipmentId && (usePB ? c.mode === "shared" : true)
