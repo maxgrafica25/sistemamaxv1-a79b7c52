@@ -47,7 +47,7 @@ interface PrintingPriceItem {
   sort_order: number; equipment_id: string | null;
 }
 interface Equipment { id: string; name: string; }
-interface EquipmentConsumable { equipment_id: string; price: number; yield_pages: number; }
+interface EquipmentConsumable { equipment_id: string; price: number; yield_pages: number; mode: string; }
 interface PaperRecord {
   id: string; name: string; grammage: string | null;
   sheet_qty: number; pack_price: number; freight_price: number;
