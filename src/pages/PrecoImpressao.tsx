@@ -160,7 +160,10 @@ export default function PrecoImpressao() {
   useEffect(() => { fetchAll(); }, []);
 
   const getEquipmentCostPerPage = (equipmentId: string, coverage: number = 20) => {
-    const cons = equipConsumables.filter(c => c.equipment_id === equipmentId);
+    const isPB = coverage <= 5;
+    const cons = equipConsumables.filter(c =>
+      c.equipment_id === equipmentId && (isPB ? c.mode === "shared" : true)
+    );
     const baseCost = cons.reduce((sum, c) => c.yield_pages <= 0 ? sum : sum + c.price / c.yield_pages, 0);
     return baseCost * (coverage / 5);
   };
