@@ -845,6 +845,7 @@ export default function PrecoImpressao() {
                                       })() : <span className="text-xs text-muted-foreground">Manual</span>}
                                     </TableCell>
                                   )}
+                                  {visibleColumns.paperCost && <TableCell className="text-right font-mono text-xs">{fmt4(item.paper_cost)}</TableCell>}
                                   {visibleColumns.printCost && (
                                     <TableCell className="text-right font-mono text-xs">
                                       <span className="flex items-center gap-1 justify-end">
