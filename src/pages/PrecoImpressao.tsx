@@ -183,19 +183,11 @@ export default function PrecoImpressao() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  // Parse composite equipment key: "uuid" (full/color) or "uuid:pb" (PB mode)
-  const parseEquipKey = (key: string) => {
-    const [id, mode] = key.split(":");
-    return { id, isPBMode: mode === "pb" };
-  };
-
   const getEquipmentCostPerPage = (equipmentId: string, categoryCoverage: number = 20, forcePB?: boolean) => {
     const eq = equipments.find(e => e.id === equipmentId);
     const isColorPrinter = eq?.printer_type === 'color';
     const usePB = forcePB ?? categoryCoverage <= 5;
-    // Cobertura sempre 20% para impressora color (mesmo PB), 5% para PB nativa
     const coverage = isColorPrinter ? 20 : 5;
-    // Consumíveis: modo PB → só compartilhados; Color → todos
     const cons = equipConsumables.filter(c =>
       c.equipment_id === equipmentId && (usePB ? c.mode === "shared" : true)
     );
@@ -203,52 +195,54 @@ export default function PrecoImpressao() {
     return baseCost * (coverage / 5);
   };
 
-  // Get cost using composite key (with :pb suffix support)
-  const getCostFromKey = (key: string) => {
-    const { id, isPBMode } = parseEquipKey(key);
-    return getEquipmentCostPerPage(id, coveragePct, isPBMode);
-  };
+  const getEquipmentName = (id: string) => equipments.find(e => e.id === id)?.name || "—";
 
-  const getEquipmentName = (id: string) => equipments.find(e => e.id === parseEquipKey(id).id)?.name || "—";
-  const getEquipmentLabel = (key: string) => {
-    const { id, isPBMode } = parseEquipKey(key);
-    const name = equipments.find(e => e.id === id)?.name || "—";
-    return isPBMode ? `${name} (PB)` : name;
+  const getEffectivePrintingCost = (item: PrintingPriceItem) => {
+    if (item.equipment_id) return getEquipmentCostPerPage(item.equipment_id, coveragePct, item.equipment_mode === 'pb');
+    return item.printing_cost;
   };
 
   const activeTiers = useMemo(() => tiers.filter(t => t.printer_category_id === activeCategory).sort((a, b) => a.sort_order - b.sort_order), [tiers, activeCategory]);
   const activeItems = useMemo(() => items.filter(i => i.printer_category_id === activeCategory && i.is_active).sort((a, b) => a.sort_order - b.sort_order), [items, activeCategory]);
 
-  // Unique paper types for sub-tabs
   const paperTypes = useMemo(() => {
     const types: string[] = [];
     activeItems.forEach(item => { if (!types.includes(item.paper_type)) types.push(item.paper_type); });
     return types;
   }, [activeItems]);
 
-  // Unique filter options
   const uniqueGrammages = useMemo(() => [...new Set(activeItems.map(i => i.grammage || "—"))].sort(), [activeItems]);
   const uniqueSizes = useMemo(() => [...new Set(activeItems.map(i => i.size))].sort(), [activeItems]);
   const uniqueSides = useMemo(() => [...new Set(activeItems.map(i => i.side))].sort(), [activeItems]);
+  const uniqueEquipments = useMemo(() => {
+    const eqMap = new Map<string, string>();
+    activeItems.forEach(i => {
+      if (i.equipment_id) {
+        const label = getEquipmentName(i.equipment_id) + (i.equipment_mode === 'pb' ? ' (PB)' : '');
+        eqMap.set(i.equipment_id + ':' + i.equipment_mode, label);
+      }
+    });
+    return [...eqMap.entries()].map(([key, label]) => ({ key, label }));
+  }, [activeItems, equipments]);
 
-  const activeFilterCount = [filterGrammage, filterSize, filterSide].filter(f => f !== "__all__").length;
+  const activeFilterCount = [filterGrammage, filterSize, filterSide, filterEquipment].filter(f => f !== "__all__").length;
 
-  // Filtered items by active paper type sub-tab + filters
   const filteredItems = useMemo(() => {
     let result = activePaperType === "__all__" ? activeItems : activeItems.filter(i => i.paper_type === activePaperType);
     if (filterGrammage !== "__all__") result = result.filter(i => (i.grammage || "—") === filterGrammage);
     if (filterSize !== "__all__") result = result.filter(i => i.size === filterSize);
     if (filterSide !== "__all__") result = result.filter(i => i.side === filterSide);
+    if (filterEquipment !== "__all__") {
+      if (filterEquipment === "__manual__") result = result.filter(i => !i.equipment_id);
+      else {
+        const [eqId, eqMode] = filterEquipment.split(':');
+        result = result.filter(i => i.equipment_id === eqId && i.equipment_mode === eqMode);
+      }
+    }
     return result;
-  }, [activeItems, activePaperType, filterGrammage, filterSize, filterSide]);
+  }, [activeItems, activePaperType, filterGrammage, filterSize, filterSide, filterEquipment]);
 
-  // Reset filters when category changes
-  useEffect(() => { setActivePaperType("__all__"); setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); }, [activeCategory]);
-
-  const getEffectivePrintingCost = (item: PrintingPriceItem) => {
-    if (item.equipment_id) return getCostFromKey(item.equipment_id);
-    return item.printing_cost;
-  };
+  useEffect(() => { setActivePaperType("__all__"); setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); setFilterEquipment("__all__"); }, [activeCategory]);
 
   // ─── Category CRUD ─────────────────────────────────────────────────
   const openCategoryDialog = (cat?: PrinterCategory) => {
