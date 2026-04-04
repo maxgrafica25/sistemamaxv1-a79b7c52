@@ -159,21 +159,38 @@ export default function PrecoImpressao() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  const getEquipmentCostPerPage = (equipmentId: string, categoryCoverage: number = 20) => {
+  // Parse composite equipment key: "uuid" (full/color) or "uuid:pb" (PB mode)
+  const parseEquipKey = (key: string) => {
+    const [id, mode] = key.split(":");
+    return { id, isPBMode: mode === "pb" };
+  };
+
+  const getEquipmentCostPerPage = (equipmentId: string, categoryCoverage: number = 20, forcePB?: boolean) => {
     const eq = equipments.find(e => e.id === equipmentId);
     const isColorPrinter = eq?.printer_type === 'color';
-    const isPBCategory = categoryCoverage <= 5;
-    // Cobertura: impressora color sempre 20%, impressora PB sempre 5%
-    const coverage = isColorPrinter ? 20 : 5;
-    // Consumíveis: em categoria PB → só compartilhados; em category Color → todos
+    const usePB = forcePB ?? categoryCoverage <= 5;
+    // Cobertura: PB = 5%, Color = 20%
+    const coverage = usePB && !isColorPrinter ? 5 : (usePB ? 5 : 20);
+    // Consumíveis: modo PB → só compartilhados; Color → todos
     const cons = equipConsumables.filter(c =>
-      c.equipment_id === equipmentId && (isPBCategory ? c.mode === "shared" : true)
+      c.equipment_id === equipmentId && (usePB ? c.mode === "shared" : true)
     );
     const baseCost = cons.reduce((sum, c) => c.yield_pages <= 0 ? sum : sum + c.price / c.yield_pages, 0);
     return baseCost * (coverage / 5);
   };
 
-  const getEquipmentName = (id: string) => equipments.find(e => e.id === id)?.name || "—";
+  // Get cost using composite key (with :pb suffix support)
+  const getCostFromKey = (key: string) => {
+    const { id, isPBMode } = parseEquipKey(key);
+    return getEquipmentCostPerPage(id, coveragePct, isPBMode);
+  };
+
+  const getEquipmentName = (id: string) => equipments.find(e => e.id === parseEquipKey(id).id)?.name || "—";
+  const getEquipmentLabel = (key: string) => {
+    const { id, isPBMode } = parseEquipKey(key);
+    const name = equipments.find(e => e.id === id)?.name || "—";
+    return isPBMode ? `${name} (PB)` : name;
+  };
 
   const activeTiers = useMemo(() => tiers.filter(t => t.printer_category_id === activeCategory).sort((a, b) => a.sort_order - b.sort_order), [tiers, activeCategory]);
   const activeItems = useMemo(() => items.filter(i => i.printer_category_id === activeCategory && i.is_active).sort((a, b) => a.sort_order - b.sort_order), [items, activeCategory]);
