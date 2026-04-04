@@ -171,8 +171,33 @@ export default function Equipamentos() {
       return sum + c.price / c.yield_pages;
     }, 0);
   }, [activeConsumables]);
+  // Cost calculations for different coverage scenarios
+  const costScenarios = useMemo(() => {
+    const isColor = activeEq?.printer_type === "color";
+    const sharedCons = activeConsumables.filter(c => c.mode !== "color_only");
+    const allCons = activeConsumables;
 
-  
+    const calcCost = (items: Consumable[], coverage: number) =>
+      items.reduce((sum, c) => c.yield_pages > 0 ? sum + (c.price / c.yield_pages) * coverage : sum, 0);
+
+    if (isColor) {
+      return {
+        isColor: true,
+        color5: calcCost(allCons, 1),       // 5% base
+        color20: calcCost(allCons, 4),      // 20% = 4x
+        pb5: calcCost(sharedCons, 1),       // PB 5%
+        pb20: calcCost(sharedCons, 4),      // PB 20%
+      };
+    } else {
+      return {
+        isColor: false,
+        color5: 0,
+        color20: 0,
+        pb5: calcCost(allCons, 1),
+        pb20: calcCost(allCons, 4),
+      };
+    }
+  }, [activeConsumables, activeEq]);
 
   // ─── Equipment CRUD ────────────────────────────────────────────────
   const openEquipDialog = (eq?: Equipment) => {
