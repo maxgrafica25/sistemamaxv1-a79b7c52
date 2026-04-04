@@ -147,14 +147,14 @@ export default function PrecoImpressao() {
   const [showFilters, setShowFilters] = useState(false);
 
   // Column visibility
-  type ColumnKey = "code" | "type" | "grammage" | "size" | "side" | "paperCost" | "printCost" | "totalCost";
+  type ColumnKey = "code" | "type" | "grammage" | "size" | "side" | "equipment" | "paperCost" | "printCost" | "totalCost";
   const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>({
     code: true, type: true, grammage: true, size: true, side: true,
-    paperCost: true, printCost: true, totalCost: true,
+    equipment: true, paperCost: true, printCost: true, totalCost: true,
   });
   const columnLabels: Record<ColumnKey, string> = {
     code: "Código", type: "Tipo", grammage: "Gramatura", size: "Tamanho",
-    side: "Lado", paperCost: "C. Papel", printCost: "C. Impressão", totalCost: "Custo Total",
+    side: "Lado", equipment: "Impressora", paperCost: "C. Papel", printCost: "C. Impressão", totalCost: "Custo Total",
   };
   const toggleColumn = (key: ColumnKey) => setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -244,7 +244,7 @@ export default function PrecoImpressao() {
   useEffect(() => { setActivePaperType("__all__"); setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); }, [activeCategory]);
 
   const getEffectivePrintingCost = (item: PrintingPriceItem) => {
-    if (item.equipment_id) return getEquipmentCostPerPage(item.equipment_id, coveragePct);
+    if (item.equipment_id) return getCostFromKey(item.equipment_id);
     return item.printing_cost;
   };
 
@@ -791,6 +791,7 @@ export default function PrecoImpressao() {
                               {visibleColumns.grammage && <TableHead>Gram.</TableHead>}
                               {visibleColumns.size && <TableHead>Tam.</TableHead>}
                               {visibleColumns.side && <TableHead>Lado</TableHead>}
+                              {visibleColumns.equipment && <TableHead>Impressora</TableHead>}
                               {visibleColumns.paperCost && <TableHead className="text-right">C. Papel</TableHead>}
                               {visibleColumns.printCost && <TableHead className="text-right"><span className="flex items-center gap-1 justify-end">C. Impr.{equipments.length > 0 && <Cpu className="h-3 w-3 text-muted-foreground" />}</span></TableHead>}
                               {visibleColumns.totalCost && <TableHead className="text-right">Custo Total</TableHead>}
@@ -825,6 +826,25 @@ export default function PrecoImpressao() {
                                   {visibleColumns.grammage && <TableCell>{item.grammage || "—"}</TableCell>}
                                   {visibleColumns.size && <TableCell>{item.size}</TableCell>}
                                   {visibleColumns.side && <TableCell><Badge variant={item.side === "F/V" ? "default" : "outline"} className="text-[10px]">{item.side}</Badge></TableCell>}
+                                  {visibleColumns.equipment && (
+                                    <TableCell>
+                                      {item.equipment_id ? (() => {
+                                        const { id, isPBMode } = parseEquipKey(item.equipment_id);
+                                        const eq = equipments.find(e => e.id === id);
+                                        const isColor = eq?.printer_type === 'color';
+                                        return (
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="text-xs truncate max-w-[120px]" title={eq?.name}>{eq?.name || "—"}</span>
+                                            {isColor && (
+                                              <Badge variant={isPBMode ? "outline" : "secondary"} className="text-[9px] px-1.5 py-0 shrink-0">
+                                                {isPBMode ? "PB" : "Color"}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        );
+                                      })() : <span className="text-xs text-muted-foreground">Manual</span>}
+                                    </TableCell>
+                                  )}
                                   {visibleColumns.paperCost && <TableCell className="text-right font-mono text-xs">{fmt4(item.paper_cost)}</TableCell>}
                                   {visibleColumns.printCost && (
                                     <TableCell className="text-right font-mono text-xs">
