@@ -48,7 +48,7 @@ interface PrintingPriceItem {
   id: string; printer_category_id: string; code: string | null;
   paper_type: string; grammage: string | null; size: string; side: string;
   paper_cost: number; printing_cost: number; is_active: boolean;
-  sort_order: number; equipment_id: string | null;
+  sort_order: number; equipment_id: string | null; equipment_mode: string;
 }
 interface Equipment { id: string; name: string; printer_type: string; }
 interface EquipmentConsumable { equipment_id: string; price: number; yield_pages: number; mode: string; }
