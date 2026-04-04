@@ -244,7 +244,7 @@ export default function PrecoImpressao() {
   useEffect(() => { setActivePaperType("__all__"); setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); }, [activeCategory]);
 
   const getEffectivePrintingCost = (item: PrintingPriceItem) => {
-    if (item.equipment_id) return getEquipmentCostPerPage(item.equipment_id, coveragePct);
+    if (item.equipment_id) return getCostFromKey(item.equipment_id);
     return item.printing_cost;
   };
 
