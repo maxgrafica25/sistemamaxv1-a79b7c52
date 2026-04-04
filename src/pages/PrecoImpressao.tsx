@@ -636,12 +636,82 @@ export default function PrecoImpressao() {
                         Cobertura {coveragePct}%
                       </Badge>
                     </CardTitle>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
                       {paperRecords.length > 0 && activeItems.length > 0 && (
                         <Button onClick={() => setShowSyncDialog(true)} size="sm" variant="outline" className="gap-1.5 text-primary border-primary/30 hover:bg-primary/5">
                           <RefreshCw className="h-3.5 w-3.5" /> Atualizar Preços de Papel
                         </Button>
                       )}
+
+                      {/* Filters button */}
+                      <Popover open={showFilters} onOpenChange={setShowFilters}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className={cn("gap-1.5", activeFilterCount > 0 && "border-primary text-primary")}>
+                            <Filter className="h-3.5 w-3.5" />
+                            Filtros
+                            {activeFilterCount > 0 && <Badge variant="default" className="h-5 w-5 p-0 flex items-center justify-center text-[10px] rounded-full">{activeFilterCount}</Badge>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 space-y-3" align="end">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-sm">Filtros</span>
+                            {activeFilterCount > 0 && (
+                              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => { setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); }}>
+                                <X className="h-3 w-3" /> Limpar
+                              </Button>
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">Gramatura</Label>
+                            <Select value={filterGrammage} onValueChange={setFilterGrammage}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__all__">Todas</SelectItem>
+                                {uniqueGrammages.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">Tamanho</Label>
+                            <Select value={filterSize} onValueChange={setFilterSize}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__all__">Todos</SelectItem>
+                                {uniqueSizes.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">Lado</Label>
+                            <Select value={filterSide} onValueChange={setFilterSide}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__all__">Todos</SelectItem>
+                                {uniqueSides.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+
+                      {/* Column visibility */}
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="icon" className="h-8 w-8" title="Colunas visíveis">
+                            <SlidersHorizontal className="h-3.5 w-3.5" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-52 space-y-2" align="end">
+                          <span className="font-semibold text-sm">Colunas</span>
+                          {(Object.keys(visibleColumns) as ColumnKey[]).map(key => (
+                            <label key={key} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5">
+                              <Checkbox checked={visibleColumns[key]} onCheckedChange={() => toggleColumn(key)} className="h-4 w-4" />
+                              {columnLabels[key]}
+                            </label>
+                          ))}
+                        </PopoverContent>
+                      </Popover>
+
                       <Button onClick={() => openItemDialog()} size="sm" className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Novo Item</Button>
                     </div>
                   </CardHeader>
@@ -682,6 +752,32 @@ export default function PrecoImpressao() {
                     </div>
                   )}
 
+                  {/* Active filters summary */}
+                  {activeFilterCount > 0 && (
+                    <div className="px-6 pb-2 flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-muted-foreground">Filtros ativos:</span>
+                      {filterGrammage !== "__all__" && (
+                        <Badge variant="secondary" className="text-[10px] gap-1">
+                          Gram: {filterGrammage}
+                          <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterGrammage("__all__")} />
+                        </Badge>
+                      )}
+                      {filterSize !== "__all__" && (
+                        <Badge variant="secondary" className="text-[10px] gap-1">
+                          Tam: {filterSize}
+                          <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterSize("__all__")} />
+                        </Badge>
+                      )}
+                      {filterSide !== "__all__" && (
+                        <Badge variant="secondary" className="text-[10px] gap-1">
+                          Lado: {filterSide}
+                          <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterSide("__all__")} />
+                        </Badge>
+                      )}
+                      <span className="text-xs text-muted-foreground ml-2">{filteredItems.length} resultado(s)</span>
+                    </div>
+                  )}
+
                   <CardContent>
                     {activeItems.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-6">Adicione itens de papel. O custo pode vir do cadastro de papéis ou ser informado manualmente.</p>
@@ -690,14 +786,14 @@ export default function PrecoImpressao() {
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead className="w-[60px]">Cód.</TableHead>
-                              <TableHead>Tipo</TableHead>
-                              <TableHead>Gram.</TableHead>
-                              <TableHead>Tam.</TableHead>
-                              <TableHead>Lado</TableHead>
-                              <TableHead className="text-right">C. Papel</TableHead>
-                              <TableHead className="text-right"><span className="flex items-center gap-1 justify-end">C. Impr.{equipments.length > 0 && <Cpu className="h-3 w-3 text-muted-foreground" />}</span></TableHead>
-                              <TableHead className="text-right">Custo Total</TableHead>
+                              {visibleColumns.code && <TableHead className="w-[60px]">Cód.</TableHead>}
+                              {visibleColumns.type && <TableHead>Tipo</TableHead>}
+                              {visibleColumns.grammage && <TableHead>Gram.</TableHead>}
+                              {visibleColumns.size && <TableHead>Tam.</TableHead>}
+                              {visibleColumns.side && <TableHead>Lado</TableHead>}
+                              {visibleColumns.paperCost && <TableHead className="text-right">C. Papel</TableHead>}
+                              {visibleColumns.printCost && <TableHead className="text-right"><span className="flex items-center gap-1 justify-end">C. Impr.{equipments.length > 0 && <Cpu className="h-3 w-3 text-muted-foreground" />}</span></TableHead>}
+                              {visibleColumns.totalCost && <TableHead className="text-right">Custo Total</TableHead>}
                               {activeTiers.map(tier => (
                                 <TableHead key={tier.id} className="text-center min-w-[90px]">
                                   <Tooltip>
@@ -724,19 +820,21 @@ export default function PrecoImpressao() {
                               const baseCost = item.paper_cost + printCost;
                               return (
                                 <TableRow key={item.id}>
-                                  <TableCell className="font-mono text-xs text-muted-foreground">{item.code || "—"}</TableCell>
-                                  <TableCell className="font-medium">{item.paper_type}</TableCell>
-                                  <TableCell>{item.grammage || "—"}</TableCell>
-                                  <TableCell>{item.size}</TableCell>
-                                  <TableCell><Badge variant={item.side === "F/V" ? "default" : "outline"} className="text-[10px]">{item.side}</Badge></TableCell>
-                                  <TableCell className="text-right font-mono text-xs">{fmt4(item.paper_cost)}</TableCell>
-                                  <TableCell className="text-right font-mono text-xs">
-                                    <span className="flex items-center gap-1 justify-end">
-                                      {fmt4(printCost)}
-                                      {item.equipment_id && <span title={getEquipmentName(item.equipment_id)}><Cpu className="h-3 w-3 text-muted-foreground inline" /></span>}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell className="text-right font-mono text-xs font-semibold">{fmt4(baseCost)}</TableCell>
+                                  {visibleColumns.code && <TableCell className="font-mono text-xs text-muted-foreground">{item.code || "—"}</TableCell>}
+                                  {visibleColumns.type && <TableCell className="font-medium">{item.paper_type}</TableCell>}
+                                  {visibleColumns.grammage && <TableCell>{item.grammage || "—"}</TableCell>}
+                                  {visibleColumns.size && <TableCell>{item.size}</TableCell>}
+                                  {visibleColumns.side && <TableCell><Badge variant={item.side === "F/V" ? "default" : "outline"} className="text-[10px]">{item.side}</Badge></TableCell>}
+                                  {visibleColumns.paperCost && <TableCell className="text-right font-mono text-xs">{fmt4(item.paper_cost)}</TableCell>}
+                                  {visibleColumns.printCost && (
+                                    <TableCell className="text-right font-mono text-xs">
+                                      <span className="flex items-center gap-1 justify-end">
+                                        {fmt4(printCost)}
+                                        {item.equipment_id && <span title={getEquipmentName(item.equipment_id)}><Cpu className="h-3 w-3 text-muted-foreground inline" /></span>}
+                                      </span>
+                                    </TableCell>
+                                  )}
+                                  {visibleColumns.totalCost && <TableCell className="text-right font-mono text-xs font-semibold">{fmt4(baseCost)}</TableCell>}
                                   {activeTiers.map(tier => (
                                     <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPrice(baseCost, tier))}</TableCell>
                                   ))}
