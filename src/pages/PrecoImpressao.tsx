@@ -224,14 +224,24 @@ export default function PrecoImpressao() {
     return types;
   }, [activeItems]);
 
-  // Filtered items by active paper type sub-tab
-  const filteredItems = useMemo(() => {
-    if (activePaperType === "__all__") return activeItems;
-    return activeItems.filter(i => i.paper_type === activePaperType);
-  }, [activeItems, activePaperType]);
+  // Unique filter options
+  const uniqueGrammages = useMemo(() => [...new Set(activeItems.map(i => i.grammage || "—"))].sort(), [activeItems]);
+  const uniqueSizes = useMemo(() => [...new Set(activeItems.map(i => i.size))].sort(), [activeItems]);
+  const uniqueSides = useMemo(() => [...new Set(activeItems.map(i => i.side))].sort(), [activeItems]);
 
-  // Reset paper type sub-tab when category changes
-  useEffect(() => { setActivePaperType("__all__"); }, [activeCategory]);
+  const activeFilterCount = [filterGrammage, filterSize, filterSide].filter(f => f !== "__all__").length;
+
+  // Filtered items by active paper type sub-tab + filters
+  const filteredItems = useMemo(() => {
+    let result = activePaperType === "__all__" ? activeItems : activeItems.filter(i => i.paper_type === activePaperType);
+    if (filterGrammage !== "__all__") result = result.filter(i => (i.grammage || "—") === filterGrammage);
+    if (filterSize !== "__all__") result = result.filter(i => i.size === filterSize);
+    if (filterSide !== "__all__") result = result.filter(i => i.side === filterSide);
+    return result;
+  }, [activeItems, activePaperType, filterGrammage, filterSize, filterSide]);
+
+  // Reset filters when category changes
+  useEffect(() => { setActivePaperType("__all__"); setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); }, [activeCategory]);
 
   const getEffectivePrintingCost = (item: PrintingPriceItem) => {
     if (item.equipment_id) return getEquipmentCostPerPage(item.equipment_id, coveragePct);
