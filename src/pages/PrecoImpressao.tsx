@@ -145,6 +145,7 @@ export default function PrecoImpressao() {
   const [filterGrammage, setFilterGrammage] = useState<string>("__all__");
   const [filterSize, setFilterSize] = useState<string>("__all__");
   const [filterSide, setFilterSide] = useState<string>("__all__");
+  const [filterEquipment, setFilterEquipment] = useState<string>("__all__");
   const [showFilters, setShowFilters] = useState(false);
 
   // Column visibility
