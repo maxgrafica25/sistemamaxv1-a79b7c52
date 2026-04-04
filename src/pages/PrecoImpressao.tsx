@@ -826,7 +826,25 @@ export default function PrecoImpressao() {
                                   {visibleColumns.grammage && <TableCell>{item.grammage || "—"}</TableCell>}
                                   {visibleColumns.size && <TableCell>{item.size}</TableCell>}
                                   {visibleColumns.side && <TableCell><Badge variant={item.side === "F/V" ? "default" : "outline"} className="text-[10px]">{item.side}</Badge></TableCell>}
-                                  {visibleColumns.paperCost && <TableCell className="text-right font-mono text-xs">{fmt4(item.paper_cost)}</TableCell>}
+                                  {visibleColumns.equipment && (
+                                    <TableCell>
+                                      {item.equipment_id ? (() => {
+                                        const { id, isPBMode } = parseEquipKey(item.equipment_id);
+                                        const eq = equipments.find(e => e.id === id);
+                                        const isColor = eq?.printer_type === 'color';
+                                        return (
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="text-xs truncate max-w-[120px]" title={eq?.name}>{eq?.name || "—"}</span>
+                                            {isColor && (
+                                              <Badge variant={isPBMode ? "outline" : "secondary"} className="text-[9px] px-1.5 py-0 shrink-0">
+                                                {isPBMode ? "PB" : "Color"}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        );
+                                      })() : <span className="text-xs text-muted-foreground">Manual</span>}
+                                    </TableCell>
+                                  )}
                                   {visibleColumns.printCost && (
                                     <TableCell className="text-right font-mono text-xs">
                                       <span className="flex items-center gap-1 justify-end">
