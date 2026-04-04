@@ -505,39 +505,69 @@ export default function Equipamentos() {
                     </CardContent>
                   </Card>
 
-                  {/* Coverage comparison */}
-                  {activeConsumables.length > 0 && (
-                    <div className={`grid gap-3 ${costScenarios.isColor ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
-                      {costScenarios.isColor && (
-                        <>
-                          <Card className="border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/30">
-                            <CardContent className="p-4 text-center">
-                              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">Color • 5%</p>
-                              <p className="text-xl font-bold text-foreground">{fmtRound(costScenarios.color5)}</p>
-                            </CardContent>
-                          </Card>
-                          <Card className="border-violet-300 dark:border-violet-700 bg-violet-100/60 dark:bg-violet-950/50">
-                            <CardContent className="p-4 text-center">
-                              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">Color • 20%</p>
-                              <p className="text-xl font-bold text-foreground">{fmtRound(costScenarios.color20)}</p>
-                            </CardContent>
-                          </Card>
-                        </>
-                      )}
-                      <Card className="border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30">
-                        <CardContent className="p-4 text-center">
-                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">PB • 5%</p>
-                          <p className="text-xl font-bold text-foreground">{fmtRound(costScenarios.pb5)}</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="border-slate-300 dark:border-slate-600 bg-slate-100/60 dark:bg-slate-900/50">
-                        <CardContent className="p-4 text-center">
-                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">PB • 20%</p>
-                          <p className="text-xl font-bold text-foreground">{fmtRound(costScenarios.pb20)}</p>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
+                  {/* Coverage comparison with consumable breakdown */}
+                  {activeConsumables.length > 0 && (() => {
+                    const sharedCons = activeConsumables.filter(c => c.mode !== "color_only");
+                    const allCons = activeConsumables;
+                    const colorOnlyCons = activeConsumables.filter(c => c.mode === "color_only");
+
+                    const scenarios = costScenarios.isColor
+                      ? [
+                          { label: "Color • 5%", value: costScenarios.color5, items: allCons, multiplier: 1, borderClass: "border-violet-200 dark:border-violet-800", bgClass: "bg-violet-50/50 dark:bg-violet-950/30", dotColor: "bg-violet-400" },
+                          { label: "Color • 20%", value: costScenarios.color20, items: allCons, multiplier: 4, borderClass: "border-violet-300 dark:border-violet-700", bgClass: "bg-violet-100/60 dark:bg-violet-950/50", dotColor: "bg-violet-500" },
+                          { label: "PB • 5%", value: costScenarios.pb5, items: sharedCons, multiplier: 1, borderClass: "border-slate-200 dark:border-slate-700", bgClass: "bg-slate-50/50 dark:bg-slate-900/30", dotColor: "bg-slate-400" },
+                          { label: "PB • 20%", value: costScenarios.pb20, items: sharedCons, multiplier: 4, borderClass: "border-slate-300 dark:border-slate-600", bgClass: "bg-slate-100/60 dark:bg-slate-900/50", dotColor: "bg-slate-500" },
+                        ]
+                      : [
+                          { label: "PB • 5%", value: costScenarios.pb5, items: allCons, multiplier: 1, borderClass: "border-slate-200 dark:border-slate-700", bgClass: "bg-slate-50/50 dark:bg-slate-900/30", dotColor: "bg-slate-400" },
+                          { label: "PB • 20%", value: costScenarios.pb20, items: allCons, multiplier: 4, borderClass: "border-slate-300 dark:border-slate-600", bgClass: "bg-slate-100/60 dark:bg-slate-900/50", dotColor: "bg-slate-500" },
+                        ];
+
+                    return (
+                      <div className={`grid gap-3 ${costScenarios.isColor ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
+                        {scenarios.map((sc) => (
+                          <Collapsible key={sc.label}>
+                            <Card className={`${sc.borderClass} ${sc.bgClass}`}>
+                              <CollapsibleTrigger className="w-full text-left">
+                                <CardContent className="p-4">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{sc.label}</p>
+                                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </div>
+                                  <p className="text-xl font-bold text-foreground">{fmtRound(sc.value)}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">{sc.items.length} consumíve{sc.items.length === 1 ? 'l' : 'is'}</p>
+                                </CardContent>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <div className="px-4 pb-4 space-y-1.5">
+                                  <div className="border-t border-border/50 pt-2" />
+                                  {sc.items.map(c => {
+                                    const cpp = c.yield_pages > 0 ? (c.price / c.yield_pages) * sc.multiplier : 0;
+                                    return (
+                                      <div key={c.id} className="flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-1.5">
+                                          <div className={`h-1.5 w-1.5 rounded-full ${sc.dotColor}`} />
+                                          <span className="text-muted-foreground">{c.name}</span>
+                                        </div>
+                                        <span className="font-mono text-foreground">{fmt4(cpp)}</span>
+                                      </div>
+                                    );
+                                  })}
+                                  {costScenarios.isColor && sc.label.startsWith("PB") && colorOnlyCons.length > 0 && (
+                                    <div className="pt-1 border-t border-border/30">
+                                      <p className="text-[10px] text-muted-foreground italic">
+                                        Excluídos: {colorOnlyCons.map(c => c.name).join(", ")}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              </CollapsibleContent>
+                            </Card>
+                          </Collapsible>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </TabsContent>
 
                 {/* ── Contadores Tab ── */}
