@@ -363,13 +363,13 @@ export default function PrecoImpressao() {
 
   const saveItem = async () => {
     if (!itemPaperType.trim()) return toast.error("Tipo de papel obrigatório");
-    const realEquipId = itemEquipmentId ? parseEquipKey(itemEquipmentId).id : "";
+    // Save the full composite key (e.g. "uuid:pb") so we know the mode on reload
     const effectivePrintingCost = itemEquipmentId ? getCostFromKey(itemEquipmentId) : Number(itemPrintingCost);
     const data = {
       printer_category_id: activeCategory, code: itemCode || null, paper_type: itemPaperType,
       grammage: itemGrammage || null, size: itemSize, side: itemSide,
       paper_cost: Number(itemPaperCost), printing_cost: effectivePrintingCost,
-      equipment_id: realEquipId || null,
+      equipment_id: itemEquipmentId || null,
       sort_order: editingItem ? editingItem.sort_order : activeItems.length,
     };
     if (editingItem) await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
