@@ -652,7 +652,7 @@ export default function PrecoImpressao() {
                           <div className="flex items-center justify-between">
                             <span className="font-semibold text-sm">Filtros</span>
                             {activeFilterCount > 0 && (
-                              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => { setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); }}>
+                              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => { setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); setFilterEquipment("__all__"); }}>
                                 <X className="h-3 w-3" /> Limpar
                               </Button>
                             )}
@@ -684,6 +684,17 @@ export default function PrecoImpressao() {
                               <SelectContent>
                                 <SelectItem value="__all__">Todos</SelectItem>
                                 {uniqueSides.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">Impressora</Label>
+                            <Select value={filterEquipment} onValueChange={setFilterEquipment}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__all__">Todas</SelectItem>
+                                <SelectItem value="__manual__">Manual</SelectItem>
+                                {uniqueEquipments.map(e => <SelectItem key={e.key} value={e.key}>{e.label}</SelectItem>)}
                               </SelectContent>
                             </Select>
                           </div>
