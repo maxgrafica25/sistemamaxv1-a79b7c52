@@ -226,6 +226,7 @@ export type Database = {
           created_at: string
           equipment_id: string
           id: string
+          mode: string
           name: string
           price: number
           sort_order: number
@@ -236,6 +237,7 @@ export type Database = {
           created_at?: string
           equipment_id: string
           id?: string
+          mode?: string
           name: string
           price?: number
           sort_order?: number
@@ -246,6 +248,7 @@ export type Database = {
           created_at?: string
           equipment_id?: string
           id?: string
+          mode?: string
           name?: string
           price?: number
           sort_order?: number
