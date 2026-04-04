@@ -159,10 +159,15 @@ export default function PrecoImpressao() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  const getEquipmentCostPerPage = (equipmentId: string, coverage: number = 20) => {
-    const isPB = coverage <= 5;
+  const getEquipmentCostPerPage = (equipmentId: string, categoryCoverage: number = 20) => {
+    const eq = equipments.find(e => e.id === equipmentId);
+    const isColorPrinter = eq?.printer_type === 'color';
+    const isPBCategory = categoryCoverage <= 5;
+    // Cobertura: impressora color sempre 20%, impressora PB sempre 5%
+    const coverage = isColorPrinter ? 20 : 5;
+    // Consumíveis: em categoria PB → só compartilhados; em category Color → todos
     const cons = equipConsumables.filter(c =>
-      c.equipment_id === equipmentId && (isPB ? c.mode === "shared" : true)
+      c.equipment_id === equipmentId && (isPBCategory ? c.mode === "shared" : true)
     );
     const baseCost = cons.reduce((sum, c) => c.yield_pages <= 0 ? sum : sum + c.price / c.yield_pages, 0);
     return baseCost * (coverage / 5);
