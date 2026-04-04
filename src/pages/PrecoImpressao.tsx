@@ -781,6 +781,12 @@ export default function PrecoImpressao() {
                           <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterSide("__all__")} />
                         </Badge>
                       )}
+                      {filterEquipment !== "__all__" && (
+                        <Badge variant="secondary" className="text-[10px] gap-1">
+                          Impr: {filterEquipment === "__manual__" ? "Manual" : uniqueEquipments.find(e => e.key === filterEquipment)?.label || filterEquipment}
+                          <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterEquipment("__all__")} />
+                        </Badge>
+                      )}
                       <span className="text-xs text-muted-foreground ml-2">{filteredItems.length} resultado(s)</span>
                     </div>
                   )}
