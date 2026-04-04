@@ -1068,7 +1068,7 @@ export default function PrecoImpressao() {
               <div className="rounded-lg bg-muted/50 p-3 flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Papel + Impressão</span>
                 <span className="text-lg font-bold text-foreground">
-                  {fmt4(Number(itemPaperCost) + (itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct) : Number(itemPrintingCost)))}
+                  {fmt4(Number(itemPaperCost) + (itemEquipmentId ? getCostFromKey(itemEquipmentId) : Number(itemPrintingCost)))}
                 </span>
               </div>
             </div>
