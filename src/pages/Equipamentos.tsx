@@ -59,6 +59,12 @@ const fmt4 = (v: number) =>
 const fmtNum = (v: number) =>
   v.toLocaleString("pt-BR");
 
+// Round up to nearest R$ 0.10
+const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
+
+const fmtRound = (v: number) =>
+  roundUp10(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 // Visual config per printer type for better distinction
 const printerTypeConfig: Record<string, { label: string; shortLabel: string; color: string; bgClass: string; borderClass: string; iconBg: string }> = {
   pb: {
