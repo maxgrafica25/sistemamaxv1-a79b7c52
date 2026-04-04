@@ -140,6 +140,24 @@ export default function PrecoImpressao() {
   const [activePaperType, setActivePaperType] = useState<string>("__all__");
   const tabsScrollRef = useRef<HTMLDivElement>(null);
 
+  // Filters
+  const [filterGrammage, setFilterGrammage] = useState<string>("__all__");
+  const [filterSize, setFilterSize] = useState<string>("__all__");
+  const [filterSide, setFilterSide] = useState<string>("__all__");
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Column visibility
+  type ColumnKey = "code" | "type" | "grammage" | "size" | "side" | "paperCost" | "printCost" | "totalCost";
+  const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>({
+    code: true, type: true, grammage: true, size: true, side: true,
+    paperCost: true, printCost: true, totalCost: true,
+  });
+  const columnLabels: Record<ColumnKey, string> = {
+    code: "Código", type: "Tipo", grammage: "Gramatura", size: "Tamanho",
+    side: "Lado", paperCost: "C. Papel", printCost: "C. Impressão", totalCost: "Custo Total",
+  };
+  const toggleColumn = (key: ColumnKey) => setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
+
   // ─── Data loading ──────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
     setLoading(true);
