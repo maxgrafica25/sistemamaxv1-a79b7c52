@@ -408,23 +408,9 @@ export default function PrecoImpressao() {
           </Card>
         ) : (
           <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost" size="icon"
-                className="h-8 w-8 shrink-0 border border-border/50"
-                onClick={() => {
-                  const ref = tabsScrollRef.current;
-                  if (ref) ref.scrollBy({ left: -200, behavior: 'smooth' });
-                }}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div
-                ref={tabsScrollRef}
-                className="overflow-x-auto scrollbar-hide flex-1"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              >
-                <TabsList className="bg-muted/60 h-auto p-1 gap-1 w-max">
+            <div className="flex items-start gap-2">
+              <div className="flex-1">
+                <TabsList className="bg-muted/60 h-auto p-1 gap-1 flex flex-wrap">
                   {categories.map(cat => {
                     const isActive = activeCategory === cat.id;
                     const isColor = isColorCategory(cat.name);
@@ -459,16 +445,6 @@ export default function PrecoImpressao() {
                   })}
                 </TabsList>
               </div>
-              <Button
-                variant="ghost" size="icon"
-                className="h-8 w-8 shrink-0 border border-border/50"
-                onClick={() => {
-                  const ref = tabsScrollRef.current;
-                  if (ref) ref.scrollBy({ left: 200, behavior: 'smooth' });
-                }}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
               <div className="flex gap-1 shrink-0 ml-1">
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { const cat = categories.find(c => c.id === activeCategory); if (cat) openCategoryDialog(cat); }}>
                   <Edit2 className="h-3.5 w-3.5" />
