@@ -323,11 +323,11 @@ export default function PrecoImpressao() {
       setEditingItem(item); setItemCode(item.code || ""); setItemPaperType(item.paper_type);
       setItemGrammage(item.grammage || ""); setItemSize(item.size); setItemSide(item.side);
       setItemPaperCost(String(item.paper_cost)); setItemPrintingCost(String(item.printing_cost));
-      setItemEquipmentId(item.equipment_id || ""); setItemPaperSource("manual");
+      setItemEquipmentId(item.equipment_id || ""); setItemEquipmentMode(item.equipment_mode || "color"); setItemPaperSource("manual");
     } else {
       setEditingItem(null); setItemCode(""); setItemPaperType(""); setItemGrammage("");
       setItemSize("A4"); setItemSide("F"); setItemPaperCost("0"); setItemPrintingCost("0");
-      setItemEquipmentId(""); setItemPaperSource("manual");
+      setItemEquipmentId(""); setItemEquipmentMode("color"); setItemPaperSource("manual");
     }
     setShowItemDialog(true);
   };
