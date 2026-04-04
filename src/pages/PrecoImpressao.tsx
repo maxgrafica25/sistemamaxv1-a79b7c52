@@ -1180,7 +1180,7 @@ export default function PrecoImpressao() {
                         <div className="text-sm">
                           <span className="text-muted-foreground">Via </span>
                           <span className="font-medium text-foreground">{getEquipmentLabel(itemEquipmentId)}</span>
-                          <span className="text-muted-foreground"> a {parseEquipKey(itemEquipmentId).isPBMode ? "5" : coveragePct}%: </span>
+                          <span className="text-muted-foreground"> a 20% (só PB): </span>
                           <span className="font-bold text-primary">{fmt4(getCostFromKey(itemEquipmentId))}</span>
                         </div>
                       </div>
