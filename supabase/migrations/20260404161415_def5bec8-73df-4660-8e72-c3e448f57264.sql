@@ -1,0 +1,1 @@
+UPDATE equipment_consumables SET mode = 'color_only' WHERE id IN ('375892ba-914d-45a7-afdb-75ababcc7b96', '5af9aeb3-9d69-4644-aa73-efa477c68d95', '40ed8a52-eb30-416d-81a0-f8b32d80703a');
