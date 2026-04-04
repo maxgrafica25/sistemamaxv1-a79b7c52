@@ -46,7 +46,7 @@ interface PrintingPriceItem {
   paper_cost: number; printing_cost: number; is_active: boolean;
   sort_order: number; equipment_id: string | null;
 }
-interface Equipment { id: string; name: string; }
+interface Equipment { id: string; name: string; printer_type: string; }
 interface EquipmentConsumable { equipment_id: string; price: number; yield_pages: number; mode: string; }
 interface PaperRecord {
   id: string; name: string; grammage: string | null;
@@ -143,7 +143,7 @@ export default function PrecoImpressao() {
       supabase.from("printer_categories").select("*").order("sort_order"),
       supabase.from("markup_tiers").select("*").order("sort_order"),
       supabase.from("printing_price_items").select("*").order("sort_order"),
-      supabase.from("equipments").select("id, name").order("sort_order"),
+      supabase.from("equipments").select("id, name, printer_type").order("sort_order"),
       supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
       supabase.from("papers").select("id, name, grammage, sheet_qty, pack_price, freight_price").eq("is_active", true).order("sort_order"),
     ]);
@@ -159,10 +159,15 @@ export default function PrecoImpressao() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  const getEquipmentCostPerPage = (equipmentId: string, coverage: number = 20) => {
-    const isPB = coverage <= 5;
+  const getEquipmentCostPerPage = (equipmentId: string, categoryCoverage: number = 20) => {
+    const eq = equipments.find(e => e.id === equipmentId);
+    const isColorPrinter = eq?.printer_type === 'color';
+    const isPBCategory = categoryCoverage <= 5;
+    // Cobertura: impressora color sempre 20%, impressora PB sempre 5%
+    const coverage = isColorPrinter ? 20 : 5;
+    // Consumíveis: em categoria PB → só compartilhados; em category Color → todos
     const cons = equipConsumables.filter(c =>
-      c.equipment_id === equipmentId && (isPB ? c.mode === "shared" : true)
+      c.equipment_id === equipmentId && (isPBCategory ? c.mode === "shared" : true)
     );
     const baseCost = cons.reduce((sum, c) => c.yield_pages <= 0 ? sum : sum + c.price / c.yield_pages, 0);
     return baseCost * (coverage / 5);
