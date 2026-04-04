@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +48,7 @@ interface PrintingPriceItem {
   id: string; printer_category_id: string; code: string | null;
   paper_type: string; grammage: string | null; size: string; side: string;
   paper_cost: number; printing_cost: number; is_active: boolean;
-  sort_order: number; equipment_id: string | null;
+  sort_order: number; equipment_id: string | null; equipment_mode: string;
 }
 interface Equipment { id: string; name: string; printer_type: string; }
 interface EquipmentConsumable { equipment_id: string; price: number; yield_pages: number; mode: string; }
@@ -130,6 +130,7 @@ export default function PrecoImpressao() {
   const [itemPaperCost, setItemPaperCost] = useState("0");
   const [itemPrintingCost, setItemPrintingCost] = useState("0");
   const [itemEquipmentId, setItemEquipmentId] = useState<string>("");
+  const [itemEquipmentMode, setItemEquipmentMode] = useState<string>("color");
   const [itemPaperSource, setItemPaperSource] = useState<string>("manual");
   // Coverage is auto-determined per category
   const activeCategoryObj = categories.find(c => c.id === activeCategory);
@@ -144,6 +145,7 @@ export default function PrecoImpressao() {
   const [filterGrammage, setFilterGrammage] = useState<string>("__all__");
   const [filterSize, setFilterSize] = useState<string>("__all__");
   const [filterSide, setFilterSide] = useState<string>("__all__");
+  const [filterEquipment, setFilterEquipment] = useState<string>("__all__");
   const [showFilters, setShowFilters] = useState(false);
 
   // Column visibility
@@ -181,19 +183,11 @@ export default function PrecoImpressao() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  // Parse composite equipment key: "uuid" (full/color) or "uuid:pb" (PB mode)
-  const parseEquipKey = (key: string) => {
-    const [id, mode] = key.split(":");
-    return { id, isPBMode: mode === "pb" };
-  };
-
   const getEquipmentCostPerPage = (equipmentId: string, categoryCoverage: number = 20, forcePB?: boolean) => {
     const eq = equipments.find(e => e.id === equipmentId);
     const isColorPrinter = eq?.printer_type === 'color';
     const usePB = forcePB ?? categoryCoverage <= 5;
-    // Cobertura sempre 20% para impressora color (mesmo PB), 5% para PB nativa
     const coverage = isColorPrinter ? 20 : 5;
-    // Consumíveis: modo PB → só compartilhados; Color → todos
     const cons = equipConsumables.filter(c =>
       c.equipment_id === equipmentId && (usePB ? c.mode === "shared" : true)
     );
@@ -201,52 +195,54 @@ export default function PrecoImpressao() {
     return baseCost * (coverage / 5);
   };
 
-  // Get cost using composite key (with :pb suffix support)
-  const getCostFromKey = (key: string) => {
-    const { id, isPBMode } = parseEquipKey(key);
-    return getEquipmentCostPerPage(id, coveragePct, isPBMode);
-  };
+  const getEquipmentName = (id: string) => equipments.find(e => e.id === id)?.name || "—";
 
-  const getEquipmentName = (id: string) => equipments.find(e => e.id === parseEquipKey(id).id)?.name || "—";
-  const getEquipmentLabel = (key: string) => {
-    const { id, isPBMode } = parseEquipKey(key);
-    const name = equipments.find(e => e.id === id)?.name || "—";
-    return isPBMode ? `${name} (PB)` : name;
+  const getEffectivePrintingCost = (item: PrintingPriceItem) => {
+    if (item.equipment_id) return getEquipmentCostPerPage(item.equipment_id, coveragePct, item.equipment_mode === 'pb');
+    return item.printing_cost;
   };
 
   const activeTiers = useMemo(() => tiers.filter(t => t.printer_category_id === activeCategory).sort((a, b) => a.sort_order - b.sort_order), [tiers, activeCategory]);
   const activeItems = useMemo(() => items.filter(i => i.printer_category_id === activeCategory && i.is_active).sort((a, b) => a.sort_order - b.sort_order), [items, activeCategory]);
 
-  // Unique paper types for sub-tabs
   const paperTypes = useMemo(() => {
     const types: string[] = [];
     activeItems.forEach(item => { if (!types.includes(item.paper_type)) types.push(item.paper_type); });
     return types;
   }, [activeItems]);
 
-  // Unique filter options
   const uniqueGrammages = useMemo(() => [...new Set(activeItems.map(i => i.grammage || "—"))].sort(), [activeItems]);
   const uniqueSizes = useMemo(() => [...new Set(activeItems.map(i => i.size))].sort(), [activeItems]);
   const uniqueSides = useMemo(() => [...new Set(activeItems.map(i => i.side))].sort(), [activeItems]);
+  const uniqueEquipments = useMemo(() => {
+    const eqMap = new Map<string, string>();
+    activeItems.forEach(i => {
+      if (i.equipment_id) {
+        const label = getEquipmentName(i.equipment_id) + (i.equipment_mode === 'pb' ? ' (PB)' : '');
+        eqMap.set(i.equipment_id + ':' + i.equipment_mode, label);
+      }
+    });
+    return [...eqMap.entries()].map(([key, label]) => ({ key, label }));
+  }, [activeItems, equipments]);
 
-  const activeFilterCount = [filterGrammage, filterSize, filterSide].filter(f => f !== "__all__").length;
+  const activeFilterCount = [filterGrammage, filterSize, filterSide, filterEquipment].filter(f => f !== "__all__").length;
 
-  // Filtered items by active paper type sub-tab + filters
   const filteredItems = useMemo(() => {
     let result = activePaperType === "__all__" ? activeItems : activeItems.filter(i => i.paper_type === activePaperType);
     if (filterGrammage !== "__all__") result = result.filter(i => (i.grammage || "—") === filterGrammage);
     if (filterSize !== "__all__") result = result.filter(i => i.size === filterSize);
     if (filterSide !== "__all__") result = result.filter(i => i.side === filterSide);
+    if (filterEquipment !== "__all__") {
+      if (filterEquipment === "__manual__") result = result.filter(i => !i.equipment_id);
+      else {
+        const [eqId, eqMode] = filterEquipment.split(':');
+        result = result.filter(i => i.equipment_id === eqId && i.equipment_mode === eqMode);
+      }
+    }
     return result;
-  }, [activeItems, activePaperType, filterGrammage, filterSize, filterSide]);
+  }, [activeItems, activePaperType, filterGrammage, filterSize, filterSide, filterEquipment]);
 
-  // Reset filters when category changes
-  useEffect(() => { setActivePaperType("__all__"); setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); }, [activeCategory]);
-
-  const getEffectivePrintingCost = (item: PrintingPriceItem) => {
-    if (item.equipment_id) return getCostFromKey(item.equipment_id);
-    return item.printing_cost;
-  };
+  useEffect(() => { setActivePaperType("__all__"); setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); setFilterEquipment("__all__"); }, [activeCategory]);
 
   // ─── Category CRUD ─────────────────────────────────────────────────
   const openCategoryDialog = (cat?: PrinterCategory) => {
@@ -327,11 +323,11 @@ export default function PrecoImpressao() {
       setEditingItem(item); setItemCode(item.code || ""); setItemPaperType(item.paper_type);
       setItemGrammage(item.grammage || ""); setItemSize(item.size); setItemSide(item.side);
       setItemPaperCost(String(item.paper_cost)); setItemPrintingCost(String(item.printing_cost));
-      setItemEquipmentId(item.equipment_id || ""); setItemPaperSource("manual");
+      setItemEquipmentId(item.equipment_id || ""); setItemEquipmentMode(item.equipment_mode || "color"); setItemPaperSource("manual");
     } else {
       setEditingItem(null); setItemCode(""); setItemPaperType(""); setItemGrammage("");
       setItemSize("A4"); setItemSide("F"); setItemPaperCost("0"); setItemPrintingCost("0");
-      setItemEquipmentId(""); setItemPaperSource("manual");
+      setItemEquipmentId(""); setItemEquipmentMode("color"); setItemPaperSource("manual");
     }
     setShowItemDialog(true);
   };
@@ -363,13 +359,13 @@ export default function PrecoImpressao() {
 
   const saveItem = async () => {
     if (!itemPaperType.trim()) return toast.error("Tipo de papel obrigatório");
-    const realEquipId = itemEquipmentId ? parseEquipKey(itemEquipmentId).id : "";
-    const effectivePrintingCost = itemEquipmentId ? getCostFromKey(itemEquipmentId) : Number(itemPrintingCost);
+    const effectivePrintingCost = itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb') : Number(itemPrintingCost);
     const data = {
       printer_category_id: activeCategory, code: itemCode || null, paper_type: itemPaperType,
       grammage: itemGrammage || null, size: itemSize, side: itemSide,
       paper_cost: Number(itemPaperCost), printing_cost: effectivePrintingCost,
-      equipment_id: realEquipId || null,
+      equipment_id: itemEquipmentId || null,
+      equipment_mode: itemEquipmentMode,
       sort_order: editingItem ? editingItem.sort_order : activeItems.length,
     };
     if (editingItem) await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
@@ -656,7 +652,7 @@ export default function PrecoImpressao() {
                           <div className="flex items-center justify-between">
                             <span className="font-semibold text-sm">Filtros</span>
                             {activeFilterCount > 0 && (
-                              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => { setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); }}>
+                              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => { setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); setFilterEquipment("__all__"); }}>
                                 <X className="h-3 w-3" /> Limpar
                               </Button>
                             )}
@@ -688,6 +684,17 @@ export default function PrecoImpressao() {
                               <SelectContent>
                                 <SelectItem value="__all__">Todos</SelectItem>
                                 {uniqueSides.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">Impressora</Label>
+                            <Select value={filterEquipment} onValueChange={setFilterEquipment}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__all__">Todas</SelectItem>
+                                <SelectItem value="__manual__">Manual</SelectItem>
+                                {uniqueEquipments.map(e => <SelectItem key={e.key} value={e.key}>{e.label}</SelectItem>)}
                               </SelectContent>
                             </Select>
                           </div>
@@ -774,6 +781,12 @@ export default function PrecoImpressao() {
                           <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterSide("__all__")} />
                         </Badge>
                       )}
+                      {filterEquipment !== "__all__" && (
+                        <Badge variant="secondary" className="text-[10px] gap-1">
+                          Impr: {filterEquipment === "__manual__" ? "Manual" : uniqueEquipments.find(e => e.key === filterEquipment)?.label || filterEquipment}
+                          <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterEquipment("__all__")} />
+                        </Badge>
+                      )}
                       <span className="text-xs text-muted-foreground ml-2">{filteredItems.length} resultado(s)</span>
                     </div>
                   )}
@@ -829,15 +842,15 @@ export default function PrecoImpressao() {
                                   {visibleColumns.equipment && (
                                     <TableCell>
                                       {item.equipment_id ? (() => {
-                                        const { id, isPBMode } = parseEquipKey(item.equipment_id);
-                                        const eq = equipments.find(e => e.id === id);
+                                        const eq = equipments.find(e => e.id === item.equipment_id);
                                         const isColor = eq?.printer_type === 'color';
+                                        const isPB = item.equipment_mode === 'pb';
                                         return (
                                           <div className="flex items-center gap-1.5">
                                             <span className="text-xs truncate max-w-[120px]" title={eq?.name}>{eq?.name || "—"}</span>
                                             {isColor && (
-                                              <Badge variant={isPBMode ? "outline" : "secondary"} className="text-[9px] px-1.5 py-0 shrink-0">
-                                                {isPBMode ? "PB" : "Color"}
+                                              <Badge variant={isPB ? "outline" : "secondary"} className="text-[9px] px-1.5 py-0 shrink-0">
+                                                {isPB ? "PB" : "Color"}
                                               </Badge>
                                             )}
                                           </div>
@@ -1150,7 +1163,15 @@ export default function PrecoImpressao() {
                 <Label>Custo de Impressão</Label>
                 {equipments.length > 0 ? (
                   <div className="space-y-3">
-                    <Select value={itemEquipmentId || "manual"} onValueChange={v => setItemEquipmentId(v === "manual" ? "" : v)}>
+                    <Select value={itemEquipmentId ? `${itemEquipmentId}:${itemEquipmentMode}` : "manual"} onValueChange={v => {
+                      if (v === "manual") { setItemEquipmentId(""); setItemEquipmentMode("color"); }
+                      else {
+                        const parts = v.split(":");
+                        const mode = parts.pop()!;
+                        const id = parts.join(":");
+                        setItemEquipmentId(id); setItemEquipmentMode(mode);
+                      }
+                    }}>
                       <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="manual">✏️ Informar manualmente</SelectItem>
@@ -1158,26 +1179,26 @@ export default function PrecoImpressao() {
                           const isColor = eq.printer_type === 'color';
                           if (isColor) {
                             return (
-                              <>
-                                <SelectItem key={`${eq.id}-color`} value={eq.id}>
+                              <React.Fragment key={eq.id}>
+                                <SelectItem value={`${eq.id}:color`}>
                                   <span className="flex items-center gap-2">
-                                    <Cpu className="h-3.5 w-3.5 text-orange-500" />
-                                    {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 border-orange-300 text-orange-600">Color</Badge>
+                                    <Cpu className="h-3.5 w-3.5 text-accent-foreground" />
+                                    {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">Color</Badge>
                                     <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id, 20))}/pág</span>
                                   </span>
                                 </SelectItem>
-                                <SelectItem key={`${eq.id}-pb`} value={`${eq.id}:pb`}>
+                                <SelectItem value={`${eq.id}:pb`}>
                                   <span className="flex items-center gap-2">
-                                    <Cpu className="h-3.5 w-3.5 text-gray-500" />
-                                    {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 border-gray-300 text-gray-600">PB</Badge>
+                                    <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
+                                    {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">PB</Badge>
                                     <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id, 20, true))}/pág</span>
                                   </span>
                                 </SelectItem>
-                              </>
+                              </React.Fragment>
                             );
                           }
                           return (
-                            <SelectItem key={eq.id} value={eq.id}>
+                            <SelectItem key={eq.id} value={`${eq.id}:pb`}>
                               <span className="flex items-center gap-2">
                                 <Cpu className="h-3.5 w-3.5" />
                                 {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">PB</Badge>
@@ -1199,9 +1220,9 @@ export default function PrecoImpressao() {
                         <Cpu className="h-4 w-4 text-primary shrink-0" />
                         <div className="text-sm">
                           <span className="text-muted-foreground">Via </span>
-                          <span className="font-medium text-foreground">{getEquipmentLabel(itemEquipmentId)}</span>
-                          <span className="text-muted-foreground"> a {(() => { const eq = equipments.find(e => e.id === parseEquipKey(itemEquipmentId).id); return eq?.printer_type === 'color' ? '20' : '5'; })()}%{parseEquipKey(itemEquipmentId).isPBMode ? ' (só PB)' : ''}: </span>
-                          <span className="font-bold text-primary">{fmt4(getCostFromKey(itemEquipmentId))}</span>
+                          <span className="font-medium text-foreground">{getEquipmentName(itemEquipmentId)}{itemEquipmentMode === 'pb' ? ' (PB)' : ''}</span>
+                          <span className="text-muted-foreground"> a {equipments.find(e => e.id === itemEquipmentId)?.printer_type === 'color' ? '20' : '5'}%{itemEquipmentMode === 'pb' ? ' (só PB)' : ''}: </span>
+                          <span className="font-bold text-primary">{fmt4(getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb'))}</span>
                         </div>
                       </div>
                     )}
@@ -1218,7 +1239,7 @@ export default function PrecoImpressao() {
               <div className="rounded-lg bg-muted/50 p-3 flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Papel + Impressão</span>
                 <span className="text-lg font-bold text-foreground">
-                  {fmt4(Number(itemPaperCost) + (itemEquipmentId ? getCostFromKey(itemEquipmentId) : Number(itemPrintingCost)))}
+                  {fmt4(Number(itemPaperCost) + (itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb') : Number(itemPrintingCost)))}
                 </span>
               </div>
             </div>

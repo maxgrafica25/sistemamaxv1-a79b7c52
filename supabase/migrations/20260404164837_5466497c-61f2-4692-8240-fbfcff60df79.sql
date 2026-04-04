@@ -1,0 +1,1 @@
+ALTER TABLE public.printing_price_items ADD COLUMN equipment_mode text NOT NULL DEFAULT 'color';

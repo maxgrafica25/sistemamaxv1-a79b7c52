@@ -887,6 +887,7 @@ export type Database = {
           code: string | null
           created_at: string
           equipment_id: string | null
+          equipment_mode: string
           grammage: string | null
           id: string
           is_active: boolean
@@ -903,6 +904,7 @@ export type Database = {
           code?: string | null
           created_at?: string
           equipment_id?: string | null
+          equipment_mode?: string
           grammage?: string | null
           id?: string
           is_active?: boolean
@@ -919,6 +921,7 @@ export type Database = {
           code?: string | null
           created_at?: string
           equipment_id?: string | null
+          equipment_mode?: string
           grammage?: string | null
           id?: string
           is_active?: boolean
