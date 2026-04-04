@@ -46,6 +46,7 @@ interface Consumable {
   price: number;
   yield_pages: number;
   sort_order: number;
+  mode: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
