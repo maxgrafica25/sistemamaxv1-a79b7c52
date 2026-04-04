@@ -331,12 +331,13 @@ export default function PrecoImpressao() {
 
   const saveItem = async () => {
     if (!itemPaperType.trim()) return toast.error("Tipo de papel obrigatório");
-    const effectivePrintingCost = itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct) : Number(itemPrintingCost);
+    const realEquipId = itemEquipmentId ? parseEquipKey(itemEquipmentId).id : "";
+    const effectivePrintingCost = itemEquipmentId ? getCostFromKey(itemEquipmentId) : Number(itemPrintingCost);
     const data = {
       printer_category_id: activeCategory, code: itemCode || null, paper_type: itemPaperType,
       grammage: itemGrammage || null, size: itemSize, side: itemSide,
       paper_cost: Number(itemPaperCost), printing_cost: effectivePrintingCost,
-      equipment_id: itemEquipmentId || null,
+      equipment_id: realEquipId || null,
       sort_order: editingItem ? editingItem.sort_order : activeItems.length,
     };
     if (editingItem) await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
