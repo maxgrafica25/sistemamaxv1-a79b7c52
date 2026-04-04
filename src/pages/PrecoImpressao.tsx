@@ -791,6 +791,7 @@ export default function PrecoImpressao() {
                               {visibleColumns.grammage && <TableHead>Gram.</TableHead>}
                               {visibleColumns.size && <TableHead>Tam.</TableHead>}
                               {visibleColumns.side && <TableHead>Lado</TableHead>}
+                              {visibleColumns.equipment && <TableHead>Impressora</TableHead>}
                               {visibleColumns.paperCost && <TableHead className="text-right">C. Papel</TableHead>}
                               {visibleColumns.printCost && <TableHead className="text-right"><span className="flex items-center gap-1 justify-end">C. Impr.{equipments.length > 0 && <Cpu className="h-3 w-3 text-muted-foreground" />}</span></TableHead>}
                               {visibleColumns.totalCost && <TableHead className="text-right">Custo Total</TableHead>}
