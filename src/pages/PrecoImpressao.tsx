@@ -1020,7 +1020,7 @@ export default function PrecoImpressao() {
                                   <span className="flex items-center gap-2">
                                     <Cpu className="h-3.5 w-3.5 text-gray-500" />
                                     {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 border-gray-300 text-gray-600">PB</Badge>
-                                    <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id, 5, true))}/pág</span>
+                                    <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id, 20, true))}/pág</span>
                                   </span>
                                 </SelectItem>
                               </>
