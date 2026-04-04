@@ -46,6 +46,7 @@ interface Consumable {
   price: number;
   yield_pages: number;
   sort_order: number;
+  mode: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -57,6 +58,12 @@ const fmt4 = (v: number) =>
 
 const fmtNum = (v: number) =>
   v.toLocaleString("pt-BR");
+
+// Round up to nearest R$ 0.10
+const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
+
+const fmtRound = (v: number) =>
+  roundUp10(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // Visual config per printer type for better distinction
 const printerTypeConfig: Record<string, { label: string; shortLabel: string; color: string; bgClass: string; borderClass: string; iconBg: string }> = {
@@ -164,8 +171,33 @@ export default function Equipamentos() {
       return sum + c.price / c.yield_pages;
     }, 0);
   }, [activeConsumables]);
+  // Cost calculations for different coverage scenarios
+  const costScenarios = useMemo(() => {
+    const isColor = activeEq?.printer_type === "color";
+    const sharedCons = activeConsumables.filter(c => c.mode !== "color_only");
+    const allCons = activeConsumables;
 
-  
+    const calcCost = (items: Consumable[], coverage: number) =>
+      items.reduce((sum, c) => c.yield_pages > 0 ? sum + (c.price / c.yield_pages) * coverage : sum, 0);
+
+    if (isColor) {
+      return {
+        isColor: true,
+        color5: calcCost(allCons, 1),       // 5% base
+        color20: calcCost(allCons, 4),      // 20% = 4x
+        pb5: calcCost(sharedCons, 1),       // PB 5%
+        pb20: calcCost(sharedCons, 4),      // PB 20%
+      };
+    } else {
+      return {
+        isColor: false,
+        color5: 0,
+        color20: 0,
+        pb5: calcCost(allCons, 1),
+        pb20: calcCost(allCons, 4),
+      };
+    }
+  }, [activeConsumables, activeEq]);
 
   // ─── Equipment CRUD ────────────────────────────────────────────────
   const openEquipDialog = (eq?: Equipment) => {
@@ -475,17 +507,33 @@ export default function Equipamentos() {
 
                   {/* Coverage comparison */}
                   {activeConsumables.length > 0 && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <Card className="bg-[hsl(var(--success-light))] border-[hsl(var(--success))]">
+                    <div className={`grid gap-3 ${costScenarios.isColor ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
+                      {costScenarios.isColor && (
+                        <>
+                          <Card className="border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/30">
+                            <CardContent className="p-4 text-center">
+                              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">Color • 5%</p>
+                              <p className="text-xl font-bold text-foreground">{fmtRound(costScenarios.color5)}</p>
+                            </CardContent>
+                          </Card>
+                          <Card className="border-violet-300 dark:border-violet-700 bg-violet-100/60 dark:bg-violet-950/50">
+                            <CardContent className="p-4 text-center">
+                              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">Color • 20%</p>
+                              <p className="text-xl font-bold text-foreground">{fmtRound(costScenarios.color20)}</p>
+                            </CardContent>
+                          </Card>
+                        </>
+                      )}
+                      <Card className="border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30">
                         <CardContent className="p-4 text-center">
-                          <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Total com 5% de cobertura</p>
-                          <p className="text-2xl font-bold text-foreground">{fmt4(costPerPage)}</p>
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">PB • 5%</p>
+                          <p className="text-xl font-bold text-foreground">{fmtRound(costScenarios.pb5)}</p>
                         </CardContent>
                       </Card>
-                      <Card className="bg-[hsl(var(--warning-light))] border-[hsl(var(--warning))]">
+                      <Card className="border-slate-300 dark:border-slate-600 bg-slate-100/60 dark:bg-slate-900/50">
                         <CardContent className="p-4 text-center">
-                          <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Total com 20% de cobertura</p>
-                          <p className="text-2xl font-bold text-foreground">{fmt4(costPerPage * 4)}</p>
+                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">PB • 20%</p>
+                          <p className="text-xl font-bold text-foreground">{fmtRound(costScenarios.pb20)}</p>
                         </CardContent>
                       </Card>
                     </div>
