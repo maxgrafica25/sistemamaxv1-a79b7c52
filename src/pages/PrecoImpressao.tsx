@@ -825,15 +825,15 @@ export default function PrecoImpressao() {
                                   {visibleColumns.equipment && (
                                     <TableCell>
                                       {item.equipment_id ? (() => {
-                                        const { id, isPBMode } = parseEquipKey(item.equipment_id);
-                                        const eq = equipments.find(e => e.id === id);
+                                        const eq = equipments.find(e => e.id === item.equipment_id);
                                         const isColor = eq?.printer_type === 'color';
+                                        const isPB = item.equipment_mode === 'pb';
                                         return (
                                           <div className="flex items-center gap-1.5">
                                             <span className="text-xs truncate max-w-[120px]" title={eq?.name}>{eq?.name || "—"}</span>
                                             {isColor && (
-                                              <Badge variant={isPBMode ? "outline" : "secondary"} className="text-[9px] px-1.5 py-0 shrink-0">
-                                                {isPBMode ? "PB" : "Color"}
+                                              <Badge variant={isPB ? "outline" : "secondary"} className="text-[9px] px-1.5 py-0 shrink-0">
+                                                {isPB ? "PB" : "Color"}
                                               </Badge>
                                             )}
                                           </div>
