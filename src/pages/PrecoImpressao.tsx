@@ -1146,7 +1146,15 @@ export default function PrecoImpressao() {
                 <Label>Custo de Impressão</Label>
                 {equipments.length > 0 ? (
                   <div className="space-y-3">
-                    <Select value={itemEquipmentId || "manual"} onValueChange={v => setItemEquipmentId(v === "manual" ? "" : v)}>
+                    <Select value={itemEquipmentId ? `${itemEquipmentId}:${itemEquipmentMode}` : "manual"} onValueChange={v => {
+                      if (v === "manual") { setItemEquipmentId(""); setItemEquipmentMode("color"); }
+                      else {
+                        const parts = v.split(":");
+                        const mode = parts.pop()!;
+                        const id = parts.join(":");
+                        setItemEquipmentId(id); setItemEquipmentMode(mode);
+                      }
+                    }}>
                       <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="manual">✏️ Informar manualmente</SelectItem>
@@ -1154,26 +1162,26 @@ export default function PrecoImpressao() {
                           const isColor = eq.printer_type === 'color';
                           if (isColor) {
                             return (
-                              <>
-                                <SelectItem key={`${eq.id}-color`} value={eq.id}>
+                              <React.Fragment key={eq.id}>
+                                <SelectItem value={`${eq.id}:color`}>
                                   <span className="flex items-center gap-2">
-                                    <Cpu className="h-3.5 w-3.5 text-orange-500" />
-                                    {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 border-orange-300 text-orange-600">Color</Badge>
+                                    <Cpu className="h-3.5 w-3.5 text-accent-foreground" />
+                                    {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">Color</Badge>
                                     <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id, 20))}/pág</span>
                                   </span>
                                 </SelectItem>
-                                <SelectItem key={`${eq.id}-pb`} value={`${eq.id}:pb`}>
+                                <SelectItem value={`${eq.id}:pb`}>
                                   <span className="flex items-center gap-2">
-                                    <Cpu className="h-3.5 w-3.5 text-gray-500" />
-                                    {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 border-gray-300 text-gray-600">PB</Badge>
+                                    <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
+                                    {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">PB</Badge>
                                     <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id, 20, true))}/pág</span>
                                   </span>
                                 </SelectItem>
-                              </>
+                              </React.Fragment>
                             );
                           }
                           return (
-                            <SelectItem key={eq.id} value={eq.id}>
+                            <SelectItem key={eq.id} value={`${eq.id}:pb`}>
                               <span className="flex items-center gap-2">
                                 <Cpu className="h-3.5 w-3.5" />
                                 {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">PB</Badge>
@@ -1195,9 +1203,9 @@ export default function PrecoImpressao() {
                         <Cpu className="h-4 w-4 text-primary shrink-0" />
                         <div className="text-sm">
                           <span className="text-muted-foreground">Via </span>
-                          <span className="font-medium text-foreground">{getEquipmentLabel(itemEquipmentId)}</span>
-                          <span className="text-muted-foreground"> a {(() => { const eq = equipments.find(e => e.id === parseEquipKey(itemEquipmentId).id); return eq?.printer_type === 'color' ? '20' : '5'; })()}%{parseEquipKey(itemEquipmentId).isPBMode ? ' (só PB)' : ''}: </span>
-                          <span className="font-bold text-primary">{fmt4(getCostFromKey(itemEquipmentId))}</span>
+                          <span className="font-medium text-foreground">{getEquipmentName(itemEquipmentId)}{itemEquipmentMode === 'pb' ? ' (PB)' : ''}</span>
+                          <span className="text-muted-foreground"> a {equipments.find(e => e.id === itemEquipmentId)?.printer_type === 'color' ? '20' : '5'}%{itemEquipmentMode === 'pb' ? ' (só PB)' : ''}: </span>
+                          <span className="font-bold text-primary">{fmt4(getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb'))}</span>
                         </div>
                       </div>
                     )}
@@ -1214,7 +1222,7 @@ export default function PrecoImpressao() {
               <div className="rounded-lg bg-muted/50 p-3 flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Papel + Impressão</span>
                 <span className="text-lg font-bold text-foreground">
-                  {fmt4(Number(itemPaperCost) + (itemEquipmentId ? getCostFromKey(itemEquipmentId) : Number(itemPrintingCost)))}
+                  {fmt4(Number(itemPaperCost) + (itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb') : Number(itemPrintingCost)))}
                 </span>
               </div>
             </div>
