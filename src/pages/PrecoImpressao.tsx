@@ -144,7 +144,7 @@ export default function PrecoImpressao() {
       supabase.from("markup_tiers").select("*").order("sort_order"),
       supabase.from("printing_price_items").select("*").order("sort_order"),
       supabase.from("equipments").select("id, name").order("sort_order"),
-      supabase.from("equipment_consumables").select("equipment_id, price, yield_pages"),
+      supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
       supabase.from("papers").select("id, name, grammage, sheet_qty, pack_price, freight_price").eq("is_active", true).order("sort_order"),
     ]);
     if (catRes.data) setCategories(catRes.data);
