@@ -130,6 +130,7 @@ export default function PrecoImpressao() {
   const [itemPaperCost, setItemPaperCost] = useState("0");
   const [itemPrintingCost, setItemPrintingCost] = useState("0");
   const [itemEquipmentId, setItemEquipmentId] = useState<string>("");
+  const [itemEquipmentMode, setItemEquipmentMode] = useState<string>("color");
   const [itemPaperSource, setItemPaperSource] = useState<string>("manual");
   // Coverage is auto-determined per category
   const activeCategoryObj = categories.find(c => c.id === activeCategory);
