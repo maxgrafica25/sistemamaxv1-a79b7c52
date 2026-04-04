@@ -159,21 +159,38 @@ export default function PrecoImpressao() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  const getEquipmentCostPerPage = (equipmentId: string, categoryCoverage: number = 20) => {
+  // Parse composite equipment key: "uuid" (full/color) or "uuid:pb" (PB mode)
+  const parseEquipKey = (key: string) => {
+    const [id, mode] = key.split(":");
+    return { id, isPBMode: mode === "pb" };
+  };
+
+  const getEquipmentCostPerPage = (equipmentId: string, categoryCoverage: number = 20, forcePB?: boolean) => {
     const eq = equipments.find(e => e.id === equipmentId);
     const isColorPrinter = eq?.printer_type === 'color';
-    const isPBCategory = categoryCoverage <= 5;
-    // Cobertura: impressora color sempre 20%, impressora PB sempre 5%
-    const coverage = isColorPrinter ? 20 : 5;
-    // Consumíveis: em categoria PB → só compartilhados; em category Color → todos
+    const usePB = forcePB ?? categoryCoverage <= 5;
+    // Cobertura: PB = 5%, Color = 20%
+    const coverage = usePB && !isColorPrinter ? 5 : (usePB ? 5 : 20);
+    // Consumíveis: modo PB → só compartilhados; Color → todos
     const cons = equipConsumables.filter(c =>
-      c.equipment_id === equipmentId && (isPBCategory ? c.mode === "shared" : true)
+      c.equipment_id === equipmentId && (usePB ? c.mode === "shared" : true)
     );
     const baseCost = cons.reduce((sum, c) => c.yield_pages <= 0 ? sum : sum + c.price / c.yield_pages, 0);
     return baseCost * (coverage / 5);
   };
 
-  const getEquipmentName = (id: string) => equipments.find(e => e.id === id)?.name || "—";
+  // Get cost using composite key (with :pb suffix support)
+  const getCostFromKey = (key: string) => {
+    const { id, isPBMode } = parseEquipKey(key);
+    return getEquipmentCostPerPage(id, coveragePct, isPBMode);
+  };
+
+  const getEquipmentName = (id: string) => equipments.find(e => e.id === parseEquipKey(id).id)?.name || "—";
+  const getEquipmentLabel = (key: string) => {
+    const { id, isPBMode } = parseEquipKey(key);
+    const name = equipments.find(e => e.id === id)?.name || "—";
+    return isPBMode ? `${name} (PB)` : name;
+  };
 
   const activeTiers = useMemo(() => tiers.filter(t => t.printer_category_id === activeCategory).sort((a, b) => a.sort_order - b.sort_order), [tiers, activeCategory]);
   const activeItems = useMemo(() => items.filter(i => i.printer_category_id === activeCategory && i.is_active).sort((a, b) => a.sort_order - b.sort_order), [items, activeCategory]);
@@ -314,12 +331,13 @@ export default function PrecoImpressao() {
 
   const saveItem = async () => {
     if (!itemPaperType.trim()) return toast.error("Tipo de papel obrigatório");
-    const effectivePrintingCost = itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct) : Number(itemPrintingCost);
+    const realEquipId = itemEquipmentId ? parseEquipKey(itemEquipmentId).id : "";
+    const effectivePrintingCost = itemEquipmentId ? getCostFromKey(itemEquipmentId) : Number(itemPrintingCost);
     const data = {
       printer_category_id: activeCategory, code: itemCode || null, paper_type: itemPaperType,
       grammage: itemGrammage || null, size: itemSize, side: itemSide,
       paper_cost: Number(itemPaperCost), printing_cost: effectivePrintingCost,
-      equipment_id: itemEquipmentId || null,
+      equipment_id: realEquipId || null,
       sort_order: editingItem ? editingItem.sort_order : activeItems.length,
     };
     if (editingItem) await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
@@ -986,11 +1004,38 @@ export default function PrecoImpressao() {
                       <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="manual">✏️ Informar manualmente</SelectItem>
-                        {equipments.map(eq => (
-                          <SelectItem key={eq.id} value={eq.id}>
-                            <span className="flex items-center gap-2"><Cpu className="h-3.5 w-3.5" />{eq.name} — {fmt4(getEquipmentCostPerPage(eq.id, coveragePct))}/pág</span>
-                          </SelectItem>
-                        ))}
+                        {equipments.map(eq => {
+                          const isColor = eq.printer_type === 'color';
+                          if (isColor) {
+                            return (
+                              <>
+                                <SelectItem key={`${eq.id}-color`} value={eq.id}>
+                                  <span className="flex items-center gap-2">
+                                    <Cpu className="h-3.5 w-3.5 text-orange-500" />
+                                    {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 border-orange-300 text-orange-600">Color</Badge>
+                                    <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id, 20))}/pág</span>
+                                  </span>
+                                </SelectItem>
+                                <SelectItem key={`${eq.id}-pb`} value={`${eq.id}:pb`}>
+                                  <span className="flex items-center gap-2">
+                                    <Cpu className="h-3.5 w-3.5 text-gray-500" />
+                                    {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 border-gray-300 text-gray-600">PB</Badge>
+                                    <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id, 5, true))}/pág</span>
+                                  </span>
+                                </SelectItem>
+                              </>
+                            );
+                          }
+                          return (
+                            <SelectItem key={eq.id} value={eq.id}>
+                              <span className="flex items-center gap-2">
+                                <Cpu className="h-3.5 w-3.5" />
+                                {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">PB</Badge>
+                                <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id, 5))}/pág</span>
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     {!itemEquipmentId && (
@@ -1004,9 +1049,9 @@ export default function PrecoImpressao() {
                         <Cpu className="h-4 w-4 text-primary shrink-0" />
                         <div className="text-sm">
                           <span className="text-muted-foreground">Via </span>
-                          <span className="font-medium text-foreground">{getEquipmentName(itemEquipmentId)}</span>
-                          <span className="text-muted-foreground"> a {coveragePct}%: </span>
-                          <span className="font-bold text-primary">{fmt4(getEquipmentCostPerPage(itemEquipmentId, coveragePct))}</span>
+                          <span className="font-medium text-foreground">{getEquipmentLabel(itemEquipmentId)}</span>
+                          <span className="text-muted-foreground"> a {parseEquipKey(itemEquipmentId).isPBMode ? "5" : coveragePct}%: </span>
+                          <span className="font-bold text-primary">{fmt4(getCostFromKey(itemEquipmentId))}</span>
                         </div>
                       </div>
                     )}
@@ -1023,7 +1068,7 @@ export default function PrecoImpressao() {
               <div className="rounded-lg bg-muted/50 p-3 flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Papel + Impressão</span>
                 <span className="text-lg font-bold text-foreground">
-                  {fmt4(Number(itemPaperCost) + (itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct) : Number(itemPrintingCost)))}
+                  {fmt4(Number(itemPaperCost) + (itemEquipmentId ? getCostFromKey(itemEquipmentId) : Number(itemPrintingCost)))}
                 </span>
               </div>
             </div>
