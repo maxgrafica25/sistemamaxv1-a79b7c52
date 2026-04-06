@@ -112,9 +112,22 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const [availableGroups, setAvailableGroups] = useState<StepGroup[]>([]);
   const [availableMaterials, setAvailableMaterials] = useState<Material[]>([]);
   const [printingCatalog, setPrintingCatalog] = useState<PrintingCatalogItem[]>([]);
+  const [markupTiers, setMarkupTiers] = useState<MarkupTier[]>([]);
 
   const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
   const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
+
+  const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
+    const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
+    const divisor = 1 - soma;
+    if (divisor <= 0) return 0;
+    return Math.round((baseCost / divisor) * 10) / 10;
+  };
+
+  const findTier = (categoryId: string, qty: number): MarkupTier | null => {
+    const categoryTiers = markupTiers.filter(t => t.printer_category_id === categoryId);
+    return categoryTiers.find(t => qty >= t.min_qty && (t.max_qty === null || qty <= t.max_qty)) || categoryTiers[0] || null;
+  };
 
   const loadCatalogData = useCallback(async () => {
     const [stepsRes, groupsRes, groupItemsRes, suppliesRes, printItemsRes, categoriesRes, eqRes, consRes, papersRes] = await Promise.all([
