@@ -107,14 +107,21 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const [availableSteps, setAvailableSteps] = useState<AvailableStep[]>([]);
   const [availableGroups, setAvailableGroups] = useState<StepGroup[]>([]);
   const [availableMaterials, setAvailableMaterials] = useState<Material[]>([]);
+  const [printingCatalog, setPrintingCatalog] = useState<PrintingCatalogItem[]>([]);
+
+  const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
+  const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
 
   const loadCatalogData = useCallback(async () => {
-    const [stepsRes, groupsRes, groupItemsRes, suppliesRes, papersRes] = await Promise.all([
+    const [stepsRes, groupsRes, groupItemsRes, suppliesRes, printItemsRes, categoriesRes, eqRes, consRes] = await Promise.all([
       supabase.from("production_steps").select("*").order("created_at"),
       supabase.from("step_groups").select("*").order("created_at"),
       supabase.from("step_group_items").select("*").order("sort_order"),
       supabase.from("supplies").select("*").order("created_at"),
-      supabase.from("papers").select("*").eq("is_active", true).order("sort_order"),
+      supabase.from("printing_price_items").select("*").eq("is_active", true).order("sort_order"),
+      supabase.from("printer_categories").select("*").order("sort_order"),
+      supabase.from("equipments").select("id, name, printer_type").order("sort_order"),
+      supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
     ]);
 
     if (stepsRes.data) {
@@ -131,22 +138,59 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       })));
     }
 
+    // Suprimentos only (no papers)
     const mats: Material[] = [];
     if (suppliesRes.data) {
       suppliesRes.data.forEach(s => {
         mats.push({ id: `supply-${s.id}`, name: s.produto, unit: "un", lastPrice: s.valor_unitario });
       });
     }
-    if (papersRes.data) {
-      papersRes.data.forEach(p => {
-        const pricePerSheet = p.sheet_qty > 0 ? p.pack_price / p.sheet_qty + p.freight_price : 0;
-        mats.push({ id: `paper-${p.id}`, name: `${p.name}${p.grammage ? ` ${p.grammage}` : ""}`, unit: "folha", lastPrice: pricePerSheet });
-      });
-    }
     setAvailableMaterials(mats);
 
+    // Build printing catalog
+    const equipmentsList = eqRes.data || [];
+    const consumablesList = consRes.data || [];
+    const categoriesList = categoriesRes.data || [];
+
+    const getEquipCostPerPage = (equipmentId: string, mode: string) => {
+      const eq = equipmentsList.find(e => e.id === equipmentId);
+      const isColorPrinter = eq?.printer_type === 'color';
+      const usePB = mode === 'pb';
+      const coverage = isColorPrinter ? 20 : 5;
+      const cons = consumablesList.filter(c =>
+        c.equipment_id === equipmentId && (usePB ? c.mode === "shared" : true)
+      );
+      const baseCost = cons.reduce((sum, c) => c.yield_pages <= 0 ? sum : sum + c.price / c.yield_pages, 0);
+      return baseCost * (coverage / 5);
+    };
+
+    if (printItemsRes.data) {
+      const catalog: PrintingCatalogItem[] = printItemsRes.data.map((item: any) => {
+        const cat = categoriesList.find(c => c.id === item.printer_category_id);
+        const eq = equipmentsList.find(e => e.id === item.equipment_id);
+        const printingCost = item.equipment_id
+          ? getEquipCostPerPage(item.equipment_id, item.equipment_mode || 'color')
+          : item.printing_cost;
+        const roundedPrintCost = roundUp10(printingCost);
+        return {
+          id: item.id,
+          paper_type: item.paper_type,
+          grammage: item.grammage,
+          size: item.size,
+          side: item.side,
+          paper_cost: item.paper_cost,
+          printing_cost: roundedPrintCost,
+          equipment_name: eq?.name || null,
+          equipment_mode: item.equipment_mode || 'color',
+          category_name: cat?.name || '',
+          totalCostA4: item.paper_cost + roundedPrintCost,
+        };
+      });
+      setPrintingCatalog(catalog);
+    }
+
     // Load hourly rate
-    const [expRes, salRes, eqRes, capRes] = await Promise.all([
+    const [expRes, salRes, depRes, capRes] = await Promise.all([
       supabase.from("monthly_expenses").select("value"),
       supabase.from("salaries").select("salary, is_production"),
       supabase.from("equipment_depreciation").select("purchase_value, useful_life_months, residual_value"),
@@ -154,7 +198,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
     ]);
     const totalExp = (expRes.data || []).reduce((s: number, e: any) => s + e.value, 0);
     const totalSal = (salRes.data || []).reduce((s: number, e: any) => s + e.salary, 0) * 1.45;
-    const totalDep = (eqRes.data || []).reduce((s: number, e: any) => s + (e.useful_life_months > 0 ? (e.purchase_value - e.residual_value) / e.useful_life_months : 0), 0);
+    const totalDep = (depRes.data || []).reduce((s: number, e: any) => s + (e.useful_life_months > 0 ? (e.purchase_value - e.residual_value) / e.useful_life_months : 0), 0);
     const cap = capRes.data;
     const prodCount = (salRes.data || []).filter((s: any) => s.is_production).length;
     const hours = cap ? prodCount * cap.hours_per_month : 0;
