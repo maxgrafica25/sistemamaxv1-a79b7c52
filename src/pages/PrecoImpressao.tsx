@@ -66,6 +66,8 @@ const isColorCategory = (name: string) => /color/i.test(name);
 const isPBCategory = (name: string) => /p\s*[&e]?\s*b|preto\s*(e|&)\s*branco|mono/i.test(name);
 const getCategoryCoverage = (name: string) => isColorCategory(name) ? 20 : 5;
 
+const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
+
 const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
   const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
   const divisor = 1 - soma;
