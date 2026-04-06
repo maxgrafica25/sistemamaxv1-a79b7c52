@@ -66,6 +66,8 @@ const isColorCategory = (name: string) => /color/i.test(name);
 const isPBCategory = (name: string) => /p\s*[&e]?\s*b|preto\s*(e|&)\s*branco|mono/i.test(name);
 const getCategoryCoverage = (name: string) => isColorCategory(name) ? 20 : 5;
 
+const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
+
 const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
   const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
   const divisor = 1 - soma;
@@ -828,9 +830,10 @@ export default function PrecoImpressao() {
                           </TableHeader>
                           <TableBody>
                             {filteredItems.map(item => {
-                              const printCostPerSide = getEffectivePrintingCost(item);
-                              const isFV = item.side === "F/V";
-                              const printCost = isFV ? printCostPerSide * 2 : printCostPerSide;
+                              const printCostA4 = getEffectivePrintingCost(item);
+                              const sizeMultiplier = isLargerThanA4(item.size) ? 2 : 1;
+                              const sideMultiplier = item.side === "F/V" ? 2 : 1;
+                              const printCost = printCostA4 * sizeMultiplier * sideMultiplier;
                               const baseCost = item.paper_cost + printCost;
                               return (
                                 <TableRow key={item.id}>
@@ -861,10 +864,25 @@ export default function PrecoImpressao() {
                                   {visibleColumns.paperCost && <TableCell className="text-right font-mono text-xs">{fmt4(item.paper_cost)}</TableCell>}
                                   {visibleColumns.printCost && (
                                     <TableCell className="text-right font-mono text-xs">
-                                      <span className="flex items-center gap-1 justify-end">
-                                        {fmt4(printCost)}
-                                        {item.equipment_id && <span title={getEquipmentName(item.equipment_id)}><Cpu className="h-3 w-3 text-muted-foreground inline" /></span>}
-                                      </span>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="inline-flex items-center gap-1 justify-end cursor-help">
+                                            {fmt4(printCost)}
+                                            {(sizeMultiplier > 1 || sideMultiplier > 1) && (
+                                              <span className="text-[9px] text-muted-foreground font-normal">
+                                                ×{sizeMultiplier * sideMultiplier}
+                                              </span>
+                                            )}
+                                            {item.equipment_id && <Cpu className="h-3 w-3 text-muted-foreground inline shrink-0" />}
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-[220px] text-xs">
+                                          <p className="font-semibold mb-1">Custo base A4: {fmt4(printCostA4)}</p>
+                                          {sizeMultiplier > 1 && <p>× 2 (formato {item.size} = 2× A4)</p>}
+                                          {sideMultiplier > 1 && <p>× 2 (frente e verso)</p>}
+                                          {sizeMultiplier === 1 && sideMultiplier === 1 && <p>Formato A4, apenas frente</p>}
+                                        </TooltipContent>
+                                      </Tooltip>
                                     </TableCell>
                                   )}
                                   {visibleColumns.totalCost && <TableCell className="text-right font-mono text-xs font-semibold">{fmt4(baseCost)}</TableCell>}
