@@ -286,6 +286,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const cobrancaCost = valorSemMarkupComMargem * (collectionCostPercentage / 100);
   const totalDespesasVenda = impostosCost + perdasCost + cobrancaCost;
   const lucroValue = valorSemMarkupComMargem * (profitMarginValue / 100);
+  const totalDespesasProdutivas = custosSemMarkup + printingTotal;
 
   // Handlers
   const addStepFromCatalog = (stepId: string) => {
