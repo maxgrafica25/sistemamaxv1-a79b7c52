@@ -12,7 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MaterialCatalogSearch from "./MaterialCatalogSearch";
-import PrintingItemSearch, { type PrintingCatalogItem } from "./PrintingItemSearch";
+import PrintingItemSearch, { type PrintingCatalogItem, type MarkupTier } from "./PrintingItemSearch";
 import { supabase } from "@/integrations/supabase/client";
 import type { Quote } from "@/pages/Orcamentos";
 
@@ -35,6 +35,10 @@ interface MaterialItem {
   description: string;
   quantity: number;
   unitPrice: number;
+  // For printing items: store base cost and category to recalculate selling price on qty change
+  baseCost?: number;
+  printerCategoryId?: string;
+  tierLabel?: string;
 }
 
 interface ThirdPartyService {
@@ -108,12 +112,25 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const [availableGroups, setAvailableGroups] = useState<StepGroup[]>([]);
   const [availableMaterials, setAvailableMaterials] = useState<Material[]>([]);
   const [printingCatalog, setPrintingCatalog] = useState<PrintingCatalogItem[]>([]);
+  const [markupTiers, setMarkupTiers] = useState<MarkupTier[]>([]);
 
   const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
   const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
 
+  const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
+    const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
+    const divisor = 1 - soma;
+    if (divisor <= 0) return 0;
+    return Math.round((baseCost / divisor) * 10) / 10;
+  };
+
+  const findTier = (categoryId: string, qty: number): MarkupTier | null => {
+    const categoryTiers = markupTiers.filter(t => t.printer_category_id === categoryId);
+    return categoryTiers.find(t => qty >= t.min_qty && (t.max_qty === null || qty <= t.max_qty)) || categoryTiers[0] || null;
+  };
+
   const loadCatalogData = useCallback(async () => {
-    const [stepsRes, groupsRes, groupItemsRes, suppliesRes, printItemsRes, categoriesRes, eqRes, consRes, papersRes] = await Promise.all([
+    const [stepsRes, groupsRes, groupItemsRes, suppliesRes, printItemsRes, categoriesRes, eqRes, consRes, papersRes, tiersRes] = await Promise.all([
       supabase.from("production_steps").select("*").order("created_at"),
       supabase.from("step_groups").select("*").order("created_at"),
       supabase.from("step_group_items").select("*").order("sort_order"),
@@ -123,6 +140,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       supabase.from("equipments").select("id, name, printer_type").order("sort_order"),
       supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
       supabase.from("papers").select("id, name, grammage, pack_price, freight_price, sheet_qty").eq("is_active", true),
+      supabase.from("markup_tiers").select("*").order("sort_order"),
     ]);
 
     if (stepsRes.data) {
@@ -147,6 +165,20 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       });
     }
     setAvailableMaterials(mats);
+
+    // Store markup tiers
+    const tiers: MarkupTier[] = (tiersRes.data || []).map((t: any) => ({
+      id: t.id,
+      printer_category_id: t.printer_category_id,
+      label: t.label,
+      min_qty: t.min_qty,
+      max_qty: t.max_qty,
+      fixed_cost_pct: t.fixed_cost_pct,
+      variable_cost_pct: t.variable_cost_pct,
+      margin_pct: t.margin_pct,
+      sort_order: t.sort_order,
+    }));
+    setMarkupTiers(tiers);
 
     // Build printing catalog
     const equipmentsList = eqRes.data || [];
@@ -205,6 +237,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
           equipment_name: eq?.name || null,
           equipment_mode: item.equipment_mode || 'color',
           category_name: cat?.name || '',
+          printer_category_id: item.printer_category_id,
           totalCostA4: paperCost + roundedPrintCost,
         };
       });
@@ -231,20 +264,29 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
 
   // Cálculos
   const laborTotal = laborSteps.reduce((sum, step) => sum + (step.timeMinutes / 60) * hourlyRate, 0);
+  // Printing items already include markup → go directly to final value
+  const printingTotal = materials.filter(m => m.id.startsWith("print-")).reduce((s, m) => s + m.quantity * m.unitPrice, 0);
+  // Non-printing materials are raw costs
+  const nonPrintingMaterialsTotal = materials.filter(m => !m.id.startsWith("print-")).reduce((s, m) => s + m.quantity * m.unitPrice, 0);
   const materialsTotal = materials.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const thirdPartyTotal = thirdParty.reduce((sum, service) => sum + service.cost, 0);
-  const totalDespesasProdutivas = laborTotal + materialsTotal + thirdPartyTotal;
+
+  // Only apply quote markup to costs that don't already have markup
+  const custosSemMarkup = laborTotal + nonPrintingMaterialsTotal + thirdPartyTotal;
 
   const profitMarginValue = parseFloat(profitMargin || "0");
   const totalPercent = (invoicePercentage + wastePercentage + collectionCostPercentage + profitMarginValue) / 100;
   const divisor = 1 - totalPercent;
-  const valorACobrar = divisor > 0 ? totalDespesasProdutivas / divisor : 0;
+  const valorSemMarkupComMargem = divisor > 0 ? custosSemMarkup / divisor : 0;
+  // Final value = printing (already marked up) + other costs with markup
+  const valorACobrar = printingTotal + valorSemMarkupComMargem;
 
-  const impostosCost = valorACobrar * (invoicePercentage / 100);
-  const perdasCost = valorACobrar * (wastePercentage / 100);
-  const cobrancaCost = valorACobrar * (collectionCostPercentage / 100);
+  const impostosCost = valorSemMarkupComMargem * (invoicePercentage / 100);
+  const perdasCost = valorSemMarkupComMargem * (wastePercentage / 100);
+  const cobrancaCost = valorSemMarkupComMargem * (collectionCostPercentage / 100);
   const totalDespesasVenda = impostosCost + perdasCost + cobrancaCost;
-  const lucroValue = valorACobrar * (profitMarginValue / 100);
+  const lucroValue = valorSemMarkupComMargem * (profitMarginValue / 100);
+  const totalDespesasProdutivas = custosSemMarkup + printingTotal;
 
   // Handlers
   const addStepFromCatalog = (stepId: string) => {
@@ -273,9 +315,20 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
     const sizeMult = isLargerThanA4(item.size) ? 2 : 1;
     const sideMult = item.side === "F/V" ? 2 : 1;
     const printCost = roundUp10(item.printing_cost * sizeMult * sideMult);
-    const costPerSheet = item.paper_cost + printCost;
+    const baseCost = item.paper_cost + printCost;
     const label = `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}${item.equipment_mode === 'pb' ? ' (PB)' : ''}` : ''}`;
-    setMaterials([...materials, { id: `print-${Date.now()}-${item.id}`, description: label, quantity: 1, unitPrice: costPerSheet }]);
+    // Find tier for qty=1 and compute selling price
+    const tier = findTier(item.printer_category_id, 1);
+    const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
+    setMaterials([...materials, {
+      id: `print-${Date.now()}-${item.id}`,
+      description: label,
+      quantity: 1,
+      unitPrice: sellingPrice,
+      baseCost,
+      printerCategoryId: item.printer_category_id,
+      tierLabel: tier?.label || undefined,
+    }]);
     toast.success(`Impressão adicionada!`);
   };
 
@@ -289,8 +342,22 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
 
   const addMaterial = () => setMaterials([...materials, { id: Date.now().toString(), description: "", quantity: 0, unitPrice: 0 }]);
   const removeMaterial = (id: string) => setMaterials(materials.filter(item => item.id !== id));
-  const updateMaterial = (id: string, field: keyof MaterialItem, value: string | number) =>
-    setMaterials(materials.map(item => item.id === id ? { ...item, [field]: value } : item));
+  const updateMaterial = (id: string, field: keyof MaterialItem, value: string | number) => {
+    setMaterials(materials.map(item => {
+      if (item.id !== id) return item;
+      const updated = { ...item, [field]: value };
+      // For printing items, recalculate selling price when quantity changes
+      if (field === "quantity" && item.baseCost && item.printerCategoryId) {
+        const qty = Number(value) || 1;
+        const tier = findTier(item.printerCategoryId, qty);
+        if (tier) {
+          updated.unitPrice = calcSellingPrice(item.baseCost, tier);
+          updated.tierLabel = tier.label;
+        }
+      }
+      return updated;
+    }));
+  };
 
   const addThirdParty = () => setThirdParty([...thirdParty, { id: Date.now().toString(), description: "", supplier: "", cost: 0 }]);
   const removeThirdParty = (id: string) => setThirdParty(thirdParty.filter(service => service.id !== id));
@@ -543,23 +610,34 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
                 <CardContent className="p-6 space-y-4">
                   <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                     <Printer className="h-5 w-5 text-primary" /> Impressão
-                    <span className="text-xs font-normal text-muted-foreground ml-1">— Itens da tabela de preço de impressão</span>
+                    <span className="text-xs font-normal text-muted-foreground ml-1">— Preço de venda da tabela (markup automático por quantidade)</span>
                   </h2>
-                  <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} />
+                  <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} markupTiers={markupTiers} />
                   {materials.filter(m => m.id.startsWith("print-")).length > 0 && (
                     <div className="space-y-2">
                       {materials.filter(m => m.id.startsWith("print-")).map((item) => (
-                        <div key={item.id} className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/50">
-                          <Printer className="h-4 w-4 text-primary/60 shrink-0" />
-                          <div className="flex-1 text-sm font-medium truncate">{item.description}</div>
-                          <div className="flex items-center gap-2">
-                            <Input type="number" value={item.quantity || ""} onChange={(e) => updateMaterial(item.id, "quantity", parseFloat(e.target.value) || 0)} className="w-20 h-8 text-sm text-center" placeholder="Folhas" />
-                            <span className="text-xs text-muted-foreground">folhas</span>
-                            <span className="text-muted-foreground">×</span>
-                            <span className="text-sm text-muted-foreground w-20 text-right">R$ {item.unitPrice.toFixed(2)}</span>
+                        <div key={item.id} className="rounded-lg border bg-card p-3 transition-colors hover:bg-muted/50">
+                          <div className="flex items-center gap-3">
+                            <Printer className="h-4 w-4 text-primary/60 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium truncate">{item.description}</div>
+                              {item.tierLabel && (
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <Badge variant="outline" className="text-[10px] h-4 px-1.5">{item.tierLabel}</Badge>
+                                  {item.baseCost && (
+                                    <span className="text-[10px] text-muted-foreground">custo: R$ {item.baseCost.toFixed(2)}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Input type="number" value={item.quantity || ""} onChange={(e) => updateMaterial(item.id, "quantity", parseFloat(e.target.value) || 0)} className="w-20 h-8 text-sm text-center" placeholder="Qtd" />
+                              <span className="text-xs text-muted-foreground">×</span>
+                              <span className="text-sm font-semibold text-primary w-20 text-right">R$ {item.unitPrice.toFixed(2)}</span>
+                            </div>
+                            <span className="text-sm font-semibold text-foreground w-24 text-right">R$ {(item.quantity * item.unitPrice).toFixed(2)}</span>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => removeMaterial(item.id)}><X className="h-4 w-4" /></Button>
                           </div>
-                          <span className="text-sm font-semibold text-foreground w-24 text-right">R$ {(item.quantity * item.unitPrice).toFixed(2)}</span>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => removeMaterial(item.id)}><X className="h-4 w-4" /></Button>
                         </div>
                       ))}
                     </div>
@@ -672,9 +750,13 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
               <CardContent className="p-6 space-y-5">
                 <h2 className="text-lg font-semibold text-foreground flex items-center gap-2"><FileText className="h-5 w-5 text-primary" /> Resumo e Finalização</h2>
                 <div className="rounded-lg bg-muted/50 p-4 space-y-2">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Despesas Produtivas</h3>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Composição do Orçamento</h3>
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Mão de Obra:</span><span className="font-medium">R$ {laborTotal.toFixed(2)}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Matéria-Prima:</span><span className="font-medium">R$ {materialsTotal.toFixed(2)}</span></div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Impressão <Badge variant="outline" className="text-[9px] h-3.5 px-1 ml-1">c/ markup</Badge>:</span>
+                    <span className="font-medium">R$ {printingTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Suprimentos + Manuais:</span><span className="font-medium">R$ {nonPrintingMaterialsTotal.toFixed(2)}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Terceirizados:</span><span className="font-medium">R$ {thirdPartyTotal.toFixed(2)}</span></div>
                   <Separator /><div className="flex justify-between font-semibold"><span>Total:</span><span>R$ {totalDespesasProdutivas.toFixed(2)}</span></div>
                 </div>
@@ -762,13 +844,15 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
         )}
         <div className="space-y-3 text-sm flex-1">
           <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Mão de Obra</span><span className="font-medium">R$ {laborTotal.toFixed(2)}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><Printer className="h-3.5 w-3.5" /> Impressão</span><span className="font-medium">R$ {materials.filter(m => m.id.startsWith("print-")).reduce((s, m) => s + m.quantity * m.unitPrice, 0).toFixed(2)}</span></div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground flex items-center gap-1.5"><Printer className="h-3.5 w-3.5" /> Impressão <Badge variant="outline" className="text-[8px] h-3 px-1">venda</Badge></span>
+            <span className="font-medium text-primary">R$ {printingTotal.toFixed(2)}</span>
+          </div>
           <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> Suprimentos</span><span className="font-medium">R$ {materials.filter(m => m.id.startsWith("supply-")).reduce((s, m) => s + m.quantity * m.unitPrice, 0).toFixed(2)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><PenLine className="h-3.5 w-3.5" /> Manuais</span><span className="font-medium">R$ {materials.filter(m => !m.id.startsWith("print-") && !m.id.startsWith("supply-")).reduce((s, m) => s + m.quantity * m.unitPrice, 0).toFixed(2)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><Wrench className="h-3.5 w-3.5" /> Terceirizados</span><span className="font-medium">R$ {thirdPartyTotal.toFixed(2)}</span></div>
           <Separator />
-          <div className="flex justify-between"><span className="text-muted-foreground">Custo Produtivo</span><span className="font-medium">R$ {totalDespesasProdutivas.toFixed(2)}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Desp. Venda</span><span className="font-medium">R$ {totalDespesasVenda.toFixed(2)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Desp. Venda (s/ impressão)</span><span className="font-medium">R$ {totalDespesasVenda.toFixed(2)}</span></div>
           {hasExemptions && (
             <div className="flex items-center gap-1 text-[10px] text-orange-600 font-medium">
               <ShieldAlert className="h-3 w-3" />

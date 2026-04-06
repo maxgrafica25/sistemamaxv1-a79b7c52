@@ -3,6 +3,18 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Printer } from "lucide-react";
 
+export interface MarkupTier {
+  id: string;
+  printer_category_id: string;
+  label: string;
+  min_qty: number;
+  max_qty: number | null;
+  fixed_cost_pct: number;
+  variable_cost_pct: number;
+  margin_pct: number;
+  sort_order: number;
+}
+
 export interface PrintingCatalogItem {
   id: string;
   paper_type: string;
@@ -14,18 +26,27 @@ export interface PrintingCatalogItem {
   equipment_name: string | null;
   equipment_mode: string;
   category_name: string;
+  printer_category_id: string;
   totalCostA4: number;
 }
 
 interface PrintingItemSearchProps {
   items: PrintingCatalogItem[];
   onSelect: (item: PrintingCatalogItem) => void;
+  markupTiers?: MarkupTier[];
 }
 
 const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
 const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
 
-export default function PrintingItemSearch({ items, onSelect }: PrintingItemSearchProps) {
+const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
+  const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
+  const divisor = 1 - soma;
+  if (divisor <= 0) return 0;
+  return Math.round((baseCost / divisor) * 10) / 10;
+};
+
+export default function PrintingItemSearch({ items, onSelect, markupTiers }: PrintingItemSearchProps) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -51,12 +72,15 @@ export default function PrintingItemSearch({ items, onSelect }: PrintingItemSear
     setIsOpen(false);
   };
 
-  const getSizeLabel = (item: PrintingCatalogItem) => {
+  const getItemPrices = (item: PrintingCatalogItem) => {
     const sizeMult = isLargerThanA4(item.size) ? 2 : 1;
     const sideMult = item.side === "F/V" ? 2 : 1;
     const printCost = roundUp10(item.printing_cost * sizeMult * sideMult);
-    const totalPerSheet = item.paper_cost + printCost;
-    return totalPerSheet;
+    const baseCost = item.paper_cost + printCost;
+    // Find first tier for this category to show selling price
+    const tier = markupTiers?.find(t => t.printer_category_id === item.printer_category_id);
+    const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
+    return { baseCost, sellingPrice, tierLabel: tier?.label };
   };
 
   return (
@@ -75,7 +99,7 @@ export default function PrintingItemSearch({ items, onSelect }: PrintingItemSear
         <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-80 overflow-auto">
           {filtered.length > 0 ? (
             filtered.map((item) => {
-              const costPerSheet = getSizeLabel(item);
+              const { baseCost, sellingPrice, tierLabel } = getItemPrices(item);
               return (
                 <button
                   key={item.id}
@@ -94,11 +118,19 @@ export default function PrintingItemSearch({ items, onSelect }: PrintingItemSear
                           {item.equipment_name}{item.equipment_mode === "pb" ? " (PB)" : ""}
                         </Badge>
                       )}
+                      {tierLabel && (
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{tierLabel}</Badge>
+                      )}
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-primary shrink-0">
-                    R$ {costPerSheet.toFixed(2)}/folha
-                  </span>
+                  <div className="text-right shrink-0">
+                    <span className="text-sm font-semibold text-primary">
+                      R$ {sellingPrice.toFixed(2)}/folha
+                    </span>
+                    {sellingPrice !== baseCost && (
+                      <p className="text-[10px] text-muted-foreground">custo: R$ {baseCost.toFixed(2)}</p>
+                    )}
+                  </div>
                 </button>
               );
             })
