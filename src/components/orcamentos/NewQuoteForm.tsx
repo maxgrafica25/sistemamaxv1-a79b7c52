@@ -611,7 +611,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
                 </div>
               )}
             </div>
-            </Card>
+          
           )}
 
           {/* Step 3: Terceirizados */}
