@@ -750,9 +750,13 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
               <CardContent className="p-6 space-y-5">
                 <h2 className="text-lg font-semibold text-foreground flex items-center gap-2"><FileText className="h-5 w-5 text-primary" /> Resumo e Finalização</h2>
                 <div className="rounded-lg bg-muted/50 p-4 space-y-2">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Despesas Produtivas</h3>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Composição do Orçamento</h3>
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Mão de Obra:</span><span className="font-medium">R$ {laborTotal.toFixed(2)}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Matéria-Prima:</span><span className="font-medium">R$ {materialsTotal.toFixed(2)}</span></div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Impressão <Badge variant="outline" className="text-[9px] h-3.5 px-1 ml-1">c/ markup</Badge>:</span>
+                    <span className="font-medium">R$ {printingTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Suprimentos + Manuais:</span><span className="font-medium">R$ {nonPrintingMaterialsTotal.toFixed(2)}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Terceirizados:</span><span className="font-medium">R$ {thirdPartyTotal.toFixed(2)}</span></div>
                   <Separator /><div className="flex justify-between font-semibold"><span>Total:</span><span>R$ {totalDespesasProdutivas.toFixed(2)}</span></div>
                 </div>
