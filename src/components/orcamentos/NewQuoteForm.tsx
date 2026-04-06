@@ -306,9 +306,20 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
     const sizeMult = isLargerThanA4(item.size) ? 2 : 1;
     const sideMult = item.side === "F/V" ? 2 : 1;
     const printCost = roundUp10(item.printing_cost * sizeMult * sideMult);
-    const costPerSheet = item.paper_cost + printCost;
+    const baseCost = item.paper_cost + printCost;
     const label = `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}${item.equipment_mode === 'pb' ? ' (PB)' : ''}` : ''}`;
-    setMaterials([...materials, { id: `print-${Date.now()}-${item.id}`, description: label, quantity: 1, unitPrice: costPerSheet }]);
+    // Find tier for qty=1 and compute selling price
+    const tier = findTier(item.printer_category_id, 1);
+    const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
+    setMaterials([...materials, {
+      id: `print-${Date.now()}-${item.id}`,
+      description: label,
+      quantity: 1,
+      unitPrice: sellingPrice,
+      baseCost,
+      printerCategoryId: item.printer_category_id,
+      tierLabel: tier?.label || undefined,
+    }]);
     toast.success(`Impressão adicionada!`);
   };
 
@@ -322,8 +333,22 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
 
   const addMaterial = () => setMaterials([...materials, { id: Date.now().toString(), description: "", quantity: 0, unitPrice: 0 }]);
   const removeMaterial = (id: string) => setMaterials(materials.filter(item => item.id !== id));
-  const updateMaterial = (id: string, field: keyof MaterialItem, value: string | number) =>
-    setMaterials(materials.map(item => item.id === id ? { ...item, [field]: value } : item));
+  const updateMaterial = (id: string, field: keyof MaterialItem, value: string | number) => {
+    setMaterials(materials.map(item => {
+      if (item.id !== id) return item;
+      const updated = { ...item, [field]: value };
+      // For printing items, recalculate selling price when quantity changes
+      if (field === "quantity" && item.baseCost && item.printerCategoryId) {
+        const qty = Number(value) || 1;
+        const tier = findTier(item.printerCategoryId, qty);
+        if (tier) {
+          updated.unitPrice = calcSellingPrice(item.baseCost, tier);
+          updated.tierLabel = tier.label;
+        }
+      }
+      return updated;
+    }));
+  };
 
   const addThirdParty = () => setThirdParty([...thirdParty, { id: Date.now().toString(), description: "", supplier: "", cost: 0 }]);
   const removeThirdParty = (id: string) => setThirdParty(thirdParty.filter(service => service.id !== id));
