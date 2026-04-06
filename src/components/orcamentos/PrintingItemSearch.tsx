@@ -99,7 +99,7 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers }: Pri
         <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-80 overflow-auto">
           {filtered.length > 0 ? (
             filtered.map((item) => {
-              const costPerSheet = getSizeLabel(item);
+              const { baseCost, sellingPrice, tierLabel } = getItemPrices(item);
               return (
                 <button
                   key={item.id}
@@ -118,11 +118,19 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers }: Pri
                           {item.equipment_name}{item.equipment_mode === "pb" ? " (PB)" : ""}
                         </Badge>
                       )}
+                      {tierLabel && (
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{tierLabel}</Badge>
+                      )}
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-primary shrink-0">
-                    R$ {costPerSheet.toFixed(2)}/folha
-                  </span>
+                  <div className="text-right shrink-0">
+                    <span className="text-sm font-semibold text-primary">
+                      R$ {sellingPrice.toFixed(2)}/folha
+                    </span>
+                    {sellingPrice !== baseCost && (
+                      <p className="text-[10px] text-muted-foreground">custo: R$ {baseCost.toFixed(2)}</p>
+                    )}
+                  </div>
                 </button>
               );
             })
