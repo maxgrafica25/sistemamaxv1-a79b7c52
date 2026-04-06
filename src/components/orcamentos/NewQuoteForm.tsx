@@ -35,6 +35,10 @@ interface MaterialItem {
   description: string;
   quantity: number;
   unitPrice: number;
+  // For printing items: store base cost and category to recalculate selling price on qty change
+  baseCost?: number;
+  printerCategoryId?: string;
+  tierLabel?: string;
 }
 
 interface ThirdPartyService {
