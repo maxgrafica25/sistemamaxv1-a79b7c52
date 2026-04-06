@@ -113,7 +113,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
 
   const loadCatalogData = useCallback(async () => {
-    const [stepsRes, groupsRes, groupItemsRes, suppliesRes, printItemsRes, categoriesRes, eqRes, consRes] = await Promise.all([
+    const [stepsRes, groupsRes, groupItemsRes, suppliesRes, printItemsRes, categoriesRes, eqRes, consRes, papersRes] = await Promise.all([
       supabase.from("production_steps").select("*").order("created_at"),
       supabase.from("step_groups").select("*").order("created_at"),
       supabase.from("step_group_items").select("*").order("sort_order"),
@@ -122,6 +122,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       supabase.from("printer_categories").select("*").order("sort_order"),
       supabase.from("equipments").select("id, name, printer_type").order("sort_order"),
       supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
+      supabase.from("papers").select("id, name, grammage, pack_price, freight_price, sheet_qty").eq("is_active", true),
     ]);
 
     if (stepsRes.data) {
@@ -151,6 +152,24 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
     const equipmentsList = eqRes.data || [];
     const consumablesList = consRes.data || [];
     const categoriesList = categoriesRes.data || [];
+    const papersList = papersRes.data || [];
+
+    // Live paper price calculation (same logic as PrecoImpressao)
+    const paperPriceA4 = (p: { pack_price: number; freight_price: number; sheet_qty: number }) =>
+      p.sheet_qty > 0 ? (p.pack_price / p.sheet_qty + p.freight_price) / 9 : 0;
+    const paperPriceSRA3 = (p: { pack_price: number; freight_price: number; sheet_qty: number }) =>
+      p.sheet_qty > 0 ? (p.pack_price / p.sheet_qty + p.freight_price) / 4 : 0;
+
+    const getLivePaperCost = (paperType: string, grammage: string | null, size: string) => {
+      const match = papersList.find(p => {
+        const nameMatch = p.name.toLowerCase() === paperType.toLowerCase();
+        const gramMatch = !grammage || !p.grammage || p.grammage.toLowerCase() === grammage.toLowerCase();
+        return nameMatch && gramMatch;
+      });
+      if (!match) return null;
+      const isSmall = size === "A4" || size === "A5" || size === "Carta";
+      return isSmall ? paperPriceA4(match) : paperPriceSRA3(match);
+    };
 
     const getEquipCostPerPage = (equipmentId: string, mode: string) => {
       const eq = equipmentsList.find(e => e.id === equipmentId);
@@ -172,18 +191,21 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
           ? getEquipCostPerPage(item.equipment_id, item.equipment_mode || 'color')
           : item.printing_cost;
         const roundedPrintCost = roundUp10(printingCost);
+        // Use live paper cost from papers table, fallback to stored value
+        const livePaperCost = getLivePaperCost(item.paper_type, item.grammage, item.size);
+        const paperCost = livePaperCost !== null ? Number(livePaperCost.toFixed(4)) : item.paper_cost;
         return {
           id: item.id,
           paper_type: item.paper_type,
           grammage: item.grammage,
           size: item.size,
           side: item.side,
-          paper_cost: item.paper_cost,
+          paper_cost: paperCost,
           printing_cost: roundedPrintCost,
           equipment_name: eq?.name || null,
           equipment_mode: item.equipment_mode || 'color',
           category_name: cat?.name || '',
-          totalCostA4: item.paper_cost + roundedPrintCost,
+          totalCostA4: paperCost + roundedPrintCost,
         };
       });
       setPrintingCatalog(catalog);
