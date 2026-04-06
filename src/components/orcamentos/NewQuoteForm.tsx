@@ -763,7 +763,9 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
         </div>
         <div className="mt-4 pt-4 border-t space-y-2">
           <div className="flex justify-between text-xs text-muted-foreground"><span>Etapas</span><Badge variant="secondary" className="h-5 px-2 text-xs">{laborSteps.length}</Badge></div>
-          <div className="flex justify-between text-xs text-muted-foreground"><span>Materiais</span><Badge variant="secondary" className="h-5 px-2 text-xs">{materials.length}</Badge></div>
+          <div className="flex justify-between text-xs text-muted-foreground"><span>Impressão</span><Badge variant="secondary" className="h-5 px-2 text-xs">{materials.filter(m => m.id.startsWith("print-")).length}</Badge></div>
+          <div className="flex justify-between text-xs text-muted-foreground"><span>Suprimentos</span><Badge variant="secondary" className="h-5 px-2 text-xs">{materials.filter(m => m.id.startsWith("supply-")).length}</Badge></div>
+          <div className="flex justify-between text-xs text-muted-foreground"><span>Manuais</span><Badge variant="secondary" className="h-5 px-2 text-xs">{materials.filter(m => !m.id.startsWith("print-") && !m.id.startsWith("supply-")).length}</Badge></div>
           <div className="flex justify-between text-xs text-muted-foreground"><span>Terceirizados</span><Badge variant="secondary" className="h-5 px-2 text-xs">{thirdParty.length}</Badge></div>
         </div>
       </aside>
