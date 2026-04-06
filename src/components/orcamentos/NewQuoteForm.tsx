@@ -247,10 +247,20 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const updateLaborStep = (id: string, field: keyof LaborStep, value: string | number) =>
     setLaborSteps(laborSteps.map(step => step.id === id ? { ...step, [field]: value } : step));
 
+  const addPrintingItem = (item: PrintingCatalogItem) => {
+    const sizeMult = isLargerThanA4(item.size) ? 2 : 1;
+    const sideMult = item.side === "F/V" ? 2 : 1;
+    const printCost = roundUp10(item.printing_cost * sizeMult * sideMult);
+    const costPerSheet = item.paper_cost + printCost;
+    const label = `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}${item.equipment_mode === 'pb' ? ' (PB)' : ''}` : ''}`;
+    setMaterials([...materials, { id: `print-${Date.now()}-${item.id}`, description: label, quantity: 1, unitPrice: costPerSheet }]);
+    toast.success(`Impressão adicionada!`);
+  };
+
   const addMaterialFromCatalog = (materialId: string) => {
     const material = availableMaterials.find(m => m.id === materialId);
     if (material) {
-      setMaterials([...materials, { id: `${Date.now()}-${material.id}`, description: material.name, quantity: 1, unitPrice: material.lastPrice }]);
+      setMaterials([...materials, { id: `supply-${Date.now()}-${material.id}`, description: material.name, quantity: 1, unitPrice: material.lastPrice }]);
       toast.success(`${material.name} adicionado!`);
     }
   };
