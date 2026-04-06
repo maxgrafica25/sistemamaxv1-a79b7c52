@@ -830,9 +830,10 @@ export default function PrecoImpressao() {
                           </TableHeader>
                           <TableBody>
                             {filteredItems.map(item => {
-                              const printCostPerSide = getEffectivePrintingCost(item);
-                              const isFV = item.side === "F/V";
-                              const printCost = isFV ? printCostPerSide * 2 : printCostPerSide;
+                              const printCostA4 = getEffectivePrintingCost(item);
+                              const sizeMultiplier = isLargerThanA4(item.size) ? 2 : 1;
+                              const sideMultiplier = item.side === "F/V" ? 2 : 1;
+                              const printCost = printCostA4 * sizeMultiplier * sideMultiplier;
                               const baseCost = item.paper_cost + printCost;
                               return (
                                 <TableRow key={item.id}>
