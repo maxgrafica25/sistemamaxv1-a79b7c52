@@ -601,23 +601,34 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
                 <CardContent className="p-6 space-y-4">
                   <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                     <Printer className="h-5 w-5 text-primary" /> Impressão
-                    <span className="text-xs font-normal text-muted-foreground ml-1">— Itens da tabela de preço de impressão</span>
+                    <span className="text-xs font-normal text-muted-foreground ml-1">— Preço de venda da tabela (markup automático por quantidade)</span>
                   </h2>
-                  <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} />
+                  <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} markupTiers={markupTiers} />
                   {materials.filter(m => m.id.startsWith("print-")).length > 0 && (
                     <div className="space-y-2">
                       {materials.filter(m => m.id.startsWith("print-")).map((item) => (
-                        <div key={item.id} className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/50">
-                          <Printer className="h-4 w-4 text-primary/60 shrink-0" />
-                          <div className="flex-1 text-sm font-medium truncate">{item.description}</div>
-                          <div className="flex items-center gap-2">
-                            <Input type="number" value={item.quantity || ""} onChange={(e) => updateMaterial(item.id, "quantity", parseFloat(e.target.value) || 0)} className="w-20 h-8 text-sm text-center" placeholder="Folhas" />
-                            <span className="text-xs text-muted-foreground">folhas</span>
-                            <span className="text-muted-foreground">×</span>
-                            <span className="text-sm text-muted-foreground w-20 text-right">R$ {item.unitPrice.toFixed(2)}</span>
+                        <div key={item.id} className="rounded-lg border bg-card p-3 transition-colors hover:bg-muted/50">
+                          <div className="flex items-center gap-3">
+                            <Printer className="h-4 w-4 text-primary/60 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium truncate">{item.description}</div>
+                              {item.tierLabel && (
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <Badge variant="outline" className="text-[10px] h-4 px-1.5">{item.tierLabel}</Badge>
+                                  {item.baseCost && (
+                                    <span className="text-[10px] text-muted-foreground">custo: R$ {item.baseCost.toFixed(2)}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Input type="number" value={item.quantity || ""} onChange={(e) => updateMaterial(item.id, "quantity", parseFloat(e.target.value) || 0)} className="w-20 h-8 text-sm text-center" placeholder="Qtd" />
+                              <span className="text-xs text-muted-foreground">×</span>
+                              <span className="text-sm font-semibold text-primary w-20 text-right">R$ {item.unitPrice.toFixed(2)}</span>
+                            </div>
+                            <span className="text-sm font-semibold text-foreground w-24 text-right">R$ {(item.quantity * item.unitPrice).toFixed(2)}</span>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => removeMaterial(item.id)}><X className="h-4 w-4" /></Button>
                           </div>
-                          <span className="text-sm font-semibold text-foreground w-24 text-right">R$ {(item.quantity * item.unitPrice).toFixed(2)}</span>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => removeMaterial(item.id)}><X className="h-4 w-4" /></Button>
                         </div>
                       ))}
                     </div>
