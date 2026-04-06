@@ -33,10 +33,18 @@ export interface PrintingCatalogItem {
 interface PrintingItemSearchProps {
   items: PrintingCatalogItem[];
   onSelect: (item: PrintingCatalogItem) => void;
+  markupTiers?: MarkupTier[];
 }
 
 const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
 const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
+
+const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
+  const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
+  const divisor = 1 - soma;
+  if (divisor <= 0) return 0;
+  return Math.round((baseCost / divisor) * 10) / 10;
+};
 
 export default function PrintingItemSearch({ items, onSelect }: PrintingItemSearchProps) {
   const [search, setSearch] = useState("");
