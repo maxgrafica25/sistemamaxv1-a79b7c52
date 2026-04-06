@@ -46,7 +46,7 @@ const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
   return Math.round((baseCost / divisor) * 10) / 10;
 };
 
-export default function PrintingItemSearch({ items, onSelect }: PrintingItemSearchProps) {
+export default function PrintingItemSearch({ items, onSelect, markupTiers }: PrintingItemSearchProps) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
