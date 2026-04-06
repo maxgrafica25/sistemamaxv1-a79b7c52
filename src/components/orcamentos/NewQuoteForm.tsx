@@ -6,12 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, FileDown, Copy, X, Package, Wrench, ChevronLeft, ChevronRight, Check, User, Clock, FileText, Layers, ChevronDown, ChevronUp, ShieldAlert } from "lucide-react";
+import { Plus, Trash2, FileDown, Copy, X, Package, Wrench, ChevronLeft, ChevronRight, Check, User, Clock, FileText, Layers, ChevronDown, ChevronUp, ShieldAlert, Printer, PenLine } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MaterialCatalogSearch from "./MaterialCatalogSearch";
+import PrintingItemSearch, { type PrintingCatalogItem } from "./PrintingItemSearch";
 import { supabase } from "@/integrations/supabase/client";
 import type { Quote } from "@/pages/Orcamentos";
 
@@ -106,14 +107,21 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const [availableSteps, setAvailableSteps] = useState<AvailableStep[]>([]);
   const [availableGroups, setAvailableGroups] = useState<StepGroup[]>([]);
   const [availableMaterials, setAvailableMaterials] = useState<Material[]>([]);
+  const [printingCatalog, setPrintingCatalog] = useState<PrintingCatalogItem[]>([]);
+
+  const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
+  const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
 
   const loadCatalogData = useCallback(async () => {
-    const [stepsRes, groupsRes, groupItemsRes, suppliesRes, papersRes] = await Promise.all([
+    const [stepsRes, groupsRes, groupItemsRes, suppliesRes, printItemsRes, categoriesRes, eqRes, consRes] = await Promise.all([
       supabase.from("production_steps").select("*").order("created_at"),
       supabase.from("step_groups").select("*").order("created_at"),
       supabase.from("step_group_items").select("*").order("sort_order"),
       supabase.from("supplies").select("*").order("created_at"),
-      supabase.from("papers").select("*").eq("is_active", true).order("sort_order"),
+      supabase.from("printing_price_items").select("*").eq("is_active", true).order("sort_order"),
+      supabase.from("printer_categories").select("*").order("sort_order"),
+      supabase.from("equipments").select("id, name, printer_type").order("sort_order"),
+      supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
     ]);
 
     if (stepsRes.data) {
@@ -130,22 +138,59 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       })));
     }
 
+    // Suprimentos only (no papers)
     const mats: Material[] = [];
     if (suppliesRes.data) {
       suppliesRes.data.forEach(s => {
         mats.push({ id: `supply-${s.id}`, name: s.produto, unit: "un", lastPrice: s.valor_unitario });
       });
     }
-    if (papersRes.data) {
-      papersRes.data.forEach(p => {
-        const pricePerSheet = p.sheet_qty > 0 ? p.pack_price / p.sheet_qty + p.freight_price : 0;
-        mats.push({ id: `paper-${p.id}`, name: `${p.name}${p.grammage ? ` ${p.grammage}` : ""}`, unit: "folha", lastPrice: pricePerSheet });
-      });
-    }
     setAvailableMaterials(mats);
 
+    // Build printing catalog
+    const equipmentsList = eqRes.data || [];
+    const consumablesList = consRes.data || [];
+    const categoriesList = categoriesRes.data || [];
+
+    const getEquipCostPerPage = (equipmentId: string, mode: string) => {
+      const eq = equipmentsList.find(e => e.id === equipmentId);
+      const isColorPrinter = eq?.printer_type === 'color';
+      const usePB = mode === 'pb';
+      const coverage = isColorPrinter ? 20 : 5;
+      const cons = consumablesList.filter(c =>
+        c.equipment_id === equipmentId && (usePB ? c.mode === "shared" : true)
+      );
+      const baseCost = cons.reduce((sum, c) => c.yield_pages <= 0 ? sum : sum + c.price / c.yield_pages, 0);
+      return baseCost * (coverage / 5);
+    };
+
+    if (printItemsRes.data) {
+      const catalog: PrintingCatalogItem[] = printItemsRes.data.map((item: any) => {
+        const cat = categoriesList.find(c => c.id === item.printer_category_id);
+        const eq = equipmentsList.find(e => e.id === item.equipment_id);
+        const printingCost = item.equipment_id
+          ? getEquipCostPerPage(item.equipment_id, item.equipment_mode || 'color')
+          : item.printing_cost;
+        const roundedPrintCost = roundUp10(printingCost);
+        return {
+          id: item.id,
+          paper_type: item.paper_type,
+          grammage: item.grammage,
+          size: item.size,
+          side: item.side,
+          paper_cost: item.paper_cost,
+          printing_cost: roundedPrintCost,
+          equipment_name: eq?.name || null,
+          equipment_mode: item.equipment_mode || 'color',
+          category_name: cat?.name || '',
+          totalCostA4: item.paper_cost + roundedPrintCost,
+        };
+      });
+      setPrintingCatalog(catalog);
+    }
+
     // Load hourly rate
-    const [expRes, salRes, eqRes, capRes] = await Promise.all([
+    const [expRes, salRes, depRes, capRes] = await Promise.all([
       supabase.from("monthly_expenses").select("value"),
       supabase.from("salaries").select("salary, is_production"),
       supabase.from("equipment_depreciation").select("purchase_value, useful_life_months, residual_value"),
@@ -153,7 +198,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
     ]);
     const totalExp = (expRes.data || []).reduce((s: number, e: any) => s + e.value, 0);
     const totalSal = (salRes.data || []).reduce((s: number, e: any) => s + e.salary, 0) * 1.45;
-    const totalDep = (eqRes.data || []).reduce((s: number, e: any) => s + (e.useful_life_months > 0 ? (e.purchase_value - e.residual_value) / e.useful_life_months : 0), 0);
+    const totalDep = (depRes.data || []).reduce((s: number, e: any) => s + (e.useful_life_months > 0 ? (e.purchase_value - e.residual_value) / e.useful_life_months : 0), 0);
     const cap = capRes.data;
     const prodCount = (salRes.data || []).filter((s: any) => s.is_production).length;
     const hours = cap ? prodCount * cap.hours_per_month : 0;
@@ -202,10 +247,20 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const updateLaborStep = (id: string, field: keyof LaborStep, value: string | number) =>
     setLaborSteps(laborSteps.map(step => step.id === id ? { ...step, [field]: value } : step));
 
+  const addPrintingItem = (item: PrintingCatalogItem) => {
+    const sizeMult = isLargerThanA4(item.size) ? 2 : 1;
+    const sideMult = item.side === "F/V" ? 2 : 1;
+    const printCost = roundUp10(item.printing_cost * sizeMult * sideMult);
+    const costPerSheet = item.paper_cost + printCost;
+    const label = `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}${item.equipment_mode === 'pb' ? ' (PB)' : ''}` : ''}`;
+    setMaterials([...materials, { id: `print-${Date.now()}-${item.id}`, description: label, quantity: 1, unitPrice: costPerSheet }]);
+    toast.success(`Impressão adicionada!`);
+  };
+
   const addMaterialFromCatalog = (materialId: string) => {
     const material = availableMaterials.find(m => m.id === materialId);
     if (material) {
-      setMaterials([...materials, { id: `${Date.now()}-${material.id}`, description: material.name, quantity: 1, unitPrice: material.lastPrice }]);
+      setMaterials([...materials, { id: `supply-${Date.now()}-${material.id}`, description: material.name, quantity: 1, unitPrice: material.lastPrice }]);
       toast.success(`${material.name} adicionado!`);
     }
   };
@@ -458,37 +513,105 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
             </div>
           )}
 
-          {/* Step 2: Matéria-Prima */}
+          {/* Step 2: Materiais — dividido em 3 seções */}
           {currentStep === 2 && (
-            <Card className="shadow-card">
-              <CardContent className="p-6 space-y-5">
-                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2"><Package className="h-5 w-5 text-primary" /> Matéria-Prima e Suprimentos</h2>
-                <div className="flex gap-3">
-                  <MaterialCatalogSearch materials={availableMaterials} onSelect={addMaterialFromCatalog} />
-                  <Button variant="outline" onClick={addMaterial} className="gap-2 shrink-0"><Plus className="h-4 w-4" /> Item Manual</Button>
-                </div>
-                {materials.length > 0 ? (
-                  <div className="space-y-2">
-                    {materials.map((item) => (
-                      <div key={item.id} className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/50">
-                        <div className="flex-1"><Input value={item.description} onChange={(e) => updateMaterial(item.id, "description", e.target.value)} placeholder="Descrição do item" className="border-0 bg-transparent p-0 h-auto text-sm font-medium focus-visible:ring-0" /></div>
-                        <div className="flex items-center gap-2">
-                          <Input type="number" value={item.quantity || ""} onChange={(e) => updateMaterial(item.id, "quantity", parseFloat(e.target.value) || 0)} className="w-16 h-8 text-sm text-center" placeholder="Qtd" />
-                          <span className="text-muted-foreground">×</span>
-                          <Input type="number" step="0.01" value={item.unitPrice || ""} onChange={(e) => updateMaterial(item.id, "unitPrice", parseFloat(e.target.value) || 0)} className="w-24 h-8 text-sm text-center" placeholder="R$" />
+            <div className="space-y-6">
+              {/* Seção 1: Impressão */}
+              <Card className="shadow-card border-l-4 border-l-primary/60">
+                <CardContent className="p-6 space-y-4">
+                  <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Printer className="h-5 w-5 text-primary" /> Impressão
+                    <span className="text-xs font-normal text-muted-foreground ml-1">— Itens da tabela de preço de impressão</span>
+                  </h2>
+                  <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} />
+                  {materials.filter(m => m.id.startsWith("print-")).length > 0 && (
+                    <div className="space-y-2">
+                      {materials.filter(m => m.id.startsWith("print-")).map((item) => (
+                        <div key={item.id} className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/50">
+                          <Printer className="h-4 w-4 text-primary/60 shrink-0" />
+                          <div className="flex-1 text-sm font-medium truncate">{item.description}</div>
+                          <div className="flex items-center gap-2">
+                            <Input type="number" value={item.quantity || ""} onChange={(e) => updateMaterial(item.id, "quantity", parseFloat(e.target.value) || 0)} className="w-20 h-8 text-sm text-center" placeholder="Folhas" />
+                            <span className="text-xs text-muted-foreground">folhas</span>
+                            <span className="text-muted-foreground">×</span>
+                            <span className="text-sm text-muted-foreground w-20 text-right">R$ {item.unitPrice.toFixed(2)}</span>
+                          </div>
+                          <span className="text-sm font-semibold text-foreground w-24 text-right">R$ {(item.quantity * item.unitPrice).toFixed(2)}</span>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => removeMaterial(item.id)}><X className="h-4 w-4" /></Button>
                         </div>
-                        <span className="text-sm font-medium text-muted-foreground w-24 text-right">R$ {(item.quantity * item.unitPrice).toFixed(2)}</span>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => removeMaterial(item.id)}><X className="h-4 w-4" /></Button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Seção 2: Suprimentos */}
+              <Card className="shadow-card border-l-4 border-l-orange-400/60">
+                <CardContent className="p-6 space-y-4">
+                  <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Package className="h-5 w-5 text-orange-500" /> Suprimentos
+                    <span className="text-xs font-normal text-muted-foreground ml-1">— Laminação, tintas, acabamentos...</span>
+                  </h2>
+                  <MaterialCatalogSearch materials={availableMaterials} onSelect={addMaterialFromCatalog} />
+                  {materials.filter(m => m.id.startsWith("supply-")).length > 0 && (
+                    <div className="space-y-2">
+                      {materials.filter(m => m.id.startsWith("supply-")).map((item) => (
+                        <div key={item.id} className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/50">
+                          <Package className="h-4 w-4 text-orange-400/60 shrink-0" />
+                          <div className="flex-1"><Input value={item.description} onChange={(e) => updateMaterial(item.id, "description", e.target.value)} placeholder="Descrição do item" className="border-0 bg-transparent p-0 h-auto text-sm font-medium focus-visible:ring-0" /></div>
+                          <div className="flex items-center gap-2">
+                            <Input type="number" value={item.quantity || ""} onChange={(e) => updateMaterial(item.id, "quantity", parseFloat(e.target.value) || 0)} className="w-16 h-8 text-sm text-center" placeholder="Qtd" />
+                            <span className="text-muted-foreground">×</span>
+                            <Input type="number" step="0.01" value={item.unitPrice || ""} onChange={(e) => updateMaterial(item.id, "unitPrice", parseFloat(e.target.value) || 0)} className="w-24 h-8 text-sm text-center" placeholder="R$" />
+                          </div>
+                          <span className="text-sm font-medium text-muted-foreground w-24 text-right">R$ {(item.quantity * item.unitPrice).toFixed(2)}</span>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => removeMaterial(item.id)}><X className="h-4 w-4" /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Seção 3: Item Manual */}
+              <Card className="shadow-card border-l-4 border-l-muted-foreground/30">
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                      <PenLine className="h-5 w-5 text-muted-foreground" /> Itens Manuais
+                      <span className="text-xs font-normal text-muted-foreground ml-1">— Acabamento, frete, outros custos</span>
+                    </h2>
+                    <Button variant="outline" onClick={addMaterial} size="sm" className="gap-2"><Plus className="h-4 w-4" /> Adicionar</Button>
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                    <Package className="h-10 w-10 mb-3 opacity-30" /><p className="text-sm">Nenhum material adicionado</p><p className="text-xs">Use a busca acima para encontrar materiais do catálogo</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  {materials.filter(m => !m.id.startsWith("print-") && !m.id.startsWith("supply-")).length > 0 && (
+                    <div className="space-y-2">
+                      {materials.filter(m => !m.id.startsWith("print-") && !m.id.startsWith("supply-")).map((item) => (
+                        <div key={item.id} className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/50">
+                          <PenLine className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                          <div className="flex-1"><Input value={item.description} onChange={(e) => updateMaterial(item.id, "description", e.target.value)} placeholder="Descrição do custo" className="border-0 bg-transparent p-0 h-auto text-sm font-medium focus-visible:ring-0" /></div>
+                          <div className="flex items-center gap-2">
+                            <Input type="number" value={item.quantity || ""} onChange={(e) => updateMaterial(item.id, "quantity", parseFloat(e.target.value) || 0)} className="w-16 h-8 text-sm text-center" placeholder="Qtd" />
+                            <span className="text-muted-foreground">×</span>
+                            <Input type="number" step="0.01" value={item.unitPrice || ""} onChange={(e) => updateMaterial(item.id, "unitPrice", parseFloat(e.target.value) || 0)} className="w-24 h-8 text-sm text-center" placeholder="R$" />
+                          </div>
+                          <span className="text-sm font-medium text-muted-foreground w-24 text-right">R$ {(item.quantity * item.unitPrice).toFixed(2)}</span>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => removeMaterial(item.id)}><X className="h-4 w-4" /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Total de Materiais */}
+              {materials.length > 0 && (
+                <div className="flex items-center justify-between text-sm font-semibold px-3 py-2 rounded-lg bg-muted/50">
+                  <span className="text-foreground">Total Materiais ({materials.length} itens)</span>
+                  <span className="text-primary">R$ {materialsTotal.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+          
           )}
 
           {/* Step 3: Terceirizados */}
@@ -617,7 +740,9 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
         )}
         <div className="space-y-3 text-sm flex-1">
           <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Mão de Obra</span><span className="font-medium">R$ {laborTotal.toFixed(2)}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> Materiais</span><span className="font-medium">R$ {materialsTotal.toFixed(2)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><Printer className="h-3.5 w-3.5" /> Impressão</span><span className="font-medium">R$ {materials.filter(m => m.id.startsWith("print-")).reduce((s, m) => s + m.quantity * m.unitPrice, 0).toFixed(2)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> Suprimentos</span><span className="font-medium">R$ {materials.filter(m => m.id.startsWith("supply-")).reduce((s, m) => s + m.quantity * m.unitPrice, 0).toFixed(2)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><PenLine className="h-3.5 w-3.5" /> Manuais</span><span className="font-medium">R$ {materials.filter(m => !m.id.startsWith("print-") && !m.id.startsWith("supply-")).reduce((s, m) => s + m.quantity * m.unitPrice, 0).toFixed(2)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><Wrench className="h-3.5 w-3.5" /> Terceirizados</span><span className="font-medium">R$ {thirdPartyTotal.toFixed(2)}</span></div>
           <Separator />
           <div className="flex justify-between"><span className="text-muted-foreground">Custo Produtivo</span><span className="font-medium">R$ {totalDespesasProdutivas.toFixed(2)}</span></div>
@@ -638,7 +763,9 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
         </div>
         <div className="mt-4 pt-4 border-t space-y-2">
           <div className="flex justify-between text-xs text-muted-foreground"><span>Etapas</span><Badge variant="secondary" className="h-5 px-2 text-xs">{laborSteps.length}</Badge></div>
-          <div className="flex justify-between text-xs text-muted-foreground"><span>Materiais</span><Badge variant="secondary" className="h-5 px-2 text-xs">{materials.length}</Badge></div>
+          <div className="flex justify-between text-xs text-muted-foreground"><span>Impressão</span><Badge variant="secondary" className="h-5 px-2 text-xs">{materials.filter(m => m.id.startsWith("print-")).length}</Badge></div>
+          <div className="flex justify-between text-xs text-muted-foreground"><span>Suprimentos</span><Badge variant="secondary" className="h-5 px-2 text-xs">{materials.filter(m => m.id.startsWith("supply-")).length}</Badge></div>
+          <div className="flex justify-between text-xs text-muted-foreground"><span>Manuais</span><Badge variant="secondary" className="h-5 px-2 text-xs">{materials.filter(m => !m.id.startsWith("print-") && !m.id.startsWith("supply-")).length}</Badge></div>
           <div className="flex justify-between text-xs text-muted-foreground"><span>Terceirizados</span><Badge variant="secondary" className="h-5 px-2 text-xs">{thirdParty.length}</Badge></div>
         </div>
       </aside>
