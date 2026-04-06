@@ -844,13 +844,15 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
         )}
         <div className="space-y-3 text-sm flex-1">
           <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Mão de Obra</span><span className="font-medium">R$ {laborTotal.toFixed(2)}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><Printer className="h-3.5 w-3.5" /> Impressão</span><span className="font-medium">R$ {materials.filter(m => m.id.startsWith("print-")).reduce((s, m) => s + m.quantity * m.unitPrice, 0).toFixed(2)}</span></div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground flex items-center gap-1.5"><Printer className="h-3.5 w-3.5" /> Impressão <Badge variant="outline" className="text-[8px] h-3 px-1">venda</Badge></span>
+            <span className="font-medium text-primary">R$ {printingTotal.toFixed(2)}</span>
+          </div>
           <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> Suprimentos</span><span className="font-medium">R$ {materials.filter(m => m.id.startsWith("supply-")).reduce((s, m) => s + m.quantity * m.unitPrice, 0).toFixed(2)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><PenLine className="h-3.5 w-3.5" /> Manuais</span><span className="font-medium">R$ {materials.filter(m => !m.id.startsWith("print-") && !m.id.startsWith("supply-")).reduce((s, m) => s + m.quantity * m.unitPrice, 0).toFixed(2)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1.5"><Wrench className="h-3.5 w-3.5" /> Terceirizados</span><span className="font-medium">R$ {thirdPartyTotal.toFixed(2)}</span></div>
           <Separator />
-          <div className="flex justify-between"><span className="text-muted-foreground">Custo Produtivo</span><span className="font-medium">R$ {totalDespesasProdutivas.toFixed(2)}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Desp. Venda</span><span className="font-medium">R$ {totalDespesasVenda.toFixed(2)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Desp. Venda (s/ impressão)</span><span className="font-medium">R$ {totalDespesasVenda.toFixed(2)}</span></div>
           {hasExemptions && (
             <div className="flex items-center gap-1 text-[10px] text-orange-600 font-medium">
               <ShieldAlert className="h-3 w-3" />
