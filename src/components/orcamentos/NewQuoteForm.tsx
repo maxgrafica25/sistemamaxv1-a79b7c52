@@ -12,7 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MaterialCatalogSearch from "./MaterialCatalogSearch";
-import PrintingItemSearch, { type PrintingCatalogItem } from "./PrintingItemSearch";
+import PrintingItemSearch, { type PrintingCatalogItem, type MarkupTier } from "./PrintingItemSearch";
 import { supabase } from "@/integrations/supabase/client";
 import type { Quote } from "@/pages/Orcamentos";
 
