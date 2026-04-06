@@ -3,6 +3,18 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Printer } from "lucide-react";
 
+export interface MarkupTier {
+  id: string;
+  printer_category_id: string;
+  label: string;
+  min_qty: number;
+  max_qty: number | null;
+  fixed_cost_pct: number;
+  variable_cost_pct: number;
+  margin_pct: number;
+  sort_order: number;
+}
+
 export interface PrintingCatalogItem {
   id: string;
   paper_type: string;
@@ -14,6 +26,7 @@ export interface PrintingCatalogItem {
   equipment_name: string | null;
   equipment_mode: string;
   category_name: string;
+  printer_category_id: string;
   totalCostA4: number;
 }
 
