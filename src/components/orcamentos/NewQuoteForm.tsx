@@ -264,20 +264,28 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
 
   // Cálculos
   const laborTotal = laborSteps.reduce((sum, step) => sum + (step.timeMinutes / 60) * hourlyRate, 0);
+  // Printing items already include markup → go directly to final value
+  const printingTotal = materials.filter(m => m.id.startsWith("print-")).reduce((s, m) => s + m.quantity * m.unitPrice, 0);
+  // Non-printing materials are raw costs
+  const nonPrintingMaterialsTotal = materials.filter(m => !m.id.startsWith("print-")).reduce((s, m) => s + m.quantity * m.unitPrice, 0);
   const materialsTotal = materials.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const thirdPartyTotal = thirdParty.reduce((sum, service) => sum + service.cost, 0);
-  const totalDespesasProdutivas = laborTotal + materialsTotal + thirdPartyTotal;
+
+  // Only apply quote markup to costs that don't already have markup
+  const custosSemMarkup = laborTotal + nonPrintingMaterialsTotal + thirdPartyTotal;
 
   const profitMarginValue = parseFloat(profitMargin || "0");
   const totalPercent = (invoicePercentage + wastePercentage + collectionCostPercentage + profitMarginValue) / 100;
   const divisor = 1 - totalPercent;
-  const valorACobrar = divisor > 0 ? totalDespesasProdutivas / divisor : 0;
+  const valorSemMarkupComMargem = divisor > 0 ? custosSemMarkup / divisor : 0;
+  // Final value = printing (already marked up) + other costs with markup
+  const valorACobrar = printingTotal + valorSemMarkupComMargem;
 
-  const impostosCost = valorACobrar * (invoicePercentage / 100);
-  const perdasCost = valorACobrar * (wastePercentage / 100);
-  const cobrancaCost = valorACobrar * (collectionCostPercentage / 100);
+  const impostosCost = valorSemMarkupComMargem * (invoicePercentage / 100);
+  const perdasCost = valorSemMarkupComMargem * (wastePercentage / 100);
+  const cobrancaCost = valorSemMarkupComMargem * (collectionCostPercentage / 100);
   const totalDespesasVenda = impostosCost + perdasCost + cobrancaCost;
-  const lucroValue = valorACobrar * (profitMarginValue / 100);
+  const lucroValue = valorSemMarkupComMargem * (profitMarginValue / 100);
 
   // Handlers
   const addStepFromCatalog = (stepId: string) => {
