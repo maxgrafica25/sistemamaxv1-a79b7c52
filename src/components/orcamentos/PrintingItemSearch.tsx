@@ -72,12 +72,15 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers }: Pri
     setIsOpen(false);
   };
 
-  const getSizeLabel = (item: PrintingCatalogItem) => {
+  const getItemPrices = (item: PrintingCatalogItem) => {
     const sizeMult = isLargerThanA4(item.size) ? 2 : 1;
     const sideMult = item.side === "F/V" ? 2 : 1;
     const printCost = roundUp10(item.printing_cost * sizeMult * sideMult);
-    const totalPerSheet = item.paper_cost + printCost;
-    return totalPerSheet;
+    const baseCost = item.paper_cost + printCost;
+    // Find first tier for this category to show selling price
+    const tier = markupTiers?.find(t => t.printer_category_id === item.printer_category_id);
+    const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
+    return { baseCost, sellingPrice, tierLabel: tier?.label };
   };
 
   return (
