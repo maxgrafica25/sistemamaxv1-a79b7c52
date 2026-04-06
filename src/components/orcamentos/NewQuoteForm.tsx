@@ -6,12 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, FileDown, Copy, X, Package, Wrench, ChevronLeft, ChevronRight, Check, User, Clock, FileText, Layers, ChevronDown, ChevronUp, ShieldAlert } from "lucide-react";
+import { Plus, Trash2, FileDown, Copy, X, Package, Wrench, ChevronLeft, ChevronRight, Check, User, Clock, FileText, Layers, ChevronDown, ChevronUp, ShieldAlert, Printer, PenLine } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MaterialCatalogSearch from "./MaterialCatalogSearch";
+import PrintingItemSearch, { type PrintingCatalogItem } from "./PrintingItemSearch";
 import { supabase } from "@/integrations/supabase/client";
 import type { Quote } from "@/pages/Orcamentos";
 
