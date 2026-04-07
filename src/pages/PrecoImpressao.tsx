@@ -1223,6 +1223,17 @@ export default function PrecoImpressao() {
                               </React.Fragment>
                             );
                           }
+                          if (eq.printer_type === 'ribbon') {
+                            return (
+                              <SelectItem key={eq.id} value={`${eq.id}:ribbon`}>
+                                <span className="flex items-center gap-2">
+                                  <Cpu className="h-3.5 w-3.5" style={{ color: 'hsl(172 66% 40%)' }} />
+                                  {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1" style={{ borderColor: 'hsl(172 66% 40%)', color: 'hsl(172 66% 40%)' }}>Ribbon</Badge>
+                                  <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id))}/imp</span>
+                                </span>
+                              </SelectItem>
+                            );
+                          }
                           return (
                             <SelectItem key={eq.id} value={`${eq.id}:pb`}>
                               <span className="flex items-center gap-2">
