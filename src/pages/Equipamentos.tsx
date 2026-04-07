@@ -86,6 +86,14 @@ const printerTypeConfig: Record<string, { label: string; shortLabel: string; col
     borderClass: "border-violet-400",
     iconBg: "bg-violet-500",
   },
+  ribbon: {
+    label: "Ribbon",
+    shortLabel: "Ribbon",
+    color: "hsl(172 66% 40%)",
+    bgClass: "bg-teal-50 dark:bg-teal-950",
+    borderClass: "border-teal-400",
+    iconBg: "bg-teal-500",
+  },
   other: {
     label: "Outro",
     shortLabel: "Outro",
@@ -175,29 +183,44 @@ export default function Equipamentos() {
     }, 0);
   }, [activeConsumables]);
   // Cost calculations for different coverage scenarios
+  const isRibbon = activeEq?.printer_type === "ribbon";
+
   const costScenarios = useMemo(() => {
     const isColor = activeEq?.printer_type === "color";
+    const isRibbonType = activeEq?.printer_type === "ribbon";
     const sharedCons = activeConsumables.filter(c => c.mode !== "color_only");
     const allCons = activeConsumables;
 
     const calcCost = (items: Consumable[], coverage: number) =>
       items.reduce((sum, c) => c.yield_pages > 0 ? sum + (c.price / c.yield_pages) * coverage : sum, 0);
 
+    if (isRibbonType) {
+      // Ribbon: custo direto sem cobertura (preço/rendimento)
+      const directCost = allCons.reduce((sum, c) => c.yield_pages > 0 ? sum + c.price / c.yield_pages : sum, 0);
+      return {
+        isColor: false,
+        isRibbon: true,
+        directCost,
+        color5: 0, color20: 0, pb5: 0, pb20: 0,
+      };
+    }
+
     if (isColor) {
       return {
-        isColor: true,
-        color5: calcCost(allCons, 1),       // 5% base
-        color20: calcCost(allCons, 4),      // 20% = 4x
-        pb5: calcCost(sharedCons, 1),       // PB 5%
-        pb20: calcCost(sharedCons, 4),      // PB 20%
+        isColor: true, isRibbon: false,
+        color5: calcCost(allCons, 1),
+        color20: calcCost(allCons, 4),
+        pb5: calcCost(sharedCons, 1),
+        pb20: calcCost(sharedCons, 4),
+        directCost: 0,
       };
     } else {
       return {
-        isColor: false,
-        color5: 0,
-        color20: 0,
+        isColor: false, isRibbon: false,
+        color5: 0, color20: 0,
         pb5: calcCost(allCons, 1),
         pb20: calcCost(allCons, 4),
+        directCost: 0,
       };
     }
   }, [activeConsumables, activeEq]);
