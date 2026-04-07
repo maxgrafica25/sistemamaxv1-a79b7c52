@@ -751,7 +751,7 @@ export default function Equipamentos() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Nome</Label>
-              <Input value={consName} onChange={(e) => setConsName(e.target.value)} placeholder="Ex: Toner Preto" />
+              <Input value={consName} onChange={(e) => setConsName(e.target.value)} placeholder={isRibbon ? "Ex: Ribbon, Cartão PVC, Depreciação" : "Ex: Toner Preto"} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -759,20 +759,29 @@ export default function Equipamentos() {
                 <Input type="number" step="0.01" value={consPrice} onChange={(e) => setConsPrice(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Rendimento (páginas)</Label>
+                <Label>{isRibbon ? "Rendimento (impressões)" : "Rendimento (páginas)"}</Label>
                 <Input type="number" step="1" value={consYield} onChange={(e) => setConsYield(e.target.value)} />
               </div>
             </div>
             {Number(consYield) > 0 && (
               <div className="rounded-lg bg-muted/50 p-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Custo/Página (5%)</span>
-                  <span className="font-semibold font-mono">{fmt4(Number(consPrice) / Number(consYield))}</span>
-                </div>
-                <div className="flex justify-between text-sm mt-1">
-                  <span className="text-muted-foreground">Custo/Página (20%)</span>
-                  <span className="font-semibold font-mono">{fmt4((Number(consPrice) / Number(consYield)) * 4)}</span>
-                </div>
+                {isRibbon ? (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Custo/Impressão</span>
+                    <span className="font-semibold font-mono">{fmt4(Number(consPrice) / Number(consYield))}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Custo/Página (5%)</span>
+                      <span className="font-semibold font-mono">{fmt4(Number(consPrice) / Number(consYield))}</span>
+                    </div>
+                    <div className="flex justify-between text-sm mt-1">
+                      <span className="text-muted-foreground">Custo/Página (20%)</span>
+                      <span className="font-semibold font-mono">{fmt4((Number(consPrice) / Number(consYield)) * 4)}</span>
+                    </div>
+                  </>
+                )}
               </div>
             )}
             {editingCons && editingCons.price !== Number(consPrice) && (
