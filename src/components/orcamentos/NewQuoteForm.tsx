@@ -784,7 +784,11 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
                 )}
 
                 <div className="rounded-lg bg-muted/50 p-4 space-y-2">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Despesas de Venda</h3>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                    Despesas de Venda
+                    <Badge variant="outline" className="text-[9px] h-3.5 px-1 font-normal normal-case">s/ impressão</Badge>
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground -mt-1">Incide apenas sobre Mão de Obra, Suprimentos, Manuais e Terceirizados (R$ {custosSemMarkup.toFixed(2)})</p>
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Impostos ({invoicePercentage}%):</span><span>R$ {impostosCost.toFixed(2)}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Perdas ({wastePercentage}%):</span><span>R$ {perdasCost.toFixed(2)}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Custos de Cobrança ({collectionCostPercentage}%):</span><span>R$ {cobrancaCost.toFixed(2)}</span></div>
@@ -802,7 +806,10 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
                   </div>
                 )}
                 <div className="flex items-end gap-4">
-                  <div className="flex-1 space-y-2"><Label>Margem de Lucro / BDI (%)</Label><Input type="number" step="0.01" value={profitMargin} onChange={(e) => setProfitMargin(e.target.value)} /></div>
+                  <div className="flex-1 space-y-2">
+                    <Label className="flex items-center gap-2">Margem de Lucro / BDI (%) <Badge variant="outline" className="text-[9px] h-3.5 px-1 font-normal">s/ impressão</Badge></Label>
+                    <Input type="number" step="0.01" value={profitMargin} onChange={(e) => setProfitMargin(e.target.value)} />
+                  </div>
                   <div className="w-48 text-right pb-2"><div className="text-xs text-muted-foreground">Lucro</div><div className="text-base font-semibold text-primary">+ R$ {lucroValue.toFixed(2)}</div></div>
                 </div>
                 <div className="rounded-xl bg-primary/10 p-6 border border-primary/20">
