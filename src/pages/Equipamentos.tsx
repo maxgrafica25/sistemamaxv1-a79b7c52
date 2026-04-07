@@ -431,7 +431,7 @@ export default function Equipamentos() {
                   <TabsTrigger value="consumiveis" className="gap-1.5 text-xs">
                     <Gauge className="h-3.5 w-3.5" /> Consumíveis
                   </TabsTrigger>
-                  {(eq.printer_type === "pb" || eq.printer_type === "color") && (
+                  {(eq.printer_type === "pb" || eq.printer_type === "color" || eq.printer_type === "ribbon") && (
                     <TabsTrigger value="contadores" className="gap-1.5 text-xs">
                       <ClipboardList className="h-3.5 w-3.5" /> Contadores
                     </TabsTrigger>
@@ -458,7 +458,11 @@ export default function Equipamentos() {
                   {/* Summary line */}
                   <div className="flex items-center gap-6 text-sm text-muted-foreground px-1">
                     <span><strong className="text-foreground">{activeConsumables.length}</strong> consumíveis</span>
-                    <span>Custo/página (5%): <strong className="text-foreground">{fmt4(costPerPage)}</strong></span>
+                    {isRibbon ? (
+                      <span>Custo/impressão: <strong className="text-foreground">{fmt4(costPerPage)}</strong></span>
+                    ) : (
+                      <span>Custo/página (5%): <strong className="text-foreground">{fmt4(costPerPage)}</strong></span>
+                    )}
                   </div>
 
                   {/* Consumables table */}
