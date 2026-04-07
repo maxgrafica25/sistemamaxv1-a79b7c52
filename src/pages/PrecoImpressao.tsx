@@ -187,6 +187,14 @@ export default function PrecoImpressao() {
 
   const getEquipmentCostPerPage = (equipmentId: string, categoryCoverage: number = 20, forcePB?: boolean) => {
     const eq = equipments.find(e => e.id === equipmentId);
+    const isRibbonPrinter = eq?.printer_type === 'ribbon';
+    
+    // Ribbon: custo direto sem cobertura
+    if (isRibbonPrinter) {
+      const cons = equipConsumables.filter(c => c.equipment_id === equipmentId);
+      return cons.reduce((sum, c) => c.yield_pages <= 0 ? sum : sum + c.price / c.yield_pages, 0);
+    }
+
     const isColorPrinter = eq?.printer_type === 'color';
     const usePB = forcePB ?? categoryCoverage <= 5;
     const coverage = isColorPrinter ? 20 : 5;
