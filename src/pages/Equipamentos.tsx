@@ -720,6 +720,7 @@ export default function Equipamentos() {
                 <SelectContent>
                   <SelectItem value="pb">Preto e Branco (PB)</SelectItem>
                   <SelectItem value="color">Color</SelectItem>
+                  <SelectItem value="ribbon">Ribbon (custo direto)</SelectItem>
                   <SelectItem value="other">Outro</SelectItem>
                 </SelectContent>
               </Select>
