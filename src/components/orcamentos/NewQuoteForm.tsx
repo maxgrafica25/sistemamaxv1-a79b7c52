@@ -205,6 +205,13 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
 
     const getEquipCostPerPage = (equipmentId: string, mode: string) => {
       const eq = equipmentsList.find(e => e.id === equipmentId);
+      
+      // Ribbon: custo direto sem cobertura
+      if (eq?.printer_type === 'ribbon') {
+        const cons = consumablesList.filter(c => c.equipment_id === equipmentId);
+        return cons.reduce((sum, c) => c.yield_pages <= 0 ? sum : sum + c.price / c.yield_pages, 0);
+      }
+
       const isColorPrinter = eq?.printer_type === 'color';
       const usePB = mode === 'pb';
       const coverage = isColorPrinter ? 20 : 5;
