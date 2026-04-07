@@ -187,6 +187,14 @@ export default function PrecoImpressao() {
 
   const getEquipmentCostPerPage = (equipmentId: string, categoryCoverage: number = 20, forcePB?: boolean) => {
     const eq = equipments.find(e => e.id === equipmentId);
+    const isRibbonPrinter = eq?.printer_type === 'ribbon';
+    
+    // Ribbon: custo direto sem cobertura
+    if (isRibbonPrinter) {
+      const cons = equipConsumables.filter(c => c.equipment_id === equipmentId);
+      return cons.reduce((sum, c) => c.yield_pages <= 0 ? sum : sum + c.price / c.yield_pages, 0);
+    }
+
     const isColorPrinter = eq?.printer_type === 'color';
     const usePB = forcePB ?? categoryCoverage <= 5;
     const coverage = isColorPrinter ? 20 : 5;
@@ -1215,6 +1223,17 @@ export default function PrecoImpressao() {
                               </React.Fragment>
                             );
                           }
+                          if (eq.printer_type === 'ribbon') {
+                            return (
+                              <SelectItem key={eq.id} value={`${eq.id}:ribbon`}>
+                                <span className="flex items-center gap-2">
+                                  <Cpu className="h-3.5 w-3.5" style={{ color: 'hsl(172 66% 40%)' }} />
+                                  {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1" style={{ borderColor: 'hsl(172 66% 40%)', color: 'hsl(172 66% 40%)' }}>Ribbon</Badge>
+                                  <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id))}/imp</span>
+                                </span>
+                              </SelectItem>
+                            );
+                          }
                           return (
                             <SelectItem key={eq.id} value={`${eq.id}:pb`}>
                               <span className="flex items-center gap-2">
@@ -1233,17 +1252,28 @@ export default function PrecoImpressao() {
                         <Input type="number" step="0.0001" value={itemPrintingCost} onChange={e => setItemPrintingCost(e.target.value)} placeholder="Ex: 0.0350 — custo por página" />
                       </div>
                     )}
-                    {itemEquipmentId && (
-                      <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 flex items-center gap-2">
-                        <Cpu className="h-4 w-4 text-primary shrink-0" />
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Via </span>
-                          <span className="font-medium text-foreground">{getEquipmentName(itemEquipmentId)}{itemEquipmentMode === 'pb' ? ' (PB)' : ''}</span>
-                          <span className="text-muted-foreground"> a {equipments.find(e => e.id === itemEquipmentId)?.printer_type === 'color' ? '20' : '5'}%{itemEquipmentMode === 'pb' ? ' (só PB)' : ''}: </span>
-                          <span className="font-bold text-primary">{fmt4(getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb'))}</span>
+                    {itemEquipmentId && (() => {
+                      const selectedEq = equipments.find(e => e.id === itemEquipmentId);
+                      const isRibbonEq = selectedEq?.printer_type === 'ribbon';
+                      return (
+                        <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 flex items-center gap-2">
+                          <Cpu className="h-4 w-4 text-primary shrink-0" />
+                          <div className="text-sm">
+                            <span className="text-muted-foreground">Via </span>
+                            <span className="font-medium text-foreground">
+                              {getEquipmentName(itemEquipmentId)}
+                              {isRibbonEq ? ' (Ribbon)' : itemEquipmentMode === 'pb' ? ' (PB)' : ''}
+                            </span>
+                            {isRibbonEq ? (
+                              <span className="text-muted-foreground"> — custo direto: </span>
+                            ) : (
+                              <span className="text-muted-foreground"> a {selectedEq?.printer_type === 'color' ? '20' : '5'}%{itemEquipmentMode === 'pb' ? ' (só PB)' : ''}: </span>
+                            )}
+                            <span className="font-bold text-primary">{fmt4(getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb'))}</span>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 ) : (
                   <div className="space-y-2">

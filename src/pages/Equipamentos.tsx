@@ -86,6 +86,14 @@ const printerTypeConfig: Record<string, { label: string; shortLabel: string; col
     borderClass: "border-violet-400",
     iconBg: "bg-violet-500",
   },
+  ribbon: {
+    label: "Ribbon",
+    shortLabel: "Ribbon",
+    color: "hsl(172 66% 40%)",
+    bgClass: "bg-teal-50 dark:bg-teal-950",
+    borderClass: "border-teal-400",
+    iconBg: "bg-teal-500",
+  },
   other: {
     label: "Outro",
     shortLabel: "Outro",
@@ -175,29 +183,44 @@ export default function Equipamentos() {
     }, 0);
   }, [activeConsumables]);
   // Cost calculations for different coverage scenarios
+  const isRibbon = activeEq?.printer_type === "ribbon";
+
   const costScenarios = useMemo(() => {
     const isColor = activeEq?.printer_type === "color";
+    const isRibbonType = activeEq?.printer_type === "ribbon";
     const sharedCons = activeConsumables.filter(c => c.mode !== "color_only");
     const allCons = activeConsumables;
 
     const calcCost = (items: Consumable[], coverage: number) =>
       items.reduce((sum, c) => c.yield_pages > 0 ? sum + (c.price / c.yield_pages) * coverage : sum, 0);
 
+    if (isRibbonType) {
+      // Ribbon: custo direto sem cobertura (preço/rendimento)
+      const directCost = allCons.reduce((sum, c) => c.yield_pages > 0 ? sum + c.price / c.yield_pages : sum, 0);
+      return {
+        isColor: false,
+        isRibbon: true,
+        directCost,
+        color5: 0, color20: 0, pb5: 0, pb20: 0,
+      };
+    }
+
     if (isColor) {
       return {
-        isColor: true,
-        color5: calcCost(allCons, 1),       // 5% base
-        color20: calcCost(allCons, 4),      // 20% = 4x
-        pb5: calcCost(sharedCons, 1),       // PB 5%
-        pb20: calcCost(sharedCons, 4),      // PB 20%
+        isColor: true, isRibbon: false,
+        color5: calcCost(allCons, 1),
+        color20: calcCost(allCons, 4),
+        pb5: calcCost(sharedCons, 1),
+        pb20: calcCost(sharedCons, 4),
+        directCost: 0,
       };
     } else {
       return {
-        isColor: false,
-        color5: 0,
-        color20: 0,
+        isColor: false, isRibbon: false,
+        color5: 0, color20: 0,
         pb5: calcCost(allCons, 1),
         pb20: calcCost(allCons, 4),
+        directCost: 0,
       };
     }
   }, [activeConsumables, activeEq]);
@@ -408,7 +431,7 @@ export default function Equipamentos() {
                   <TabsTrigger value="consumiveis" className="gap-1.5 text-xs">
                     <Gauge className="h-3.5 w-3.5" /> Consumíveis
                   </TabsTrigger>
-                  {(eq.printer_type === "pb" || eq.printer_type === "color") && (
+                  {(eq.printer_type === "pb" || eq.printer_type === "color" || eq.printer_type === "ribbon") && (
                     <TabsTrigger value="contadores" className="gap-1.5 text-xs">
                       <ClipboardList className="h-3.5 w-3.5" /> Contadores
                     </TabsTrigger>
@@ -435,7 +458,11 @@ export default function Equipamentos() {
                   {/* Summary line */}
                   <div className="flex items-center gap-6 text-sm text-muted-foreground px-1">
                     <span><strong className="text-foreground">{activeConsumables.length}</strong> consumíveis</span>
-                    <span>Custo/página (5%): <strong className="text-foreground">{fmt4(costPerPage)}</strong></span>
+                    {isRibbon ? (
+                      <span>Custo/impressão: <strong className="text-foreground">{fmt4(costPerPage)}</strong></span>
+                    ) : (
+                      <span>Custo/página (5%): <strong className="text-foreground">{fmt4(costPerPage)}</strong></span>
+                    )}
                   </div>
 
                   {/* Consumables table */}
@@ -513,6 +540,52 @@ export default function Equipamentos() {
                     const sharedCons = activeConsumables.filter(c => c.mode !== "color_only");
                     const allCons = activeConsumables;
                     const colorOnlyCons = activeConsumables.filter(c => c.mode === "color_only");
+
+                    // Ribbon: single card with direct cost
+                    if (costScenarios.isRibbon) {
+                      return (
+                        <div className="grid gap-3 grid-cols-1 max-w-md">
+                          <Collapsible>
+                            <Card className="border-teal-300 dark:border-teal-700 bg-teal-50/50 dark:bg-teal-950/30">
+                              <CollapsibleTrigger className="w-full text-left">
+                                <CardContent className="p-4">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Custo por Impressão</p>
+                                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </div>
+                                  <p className="text-xl font-bold text-foreground">{fmt4(costScenarios.directCost)}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    {allCons.length} consumíve{allCons.length === 1 ? 'l' : 'is'} • Custo direto (sem cobertura)
+                                  </p>
+                                </CardContent>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <div className="px-4 pb-4 space-y-1.5">
+                                  <div className="border-t border-border/50 pt-2" />
+                                  {allCons.map(c => {
+                                    const cpp = c.yield_pages > 0 ? c.price / c.yield_pages : 0;
+                                    return (
+                                      <div key={c.id} className="flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-1.5">
+                                          <div className="h-1.5 w-1.5 rounded-full bg-teal-500" />
+                                          <span className="text-muted-foreground">{c.name}</span>
+                                        </div>
+                                        <span className="font-mono text-foreground">{fmt4(cpp)}</span>
+                                      </div>
+                                    );
+                                  })}
+                                  <div className="pt-1.5 border-t border-border/30 mt-1.5">
+                                    <p className="text-[10px] text-muted-foreground italic">
+                                      F/V conta como 2 impressões (2× custo)
+                                    </p>
+                                  </div>
+                                </div>
+                              </CollapsibleContent>
+                            </Card>
+                          </Collapsible>
+                        </div>
+                      );
+                    }
 
                     const scenarios = costScenarios.isColor
                       ? [
@@ -647,6 +720,7 @@ export default function Equipamentos() {
                 <SelectContent>
                   <SelectItem value="pb">Preto e Branco (PB)</SelectItem>
                   <SelectItem value="color">Color</SelectItem>
+                  <SelectItem value="ribbon">Ribbon (custo direto)</SelectItem>
                   <SelectItem value="other">Outro</SelectItem>
                 </SelectContent>
               </Select>
@@ -677,7 +751,7 @@ export default function Equipamentos() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Nome</Label>
-              <Input value={consName} onChange={(e) => setConsName(e.target.value)} placeholder="Ex: Toner Preto" />
+              <Input value={consName} onChange={(e) => setConsName(e.target.value)} placeholder={isRibbon ? "Ex: Ribbon, Cartão PVC, Depreciação" : "Ex: Toner Preto"} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -685,20 +759,29 @@ export default function Equipamentos() {
                 <Input type="number" step="0.01" value={consPrice} onChange={(e) => setConsPrice(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Rendimento (páginas)</Label>
+                <Label>{isRibbon ? "Rendimento (impressões)" : "Rendimento (páginas)"}</Label>
                 <Input type="number" step="1" value={consYield} onChange={(e) => setConsYield(e.target.value)} />
               </div>
             </div>
             {Number(consYield) > 0 && (
               <div className="rounded-lg bg-muted/50 p-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Custo/Página (5%)</span>
-                  <span className="font-semibold font-mono">{fmt4(Number(consPrice) / Number(consYield))}</span>
-                </div>
-                <div className="flex justify-between text-sm mt-1">
-                  <span className="text-muted-foreground">Custo/Página (20%)</span>
-                  <span className="font-semibold font-mono">{fmt4((Number(consPrice) / Number(consYield)) * 4)}</span>
-                </div>
+                {isRibbon ? (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Custo/Impressão</span>
+                    <span className="font-semibold font-mono">{fmt4(Number(consPrice) / Number(consYield))}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Custo/Página (5%)</span>
+                      <span className="font-semibold font-mono">{fmt4(Number(consPrice) / Number(consYield))}</span>
+                    </div>
+                    <div className="flex justify-between text-sm mt-1">
+                      <span className="text-muted-foreground">Custo/Página (20%)</span>
+                      <span className="font-semibold font-mono">{fmt4((Number(consPrice) / Number(consYield)) * 4)}</span>
+                    </div>
+                  </>
+                )}
               </div>
             )}
             {editingCons && editingCons.price !== Number(consPrice) && (
