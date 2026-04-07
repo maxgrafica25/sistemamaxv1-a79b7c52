@@ -541,6 +541,52 @@ export default function Equipamentos() {
                     const allCons = activeConsumables;
                     const colorOnlyCons = activeConsumables.filter(c => c.mode === "color_only");
 
+                    // Ribbon: single card with direct cost
+                    if (costScenarios.isRibbon) {
+                      return (
+                        <div className="grid gap-3 grid-cols-1 max-w-md">
+                          <Collapsible>
+                            <Card className="border-teal-300 dark:border-teal-700 bg-teal-50/50 dark:bg-teal-950/30">
+                              <CollapsibleTrigger className="w-full text-left">
+                                <CardContent className="p-4">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Custo por Impressão</p>
+                                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </div>
+                                  <p className="text-xl font-bold text-foreground">{fmt4(costScenarios.directCost)}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    {allCons.length} consumíve{allCons.length === 1 ? 'l' : 'is'} • Custo direto (sem cobertura)
+                                  </p>
+                                </CardContent>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <div className="px-4 pb-4 space-y-1.5">
+                                  <div className="border-t border-border/50 pt-2" />
+                                  {allCons.map(c => {
+                                    const cpp = c.yield_pages > 0 ? c.price / c.yield_pages : 0;
+                                    return (
+                                      <div key={c.id} className="flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-1.5">
+                                          <div className="h-1.5 w-1.5 rounded-full bg-teal-500" />
+                                          <span className="text-muted-foreground">{c.name}</span>
+                                        </div>
+                                        <span className="font-mono text-foreground">{fmt4(cpp)}</span>
+                                      </div>
+                                    );
+                                  })}
+                                  <div className="pt-1.5 border-t border-border/30 mt-1.5">
+                                    <p className="text-[10px] text-muted-foreground italic">
+                                      F/V conta como 2 impressões (2× custo)
+                                    </p>
+                                  </div>
+                                </div>
+                              </CollapsibleContent>
+                            </Card>
+                          </Collapsible>
+                        </div>
+                      );
+                    }
+
                     const scenarios = costScenarios.isColor
                       ? [
                           { label: "Color • 5%", value: costScenarios.color5, items: allCons, multiplier: 1, borderClass: "border-violet-200 dark:border-violet-800", bgClass: "bg-violet-50/50 dark:bg-violet-950/30", dotColor: "bg-violet-400" },
