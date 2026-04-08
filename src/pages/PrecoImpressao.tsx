@@ -220,8 +220,21 @@ export default function PrecoImpressao() {
     return item.printing_cost;
   };
 
-  const activeTiers = useMemo(() => tiers.filter(t => t.printer_category_id === activeCategory).sort((a, b) => a.sort_order - b.sort_order), [tiers, activeCategory]);
+  const activeGroupId = activeCategoryObj?.default_markup_group_id || null;
+  const activeTiers = useMemo(() => tiers.filter(t => t.markup_group_id === activeGroupId).sort((a, b) => a.sort_order - b.sort_order), [tiers, activeGroupId]);
   const activeItems = useMemo(() => items.filter(i => i.printer_category_id === activeCategory && i.is_active).sort((a, b) => a.sort_order - b.sort_order), [items, activeCategory]);
+
+  // Get tiers for a specific group
+  const getTiersForGroup = useCallback((groupId: string | null) => {
+    if (!groupId) return activeTiers;
+    return tiers.filter(t => t.markup_group_id === groupId).sort((a, b) => a.sort_order - b.sort_order);
+  }, [tiers, activeTiers]);
+
+  // Resolve which tiers apply to a specific item
+  const getItemTiers = useCallback((item: PrintingPriceItem) => {
+    const groupId = item.markup_group_id || activeGroupId;
+    return tiers.filter(t => t.markup_group_id === groupId).sort((a, b) => a.sort_order - b.sort_order);
+  }, [tiers, activeGroupId]);
 
   const paperTypes = useMemo(() => {
     const types: string[] = [];
