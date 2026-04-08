@@ -6,6 +6,7 @@ import { Search, Printer } from "lucide-react";
 export interface MarkupTier {
   id: string;
   printer_category_id: string;
+  markup_group_id: string | null;
   label: string;
   min_qty: number;
   max_qty: number | null;
