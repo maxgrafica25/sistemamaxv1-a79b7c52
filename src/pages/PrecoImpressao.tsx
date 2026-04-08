@@ -171,20 +171,22 @@ export default function PrecoImpressao() {
   // ─── Data loading ──────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [catRes, tierRes, itemRes, eqRes, consRes, papRes] = await Promise.all([
+    const [catRes, tierRes, itemRes, eqRes, consRes, papRes, groupRes] = await Promise.all([
       supabase.from("printer_categories").select("*").order("sort_order"),
       supabase.from("markup_tiers").select("*").order("sort_order"),
       supabase.from("printing_price_items").select("*").order("sort_order"),
       supabase.from("equipments").select("id, name, printer_type").order("sort_order"),
       supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
       supabase.from("papers").select("id, name, grammage, sheet_qty, pack_price, freight_price").eq("is_active", true).order("sort_order"),
+      supabase.from("markup_groups").select("*").order("name"),
     ]);
-    if (catRes.data) setCategories(catRes.data);
-    if (tierRes.data) setTiers(tierRes.data);
+    if (catRes.data) setCategories(catRes.data as PrinterCategory[]);
+    if (tierRes.data) setTiers(tierRes.data as MarkupTier[]);
     if (itemRes.data) setItems(itemRes.data as PrintingPriceItem[]);
     if (eqRes.data) setEquipments(eqRes.data);
     if (consRes.data) setEquipConsumables(consRes.data);
     if (papRes.data) setPaperRecords(papRes.data as PaperRecord[]);
+    if (groupRes.data) setMarkupGroups(groupRes.data as MarkupGroup[]);
     if (catRes.data?.length && !activeCategory) setActiveCategory(catRes.data[0].id);
     setLoading(false);
   }, [activeCategory]);
