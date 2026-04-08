@@ -372,7 +372,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       // For printing items, recalculate selling price when quantity changes
       if (field === "quantity" && item.baseCost && item.printerCategoryId) {
         const qty = Number(value) || 1;
-        const tier = findTier(item.printerCategoryId, qty);
+        const tier = findTier(item.printerCategoryId, qty, item.markupGroupId);
         if (tier) {
           updated.unitPrice = calcSellingPrice(item.baseCost, tier);
           updated.tierLabel = tier.label;
