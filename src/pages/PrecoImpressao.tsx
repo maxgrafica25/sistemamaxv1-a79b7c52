@@ -1445,6 +1445,19 @@ export default function PrecoImpressao() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* ─── Group Dialog ── */}
+        <Dialog open={showGroupDialog} onOpenChange={setShowGroupDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>Novo Grupo de Faixas</DialogTitle>
+              <DialogDescription>Crie um grupo reutilizável de faixas de quantidade. Ex: "Adesivos", "Couchê", "Padrão".</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2"><Label>Nome do grupo</Label><Input value={groupName} onChange={e => setGroupName(e.target.value)} placeholder="Ex: Adesivos, Couchê..." /></div>
+            </div>
+            <DialogFooter><Button variant="outline" onClick={() => setShowGroupDialog(false)}>Cancelar</Button><Button onClick={createMarkupGroup}>Criar</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
 
