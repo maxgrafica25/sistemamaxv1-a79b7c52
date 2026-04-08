@@ -340,7 +340,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
     const baseCost = item.paper_cost + printCost;
     const label = `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}${item.equipment_mode === 'pb' ? ' (PB)' : ''}` : ''}`;
     // Find tier for qty=1 and compute selling price
-    const tier = findTier(item.printer_category_id, 1);
+    const tier = findTier(item.printer_category_id, 1, item.markup_group_id);
     const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
     setMaterials([...materials, {
       id: `print-${Date.now()}-${item.id}`,
@@ -349,6 +349,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       unitPrice: sellingPrice,
       baseCost,
       printerCategoryId: item.printer_category_id,
+      markupGroupId: item.markup_group_id,
       tierLabel: tier?.label || undefined,
     }]);
     toast.success(`Impressão adicionada!`);
