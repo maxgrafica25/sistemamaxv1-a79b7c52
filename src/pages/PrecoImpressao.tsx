@@ -972,11 +972,51 @@ export default function PrecoImpressao() {
                                     </TableCell>
                                   )}
                                   {visibleColumns.totalCost && <TableCell className="text-right font-mono text-xs font-semibold">{fmt4(baseCost)}</TableCell>}
-                                  {activeTiers.map(tier => (
-                                    <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPrice(baseCost, tier))}</TableCell>
-                                  ))}
+                                  {(() => {
+                                    const itemTiers = getItemTiers(item);
+                                    const hasCustomGroup = item.markup_group_id && item.markup_group_id !== activeGroupId;
+                                    // Show prices aligned with the header tiers, or custom tiers if different
+                                    if (hasCustomGroup) {
+                                      return (
+                                        <TableCell colSpan={activeTiers.length} className="text-center">
+                                          <div className="flex items-center gap-2 justify-center flex-wrap">
+                                            <Badge variant="outline" className="text-[9px]">{markupGroups.find(g => g.id === item.markup_group_id)?.name}</Badge>
+                                            {itemTiers.map(t => (
+                                              <span key={t.id} className="text-xs font-mono">
+                                                <span className="text-muted-foreground">{t.label}:</span>{" "}
+                                                <span className="font-semibold text-primary">{fmt(calcSellingPrice(baseCost, t))}</span>
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </TableCell>
+                                      );
+                                    }
+                                    return activeTiers.map(tier => (
+                                      <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPrice(baseCost, tier))}</TableCell>
+                                    ));
+                                  })()}
                                   <TableCell>
                                     <div className="flex gap-1 justify-end">
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Grupo de faixas">
+                                            <Layers className={cn("h-3.5 w-3.5", item.markup_group_id && item.markup_group_id !== activeGroupId ? "text-primary" : "text-muted-foreground")} />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-56 space-y-2" align="end">
+                                          <span className="font-semibold text-sm">Grupo de Faixas</span>
+                                          <p className="text-xs text-muted-foreground">Selecione um grupo diferente do padrão para este item.</p>
+                                          <Select value={item.markup_group_id || "__default__"} onValueChange={v => assignGroupToItem(item.id, v === "__default__" ? null : v)}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="__default__">📋 Padrão da categoria</SelectItem>
+                                              {markupGroups.map(g => (
+                                                <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </PopoverContent>
+                                      </Popover>
                                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openItemDialog(item)}><Edit2 className="h-3.5 w-3.5" /></Button>
                                       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => requestDeleteItem(item.id, item.paper_type)}><Trash2 className="h-3.5 w-3.5" /></Button>
                                     </div>
