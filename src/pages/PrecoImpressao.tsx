@@ -592,8 +592,13 @@ export default function PrecoImpressao() {
                         <div className="flex items-center gap-2">
                           <Settings2 className="h-4 w-4 text-primary" />
                           <span className="text-sm font-semibold text-foreground">Regras de Preço por Quantidade</span>
-                          <Badge variant="secondary" className="text-[10px] ml-1">
-                            {activeTiers.length} faixa{activeTiers.length !== 1 ? "s" : ""} configurada{activeTiers.length !== 1 ? "s" : ""}
+                          {activeGroupId && (
+                            <Badge variant="outline" className="text-[10px] ml-1">
+                              {markupGroups.find(g => g.id === activeGroupId)?.name || "Grupo"}
+                            </Badge>
+                          )}
+                          <Badge variant="secondary" className="text-[10px]">
+                            {activeTiers.length} faixa{activeTiers.length !== 1 ? "s" : ""}
                           </Badge>
                           {activeTiers.length > 0 && (
                             <span className="text-[10px] text-muted-foreground hidden sm:inline">
@@ -606,8 +611,32 @@ export default function PrecoImpressao() {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <div className="px-4 pb-4 pt-1 border-t">
+                        {/* Group selector */}
+                        <div className="flex items-center gap-2 mb-3 flex-wrap">
+                          <Label className="text-xs text-muted-foreground shrink-0">Grupo de faixas:</Label>
+                          <Select value={activeGroupId || "__none__"} onValueChange={v => { if (v !== "__none__" && v !== "__new__") assignGroupToCategory(v); if (v === "__new__") { setGroupName(""); setShowGroupDialog(true); } }}>
+                            <SelectTrigger className="h-8 text-xs w-[220px]"><SelectValue placeholder="Selecione um grupo" /></SelectTrigger>
+                            <SelectContent>
+                              {markupGroups.map(g => {
+                                const groupTierCount = tiers.filter(t => t.markup_group_id === g.id).length;
+                                return (
+                                  <SelectItem key={g.id} value={g.id}>
+                                    {g.name} ({groupTierCount} faixa{groupTierCount !== 1 ? "s" : ""})
+                                  </SelectItem>
+                                );
+                              })}
+                              <SelectItem value="__new__">➕ Criar novo grupo...</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Tooltip>
+                            <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                            <TooltipContent className="max-w-[260px]">
+                              <p>Grupos permitem reutilizar as mesmas faixas de quantidade em diferentes categorias. Itens individuais podem ter seu próprio grupo.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                         <div className="flex justify-end mb-3">
-                          <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Nova Regra</Button>
+                          <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5" disabled={!activeGroupId}><Plus className="h-3.5 w-3.5" /> Nova Regra</Button>
                         </div>
                         {activeTiers.length === 0 ? (
                           <div className="text-center py-6 space-y-2">
