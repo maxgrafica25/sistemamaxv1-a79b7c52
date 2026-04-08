@@ -28,6 +28,7 @@ export interface PrintingCatalogItem {
   equipment_mode: string;
   category_name: string;
   printer_category_id: string;
+  markup_group_id: string | null;
   totalCostA4: number;
 }
 
