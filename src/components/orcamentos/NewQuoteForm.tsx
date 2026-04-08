@@ -258,6 +258,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
           equipment_mode: item.equipment_mode || 'color',
           category_name: cat?.name || '',
           printer_category_id: item.printer_category_id,
+          markup_group_id: item.markup_group_id || null,
           totalCostA4: paperCost + roundedPrintCost,
         };
       });
