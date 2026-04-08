@@ -329,8 +329,9 @@ export default function PrecoImpressao() {
   };
   const saveTier = async () => {
     if (!tierLabel.trim()) return toast.error("Rótulo obrigatório");
+    if (!activeGroupId) return toast.error("Nenhum grupo de markup vinculado a esta categoria");
     const data = {
-      printer_category_id: activeCategory, label: tierLabel,
+      printer_category_id: activeCategory, markup_group_id: activeGroupId, label: tierLabel,
       min_qty: Number(tierMinQty), max_qty: tierMaxQty ? Number(tierMaxQty) : null,
       fixed_cost_pct: Number(tierFixedPct), variable_cost_pct: Number(tierVariablePct),
       margin_pct: Number(tierMarginPct), sort_order: editingTier ? editingTier.sort_order : activeTiers.length,
@@ -346,6 +347,33 @@ export default function PrecoImpressao() {
     setConfirmItemName(label);
     setConfirmAction(() => () => deleteTier(id));
     setConfirmOpen(true);
+  };
+
+  // ─── Markup Group CRUD ────────────────────────────────────────────
+  const [showGroupDialog, setShowGroupDialog] = useState(false);
+  const [groupName, setGroupName] = useState("");
+
+  const createMarkupGroup = async () => {
+    if (!groupName.trim()) return toast.error("Nome obrigatório");
+    const { data } = await supabase.from("markup_groups").insert({ name: groupName.trim() }).select("id").single();
+    if (data) {
+      toast.success("Grupo criado!");
+      // Auto-assign to current category if it doesn't have one
+      if (activeCategoryObj && !activeCategoryObj.default_markup_group_id) {
+        await supabase.from("printer_categories").update({ default_markup_group_id: data.id }).eq("id", activeCategory);
+      }
+    }
+    setShowGroupDialog(false); setGroupName(""); fetchAll();
+  };
+
+  const assignGroupToCategory = async (groupId: string) => {
+    await supabase.from("printer_categories").update({ default_markup_group_id: groupId }).eq("id", activeCategory);
+    toast.success("Grupo vinculado!"); fetchAll();
+  };
+
+  const assignGroupToItem = async (itemId: string, groupId: string | null) => {
+    await supabase.from("printing_price_items").update({ markup_group_id: groupId }).eq("id", itemId);
+    toast.success(groupId ? "Grupo personalizado atribuído!" : "Usando grupo padrão da categoria"); fetchAll();
   };
 
   // ─── Item CRUD ─────────────────────────────────────────────────────
