@@ -35,11 +35,15 @@ import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 // ─── Types ───────────────────────────────────────────────────────────
+interface MarkupGroup {
+  id: string; name: string;
+}
 interface PrinterCategory {
   id: string; name: string; description: string | null; sort_order: number;
+  default_markup_group_id: string | null;
 }
 interface MarkupTier {
-  id: string; printer_category_id: string; label: string;
+  id: string; printer_category_id: string; markup_group_id: string | null; label: string;
   min_qty: number; max_qty: number | null;
   fixed_cost_pct: number; variable_cost_pct: number; margin_pct: number;
   sort_order: number;
@@ -49,6 +53,7 @@ interface PrintingPriceItem {
   paper_type: string; grammage: string | null; size: string; side: string;
   paper_cost: number; printing_cost: number; is_active: boolean;
   sort_order: number; equipment_id: string | null; equipment_mode: string;
+  markup_group_id: string | null;
 }
 interface Equipment { id: string; name: string; printer_type: string; }
 interface EquipmentConsumable { equipment_id: string; price: number; yield_pages: number; mode: string; }
@@ -84,6 +89,7 @@ export default function PrecoImpressao() {
   const [categories, setCategories] = useState<PrinterCategory[]>([]);
   const [tiers, setTiers] = useState<MarkupTier[]>([]);
   const [items, setItems] = useState<PrintingPriceItem[]>([]);
+  const [markupGroups, setMarkupGroups] = useState<MarkupGroup[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
@@ -165,20 +171,22 @@ export default function PrecoImpressao() {
   // ─── Data loading ──────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [catRes, tierRes, itemRes, eqRes, consRes, papRes] = await Promise.all([
+    const [catRes, tierRes, itemRes, eqRes, consRes, papRes, groupRes] = await Promise.all([
       supabase.from("printer_categories").select("*").order("sort_order"),
       supabase.from("markup_tiers").select("*").order("sort_order"),
       supabase.from("printing_price_items").select("*").order("sort_order"),
       supabase.from("equipments").select("id, name, printer_type").order("sort_order"),
       supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
       supabase.from("papers").select("id, name, grammage, sheet_qty, pack_price, freight_price").eq("is_active", true).order("sort_order"),
+      supabase.from("markup_groups").select("*").order("name"),
     ]);
-    if (catRes.data) setCategories(catRes.data);
-    if (tierRes.data) setTiers(tierRes.data);
+    if (catRes.data) setCategories(catRes.data as PrinterCategory[]);
+    if (tierRes.data) setTiers(tierRes.data as MarkupTier[]);
     if (itemRes.data) setItems(itemRes.data as PrintingPriceItem[]);
     if (eqRes.data) setEquipments(eqRes.data);
     if (consRes.data) setEquipConsumables(consRes.data);
     if (papRes.data) setPaperRecords(papRes.data as PaperRecord[]);
+    if (groupRes.data) setMarkupGroups(groupRes.data as MarkupGroup[]);
     if (catRes.data?.length && !activeCategory) setActiveCategory(catRes.data[0].id);
     setLoading(false);
   }, [activeCategory]);
@@ -212,8 +220,21 @@ export default function PrecoImpressao() {
     return item.printing_cost;
   };
 
-  const activeTiers = useMemo(() => tiers.filter(t => t.printer_category_id === activeCategory).sort((a, b) => a.sort_order - b.sort_order), [tiers, activeCategory]);
+  const activeGroupId = activeCategoryObj?.default_markup_group_id || null;
+  const activeTiers = useMemo(() => tiers.filter(t => t.markup_group_id === activeGroupId).sort((a, b) => a.sort_order - b.sort_order), [tiers, activeGroupId]);
   const activeItems = useMemo(() => items.filter(i => i.printer_category_id === activeCategory && i.is_active).sort((a, b) => a.sort_order - b.sort_order), [items, activeCategory]);
+
+  // Get tiers for a specific group
+  const getTiersForGroup = useCallback((groupId: string | null) => {
+    if (!groupId) return activeTiers;
+    return tiers.filter(t => t.markup_group_id === groupId).sort((a, b) => a.sort_order - b.sort_order);
+  }, [tiers, activeTiers]);
+
+  // Resolve which tiers apply to a specific item
+  const getItemTiers = useCallback((item: PrintingPriceItem) => {
+    const groupId = item.markup_group_id || activeGroupId;
+    return tiers.filter(t => t.markup_group_id === groupId).sort((a, b) => a.sort_order - b.sort_order);
+  }, [tiers, activeGroupId]);
 
   const paperTypes = useMemo(() => {
     const types: string[] = [];
@@ -308,8 +329,9 @@ export default function PrecoImpressao() {
   };
   const saveTier = async () => {
     if (!tierLabel.trim()) return toast.error("Rótulo obrigatório");
+    if (!activeGroupId) return toast.error("Nenhum grupo de markup vinculado a esta categoria");
     const data = {
-      printer_category_id: activeCategory, label: tierLabel,
+      printer_category_id: activeCategory, markup_group_id: activeGroupId, label: tierLabel,
       min_qty: Number(tierMinQty), max_qty: tierMaxQty ? Number(tierMaxQty) : null,
       fixed_cost_pct: Number(tierFixedPct), variable_cost_pct: Number(tierVariablePct),
       margin_pct: Number(tierMarginPct), sort_order: editingTier ? editingTier.sort_order : activeTiers.length,
@@ -325,6 +347,33 @@ export default function PrecoImpressao() {
     setConfirmItemName(label);
     setConfirmAction(() => () => deleteTier(id));
     setConfirmOpen(true);
+  };
+
+  // ─── Markup Group CRUD ────────────────────────────────────────────
+  const [showGroupDialog, setShowGroupDialog] = useState(false);
+  const [groupName, setGroupName] = useState("");
+
+  const createMarkupGroup = async () => {
+    if (!groupName.trim()) return toast.error("Nome obrigatório");
+    const { data } = await supabase.from("markup_groups").insert({ name: groupName.trim() }).select("id").single();
+    if (data) {
+      toast.success("Grupo criado!");
+      // Auto-assign to current category if it doesn't have one
+      if (activeCategoryObj && !activeCategoryObj.default_markup_group_id) {
+        await supabase.from("printer_categories").update({ default_markup_group_id: data.id }).eq("id", activeCategory);
+      }
+    }
+    setShowGroupDialog(false); setGroupName(""); fetchAll();
+  };
+
+  const assignGroupToCategory = async (groupId: string) => {
+    await supabase.from("printer_categories").update({ default_markup_group_id: groupId }).eq("id", activeCategory);
+    toast.success("Grupo vinculado!"); fetchAll();
+  };
+
+  const assignGroupToItem = async (itemId: string, groupId: string | null) => {
+    await supabase.from("printing_price_items").update({ markup_group_id: groupId }).eq("id", itemId);
+    toast.success(groupId ? "Grupo personalizado atribuído!" : "Usando grupo padrão da categoria"); fetchAll();
   };
 
   // ─── Item CRUD ─────────────────────────────────────────────────────
@@ -543,8 +592,13 @@ export default function PrecoImpressao() {
                         <div className="flex items-center gap-2">
                           <Settings2 className="h-4 w-4 text-primary" />
                           <span className="text-sm font-semibold text-foreground">Regras de Preço por Quantidade</span>
-                          <Badge variant="secondary" className="text-[10px] ml-1">
-                            {activeTiers.length} faixa{activeTiers.length !== 1 ? "s" : ""} configurada{activeTiers.length !== 1 ? "s" : ""}
+                          {activeGroupId && (
+                            <Badge variant="outline" className="text-[10px] ml-1">
+                              {markupGroups.find(g => g.id === activeGroupId)?.name || "Grupo"}
+                            </Badge>
+                          )}
+                          <Badge variant="secondary" className="text-[10px]">
+                            {activeTiers.length} faixa{activeTiers.length !== 1 ? "s" : ""}
                           </Badge>
                           {activeTiers.length > 0 && (
                             <span className="text-[10px] text-muted-foreground hidden sm:inline">
@@ -557,8 +611,32 @@ export default function PrecoImpressao() {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <div className="px-4 pb-4 pt-1 border-t">
+                        {/* Group selector */}
+                        <div className="flex items-center gap-2 mb-3 flex-wrap">
+                          <Label className="text-xs text-muted-foreground shrink-0">Grupo de faixas:</Label>
+                          <Select value={activeGroupId || "__none__"} onValueChange={v => { if (v !== "__none__" && v !== "__new__") assignGroupToCategory(v); if (v === "__new__") { setGroupName(""); setShowGroupDialog(true); } }}>
+                            <SelectTrigger className="h-8 text-xs w-[220px]"><SelectValue placeholder="Selecione um grupo" /></SelectTrigger>
+                            <SelectContent>
+                              {markupGroups.map(g => {
+                                const groupTierCount = tiers.filter(t => t.markup_group_id === g.id).length;
+                                return (
+                                  <SelectItem key={g.id} value={g.id}>
+                                    {g.name} ({groupTierCount} faixa{groupTierCount !== 1 ? "s" : ""})
+                                  </SelectItem>
+                                );
+                              })}
+                              <SelectItem value="__new__">➕ Criar novo grupo...</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Tooltip>
+                            <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                            <TooltipContent className="max-w-[260px]">
+                              <p>Grupos permitem reutilizar as mesmas faixas de quantidade em diferentes categorias. Itens individuais podem ter seu próprio grupo.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                         <div className="flex justify-end mb-3">
-                          <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Nova Regra</Button>
+                          <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5" disabled={!activeGroupId}><Plus className="h-3.5 w-3.5" /> Nova Regra</Button>
                         </div>
                         {activeTiers.length === 0 ? (
                           <div className="text-center py-6 space-y-2">
@@ -894,11 +972,51 @@ export default function PrecoImpressao() {
                                     </TableCell>
                                   )}
                                   {visibleColumns.totalCost && <TableCell className="text-right font-mono text-xs font-semibold">{fmt4(baseCost)}</TableCell>}
-                                  {activeTiers.map(tier => (
-                                    <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPrice(baseCost, tier))}</TableCell>
-                                  ))}
+                                  {(() => {
+                                    const itemTiers = getItemTiers(item);
+                                    const hasCustomGroup = item.markup_group_id && item.markup_group_id !== activeGroupId;
+                                    // Show prices aligned with the header tiers, or custom tiers if different
+                                    if (hasCustomGroup) {
+                                      return (
+                                        <TableCell colSpan={activeTiers.length} className="text-center">
+                                          <div className="flex items-center gap-2 justify-center flex-wrap">
+                                            <Badge variant="outline" className="text-[9px]">{markupGroups.find(g => g.id === item.markup_group_id)?.name}</Badge>
+                                            {itemTiers.map(t => (
+                                              <span key={t.id} className="text-xs font-mono">
+                                                <span className="text-muted-foreground">{t.label}:</span>{" "}
+                                                <span className="font-semibold text-primary">{fmt(calcSellingPrice(baseCost, t))}</span>
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </TableCell>
+                                      );
+                                    }
+                                    return activeTiers.map(tier => (
+                                      <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPrice(baseCost, tier))}</TableCell>
+                                    ));
+                                  })()}
                                   <TableCell>
                                     <div className="flex gap-1 justify-end">
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Grupo de faixas">
+                                            <Layers className={cn("h-3.5 w-3.5", item.markup_group_id && item.markup_group_id !== activeGroupId ? "text-primary" : "text-muted-foreground")} />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-56 space-y-2" align="end">
+                                          <span className="font-semibold text-sm">Grupo de Faixas</span>
+                                          <p className="text-xs text-muted-foreground">Selecione um grupo diferente do padrão para este item.</p>
+                                          <Select value={item.markup_group_id || "__default__"} onValueChange={v => assignGroupToItem(item.id, v === "__default__" ? null : v)}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="__default__">📋 Padrão da categoria</SelectItem>
+                                              {markupGroups.map(g => (
+                                                <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </PopoverContent>
+                                      </Popover>
                                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openItemDialog(item)}><Edit2 className="h-3.5 w-3.5" /></Button>
                                       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => requestDeleteItem(item.id, item.paper_type)}><Trash2 className="h-3.5 w-3.5" /></Button>
                                     </div>
@@ -1325,6 +1443,19 @@ export default function PrecoImpressao() {
                 <Check className="h-4 w-4" /> Atualizar Agora
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ─── Group Dialog ── */}
+        <Dialog open={showGroupDialog} onOpenChange={setShowGroupDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>Novo Grupo de Faixas</DialogTitle>
+              <DialogDescription>Crie um grupo reutilizável de faixas de quantidade. Ex: "Adesivos", "Couchê", "Padrão".</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2"><Label>Nome do grupo</Label><Input value={groupName} onChange={e => setGroupName(e.target.value)} placeholder="Ex: Adesivos, Couchê..." /></div>
+            </div>
+            <DialogFooter><Button variant="outline" onClick={() => setShowGroupDialog(false)}>Cancelar</Button><Button onClick={createMarkupGroup}>Criar</Button></DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

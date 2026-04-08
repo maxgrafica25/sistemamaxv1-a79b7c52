@@ -38,6 +38,7 @@ interface MaterialItem {
   // For printing items: store base cost and category to recalculate selling price on qty change
   baseCost?: number;
   printerCategoryId?: string;
+  markupGroupId?: string | null;
   tierLabel?: string;
 }
 
@@ -124,9 +125,16 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
     return Math.round((baseCost / divisor) * 10) / 10;
   };
 
-  const findTier = (categoryId: string, qty: number): MarkupTier | null => {
-    const categoryTiers = markupTiers.filter(t => t.printer_category_id === categoryId);
-    return categoryTiers.find(t => qty >= t.min_qty && (t.max_qty === null || qty <= t.max_qty)) || categoryTiers[0] || null;
+  // categories with default_markup_group_id
+  const [categoryGroups, setCategoryGroups] = useState<Record<string, string | null>>({});
+
+  const findTier = (categoryId: string, qty: number, markupGroupId?: string | null): MarkupTier | null => {
+    // Resolve group: item override → category default
+    const groupId = markupGroupId || categoryGroups[categoryId] || null;
+    const groupTiers = groupId
+      ? markupTiers.filter(t => t.markup_group_id === groupId)
+      : markupTiers.filter(t => t.printer_category_id === categoryId);
+    return groupTiers.find(t => qty >= t.min_qty && (t.max_qty === null || qty <= t.max_qty)) || groupTiers[0] || null;
   };
 
   const loadCatalogData = useCallback(async () => {
@@ -170,6 +178,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
     const tiers: MarkupTier[] = (tiersRes.data || []).map((t: any) => ({
       id: t.id,
       printer_category_id: t.printer_category_id,
+      markup_group_id: t.markup_group_id || null,
       label: t.label,
       min_qty: t.min_qty,
       max_qty: t.max_qty,
@@ -179,6 +188,11 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       sort_order: t.sort_order,
     }));
     setMarkupTiers(tiers);
+
+    // Build category → default_markup_group_id map
+    const catGroupMap: Record<string, string | null> = {};
+    (categoriesRes.data || []).forEach((c: any) => { catGroupMap[c.id] = c.default_markup_group_id || null; });
+    setCategoryGroups(catGroupMap);
 
     // Build printing catalog
     const equipmentsList = eqRes.data || [];
@@ -245,6 +259,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
           equipment_mode: item.equipment_mode || 'color',
           category_name: cat?.name || '',
           printer_category_id: item.printer_category_id,
+          markup_group_id: item.markup_group_id || null,
           totalCostA4: paperCost + roundedPrintCost,
         };
       });
@@ -325,7 +340,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
     const baseCost = item.paper_cost + printCost;
     const label = `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}${item.equipment_mode === 'pb' ? ' (PB)' : ''}` : ''}`;
     // Find tier for qty=1 and compute selling price
-    const tier = findTier(item.printer_category_id, 1);
+    const tier = findTier(item.printer_category_id, 1, item.markup_group_id);
     const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
     setMaterials([...materials, {
       id: `print-${Date.now()}-${item.id}`,
@@ -334,6 +349,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       unitPrice: sellingPrice,
       baseCost,
       printerCategoryId: item.printer_category_id,
+      markupGroupId: item.markup_group_id,
       tierLabel: tier?.label || undefined,
     }]);
     toast.success(`Impressão adicionada!`);
@@ -356,7 +372,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       // For printing items, recalculate selling price when quantity changes
       if (field === "quantity" && item.baseCost && item.printerCategoryId) {
         const qty = Number(value) || 1;
-        const tier = findTier(item.printerCategoryId, qty);
+        const tier = findTier(item.printerCategoryId, qty, item.markupGroupId);
         if (tier) {
           updated.unitPrice = calcSellingPrice(item.baseCost, tier);
           updated.tierLabel = tier.label;
