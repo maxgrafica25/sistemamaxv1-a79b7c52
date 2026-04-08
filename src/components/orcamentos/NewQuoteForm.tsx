@@ -124,9 +124,16 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
     return Math.round((baseCost / divisor) * 10) / 10;
   };
 
-  const findTier = (categoryId: string, qty: number): MarkupTier | null => {
-    const categoryTiers = markupTiers.filter(t => t.printer_category_id === categoryId);
-    return categoryTiers.find(t => qty >= t.min_qty && (t.max_qty === null || qty <= t.max_qty)) || categoryTiers[0] || null;
+  // categories with default_markup_group_id
+  const [categoryGroups, setCategoryGroups] = useState<Record<string, string | null>>({});
+
+  const findTier = (categoryId: string, qty: number, markupGroupId?: string | null): MarkupTier | null => {
+    // Resolve group: item override → category default
+    const groupId = markupGroupId || categoryGroups[categoryId] || null;
+    const groupTiers = groupId
+      ? markupTiers.filter(t => t.markup_group_id === groupId)
+      : markupTiers.filter(t => t.printer_category_id === categoryId);
+    return groupTiers.find(t => qty >= t.min_qty && (t.max_qty === null || qty <= t.max_qty)) || groupTiers[0] || null;
   };
 
   const loadCatalogData = useCallback(async () => {
