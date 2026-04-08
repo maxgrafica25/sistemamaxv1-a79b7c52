@@ -35,11 +35,15 @@ import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 // ─── Types ───────────────────────────────────────────────────────────
+interface MarkupGroup {
+  id: string; name: string;
+}
 interface PrinterCategory {
   id: string; name: string; description: string | null; sort_order: number;
+  default_markup_group_id: string | null;
 }
 interface MarkupTier {
-  id: string; printer_category_id: string; label: string;
+  id: string; printer_category_id: string; markup_group_id: string | null; label: string;
   min_qty: number; max_qty: number | null;
   fixed_cost_pct: number; variable_cost_pct: number; margin_pct: number;
   sort_order: number;
@@ -49,6 +53,7 @@ interface PrintingPriceItem {
   paper_type: string; grammage: string | null; size: string; side: string;
   paper_cost: number; printing_cost: number; is_active: boolean;
   sort_order: number; equipment_id: string | null; equipment_mode: string;
+  markup_group_id: string | null;
 }
 interface Equipment { id: string; name: string; printer_type: string; }
 interface EquipmentConsumable { equipment_id: string; price: number; yield_pages: number; mode: string; }
