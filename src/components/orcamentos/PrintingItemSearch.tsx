@@ -79,8 +79,12 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers }: Pri
     const sideMult = item.side === "F/V" ? 2 : 1;
     const printCost = roundUp10(item.printing_cost * sizeMult * sideMult);
     const baseCost = item.paper_cost + printCost;
-    // Find first tier for this category to show selling price
-    const tier = markupTiers?.find(t => t.printer_category_id === item.printer_category_id);
+    // Find first tier: use item's markup_group_id, fallback to printer_category_id
+    const tier = markupTiers?.find(t =>
+      item.markup_group_id
+        ? t.markup_group_id === item.markup_group_id
+        : t.printer_category_id === item.printer_category_id
+    );
     const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
     return { baseCost, sellingPrice, tierLabel: tier?.label };
   };
