@@ -89,6 +89,7 @@ export default function PrecoImpressao() {
   const [categories, setCategories] = useState<PrinterCategory[]>([]);
   const [tiers, setTiers] = useState<MarkupTier[]>([]);
   const [items, setItems] = useState<PrintingPriceItem[]>([]);
+  const [markupGroups, setMarkupGroups] = useState<MarkupGroup[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
