@@ -434,6 +434,27 @@ export type Database = {
           },
         ]
       }
+      markup_groups: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       markup_tiers: {
         Row: {
           created_at: string
@@ -441,6 +462,7 @@ export type Database = {
           id: string
           label: string
           margin_pct: number
+          markup_group_id: string | null
           max_qty: number | null
           min_qty: number
           printer_category_id: string
@@ -454,6 +476,7 @@ export type Database = {
           id?: string
           label: string
           margin_pct?: number
+          markup_group_id?: string | null
           max_qty?: number | null
           min_qty?: number
           printer_category_id: string
@@ -467,6 +490,7 @@ export type Database = {
           id?: string
           label?: string
           margin_pct?: number
+          markup_group_id?: string | null
           max_qty?: number | null
           min_qty?: number
           printer_category_id?: string
@@ -475,6 +499,13 @@ export type Database = {
           variable_cost_pct?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "markup_tiers_markup_group_id_fkey"
+            columns: ["markup_group_id"]
+            isOneToOne: false
+            referencedRelation: "markup_groups"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "markup_tiers_printer_category_id_fkey"
             columns: ["printer_category_id"]
@@ -799,6 +830,7 @@ export type Database = {
       printer_categories: {
         Row: {
           created_at: string
+          default_markup_group_id: string | null
           description: string | null
           id: string
           name: string
@@ -807,6 +839,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          default_markup_group_id?: string | null
           description?: string | null
           id?: string
           name: string
@@ -815,13 +848,22 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          default_markup_group_id?: string | null
           description?: string | null
           id?: string
           name?: string
           sort_order?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "printer_categories_default_markup_group_id_fkey"
+            columns: ["default_markup_group_id"]
+            isOneToOne: false
+            referencedRelation: "markup_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       printer_readings: {
         Row: {
@@ -891,6 +933,7 @@ export type Database = {
           grammage: string | null
           id: string
           is_active: boolean
+          markup_group_id: string | null
           paper_cost: number
           paper_type: string
           printer_category_id: string
@@ -908,6 +951,7 @@ export type Database = {
           grammage?: string | null
           id?: string
           is_active?: boolean
+          markup_group_id?: string | null
           paper_cost?: number
           paper_type: string
           printer_category_id: string
@@ -925,6 +969,7 @@ export type Database = {
           grammage?: string | null
           id?: string
           is_active?: boolean
+          markup_group_id?: string | null
           paper_cost?: number
           paper_type?: string
           printer_category_id?: string
@@ -940,6 +985,13 @@ export type Database = {
             columns: ["equipment_id"]
             isOneToOne: false
             referencedRelation: "equipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "printing_price_items_markup_group_id_fkey"
+            columns: ["markup_group_id"]
+            isOneToOne: false
+            referencedRelation: "markup_groups"
             referencedColumns: ["id"]
           },
           {
