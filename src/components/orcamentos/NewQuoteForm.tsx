@@ -177,6 +177,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
     const tiers: MarkupTier[] = (tiersRes.data || []).map((t: any) => ({
       id: t.id,
       printer_category_id: t.printer_category_id,
+      markup_group_id: t.markup_group_id || null,
       label: t.label,
       min_qty: t.min_qty,
       max_qty: t.max_qty,
@@ -186,6 +187,11 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       sort_order: t.sort_order,
     }));
     setMarkupTiers(tiers);
+
+    // Build category → default_markup_group_id map
+    const catGroupMap: Record<string, string | null> = {};
+    (categoriesRes.data || []).forEach((c: any) => { catGroupMap[c.id] = c.default_markup_group_id || null; });
+    setCategoryGroups(catGroupMap);
 
     // Build printing catalog
     const equipmentsList = eqRes.data || [];
