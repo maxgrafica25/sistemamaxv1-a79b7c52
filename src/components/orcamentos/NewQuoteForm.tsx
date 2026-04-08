@@ -38,6 +38,7 @@ interface MaterialItem {
   // For printing items: store base cost and category to recalculate selling price on qty change
   baseCost?: number;
   printerCategoryId?: string;
+  markupGroupId?: string | null;
   tierLabel?: string;
 }
 
