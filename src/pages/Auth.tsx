@@ -96,18 +96,38 @@ export default function Auth() {
               <TabsTrigger value="signup">Criar Conta</TabsTrigger>
             </TabsList>
             <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label>E-mail</Label>
-                  <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" maxLength={MAX_EMAIL_LENGTH} autoComplete="email" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Senha</Label>
-                  <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" maxLength={MAX_PASSWORD_LENGTH} autoComplete="current-password" />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Entrar
-                </Button>
+              {forgotMode ? (
+                <form onSubmit={handleForgotPassword} className="space-y-4 pt-4">
+                  <p className="text-sm text-muted-foreground">Informe seu e-mail para receber um link de recuperação de senha.</p>
+                  <div className="space-y-2">
+                    <Label>E-mail</Label>
+                    <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" maxLength={MAX_EMAIL_LENGTH} autoComplete="email" />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Enviar Link de Recuperação
+                  </Button>
+                  <Button type="button" variant="link" className="w-full text-sm" onClick={() => setForgotMode(false)}>
+                    Voltar para o login
+                  </Button>
+                </form>
+              ) : (
+                <form onSubmit={handleLogin} className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label>E-mail</Label>
+                    <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" maxLength={MAX_EMAIL_LENGTH} autoComplete="email" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Senha</Label>
+                    <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" maxLength={MAX_PASSWORD_LENGTH} autoComplete="current-password" />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Entrar
+                  </Button>
+                  <Button type="button" variant="link" className="w-full text-sm text-muted-foreground" onClick={() => setForgotMode(true)}>
+                    Esqueci minha senha
+                  </Button>
+                </form>
+              )}
               </form>
             </TabsContent>
             <TabsContent value="signup">
