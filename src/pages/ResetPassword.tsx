@@ -14,25 +14,58 @@ const MAX_PASSWORD_LENGTH = 72;
 export default function ResetPassword() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isRecovery, setIsRecovery] = useState(false);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setIsRecovery(true);
+    let resolved = false;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (resolved) return;
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+        if (session) {
+          resolved = true;
+          setIsRecovery(true);
+          setChecking(false);
+        }
       }
     });
 
-    // Check hash for recovery token
-    const hash = window.location.hash;
-    if (hash && hash.includes("type=recovery")) {
-      setIsRecovery(true);
-    }
+    // Also check if there's already a session (token already processed)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (resolved) return;
+      const hash = window.location.hash;
+      if (session && hash && hash.includes("type=recovery")) {
+        resolved = true;
+        setIsRecovery(true);
+        setChecking(false);
+      } else if (!hash || !hash.includes("type=recovery")) {
+        // No recovery token in URL and no recovery event — give it a moment
+        // then show invalid state
+        setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            setChecking(false);
+          }
+        }, 3000);
+      }
+    });
 
-    return () => subscription.unsubscribe();
+    // Fallback timeout
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        setChecking(false);
+      }
+    }, 5000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {
@@ -60,6 +93,22 @@ export default function ResetPassword() {
     }
     setLoading(false);
   };
+
+  if (checking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold text-primary">OrçaGráfica</CardTitle>
+            <CardDescription className="flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Verificando link de recuperação...
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   if (!isRecovery && !success) {
     return (
