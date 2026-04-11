@@ -20,6 +20,7 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [forgotMode, setForgotMode] = useState(false);
   const [displayName, setDisplayName] = useState("");
 
   useEffect(() => {
