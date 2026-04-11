@@ -127,6 +127,7 @@ export default function Auth() {
                     Esqueci minha senha
                   </Button>
                 </form>
+              )}
             </TabsContent>
             <TabsContent value="signup">
               <form onSubmit={handleSignup} className="space-y-4 pt-4">
