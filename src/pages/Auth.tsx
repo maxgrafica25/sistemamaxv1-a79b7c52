@@ -42,6 +42,19 @@ export default function Auth() {
     return password.length >= MIN_PASSWORD_LENGTH && password.length <= MAX_PASSWORD_LENGTH;
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateEmail(email)) { toast.error("E-mail inválido"); return; }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) toast.error(error.message);
+    else toast.success("E-mail de recuperação enviado! Verifique sua caixa de entrada.");
+    setLoading(false);
+    setForgotMode(false);
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateEmail(email)) { toast.error("E-mail inválido"); return; }
