@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Loader2, ArrowLeft, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,9 +14,7 @@ const MAX_EMAIL_LENGTH = 255;
 const MAX_NAME_LENGTH = 100;
 const MIN_PASSWORD_LENGTH = 6;
 const MAX_PASSWORD_LENGTH = 72;
-const OTP_LENGTH = 6;
 const OTP_COOLDOWN_SECONDS = 60;
-const MAX_OTP_ATTEMPTS = 5;
 
 export default function Auth() {
   const navigate = useNavigate();
