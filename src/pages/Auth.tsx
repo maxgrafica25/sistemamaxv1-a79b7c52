@@ -76,7 +76,10 @@ export default function Auth() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { shouldCreateUser: false },
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${window.location.origin}/reset-password`,
+      },
     });
 
     if (error) {
