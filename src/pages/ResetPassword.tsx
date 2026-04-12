@@ -25,6 +25,7 @@ export default function ResetPassword() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (resolved) return;
+      // Accept PASSWORD_RECOVERY, SIGNED_IN, or magiclink events
       if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
         if (session) {
           resolved = true;
@@ -38,19 +39,27 @@ export default function ResetPassword() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (resolved) return;
       const hash = window.location.hash;
-      if (session && hash && hash.includes("type=recovery")) {
+      // Accept both recovery and magiclink types
+      if (session && hash && (hash.includes("type=recovery") || hash.includes("type=magiclink"))) {
         resolved = true;
         setIsRecovery(true);
         setChecking(false);
-      } else if (!hash || !hash.includes("type=recovery")) {
-        // No recovery token in URL and no recovery event — give it a moment
-        // then show invalid state
+      } else if (!hash || (!hash.includes("type=recovery") && !hash.includes("type=magiclink"))) {
         setTimeout(() => {
           if (!resolved) {
-            resolved = true;
-            setChecking(false);
+            // If there's a session but no hash, user might have been redirected after magic link
+            supabase.auth.getSession().then(({ data: { session: s } }) => {
+              if (s && !resolved) {
+                resolved = true;
+                setIsRecovery(true);
+                setChecking(false);
+              } else if (!resolved) {
+                resolved = true;
+                setChecking(false);
+              }
+            });
           }
-        }, 3000);
+        }, 2000);
       }
     });
 
@@ -58,7 +67,13 @@ export default function ResetPassword() {
     const timeout = setTimeout(() => {
       if (!resolved) {
         resolved = true;
-        setChecking(false);
+        // Last chance: check if there's a valid session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session) {
+            setIsRecovery(true);
+          }
+          setChecking(false);
+        });
       }
     }, 5000);
 
