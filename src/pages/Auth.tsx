@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ArrowLeft, ShieldCheck } from "lucide-react";
+import { Loader2, ArrowLeft, ShieldCheck, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -14,7 +14,7 @@ const MAX_EMAIL_LENGTH = 255;
 const MAX_NAME_LENGTH = 100;
 const MIN_PASSWORD_LENGTH = 6;
 const MAX_PASSWORD_LENGTH = 72;
-const OTP_COOLDOWN_SECONDS = 60;
+const COOLDOWN_SECONDS = 60;
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -23,12 +23,9 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
 
-  // OTP recovery state
-  const [otpMode, setOtpMode] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpValue, setOtpValue] = useState("");
-  const [otpAttempts, setOtpAttempts] = useState(0);
-  const [otpLocked, setOtpLocked] = useState(false);
+  // Recovery mode state
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
@@ -46,10 +43,7 @@ export default function Auth() {
     if (cooldown <= 0) return;
     const timer = setInterval(() => {
       setCooldown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
+        if (prev <= 1) { clearInterval(timer); return 0; }
         return prev - 1;
       });
     }, 1000);
@@ -65,13 +59,15 @@ export default function Auth() {
     return password.length >= MIN_PASSWORD_LENGTH && password.length <= MAX_PASSWORD_LENGTH;
   };
 
-  const handleSendOtp = useCallback(async (e?: React.FormEvent) => {
+  const handleSendRecoveryLink = useCallback(async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!validateEmail(email)) { toast.error("E-mail inválido"); return; }
     if (cooldown > 0) { toast.error(`Aguarde ${cooldown}s para reenviar`); return; }
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({
+    // Use signInWithOtp which sends a magic link
+    // Redirect to /reset-password so user must set a new password
+    await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: {
         shouldCreateUser: false,
@@ -79,64 +75,16 @@ export default function Auth() {
       },
     });
 
-    if (error) {
-      // Don't reveal if email exists or not
-      toast.success("Se o e-mail estiver cadastrado, você receberá um código de acesso.");
-    } else {
-      toast.success("Código enviado! Verifique seu e-mail.");
-    }
-
-    // Always set sent state and cooldown (prevents email enumeration)
-    setOtpSent(true);
-    setOtpAttempts(0);
-    setOtpLocked(false);
-    setOtpValue("");
-    setCooldown(OTP_COOLDOWN_SECONDS);
+    // Always show success (prevents email enumeration)
+    toast.success("Se o e-mail estiver cadastrado, você receberá um link de acesso.");
+    setLinkSent(true);
+    setCooldown(COOLDOWN_SECONDS);
     setLoading(false);
   }, [email, cooldown]);
 
-  const handleVerifyOtp = useCallback(async (code: string) => {
-    if (otpLocked) { toast.error("Muitas tentativas. Solicite um novo código."); return; }
-    if (code.length !== OTP_LENGTH) return;
-
-    setLoading(true);
-    const newAttempts = otpAttempts + 1;
-    setOtpAttempts(newAttempts);
-
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: code,
-      type: "email",
-    });
-
-    if (error) {
-      if (newAttempts >= MAX_OTP_ATTEMPTS) {
-        setOtpLocked(true);
-        toast.error("Limite de tentativas atingido. Solicite um novo código.");
-      } else {
-        toast.error(`Código inválido. ${MAX_OTP_ATTEMPTS - newAttempts} tentativa(s) restante(s).`);
-      }
-      setOtpValue("");
-    }
-    // Success is handled by onAuthStateChange
-    setLoading(false);
-  }, [email, otpAttempts, otpLocked]);
-
-  const handleOtpChange = useCallback((value: string) => {
-    // Only allow numeric input
-    const sanitized = value.replace(/\D/g, "").slice(0, OTP_LENGTH);
-    setOtpValue(sanitized);
-    if (sanitized.length === OTP_LENGTH) {
-      handleVerifyOtp(sanitized);
-    }
-  }, [handleVerifyOtp]);
-
-  const resetOtpMode = () => {
-    setOtpMode(false);
-    setOtpSent(false);
-    setOtpValue("");
-    setOtpAttempts(0);
-    setOtpLocked(false);
+  const resetRecoveryMode = () => {
+    setRecoveryMode(false);
+    setLinkSent(false);
     setCooldown(0);
   };
 
@@ -181,24 +129,24 @@ export default function Auth() {
               <TabsTrigger value="signup">Criar Conta</TabsTrigger>
             </TabsList>
             <TabsContent value="login">
-              {otpMode ? (
+              {recoveryMode ? (
                 <div className="space-y-4 pt-4">
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     className="gap-1 text-muted-foreground"
-                    onClick={resetOtpMode}
+                    onClick={resetRecoveryMode}
                   >
                     <ArrowLeft className="h-4 w-4" />
                     Voltar para o login
                   </Button>
 
-                  {!otpSent ? (
-                    <form onSubmit={handleSendOtp} className="space-y-4">
+                  {!linkSent ? (
+                    <form onSubmit={handleSendRecoveryLink} className="space-y-4">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <ShieldCheck className="h-4 w-4 text-primary" />
-                        <span>Enviaremos um código de 6 dígitos para seu e-mail</span>
+                        <span>Enviaremos um link seguro para redefinir sua senha</span>
                       </div>
                       <div className="space-y-2">
                         <Label>E-mail cadastrado</Label>
@@ -214,62 +162,42 @@ export default function Auth() {
                       </div>
                       <Button type="submit" className="w-full" disabled={loading}>
                         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Enviar Código
+                        Enviar Link de Recuperação
                       </Button>
                     </form>
                   ) : (
-                    <div className="space-y-4">
-                      <p className="text-sm text-muted-foreground">
-                        Digite o código de 6 dígitos enviado para <strong className="text-foreground">{email}</strong>
-                      </p>
-
+                    <div className="space-y-4 text-center">
                       <div className="flex justify-center">
-                        <InputOTP
-                          maxLength={OTP_LENGTH}
-                          value={otpValue}
-                          onChange={handleOtpChange}
-                          disabled={loading || otpLocked}
-                        >
-                          <InputOTPGroup>
-                            {Array.from({ length: OTP_LENGTH }).map((_, i) => (
-                              <InputOTPSlot key={i} index={i} />
-                            ))}
-                          </InputOTPGroup>
-                        </InputOTP>
-                      </div>
-
-                      {loading && (
-                        <div className="flex justify-center">
-                          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        <div className="rounded-full bg-primary/10 p-3">
+                          <Mail className="h-8 w-8 text-primary" />
                         </div>
-                      )}
-
-                      {otpLocked && (
-                        <p className="text-sm text-destructive text-center font-medium">
-                          Limite de tentativas atingido. Solicite um novo código.
-                        </p>
-                      )}
-
-                      {!otpLocked && otpAttempts > 0 && (
-                        <p className="text-sm text-muted-foreground text-center">
-                          {MAX_OTP_ATTEMPTS - otpAttempts} tentativa(s) restante(s)
-                        </p>
-                      )}
-
-                      <div className="text-center">
-                        <Button
-                          type="button"
-                          variant="link"
-                          size="sm"
-                          disabled={cooldown > 0 || loading}
-                          onClick={() => handleSendOtp()}
-                          className="text-sm"
-                        >
-                          {cooldown > 0
-                            ? `Reenviar código em ${cooldown}s`
-                            : "Reenviar código"}
-                        </Button>
                       </div>
+                      <div>
+                        <p className="font-medium text-foreground">Verifique seu e-mail</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Enviamos um link de acesso para <strong>{email}</strong>.
+                          Clique no link para definir uma nova senha.
+                        </p>
+                      </div>
+
+                      <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground text-left space-y-1">
+                        <p>• Verifique também a pasta de spam</p>
+                        <p>• O link expira em poucos minutos</p>
+                        <p>• Ao clicar, você será direcionado para criar uma nova senha</p>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={cooldown > 0 || loading}
+                        onClick={() => handleSendRecoveryLink()}
+                        className="text-sm"
+                      >
+                        {cooldown > 0
+                          ? `Reenviar em ${cooldown}s`
+                          : "Reenviar link"}
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -290,7 +218,7 @@ export default function Auth() {
                     type="button"
                     variant="link"
                     className="w-full text-sm text-muted-foreground"
-                    onClick={() => setOtpMode(true)}
+                    onClick={() => setRecoveryMode(true)}
                   >
                     Esqueci minha senha
                   </Button>
