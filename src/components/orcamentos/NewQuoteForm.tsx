@@ -87,6 +87,9 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
 
   const [hourlyRate, setHourlyRate] = useState(80);
   
+  // Global settings from DB
+  const [globalSettings, setGlobalSettings] = useState({ invoice_pct: 10, collection_pct: 7, waste_pct: 5, default_margin_pct: 33 });
+
   // Exemption toggles (only visible to authorized users)
   const AUTHORIZED_NAMES = ["Marcelle", "Juliano"];
   const canToggleExemptions = AUTHORIZED_NAMES.some(
@@ -96,9 +99,9 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const [includeWaste, setIncludeWaste] = useState(true);
   const [includeCollection, setIncludeCollection] = useState(true);
   
-  const invoicePercentage = includeInvoice ? 10 : 0;
-  const wastePercentage = includeWaste ? 5 : 0;
-  const collectionCostPercentage = includeCollection ? 7 : 0;
+  const invoicePercentage = includeInvoice ? globalSettings.invoice_pct : 0;
+  const wastePercentage = includeWaste ? globalSettings.waste_pct : 0;
+  const collectionCostPercentage = includeCollection ? globalSettings.collection_pct : 0;
   const hasExemptions = !includeInvoice || !includeWaste || !includeCollection;
 
   const [profitMargin, setProfitMargin] = useState(editingQuote?.profitMargin || "33");
@@ -119,7 +122,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
 
   const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
-    const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
+    const soma = (globalSettings.invoice_pct + globalSettings.collection_pct + globalSettings.waste_pct + tier.margin_pct) / 100;
     const divisor = 1 - soma;
     if (divisor <= 0) return 0;
     return Math.round((baseCost / divisor) * 10) / 10;
@@ -138,7 +141,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   };
 
   const loadCatalogData = useCallback(async () => {
-    const [stepsRes, groupsRes, groupItemsRes, suppliesRes, printItemsRes, categoriesRes, eqRes, consRes, papersRes, tiersRes] = await Promise.all([
+    const [stepsRes, groupsRes, groupItemsRes, suppliesRes, printItemsRes, categoriesRes, eqRes, consRes, papersRes, tiersRes, settingsRes] = await Promise.all([
       supabase.from("production_steps").select("*").order("created_at"),
       supabase.from("step_groups").select("*").order("created_at"),
       supabase.from("step_group_items").select("*").order("sort_order"),
@@ -149,6 +152,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
       supabase.from("papers").select("id, name, grammage, pack_price, freight_price, sheet_qty").eq("is_active", true),
       supabase.from("markup_tiers").select("*").order("sort_order"),
+      supabase.from("global_settings").select("*").limit(1).single(),
     ]);
 
     if (stepsRes.data) {
@@ -189,7 +193,18 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
     }));
     setMarkupTiers(tiers);
 
-    // Build category → default_markup_group_id map
+    // Load global settings
+    if (settingsRes.data) {
+      const gs = {
+        invoice_pct: settingsRes.data.invoice_pct,
+        collection_pct: settingsRes.data.collection_pct,
+        waste_pct: settingsRes.data.waste_pct,
+        default_margin_pct: settingsRes.data.default_margin_pct,
+      };
+      setGlobalSettings(gs);
+      if (!editingQuote) setProfitMargin(String(gs.default_margin_pct));
+    }
+
     const catGroupMap: Record<string, string | null> = {};
     (categoriesRes.data || []).forEach((c: any) => { catGroupMap[c.id] = c.default_markup_group_id || null; });
     setCategoryGroups(catGroupMap);
@@ -635,7 +650,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
                     <Printer className="h-5 w-5 text-primary" /> Impressão
                     <span className="text-xs font-normal text-muted-foreground ml-1">— Preço de venda da tabela (markup automático por quantidade)</span>
                   </h2>
-                  <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} markupTiers={markupTiers} />
+                  <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} markupTiers={markupTiers} globalSettings={globalSettings} />
                   {materials.filter(m => m.id.startsWith("print-")).length > 0 && (
                     <div className="space-y-2">
                       {materials.filter(m => m.id.startsWith("print-")).map((item) => (

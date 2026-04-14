@@ -73,11 +73,17 @@ const getCategoryCoverage = (name: string) => isColorCategory(name) ? 20 : 5;
 
 const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
 
-const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
-  const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
+interface GlobalSettings {
+  invoice_pct: number;
+  collection_pct: number;
+  waste_pct: number;
+  default_margin_pct: number;
+}
+
+const calcSellingPriceWithGlobals = (baseCost: number, tier: MarkupTier, globals: GlobalSettings) => {
+  const soma = (globals.invoice_pct + globals.collection_pct + globals.waste_pct + tier.margin_pct) / 100;
   const divisor = 1 - soma;
   if (divisor <= 0) return 0;
-  // Arredonda ao R$ 0,10 mais próximo (ex: 0,84 → 0,80; 0,85 → 0,90)
   return Math.round((baseCost / divisor) * 10) / 10;
 };
 
@@ -91,6 +97,7 @@ export default function PrecoImpressao() {
   const [items, setItems] = useState<PrintingPriceItem[]>([]);
   const [markupGroups, setMarkupGroups] = useState<MarkupGroup[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>("");
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({ invoice_pct: 10, collection_pct: 7, waste_pct: 5, default_margin_pct: 33 });
   const [loading, setLoading] = useState(true);
 
   const [equipments, setEquipments] = useState<Equipment[]>([]);
@@ -119,15 +126,7 @@ export default function PrecoImpressao() {
   const [tierLabel, setTierLabel] = useState("");
   const [tierMinQty, setTierMinQty] = useState("1");
   const [tierMaxQty, setTierMaxQty] = useState("");
-  const [tierFixedPct, setTierFixedPct] = useState("40");
-  const [tierVariablePct, setTierVariablePct] = useState("13");
   const [tierMarginPct, setTierMarginPct] = useState("33");
-  // Variable cost breakdown (visual only — stored as single total)
-  const [varImpostos, setVarImpostos] = useState("6");
-  const [varComissao, setVarComissao] = useState("2");
-  const [varPerda, setVarPerda] = useState("5");
-  const [varOutros, setVarOutros] = useState("0");
-  const [showVarBreakdown, setShowVarBreakdown] = useState(false);
 
   // Item form
   const [itemCode, setItemCode] = useState("");
@@ -171,7 +170,7 @@ export default function PrecoImpressao() {
   // ─── Data loading ──────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [catRes, tierRes, itemRes, eqRes, consRes, papRes, groupRes] = await Promise.all([
+    const [catRes, tierRes, itemRes, eqRes, consRes, papRes, groupRes, settingsRes] = await Promise.all([
       supabase.from("printer_categories").select("*").order("sort_order"),
       supabase.from("markup_tiers").select("*").order("sort_order"),
       supabase.from("printing_price_items").select("*").order("sort_order"),
@@ -179,6 +178,7 @@ export default function PrecoImpressao() {
       supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
       supabase.from("papers").select("id, name, grammage, sheet_qty, pack_price, freight_price").eq("is_active", true).order("sort_order"),
       supabase.from("markup_groups").select("*").order("name"),
+      supabase.from("global_settings").select("*").limit(1).single(),
     ]);
     if (catRes.data) setCategories(catRes.data as PrinterCategory[]);
     if (tierRes.data) setTiers(tierRes.data as MarkupTier[]);
@@ -187,6 +187,12 @@ export default function PrecoImpressao() {
     if (consRes.data) setEquipConsumables(consRes.data);
     if (papRes.data) setPaperRecords(papRes.data as PaperRecord[]);
     if (groupRes.data) setMarkupGroups(groupRes.data as MarkupGroup[]);
+    if (settingsRes.data) setGlobalSettings({
+      invoice_pct: settingsRes.data.invoice_pct,
+      collection_pct: settingsRes.data.collection_pct,
+      waste_pct: settingsRes.data.waste_pct,
+      default_margin_pct: settingsRes.data.default_margin_pct,
+    });
     if (catRes.data?.length && !activeCategory) setActiveCategory(catRes.data[0].id);
     setLoading(false);
   }, [activeCategory]);
@@ -301,29 +307,16 @@ export default function PrecoImpressao() {
   const openTierDialog = (tier?: MarkupTier) => {
     if (tier) {
       setEditingTier(tier); setTierLabel(tier.label); setTierMinQty(String(tier.min_qty));
-      setTierMaxQty(tier.max_qty ? String(tier.max_qty) : ""); setTierFixedPct(String(tier.fixed_cost_pct));
-      setTierVariablePct(String(tier.variable_cost_pct)); setTierMarginPct(String(tier.margin_pct));
-      const vc = tier.variable_cost_pct;
-      setVarImpostos(String(Math.round(vc * 0.46)));
-      setVarComissao(String(Math.round(vc * 0.15)));
-      setVarPerda(String(Math.round(vc * 0.39)));
-      setVarOutros("0");
-      setShowVarBreakdown(false);
+      setTierMaxQty(tier.max_qty ? String(tier.max_qty) : ""); setTierMarginPct(String(tier.margin_pct));
     } else {
       setEditingTier(null);
-      // Smart auto-fill based on existing tiers
       const nextIndex = activeTiers.length + 1;
       const lastTier = activeTiers.length > 0 ? activeTiers[activeTiers.length - 1] : null;
       const suggestedLabel = `TP${nextIndex}`;
       const suggestedMin = lastTier?.max_qty ? String(lastTier.max_qty + 1) : "1";
-      // Copy percentages from last tier if available
-      const lastFixed = lastTier ? String(lastTier.fixed_cost_pct) : "40";
-      const lastVariable = lastTier ? String(lastTier.variable_cost_pct) : "13";
-      const lastMargin = lastTier ? String(lastTier.margin_pct) : "33";
+      const lastMargin = lastTier ? String(lastTier.margin_pct) : String(globalSettings.default_margin_pct);
       setTierLabel(suggestedLabel); setTierMinQty(suggestedMin); setTierMaxQty("");
-      setTierFixedPct(lastFixed); setTierVariablePct(lastVariable); setTierMarginPct(lastMargin);
-      setVarImpostos("6"); setVarComissao("2"); setVarPerda("5"); setVarOutros("0");
-      setShowVarBreakdown(false);
+      setTierMarginPct(lastMargin);
     }
     setShowTierDialog(true);
   };
@@ -333,7 +326,8 @@ export default function PrecoImpressao() {
     const data = {
       printer_category_id: activeCategory, markup_group_id: activeGroupId, label: tierLabel,
       min_qty: Number(tierMinQty), max_qty: tierMaxQty ? Number(tierMaxQty) : null,
-      fixed_cost_pct: Number(tierFixedPct), variable_cost_pct: Number(tierVariablePct),
+      fixed_cost_pct: globalSettings.invoice_pct + globalSettings.collection_pct + globalSettings.waste_pct,
+      variable_cost_pct: 0,
       margin_pct: Number(tierMarginPct), sort_order: editingTier ? editingTier.sort_order : activeTiers.length,
     };
     if (editingTier) await supabase.from("markup_tiers").update(data).eq("id", editingTier.id);
@@ -471,8 +465,8 @@ export default function PrecoImpressao() {
   // Summary
   const avgMargin = activeTiers.length ? activeTiers.reduce((s, t) => s + t.margin_pct, 0) / activeTiers.length : 0;
 
-  // Example calculation for tier dialog
-  const tierSoma = Number(tierFixedPct) + Number(tierVariablePct) + Number(tierMarginPct);
+  const globalIndirectPct = globalSettings.invoice_pct + globalSettings.collection_pct + globalSettings.waste_pct;
+  const tierSoma = globalIndirectPct + Number(tierMarginPct);
   const tierDivisor = 1 - tierSoma / 100;
   const exampleCost = 0.10;
   const examplePrice = tierDivisor > 0 ? exampleCost / tierDivisor : 0;
@@ -651,28 +645,10 @@ export default function PrecoImpressao() {
                                   <TableHead>Faixa</TableHead>
                                   <TableHead className="text-center">
                                     <div className="flex items-center justify-center gap-1">
-                                      Custos Fixos
+                                      Margem de Lucro
                                       <Tooltip>
                                         <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                                        <TooltipContent><p>Aluguel, contas, salários e outros custos que não mudam com a produção</p></TooltipContent>
-                                      </Tooltip>
-                                    </div>
-                                  </TableHead>
-                                  <TableHead className="text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      Custos Variáveis
-                                      <Tooltip>
-                                        <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                                        <TooltipContent><p>Comissão, impostos e custos que variam conforme o volume vendido</p></TooltipContent>
-                                      </Tooltip>
-                                    </div>
-                                  </TableHead>
-                                  <TableHead className="text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      Lucro
-                                      <Tooltip>
-                                        <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                                        <TooltipContent><p>Sua margem de lucro desejada sobre o preço de venda</p></TooltipContent>
+                                        <TooltipContent><p>Sua margem de lucro nesta faixa de quantidade. Taxas globais (NF {fmtPct(globalSettings.invoice_pct)}, Cobrança {fmtPct(globalSettings.collection_pct)}, Perda {fmtPct(globalSettings.waste_pct)}) são aplicadas automaticamente.</p></TooltipContent>
                                       </Tooltip>
                                     </div>
                                   </TableHead>
@@ -690,8 +666,6 @@ export default function PrecoImpressao() {
                                         </p>
                                       </div>
                                     </TableCell>
-                                    <TableCell className="text-center">{fmtPct(tier.fixed_cost_pct)}</TableCell>
-                                    <TableCell className="text-center">{fmtPct(tier.variable_cost_pct)}</TableCell>
                                     <TableCell className="text-center font-semibold text-primary">{fmtPct(tier.margin_pct)}</TableCell>
                                     <TableCell>
                                       <div className="flex gap-1 justify-end">
@@ -984,7 +958,7 @@ export default function PrecoImpressao() {
                                             {itemTiers.map(t => (
                                               <span key={t.id} className="text-xs font-mono">
                                                 <span className="text-muted-foreground">{t.label}:</span>{" "}
-                                                <span className="font-semibold text-primary">{fmt(calcSellingPrice(baseCost, t))}</span>
+                                                <span className="font-semibold text-primary">{fmt(calcSellingPriceWithGlobals(baseCost, t, globalSettings))}</span>
                                               </span>
                                             ))}
                                           </div>
@@ -992,7 +966,7 @@ export default function PrecoImpressao() {
                                       );
                                     }
                                     return activeTiers.map(tier => (
-                                      <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPrice(baseCost, tier))}</TableCell>
+                                      <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPriceWithGlobals(baseCost, tier, globalSettings))}</TableCell>
                                     ));
                                   })()}
                                   <TableCell>
@@ -1092,96 +1066,41 @@ export default function PrecoImpressao() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1">
-                    <Label>Custos Fixos (%)</Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                      <TooltipContent className="max-w-[200px]"><p>Aluguel, contas, salários — custos que você tem independente do volume de vendas</p></TooltipContent>
-                    </Tooltip>
+              {/* Global rates (read-only) + margin input */}
+              <div className="rounded-md border bg-muted/30 p-4 space-y-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Taxas globais (definidas em Configurações)</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">NF (%)</Label>
+                    <Input type="number" className="h-8 text-sm bg-muted" value={globalSettings.invoice_pct} disabled />
                   </div>
-                  <Input type="number" value={tierFixedPct} onChange={e => setTierFixedPct(e.target.value)} />
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Cobrança (%)</Label>
+                    <Input type="number" className="h-8 text-sm bg-muted" value={globalSettings.collection_pct} disabled />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Perda (%)</Label>
+                    <Input type="number" className="h-8 text-sm bg-muted" value={globalSettings.waste_pct} disabled />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1">
-                    <Label>Custos Variáveis (%)</Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                      <TooltipContent className="max-w-[200px]"><p>Impostos, comissões, perda e outros custos que mudam conforme o valor vendido</p></TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <Input type="number" value={tierVariablePct} onChange={e => setTierVariablePct(e.target.value)} />
-                  <button
-                    type="button"
-                    onClick={() => setShowVarBreakdown(!showVarBreakdown)}
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
-                    <ChevronDown className={cn("h-3 w-3 transition-transform", showVarBreakdown && "rotate-180")} />
-                    {showVarBreakdown ? "Ocultar detalhamento" : "Detalhar composição"}
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1">
-                    <Label>Lucro (%)</Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                      <TooltipContent className="max-w-[200px]"><p>Quanto você quer ganhar de lucro sobre o preço de venda</p></TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <Input type="number" value={tierMarginPct} onChange={e => setTierMarginPct(e.target.value)} />
+                <div className="flex justify-between text-xs pt-2 border-t">
+                  <span className="text-muted-foreground">Total taxas globais</span>
+                  <span className="font-semibold text-foreground">{fmtPct(globalIndirectPct)}</span>
                 </div>
               </div>
 
-              {showVarBreakdown && (
-                <div className="rounded-md border bg-muted/30 p-4 space-y-3">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Composição dos custos variáveis</p>
-                  <div className="grid grid-cols-4 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Impostos (%)</Label>
-                      <Input type="number" className="h-8 text-sm" value={varImpostos} onChange={e => {
-                        setVarImpostos(e.target.value);
-                        setTierVariablePct(String(Number(e.target.value) + Number(varComissao) + Number(varPerda) + Number(varOutros)));
-                      }} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Comissão (%)</Label>
-                      <Input type="number" className="h-8 text-sm" value={varComissao} onChange={e => {
-                        setVarComissao(e.target.value);
-                        setTierVariablePct(String(Number(varImpostos) + Number(e.target.value) + Number(varPerda) + Number(varOutros)));
-                      }} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">
-                        <span className="flex items-center gap-1">
-                          Perda (%)
-                          <Tooltip>
-                            <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
-                            <TooltipContent><p>Percentual de perda/desperdício no processo</p></TooltipContent>
-                          </Tooltip>
-                        </span>
-                      </Label>
-                      <Input type="number" className="h-8 text-sm" value={varPerda} onChange={e => {
-                        setVarPerda(e.target.value);
-                        setTierVariablePct(String(Number(varImpostos) + Number(varComissao) + Number(e.target.value) + Number(varOutros)));
-                      }} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Outros (%)</Label>
-                      <Input type="number" className="h-8 text-sm" value={varOutros} onChange={e => {
-                        setVarOutros(e.target.value);
-                        setTierVariablePct(String(Number(varImpostos) + Number(varComissao) + Number(varPerda) + Number(e.target.value)));
-                      }} />
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-xs pt-2 border-t">
-                    <span className="text-muted-foreground">Total custos variáveis</span>
-                    <span className="font-semibold text-foreground">{fmtPct(Number(tierVariablePct))}</span>
-                  </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-1">
+                  <Label>Margem de Lucro (%)</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                    <TooltipContent className="max-w-[200px]"><p>Quanto você quer ganhar de lucro sobre o preço de venda nesta faixa</p></TooltipContent>
+                  </Tooltip>
                 </div>
-              )}
+                <Input type="number" value={tierMarginPct} onChange={e => setTierMarginPct(e.target.value)} className="max-w-[200px]" />
+              </div>
 
-              {/* Visual example instead of raw Soma/Divisor */}
+              {/* Visual example */}
               <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                   <Calculator className="h-3.5 w-3.5" /> Simulação de Preço
@@ -1192,7 +1111,7 @@ export default function PrecoImpressao() {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Custos fixos ({fmtPct(Number(tierFixedPct))}) + Variáveis ({fmtPct(Number(tierVariablePct))}) + Lucro ({fmtPct(Number(tierMarginPct))})
+                    Taxas globais ({fmtPct(globalIndirectPct)}) + Lucro ({fmtPct(Number(tierMarginPct))})
                   </span>
                   <span className="font-semibold text-foreground">= {fmtPct(tierSoma)}</span>
                 </div>
@@ -1207,7 +1126,6 @@ export default function PrecoImpressao() {
                   </p>
                 )}
 
-                {/* Collapsible technical details */}
                 <Collapsible>
                   <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
                     <ChevronDown className="h-3 w-3" /> Detalhes do cálculo
