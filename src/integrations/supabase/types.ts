@@ -384,6 +384,36 @@ export type Database = {
         }
         Relationships: []
       }
+      global_settings: {
+        Row: {
+          collection_pct: number
+          created_at: string
+          default_margin_pct: number
+          id: string
+          invoice_pct: number
+          updated_at: string
+          waste_pct: number
+        }
+        Insert: {
+          collection_pct?: number
+          created_at?: string
+          default_margin_pct?: number
+          id?: string
+          invoice_pct?: number
+          updated_at?: string
+          waste_pct?: number
+        }
+        Update: {
+          collection_pct?: number
+          created_at?: string
+          default_margin_pct?: number
+          id?: string
+          invoice_pct?: number
+          updated_at?: string
+          waste_pct?: number
+        }
+        Relationships: []
+      }
       maintenance_requests: {
         Row: {
           admin_notes: string | null
