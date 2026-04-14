@@ -24,7 +24,7 @@ import {
 import {
   Plus, Printer, Settings2, Trash2, Edit2, Calculator, Layers, Cpu, Info,
   RefreshCw, FileText, Check, AlertCircle, HelpCircle, ChevronDown, Lightbulb,
-  ChevronLeft, ChevronRight, Filter, X, SlidersHorizontal, Eye, EyeOff,
+  ChevronLeft, ChevronRight, Filter, X, SlidersHorizontal, Eye, EyeOff, Zap, CreditCard,
 } from "lucide-react";
 import {
   Popover, PopoverContent, PopoverTrigger,
