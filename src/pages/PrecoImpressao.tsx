@@ -307,29 +307,16 @@ export default function PrecoImpressao() {
   const openTierDialog = (tier?: MarkupTier) => {
     if (tier) {
       setEditingTier(tier); setTierLabel(tier.label); setTierMinQty(String(tier.min_qty));
-      setTierMaxQty(tier.max_qty ? String(tier.max_qty) : ""); setTierFixedPct(String(tier.fixed_cost_pct));
-      setTierVariablePct(String(tier.variable_cost_pct)); setTierMarginPct(String(tier.margin_pct));
-      const vc = tier.variable_cost_pct;
-      setVarImpostos(String(Math.round(vc * 0.46)));
-      setVarComissao(String(Math.round(vc * 0.15)));
-      setVarPerda(String(Math.round(vc * 0.39)));
-      setVarOutros("0");
-      setShowVarBreakdown(false);
+      setTierMaxQty(tier.max_qty ? String(tier.max_qty) : ""); setTierMarginPct(String(tier.margin_pct));
     } else {
       setEditingTier(null);
-      // Smart auto-fill based on existing tiers
       const nextIndex = activeTiers.length + 1;
       const lastTier = activeTiers.length > 0 ? activeTiers[activeTiers.length - 1] : null;
       const suggestedLabel = `TP${nextIndex}`;
       const suggestedMin = lastTier?.max_qty ? String(lastTier.max_qty + 1) : "1";
-      // Copy percentages from last tier if available
-      const lastFixed = lastTier ? String(lastTier.fixed_cost_pct) : "40";
-      const lastVariable = lastTier ? String(lastTier.variable_cost_pct) : "13";
-      const lastMargin = lastTier ? String(lastTier.margin_pct) : "33";
+      const lastMargin = lastTier ? String(lastTier.margin_pct) : String(globalSettings.default_margin_pct);
       setTierLabel(suggestedLabel); setTierMinQty(suggestedMin); setTierMaxQty("");
-      setTierFixedPct(lastFixed); setTierVariablePct(lastVariable); setTierMarginPct(lastMargin);
-      setVarImpostos("6"); setVarComissao("2"); setVarPerda("5"); setVarOutros("0");
-      setShowVarBreakdown(false);
+      setTierMarginPct(lastMargin);
     }
     setShowTierDialog(true);
   };
@@ -339,7 +326,8 @@ export default function PrecoImpressao() {
     const data = {
       printer_category_id: activeCategory, markup_group_id: activeGroupId, label: tierLabel,
       min_qty: Number(tierMinQty), max_qty: tierMaxQty ? Number(tierMaxQty) : null,
-      fixed_cost_pct: Number(tierFixedPct), variable_cost_pct: Number(tierVariablePct),
+      fixed_cost_pct: globalSettings.invoice_pct + globalSettings.collection_pct + globalSettings.waste_pct,
+      variable_cost_pct: 0,
       margin_pct: Number(tierMarginPct), sort_order: editingTier ? editingTier.sort_order : activeTiers.length,
     };
     if (editingTier) await supabase.from("markup_tiers").update(data).eq("id", editingTier.id);
