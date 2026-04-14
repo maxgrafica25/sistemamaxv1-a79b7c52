@@ -141,7 +141,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   };
 
   const loadCatalogData = useCallback(async () => {
-    const [stepsRes, groupsRes, groupItemsRes, suppliesRes, printItemsRes, categoriesRes, eqRes, consRes, papersRes, tiersRes] = await Promise.all([
+    const [stepsRes, groupsRes, groupItemsRes, suppliesRes, printItemsRes, categoriesRes, eqRes, consRes, papersRes, tiersRes, settingsRes] = await Promise.all([
       supabase.from("production_steps").select("*").order("created_at"),
       supabase.from("step_groups").select("*").order("created_at"),
       supabase.from("step_group_items").select("*").order("sort_order"),
@@ -152,6 +152,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
       supabase.from("papers").select("id, name, grammage, pack_price, freight_price, sheet_qty").eq("is_active", true),
       supabase.from("markup_tiers").select("*").order("sort_order"),
+      supabase.from("global_settings").select("*").limit(1).single(),
     ]);
 
     if (stepsRes.data) {
