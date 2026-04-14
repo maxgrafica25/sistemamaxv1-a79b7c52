@@ -645,28 +645,10 @@ export default function PrecoImpressao() {
                                   <TableHead>Faixa</TableHead>
                                   <TableHead className="text-center">
                                     <div className="flex items-center justify-center gap-1">
-                                      Custos Fixos
+                                      Margem de Lucro
                                       <Tooltip>
                                         <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                                        <TooltipContent><p>Aluguel, contas, salários e outros custos que não mudam com a produção</p></TooltipContent>
-                                      </Tooltip>
-                                    </div>
-                                  </TableHead>
-                                  <TableHead className="text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      Custos Variáveis
-                                      <Tooltip>
-                                        <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                                        <TooltipContent><p>Comissão, impostos e custos que variam conforme o volume vendido</p></TooltipContent>
-                                      </Tooltip>
-                                    </div>
-                                  </TableHead>
-                                  <TableHead className="text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      Lucro
-                                      <Tooltip>
-                                        <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                                        <TooltipContent><p>Sua margem de lucro desejada sobre o preço de venda</p></TooltipContent>
+                                        <TooltipContent><p>Sua margem de lucro nesta faixa de quantidade. Taxas globais (NF {fmtPct(globalSettings.invoice_pct)}, Cobrança {fmtPct(globalSettings.collection_pct)}, Perda {fmtPct(globalSettings.waste_pct)}) são aplicadas automaticamente.</p></TooltipContent>
                                       </Tooltip>
                                     </div>
                                   </TableHead>
@@ -684,8 +666,6 @@ export default function PrecoImpressao() {
                                         </p>
                                       </div>
                                     </TableCell>
-                                    <TableCell className="text-center">{fmtPct(tier.fixed_cost_pct)}</TableCell>
-                                    <TableCell className="text-center">{fmtPct(tier.variable_cost_pct)}</TableCell>
                                     <TableCell className="text-center font-semibold text-primary">{fmtPct(tier.margin_pct)}</TableCell>
                                     <TableCell>
                                       <div className="flex gap-1 justify-end">
