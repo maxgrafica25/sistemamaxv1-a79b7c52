@@ -1086,96 +1086,41 @@ export default function PrecoImpressao() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1">
-                    <Label>Custos Fixos (%)</Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                      <TooltipContent className="max-w-[200px]"><p>Aluguel, contas, salários — custos que você tem independente do volume de vendas</p></TooltipContent>
-                    </Tooltip>
+              {/* Global rates (read-only) + margin input */}
+              <div className="rounded-md border bg-muted/30 p-4 space-y-3">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Taxas globais (definidas em Configurações)</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">NF (%)</Label>
+                    <Input type="number" className="h-8 text-sm bg-muted" value={globalSettings.invoice_pct} disabled />
                   </div>
-                  <Input type="number" value={tierFixedPct} onChange={e => setTierFixedPct(e.target.value)} />
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Cobrança (%)</Label>
+                    <Input type="number" className="h-8 text-sm bg-muted" value={globalSettings.collection_pct} disabled />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Perda (%)</Label>
+                    <Input type="number" className="h-8 text-sm bg-muted" value={globalSettings.waste_pct} disabled />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1">
-                    <Label>Custos Variáveis (%)</Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                      <TooltipContent className="max-w-[200px]"><p>Impostos, comissões, perda e outros custos que mudam conforme o valor vendido</p></TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <Input type="number" value={tierVariablePct} onChange={e => setTierVariablePct(e.target.value)} />
-                  <button
-                    type="button"
-                    onClick={() => setShowVarBreakdown(!showVarBreakdown)}
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
-                    <ChevronDown className={cn("h-3 w-3 transition-transform", showVarBreakdown && "rotate-180")} />
-                    {showVarBreakdown ? "Ocultar detalhamento" : "Detalhar composição"}
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1">
-                    <Label>Lucro (%)</Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                      <TooltipContent className="max-w-[200px]"><p>Quanto você quer ganhar de lucro sobre o preço de venda</p></TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <Input type="number" value={tierMarginPct} onChange={e => setTierMarginPct(e.target.value)} />
+                <div className="flex justify-between text-xs pt-2 border-t">
+                  <span className="text-muted-foreground">Total taxas globais</span>
+                  <span className="font-semibold text-foreground">{fmtPct(globalIndirectPct)}</span>
                 </div>
               </div>
 
-              {showVarBreakdown && (
-                <div className="rounded-md border bg-muted/30 p-4 space-y-3">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Composição dos custos variáveis</p>
-                  <div className="grid grid-cols-4 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Impostos (%)</Label>
-                      <Input type="number" className="h-8 text-sm" value={varImpostos} onChange={e => {
-                        setVarImpostos(e.target.value);
-                        setTierVariablePct(String(Number(e.target.value) + Number(varComissao) + Number(varPerda) + Number(varOutros)));
-                      }} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Comissão (%)</Label>
-                      <Input type="number" className="h-8 text-sm" value={varComissao} onChange={e => {
-                        setVarComissao(e.target.value);
-                        setTierVariablePct(String(Number(varImpostos) + Number(e.target.value) + Number(varPerda) + Number(varOutros)));
-                      }} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">
-                        <span className="flex items-center gap-1">
-                          Perda (%)
-                          <Tooltip>
-                            <TooltipTrigger asChild><HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
-                            <TooltipContent><p>Percentual de perda/desperdício no processo</p></TooltipContent>
-                          </Tooltip>
-                        </span>
-                      </Label>
-                      <Input type="number" className="h-8 text-sm" value={varPerda} onChange={e => {
-                        setVarPerda(e.target.value);
-                        setTierVariablePct(String(Number(varImpostos) + Number(varComissao) + Number(e.target.value) + Number(varOutros)));
-                      }} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Outros (%)</Label>
-                      <Input type="number" className="h-8 text-sm" value={varOutros} onChange={e => {
-                        setVarOutros(e.target.value);
-                        setTierVariablePct(String(Number(varImpostos) + Number(varComissao) + Number(varPerda) + Number(e.target.value)));
-                      }} />
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-xs pt-2 border-t">
-                    <span className="text-muted-foreground">Total custos variáveis</span>
-                    <span className="font-semibold text-foreground">{fmtPct(Number(tierVariablePct))}</span>
-                  </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-1">
+                  <Label>Margem de Lucro (%)</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                    <TooltipContent className="max-w-[200px]"><p>Quanto você quer ganhar de lucro sobre o preço de venda nesta faixa</p></TooltipContent>
+                  </Tooltip>
                 </div>
-              )}
+                <Input type="number" value={tierMarginPct} onChange={e => setTierMarginPct(e.target.value)} className="max-w-[200px]" />
+              </div>
 
-              {/* Visual example instead of raw Soma/Divisor */}
+              {/* Visual example */}
               <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                   <Calculator className="h-3.5 w-3.5" /> Simulação de Preço
@@ -1186,7 +1131,7 @@ export default function PrecoImpressao() {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Custos fixos ({fmtPct(Number(tierFixedPct))}) + Variáveis ({fmtPct(Number(tierVariablePct))}) + Lucro ({fmtPct(Number(tierMarginPct))})
+                    Taxas globais ({fmtPct(globalIndirectPct)}) + Lucro ({fmtPct(Number(tierMarginPct))})
                   </span>
                   <span className="font-semibold text-foreground">= {fmtPct(tierSoma)}</span>
                 </div>
@@ -1201,7 +1146,6 @@ export default function PrecoImpressao() {
                   </p>
                 )}
 
-                {/* Collapsible technical details */}
                 <Collapsible>
                   <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
                     <ChevronDown className="h-3 w-3" /> Detalhes do cálculo
