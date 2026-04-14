@@ -415,20 +415,52 @@ export default function PrecoImpressao() {
     }
   }, [itemSize, itemPaperSource, paperRecords]);
 
+  const getPaperCostForSize = (size: string) => {
+    if (itemPaperSource === "manual") return Number(itemPaperCost);
+    const paper = paperRecords.find(p => p.id === itemPaperSource);
+    if (!paper) return Number(itemPaperCost);
+    return (size === "A4" || size === "A5" || size === "Carta") ? paperPriceA4(paper) : paperPriceSRA3(paper);
+  };
+
   const saveItem = async () => {
     if (!itemPaperType.trim()) return toast.error("Tipo de papel obrigatório");
-    const effectivePrintingCost = itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb') : Number(itemPrintingCost);
-    const data = {
-      printer_category_id: activeCategory, code: itemCode || null, paper_type: itemPaperType,
-      grammage: itemGrammage || null, size: itemSize, side: itemSide,
-      paper_cost: Number(itemPaperCost), printing_cost: effectivePrintingCost,
-      equipment_id: itemEquipmentId || null,
-      equipment_mode: itemEquipmentMode,
-      sort_order: editingItem ? editingItem.sort_order : activeItems.length,
-    };
-    if (editingItem) await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
-    else await supabase.from("printing_price_items").insert([data]);
-    setShowItemDialog(false); toast.success("Item salvo!"); fetchAll();
+    
+    if (editingItem) {
+      // Single update
+      const effectivePrintingCost = itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb') : Number(itemPrintingCost);
+      const data = {
+        printer_category_id: activeCategory, code: itemCode || null, paper_type: itemPaperType,
+        grammage: itemGrammage || null, size: itemSize, side: itemSide,
+        paper_cost: Number(itemPaperCost), printing_cost: effectivePrintingCost,
+        equipment_id: itemEquipmentId || null, equipment_mode: itemEquipmentMode,
+        sort_order: editingItem.sort_order,
+      };
+      await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
+      setShowItemDialog(false); toast.success("Item salvo!"); fetchAll();
+    } else {
+      // Batch creation
+      const sizes = batchSizes.length > 0 ? batchSizes : ["A4"];
+      const sides = batchSides.length > 0 ? batchSides : ["F"];
+      const effectivePrintingCost = itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb') : Number(itemPrintingCost);
+      const records = [];
+      let sortBase = activeItems.length;
+      for (const size of sizes) {
+        for (const side of sides) {
+          const paperCost = getPaperCostForSize(size);
+          records.push({
+            printer_category_id: activeCategory, code: itemCode || null, paper_type: itemPaperType,
+            grammage: itemGrammage || null, size, side,
+            paper_cost: Number(paperCost.toFixed(4)), printing_cost: effectivePrintingCost,
+            equipment_id: itemEquipmentId || null, equipment_mode: itemEquipmentMode,
+            sort_order: sortBase++,
+          });
+        }
+      }
+      await supabase.from("printing_price_items").insert(records);
+      setShowItemDialog(false);
+      toast.success(`${records.length} item(ns) criado(s)!`);
+      fetchAll();
+    }
   };
 
   const deleteItem = async (id: string) => {
