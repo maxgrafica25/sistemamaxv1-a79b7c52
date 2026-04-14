@@ -139,6 +139,7 @@ export default function PrecoImpressao() {
   const [itemEquipmentId, setItemEquipmentId] = useState<string>("");
   const [itemEquipmentMode, setItemEquipmentMode] = useState<string>("color");
   const [itemPaperSource, setItemPaperSource] = useState<string>("manual");
+  const [itemMarkupGroupId, setItemMarkupGroupId] = useState<string>("__default__");
   // Batch creation: multiple sizes/sides
   const [batchSizes, setBatchSizes] = useState<string[]>(["A4"]);
   const [batchSides, setBatchSides] = useState<string[]>(["F"]);
@@ -381,11 +382,13 @@ export default function PrecoImpressao() {
       setItemPaperCost(String(item.paper_cost)); setItemPrintingCost(String(item.printing_cost));
       setItemEquipmentId(item.equipment_id || ""); setItemEquipmentMode(item.equipment_mode || "color"); setItemPaperSource("manual");
       setBatchSizes([item.size]); setBatchSides([item.side]);
+      setItemMarkupGroupId(item.markup_group_id || "__default__");
     } else {
       setEditingItem(null); setItemCode(""); setItemPaperType(""); setItemGrammage("");
       setItemSize("A4"); setItemSide("F"); setItemPaperCost("0"); setItemPrintingCost("0");
       setItemEquipmentId(""); setItemEquipmentMode("color"); setItemPaperSource("manual");
       setBatchSizes(["A4"]); setBatchSides(["F"]);
+      setItemMarkupGroupId("__default__");
     }
     setShowItemDialog(true);
   };
@@ -430,12 +433,13 @@ export default function PrecoImpressao() {
     if (editingItem) {
       // Single update
       const effectivePrintingCost = itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb') : Number(itemPrintingCost);
+      const resolvedGroupId = itemMarkupGroupId === "__default__" ? null : itemMarkupGroupId;
       const data = {
         printer_category_id: activeCategory, code: itemCode || null, paper_type: itemPaperType,
         grammage: itemGrammage || null, size: itemSize, side: itemSide,
         paper_cost: Number(itemPaperCost), printing_cost: effectivePrintingCost,
         equipment_id: itemEquipmentId || null, equipment_mode: itemEquipmentMode,
-        sort_order: editingItem.sort_order,
+        sort_order: editingItem.sort_order, markup_group_id: resolvedGroupId,
       };
       await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
       setShowItemDialog(false); toast.success("Item salvo!"); fetchAll();
@@ -444,6 +448,7 @@ export default function PrecoImpressao() {
       const sizes = batchSizes.length > 0 ? batchSizes : ["A4"];
       const sides = batchSides.length > 0 ? batchSides : ["F"];
       const effectivePrintingCost = itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb') : Number(itemPrintingCost);
+      const resolvedGroupId = itemMarkupGroupId === "__default__" ? null : itemMarkupGroupId;
       const records = [];
       let sortBase = activeItems.length;
       for (const size of sizes) {
@@ -454,7 +459,7 @@ export default function PrecoImpressao() {
             grammage: itemGrammage || null, size, side,
             paper_cost: Number(paperCost.toFixed(4)), printing_cost: effectivePrintingCost,
             equipment_id: itemEquipmentId || null, equipment_mode: itemEquipmentMode,
-            sort_order: sortBase++,
+            sort_order: sortBase++, markup_group_id: resolvedGroupId,
           });
         }
       }
@@ -1430,6 +1435,32 @@ export default function PrecoImpressao() {
                   </div>
                 )}
               </div>
+
+              {/* Markup Group selector */}
+              {markupGroups.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <Layers className="h-3.5 w-3.5 text-primary" />
+                    Grupo de Regras de Preço
+                  </Label>
+                  <Select value={itemMarkupGroupId} onValueChange={setItemMarkupGroupId}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__default__">
+                        📋 Padrão da categoria{activeGroupId ? ` (${markupGroups.find(g => g.id === activeGroupId)?.name || ""})` : ""}
+                      </SelectItem>
+                      {markupGroups.map(g => {
+                        const count = tiers.filter(t => t.markup_group_id === g.id).length;
+                        return (
+                          <SelectItem key={g.id} value={g.id}>
+                            {g.name} ({count} faixa{count !== 1 ? "s" : ""})
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="rounded-lg bg-muted/50 p-3 flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Papel + Impressão</span>
