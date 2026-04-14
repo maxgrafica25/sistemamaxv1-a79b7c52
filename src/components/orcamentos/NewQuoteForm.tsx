@@ -87,6 +87,9 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
 
   const [hourlyRate, setHourlyRate] = useState(80);
   
+  // Global settings from DB
+  const [globalSettings, setGlobalSettings] = useState({ invoice_pct: 10, collection_pct: 7, waste_pct: 5, default_margin_pct: 33 });
+
   // Exemption toggles (only visible to authorized users)
   const AUTHORIZED_NAMES = ["Marcelle", "Juliano"];
   const canToggleExemptions = AUTHORIZED_NAMES.some(
@@ -96,9 +99,9 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const [includeWaste, setIncludeWaste] = useState(true);
   const [includeCollection, setIncludeCollection] = useState(true);
   
-  const invoicePercentage = includeInvoice ? 10 : 0;
-  const wastePercentage = includeWaste ? 5 : 0;
-  const collectionCostPercentage = includeCollection ? 7 : 0;
+  const invoicePercentage = includeInvoice ? globalSettings.invoice_pct : 0;
+  const wastePercentage = includeWaste ? globalSettings.waste_pct : 0;
+  const collectionCostPercentage = includeCollection ? globalSettings.collection_pct : 0;
   const hasExemptions = !includeInvoice || !includeWaste || !includeCollection;
 
   const [profitMargin, setProfitMargin] = useState(editingQuote?.profitMargin || "33");
