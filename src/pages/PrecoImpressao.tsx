@@ -465,8 +465,8 @@ export default function PrecoImpressao() {
   // Summary
   const avgMargin = activeTiers.length ? activeTiers.reduce((s, t) => s + t.margin_pct, 0) / activeTiers.length : 0;
 
-  // Example calculation for tier dialog
-  const tierSoma = Number(tierFixedPct) + Number(tierVariablePct) + Number(tierMarginPct);
+  const globalIndirectPct = globalSettings.invoice_pct + globalSettings.collection_pct + globalSettings.waste_pct;
+  const tierSoma = globalIndirectPct + Number(tierMarginPct);
   const tierDivisor = 1 - tierSoma / 100;
   const exampleCost = 0.10;
   const examplePrice = tierDivisor > 0 ? exampleCost / tierDivisor : 0;
