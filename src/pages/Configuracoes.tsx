@@ -12,19 +12,22 @@ import { Link } from "react-router-dom";
 export default function Configuracoes() {
   const [hourlyRate, setHourlyRate] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [settingsId, setSettingsId] = useState<string | null>(null);
   const [invoicePercentage, setInvoicePercentage] = useState("10");
   const [wastePercentage, setWastePercentage] = useState("5");
   const [collectionCostPercentage, setCollectionCostPercentage] = useState("7");
   const [defaultProfitMargin, setDefaultProfitMargin] = useState("33");
 
   useEffect(() => {
-    const loadHourlyRate = async () => {
+    const load = async () => {
       setLoading(true);
-      const [expRes, salRes, eqRes, capRes] = await Promise.all([
+      const [expRes, salRes, eqRes, capRes, settingsRes] = await Promise.all([
         supabase.from("monthly_expenses").select("value"),
         supabase.from("salaries").select("salary, is_production"),
         supabase.from("equipment_depreciation").select("purchase_value, useful_life_months, residual_value"),
         supabase.from("productive_capacity").select("*").limit(1).single(),
+        supabase.from("global_settings").select("*").limit(1).single(),
       ]);
       const totalExp = (expRes.data || []).reduce((s: number, e: any) => s + e.value, 0);
       const totalSal = (salRes.data || []).reduce((s: number, e: any) => s + e.salary, 0) * 1.45;
@@ -33,18 +36,42 @@ export default function Configuracoes() {
       const prodCount = (salRes.data || []).filter((s: any) => s.is_production).length;
       const hours = cap ? prodCount * cap.hours_per_month : 0;
       setHourlyRate(hours > 0 ? (totalExp + totalSal + totalDep) / hours : 0);
+
+      if (settingsRes.data) {
+        setSettingsId(settingsRes.data.id);
+        setInvoicePercentage(String(settingsRes.data.invoice_pct));
+        setCollectionCostPercentage(String(settingsRes.data.collection_pct));
+        setWastePercentage(String(settingsRes.data.waste_pct));
+        setDefaultProfitMargin(String(settingsRes.data.default_margin_pct));
+      }
       setLoading(false);
     };
-    loadHourlyRate();
+    load();
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setSaving(true);
+    const data = {
+      invoice_pct: parseFloat(invoicePercentage) || 0,
+      collection_pct: parseFloat(collectionCostPercentage) || 0,
+      waste_pct: parseFloat(wastePercentage) || 0,
+      default_margin_pct: parseFloat(defaultProfitMargin) || 0,
+    };
+    if (settingsId) {
+      await supabase.from("global_settings").update(data).eq("id", settingsId);
+    } else {
+      const { data: newRow } = await supabase.from("global_settings").insert(data).select("id").single();
+      if (newRow) setSettingsId(newRow.id);
+    }
+    setSaving(false);
     toast.success("Configurações salvas com sucesso!");
   };
 
   if (loading) {
     return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
+
+  const totalIndiretos = (parseFloat(invoicePercentage) || 0) + (parseFloat(collectionCostPercentage) || 0) + (parseFloat(wastePercentage) || 0);
 
   return (
     <div className="p-8">
@@ -53,7 +80,7 @@ export default function Configuracoes() {
           <Cog className="h-6 w-6 text-primary" />
           Configurações
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">Configure os parâmetros de cálculo dos orçamentos</p>
+        <p className="text-sm text-muted-foreground mt-1">Configure os parâmetros globais de cálculo — estes valores são usados na tabela de preço de impressão e nos orçamentos</p>
       </div>
 
       <div className="max-w-3xl space-y-6">
@@ -101,7 +128,7 @@ export default function Configuracoes() {
               <div className="space-y-2">
                 <Label>Margem de Lucro Padrão (%)</Label>
                 <Input type="number" step="0.01" value={defaultProfitMargin} onChange={(e) => setDefaultProfitMargin(e.target.value)} />
-                <p className="text-sm text-muted-foreground">Margem aplicada por padrão nos orçamentos</p>
+                <p className="text-sm text-muted-foreground">Margem padrão — pode ser personalizada por faixa na tabela de preço</p>
               </div>
             </div>
           </CardContent>
@@ -115,14 +142,22 @@ export default function Configuracoes() {
               <div className="flex justify-between"><span className="text-muted-foreground">Custo de Cobrança:</span><span className="font-medium">+{collectionCostPercentage}%</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Perda de Material:</span><span className="font-medium">+{wastePercentage}%</span></div>
               <Separator className="my-3" />
-              <div className="flex justify-between"><span className="text-muted-foreground">Total de Custos Indiretos:</span><span className="font-semibold text-primary">+{(parseFloat(invoicePercentage) + parseFloat(collectionCostPercentage) + parseFloat(wastePercentage)).toFixed(2)}%</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Margem de Lucro:</span><span className="font-semibold text-green-600">+{defaultProfitMargin}%</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Total de Custos Indiretos:</span><span className="font-semibold text-primary">+{totalIndiretos.toFixed(2)}%</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Margem de Lucro Padrão:</span><span className="font-semibold text-green-600">+{defaultProfitMargin}%</span></div>
+              <Separator className="my-3" />
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Fórmula: Custo ÷ (1 − soma%)</span>
+                <span className="font-semibold">Divisor: {(1 - (totalIndiretos + (parseFloat(defaultProfitMargin) || 0)) / 100).toFixed(4)}</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         <div className="flex justify-end">
-          <Button size="lg" onClick={handleSave} className="gap-2 bg-accent hover:bg-accent-hover"><Save className="h-5 w-5" /> Salvar Configurações</Button>
+          <Button size="lg" onClick={handleSave} disabled={saving} className="gap-2 bg-accent hover:bg-accent-hover">
+            {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+            Salvar Configurações
+          </Button>
         </div>
       </div>
     </div>
