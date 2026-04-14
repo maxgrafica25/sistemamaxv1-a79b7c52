@@ -998,7 +998,7 @@ export default function PrecoImpressao() {
                                             {itemTiers.map(t => (
                                               <span key={t.id} className="text-xs font-mono">
                                                 <span className="text-muted-foreground">{t.label}:</span>{" "}
-                                                <span className="font-semibold text-primary">{fmt(calcSellingPrice(baseCost, t))}</span>
+                                                <span className="font-semibold text-primary">{fmt(calcSellingPriceWithGlobals(baseCost, t, globalSettings))}</span>
                                               </span>
                                             ))}
                                           </div>
@@ -1006,7 +1006,7 @@ export default function PrecoImpressao() {
                                       );
                                     }
                                     return activeTiers.map(tier => (
-                                      <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPrice(baseCost, tier))}</TableCell>
+                                      <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPriceWithGlobals(baseCost, tier, globalSettings))}</TableCell>
                                     ));
                                   })()}
                                   <TableCell>
