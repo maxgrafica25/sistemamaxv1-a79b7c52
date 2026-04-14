@@ -126,15 +126,7 @@ export default function PrecoImpressao() {
   const [tierLabel, setTierLabel] = useState("");
   const [tierMinQty, setTierMinQty] = useState("1");
   const [tierMaxQty, setTierMaxQty] = useState("");
-  const [tierFixedPct, setTierFixedPct] = useState("40");
-  const [tierVariablePct, setTierVariablePct] = useState("13");
   const [tierMarginPct, setTierMarginPct] = useState("33");
-  // Variable cost breakdown (visual only — stored as single total)
-  const [varImpostos, setVarImpostos] = useState("6");
-  const [varComissao, setVarComissao] = useState("2");
-  const [varPerda, setVarPerda] = useState("5");
-  const [varOutros, setVarOutros] = useState("0");
-  const [showVarBreakdown, setShowVarBreakdown] = useState(false);
 
   // Item form
   const [itemCode, setItemCode] = useState("");
