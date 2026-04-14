@@ -24,7 +24,7 @@ import {
 import {
   Plus, Printer, Settings2, Trash2, Edit2, Calculator, Layers, Cpu, Info,
   RefreshCw, FileText, Check, AlertCircle, HelpCircle, ChevronDown, Lightbulb,
-  ChevronLeft, ChevronRight, Filter, X, SlidersHorizontal, Eye, EyeOff,
+  ChevronLeft, ChevronRight, Filter, X, SlidersHorizontal, Eye, EyeOff, Zap, CreditCard,
 } from "lucide-react";
 import {
   Popover, PopoverContent, PopoverTrigger,
@@ -1355,32 +1355,42 @@ export default function PrecoImpressao() {
                         <SelectItem value="manual">✏️ Informar manualmente</SelectItem>
                         {equipments.map(eq => {
                           const isColor = eq.printer_type === 'color';
+                          const isRibbon = eq.printer_type === 'ribbon';
+                          const dupeCount = equipments.filter(e => e.name === eq.name).length;
+                          const showType = dupeCount > 1;
+                          const typeLabel = isColor ? 'Laser Color' : isRibbon ? 'Ribbon' : 'Laser PB';
                           if (isColor) {
                             return (
                               <React.Fragment key={eq.id}>
                                 <SelectItem value={`${eq.id}:color`}>
                                   <span className="flex items-center gap-2">
-                                    <Cpu className="h-3.5 w-3.5 text-accent-foreground" />
-                                    {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">Color</Badge>
+                                    <Zap className="h-3.5 w-3.5" style={{ color: 'hsl(280 70% 55%)' }} />
+                                    {eq.name}
+                                    {showType && <span className="text-[10px] text-muted-foreground">({typeLabel})</span>}
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0" style={{ borderColor: 'hsl(280 70% 55%)', color: 'hsl(280 70% 55%)' }}>Color</Badge>
                                     <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id, 20))}/pág</span>
                                   </span>
                                 </SelectItem>
                                 <SelectItem value={`${eq.id}:pb`}>
                                   <span className="flex items-center gap-2">
-                                    <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
-                                    {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">PB</Badge>
+                                    <Zap className="h-3.5 w-3.5 text-muted-foreground" />
+                                    {eq.name}
+                                    {showType && <span className="text-[10px] text-muted-foreground">({typeLabel})</span>}
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0">PB</Badge>
                                     <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id, 20, true))}/pág</span>
                                   </span>
                                 </SelectItem>
                               </React.Fragment>
                             );
                           }
-                          if (eq.printer_type === 'ribbon') {
+                          if (isRibbon) {
                             return (
                               <SelectItem key={eq.id} value={`${eq.id}:ribbon`}>
                                 <span className="flex items-center gap-2">
-                                  <Cpu className="h-3.5 w-3.5" style={{ color: 'hsl(172 66% 40%)' }} />
-                                  {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1" style={{ borderColor: 'hsl(172 66% 40%)', color: 'hsl(172 66% 40%)' }}>Ribbon</Badge>
+                                  <CreditCard className="h-3.5 w-3.5" style={{ color: 'hsl(172 66% 40%)' }} />
+                                  {eq.name}
+                                  {showType && <span className="text-[10px] text-muted-foreground">({typeLabel})</span>}
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0" style={{ borderColor: 'hsl(172 66% 40%)', color: 'hsl(172 66% 40%)' }}>Ribbon</Badge>
                                   <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id))}/imp</span>
                                 </span>
                               </SelectItem>
@@ -1389,8 +1399,10 @@ export default function PrecoImpressao() {
                           return (
                             <SelectItem key={eq.id} value={`${eq.id}:pb`}>
                               <span className="flex items-center gap-2">
-                                <Cpu className="h-3.5 w-3.5" />
-                                {eq.name} <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1">PB</Badge>
+                                <Printer className="h-3.5 w-3.5 text-muted-foreground" />
+                                {eq.name}
+                                {showType && <span className="text-[10px] text-muted-foreground">({typeLabel})</span>}
+                                <Badge variant="outline" className="text-[10px] px-1 py-0">PB</Badge>
                                 <span className="text-muted-foreground">— {fmt4(getEquipmentCostPerPage(eq.id, 5))}/pág</span>
                               </span>
                             </SelectItem>
