@@ -1404,28 +1404,6 @@ export default function PrecoImpressao() {
                         <Input type="number" step="0.0001" value={itemPrintingCost} onChange={e => setItemPrintingCost(e.target.value)} placeholder="Ex: 0.0350 — custo por página" />
                       </div>
                     )}
-                    {itemEquipmentId && (() => {
-                      const selectedEq = equipments.find(e => e.id === itemEquipmentId);
-                      const isRibbonEq = selectedEq?.printer_type === 'ribbon';
-                      return (
-                        <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 flex items-center gap-2">
-                          <Cpu className="h-4 w-4 text-primary shrink-0" />
-                          <div className="text-sm">
-                            <span className="text-muted-foreground">Via </span>
-                            <span className="font-medium text-foreground">
-                              {getEquipmentName(itemEquipmentId)}
-                              {isRibbonEq ? ' (Ribbon)' : itemEquipmentMode === 'pb' ? ' (PB)' : ''}
-                            </span>
-                            {isRibbonEq ? (
-                              <span className="text-muted-foreground"> — custo direto: </span>
-                            ) : (
-                              <span className="text-muted-foreground"> a {selectedEq?.printer_type === 'color' ? '20' : '5'}%{itemEquipmentMode === 'pb' ? ' (só PB)' : ''}: </span>
-                            )}
-                            <span className="font-bold text-primary">{fmt4(getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb'))}</span>
-                          </div>
-                        </div>
-                      );
-                    })()}
                   </div>
                 ) : (
                   <div className="space-y-2">
