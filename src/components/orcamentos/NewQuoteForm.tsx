@@ -193,7 +193,18 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
     }));
     setMarkupTiers(tiers);
 
-    // Build category → default_markup_group_id map
+    // Load global settings
+    if (settingsRes.data) {
+      const gs = {
+        invoice_pct: settingsRes.data.invoice_pct,
+        collection_pct: settingsRes.data.collection_pct,
+        waste_pct: settingsRes.data.waste_pct,
+        default_margin_pct: settingsRes.data.default_margin_pct,
+      };
+      setGlobalSettings(gs);
+      if (!editingQuote) setProfitMargin(String(gs.default_margin_pct));
+    }
+
     const catGroupMap: Record<string, string | null> = {};
     (categoriesRes.data || []).forEach((c: any) => { catGroupMap[c.id] = c.default_markup_group_id || null; });
     setCategoryGroups(catGroupMap);
