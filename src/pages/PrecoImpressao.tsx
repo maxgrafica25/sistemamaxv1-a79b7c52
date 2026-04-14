@@ -1211,34 +1211,95 @@ export default function PrecoImpressao() {
                   <Input value={itemPaperType} onChange={e => setItemPaperType(e.target.value)} placeholder="Sulfite" readOnly={itemPaperSource !== "manual"} className={itemPaperSource !== "manual" ? "bg-muted" : ""} />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-2">
-                  <Label>Gramatura</Label>
-                  <Input value={itemGrammage} onChange={e => setItemGrammage(e.target.value)} placeholder="75g" readOnly={itemPaperSource !== "manual"} className={itemPaperSource !== "manual" ? "bg-muted" : ""} />
+              {editingItem ? (
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Label>Gramatura</Label>
+                    <Input value={itemGrammage} onChange={e => setItemGrammage(e.target.value)} placeholder="75g" readOnly={itemPaperSource !== "manual"} className={itemPaperSource !== "manual" ? "bg-muted" : ""} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tamanho</Label>
+                    <Select value={itemSize} onValueChange={setItemSize}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="A4">A4</SelectItem>
+                        <SelectItem value="A3">A3+ / SRA3</SelectItem>
+                        <SelectItem value="A5">A5</SelectItem>
+                        <SelectItem value="Carta">Carta</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Lado</Label>
+                    <Select value={itemSide} onValueChange={setItemSide}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="F">Frente</SelectItem>
+                        <SelectItem value="F/V">Frente e Verso</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Tamanho</Label>
-                  <Select value={itemSize} onValueChange={setItemSize}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A4">A4</SelectItem>
-                      <SelectItem value="A3">A3+ / SRA3</SelectItem>
-                      <SelectItem value="A5">A5</SelectItem>
-                      <SelectItem value="Carta">Carta</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Lado</Label>
-                  <Select value={itemSide} onValueChange={setItemSide}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="F">Frente</SelectItem>
-                      <SelectItem value="F/V">Frente e Verso</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label>Gramatura</Label>
+                    <Input value={itemGrammage} onChange={e => setItemGrammage(e.target.value)} placeholder="75g" readOnly={itemPaperSource !== "manual"} className={itemPaperSource !== "manual" ? "bg-muted" : ""} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5">Tamanhos</Label>
+                      <div className="space-y-1.5 rounded-md border p-3">
+                        {[
+                          { value: "A4", label: "A4" },
+                          { value: "A3", label: "A3+ / SRA3" },
+                          { value: "A5", label: "A5" },
+                          { value: "Carta", label: "Carta" },
+                        ].map(s => (
+                          <label key={s.value} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5">
+                            <Checkbox
+                              checked={batchSizes.includes(s.value)}
+                              onCheckedChange={(checked) => {
+                                setBatchSizes(prev => checked ? [...prev, s.value] : prev.filter(v => v !== s.value));
+                              }}
+                              className="h-4 w-4"
+                            />
+                            {s.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5">Lados</Label>
+                      <div className="space-y-1.5 rounded-md border p-3">
+                        {[
+                          { value: "F", label: "Frente" },
+                          { value: "F/V", label: "Frente e Verso" },
+                        ].map(s => (
+                          <label key={s.value} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5">
+                            <Checkbox
+                              checked={batchSides.includes(s.value)}
+                              onCheckedChange={(checked) => {
+                                setBatchSides(prev => checked ? [...prev, s.value] : prev.filter(v => v !== s.value));
+                              }}
+                              className="h-4 w-4"
+                            />
+                            {s.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  {batchSizes.length > 0 && batchSides.length > 0 && (
+                    <div className="rounded-md bg-primary/5 border border-primary/20 px-3 py-2 flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-primary shrink-0" />
+                      <span className="text-xs text-muted-foreground">
+                        Serão criados <strong className="text-foreground">{batchSizes.length * batchSides.length} item(ns)</strong>: {batchSizes.join(", ")} × {batchSides.map(s => s === "F" ? "Frente" : "F/V").join(", ")}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
 
               <div className="space-y-2">
                 <Label>Custo do Papel (R$ por folha)</Label>
@@ -1247,10 +1308,21 @@ export default function PrecoImpressao() {
                     <FileText className="h-4 w-4 text-primary shrink-0" />
                     <div className="text-sm">
                       <span className="text-muted-foreground">Cadastro de papéis → </span>
-                      <span className="font-bold text-primary">{fmt4(Number(itemPaperCost))}</span>
-                      <span className="text-muted-foreground text-xs ml-1">
-                        ({itemSize === "A4" || itemSize === "A5" || itemSize === "Carta" ? "÷9" : "÷4"} da folha 66×96)
-                      </span>
+                      {!editingItem && batchSizes.length > 1 ? (
+                        <span className="text-xs">
+                          {batchSizes.map(sz => {
+                            const cost = getPaperCostForSize(sz);
+                            return <span key={sz} className="inline-flex gap-1 mr-3"><strong className="text-primary">{sz}:</strong> {fmt4(cost)}</span>;
+                          })}
+                        </span>
+                      ) : (
+                        <>
+                          <span className="font-bold text-primary">{fmt4(Number(itemPaperCost))}</span>
+                          <span className="text-muted-foreground text-xs ml-1">
+                            ({(editingItem ? itemSize : batchSizes[0] || "A4") === "A4" || (editingItem ? itemSize : batchSizes[0] || "A4") === "A5" || (editingItem ? itemSize : batchSizes[0] || "A4") === "Carta" ? "÷9" : "÷4"} da folha 66×96)
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 ) : (
