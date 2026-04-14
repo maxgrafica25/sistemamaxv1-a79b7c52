@@ -139,6 +139,9 @@ export default function PrecoImpressao() {
   const [itemEquipmentId, setItemEquipmentId] = useState<string>("");
   const [itemEquipmentMode, setItemEquipmentMode] = useState<string>("color");
   const [itemPaperSource, setItemPaperSource] = useState<string>("manual");
+  // Batch creation: multiple sizes/sides
+  const [batchSizes, setBatchSizes] = useState<string[]>(["A4"]);
+  const [batchSides, setBatchSides] = useState<string[]>(["F"]);
   // Coverage is auto-determined per category
   const activeCategoryObj = categories.find(c => c.id === activeCategory);
   const coveragePct = activeCategoryObj ? getCategoryCoverage(activeCategoryObj.name) : 5;
