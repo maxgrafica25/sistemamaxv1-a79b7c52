@@ -87,7 +87,7 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
         ? t.markup_group_id === item.markup_group_id
         : t.printer_category_id === item.printer_category_id
     );
-    const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
+    const sellingPrice = tier ? calcSellingPrice(baseCost, tier, globalSettings) : baseCost;
     return { baseCost, sellingPrice, tierLabel: tier?.label };
   };
 
