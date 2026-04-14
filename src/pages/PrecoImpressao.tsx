@@ -139,6 +139,9 @@ export default function PrecoImpressao() {
   const [itemEquipmentId, setItemEquipmentId] = useState<string>("");
   const [itemEquipmentMode, setItemEquipmentMode] = useState<string>("color");
   const [itemPaperSource, setItemPaperSource] = useState<string>("manual");
+  // Batch creation: multiple sizes/sides
+  const [batchSizes, setBatchSizes] = useState<string[]>(["A4"]);
+  const [batchSides, setBatchSides] = useState<string[]>(["F"]);
   // Coverage is auto-determined per category
   const activeCategoryObj = categories.find(c => c.id === activeCategory);
   const coveragePct = activeCategoryObj ? getCategoryCoverage(activeCategoryObj.name) : 5;
@@ -377,10 +380,12 @@ export default function PrecoImpressao() {
       setItemGrammage(item.grammage || ""); setItemSize(item.size); setItemSide(item.side);
       setItemPaperCost(String(item.paper_cost)); setItemPrintingCost(String(item.printing_cost));
       setItemEquipmentId(item.equipment_id || ""); setItemEquipmentMode(item.equipment_mode || "color"); setItemPaperSource("manual");
+      setBatchSizes([item.size]); setBatchSides([item.side]);
     } else {
       setEditingItem(null); setItemCode(""); setItemPaperType(""); setItemGrammage("");
       setItemSize("A4"); setItemSide("F"); setItemPaperCost("0"); setItemPrintingCost("0");
       setItemEquipmentId(""); setItemEquipmentMode("color"); setItemPaperSource("manual");
+      setBatchSizes(["A4"]); setBatchSides(["F"]);
     }
     setShowItemDialog(true);
   };
@@ -403,27 +408,61 @@ export default function PrecoImpressao() {
     if (itemPaperSource !== "manual") {
       const paper = paperRecords.find(p => p.id === itemPaperSource);
       if (paper) {
-        const price = itemSize === "A4" || itemSize === "A5" || itemSize === "Carta"
+        // For batch mode, use first selected size for the preview cost; actual costs computed on save
+        const previewSize = editingItem ? itemSize : (batchSizes[0] || "A4");
+        const price = previewSize === "A4" || previewSize === "A5" || previewSize === "Carta"
           ? paperPriceA4(paper) : paperPriceSRA3(paper);
         setItemPaperCost(price.toFixed(4));
       }
     }
-  }, [itemSize, itemPaperSource, paperRecords]);
+  }, [itemSize, batchSizes, itemPaperSource, paperRecords, editingItem]);
+
+  const getPaperCostForSize = (size: string) => {
+    if (itemPaperSource === "manual") return Number(itemPaperCost);
+    const paper = paperRecords.find(p => p.id === itemPaperSource);
+    if (!paper) return Number(itemPaperCost);
+    return (size === "A4" || size === "A5" || size === "Carta") ? paperPriceA4(paper) : paperPriceSRA3(paper);
+  };
 
   const saveItem = async () => {
     if (!itemPaperType.trim()) return toast.error("Tipo de papel obrigatório");
-    const effectivePrintingCost = itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb') : Number(itemPrintingCost);
-    const data = {
-      printer_category_id: activeCategory, code: itemCode || null, paper_type: itemPaperType,
-      grammage: itemGrammage || null, size: itemSize, side: itemSide,
-      paper_cost: Number(itemPaperCost), printing_cost: effectivePrintingCost,
-      equipment_id: itemEquipmentId || null,
-      equipment_mode: itemEquipmentMode,
-      sort_order: editingItem ? editingItem.sort_order : activeItems.length,
-    };
-    if (editingItem) await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
-    else await supabase.from("printing_price_items").insert([data]);
-    setShowItemDialog(false); toast.success("Item salvo!"); fetchAll();
+    
+    if (editingItem) {
+      // Single update
+      const effectivePrintingCost = itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb') : Number(itemPrintingCost);
+      const data = {
+        printer_category_id: activeCategory, code: itemCode || null, paper_type: itemPaperType,
+        grammage: itemGrammage || null, size: itemSize, side: itemSide,
+        paper_cost: Number(itemPaperCost), printing_cost: effectivePrintingCost,
+        equipment_id: itemEquipmentId || null, equipment_mode: itemEquipmentMode,
+        sort_order: editingItem.sort_order,
+      };
+      await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
+      setShowItemDialog(false); toast.success("Item salvo!"); fetchAll();
+    } else {
+      // Batch creation
+      const sizes = batchSizes.length > 0 ? batchSizes : ["A4"];
+      const sides = batchSides.length > 0 ? batchSides : ["F"];
+      const effectivePrintingCost = itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb') : Number(itemPrintingCost);
+      const records = [];
+      let sortBase = activeItems.length;
+      for (const size of sizes) {
+        for (const side of sides) {
+          const paperCost = getPaperCostForSize(size);
+          records.push({
+            printer_category_id: activeCategory, code: itemCode || null, paper_type: itemPaperType,
+            grammage: itemGrammage || null, size, side,
+            paper_cost: Number(paperCost.toFixed(4)), printing_cost: effectivePrintingCost,
+            equipment_id: itemEquipmentId || null, equipment_mode: itemEquipmentMode,
+            sort_order: sortBase++,
+          });
+        }
+      }
+      await supabase.from("printing_price_items").insert(records);
+      setShowItemDialog(false);
+      toast.success(`${records.length} item(ns) criado(s)!`);
+      fetchAll();
+    }
   };
 
   const deleteItem = async (id: string) => {
@@ -1174,34 +1213,95 @@ export default function PrecoImpressao() {
                   <Input value={itemPaperType} onChange={e => setItemPaperType(e.target.value)} placeholder="Sulfite" readOnly={itemPaperSource !== "manual"} className={itemPaperSource !== "manual" ? "bg-muted" : ""} />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-2">
-                  <Label>Gramatura</Label>
-                  <Input value={itemGrammage} onChange={e => setItemGrammage(e.target.value)} placeholder="75g" readOnly={itemPaperSource !== "manual"} className={itemPaperSource !== "manual" ? "bg-muted" : ""} />
+              {editingItem ? (
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Label>Gramatura</Label>
+                    <Input value={itemGrammage} onChange={e => setItemGrammage(e.target.value)} placeholder="75g" readOnly={itemPaperSource !== "manual"} className={itemPaperSource !== "manual" ? "bg-muted" : ""} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tamanho</Label>
+                    <Select value={itemSize} onValueChange={setItemSize}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="A4">A4</SelectItem>
+                        <SelectItem value="A3">A3+ / SRA3</SelectItem>
+                        <SelectItem value="A5">A5</SelectItem>
+                        <SelectItem value="Carta">Carta</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Lado</Label>
+                    <Select value={itemSide} onValueChange={setItemSide}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="F">Frente</SelectItem>
+                        <SelectItem value="F/V">Frente e Verso</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Tamanho</Label>
-                  <Select value={itemSize} onValueChange={setItemSize}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A4">A4</SelectItem>
-                      <SelectItem value="A3">A3+ / SRA3</SelectItem>
-                      <SelectItem value="A5">A5</SelectItem>
-                      <SelectItem value="Carta">Carta</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Lado</Label>
-                  <Select value={itemSide} onValueChange={setItemSide}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="F">Frente</SelectItem>
-                      <SelectItem value="F/V">Frente e Verso</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label>Gramatura</Label>
+                    <Input value={itemGrammage} onChange={e => setItemGrammage(e.target.value)} placeholder="75g" readOnly={itemPaperSource !== "manual"} className={itemPaperSource !== "manual" ? "bg-muted" : ""} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5">Tamanhos</Label>
+                      <div className="space-y-1.5 rounded-md border p-3">
+                        {[
+                          { value: "A4", label: "A4" },
+                          { value: "A3", label: "A3+ / SRA3" },
+                          { value: "A5", label: "A5" },
+                          { value: "Carta", label: "Carta" },
+                        ].map(s => (
+                          <label key={s.value} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5">
+                            <Checkbox
+                              checked={batchSizes.includes(s.value)}
+                              onCheckedChange={(checked) => {
+                                setBatchSizes(prev => checked ? [...prev, s.value] : prev.filter(v => v !== s.value));
+                              }}
+                              className="h-4 w-4"
+                            />
+                            {s.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5">Lados</Label>
+                      <div className="space-y-1.5 rounded-md border p-3">
+                        {[
+                          { value: "F", label: "Frente" },
+                          { value: "F/V", label: "Frente e Verso" },
+                        ].map(s => (
+                          <label key={s.value} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5">
+                            <Checkbox
+                              checked={batchSides.includes(s.value)}
+                              onCheckedChange={(checked) => {
+                                setBatchSides(prev => checked ? [...prev, s.value] : prev.filter(v => v !== s.value));
+                              }}
+                              className="h-4 w-4"
+                            />
+                            {s.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  {batchSizes.length > 0 && batchSides.length > 0 && (
+                    <div className="rounded-md bg-primary/5 border border-primary/20 px-3 py-2 flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-primary shrink-0" />
+                      <span className="text-xs text-muted-foreground">
+                        Serão criados <strong className="text-foreground">{batchSizes.length * batchSides.length} item(ns)</strong>: {batchSizes.join(", ")} × {batchSides.map(s => s === "F" ? "Frente" : "F/V").join(", ")}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
 
               <div className="space-y-2">
                 <Label>Custo do Papel (R$ por folha)</Label>
@@ -1210,10 +1310,21 @@ export default function PrecoImpressao() {
                     <FileText className="h-4 w-4 text-primary shrink-0" />
                     <div className="text-sm">
                       <span className="text-muted-foreground">Cadastro de papéis → </span>
-                      <span className="font-bold text-primary">{fmt4(Number(itemPaperCost))}</span>
-                      <span className="text-muted-foreground text-xs ml-1">
-                        ({itemSize === "A4" || itemSize === "A5" || itemSize === "Carta" ? "÷9" : "÷4"} da folha 66×96)
-                      </span>
+                      {!editingItem && batchSizes.length > 1 ? (
+                        <span className="text-xs">
+                          {batchSizes.map(sz => {
+                            const cost = getPaperCostForSize(sz);
+                            return <span key={sz} className="inline-flex gap-1 mr-3"><strong className="text-primary">{sz}:</strong> {fmt4(cost)}</span>;
+                          })}
+                        </span>
+                      ) : (
+                        <>
+                          <span className="font-bold text-primary">{fmt4(Number(itemPaperCost))}</span>
+                          <span className="text-muted-foreground text-xs ml-1">
+                            ({(editingItem ? itemSize : batchSizes[0] || "A4") === "A4" || (editingItem ? itemSize : batchSizes[0] || "A4") === "A5" || (editingItem ? itemSize : batchSizes[0] || "A4") === "Carta" ? "÷9" : "÷4"} da folha 66×96)
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 ) : (
