@@ -408,12 +408,14 @@ export default function PrecoImpressao() {
     if (itemPaperSource !== "manual") {
       const paper = paperRecords.find(p => p.id === itemPaperSource);
       if (paper) {
-        const price = itemSize === "A4" || itemSize === "A5" || itemSize === "Carta"
+        // For batch mode, use first selected size for the preview cost; actual costs computed on save
+        const previewSize = editingItem ? itemSize : (batchSizes[0] || "A4");
+        const price = previewSize === "A4" || previewSize === "A5" || previewSize === "Carta"
           ? paperPriceA4(paper) : paperPriceSRA3(paper);
         setItemPaperCost(price.toFixed(4));
       }
     }
-  }, [itemSize, itemPaperSource, paperRecords]);
+  }, [itemSize, batchSizes, itemPaperSource, paperRecords, editingItem]);
 
   const getPaperCostForSize = (size: string) => {
     if (itemPaperSource === "manual") return Number(itemPaperCost);
