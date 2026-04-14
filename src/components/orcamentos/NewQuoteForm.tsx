@@ -122,7 +122,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
 
   const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
-    const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
+    const soma = (globalSettings.invoice_pct + globalSettings.collection_pct + globalSettings.waste_pct + tier.margin_pct) / 100;
     const divisor = 1 - soma;
     if (divisor <= 0) return 0;
     return Math.round((baseCost / divisor) * 10) / 10;
