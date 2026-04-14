@@ -650,7 +650,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
                     <Printer className="h-5 w-5 text-primary" /> Impressão
                     <span className="text-xs font-normal text-muted-foreground ml-1">— Preço de venda da tabela (markup automático por quantidade)</span>
                   </h2>
-                  <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} markupTiers={markupTiers} />
+                  <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} markupTiers={markupTiers} globalSettings={globalSettings} />
                   {materials.filter(m => m.id.startsWith("print-")).length > 0 && (
                     <div className="space-y-2">
                       {materials.filter(m => m.id.startsWith("print-")).map((item) => (
