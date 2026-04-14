@@ -73,11 +73,17 @@ const getCategoryCoverage = (name: string) => isColorCategory(name) ? 20 : 5;
 
 const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
 
-const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
-  const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
+interface GlobalSettings {
+  invoice_pct: number;
+  collection_pct: number;
+  waste_pct: number;
+  default_margin_pct: number;
+}
+
+const calcSellingPriceWithGlobals = (baseCost: number, tier: MarkupTier, globals: GlobalSettings) => {
+  const soma = (globals.invoice_pct + globals.collection_pct + globals.waste_pct + tier.margin_pct) / 100;
   const divisor = 1 - soma;
   if (divisor <= 0) return 0;
-  // Arredonda ao R$ 0,10 mais próximo (ex: 0,84 → 0,80; 0,85 → 0,90)
   return Math.round((baseCost / divisor) * 10) / 10;
 };
 
