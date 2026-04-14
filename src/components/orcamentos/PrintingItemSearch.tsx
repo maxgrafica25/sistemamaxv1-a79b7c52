@@ -36,6 +36,7 @@ interface PrintingItemSearchProps {
   items: PrintingCatalogItem[];
   onSelect: (item: PrintingCatalogItem) => void;
   markupTiers?: MarkupTier[];
+  globalSettings?: { invoice_pct: number; collection_pct: number; waste_pct: number; default_margin_pct: number };
 }
 
 const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
