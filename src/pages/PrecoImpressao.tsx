@@ -1159,7 +1159,7 @@ export default function PrecoImpressao() {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Taxas globais ({fmtPct(globalIndirectPct)}) + Lucro ({fmtPct(Number(tierMarginPct))})
+                    C.Fixo ({fmtPct(Number(tierFixedPct))}) + C.Var ({fmtPct(Number(tierVariablePct))}) + Margem ({fmtPct(Number(tierMarginPct))})
                   </span>
                   <span className="font-semibold text-foreground">= {fmtPct(tierSoma)}</span>
                 </div>
