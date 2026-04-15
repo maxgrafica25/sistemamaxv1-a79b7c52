@@ -632,8 +632,8 @@ export default function PrecoImpressao() {
 
                 {/* Markup tiers → Regras de Preço por Quantidade (Collapsible) */}
                 <Collapsible
-                  open={(() => { const stored = localStorage.getItem(`rules_open_${activeCategory}`); return stored === null ? false : stored === "true"; })()}
-                  onOpenChange={(open) => { if (activeCategory) localStorage.setItem(`rules_open_${activeCategory}`, String(open)); }}
+                  open={rulesOpen}
+                  onOpenChange={(open) => { setRulesOpen(open); if (activeCategory) localStorage.setItem(`rules_open_${activeCategory}`, String(open)); }}
                 >
                   <div className="rounded-lg border bg-card">
                     <CollapsibleTrigger asChild>
