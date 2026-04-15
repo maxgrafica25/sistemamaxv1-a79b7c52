@@ -287,7 +287,11 @@ export default function PrecoImpressao() {
     return result;
   }, [activeItems, activePaperType, filterGrammage, filterSize, filterSide, filterEquipment]);
 
-  useEffect(() => { setActivePaperType("__all__"); setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); setFilterEquipment("__all__"); }, [activeCategory]);
+  useEffect(() => {
+    setActivePaperType("__all__"); setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); setFilterEquipment("__all__");
+    const stored = localStorage.getItem(`rules_open_${activeCategory}`);
+    setRulesOpen(stored === "true");
+  }, [activeCategory]);
 
   // ─── Category CRUD ─────────────────────────────────────────────────
   const openCategoryDialog = (cat?: PrinterCategory) => {
