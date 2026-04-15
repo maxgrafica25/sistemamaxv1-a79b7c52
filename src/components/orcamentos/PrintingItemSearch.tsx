@@ -42,9 +42,8 @@ interface PrintingItemSearchProps {
 const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
 const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
 
-const calcSellingPrice = (baseCost: number, tier: MarkupTier, globals?: { invoice_pct: number; collection_pct: number; waste_pct: number }) => {
-  const indirectPct = globals ? (globals.invoice_pct + globals.collection_pct + globals.waste_pct) : (tier.fixed_cost_pct + tier.variable_cost_pct);
-  const soma = (indirectPct + tier.margin_pct) / 100;
+const calcSellingPrice = (baseCost: number, tier: MarkupTier, _globals?: { invoice_pct: number; collection_pct: number; waste_pct: number }) => {
+  const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
   const divisor = 1 - soma;
   if (divisor <= 0) return 0;
   return Math.round((baseCost / divisor) * 10) / 10;

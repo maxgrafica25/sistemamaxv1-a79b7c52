@@ -698,16 +698,19 @@ export default function PrecoImpressao() {
                           </div>
                         ) : (
                           <div className="overflow-x-auto">
-                            <Table>
+                             <Table>
                               <TableHeader>
                                 <TableRow>
                                   <TableHead>Faixa</TableHead>
+                                  <TableHead className="text-center">C. Fixo</TableHead>
+                                  <TableHead className="text-center">C. Variável</TableHead>
+                                  <TableHead className="text-center">Margem</TableHead>
                                   <TableHead className="text-center">
                                     <div className="flex items-center justify-center gap-1">
-                                      Margem de Lucro
+                                      Soma
                                       <Tooltip>
                                         <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                                        <TooltipContent><p>Sua margem de lucro nesta faixa de quantidade. Taxas globais (NF {fmtPct(globalSettings.invoice_pct)}, Cobrança {fmtPct(globalSettings.collection_pct)}, Perda {fmtPct(globalSettings.waste_pct)}) são aplicadas automaticamente.</p></TooltipContent>
+                                        <TooltipContent><p>C.Fixo + C.Variável + Margem = Soma. Preço = Custo ÷ (1 − Soma%)</p></TooltipContent>
                                       </Tooltip>
                                     </div>
                                   </TableHead>
@@ -715,7 +718,9 @@ export default function PrecoImpressao() {
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {activeTiers.map(tier => (
+                                {activeTiers.map(tier => {
+                                  const soma = tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct;
+                                  return (
                                   <TableRow key={tier.id}>
                                     <TableCell>
                                       <div>
@@ -725,7 +730,10 @@ export default function PrecoImpressao() {
                                         </p>
                                       </div>
                                     </TableCell>
+                                    <TableCell className="text-center text-muted-foreground">{fmtPct(tier.fixed_cost_pct)}</TableCell>
+                                    <TableCell className="text-center text-muted-foreground">{fmtPct(tier.variable_cost_pct)}</TableCell>
                                     <TableCell className="text-center font-semibold text-primary">{fmtPct(tier.margin_pct)}</TableCell>
+                                    <TableCell className="text-center font-semibold">{fmtPct(soma)}</TableCell>
                                     <TableCell>
                                       <div className="flex gap-1 justify-end">
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openTierDialog(tier)}><Edit2 className="h-3.5 w-3.5" /></Button>
@@ -733,7 +741,8 @@ export default function PrecoImpressao() {
                                       </div>
                                     </TableCell>
                                   </TableRow>
-                                ))}
+                                  );
+                                })}
                               </TableBody>
                             </Table>
                           </div>
