@@ -99,6 +99,10 @@ export default function PrecoImpressao() {
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({ invoice_pct: 10, collection_pct: 7, waste_pct: 5, default_margin_pct: 33 });
   const [loading, setLoading] = useState(true);
+  const [rulesOpen, setRulesOpen] = useState<boolean>(() => {
+    const stored = localStorage.getItem(`rules_open_${""}`);
+    return stored === "true";
+  });
 
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [equipConsumables, setEquipConsumables] = useState<EquipmentConsumable[]>([]);
