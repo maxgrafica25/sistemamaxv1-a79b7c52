@@ -623,7 +623,10 @@ export default function PrecoImpressao() {
                 </div>
 
                 {/* Markup tiers → Regras de Preço por Quantidade (Collapsible) */}
-                <Collapsible>
+                <Collapsible
+                  open={(() => { const key = `rules_open_${activeCat?.id}`; const stored = localStorage.getItem(key); return stored === null ? false : stored === "true"; })()}
+                  onOpenChange={(open) => { if (activeCat?.id) localStorage.setItem(`rules_open_${activeCat.id}`, String(open)); }}
+                >
                   <div className="rounded-lg border bg-card">
                     <CollapsibleTrigger asChild>
                       <button className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors rounded-lg group">
