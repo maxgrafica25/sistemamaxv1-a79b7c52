@@ -80,8 +80,8 @@ interface GlobalSettings {
   default_margin_pct: number;
 }
 
-const calcSellingPriceWithGlobals = (baseCost: number, tier: MarkupTier, globals: GlobalSettings) => {
-  const soma = (globals.invoice_pct + globals.collection_pct + globals.waste_pct + tier.margin_pct) / 100;
+const calcSellingPriceWithGlobals = (baseCost: number, tier: MarkupTier, _globals?: GlobalSettings) => {
+  const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
   const divisor = 1 - soma;
   if (divisor <= 0) return 0;
   return Math.round((baseCost / divisor) * 10) / 10;
@@ -130,6 +130,8 @@ export default function PrecoImpressao() {
   const [tierLabel, setTierLabel] = useState("");
   const [tierMinQty, setTierMinQty] = useState("1");
   const [tierMaxQty, setTierMaxQty] = useState("");
+  const [tierFixedPct, setTierFixedPct] = useState("40");
+  const [tierVariablePct, setTierVariablePct] = useState("13");
   const [tierMarginPct, setTierMarginPct] = useState("33");
 
   // Item form
@@ -319,7 +321,9 @@ export default function PrecoImpressao() {
   const openTierDialog = (tier?: MarkupTier) => {
     if (tier) {
       setEditingTier(tier); setTierLabel(tier.label); setTierMinQty(String(tier.min_qty));
-      setTierMaxQty(tier.max_qty ? String(tier.max_qty) : ""); setTierMarginPct(String(tier.margin_pct));
+      setTierMaxQty(tier.max_qty ? String(tier.max_qty) : "");
+      setTierFixedPct(String(tier.fixed_cost_pct)); setTierVariablePct(String(tier.variable_cost_pct));
+      setTierMarginPct(String(tier.margin_pct));
     } else {
       setEditingTier(null);
       const nextIndex = activeTiers.length + 1;
@@ -328,6 +332,7 @@ export default function PrecoImpressao() {
       const suggestedMin = lastTier?.max_qty ? String(lastTier.max_qty + 1) : "1";
       const lastMargin = lastTier ? String(lastTier.margin_pct) : String(globalSettings.default_margin_pct);
       setTierLabel(suggestedLabel); setTierMinQty(suggestedMin); setTierMaxQty("");
+      setTierFixedPct(String(globalSettings.invoice_pct)); setTierVariablePct(String(globalSettings.collection_pct));
       setTierMarginPct(lastMargin);
     }
     setShowTierDialog(true);
@@ -338,8 +343,8 @@ export default function PrecoImpressao() {
     const data = {
       printer_category_id: activeCategory, markup_group_id: activeGroupId, label: tierLabel,
       min_qty: Number(tierMinQty), max_qty: tierMaxQty ? Number(tierMaxQty) : null,
-      fixed_cost_pct: globalSettings.invoice_pct + globalSettings.collection_pct + globalSettings.waste_pct,
-      variable_cost_pct: 0,
+      fixed_cost_pct: Number(tierFixedPct),
+      variable_cost_pct: Number(tierVariablePct),
       margin_pct: Number(tierMarginPct), sort_order: editingTier ? editingTier.sort_order : activeTiers.length,
     };
     if (editingTier) await supabase.from("markup_tiers").update(data).eq("id", editingTier.id);
@@ -517,8 +522,7 @@ export default function PrecoImpressao() {
   // Summary
   const avgMargin = activeTiers.length ? activeTiers.reduce((s, t) => s + t.margin_pct, 0) / activeTiers.length : 0;
 
-  const globalIndirectPct = globalSettings.invoice_pct + globalSettings.collection_pct + globalSettings.waste_pct;
-  const tierSoma = globalIndirectPct + Number(tierMarginPct);
+  const tierSoma = Number(tierFixedPct) + Number(tierVariablePct) + Number(tierMarginPct);
   const tierDivisor = 1 - tierSoma / 100;
   const exampleCost = 0.10;
   const examplePrice = tierDivisor > 0 ? exampleCost / tierDivisor : 0;
