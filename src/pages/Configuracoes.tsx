@@ -80,7 +80,7 @@ export default function Configuracoes() {
           <Cog className="h-6 w-6 text-primary" />
           Configurações
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">Configure os parâmetros globais de cálculo — estes valores são usados na tabela de preço de impressão e nos orçamentos</p>
+        <p className="text-sm text-muted-foreground mt-1">Configure os valores padrão de C. Fixo, C. Variável e Margem — estes valores são sugeridos ao criar novas faixas de preço</p>
       </div>
 
       <div className="max-w-3xl space-y-6">
@@ -99,55 +99,60 @@ export default function Configuracoes() {
         </Card>
 
         <Card className="shadow-card">
-          <CardHeader><CardTitle>Impostos e Taxas</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Custos Padrão para Novas Faixas</CardTitle></CardHeader>
           <CardContent className="space-y-6">
+            <p className="text-sm text-muted-foreground">Estes valores são sugeridos ao criar novas faixas de preço. Cada faixa pode ter seus próprios valores.</p>
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <Label>Percentual da Nota Fiscal (%)</Label>
+                <Label>C. Fixo Padrão (%)</Label>
                 <Input type="number" step="0.01" value={invoicePercentage} onChange={(e) => setInvoicePercentage(e.target.value)} />
-                <p className="text-sm text-muted-foreground">Impostos sobre a emissão da NF</p>
+                <p className="text-sm text-muted-foreground">Custos fixos (depreciação, aluguel, etc.) como % do preço</p>
               </div>
               <div className="space-y-2">
-                <Label>Custo de Cobrança (%)</Label>
+                <Label>C. Variável Padrão (%)</Label>
                 <Input type="number" step="0.01" value={collectionCostPercentage} onChange={(e) => setCollectionCostPercentage(e.target.value)} />
-                <p className="text-sm text-muted-foreground">Taxas de recebimento e cobrança</p>
+                <p className="text-sm text-muted-foreground">Custos variáveis (NF, cobrança, perda) como % do preço</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="shadow-card">
-          <CardHeader><CardTitle>Perdas e Margens</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Perda e Margem Padrão</CardTitle></CardHeader>
           <CardContent className="space-y-6">
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <Label>Percentual de Perda (%)</Label>
+                <Label>Percentual de Perda Padrão (%)</Label>
                 <Input type="number" step="0.01" value={wastePercentage} onChange={(e) => setWastePercentage(e.target.value)} />
-                <p className="text-sm text-muted-foreground">Margem de perda de material</p>
+                <p className="text-sm text-muted-foreground">Margem de perda de material — sugerido ao criar novas faixas</p>
               </div>
               <div className="space-y-2">
                 <Label>Margem de Lucro Padrão (%)</Label>
                 <Input type="number" step="0.01" value={defaultProfitMargin} onChange={(e) => setDefaultProfitMargin(e.target.value)} />
-                <p className="text-sm text-muted-foreground">Margem padrão — pode ser personalizada por faixa na tabela de preço</p>
+                <p className="text-sm text-muted-foreground">Margem padrão sugerida ao criar novas faixas de preço</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="shadow-card bg-muted/30">
-          <CardHeader><CardTitle className="text-base">Resumo do Impacto nos Cálculos</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Resumo dos Valores Padrão</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Percentual da NF:</span><span className="font-medium">+{invoicePercentage}%</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Custo de Cobrança:</span><span className="font-medium">+{collectionCostPercentage}%</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Perda de Material:</span><span className="font-medium">+{wastePercentage}%</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">C. Fixo Padrão:</span><span className="font-medium">+{invoicePercentage}%</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">C. Variável Padrão:</span><span className="font-medium">+{collectionCostPercentage}%</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Perda Padrão:</span><span className="font-medium">+{wastePercentage}%</span></div>
               <Separator className="my-3" />
-              <div className="flex justify-between"><span className="text-muted-foreground">Total de Custos Indiretos:</span><span className="font-semibold text-primary">+{totalIndiretos.toFixed(2)}%</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Total Custos Indiretos Padrão:</span><span className="font-semibold text-primary">+{totalIndiretos.toFixed(2)}%</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Margem de Lucro Padrão:</span><span className="font-semibold text-green-600">+{defaultProfitMargin}%</span></div>
               <Separator className="my-3" />
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Fórmula: Custo ÷ (1 − soma%)</span>
-                <span className="font-semibold">Divisor: {(1 - (totalIndiretos + (parseFloat(defaultProfitMargin) || 0)) / 100).toFixed(4)}</span>
+                <span className="text-muted-foreground">Soma total padrão</span>
+                <span className="font-semibold">{(totalIndiretos + (parseFloat(defaultProfitMargin) || 0)).toFixed(2)}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Divisor padrão (1 − soma%)</span>
+                <span className="font-semibold">{(1 - (totalIndiretos + (parseFloat(defaultProfitMargin) || 0)) / 100).toFixed(4)}</span>
               </div>
             </div>
           </CardContent>
