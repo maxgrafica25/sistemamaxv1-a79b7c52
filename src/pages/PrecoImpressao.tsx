@@ -1125,38 +1125,27 @@ export default function PrecoImpressao() {
                 </div>
               </div>
 
-              {/* Global rates (read-only) + margin input */}
+              {/* C.Fixo + C.Variável + Margem */}
               <div className="rounded-md border bg-muted/30 p-4 space-y-3">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Taxas globais (definidas em Configurações)</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Composição do BDI</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">NF (%)</Label>
-                    <Input type="number" className="h-8 text-sm bg-muted" value={globalSettings.invoice_pct} disabled />
+                    <Label className="text-xs">C. Fixo (%)</Label>
+                    <Input type="number" step="0.01" className="h-8 text-sm" value={tierFixedPct} onChange={e => setTierFixedPct(e.target.value)} />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Cobrança (%)</Label>
-                    <Input type="number" className="h-8 text-sm bg-muted" value={globalSettings.collection_pct} disabled />
+                    <Label className="text-xs">C. Variável (%)</Label>
+                    <Input type="number" step="0.01" className="h-8 text-sm" value={tierVariablePct} onChange={e => setTierVariablePct(e.target.value)} />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Perda (%)</Label>
-                    <Input type="number" className="h-8 text-sm bg-muted" value={globalSettings.waste_pct} disabled />
+                    <Label className="text-xs">Margem (%)</Label>
+                    <Input type="number" step="0.01" className="h-8 text-sm" value={tierMarginPct} onChange={e => setTierMarginPct(e.target.value)} />
                   </div>
                 </div>
                 <div className="flex justify-between text-xs pt-2 border-t">
-                  <span className="text-muted-foreground">Total taxas globais</span>
-                  <span className="font-semibold text-foreground">{fmtPct(globalIndirectPct)}</span>
+                  <span className="text-muted-foreground">Soma (C.Fixo + C.Var + Margem)</span>
+                  <span className="font-semibold text-foreground">{fmtPct(tierSoma)}</span>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-1">
-                  <Label>Margem de Lucro (%)</Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                    <TooltipContent className="max-w-[200px]"><p>Quanto você quer ganhar de lucro sobre o preço de venda nesta faixa</p></TooltipContent>
-                  </Tooltip>
-                </div>
-                <Input type="number" value={tierMarginPct} onChange={e => setTierMarginPct(e.target.value)} className="max-w-[200px]" />
               </div>
 
               {/* Visual example */}
