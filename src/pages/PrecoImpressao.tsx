@@ -99,6 +99,10 @@ export default function PrecoImpressao() {
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({ invoice_pct: 10, collection_pct: 7, waste_pct: 5, default_margin_pct: 33 });
   const [loading, setLoading] = useState(true);
+  const [rulesOpen, setRulesOpen] = useState<boolean>(() => {
+    const stored = localStorage.getItem(`rules_open_${""}`);
+    return stored === "true";
+  });
 
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [equipConsumables, setEquipConsumables] = useState<EquipmentConsumable[]>([]);
@@ -283,7 +287,11 @@ export default function PrecoImpressao() {
     return result;
   }, [activeItems, activePaperType, filterGrammage, filterSize, filterSide, filterEquipment]);
 
-  useEffect(() => { setActivePaperType("__all__"); setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); setFilterEquipment("__all__"); }, [activeCategory]);
+  useEffect(() => {
+    setActivePaperType("__all__"); setFilterGrammage("__all__"); setFilterSize("__all__"); setFilterSide("__all__"); setFilterEquipment("__all__");
+    const stored = localStorage.getItem(`rules_open_${activeCategory}`);
+    setRulesOpen(stored === "true");
+  }, [activeCategory]);
 
   // ─── Category CRUD ─────────────────────────────────────────────────
   const openCategoryDialog = (cat?: PrinterCategory) => {
@@ -623,7 +631,10 @@ export default function PrecoImpressao() {
                 </div>
 
                 {/* Markup tiers → Regras de Preço por Quantidade (Collapsible) */}
-                <Collapsible>
+                <Collapsible
+                  open={rulesOpen}
+                  onOpenChange={(open) => { setRulesOpen(open); if (activeCategory) localStorage.setItem(`rules_open_${activeCategory}`, String(open)); }}
+                >
                   <div className="rounded-lg border bg-card">
                     <CollapsibleTrigger asChild>
                       <button className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/50 transition-colors rounded-lg group">
