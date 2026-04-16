@@ -665,11 +665,12 @@ export default function PrecoImpressao() {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <div className="px-4 pb-4 pt-1 border-t">
-                        {/* Group selector — prominent layout */}
+                        {/* Group selector + actions — agrupados visualmente */}
                         <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs text-muted-foreground shrink-0">Grupo:</Label>
                             <Select value={activeGroupId || "__none__"} onValueChange={v => { if (v !== "__none__") assignGroupToCategory(v); }}>
-                              <SelectTrigger className="h-8 text-xs w-[220px]"><SelectValue placeholder="Selecione um grupo" /></SelectTrigger>
+                              <SelectTrigger className="h-8 text-xs w-[200px]"><SelectValue placeholder="Selecione um grupo" /></SelectTrigger>
                               <SelectContent>
                                 {markupGroups.map(g => {
                                   const groupTierCount = tiers.filter(t => t.markup_group_id === g.id).length;
@@ -681,8 +682,13 @@ export default function PrecoImpressao() {
                                 })}
                               </SelectContent>
                             </Select>
-                            <Button onClick={() => { setGroupName(""); setShowGroupDialog(true); }} size="sm" variant="outline" className="gap-1 h-8 text-xs">
-                              <Plus className="h-3 w-3" /> Novo Grupo
+                            <Button
+                              onClick={() => { setGroupName(""); setShowGroupDialog(true); }}
+                              size="sm"
+                              variant="ghost"
+                              className="gap-1 h-8 text-xs text-muted-foreground hover:text-foreground px-2"
+                            >
+                              <Plus className="h-3 w-3" /> novo
                             </Button>
                             <Tooltip>
                               <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
