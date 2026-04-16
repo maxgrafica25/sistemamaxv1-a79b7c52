@@ -84,7 +84,7 @@ const calcSellingPriceWithGlobals = (baseCost: number, tier: MarkupTier, _global
   const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
   const divisor = 1 - soma;
   if (divisor <= 0) return 0;
-  return Math.round((baseCost / divisor) * 10) / 10;
+  return Math.ceil((baseCost / divisor) * 20) / 20;
 };
 
 const paperPriceA4 = (p: PaperRecord) => p.sheet_qty > 0 ? (p.pack_price / p.sheet_qty + p.freight_price) / 9 : 0;
