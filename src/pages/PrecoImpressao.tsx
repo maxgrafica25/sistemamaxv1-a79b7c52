@@ -253,10 +253,15 @@ export default function PrecoImpressao() {
     return tiers.filter(t => t.markup_group_id === groupId).sort((a, b) => a.sort_order - b.sort_order);
   }, [tiers, activeGroupId]);
 
+  const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
   const paperTypes = useMemo(() => {
-    const types: string[] = [];
-    activeItems.forEach(item => { if (!types.includes(item.paper_type)) types.push(item.paper_type); });
-    return types;
+    const seen = new Map<string, string>();
+    activeItems.forEach(item => {
+      const key = normalize(item.paper_type);
+      if (!seen.has(key)) seen.set(key, item.paper_type);
+    });
+    return [...seen.values()];
   }, [activeItems]);
 
   const uniqueGrammages = useMemo(() => [...new Set(activeItems.map(i => i.grammage || "—"))].sort(), [activeItems]);
