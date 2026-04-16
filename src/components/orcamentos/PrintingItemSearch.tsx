@@ -39,14 +39,14 @@ interface PrintingItemSearchProps {
   globalSettings?: { invoice_pct: number; collection_pct: number; waste_pct: number; default_margin_pct: number };
 }
 
-const roundUp5 = (v: number) => Math.ceil(v * 20) / 20;
+const roundUp5 = (v: number) => Math.round(v * 10) / 10;
 const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
 
 const calcSellingPrice = (baseCost: number, tier: MarkupTier, _globals?: { invoice_pct: number; collection_pct: number; waste_pct: number }) => {
   const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
   const divisor = 1 - soma;
   if (divisor <= 0) return 0;
-  return Math.ceil((baseCost / divisor) * 20) / 20;
+  return Math.round((baseCost / divisor) * 10) / 10;
 };
 
 export default function PrintingItemSearch({ items, onSelect, markupTiers, globalSettings }: PrintingItemSearchProps) {

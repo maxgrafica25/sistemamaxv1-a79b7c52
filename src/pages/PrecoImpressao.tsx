@@ -87,7 +87,7 @@ const calcSellingPriceWithGlobals = (baseCost: number, tier: MarkupTier, _global
   return Math.round((baseCost / divisor) * 10) / 10;
 };
 
-const roundUp5 = (v: number) => Math.ceil(v * 20) / 20;
+const roundUp5 = (v: number) => Math.round(v * 10) / 10;
 const paperPriceA4 = (p: PaperRecord) => p.sheet_qty > 0 ? roundUp5((p.pack_price / p.sheet_qty + p.freight_price) / 9) : 0;
 const paperPriceSRA3 = (p: PaperRecord) => p.sheet_qty > 0 ? roundUp5((p.pack_price / p.sheet_qty + p.freight_price) / 4) : 0;
 
