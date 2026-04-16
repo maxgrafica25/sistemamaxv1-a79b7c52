@@ -1511,12 +1511,19 @@ export default function PrecoImpressao() {
               {syncMode === "selected" && (
                 <div className="space-y-2 max-h-48 overflow-y-auto rounded-md border p-2">
                   {(() => {
-                    const typesMap = new Map<string, string>();
+                    const typesMap = new Map<string, { label: string; type: string; gram: string }>();
                     activeItems.forEach(i => {
-                      const key = normalize(i.paper_type);
-                      if (!typesMap.has(key)) typesMap.set(key, i.paper_type);
+                      const gram = (i.grammage || "").trim();
+                      const key = `${normalize(i.paper_type)}|${gram.toLowerCase()}`;
+                      if (!typesMap.has(key)) {
+                        typesMap.set(key, {
+                          label: gram ? `${i.paper_type} ${gram}` : i.paper_type,
+                          type: i.paper_type,
+                          gram,
+                        });
+                      }
                     });
-                    const types = Array.from(typesMap.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+                    const types = Array.from(typesMap.entries()).sort((a, b) => a[1].label.localeCompare(b[1].label));
                     if (types.length === 0) return <p className="text-xs text-muted-foreground p-2">Nenhum tipo disponível.</p>;
                     return (
                       <>
@@ -1528,8 +1535,8 @@ export default function PrecoImpressao() {
                           />
                           <span className="font-medium">Selecionar todos</span>
                         </label>
-                        {types.map(([key, label]) => {
-                          const count = activeItems.filter(i => normalize(i.paper_type) === key).length;
+                        {types.map(([key, info]) => {
+                          const count = activeItems.filter(i => `${normalize(i.paper_type)}|${(i.grammage || "").toLowerCase().trim()}` === key).length;
                           return (
                             <label key={key} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-2 py-1">
                               <Checkbox
@@ -1537,7 +1544,7 @@ export default function PrecoImpressao() {
                                 onCheckedChange={(checked) => setSyncSelectedTypes(prev => checked ? [...prev, key] : prev.filter(k => k !== key))}
                                 className="h-4 w-4"
                               />
-                              <span className="flex-1">{label}</span>
+                              <span className="flex-1">{info.label}</span>
                               <span className="text-xs text-muted-foreground">{count} {count === 1 ? "item" : "itens"}</span>
                             </label>
                           );
