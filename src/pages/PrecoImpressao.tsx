@@ -665,32 +665,35 @@ export default function PrecoImpressao() {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <div className="px-4 pb-4 pt-1 border-t">
-                        {/* Group selector */}
-                        <div className="flex items-center gap-2 mb-3 flex-wrap">
-                          <Label className="text-xs text-muted-foreground shrink-0">Grupo de faixas:</Label>
-                          <Select value={activeGroupId || "__none__"} onValueChange={v => { if (v !== "__none__" && v !== "__new__") assignGroupToCategory(v); if (v === "__new__") { setGroupName(""); setShowGroupDialog(true); } }}>
-                            <SelectTrigger className="h-8 text-xs w-[220px]"><SelectValue placeholder="Selecione um grupo" /></SelectTrigger>
-                            <SelectContent>
-                              {markupGroups.map(g => {
-                                const groupTierCount = tiers.filter(t => t.markup_group_id === g.id).length;
-                                return (
-                                  <SelectItem key={g.id} value={g.id}>
-                                    {g.name} ({groupTierCount} faixa{groupTierCount !== 1 ? "s" : ""})
-                                  </SelectItem>
-                                );
-                              })}
-                              <SelectItem value="__new__">➕ Criar novo grupo...</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Tooltip>
-                            <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                            <TooltipContent className="max-w-[260px]">
-                              <p>Grupos permitem reutilizar as mesmas faixas de quantidade em diferentes categorias. Itens individuais podem ter seu próprio grupo.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <div className="flex justify-end mb-3">
-                          <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5" disabled={!activeGroupId}><Plus className="h-3.5 w-3.5" /> Nova Regra</Button>
+                        {/* Group selector — prominent layout */}
+                        <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <Select value={activeGroupId || "__none__"} onValueChange={v => { if (v !== "__none__") assignGroupToCategory(v); }}>
+                              <SelectTrigger className="h-8 text-xs w-[220px]"><SelectValue placeholder="Selecione um grupo" /></SelectTrigger>
+                              <SelectContent>
+                                {markupGroups.map(g => {
+                                  const groupTierCount = tiers.filter(t => t.markup_group_id === g.id).length;
+                                  return (
+                                    <SelectItem key={g.id} value={g.id}>
+                                      {g.name} ({groupTierCount} faixa{groupTierCount !== 1 ? "s" : ""})
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                            <Button onClick={() => { setGroupName(""); setShowGroupDialog(true); }} size="sm" variant="outline" className="gap-1 h-8 text-xs">
+                              <Plus className="h-3 w-3" /> Novo Grupo
+                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                              <TooltipContent className="max-w-[260px]">
+                                <p>Grupos permitem reutilizar as mesmas faixas de quantidade em diferentes categorias.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5 h-8 text-xs" disabled={!activeGroupId}>
+                            <Plus className="h-3.5 w-3.5" /> Nova Regra
+                          </Button>
                         </div>
                         {activeTiers.length === 0 ? (
                           <div className="text-center py-6 space-y-2">
