@@ -240,7 +240,15 @@ export default function PrecoImpressao() {
   };
 
   const activeGroupId = activeCategoryObj?.default_markup_group_id || null;
-  const activeTiers = useMemo(() => tiers.filter(t => t.markup_group_id === activeGroupId).sort((a, b) => a.sort_order - b.sort_order), [tiers, activeGroupId]);
+  // viewingGroupId: grupo atualmente visualizado nas faixas (pode diferir do padrão da categoria)
+  const [viewingGroupId, setViewingGroupId] = useState<string | null>(null);
+  // Sempre que a categoria mudar (ou o padrão dela mudar), volta a visualizar o grupo padrão
+  useEffect(() => { setViewingGroupId(activeGroupId); }, [activeCategory, activeGroupId]);
+  const isViewingDefault = viewingGroupId === activeGroupId;
+  const activeTiers = useMemo(() => tiers.filter(t => t.markup_group_id === viewingGroupId).sort((a, b) => a.sort_order - b.sort_order), [tiers, viewingGroupId]);
+  // Diálogo de confirmação para alterar grupo padrão da categoria
+  const [showChangeGroupDialog, setShowChangeGroupDialog] = useState(false);
+  const itemsInActiveCategoryCount = useMemo(() => items.filter(i => i.printer_category_id === activeCategory && i.is_active).length, [items, activeCategory]);
   const activeItems = useMemo(() => items.filter(i => i.printer_category_id === activeCategory && i.is_active).sort((a, b) => a.sort_order - b.sort_order), [items, activeCategory]);
 
   // Get tiers for a specific group
@@ -684,7 +692,7 @@ export default function PrecoImpressao() {
                         <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
                           <div className="flex items-center gap-1.5">
                             <Label className="text-xs text-muted-foreground shrink-0">Grupo:</Label>
-                            <Select value={activeGroupId || "__none__"} onValueChange={v => { if (v !== "__none__") assignGroupToCategory(v); }}>
+                            <Select value={viewingGroupId || "__none__"} onValueChange={v => { if (v !== "__none__") setViewingGroupId(v); }}>
                               <SelectTrigger className="h-8 text-xs w-[200px]"><SelectValue placeholder="Selecione um grupo" /></SelectTrigger>
                               <SelectContent>
                                 {markupGroups.map(g => {
@@ -697,6 +705,28 @@ export default function PrecoImpressao() {
                                 })}
                               </SelectContent>
                             </Select>
+                            {isViewingDefault ? (
+                              <Badge variant="outline" className="text-[10px] h-6 gap-1 px-1.5 border-primary/30 text-primary">
+                                <Check className="h-3 w-3" /> padrão
+                              </Badge>
+                            ) : (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    onClick={() => setShowChangeGroupDialog(true)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-1 h-8 text-xs border-primary/40 text-primary hover:bg-primary/10"
+                                    disabled={!viewingGroupId}
+                                  >
+                                    <Edit2 className="h-3 w-3" /> Definir como padrão
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-[260px]">
+                                  <p>Você está apenas visualizando este grupo. Clique para torná-lo o grupo padrão da categoria.</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             <Button
                               onClick={() => { setGroupName(""); setShowGroupDialog(true); }}
                               size="sm"
@@ -708,11 +738,11 @@ export default function PrecoImpressao() {
                             <Tooltip>
                               <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
                               <TooltipContent className="max-w-[260px]">
-                                <p>Grupos permitem reutilizar as mesmas faixas de quantidade em diferentes categorias.</p>
+                                <p>Trocar o grupo no seletor apenas <strong>visualiza</strong> as faixas. Para alterar o grupo padrão da categoria, use o botão "Definir como padrão".</p>
                               </TooltipContent>
                             </Tooltip>
                           </div>
-                          <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5 h-8 text-xs" disabled={!activeGroupId}>
+                          <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5 h-8 text-xs" disabled={!viewingGroupId}>
                             <Plus className="h-3.5 w-3.5" /> Nova Regra
                           </Button>
                         </div>
@@ -1591,6 +1621,16 @@ export default function PrecoImpressao() {
         onOpenChange={setConfirmOpen}
         description={`Deseja realmente excluir "${confirmItemName}"? Esta ação não pode ser desfeita.`}
         onConfirm={() => { confirmAction(); setConfirmOpen(false); }}
+      />
+
+      <ConfirmDialog
+        open={showChangeGroupDialog}
+        onOpenChange={setShowChangeGroupDialog}
+        title="Alterar grupo padrão da categoria?"
+        description={`O grupo "${markupGroups.find(g => g.id === viewingGroupId)?.name || ""}" passará a ser o padrão da categoria "${activeCategoryObj?.name || ""}". Isso afetará o cálculo de preço de ${itemsInActiveCategoryCount} item(ns) cadastrado(s) — incluindo itens não visíveis no filtro atual. Deseja continuar?`}
+        confirmText="Sim, definir como padrão"
+        cancelText="Cancelar"
+        onConfirm={() => { if (viewingGroupId) assignGroupToCategory(viewingGroupId); setShowChangeGroupDialog(false); }}
       />
     </>
   );
