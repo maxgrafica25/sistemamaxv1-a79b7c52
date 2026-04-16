@@ -698,7 +698,7 @@ export default function PrecoImpressao() {
                             <p className="text-xs text-muted-foreground">Crie regras para definir quanto cobrar em cada faixa de quantidade. Ex: de 1 a 10 cópias, de 11 a 50, etc.</p>
                           </div>
                         ) : (
-                          <div className="overflow-x-auto">
+                          <div>
                              <Table>
                               <TableHeader>
                                 <TableRow>
@@ -926,7 +926,7 @@ export default function PrecoImpressao() {
                     {activeItems.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-6">Adicione itens de papel. O custo pode vir do cadastro de papéis ou ser informado manualmente.</p>
                     ) : (
-                      <div className="overflow-x-auto">
+                      <div>
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -1020,18 +1020,16 @@ export default function PrecoImpressao() {
                                     const hasCustomGroup = item.markup_group_id && item.markup_group_id !== activeGroupId;
                                     // Show prices aligned with the header tiers, or custom tiers if different
                                     if (hasCustomGroup) {
-                        return (
-                            <TableCell colSpan={activeTiers.length} className="text-center">
-                              <div className="flex items-center gap-3 justify-center flex-nowrap whitespace-nowrap">
-                                <Badge variant="outline" className="text-[9px] shrink-0">{markupGroups.find(g => g.id === item.markup_group_id)?.name}</Badge>
-                                {itemTiers.map(t => (
-                                  <span key={t.id} className="text-sm font-mono font-semibold text-primary">
-                                    {fmt(calcSellingPriceWithGlobals(baseCost, t, globalSettings))}
-                                  </span>
-                                ))}
-                              </div>
-                            </TableCell>
-                          );
+                                      // Render each custom tier in its own cell, aligned with header columns
+                                      return activeTiers.map((_, idx) => {
+                                        const customTier = itemTiers[idx];
+                                        if (!customTier) return <TableCell key={idx} className="text-center">—</TableCell>;
+                                        return (
+                                          <TableCell key={customTier.id} className="text-center font-mono text-sm font-semibold text-primary">
+                                            {fmt(calcSellingPriceWithGlobals(baseCost, customTier, globalSettings))}
+                                          </TableCell>
+                                        );
+                                      });
                                     }
                                     return activeTiers.map(tier => (
                                       <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPriceWithGlobals(baseCost, tier, globalSettings))}</TableCell>
