@@ -962,7 +962,7 @@ export default function PrecoImpressao() {
                               const printCostA4 = getEffectivePrintingCost(item);
                               const sizeMultiplier = isLargerThanA4(item.size) ? 2 : 1;
                               const sideMultiplier = item.side === "F/V" ? 2 : 1;
-                              const printCost = printCostA4 * sizeMultiplier * sideMultiplier;
+                              const printCost = roundUp5(printCostA4 * sizeMultiplier * sideMultiplier);
                               const baseCost = item.paper_cost + printCost;
                               return (
                                 <TableRow key={item.id}>
