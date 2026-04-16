@@ -1622,6 +1622,16 @@ export default function PrecoImpressao() {
         description={`Deseja realmente excluir "${confirmItemName}"? Esta ação não pode ser desfeita.`}
         onConfirm={() => { confirmAction(); setConfirmOpen(false); }}
       />
+
+      <ConfirmDialog
+        open={showChangeGroupDialog}
+        onOpenChange={setShowChangeGroupDialog}
+        title="Alterar grupo padrão da categoria?"
+        description={`O grupo "${markupGroups.find(g => g.id === viewingGroupId)?.name || ""}" passará a ser o padrão da categoria "${activeCategoryObj?.name || ""}". Isso afetará o cálculo de preço de ${itemsInActiveCategoryCount} item(ns) cadastrado(s) — incluindo itens não visíveis no filtro atual. Deseja continuar?`}
+        confirmText="Sim, definir como padrão"
+        cancelText="Cancelar"
+        onConfirm={() => { if (viewingGroupId) assignGroupToCategory(viewingGroupId); setShowChangeGroupDialog(false); }}
+      />
     </>
   );
 }
