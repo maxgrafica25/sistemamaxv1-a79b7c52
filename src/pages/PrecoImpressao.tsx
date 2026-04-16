@@ -698,40 +698,54 @@ export default function PrecoImpressao() {
                             <p className="text-xs text-muted-foreground">Crie regras para definir quanto cobrar em cada faixa de quantidade. Ex: de 1 a 10 cópias, de 11 a 50, etc.</p>
                           </div>
                         ) : (
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                            {activeTiers.map(tier => {
-                              const soma = tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct;
-                              return (
-                                <div key={tier.id} className="group relative rounded-lg border bg-muted/30 px-3 py-2.5 hover:bg-muted/60 transition-colors">
-                                  <div className="flex items-center justify-between mb-1.5">
-                                    <Badge variant="secondary" className="font-mono text-[11px] px-1.5 py-0">{tier.label}</Badge>
-                                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openTierDialog(tier)}><Edit2 className="h-3 w-3" /></Button>
-                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => requestDeleteTier(tier.id, tier.label)}><Trash2 className="h-3 w-3" /></Button>
+                          <div>
+                             <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Faixa</TableHead>
+                                  <TableHead className="text-center">C. Fixo</TableHead>
+                                  <TableHead className="text-center">C. Variável</TableHead>
+                                  <TableHead className="text-center">Margem</TableHead>
+                                  <TableHead className="text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      Soma
+                                      <Tooltip>
+                                        <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                                        <TooltipContent><p>C.Fixo + C.Variável + Margem = Soma. Preço = Custo ÷ (1 − Soma%)</p></TooltipContent>
+                                      </Tooltip>
                                     </div>
-                                  </div>
-                                  <p className="text-[10px] text-muted-foreground mb-2">{tier.min_qty}{tier.max_qty ? `–${tier.max_qty}` : "+"} cópias</p>
-                                  <div className="grid grid-cols-3 gap-1 text-center text-[10px]">
-                                    <div>
-                                      <p className="text-muted-foreground">C.Fixo</p>
-                                      <p className="font-medium">{fmtPct(tier.fixed_cost_pct)}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-muted-foreground">C.Var</p>
-                                      <p className="font-medium">{fmtPct(tier.variable_cost_pct)}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-muted-foreground">Margem</p>
-                                      <p className="font-semibold text-primary">{fmtPct(tier.margin_pct)}</p>
-                                    </div>
-                                  </div>
-                                  <div className="mt-1.5 pt-1.5 border-t text-center">
-                                    <span className="text-[10px] text-muted-foreground">Soma: </span>
-                                    <span className="text-xs font-semibold">{fmtPct(soma)}</span>
-                                  </div>
-                                </div>
-                              );
-                            })}
+                                  </TableHead>
+                                  <TableHead className="w-[80px]" />
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {activeTiers.map(tier => {
+                                  const soma = tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct;
+                                  return (
+                                  <TableRow key={tier.id}>
+                                    <TableCell>
+                                      <div>
+                                        <Badge variant="secondary" className="font-mono text-xs">{tier.label}</Badge>
+                                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                                          {tier.min_qty}{tier.max_qty ? ` a ${tier.max_qty}` : "+"} cópias
+                                        </p>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-center text-muted-foreground">{fmtPct(tier.fixed_cost_pct)}</TableCell>
+                                    <TableCell className="text-center text-muted-foreground">{fmtPct(tier.variable_cost_pct)}</TableCell>
+                                    <TableCell className="text-center font-semibold text-primary">{fmtPct(tier.margin_pct)}</TableCell>
+                                    <TableCell className="text-center font-semibold">{fmtPct(soma)}</TableCell>
+                                    <TableCell>
+                                      <div className="flex gap-1 justify-end">
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openTierDialog(tier)}><Edit2 className="h-3.5 w-3.5" /></Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => requestDeleteTier(tier.id, tier.label)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
                           </div>
                         )}
                       </div>
