@@ -202,10 +202,11 @@ export default function MateriasPrimas() {
   useEffect(() => { fetchPapers(); fetchSupplies(); }, [fetchPapers, fetchSupplies]);
 
   // ── Paper calculations ──
+  const roundUp5 = (v: number) => Math.ceil(v * 20) / 20;
   const calcPricePerSheet = (p: Paper) => p.sheet_qty > 0 ? p.pack_price / p.sheet_qty : 0;
   const calcPriceWithFreight = (p: Paper) => calcPricePerSheet(p) + p.freight_price;
-  const calcPriceA4 = (p: Paper) => calcPriceWithFreight(p) / 9;
-  const calcPriceSRA3 = (p: Paper) => calcPriceWithFreight(p) / 4;
+  const calcPriceA4 = (p: Paper) => roundUp5(calcPriceWithFreight(p) / 9);
+  const calcPriceSRA3 = (p: Paper) => roundUp5(calcPriceWithFreight(p) / 4);
 
   // ── Paper history variation ──
   const getPaperVariation = (paperId: string) => {

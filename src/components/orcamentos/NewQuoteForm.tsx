@@ -217,9 +217,9 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
 
     // Live paper price calculation (same logic as PrecoImpressao)
     const paperPriceA4 = (p: { pack_price: number; freight_price: number; sheet_qty: number }) =>
-      p.sheet_qty > 0 ? (p.pack_price / p.sheet_qty + p.freight_price) / 9 : 0;
+      p.sheet_qty > 0 ? roundUp5((p.pack_price / p.sheet_qty + p.freight_price) / 9) : 0;
     const paperPriceSRA3 = (p: { pack_price: number; freight_price: number; sheet_qty: number }) =>
-      p.sheet_qty > 0 ? (p.pack_price / p.sheet_qty + p.freight_price) / 4 : 0;
+      p.sheet_qty > 0 ? roundUp5((p.pack_price / p.sheet_qty + p.freight_price) / 4) : 0;
 
     const getLivePaperCost = (paperType: string, grammage: string | null, size: string) => {
       const match = papersList.find(p => {
