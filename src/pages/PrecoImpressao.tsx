@@ -692,7 +692,7 @@ export default function PrecoImpressao() {
                         <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
                           <div className="flex items-center gap-1.5">
                             <Label className="text-xs text-muted-foreground shrink-0">Grupo:</Label>
-                            <Select value={activeGroupId || "__none__"} onValueChange={v => { if (v !== "__none__") assignGroupToCategory(v); }}>
+                            <Select value={viewingGroupId || "__none__"} onValueChange={v => { if (v !== "__none__") setViewingGroupId(v); }}>
                               <SelectTrigger className="h-8 text-xs w-[200px]"><SelectValue placeholder="Selecione um grupo" /></SelectTrigger>
                               <SelectContent>
                                 {markupGroups.map(g => {
@@ -705,6 +705,28 @@ export default function PrecoImpressao() {
                                 })}
                               </SelectContent>
                             </Select>
+                            {isViewingDefault ? (
+                              <Badge variant="outline" className="text-[10px] h-6 gap-1 px-1.5 border-primary/30 text-primary">
+                                <Check className="h-3 w-3" /> padrão
+                              </Badge>
+                            ) : (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    onClick={() => setShowChangeGroupDialog(true)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-1 h-8 text-xs border-amber-500/50 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+                                    disabled={!viewingGroupId}
+                                  >
+                                    <Edit2 className="h-3 w-3" /> Definir como padrão
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-[260px]">
+                                  <p>Você está apenas visualizando este grupo. Clique para torná-lo o grupo padrão da categoria.</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             <Button
                               onClick={() => { setGroupName(""); setShowGroupDialog(true); }}
                               size="sm"
@@ -716,11 +738,11 @@ export default function PrecoImpressao() {
                             <Tooltip>
                               <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
                               <TooltipContent className="max-w-[260px]">
-                                <p>Grupos permitem reutilizar as mesmas faixas de quantidade em diferentes categorias.</p>
+                                <p>Trocar o grupo no seletor apenas <strong>visualiza</strong> as faixas. Para alterar o grupo padrão da categoria, use o botão "Definir como padrão".</p>
                               </TooltipContent>
                             </Tooltip>
                           </div>
-                          <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5 h-8 text-xs" disabled={!activeGroupId}>
+                          <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5 h-8 text-xs" disabled={!viewingGroupId}>
                             <Plus className="h-3.5 w-3.5" /> Nova Regra
                           </Button>
                         </div>
