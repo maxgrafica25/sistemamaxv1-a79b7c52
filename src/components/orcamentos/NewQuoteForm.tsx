@@ -119,7 +119,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const [markupTiers, setMarkupTiers] = useState<MarkupTier[]>([]);
 
   const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
-  const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
+  const roundUp5 = (v: number) => Math.ceil(v * 20) / 20;
 
   const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
     const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
@@ -258,7 +258,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
         const printingCost = item.equipment_id
           ? getEquipCostPerPage(item.equipment_id, item.equipment_mode || 'color')
           : item.printing_cost;
-        const roundedPrintCost = roundUp10(printingCost);
+        const roundedPrintCost = roundUp5(printingCost);
         // Use live paper cost from papers table, fallback to stored value
         const livePaperCost = getLivePaperCost(item.paper_type, item.grammage, item.size);
         const paperCost = livePaperCost !== null ? Number(livePaperCost.toFixed(4)) : item.paper_cost;
@@ -351,7 +351,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const addPrintingItem = (item: PrintingCatalogItem) => {
     const sizeMult = isLargerThanA4(item.size) ? 2 : 1;
     const sideMult = item.side === "F/V" ? 2 : 1;
-    const printCost = roundUp10(item.printing_cost * sizeMult * sideMult);
+    const printCost = roundUp5(item.printing_cost * sizeMult * sideMult);
     const baseCost = item.paper_cost + printCost;
     const label = `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}${item.equipment_mode === 'pb' ? ' (PB)' : ''}` : ''}`;
     // Find tier for qty=1 and compute selling price
