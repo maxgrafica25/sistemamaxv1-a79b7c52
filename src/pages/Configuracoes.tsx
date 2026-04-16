@@ -18,6 +18,10 @@ export default function Configuracoes() {
   const [wastePercentage, setWastePercentage] = useState("5");
   const [collectionCostPercentage, setCollectionCostPercentage] = useState("7");
   const [defaultProfitMargin, setDefaultProfitMargin] = useState("33");
+  // Composição detalhada do C. Variável (apenas referência interna)
+  const [taxPct, setTaxPct] = useState("10");
+  const [collectionFeePct, setCollectionFeePct] = useState("5");
+  const [creditCardPct, setCreditCardPct] = useState("5");
 
   useEffect(() => {
     const load = async () => {
