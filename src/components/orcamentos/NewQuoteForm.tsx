@@ -119,13 +119,13 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
   const [markupTiers, setMarkupTiers] = useState<MarkupTier[]>([]);
 
   const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
-  const roundUp5 = (v: number) => Math.ceil(v * 20) / 20;
+  const roundUp5 = (v: number) => Math.round(v * 10) / 10;
 
   const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
     const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
     const divisor = 1 - soma;
     if (divisor <= 0) return 0;
-    return Math.ceil((baseCost / divisor) * 20) / 20;
+    return Math.round((baseCost / divisor) * 10) / 10;
   };
 
   // categories with default_markup_group_id

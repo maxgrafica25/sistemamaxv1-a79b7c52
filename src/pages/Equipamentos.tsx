@@ -62,8 +62,8 @@ const fmt4 = (v: number) =>
 const fmtNum = (v: number) =>
   v.toLocaleString("pt-BR");
 
-// Round up to nearest R$ 0.10
-const roundUp10 = (v: number) => Math.ceil(v * 20) / 20;
+// Round to nearest R$ 0.10 (≤0.05 down, >0.05 up)
+const roundUp10 = (v: number) => Math.round(v * 10) / 10;
 
 const fmtRound = (v: number) =>
   roundUp10(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
