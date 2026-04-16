@@ -240,7 +240,15 @@ export default function PrecoImpressao() {
   };
 
   const activeGroupId = activeCategoryObj?.default_markup_group_id || null;
-  const activeTiers = useMemo(() => tiers.filter(t => t.markup_group_id === activeGroupId).sort((a, b) => a.sort_order - b.sort_order), [tiers, activeGroupId]);
+  // viewingGroupId: grupo atualmente visualizado nas faixas (pode diferir do padrão da categoria)
+  const [viewingGroupId, setViewingGroupId] = useState<string | null>(null);
+  // Sempre que a categoria mudar (ou o padrão dela mudar), volta a visualizar o grupo padrão
+  useEffect(() => { setViewingGroupId(activeGroupId); }, [activeCategory, activeGroupId]);
+  const isViewingDefault = viewingGroupId === activeGroupId;
+  const activeTiers = useMemo(() => tiers.filter(t => t.markup_group_id === viewingGroupId).sort((a, b) => a.sort_order - b.sort_order), [tiers, viewingGroupId]);
+  // Diálogo de confirmação para alterar grupo padrão da categoria
+  const [showChangeGroupDialog, setShowChangeGroupDialog] = useState(false);
+  const itemsInActiveCategoryCount = useMemo(() => items.filter(i => i.printer_category_id === activeCategory && i.is_active).length, [items, activeCategory]);
   const activeItems = useMemo(() => items.filter(i => i.printer_category_id === activeCategory && i.is_active).sort((a, b) => a.sort_order - b.sort_order), [items, activeCategory]);
 
   // Get tiers for a specific group
