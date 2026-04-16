@@ -110,61 +110,62 @@ export default function Configuracoes() {
         </Card>
 
         <Card className="shadow-card">
-          <CardHeader><CardTitle>Custos Padrão para Novas Faixas</CardTitle></CardHeader>
-          <CardContent className="space-y-6">
-            <p className="text-sm text-muted-foreground">Estes valores são sugeridos ao criar novas faixas de preço. Cada faixa pode ter seus próprios valores.</p>
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>C. Fixo Padrão (%)</Label>
-                <Input type="number" step="0.01" value={invoicePercentage} onChange={(e) => setInvoicePercentage(e.target.value)} />
-                <p className="text-sm text-muted-foreground">Custos fixos (depreciação, aluguel, etc.) como % do preço</p>
-              </div>
-              <div className="space-y-2">
-                <Label>C. Variável Padrão (%)</Label>
-                <Input type="text" value={composedVariable.toFixed(2)} disabled className="bg-muted font-semibold" />
-                <p className="text-sm text-muted-foreground">Soma automática da composição abaixo (Imposto + Taxa de Cobrança + Perda)</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
           <CardHeader>
-            <CardTitle>Composição do C. Variável</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">Detalhe os componentes que formam o C. Variável Padrão. A soma é aplicada automaticamente acima.</p>
+            <CardTitle>Composição do Preço de Venda</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">Alíquotas padrão sugeridas ao criar novas faixas de preço. Cada faixa pode sobrescrever estes valores.</p>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-3">
-              <div className="space-y-2">
-                <Label>Imposto (%)</Label>
-                <Input type="number" step="0.01" value={taxPct} onChange={(e) => setTaxPct(e.target.value)} />
-                <p className="text-xs text-muted-foreground">Imposto sobre nota fiscal</p>
-              </div>
-              <div className="space-y-2">
-                <Label>Taxa de Cobrança (%)</Label>
-                <Input type="number" step="0.01" value={collectionFeePct} onChange={(e) => setCollectionFeePct(e.target.value)} />
-                <p className="text-xs text-muted-foreground">Boleto, PIX, cartão de crédito</p>
-              </div>
-              <div className="space-y-2">
-                <Label>Perda (%)</Label>
-                <Input type="number" step="0.01" value={wastePercentage} onChange={(e) => setWastePercentage(e.target.value)} />
-                <p className="text-xs text-muted-foreground">Margem de perda de material</p>
+            {/* Custos Indiretos */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Custos Indiretos</h3>
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">C. Fixo (%)</Label>
+                  <Input type="number" step="0.01" value={invoicePercentage} onChange={(e) => setInvoicePercentage(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">Depreciação, aluguel</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Imposto (%)</Label>
+                  <Input type="number" step="0.01" value={taxPct} onChange={(e) => setTaxPct(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">Sobre nota fiscal</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Taxa de Cobrança (%)</Label>
+                  <Input type="number" step="0.01" value={collectionFeePct} onChange={(e) => setCollectionFeePct(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">Boleto, PIX, cartão</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Perda (%)</Label>
+                  <Input type="number" step="0.01" value={wastePercentage} onChange={(e) => setWastePercentage(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">Perda de material</p>
+                </div>
               </div>
             </div>
-            <div className="flex justify-between items-center pt-2 border-t text-sm">
-              <span className="text-muted-foreground">Total C. Variável:</span>
-              <span className="font-semibold text-primary">{composedVariable.toFixed(2)}%</span>
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card className="shadow-card">
-          <CardHeader><CardTitle>Margem de Lucro Padrão</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-w-sm">
-              <Label>Margem de Lucro Padrão (%)</Label>
-              <Input type="number" step="0.01" value={defaultProfitMargin} onChange={(e) => setDefaultProfitMargin(e.target.value)} />
-              <p className="text-sm text-muted-foreground">Margem padrão sugerida ao criar novas faixas de preço</p>
+            <Separator />
+
+            {/* Margem */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Margem</h3>
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Margem de Lucro (%)</Label>
+                  <Input type="number" step="0.01" value={defaultProfitMargin} onChange={(e) => setDefaultProfitMargin(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">Lucro líquido desejado</p>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Resumo compacto */}
+            <div className="rounded-md bg-muted/40 p-3 space-y-1.5 text-xs">
+              <div className="flex justify-between"><span className="text-muted-foreground">C. Variável (Imposto + Cobrança + Perda):</span><span className="font-medium">{composedVariable.toFixed(2)}%</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Total Custos Indiretos (C. Fixo + C. Variável):</span><span className="font-medium">{totalIndiretos.toFixed(2)}%</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Margem de Lucro:</span><span className="font-medium text-green-600">+{(parseFloat(defaultProfitMargin) || 0).toFixed(2)}%</span></div>
+              <Separator className="my-1" />
+              <div className="flex justify-between"><span className="text-muted-foreground">Soma total:</span><span className="font-semibold">{(totalIndiretos + (parseFloat(defaultProfitMargin) || 0)).toFixed(2)}%</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Divisor (1 − soma%):</span><span className="font-semibold text-primary">{(1 - (totalIndiretos + (parseFloat(defaultProfitMargin) || 0)) / 100).toFixed(4)}</span></div>
             </div>
           </CardContent>
         </Card>
