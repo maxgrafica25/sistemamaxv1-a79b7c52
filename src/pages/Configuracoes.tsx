@@ -47,6 +47,9 @@ export default function Configuracoes() {
         setCollectionCostPercentage(String(settingsRes.data.collection_pct));
         setWastePercentage(String(settingsRes.data.waste_pct));
         setDefaultProfitMargin(String(settingsRes.data.default_margin_pct));
+        if ((settingsRes.data as any).tax_pct !== undefined) setTaxPct(String((settingsRes.data as any).tax_pct));
+        if ((settingsRes.data as any).collection_fee_pct !== undefined) setCollectionFeePct(String((settingsRes.data as any).collection_fee_pct));
+        if ((settingsRes.data as any).credit_card_pct !== undefined) setCreditCardPct(String((settingsRes.data as any).credit_card_pct));
       }
       setLoading(false);
     };
