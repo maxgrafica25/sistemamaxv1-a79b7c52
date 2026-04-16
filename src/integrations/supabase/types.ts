@@ -386,29 +386,38 @@ export type Database = {
       }
       global_settings: {
         Row: {
+          collection_fee_pct: number
           collection_pct: number
           created_at: string
+          credit_card_pct: number
           default_margin_pct: number
           id: string
           invoice_pct: number
+          tax_pct: number
           updated_at: string
           waste_pct: number
         }
         Insert: {
+          collection_fee_pct?: number
           collection_pct?: number
           created_at?: string
+          credit_card_pct?: number
           default_margin_pct?: number
           id?: string
           invoice_pct?: number
+          tax_pct?: number
           updated_at?: string
           waste_pct?: number
         }
         Update: {
+          collection_fee_pct?: number
           collection_pct?: number
           created_at?: string
+          credit_card_pct?: number
           default_margin_pct?: number
           id?: string
           invoice_pct?: number
+          tax_pct?: number
           updated_at?: string
           waste_pct?: number
         }
