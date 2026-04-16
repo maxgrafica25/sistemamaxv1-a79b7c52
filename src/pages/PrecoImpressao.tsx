@@ -503,9 +503,10 @@ export default function PrecoImpressao() {
   // ─── Sync paper prices ────────────────────────────────────────────
   const syncPaperPrices = async () => {
     let updated = 0;
+    const itemKey = (i: typeof activeItems[number]) => `${normalize(i.paper_type)}|${(i.grammage || "").toLowerCase().trim()}`;
     const itemsToSync = syncMode === "all"
       ? activeItems
-      : activeItems.filter(i => syncSelectedTypes.includes(normalize(i.paper_type)));
+      : activeItems.filter(i => syncSelectedTypes.includes(itemKey(i)));
     if (itemsToSync.length === 0) {
       toast.warning("Selecione ao menos um tipo de papel para atualizar.");
       return;
