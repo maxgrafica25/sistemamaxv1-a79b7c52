@@ -585,7 +585,7 @@ export default function MateriasPrimas() {
                             <div className="flex items-center justify-end gap-1">
                               Preço A4<br/><span className="text-[10px] font-normal">(÷9)</span>
                               <Tooltip>
-                                <TooltipTrigger asChild><ArrowUp className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+                                <TooltipTrigger asChild><ArrowUpRight className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
                                 <TooltipContent><p>Arredondado para cima a cada R$ 0,05</p></TooltipContent>
                               </Tooltip>
                             </div>
@@ -594,7 +594,7 @@ export default function MateriasPrimas() {
                             <div className="flex items-center justify-end gap-1">
                               Preço A3+<br/><span className="text-[10px] font-normal">(÷4)</span>
                               <Tooltip>
-                                <TooltipTrigger asChild><ArrowUp className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+                                <TooltipTrigger asChild><ArrowUpRight className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
                                 <TooltipContent><p>Arredondado para cima a cada R$ 0,05</p></TooltipContent>
                               </Tooltip>
                             </div>
