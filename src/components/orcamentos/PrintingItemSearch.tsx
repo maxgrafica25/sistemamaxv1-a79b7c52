@@ -39,14 +39,14 @@ interface PrintingItemSearchProps {
   globalSettings?: { invoice_pct: number; collection_pct: number; waste_pct: number; default_margin_pct: number };
 }
 
-const roundUp10 = (v: number) => Math.ceil(v * 10) / 10;
+const roundUp5 = (v: number) => Math.ceil(v * 20) / 20;
 const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
 
 const calcSellingPrice = (baseCost: number, tier: MarkupTier, _globals?: { invoice_pct: number; collection_pct: number; waste_pct: number }) => {
   const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
   const divisor = 1 - soma;
   if (divisor <= 0) return 0;
-  return Math.round((baseCost / divisor) * 10) / 10;
+  return Math.ceil((baseCost / divisor) * 20) / 20;
 };
 
 export default function PrintingItemSearch({ items, onSelect, markupTiers, globalSettings }: PrintingItemSearchProps) {
@@ -78,7 +78,7 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
   const getItemPrices = (item: PrintingCatalogItem) => {
     const sizeMult = isLargerThanA4(item.size) ? 2 : 1;
     const sideMult = item.side === "F/V" ? 2 : 1;
-    const printCost = roundUp10(item.printing_cost * sizeMult * sideMult);
+    const printCost = roundUp5(item.printing_cost * sizeMult * sideMult);
     const baseCost = item.paper_cost + printCost;
     // Find first tier: use item's markup_group_id, fallback to printer_category_id
     const tier = markupTiers?.find(t =>
