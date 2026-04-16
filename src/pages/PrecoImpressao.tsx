@@ -926,7 +926,7 @@ export default function PrecoImpressao() {
                     {activeItems.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-6">Adicione itens de papel. O custo pode vir do cadastro de papéis ou ser informado manualmente.</p>
                     ) : (
-                      <div className="overflow-x-auto">
+                      <div>
                         <Table>
                           <TableHeader>
                             <TableRow>
