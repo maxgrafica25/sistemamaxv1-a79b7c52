@@ -18,10 +18,9 @@ export default function Configuracoes() {
   const [wastePercentage, setWastePercentage] = useState("5");
   const [collectionCostPercentage, setCollectionCostPercentage] = useState("7");
   const [defaultProfitMargin, setDefaultProfitMargin] = useState("33");
-  // Composição detalhada do C. Variável (apenas referência interna)
+  // Composição detalhada do C. Variável (Imposto + Taxa de Cobrança + Perda)
   const [taxPct, setTaxPct] = useState("10");
   const [collectionFeePct, setCollectionFeePct] = useState("5");
-  const [creditCardPct, setCreditCardPct] = useState("5");
 
   useEffect(() => {
     const load = async () => {
@@ -49,25 +48,23 @@ export default function Configuracoes() {
         setDefaultProfitMargin(String(settingsRes.data.default_margin_pct));
         if ((settingsRes.data as any).tax_pct !== undefined) setTaxPct(String((settingsRes.data as any).tax_pct));
         if ((settingsRes.data as any).collection_fee_pct !== undefined) setCollectionFeePct(String((settingsRes.data as any).collection_fee_pct));
-        if ((settingsRes.data as any).credit_card_pct !== undefined) setCreditCardPct(String((settingsRes.data as any).credit_card_pct));
       }
       setLoading(false);
     };
     load();
   }, []);
 
-  const composedVariable = (parseFloat(taxPct) || 0) + (parseFloat(collectionFeePct) || 0) + (parseFloat(creditCardPct) || 0);
+  const composedVariable = (parseFloat(taxPct) || 0) + (parseFloat(collectionFeePct) || 0) + (parseFloat(wastePercentage) || 0);
 
   const handleSave = async () => {
     setSaving(true);
     const data: any = {
       invoice_pct: parseFloat(invoicePercentage) || 0,
-      collection_pct: composedVariable, // C. Variável Padrão = soma da composição
+      collection_pct: composedVariable, // C. Variável Padrão = soma (Imposto + Cobrança + Perda)
       waste_pct: parseFloat(wastePercentage) || 0,
       default_margin_pct: parseFloat(defaultProfitMargin) || 0,
       tax_pct: parseFloat(taxPct) || 0,
       collection_fee_pct: parseFloat(collectionFeePct) || 0,
-      credit_card_pct: parseFloat(creditCardPct) || 0,
     };
     if (settingsId) {
       await supabase.from("global_settings").update(data).eq("id", settingsId);
@@ -84,7 +81,8 @@ export default function Configuracoes() {
     return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  const totalIndiretos = (parseFloat(invoicePercentage) || 0) + (parseFloat(collectionCostPercentage) || 0) + (parseFloat(wastePercentage) || 0);
+  // C. Variável já inclui a Perda — não somar de novo para evitar duplicidade
+  const totalIndiretos = (parseFloat(invoicePercentage) || 0) + composedVariable;
 
   return (
     <div className="p-8">
@@ -124,7 +122,7 @@ export default function Configuracoes() {
               <div className="space-y-2">
                 <Label>C. Variável Padrão (%)</Label>
                 <Input type="text" value={composedVariable.toFixed(2)} disabled className="bg-muted font-semibold" />
-                <p className="text-sm text-muted-foreground">Soma automática da composição abaixo (Imposto + Cobrança + Cartão)</p>
+                <p className="text-sm text-muted-foreground">Soma automática da composição abaixo (Imposto + Taxa de Cobrança + Perda)</p>
               </div>
             </div>
           </CardContent>
@@ -145,12 +143,12 @@ export default function Configuracoes() {
               <div className="space-y-2">
                 <Label>Taxa de Cobrança (%)</Label>
                 <Input type="number" step="0.01" value={collectionFeePct} onChange={(e) => setCollectionFeePct(e.target.value)} />
-                <p className="text-xs text-muted-foreground">Boleto, PIX, etc.</p>
+                <p className="text-xs text-muted-foreground">Boleto, PIX, cartão de crédito</p>
               </div>
               <div className="space-y-2">
-                <Label>Cartão de Crédito (%)</Label>
-                <Input type="number" step="0.01" value={creditCardPct} onChange={(e) => setCreditCardPct(e.target.value)} />
-                <p className="text-xs text-muted-foreground">Taxa da maquininha</p>
+                <Label>Perda (%)</Label>
+                <Input type="number" step="0.01" value={wastePercentage} onChange={(e) => setWastePercentage(e.target.value)} />
+                <p className="text-xs text-muted-foreground">Margem de perda de material</p>
               </div>
             </div>
             <div className="flex justify-between items-center pt-2 border-t text-sm">
@@ -161,19 +159,12 @@ export default function Configuracoes() {
         </Card>
 
         <Card className="shadow-card">
-          <CardHeader><CardTitle>Perda e Margem Padrão</CardTitle></CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Percentual de Perda Padrão (%)</Label>
-                <Input type="number" step="0.01" value={wastePercentage} onChange={(e) => setWastePercentage(e.target.value)} />
-                <p className="text-sm text-muted-foreground">Margem de perda de material — sugerido ao criar novas faixas</p>
-              </div>
-              <div className="space-y-2">
-                <Label>Margem de Lucro Padrão (%)</Label>
-                <Input type="number" step="0.01" value={defaultProfitMargin} onChange={(e) => setDefaultProfitMargin(e.target.value)} />
-                <p className="text-sm text-muted-foreground">Margem padrão sugerida ao criar novas faixas de preço</p>
-              </div>
+          <CardHeader><CardTitle>Margem de Lucro Padrão</CardTitle></CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-w-sm">
+              <Label>Margem de Lucro Padrão (%)</Label>
+              <Input type="number" step="0.01" value={defaultProfitMargin} onChange={(e) => setDefaultProfitMargin(e.target.value)} />
+              <p className="text-sm text-muted-foreground">Margem padrão sugerida ao criar novas faixas de preço</p>
             </div>
           </CardContent>
         </Card>
@@ -183,8 +174,7 @@ export default function Configuracoes() {
           <CardContent>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">C. Fixo Padrão:</span><span className="font-medium">+{invoicePercentage}%</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">C. Variável Padrão:</span><span className="font-medium">+{collectionCostPercentage}%</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Perda Padrão:</span><span className="font-medium">+{wastePercentage}%</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">C. Variável Padrão (Imposto + Cobrança + Perda):</span><span className="font-medium">+{composedVariable.toFixed(2)}%</span></div>
               <Separator className="my-3" />
               <div className="flex justify-between"><span className="text-muted-foreground">Total Custos Indiretos Padrão:</span><span className="font-semibold text-primary">+{totalIndiretos.toFixed(2)}%</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Margem de Lucro Padrão:</span><span className="font-semibold text-green-600">+{defaultProfitMargin}%</span></div>
