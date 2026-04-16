@@ -114,6 +114,8 @@ export default function PrecoImpressao() {
   const [showTierDialog, setShowTierDialog] = useState(false);
   const [showItemDialog, setShowItemDialog] = useState(false);
   const [showSyncDialog, setShowSyncDialog] = useState(false);
+  const [syncMode, setSyncMode] = useState<"all" | "selected">("all");
+  const [syncSelectedTypes, setSyncSelectedTypes] = useState<string[]>([]);
   const [editingCategory, setEditingCategory] = useState<PrinterCategory | null>(null);
   const [editingTier, setEditingTier] = useState<MarkupTier | null>(null);
   const [editingItem, setEditingItem] = useState<PrintingPriceItem | null>(null);
