@@ -56,13 +56,18 @@ export default function Configuracoes() {
     load();
   }, []);
 
+  const composedVariable = (parseFloat(taxPct) || 0) + (parseFloat(collectionFeePct) || 0) + (parseFloat(creditCardPct) || 0);
+
   const handleSave = async () => {
     setSaving(true);
-    const data = {
+    const data: any = {
       invoice_pct: parseFloat(invoicePercentage) || 0,
-      collection_pct: parseFloat(collectionCostPercentage) || 0,
+      collection_pct: composedVariable, // C. Variável Padrão = soma da composição
       waste_pct: parseFloat(wastePercentage) || 0,
       default_margin_pct: parseFloat(defaultProfitMargin) || 0,
+      tax_pct: parseFloat(taxPct) || 0,
+      collection_fee_pct: parseFloat(collectionFeePct) || 0,
+      credit_card_pct: parseFloat(creditCardPct) || 0,
     };
     if (settingsId) {
       await supabase.from("global_settings").update(data).eq("id", settingsId);
@@ -70,6 +75,7 @@ export default function Configuracoes() {
       const { data: newRow } = await supabase.from("global_settings").insert(data).select("id").single();
       if (newRow) setSettingsId(newRow.id);
     }
+    setCollectionCostPercentage(String(composedVariable));
     setSaving(false);
     toast.success("Configurações salvas com sucesso!");
   };
