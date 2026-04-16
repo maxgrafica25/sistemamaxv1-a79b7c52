@@ -1020,19 +1020,18 @@ export default function PrecoImpressao() {
                                     const hasCustomGroup = item.markup_group_id && item.markup_group_id !== activeGroupId;
                                     // Show prices aligned with the header tiers, or custom tiers if different
                                     if (hasCustomGroup) {
-                                      return (
-                                        <TableCell colSpan={activeTiers.length} className="text-center">
-                                          <div className="flex items-center gap-2 justify-center flex-nowrap whitespace-nowrap">
-                                            <Badge variant="outline" className="text-[9px]">{markupGroups.find(g => g.id === item.markup_group_id)?.name}</Badge>
-                                            {itemTiers.map(t => (
-                                              <span key={t.id} className="text-xs font-mono">
-                                                <span className="text-muted-foreground">{t.label}:</span>{" "}
-                                                <span className="font-semibold text-primary">{fmt(calcSellingPriceWithGlobals(baseCost, t, globalSettings))}</span>
-                                              </span>
-                                            ))}
-                                          </div>
-                                        </TableCell>
-                                      );
+                        return (
+                            <TableCell colSpan={activeTiers.length} className="text-center">
+                              <div className="flex items-center gap-3 justify-center flex-nowrap whitespace-nowrap">
+                                <Badge variant="outline" className="text-[9px] shrink-0">{markupGroups.find(g => g.id === item.markup_group_id)?.name}</Badge>
+                                {itemTiers.map(t => (
+                                  <span key={t.id} className="text-sm font-mono font-semibold text-primary">
+                                    {fmt(calcSellingPriceWithGlobals(baseCost, t, globalSettings))}
+                                  </span>
+                                ))}
+                              </div>
+                            </TableCell>
+                          );
                                     }
                                     return activeTiers.map(tier => (
                                       <TableCell key={tier.id} className="text-center font-mono text-sm font-semibold text-primary">{fmt(calcSellingPriceWithGlobals(baseCost, tier, globalSettings))}</TableCell>
