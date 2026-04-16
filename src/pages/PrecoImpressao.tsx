@@ -253,10 +253,15 @@ export default function PrecoImpressao() {
     return tiers.filter(t => t.markup_group_id === groupId).sort((a, b) => a.sort_order - b.sort_order);
   }, [tiers, activeGroupId]);
 
+  const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
   const paperTypes = useMemo(() => {
-    const types: string[] = [];
-    activeItems.forEach(item => { if (!types.includes(item.paper_type)) types.push(item.paper_type); });
-    return types;
+    const seen = new Map<string, string>();
+    activeItems.forEach(item => {
+      const key = normalize(item.paper_type);
+      if (!seen.has(key)) seen.set(key, item.paper_type);
+    });
+    return [...seen.values()];
   }, [activeItems]);
 
   const uniqueGrammages = useMemo(() => [...new Set(activeItems.map(i => i.grammage || "—"))].sort(), [activeItems]);
@@ -276,7 +281,7 @@ export default function PrecoImpressao() {
   const activeFilterCount = [filterGrammage, filterSize, filterSide, filterEquipment].filter(f => f !== "__all__").length;
 
   const filteredItems = useMemo(() => {
-    let result = activePaperType === "__all__" ? activeItems : activeItems.filter(i => i.paper_type === activePaperType);
+    let result = activePaperType === "__all__" ? activeItems : activeItems.filter(i => normalize(i.paper_type) === normalize(activePaperType));
     if (filterGrammage !== "__all__") result = result.filter(i => (i.grammage || "—") === filterGrammage);
     if (filterSize !== "__all__") result = result.filter(i => i.size === filterSize);
     if (filterSide !== "__all__") result = result.filter(i => i.side === filterSide);
@@ -856,7 +861,7 @@ export default function PrecoImpressao() {
                           Todos ({activeItems.length})
                         </button>
                         {paperTypes.map(pt => {
-                          const count = activeItems.filter(i => i.paper_type === pt).length;
+                          const count = activeItems.filter(i => normalize(i.paper_type) === normalize(pt)).length;
                           return (
                             <button
                               key={pt}
