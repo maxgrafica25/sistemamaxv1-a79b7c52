@@ -1475,32 +1475,88 @@ export default function PrecoImpressao() {
         </Dialog>
 
         {/* ─── Sync Dialog ── */}
-        <Dialog open={showSyncDialog} onOpenChange={setShowSyncDialog}>
+        <Dialog open={showSyncDialog} onOpenChange={(open) => {
+          setShowSyncDialog(open);
+          if (open) { setSyncMode("all"); setSyncSelectedTypes([]); }
+        }}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2"><RefreshCw className="h-5 w-5 text-primary" />Atualizar Preços de Papel</DialogTitle>
               <DialogDescription>
-                Esta ação atualiza o custo do papel nos itens desta categoria usando os preços mais recentes do cadastro de papéis. O sistema cruza pelo nome do tipo de papel.
+                Atualiza o custo do papel nos itens desta categoria usando os preços mais recentes do cadastro de papéis.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
-              <div className="rounded-lg border p-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                  <div className="text-sm">
-                    <p className="font-medium text-foreground">Os preços NÃO são atualizados automaticamente.</p>
-                    <p className="text-muted-foreground mt-1">Você controla quando a tabela de preço de impressão deve refletir os novos custos de papel.</p>
-                  </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">O que atualizar?</Label>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2 cursor-pointer rounded-md border p-3 hover:bg-muted/50 transition-colors" data-state={syncMode === "all" ? "checked" : "unchecked"}>
+                    <input type="radio" name="syncMode" checked={syncMode === "all"} onChange={() => setSyncMode("all")} className="mt-0.5 accent-primary" />
+                    <div className="text-sm">
+                      <p className="font-medium text-foreground">Todos os papéis</p>
+                      <p className="text-muted-foreground text-xs">Atualiza todos os {activeItems.length} itens da categoria.</p>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-2 cursor-pointer rounded-md border p-3 hover:bg-muted/50 transition-colors">
+                    <input type="radio" name="syncMode" checked={syncMode === "selected"} onChange={() => setSyncMode("selected")} className="mt-0.5 accent-primary" />
+                    <div className="text-sm flex-1">
+                      <p className="font-medium text-foreground">Tipos específicos</p>
+                      <p className="text-muted-foreground text-xs">Escolha quais tipos de papel atualizar.</p>
+                    </div>
+                  </label>
                 </div>
               </div>
-              <div className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
-                <p><strong className="text-foreground">{activeItems.length}</strong> itens na categoria atual</p>
-                <p><strong className="text-foreground">{paperRecords.length}</strong> papéis cadastrados disponíveis</p>
+
+              {syncMode === "selected" && (
+                <div className="space-y-2 max-h-48 overflow-y-auto rounded-md border p-2">
+                  {(() => {
+                    const typesMap = new Map<string, string>();
+                    activeItems.forEach(i => {
+                      const key = normalize(i.paper_type);
+                      if (!typesMap.has(key)) typesMap.set(key, i.paper_type);
+                    });
+                    const types = Array.from(typesMap.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+                    if (types.length === 0) return <p className="text-xs text-muted-foreground p-2">Nenhum tipo disponível.</p>;
+                    return (
+                      <>
+                        <label className="flex items-center gap-2 text-xs cursor-pointer hover:bg-muted/50 rounded px-2 py-1 border-b mb-1 pb-2">
+                          <Checkbox
+                            checked={syncSelectedTypes.length === types.length}
+                            onCheckedChange={(checked) => setSyncSelectedTypes(checked ? types.map(([k]) => k) : [])}
+                            className="h-4 w-4"
+                          />
+                          <span className="font-medium">Selecionar todos</span>
+                        </label>
+                        {types.map(([key, label]) => {
+                          const count = activeItems.filter(i => normalize(i.paper_type) === key).length;
+                          return (
+                            <label key={key} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-2 py-1">
+                              <Checkbox
+                                checked={syncSelectedTypes.includes(key)}
+                                onCheckedChange={(checked) => setSyncSelectedTypes(prev => checked ? [...prev, key] : prev.filter(k => k !== key))}
+                                className="h-4 w-4"
+                              />
+                              <span className="flex-1">{label}</span>
+                              <span className="text-xs text-muted-foreground">{count} {count === 1 ? "item" : "itens"}</span>
+                            </label>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              <div className="rounded-lg border p-3 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <p className="text-xs text-muted-foreground">
+                  Os preços não são atualizados automaticamente. Você controla quando aplicar os novos custos.
+                </p>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowSyncDialog(false)}>Cancelar</Button>
-              <Button onClick={syncPaperPrices} className="gap-1.5">
+              <Button onClick={syncPaperPrices} className="gap-1.5" disabled={syncMode === "selected" && syncSelectedTypes.length === 0}>
                 <Check className="h-4 w-4" /> Atualizar Agora
               </Button>
             </DialogFooter>
