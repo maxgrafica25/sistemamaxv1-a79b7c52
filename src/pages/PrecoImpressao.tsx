@@ -716,7 +716,7 @@ export default function PrecoImpressao() {
                                     onClick={() => setShowChangeGroupDialog(true)}
                                     size="sm"
                                     variant="outline"
-                                    className="gap-1 h-8 text-xs border-amber-500/50 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+                                    className="gap-1 h-8 text-xs border-primary/40 text-primary hover:bg-primary/10"
                                     disabled={!viewingGroupId}
                                   >
                                     <Edit2 className="h-3 w-3" /> Definir como padrão
