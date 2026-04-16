@@ -1022,7 +1022,7 @@ export default function PrecoImpressao() {
                                     if (hasCustomGroup) {
                                       return (
                                         <TableCell colSpan={activeTiers.length} className="text-center">
-                                          <div className="flex items-center gap-2 justify-center flex-wrap">
+                                          <div className="flex items-center gap-2 justify-center flex-nowrap whitespace-nowrap">
                                             <Badge variant="outline" className="text-[9px]">{markupGroups.find(g => g.id === item.markup_group_id)?.name}</Badge>
                                             {itemTiers.map(t => (
                                               <span key={t.id} className="text-xs font-mono">
