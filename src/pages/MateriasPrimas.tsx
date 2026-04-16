@@ -18,7 +18,7 @@ import { ptBR } from "date-fns/locale";
 import {
   Plus, Edit, Trash2, Search, History,
   TrendingUp, TrendingDown, Minus, Package, FileText,
-  AlertTriangle, DollarSign, ShoppingCart, Layers, HelpCircle, Truck, CalendarIcon
+  AlertTriangle, DollarSign, ShoppingCart, Layers, HelpCircle, Truck, CalendarIcon, ArrowUpRight
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
