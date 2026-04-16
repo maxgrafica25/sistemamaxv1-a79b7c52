@@ -281,7 +281,7 @@ export default function PrecoImpressao() {
   const activeFilterCount = [filterGrammage, filterSize, filterSide, filterEquipment].filter(f => f !== "__all__").length;
 
   const filteredItems = useMemo(() => {
-    let result = activePaperType === "__all__" ? activeItems : activeItems.filter(i => i.paper_type === activePaperType);
+    let result = activePaperType === "__all__" ? activeItems : activeItems.filter(i => normalize(i.paper_type) === normalize(activePaperType));
     if (filterGrammage !== "__all__") result = result.filter(i => (i.grammage || "—") === filterGrammage);
     if (filterSize !== "__all__") result = result.filter(i => i.size === filterSize);
     if (filterSide !== "__all__") result = result.filter(i => i.side === filterSide);
