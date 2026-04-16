@@ -861,7 +861,7 @@ export default function PrecoImpressao() {
                           Todos ({activeItems.length})
                         </button>
                         {paperTypes.map(pt => {
-                          const count = activeItems.filter(i => i.paper_type === pt).length;
+                          const count = activeItems.filter(i => normalize(i.paper_type) === normalize(pt)).length;
                           return (
                             <button
                               key={pt}
