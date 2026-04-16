@@ -18,7 +18,7 @@ import { ptBR } from "date-fns/locale";
 import {
   Plus, Edit, Trash2, Search, History,
   TrendingUp, TrendingDown, Minus, Package, FileText,
-  AlertTriangle, DollarSign, ShoppingCart, Layers, HelpCircle, Truck, CalendarIcon
+  AlertTriangle, DollarSign, ShoppingCart, Layers, HelpCircle, Truck, CalendarIcon, ArrowUpRight
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -581,8 +581,24 @@ export default function MateriasPrimas() {
                             </div>
                           </TableHead>
                           <TableHead className="text-right font-semibold">Preço<br/><span className="text-[10px] font-normal text-muted-foreground">66×96</span></TableHead>
-                          <TableHead className="text-right font-semibold text-primary">Preço A4<br/><span className="text-[10px] font-normal">(÷9)</span></TableHead>
-                          <TableHead className="text-right font-semibold text-primary">Preço A3+<br/><span className="text-[10px] font-normal">(÷4)</span></TableHead>
+                          <TableHead className="text-right font-semibold text-primary">
+                            <div className="flex items-center justify-end gap-1">
+                              Preço A4<br/><span className="text-[10px] font-normal">(÷9)</span>
+                              <Tooltip>
+                                <TooltipTrigger asChild><ArrowUpRight className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+                                <TooltipContent><p>Arredondado para cima a cada R$ 0,05</p></TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </TableHead>
+                          <TableHead className="text-right font-semibold text-primary">
+                            <div className="flex items-center justify-end gap-1">
+                              Preço A3+<br/><span className="text-[10px] font-normal">(÷4)</span>
+                              <Tooltip>
+                                <TooltipTrigger asChild><ArrowUpRight className="h-3 w-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+                                <TooltipContent><p>Arredondado para cima a cada R$ 0,05</p></TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </TableHead>
                           <TableHead className="font-semibold">Fornecedor</TableHead>
                           <TableHead className="font-semibold">Data</TableHead>
                           <TableHead className="text-center font-semibold">Var.</TableHead>
