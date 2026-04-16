@@ -698,7 +698,7 @@ export default function PrecoImpressao() {
                             <p className="text-xs text-muted-foreground">Crie regras para definir quanto cobrar em cada faixa de quantidade. Ex: de 1 a 10 cópias, de 11 a 50, etc.</p>
                           </div>
                         ) : (
-                          <div className="overflow-x-auto">
+                          <div>
                              <Table>
                               <TableHeader>
                                 <TableRow>
