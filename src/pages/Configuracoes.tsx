@@ -18,6 +18,10 @@ export default function Configuracoes() {
   const [wastePercentage, setWastePercentage] = useState("5");
   const [collectionCostPercentage, setCollectionCostPercentage] = useState("7");
   const [defaultProfitMargin, setDefaultProfitMargin] = useState("33");
+  // Composição detalhada do C. Variável (apenas referência interna)
+  const [taxPct, setTaxPct] = useState("10");
+  const [collectionFeePct, setCollectionFeePct] = useState("5");
+  const [creditCardPct, setCreditCardPct] = useState("5");
 
   useEffect(() => {
     const load = async () => {
@@ -43,19 +47,27 @@ export default function Configuracoes() {
         setCollectionCostPercentage(String(settingsRes.data.collection_pct));
         setWastePercentage(String(settingsRes.data.waste_pct));
         setDefaultProfitMargin(String(settingsRes.data.default_margin_pct));
+        if ((settingsRes.data as any).tax_pct !== undefined) setTaxPct(String((settingsRes.data as any).tax_pct));
+        if ((settingsRes.data as any).collection_fee_pct !== undefined) setCollectionFeePct(String((settingsRes.data as any).collection_fee_pct));
+        if ((settingsRes.data as any).credit_card_pct !== undefined) setCreditCardPct(String((settingsRes.data as any).credit_card_pct));
       }
       setLoading(false);
     };
     load();
   }, []);
 
+  const composedVariable = (parseFloat(taxPct) || 0) + (parseFloat(collectionFeePct) || 0) + (parseFloat(creditCardPct) || 0);
+
   const handleSave = async () => {
     setSaving(true);
-    const data = {
+    const data: any = {
       invoice_pct: parseFloat(invoicePercentage) || 0,
-      collection_pct: parseFloat(collectionCostPercentage) || 0,
+      collection_pct: composedVariable, // C. Variável Padrão = soma da composição
       waste_pct: parseFloat(wastePercentage) || 0,
       default_margin_pct: parseFloat(defaultProfitMargin) || 0,
+      tax_pct: parseFloat(taxPct) || 0,
+      collection_fee_pct: parseFloat(collectionFeePct) || 0,
+      credit_card_pct: parseFloat(creditCardPct) || 0,
     };
     if (settingsId) {
       await supabase.from("global_settings").update(data).eq("id", settingsId);
@@ -63,6 +75,7 @@ export default function Configuracoes() {
       const { data: newRow } = await supabase.from("global_settings").insert(data).select("id").single();
       if (newRow) setSettingsId(newRow.id);
     }
+    setCollectionCostPercentage(String(composedVariable));
     setSaving(false);
     toast.success("Configurações salvas com sucesso!");
   };
@@ -110,9 +123,39 @@ export default function Configuracoes() {
               </div>
               <div className="space-y-2">
                 <Label>C. Variável Padrão (%)</Label>
-                <Input type="number" step="0.01" value={collectionCostPercentage} onChange={(e) => setCollectionCostPercentage(e.target.value)} />
-                <p className="text-sm text-muted-foreground">Custos variáveis (NF, cobrança, perda) como % do preço</p>
+                <Input type="text" value={composedVariable.toFixed(2)} disabled className="bg-muted font-semibold" />
+                <p className="text-sm text-muted-foreground">Soma automática da composição abaixo (Imposto + Cobrança + Cartão)</p>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle>Composição do C. Variável</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">Detalhe os componentes que formam o C. Variável Padrão. A soma é aplicada automaticamente acima.</p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Imposto (%)</Label>
+                <Input type="number" step="0.01" value={taxPct} onChange={(e) => setTaxPct(e.target.value)} />
+                <p className="text-xs text-muted-foreground">Imposto sobre nota fiscal</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Taxa de Cobrança (%)</Label>
+                <Input type="number" step="0.01" value={collectionFeePct} onChange={(e) => setCollectionFeePct(e.target.value)} />
+                <p className="text-xs text-muted-foreground">Boleto, PIX, etc.</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Cartão de Crédito (%)</Label>
+                <Input type="number" step="0.01" value={creditCardPct} onChange={(e) => setCreditCardPct(e.target.value)} />
+                <p className="text-xs text-muted-foreground">Taxa da maquininha</p>
+              </div>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t text-sm">
+              <span className="text-muted-foreground">Total C. Variável:</span>
+              <span className="font-semibold text-primary">{composedVariable.toFixed(2)}%</span>
             </div>
           </CardContent>
         </Card>
