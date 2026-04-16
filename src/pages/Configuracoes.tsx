@@ -162,7 +162,7 @@ export default function Configuracoes() {
             <div className="rounded-md bg-muted/40 p-3 space-y-1.5 text-xs">
               <div className="flex justify-between"><span className="text-muted-foreground">C. Variável (Imposto + Cobrança + Perda):</span><span className="font-medium">{composedVariable.toFixed(2)}%</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Total Custos Indiretos (C. Fixo + C. Variável):</span><span className="font-medium">{totalIndiretos.toFixed(2)}%</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Margem de Lucro:</span><span className="font-medium text-green-600">+{(parseFloat(defaultProfitMargin) || 0).toFixed(2)}%</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Margem de Lucro:</span><span className="font-medium text-accent">+{(parseFloat(defaultProfitMargin) || 0).toFixed(2)}%</span></div>
               <Separator className="my-1" />
               <div className="flex justify-between"><span className="text-muted-foreground">Soma total:</span><span className="font-semibold">{(totalIndiretos + (parseFloat(defaultProfitMargin) || 0)).toFixed(2)}%</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Divisor (1 − soma%):</span><span className="font-semibold text-primary">{(1 - (totalIndiretos + (parseFloat(defaultProfitMargin) || 0)) / 100).toFixed(4)}</span></div>
