@@ -503,9 +503,16 @@ export default function PrecoImpressao() {
   // ─── Sync paper prices ────────────────────────────────────────────
   const syncPaperPrices = async () => {
     let updated = 0;
-    for (const item of activeItems) {
+    const itemsToSync = syncMode === "all"
+      ? activeItems
+      : activeItems.filter(i => syncSelectedTypes.includes(normalize(i.paper_type)));
+    if (itemsToSync.length === 0) {
+      toast.warning("Selecione ao menos um tipo de papel para atualizar.");
+      return;
+    }
+    for (const item of itemsToSync) {
       const match = paperRecords.find(p => {
-        const nameMatch = p.name.toLowerCase() === item.paper_type.toLowerCase();
+        const nameMatch = normalize(p.name) === normalize(item.paper_type);
         const gramMatch = !item.grammage || !p.grammage || p.grammage.toLowerCase() === item.grammage.toLowerCase();
         return nameMatch && gramMatch;
       });
