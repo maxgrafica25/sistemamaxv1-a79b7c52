@@ -115,6 +115,12 @@ export default function Configuracoes() {
             <p className="text-sm text-muted-foreground mt-1">Alíquotas padrão sugeridas ao criar novas faixas de preço. Cada faixa pode sobrescrever estes valores.</p>
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="flex gap-2 rounded-md border border-primary/20 bg-primary/5 p-3 text-sm">
+              <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
+              <p className="text-muted-foreground">
+                Estes valores são aplicados apenas a <span className="font-medium text-foreground">novas faixas de preço</span>. Faixas e produtos já cadastrados não são afetados por alterações aqui.
+              </p>
+            </div>
             {/* Custos Indiretos */}
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-foreground">Custos Indiretos</h3>
