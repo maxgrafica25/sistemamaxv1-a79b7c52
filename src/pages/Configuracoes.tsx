@@ -170,28 +170,6 @@ export default function Configuracoes() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-card bg-muted/30">
-          <CardHeader><CardTitle className="text-base">Resumo dos Valores Padrão</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">C. Fixo Padrão:</span><span className="font-medium">+{invoicePercentage}%</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">C. Variável Padrão (Imposto + Cobrança + Perda):</span><span className="font-medium">+{composedVariable.toFixed(2)}%</span></div>
-              <Separator className="my-3" />
-              <div className="flex justify-between"><span className="text-muted-foreground">Total Custos Indiretos Padrão:</span><span className="font-semibold text-primary">+{totalIndiretos.toFixed(2)}%</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Margem de Lucro Padrão:</span><span className="font-semibold text-green-600">+{defaultProfitMargin}%</span></div>
-              <Separator className="my-3" />
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Soma total padrão</span>
-                <span className="font-semibold">{(totalIndiretos + (parseFloat(defaultProfitMargin) || 0)).toFixed(2)}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Divisor padrão (1 − soma%)</span>
-                <span className="font-semibold">{(1 - (totalIndiretos + (parseFloat(defaultProfitMargin) || 0)) / 100).toFixed(4)}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         <div className="flex justify-end">
           <Button size="lg" onClick={handleSave} disabled={saving} className="gap-2 bg-accent hover:bg-accent-hover">
             {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
