@@ -1,25 +1,55 @@
 
-## Mudança
+## Objetivo
 
-Atribuir uma **cor distinta por fornecedor** nos cards da aba "Oportunidades" para facilitar identificação visual.
+1. Auto-preencher **nome do produto** ao colar URL (igual já faz com fornecedor).
+2. Criar **catálogo central de produtos** que reúne variações do mesmo item entre fornecedores (ex: "Panfleto 10x14 couché 90g" da ANS = "Panfleto 10x15 couché 80g" da Atual Card).
+3. Permitir **mesclar manualmente** produtos similares quando o sistema não identificar sozinho.
+4. Servir de base para os **filtros de pesquisa** por produto.
 
-## Como
+## Mudanças no banco
 
-Em `src/pages/Monitoramento.tsx`:
+**Nova tabela `produtos_catalogo`** — produto canônico:
+```text
+id, nome_canonico, categoria, dimensoes, gramatura, observacoes, created_at
+```
+RLS: authenticated full access (mesmo padrão das outras tabelas de monitoramento).
 
-1. Criar um helper `getSupplierColor(supplierName)` que retorna classes Tailwind (bg + border + text) baseadas em hash determinístico do nome — assim o mesmo fornecedor sempre tem a mesma cor.
-2. Paleta fixa de ~8 cores distintas usando tokens semânticos do design system (variações de `primary`, `accent`, `secondary`, etc., com opacidades). Exemplos:
-   - ANS → azul
-   - Atual Card → roxo
-   - Futura → verde
-   - Imprima Rápido → laranja
-3. Aplicar a cor no **badge do nome do fornecedor** dentro de cada linha do card de oportunidade, e numa **borda lateral colorida** (4px à esquerda) para escaneabilidade rápida.
-4. Manter o badge "Mais barato" (verde) inalterado — ele tem semântica própria.
+**Nova coluna em `sites_monitorados`**:
+- `produto_catalogo_id uuid` — referência ao produto canônico (nullable).
 
-## Arquivos
+`nome_produto` continua existindo (auditoria do nome bruto vindo do fornecedor). O agrupamento real acontece via `produto_catalogo_id`.
 
-- `src/pages/Monitoramento.tsx` — único arquivo afetado (helper + JSX da aba oportunidades)
+## Fluxo automático (NovoSiteDialog)
 
-## Limitação
+1. `detect-price-tiers` já retorna `produto` — auto-preencher campo `nome_produto` (editável).
+2. Ao salvar, rodar **matcher fuzzy** no front:
+   - Normaliza nome (mesma lógica do `productKey` em `Monitoramento.tsx`)
+   - Busca em `produtos_catalogo` por chave similar
+   - **Match** → vincula `produto_catalogo_id` existente
+   - **Sem match** → cria novo registro no catálogo + vincula
 
-Hash determinístico pode colidir se houver mais de 8 fornecedores diferentes (cores se repetem). Para os 4 fornecedores atuais (ANS, Futura, Atual Card, Imprima Rápido) não há conflito.
+## Fluxo manual de mesclagem
+
+Novo botão **"Catálogo de Produtos"** na página Monitoramento abre um dialog:
+- Lista produtos do catálogo com fornecedores vinculados (badge colorido por fornecedor)
+- Ações:
+  - **Mesclar 2+ produtos** (checkbox + botão "Mesclar"): move todos os `sites_monitorados` para o produto escolhido como mestre, apaga os duplicados
+  - **Renomear** nome canônico
+  - **Desvincular** site específico (cria novo produto canônico para ele)
+
+## Impacto em Oportunidades
+
+`Monitoramento.tsx` passa a agrupar oportunidades por `produto_catalogo_id` (em vez de `productKey` calculado). Fallback para `productKey` quando `produto_catalogo_id` for null (registros antigos).
+
+Adiciona-se também um **filtro de produto** no topo da aba Oportunidades (dropdown listando produtos do catálogo).
+
+## Arquivos afetados
+
+- **Migration**: cria `produtos_catalogo` + coluna `produto_catalogo_id` em `sites_monitorados`
+- `src/components/monitoramento/NovoSiteDialog.tsx`: auto-preencher nome + matcher/create no catálogo ao salvar
+- `src/pages/Monitoramento.tsx`: agrupar por `produto_catalogo_id`, novo filtro de produto, botão "Catálogo"
+- **Novo** `src/components/monitoramento/CatalogoProdutosDialog.tsx`: gerencia mesclar/renomear/desvincular
+
+## Limitação honesta
+
+Matcher automático erra em casos sutis (couché 80 vs 90, 10x14 vs 10x15). A tela de mesclagem manual resolve isso de uma vez — depois que o usuário mescla, o vínculo persiste para sempre.
