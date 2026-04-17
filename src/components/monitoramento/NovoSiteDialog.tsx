@@ -237,8 +237,13 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
         observacoes: skipped ? `${skipped} linhas ignoradas (sem nome ou preço)` : null,
       });
 
-      toast.success(`Importação concluída: ${created} novos, ${updated} atualizados, ${skipped} ignorados`);
-      reset(); onCreated(); onOpenChange(false);
+      if (skipped > 0 && created === 0 && updated === 0) {
+        toast.error(`Nenhum item importado. ${skipped} linhas ignoradas. Verifique se a coluna de preço está correta.`);
+        if (skippedDetails.length) console.warn("[Importação] Exemplos ignorados:", skippedDetails);
+      } else {
+        toast.success(`Importação concluída: ${created} novos, ${updated} atualizados, ${skipped} ignorados`);
+        reset(); onCreated(); onOpenChange(false);
+      }
     } catch (e: any) {
       toast.error("Erro: " + e.message);
     } finally {
