@@ -621,12 +621,8 @@ export default function Monitoramento() {
               </Card>
             );
           })}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
         </TabsContent>
+
 
         {/* === COMPARATIVO === */}
         <TabsContent value="comparativo" className="space-y-6">
