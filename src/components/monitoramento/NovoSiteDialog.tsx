@@ -451,19 +451,12 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                     </TableBody>
                   </Table>
                 </div>
-                <div>
-                  <Label>Nome do produto *</Label>
-                  <Input
-                    value={tiersNome}
-                    onChange={(e) => { setTiersNome(e.target.value); setTiersCatalogoId(null); }}
-                    placeholder="Confirme ou edite"
-                  />
-                  <SugestoesCatalogoInline
-                    nome={tiersNome}
-                    selectedId={tiersCatalogoId}
-                    onPick={(s) => { setTiersNome(s.nome_canonico); setTiersCatalogoId(s.id); }}
-                  />
-                </div>
+                <ProductPicker
+                  selectedId={tiersCatalogoId}
+                  selectedName={tiersNome}
+                  onChange={({ id, name }) => { setTiersCatalogoId(id); setTiersNome(name); }}
+                />
+
               </>
             )}
             <DialogFooter>
@@ -507,19 +500,12 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                 </AlertDescription>
               </Alert>
             )}
-            <div>
-              <Label>Nome do produto *</Label>
-              <Input
-                value={autoNome}
-                onChange={(e) => { setAutoNome(e.target.value); setAutoCatalogoId(null); }}
-                placeholder="Confirme ou edite o nome"
-              />
-              <SugestoesCatalogoInline
-                nome={autoNome}
-                selectedId={autoCatalogoId}
-                onPick={(s) => { setAutoNome(s.nome_canonico); setAutoCatalogoId(s.id); }}
-              />
-            </div>
+            <ProductPicker
+              selectedId={autoCatalogoId}
+              selectedName={autoNome}
+              onChange={({ id, name }) => { setAutoCatalogoId(id); setAutoNome(name); }}
+            />
+
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
               <Button onClick={handleSaveAuto} disabled={!autoUrl || !autoNome}>Adicionar</Button>
