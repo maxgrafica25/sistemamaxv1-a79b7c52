@@ -404,7 +404,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                 <Alert>
                   <AlertDescription className="text-xs flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4" style={{ color: "hsl(var(--success))" }} />
-                    <span><strong>{tiersResult.tiers.length}</strong> faixas detectadas{tiersResult.fornecedor ? ` em ${tiersResult.fornecedor}` : ""}</span>
+                    <span>✓ <strong>{tiersResult.tiers.length}</strong> faixas validadas contra o texto da página{tiersResult.fornecedor ? ` em ${tiersResult.fornecedor}` : ""}</span>
                   </AlertDescription>
                 </Alert>
                 <div className="border rounded">
