@@ -261,10 +261,18 @@ export default function Monitoramento() {
     [sites]
   );
 
-  const sitesFiltrados = useMemo(
-    () => (filterCategoria === "all" ? sites : sites.filter((s) => s.categoria === filterCategoria)),
-    [sites, filterCategoria]
-  );
+  const sitesFiltrados = useMemo(() => {
+    const search = stripAccents((searchTerm || "").toLowerCase()).trim();
+    return sites.filter((s) => {
+      if (filterCategoria !== "all" && s.categoria !== filterCategoria) return false;
+      if (filterProduto !== "all" && (s.produto_catalogo_id || "") !== filterProduto) return false;
+      if (search) {
+        const haystack = stripAccents(`${s.nome_produto} ${s.fornecedor_nome || ""}`.toLowerCase());
+        if (!haystack.includes(search)) return false;
+      }
+      return true;
+    });
+  }, [sites, filterCategoria, filterProduto, searchTerm]);
 
   const grupos = useMemo(() => {
     const map = new Map<string, Site[]>();
