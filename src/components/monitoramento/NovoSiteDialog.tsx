@@ -497,7 +497,16 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
             )}
             <div>
               <Label>Nome do produto *</Label>
-              <Input value={autoNome} onChange={(e) => setAutoNome(e.target.value)} placeholder="Confirme ou edite o nome" />
+              <Input
+                value={autoNome}
+                onChange={(e) => { setAutoNome(e.target.value); setAutoCatalogoId(null); }}
+                placeholder="Confirme ou edite o nome"
+              />
+              <SugestoesCatalogoInline
+                nome={autoNome}
+                selectedId={autoCatalogoId}
+                onPick={(s) => { setAutoNome(s.nome_canonico); setAutoCatalogoId(s.id); }}
+              />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
