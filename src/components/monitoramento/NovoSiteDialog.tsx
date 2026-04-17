@@ -146,7 +146,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     setSavingTiers(true);
     try {
       const minTier = [...tiersResult.tiers].sort((a, b) => a.quantidade - b.quantidade)[0];
-      const catalogoId = await findOrCreateCatalogo(tiersNome.trim(), categoria);
+      const catalogoId = tiersCatalogoId ?? await findOrCreateCatalogo(tiersNome.trim(), categoria);
       const { data: site, error } = await supabase.from("sites_monitorados").insert({
         nome_produto: tiersNome.trim(),
         categoria: categoria.trim().toLowerCase() || "geral",
