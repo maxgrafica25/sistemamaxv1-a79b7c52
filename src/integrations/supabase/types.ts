@@ -493,6 +493,51 @@ export type Database = {
           },
         ]
       }
+      historico_precos_tiers: {
+        Row: {
+          criado_em: string
+          id: string
+          quantidade: number
+          site_id: string
+          tier_id: string
+          valor_total: number
+          valor_unitario: number
+        }
+        Insert: {
+          criado_em?: string
+          id?: string
+          quantidade: number
+          site_id: string
+          tier_id: string
+          valor_total: number
+          valor_unitario: number
+        }
+        Update: {
+          criado_em?: string
+          id?: string
+          quantidade?: number
+          site_id?: string
+          tier_id?: string
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_precos_tiers_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites_monitorados"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_precos_tiers_tier_id_fkey"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "site_precos_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maintenance_requests: {
         Row: {
           admin_notes: string | null
@@ -1485,14 +1530,61 @@ export type Database = {
         }
         Relationships: []
       }
+      site_precos_tiers: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          created_at: string
+          id: string
+          preco_anterior: number | null
+          preco_total: number
+          preco_unitario: number
+          quantidade: number
+          site_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          created_at?: string
+          id?: string
+          preco_anterior?: number | null
+          preco_total?: number
+          preco_unitario?: number
+          quantidade?: number
+          site_id: string
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          created_at?: string
+          id?: string
+          preco_anterior?: number | null
+          preco_total?: number
+          preco_unitario?: number
+          quantidade?: number
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_precos_tiers_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites_monitorados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sites_monitorados: {
         Row: {
           ativo: boolean
           categoria: string
           codigo_externo: string | null
+          config_coleta: Json
           created_at: string
           fornecedor_nome: string | null
           id: string
+          intervalo_check_horas: number
+          metodo_coleta: string
           nome_produto: string
           preco_anterior: number | null
           preco_atual: number | null
@@ -1506,9 +1598,12 @@ export type Database = {
           ativo?: boolean
           categoria?: string
           codigo_externo?: string | null
+          config_coleta?: Json
           created_at?: string
           fornecedor_nome?: string | null
           id?: string
+          intervalo_check_horas?: number
+          metodo_coleta?: string
           nome_produto: string
           preco_anterior?: number | null
           preco_atual?: number | null
@@ -1522,9 +1617,12 @@ export type Database = {
           ativo?: boolean
           categoria?: string
           codigo_externo?: string | null
+          config_coleta?: Json
           created_at?: string
           fornecedor_nome?: string | null
           id?: string
+          intervalo_check_horas?: number
+          metodo_coleta?: string
           nome_produto?: string
           preco_anterior?: number | null
           preco_atual?: number | null
