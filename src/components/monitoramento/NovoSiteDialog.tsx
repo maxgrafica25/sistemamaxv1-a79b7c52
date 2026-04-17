@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  Sparkles, FileSpreadsheet, Code, Loader2, CheckCircle2, XCircle, FlaskConical, HelpCircle, Upload,
+  Sparkles, FileSpreadsheet, Code, Loader2, CheckCircle2, XCircle, FlaskConical, HelpCircle, Upload, Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -72,10 +72,86 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const [colCodigo, setColCodigo] = useState<string>("__none__");
   const [importing, setImporting] = useState(false);
 
+  // ===== MODO 4: Tabela de preços (tiers via Firecrawl) =====
+  const [tiersUrl, setTiersUrl] = useState("");
+  const [tiersNome, setTiersNome] = useState("");
+  const [tiersBusy, setTiersBusy] = useState(false);
+  const [tiersResult, setTiersResult] = useState<{
+    ok: boolean;
+    produto?: string;
+    fornecedor?: string;
+    tiers?: { quantidade: number; preco_total: number; preco_unitario: number }[];
+    error?: string;
+  } | null>(null);
+  const [savingTiers, setSavingTiers] = useState(false);
+
   const reset = () => {
     setAutoUrl(""); setAutoNome(""); setAutoResult(null);
     setAdvUrl(""); setAdvNome(""); setAdvSeletor(""); setAdvResult(null);
     setFile(null); setParsed(null); setColNome(""); setColPreco(""); setColCodigo("__none__");
+    setTiersUrl(""); setTiersNome(""); setTiersResult(null);
+  };
+
+  // ---- TIERS handlers ----
+  const handleDetectTiers = async () => {
+    if (!tiersUrl) return toast.error("Cole a URL do produto");
+    setTiersBusy(true); setTiersResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("detect-price-tiers", {
+        body: { url: tiersUrl.trim() },
+      });
+      if (error) throw error;
+      if (data?.success && Array.isArray(data.tiers) && data.tiers.length) {
+        setTiersResult({ ok: true, produto: data.produto, fornecedor: data.fornecedor, tiers: data.tiers });
+        if (!tiersNome && data.produto) setTiersNome(String(data.produto).slice(0, 120));
+        if (!fornecedor && data.fornecedor) setFornecedor(String(data.fornecedor));
+      } else {
+        setTiersResult({ ok: false, error: data?.error || "Nenhuma faixa de preço encontrada" });
+      }
+    } catch (e: any) {
+      setTiersResult({ ok: false, error: e.message });
+    } finally {
+      setTiersBusy(false);
+    }
+  };
+
+  const handleSaveTiers = async () => {
+    if (!tiersResult?.ok || !tiersResult.tiers?.length) return;
+    if (!tiersNome) return toast.error("Confirme o nome do produto");
+    setSavingTiers(true);
+    try {
+      const minTier = [...tiersResult.tiers].sort((a, b) => a.quantidade - b.quantidade)[0];
+      const { data: site, error } = await supabase.from("sites_monitorados").insert({
+        nome_produto: tiersNome.trim(),
+        categoria: categoria.trim().toLowerCase() || "geral",
+        url_completa: tiersUrl.trim(),
+        seletor_css: null,
+        tipo_fonte: "url_tiers",
+        fornecedor_nome: fornecedor.trim() || null,
+        preco_atual: minTier.preco_total,
+        metodo_coleta: "firecrawl",
+        intervalo_check_horas: 24,
+        timestamp_check: new Date().toISOString(),
+      }).select().single();
+      if (error) throw error;
+
+      // Insere tiers
+      const rows = tiersResult.tiers.map((t) => ({
+        site_id: site.id,
+        quantidade: t.quantidade,
+        preco_total: t.preco_total,
+        preco_unitario: t.preco_unitario,
+      }));
+      const { error: tErr } = await supabase.from("site_precos_tiers").insert(rows);
+      if (tErr) throw tErr;
+
+      toast.success(`Produto adicionado com ${rows.length} faixas de preço`);
+      reset(); onCreated(); onOpenChange(false);
+    } catch (e: any) {
+      toast.error("Erro: " + e.message);
+    } finally {
+      setSavingTiers(false);
+    }
   };
 
   // ---- handlers ----
