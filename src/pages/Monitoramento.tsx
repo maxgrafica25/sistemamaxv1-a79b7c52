@@ -645,9 +645,11 @@ export default function Monitoramento() {
             <SelectTrigger className="w-64"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os produtos</SelectItem>
-              {produtosCatalogo.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.nome_canonico}</SelectItem>
-              ))}
+              {produtosCatalogo
+                .filter((p) => sites.some((s) => s.produto_catalogo_id === p.id))
+                .map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.nome_canonico}</SelectItem>
+                ))}
             </SelectContent>
           </Select>
         </div>
