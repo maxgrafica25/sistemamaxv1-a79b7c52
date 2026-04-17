@@ -1489,44 +1489,50 @@ export type Database = {
         Row: {
           ativo: boolean
           categoria: string
+          codigo_externo: string | null
           created_at: string
           fornecedor_nome: string | null
           id: string
           nome_produto: string
           preco_anterior: number | null
           preco_atual: number | null
-          seletor_css: string
+          seletor_css: string | null
           timestamp_check: string | null
+          tipo_fonte: string
           updated_at: string
-          url_completa: string
+          url_completa: string | null
         }
         Insert: {
           ativo?: boolean
           categoria?: string
+          codigo_externo?: string | null
           created_at?: string
           fornecedor_nome?: string | null
           id?: string
           nome_produto: string
           preco_anterior?: number | null
           preco_atual?: number | null
-          seletor_css: string
+          seletor_css?: string | null
           timestamp_check?: string | null
+          tipo_fonte?: string
           updated_at?: string
-          url_completa: string
+          url_completa?: string | null
         }
         Update: {
           ativo?: boolean
           categoria?: string
+          codigo_externo?: string | null
           created_at?: string
           fornecedor_nome?: string | null
           id?: string
           nome_produto?: string
           preco_anterior?: number | null
           preco_atual?: number | null
-          seletor_css?: string
+          seletor_css?: string | null
           timestamp_check?: string | null
+          tipo_fonte?: string
           updated_at?: string
-          url_completa?: string
+          url_completa?: string | null
         }
         Relationships: []
       }
@@ -1707,6 +1713,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tabelas_importadas: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_type: string | null
+          fornecedor_nome: string | null
+          id: string
+          itens_atualizados: number
+          itens_criados: number
+          observacoes: string | null
+          total_linhas: number
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_type?: string | null
+          fornecedor_nome?: string | null
+          id?: string
+          itens_atualizados?: number
+          itens_criados?: number
+          observacoes?: string | null
+          total_linhas?: number
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_type?: string | null
+          fornecedor_nome?: string | null
+          id?: string
+          itens_atualizados?: number
+          itens_criados?: number
+          observacoes?: string | null
+          total_linhas?: number
+          user_id?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {
