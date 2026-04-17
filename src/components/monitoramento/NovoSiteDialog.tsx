@@ -17,6 +17,19 @@ import { toast } from "sonner";
 const formatBRL = (v: number | null | undefined) =>
   v == null ? "—" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+
+  return btoa(binary);
+};
+
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -138,7 +151,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     setParseBusy(true); setParsed(null); setColNome(""); setColPreco(""); setColCodigo("__none__");
     try {
       const buf = await file.arrayBuffer();
-      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const b64 = arrayBufferToBase64(buf);
       const { data, error } = await supabase.functions.invoke("parse-price-table", {
         body: { fileBase64: b64, fileName: file.name },
       });
