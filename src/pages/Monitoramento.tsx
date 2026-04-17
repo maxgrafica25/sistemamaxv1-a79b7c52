@@ -752,7 +752,8 @@ export default function Monitoramento() {
           )}
           {oportunidades.map((grupo) => {
             const temConcorrencia = grupo.ofertas.length > 1;
-            const melhorCor = getSupplierColor(grupo.ofertas[0]?.site.fornecedor_nome);
+            const corMap = assignUniqueSupplierColors(grupo.ofertas.map((o) => o.site.fornecedor_nome));
+            const melhorCor = colorFor(corMap, grupo.ofertas[0]?.site.fornecedor_nome);
             return (
               <Card key={grupo.key} className="border-l-4" style={{ borderLeftColor: melhorCor.solid }}>
                 <CardHeader className="pb-2">
@@ -775,7 +776,7 @@ export default function Monitoramento() {
                   <div className="rounded border divide-y">
                     {grupo.ofertas.map((oferta, idx) => {
                       const isMelhor = idx === 0;
-                      const cor = getSupplierColor(oferta.site.fornecedor_nome);
+                      const cor = colorFor(corMap, oferta.site.fornecedor_nome);
                       return (
                         <div
                           key={oferta.site.id}
