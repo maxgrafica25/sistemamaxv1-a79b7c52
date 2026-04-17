@@ -81,25 +81,25 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
               value={search}
               onValueChange={setSearch}
             />
-            <div className="border-b p-2">
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                className="w-full justify-start gap-2"
-                onClick={() => {
-                  const nome = trimmedSearch || window.prompt("Digite o nome do novo produto:")?.trim() || "";
-                  if (!nome) return;
-                  onChange({ id: null, name: nome });
-                  setOpen(false);
-                  setSearch("");
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                {trimmedSearch ? `Cadastrar: "${trimmedSearch}"` : "Cadastrar novo nome"}
-              </Button>
-            </div>
             <CommandList>
+              <div className="p-2 border-b sticky top-0 bg-popover z-10">
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  className="w-full justify-start gap-2"
+                  onClick={() => {
+                    const nome = trimmedSearch || window.prompt("Digite o nome do novo produto:")?.trim() || "";
+                    if (!nome) return;
+                    onChange({ id: null, name: nome });
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  {trimmedSearch ? `Cadastrar: "${trimmedSearch}"` : "Cadastrar novo nome"}
+                </Button>
+              </div>
               <CommandEmpty>
                 <p className="py-6 text-sm text-muted-foreground text-center">
                   Nenhum produto encontrado. Use o botão acima para cadastrar.
