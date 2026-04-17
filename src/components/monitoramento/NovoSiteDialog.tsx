@@ -45,35 +45,21 @@ const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
   return btoa(binary);
 };
 
-// Verifica se já existe um site cadastrado com a mesma URL OU
-// com o mesmo (fornecedor + produto canônico). Retorna mensagem ou null.
+// Verifica se já existe um site cadastrado com a MESMA URL.
+// Não bloqueia por fornecedor+produto canônico, pois o mesmo fornecedor pode
+// ter URLs diferentes para o mesmo produto (ex: faixas de quantidade distintas).
 const checkDuplicate = async (params: {
   url?: string | null;
-  fornecedor?: string | null;
-  produtoCatalogoId?: string | null;
 }): Promise<string | null> => {
   const url = params.url?.trim();
-  if (url) {
-    const { data } = await supabase
-      .from("sites_monitorados")
-      .select("id, nome_produto, fornecedor_nome")
-      .eq("url_completa", url)
-      .limit(1);
-    if (data && data.length > 0) {
-      return `Esta URL já está cadastrada como "${data[0].nome_produto}"${data[0].fornecedor_nome ? ` (${data[0].fornecedor_nome})` : ""}.`;
-    }
-  }
-  const fornecedor = params.fornecedor?.trim();
-  if (fornecedor && params.produtoCatalogoId) {
-    const { data } = await supabase
-      .from("sites_monitorados")
-      .select("id, nome_produto")
-      .eq("fornecedor_nome", fornecedor)
-      .eq("produto_catalogo_id", params.produtoCatalogoId)
-      .limit(1);
-    if (data && data.length > 0) {
-      return `O fornecedor "${fornecedor}" já tem este produto cadastrado como "${data[0].nome_produto}".`;
-    }
+  if (!url) return null;
+  const { data } = await supabase
+    .from("sites_monitorados")
+    .select("id, nome_produto, fornecedor_nome")
+    .eq("url_completa", url)
+    .limit(1);
+  if (data && data.length > 0) {
+    return `Esta URL já está cadastrada como "${data[0].nome_produto}"${data[0].fornecedor_nome ? ` (${data[0].fornecedor_nome})` : ""}.`;
   }
   return null;
 };
@@ -181,11 +167,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     try {
       const minTier = [...tiersResult.tiers].sort((a, b) => a.quantidade - b.quantidade)[0];
       const catalogoId = catalogoIdOverride ?? await findOrCreateCatalogo(nomeFinal, categoria);
-      const dup = await checkDuplicate({
-        url: tiersUrl.trim(),
-        fornecedor: fornecedor.trim() || null,
-        produtoCatalogoId: catalogoId,
-      });
+      const dup = await checkDuplicate({ url: tiersUrl.trim() });
       if (dup) {
         toast.error(dup);
         setSavingTiers(false);
@@ -254,11 +236,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     const nomeFinal = (nomeOverride ?? autoNome).trim();
     if (!autoUrl || !nomeFinal) return toast.error("Detecte o preço e confirme o nome");
     const catalogoId = catalogoIdOverride ?? await findOrCreateCatalogo(nomeFinal, categoria);
-    const dup = await checkDuplicate({
-      url: autoUrl.trim(),
-      fornecedor: fornecedor.trim() || null,
-      produtoCatalogoId: catalogoId,
-    });
+    const dup = await checkDuplicate({ url: autoUrl.trim() });
     if (dup) return toast.error(dup);
     const { error } = await supabase.from("sites_monitorados").insert({
       nome_produto: nomeFinal,
@@ -299,11 +277,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const handleSaveAdvanced = async () => {
     if (!advNome || !advUrl || !advSeletor) return toast.error("Preencha todos os campos");
     const catalogoId = await findOrCreateCatalogo(advNome.trim(), categoria);
-    const dup = await checkDuplicate({
-      url: advUrl.trim(),
-      fornecedor: fornecedor.trim() || null,
-      produtoCatalogoId: catalogoId,
-    });
+    const dup = await checkDuplicate({ url: advUrl.trim() });
     if (dup) return toast.error(dup);
     const { error } = await supabase.from("sites_monitorados").insert({
       nome_produto: advNome.trim(),
