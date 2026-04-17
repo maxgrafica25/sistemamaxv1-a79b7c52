@@ -473,7 +473,7 @@ export default function Monitoramento() {
 
           <Button variant="outline" onClick={() => setOpenCatalogo(true)}>
             <BookOpen className="h-4 w-4" />
-            Catálogo
+            Catálogo de Produtos
           </Button>
 
           <Button onClick={() => setOpenDialog(true)}>
