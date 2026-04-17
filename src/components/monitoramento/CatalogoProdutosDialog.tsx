@@ -178,11 +178,11 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
         </DialogHeader>
 
         <div className="rounded-md border bg-muted/40 p-3 text-xs space-y-1">
-          <p className="font-semibold">Como mesclar produtos iguais de fornecedores diferentes:</p>
+          <p className="font-semibold">Como unificar produtos iguais de fornecedores diferentes:</p>
           <ol className="list-decimal pl-4 space-y-0.5 text-muted-foreground">
-            <li>Marque o <strong>checkbox</strong> de 2 ou mais produtos que são o mesmo item (ex: "Panfleto 10x14 90g" da ANS e "Flyer 14x10 90g" da Imprima Rápido).</li>
-            <li>Clique em <strong>"Mesclar selecionados"</strong>. O nome do <em>primeiro</em> da lista vira o nome canônico (você pode renomear depois com o lápis ✏️).</li>
-            <li>Os fornecedores vinculados aparecem em <strong>badges coloridos</strong> abaixo de cada produto. Use 🔗 para desvincular um específico.</li>
+            <li>Marque o <strong>checkbox</strong> de 2 ou mais produtos que são o mesmo item.</li>
+            <li>Clique no <strong>radio (●)</strong> do produto cujo nome será mantido como canônico.</li>
+            <li>Clique em <strong>"Unificar selecionados"</strong>. Os links/preços/fornecedores de cada site são <strong>preservados</strong> — só o nome canônico e o agrupamento mudam.</li>
           </ol>
         </div>
 
@@ -198,13 +198,14 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
           </div>
           <Button
             onClick={handleMerge}
-            disabled={busy || selected.size < 2}
+            disabled={busy || selected.size < 2 || !mergeMasterId}
             variant="default"
           >
             <Merge className="h-4 w-4" />
-            Mesclar selecionados ({selected.size})
+            Unificar selecionados ({selected.size})
           </Button>
         </div>
+
 
         {loading ? (
           <div className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></div>
@@ -225,6 +226,16 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
                         checked={selected.has(p.id)}
                         onCheckedChange={() => toggle(p.id)}
                       />
+                      {selected.has(p.id) && (
+                        <input
+                          type="radio"
+                          name="merge-master"
+                          checked={mergeMasterId === p.id}
+                          onChange={() => setMergeMasterId(p.id)}
+                          title="Manter este nome ao unificar"
+                          className="h-4 w-4 accent-primary cursor-pointer"
+                        />
+                      )}
                       {isEditing ? (
                         <>
                           <Input
