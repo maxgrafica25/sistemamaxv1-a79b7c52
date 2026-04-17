@@ -1,54 +1,60 @@
 
 
-## Objetivo
+## Problema observado
 
-Quando o usuário cadastrar um novo produto, o sistema detecta dimensões/características e sugere reutilizar o **nome canônico** de um produto já existente no catálogo — garantindo que produtos equivalentes de fornecedores diferentes fiquem com **exatamente o mesmo nome** (mas mantendo preços individuais por fornecedor).
+Pelo print: produto detectado é "Flyer couche 80g 4x0 sem verniz 14x10 cm". Já existe da ANS algo como "Panfleto ... 10x14". Dimensões são equivalentes (14x10 ≈ 10x14), mas a sugestão **não apareceu**.
 
-## Como funciona
+## Investigação necessária
 
-Em `NovoSiteDialog.tsx`, após `detect-price-tiers` retornar e auto-preencher `nome_produto`:
+Preciso confirmar 2 hipóteses antes de propor a solução:
 
-1. Extrair dimensões do nome detectado (regex em `productKey`, normaliza ordem: sempre menor x maior).
-2. Buscar em `produtos_catalogo` produtos com **dimensões equivalentes** (tolerância ±1cm, ex: 10x14 ≈ 10x15).
-3. Se houver match(es) → mostrar **dropdown inline de sugestões** abaixo do campo "Nome do produto":
+1. **Regex de `extractDimKey`** está casando "14x10 cm" com espaço entre número e "cm"? O regex atual é `/(\d{1,3})\s*x\s*(\d{1,3})/` — deve casar. Mas pode ter sido excluído pelo filtro de "nome igual" (caso o nome do catálogo tenha sido salvo idêntico).
+2. **Produtos no catálogo** têm dimensão extraível? Se a ANS foi salva como "Panfleto a jato 10x14" sem "cm", ainda casa. Mas se foi salva sem dimensão no nome canônico (ex: só "Panfleto ANS"), o `extractDimKey` retorna null e ela some das sugestões.
+
+Vou checar o banco para ter certeza do que está salvo.
+
+## Proposta de solução (2 partes)
+
+### Parte 1: Corrigir o matcher (causa raiz)
+
+O problema mais provável é que o componente `SugestoesCatalogoInline` só dispara quando o nome **muda via digitação** — mas o nome é preenchido programaticamente via `setNomeProduto(...)` após o `detect-price-tiers`. O `useEffect` deve disparar igual (depende de `nome`), então isso deveria funcionar.
+
+Outra hipótese mais provável: **o componente está sendo renderizado, mas o filtro `normCurrent === p.nome_canonico` está excluindo o match** quando os nomes são parecidos demais após normalização. Vou revisar a lógica de exclusão.
+
+Também vou adicionar **logs de debug temporários** no console para o usuário confirmar se a busca está sendo executada e o que está retornando.
+
+### Parte 2: Confirmação ao salvar (ideia do usuário)
+
+Adicionar um diálogo de confirmação **ao clicar em "Salvar"** quando:
+- Existem produtos no catálogo com **dimensões equivalentes** (±1cm) E
+- O nome digitado **não é idêntico** a nenhum deles
+
+O diálogo mostra:
 
 ```text
-Nome do produto: [Folder A6 Reduzido 10x14cm Couché 90g_______]
-
-💡 Produtos similares no catálogo (10x14cm):
-   ┌─────────────────────────────────────────┐
-   │ ✓ Panfleto 10x14 Couché 90g             │
-   │   Já vinculado: ANS                     │
-   │   [Usar este nome]                      │
-   ├─────────────────────────────────────────┤
-   │ ✓ Flyer 10x14 Couché 80g                │
-   │   Já vinculado: Atual Card              │
-   │   [Usar este nome]                      │
-   └─────────────────────────────────────────┘
-   ou continue digitando para criar novo produto
+┌─ Padronizar nome do produto? ────────────────┐
+│ Você está salvando: "Flyer couche 80g 14x10" │
+│                                              │
+│ Existe(m) produto(s) similar(es) (10x14cm):  │
+│   ○ Panfleto a jato 10x14 (ANS) [Usar]      │
+│                                              │
+│ ○ Manter o nome que digitei                  │
+│                                              │
+│        [Cancelar]   [Salvar]                 │
+└──────────────────────────────────────────────┘
 ```
 
-4. Ao clicar **"Usar este nome"**:
-   - Substitui o `nome_produto` pelo nome canônico existente
-   - Marca internamente o `produto_catalogo_id` para vincular direto ao salvar (pula `findOrCreateCatalogo`)
-5. Se ignorar e salvar com nome diferente → fluxo normal cria novo produto no catálogo.
-
-## Critério de match
-
-- **Apenas dimensões** (com tolerância ±1cm em cada lado) — sem considerar gramatura, papel ou categoria.
-- Mantém simples: o usuário decide se faz sentido reutilizar olhando os nomes sugeridos.
-- Ordena sugestões por: produtos com mais fornecedores vinculados primeiro (mais "estabelecidos").
+Isso garante que mesmo se o usuário ignorar a sugestão inline, o sistema dá uma segunda chance antes de criar duplicata.
 
 ## Arquivos afetados
 
-- `src/lib/produtoCatalogo.ts` — adiciona `extractDimKey(name)` + `findCatalogoSimilarByDim(dimKey)` que retorna produtos do catálogo com contagem de fornecedores
-- `src/components/monitoramento/NovoSiteDialog.tsx`:
-  - Novo state `sugestoesCatalogo` + `produtoCatalogoIdEscolhido`
-  - `useEffect` dispara busca de sugestões quando `nome_produto` muda
-  - Bloco inline de sugestões abaixo do campo nome (visível apenas quando há matches)
-  - Ao salvar: se `produtoCatalogoIdEscolhido` está set, usa direto; senão chama `findOrCreateCatalogo` normal
+- **Investigação**: query SQL em `produtos_catalogo` e `sites_monitorados` para entender o estado atual
+- `src/lib/produtoCatalogo.ts`: revisar filtro de exclusão em `findCatalogoSimilarByDim`
+- `src/components/monitoramento/SugestoesCatalogoInline.tsx`: adicionar log de debug temporário
+- **Novo** `src/components/monitoramento/ConfirmarNomeDialog.tsx`: diálogo de confirmação ao salvar
+- `src/components/monitoramento/NovoSiteDialog.tsx`: integrar diálogo nas funções `handleSaveTiers` e `handleSaveAuto`
 
 ## Limitação honesta
 
-Tolerância ±1cm pode trazer falsos positivos (10x14 vs 10x15 podem ser produtos legitimamente diferentes). Por isso é **sugestão visível, nunca automática** — o usuário sempre escolhe se aceita ou ignora.
+Sem ver os dados reais não consigo afirmar 100% qual hipótese da Parte 1 é a verdadeira. O diálogo de confirmação (Parte 2) funciona como **rede de segurança** independente — se a sugestão inline falhar por qualquer motivo, o salvamento ainda pergunta.
 
