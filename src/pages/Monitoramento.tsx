@@ -187,6 +187,7 @@ export default function Monitoramento() {
     }
     toast.success("Site adicionado ao monitoramento");
     setForm({ nome_produto: "", categoria: "", url_completa: "", seletor_css: "", fornecedor_nome: "", preco_atual: "" });
+    setTestResult(null);
     setOpenDialog(false);
   };
 
