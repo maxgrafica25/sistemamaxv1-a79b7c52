@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { TrendingUp, TrendingDown, RefreshCw, Plus, Trash2, ExternalLink, Trophy, AlertTriangle, Wifi, WifiOff } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, Plus, Trash2, ExternalLink, Trophy, AlertTriangle, Wifi, WifiOff, Layers } from "lucide-react";
 import NovoSiteDialog from "@/components/monitoramento/NovoSiteDialog";
 import { LineChart, Line, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 import { formatDistanceToNow } from "date-fns";
@@ -27,6 +27,18 @@ type Site = {
   ativo: boolean;
   timestamp_check: string | null;
   updated_at: string;
+  metodo_coleta?: string;
+  tipo_fonte?: string;
+};
+
+type Tier = {
+  id: string;
+  site_id: string;
+  quantidade: number;
+  preco_total: number;
+  preco_unitario: number;
+  preco_anterior: number | null;
+  atualizado_em: string;
 };
 
 type HistoricoPonto = { criado_em: string; valor: number };
@@ -47,21 +59,24 @@ const formatBRL = (v: number | null | undefined) =>
 
 export default function Monitoramento() {
   const [sites, setSites] = useState<Site[]>([]);
+  const [tiers, setTiers] = useState<Tier[]>([]);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [historicos, setHistoricos] = useState<Record<string, HistoricoPonto[]>>({});
   const [loading, setLoading] = useState(true);
   const [filterCategoria, setFilterCategoria] = useState<string>("all");
   const [openDialog, setOpenDialog] = useState(false);
   const [syncing, setSyncing] = useState(false);
-
+  const [syncingId, setSyncingId] = useState<string | null>(null);
 
   const fetchAll = async () => {
-    const [sitesRes, alertasRes, histRes] = await Promise.all([
+    const [sitesRes, tiersRes, alertasRes, histRes] = await Promise.all([
       supabase.from("sites_monitorados").select("*").order("created_at", { ascending: false }),
+      supabase.from("site_precos_tiers").select("*").order("quantidade", { ascending: true }),
       supabase.from("alertas_precos").select("*").order("created_at", { ascending: false }).limit(50),
       supabase.from("historico_precos").select("*").order("criado_em", { ascending: true }).limit(2000),
     ]);
     if (sitesRes.data) setSites(sitesRes.data as Site[]);
+    if (tiersRes.data) setTiers(tiersRes.data as Tier[]);
     if (alertasRes.data) setAlertas(alertasRes.data as Alerta[]);
     if (histRes.data) {
       const grouped: Record<string, HistoricoPonto[]> = {};
@@ -78,6 +93,7 @@ export default function Monitoramento() {
     const ch = supabase
       .channel("monitoramento")
       .on("postgres_changes", { event: "*", schema: "public", table: "sites_monitorados" }, fetchAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "site_precos_tiers" }, fetchAll)
       .on("postgres_changes", { event: "*", schema: "public", table: "alertas_precos" }, fetchAll)
       .on("postgres_changes", { event: "*", schema: "public", table: "historico_precos" }, fetchAll)
       .subscribe();
@@ -86,6 +102,12 @@ export default function Monitoramento() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const tiersBySite = useMemo(() => {
+    const map: Record<string, Tier[]> = {};
+    tiers.forEach((t) => (map[t.site_id] ||= []).push(t));
+    return map;
+  }, [tiers]);
 
   const categorias = useMemo(
     () => Array.from(new Set(sites.map((s) => s.categoria))).sort(),
@@ -107,7 +129,6 @@ export default function Monitoramento() {
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [sitesFiltrados]);
 
-  // Status do worker = data de sync mais recente entre todos os sites
   const lastSync = useMemo(() => {
     const dates = sites.map((s) => s.timestamp_check).filter(Boolean) as string[];
     if (!dates.length) return null;
@@ -116,17 +137,13 @@ export default function Monitoramento() {
 
   const workerOnline = useMemo(() => {
     if (!lastSync) return false;
-    return Date.now() - new Date(lastSync).getTime() < 1000 * 60 * 60; // 1h
+    return Date.now() - new Date(lastSync).getTime() < 1000 * 60 * 60 * 26; // 26h (cron diário)
   }, [lastSync]);
 
-
   const handleDelete = async (s: Site) => {
-    if (!confirm(`Excluir "${s.nome_produto}"? O histórico de preços e alertas relacionados também serão removidos.`)) return;
+    if (!confirm(`Excluir "${s.nome_produto}"? Histórico e alertas relacionados também serão removidos.`)) return;
     const { error } = await supabase.from("sites_monitorados").delete().eq("id", s.id);
-    if (error) {
-      toast.error(`Falha ao excluir: ${error.message}`);
-      return;
-    }
+    if (error) return toast.error(`Falha ao excluir: ${error.message}`);
     toast.success("Site removido");
   };
 
@@ -134,16 +151,27 @@ export default function Monitoramento() {
     await supabase.from("sites_monitorados").update({ ativo: !s.ativo }).eq("id", s.id);
   };
 
-  const handleForceSync = async () => {
+  const handleSyncOne = async (siteId: string) => {
+    setSyncingId(siteId);
+    try {
+      const { data, error } = await supabase.functions.invoke("scheduled-sync-firecrawl", {
+        body: { site_id: siteId },
+      });
+      if (error) throw error;
+      toast.success("Sincronização concluída");
+    } catch (e: any) {
+      toast.error(e.message || "Falha ao sincronizar");
+    } finally {
+      setSyncingId(null);
+    }
+  };
+
+  const handleSyncAll = async () => {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("trigger-vps-sync", { body: {} });
+      const { data, error } = await supabase.functions.invoke("scheduled-sync-firecrawl", { body: {} });
       if (error) throw error;
-      if ((data as any)?.stub) {
-        toast.info((data as any).message || "Webhook da VPS ainda não configurado");
-      } else {
-        toast.success("Sincronização disparada");
-      }
+      toast.success(`Sincronização: ${data?.processed ?? 0} sites processados`);
     } catch (e: any) {
       toast.error(e.message || "Falha ao disparar sincronização");
     } finally {
@@ -161,7 +189,6 @@ export default function Monitoramento() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -182,14 +209,14 @@ export default function Monitoramento() {
             )}
             <span className="text-muted-foreground">
               {lastSync
-                ? `Worker: ${formatDistanceToNow(new Date(lastSync), { addSuffix: true, locale: ptBR })}`
-                : "Worker: aguardando primeira sincronização"}
+                ? `Última sync: ${formatDistanceToNow(new Date(lastSync), { addSuffix: true, locale: ptBR })}`
+                : "Aguardando primeira sincronização"}
             </span>
           </div>
 
-          <Button variant="outline" onClick={handleForceSync} disabled={syncing}>
+          <Button variant="outline" onClick={handleSyncAll} disabled={syncing}>
             <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-            Forçar Update
+            Sincronizar todos
           </Button>
 
           <Button onClick={() => setOpenDialog(true)}>
@@ -200,7 +227,6 @@ export default function Monitoramento() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2"><CardDescription>Sites monitorados</CardDescription></CardHeader>
@@ -220,16 +246,11 @@ export default function Monitoramento() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardDescription>Status do Worker</CardDescription></CardHeader>
-          <CardContent>
-            <Badge variant={workerOnline ? "default" : "secondary"}>
-              {workerOnline ? "Online" : "Offline"}
-            </Badge>
-          </CardContent>
+          <CardHeader className="pb-2"><CardDescription>Tiers de preço</CardDescription></CardHeader>
+          <CardContent><div className="text-2xl font-bold">{tiers.length}</div></CardContent>
         </Card>
       </div>
 
-      {/* Filtros */}
       <div className="flex items-center gap-3">
         <Label>Categoria:</Label>
         <Select value={filterCategoria} onValueChange={setFilterCategoria}>
@@ -250,7 +271,6 @@ export default function Monitoramento() {
           <TabsTrigger value="alertas">Alertas {alertasNaoLidos > 0 && `(${alertasNaoLidos})`}</TabsTrigger>
         </TabsList>
 
-        {/* Dashboard comparativo */}
         <TabsContent value="comparativo" className="space-y-6">
           {grupos.length === 0 && (
             <Card><CardContent className="py-10 text-center text-muted-foreground">
@@ -265,33 +285,62 @@ export default function Monitoramento() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {items.map((s) => {
                     const isMin = s.preco_atual != null && s.preco_atual === minPreco && items.length > 1;
-                    const trend =
-                      s.preco_anterior != null && s.preco_atual != null
-                        ? s.preco_atual - s.preco_anterior
-                        : 0;
+                    const siteTiers = tiersBySite[s.id] || [];
                     const hist = historicos[s.id] || [];
+                    const hasTiers = siteTiers.length > 0;
+                    const trend = !hasTiers && s.preco_anterior != null && s.preco_atual != null
+                      ? s.preco_atual - s.preco_anterior : 0;
+
                     return (
                       <Card key={s.id} className={isMin ? "border-2" : ""} style={isMin ? { borderColor: "hsl(var(--success))" } : undefined}>
                         <CardHeader className="pb-2">
                           <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <CardTitle className="text-base">{s.nome_produto}</CardTitle>
-                              <CardDescription>{s.fornecedor_nome || "—"}</CardDescription>
+                            <div className="min-w-0">
+                              <CardTitle className="text-base truncate">{s.nome_produto}</CardTitle>
+                              <CardDescription className="flex items-center gap-1.5 flex-wrap">
+                                <span>{s.fornecedor_nome || "—"}</span>
+                                {s.metodo_coleta === "firecrawl" && (
+                                  <Badge variant="outline" className="text-[10px] h-4 px-1"><Layers className="h-2.5 w-2.5 mr-0.5" />auto</Badge>
+                                )}
+                              </CardDescription>
                             </div>
                             {isMin && <Badge style={{ backgroundColor: "hsl(var(--success))", color: "hsl(var(--success-foreground))" }}><Trophy className="h-3 w-3" /> Melhor</Badge>}
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-bold">{formatBRL(s.preco_atual)}</span>
-                            {trend !== 0 && (
-                              <span className="text-xs flex items-center" style={{ color: trend < 0 ? "hsl(var(--success))" : "hsl(var(--destructive))" }}>
-                                {trend < 0 ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
-                                {formatBRL(Math.abs(trend))}
-                              </span>
-                            )}
-                          </div>
-                          {hist.length > 1 && (
+                          {hasTiers ? (
+                            <div className="rounded border divide-y">
+                              {siteTiers.map((t) => {
+                                const tTrend = t.preco_anterior != null ? t.preco_total - Number(t.preco_anterior) : 0;
+                                return (
+                                  <div key={t.id} className="flex items-center justify-between text-xs px-2 py-1.5">
+                                    <span className="font-mono text-muted-foreground">{t.quantidade}un</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-muted-foreground">{formatBRL(Number(t.preco_unitario))}/un</span>
+                                      <span className="font-semibold tabular-nums">{formatBRL(Number(t.preco_total))}</span>
+                                      {tTrend !== 0 && (
+                                        <span className="flex items-center" style={{ color: tTrend < 0 ? "hsl(var(--success))" : "hsl(var(--destructive))" }}>
+                                          {tTrend < 0 ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-2xl font-bold">{formatBRL(s.preco_atual)}</span>
+                              {trend !== 0 && (
+                                <span className="text-xs flex items-center" style={{ color: trend < 0 ? "hsl(var(--success))" : "hsl(var(--destructive))" }}>
+                                  {trend < 0 ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
+                                  {formatBRL(Math.abs(trend))}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {!hasTiers && hist.length > 1 && (
                             <div className="h-20">
                               <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={hist}>
@@ -306,15 +355,25 @@ export default function Monitoramento() {
                               </ResponsiveContainer>
                             </div>
                           )}
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <a href={s.url_completa} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:underline">
-                              <ExternalLink className="h-3 w-3" /> Ver site
-                            </a>
-                            <span>
-                              {s.timestamp_check
-                                ? formatDistanceToNow(new Date(s.timestamp_check), { addSuffix: true, locale: ptBR })
-                                : "Nunca sincronizado"}
-                            </span>
+
+                          <div className="flex items-center justify-between text-xs text-muted-foreground gap-2">
+                            {s.url_completa ? (
+                              <a href={s.url_completa} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:underline truncate">
+                                <ExternalLink className="h-3 w-3 shrink-0" /> Ver site
+                              </a>
+                            ) : <span />}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span>
+                                {s.timestamp_check
+                                  ? formatDistanceToNow(new Date(s.timestamp_check), { addSuffix: true, locale: ptBR })
+                                  : "Nunca"}
+                              </span>
+                              {s.metodo_coleta === "firecrawl" && (
+                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleSyncOne(s.id)} disabled={syncingId === s.id}>
+                                  <RefreshCw className={`h-3 w-3 ${syncingId === s.id ? "animate-spin" : ""}`} />
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -326,7 +385,6 @@ export default function Monitoramento() {
           })}
         </TabsContent>
 
-        {/* Tabela */}
         <TabsContent value="tabela">
           <Card>
             <CardContent className="p-0">
@@ -336,8 +394,9 @@ export default function Monitoramento() {
                     <TableHead>Produto</TableHead>
                     <TableHead>Categoria</TableHead>
                     <TableHead>Fornecedor</TableHead>
+                    <TableHead>Coleta</TableHead>
                     <TableHead className="text-right">Atual</TableHead>
-                    <TableHead className="text-right">Anterior</TableHead>
+                    <TableHead className="text-right">Tiers</TableHead>
                     <TableHead>Última checagem</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead></TableHead>
@@ -349,8 +408,9 @@ export default function Monitoramento() {
                       <TableCell className="font-medium">{s.nome_produto}</TableCell>
                       <TableCell><Badge variant="outline">{s.categoria}</Badge></TableCell>
                       <TableCell>{s.fornecedor_nome || "—"}</TableCell>
+                      <TableCell><Badge variant="secondary" className="text-xs">{s.metodo_coleta || "url_simples"}</Badge></TableCell>
                       <TableCell className="text-right font-mono">{formatBRL(s.preco_atual)}</TableCell>
-                      <TableCell className="text-right font-mono text-muted-foreground">{formatBRL(s.preco_anterior)}</TableCell>
+                      <TableCell className="text-right font-mono">{(tiersBySite[s.id] || []).length || "—"}</TableCell>
                       <TableCell className="text-xs">
                         {s.timestamp_check ? new Date(s.timestamp_check).toLocaleString("pt-BR") : "—"}
                       </TableCell>
@@ -371,7 +431,7 @@ export default function Monitoramento() {
                     </TableRow>
                   ))}
                   {sitesFiltrados.length === 0 && (
-                    <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       Nenhum site monitorado.
                     </TableCell></TableRow>
                   )}
@@ -381,7 +441,6 @@ export default function Monitoramento() {
           </Card>
         </TabsContent>
 
-        {/* Alertas */}
         <TabsContent value="alertas" className="space-y-3">
           <div className="flex justify-end">
             <Button variant="outline" size="sm" onClick={markAlertasLidos} disabled={!alertasNaoLidos}>
