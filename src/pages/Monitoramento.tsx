@@ -511,11 +511,13 @@ export default function Monitoramento() {
     if (!confirm(`Excluir "${s.nome_produto}"? Histórico e alertas relacionados também serão removidos.`)) return;
     const { error } = await supabase.from("sites_monitorados").delete().eq("id", s.id);
     if (error) return toast.error(`Falha ao excluir: ${error.message}`);
+    setSites((prev) => prev.filter((x) => x.id !== s.id));
     toast.success("Site removido");
   };
 
   const handleToggle = async (s: Site) => {
     await supabase.from("sites_monitorados").update({ ativo: !s.ativo }).eq("id", s.id);
+    setSites((prev) => prev.map((x) => (x.id === s.id ? { ...x, ativo: !s.ativo } : x)));
   };
 
   const handleSyncOne = async (siteId: string) => {
