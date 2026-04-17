@@ -9,8 +9,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { TrendingUp, TrendingDown, RefreshCw, Plus, Trash2, ExternalLink, Trophy, AlertTriangle, Wifi, WifiOff } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, Plus, Trash2, ExternalLink, Trophy, AlertTriangle, Wifi, WifiOff, HelpCircle, FlaskConical, CheckCircle2, XCircle } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -62,6 +64,44 @@ export default function Monitoramento() {
     fornecedor_nome: "",
     preco_atual: "",
   });
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<
+    | { ok: true; rawText: string; parsedPrice: number | null; found: number }
+    | { ok: false; error: string }
+    | null
+  >(null);
+
+  const handleTestSelector = async () => {
+    if (!form.url_completa || !form.seletor_css) {
+      toast.error("Preencha URL e Seletor CSS antes de testar");
+      return;
+    }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("test-css-selector", {
+        body: { url: form.url_completa.trim(), selector: form.seletor_css.trim() },
+      });
+      if (error) throw error;
+      if ((data as any).success) {
+        setTestResult({
+          ok: true,
+          rawText: (data as any).rawText,
+          parsedPrice: (data as any).parsedPrice,
+          found: (data as any).found,
+        });
+        if ((data as any).parsedPrice != null && !form.preco_atual) {
+          setForm((f) => ({ ...f, preco_atual: String((data as any).parsedPrice) }));
+        }
+      } else {
+        setTestResult({ ok: false, error: (data as any).error || "Falha desconhecida" });
+      }
+    } catch (e: any) {
+      setTestResult({ ok: false, error: e.message || "Erro ao testar seletor" });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const fetchAll = async () => {
     const [sitesRes, alertasRes, histRes] = await Promise.all([
@@ -265,12 +305,93 @@ export default function Monitoramento() {
                   />
                 </div>
                 <div>
-                  <Label>Seletor CSS do preço *</Label>
-                  <Input
-                    value={form.seletor_css}
-                    onChange={(e) => setForm({ ...form, seletor_css: e.target.value })}
-                    placeholder=".price-now, #preco, span.valor"
-                  />
+                  <div className="flex items-center gap-2 mb-1">
+                    <Label>Seletor CSS do preço *</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" className="text-muted-foreground hover:text-foreground">
+                            <HelpCircle className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <div className="space-y-1 text-xs">
+                            <p className="font-semibold">Como obter o seletor CSS:</p>
+                            <ol className="list-decimal list-inside space-y-0.5">
+                              <li>Abra a página do produto no Chrome/Edge</li>
+                              <li>Pressione F12 (DevTools)</li>
+                              <li>Clique no ícone de seta no canto superior esquerdo</li>
+                              <li>Clique em cima do PREÇO na página</li>
+                              <li>No HTML destacado, clique direito → Copy → Copy selector</li>
+                              <li>Cole aqui (ex: <code>.price-now</code> ou <code>#preco</code>)</li>
+                            </ol>
+                            <p className="pt-1 italic">Não é a URL — é o "endereço" do preço dentro do HTML.</p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      value={form.seletor_css}
+                      onChange={(e) => {
+                        setForm({ ...form, seletor_css: e.target.value });
+                        setTestResult(null);
+                      }}
+                      placeholder=".price-now, #preco, span.valor"
+                      className="font-mono text-sm"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleTestSelector}
+                      disabled={testing || !form.url_completa || !form.seletor_css}
+                    >
+                      <FlaskConical className={`h-4 w-4 ${testing ? "animate-pulse" : ""}`} />
+                      Testar
+                    </Button>
+                  </div>
+                  {testResult && (
+                    <Alert
+                      className="mt-2"
+                      variant={testResult.ok ? "default" : "destructive"}
+                    >
+                      <AlertDescription className="text-xs">
+                        {testResult.ok ? (
+                          <div className="flex items-start gap-2">
+                            <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: "hsl(var(--success))" }} />
+                            <div className="space-y-1">
+                              <div>
+                                <strong>Encontrado!</strong> Texto extraído:{" "}
+                                <code className="bg-muted px-1 rounded">{testResult.rawText || "(vazio)"}</code>
+                              </div>
+                              {testResult.parsedPrice != null ? (
+                                <div>
+                                  Preço interpretado:{" "}
+                                  <strong>{formatBRL(testResult.parsedPrice)}</strong>
+                                  {!form.preco_atual && " (preenchido automaticamente abaixo)"}
+                                </div>
+                              ) : (
+                                <div className="text-muted-foreground">
+                                  Não consegui converter para número — verifique se o seletor pega só o preço.
+                                </div>
+                              )}
+                              {testResult.found > 1 && (
+                                <div className="text-muted-foreground">
+                                  ⚠ Seletor casou com {testResult.found} elementos. Usaremos o primeiro.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-2">
+                            <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                            <span>{testResult.error}</span>
+                          </div>
+                        )}
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
                 <div>
                   <Label>Preço atual (opcional)</Label>
