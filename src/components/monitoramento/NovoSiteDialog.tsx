@@ -203,7 +203,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
 
   const handleSaveAuto = async () => {
     if (!autoUrl || !autoNome) return toast.error("Detecte o preço e confirme o nome");
-    const catalogoId = await findOrCreateCatalogo(autoNome.trim(), categoria);
+    const catalogoId = autoCatalogoId ?? await findOrCreateCatalogo(autoNome.trim(), categoria);
     const { error } = await supabase.from("sites_monitorados").insert({
       nome_produto: autoNome.trim(),
       categoria: categoria.trim().toLowerCase() || "geral",
