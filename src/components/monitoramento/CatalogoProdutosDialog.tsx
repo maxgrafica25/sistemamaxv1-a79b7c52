@@ -52,6 +52,7 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
       setSelected(new Set());
       setEditingId(null);
       setSearch("");
+      setMergeMasterId(null);
     }
   }, [open]);
 
@@ -71,9 +72,15 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
 
   const toggle = (id: string) => {
     const next = new Set(selected);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) {
+      next.delete(id);
+      if (mergeMasterId === id) setMergeMasterId(null);
+    } else {
+      next.add(id);
+    }
     setSelected(next);
   };
+
 
   const [mergeMasterId, setMergeMasterId] = useState<string | null>(null);
 
