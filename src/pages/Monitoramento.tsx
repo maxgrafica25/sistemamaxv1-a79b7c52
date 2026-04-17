@@ -54,52 +54,6 @@ export default function Monitoramento() {
   const [openDialog, setOpenDialog] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  const [form, setForm] = useState({
-    nome_produto: "",
-    categoria: "",
-    url_completa: "",
-    seletor_css: "",
-    fornecedor_nome: "",
-    preco_atual: "",
-  });
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<
-    | { ok: true; rawText: string; parsedPrice: number | null; found: number }
-    | { ok: false; error: string }
-    | null
-  >(null);
-
-  const handleTestSelector = async () => {
-    if (!form.url_completa || !form.seletor_css) {
-      toast.error("Preencha URL e Seletor CSS antes de testar");
-      return;
-    }
-    setTesting(true);
-    setTestResult(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("test-css-selector", {
-        body: { url: form.url_completa.trim(), selector: form.seletor_css.trim() },
-      });
-      if (error) throw error;
-      if ((data as any).success) {
-        setTestResult({
-          ok: true,
-          rawText: (data as any).rawText,
-          parsedPrice: (data as any).parsedPrice,
-          found: (data as any).found,
-        });
-        if ((data as any).parsedPrice != null && !form.preco_atual) {
-          setForm((f) => ({ ...f, preco_atual: String((data as any).parsedPrice) }));
-        }
-      } else {
-        setTestResult({ ok: false, error: (data as any).error || "Falha desconhecida" });
-      }
-    } catch (e: any) {
-      setTestResult({ ok: false, error: e.message || "Erro ao testar seletor" });
-    } finally {
-      setTesting(false);
-    }
-  };
 
   const fetchAll = async () => {
     const [sitesRes, alertasRes, histRes] = await Promise.all([
@@ -165,29 +119,6 @@ export default function Monitoramento() {
     return Date.now() - new Date(lastSync).getTime() < 1000 * 60 * 60; // 1h
   }, [lastSync]);
 
-  const handleAdd = async () => {
-    if (!form.nome_produto || !form.url_completa || !form.seletor_css || !form.categoria) {
-      toast.error("Preencha nome, categoria, URL e seletor CSS");
-      return;
-    }
-    const preco = form.preco_atual ? Number(form.preco_atual) : null;
-    const { error } = await supabase.from("sites_monitorados").insert({
-      nome_produto: form.nome_produto.trim(),
-      categoria: form.categoria.trim().toLowerCase(),
-      url_completa: form.url_completa.trim(),
-      seletor_css: form.seletor_css.trim(),
-      fornecedor_nome: form.fornecedor_nome.trim() || null,
-      preco_atual: preco,
-    });
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    toast.success("Site adicionado ao monitoramento");
-    setForm({ nome_produto: "", categoria: "", url_completa: "", seletor_css: "", fornecedor_nome: "", preco_atual: "" });
-    setTestResult(null);
-    setOpenDialog(false);
-  };
 
   const handleDelete = async (s: Site) => {
     if (!confirm(`Excluir "${s.nome_produto}"? O histórico de preços e alertas relacionados também serão removidos.`)) return;
