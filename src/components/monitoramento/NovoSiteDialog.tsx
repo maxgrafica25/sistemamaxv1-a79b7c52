@@ -121,8 +121,13 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
         setTiersResult({ ok: true, produto: data.produto, fornecedor: detectedSupplier, tiers: data.tiers });
         if (!tiersNome && data.produto) setTiersNome(String(data.produto).slice(0, 120));
         if (detectedSupplier) setFornecedor(detectedSupplier);
+        if (data.descartados > 0) {
+          toast.warning(`${data.descartados} faixa(s) descartada(s) por não baterem com o texto da página`);
+        }
+      } else if (data?.success && data?.descartados > 0) {
+        setTiersResult({ ok: false, error: `Nenhuma faixa validada. ${data.descartados} valor(es) foram descartado(s) por não existirem no texto real da página (provável alucinação do extrator). Use a aba Planilha para importar manualmente.` });
       } else {
-        setTiersResult({ ok: false, error: data?.error || "Nenhuma faixa de preço encontrada" });
+        setTiersResult({ ok: false, error: data?.error || "Não foi possível detectar tiers reais nesta URL — verifique se a página tem tabela de preços visível ou use a aba Planilha." });
       }
     } catch (e: any) {
       setTiersResult({ ok: false, error: e.message });
