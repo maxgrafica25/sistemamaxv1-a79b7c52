@@ -377,7 +377,7 @@ export default function Monitoramento() {
                           <div className="flex items-baseline gap-2">
                             <span className="text-2xl font-bold">{formatBRL(s.preco_atual)}</span>
                             {trend !== 0 && (
-                              <span className={`text-xs flex items-center ${trend < 0 ? "text-green-600" : "text-red-600"}`}>
+                              <span className="text-xs flex items-center" style={{ color: trend < 0 ? "hsl(var(--success))" : "hsl(var(--destructive))" }}>
                                 {trend < 0 ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
                                 {formatBRL(Math.abs(trend))}
                               </span>
