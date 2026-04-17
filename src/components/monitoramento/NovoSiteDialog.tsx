@@ -324,10 +324,12 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
           }).eq("id", existingId);
           updated++;
         } else {
+          const catalogoId = await findOrCreateCatalogo(nome, categoria);
           await supabase.from("sites_monitorados").insert({
             nome_produto: nome, categoria: categoria.trim().toLowerCase() || "geral",
             url_completa: null, seletor_css: null, tipo_fonte: "excel",
             fornecedor_nome: fornecedor.trim(), preco_atual: preco,
+            produto_catalogo_id: catalogoId,
             codigo_externo: codigo || null, timestamp_check: new Date().toISOString(),
           });
           created++;
