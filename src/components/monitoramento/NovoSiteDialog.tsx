@@ -102,43 +102,11 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const [savingTiers, setSavingTiers] = useState(false);
   const [tiersCatalogoId, setTiersCatalogoId] = useState<string | null>(null);
 
-  // ===== Confirmação de padronização ao salvar =====
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmSugestoes, setConfirmSugestoes] = useState<SugestaoCatalogo[]>([]);
-  const [confirmNome, setConfirmNome] = useState("");
-  const [confirmContext, setConfirmContext] = useState<"tiers" | "auto" | null>(null);
-
   const reset = () => {
     setAutoUrl(""); setAutoNome(""); setAutoResult(null); setAutoCatalogoId(null);
     setAdvUrl(""); setAdvNome(""); setAdvSeletor(""); setAdvResult(null);
     setFile(null); setParsed(null); setColNome(""); setColPreco(""); setColCodigo("__none__");
     setTiersUrl(""); setTiersNome(""); setTiersResult(null); setTiersCatalogoId(null);
-  };
-
-  /**
-   * Verifica se há sugestões de padronização pendentes. Se houver, abre o
-   * diálogo e retorna true (chamador deve pausar o salvamento).
-   */
-  const checkAndConfirm = async (
-    nome: string,
-    catalogoIdJaEscolhido: string | null,
-    context: "tiers" | "auto",
-  ): Promise<boolean> => {
-    if (catalogoIdJaEscolhido) return false;
-    const dim = extractDimKey(nome);
-    if (!dim) return false;
-    const sugestoes = await findCatalogoSimilarByDim(dim, nome);
-    if (sugestoes.length === 0) return false;
-    const norm = stripAccents(nome.toLowerCase()).trim();
-    const exato = sugestoes.some(
-      (s) => stripAccents(s.nome_canonico.toLowerCase()).trim() === norm,
-    );
-    if (exato) return false;
-    setConfirmSugestoes(sugestoes);
-    setConfirmNome(nome);
-    setConfirmContext(context);
-    setConfirmOpen(true);
-    return true;
   };
 
   // ---- TIERS handlers ----
