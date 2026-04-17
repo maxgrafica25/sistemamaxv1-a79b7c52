@@ -191,10 +191,14 @@ export default function Monitoramento() {
     setOpenDialog(false);
   };
 
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("sites_monitorados").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Removido");
+  const handleDelete = async (s: Site) => {
+    if (!confirm(`Excluir "${s.nome_produto}"? O histórico de preços e alertas relacionados também serão removidos.`)) return;
+    const { error } = await supabase.from("sites_monitorados").delete().eq("id", s.id);
+    if (error) {
+      toast.error(`Falha ao excluir: ${error.message}`);
+      return;
+    }
+    toast.success("Site removido");
   };
 
   const handleToggle = async (s: Site) => {
@@ -578,7 +582,7 @@ export default function Monitoramento() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Button size="icon" variant="ghost" onClick={() => handleDelete(s.id)}>
+                        <Button size="icon" variant="ghost" onClick={() => handleDelete(s)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </TableCell>
