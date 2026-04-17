@@ -242,7 +242,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
             <Input value={categoria} onChange={(e) => setCategoria(e.target.value)} placeholder="papel, banner, tinta..." />
           </div>
           <div>
-            <Label>Fornecedor {`{`}{`}`}</Label>
+            <Label>Fornecedor</Label>
             <Input value={fornecedor} onChange={(e) => setFornecedor(e.target.value)} placeholder="Nome do fornecedor" />
           </div>
         </div>
