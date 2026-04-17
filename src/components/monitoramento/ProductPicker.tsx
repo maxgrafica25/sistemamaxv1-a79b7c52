@@ -25,12 +25,25 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    supabase
-      .from("produtos_catalogo")
-      .select("*")
-      .order("nome_canonico")
-      .then(({ data }) => setProdutos((data || []) as ProdutoCatalogo[]));
-  }, []);
+    (async () => {
+      // Lista apenas produtos do catálogo que já possuem 1+ sites monitorados vinculados.
+      // Para criar um nome novo o usuário usa o botão "Criar novo nome".
+      const [{ data: prods }, { data: sites }] = await Promise.all([
+        supabase.from("produtos_catalogo").select("*").order("nome_canonico"),
+        supabase.from("sites_monitorados").select("produto_catalogo_id"),
+      ]);
+      const idsComSite = new Set(
+        (sites || [])
+          .map((s: any) => s.produto_catalogo_id)
+          .filter(Boolean) as string[],
+      );
+      // Mantém o produto selecionado mesmo se ainda não tiver sites (edição em curso)
+      const visiveis = (prods || []).filter(
+        (p: any) => idsComSite.has(p.id) || p.id === selectedId,
+      ) as ProdutoCatalogo[];
+      setProdutos(visiveis);
+    })();
+  }, [selectedId]);
 
   // Sincroniza modo se vier um id de fora
   useEffect(() => {
