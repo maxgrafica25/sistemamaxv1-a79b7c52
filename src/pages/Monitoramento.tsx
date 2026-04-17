@@ -9,11 +9,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { TrendingUp, TrendingDown, RefreshCw, Plus, Trash2, ExternalLink, Trophy, AlertTriangle, Wifi, WifiOff, Layers, Target, Flame, ShoppingCart, Sparkles } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, Plus, Trash2, ExternalLink, Trophy, AlertTriangle, Wifi, WifiOff, Layers, Target, Flame, ShoppingCart, Sparkles, BookOpen } from "lucide-react";
 import NovoSiteDialog from "@/components/monitoramento/NovoSiteDialog";
+import CatalogoProdutosDialog from "@/components/monitoramento/CatalogoProdutosDialog";
 import { LineChart, Line, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import type { ProdutoCatalogo } from "@/lib/produtoCatalogo";
 
 type Site = {
   id: string;
@@ -29,6 +31,7 @@ type Site = {
   updated_at: string;
   metodo_coleta?: string;
   tipo_fonte?: string;
+  produto_catalogo_id?: string | null;
 };
 
 type Tier = {
@@ -170,26 +173,31 @@ export default function Monitoramento() {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [historicos, setHistoricos] = useState<Record<string, HistoricoPonto[]>>({});
   const [historicoTiers, setHistoricoTiers] = useState<HistoricoTier[]>([]);
+  const [produtosCatalogo, setProdutosCatalogo] = useState<ProdutoCatalogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterCategoria, setFilterCategoria] = useState<string>("all");
+  const [filterProduto, setFilterProduto] = useState<string>("all");
   const [openDialog, setOpenDialog] = useState(false);
+  const [openCatalogo, setOpenCatalogo] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [qtdAlvo, setQtdAlvo] = useState<number>(100);
   const [searchTerm, setSearchTerm] = useState<string>("");
 
   const fetchAll = async () => {
-    const [sitesRes, tiersRes, alertasRes, histRes, histTiersRes] = await Promise.all([
+    const [sitesRes, tiersRes, alertasRes, histRes, histTiersRes, catRes] = await Promise.all([
       supabase.from("sites_monitorados").select("*").order("created_at", { ascending: false }),
       supabase.from("site_precos_tiers").select("*").order("quantidade", { ascending: true }),
       supabase.from("alertas_precos").select("*").order("created_at", { ascending: false }).limit(50),
       supabase.from("historico_precos").select("*").order("criado_em", { ascending: true }).limit(2000),
       supabase.from("historico_precos_tiers").select("*").order("criado_em", { ascending: false }).limit(3000),
+      supabase.from("produtos_catalogo").select("*").order("nome_canonico"),
     ]);
     if (sitesRes.data) setSites(sitesRes.data as Site[]);
     if (tiersRes.data) setTiers(tiersRes.data as Tier[]);
     if (alertasRes.data) setAlertas(alertasRes.data as Alerta[]);
     if (histTiersRes.data) setHistoricoTiers(histTiersRes.data as HistoricoTier[]);
+    if (catRes.data) setProdutosCatalogo(catRes.data as ProdutoCatalogo[]);
     if (histRes.data) {
       const grouped: Record<string, HistoricoPonto[]> = {};
       for (const h of histRes.data as any[]) {
@@ -209,6 +217,7 @@ export default function Monitoramento() {
       .on("postgres_changes", { event: "*", schema: "public", table: "alertas_precos" }, fetchAll)
       .on("postgres_changes", { event: "*", schema: "public", table: "historico_precos" }, fetchAll)
       .on("postgres_changes", { event: "*", schema: "public", table: "historico_precos_tiers" }, fetchAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "produtos_catalogo" }, fetchAll)
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -301,7 +310,15 @@ export default function Monitoramento() {
     const search = stripAccents(searchTerm.toLowerCase().trim());
     const groups = new Map<string, { nome: string; ofertas: OfertaFornecedor[] }>();
 
+    // Mapa rápido: id_catalogo → nome canônico (para exibição)
+    const nomeCatalogo: Record<string, string> = {};
+    for (const p of produtosCatalogo) nomeCatalogo[p.id] = p.nome_canonico;
+
     for (const s of sites) {
+      // Filtro de produto canônico (dropdown)
+      if (filterProduto !== "all") {
+        if ((s.produto_catalogo_id || "") !== filterProduto) continue;
+      }
       // Filtro de busca: aceita se o termo aparecer no nome (ou no fornecedor)
       if (search) {
         const haystack = stripAccents(`${s.nome_produto} ${s.fornecedor_nome || ""}`.toLowerCase());
@@ -311,8 +328,15 @@ export default function Monitoramento() {
       const tier = getTierForQty(siteTiers, qtdAlvo);
       if (!tier) continue;
 
-      const key = productKey(s.nome_produto);
+      // Chave de agrupamento: usa o produto_catalogo_id quando disponível,
+      // cai para a normalização heurística (`productKey`) para registros antigos.
+      const key = s.produto_catalogo_id
+        ? `cat:${s.produto_catalogo_id}`
+        : productKey(s.nome_produto);
       if (!key) continue;
+
+      const nomeExibicao = (s.produto_catalogo_id && nomeCatalogo[s.produto_catalogo_id])
+        || s.nome_produto;
 
       const isMinHist = minHistByTier[tier.id] != null
         && Number(tier.preco_total) <= minHistByTier[tier.id];
@@ -326,7 +350,7 @@ export default function Monitoramento() {
       };
       const cur = groups.get(key);
       if (cur) cur.ofertas.push(oferta);
-      else groups.set(key, { nome: s.nome_produto, ofertas: [oferta] });
+      else groups.set(key, { nome: nomeExibicao, ofertas: [oferta] });
     }
 
     const result: GrupoProduto[] = [];
@@ -355,7 +379,7 @@ export default function Monitoramento() {
       if (b.economiaPct !== a.economiaPct) return b.economiaPct - a.economiaPct;
       return a.nomeExibicao.localeCompare(b.nomeExibicao);
     });
-  }, [sites, tiersBySite, minHistByTier, qtdAlvo, searchTerm]);
+  }, [sites, tiersBySite, minHistByTier, qtdAlvo, searchTerm, filterProduto, produtosCatalogo]);
 
   const lastSync = useMemo(() => {
     const dates = sites.map((s) => s.timestamp_check).filter(Boolean) as string[];
@@ -447,11 +471,22 @@ export default function Monitoramento() {
             Atualizar todos
           </Button>
 
+          <Button variant="outline" onClick={() => setOpenCatalogo(true)}>
+            <BookOpen className="h-4 w-4" />
+            Catálogo
+          </Button>
+
           <Button onClick={() => setOpenDialog(true)}>
             <Plus className="h-4 w-4" />
             Novo Site
           </Button>
           <NovoSiteDialog open={openDialog} onOpenChange={setOpenDialog} onCreated={fetchAll} />
+          <CatalogoProdutosDialog
+            open={openCatalogo}
+            onOpenChange={setOpenCatalogo}
+            onChanged={fetchAll}
+            getSupplierColor={getSupplierColor}
+          />
         </div>
       </div>
 
@@ -493,6 +528,18 @@ export default function Monitoramento() {
               <SelectItem value="all">Todas as categorias</SelectItem>
               {categorias.map((c) => (
                 <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label>Produto:</Label>
+          <Select value={filterProduto} onValueChange={setFilterProduto}>
+            <SelectTrigger className="w-64"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os produtos</SelectItem>
+              {produtosCatalogo.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.nome_canonico}</SelectItem>
               ))}
             </SelectContent>
           </Select>

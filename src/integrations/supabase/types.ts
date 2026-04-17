@@ -1246,6 +1246,39 @@ export type Database = {
         }
         Relationships: []
       }
+      produtos_catalogo: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          dimensoes: string | null
+          gramatura: string | null
+          id: string
+          nome_canonico: string
+          observacoes: string | null
+          updated_at: string
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          dimensoes?: string | null
+          gramatura?: string | null
+          id?: string
+          nome_canonico: string
+          observacoes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          dimensoes?: string | null
+          gramatura?: string | null
+          id?: string
+          nome_canonico?: string
+          observacoes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1588,6 +1621,7 @@ export type Database = {
           nome_produto: string
           preco_anterior: number | null
           preco_atual: number | null
+          produto_catalogo_id: string | null
           seletor_css: string | null
           timestamp_check: string | null
           tipo_fonte: string
@@ -1607,6 +1641,7 @@ export type Database = {
           nome_produto: string
           preco_anterior?: number | null
           preco_atual?: number | null
+          produto_catalogo_id?: string | null
           seletor_css?: string | null
           timestamp_check?: string | null
           tipo_fonte?: string
@@ -1626,13 +1661,22 @@ export type Database = {
           nome_produto?: string
           preco_anterior?: number | null
           preco_atual?: number | null
+          produto_catalogo_id?: string | null
           seletor_css?: string | null
           timestamp_check?: string | null
           tipo_fonte?: string
           updated_at?: string
           url_completa?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sites_monitorados_produto_catalogo_id_fkey"
+            columns: ["produto_catalogo_id"]
+            isOneToOne: false
+            referencedRelation: "produtos_catalogo"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       step_group_items: {
         Row: {

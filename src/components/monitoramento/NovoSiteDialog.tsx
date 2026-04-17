@@ -13,6 +13,7 @@ import {
   Sparkles, FileSpreadsheet, Code, Loader2, CheckCircle2, XCircle, FlaskConical, HelpCircle, Upload, Layers,
 } from "lucide-react";
 import { toast } from "sonner";
+import { findOrCreateCatalogo } from "@/lib/produtoCatalogo";
 
 const formatBRL = (v: number | null | undefined) =>
   v == null ? "—" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -142,6 +143,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     setSavingTiers(true);
     try {
       const minTier = [...tiersResult.tiers].sort((a, b) => a.quantidade - b.quantidade)[0];
+      const catalogoId = await findOrCreateCatalogo(tiersNome.trim(), categoria);
       const { data: site, error } = await supabase.from("sites_monitorados").insert({
         nome_produto: tiersNome.trim(),
         categoria: categoria.trim().toLowerCase() || "geral",
@@ -149,6 +151,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
         seletor_css: null,
         tipo_fonte: "url_tiers",
         fornecedor_nome: fornecedor.trim() || null,
+        produto_catalogo_id: catalogoId,
         preco_atual: minTier.preco_total,
         metodo_coleta: "firecrawl",
         intervalo_check_horas: 24,
@@ -197,6 +200,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
 
   const handleSaveAuto = async () => {
     if (!autoUrl || !autoNome) return toast.error("Detecte o preço e confirme o nome");
+    const catalogoId = await findOrCreateCatalogo(autoNome.trim(), categoria);
     const { error } = await supabase.from("sites_monitorados").insert({
       nome_produto: autoNome.trim(),
       categoria: categoria.trim().toLowerCase() || "geral",
@@ -204,6 +208,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
       seletor_css: null,
       tipo_fonte: "url_auto",
       fornecedor_nome: fornecedor.trim() || null,
+      produto_catalogo_id: catalogoId,
       preco_atual: autoResult?.ok ? autoResult.price : null,
     });
     if (error) return toast.error("Erro: " + error.message);
@@ -229,6 +234,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
 
   const handleSaveAdvanced = async () => {
     if (!advNome || !advUrl || !advSeletor) return toast.error("Preencha todos os campos");
+    const catalogoId = await findOrCreateCatalogo(advNome.trim(), categoria);
     const { error } = await supabase.from("sites_monitorados").insert({
       nome_produto: advNome.trim(),
       categoria: categoria.trim().toLowerCase() || "geral",
@@ -236,6 +242,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
       seletor_css: advSeletor.trim(),
       tipo_fonte: "url_seletor",
       fornecedor_nome: fornecedor.trim() || null,
+      produto_catalogo_id: catalogoId,
       preco_atual: advResult?.ok ? advResult.parsedPrice : null,
     });
     if (error) return toast.error("Erro: " + error.message);
@@ -317,10 +324,12 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
           }).eq("id", existingId);
           updated++;
         } else {
+          const catalogoId = await findOrCreateCatalogo(nome, categoria);
           await supabase.from("sites_monitorados").insert({
             nome_produto: nome, categoria: categoria.trim().toLowerCase() || "geral",
             url_completa: null, seletor_css: null, tipo_fonte: "excel",
             fornecedor_nome: fornecedor.trim(), preco_atual: preco,
+            produto_catalogo_id: catalogoId,
             codigo_externo: codigo || null, timestamp_check: new Date().toISOString(),
           });
           created++;
