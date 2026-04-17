@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { findOrCreateCatalogo } from "@/lib/produtoCatalogo";
+import SugestoesCatalogoInline from "./SugestoesCatalogoInline";
 
 const formatBRL = (v: number | null | undefined) =>
   v == null ? "—" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -69,6 +70,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const [autoNome, setAutoNome] = useState("");
   const [autoBusy, setAutoBusy] = useState(false);
   const [autoResult, setAutoResult] = useState<{ ok: boolean; price?: number; source?: string; title?: string; error?: string } | null>(null);
+  const [autoCatalogoId, setAutoCatalogoId] = useState<string | null>(null);
 
   // ===== MODO 2: URL com seletor (avançado) =====
   const [advUrl, setAdvUrl] = useState("");
@@ -98,12 +100,13 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     error?: string;
   } | null>(null);
   const [savingTiers, setSavingTiers] = useState(false);
+  const [tiersCatalogoId, setTiersCatalogoId] = useState<string | null>(null);
 
   const reset = () => {
-    setAutoUrl(""); setAutoNome(""); setAutoResult(null);
+    setAutoUrl(""); setAutoNome(""); setAutoResult(null); setAutoCatalogoId(null);
     setAdvUrl(""); setAdvNome(""); setAdvSeletor(""); setAdvResult(null);
     setFile(null); setParsed(null); setColNome(""); setColPreco(""); setColCodigo("__none__");
-    setTiersUrl(""); setTiersNome(""); setTiersResult(null);
+    setTiersUrl(""); setTiersNome(""); setTiersResult(null); setTiersCatalogoId(null);
   };
 
   // ---- TIERS handlers ----
@@ -143,7 +146,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     setSavingTiers(true);
     try {
       const minTier = [...tiersResult.tiers].sort((a, b) => a.quantidade - b.quantidade)[0];
-      const catalogoId = await findOrCreateCatalogo(tiersNome.trim(), categoria);
+      const catalogoId = tiersCatalogoId ?? await findOrCreateCatalogo(tiersNome.trim(), categoria);
       const { data: site, error } = await supabase.from("sites_monitorados").insert({
         nome_produto: tiersNome.trim(),
         categoria: categoria.trim().toLowerCase() || "geral",
@@ -200,7 +203,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
 
   const handleSaveAuto = async () => {
     if (!autoUrl || !autoNome) return toast.error("Detecte o preço e confirme o nome");
-    const catalogoId = await findOrCreateCatalogo(autoNome.trim(), categoria);
+    const catalogoId = autoCatalogoId ?? await findOrCreateCatalogo(autoNome.trim(), categoria);
     const { error } = await supabase.from("sites_monitorados").insert({
       nome_produto: autoNome.trim(),
       categoria: categoria.trim().toLowerCase() || "geral",
@@ -438,7 +441,16 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                 </div>
                 <div>
                   <Label>Nome do produto *</Label>
-                  <Input value={tiersNome} onChange={(e) => setTiersNome(e.target.value)} placeholder="Confirme ou edite" />
+                  <Input
+                    value={tiersNome}
+                    onChange={(e) => { setTiersNome(e.target.value); setTiersCatalogoId(null); }}
+                    placeholder="Confirme ou edite"
+                  />
+                  <SugestoesCatalogoInline
+                    nome={tiersNome}
+                    selectedId={tiersCatalogoId}
+                    onPick={(s) => { setTiersNome(s.nome_canonico); setTiersCatalogoId(s.id); }}
+                  />
                 </div>
               </>
             )}
@@ -485,7 +497,16 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
             )}
             <div>
               <Label>Nome do produto *</Label>
-              <Input value={autoNome} onChange={(e) => setAutoNome(e.target.value)} placeholder="Confirme ou edite o nome" />
+              <Input
+                value={autoNome}
+                onChange={(e) => { setAutoNome(e.target.value); setAutoCatalogoId(null); }}
+                placeholder="Confirme ou edite o nome"
+              />
+              <SugestoesCatalogoInline
+                nome={autoNome}
+                selectedId={autoCatalogoId}
+                onPick={(s) => { setAutoNome(s.nome_canonico); setAutoCatalogoId(s.id); }}
+              />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
