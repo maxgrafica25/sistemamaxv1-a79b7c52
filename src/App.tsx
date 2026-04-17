@@ -22,6 +22,7 @@ import PrecoImpressao from "./pages/PrecoImpressao";
 import Equipamentos from "./pages/Equipamentos";
 import Auditoria from "./pages/Auditoria";
 import Monitoramento from "./pages/Monitoramento";
+import Produtos from "./pages/Produtos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const App = () => (
               <Route path="/configuracoes" element={<Configuracoes />} />
               <Route path="/auditoria" element={<Auditoria />} />
               <Route path="/monitoramento" element={<Monitoramento />} />
+              <Route path="/produtos" element={<Produtos />} />
               <Route path="/chat" element={<Chat />} />
             </Route>
             <Route path="*" element={<NotFound />} />

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Package, Settings, Factory, Receipt, Calculator, Cpu, Shield, ClipboardList, MessageSquare, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Users, Package, Settings, Factory, Receipt, Calculator, Cpu, Shield, ClipboardList, MessageSquare, TrendingUp, BookOpen } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import NotificationBell from "./NotificationBell";
@@ -14,6 +14,7 @@ const navigation = [
   { name: "Despesas Fixas", href: "/despesas-fixas", icon: Receipt },
   { name: "Preço Impressão", href: "/preco-impressao", icon: Calculator },
   { name: "Monitoramento", href: "/monitoramento", icon: TrendingUp },
+  { name: "Catálogo Produtos", href: "/produtos", icon: BookOpen },
   { name: "Chat Interno", href: "/chat", icon: MessageSquare },
   { name: "Configurações", href: "/configuracoes", icon: Settings },
   { name: "Auditoria", href: "/auditoria", icon: Shield },
