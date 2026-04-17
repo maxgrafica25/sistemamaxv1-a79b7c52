@@ -31,6 +31,7 @@ type Site = {
   updated_at: string;
   metodo_coleta?: string;
   tipo_fonte?: string;
+  produto_catalogo_id?: string | null;
 };
 
 type Tier = {
@@ -172,21 +173,25 @@ export default function Monitoramento() {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [historicos, setHistoricos] = useState<Record<string, HistoricoPonto[]>>({});
   const [historicoTiers, setHistoricoTiers] = useState<HistoricoTier[]>([]);
+  const [produtosCatalogo, setProdutosCatalogo] = useState<ProdutoCatalogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterCategoria, setFilterCategoria] = useState<string>("all");
+  const [filterProduto, setFilterProduto] = useState<string>("all");
   const [openDialog, setOpenDialog] = useState(false);
+  const [openCatalogo, setOpenCatalogo] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [qtdAlvo, setQtdAlvo] = useState<number>(100);
   const [searchTerm, setSearchTerm] = useState<string>("");
 
   const fetchAll = async () => {
-    const [sitesRes, tiersRes, alertasRes, histRes, histTiersRes] = await Promise.all([
+    const [sitesRes, tiersRes, alertasRes, histRes, histTiersRes, catRes] = await Promise.all([
       supabase.from("sites_monitorados").select("*").order("created_at", { ascending: false }),
       supabase.from("site_precos_tiers").select("*").order("quantidade", { ascending: true }),
       supabase.from("alertas_precos").select("*").order("created_at", { ascending: false }).limit(50),
       supabase.from("historico_precos").select("*").order("criado_em", { ascending: true }).limit(2000),
       supabase.from("historico_precos_tiers").select("*").order("criado_em", { ascending: false }).limit(3000),
+      supabase.from("produtos_catalogo").select("*").order("nome_canonico"),
     ]);
     if (sitesRes.data) setSites(sitesRes.data as Site[]);
     if (tiersRes.data) setTiers(tiersRes.data as Tier[]);
