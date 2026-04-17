@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { findOrCreateCatalogo } from "@/lib/produtoCatalogo";
+import SugestoesCatalogoInline from "./SugestoesCatalogoInline";
 
 const formatBRL = (v: number | null | undefined) =>
   v == null ? "—" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
