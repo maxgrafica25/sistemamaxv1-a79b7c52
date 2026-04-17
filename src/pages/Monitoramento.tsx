@@ -489,6 +489,14 @@ export default function Monitoramento() {
             </SelectContent>
           </Select>
         </div>
+        <div className="flex items-center gap-2 flex-1 min-w-[200px] max-w-md">
+          <Label className="shrink-0">Buscar:</Label>
+          <Input
+            placeholder="Ex: panfleto, cartão, A4..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
       </div>
 
       <Tabs defaultValue="oportunidades">
