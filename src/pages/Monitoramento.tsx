@@ -656,7 +656,7 @@ export default function Monitoramento() {
           <Select value={String(qtdAlvo)} onValueChange={(v) => setQtdAlvo(Number(v))}>
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {QTD_OPTIONS.map((q) => (
+              {(qtdOptionsDisponiveis.length ? qtdOptionsDisponiveis : QTD_OPTIONS).map((q) => (
                 <SelectItem key={q} value={String(q)}>{q.toLocaleString("pt-BR")} un</SelectItem>
               ))}
             </SelectContent>
