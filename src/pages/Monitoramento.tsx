@@ -161,12 +161,46 @@ const SUPPLIER_PALETTE = [
   { bg: "hsl(0 70% 55% / 0.12)", border: "hsl(0 70% 48%)", text: "hsl(0 70% 35%)", solid: "hsl(0 70% 48%)" },         // vermelho
 ];
 
-const getSupplierColor = (name: string | null | undefined) => {
+const supplierHash = (name: string | null | undefined): number => {
   const key = (name || "—").trim().toLowerCase();
   let hash = 0;
   for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
-  return SUPPLIER_PALETTE[hash % SUPPLIER_PALETTE.length];
+  return hash;
 };
+
+const getSupplierColor = (name: string | null | undefined) =>
+  SUPPLIER_PALETTE[supplierHash(name) % SUPPLIER_PALETTE.length];
+
+/**
+ * Atribui cores únicas a uma lista de fornecedores, evitando colisões de hash.
+ * Se dois nomes caem no mesmo slot, o segundo desliza para o próximo livre.
+ * Quando há mais fornecedores do que cores na paleta, volta a permitir repetição.
+ */
+const assignUniqueSupplierColors = (
+  names: Array<string | null | undefined>,
+): Map<string, typeof SUPPLIER_PALETTE[number]> => {
+  const result = new Map<string, typeof SUPPLIER_PALETTE[number]>();
+  const used = new Set<number>();
+  const ordered = Array.from(new Set(names.map((n) => (n || "—").trim().toLowerCase())));
+  for (const key of ordered) {
+    let idx = supplierHash(key) % SUPPLIER_PALETTE.length;
+    if (used.size < SUPPLIER_PALETTE.length) {
+      let tries = 0;
+      while (used.has(idx) && tries < SUPPLIER_PALETTE.length) {
+        idx = (idx + 1) % SUPPLIER_PALETTE.length;
+        tries++;
+      }
+    }
+    used.add(idx);
+    result.set(key, SUPPLIER_PALETTE[idx]);
+  }
+  return result;
+};
+
+const colorFor = (
+  map: Map<string, typeof SUPPLIER_PALETTE[number]>,
+  name: string | null | undefined,
+) => map.get((name || "—").trim().toLowerCase()) || getSupplierColor(name);
 
 export default function Monitoramento() {
   const [sites, setSites] = useState<Site[]>([]);
@@ -718,7 +752,8 @@ export default function Monitoramento() {
           )}
           {oportunidades.map((grupo) => {
             const temConcorrencia = grupo.ofertas.length > 1;
-            const melhorCor = getSupplierColor(grupo.ofertas[0]?.site.fornecedor_nome);
+            const corMap = assignUniqueSupplierColors(grupo.ofertas.map((o) => o.site.fornecedor_nome));
+            const melhorCor = colorFor(corMap, grupo.ofertas[0]?.site.fornecedor_nome);
             return (
               <Card key={grupo.key} className="border-l-4" style={{ borderLeftColor: melhorCor.solid }}>
                 <CardHeader className="pb-2">
@@ -741,7 +776,7 @@ export default function Monitoramento() {
                   <div className="rounded border divide-y">
                     {grupo.ofertas.map((oferta, idx) => {
                       const isMelhor = idx === 0;
-                      const cor = getSupplierColor(oferta.site.fornecedor_nome);
+                      const cor = colorFor(corMap, oferta.site.fornecedor_nome);
                       return (
                         <div
                           key={oferta.site.id}
