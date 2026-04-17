@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { TrendingUp, TrendingDown, RefreshCw, Plus, Trash2, ExternalLink, Trophy, AlertTriangle, Wifi, WifiOff, HelpCircle, FlaskConical, CheckCircle2, XCircle } from "lucide-react";
-import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { LineChart, Line, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -515,7 +515,7 @@ export default function Monitoramento() {
                                 <LineChart data={hist}>
                                   <XAxis dataKey="criado_em" hide />
                                   <YAxis hide domain={["dataMin", "dataMax"]} />
-                                  <Tooltip
+                                  <RechartsTooltip
                                     formatter={(v: number) => formatBRL(v)}
                                     labelFormatter={(l) => new Date(l).toLocaleDateString("pt-BR")}
                                   />
