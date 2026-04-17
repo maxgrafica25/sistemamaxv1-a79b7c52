@@ -157,6 +157,15 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
           <DialogTitle>Catálogo de Produtos</DialogTitle>
         </DialogHeader>
 
+        <div className="rounded-md border bg-muted/40 p-3 text-xs space-y-1">
+          <p className="font-semibold">Como mesclar produtos iguais de fornecedores diferentes:</p>
+          <ol className="list-decimal pl-4 space-y-0.5 text-muted-foreground">
+            <li>Marque o <strong>checkbox</strong> de 2 ou mais produtos que são o mesmo item (ex: "Panfleto 10x14 90g" da ANS e "Flyer 14x10 90g" da Imprima Rápido).</li>
+            <li>Clique em <strong>"Mesclar selecionados"</strong>. O nome do <em>primeiro</em> da lista vira o nome canônico (você pode renomear depois com o lápis ✏️).</li>
+            <li>Os fornecedores vinculados aparecem em <strong>badges coloridos</strong> abaixo de cada produto. Use 🔗 para desvincular um específico.</li>
+          </ol>
+        </div>
+
         <div className="flex flex-wrap gap-2 items-center">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
