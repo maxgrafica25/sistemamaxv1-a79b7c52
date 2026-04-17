@@ -849,7 +849,7 @@ export default function Monitoramento() {
                                 )}
                               </CardDescription>
                             </div>
-                            {isMin && (
+                            {isMin && qtdAlvo !== 0 && (
                               <Badge style={{ backgroundColor: "hsl(var(--success))", color: "hsl(var(--success-foreground))" }}>
                                 <Trophy className="h-3 w-3" /> Melhor p/ {qtdAlvo}un
                               </Badge>
