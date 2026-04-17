@@ -261,57 +261,82 @@ export default function Monitoramento() {
     return map;
   }, [grupos, tiersBySite, qtdAlvo]);
 
-  // Score de oportunidade por site (top 5).
+  // Agrupa sites por produto normalizado (mesmo produto entre fornecedores).
+  // Aplica filtro de busca pelo nome do produto.
   const oportunidades = useMemo(() => {
-    type Opp = {
+    type OfertaFornecedor = {
       site: Site;
       tier: Tier;
-      score: number;
-      quedaPct: number;
-      sweetPct: number;
-      vantagemPct: number;
+      precoUnit: number;
+      precoTotal: number;
       isMinHist: boolean;
     };
-    const opps: Opp[] = [];
+    type GrupoProduto = {
+      key: string;
+      nomeExibicao: string;
+      ofertas: OfertaFornecedor[];
+      melhor: OfertaFornecedor;
+      economiaPct: number; // melhor vs pior
+    };
+
+    const search = stripAccents(searchTerm.toLowerCase().trim());
+    const groups = new Map<string, { nome: string; ofertas: OfertaFornecedor[] }>();
+
     for (const s of sites) {
+      // Filtro de busca: aceita se o termo aparecer no nome (ou no fornecedor)
+      if (search) {
+        const haystack = stripAccents(`${s.nome_produto} ${s.fornecedor_nome || ""}`.toLowerCase());
+        if (!haystack.includes(search)) continue;
+      }
       const siteTiers = tiersBySite[s.id] || [];
-      if (!siteTiers.length) continue;
-      const sweet = findSweetSpot(siteTiers);
-      const targetTier = sweet?.tier || getTierForQty(siteTiers, qtdAlvo);
-      if (!targetTier) continue;
+      const tier = getTierForQty(siteTiers, qtdAlvo);
+      if (!tier) continue;
 
-      // Queda vs último histórico do tier
-      const prev = prevHistByTier[targetTier.id];
-      const quedaPct = prev && prev > 0 && Number(targetTier.preco_total) < prev
-        ? ((prev - Number(targetTier.preco_total)) / prev) * 100
-        : 0;
+      const key = productKey(s.nome_produto);
+      if (!key) continue;
 
-      const sweetPct = sweet?.dropPct || 0;
+      const isMinHist = minHistByTier[tier.id] != null
+        && Number(tier.preco_total) <= minHistByTier[tier.id];
 
-      // Vantagem vs concorrência: média da categoria para a mesma quantidade
-      const sameCatSites = sites.filter((x) => x.categoria === s.categoria && x.id !== s.id);
-      const concorrentesUnit: number[] = [];
-      for (const c of sameCatSites) {
-        const ct = getTierForQty(tiersBySite[c.id] || [], targetTier.quantidade);
-        if (ct) concorrentesUnit.push(Number(ct.preco_unitario));
-      }
-      const mediaConc = concorrentesUnit.length
-        ? concorrentesUnit.reduce((a, b) => a + b, 0) / concorrentesUnit.length
-        : 0;
-      const vantagemPct = mediaConc > 0 && Number(targetTier.preco_unitario) < mediaConc
-        ? ((mediaConc - Number(targetTier.preco_unitario)) / mediaConc) * 100
-        : 0;
-
-      const isMinHist = minHistByTier[targetTier.id] != null
-        && Number(targetTier.preco_total) <= minHistByTier[targetTier.id];
-
-      const score = quedaPct * 0.5 + sweetPct * 0.3 + vantagemPct * 0.2;
-      if (score > 0 || isMinHist) {
-        opps.push({ site: s, tier: targetTier, score, quedaPct, sweetPct, vantagemPct, isMinHist });
-      }
+      const oferta: OfertaFornecedor = {
+        site: s,
+        tier,
+        precoUnit: Number(tier.preco_unitario),
+        precoTotal: Number(tier.preco_total),
+        isMinHist,
+      };
+      const cur = groups.get(key);
+      if (cur) cur.ofertas.push(oferta);
+      else groups.set(key, { nome: s.nome_produto, ofertas: [oferta] });
     }
-    return opps.sort((a, b) => b.score - a.score).slice(0, 5);
-  }, [sites, tiersBySite, prevHistByTier, minHistByTier, qtdAlvo]);
+
+    const result: GrupoProduto[] = [];
+    for (const [key, g] of groups) {
+      // Para cada fornecedor (site), pega só a MELHOR oferta dele neste grupo
+      // (caso o mesmo fornecedor apareça mais de uma vez)
+      const porFornecedor = new Map<string, OfertaFornecedor>();
+      for (const o of g.ofertas) {
+        const fid = o.site.fornecedor_nome || o.site.id;
+        const cur = porFornecedor.get(fid);
+        if (!cur || o.precoUnit < cur.precoUnit) porFornecedor.set(fid, o);
+      }
+      const ofertasUnicas = Array.from(porFornecedor.values())
+        .sort((a, b) => a.precoUnit - b.precoUnit);
+      if (!ofertasUnicas.length) continue;
+      const melhor = ofertasUnicas[0];
+      const pior = ofertasUnicas[ofertasUnicas.length - 1];
+      const economiaPct = pior.precoUnit > 0 && pior.precoUnit > melhor.precoUnit
+        ? ((pior.precoUnit - melhor.precoUnit) / pior.precoUnit) * 100
+        : 0;
+      result.push({ key, nomeExibicao: g.nome, ofertas: ofertasUnicas, melhor, economiaPct });
+    }
+
+    // Ordena: maior economia primeiro (oportunidades reais), depois por nome
+    return result.sort((a, b) => {
+      if (b.economiaPct !== a.economiaPct) return b.economiaPct - a.economiaPct;
+      return a.nomeExibicao.localeCompare(b.nomeExibicao);
+    });
+  }, [sites, tiersBySite, minHistByTier, qtdAlvo, searchTerm]);
 
   const lastSync = useMemo(() => {
     const dates = sites.map((s) => s.timestamp_check).filter(Boolean) as string[];
