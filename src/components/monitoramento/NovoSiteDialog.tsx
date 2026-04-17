@@ -45,35 +45,21 @@ const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
   return btoa(binary);
 };
 
-// Verifica se já existe um site cadastrado com a mesma URL OU
-// com o mesmo (fornecedor + produto canônico). Retorna mensagem ou null.
+// Verifica se já existe um site cadastrado com a MESMA URL.
+// Não bloqueia por fornecedor+produto canônico, pois o mesmo fornecedor pode
+// ter URLs diferentes para o mesmo produto (ex: faixas de quantidade distintas).
 const checkDuplicate = async (params: {
   url?: string | null;
-  fornecedor?: string | null;
-  produtoCatalogoId?: string | null;
 }): Promise<string | null> => {
   const url = params.url?.trim();
-  if (url) {
-    const { data } = await supabase
-      .from("sites_monitorados")
-      .select("id, nome_produto, fornecedor_nome")
-      .eq("url_completa", url)
-      .limit(1);
-    if (data && data.length > 0) {
-      return `Esta URL já está cadastrada como "${data[0].nome_produto}"${data[0].fornecedor_nome ? ` (${data[0].fornecedor_nome})` : ""}.`;
-    }
-  }
-  const fornecedor = params.fornecedor?.trim();
-  if (fornecedor && params.produtoCatalogoId) {
-    const { data } = await supabase
-      .from("sites_monitorados")
-      .select("id, nome_produto")
-      .eq("fornecedor_nome", fornecedor)
-      .eq("produto_catalogo_id", params.produtoCatalogoId)
-      .limit(1);
-    if (data && data.length > 0) {
-      return `O fornecedor "${fornecedor}" já tem este produto cadastrado como "${data[0].nome_produto}".`;
-    }
+  if (!url) return null;
+  const { data } = await supabase
+    .from("sites_monitorados")
+    .select("id, nome_produto, fornecedor_nome")
+    .eq("url_completa", url)
+    .limit(1);
+  if (data && data.length > 0) {
+    return `Esta URL já está cadastrada como "${data[0].nome_produto}"${data[0].fornecedor_nome ? ` (${data[0].fornecedor_nome})` : ""}.`;
   }
   return null;
 };
