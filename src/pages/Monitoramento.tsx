@@ -197,6 +197,7 @@ export default function Monitoramento() {
     if (tiersRes.data) setTiers(tiersRes.data as Tier[]);
     if (alertasRes.data) setAlertas(alertasRes.data as Alerta[]);
     if (histTiersRes.data) setHistoricoTiers(histTiersRes.data as HistoricoTier[]);
+    if (catRes.data) setProdutosCatalogo(catRes.data as ProdutoCatalogo[]);
     if (histRes.data) {
       const grouped: Record<string, HistoricoPonto[]> = {};
       for (const h of histRes.data as any[]) {
@@ -216,6 +217,7 @@ export default function Monitoramento() {
       .on("postgres_changes", { event: "*", schema: "public", table: "alertas_precos" }, fetchAll)
       .on("postgres_changes", { event: "*", schema: "public", table: "historico_precos" }, fetchAll)
       .on("postgres_changes", { event: "*", schema: "public", table: "historico_precos_tiers" }, fetchAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "produtos_catalogo" }, fetchAll)
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
