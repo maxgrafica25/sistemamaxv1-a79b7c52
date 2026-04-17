@@ -379,7 +379,7 @@ export default function Monitoramento() {
       if (b.economiaPct !== a.economiaPct) return b.economiaPct - a.economiaPct;
       return a.nomeExibicao.localeCompare(b.nomeExibicao);
     });
-  }, [sites, tiersBySite, minHistByTier, qtdAlvo, searchTerm]);
+  }, [sites, tiersBySite, minHistByTier, qtdAlvo, searchTerm, filterProduto, produtosCatalogo]);
 
   const lastSync = useMemo(() => {
     const dates = sites.map((s) => s.timestamp_check).filter(Boolean) as string[];
