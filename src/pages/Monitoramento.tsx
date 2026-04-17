@@ -394,7 +394,9 @@ export default function Monitoramento() {
 
   // Se a quantidade-alvo atual não existe nas opções disponíveis, ajusta automaticamente
   // para a mais próxima (preferindo a maior <= alvo, ou a menor disponível).
+  // qtdAlvo === 0 representa "Todas as unidades" e nunca é ajustado.
   useEffect(() => {
+    if (qtdAlvo === 0) return;
     if (!qtdOptionsDisponiveis.length) return;
     if (qtdOptionsDisponiveis.includes(qtdAlvo)) return;
     const menorOuIgual = [...qtdOptionsDisponiveis].filter((q) => q <= qtdAlvo).pop();
@@ -437,11 +439,12 @@ export default function Monitoramento() {
         if (!haystack.includes(search)) continue;
       }
       const siteTiers = tiersBySite[s.id] || [];
-      // Só considera ofertas com tier EXATO para a quantidade alvo —
-      // assim a aba Oportunidades nunca mostra um preço de outra faixa
-      // como se fosse o preço da quantidade selecionada.
-      const tier = siteTiers.find((t) => t.quantidade === qtdAlvo) || null;
-      if (!tier) continue;
+      // qtdAlvo === 0 → "Todas as unidades": considera todos os tiers do site.
+      // Caso contrário, só ofertas com tier EXATO para a quantidade alvo.
+      const tiersConsiderados = qtdAlvo === 0
+        ? siteTiers
+        : siteTiers.filter((t) => t.quantidade === qtdAlvo);
+      if (!tiersConsiderados.length) continue;
 
       // Chave de agrupamento: usa o produto_catalogo_id quando disponível,
       // cai para a normalização heurística (`productKey`) para registros antigos.
@@ -453,28 +456,34 @@ export default function Monitoramento() {
       const nomeExibicao = (s.produto_catalogo_id && nomeCatalogo[s.produto_catalogo_id])
         || s.nome_produto;
 
-      const isMinHist = minHistByTier[tier.id] != null
-        && Number(tier.preco_total) <= minHistByTier[tier.id];
+      for (const tier of tiersConsiderados) {
+        const isMinHist = minHistByTier[tier.id] != null
+          && Number(tier.preco_total) <= minHistByTier[tier.id];
 
-      const oferta: OfertaFornecedor = {
-        site: s,
-        tier,
-        precoUnit: Number(tier.preco_unitario),
-        precoTotal: Number(tier.preco_total),
-        isMinHist,
-      };
-      const cur = groups.get(key);
-      if (cur) cur.ofertas.push(oferta);
-      else groups.set(key, { nome: nomeExibicao, ofertas: [oferta] });
+        const oferta: OfertaFornecedor = {
+          site: s,
+          tier,
+          precoUnit: Number(tier.preco_unitario),
+          precoTotal: Number(tier.preco_total),
+          isMinHist,
+        };
+        const cur = groups.get(key);
+        if (cur) cur.ofertas.push(oferta);
+        else groups.set(key, { nome: nomeExibicao, ofertas: [oferta] });
+      }
     }
 
     const result: GrupoProduto[] = [];
     for (const [key, g] of groups) {
       // Para cada fornecedor (site), pega só a MELHOR oferta dele neste grupo
-      // (caso o mesmo fornecedor apareça mais de uma vez)
+      // (caso o mesmo fornecedor apareça mais de uma vez).
+      // Em modo "Todas as unidades", agrupa por fornecedor + quantidade do tier
+      // para preservar uma linha por faixa de cada fornecedor.
       const porFornecedor = new Map<string, OfertaFornecedor>();
       for (const o of g.ofertas) {
-        const fid = o.site.fornecedor_nome || o.site.id;
+        const fid = qtdAlvo === 0
+          ? `${o.site.fornecedor_nome || o.site.id}::${o.tier.quantidade}`
+          : (o.site.fornecedor_nome || o.site.id);
         const cur = porFornecedor.get(fid);
         if (!cur || o.precoTotal < cur.precoTotal) porFornecedor.set(fid, o);
       }
@@ -668,6 +677,7 @@ export default function Monitoramento() {
           <Select value={String(qtdAlvo)} onValueChange={(v) => setQtdAlvo(Number(v))}>
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="0">Todas as unidades</SelectItem>
               {(qtdOptionsDisponiveis.length ? qtdOptionsDisponiveis : QTD_OPTIONS).map((q) => (
                 <SelectItem key={q} value={String(q)}>{q.toLocaleString("pt-BR")} un</SelectItem>
               ))}
@@ -717,7 +727,7 @@ export default function Monitoramento() {
                       <CardTitle className="text-base">{grupo.nomeExibicao}</CardTitle>
                       <CardDescription>
                         {grupo.ofertas.length} {grupo.ofertas.length === 1 ? "fornecedor" : "fornecedores"} · comparando para{" "}
-                        <strong>{qtdAlvo.toLocaleString("pt-BR")} un</strong>
+                        <strong>{qtdAlvo === 0 ? "todas as unidades" : `${qtdAlvo.toLocaleString("pt-BR")} un`}</strong>
                       </CardDescription>
                     </div>
                     {temConcorrencia && grupo.economiaPct > 0 && (
@@ -804,7 +814,7 @@ export default function Monitoramento() {
                 <div className="flex items-baseline justify-between">
                   <h3 className="text-lg font-semibold capitalize">{cat}</h3>
                   <span className="text-xs text-muted-foreground">
-                    Comparando para <strong>{qtdAlvo.toLocaleString("pt-BR")} un</strong>
+                    Comparando para <strong>{qtdAlvo === 0 ? "todas as unidades" : `${qtdAlvo.toLocaleString("pt-BR")} un`}</strong>
                   </span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -839,7 +849,7 @@ export default function Monitoramento() {
                                 )}
                               </CardDescription>
                             </div>
-                            {isMin && (
+                            {isMin && qtdAlvo !== 0 && (
                               <Badge style={{ backgroundColor: "hsl(var(--success))", color: "hsl(var(--success-foreground))" }}>
                                 <Trophy className="h-3 w-3" /> Melhor p/ {qtdAlvo}un
                               </Badge>
@@ -849,7 +859,7 @@ export default function Monitoramento() {
                         <CardContent className="space-y-3">
                           {hasTiers ? (
                             <>
-                              {tierAlvo && (
+                              {tierAlvo && qtdAlvo !== 0 && (
                                 <div className="rounded bg-muted/50 px-2 py-1.5 text-xs flex items-center justify-between">
                                   <span className="text-muted-foreground">Para {qtdAlvo}un usa faixa <strong className="text-foreground">{tierAlvo.quantidade}un</strong>:</span>
                                   <span className="font-semibold">{formatBRL(Number(tierAlvo.preco_unitario))}/un</span>
