@@ -75,16 +75,28 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
     setSelected(next);
   };
 
+  const [mergeMasterId, setMergeMasterId] = useState<string | null>(null);
+
   const handleMerge = async () => {
-    if (selected.size < 2) return toast.error("Selecione pelo menos 2 produtos para mesclar");
+    if (selected.size < 2) return toast.error("Selecione pelo menos 2 produtos para unificar");
+    if (!mergeMasterId || !selected.has(mergeMasterId)) {
+      return toast.error("Escolha qual nome será mantido (clique no radio do produto principal)");
+    }
     const ids = Array.from(selected);
-    // Master = primeiro da lista filtrada que esteja selecionado (mantém o nome do master)
-    const master = filtered.find((p) => selected.has(p.id)) || produtos.find((p) => p.id === ids[0])!;
+    const master = produtos.find((p) => p.id === mergeMasterId)!;
     const others = ids.filter((id) => id !== master.id);
-    if (!confirm(`Mesclar ${ids.length} produtos em "${master.nome_canonico}"? Os demais serão apagados e os sites vinculados migrados.`)) return;
+    const totalSites = others.reduce((acc, id) => acc + (sitesByProduto[id]?.length || 0), 0);
+
+    if (!confirm(
+      `Unificar ${ids.length} produtos em "${master.nome_canonico}"?\n\n` +
+      `• ${totalSites} site(s) vinculados serão migrados\n` +
+      `• ${others.length} entrada(s) duplicada(s) do catálogo serão excluídas\n` +
+      `• Os links/preços/fornecedores de cada site são preservados`
+    )) return;
 
     setBusy(true);
     try {
+      // Migra apenas o vínculo (produto_catalogo_id). URL, preço, fornecedor permanecem intactos.
       const { error: upErr } = await supabase
         .from("sites_monitorados")
         .update({ produto_catalogo_id: master.id })
@@ -97,12 +109,13 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
         .in("id", others);
       if (delErr) throw delErr;
 
-      toast.success(`${others.length} produto(s) mesclado(s) em "${master.nome_canonico}"`);
+      toast.success(`Unificado em "${master.nome_canonico}" — ${totalSites} site(s) agrupados`);
       setSelected(new Set());
+      setMergeMasterId(null);
       await fetchAll();
       onChanged();
     } catch (e: any) {
-      toast.error("Erro ao mesclar: " + e.message);
+      toast.error("Erro ao unificar: " + e.message);
     } finally {
       setBusy(false);
     }
