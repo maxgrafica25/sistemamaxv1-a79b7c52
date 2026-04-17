@@ -167,11 +167,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     try {
       const minTier = [...tiersResult.tiers].sort((a, b) => a.quantidade - b.quantidade)[0];
       const catalogoId = catalogoIdOverride ?? await findOrCreateCatalogo(nomeFinal, categoria);
-      const dup = await checkDuplicate({
-        url: tiersUrl.trim(),
-        fornecedor: fornecedor.trim() || null,
-        produtoCatalogoId: catalogoId,
-      });
+      const dup = await checkDuplicate({ url: tiersUrl.trim() });
       if (dup) {
         toast.error(dup);
         setSavingTiers(false);
@@ -240,11 +236,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     const nomeFinal = (nomeOverride ?? autoNome).trim();
     if (!autoUrl || !nomeFinal) return toast.error("Detecte o preço e confirme o nome");
     const catalogoId = catalogoIdOverride ?? await findOrCreateCatalogo(nomeFinal, categoria);
-    const dup = await checkDuplicate({
-      url: autoUrl.trim(),
-      fornecedor: fornecedor.trim() || null,
-      produtoCatalogoId: catalogoId,
-    });
+    const dup = await checkDuplicate({ url: autoUrl.trim() });
     if (dup) return toast.error(dup);
     const { error } = await supabase.from("sites_monitorados").insert({
       nome_produto: nomeFinal,
@@ -285,11 +277,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const handleSaveAdvanced = async () => {
     if (!advNome || !advUrl || !advSeletor) return toast.error("Preencha todos os campos");
     const catalogoId = await findOrCreateCatalogo(advNome.trim(), categoria);
-    const dup = await checkDuplicate({
-      url: advUrl.trim(),
-      fornecedor: fornecedor.trim() || null,
-      produtoCatalogoId: catalogoId,
-    });
+    const dup = await checkDuplicate({ url: advUrl.trim() });
     if (dup) return toast.error(dup);
     const { error } = await supabase.from("sites_monitorados").insert({
       nome_produto: advNome.trim(),
