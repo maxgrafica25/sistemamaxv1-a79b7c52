@@ -70,6 +70,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const [autoNome, setAutoNome] = useState("");
   const [autoBusy, setAutoBusy] = useState(false);
   const [autoResult, setAutoResult] = useState<{ ok: boolean; price?: number; source?: string; title?: string; error?: string } | null>(null);
+  const [autoCatalogoId, setAutoCatalogoId] = useState<string | null>(null);
 
   // ===== MODO 2: URL com seletor (avançado) =====
   const [advUrl, setAdvUrl] = useState("");
