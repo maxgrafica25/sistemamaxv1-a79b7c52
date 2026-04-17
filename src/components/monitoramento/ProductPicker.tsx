@@ -77,28 +77,34 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
           <Command>
             <CommandInput
-              placeholder="Digite o nome do produto..."
+              placeholder="Buscar produto existente..."
               value={search}
               onValueChange={setSearch}
             />
+            <div className="border-b p-2">
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  const nome = trimmedSearch || window.prompt("Digite o nome do novo produto:")?.trim() || "";
+                  if (!nome) return;
+                  onChange({ id: null, name: nome });
+                  setOpen(false);
+                  setSearch("");
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                {trimmedSearch ? `Cadastrar: "${trimmedSearch}"` : "Cadastrar novo nome"}
+              </Button>
+            </div>
             <CommandList>
               <CommandEmpty>
                 <p className="py-6 text-sm text-muted-foreground text-center">
-                  {trimmedSearch ? "Digite para criar um novo produto." : "Digite para buscar ou criar."}
+                  Nenhum produto encontrado. Use o botão acima para cadastrar.
                 </p>
               </CommandEmpty>
-              {trimmedSearch && !hasExactMatch && (
-                <CommandGroup heading="Criar novo">
-                  <CommandItem
-                    value={`__create__${trimmedSearch}`}
-                    onSelect={handleCreateNew}
-                    className="text-primary"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span className="flex-1 truncate">Cadastrar: "{trimmedSearch}"</span>
-                  </CommandItem>
-                </CommandGroup>
-              )}
               {produtos.length > 0 && (
                 <CommandGroup heading="Produtos do catálogo">
                   {produtos.map((p) => (
