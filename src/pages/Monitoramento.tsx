@@ -310,7 +310,15 @@ export default function Monitoramento() {
     const search = stripAccents(searchTerm.toLowerCase().trim());
     const groups = new Map<string, { nome: string; ofertas: OfertaFornecedor[] }>();
 
+    // Mapa rápido: id_catalogo → nome canônico (para exibição)
+    const nomeCatalogo: Record<string, string> = {};
+    for (const p of produtosCatalogo) nomeCatalogo[p.id] = p.nome_canonico;
+
     for (const s of sites) {
+      // Filtro de produto canônico (dropdown)
+      if (filterProduto !== "all") {
+        if ((s.produto_catalogo_id || "") !== filterProduto) continue;
+      }
       // Filtro de busca: aceita se o termo aparecer no nome (ou no fornecedor)
       if (search) {
         const haystack = stripAccents(`${s.nome_produto} ${s.fornecedor_nome || ""}`.toLowerCase());
@@ -320,8 +328,15 @@ export default function Monitoramento() {
       const tier = getTierForQty(siteTiers, qtdAlvo);
       if (!tier) continue;
 
-      const key = productKey(s.nome_produto);
+      // Chave de agrupamento: usa o produto_catalogo_id quando disponível,
+      // cai para a normalização heurística (`productKey`) para registros antigos.
+      const key = s.produto_catalogo_id
+        ? `cat:${s.produto_catalogo_id}`
+        : productKey(s.nome_produto);
       if (!key) continue;
+
+      const nomeExibicao = (s.produto_catalogo_id && nomeCatalogo[s.produto_catalogo_id])
+        || s.nome_produto;
 
       const isMinHist = minHistByTier[tier.id] != null
         && Number(tier.preco_total) <= minHistByTier[tier.id];
@@ -335,7 +350,7 @@ export default function Monitoramento() {
       };
       const cur = groups.get(key);
       if (cur) cur.ofertas.push(oferta);
-      else groups.set(key, { nome: s.nome_produto, ofertas: [oferta] });
+      else groups.set(key, { nome: nomeExibicao, ofertas: [oferta] });
     }
 
     const result: GrupoProduto[] = [];
