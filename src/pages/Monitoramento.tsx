@@ -468,10 +468,10 @@ export default function Monitoramento() {
       for (const o of g.ofertas) {
         const fid = o.site.fornecedor_nome || o.site.id;
         const cur = porFornecedor.get(fid);
-        if (!cur || o.precoUnit < cur.precoUnit) porFornecedor.set(fid, o);
+        if (!cur || o.precoTotal < cur.precoTotal) porFornecedor.set(fid, o);
       }
       const ofertasUnicas = Array.from(porFornecedor.values())
-        .sort((a, b) => a.precoUnit - b.precoUnit);
+        .sort((a, b) => a.precoTotal - b.precoTotal);
       if (!ofertasUnicas.length) continue;
       const melhor = ofertasUnicas[0];
       const pior = ofertasUnicas[ofertasUnicas.length - 1];
