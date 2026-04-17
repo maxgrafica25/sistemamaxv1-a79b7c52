@@ -727,7 +727,7 @@ export default function Monitoramento() {
                       <CardTitle className="text-base">{grupo.nomeExibicao}</CardTitle>
                       <CardDescription>
                         {grupo.ofertas.length} {grupo.ofertas.length === 1 ? "fornecedor" : "fornecedores"} · comparando para{" "}
-                        <strong>{qtdAlvo.toLocaleString("pt-BR")} un</strong>
+                        <strong>{qtdAlvo === 0 ? "todas as unidades" : `${qtdAlvo.toLocaleString("pt-BR")} un`}</strong>
                       </CardDescription>
                     </div>
                     {temConcorrencia && grupo.economiaPct > 0 && (
@@ -814,7 +814,7 @@ export default function Monitoramento() {
                 <div className="flex items-baseline justify-between">
                   <h3 className="text-lg font-semibold capitalize">{cat}</h3>
                   <span className="text-xs text-muted-foreground">
-                    Comparando para <strong>{qtdAlvo.toLocaleString("pt-BR")} un</strong>
+                    Comparando para <strong>{qtdAlvo === 0 ? "todas as unidades" : `${qtdAlvo.toLocaleString("pt-BR")} un`}</strong>
                   </span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
