@@ -509,65 +509,91 @@ export default function Monitoramento() {
           <TabsTrigger value="alertas">Alertas {alertasNaoLidos > 0 && `(${alertasNaoLidos})`}</TabsTrigger>
         </TabsList>
 
-        {/* === OPORTUNIDADES === */}
+        {/* === OPORTUNIDADES === Comparação produto-a-produto entre fornecedores === */}
         <TabsContent value="oportunidades" className="space-y-3">
           {oportunidades.length === 0 && (
             <Card><CardContent className="py-10 text-center text-muted-foreground space-y-2">
-              <p>Nenhuma oportunidade no momento.</p>
+              <p>Nenhum produto encontrado para comparar.</p>
               <p className="text-xs">
-                Clique em <strong>Atualizar todos</strong> para coletar preços. As oportunidades aparecem após 2+ atualizações
-                (precisamos de histórico para detectar quedas).
+                {searchTerm
+                  ? "Tente ajustar a busca ou cadastre o mesmo produto em mais de um fornecedor."
+                  : "Cadastre o mesmo produto em fornecedores diferentes para ver a comparação automática."}
               </p>
             </CardContent></Card>
           )}
-          {oportunidades.map((opp, idx) => (
-            <Card key={opp.site.id + opp.tier.id} className="border-l-4" style={{ borderLeftColor: "hsl(var(--primary))" }}>
-              <CardContent className="py-4 flex flex-wrap items-center gap-4 justify-between">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
-                    {idx + 1}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-semibold truncate">{opp.site.nome_produto}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {opp.site.fornecedor_nome || "—"} · <span className="font-mono">{opp.tier.quantidade} un</span> ·{" "}
-                      <span className="font-semibold text-foreground">{formatBRL(Number(opp.tier.preco_total))}</span>{" "}
-                      ({formatBRL(Number(opp.tier.preco_unitario))}/un)
+          {oportunidades.map((grupo) => {
+            const temConcorrencia = grupo.ofertas.length > 1;
+            return (
+              <Card key={grupo.key} className="border-l-4" style={{ borderLeftColor: "hsl(var(--primary))" }}>
+                <CardHeader className="pb-2">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <CardTitle className="text-base">{grupo.nomeExibicao}</CardTitle>
+                      <CardDescription>
+                        {grupo.ofertas.length} {grupo.ofertas.length === 1 ? "fornecedor" : "fornecedores"} · comparando para{" "}
+                        <strong>{qtdAlvo.toLocaleString("pt-BR")} un</strong>
+                      </CardDescription>
                     </div>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {opp.quedaPct > 0 && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          <TrendingDown className="h-3 w-3 mr-0.5" /> Caiu {opp.quedaPct.toFixed(1)}%
-                        </Badge>
-                      )}
-                      {opp.sweetPct > 0 && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          <Target className="h-3 w-3 mr-0.5" /> Sweet spot {opp.sweetPct.toFixed(1)}%
-                        </Badge>
-                      )}
-                      {opp.vantagemPct > 0 && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          <Trophy className="h-3 w-3 mr-0.5" /> {opp.vantagemPct.toFixed(1)}% abaixo da média
-                        </Badge>
-                      )}
-                      {opp.isMinHist && (
-                        <Badge style={{ backgroundColor: "hsl(var(--success))", color: "hsl(var(--success-foreground))" }} className="text-[10px]">
-                          <Flame className="h-3 w-3 mr-0.5" /> Mínimo histórico
-                        </Badge>
-                      )}
-                    </div>
+                    {temConcorrencia && grupo.economiaPct > 0 && (
+                      <Badge style={{ backgroundColor: "hsl(var(--success))", color: "hsl(var(--success-foreground))" }}>
+                        <Sparkles className="h-3 w-3 mr-0.5" /> Economia até {grupo.economiaPct.toFixed(1)}%
+                      </Badge>
+                    )}
                   </div>
-                </div>
-                {opp.site.url_completa && (
-                  <Button asChild>
-                    <a href={opp.site.url_completa} target="_blank" rel="noreferrer">
-                      <ShoppingCart className="h-4 w-4" /> Comprar agora
-                    </a>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="rounded border divide-y">
+                    {grupo.ofertas.map((oferta, idx) => {
+                      const isMelhor = idx === 0;
+                      return (
+                        <div
+                          key={oferta.site.id}
+                          className={`flex flex-wrap items-center gap-3 px-3 py-2 ${isMelhor ? "bg-success/5" : ""}`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {isMelhor ? (
+                              <Trophy className="h-4 w-4 shrink-0" style={{ color: "hsl(var(--success))" }} />
+                            ) : (
+                              <span className="h-4 w-4 shrink-0 text-center text-xs text-muted-foreground">{idx + 1}</span>
+                            )}
+                            <div className="min-w-0">
+                              <div className="font-medium text-sm truncate">
+                                {oferta.site.fornecedor_nome || "—"}
+                                {isMelhor && temConcorrencia && (
+                                  <Badge className="ml-2 text-[10px]" style={{ backgroundColor: "hsl(var(--success))", color: "hsl(var(--success-foreground))" }}>
+                                    Mais barato
+                                  </Badge>
+                                )}
+                                {oferta.isMinHist && (
+                                  <Badge variant="secondary" className="ml-1 text-[10px]">
+                                    <Flame className="h-3 w-3 mr-0.5" /> Mín. histórico
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {oferta.site.nome_produto} · faixa {oferta.tier.quantidade}un
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="font-semibold tabular-nums">{formatBRL(oferta.precoTotal)}</div>
+                            <div className="text-xs text-muted-foreground tabular-nums">{formatBRL(oferta.precoUnit)}/un</div>
+                          </div>
+                          {oferta.site.url_completa && (
+                            <Button size="sm" variant={isMelhor ? "default" : "outline"} asChild>
+                              <a href={oferta.site.url_completa} target="_blank" rel="noreferrer">
+                                <ShoppingCart className="h-4 w-4" /> Comprar
+                              </a>
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </TabsContent>
 
         {/* === COMPARATIVO === */}
