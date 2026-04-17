@@ -202,7 +202,7 @@ export default function Monitoramento() {
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">
             {workerOnline ? (
-              <Wifi className="h-4 w-4 text-green-500" />
+              <Wifi className="h-4 w-4" style={{ color: "hsl(var(--success))" }} />
             ) : (
               <WifiOff className="h-4 w-4 text-muted-foreground" />
             )}
