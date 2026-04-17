@@ -84,20 +84,11 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
             <CommandList>
               <CommandEmpty>
                 {trimmedSearch ? (
-                  <div className="py-3 px-2 text-center space-y-2">
-                    <p className="text-sm text-muted-foreground">Nenhum produto encontrado.</p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="default"
-                      className="gap-1.5"
-                      onClick={handleCreateNew}
-                    >
-                      <Plus className="h-3.5 w-3.5" /> Criar "{trimmedSearch}"
-                    </Button>
-                  </div>
+                  <p className="py-3 text-sm text-muted-foreground text-center">
+                    Nenhum produto encontrado. Use o botão abaixo para cadastrar.
+                  </p>
                 ) : (
-                  <p className="py-6 text-sm text-muted-foreground">Digite para buscar ou criar.</p>
+                  <p className="py-6 text-sm text-muted-foreground text-center">Digite para buscar ou criar.</p>
                 )}
               </CommandEmpty>
               <CommandGroup>
@@ -117,22 +108,21 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
                   </CommandItem>
                 ))}
               </CommandGroup>
-              {trimmedSearch && !hasExactMatch && (
-                <>
-                  <CommandSeparator />
-                  <CommandGroup>
-                    <CommandItem
-                      value={`__criar__${trimmedSearch}`}
-                      onSelect={handleCreateNew}
-                      className="text-primary"
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span className="flex-1 truncate">Criar "{trimmedSearch}"</span>
-                    </CommandItem>
-                  </CommandGroup>
-                </>
-              )}
             </CommandList>
+            {trimmedSearch && !hasExactMatch && (
+              <div className="border-t p-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="default"
+                  className="w-full gap-1.5 justify-start"
+                  onClick={handleCreateNew}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span className="truncate">Cadastrar novo: "{trimmedSearch}"</span>
+                </Button>
+              </div>
+            )}
           </Command>
         </PopoverContent>
       </Popover>
