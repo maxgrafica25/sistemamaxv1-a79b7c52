@@ -1,84 +1,47 @@
 
-## Ajustes ao plano anterior
+## Diagnóstico
 
-Dois pontos do feedback mudam a abordagem:
+O Firecrawl + LLM está alucinando os tiers do Atual Card. A página real tem quantidades em **milhares** (1.000, 2.500, 5.000... até 1.000.000), mas o extrator devolveu 1, 10, 20, 50, 100, 500 — valores que não existem na página. Causa raiz: o prompt sugere "ex: 1un, 10un, 20un, 50un" e o modelo segue esse padrão em vez de ler a tabela real. Some-se a isso `onlyMainContent: true`, que pode estar cortando a tabela de preços do Atual Card (que fica numa coluna lateral).
 
-### 1. Fornecedor automático
-Ao colar a URL, o `detect-price-tiers` (Firecrawl) já retorna `fornecedor` (extraído da página). Hoje o `NovoSiteDialog` não usa esse campo automaticamente — vou:
-- Auto-preencher `fornecedor_nome` com o valor retornado
-- Se vazio, fallback para o **domínio da URL** (ex: `ans.com.br` → "ANS")
-- Campo continua editável caso o usuário queira ajustar
+## Solução
 
-### 2. Atualização sob demanda + histórico
-Remover a lógica de "queda nos últimos 7 dias" e o cron diário. Em vez disso:
-- **Botão "Atualizar todos"** no topo da página Monitoramento → varre todos os sites ativos via Firecrawl
-- **Botão "Atualizar"** por card (já existe parcialmente) → atualiza só aquele
-- Cada atualização gera registro em `historico_precos_tiers` (já existe)
-- Ranking de oportunidades passa a usar **comparação vs último valor histórico de cada tier** (não janela de 7d)
+### 1. Reescrever prompt + schema para forçar fidelidade
+- **Remover exemplos numéricos** do prompt (eles enviesam o LLM).
+- Instruir explicitamente: "NÃO invente valores. Se não houver tabela visível, retorne `tiers: []`."
+- Pedir para extrair também a **string bruta** de cada linha (campo `texto_original`) — usado para validação posterior.
+- Exigir que `quantidade` e `preco_total` venham **exatamente como aparecem** (sem arredondar nem normalizar).
 
-## Mudanças
+### 2. Buscar HTML completo, não só "main content"
+- Trocar `onlyMainContent: true` → `false`. A tabela de tiers no Atual Card fica em bloco separado do conteúdo principal e está sendo descartada.
+- Adicionar `waitFor: 2000` para sites com JS (Atual Card carrega tiers dinamicamente).
 
-### Frontend
-
-**`src/components/monitoramento/NovoSiteDialog.tsx`** (aba "Tabela auto"):
-- Após `detect-price-tiers` retornar, setar `fornecedor` automaticamente
-- Helper `extractDomainName(url)` como fallback
-- Mostrar campo já preenchido (editável) com label "Fornecedor (detectado)"
-
-**`src/pages/Monitoramento.tsx`**:
-- Remover `useEffect` de auto-sync diário (se houver)
-- Manter botão "Sincronizar todos" no topo (chama `scheduled-sync-firecrawl` sem `site_id`)
-- Manter botão "Sync" por card
-- **Score de oportunidade** recalculado:
-  ```text
-  Score = (queda_vs_ultimo_historico × 0.5)
-        + (sweet_spot_pct × 0.3)
-        + (vantagem_vs_concorrente_pct × 0.2)
-  ```
-  Onde `queda_vs_ultimo_historico` compara `preco_total` atual com o último registro em `historico_precos_tiers` para aquele tier.
-
-### Backend
-
-**`supabase/functions/scheduled-sync-firecrawl/index.ts`**:
-- Quando chamado **sem** `site_id` (varredura geral), **ignorar** `intervalo_check_horas` (era o gate do cron). Sempre que o usuário clica "Atualizar todos", roda tudo.
-- Manter respeito a `ativo = true`
-
-**Cron job** (se foi criado):
-- **Remover** o agendamento `pg_cron` diário. Sistema passa a ser 100% on-demand.
-
-### Restante do plano anterior (mantém)
-Tudo do plano de "5 melhores oportunidades / sweet spot / preço por quantidade / mínimo histórico / margem de revenda" segue válido — só muda a fonte do "queda recente" (último histórico em vez de 7d) e a forma de disparar (botão em vez de cron).
-
-## Diagrama atualizado
+### 3. Pipeline de validação em 2 passos
+Em vez de confiar 100% no JSON do LLM:
 
 ```text
-[Cola URL] ──► detect-price-tiers
-                 │
-                 ▼
-   { produto, fornecedor, tiers }  ← fornecedor auto-preenchido
-                 │
-                 ▼
-            [Salvar]
-                 │
-                 ▼
-    sites_monitorados + tiers iniciais
-                 
-[Botão "Atualizar todos"] ──► scheduled-sync-firecrawl (sem site_id)
-                                │
-                                ▼
-                  Para cada site ativo: Firecrawl
-                                │
-                                ▼
-                  sync-prices-webhook → upsert tiers
-                                │
-                                ▼
-                  trigger handle_tier_price_change
-                                │
-                                ▼
-                  historico_precos_tiers + alertas + sino
+Passo 1: scrape com formats: ['markdown', { type: 'json', ... }]
+Passo 2: validar cada tier do JSON contra o markdown bruto:
+         - quantidade existe no texto? (busca por "1.000" / "1000")
+         - preco_total existe no texto? (busca por "93,00" / "93.00")
+         Se NÃO existir → descarta o tier (alucinação)
 ```
+
+Isso elimina valores inventados sem depender do LLM ser perfeito.
+
+### 4. UI: mostrar aviso quando houver descarte
+No `NovoSiteDialog` (aba "Tabela auto"):
+- Se nenhum tier sobreviver à validação: erro claro "Não foi possível detectar tiers reais nesta URL — verifique se a página tem tabela de preços visível ou use a aba Planilha".
+- Se alguns sobreviverem: badge "✓ X faixas validadas" ao lado do contador.
+
+### 5. Mesma correção em `scheduled-sync-firecrawl`
+A função de atualização periódica usa o mesmo padrão de extração — aplicar idênticas mudanças (prompt, `onlyMainContent: false`, validação contra markdown) para não corromper o histórico com valores fantasiosos.
+
+## Arquivos afetados
+
+- `supabase/functions/detect-price-tiers/index.ts` — novo prompt + validação cruzada com markdown
+- `supabase/functions/scheduled-sync-firecrawl/index.ts` — mesma lógica de extração/validação
+- `src/components/monitoramento/NovoSiteDialog.tsx` — mensagens de erro/aviso quando validação descarta tiers
 
 ## Limitação honesta
 
-- Detecção do nome do fornecedor depende do Firecrawl achar na página. Se não achar, usa o domínio (sempre funciona).
-- Sem cron, alertas só aparecem quando você clicar "Atualizar". É o comportamento que você pediu.
+Se o site renderiza preços via JavaScript pesado e o Firecrawl não consegue capturar, mesmo com `waitFor`, a única alternativa segura será o usuário usar a aba **Planilha** (importar Excel/CSV) ou — futuramente — o robô Playwright na VPS. A validação por markdown garante que **não vamos salvar dados errados**, mesmo que isso signifique salvar zero tiers em alguns casos.
