@@ -510,7 +510,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                 </Button>
               </div>
             </div>
-            {parsed && !parsed.success && (
+            {parsed && parsed.success === false && (
               <Alert variant="destructive"><AlertDescription className="text-xs">{parsed.error}</AlertDescription></Alert>
             )}
             {parsed?.success && (
