@@ -21,6 +21,7 @@ import Orcamentos from "./pages/Orcamentos";
 import PrecoImpressao from "./pages/PrecoImpressao";
 import Equipamentos from "./pages/Equipamentos";
 import Auditoria from "./pages/Auditoria";
+import Monitoramento from "./pages/Monitoramento";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="/despesas-fixas" element={<DespesasFixas />} />
               <Route path="/configuracoes" element={<Configuracoes />} />
               <Route path="/auditoria" element={<Auditoria />} />
+              <Route path="/monitoramento" element={<Monitoramento />} />
               <Route path="/chat" element={<Chat />} />
             </Route>
             <Route path="*" element={<NotFound />} />
