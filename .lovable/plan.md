@@ -1,55 +1,54 @@
 
+
 ## Objetivo
 
-1. Auto-preencher **nome do produto** ao colar URL (igual já faz com fornecedor).
-2. Criar **catálogo central de produtos** que reúne variações do mesmo item entre fornecedores (ex: "Panfleto 10x14 couché 90g" da ANS = "Panfleto 10x15 couché 80g" da Atual Card).
-3. Permitir **mesclar manualmente** produtos similares quando o sistema não identificar sozinho.
-4. Servir de base para os **filtros de pesquisa** por produto.
+Quando o usuário cadastrar um novo produto, o sistema detecta dimensões/características e sugere reutilizar o **nome canônico** de um produto já existente no catálogo — garantindo que produtos equivalentes de fornecedores diferentes fiquem com **exatamente o mesmo nome** (mas mantendo preços individuais por fornecedor).
 
-## Mudanças no banco
+## Como funciona
 
-**Nova tabela `produtos_catalogo`** — produto canônico:
+Em `NovoSiteDialog.tsx`, após `detect-price-tiers` retornar e auto-preencher `nome_produto`:
+
+1. Extrair dimensões do nome detectado (regex em `productKey`, normaliza ordem: sempre menor x maior).
+2. Buscar em `produtos_catalogo` produtos com **dimensões equivalentes** (tolerância ±1cm, ex: 10x14 ≈ 10x15).
+3. Se houver match(es) → mostrar **dropdown inline de sugestões** abaixo do campo "Nome do produto":
+
 ```text
-id, nome_canonico, categoria, dimensoes, gramatura, observacoes, created_at
+Nome do produto: [Folder A6 Reduzido 10x14cm Couché 90g_______]
+
+💡 Produtos similares no catálogo (10x14cm):
+   ┌─────────────────────────────────────────┐
+   │ ✓ Panfleto 10x14 Couché 90g             │
+   │   Já vinculado: ANS                     │
+   │   [Usar este nome]                      │
+   ├─────────────────────────────────────────┤
+   │ ✓ Flyer 10x14 Couché 80g                │
+   │   Já vinculado: Atual Card              │
+   │   [Usar este nome]                      │
+   └─────────────────────────────────────────┘
+   ou continue digitando para criar novo produto
 ```
-RLS: authenticated full access (mesmo padrão das outras tabelas de monitoramento).
 
-**Nova coluna em `sites_monitorados`**:
-- `produto_catalogo_id uuid` — referência ao produto canônico (nullable).
+4. Ao clicar **"Usar este nome"**:
+   - Substitui o `nome_produto` pelo nome canônico existente
+   - Marca internamente o `produto_catalogo_id` para vincular direto ao salvar (pula `findOrCreateCatalogo`)
+5. Se ignorar e salvar com nome diferente → fluxo normal cria novo produto no catálogo.
 
-`nome_produto` continua existindo (auditoria do nome bruto vindo do fornecedor). O agrupamento real acontece via `produto_catalogo_id`.
+## Critério de match
 
-## Fluxo automático (NovoSiteDialog)
-
-1. `detect-price-tiers` já retorna `produto` — auto-preencher campo `nome_produto` (editável).
-2. Ao salvar, rodar **matcher fuzzy** no front:
-   - Normaliza nome (mesma lógica do `productKey` em `Monitoramento.tsx`)
-   - Busca em `produtos_catalogo` por chave similar
-   - **Match** → vincula `produto_catalogo_id` existente
-   - **Sem match** → cria novo registro no catálogo + vincula
-
-## Fluxo manual de mesclagem
-
-Novo botão **"Catálogo de Produtos"** na página Monitoramento abre um dialog:
-- Lista produtos do catálogo com fornecedores vinculados (badge colorido por fornecedor)
-- Ações:
-  - **Mesclar 2+ produtos** (checkbox + botão "Mesclar"): move todos os `sites_monitorados` para o produto escolhido como mestre, apaga os duplicados
-  - **Renomear** nome canônico
-  - **Desvincular** site específico (cria novo produto canônico para ele)
-
-## Impacto em Oportunidades
-
-`Monitoramento.tsx` passa a agrupar oportunidades por `produto_catalogo_id` (em vez de `productKey` calculado). Fallback para `productKey` quando `produto_catalogo_id` for null (registros antigos).
-
-Adiciona-se também um **filtro de produto** no topo da aba Oportunidades (dropdown listando produtos do catálogo).
+- **Apenas dimensões** (com tolerância ±1cm em cada lado) — sem considerar gramatura, papel ou categoria.
+- Mantém simples: o usuário decide se faz sentido reutilizar olhando os nomes sugeridos.
+- Ordena sugestões por: produtos com mais fornecedores vinculados primeiro (mais "estabelecidos").
 
 ## Arquivos afetados
 
-- **Migration**: cria `produtos_catalogo` + coluna `produto_catalogo_id` em `sites_monitorados`
-- `src/components/monitoramento/NovoSiteDialog.tsx`: auto-preencher nome + matcher/create no catálogo ao salvar
-- `src/pages/Monitoramento.tsx`: agrupar por `produto_catalogo_id`, novo filtro de produto, botão "Catálogo"
-- **Novo** `src/components/monitoramento/CatalogoProdutosDialog.tsx`: gerencia mesclar/renomear/desvincular
+- `src/lib/produtoCatalogo.ts` — adiciona `extractDimKey(name)` + `findCatalogoSimilarByDim(dimKey)` que retorna produtos do catálogo com contagem de fornecedores
+- `src/components/monitoramento/NovoSiteDialog.tsx`:
+  - Novo state `sugestoesCatalogo` + `produtoCatalogoIdEscolhido`
+  - `useEffect` dispara busca de sugestões quando `nome_produto` muda
+  - Bloco inline de sugestões abaixo do campo nome (visível apenas quando há matches)
+  - Ao salvar: se `produtoCatalogoIdEscolhido` está set, usa direto; senão chama `findOrCreateCatalogo` normal
 
 ## Limitação honesta
 
-Matcher automático erra em casos sutis (couché 80 vs 90, 10x14 vs 10x15). A tela de mesclagem manual resolve isso de uma vez — depois que o usuário mescla, o vínculo persiste para sempre.
+Tolerância ±1cm pode trazer falsos positivos (10x14 vs 10x15 podem ser produtos legitimamente diferentes). Por isso é **sugestão visível, nunca automática** — o usuário sempre escolhe se aceita ou ignora.
+
