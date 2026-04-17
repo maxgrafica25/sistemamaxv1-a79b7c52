@@ -276,6 +276,82 @@ export default function Monitoramento() {
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [sitesFiltrados]);
 
+  // Agrupa sites por (produto_catalogo_id || nome_produto) + fornecedor_nome,
+  // mesclando tiers de múltiplos sites do MESMO fornecedor para o MESMO produto canônico.
+  // Cada "grupo de comparativo" representa um card único.
+  type CompTier = Tier & { sourceSiteId: string; sourceUrl: string | null };
+  type CompGroup = {
+    key: string;
+    nome: string;
+    fornecedor: string | null;
+    categoria: string;
+    sites: Site[]; // todos os sites mesclados (para footer/links/sync)
+    mergedTiers: CompTier[]; // tiers únicos por quantidade, ordenados crescente
+    latestCheck: string | null;
+    representative: Site; // site mais "rico" (com mais tiers ou mais recente) p/ exibição
+  };
+  const gruposComparativoPorCategoria = useMemo(() => {
+    const nomeCat: Record<string, string> = {};
+    for (const p of produtosCatalogo) nomeCat[p.id] = p.nome_canonico;
+
+    const out = new Map<string, CompGroup[]>(); // categoria → grupos
+
+    for (const [cat, items] of grupos) {
+      const groupMap = new Map<string, CompGroup>();
+      for (const s of items) {
+        const prodKey = s.produto_catalogo_id ? `cat:${s.produto_catalogo_id}` : `name:${s.nome_produto}`;
+        const fornKey = (s.fornecedor_nome || "—").trim().toLowerCase();
+        const key = `${prodKey}__${fornKey}`;
+        const nomeExibicao = (s.produto_catalogo_id && nomeCat[s.produto_catalogo_id]) || s.nome_produto;
+        const siteTiers = (tiersBySite[s.id] || []).map<CompTier>((t) => ({
+          ...t,
+          sourceSiteId: s.id,
+          sourceUrl: s.url_completa,
+        }));
+        const cur = groupMap.get(key);
+        if (cur) {
+          cur.sites.push(s);
+          cur.mergedTiers.push(...siteTiers);
+          if (s.timestamp_check && (!cur.latestCheck || s.timestamp_check > cur.latestCheck)) {
+            cur.latestCheck = s.timestamp_check;
+          }
+        } else {
+          groupMap.set(key, {
+            key,
+            nome: nomeExibicao,
+            fornecedor: s.fornecedor_nome,
+            categoria: cat,
+            sites: [s],
+            mergedTiers: siteTiers,
+            latestCheck: s.timestamp_check,
+            representative: s,
+          });
+        }
+      }
+      // Dedup tiers por quantidade (menor preço unitário vence) e ordena crescente.
+      const finalGroups: CompGroup[] = [];
+      for (const g of groupMap.values()) {
+        const byQty = new Map<number, CompTier>();
+        for (const t of g.mergedTiers) {
+          const cur = byQty.get(t.quantidade);
+          if (!cur || Number(t.preco_unitario) < Number(cur.preco_unitario)) {
+            byQty.set(t.quantidade, t);
+          }
+        }
+        g.mergedTiers = Array.from(byQty.values()).sort((a, b) => a.quantidade - b.quantidade);
+        // Escolher representative: o site com mais tiers (ou o primeiro)
+        g.representative = g.sites.reduce((best, s) => {
+          const lenS = (tiersBySite[s.id] || []).length;
+          const lenB = (tiersBySite[best.id] || []).length;
+          return lenS > lenB ? s : best;
+        }, g.sites[0]);
+        finalGroups.push(g);
+      }
+      out.set(cat, finalGroups);
+    }
+    return Array.from(out.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [grupos, tiersBySite, produtosCatalogo]);
+
   // Para a quantidade-alvo, calcula menor preço unitário POR CATEGORIA (entre fornecedores).
   const minUnitPriceByCategory = useMemo(() => {
     const map: Record<string, number> = {};
