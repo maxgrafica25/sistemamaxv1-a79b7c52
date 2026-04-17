@@ -515,7 +515,7 @@ export default function Monitoramento() {
                                 <LineChart data={hist}>
                                   <XAxis dataKey="criado_em" hide />
                                   <YAxis hide domain={["dataMin", "dataMax"]} />
-                                  <Tooltip
+                                  <RechartsTooltip
                                     formatter={(v: number) => formatBRL(v)}
                                     labelFormatter={(l) => new Date(l).toLocaleDateString("pt-BR")}
                                   />
