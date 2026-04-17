@@ -346,12 +346,80 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
           </div>
         </div>
 
-        <Tabs defaultValue="auto" className="mt-2">
-          <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="auto"><Sparkles className="h-4 w-4 mr-1" />URL automática</TabsTrigger>
-            <TabsTrigger value="excel"><FileSpreadsheet className="h-4 w-4 mr-1" />Importar planilha</TabsTrigger>
-            <TabsTrigger value="adv"><Code className="h-4 w-4 mr-1" />Avançado (CSS)</TabsTrigger>
+        <Tabs defaultValue="tiers" className="mt-2">
+          <TabsList className="grid grid-cols-4 w-full">
+            <TabsTrigger value="tiers"><Layers className="h-4 w-4 mr-1" />Tabela auto</TabsTrigger>
+            <TabsTrigger value="auto"><Sparkles className="h-4 w-4 mr-1" />URL simples</TabsTrigger>
+            <TabsTrigger value="excel"><FileSpreadsheet className="h-4 w-4 mr-1" />Planilha</TabsTrigger>
+            <TabsTrigger value="adv"><Code className="h-4 w-4 mr-1" />Avançado</TabsTrigger>
           </TabsList>
+
+          {/* === TIERS (Firecrawl) === */}
+          <TabsContent value="tiers" className="space-y-3 pt-3">
+            <Alert>
+              <AlertDescription className="text-xs">
+                Para sites com <strong>tabela de preços por quantidade</strong> (ex: 1un, 10un, 20un...). Funciona em sites que dependem de JavaScript e detecta todas as faixas automaticamente. Ideal para gráficas online (ANS, Future, Printi).
+              </AlertDescription>
+            </Alert>
+            <div>
+              <Label>URL do produto *</Label>
+              <div className="flex gap-2">
+                <Input value={tiersUrl} onChange={(e) => setTiersUrl(e.target.value)} placeholder="https://www.ans.com.br/banner-em-lona-brilho-80x120cm/" />
+                <Button onClick={handleDetectTiers} disabled={tiersBusy || !tiersUrl}>
+                  {tiersBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
+                  Detectar tabela
+                </Button>
+              </div>
+            </div>
+            {tiersResult && !tiersResult.ok && (
+              <Alert variant="destructive">
+                <AlertDescription className="text-xs flex items-start gap-2">
+                  <XCircle className="h-4 w-4 mt-0.5" /><span>{tiersResult.error}</span>
+                </AlertDescription>
+              </Alert>
+            )}
+            {tiersResult?.ok && tiersResult.tiers && (
+              <>
+                <Alert>
+                  <AlertDescription className="text-xs flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" style={{ color: "hsl(var(--success))" }} />
+                    <span><strong>{tiersResult.tiers.length}</strong> faixas detectadas{tiersResult.fornecedor ? ` em ${tiersResult.fornecedor}` : ""}</span>
+                  </AlertDescription>
+                </Alert>
+                <div className="border rounded">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Quantidade</TableHead>
+                        <TableHead className="text-right">Preço total</TableHead>
+                        <TableHead className="text-right">Preço/un</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tiersResult.tiers.map((t, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-mono">{t.quantidade} un</TableCell>
+                          <TableCell className="text-right font-mono">{formatBRL(t.preco_total)}</TableCell>
+                          <TableCell className="text-right font-mono text-muted-foreground">{formatBRL(t.preco_unitario)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div>
+                  <Label>Nome do produto *</Label>
+                  <Input value={tiersNome} onChange={(e) => setTiersNome(e.target.value)} placeholder="Confirme ou edite" />
+                </div>
+              </>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+              <Button onClick={handleSaveTiers} disabled={savingTiers || !tiersResult?.ok || !tiersNome}>
+                {savingTiers && <Loader2 className="h-4 w-4 animate-spin" />}
+                Salvar produto + {tiersResult?.tiers?.length || 0} faixas
+              </Button>
+            </DialogFooter>
+          </TabsContent>
 
           {/* === AUTO === */}
           <TabsContent value="auto" className="space-y-3 pt-3">
