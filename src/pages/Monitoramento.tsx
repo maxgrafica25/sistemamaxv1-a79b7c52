@@ -394,7 +394,9 @@ export default function Monitoramento() {
 
   // Se a quantidade-alvo atual não existe nas opções disponíveis, ajusta automaticamente
   // para a mais próxima (preferindo a maior <= alvo, ou a menor disponível).
+  // qtdAlvo === 0 representa "Todas as unidades" e nunca é ajustado.
   useEffect(() => {
+    if (qtdAlvo === 0) return;
     if (!qtdOptionsDisponiveis.length) return;
     if (qtdOptionsDisponiveis.includes(qtdAlvo)) return;
     const menorOuIgual = [...qtdOptionsDisponiveis].filter((q) => q <= qtdAlvo).pop();
@@ -668,6 +670,7 @@ export default function Monitoramento() {
           <Select value={String(qtdAlvo)} onValueChange={(v) => setQtdAlvo(Number(v))}>
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="0">Todas as unidades</SelectItem>
               {(qtdOptionsDisponiveis.length ? qtdOptionsDisponiveis : QTD_OPTIONS).map((q) => (
                 <SelectItem key={q} value={String(q)}>{q.toLocaleString("pt-BR")} un</SelectItem>
               ))}
