@@ -40,7 +40,13 @@ export const productKey = (rawName: string): string => {
   const tokens = name
     .replace(/[^\w\s]/g, " ")
     .split(/\s+/)
-    .filter((t) => t && !STOPWORDS.has(t) && !/^\d+(g|cm|mm)?$/.test(t) && !/^\d+x\d+$/.test(t))
+    .filter(
+      (t) =>
+        t &&
+        !STOPWORDS.has(t) &&
+        !/^\d+(g|cm|mm)?$/.test(t) &&
+        !/^\d{2,3}x\d{2,3}$/.test(t), // descarta apenas dimensões grandes (10x14, 20x30); mantém 4x4/4x0/1x1 (cores)
+    )
     .sort();
 
   return [...tokens, dimKey, gramKey].filter(Boolean).join("|");
