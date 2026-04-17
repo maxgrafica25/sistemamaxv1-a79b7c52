@@ -201,11 +201,16 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
       });
 
       let created = 0, updated = 0, skipped = 0;
+      const skippedDetails: string[] = [];
       for (const row of parsed.rows) {
         const nome = String(row[iN] ?? "").trim();
         const preco = parseBRL(row[iP]);
         const codigo = iC >= 0 ? String(row[iC] ?? "").trim() : "";
-        if (!nome || preco == null) { skipped++; continue; }
+        if (!nome || preco == null || preco <= 0) {
+          skipped++;
+          if (skippedDetails.length < 5 && nome) skippedDetails.push(`"${nome.slice(0, 40)}" → preço inválido: "${row[iP] ?? ""}"`);
+          continue;
+        }
         const key = (codigo || nome).toLowerCase();
         const existingId = existingMap.get(key);
         if (existingId) {
