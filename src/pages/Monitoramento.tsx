@@ -16,6 +16,7 @@ import { LineChart, Line, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { ProdutoCatalogo } from "@/lib/produtoCatalogo";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type Site = {
   id: string;
