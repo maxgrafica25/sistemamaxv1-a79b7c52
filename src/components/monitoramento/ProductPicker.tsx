@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,25 +55,6 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
   return (
     <div className="space-y-2">
       <Label>Vincular ao catálogo *</Label>
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant={mode === "existing" ? "default" : "outline"}
-          onClick={() => setMode("existing")}
-        >
-          Selecionar existente
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={mode === "new" ? "default" : "outline"}
-          onClick={() => { setMode("new"); onChange({ id: null, name: selectedName }); }}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Criar novo nome
-        </Button>
-      </div>
 
       {mode === "existing" ? (
         <Popover open={open} onOpenChange={setOpen}>
@@ -95,7 +76,22 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
               <CommandInput placeholder="Buscar produto..." />
               <CommandList>
                 <CommandEmpty>
-                  Nenhum produto encontrado. Cadastre em "Catálogo Produtos" ou use "Criar novo nome".
+                  <div className="py-3 px-2 text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">Nenhum produto encontrado.</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="default"
+                      className="gap-1.5"
+                      onClick={() => {
+                        setMode("new");
+                        onChange({ id: null, name: selectedName });
+                        setOpen(false);
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Criar novo nome
+                    </Button>
+                  </div>
                 </CommandEmpty>
                 <CommandGroup>
                   {produtos.map((p) => (
@@ -113,16 +109,43 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
                     </CommandItem>
                   ))}
                 </CommandGroup>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem
+                    value="__criar_novo__"
+                    onSelect={() => {
+                      setMode("new");
+                      onChange({ id: null, name: selectedName });
+                      setOpen(false);
+                    }}
+                    className="text-primary"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span className="flex-1">Criar novo nome</span>
+                  </CommandItem>
+                </CommandGroup>
               </CommandList>
             </Command>
           </PopoverContent>
         </Popover>
       ) : (
-        <Input
-          value={selectedName}
-          onChange={(e) => onChange({ id: null, name: e.target.value })}
-          placeholder="Ex: Panfleto 10x14 Couché 90g"
-        />
+        <div className="space-y-2">
+          <Input
+            value={selectedName}
+            onChange={(e) => onChange({ id: null, name: e.target.value })}
+            placeholder="Ex: Panfleto 10x14 Couché 90g"
+            autoFocus
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setMode("existing")}
+          >
+            ← Voltar para selecionar existente
+          </Button>
+        </div>
       )}
       {mode === "existing" && selected && (
         <p className="text-xs text-muted-foreground">
