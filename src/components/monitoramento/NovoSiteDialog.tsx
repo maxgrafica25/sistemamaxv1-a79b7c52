@@ -184,8 +184,6 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const handleSaveTiers = async () => {
     if (!tiersResult?.ok || !tiersResult.tiers?.length) return;
     if (!tiersNome) return toast.error("Confirme o nome do produto");
-    const opened = await checkAndConfirm(tiersNome.trim(), tiersCatalogoId, "tiers");
-    if (opened) return; // diálogo abriu — espera confirmação
     await doSaveTiers(tiersCatalogoId);
   };
 
@@ -230,24 +228,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
 
   const handleSaveAuto = async () => {
     if (!autoUrl || !autoNome) return toast.error("Detecte o preço e confirme o nome");
-    const opened = await checkAndConfirm(autoNome.trim(), autoCatalogoId, "auto");
-    if (opened) return;
     await doSaveAuto(autoCatalogoId);
-  };
-
-  /** Callback do diálogo: usuário escolheu reutilizar uma sugestão (ou manter o próprio nome). */
-  const handleConfirmName = async (escolha: SugestaoCatalogo | null) => {
-    const nome = escolha?.nome_canonico ?? confirmNome;
-    const catalogoId = escolha?.id ?? null;
-    if (confirmContext === "tiers") {
-      setTiersNome(nome);
-      setTiersCatalogoId(catalogoId);
-      await doSaveTiers(catalogoId, nome);
-    } else if (confirmContext === "auto") {
-      setAutoNome(nome);
-      setAutoCatalogoId(catalogoId);
-      await doSaveAuto(catalogoId, nome);
-    }
   };
 
   const handleTestSelector = async () => {
