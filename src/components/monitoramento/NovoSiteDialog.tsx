@@ -13,8 +13,15 @@ import {
   Sparkles, FileSpreadsheet, Code, Loader2, CheckCircle2, XCircle, FlaskConical, HelpCircle, Upload, Layers,
 } from "lucide-react";
 import { toast } from "sonner";
-import { findOrCreateCatalogo } from "@/lib/produtoCatalogo";
+import {
+  findOrCreateCatalogo,
+  extractDimKey,
+  findCatalogoSimilarByDim,
+  stripAccents,
+  type SugestaoCatalogo,
+} from "@/lib/produtoCatalogo";
 import SugestoesCatalogoInline from "./SugestoesCatalogoInline";
+import ConfirmarNomeDialog from "./ConfirmarNomeDialog";
 
 const formatBRL = (v: number | null | undefined) =>
   v == null ? "—" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -102,11 +109,43 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const [savingTiers, setSavingTiers] = useState(false);
   const [tiersCatalogoId, setTiersCatalogoId] = useState<string | null>(null);
 
+  // ===== Confirmação de padronização ao salvar =====
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmSugestoes, setConfirmSugestoes] = useState<SugestaoCatalogo[]>([]);
+  const [confirmNome, setConfirmNome] = useState("");
+  const [confirmContext, setConfirmContext] = useState<"tiers" | "auto" | null>(null);
+
   const reset = () => {
     setAutoUrl(""); setAutoNome(""); setAutoResult(null); setAutoCatalogoId(null);
     setAdvUrl(""); setAdvNome(""); setAdvSeletor(""); setAdvResult(null);
     setFile(null); setParsed(null); setColNome(""); setColPreco(""); setColCodigo("__none__");
     setTiersUrl(""); setTiersNome(""); setTiersResult(null); setTiersCatalogoId(null);
+  };
+
+  /**
+   * Verifica se há sugestões de padronização pendentes. Se houver, abre o
+   * diálogo e retorna true (chamador deve pausar o salvamento).
+   */
+  const checkAndConfirm = async (
+    nome: string,
+    catalogoIdJaEscolhido: string | null,
+    context: "tiers" | "auto",
+  ): Promise<boolean> => {
+    if (catalogoIdJaEscolhido) return false;
+    const dim = extractDimKey(nome);
+    if (!dim) return false;
+    const sugestoes = await findCatalogoSimilarByDim(dim, nome);
+    if (sugestoes.length === 0) return false;
+    const norm = stripAccents(nome.toLowerCase()).trim();
+    const exato = sugestoes.some(
+      (s) => stripAccents(s.nome_canonico.toLowerCase()).trim() === norm,
+    );
+    if (exato) return false;
+    setConfirmSugestoes(sugestoes);
+    setConfirmNome(nome);
+    setConfirmContext(context);
+    setConfirmOpen(true);
+    return true;
   };
 
   // ---- TIERS handlers ----
@@ -140,15 +179,16 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     }
   };
 
-  const handleSaveTiers = async () => {
+  const doSaveTiers = async (catalogoIdOverride: string | null, nomeOverride?: string) => {
     if (!tiersResult?.ok || !tiersResult.tiers?.length) return;
-    if (!tiersNome) return toast.error("Confirme o nome do produto");
+    const nomeFinal = (nomeOverride ?? tiersNome).trim();
+    if (!nomeFinal) return toast.error("Confirme o nome do produto");
     setSavingTiers(true);
     try {
       const minTier = [...tiersResult.tiers].sort((a, b) => a.quantidade - b.quantidade)[0];
-      const catalogoId = tiersCatalogoId ?? await findOrCreateCatalogo(tiersNome.trim(), categoria);
+      const catalogoId = catalogoIdOverride ?? await findOrCreateCatalogo(nomeFinal, categoria);
       const { data: site, error } = await supabase.from("sites_monitorados").insert({
-        nome_produto: tiersNome.trim(),
+        nome_produto: nomeFinal,
         categoria: categoria.trim().toLowerCase() || "geral",
         url_completa: tiersUrl.trim(),
         seletor_css: null,
@@ -162,7 +202,6 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
       }).select().single();
       if (error) throw error;
 
-      // Insere tiers
       const rows = tiersResult.tiers.map((t) => ({
         site_id: site.id,
         quantidade: t.quantidade,
@@ -179,6 +218,14 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     } finally {
       setSavingTiers(false);
     }
+  };
+
+  const handleSaveTiers = async () => {
+    if (!tiersResult?.ok || !tiersResult.tiers?.length) return;
+    if (!tiersNome) return toast.error("Confirme o nome do produto");
+    const opened = await checkAndConfirm(tiersNome.trim(), tiersCatalogoId, "tiers");
+    if (opened) return; // diálogo abriu — espera confirmação
+    await doSaveTiers(tiersCatalogoId);
   };
 
   // ---- handlers ----
@@ -201,11 +248,12 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     }
   };
 
-  const handleSaveAuto = async () => {
-    if (!autoUrl || !autoNome) return toast.error("Detecte o preço e confirme o nome");
-    const catalogoId = autoCatalogoId ?? await findOrCreateCatalogo(autoNome.trim(), categoria);
+  const doSaveAuto = async (catalogoIdOverride: string | null, nomeOverride?: string) => {
+    const nomeFinal = (nomeOverride ?? autoNome).trim();
+    if (!autoUrl || !nomeFinal) return toast.error("Detecte o preço e confirme o nome");
+    const catalogoId = catalogoIdOverride ?? await findOrCreateCatalogo(nomeFinal, categoria);
     const { error } = await supabase.from("sites_monitorados").insert({
-      nome_produto: autoNome.trim(),
+      nome_produto: nomeFinal,
       categoria: categoria.trim().toLowerCase() || "geral",
       url_completa: autoUrl.trim(),
       seletor_css: null,
@@ -217,6 +265,28 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     if (error) return toast.error("Erro: " + error.message);
     toast.success("Site adicionado");
     reset(); onCreated(); onOpenChange(false);
+  };
+
+  const handleSaveAuto = async () => {
+    if (!autoUrl || !autoNome) return toast.error("Detecte o preço e confirme o nome");
+    const opened = await checkAndConfirm(autoNome.trim(), autoCatalogoId, "auto");
+    if (opened) return;
+    await doSaveAuto(autoCatalogoId);
+  };
+
+  /** Callback do diálogo: usuário escolheu reutilizar uma sugestão (ou manter o próprio nome). */
+  const handleConfirmName = async (escolha: SugestaoCatalogo | null) => {
+    const nome = escolha?.nome_canonico ?? confirmNome;
+    const catalogoId = escolha?.id ?? null;
+    if (confirmContext === "tiers") {
+      setTiersNome(nome);
+      setTiersCatalogoId(catalogoId);
+      await doSaveTiers(catalogoId, nome);
+    } else if (confirmContext === "auto") {
+      setAutoNome(nome);
+      setAutoCatalogoId(catalogoId);
+      await doSaveAuto(catalogoId, nome);
+    }
   };
 
   const handleTestSelector = async () => {
@@ -641,6 +711,13 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
           </TabsContent>
         </Tabs>
       </DialogContent>
+      <ConfirmarNomeDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        nomeAtual={confirmNome}
+        sugestoes={confirmSugestoes}
+        onConfirm={handleConfirmName}
+      />
     </Dialog>
   );
 }

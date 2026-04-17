@@ -34,6 +34,7 @@ export default function SugestoesCatalogoInline({ nome, selectedId, onPick }: Pr
     setDimLabel(`${dim.a}x${dim.b}cm`);
     const t = setTimeout(async () => {
       const result = await findCatalogoSimilarByDim(dim, nome);
+      console.log("[SugestoesCatalogoInline]", { nome, dim, encontrados: result.length, result });
       if (!cancelled) setSugestoes(result);
     }, 350);
     return () => {
