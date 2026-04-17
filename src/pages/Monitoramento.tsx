@@ -157,6 +157,7 @@ export default function Monitoramento() {
   const [syncing, setSyncing] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [qtdAlvo, setQtdAlvo] = useState<number>(100);
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   const fetchAll = async () => {
     const [sitesRes, tiersRes, alertasRes, histRes, histTiersRes] = await Promise.all([
