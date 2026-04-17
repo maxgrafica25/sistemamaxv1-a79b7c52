@@ -750,12 +750,12 @@ export default function Monitoramento() {
 
         {/* === COMPARATIVO === */}
         <TabsContent value="comparativo" className="space-y-6">
-          {grupos.length === 0 && (
+          {gruposComparativoPorCategoria.length === 0 && (
             <Card><CardContent className="py-10 text-center text-muted-foreground">
               {loading ? "Carregando..." : "Nenhum site monitorado ainda."}
             </CardContent></Card>
           )}
-          {grupos.map(([cat, items]) => {
+          {gruposComparativoPorCategoria.map(([cat, compGroups]) => {
             const minPrecoUnit = minUnitPriceByCategory[cat];
             return (
               <div key={cat} className="space-y-3">
@@ -766,27 +766,34 @@ export default function Monitoramento() {
                   </span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {items.map((s) => {
-                    const siteTiers = tiersBySite[s.id] || [];
-                    const hist = historicos[s.id] || [];
-                    const hasTiers = siteTiers.length > 0;
-                    const tierAlvo = getTierForQty(siteTiers, qtdAlvo);
-                    const sweet = findSweetSpot(siteTiers);
+                  {compGroups.map((g) => {
+                    const mergedTiers = g.mergedTiers;
+                    const repr = g.representative;
+                    const hist = historicos[repr.id] || [];
+                    const hasTiers = mergedTiers.length > 0;
+                    const tierAlvo = getTierForQty(mergedTiers, qtdAlvo);
+                    const sweet = findSweetSpot(mergedTiers);
                     const isMin = hasTiers && tierAlvo != null && minPrecoUnit != null
-                      && Number(tierAlvo.preco_unitario) === minPrecoUnit && items.length > 1;
-                    const trend = !hasTiers && s.preco_anterior != null && s.preco_atual != null
-                      ? s.preco_atual - s.preco_anterior : 0;
+                      && Number(tierAlvo.preco_unitario) === minPrecoUnit && compGroups.length > 1;
+                    const trend = !hasTiers && repr.preco_anterior != null && repr.preco_atual != null
+                      ? repr.preco_atual - repr.preco_anterior : 0;
+                    const isMerged = g.sites.length > 1;
 
                     return (
-                      <Card key={s.id} className={isMin ? "border-2" : ""} style={isMin ? { borderColor: "hsl(var(--success))" } : undefined}>
+                      <Card key={g.key} className={isMin ? "border-2" : ""} style={isMin ? { borderColor: "hsl(var(--success))" } : undefined}>
                         <CardHeader className="pb-2">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <CardTitle className="text-base truncate">{s.nome_produto}</CardTitle>
+                              <CardTitle className="text-base truncate">{g.nome}</CardTitle>
                               <CardDescription className="flex items-center gap-1.5 flex-wrap">
-                                <span>{s.fornecedor_nome || "—"}</span>
-                                {s.metodo_coleta === "firecrawl" && (
+                                <span>{g.fornecedor || "—"}</span>
+                                {repr.metodo_coleta === "firecrawl" && (
                                   <Badge variant="outline" className="text-[10px] h-4 px-1"><Layers className="h-2.5 w-2.5 mr-0.5" />auto</Badge>
+                                )}
+                                {isMerged && (
+                                  <Badge variant="outline" className="text-[10px] h-4 px-1">
+                                    {g.sites.length} links
+                                  </Badge>
                                 )}
                               </CardDescription>
                             </div>
@@ -807,7 +814,7 @@ export default function Monitoramento() {
                                 </div>
                               )}
                               <div className="rounded border divide-y">
-                                {siteTiers.map((t) => {
+                                {mergedTiers.map((t) => {
                                   const tTrend = t.preco_anterior != null ? t.preco_total - Number(t.preco_anterior) : 0;
                                   const isSweet = sweet?.tier.id === t.id;
                                   const isMinHist = minHistByTier[t.id] != null && Number(t.preco_total) <= minHistByTier[t.id];
@@ -827,6 +834,17 @@ export default function Monitoramento() {
                                             {tTrend < 0 ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
                                           </span>
                                         )}
+                                        {isMerged && t.sourceUrl && (
+                                          <a
+                                            href={t.sourceUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            title="Abrir link específico desta faixa"
+                                            className="text-muted-foreground hover:text-primary"
+                                          >
+                                            <ExternalLink className="h-3 w-3" />
+                                          </a>
+                                        )}
                                       </div>
                                     </div>
                                   );
@@ -835,7 +853,7 @@ export default function Monitoramento() {
                             </>
                           ) : (
                             <div className="flex items-baseline gap-2">
-                              <span className="text-2xl font-bold">{formatBRL(s.preco_atual)}</span>
+                              <span className="text-2xl font-bold">{formatBRL(repr.preco_atual)}</span>
                               {trend !== 0 && (
                                 <span className="text-xs flex items-center" style={{ color: trend < 0 ? "hsl(var(--success))" : "hsl(var(--destructive))" }}>
                                   {trend < 0 ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
@@ -862,20 +880,45 @@ export default function Monitoramento() {
                           )}
 
                           <div className="flex items-center justify-between text-xs text-muted-foreground gap-2">
-                            {s.url_completa ? (
-                              <a href={s.url_completa} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:underline truncate">
+                            {isMerged ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button className="flex items-center gap-1 hover:underline truncate">
+                                    <ExternalLink className="h-3 w-3 shrink-0" /> Ver sites ({g.sites.length})
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="max-w-sm">
+                                  {g.sites.map((sub, i) => (
+                                    <DropdownMenuItem key={sub.id} asChild>
+                                      <a href={sub.url_completa || "#"} target="_blank" rel="noreferrer" className="cursor-pointer">
+                                        <ExternalLink className="h-3 w-3 mr-2 shrink-0" />
+                                        <span className="truncate">Link {i + 1} · {sub.nome_produto}</span>
+                                      </a>
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : repr.url_completa ? (
+                              <a href={repr.url_completa} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:underline truncate">
                                 <ExternalLink className="h-3 w-3 shrink-0" /> Ver site
                               </a>
                             ) : <span />}
                             <div className="flex items-center gap-2 shrink-0">
                               <span>
-                                {s.timestamp_check
-                                  ? formatDistanceToNow(new Date(s.timestamp_check), { addSuffix: true, locale: ptBR })
+                                {g.latestCheck
+                                  ? formatDistanceToNow(new Date(g.latestCheck), { addSuffix: true, locale: ptBR })
                                   : "Nunca"}
                               </span>
-                              {s.metodo_coleta === "firecrawl" && (
-                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleSyncOne(s.id)} disabled={syncingId === s.id}>
-                                  <RefreshCw className={`h-3 w-3 ${syncingId === s.id ? "animate-spin" : ""}`} />
+                              {repr.metodo_coleta === "firecrawl" && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => g.sites.forEach((s) => handleSyncOne(s.id))}
+                                  disabled={g.sites.some((s) => syncingId === s.id)}
+                                  title={isMerged ? `Sincronizar ${g.sites.length} sites` : "Sincronizar"}
+                                >
+                                  <RefreshCw className={`h-3 w-3 ${g.sites.some((s) => syncingId === s.id) ? "animate-spin" : ""}`} />
                                 </Button>
                               )}
                             </div>
