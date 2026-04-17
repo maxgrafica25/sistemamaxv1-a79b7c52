@@ -1,105 +1,84 @@
 
-## Análise
+## Ajustes ao plano anterior
 
-Você quer que a solução já nasça preparada para:
-1. **Múltiplos preços por produto** (tiers de quantidade: 1un, 10un, 20un...)
-2. **Rodar continuamente na VPS** (não só Firecrawl manual)
-3. **Detectar mudanças e alertar** em qualquer tier
+Dois pontos do feedback mudam a abordagem:
 
-A diferença em relação ao plano anterior: em vez de acoplar a detecção ao Firecrawl, vamos modelar o **dado** de forma genérica e deixar o **mecanismo de coleta** plugável (Firecrawl agora, robô Playwright na VPS depois — ambos escrevendo na mesma estrutura).
+### 1. Fornecedor automático
+Ao colar a URL, o `detect-price-tiers` (Firecrawl) já retorna `fornecedor` (extraído da página). Hoje o `NovoSiteDialog` não usa esse campo automaticamente — vou:
+- Auto-preencher `fornecedor_nome` com o valor retornado
+- Se vazio, fallback para o **domínio da URL** (ex: `ans.com.br` → "ANS")
+- Campo continua editável caso o usuário queira ajustar
 
-## Arquitetura proposta
-
-```text
-┌─────────────────────────────────────────────────────────┐
-│            sites_monitorados (1 produto = 1 linha)      │
-│  + metodo_coleta: 'firecrawl' | 'vps_playwright' |      │
-│                   'excel' | 'url_simples'                │
-│  + config_coleta: jsonb (schema/seletores/headers)      │
-└────────────────┬────────────────────────────────────────┘
-                 │ 1:N
-                 ▼
-┌─────────────────────────────────────────────────────────┐
-│         site_precos_tiers (N preços por produto)        │
-│  quantidade | preco_total | preco_unitario | atualizado │
-└────────────────┬────────────────────────────────────────┘
-                 │ trigger on UPDATE
-                 ▼
-┌─────────────────────────────────────────────────────────┐
-│   historico_precos_tiers + alertas_precos + sino        │
-└─────────────────────────────────────────────────────────┘
-
-         ┌──────────────┐         ┌──────────────┐
-         │  Firecrawl   │         │ VPS Worker   │
-         │ (agora,      │         │ (futuro,     │
-         │  edge func)  │         │  Playwright) │
-         └──────┬───────┘         └──────┬───────┘
-                │                        │
-                └────────┬───────────────┘
-                         ▼
-               POST /sync-prices-webhook
-               (mesmo contrato pros 2)
-```
-
-A chave é: **qualquer coletor (Firecrawl hoje, VPS amanhã) chama o mesmo endpoint** com o payload `{ site_id, tiers: [...] }`. O banco e os alertas não sabem nem se importam quem coletou.
+### 2. Atualização sob demanda + histórico
+Remover a lógica de "queda nos últimos 7 dias" e o cron diário. Em vez disso:
+- **Botão "Atualizar todos"** no topo da página Monitoramento → varre todos os sites ativos via Firecrawl
+- **Botão "Atualizar"** por card (já existe parcialmente) → atualiza só aquele
+- Cada atualização gera registro em `historico_precos_tiers` (já existe)
+- Ranking de oportunidades passa a usar **comparação vs último valor histórico de cada tier** (não janela de 7d)
 
 ## Mudanças
 
-### 1. Migration — modelo de dados genérico
-- **`sites_monitorados`**: adicionar `metodo_coleta` (text), `config_coleta` (jsonb), `intervalo_check_horas` (int, default 24)
-- **`site_precos_tiers`** (nova): `id, site_id, quantidade, preco_total, preco_unitario, preco_anterior, atualizado_em, ativo`
-- **`historico_precos_tiers`** (nova): `id, tier_id, valor_total, valor_unitario, criado_em` — mantém histórico por tier
-- **Trigger `handle_tier_price_change`**: ao UPDATE em `site_precos_tiers`, grava histórico, gera alerta + notificação para todos profiles (mesmo padrão do `handle_price_change` atual, mas por tier)
+### Frontend
 
-### 2. Conector Firecrawl
-Adicionar via `standard_connectors--connect`. Sem custo de chave para você — o conector gerencia.
+**`src/components/monitoramento/NovoSiteDialog.tsx`** (aba "Tabela auto"):
+- Após `detect-price-tiers` retornar, setar `fornecedor` automaticamente
+- Helper `extractDomainName(url)` como fallback
+- Mostrar campo já preenchido (editável) com label "Fornecedor (detectado)"
 
-### 3. Edge function `detect-price-tiers` (descoberta inicial)
-- Input: `{ url }`
-- Chama Firecrawl com schema JSON pedindo `{ produto, tiers: [{quantidade, preco_total, preco_unitario}] }`
-- Retorna prévia para o usuário confirmar antes de salvar
+**`src/pages/Monitoramento.tsx`**:
+- Remover `useEffect` de auto-sync diário (se houver)
+- Manter botão "Sincronizar todos" no topo (chama `scheduled-sync-firecrawl` sem `site_id`)
+- Manter botão "Sync" por card
+- **Score de oportunidade** recalculado:
+  ```text
+  Score = (queda_vs_ultimo_historico × 0.5)
+        + (sweet_spot_pct × 0.3)
+        + (vantagem_vs_concorrente_pct × 0.2)
+  ```
+  Onde `queda_vs_ultimo_historico` compara `preco_total` atual com o último registro em `historico_precos_tiers` para aquele tier.
 
-### 4. Edge function `sync-prices-webhook` (contrato unificado)
-- Input: `{ site_id, tiers: [{quantidade, preco_total, preco_unitario}], origem: 'firecrawl'|'vps' }`
-- Faz upsert por `(site_id, quantidade)` em `site_precos_tiers`
-- Trigger do banco cuida dos alertas
-- Autenticado por bearer token (mesmo `VPS_WORKER_TOKEN` que já existe)
-- **Esse endpoint serve tanto pro Firecrawl agendado quanto pro robô da VPS no futuro** — é o "porto" comum
+### Backend
 
-### 5. Edge function `scheduled-sync-firecrawl` + cron
-- Cron diário (pg_cron) percorre `sites_monitorados` onde `metodo_coleta='firecrawl'` e `ativo=true`
-- Para cada site: chama Firecrawl → posta em `sync-prices-webhook`
-- Quando você ligar a VPS, basta marcar sites como `metodo_coleta='vps_playwright'` e a VPS chama o mesmo webhook
+**`supabase/functions/scheduled-sync-firecrawl/index.ts`**:
+- Quando chamado **sem** `site_id` (varredura geral), **ignorar** `intervalo_check_horas` (era o gate do cron). Sempre que o usuário clica "Atualizar todos", roda tudo.
+- Manter respeito a `ativo = true`
 
-### 6. UI
-- **`NovoSiteDialog`**: nova aba "Tabela de preços (auto)" com botão "Detectar tiers", prévia em tabela, salvar
-- **`Monitoramento.tsx`**: cards mostram **mini-tabela de tiers** (Qtd | Preço un. | ▲▼ vs anterior) em vez de um preço único; badge indica método de coleta
-- Botão "Sincronizar agora" por produto (chama `scheduled-sync-firecrawl` para 1 site só)
+**Cron job** (se foi criado):
+- **Remover** o agendamento `pg_cron` diário. Sistema passa a ser 100% on-demand.
 
-## O que a VPS vai precisar fazer no futuro (já documentado no schema)
+### Restante do plano anterior (mantém)
+Tudo do plano de "5 melhores oportunidades / sweet spot / preço por quantidade / mínimo histórico / margem de revenda" segue válido — só muda a fonte do "queda recente" (último histórico em vez de 7d) e a forma de disparar (botão em vez de cron).
+
+## Diagrama atualizado
 
 ```text
-POST https://<projeto>.supabase.co/functions/v1/sync-prices-webhook
-Authorization: Bearer <VPS_WORKER_TOKEN>
-Body: {
-  "site_id": "uuid",
-  "origem": "vps",
-  "tiers": [
-    { "quantidade": 1,  "preco_total": 56.00,   "preco_unitario": 56.00 },
-    { "quantidade": 10, "preco_total": 538.20,  "preco_unitario": 53.82 },
-    { "quantidade": 20, "preco_total": 1036.40, "preco_unitario": 51.82 }
-  ]
-}
+[Cola URL] ──► detect-price-tiers
+                 │
+                 ▼
+   { produto, fornecedor, tiers }  ← fornecedor auto-preenchido
+                 │
+                 ▼
+            [Salvar]
+                 │
+                 ▼
+    sites_monitorados + tiers iniciais
+                 
+[Botão "Atualizar todos"] ──► scheduled-sync-firecrawl (sem site_id)
+                                │
+                                ▼
+                  Para cada site ativo: Firecrawl
+                                │
+                                ▼
+                  sync-prices-webhook → upsert tiers
+                                │
+                                ▼
+                  trigger handle_tier_price_change
+                                │
+                                ▼
+                  historico_precos_tiers + alertas + sino
 ```
 
-A VPS lê `config_coleta` do site (que pode conter seletores Playwright, headers, cookies, etc.) e devolve no formato acima. **Zero refatoração no Lovable quando isso for ligado.**
+## Limitação honesta
 
-## Aprovação necessária
-
-- Conectar **Firecrawl** (1 clique). É o que faz funcionar agora para sites com JS como o da ANS.
-
-## Limites honestos
-
-- Firecrawl tem custo por scrape (~50 produtos × 1x/dia = ~1500/mês, cabe no plano básico).
-- Quando migrar pra VPS, o custo zera — e a estrutura já está pronta.
-- Excel continua sendo o caminho ideal pra fornecedores que mandam planilha (caso ATual).
+- Detecção do nome do fornecedor depende do Firecrawl achar na página. Se não achar, usa o domínio (sempre funciona).
+- Sem cron, alertas só aparecem quando você clicar "Atualizar". É o comportamento que você pediu.
