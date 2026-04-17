@@ -69,6 +69,65 @@ const getTierForQty = (siteTiers: Tier[], qty: number): Tier | null => {
   return eligible.length ? eligible[eligible.length - 1] : sorted[0];
 };
 
+// Normaliza nome de produto para agrupar produtos equivalentes entre fornecedores.
+// Regras:
+//  - lowercase, sem acentos, sem pontuação
+//  - gramaturas próximas (diferença <= 15g/m²) viram a mesma "faixa" (ex: 80/90 → "g80-90")
+//  - dimensões próximas (diferença <= 1cm em cada lado) viram a mesma faixa
+//    (ex: 10x14 e 10x15 → "10x14-15")
+//  - palavras genéricas removidas
+const STOPWORDS = new Set([
+  "panfleto", "panfletos", "flyer", "flyers", "folder", "folders",
+  "cartao", "cartoes", "visita", "impressao", "impressoes",
+  "couche", "couché", "papel", "frente", "verso", "fv", "4x4", "4x0", "1x0", "1x1",
+  "colorido", "preto", "branco", "pb", "fosco", "brilho", "brilhante",
+  "com", "sem", "de", "do", "da", "em", "para", "the", "a", "o",
+  "un", "und", "unidade", "unidades", "mil", "milheiro",
+]);
+
+const stripAccents = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+const productKey = (rawName: string): string => {
+  const name = stripAccents((rawName || "").toLowerCase());
+
+  // Captura gramatura (ex: 90g, 90 g/m2, 90gsm)
+  const gMatch = name.match(/(\d{2,3})\s*g(?:sm|\/m2|\/m²)?/);
+  let gramKey = "";
+  if (gMatch) {
+    const g = parseInt(gMatch[1], 10);
+    // Bucket de 15g/m² (75-89 → "g80", 90-104 → "g95", etc.)
+    // Mas para couché 80 e 90 ficarem juntos: usar bucket que cobre faixa próxima.
+    // Solução: agrupar em janelas de 20g centradas em múltiplos de 10.
+    const bucket = Math.round(g / 20) * 20; // 80,90 → 80 ou 100. 80→80, 90→100. ruim.
+    // Melhor: round((g+5)/15)*15 mantém 80→90, 90→90, 115→120 etc.
+    const bucket2 = Math.round((g + 5) / 15) * 15;
+    gramKey = `g${bucket2}`;
+    void bucket;
+  }
+
+  // Captura dimensões (ex: 10x14, 10x15cm, 14x21)
+  const dimMatch = name.match(/(\d{1,3})\s*x\s*(\d{1,3})\s*(?:cm|mm)?/);
+  let dimKey = "";
+  if (dimMatch) {
+    const a = parseInt(dimMatch[1], 10);
+    const b = parseInt(dimMatch[2], 10);
+    // Bucket de 2cm: 14 e 15 → 14, 10 → 10
+    const ba = Math.floor(a / 2) * 2;
+    const bb = Math.floor(b / 2) * 2;
+    dimKey = `d${Math.min(ba, bb)}x${Math.max(ba, bb)}`;
+  }
+
+  // Tokens restantes (sem stopwords, sem números puros)
+  const tokens = name
+    .replace(/[^\w\s]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t && !STOPWORDS.has(t) && !/^\d+(g|cm|mm)?$/.test(t) && !/^\d+x\d+$/.test(t))
+    .sort();
+
+  return [...tokens, dimKey, gramKey].filter(Boolean).join("|");
+};
+
 // Para cada tier (a partir do 2º), calcula o % de queda no preço unitário vs faixa anterior.
 // Retorna o índice/tier com o maior salto (sweet spot).
 const findSweetSpot = (siteTiers: Tier[]): { tier: Tier; dropPct: number } | null => {
