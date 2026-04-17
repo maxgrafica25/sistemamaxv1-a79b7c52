@@ -542,8 +542,9 @@ export default function Monitoramento() {
           )}
           {oportunidades.map((grupo) => {
             const temConcorrencia = grupo.ofertas.length > 1;
+            const melhorCor = getSupplierColor(grupo.ofertas[0]?.site.fornecedor_nome);
             return (
-              <Card key={grupo.key} className="border-l-4" style={{ borderLeftColor: "hsl(var(--primary))" }}>
+              <Card key={grupo.key} className="border-l-4" style={{ borderLeftColor: melhorCor.solid }}>
                 <CardHeader className="pb-2">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -564,10 +565,12 @@ export default function Monitoramento() {
                   <div className="rounded border divide-y">
                     {grupo.ofertas.map((oferta, idx) => {
                       const isMelhor = idx === 0;
+                      const cor = getSupplierColor(oferta.site.fornecedor_nome);
                       return (
                         <div
                           key={oferta.site.id}
-                          className={`flex flex-wrap items-center gap-3 px-3 py-2 ${isMelhor ? "bg-success/5" : ""}`}
+                          className={`flex flex-wrap items-center gap-3 px-3 py-2 border-l-4 ${isMelhor ? "bg-success/5" : ""}`}
+                          style={{ borderLeftColor: cor.solid }}
                         >
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             {isMelhor ? (
@@ -576,15 +579,20 @@ export default function Monitoramento() {
                               <span className="h-4 w-4 shrink-0 text-center text-xs text-muted-foreground">{idx + 1}</span>
                             )}
                             <div className="min-w-0">
-                              <div className="font-medium text-sm truncate">
-                                {oferta.site.fornecedor_nome || "—"}
+                              <div className="font-medium text-sm truncate flex items-center flex-wrap gap-1">
+                                <Badge
+                                  className="text-[11px] font-semibold border"
+                                  style={{ backgroundColor: cor.bg, color: cor.text, borderColor: cor.border }}
+                                >
+                                  {oferta.site.fornecedor_nome || "—"}
+                                </Badge>
                                 {isMelhor && temConcorrencia && (
-                                  <Badge className="ml-2 text-[10px]" style={{ backgroundColor: "hsl(var(--success))", color: "hsl(var(--success-foreground))" }}>
+                                  <Badge className="text-[10px]" style={{ backgroundColor: "hsl(var(--success))", color: "hsl(var(--success-foreground))" }}>
                                     Mais barato
                                   </Badge>
                                 )}
                                 {oferta.isMinHist && (
-                                  <Badge variant="secondary" className="ml-1 text-[10px]">
+                                  <Badge variant="secondary" className="text-[10px]">
                                     <Flame className="h-3 w-3 mr-0.5" /> Mín. histórico
                                   </Badge>
                                 )}
@@ -608,6 +616,11 @@ export default function Monitoramento() {
                         </div>
                       );
                     })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
                   </div>
                 </CardContent>
               </Card>
