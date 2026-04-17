@@ -1,60 +1,64 @@
 
 
-## Problema observado
+## Entendimento
 
-Pelo print: produto detectado é "Flyer couche 80g 4x0 sem verniz 14x10 cm". Já existe da ANS algo como "Panfleto ... 10x14". Dimensões são equivalentes (14x10 ≈ 10x14), mas a sugestão **não apareceu**.
+Reformular o fluxo em 3 mudanças:
 
-## Investigação necessária
+### 1. Pré-cadastro de "Produtos" (catálogo manual)
+Criar uma tela onde o usuário cadastra **manualmente** uma lista de produtos canônicos (ex: "Panfleto 10x14 Couché 90g", "Cartão de Visita 9x5 Couché 300g"). Estes ficam disponíveis como "biblioteca de nomes".
 
-Preciso confirmar 2 hipóteses antes de propor a solução:
+### 2. Ao adicionar site (NovoSiteDialog) — substituir matching automático por seletor explícito
+Após detectar preços do link, antes de salvar, mostrar dois caminhos claros:
+- **Combobox** com todos os produtos do catálogo (busca por nome) — escolhe um existente
+- **Campo de texto** — digita um nome novo (cria entrada no catálogo)
 
-1. **Regex de `extractDimKey`** está casando "14x10 cm" com espaço entre número e "cm"? O regex atual é `/(\d{1,3})\s*x\s*(\d{1,3})/` — deve casar. Mas pode ter sido excluído pelo filtro de "nome igual" (caso o nome do catálogo tenha sido salvo idêntico).
-2. **Produtos no catálogo** têm dimensão extraível? Se a ANS foi salva como "Panfleto a jato 10x14" sem "cm", ainda casa. Mas se foi salva sem dimensão no nome canônico (ex: só "Panfleto ANS"), o `extractDimKey` retorna null e ela some das sugestões.
+Sem sugestões automáticas por dimensão (causou confusão). O usuário decide.
 
-Vou checar o banco para ter certeza do que está salvo.
+### 3. Catálogo — unificar 2+ produtos preservando links
+No `CatalogoProdutosDialog`:
+- Selecionar 2+ produtos (já existe)
+- Botão "Unificar" → escolhe qual nome canônico manter → todos os `sites_monitorados` dos outros produtos passam a apontar pro produto escolhido → produtos vazios são deletados
+- **Cada site mantém seu `url` original intacto** (a unificação só altera `produto_catalogo_id`, não toca em URL/fornecedor/preços)
 
-## Proposta de solução (2 partes)
-
-### Parte 1: Corrigir o matcher (causa raiz)
-
-O problema mais provável é que o componente `SugestoesCatalogoInline` só dispara quando o nome **muda via digitação** — mas o nome é preenchido programaticamente via `setNomeProduto(...)` após o `detect-price-tiers`. O `useEffect` deve disparar igual (depende de `nome`), então isso deveria funcionar.
-
-Outra hipótese mais provável: **o componente está sendo renderizado, mas o filtro `normCurrent === p.nome_canonico` está excluindo o match** quando os nomes são parecidos demais após normalização. Vou revisar a lógica de exclusão.
-
-Também vou adicionar **logs de debug temporários** no console para o usuário confirmar se a busca está sendo executada e o que está retornando.
-
-### Parte 2: Confirmação ao salvar (ideia do usuário)
-
-Adicionar um diálogo de confirmação **ao clicar em "Salvar"** quando:
-- Existem produtos no catálogo com **dimensões equivalentes** (±1cm) E
-- O nome digitado **não é idêntico** a nenhum deles
-
-O diálogo mostra:
-
-```text
-┌─ Padronizar nome do produto? ────────────────┐
-│ Você está salvando: "Flyer couche 80g 14x10" │
-│                                              │
-│ Existe(m) produto(s) similar(es) (10x14cm):  │
-│   ○ Panfleto a jato 10x14 (ANS) [Usar]      │
-│                                              │
-│ ○ Manter o nome que digitei                  │
-│                                              │
-│        [Cancelar]   [Salvar]                 │
-└──────────────────────────────────────────────┘
-```
-
-Isso garante que mesmo se o usuário ignorar a sugestão inline, o sistema dá uma segunda chance antes de criar duplicata.
+Resultado: a tela de Monitoramento agrupa por `produto_catalogo_id` e mostra preços de todos os fornecedores lado a lado, mas cada linha mantém link próprio pro site original.
 
 ## Arquivos afetados
 
-- **Investigação**: query SQL em `produtos_catalogo` e `sites_monitorados` para entender o estado atual
-- `src/lib/produtoCatalogo.ts`: revisar filtro de exclusão em `findCatalogoSimilarByDim`
-- `src/components/monitoramento/SugestoesCatalogoInline.tsx`: adicionar log de debug temporário
-- **Novo** `src/components/monitoramento/ConfirmarNomeDialog.tsx`: diálogo de confirmação ao salvar
-- `src/components/monitoramento/NovoSiteDialog.tsx`: integrar diálogo nas funções `handleSaveTiers` e `handleSaveAuto`
+**Novo:**
+- `src/pages/Produtos.tsx` — CRUD da biblioteca de nomes (lista, adicionar, editar, excluir)
+- Rota `/produtos` no `App.tsx` + item no `Layout.tsx`
+
+**Modificar:**
+- `src/components/monitoramento/NovoSiteDialog.tsx`:
+  - Remover `SugestoesCatalogoInline` e `ConfirmarNomeDialog` da UI
+  - Adicionar **seletor** (Combobox de produtos do catálogo) + opção "Criar novo nome" com input de texto
+  - Ao salvar: usa `produto_catalogo_id` selecionado OU cria novo via `findOrCreateCatalogo`
+- `src/components/monitoramento/CatalogoProdutosDialog.tsx`:
+  - Reformular `handleMerge` (ele já existe parcialmente) — adicionar passo de **escolher qual nome manter** antes de unificar
+  - Garantir que apenas `produto_catalogo_id` muda nos sites; nada de mexer em url/preço/fornecedor
+- `src/lib/produtoCatalogo.ts`: manter `findOrCreateCatalogo`; remover/deprecar funções de match por dimensão (não usadas mais)
+
+**Remover (não usados mais):**
+- `src/components/monitoramento/SugestoesCatalogoInline.tsx`
+- `src/components/monitoramento/ConfirmarNomeDialog.tsx`
+
+## Fluxo final (visual)
+
+```text
+[Tela Produtos]               [NovoSiteDialog]                [Catálogo]
+─────────────                 ────────────────                ──────────
++ Panfleto 10x14              URL: imprimarapido.com/...      [✓] Panfleto 10x14
++ Cartão Visita 9x5           Preços detectados ✓             [✓] Flyer 10x14
++ Flyer 14x10                                                  [Unificar →]
+                              Vincular ao produto:               ↓
+                              ◉ Selecionar existente:          Manter nome:
+                                [Panfleto 10x14 ▾]            ◉ Panfleto 10x14
+                              ○ Criar novo nome:               ○ Flyer 10x14
+                                [____________]                  [Confirmar]
+                              [Salvar]                         (URLs preservados)
+```
 
 ## Limitação honesta
 
-Sem ver os dados reais não consigo afirmar 100% qual hipótese da Parte 1 é a verdadeira. O diálogo de confirmação (Parte 2) funciona como **rede de segurança** independente — se a sugestão inline falhar por qualquer motivo, o salvamento ainda pergunta.
+A unificação é destrutiva (deleta produtos vazios do catálogo). Vou pedir confirmação dupla. Os sites/preços/URLs nunca são tocados — só o `produto_catalogo_id` deles muda.
 
