@@ -859,7 +859,7 @@ export default function Monitoramento() {
                         <CardContent className="space-y-3">
                           {hasTiers ? (
                             <>
-                              {tierAlvo && (
+                              {tierAlvo && qtdAlvo !== 0 && (
                                 <div className="rounded bg-muted/50 px-2 py-1.5 text-xs flex items-center justify-between">
                                   <span className="text-muted-foreground">Para {qtdAlvo}un usa faixa <strong className="text-foreground">{tierAlvo.quantidade}un</strong>:</span>
                                   <span className="font-semibold">{formatBRL(Number(tierAlvo.preco_unitario))}/un</span>
