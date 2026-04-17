@@ -1,64 +1,33 @@
 
 
-## Entendimento
+## Problema
 
-Reformular o fluxo em 3 mudanças:
+Print mostra dois cards "Panfletos 10x14cm (A6) - Couché 90g" da ANS — mesmo fornecedor, mesmo produto, links diferentes (provavelmente um link tem faixas 500/1000/1500 e outro 2500/5000/40000+). Hoje a aba **Comparativo** agrupa por `site_id` (cada site = 1 card), então 2 sites = 2 cards mesmo quando vinculados ao mesmo `produto_catalogo_id`.
 
-### 1. Pré-cadastro de "Produtos" (catálogo manual)
-Criar uma tela onde o usuário cadastra **manualmente** uma lista de produtos canônicos (ex: "Panfleto 10x14 Couché 90g", "Cartão de Visita 9x5 Couché 300g"). Estes ficam disponíveis como "biblioteca de nomes".
+## Solução
 
-### 2. Ao adicionar site (NovoSiteDialog) — substituir matching automático por seletor explícito
-Após detectar preços do link, antes de salvar, mostrar dois caminhos claros:
-- **Combobox** com todos os produtos do catálogo (busca por nome) — escolhe um existente
-- **Campo de texto** — digita um nome novo (cria entrada no catálogo)
+Na aba **Comparativo** (e na tela em geral onde faz sentido), agrupar por `produto_catalogo_id` + `fornecedor_nome` em vez de por `site_id`. Quando 2+ sites do mesmo fornecedor estão vinculados ao mesmo produto canônico:
 
-Sem sugestões automáticas por dimensão (causou confusão). O usuário decide.
+- Mostra **um único card** com nome canônico + fornecedor
+- **Mescla todos os tiers** dos sites em uma lista única, ordenada por `quantidade` crescente
+- **Remove duplicatas** de quantidade (se 2 sites têm 1000un, mantém o de menor preço)
+- **Preserva links**: cada linha de tier mostra um ícone "↗" pequeno linkando pra URL do site original daquele tier
+- Botão "Ver site" do rodapé vira **dropdown** listando todos os links agrupados ("Ver site 1", "Ver site 2")
+- Timestamp "há X minutos" usa o mais recente entre os sites
+- Toggle/excluir continuam funcionando por site individual (via menu, não no card principal)
 
-### 3. Catálogo — unificar 2+ produtos preservando links
-No `CatalogoProdutosDialog`:
-- Selecionar 2+ produtos (já existe)
-- Botão "Unificar" → escolhe qual nome canônico manter → todos os `sites_monitorados` dos outros produtos passam a apontar pro produto escolhido → produtos vazios são deletados
-- **Cada site mantém seu `url` original intacto** (a unificação só altera `produto_catalogo_id`, não toca em URL/fornecedor/preços)
+## Onde mexer
 
-Resultado: a tela de Monitoramento agrupa por `produto_catalogo_id` e mostra preços de todos os fornecedores lado a lado, mas cada linha mantém link próprio pro site original.
+- `src/pages/Monitoramento.tsx`:
+  - Novo `useMemo` `gruposComparativo` que agrupa sites por `${produto_catalogo_id || nome_produto}__${fornecedor_nome}` antes de renderizar a aba comparativo
+  - Para cada grupo: combina tiers de todos os sites, dedup por quantidade (menor preço vence), ordena crescente, guarda mapa `tier.quantidade → site.url` pra preservar link
+  - Renderização da aba comparativo passa a iterar sobre `gruposComparativo` em vez de `sites` direto
+  - Linha de tier ganha botão pequeno (ícone `ExternalLink`) quando há link específico
+  - Rodapé: se grupo tem 1 site → botão "Ver site" normal; se 2+ → dropdown com todos
+- Aba **Tabela completa** mantém uma linha por site (lá faz sentido ver cada cadastro individual pra editar/excluir)
+- Aba **Oportunidades** já agrupa por produto entre fornecedores, mas pode estar duplicando dentro do mesmo fornecedor — vou aplicar a mesma dedup ali
 
-## Arquivos afetados
+## Limitação
 
-**Novo:**
-- `src/pages/Produtos.tsx` — CRUD da biblioteca de nomes (lista, adicionar, editar, excluir)
-- Rota `/produtos` no `App.tsx` + item no `Layout.tsx`
-
-**Modificar:**
-- `src/components/monitoramento/NovoSiteDialog.tsx`:
-  - Remover `SugestoesCatalogoInline` e `ConfirmarNomeDialog` da UI
-  - Adicionar **seletor** (Combobox de produtos do catálogo) + opção "Criar novo nome" com input de texto
-  - Ao salvar: usa `produto_catalogo_id` selecionado OU cria novo via `findOrCreateCatalogo`
-- `src/components/monitoramento/CatalogoProdutosDialog.tsx`:
-  - Reformular `handleMerge` (ele já existe parcialmente) — adicionar passo de **escolher qual nome manter** antes de unificar
-  - Garantir que apenas `produto_catalogo_id` muda nos sites; nada de mexer em url/preço/fornecedor
-- `src/lib/produtoCatalogo.ts`: manter `findOrCreateCatalogo`; remover/deprecar funções de match por dimensão (não usadas mais)
-
-**Remover (não usados mais):**
-- `src/components/monitoramento/SugestoesCatalogoInline.tsx`
-- `src/components/monitoramento/ConfirmarNomeDialog.tsx`
-
-## Fluxo final (visual)
-
-```text
-[Tela Produtos]               [NovoSiteDialog]                [Catálogo]
-─────────────                 ────────────────                ──────────
-+ Panfleto 10x14              URL: imprimarapido.com/...      [✓] Panfleto 10x14
-+ Cartão Visita 9x5           Preços detectados ✓             [✓] Flyer 10x14
-+ Flyer 14x10                                                  [Unificar →]
-                              Vincular ao produto:               ↓
-                              ◉ Selecionar existente:          Manter nome:
-                                [Panfleto 10x14 ▾]            ◉ Panfleto 10x14
-                              ○ Criar novo nome:               ○ Flyer 10x14
-                                [____________]                  [Confirmar]
-                              [Salvar]                         (URLs preservados)
-```
-
-## Limitação honesta
-
-A unificação é destrutiva (deleta produtos vazios do catálogo). Vou pedir confirmação dupla. Os sites/preços/URLs nunca são tocados — só o `produto_catalogo_id` deles muda.
+Quando 2 sites do mesmo fornecedor têm o mesmo tier (ex: ambos têm 1000un) com preços diferentes, o sistema vai mostrar só o **menor preço** e indicar via tooltip qual link é. Se o usuário quiser ver os dois lado a lado, precisa olhar a aba "Tabela completa".
 
