@@ -77,52 +77,48 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
           <Command>
             <CommandInput
-              placeholder="Buscar ou digitar novo nome..."
+              placeholder="Digite o nome do produto..."
               value={search}
               onValueChange={setSearch}
             />
             <CommandList>
               <CommandEmpty>
-                {trimmedSearch ? (
-                  <p className="py-3 text-sm text-muted-foreground text-center">
-                    Nenhum produto encontrado. Use o botão abaixo para cadastrar.
-                  </p>
-                ) : (
-                  <p className="py-6 text-sm text-muted-foreground text-center">Digite para buscar ou criar.</p>
-                )}
+                <p className="py-6 text-sm text-muted-foreground text-center">
+                  {trimmedSearch ? "Digite para criar um novo produto." : "Digite para buscar ou criar."}
+                </p>
               </CommandEmpty>
-              <CommandGroup>
-                {produtos.map((p) => (
+              {trimmedSearch && !hasExactMatch && (
+                <CommandGroup heading="Criar novo">
                   <CommandItem
-                    key={p.id}
-                    value={p.nome_canonico}
-                    onSelect={() => {
-                      onChange({ id: p.id, name: p.nome_canonico });
-                      setOpen(false);
-                      setSearch("");
-                    }}
+                    value={`__create__${trimmedSearch}`}
+                    onSelect={handleCreateNew}
+                    className="text-primary"
                   >
-                    <Check className={cn("h-4 w-4", selectedId === p.id ? "opacity-100" : "opacity-0")} />
-                    <span className="flex-1 truncate">{p.nome_canonico}</span>
-                    {p.categoria && <Badge variant="outline" className="text-xs ml-2">{p.categoria}</Badge>}
+                    <Plus className="h-4 w-4" />
+                    <span className="flex-1 truncate">Cadastrar: "{trimmedSearch}"</span>
                   </CommandItem>
-                ))}
-              </CommandGroup>
+                </CommandGroup>
+              )}
+              {produtos.length > 0 && (
+                <CommandGroup heading="Produtos do catálogo">
+                  {produtos.map((p) => (
+                    <CommandItem
+                      key={p.id}
+                      value={p.nome_canonico}
+                      onSelect={() => {
+                        onChange({ id: p.id, name: p.nome_canonico });
+                        setOpen(false);
+                        setSearch("");
+                      }}
+                    >
+                      <Check className={cn("h-4 w-4", selectedId === p.id ? "opacity-100" : "opacity-0")} />
+                      <span className="flex-1 truncate">{p.nome_canonico}</span>
+                      {p.categoria && <Badge variant="outline" className="text-xs ml-2">{p.categoria}</Badge>}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
             </CommandList>
-            {trimmedSearch && !hasExactMatch && (
-              <div className="border-t p-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="default"
-                  className="w-full gap-1.5 justify-start"
-                  onClick={handleCreateNew}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span className="truncate">Cadastrar novo: "{trimmedSearch}"</span>
-                </Button>
-              </div>
-            )}
           </Command>
         </PopoverContent>
       </Popover>
