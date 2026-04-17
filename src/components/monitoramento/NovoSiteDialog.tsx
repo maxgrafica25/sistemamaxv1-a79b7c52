@@ -100,12 +100,13 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     error?: string;
   } | null>(null);
   const [savingTiers, setSavingTiers] = useState(false);
+  const [tiersCatalogoId, setTiersCatalogoId] = useState<string | null>(null);
 
   const reset = () => {
-    setAutoUrl(""); setAutoNome(""); setAutoResult(null);
+    setAutoUrl(""); setAutoNome(""); setAutoResult(null); setAutoCatalogoId(null);
     setAdvUrl(""); setAdvNome(""); setAdvSeletor(""); setAdvResult(null);
     setFile(null); setParsed(null); setColNome(""); setColPreco(""); setColCodigo("__none__");
-    setTiersUrl(""); setTiersNome(""); setTiersResult(null);
+    setTiersUrl(""); setTiersNome(""); setTiersResult(null); setTiersCatalogoId(null);
   };
 
   // ---- TIERS handlers ----
