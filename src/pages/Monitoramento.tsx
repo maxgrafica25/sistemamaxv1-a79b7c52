@@ -439,11 +439,12 @@ export default function Monitoramento() {
         if (!haystack.includes(search)) continue;
       }
       const siteTiers = tiersBySite[s.id] || [];
-      // Só considera ofertas com tier EXATO para a quantidade alvo —
-      // assim a aba Oportunidades nunca mostra um preço de outra faixa
-      // como se fosse o preço da quantidade selecionada.
-      const tier = siteTiers.find((t) => t.quantidade === qtdAlvo) || null;
-      if (!tier) continue;
+      // qtdAlvo === 0 → "Todas as unidades": considera todos os tiers do site.
+      // Caso contrário, só ofertas com tier EXATO para a quantidade alvo.
+      const tiersConsiderados = qtdAlvo === 0
+        ? siteTiers
+        : siteTiers.filter((t) => t.quantidade === qtdAlvo);
+      if (!tiersConsiderados.length) continue;
 
       // Chave de agrupamento: usa o produto_catalogo_id quando disponível,
       // cai para a normalização heurística (`productKey`) para registros antigos.
@@ -455,28 +456,34 @@ export default function Monitoramento() {
       const nomeExibicao = (s.produto_catalogo_id && nomeCatalogo[s.produto_catalogo_id])
         || s.nome_produto;
 
-      const isMinHist = minHistByTier[tier.id] != null
-        && Number(tier.preco_total) <= minHistByTier[tier.id];
+      for (const tier of tiersConsiderados) {
+        const isMinHist = minHistByTier[tier.id] != null
+          && Number(tier.preco_total) <= minHistByTier[tier.id];
 
-      const oferta: OfertaFornecedor = {
-        site: s,
-        tier,
-        precoUnit: Number(tier.preco_unitario),
-        precoTotal: Number(tier.preco_total),
-        isMinHist,
-      };
-      const cur = groups.get(key);
-      if (cur) cur.ofertas.push(oferta);
-      else groups.set(key, { nome: nomeExibicao, ofertas: [oferta] });
+        const oferta: OfertaFornecedor = {
+          site: s,
+          tier,
+          precoUnit: Number(tier.preco_unitario),
+          precoTotal: Number(tier.preco_total),
+          isMinHist,
+        };
+        const cur = groups.get(key);
+        if (cur) cur.ofertas.push(oferta);
+        else groups.set(key, { nome: nomeExibicao, ofertas: [oferta] });
+      }
     }
 
     const result: GrupoProduto[] = [];
     for (const [key, g] of groups) {
       // Para cada fornecedor (site), pega só a MELHOR oferta dele neste grupo
-      // (caso o mesmo fornecedor apareça mais de uma vez)
+      // (caso o mesmo fornecedor apareça mais de uma vez).
+      // Em modo "Todas as unidades", agrupa por fornecedor + quantidade do tier
+      // para preservar uma linha por faixa de cada fornecedor.
       const porFornecedor = new Map<string, OfertaFornecedor>();
       for (const o of g.ofertas) {
-        const fid = o.site.fornecedor_nome || o.site.id;
+        const fid = qtdAlvo === 0
+          ? `${o.site.fornecedor_nome || o.site.id}::${o.tier.quantidade}`
+          : (o.site.fornecedor_nome || o.site.id);
         const cur = porFornecedor.get(fid);
         if (!cur || o.precoTotal < cur.precoTotal) porFornecedor.set(fid, o);
       }
