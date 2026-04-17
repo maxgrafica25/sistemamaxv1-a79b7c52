@@ -13,15 +13,8 @@ import {
   Sparkles, FileSpreadsheet, Code, Loader2, CheckCircle2, XCircle, FlaskConical, HelpCircle, Upload, Layers,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  findOrCreateCatalogo,
-  extractDimKey,
-  findCatalogoSimilarByDim,
-  stripAccents,
-  type SugestaoCatalogo,
-} from "@/lib/produtoCatalogo";
-import SugestoesCatalogoInline from "./SugestoesCatalogoInline";
-import ConfirmarNomeDialog from "./ConfirmarNomeDialog";
+import { findOrCreateCatalogo } from "@/lib/produtoCatalogo";
+import ProductPicker from "./ProductPicker";
 
 const formatBRL = (v: number | null | undefined) =>
   v == null ? "—" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
