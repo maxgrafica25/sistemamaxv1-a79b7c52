@@ -307,7 +307,7 @@ export default function Monitoramento() {
           <CardContent>
             <div className="text-2xl font-bold flex items-center gap-2">
               {alertasNaoLidos}
-              {alertasNaoLidos > 0 && <AlertTriangle className="h-5 w-5 text-orange-500" />}
+              {alertasNaoLidos > 0 && <AlertTriangle className="h-5 w-5" style={{ color: "hsl(var(--warning))" }} />}
             </div>
           </CardContent>
         </Card>
@@ -363,14 +363,14 @@ export default function Monitoramento() {
                         : 0;
                     const hist = historicos[s.id] || [];
                     return (
-                      <Card key={s.id} className={isMin ? "border-green-500 border-2" : ""}>
+                      <Card key={s.id} className={isMin ? "border-2" : ""} style={isMin ? { borderColor: "hsl(var(--success))" } : undefined}>
                         <CardHeader className="pb-2">
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <CardTitle className="text-base">{s.nome_produto}</CardTitle>
                               <CardDescription>{s.fornecedor_nome || "—"}</CardDescription>
                             </div>
-                            {isMin && <Badge className="bg-green-600 hover:bg-green-700"><Trophy className="h-3 w-3" /> Melhor</Badge>}
+                            {isMin && <Badge style={{ backgroundColor: "hsl(var(--success))", color: "hsl(var(--success-foreground))" }}><Trophy className="h-3 w-3" /> Melhor</Badge>}
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-3">
