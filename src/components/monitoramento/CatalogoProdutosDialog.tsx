@@ -52,6 +52,7 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
       setSelected(new Set());
       setEditingId(null);
       setSearch("");
+      setMergeMasterId(null);
     }
   }, [open]);
 
@@ -71,20 +72,38 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
 
   const toggle = (id: string) => {
     const next = new Set(selected);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) {
+      next.delete(id);
+      if (mergeMasterId === id) setMergeMasterId(null);
+    } else {
+      next.add(id);
+    }
     setSelected(next);
   };
 
+
+  const [mergeMasterId, setMergeMasterId] = useState<string | null>(null);
+
   const handleMerge = async () => {
-    if (selected.size < 2) return toast.error("Selecione pelo menos 2 produtos para mesclar");
+    if (selected.size < 2) return toast.error("Selecione pelo menos 2 produtos para unificar");
+    if (!mergeMasterId || !selected.has(mergeMasterId)) {
+      return toast.error("Escolha qual nome será mantido (clique no radio do produto principal)");
+    }
     const ids = Array.from(selected);
-    // Master = primeiro da lista filtrada que esteja selecionado (mantém o nome do master)
-    const master = filtered.find((p) => selected.has(p.id)) || produtos.find((p) => p.id === ids[0])!;
+    const master = produtos.find((p) => p.id === mergeMasterId)!;
     const others = ids.filter((id) => id !== master.id);
-    if (!confirm(`Mesclar ${ids.length} produtos em "${master.nome_canonico}"? Os demais serão apagados e os sites vinculados migrados.`)) return;
+    const totalSites = others.reduce((acc, id) => acc + (sitesByProduto[id]?.length || 0), 0);
+
+    if (!confirm(
+      `Unificar ${ids.length} produtos em "${master.nome_canonico}"?\n\n` +
+      `• ${totalSites} site(s) vinculados serão migrados\n` +
+      `• ${others.length} entrada(s) duplicada(s) do catálogo serão excluídas\n` +
+      `• Os links/preços/fornecedores de cada site são preservados`
+    )) return;
 
     setBusy(true);
     try {
+      // Migra apenas o vínculo (produto_catalogo_id). URL, preço, fornecedor permanecem intactos.
       const { error: upErr } = await supabase
         .from("sites_monitorados")
         .update({ produto_catalogo_id: master.id })
@@ -97,12 +116,13 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
         .in("id", others);
       if (delErr) throw delErr;
 
-      toast.success(`${others.length} produto(s) mesclado(s) em "${master.nome_canonico}"`);
+      toast.success(`Unificado em "${master.nome_canonico}" — ${totalSites} site(s) agrupados`);
       setSelected(new Set());
+      setMergeMasterId(null);
       await fetchAll();
       onChanged();
     } catch (e: any) {
-      toast.error("Erro ao mesclar: " + e.message);
+      toast.error("Erro ao unificar: " + e.message);
     } finally {
       setBusy(false);
     }
@@ -158,11 +178,11 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
         </DialogHeader>
 
         <div className="rounded-md border bg-muted/40 p-3 text-xs space-y-1">
-          <p className="font-semibold">Como mesclar produtos iguais de fornecedores diferentes:</p>
+          <p className="font-semibold">Como unificar produtos iguais de fornecedores diferentes:</p>
           <ol className="list-decimal pl-4 space-y-0.5 text-muted-foreground">
-            <li>Marque o <strong>checkbox</strong> de 2 ou mais produtos que são o mesmo item (ex: "Panfleto 10x14 90g" da ANS e "Flyer 14x10 90g" da Imprima Rápido).</li>
-            <li>Clique em <strong>"Mesclar selecionados"</strong>. O nome do <em>primeiro</em> da lista vira o nome canônico (você pode renomear depois com o lápis ✏️).</li>
-            <li>Os fornecedores vinculados aparecem em <strong>badges coloridos</strong> abaixo de cada produto. Use 🔗 para desvincular um específico.</li>
+            <li>Marque o <strong>checkbox</strong> de 2 ou mais produtos que são o mesmo item.</li>
+            <li>Clique no <strong>radio (●)</strong> do produto cujo nome será mantido como canônico.</li>
+            <li>Clique em <strong>"Unificar selecionados"</strong>. Os links/preços/fornecedores de cada site são <strong>preservados</strong> — só o nome canônico e o agrupamento mudam.</li>
           </ol>
         </div>
 
@@ -178,13 +198,14 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
           </div>
           <Button
             onClick={handleMerge}
-            disabled={busy || selected.size < 2}
+            disabled={busy || selected.size < 2 || !mergeMasterId}
             variant="default"
           >
             <Merge className="h-4 w-4" />
-            Mesclar selecionados ({selected.size})
+            Unificar selecionados ({selected.size})
           </Button>
         </div>
+
 
         {loading ? (
           <div className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></div>
@@ -205,6 +226,16 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
                         checked={selected.has(p.id)}
                         onCheckedChange={() => toggle(p.id)}
                       />
+                      {selected.has(p.id) && (
+                        <input
+                          type="radio"
+                          name="merge-master"
+                          checked={mergeMasterId === p.id}
+                          onChange={() => setMergeMasterId(p.id)}
+                          title="Manter este nome ao unificar"
+                          className="h-4 w-4 accent-primary cursor-pointer"
+                        />
+                      )}
                       {isEditing ? (
                         <>
                           <Input

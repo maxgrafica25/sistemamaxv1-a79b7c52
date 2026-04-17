@@ -13,15 +13,8 @@ import {
   Sparkles, FileSpreadsheet, Code, Loader2, CheckCircle2, XCircle, FlaskConical, HelpCircle, Upload, Layers,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  findOrCreateCatalogo,
-  extractDimKey,
-  findCatalogoSimilarByDim,
-  stripAccents,
-  type SugestaoCatalogo,
-} from "@/lib/produtoCatalogo";
-import SugestoesCatalogoInline from "./SugestoesCatalogoInline";
-import ConfirmarNomeDialog from "./ConfirmarNomeDialog";
+import { findOrCreateCatalogo } from "@/lib/produtoCatalogo";
+import ProductPicker from "./ProductPicker";
 
 const formatBRL = (v: number | null | undefined) =>
   v == null ? "—" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -109,43 +102,11 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const [savingTiers, setSavingTiers] = useState(false);
   const [tiersCatalogoId, setTiersCatalogoId] = useState<string | null>(null);
 
-  // ===== Confirmação de padronização ao salvar =====
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmSugestoes, setConfirmSugestoes] = useState<SugestaoCatalogo[]>([]);
-  const [confirmNome, setConfirmNome] = useState("");
-  const [confirmContext, setConfirmContext] = useState<"tiers" | "auto" | null>(null);
-
   const reset = () => {
     setAutoUrl(""); setAutoNome(""); setAutoResult(null); setAutoCatalogoId(null);
     setAdvUrl(""); setAdvNome(""); setAdvSeletor(""); setAdvResult(null);
     setFile(null); setParsed(null); setColNome(""); setColPreco(""); setColCodigo("__none__");
     setTiersUrl(""); setTiersNome(""); setTiersResult(null); setTiersCatalogoId(null);
-  };
-
-  /**
-   * Verifica se há sugestões de padronização pendentes. Se houver, abre o
-   * diálogo e retorna true (chamador deve pausar o salvamento).
-   */
-  const checkAndConfirm = async (
-    nome: string,
-    catalogoIdJaEscolhido: string | null,
-    context: "tiers" | "auto",
-  ): Promise<boolean> => {
-    if (catalogoIdJaEscolhido) return false;
-    const dim = extractDimKey(nome);
-    if (!dim) return false;
-    const sugestoes = await findCatalogoSimilarByDim(dim, nome);
-    if (sugestoes.length === 0) return false;
-    const norm = stripAccents(nome.toLowerCase()).trim();
-    const exato = sugestoes.some(
-      (s) => stripAccents(s.nome_canonico.toLowerCase()).trim() === norm,
-    );
-    if (exato) return false;
-    setConfirmSugestoes(sugestoes);
-    setConfirmNome(nome);
-    setConfirmContext(context);
-    setConfirmOpen(true);
-    return true;
   };
 
   // ---- TIERS handlers ----
@@ -223,8 +184,6 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const handleSaveTiers = async () => {
     if (!tiersResult?.ok || !tiersResult.tiers?.length) return;
     if (!tiersNome) return toast.error("Confirme o nome do produto");
-    const opened = await checkAndConfirm(tiersNome.trim(), tiersCatalogoId, "tiers");
-    if (opened) return; // diálogo abriu — espera confirmação
     await doSaveTiers(tiersCatalogoId);
   };
 
@@ -269,24 +228,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
 
   const handleSaveAuto = async () => {
     if (!autoUrl || !autoNome) return toast.error("Detecte o preço e confirme o nome");
-    const opened = await checkAndConfirm(autoNome.trim(), autoCatalogoId, "auto");
-    if (opened) return;
     await doSaveAuto(autoCatalogoId);
-  };
-
-  /** Callback do diálogo: usuário escolheu reutilizar uma sugestão (ou manter o próprio nome). */
-  const handleConfirmName = async (escolha: SugestaoCatalogo | null) => {
-    const nome = escolha?.nome_canonico ?? confirmNome;
-    const catalogoId = escolha?.id ?? null;
-    if (confirmContext === "tiers") {
-      setTiersNome(nome);
-      setTiersCatalogoId(catalogoId);
-      await doSaveTiers(catalogoId, nome);
-    } else if (confirmContext === "auto") {
-      setAutoNome(nome);
-      setAutoCatalogoId(catalogoId);
-      await doSaveAuto(catalogoId, nome);
-    }
   };
 
   const handleTestSelector = async () => {
@@ -509,19 +451,12 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                     </TableBody>
                   </Table>
                 </div>
-                <div>
-                  <Label>Nome do produto *</Label>
-                  <Input
-                    value={tiersNome}
-                    onChange={(e) => { setTiersNome(e.target.value); setTiersCatalogoId(null); }}
-                    placeholder="Confirme ou edite"
-                  />
-                  <SugestoesCatalogoInline
-                    nome={tiersNome}
-                    selectedId={tiersCatalogoId}
-                    onPick={(s) => { setTiersNome(s.nome_canonico); setTiersCatalogoId(s.id); }}
-                  />
-                </div>
+                <ProductPicker
+                  selectedId={tiersCatalogoId}
+                  selectedName={tiersNome}
+                  onChange={({ id, name }) => { setTiersCatalogoId(id); setTiersNome(name); }}
+                />
+
               </>
             )}
             <DialogFooter>
@@ -565,19 +500,12 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                 </AlertDescription>
               </Alert>
             )}
-            <div>
-              <Label>Nome do produto *</Label>
-              <Input
-                value={autoNome}
-                onChange={(e) => { setAutoNome(e.target.value); setAutoCatalogoId(null); }}
-                placeholder="Confirme ou edite o nome"
-              />
-              <SugestoesCatalogoInline
-                nome={autoNome}
-                selectedId={autoCatalogoId}
-                onPick={(s) => { setAutoNome(s.nome_canonico); setAutoCatalogoId(s.id); }}
-              />
-            </div>
+            <ProductPicker
+              selectedId={autoCatalogoId}
+              selectedName={autoNome}
+              onChange={({ id, name }) => { setAutoCatalogoId(id); setAutoNome(name); }}
+            />
+
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
               <Button onClick={handleSaveAuto} disabled={!autoUrl || !autoNome}>Adicionar</Button>
@@ -711,13 +639,6 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
           </TabsContent>
         </Tabs>
       </DialogContent>
-      <ConfirmarNomeDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        nomeAtual={confirmNome}
-        sugestoes={confirmSugestoes}
-        onConfirm={handleConfirmName}
-      />
     </Dialog>
   );
 }
