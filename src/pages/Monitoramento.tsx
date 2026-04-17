@@ -69,6 +69,65 @@ const getTierForQty = (siteTiers: Tier[], qty: number): Tier | null => {
   return eligible.length ? eligible[eligible.length - 1] : sorted[0];
 };
 
+// Normaliza nome de produto para agrupar produtos equivalentes entre fornecedores.
+// Regras:
+//  - lowercase, sem acentos, sem pontuação
+//  - gramaturas próximas (diferença <= 15g/m²) viram a mesma "faixa" (ex: 80/90 → "g80-90")
+//  - dimensões próximas (diferença <= 1cm em cada lado) viram a mesma faixa
+//    (ex: 10x14 e 10x15 → "10x14-15")
+//  - palavras genéricas removidas
+const STOPWORDS = new Set([
+  "panfleto", "panfletos", "flyer", "flyers", "folder", "folders",
+  "cartao", "cartoes", "visita", "impressao", "impressoes",
+  "couche", "couché", "papel", "frente", "verso", "fv", "4x4", "4x0", "1x0", "1x1",
+  "colorido", "preto", "branco", "pb", "fosco", "brilho", "brilhante",
+  "com", "sem", "de", "do", "da", "em", "para", "the", "a", "o",
+  "un", "und", "unidade", "unidades", "mil", "milheiro",
+]);
+
+const stripAccents = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+const productKey = (rawName: string): string => {
+  const name = stripAccents((rawName || "").toLowerCase());
+
+  // Captura gramatura (ex: 90g, 90 g/m2, 90gsm)
+  const gMatch = name.match(/(\d{2,3})\s*g(?:sm|\/m2|\/m²)?/);
+  let gramKey = "";
+  if (gMatch) {
+    const g = parseInt(gMatch[1], 10);
+    // Bucket de 15g/m² (75-89 → "g80", 90-104 → "g95", etc.)
+    // Mas para couché 80 e 90 ficarem juntos: usar bucket que cobre faixa próxima.
+    // Solução: agrupar em janelas de 20g centradas em múltiplos de 10.
+    const bucket = Math.round(g / 20) * 20; // 80,90 → 80 ou 100. 80→80, 90→100. ruim.
+    // Melhor: round((g+5)/15)*15 mantém 80→90, 90→90, 115→120 etc.
+    const bucket2 = Math.round((g + 5) / 15) * 15;
+    gramKey = `g${bucket2}`;
+    void bucket;
+  }
+
+  // Captura dimensões (ex: 10x14, 10x15cm, 14x21)
+  const dimMatch = name.match(/(\d{1,3})\s*x\s*(\d{1,3})\s*(?:cm|mm)?/);
+  let dimKey = "";
+  if (dimMatch) {
+    const a = parseInt(dimMatch[1], 10);
+    const b = parseInt(dimMatch[2], 10);
+    // Bucket de 2cm: 14 e 15 → 14, 10 → 10
+    const ba = Math.floor(a / 2) * 2;
+    const bb = Math.floor(b / 2) * 2;
+    dimKey = `d${Math.min(ba, bb)}x${Math.max(ba, bb)}`;
+  }
+
+  // Tokens restantes (sem stopwords, sem números puros)
+  const tokens = name
+    .replace(/[^\w\s]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t && !STOPWORDS.has(t) && !/^\d+(g|cm|mm)?$/.test(t) && !/^\d+x\d+$/.test(t))
+    .sort();
+
+  return [...tokens, dimKey, gramKey].filter(Boolean).join("|");
+};
+
 // Para cada tier (a partir do 2º), calcula o % de queda no preço unitário vs faixa anterior.
 // Retorna o índice/tier com o maior salto (sweet spot).
 const findSweetSpot = (siteTiers: Tier[]): { tier: Tier; dropPct: number } | null => {
@@ -98,6 +157,7 @@ export default function Monitoramento() {
   const [syncing, setSyncing] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [qtdAlvo, setQtdAlvo] = useState<number>(100);
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   const fetchAll = async () => {
     const [sitesRes, tiersRes, alertasRes, histRes, histTiersRes] = await Promise.all([
@@ -201,57 +261,82 @@ export default function Monitoramento() {
     return map;
   }, [grupos, tiersBySite, qtdAlvo]);
 
-  // Score de oportunidade por site (top 5).
+  // Agrupa sites por produto normalizado (mesmo produto entre fornecedores).
+  // Aplica filtro de busca pelo nome do produto.
   const oportunidades = useMemo(() => {
-    type Opp = {
+    type OfertaFornecedor = {
       site: Site;
       tier: Tier;
-      score: number;
-      quedaPct: number;
-      sweetPct: number;
-      vantagemPct: number;
+      precoUnit: number;
+      precoTotal: number;
       isMinHist: boolean;
     };
-    const opps: Opp[] = [];
+    type GrupoProduto = {
+      key: string;
+      nomeExibicao: string;
+      ofertas: OfertaFornecedor[];
+      melhor: OfertaFornecedor;
+      economiaPct: number; // melhor vs pior
+    };
+
+    const search = stripAccents(searchTerm.toLowerCase().trim());
+    const groups = new Map<string, { nome: string; ofertas: OfertaFornecedor[] }>();
+
     for (const s of sites) {
+      // Filtro de busca: aceita se o termo aparecer no nome (ou no fornecedor)
+      if (search) {
+        const haystack = stripAccents(`${s.nome_produto} ${s.fornecedor_nome || ""}`.toLowerCase());
+        if (!haystack.includes(search)) continue;
+      }
       const siteTiers = tiersBySite[s.id] || [];
-      if (!siteTiers.length) continue;
-      const sweet = findSweetSpot(siteTiers);
-      const targetTier = sweet?.tier || getTierForQty(siteTiers, qtdAlvo);
-      if (!targetTier) continue;
+      const tier = getTierForQty(siteTiers, qtdAlvo);
+      if (!tier) continue;
 
-      // Queda vs último histórico do tier
-      const prev = prevHistByTier[targetTier.id];
-      const quedaPct = prev && prev > 0 && Number(targetTier.preco_total) < prev
-        ? ((prev - Number(targetTier.preco_total)) / prev) * 100
-        : 0;
+      const key = productKey(s.nome_produto);
+      if (!key) continue;
 
-      const sweetPct = sweet?.dropPct || 0;
+      const isMinHist = minHistByTier[tier.id] != null
+        && Number(tier.preco_total) <= minHistByTier[tier.id];
 
-      // Vantagem vs concorrência: média da categoria para a mesma quantidade
-      const sameCatSites = sites.filter((x) => x.categoria === s.categoria && x.id !== s.id);
-      const concorrentesUnit: number[] = [];
-      for (const c of sameCatSites) {
-        const ct = getTierForQty(tiersBySite[c.id] || [], targetTier.quantidade);
-        if (ct) concorrentesUnit.push(Number(ct.preco_unitario));
-      }
-      const mediaConc = concorrentesUnit.length
-        ? concorrentesUnit.reduce((a, b) => a + b, 0) / concorrentesUnit.length
-        : 0;
-      const vantagemPct = mediaConc > 0 && Number(targetTier.preco_unitario) < mediaConc
-        ? ((mediaConc - Number(targetTier.preco_unitario)) / mediaConc) * 100
-        : 0;
-
-      const isMinHist = minHistByTier[targetTier.id] != null
-        && Number(targetTier.preco_total) <= minHistByTier[targetTier.id];
-
-      const score = quedaPct * 0.5 + sweetPct * 0.3 + vantagemPct * 0.2;
-      if (score > 0 || isMinHist) {
-        opps.push({ site: s, tier: targetTier, score, quedaPct, sweetPct, vantagemPct, isMinHist });
-      }
+      const oferta: OfertaFornecedor = {
+        site: s,
+        tier,
+        precoUnit: Number(tier.preco_unitario),
+        precoTotal: Number(tier.preco_total),
+        isMinHist,
+      };
+      const cur = groups.get(key);
+      if (cur) cur.ofertas.push(oferta);
+      else groups.set(key, { nome: s.nome_produto, ofertas: [oferta] });
     }
-    return opps.sort((a, b) => b.score - a.score).slice(0, 5);
-  }, [sites, tiersBySite, prevHistByTier, minHistByTier, qtdAlvo]);
+
+    const result: GrupoProduto[] = [];
+    for (const [key, g] of groups) {
+      // Para cada fornecedor (site), pega só a MELHOR oferta dele neste grupo
+      // (caso o mesmo fornecedor apareça mais de uma vez)
+      const porFornecedor = new Map<string, OfertaFornecedor>();
+      for (const o of g.ofertas) {
+        const fid = o.site.fornecedor_nome || o.site.id;
+        const cur = porFornecedor.get(fid);
+        if (!cur || o.precoUnit < cur.precoUnit) porFornecedor.set(fid, o);
+      }
+      const ofertasUnicas = Array.from(porFornecedor.values())
+        .sort((a, b) => a.precoUnit - b.precoUnit);
+      if (!ofertasUnicas.length) continue;
+      const melhor = ofertasUnicas[0];
+      const pior = ofertasUnicas[ofertasUnicas.length - 1];
+      const economiaPct = pior.precoUnit > 0 && pior.precoUnit > melhor.precoUnit
+        ? ((pior.precoUnit - melhor.precoUnit) / pior.precoUnit) * 100
+        : 0;
+      result.push({ key, nomeExibicao: g.nome, ofertas: ofertasUnicas, melhor, economiaPct });
+    }
+
+    // Ordena: maior economia primeiro (oportunidades reais), depois por nome
+    return result.sort((a, b) => {
+      if (b.economiaPct !== a.economiaPct) return b.economiaPct - a.economiaPct;
+      return a.nomeExibicao.localeCompare(b.nomeExibicao);
+    });
+  }, [sites, tiersBySite, minHistByTier, qtdAlvo, searchTerm]);
 
   const lastSync = useMemo(() => {
     const dates = sites.map((s) => s.timestamp_check).filter(Boolean) as string[];
@@ -404,6 +489,14 @@ export default function Monitoramento() {
             </SelectContent>
           </Select>
         </div>
+        <div className="flex items-center gap-2 flex-1 min-w-[200px] max-w-md">
+          <Label className="shrink-0">Buscar:</Label>
+          <Input
+            placeholder="Ex: panfleto, cartão, A4..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
       </div>
 
       <Tabs defaultValue="oportunidades">
@@ -416,65 +509,91 @@ export default function Monitoramento() {
           <TabsTrigger value="alertas">Alertas {alertasNaoLidos > 0 && `(${alertasNaoLidos})`}</TabsTrigger>
         </TabsList>
 
-        {/* === OPORTUNIDADES === */}
+        {/* === OPORTUNIDADES === Comparação produto-a-produto entre fornecedores === */}
         <TabsContent value="oportunidades" className="space-y-3">
           {oportunidades.length === 0 && (
             <Card><CardContent className="py-10 text-center text-muted-foreground space-y-2">
-              <p>Nenhuma oportunidade no momento.</p>
+              <p>Nenhum produto encontrado para comparar.</p>
               <p className="text-xs">
-                Clique em <strong>Atualizar todos</strong> para coletar preços. As oportunidades aparecem após 2+ atualizações
-                (precisamos de histórico para detectar quedas).
+                {searchTerm
+                  ? "Tente ajustar a busca ou cadastre o mesmo produto em mais de um fornecedor."
+                  : "Cadastre o mesmo produto em fornecedores diferentes para ver a comparação automática."}
               </p>
             </CardContent></Card>
           )}
-          {oportunidades.map((opp, idx) => (
-            <Card key={opp.site.id + opp.tier.id} className="border-l-4" style={{ borderLeftColor: "hsl(var(--primary))" }}>
-              <CardContent className="py-4 flex flex-wrap items-center gap-4 justify-between">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
-                    {idx + 1}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-semibold truncate">{opp.site.nome_produto}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {opp.site.fornecedor_nome || "—"} · <span className="font-mono">{opp.tier.quantidade} un</span> ·{" "}
-                      <span className="font-semibold text-foreground">{formatBRL(Number(opp.tier.preco_total))}</span>{" "}
-                      ({formatBRL(Number(opp.tier.preco_unitario))}/un)
+          {oportunidades.map((grupo) => {
+            const temConcorrencia = grupo.ofertas.length > 1;
+            return (
+              <Card key={grupo.key} className="border-l-4" style={{ borderLeftColor: "hsl(var(--primary))" }}>
+                <CardHeader className="pb-2">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <CardTitle className="text-base">{grupo.nomeExibicao}</CardTitle>
+                      <CardDescription>
+                        {grupo.ofertas.length} {grupo.ofertas.length === 1 ? "fornecedor" : "fornecedores"} · comparando para{" "}
+                        <strong>{qtdAlvo.toLocaleString("pt-BR")} un</strong>
+                      </CardDescription>
                     </div>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {opp.quedaPct > 0 && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          <TrendingDown className="h-3 w-3 mr-0.5" /> Caiu {opp.quedaPct.toFixed(1)}%
-                        </Badge>
-                      )}
-                      {opp.sweetPct > 0 && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          <Target className="h-3 w-3 mr-0.5" /> Sweet spot {opp.sweetPct.toFixed(1)}%
-                        </Badge>
-                      )}
-                      {opp.vantagemPct > 0 && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          <Trophy className="h-3 w-3 mr-0.5" /> {opp.vantagemPct.toFixed(1)}% abaixo da média
-                        </Badge>
-                      )}
-                      {opp.isMinHist && (
-                        <Badge style={{ backgroundColor: "hsl(var(--success))", color: "hsl(var(--success-foreground))" }} className="text-[10px]">
-                          <Flame className="h-3 w-3 mr-0.5" /> Mínimo histórico
-                        </Badge>
-                      )}
-                    </div>
+                    {temConcorrencia && grupo.economiaPct > 0 && (
+                      <Badge style={{ backgroundColor: "hsl(var(--success))", color: "hsl(var(--success-foreground))" }}>
+                        <Sparkles className="h-3 w-3 mr-0.5" /> Economia até {grupo.economiaPct.toFixed(1)}%
+                      </Badge>
+                    )}
                   </div>
-                </div>
-                {opp.site.url_completa && (
-                  <Button asChild>
-                    <a href={opp.site.url_completa} target="_blank" rel="noreferrer">
-                      <ShoppingCart className="h-4 w-4" /> Comprar agora
-                    </a>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="rounded border divide-y">
+                    {grupo.ofertas.map((oferta, idx) => {
+                      const isMelhor = idx === 0;
+                      return (
+                        <div
+                          key={oferta.site.id}
+                          className={`flex flex-wrap items-center gap-3 px-3 py-2 ${isMelhor ? "bg-success/5" : ""}`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {isMelhor ? (
+                              <Trophy className="h-4 w-4 shrink-0" style={{ color: "hsl(var(--success))" }} />
+                            ) : (
+                              <span className="h-4 w-4 shrink-0 text-center text-xs text-muted-foreground">{idx + 1}</span>
+                            )}
+                            <div className="min-w-0">
+                              <div className="font-medium text-sm truncate">
+                                {oferta.site.fornecedor_nome || "—"}
+                                {isMelhor && temConcorrencia && (
+                                  <Badge className="ml-2 text-[10px]" style={{ backgroundColor: "hsl(var(--success))", color: "hsl(var(--success-foreground))" }}>
+                                    Mais barato
+                                  </Badge>
+                                )}
+                                {oferta.isMinHist && (
+                                  <Badge variant="secondary" className="ml-1 text-[10px]">
+                                    <Flame className="h-3 w-3 mr-0.5" /> Mín. histórico
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {oferta.site.nome_produto} · faixa {oferta.tier.quantidade}un
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="font-semibold tabular-nums">{formatBRL(oferta.precoTotal)}</div>
+                            <div className="text-xs text-muted-foreground tabular-nums">{formatBRL(oferta.precoUnit)}/un</div>
+                          </div>
+                          {oferta.site.url_completa && (
+                            <Button size="sm" variant={isMelhor ? "default" : "outline"} asChild>
+                              <a href={oferta.site.url_completa} target="_blank" rel="noreferrer">
+                                <ShoppingCart className="h-4 w-4" /> Comprar
+                              </a>
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </TabsContent>
 
         {/* === COMPARATIVO === */}
