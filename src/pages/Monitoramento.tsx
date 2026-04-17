@@ -429,7 +429,10 @@ export default function Monitoramento() {
         if (!haystack.includes(search)) continue;
       }
       const siteTiers = tiersBySite[s.id] || [];
-      const tier = getTierForQty(siteTiers, qtdAlvo);
+      // Só considera ofertas com tier EXATO para a quantidade alvo —
+      // assim a aba Oportunidades nunca mostra um preço de outra faixa
+      // como se fosse o preço da quantidade selecionada.
+      const tier = siteTiers.find((t) => t.quantidade === qtdAlvo) || null;
       if (!tier) continue;
 
       // Chave de agrupamento: usa o produto_catalogo_id quando disponível,
