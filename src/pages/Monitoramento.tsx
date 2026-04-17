@@ -366,6 +366,33 @@ export default function Monitoramento() {
     return map;
   }, [grupos, tiersBySite, qtdAlvo]);
 
+  // Quantidades realmente disponíveis nos tiers dos sites que passam pelos filtros
+  // ativos (produto/categoria/busca). Usado para limitar o dropdown "Comparar para"
+  // e evitar mostrar quantidades inexistentes para o produto selecionado.
+  const qtdOptionsDisponiveis = useMemo(() => {
+    const search = stripAccents(searchTerm.toLowerCase().trim());
+    const set = new Set<number>();
+    for (const s of sites) {
+      if (filterProduto !== "all" && (s.produto_catalogo_id || "") !== filterProduto) continue;
+      if (filterCategoria !== "all" && s.categoria !== filterCategoria) continue;
+      if (search) {
+        const haystack = stripAccents(`${s.nome_produto} ${s.fornecedor_nome || ""}`.toLowerCase());
+        if (!haystack.includes(search)) continue;
+      }
+      for (const t of tiersBySite[s.id] || []) set.add(t.quantidade);
+    }
+    return Array.from(set).sort((a, b) => a - b);
+  }, [sites, tiersBySite, filterProduto, filterCategoria, searchTerm]);
+
+  // Se a quantidade-alvo atual não existe nas opções disponíveis, ajusta automaticamente
+  // para a mais próxima (preferindo a maior <= alvo, ou a menor disponível).
+  useEffect(() => {
+    if (!qtdOptionsDisponiveis.length) return;
+    if (qtdOptionsDisponiveis.includes(qtdAlvo)) return;
+    const menorOuIgual = [...qtdOptionsDisponiveis].filter((q) => q <= qtdAlvo).pop();
+    setQtdAlvo(menorOuIgual ?? qtdOptionsDisponiveis[0]);
+  }, [qtdOptionsDisponiveis, qtdAlvo]);
+
   // Agrupa sites por produto normalizado (mesmo produto entre fornecedores).
   // Aplica filtro de busca pelo nome do produto.
   const oportunidades = useMemo(() => {
@@ -402,7 +429,10 @@ export default function Monitoramento() {
         if (!haystack.includes(search)) continue;
       }
       const siteTiers = tiersBySite[s.id] || [];
-      const tier = getTierForQty(siteTiers, qtdAlvo);
+      // Só considera ofertas com tier EXATO para a quantidade alvo —
+      // assim a aba Oportunidades nunca mostra um preço de outra faixa
+      // como se fosse o preço da quantidade selecionada.
+      const tier = siteTiers.find((t) => t.quantidade === qtdAlvo) || null;
       if (!tier) continue;
 
       // Chave de agrupamento: usa o produto_catalogo_id quando disponível,
@@ -626,7 +656,7 @@ export default function Monitoramento() {
           <Select value={String(qtdAlvo)} onValueChange={(v) => setQtdAlvo(Number(v))}>
             <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {QTD_OPTIONS.map((q) => (
+              {(qtdOptionsDisponiveis.length ? qtdOptionsDisponiveis : QTD_OPTIONS).map((q) => (
                 <SelectItem key={q} value={String(q)}>{q.toLocaleString("pt-BR")} un</SelectItem>
               ))}
             </SelectContent>
