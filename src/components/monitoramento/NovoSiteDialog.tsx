@@ -711,6 +711,13 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
           </TabsContent>
         </Tabs>
       </DialogContent>
+      <ConfirmarNomeDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        nomeAtual={confirmNome}
+        sugestoes={confirmSugestoes}
+        onConfirm={handleConfirmName}
+      />
     </Dialog>
   );
 }
