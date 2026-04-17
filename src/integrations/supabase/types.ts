@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      alertas_precos: {
+        Row: {
+          created_at: string
+          id: string
+          lida: boolean
+          mensagem: string
+          preco_antigo: number | null
+          preco_novo: number | null
+          prioridade: string
+          site_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lida?: boolean
+          mensagem: string
+          preco_antigo?: number | null
+          preco_novo?: number | null
+          prioridade?: string
+          site_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lida?: boolean
+          mensagem?: string
+          preco_antigo?: number | null
+          preco_novo?: number | null
+          prioridade?: string
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alertas_precos_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites_monitorados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -422,6 +463,35 @@ export type Database = {
           waste_pct?: number
         }
         Relationships: []
+      }
+      historico_precos: {
+        Row: {
+          criado_em: string
+          id: string
+          site_id: string
+          valor: number
+        }
+        Insert: {
+          criado_em?: string
+          id?: string
+          site_id: string
+          valor: number
+        }
+        Update: {
+          criado_em?: string
+          id?: string
+          site_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_precos_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites_monitorados"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       maintenance_requests: {
         Row: {
@@ -1412,6 +1482,51 @@ export type Database = {
           name?: string
           salary?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sites_monitorados: {
+        Row: {
+          ativo: boolean
+          categoria: string
+          created_at: string
+          fornecedor_nome: string | null
+          id: string
+          nome_produto: string
+          preco_anterior: number | null
+          preco_atual: number | null
+          seletor_css: string
+          timestamp_check: string | null
+          updated_at: string
+          url_completa: string
+        }
+        Insert: {
+          ativo?: boolean
+          categoria?: string
+          created_at?: string
+          fornecedor_nome?: string | null
+          id?: string
+          nome_produto: string
+          preco_anterior?: number | null
+          preco_atual?: number | null
+          seletor_css: string
+          timestamp_check?: string | null
+          updated_at?: string
+          url_completa: string
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: string
+          created_at?: string
+          fornecedor_nome?: string | null
+          id?: string
+          nome_produto?: string
+          preco_anterior?: number | null
+          preco_atual?: number | null
+          seletor_css?: string
+          timestamp_check?: string | null
+          updated_at?: string
+          url_completa?: string
         }
         Relationships: []
       }
