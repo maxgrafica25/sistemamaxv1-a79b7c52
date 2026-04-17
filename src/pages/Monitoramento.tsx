@@ -471,11 +471,22 @@ export default function Monitoramento() {
             Atualizar todos
           </Button>
 
+          <Button variant="outline" onClick={() => setOpenCatalogo(true)}>
+            <BookOpen className="h-4 w-4" />
+            Catálogo
+          </Button>
+
           <Button onClick={() => setOpenDialog(true)}>
             <Plus className="h-4 w-4" />
             Novo Site
           </Button>
           <NovoSiteDialog open={openDialog} onOpenChange={setOpenDialog} onCreated={fetchAll} />
+          <CatalogoProdutosDialog
+            open={openCatalogo}
+            onOpenChange={setOpenCatalogo}
+            onChanged={fetchAll}
+            getSupplierColor={getSupplierColor}
+          />
         </div>
       </div>
 
@@ -517,6 +528,18 @@ export default function Monitoramento() {
               <SelectItem value="all">Todas as categorias</SelectItem>
               {categorias.map((c) => (
                 <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label>Produto:</Label>
+          <Select value={filterProduto} onValueChange={setFilterProduto}>
+            <SelectTrigger className="w-64"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os produtos</SelectItem>
+              {produtosCatalogo.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.nome_canonico}</SelectItem>
               ))}
             </SelectContent>
           </Select>
