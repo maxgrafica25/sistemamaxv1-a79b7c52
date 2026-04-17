@@ -489,7 +489,7 @@ export default function Monitoramento() {
             <Card key={a.id} className={a.lida ? "opacity-60" : ""}>
               <CardContent className="py-4 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <TrendingDown className={`h-5 w-5 ${a.prioridade === "alta" ? "text-red-500" : "text-orange-500"}`} />
+                  <TrendingDown className="h-5 w-5" style={{ color: a.prioridade === "alta" ? "hsl(var(--destructive))" : "hsl(var(--warning))" }} />
                   <div>
                     <div className="font-medium">{a.mensagem}</div>
                     <div className="text-xs text-muted-foreground">
