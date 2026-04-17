@@ -82,16 +82,9 @@ Deno.serve(async (req) => {
     const { data: sites, error } = await query;
     if (error) throw error;
 
+    // Sistema 100% on-demand: sempre que chamado, roda tudo (sem checar intervalo).
     const results: any[] = [];
     for (const site of sites ?? []) {
-      // respeita intervalo (a menos que seja sync forçado)
-      if (!onlySiteId && site.timestamp_check) {
-        const hoursSince = (Date.now() - new Date(site.timestamp_check).getTime()) / 3600000;
-        if (hoursSince < (site.intervalo_check_horas ?? 24)) {
-          results.push({ site_id: site.id, skipped: true, reason: "interval" });
-          continue;
-        }
-      }
       if (!site.url_completa) {
         results.push({ site_id: site.id, skipped: true, reason: "no_url" });
         continue;

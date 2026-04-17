@@ -17,6 +17,19 @@ import { toast } from "sonner";
 const formatBRL = (v: number | null | undefined) =>
   v == null ? "—" : v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+// Extrai um nome amigável a partir do domínio da URL (fallback quando o Firecrawl não retorna fornecedor).
+const extractDomainName = (url: string): string => {
+  try {
+    const u = new URL(url.trim());
+    const host = u.hostname.replace(/^www\./, "");
+    const parts = host.split(".");
+    const core = parts.length >= 2 ? parts[parts.length - 2] : parts[0];
+    return core.charAt(0).toUpperCase() + core.slice(1);
+  } catch {
+    return "";
+  }
+};
+
 const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
   const bytes = new Uint8Array(buffer);
   const chunkSize = 0x8000;
@@ -102,9 +115,12 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
       });
       if (error) throw error;
       if (data?.success && Array.isArray(data.tiers) && data.tiers.length) {
-        setTiersResult({ ok: true, produto: data.produto, fornecedor: data.fornecedor, tiers: data.tiers });
+        const detectedSupplier = data.fornecedor && String(data.fornecedor).trim()
+          ? String(data.fornecedor).trim()
+          : extractDomainName(tiersUrl);
+        setTiersResult({ ok: true, produto: data.produto, fornecedor: detectedSupplier, tiers: data.tiers });
         if (!tiersNome && data.produto) setTiersNome(String(data.produto).slice(0, 120));
-        if (!fornecedor && data.fornecedor) setFornecedor(String(data.fornecedor));
+        if (detectedSupplier) setFornecedor(detectedSupplier);
       } else {
         setTiersResult({ ok: false, error: data?.error || "Nenhuma faixa de preço encontrada" });
       }
