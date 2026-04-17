@@ -72,8 +72,14 @@ function fromMeta(doc: any): { price: number | null; source: string } {
 
 function fromHeuristic(html: string): { price: number | null; source: string } {
   // Procura padrões R$ X,XX em todo o HTML; pega o mais frequente nos primeiros 50KB
-  const slice = html.slice(0, 50000);
-  const re = /R\$\s*([\d.]+,\d{2})/g;
+  // Normaliza &nbsp; (\u00A0) e entidades HTML para espaço comum
+  const normalized = html
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\u00A0/g, " ")
+    .replace(/&#160;/g, " ");
+  const slice = normalized.slice(0, 80000);
+  // Aceita "R$" seguido de qualquer espaço (incluindo nenhum) antes do número
+  const re = /R\$[\s\u00A0]*([\d.]+,\d{2})/g;
   const all: number[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(slice)) !== null) {
