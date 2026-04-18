@@ -1,64 +1,52 @@
 
-Objetivo: fazer a detecção funcionar de forma confiável para Atual Card e Imprima Rápido, sem estourar timeout e sem quebrar o modal.
 
-Diagnóstico real:
-- O problema principal não é mais de sintaxe/deploy.
-- As chamadas que falham hoje retornam `500` com `Firecrawl timeout/abort`.
-- O fluxo atual tenta um scrape pesado demais logo de cara (`json + screenshot + waits + scroll + fallback visual`), então para esses domínios ele morre antes mesmo de chegar na extração útil.
-- Pelas páginas lidas, o HTML existe e é grande, mas o markdown é pobre. Isso indica que as faixas provavelmente estão em HTML/estado serializado da página, não no markdown curto.
-- Há também um problema de estabilidade no modal: o `Badge` gera warning de `ref`, então vale corrigir isso junto para evitar erro visual no preview.
+## Diagnóstico definitivo
 
-Plano de correção:
+Testei o Firecrawl direto contra a Atual Card e Imprima Rápido com `waitFor: 8000`, scroll, ações de espera e até modo `stealth`. Resultado em **todos os casos**:
+- HTML retornado: ~120-190 KB, mas **zero ocorrências de "R$"**, **zero `<script>`**, **zero `<td>`/`<option>`**, **zero "unidade"**.
+- Markdown: 130-180 chars (só ícones de header).
 
-1. Trocar a estratégia de extração para “HTML primeiro, visual por último”
-- Fazer a função tentar primeiro um scrape leve, com timeout menor e sem screenshot:
-  - formatos: `html` + `markdown`
-  - sem fallback visual nessa primeira etapa
-- Extrair as faixas a partir do HTML bruto e de blocos serializados da página.
-- Só usar screenshot + IA como último recurso.
+Conclusão: o problema **não é o parser**. O Firecrawl simplesmente não está conseguindo renderizar o conteúdo de preço dessas duas páginas — o conteúdo só aparece após interações específicas (provavelmente seleção de região/CEP, ou um framework JS muito específico que o Chrome do Firecrawl não está executando).
 
-2. Criar parsers por domínio para os sites problemáticos
-- Implementar parser específico para:
-  - `atualcard.com.br`
-  - `imprimarapido.com.br`
-- Procurar no HTML:
-  - tabelas de quantidade/preço
-  - JSON embutido em `<script>`
-  - arrays/objetos com quantidade e valor
-  - atributos `data-*`
-- Isso muda a abordagem de “OCR lento” para “leitura estruturada do HTML”, que deve ser muito mais rápida e completa nesses dois sites.
+Por isso todas as estratégias anteriores falharam: você não pode parsear dados que não estão no HTML retornado.
 
-3. Manter parser genérico para os sites que já funcionam
-- Preservar o fluxo atual para FuturaIM / ANS e outros casos estáveis:
-  - validação por texto
-  - regex em markdown
-  - merge conservador
-- Assim evitamos regredir onde já está correto.
+## Plano
 
-4. Rebaixar o fallback visual
-- Deixar o fallback por screenshot apenas quando:
-  - não houver parser específico para o domínio
-  - HTML + markdown não trouxerem tiers suficientes
-- Em lote (“Em massa”), evitar fallback visual pesado por padrão, para não voltar o timeout.
+**1. Confirmar a hipótese com diagnóstico embutido**
+Adicionar logging detalhado que mostra, no log da função:
+- Se `R$` aparece no HTML
+- Se há scripts/tabelas
+- Quantos chars úteis de markdown vieram
+Assim, no futuro, conseguimos ver imediatamente "Firecrawl não rendereizou" vs "regex não matchou".
 
-5. Melhorar tratamento de erro no modal
-- Garantir que falha de uma URL nunca derrube a tela.
-- Mostrar erro por item e seguir com os demais.
-- Corrigir o componente `Badge` para suportar `ref` corretamente e remover o warning atual.
+**2. Tratar "página vazia" como erro claro, não como "sem tabela"**
+Se o HTML não contém **nenhum** sinal de preço (`R$`, `unidade`, números de quantidade plausíveis), retornar uma mensagem explícita:
+> "O Firecrawl não conseguiu renderizar a página de preços deste site. Provável bloqueio anti-bot ou conteúdo carregado por interação."
+Em vez do confuso "Sem tabela detectada".
 
-6. Aplicar a mesma lógica na sincronização automática
-- Replicar o pipeline novo também em `scheduled-sync-firecrawl`, para que o comportamento manual e automático fique igual.
+**3. Adicionar fallback via screenshot SEMPRE para os domínios problemáticos**
+Para `atualcard.com.br` e `imprimarapido.com.br`, **pular direto** para o caminho visual (screenshot + Gemini), porque sabemos que o HTML nunca virá. Isso evita gastar tempo tentando parsers que não vão funcionar.
+- Manter `allowVisual: false` no modo "Em massa" para esses domínios também (o screenshot é caro), mas mostrar mensagem clara no item: "Use 'Re-detectar individualmente' para este site".
+- No modo individual: pedir screenshot da Atual Card / Imprima Rápido com `fullPage: true` e enviar para Gemini.
 
-Arquivos a ajustar:
-- `supabase/functions/detect-price-tiers/index.ts`
-- `supabase/functions/scheduled-sync-firecrawl/index.ts`
-- `src/components/ui/badge.tsx`
-- `src/components/monitoramento/NovoSiteDialog.tsx` (apenas se precisar reforçar a estabilidade do erro por item)
+**4. Aceitar que detecção automática pode falhar nesses sites**
+Adicionar no diálogo um botão **"Inserir faixas manualmente"** quando a detecção falha. O usuário cola/digita as faixas (qtd → preço) que vê na tela. Salva igual ao fluxo automático.
+Isso garante que o sistema seja **utilizável** mesmo quando a página é hostil a scraping.
 
-Resultado esperado após a implementação:
-- Atual Card: detectar todas as faixas sem timeout
-- Imprima Rápido: detectar todas as faixas sem timeout
-- FuturaIM e ANS: continuar corretos
-- Modal “Em massa”: continuar aberto e utilizável mesmo quando 1 site falhar
+**5. Não mexer em ANS e FuturaIM**
+Esses estão funcionando. Só adicionar o logging melhorado.
+
+## Arquivos a ajustar
+
+- `supabase/functions/detect-price-tiers/index.ts` — diagnóstico melhorado, fast-path visual para domínios bloqueados, mensagem de erro clara.
+- `src/components/monitoramento/NovoSiteDialog.tsx` — botão "Inserir faixas manualmente" quando detecção retorna 0 faixas, mensagem mais útil em caso de página vazia.
+- `supabase/functions/scheduled-sync-firecrawl/index.ts` — só replicar o diagnóstico (sem visual no cron, é caro demais).
+
+## Resultado esperado
+
+- **Atual Card / Imprima Rápido**: ou virá pelo screenshot (modo individual), ou o usuário digita as 8 faixas manualmente em ~30s. Não fica mais travado.
+- **ANS / FuturaIM**: continuam idênticos.
+- **Em massa**: para de tentar inutilmente esses dois sites e marca claramente "requer entrada manual".
 
 Sem mudanças no banco.
+
