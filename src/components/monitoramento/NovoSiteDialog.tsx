@@ -124,6 +124,10 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   } | null>(null);
   const [savingTiers, setSavingTiers] = useState(false);
   const [tiersCatalogoId, setTiersCatalogoId] = useState<string | null>(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualTiers, setManualTiers] = useState<{ quantidade: string; preco_total: string }[]>([
+    { quantidade: "", preco_total: "" },
+  ]);
 
   // ===== MODO 5: Em massa (múltiplos URLs) =====
   type BulkItem = {
@@ -147,7 +151,63 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     setAdvUrl(""); setAdvNome(""); setAdvSeletor(""); setAdvResult(null);
     setFile(null); setParsed(null); setColNome(""); setColPreco(""); setColCodigo("__none__");
     setTiersUrl(""); setTiersNome(""); setTiersResult(null); setTiersCatalogoId(null);
+    setManualMode(false); setManualTiers([{ quantidade: "", preco_total: "" }]);
     setBulkUrls(""); setBulkItems([]); setBulkProgress({ done: 0, total: 0 });
+  };
+
+  // ---- MANUAL TIERS handlers ----
+  const addManualRow = () => setManualTiers((p) => [...p, { quantidade: "", preco_total: "" }]);
+  const removeManualRow = (i: number) => setManualTiers((p) => p.filter((_, idx) => idx !== i));
+  const updateManualRow = (i: number, patch: Partial<{ quantidade: string; preco_total: string }>) =>
+    setManualTiers((p) => p.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+
+  const handleSaveManualTiers = async () => {
+    if (!tiersUrl.trim()) return toast.error("Cole a URL do produto");
+    if (!tiersNome.trim()) return toast.error("Confirme o nome do produto");
+    const parsedTiers = manualTiers
+      .map((r) => ({
+        quantidade: Number(String(r.quantidade).replace(/[^\d]/g, "")) || 0,
+        preco_total: Number(String(r.preco_total).replace(/\./g, "").replace(",", ".").replace(/[^\d.]/g, "")) || 0,
+      }))
+      .filter((t) => t.quantidade > 0 && t.preco_total > 0)
+      .map((t) => ({ ...t, preco_unitario: t.preco_total / t.quantidade }));
+    if (parsedTiers.length === 0) return toast.error("Preencha ao menos uma faixa válida (quantidade e preço)");
+
+    setSavingTiers(true);
+    try {
+      const dup = await checkDuplicate({ url: tiersUrl.trim() });
+      if (dup) { toast.error(dup); setSavingTiers(false); return; }
+      const catalogoId = tiersCatalogoId ?? await findOrCreateCatalogo(tiersNome.trim(), categoria);
+      const minTier = [...parsedTiers].sort((a, b) => a.quantidade - b.quantidade)[0];
+      const { data: site, error } = await supabase.from("sites_monitorados").insert({
+        nome_produto: tiersNome.trim(),
+        categoria: categoria.trim().toLowerCase() || "geral",
+        url_completa: tiersUrl.trim(),
+        seletor_css: null,
+        tipo_fonte: "url_tiers",
+        fornecedor_nome: fornecedor.trim() || extractDomainName(tiersUrl) || null,
+        produto_catalogo_id: catalogoId,
+        preco_atual: minTier.preco_total,
+        metodo_coleta: "manual",
+        intervalo_check_horas: 24,
+        timestamp_check: new Date().toISOString(),
+      }).select().single();
+      if (error) throw error;
+      const rows = parsedTiers.map((t) => ({
+        site_id: site.id,
+        quantidade: t.quantidade,
+        preco_total: t.preco_total,
+        preco_unitario: t.preco_unitario,
+      }));
+      const { error: tErr } = await supabase.from("site_precos_tiers").insert(rows);
+      if (tErr) throw tErr;
+      toast.success(`Produto adicionado com ${rows.length} faixas (manual)`);
+      reset(); onCreated(); onOpenChange(false);
+    } catch (e: any) {
+      toast.error("Erro: " + e.message);
+    } finally {
+      setSavingTiers(false);
+    }
   };
 
   // ---- BULK handlers ----
@@ -613,13 +673,65 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                 </Button>
               </div>
             </div>
-            {tiersResult && !tiersResult.ok && (
+            {tiersResult && !tiersResult.ok && !manualMode && (
               <Alert variant="destructive">
                 <AlertDescription className="text-xs flex items-start gap-2">
-                  <XCircle className="h-4 w-4 mt-0.5" /><span>{tiersResult.error}</span>
+                  <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <span>{tiersResult.error}</span>
+                    <div>
+                      <Button size="sm" variant="outline" onClick={() => setManualMode(true)}>
+                        <ListPlus className="h-4 w-4 mr-1" />Inserir faixas manualmente
+                      </Button>
+                    </div>
+                  </div>
                 </AlertDescription>
               </Alert>
             )}
+
+            {manualMode && (
+              <div className="space-y-2 border rounded p-3 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Faixas manuais</Label>
+                  <Button size="sm" variant="ghost" onClick={() => setManualMode(false)}>Cancelar</Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Digite as quantidades e preços totais que aparecem no site (ex: 100 → 89,90).</p>
+                <div className="space-y-2">
+                  {manualTiers.map((row, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <Input
+                        placeholder="Quantidade (ex: 100)"
+                        value={row.quantidade}
+                        onChange={(e) => updateManualRow(i, { quantidade: e.target.value })}
+                        className="font-mono"
+                      />
+                      <Input
+                        placeholder="Preço total (ex: 89,90)"
+                        value={row.preco_total}
+                        onChange={(e) => updateManualRow(i, { preco_total: e.target.value })}
+                        className="font-mono"
+                      />
+                      <Button size="icon" variant="ghost" onClick={() => removeManualRow(i)} disabled={manualTiers.length === 1}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button size="sm" variant="outline" onClick={addManualRow}>
+                  <ListPlus className="h-4 w-4 mr-1" />Adicionar faixa
+                </Button>
+                <ProductPicker
+                  selectedId={tiersCatalogoId}
+                  selectedName={tiersNome}
+                  onChange={({ id, name }) => { setTiersCatalogoId(id); setTiersNome(name); }}
+                />
+                <div>
+                  <Label className="text-xs">Fornecedor</Label>
+                  <Input value={fornecedor} onChange={(e) => setFornecedor(e.target.value)} placeholder="Nome do fornecedor" />
+                </div>
+              </div>
+            )}
+
             {tiersResult?.ok && tiersResult.tiers && (
               <>
                 <Alert>
@@ -658,10 +770,17 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button onClick={handleSaveTiers} disabled={savingTiers || !tiersResult?.ok || !tiersNome}>
-                {savingTiers && <Loader2 className="h-4 w-4 animate-spin" />}
-                Salvar produto + {tiersResult?.tiers?.length || 0} faixas
-              </Button>
+              {manualMode ? (
+                <Button onClick={handleSaveManualTiers} disabled={savingTiers || !tiersNome || !tiersUrl}>
+                  {savingTiers && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Salvar faixas manuais
+                </Button>
+              ) : (
+                <Button onClick={handleSaveTiers} disabled={savingTiers || !tiersResult?.ok || !tiersNome}>
+                  {savingTiers && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Salvar produto + {tiersResult?.tiers?.length || 0} faixas
+                </Button>
+              )}
             </DialogFooter>
           </TabsContent>
 
