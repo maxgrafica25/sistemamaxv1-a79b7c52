@@ -150,6 +150,131 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     setBulkUrls(""); setBulkItems([]); setBulkProgress({ done: 0, total: 0 });
   };
 
+  // ---- BULK handlers ----
+  const handleBulkDetect = async () => {
+    const urls = bulkUrls
+      .split(/\r?\n/)
+      .map((u) => u.trim())
+      .filter((u) => u.length > 0);
+    if (urls.length === 0) return toast.error("Cole pelo menos uma URL");
+
+    const initial: BulkItem[] = urls.map((url) => ({ url, status: "pending", include: false }));
+    setBulkItems(initial);
+    setBulkProgress({ done: 0, total: urls.length });
+    setBulkBusy(true);
+    bulkCancelRef.cancel = false;
+
+    for (let i = 0; i < urls.length; i++) {
+      if (bulkCancelRef.cancel) break;
+      const url = urls[i];
+      setBulkItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, status: "processing" } : it)));
+
+      // duplicate?
+      const dup = await checkDuplicate({ url });
+      if (dup) {
+        setBulkItems((prev) =>
+          prev.map((it, idx) => (idx === i ? { ...it, status: "duplicate", error: dup, include: false } : it)),
+        );
+        setBulkProgress((p) => ({ ...p, done: i + 1 }));
+        continue;
+      }
+
+      try {
+        const { data, error } = await supabase.functions.invoke("detect-price-tiers", { body: { url } });
+        if (error) throw error;
+        if (data?.success && Array.isArray(data.tiers) && data.tiers.length) {
+          const supplier = data.fornecedor && String(data.fornecedor).trim()
+            ? String(data.fornecedor).trim()
+            : extractDomainName(url);
+          setBulkItems((prev) =>
+            prev.map((it, idx) =>
+              idx === i
+                ? {
+                    ...it,
+                    status: "ok",
+                    nome: String(data.produto || "").slice(0, 120),
+                    fornecedor: supplier,
+                    tiers: data.tiers,
+                    include: true,
+                  }
+                : it,
+            ),
+          );
+        } else {
+          setBulkItems((prev) =>
+            prev.map((it, idx) =>
+              idx === i ? { ...it, status: "error", error: data?.error || "Sem tabela detectada", include: false } : it,
+            ),
+          );
+        }
+      } catch (e: any) {
+        setBulkItems((prev) =>
+          prev.map((it, idx) => (idx === i ? { ...it, status: "error", error: e.message, include: false } : it)),
+        );
+      }
+      setBulkProgress((p) => ({ ...p, done: i + 1 }));
+      // pequeno delay para evitar rate limit
+      await new Promise((r) => setTimeout(r, 400));
+    }
+    setBulkBusy(false);
+  };
+
+  const handleBulkCancel = () => {
+    bulkCancelRef.cancel = true;
+  };
+
+  const updateBulkItem = (idx: number, patch: Partial<BulkItem>) => {
+    setBulkItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  };
+
+  const handleBulkSave = async () => {
+    const toSave = bulkItems.filter((it) => it.include && it.status === "ok" && it.tiers?.length);
+    if (toSave.length === 0) return toast.error("Nenhum item selecionado para salvar");
+    setBulkSaving(true);
+    let created = 0, errors = 0, dupes = 0;
+    for (const item of toSave) {
+      try {
+        const nomeFinal = (item.nome || "").trim();
+        if (!nomeFinal) { errors++; continue; }
+        const dup = await checkDuplicate({ url: item.url });
+        if (dup) { dupes++; continue; }
+        const catalogoId = await findOrCreateCatalogo(nomeFinal, categoria);
+        const minTier = [...item.tiers!].sort((a, b) => a.quantidade - b.quantidade)[0];
+        const { data: site, error } = await supabase.from("sites_monitorados").insert({
+          nome_produto: nomeFinal,
+          categoria: categoria.trim().toLowerCase() || "geral",
+          url_completa: item.url,
+          seletor_css: null,
+          tipo_fonte: "url_tiers",
+          fornecedor_nome: (item.fornecedor || "").trim() || null,
+          produto_catalogo_id: catalogoId,
+          preco_atual: minTier.preco_total,
+          metodo_coleta: "firecrawl",
+          intervalo_check_horas: 24,
+          timestamp_check: new Date().toISOString(),
+        }).select().single();
+        if (error) throw error;
+        const rows = item.tiers!.map((t) => ({
+          site_id: site.id,
+          quantidade: t.quantidade,
+          preco_total: t.preco_total,
+          preco_unitario: t.preco_unitario,
+        }));
+        const { error: tErr } = await supabase.from("site_precos_tiers").insert(rows);
+        if (tErr) throw tErr;
+        created++;
+      } catch (e: any) {
+        console.error("bulk save error:", e);
+        errors++;
+      }
+    }
+    setBulkSaving(false);
+    toast.success(`${created} cadastrados, ${dupes} duplicados, ${errors} erros`);
+    if (created > 0) {
+      reset(); onCreated(); onOpenChange(false);
+    }
+  };
+
   // ---- TIERS handlers ----
   const handleDetectTiers = async () => {
     if (!tiersUrl) return toast.error("Cole a URL do produto");
