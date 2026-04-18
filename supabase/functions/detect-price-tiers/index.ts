@@ -132,6 +132,7 @@ async function extractTiersFromScreenshot(screenshotUrl: string): Promise<Tier[]
         },
       }],
       tool_choice: { type: "function", function: { name: "extract_tiers" } },
+    }),
     });
   } catch (e) {
     clearTimeout(timer);
