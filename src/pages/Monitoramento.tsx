@@ -33,6 +33,9 @@ type Site = {
   metodo_coleta?: string;
   tipo_fonte?: string;
   produto_catalogo_id?: string | null;
+  scrape_status?: string | null;
+  scrape_error?: string | null;
+  scrape_source?: string | null;
 };
 
 type Tier = {
@@ -1052,7 +1055,21 @@ export default function Monitoramento() {
                       <TableCell className="text-right font-mono">{formatBRL(s.preco_atual)}</TableCell>
                       <TableCell className="text-right font-mono">{(tiersBySite[s.id] || []).length || "—"}</TableCell>
                       <TableCell className="text-xs">
-                        {s.timestamp_check ? new Date(s.timestamp_check).toLocaleString("pt-BR") : "—"}
+                        <div className="flex flex-col gap-1">
+                          <span>{s.timestamp_check ? new Date(s.timestamp_check).toLocaleString("pt-BR") : "—"}</span>
+                          <div className="flex items-center gap-1">
+                            {s.scrape_source && (
+                              <Badge variant="outline" className="text-[10px] py-0 px-1 h-4">
+                                {s.scrape_source === "worker" ? "Worker" : "Firecrawl"}
+                              </Badge>
+                            )}
+                            {s.scrape_status === "error" && s.scrape_error && (
+                              <Badge variant="destructive" className="text-[10px] py-0 px-1 h-4" title={s.scrape_error}>
+                                erro
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge
