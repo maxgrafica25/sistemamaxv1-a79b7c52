@@ -184,7 +184,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
       }
 
       try {
-        const { data, error } = await supabase.functions.invoke("detect-price-tiers", { body: { url } });
+        const { data, error } = await supabase.functions.invoke("detect-price-tiers", { body: { url, allowVisual: false } });
         if (error) throw error;
         if (data?.success && Array.isArray(data.tiers) && data.tiers.length) {
           const supplier = data.fornecedor && String(data.fornecedor).trim()
