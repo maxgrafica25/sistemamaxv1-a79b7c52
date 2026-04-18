@@ -961,13 +961,19 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                 disabled={bulkBusy}
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button onClick={handleBulkDetect} disabled={bulkBusy || !bulkUrls.trim()}>
                 {bulkBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 Detectar todos
               </Button>
               {bulkBusy && (
                 <Button variant="outline" onClick={handleBulkCancel}>Cancelar detecção</Button>
+              )}
+              {!bulkBusy && bulkItems.some((i) => i.status === "error") && (
+                <Button variant="outline" onClick={handleBulkRetryErrors}>
+                  <Sparkles className="h-4 w-4" />
+                  Tentar novamente os erros ({bulkItems.filter((i) => i.status === "error").length})
+                </Button>
               )}
               {bulkItems.length > 0 && !bulkBusy && (
                 <Button variant="ghost" onClick={() => { setBulkItems([]); setBulkUrls(""); setBulkProgress({ done: 0, total: 0 }); }}>
