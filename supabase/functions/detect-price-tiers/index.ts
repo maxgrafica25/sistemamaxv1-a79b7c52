@@ -82,8 +82,13 @@ async function extractTiersFromScreenshot(screenshotUrl: string): Promise<Tier[]
     console.warn("LOVABLE_API_KEY ausente — pulando fallback visual");
     return [];
   }
-  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 50000);
+  let resp: Response;
+  try {
+    resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
+    signal: ctrl.signal,
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "google/gemini-2.5-pro",
