@@ -1622,6 +1622,9 @@ export type Database = {
           preco_anterior: number | null
           preco_atual: number | null
           produto_catalogo_id: string | null
+          scrape_error: string | null
+          scrape_source: string | null
+          scrape_status: string
           seletor_css: string | null
           timestamp_check: string | null
           tipo_fonte: string
@@ -1642,6 +1645,9 @@ export type Database = {
           preco_anterior?: number | null
           preco_atual?: number | null
           produto_catalogo_id?: string | null
+          scrape_error?: string | null
+          scrape_source?: string | null
+          scrape_status?: string
           seletor_css?: string | null
           timestamp_check?: string | null
           tipo_fonte?: string
@@ -1662,6 +1668,9 @@ export type Database = {
           preco_anterior?: number | null
           preco_atual?: number | null
           produto_catalogo_id?: string | null
+          scrape_error?: string | null
+          scrape_source?: string | null
+          scrape_status?: string
           seletor_css?: string | null
           timestamp_check?: string | null
           tipo_fonte?: string
