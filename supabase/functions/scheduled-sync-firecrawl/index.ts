@@ -136,21 +136,29 @@ function mergeConservative(base: Tier[], extras: Tier[]): Tier[] {
 }
 
 async function scrapeTiers(url: string, apiKey: string) {
-  const r = await fetch("https://api.firecrawl.dev/v2/scrape", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      url, onlyMainContent: false, waitFor: 8000,
-      actions: [
-        { type: "wait", milliseconds: 3000 },
-        { type: "scroll", direction: "down" },
-        { type: "wait", milliseconds: 2000 },
-        { type: "scroll", direction: "down" },
-        { type: "wait", milliseconds: 2000 },
-      ],
-      formats: ["markdown", "screenshot", { type: "json", schema: TIER_SCHEMA, prompt: PROMPT }],
-    }),
-  });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 60000);
+  let r: Response;
+  try {
+    r = await fetch("https://api.firecrawl.dev/v2/scrape", {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url, onlyMainContent: false, waitFor: 5000,
+        actions: [
+          { type: "wait", milliseconds: 3000 },
+          { type: "scroll", direction: "down" },
+          { type: "wait", milliseconds: 2000 },
+        ],
+        formats: ["markdown", "screenshot", { type: "json", schema: TIER_SCHEMA, prompt: PROMPT }],
+      }),
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    throw new Error(`Firecrawl timeout: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  clearTimeout(timer);
   const d = await r.json();
   if (!r.ok) throw new Error(d?.error || `Firecrawl ${r.status}`);
   const markdown: string = d?.data?.markdown ?? d?.markdown ?? "";
