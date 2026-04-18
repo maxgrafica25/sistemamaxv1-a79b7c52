@@ -8,16 +8,54 @@ const corsHeaders = {
 
 type Tier = { quantidade: number; preco: number };
 
+function normalizeWorkerUrl(raw: string | undefined): string {
+  if (!raw) throw new Error("SCRAPER_WORKER_URL não configurada");
+  let u = raw.trim().replace(/\/$/, "");
+  if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
+  try {
+    const parsed = new URL(u);
+    if (!parsed.hostname || !parsed.hostname.includes(".")) {
+      throw new Error(`SCRAPER_WORKER_URL inválida: "${raw}". Use a URL completa do Railway, ex.: https://meu-worker.up.railway.app`);
+    }
+    return parsed.origin;
+  } catch (_e) {
+    throw new Error(`SCRAPER_WORKER_URL inválida: "${raw}". Use a URL completa do Railway, ex.: https://meu-worker.up.railway.app`);
+  }
+}
+
+async function checkWorkerHealth(workerOrigin: string): Promise<{ ok: boolean; detail?: string }> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch(`${workerOrigin}/health`, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!r.ok) return { ok: false, detail: `health HTTP ${r.status}` };
+    const j = await r.json().catch(() => null);
+    if (!j || j.status !== "ok") return { ok: false, detail: "health sem {status:'ok'}" };
+    return { ok: true };
+  } catch (e) {
+    clearTimeout(timer);
+    return { ok: false, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function callWorker(url: string): Promise<{ tiers: Tier[]; error?: string; elapsed_ms?: number }> {
-  const workerUrl = Deno.env.get("SCRAPER_WORKER_URL");
+  const workerOrigin = normalizeWorkerUrl(Deno.env.get("SCRAPER_WORKER_URL"));
   const workerSecret = Deno.env.get("WORKER_SECRET");
-  if (!workerUrl) throw new Error("SCRAPER_WORKER_URL não configurada");
   if (!workerSecret) throw new Error("WORKER_SECRET não configurada");
+
+  console.log(`[scrape-via-worker] target=${workerOrigin}`);
+  const health = await checkWorkerHealth(workerOrigin);
+  if (!health.ok) {
+    throw new Error(
+      `Worker não encontrado em ${workerOrigin} (${health.detail}). Verifique se o serviço scraper-worker foi deployado no Railway e se SCRAPER_WORKER_URL aponta para o domínio público correto (Settings → Networking → Public Domain).`
+    );
+  }
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 60000);
   try {
-    const r = await fetch(`${workerUrl.replace(/\/$/, "")}/scrape`, {
+    const r = await fetch(`${workerOrigin}/scrape`, {
       method: "POST",
       signal: ctrl.signal,
       headers: {
