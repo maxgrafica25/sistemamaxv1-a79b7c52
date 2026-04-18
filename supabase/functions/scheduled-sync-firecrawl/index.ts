@@ -64,37 +64,48 @@ function extractTiersFromMarkdown(md: string) {
 async function extractTiersFromScreenshot(screenshotUrl: string): Promise<Tier[]> {
   const KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!KEY) return [];
-  const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
-      messages: [
-        { role: "system", content: "Você extrai tabelas de preço por quantidade de imagens. Retorne TODAS as faixas visíveis. Nunca invente." },
-        { role: "user", content: [
-          { type: "text", text: "Extraia TODAS as faixas (quantidade × preço total) desta imagem usando a ferramenta extract_tiers." },
-          { type: "image_url", image_url: { url: screenshotUrl } },
-        ] },
-      ],
-      tools: [{
-        type: "function",
-        function: {
-          name: "extract_tiers",
-          description: "Faixas de preço extraídas da imagem.",
-          parameters: {
-            type: "object",
-            properties: {
-              tiers: { type: "array", items: { type: "object", properties: {
-                quantidade: { type: "number" }, preco_total: { type: "number" }, preco_unitario: { type: "number" },
-              }, required: ["quantidade", "preco_total"] } },
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 50000);
+  let r: Response;
+  try {
+    r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-pro",
+        messages: [
+          { role: "system", content: "Você extrai tabelas de preço por quantidade de imagens. Retorne TODAS as faixas visíveis. Nunca invente." },
+          { role: "user", content: [
+            { type: "text", text: "Extraia TODAS as faixas (quantidade × preço total) desta imagem usando a ferramenta extract_tiers." },
+            { type: "image_url", image_url: { url: screenshotUrl } },
+          ] },
+        ],
+        tools: [{
+          type: "function",
+          function: {
+            name: "extract_tiers",
+            description: "Faixas de preço extraídas da imagem.",
+            parameters: {
+              type: "object",
+              properties: {
+                tiers: { type: "array", items: { type: "object", properties: {
+                  quantidade: { type: "number" }, preco_total: { type: "number" }, preco_unitario: { type: "number" },
+                }, required: ["quantidade", "preco_total"] } },
+              },
+              required: ["tiers"],
             },
-            required: ["tiers"],
           },
-        },
-      }],
-      tool_choice: { type: "function", function: { name: "extract_tiers" } },
-    }),
-  });
+        }],
+        tool_choice: { type: "function", function: { name: "extract_tiers" } },
+      }),
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    console.warn(`visual abort: ${e instanceof Error ? e.message : String(e)}`);
+    return [];
+  }
+  clearTimeout(timer);
   if (!r.ok) { console.warn(`visual fallback ${r.status}`); return []; }
   const d = await r.json();
   const call = d?.choices?.[0]?.message?.tool_calls?.[0];
@@ -125,21 +136,29 @@ function mergeConservative(base: Tier[], extras: Tier[]): Tier[] {
 }
 
 async function scrapeTiers(url: string, apiKey: string) {
-  const r = await fetch("https://api.firecrawl.dev/v2/scrape", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      url, onlyMainContent: false, waitFor: 8000,
-      actions: [
-        { type: "wait", milliseconds: 3000 },
-        { type: "scroll", direction: "down" },
-        { type: "wait", milliseconds: 2000 },
-        { type: "scroll", direction: "down" },
-        { type: "wait", milliseconds: 2000 },
-      ],
-      formats: ["markdown", "screenshot", { type: "json", schema: TIER_SCHEMA, prompt: PROMPT }],
-    }),
-  });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 60000);
+  let r: Response;
+  try {
+    r = await fetch("https://api.firecrawl.dev/v2/scrape", {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url, onlyMainContent: false, waitFor: 5000,
+        actions: [
+          { type: "wait", milliseconds: 3000 },
+          { type: "scroll", direction: "down" },
+          { type: "wait", milliseconds: 2000 },
+        ],
+        formats: ["markdown", "screenshot", { type: "json", schema: TIER_SCHEMA, prompt: PROMPT }],
+      }),
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    throw new Error(`Firecrawl timeout: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  clearTimeout(timer);
   const d = await r.json();
   if (!r.ok) throw new Error(d?.error || `Firecrawl ${r.status}`);
   const markdown: string = d?.data?.markdown ?? d?.markdown ?? "";
