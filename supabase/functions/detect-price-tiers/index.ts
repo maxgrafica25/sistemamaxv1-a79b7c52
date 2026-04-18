@@ -181,28 +181,35 @@ function mergeConservative(base: Tier[], extras: Tier[]): Tier[] {
 }
 
 export async function scrapeAndExtractTiers(url: string, firecrawlKey: string) {
-  // Etapa 1: scrape com markdown + json + screenshot
-  const fcResp = await fetch("https://api.firecrawl.dev/v2/scrape", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${firecrawlKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      url,
-      onlyMainContent: false,
-      waitFor: 8000,
-      actions: [
-        { type: "wait", milliseconds: 3000 },
-        { type: "scroll", direction: "down" },
-        { type: "wait", milliseconds: 2000 },
-        { type: "scroll", direction: "down" },
-        { type: "wait", milliseconds: 2000 },
-      ],
-      formats: [
-        "markdown",
-        "screenshot",
-        { type: "json", schema: TIER_SCHEMA, prompt: PROMPT },
-      ],
-    }),
-  });
+  const fcCtrl = new AbortController();
+  const fcTimer = setTimeout(() => fcCtrl.abort(), 60000);
+  let fcResp: Response;
+  try {
+    fcResp = await fetch("https://api.firecrawl.dev/v2/scrape", {
+      method: "POST",
+      signal: fcCtrl.signal,
+      headers: { Authorization: `Bearer ${firecrawlKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url,
+        onlyMainContent: false,
+        waitFor: 5000,
+        actions: [
+          { type: "wait", milliseconds: 3000 },
+          { type: "scroll", direction: "down" },
+          { type: "wait", milliseconds: 2000 },
+        ],
+        formats: [
+          "markdown",
+          "screenshot",
+          { type: "json", schema: TIER_SCHEMA, prompt: PROMPT },
+        ],
+      }),
+    });
+  } catch (e) {
+    clearTimeout(fcTimer);
+    throw new Error(`Firecrawl timeout/abort: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  clearTimeout(fcTimer);
   const data = await fcResp.json();
   if (!fcResp.ok) throw new Error(data?.error || `Firecrawl ${fcResp.status}`);
 
