@@ -1,54 +1,41 @@
 
-Diagnóstico: os ajustes anteriores mexeram no regex, mas o problema real está antes disso. Pelos logs, a Atual Card entregou só `markdown=177 chars` e a Imprima Rápido `markdown=268 chars`, então o extrator textual simplesmente não está “vendo” a tabela completa. Já a FuturaIM entrega muito texto (`85894 chars`), então um fallback amplo demais tende a puxar números extras. Ou seja: não adianta continuar só afinando regex.
 
-Plano de correção:
+## Diagnóstico
 
-1. Manter o fluxo atual como etapa principal
-- Continuar usando Firecrawl JSON + validação + regex para os sites que já funcionam bem (ANS e casos estáveis).
-- Isso evita quebrar o que já está correto.
+O erro `IDLE_TIMEOUT 150s` aparece porque:
 
-2. Adicionar uma checagem de confiança no `detect-price-tiers`
-- Marcar o resultado como “baixa confiança” quando acontecer um destes sinais:
-  - markdown muito curto
-  - regex = 0
-  - poucas faixas detectadas para páginas que visualmente têm mais
-  - quantidades não monotônicas / inconsistentes
-- Essa checagem decide quando ativar um fallback diferente.
+1. **Em massa processa URLs sequencialmente** (`for` loop com `await`), então as 4 URLs somam tempo. Mas o timeout de 150s é **por request**, então isso sozinho não deveria estourar — exceto que…
+2. **Cada chamada individual da função ficou pesada** com o fallback visual: Firecrawl com `waitFor 8000ms` + 2 scrolls + screenshot + Gemini 2.5 Pro multimodal pode levar facilmente 60–120s.
+3. Quando o Firecrawl trava (página lenta, anti-bot), a função fica esperando até o gateway encerrar com 504.
 
-3. Trocar o fallback de texto por fallback visual
-- Para Atual Card e Imprima Rápido, pedir também screenshot da página no Firecrawl.
-- Enviar a screenshot para um modelo multimodal via Lovable AI e extrair a tabela de quantidades/preços lendo a área visível da página.
-- Usar schema rígido para retornar apenas:
-  - quantidade
-  - preco_total
-  - preco_unitario
-  - texto_original
-- Isso resolve o caso em que a página renderiza no navegador, mas o markdown/html útil não vem completo.
+Pelos logs: ANS e FuturaIM passam (`low=false`, sem visual). Atual Card e Imprima Rápido caem em `low=true` → entram no caminho visual lento → estouram o timeout.
 
-4. Fazer merge conservador para evitar “faixas a mais”
-- Não juntar tudo cegamente.
-- Regra proposta:
-  - se o resultado textual estiver com alta confiança, ele continua valendo
-  - se estiver com baixa confiança, usar o resultado visual como fonte principal
-  - só aceitar faixas extras se forem coerentes com a tabela (quantidades típicas, ordem crescente, sem duplicidade por quantidade)
-- Assim a FuturaIM não volta a inflar com linhas indevidas.
+## Plano
 
-5. Replicar a mesma lógica na sincronização automática
-- Aplicar a mesma função auxiliar em:
-  - `supabase/functions/detect-price-tiers/index.ts`
-  - `supabase/functions/scheduled-sync-firecrawl/index.ts`
-- Isso garante que o cadastro manual e a atualização automática tenham o mesmo comportamento.
+**1. Adicionar timeouts internos na função `detect-price-tiers`**
+- `AbortController` no fetch do Firecrawl com limite de 60s.
+- `AbortController` no fetch do Lovable AI (visual) com limite de 50s.
+- Se qualquer um estourar, retorna o que tiver até o momento (parcial) em vez de travar.
 
-6. Validação após implementação
-- Reprocessar estes links e conferir contagem final:
-  - Atual Card: 8 faixas
-  - Imprima Rápido: 8 faixas
-  - ANS: continuar correto
-  - FuturaIM: sem faixas extras
-- Também validar que a ordenação por quantidade continua correta e sem duplicatas.
+**2. Reduzir o peso do scrape**
+- Tirar 1 dos 2 scrolls e baixar `waitFor` total para ~5000ms (3000 + 2000).
+- Manter screenshot só quando realmente cair em baixa confiança (já é o caso, mantém).
 
-Arquivos afetados:
-- `supabase/functions/detect-price-tiers/index.ts`
-- `supabase/functions/scheduled-sync-firecrawl/index.ts`
+**3. Paralelizar o "Em massa" no client**
+- Em vez de `for await`, usar `Promise.allSettled` com concorrência limitada (3 simultâneas) para que cada URL tenha seu próprio timeout de 150s e o lote total termine mais rápido.
+- Atualiza `bulkItems` conforme cada Promise resolve.
 
-Sem mudança no banco. A principal mudança é de estratégia: sair de um fallback textual frágil para um fallback visual controlado, ativado só quando o scrape vier com baixa confiança.
+**4. Mensagem de erro mais clara**
+- Quando der timeout, mostrar "Tempo esgotado — tente re-detectar este site individualmente" em vez de só "Edge Function returned a non-2xx status code".
+
+**5. Replicar timeouts em `scheduled-sync-firecrawl`**
+- Mesma blindagem para o cron não travar.
+
+## Arquivos afetados
+
+- `supabase/functions/detect-price-tiers/index.ts` — AbortController nos fetches, `waitFor` reduzido, retorno parcial em timeout.
+- `supabase/functions/scheduled-sync-firecrawl/index.ts` — mesmos timeouts.
+- `src/components/monitoramento/NovoSiteDialog.tsx` — `handleBulkDetect` com pool de 3 paralelas + tratamento de erro de timeout.
+
+Sem mudanças no banco. Após o deploy, o usuário pode reabrir "Em massa" → "Detectar todos" e o lote deve concluir mesmo se 1–2 URLs forem lentas.
+
