@@ -307,8 +307,42 @@ async function extractTiersFromScreenshot(screenshotUrl: string): Promise<Tier[]
 export async function scrapeAndExtractTiers(url: string, firecrawlKey: string, opts?: { allowVisual?: boolean }) {
   const allowVisual = opts?.allowVisual !== false;
 
+  // Visual-only fast-path for known anti-bot / SPA domains where HTML is always empty.
+  if (isVisualOnlyDomain(url)) {
+    if (!allowVisual) {
+      return {
+        produto: "", fornecedor: "", tiers: [],
+        diagnostics: { visual_only_domain: true, skipped_reason: "bulk_mode" },
+        error_user: "Este site exige captura visual (mais lenta). Use 'Re-detectar individualmente' ou insira as faixas manualmente.",
+      };
+    }
+    try {
+      const { screenshot, markdown: md2 } = await scrapeWithScreenshot(url, firecrawlKey);
+      console.log(`[${url}] visual-only domain hasShot=${!!screenshot} mdLen=${md2.length}`);
+      if (screenshot) {
+        const visual = await extractTiersFromScreenshot(screenshot);
+        if (visual.length) {
+          return { produto: "", fornecedor: "", tiers: dedupSort(visual), diagnostics: { used_visual: true, visual_only_domain: true } };
+        }
+      }
+      return {
+        produto: "", fornecedor: "", tiers: [],
+        diagnostics: { visual_only_domain: true, used_visual: true, visual_failed: true },
+        error_user: "A IA não conseguiu ler a tabela de preços da imagem. Insira as faixas manualmente.",
+      };
+    } catch (e) {
+      return {
+        produto: "", fornecedor: "", tiers: [],
+        diagnostics: { visual_only_domain: true, visual_error: e instanceof Error ? e.message : String(e) },
+        error_user: "Captura visual falhou. Insira as faixas manualmente.",
+      };
+    }
+  }
+
   // Step 1: lightweight HTML+markdown scrape
   const { html, markdown } = await scrapeLight(url, firecrawlKey);
+  const diag = diagnoseHtml(html, markdown);
+  console.log(`[${url}] DIAG hasRS=${diag.hasRS} hasUnit=${diag.hasUnit} scripts=${diag.scriptCount} td=${diag.tdCount} opt=${diag.optionCount} mdLen=${diag.mdLen} looksEmpty=${diag.looksEmpty}`);
 
   // Step 2: try domain-specific parser first
   const domainParser = pickDomainParser(url);
@@ -329,11 +363,20 @@ export async function scrapeAndExtractTiers(url: string, firecrawlKey: string, o
   );
 
   const merged = dedupSort([
-    ...domainTiers,                                    // domain-specific is trusted
+    ...domainTiers,
     ...validate([...htmlGeneric, ...scriptTiers, ...mdTiers]),
   ]);
 
   console.log(`[${url}] html=${html.length} md=${markdown.length} domain=${domainTiers.length} htmlGen=${htmlGeneric.length} scripts=${scriptTiers.length} md=${mdTiers.length} → final=${merged.length}`);
+
+  // If page looks completely empty AND we got nothing, return a clear "blocked page" error.
+  if (merged.length === 0 && diag.looksEmpty && !allowVisual) {
+    return {
+      produto: "", fornecedor: "", tiers: [],
+      diagnostics: { ...diag, blocked_page: true },
+      error_user: "Não foi possível ler esta página (provável bloqueio anti-bot ou conteúdo que só carrega com interação). Insira as faixas manualmente.",
+    };
+  }
 
   // Step 4: visual fallback only if we still have nothing AND visual is allowed
   if (merged.length === 0 && allowVisual) {
@@ -358,14 +401,14 @@ export async function scrapeAndExtractTiers(url: string, firecrawlKey: string, o
     fornecedor: "",
     tiers: merged,
     diagnostics: {
-      html_chars: html.length,
-      md_chars: markdown.length,
+      ...diag,
       domain_count: domainTiers.length,
       html_generic: htmlGeneric.length,
       script_count: scriptTiers.length,
       md_count: mdTiers.length,
       used_visual: false,
     },
+    ...(merged.length === 0 ? { error_user: "Nenhuma faixa de preço encontrada. Insira as faixas manualmente." } : {}),
   };
 }
 
@@ -383,6 +426,12 @@ Deno.serve(async (req) => {
       });
     }
     const result = await scrapeAndExtractTiers(url, apiKey, { allowVisual });
+    // If we have a friendly user error and no tiers, surface it as `error` (success:false) so UI handles it cleanly
+    if ((!result.tiers || result.tiers.length === 0) && (result as any).error_user) {
+      return new Response(JSON.stringify({ success: false, error: (result as any).error_user, diagnostics: result.diagnostics, url }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     return new Response(JSON.stringify({ success: true, url, ...result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
