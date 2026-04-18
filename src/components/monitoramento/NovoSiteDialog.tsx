@@ -314,6 +314,159 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     setBulkItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   };
 
+  // Tenta de novo apenas um item com captura visual habilitada (mais lenta).
+  const handleBulkRetryVisual = async (idx: number) => {
+    const item = bulkItems[idx];
+    if (!item) return;
+    setBulkRetryingIdx(idx);
+    updateBulkItem(idx, { status: "processing", error: undefined });
+    try {
+      const { data, error } = await supabase.functions.invoke("detect-price-tiers", {
+        body: { url: item.url, allowVisual: true },
+      });
+      if (error) throw error;
+      if (data?.success && Array.isArray(data.tiers) && data.tiers.length) {
+        const supplier = data.fornecedor && String(data.fornecedor).trim()
+          ? String(data.fornecedor).trim()
+          : extractDomainName(item.url);
+        updateBulkItem(idx, {
+          status: "ok",
+          nome: String(data.produto || "").slice(0, 120),
+          fornecedor: supplier,
+          tiers: data.tiers,
+          include: true,
+          error: undefined,
+        });
+        toast.success(`${data.tiers.length} faixas detectadas via captura visual`);
+      } else {
+        updateBulkItem(idx, {
+          status: "error",
+          error: data?.error || "Captura visual não retornou faixas. Use 'Inserir manualmente'.",
+          include: false,
+        });
+      }
+    } catch (e: any) {
+      const raw = String(e?.message || e || "");
+      updateBulkItem(idx, {
+        status: "error",
+        error: /timeout|idle|504|non-2xx/i.test(raw)
+          ? "Tempo esgotado mesmo com visual. Use 'Inserir manualmente'."
+          : raw || "Erro desconhecido",
+        include: false,
+      });
+    } finally {
+      setBulkRetryingIdx(null);
+    }
+  };
+
+  // Re-detecta apenas itens em erro (mantém os ok intactos).
+  const handleBulkRetryErrors = async () => {
+    const errorIdxs = bulkItems
+      .map((it, i) => (it.status === "error" ? i : -1))
+      .filter((i) => i >= 0);
+    if (errorIdxs.length === 0) return toast.info("Nenhum item em erro para tentar novamente");
+    setBulkBusy(true);
+    bulkCancelRef.cancel = false;
+    let done = 0;
+    const total = errorIdxs.length;
+    setBulkProgress({ done: 0, total });
+    const CONCURRENCY = 3;
+    let cursor = 0;
+    const worker = async () => {
+      while (!bulkCancelRef.cancel) {
+        const k = cursor++;
+        if (k >= errorIdxs.length) return;
+        const i = errorIdxs[k];
+        const url = bulkItems[i].url;
+        updateBulkItem(i, { status: "processing", error: undefined });
+        try {
+          const { data, error } = await supabase.functions.invoke("detect-price-tiers", {
+            body: { url, allowVisual: false },
+          });
+          if (error) throw error;
+          if (data?.success && Array.isArray(data.tiers) && data.tiers.length) {
+            const supplier = data.fornecedor && String(data.fornecedor).trim()
+              ? String(data.fornecedor).trim()
+              : extractDomainName(url);
+            updateBulkItem(i, {
+              status: "ok",
+              nome: String(data.produto || "").slice(0, 120),
+              fornecedor: supplier,
+              tiers: data.tiers,
+              include: true,
+            });
+          } else {
+            updateBulkItem(i, {
+              status: "error",
+              error: data?.error || "Sem tabela detectada",
+              include: false,
+            });
+          }
+        } catch (e: any) {
+          const raw = String(e?.message || e || "");
+          updateBulkItem(i, {
+            status: "error",
+            error: /timeout|idle|504|non-2xx/i.test(raw)
+              ? "Tempo esgotado — tente captura visual ou manual"
+              : raw || "Erro desconhecido",
+            include: false,
+          });
+        }
+        done++;
+        setBulkProgress({ done, total });
+      }
+    };
+    await Promise.allSettled(
+      Array.from({ length: Math.min(CONCURRENCY, errorIdxs.length) }, () => worker()),
+    );
+    setBulkBusy(false);
+  };
+
+  // Abre o formulário manual para um item específico do lote.
+  const openBulkManual = (idx: number) => {
+    const item = bulkItems[idx];
+    if (!item) return;
+    setBulkManualIdx(idx);
+    setBulkManualNome(item.nome || "");
+    setBulkManualFornecedor(item.fornecedor || extractDomainName(item.url));
+    setBulkManualTiers([{ quantidade: "", preco_total: "" }]);
+  };
+
+  const closeBulkManual = () => {
+    setBulkManualIdx(null);
+    setBulkManualTiers([{ quantidade: "", preco_total: "" }]);
+    setBulkManualNome("");
+    setBulkManualFornecedor("");
+  };
+
+  const updateBulkManualRow = (i: number, patch: Partial<{ quantidade: string; preco_total: string }>) =>
+    setBulkManualTiers((p) => p.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const addBulkManualRow = () => setBulkManualTiers((p) => [...p, { quantidade: "", preco_total: "" }]);
+  const removeBulkManualRow = (i: number) => setBulkManualTiers((p) => p.filter((_, idx) => idx !== i));
+
+  const confirmBulkManual = () => {
+    if (bulkManualIdx == null) return;
+    if (!bulkManualNome.trim()) return toast.error("Informe o nome do produto");
+    const parsedTiers = bulkManualTiers
+      .map((r) => ({
+        quantidade: Number(String(r.quantidade).replace(/[^\d]/g, "")) || 0,
+        preco_total: Number(String(r.preco_total).replace(/\./g, "").replace(",", ".").replace(/[^\d.]/g, "")) || 0,
+      }))
+      .filter((t) => t.quantidade > 0 && t.preco_total > 0)
+      .map((t) => ({ ...t, preco_unitario: t.preco_total / t.quantidade }));
+    if (parsedTiers.length === 0) return toast.error("Preencha pelo menos uma faixa válida");
+    updateBulkItem(bulkManualIdx, {
+      status: "ok",
+      nome: bulkManualNome.trim(),
+      fornecedor: bulkManualFornecedor.trim(),
+      tiers: parsedTiers,
+      include: true,
+      error: undefined,
+    });
+    toast.success(`${parsedTiers.length} faixas adicionadas manualmente`);
+    closeBulkManual();
+  };
+
   const handleBulkSave = async () => {
     const toSave = bulkItems.filter((it) => it.include && it.status === "ok" && it.tiers?.length);
     if (toSave.length === 0) return toast.error("Nenhum item selecionado para salvar");
