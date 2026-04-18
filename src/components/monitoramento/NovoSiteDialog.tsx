@@ -164,19 +164,23 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     setBulkBusy(true);
     bulkCancelRef.cancel = false;
 
-    for (let i = 0; i < urls.length; i++) {
-      if (bulkCancelRef.cancel) break;
+    const CONCURRENCY = 3;
+    let doneCount = 0;
+    let nextIndex = 0;
+
+    const processOne = async (i: number) => {
+      if (bulkCancelRef.cancel) return;
       const url = urls[i];
       setBulkItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, status: "processing" } : it)));
 
-      // duplicate?
       const dup = await checkDuplicate({ url });
       if (dup) {
         setBulkItems((prev) =>
           prev.map((it, idx) => (idx === i ? { ...it, status: "duplicate", error: dup, include: false } : it)),
         );
-        setBulkProgress((p) => ({ ...p, done: i + 1 }));
-        continue;
+        doneCount++;
+        setBulkProgress((p) => ({ ...p, done: doneCount }));
+        return;
       }
 
       try {
@@ -208,14 +212,30 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
           );
         }
       } catch (e: any) {
+        const raw = String(e?.message || e || "");
+        const friendly = /timeout|idle|504|non-2xx/i.test(raw)
+          ? "Tempo esgotado — tente re-detectar este site individualmente"
+          : raw || "Erro desconhecido";
         setBulkItems((prev) =>
-          prev.map((it, idx) => (idx === i ? { ...it, status: "error", error: e.message, include: false } : it)),
+          prev.map((it, idx) => (idx === i ? { ...it, status: "error", error: friendly, include: false } : it)),
         );
       }
-      setBulkProgress((p) => ({ ...p, done: i + 1 }));
-      // pequeno delay para evitar rate limit
-      await new Promise((r) => setTimeout(r, 400));
-    }
+      doneCount++;
+      setBulkProgress((p) => ({ ...p, done: doneCount }));
+    };
+
+    const worker = async () => {
+      while (!bulkCancelRef.cancel) {
+        const i = nextIndex++;
+        if (i >= urls.length) return;
+        await processOne(i);
+      }
+    };
+
+    await Promise.allSettled(
+      Array.from({ length: Math.min(CONCURRENCY, urls.length) }, () => worker()),
+    );
+
     setBulkBusy(false);
   };
 
