@@ -45,12 +45,13 @@ function parsePrice(s: string): number {
 }
 function extractTiersFromMarkdown(markdown: string) {
   const results: Array<{ quantidade: number; preco_total: number; preco_unitario: number }> = [];
-  const rx = /(\d{1,3}(?:\.\d{3})+|\d{3,6})\s*(?:un|unid|unidades|pcs|pe[çc]as)?[\s\S]{0,80}?R\$\s*([\d.,]+)/gi;
+  const rx = /(\d{1,3}(?:\.\d{3})+|\d{3,6})\s*(?:un|unid|unidades|pcs|pe[çc]as)[\s\S]{0,40}?R\$\s*([\d.,]+)/gi;
   let m: RegExpExecArray | null;
   while ((m = rx.exec(markdown)) !== null) {
     const qtd = parseQty(m[1]);
     const total = parsePrice(m[2]);
-    if (qtd >= 50 && qtd <= 1000000 && total > 0 && total < 1000000) {
+    const isRoundTier = qtd >= 50 && qtd <= 1000000 && (qtd % 50 === 0);
+    if (isRoundTier && total > 0 && total < 1000000) {
       results.push({ quantidade: qtd, preco_total: total, preco_unitario: qtd > 0 ? total / qtd : 0 });
     }
   }
@@ -88,7 +89,14 @@ async function scrapeTiers(url: string, apiKey: string) {
     body: JSON.stringify({
       url,
       onlyMainContent: false,
-      waitFor: 4000,
+      waitFor: 8000,
+      actions: [
+        { type: "wait", milliseconds: 3000 },
+        { type: "scroll", direction: "down" },
+        { type: "wait", milliseconds: 2000 },
+        { type: "scroll", direction: "down" },
+        { type: "wait", milliseconds: 2000 },
+      ],
       formats: ["markdown", { type: "json", schema: TIER_SCHEMA, prompt: PROMPT }],
     }),
   });
