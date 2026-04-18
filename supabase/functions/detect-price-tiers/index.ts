@@ -177,6 +177,45 @@ function isVisualOnlyDomain(url: string): boolean {
   }
 }
 
+// Domains routed to the Playwright worker (Railway) instead of Firecrawl.
+function isWorkerDomain(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host.includes("imprimarapido.com.br") || host.includes("atualcard.com.br");
+  } catch {
+    return false;
+  }
+}
+
+async function tryWorker(url: string): Promise<{ tiers: Tier[]; error?: string } | null> {
+  const workerUrl = Deno.env.get("SCRAPER_WORKER_URL");
+  const workerSecret = Deno.env.get("WORKER_SECRET");
+  if (!workerUrl || !workerSecret) return null;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 60000);
+  try {
+    const r = await fetch(`${workerUrl.replace(/\/$/, "")}/scrape`, {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: { Authorization: `Bearer ${workerSecret}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    clearTimeout(timer);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return { tiers: [], error: data?.error || `Worker HTTP ${r.status}` };
+    const raw: any[] = Array.isArray(data?.tiers) ? data.tiers : [];
+    const tiers: Tier[] = raw.map((t) => {
+      const q = Number(t.quantidade) || 0;
+      const p = Number(t.preco ?? t.preco_total) || 0;
+      return { quantidade: q, preco_total: p, preco_unitario: q > 0 ? p / q : 0 };
+    }).filter((t) => t.quantidade > 0 && t.preco_total > 0);
+    return { tiers: dedupSort(tiers), error: data?.error };
+  } catch (e) {
+    clearTimeout(timer);
+    return { tiers: [], error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 // Quick health check on the scraped HTML: does it look like a real product page with prices?
 function diagnoseHtml(html: string, markdown: string) {
   const hasRS = /R\$/.test(html);
