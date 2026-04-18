@@ -132,8 +132,13 @@ async function extractTiersFromScreenshot(screenshotUrl: string): Promise<Tier[]
         },
       }],
       tool_choice: { type: "function", function: { name: "extract_tiers" } },
-    }),
-  });
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    console.warn(`fallback visual abortado: ${e instanceof Error ? e.message : String(e)}`);
+    return [];
+  }
+  clearTimeout(timer);
   if (!resp.ok) {
     const t = await resp.text();
     console.warn(`fallback visual falhou ${resp.status}: ${t.slice(0, 200)}`);
