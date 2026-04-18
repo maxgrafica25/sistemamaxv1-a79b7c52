@@ -80,16 +80,19 @@ function parsePrice(s: string): number {
   return Number(clean) || 0;
 }
 
-// Regex fallback: find "quantity ... R$ price" patterns in markdown
+// Regex fallback: find "quantity ... R$ price" patterns in markdown.
+// Restrito: só aceita quantidades "redondas" típicas de tabela de tier (terminam em 00 ou são 50/100/250/500),
+// e exige proximidade <= 40 chars entre qtd e preço para evitar falsos positivos em páginas longas.
 function extractTiersFromMarkdown(markdown: string): Array<{ quantidade: number; preco_total: number; preco_unitario: number; texto_original: string }> {
   const results: Array<{ quantidade: number; preco_total: number; preco_unitario: number; texto_original: string }> = [];
-  // Pattern: number (with optional thousand separators) ... up to 80 chars ... R$ price
-  const rx = /(\d{1,3}(?:\.\d{3})+|\d{3,6})\s*(?:un|unid|unidades|pcs|pe[çc]as)?[\s\S]{0,80}?R\$\s*([\d.,]+)/gi;
+  const rx = /(\d{1,3}(?:\.\d{3})+|\d{3,6})\s*(?:un|unid|unidades|pcs|pe[çc]as)[\s\S]{0,40}?R\$\s*([\d.,]+)/gi;
   let m: RegExpExecArray | null;
   while ((m = rx.exec(markdown)) !== null) {
     const qtd = parseQty(m[1]);
     const total = parsePrice(m[2]);
-    if (qtd >= 50 && qtd <= 1000000 && total > 0 && total < 1000000) {
+    // Só quantidades plausíveis de tabela de tier
+    const isRoundTier = qtd >= 50 && qtd <= 1000000 && (qtd % 50 === 0);
+    if (isRoundTier && total > 0 && total < 1000000) {
       results.push({
         quantidade: qtd,
         preco_total: total,
@@ -124,7 +127,14 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         url,
         onlyMainContent: false,
-        waitFor: 4000,
+        waitFor: 8000,
+        actions: [
+          { type: "wait", milliseconds: 3000 },
+          { type: "scroll", direction: "down" },
+          { type: "wait", milliseconds: 2000 },
+          { type: "scroll", direction: "down" },
+          { type: "wait", milliseconds: 2000 },
+        ],
         formats: [
           "markdown",
           { type: "json", schema: TIER_SCHEMA, prompt: PROMPT },
