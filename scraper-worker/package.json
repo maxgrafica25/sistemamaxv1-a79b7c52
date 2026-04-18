@@ -1,0 +1,17 @@
+{
+  "name": "scraper-worker",
+  "version": "1.0.0",
+  "description": "Worker Playwright para extrair tabelas de preços de PWAs gráficas (Imprima Rápido, Atual Card, etc.)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "install-browsers": "npx playwright install chromium --with-deps"
+  },
+  "dependencies": {
+    "playwright": "^1.44.0",
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

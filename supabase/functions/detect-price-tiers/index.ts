@@ -177,6 +177,45 @@ function isVisualOnlyDomain(url: string): boolean {
   }
 }
 
+// Domains routed to the Playwright worker (Railway) instead of Firecrawl.
+function isWorkerDomain(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host.includes("imprimarapido.com.br") || host.includes("atualcard.com.br");
+  } catch {
+    return false;
+  }
+}
+
+async function tryWorker(url: string): Promise<{ tiers: Tier[]; error?: string } | null> {
+  const workerUrl = Deno.env.get("SCRAPER_WORKER_URL");
+  const workerSecret = Deno.env.get("WORKER_SECRET");
+  if (!workerUrl || !workerSecret) return null;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 60000);
+  try {
+    const r = await fetch(`${workerUrl.replace(/\/$/, "")}/scrape`, {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: { Authorization: `Bearer ${workerSecret}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    clearTimeout(timer);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return { tiers: [], error: data?.error || `Worker HTTP ${r.status}` };
+    const raw: any[] = Array.isArray(data?.tiers) ? data.tiers : [];
+    const tiers: Tier[] = raw.map((t) => {
+      const q = Number(t.quantidade) || 0;
+      const p = Number(t.preco ?? t.preco_total) || 0;
+      return { quantidade: q, preco_total: p, preco_unitario: q > 0 ? p / q : 0 };
+    }).filter((t) => t.quantidade > 0 && t.preco_total > 0);
+    return { tiers: dedupSort(tiers), error: data?.error };
+  } catch (e) {
+    clearTimeout(timer);
+    return { tiers: [], error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 // Quick health check on the scraped HTML: does it look like a real product page with prices?
 function diagnoseHtml(html: string, markdown: string) {
   const hasRS = /R\$/.test(html);
@@ -307,36 +346,39 @@ async function extractTiersFromScreenshot(screenshotUrl: string): Promise<Tier[]
 export async function scrapeAndExtractTiers(url: string, firecrawlKey: string, opts?: { allowVisual?: boolean }) {
   const allowVisual = opts?.allowVisual !== false;
 
-  // Visual-only fast-path for known anti-bot / SPA domains where HTML is always empty.
-  if (isVisualOnlyDomain(url)) {
+  // Worker-first: para PWAs onde Firecrawl falha, chama o Playwright worker (Railway).
+  if (isWorkerDomain(url)) {
+    const w = await tryWorker(url);
+    if (w && w.tiers.length) {
+      return { produto: "", fornecedor: "", tiers: w.tiers, diagnostics: { used_worker: true } };
+    }
+    // Worker indisponível ou sem tiers — cai para visual se permitido
     if (!allowVisual) {
       return {
         produto: "", fornecedor: "", tiers: [],
-        diagnostics: { visual_only_domain: true, skipped_reason: "bulk_mode" },
-        error_user: "Este site exige captura visual (mais lenta). Use 'Re-detectar individualmente' ou insira as faixas manualmente.",
+        diagnostics: { worker_attempted: true, worker_error: w?.error || "worker indisponível" },
+        error_user: w?.error
+          ? `Worker falhou: ${w.error}. Use 'Re-detectar individualmente' ou insira as faixas manualmente.`
+          : "Este site exige captura visual (mais lenta). Use 'Re-detectar individualmente' ou insira as faixas manualmente.",
       };
     }
+    // allowVisual=true: tenta screenshot como fallback
     try {
-      const { screenshot, markdown: md2 } = await scrapeWithScreenshot(url, firecrawlKey);
-      console.log(`[${url}] visual-only domain hasShot=${!!screenshot} mdLen=${md2.length}`);
+      const { screenshot } = await scrapeWithScreenshot(url, firecrawlKey);
       if (screenshot) {
         const visual = await extractTiersFromScreenshot(screenshot);
         if (visual.length) {
-          return { produto: "", fornecedor: "", tiers: dedupSort(visual), diagnostics: { used_visual: true, visual_only_domain: true } };
+          return { produto: "", fornecedor: "", tiers: dedupSort(visual), diagnostics: { used_visual: true, worker_failed: true } };
         }
       }
-      return {
-        produto: "", fornecedor: "", tiers: [],
-        diagnostics: { visual_only_domain: true, used_visual: true, visual_failed: true },
-        error_user: "A IA não conseguiu ler a tabela de preços da imagem. Insira as faixas manualmente.",
-      };
     } catch (e) {
-      return {
-        produto: "", fornecedor: "", tiers: [],
-        diagnostics: { visual_only_domain: true, visual_error: e instanceof Error ? e.message : String(e) },
-        error_user: "Captura visual falhou. Insira as faixas manualmente.",
-      };
+      console.warn(`worker+visual fallback failed: ${e instanceof Error ? e.message : String(e)}`);
     }
+    return {
+      produto: "", fornecedor: "", tiers: [],
+      diagnostics: { worker_attempted: true, visual_attempted: true, worker_error: w?.error },
+      error_user: "Não foi possível extrair as faixas automaticamente. Insira as faixas manualmente.",
+    };
   }
 
   // Step 1: lightweight HTML+markdown scrape
