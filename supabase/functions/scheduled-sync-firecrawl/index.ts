@@ -26,11 +26,36 @@ const TIER_SCHEMA = {
   required: ["tiers"],
 };
 
-const PROMPT = `Extraia as faixas de preço por quantidade VISÍVEIS na página.
+const PROMPT = `Extraia TODAS as faixas de preço por quantidade visíveis na página.
 REGRAS:
+- Retorne TODAS as linhas, sem exceção. Se há 8 quantidades, retorne 8 tiers. NÃO resuma.
 - NÃO invente valores. Se não houver tabela de preços por quantidade, retorne tiers: [].
 - Use números EXATAMENTE como aparecem (ex: 1.000 → 1000).
 - Em "texto_original", copie o trecho bruto onde quantidade e preço aparecem juntos.`;
+
+function parseQty(s: string): number {
+  const clean = s.replace(/\./g, "").replace(/\s/g, "");
+  return Number(clean) || 0;
+}
+function parsePrice(s: string): number {
+  let clean = s.trim();
+  if (/,\d{1,2}$/.test(clean)) clean = clean.replace(/\./g, "").replace(",", ".");
+  else clean = clean.replace(/,/g, "");
+  return Number(clean) || 0;
+}
+function extractTiersFromMarkdown(markdown: string) {
+  const results: Array<{ quantidade: number; preco_total: number; preco_unitario: number }> = [];
+  const rx = /(\d{1,3}(?:\.\d{3})+|\d{3,6})\s*(?:un|unid|unidades|pcs|pe[çc]as)?[\s\S]{0,80}?R\$\s*([\d.,]+)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = rx.exec(markdown)) !== null) {
+    const qtd = parseQty(m[1]);
+    const total = parsePrice(m[2]);
+    if (qtd >= 50 && qtd <= 1000000 && total > 0 && total < 1000000) {
+      results.push({ quantidade: qtd, preco_total: total, preco_unitario: qtd > 0 ? total / qtd : 0 });
+    }
+  }
+  return results;
+}
 
 function norm(s: string): string {
   return String(s)
@@ -63,7 +88,7 @@ async function scrapeTiers(url: string, apiKey: string) {
     body: JSON.stringify({
       url,
       onlyMainContent: false,
-      waitFor: 2000,
+      waitFor: 4000,
       formats: ["markdown", { type: "json", schema: TIER_SCHEMA, prompt: PROMPT }],
     }),
   });
@@ -81,13 +106,25 @@ async function scrapeTiers(url: string, apiKey: string) {
     })
     .filter((t) => t.quantidade > 0 && t.preco_total > 0);
 
-  const validated = normalized.filter((t) => {
+  // Validação relaxada: aceita se qtd OU preço aparecer
+  const validatedJson = normalized.filter((t) => {
     const qOk = numberAppearsIn(t.quantidade, markdown) || numberAppearsIn(t.quantidade, t.texto_original);
     const pOk = numberAppearsIn(t.preco_total, markdown) || numberAppearsIn(t.preco_total, t.texto_original);
-    return qOk && pOk;
+    return qOk || pOk;
   }).map((t) => ({ quantidade: t.quantidade, preco_total: t.preco_total, preco_unitario: t.preco_unitario }));
 
-  return { tiers: validated, descartados: normalized.length - validated.length };
+  // Fallback regex
+  const fromRegex = extractTiersFromMarkdown(markdown);
+
+  // Mescla por quantidade (JSON tem prioridade)
+  const byQty = new Map<number, { quantidade: number; preco_total: number; preco_unitario: number }>();
+  for (const t of fromRegex) byQty.set(t.quantidade, t);
+  for (const t of validatedJson) byQty.set(t.quantidade, t);
+
+  const validated = Array.from(byQty.values()).sort((a, b) => a.quantidade - b.quantidade);
+  console.log(`scheduled-sync-firecrawl [${url}]: JSON=${normalized.length} validado=${validatedJson.length} regex=${fromRegex.length} final=${validated.length}`);
+
+  return { tiers: validated, descartados: normalized.length - validatedJson.length };
 }
 
 Deno.serve(async (req) => {
