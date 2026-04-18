@@ -144,6 +144,13 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkRetryingIdx, setBulkRetryingIdx] = useState<number | null>(null);
+  const [bulkManualIdx, setBulkManualIdx] = useState<number | null>(null);
+  const [bulkManualTiers, setBulkManualTiers] = useState<{ quantidade: string; preco_total: string }[]>([
+    { quantidade: "", preco_total: "" },
+  ]);
+  const [bulkManualNome, setBulkManualNome] = useState("");
+  const [bulkManualFornecedor, setBulkManualFornecedor] = useState("");
   const bulkCancelRef = useState({ cancel: false })[0];
 
   const reset = () => {
@@ -305,6 +312,159 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
 
   const updateBulkItem = (idx: number, patch: Partial<BulkItem>) => {
     setBulkItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  };
+
+  // Tenta de novo apenas um item com captura visual habilitada (mais lenta).
+  const handleBulkRetryVisual = async (idx: number) => {
+    const item = bulkItems[idx];
+    if (!item) return;
+    setBulkRetryingIdx(idx);
+    updateBulkItem(idx, { status: "processing", error: undefined });
+    try {
+      const { data, error } = await supabase.functions.invoke("detect-price-tiers", {
+        body: { url: item.url, allowVisual: true },
+      });
+      if (error) throw error;
+      if (data?.success && Array.isArray(data.tiers) && data.tiers.length) {
+        const supplier = data.fornecedor && String(data.fornecedor).trim()
+          ? String(data.fornecedor).trim()
+          : extractDomainName(item.url);
+        updateBulkItem(idx, {
+          status: "ok",
+          nome: String(data.produto || "").slice(0, 120),
+          fornecedor: supplier,
+          tiers: data.tiers,
+          include: true,
+          error: undefined,
+        });
+        toast.success(`${data.tiers.length} faixas detectadas via captura visual`);
+      } else {
+        updateBulkItem(idx, {
+          status: "error",
+          error: data?.error || "Captura visual não retornou faixas. Use 'Inserir manualmente'.",
+          include: false,
+        });
+      }
+    } catch (e: any) {
+      const raw = String(e?.message || e || "");
+      updateBulkItem(idx, {
+        status: "error",
+        error: /timeout|idle|504|non-2xx/i.test(raw)
+          ? "Tempo esgotado mesmo com visual. Use 'Inserir manualmente'."
+          : raw || "Erro desconhecido",
+        include: false,
+      });
+    } finally {
+      setBulkRetryingIdx(null);
+    }
+  };
+
+  // Re-detecta apenas itens em erro (mantém os ok intactos).
+  const handleBulkRetryErrors = async () => {
+    const errorIdxs = bulkItems
+      .map((it, i) => (it.status === "error" ? i : -1))
+      .filter((i) => i >= 0);
+    if (errorIdxs.length === 0) return toast.info("Nenhum item em erro para tentar novamente");
+    setBulkBusy(true);
+    bulkCancelRef.cancel = false;
+    let done = 0;
+    const total = errorIdxs.length;
+    setBulkProgress({ done: 0, total });
+    const CONCURRENCY = 3;
+    let cursor = 0;
+    const worker = async () => {
+      while (!bulkCancelRef.cancel) {
+        const k = cursor++;
+        if (k >= errorIdxs.length) return;
+        const i = errorIdxs[k];
+        const url = bulkItems[i].url;
+        updateBulkItem(i, { status: "processing", error: undefined });
+        try {
+          const { data, error } = await supabase.functions.invoke("detect-price-tiers", {
+            body: { url, allowVisual: false },
+          });
+          if (error) throw error;
+          if (data?.success && Array.isArray(data.tiers) && data.tiers.length) {
+            const supplier = data.fornecedor && String(data.fornecedor).trim()
+              ? String(data.fornecedor).trim()
+              : extractDomainName(url);
+            updateBulkItem(i, {
+              status: "ok",
+              nome: String(data.produto || "").slice(0, 120),
+              fornecedor: supplier,
+              tiers: data.tiers,
+              include: true,
+            });
+          } else {
+            updateBulkItem(i, {
+              status: "error",
+              error: data?.error || "Sem tabela detectada",
+              include: false,
+            });
+          }
+        } catch (e: any) {
+          const raw = String(e?.message || e || "");
+          updateBulkItem(i, {
+            status: "error",
+            error: /timeout|idle|504|non-2xx/i.test(raw)
+              ? "Tempo esgotado — tente captura visual ou manual"
+              : raw || "Erro desconhecido",
+            include: false,
+          });
+        }
+        done++;
+        setBulkProgress({ done, total });
+      }
+    };
+    await Promise.allSettled(
+      Array.from({ length: Math.min(CONCURRENCY, errorIdxs.length) }, () => worker()),
+    );
+    setBulkBusy(false);
+  };
+
+  // Abre o formulário manual para um item específico do lote.
+  const openBulkManual = (idx: number) => {
+    const item = bulkItems[idx];
+    if (!item) return;
+    setBulkManualIdx(idx);
+    setBulkManualNome(item.nome || "");
+    setBulkManualFornecedor(item.fornecedor || extractDomainName(item.url));
+    setBulkManualTiers([{ quantidade: "", preco_total: "" }]);
+  };
+
+  const closeBulkManual = () => {
+    setBulkManualIdx(null);
+    setBulkManualTiers([{ quantidade: "", preco_total: "" }]);
+    setBulkManualNome("");
+    setBulkManualFornecedor("");
+  };
+
+  const updateBulkManualRow = (i: number, patch: Partial<{ quantidade: string; preco_total: string }>) =>
+    setBulkManualTiers((p) => p.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const addBulkManualRow = () => setBulkManualTiers((p) => [...p, { quantidade: "", preco_total: "" }]);
+  const removeBulkManualRow = (i: number) => setBulkManualTiers((p) => p.filter((_, idx) => idx !== i));
+
+  const confirmBulkManual = () => {
+    if (bulkManualIdx == null) return;
+    if (!bulkManualNome.trim()) return toast.error("Informe o nome do produto");
+    const parsedTiers = bulkManualTiers
+      .map((r) => ({
+        quantidade: Number(String(r.quantidade).replace(/[^\d]/g, "")) || 0,
+        preco_total: Number(String(r.preco_total).replace(/\./g, "").replace(",", ".").replace(/[^\d.]/g, "")) || 0,
+      }))
+      .filter((t) => t.quantidade > 0 && t.preco_total > 0)
+      .map((t) => ({ ...t, preco_unitario: t.preco_total / t.quantidade }));
+    if (parsedTiers.length === 0) return toast.error("Preencha pelo menos uma faixa válida");
+    updateBulkItem(bulkManualIdx, {
+      status: "ok",
+      nome: bulkManualNome.trim(),
+      fornecedor: bulkManualFornecedor.trim(),
+      tiers: parsedTiers,
+      include: true,
+      error: undefined,
+    });
+    toast.success(`${parsedTiers.length} faixas adicionadas manualmente`);
+    closeBulkManual();
   };
 
   const handleBulkSave = async () => {
@@ -801,13 +961,19 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                 disabled={bulkBusy}
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button onClick={handleBulkDetect} disabled={bulkBusy || !bulkUrls.trim()}>
                 {bulkBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 Detectar todos
               </Button>
               {bulkBusy && (
                 <Button variant="outline" onClick={handleBulkCancel}>Cancelar detecção</Button>
+              )}
+              {!bulkBusy && bulkItems.some((i) => i.status === "error") && (
+                <Button variant="outline" onClick={handleBulkRetryErrors}>
+                  <Sparkles className="h-4 w-4" />
+                  Tentar novamente os erros ({bulkItems.filter((i) => i.status === "error").length})
+                </Button>
               )}
               {bulkItems.length > 0 && !bulkBusy && (
                 <Button variant="ghost" onClick={() => { setBulkItems([]); setBulkUrls(""); setBulkProgress({ done: 0, total: 0 }); }}>
@@ -842,7 +1008,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                           {item.status === "processing" && <Badge variant="secondary"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Processando</Badge>}
                           {item.status === "pending" && <Badge variant="outline">Aguardando</Badge>}
                           {item.status === "ok" && <Badge className="bg-[hsl(var(--success))] text-white"><CheckCircle2 className="h-3 w-3 mr-1" />{item.tiers?.length} faixas</Badge>}
-                          {item.status === "error" && <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Erro</Badge>}
+                          {item.status === "error" && <Badge variant="outline" className="border-[hsl(var(--warning))] text-[hsl(var(--warning))]"><HelpCircle className="h-3 w-3 mr-1" />Requer ação</Badge>}
                           {item.status === "duplicate" && <Badge variant="secondary">Duplicado</Badge>}
                           <span className="text-xs text-muted-foreground truncate">{item.url}</span>
                         </div>
@@ -866,8 +1032,37 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                             </div>
                           </div>
                         )}
-                        {(item.status === "error" || item.status === "duplicate") && item.error && (
+                        {item.status === "duplicate" && item.error && (
                           <div className="text-xs text-muted-foreground mt-1">{item.error}</div>
+                        )}
+                        {item.status === "error" && (
+                          <div className="mt-2 space-y-2">
+                            {item.error && <div className="text-xs text-muted-foreground">{item.error}</div>}
+                            <div className="flex gap-2 flex-wrap">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleBulkRetryVisual(idx)}
+                                disabled={bulkRetryingIdx !== null || bulkBusy}
+                              >
+                                {bulkRetryingIdx === idx ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Sparkles className="h-3 w-3" />
+                                )}
+                                Tentar com captura visual
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => openBulkManual(idx)}
+                                disabled={bulkRetryingIdx !== null || bulkBusy}
+                              >
+                                <ListPlus className="h-3 w-3" />
+                                Inserir manualmente
+                              </Button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1059,6 +1254,83 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      {/* Sub-modal: inserir faixas manualmente para um item do lote */}
+      <Dialog open={bulkManualIdx !== null} onOpenChange={(v) => { if (!v) closeBulkManual(); }}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Inserir faixas manualmente</DialogTitle>
+          </DialogHeader>
+          {bulkManualIdx !== null && (
+            <div className="space-y-3">
+              <div className="text-xs text-muted-foreground break-all">
+                URL: {bulkItems[bulkManualIdx]?.url}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Produto *</Label>
+                  <Input
+                    value={bulkManualNome}
+                    onChange={(e) => setBulkManualNome(e.target.value)}
+                    className="h-9"
+                    placeholder="Ex.: Cartão de Visita 4x4 cores"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Fornecedor</Label>
+                  <Input
+                    value={bulkManualFornecedor}
+                    onChange={(e) => setBulkManualFornecedor(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Faixas (quantidade × preço total em R$)</Label>
+                <div className="space-y-2 mt-1 max-h-[300px] overflow-y-auto pr-1">
+                  {bulkManualTiers.map((row, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <Input
+                        placeholder="Qtd"
+                        value={row.quantidade}
+                        onChange={(e) => updateBulkManualRow(i, { quantidade: e.target.value })}
+                        className="h-9"
+                        inputMode="numeric"
+                      />
+                      <Input
+                        placeholder="Preço total (R$)"
+                        value={row.preco_total}
+                        onChange={(e) => updateBulkManualRow(i, { preco_total: e.target.value })}
+                        className="h-9"
+                        inputMode="decimal"
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeBulkManualRow(i)}
+                        disabled={bulkManualTiers.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button size="sm" variant="outline" className="mt-2" onClick={addBulkManualRow}>
+                  <ListPlus className="h-4 w-4" />
+                  Adicionar faixa
+                </Button>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={closeBulkManual}>Cancelar</Button>
+            <Button onClick={confirmBulkManual}>
+              <CheckCircle2 className="h-4 w-4" />
+              Confirmar faixas
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
