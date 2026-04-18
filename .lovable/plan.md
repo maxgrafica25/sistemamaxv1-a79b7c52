@@ -1,52 +1,29 @@
 
+The screenshot mostra exatamente o estado esperado: ANS (1 faixa) e FuturaIM (7 faixas) detectados, Atual Card e Imprima Rápido marcados como "Erro" com a mensagem "Este site exige captura visual (mais lenta). Use 'Re-detectar individualmente' ou insira as faixas manualmente."
 
-## Diagnóstico definitivo
+Isso confirma que o fluxo está funcionando como projetado — em "Em massa" o fallback visual está propositalmente desativado para esses dois domínios. Mas o usuário está pedindo que **funcione**, ou seja, que essas linhas de erro virem linhas detectadas ou tenham um caminho prático imediato dentro do mesmo modal.
 
-Testei o Firecrawl direto contra a Atual Card e Imprima Rápido com `waitFor: 8000`, scroll, ações de espera e até modo `stealth`. Resultado em **todos os casos**:
-- HTML retornado: ~120-190 KB, mas **zero ocorrências de "R$"**, **zero `<script>`**, **zero `<td>`/`<option>`**, **zero "unidade"**.
-- Markdown: 130-180 chars (só ícones de header).
+Hoje, ao falhar, o item só mostra texto. Não há botão visível para:
+1. Tentar de novo individualmente (com visual ligado)
+2. Abrir o formulário manual de faixas
 
-Conclusão: o problema **não é o parser**. O Firecrawl simplesmente não está conseguindo renderizar o conteúdo de preço dessas duas páginas — o conteúdo só aparece após interações específicas (provavelmente seleção de região/CEP, ou um framework JS muito específico que o Chrome do Firecrawl não está executando).
+Plano:
 
-Por isso todas as estratégias anteriores falharam: você não pode parsear dados que não estão no HTML retornado.
+1. Em `NovoSiteDialog.tsx`, em cada item do "Em massa" com status `error` ou `tiers.length === 0`, adicionar dois botões inline:
+   - **"Tentar com captura visual"** → chama `detect-price-tiers` de novo só para essa URL com `allowVisual: true`. Atualiza o item no lugar.
+   - **"Inserir manualmente"** → abre o formulário manual já existente (`manualMode`) pré-preenchido com a URL daquele item, e ao salvar marca o item como sucesso.
 
-## Plano
+2. Garantir que o botão "Detectar todos" reabilite os itens em erro (re-tentar só os que falharam, sem refazer os que já vieram com faixas).
 
-**1. Confirmar a hipótese com diagnóstico embutido**
-Adicionar logging detalhado que mostra, no log da função:
-- Se `R$` aparece no HTML
-- Se há scripts/tabelas
-- Quantos chars úteis de markdown vieram
-Assim, no futuro, conseguimos ver imediatamente "Firecrawl não rendereizou" vs "regex não matchou".
+3. Para a tentativa visual individual disparada do modal, usar timeout maior no client (até 150s) e mostrar spinner no item específico, sem travar os outros.
 
-**2. Tratar "página vazia" como erro claro, não como "sem tabela"**
-Se o HTML não contém **nenhum** sinal de preço (`R$`, `unidade`, números de quantidade plausíveis), retornar uma mensagem explícita:
-> "O Firecrawl não conseguiu renderizar a página de preços deste site. Provável bloqueio anti-bot ou conteúdo carregado por interação."
-Em vez do confuso "Sem tabela detectada".
+4. Não mexer na edge function — o comportamento atual (visual sob demanda) é o correto. Só estamos expondo na UI o caminho que já existe no backend.
 
-**3. Adicionar fallback via screenshot SEMPRE para os domínios problemáticos**
-Para `atualcard.com.br` e `imprimarapido.com.br`, **pular direto** para o caminho visual (screenshot + Gemini), porque sabemos que o HTML nunca virá. Isso evita gastar tempo tentando parsers que não vão funcionar.
-- Manter `allowVisual: false` no modo "Em massa" para esses domínios também (o screenshot é caro), mas mostrar mensagem clara no item: "Use 'Re-detectar individualmente' para este site".
-- No modo individual: pedir screenshot da Atual Card / Imprima Rápido com `fullPage: true` e enviar para Gemini.
+5. Pequeno ajuste de copy: trocar "Erro" + frase longa por badge "Requer ação" + dois botões claros, para o usuário entender que não é um erro definitivo.
 
-**4. Aceitar que detecção automática pode falhar nesses sites**
-Adicionar no diálogo um botão **"Inserir faixas manualmente"** quando a detecção falha. O usuário cola/digita as faixas (qtd → preço) que vê na tela. Salva igual ao fluxo automático.
-Isso garante que o sistema seja **utilizável** mesmo quando a página é hostil a scraping.
+Arquivos:
+- `src/components/monitoramento/NovoSiteDialog.tsx`
 
-**5. Não mexer em ANS e FuturaIM**
-Esses estão funcionando. Só adicionar o logging melhorado.
+Sem mudanças no banco e sem mudança em edge function.
 
-## Arquivos a ajustar
-
-- `supabase/functions/detect-price-tiers/index.ts` — diagnóstico melhorado, fast-path visual para domínios bloqueados, mensagem de erro clara.
-- `src/components/monitoramento/NovoSiteDialog.tsx` — botão "Inserir faixas manualmente" quando detecção retorna 0 faixas, mensagem mais útil em caso de página vazia.
-- `supabase/functions/scheduled-sync-firecrawl/index.ts` — só replicar o diagnóstico (sem visual no cron, é caro demais).
-
-## Resultado esperado
-
-- **Atual Card / Imprima Rápido**: ou virá pelo screenshot (modo individual), ou o usuário digita as 8 faixas manualmente em ~30s. Não fica mais travado.
-- **ANS / FuturaIM**: continuam idênticos.
-- **Em massa**: para de tentar inutilmente esses dois sites e marca claramente "requer entrada manual".
-
-Sem mudanças no banco.
-
+Resultado: no mesmo modal "Em massa", o usuário vê os 2 itens problemáticos com botões "Tentar visual" e "Inserir manualmente", resolve sem fechar o diálogo, e termina o lote completo.
