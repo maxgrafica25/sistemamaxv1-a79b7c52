@@ -711,7 +711,10 @@ export default function Monitoramento() {
         <div className="flex items-center gap-2">
           <Label>Comparar para:</Label>
           <Select value={String(qtdAlvo)} onValueChange={(v) => setQtdAlvo(Number(v))}>
-            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-44">
+              {/* Renderização manual do label para evitar inconsistência com SelectValue do Radix */}
+              <span>{qtdAlvo === 0 ? "Todas as unidades" : `${qtdAlvo.toLocaleString("pt-BR")} un`}</span>
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="0">Todas as unidades</SelectItem>
               {(qtdOptionsDisponiveis.length ? qtdOptionsDisponiveis : QTD_OPTIONS).map((q) => (
