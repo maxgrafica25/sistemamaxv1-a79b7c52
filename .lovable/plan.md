@@ -1,41 +1,64 @@
 
+Objetivo: fazer a detecção funcionar de forma confiável para Atual Card e Imprima Rápido, sem estourar timeout e sem quebrar o modal.
 
-## Diagnóstico
+Diagnóstico real:
+- O problema principal não é mais de sintaxe/deploy.
+- As chamadas que falham hoje retornam `500` com `Firecrawl timeout/abort`.
+- O fluxo atual tenta um scrape pesado demais logo de cara (`json + screenshot + waits + scroll + fallback visual`), então para esses domínios ele morre antes mesmo de chegar na extração útil.
+- Pelas páginas lidas, o HTML existe e é grande, mas o markdown é pobre. Isso indica que as faixas provavelmente estão em HTML/estado serializado da página, não no markdown curto.
+- Há também um problema de estabilidade no modal: o `Badge` gera warning de `ref`, então vale corrigir isso junto para evitar erro visual no preview.
 
-O erro `IDLE_TIMEOUT 150s` aparece porque:
+Plano de correção:
 
-1. **Em massa processa URLs sequencialmente** (`for` loop com `await`), então as 4 URLs somam tempo. Mas o timeout de 150s é **por request**, então isso sozinho não deveria estourar — exceto que…
-2. **Cada chamada individual da função ficou pesada** com o fallback visual: Firecrawl com `waitFor 8000ms` + 2 scrolls + screenshot + Gemini 2.5 Pro multimodal pode levar facilmente 60–120s.
-3. Quando o Firecrawl trava (página lenta, anti-bot), a função fica esperando até o gateway encerrar com 504.
+1. Trocar a estratégia de extração para “HTML primeiro, visual por último”
+- Fazer a função tentar primeiro um scrape leve, com timeout menor e sem screenshot:
+  - formatos: `html` + `markdown`
+  - sem fallback visual nessa primeira etapa
+- Extrair as faixas a partir do HTML bruto e de blocos serializados da página.
+- Só usar screenshot + IA como último recurso.
 
-Pelos logs: ANS e FuturaIM passam (`low=false`, sem visual). Atual Card e Imprima Rápido caem em `low=true` → entram no caminho visual lento → estouram o timeout.
+2. Criar parsers por domínio para os sites problemáticos
+- Implementar parser específico para:
+  - `atualcard.com.br`
+  - `imprimarapido.com.br`
+- Procurar no HTML:
+  - tabelas de quantidade/preço
+  - JSON embutido em `<script>`
+  - arrays/objetos com quantidade e valor
+  - atributos `data-*`
+- Isso muda a abordagem de “OCR lento” para “leitura estruturada do HTML”, que deve ser muito mais rápida e completa nesses dois sites.
 
-## Plano
+3. Manter parser genérico para os sites que já funcionam
+- Preservar o fluxo atual para FuturaIM / ANS e outros casos estáveis:
+  - validação por texto
+  - regex em markdown
+  - merge conservador
+- Assim evitamos regredir onde já está correto.
 
-**1. Adicionar timeouts internos na função `detect-price-tiers`**
-- `AbortController` no fetch do Firecrawl com limite de 60s.
-- `AbortController` no fetch do Lovable AI (visual) com limite de 50s.
-- Se qualquer um estourar, retorna o que tiver até o momento (parcial) em vez de travar.
+4. Rebaixar o fallback visual
+- Deixar o fallback por screenshot apenas quando:
+  - não houver parser específico para o domínio
+  - HTML + markdown não trouxerem tiers suficientes
+- Em lote (“Em massa”), evitar fallback visual pesado por padrão, para não voltar o timeout.
 
-**2. Reduzir o peso do scrape**
-- Tirar 1 dos 2 scrolls e baixar `waitFor` total para ~5000ms (3000 + 2000).
-- Manter screenshot só quando realmente cair em baixa confiança (já é o caso, mantém).
+5. Melhorar tratamento de erro no modal
+- Garantir que falha de uma URL nunca derrube a tela.
+- Mostrar erro por item e seguir com os demais.
+- Corrigir o componente `Badge` para suportar `ref` corretamente e remover o warning atual.
 
-**3. Paralelizar o "Em massa" no client**
-- Em vez de `for await`, usar `Promise.allSettled` com concorrência limitada (3 simultâneas) para que cada URL tenha seu próprio timeout de 150s e o lote total termine mais rápido.
-- Atualiza `bulkItems` conforme cada Promise resolve.
+6. Aplicar a mesma lógica na sincronização automática
+- Replicar o pipeline novo também em `scheduled-sync-firecrawl`, para que o comportamento manual e automático fique igual.
 
-**4. Mensagem de erro mais clara**
-- Quando der timeout, mostrar "Tempo esgotado — tente re-detectar este site individualmente" em vez de só "Edge Function returned a non-2xx status code".
+Arquivos a ajustar:
+- `supabase/functions/detect-price-tiers/index.ts`
+- `supabase/functions/scheduled-sync-firecrawl/index.ts`
+- `src/components/ui/badge.tsx`
+- `src/components/monitoramento/NovoSiteDialog.tsx` (apenas se precisar reforçar a estabilidade do erro por item)
 
-**5. Replicar timeouts em `scheduled-sync-firecrawl`**
-- Mesma blindagem para o cron não travar.
+Resultado esperado após a implementação:
+- Atual Card: detectar todas as faixas sem timeout
+- Imprima Rápido: detectar todas as faixas sem timeout
+- FuturaIM e ANS: continuar corretos
+- Modal “Em massa”: continuar aberto e utilizável mesmo quando 1 site falhar
 
-## Arquivos afetados
-
-- `supabase/functions/detect-price-tiers/index.ts` — AbortController nos fetches, `waitFor` reduzido, retorno parcial em timeout.
-- `supabase/functions/scheduled-sync-firecrawl/index.ts` — mesmos timeouts.
-- `src/components/monitoramento/NovoSiteDialog.tsx` — `handleBulkDetect` com pool de 3 paralelas + tratamento de erro de timeout.
-
-Sem mudanças no banco. Após o deploy, o usuário pode reabrir "Em massa" → "Detectar todos" e o lote deve concluir mesmo se 1–2 URLs forem lentas.
-
+Sem mudanças no banco.
