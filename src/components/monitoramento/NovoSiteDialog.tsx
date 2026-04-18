@@ -9,8 +9,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import {
-  Sparkles, FileSpreadsheet, Code, Loader2, CheckCircle2, XCircle, FlaskConical, HelpCircle, Upload, Layers,
+  Sparkles, FileSpreadsheet, Code, Loader2, CheckCircle2, XCircle, FlaskConical, HelpCircle, Upload, Layers, ListPlus, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { findOrCreateCatalogo } from "@/lib/produtoCatalogo";
