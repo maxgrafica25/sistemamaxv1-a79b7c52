@@ -1254,6 +1254,83 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      {/* Sub-modal: inserir faixas manualmente para um item do lote */}
+      <Dialog open={bulkManualIdx !== null} onOpenChange={(v) => { if (!v) closeBulkManual(); }}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Inserir faixas manualmente</DialogTitle>
+          </DialogHeader>
+          {bulkManualIdx !== null && (
+            <div className="space-y-3">
+              <div className="text-xs text-muted-foreground break-all">
+                URL: {bulkItems[bulkManualIdx]?.url}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Produto *</Label>
+                  <Input
+                    value={bulkManualNome}
+                    onChange={(e) => setBulkManualNome(e.target.value)}
+                    className="h-9"
+                    placeholder="Ex.: Cartão de Visita 4x4 cores"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Fornecedor</Label>
+                  <Input
+                    value={bulkManualFornecedor}
+                    onChange={(e) => setBulkManualFornecedor(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Faixas (quantidade × preço total em R$)</Label>
+                <div className="space-y-2 mt-1 max-h-[300px] overflow-y-auto pr-1">
+                  {bulkManualTiers.map((row, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <Input
+                        placeholder="Qtd"
+                        value={row.quantidade}
+                        onChange={(e) => updateBulkManualRow(i, { quantidade: e.target.value })}
+                        className="h-9"
+                        inputMode="numeric"
+                      />
+                      <Input
+                        placeholder="Preço total (R$)"
+                        value={row.preco_total}
+                        onChange={(e) => updateBulkManualRow(i, { preco_total: e.target.value })}
+                        className="h-9"
+                        inputMode="decimal"
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeBulkManualRow(i)}
+                        disabled={bulkManualTiers.length === 1}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button size="sm" variant="outline" className="mt-2" onClick={addBulkManualRow}>
+                  <ListPlus className="h-4 w-4" />
+                  Adicionar faixa
+                </Button>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={closeBulkManual}>Cancelar</Button>
+            <Button onClick={confirmBulkManual}>
+              <CheckCircle2 className="h-4 w-4" />
+              Confirmar faixas
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
