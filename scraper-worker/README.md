@@ -36,8 +36,27 @@ Authorization: Bearer <WORKER_SECRET>
 
 Depois do deploy, configure dois secrets no Supabase (já feito via Lovable):
 
-- `SCRAPER_WORKER_URL` → URL pública do Railway (sem `/scrape` no final). Ex.: `https://scraper-worker-production.up.railway.app`
+- `SCRAPER_WORKER_URL` → **URL pública completa** do Railway, **incluindo `https://`** e **sem** `/scrape` no final.
+  - ✅ `https://scraper-worker-production.up.railway.app`
+  - ❌ `scraper-worker-production.up.railway.app` (faltando `https://`)
+  - ❌ `https://scraper-worker-production.up.railway.app/scrape` (não inclua `/scrape`)
 - `WORKER_SECRET` → mesmo valor configurado no Railway.
+
+### Como descobrir a URL correta no Railway
+
+1. No projeto Railway, abra o serviço do scraper-worker.
+2. Vá em **Settings → Networking → Public Networking**.
+3. Se não houver domínio, clique em **Generate Domain**.
+4. Copie a URL e adicione `https://` na frente antes de salvar em `SCRAPER_WORKER_URL`.
+
+### Como testar se o worker está no ar
+
+```bash
+curl https://SUA-URL.up.railway.app/health
+# resposta esperada: {"status":"ok","uptime":123.45}
+```
+
+Se `curl` retornar 404, "Application not found" ou timeout: o serviço **não está deployado** nesse domínio. Verifique se você criou um serviço Railway apontando para a pasta `scraper-worker/` (e não um projeto vazio com nome de outro template).
 
 ## Custo
 

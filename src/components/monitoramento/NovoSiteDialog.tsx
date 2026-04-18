@@ -280,7 +280,9 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
         }
       } catch (e: any) {
         const raw = String(e?.message || e || "");
-        const friendly = /timeout|idle|504|non-2xx/i.test(raw)
+        const friendly = /Worker não|Invalid URL|SCRAPER_WORKER_URL/i.test(raw)
+          ? "Worker do Railway indisponível. Configure SCRAPER_WORKER_URL com a URL completa (https://...) do serviço scraper-worker."
+          : /timeout|idle|504|non-2xx/i.test(raw)
           ? "Tempo esgotado — tente re-detectar este site individualmente"
           : raw || "Erro desconhecido";
         setBulkItems((prev) =>
