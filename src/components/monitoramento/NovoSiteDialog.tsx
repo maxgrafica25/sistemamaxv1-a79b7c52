@@ -9,8 +9,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import {
-  Sparkles, FileSpreadsheet, Code, Loader2, CheckCircle2, XCircle, FlaskConical, HelpCircle, Upload, Layers,
+  Sparkles, FileSpreadsheet, Code, Loader2, CheckCircle2, XCircle, FlaskConical, HelpCircle, Upload, Layers, ListPlus, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { findOrCreateCatalogo } from "@/lib/produtoCatalogo";
@@ -121,11 +125,154 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const [savingTiers, setSavingTiers] = useState(false);
   const [tiersCatalogoId, setTiersCatalogoId] = useState<string | null>(null);
 
+  // ===== MODO 5: Em massa (múltiplos URLs) =====
+  type BulkItem = {
+    url: string;
+    status: "pending" | "processing" | "ok" | "error" | "duplicate";
+    nome?: string;
+    fornecedor?: string;
+    tiers?: { quantidade: number; preco_total: number; preco_unitario: number }[];
+    error?: string;
+    include: boolean;
+  };
+  const [bulkUrls, setBulkUrls] = useState("");
+  const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const bulkCancelRef = useState({ cancel: false })[0];
+
   const reset = () => {
     setAutoUrl(""); setAutoNome(""); setAutoResult(null); setAutoCatalogoId(null);
     setAdvUrl(""); setAdvNome(""); setAdvSeletor(""); setAdvResult(null);
     setFile(null); setParsed(null); setColNome(""); setColPreco(""); setColCodigo("__none__");
     setTiersUrl(""); setTiersNome(""); setTiersResult(null); setTiersCatalogoId(null);
+    setBulkUrls(""); setBulkItems([]); setBulkProgress({ done: 0, total: 0 });
+  };
+
+  // ---- BULK handlers ----
+  const handleBulkDetect = async () => {
+    const urls = bulkUrls
+      .split(/\r?\n/)
+      .map((u) => u.trim())
+      .filter((u) => u.length > 0);
+    if (urls.length === 0) return toast.error("Cole pelo menos uma URL");
+
+    const initial: BulkItem[] = urls.map((url) => ({ url, status: "pending", include: false }));
+    setBulkItems(initial);
+    setBulkProgress({ done: 0, total: urls.length });
+    setBulkBusy(true);
+    bulkCancelRef.cancel = false;
+
+    for (let i = 0; i < urls.length; i++) {
+      if (bulkCancelRef.cancel) break;
+      const url = urls[i];
+      setBulkItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, status: "processing" } : it)));
+
+      // duplicate?
+      const dup = await checkDuplicate({ url });
+      if (dup) {
+        setBulkItems((prev) =>
+          prev.map((it, idx) => (idx === i ? { ...it, status: "duplicate", error: dup, include: false } : it)),
+        );
+        setBulkProgress((p) => ({ ...p, done: i + 1 }));
+        continue;
+      }
+
+      try {
+        const { data, error } = await supabase.functions.invoke("detect-price-tiers", { body: { url } });
+        if (error) throw error;
+        if (data?.success && Array.isArray(data.tiers) && data.tiers.length) {
+          const supplier = data.fornecedor && String(data.fornecedor).trim()
+            ? String(data.fornecedor).trim()
+            : extractDomainName(url);
+          setBulkItems((prev) =>
+            prev.map((it, idx) =>
+              idx === i
+                ? {
+                    ...it,
+                    status: "ok",
+                    nome: String(data.produto || "").slice(0, 120),
+                    fornecedor: supplier,
+                    tiers: data.tiers,
+                    include: true,
+                  }
+                : it,
+            ),
+          );
+        } else {
+          setBulkItems((prev) =>
+            prev.map((it, idx) =>
+              idx === i ? { ...it, status: "error", error: data?.error || "Sem tabela detectada", include: false } : it,
+            ),
+          );
+        }
+      } catch (e: any) {
+        setBulkItems((prev) =>
+          prev.map((it, idx) => (idx === i ? { ...it, status: "error", error: e.message, include: false } : it)),
+        );
+      }
+      setBulkProgress((p) => ({ ...p, done: i + 1 }));
+      // pequeno delay para evitar rate limit
+      await new Promise((r) => setTimeout(r, 400));
+    }
+    setBulkBusy(false);
+  };
+
+  const handleBulkCancel = () => {
+    bulkCancelRef.cancel = true;
+  };
+
+  const updateBulkItem = (idx: number, patch: Partial<BulkItem>) => {
+    setBulkItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  };
+
+  const handleBulkSave = async () => {
+    const toSave = bulkItems.filter((it) => it.include && it.status === "ok" && it.tiers?.length);
+    if (toSave.length === 0) return toast.error("Nenhum item selecionado para salvar");
+    setBulkSaving(true);
+    let created = 0, errors = 0, dupes = 0;
+    for (const item of toSave) {
+      try {
+        const nomeFinal = (item.nome || "").trim();
+        if (!nomeFinal) { errors++; continue; }
+        const dup = await checkDuplicate({ url: item.url });
+        if (dup) { dupes++; continue; }
+        const catalogoId = await findOrCreateCatalogo(nomeFinal, categoria);
+        const minTier = [...item.tiers!].sort((a, b) => a.quantidade - b.quantidade)[0];
+        const { data: site, error } = await supabase.from("sites_monitorados").insert({
+          nome_produto: nomeFinal,
+          categoria: categoria.trim().toLowerCase() || "geral",
+          url_completa: item.url,
+          seletor_css: null,
+          tipo_fonte: "url_tiers",
+          fornecedor_nome: (item.fornecedor || "").trim() || null,
+          produto_catalogo_id: catalogoId,
+          preco_atual: minTier.preco_total,
+          metodo_coleta: "firecrawl",
+          intervalo_check_horas: 24,
+          timestamp_check: new Date().toISOString(),
+        }).select().single();
+        if (error) throw error;
+        const rows = item.tiers!.map((t) => ({
+          site_id: site.id,
+          quantidade: t.quantidade,
+          preco_total: t.preco_total,
+          preco_unitario: t.preco_unitario,
+        }));
+        const { error: tErr } = await supabase.from("site_precos_tiers").insert(rows);
+        if (tErr) throw tErr;
+        created++;
+      } catch (e: any) {
+        console.error("bulk save error:", e);
+        errors++;
+      }
+    }
+    setBulkSaving(false);
+    toast.success(`${created} cadastrados, ${dupes} duplicados, ${errors} erros`);
+    if (created > 0) {
+      reset(); onCreated(); onOpenChange(false);
+    }
   };
 
   // ---- TIERS handlers ----
@@ -421,8 +568,9 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
         </div>
 
         <Tabs defaultValue="tiers" className="mt-2">
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-5 w-full">
             <TabsTrigger value="tiers"><Layers className="h-4 w-4 mr-1" />Tabela auto</TabsTrigger>
+            <TabsTrigger value="bulk"><ListPlus className="h-4 w-4 mr-1" />Em massa</TabsTrigger>
             <TabsTrigger value="auto"><Sparkles className="h-4 w-4 mr-1" />URL simples</TabsTrigger>
             <TabsTrigger value="excel"><FileSpreadsheet className="h-4 w-4 mr-1" />Planilha</TabsTrigger>
             <TabsTrigger value="adv"><Code className="h-4 w-4 mr-1" />Avançado</TabsTrigger>
@@ -493,6 +641,110 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
               <Button onClick={handleSaveTiers} disabled={savingTiers || !tiersResult?.ok || !tiersNome}>
                 {savingTiers && <Loader2 className="h-4 w-4 animate-spin" />}
                 Salvar produto + {tiersResult?.tiers?.length || 0} faixas
+              </Button>
+            </DialogFooter>
+          </TabsContent>
+
+          {/* === BULK (em massa) === */}
+          <TabsContent value="bulk" className="space-y-3 pt-3">
+            <Alert>
+              <AlertDescription className="text-xs">
+                Cole <strong>várias URLs</strong> (uma por linha) para cadastrar de uma só vez. O sistema detecta produto, fornecedor e tabela de preços de cada link, e você revisa antes de salvar. URLs já cadastradas são marcadas automaticamente.
+              </AlertDescription>
+            </Alert>
+            <div>
+              <Label>URLs (uma por linha) *</Label>
+              <Textarea
+                value={bulkUrls}
+                onChange={(e) => setBulkUrls(e.target.value)}
+                placeholder={"https://www.fornecedor1.com/produto-a\nhttps://www.fornecedor2.com/produto-b\nhttps://www.fornecedor3.com/produto-c"}
+                className="font-mono text-xs min-h-[120px]"
+                disabled={bulkBusy}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleBulkDetect} disabled={bulkBusy || !bulkUrls.trim()}>
+                {bulkBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                Detectar todos
+              </Button>
+              {bulkBusy && (
+                <Button variant="outline" onClick={handleBulkCancel}>Cancelar detecção</Button>
+              )}
+              {bulkItems.length > 0 && !bulkBusy && (
+                <Button variant="ghost" onClick={() => { setBulkItems([]); setBulkUrls(""); setBulkProgress({ done: 0, total: 0 }); }}>
+                  <Trash2 className="h-4 w-4" />Limpar
+                </Button>
+              )}
+            </div>
+
+            {bulkProgress.total > 0 && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Processando {bulkProgress.done} de {bulkProgress.total}…</span>
+                  <span>{Math.round((bulkProgress.done / bulkProgress.total) * 100)}%</span>
+                </div>
+                <Progress value={(bulkProgress.done / bulkProgress.total) * 100} className="h-2" />
+              </div>
+            )}
+
+            {bulkItems.length > 0 && (
+              <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                {bulkItems.map((item, idx) => (
+                  <div key={idx} className="border rounded p-3 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        checked={item.include}
+                        onCheckedChange={(v) => updateBulkItem(idx, { include: !!v })}
+                        disabled={item.status !== "ok"}
+                        className="mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {item.status === "processing" && <Badge variant="secondary"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Processando</Badge>}
+                          {item.status === "pending" && <Badge variant="outline">Aguardando</Badge>}
+                          {item.status === "ok" && <Badge className="bg-[hsl(var(--success))] text-white"><CheckCircle2 className="h-3 w-3 mr-1" />{item.tiers?.length} faixas</Badge>}
+                          {item.status === "error" && <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Erro</Badge>}
+                          {item.status === "duplicate" && <Badge variant="secondary">Duplicado</Badge>}
+                          <span className="text-xs text-muted-foreground truncate">{item.url}</span>
+                        </div>
+                        {item.status === "ok" && (
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            <div>
+                              <Label className="text-xs">Produto</Label>
+                              <Input
+                                value={item.nome || ""}
+                                onChange={(e) => updateBulkItem(idx, { nome: e.target.value })}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Fornecedor</Label>
+                              <Input
+                                value={item.fornecedor || ""}
+                                onChange={(e) => updateBulkItem(idx, { fornecedor: e.target.value })}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {(item.status === "error" || item.status === "duplicate") && item.error && (
+                          <div className="text-xs text-muted-foreground mt-1">{item.error}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+              <Button
+                onClick={handleBulkSave}
+                disabled={bulkSaving || bulkBusy || bulkItems.filter((i) => i.include && i.status === "ok").length === 0}
+              >
+                {bulkSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                Salvar {bulkItems.filter((i) => i.include && i.status === "ok").length} selecionados
               </Button>
             </DialogFooter>
           </TabsContent>
