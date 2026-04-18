@@ -166,6 +166,29 @@ function pickDomainParser(url: string): ((html: string) => Tier[]) | null {
   return null;
 }
 
+// Domains where the HTML is known to be unrenderable by Firecrawl (anti-bot / SPA without prices in initial HTML).
+// For these, we skip HTML parsing and go straight to visual screenshot extraction (only if allowVisual=true).
+function isVisualOnlyDomain(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host.includes("atualcard.com.br") || host.includes("imprimarapido.com.br");
+  } catch {
+    return false;
+  }
+}
+
+// Quick health check on the scraped HTML: does it look like a real product page with prices?
+function diagnoseHtml(html: string, markdown: string) {
+  const hasRS = /R\$/.test(html);
+  const hasUnit = /\bunidade|\bunid\b|\bun\b/i.test(html);
+  const scriptCount = (html.match(/<script\b/gi) || []).length;
+  const tdCount = (html.match(/<td\b/gi) || []).length;
+  const optionCount = (html.match(/<option\b/gi) || []).length;
+  const mdLen = markdown.trim().length;
+  const looksEmpty = !hasRS && !hasUnit && scriptCount === 0 && tdCount === 0 && optionCount === 0 && mdLen < 500;
+  return { hasRS, hasUnit, scriptCount, tdCount, optionCount, mdLen, looksEmpty };
+}
+
 // ---------- Firecrawl scrape (lightweight, html+markdown only) ----------
 async function scrapeLight(url: string, apiKey: string): Promise<{ html: string; markdown: string }> {
   const ctrl = new AbortController();
