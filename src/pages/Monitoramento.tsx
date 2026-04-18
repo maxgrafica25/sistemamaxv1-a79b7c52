@@ -784,7 +784,7 @@ export default function Monitoramento() {
                       const cor = colorFor(corMap, oferta.site.fornecedor_nome);
                       return (
                         <div
-                          key={oferta.site.id}
+                          key={`${oferta.site.id}::${oferta.tier.id}`}
                           className={`flex flex-wrap items-center gap-3 px-3 py-2 border-l-4 ${isMelhor ? "bg-success/5" : ""}`}
                           style={{ borderLeftColor: cor.solid }}
                         >
