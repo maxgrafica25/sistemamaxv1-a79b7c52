@@ -1,4 +1,4 @@
-// Sincroniza preços via Firecrawl com fallback visual (Lovable AI) quando confiança é baixa.
+// Sincroniza preços via Firecrawl. Estratégia HTML-first com parsers por domínio; sem fallback visual no cron.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -6,37 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const TIER_SCHEMA = {
-  type: "object",
-  properties: {
-    tiers: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          quantidade: { type: "number" },
-          preco_total: { type: "number" },
-          preco_unitario: { type: "number" },
-          texto_original: { type: "string" },
-        },
-        required: ["quantidade", "preco_total", "texto_original"],
-      },
-    },
-  },
-  required: ["tiers"],
-};
-
-const PROMPT = `Extraia TODAS as faixas de preço por quantidade visíveis. Retorne TODAS, sem exceção. Se não houver tabela, retorne tiers: []. Use números exatamente como aparecem.`;
-
 type Tier = { quantidade: number; preco_total: number; preco_unitario: number };
 
-function parseQty(s: string): number { return Number(s.replace(/\./g, "").replace(/\s/g, "")) || 0; }
-function parsePrice(s: string): number {
-  let c = s.trim();
-  if (/,\d{1,2}$/.test(c)) c = c.replace(/\./g, "").replace(",", ".");
-  else c = c.replace(/,/g, "");
-  return Number(c) || 0;
-}
 function norm(s: string): string {
   return String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[.\s]/g, "");
 }
@@ -48,160 +19,153 @@ function numberAppearsIn(num: number, text: string): boolean {
   for (const v of variants) if (t.includes(norm(v))) return true;
   return false;
 }
-function extractTiersFromMarkdown(md: string) {
+function parseQty(s: string): number { return Number(String(s).replace(/\./g, "").replace(/\s/g, "")) || 0; }
+function parsePrice(s: string): number {
+  let c = String(s).trim();
+  if (/,\d{1,2}$/.test(c)) c = c.replace(/\./g, "").replace(",", ".");
+  else c = c.replace(/,/g, "");
+  return Number(c) || 0;
+}
+function stripTags(html: string): string {
+  return html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+}
+function dedupSort(tiers: Tier[]): Tier[] {
+  const m = new Map<number, Tier>();
+  for (const t of tiers) {
+    if (t.quantidade <= 0 || t.preco_total <= 0) continue;
+    if (!m.has(t.quantidade) || m.get(t.quantidade)!.preco_total > t.preco_total) {
+      m.set(t.quantidade, { ...t, preco_unitario: t.preco_unitario || t.preco_total / t.quantidade });
+    }
+  }
+  return Array.from(m.values()).sort((a, b) => a.quantidade - b.quantidade);
+}
+
+function extractTiersFromMarkdown(md: string): Tier[] {
   const out: Tier[] = [];
-  const rx = /(\d{1,3}(?:\.\d{3})+|\d{3,6})\s*(?:un|unid|unidades|pcs|pe[çc]as)[\s\S]{0,40}?R\$\s*([\d.,]+)/gi;
+  const rx = /(\d{1,3}(?:\.\d{3})+|\d{2,6})\s*(?:un|unid|unidades|pcs|pe[çc]as)[\s\S]{0,60}?R\$\s*([\d.,]+)/gi;
   let m: RegExpExecArray | null;
   while ((m = rx.exec(md)) !== null) {
     const q = parseQty(m[1]); const t = parsePrice(m[2]);
-    if (q >= 50 && q <= 1000000 && q % 50 === 0 && t > 0 && t < 1000000) {
-      out.push({ quantidade: q, preco_total: t, preco_unitario: q > 0 ? t / q : 0 });
+    if (q >= 25 && q <= 1000000 && t > 0 && t < 1000000) {
+      out.push({ quantidade: q, preco_total: t, preco_unitario: t / q });
+    }
+  }
+  return out;
+}
+function extractTiersFromHtmlGeneric(html: string): Tier[] {
+  const out: Tier[] = [];
+  const rx = /(\d{1,3}(?:\.\d{3})+|\d{2,6})\s*(?:un|unid|unidades|pcs|pe[çc]as)[\s\S]{0,200}?R\$\s*([\d.,]+)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = rx.exec(html)) !== null) {
+    const q = parseQty(m[1]); const t = parsePrice(m[2]);
+    if (q >= 25 && q <= 1000000 && t > 0 && t < 1000000) {
+      out.push({ quantidade: q, preco_total: t, preco_unitario: t / q });
+    }
+  }
+  return out;
+}
+function extractTiersFromScripts(html: string): Tier[] {
+  const out: Tier[] = [];
+  const scriptRx = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+  let s: RegExpExecArray | null;
+  while ((s = scriptRx.exec(html)) !== null) {
+    const body = s[1];
+    if (body.length < 30 || body.length > 500000) continue;
+    if (!/(quant|qtd|qty|preco|price|valor)/i.test(body)) continue;
+    const objRx = /\{[^{}]{0,400}?(?:"?(?:quantidade|qtd|qty|min_qty|minimum)"?\s*:\s*"?(\d{2,6})"?)[^{}]{0,400}?(?:"?(?:preco_total|valor_total|preco|valor|price|total)"?\s*:\s*"?([\d.,R$\s]+)"?)[^{}]{0,200}?\}/gi;
+    let m: RegExpExecArray | null;
+    while ((m = objRx.exec(body)) !== null) {
+      const q = parseQty(m[1]); const t = parsePrice(m[2].replace(/R\$/g, "").trim());
+      if (q >= 25 && q <= 1000000 && t > 0 && t < 1000000) out.push({ quantidade: q, preco_total: t, preco_unitario: t / q });
     }
   }
   return out;
 }
 
-async function extractTiersFromScreenshot(screenshotUrl: string): Promise<Tier[]> {
-  const KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!KEY) return [];
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 50000);
-  let r: Response;
-  try {
-    r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          { role: "system", content: "Você extrai tabelas de preço por quantidade de imagens. Retorne TODAS as faixas visíveis. Nunca invente." },
-          { role: "user", content: [
-            { type: "text", text: "Extraia TODAS as faixas (quantidade × preço total) desta imagem usando a ferramenta extract_tiers." },
-            { type: "image_url", image_url: { url: screenshotUrl } },
-          ] },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "extract_tiers",
-            description: "Faixas de preço extraídas da imagem.",
-            parameters: {
-              type: "object",
-              properties: {
-                tiers: { type: "array", items: { type: "object", properties: {
-                  quantidade: { type: "number" }, preco_total: { type: "number" }, preco_unitario: { type: "number" },
-                }, required: ["quantidade", "preco_total"] } },
-              },
-              required: ["tiers"],
-            },
-          },
-        }],
-        tool_choice: { type: "function", function: { name: "extract_tiers" } },
-      }),
-    });
-  } catch (e) {
-    clearTimeout(timer);
-    console.warn(`visual abort: ${e instanceof Error ? e.message : String(e)}`);
-    return [];
+function parseAtualCard(html: string): Tier[] {
+  const tiers: Tier[] = [];
+  const rowRx = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let r: RegExpExecArray | null;
+  while ((r = rowRx.exec(html)) !== null) {
+    const cells: string[] = [];
+    const cellRx = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi;
+    let c: RegExpExecArray | null;
+    while ((c = cellRx.exec(r[1])) !== null) cells.push(stripTags(c[1]));
+    if (cells.length < 2) continue;
+    let qtd = 0, total = 0;
+    for (const cell of cells) {
+      if (!qtd) { const mq = cell.match(/^\s*(\d{1,3}(?:\.\d{3})+|\d{2,6})\s*(?:un|unid|unidades)?\s*$/i); if (mq) qtd = parseQty(mq[1]); }
+      if (!total) { const mp = cell.match(/R\$\s*([\d.,]+)/i); if (mp) total = parsePrice(mp[1]); }
+    }
+    if (qtd >= 25 && total > 0) tiers.push({ quantidade: qtd, preco_total: total, preco_unitario: total / qtd });
   }
-  clearTimeout(timer);
-  if (!r.ok) { console.warn(`visual fallback ${r.status}`); return []; }
-  const d = await r.json();
-  const call = d?.choices?.[0]?.message?.tool_calls?.[0];
-  if (!call) return [];
+  return tiers.length ? tiers : extractTiersFromHtmlGeneric(html);
+}
+function parseImprimaRapido(html: string): Tier[] {
+  const tiers: Tier[] = [];
+  const optRx = /<option[^>]*>([\s\S]*?)<\/option>/gi;
+  let o: RegExpExecArray | null;
+  while ((o = optRx.exec(html)) !== null) {
+    const text = stripTags(o[1]);
+    const m = text.match(/(\d{1,3}(?:\.\d{3})+|\d{2,6})\s*(?:un|unid|unidades|pcs|pe[çc]as)?[\s\S]{0,40}?R\$\s*([\d.,]+)/i);
+    if (m) {
+      const q = parseQty(m[1]); const t = parsePrice(m[2]);
+      if (q >= 25 && t > 0) tiers.push({ quantidade: q, preco_total: t, preco_unitario: t / q });
+    }
+  }
+  return dedupSort([...tiers, ...extractTiersFromScripts(html), ...extractTiersFromHtmlGeneric(html)]);
+}
+function pickDomainParser(url: string): ((html: string) => Tier[]) | null {
   try {
-    const args = JSON.parse(call.function.arguments);
-    const raw: any[] = Array.isArray(args.tiers) ? args.tiers : [];
-    return raw.map((t) => {
-      const q = Number(t.quantidade) || 0;
-      const tot = Number(t.preco_total) || 0;
-      const u = Number(t.preco_unitario) || (q > 0 ? tot / q : 0);
-      return { quantidade: q, preco_total: tot, preco_unitario: u };
-    }).filter((t) => t.quantidade > 0 && t.preco_total > 0);
-  } catch { return []; }
+    const host = new URL(url).hostname.toLowerCase();
+    if (host.includes("atualcard.com.br")) return parseAtualCard;
+    if (host.includes("imprimarapido.com.br")) return parseImprimaRapido;
+  } catch { /* ignore */ }
+  return null;
 }
 
-function mergeConservative(base: Tier[], extras: Tier[]): Tier[] {
-  const m = new Map<number, Tier>();
-  for (const t of base) m.set(t.quantidade, t);
-  for (const t of extras) if (!m.has(t.quantidade)) m.set(t.quantidade, t);
-  const sorted = Array.from(m.values()).sort((a, b) => a.quantidade - b.quantidade);
-  const out: Tier[] = [];
-  for (const t of sorted) {
-    const last = out[out.length - 1];
-    if (!last || t.preco_total >= last.preco_total * 0.8) out.push(t);
-  }
-  return out;
-}
-
-async function scrapeTiers(url: string, apiKey: string) {
+async function scrapeLight(url: string, apiKey: string): Promise<{ html: string; markdown: string }> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 60000);
-  let r: Response;
+  const timer = setTimeout(() => ctrl.abort(), 45000);
   try {
-    r = await fetch("https://api.firecrawl.dev/v2/scrape", {
+    const r = await fetch("https://api.firecrawl.dev/v2/scrape", {
       method: "POST",
       signal: ctrl.signal,
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url, onlyMainContent: false, waitFor: 5000,
-        actions: [
-          { type: "wait", milliseconds: 3000 },
-          { type: "scroll", direction: "down" },
-          { type: "wait", milliseconds: 2000 },
-        ],
-        formats: ["markdown", "screenshot", { type: "json", schema: TIER_SCHEMA, prompt: PROMPT }],
-      }),
+      body: JSON.stringify({ url, onlyMainContent: false, waitFor: 3000, formats: ["html", "markdown"] }),
     });
+    clearTimeout(timer);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d?.error || `Firecrawl ${r.status}`);
+    return {
+      html: String(d?.data?.html ?? d?.html ?? ""),
+      markdown: String(d?.data?.markdown ?? d?.markdown ?? ""),
+    };
   } catch (e) {
     clearTimeout(timer);
-    throw new Error(`Firecrawl timeout: ${e instanceof Error ? e.message : String(e)}`);
+    throw new Error(`Firecrawl light: ${e instanceof Error ? e.message : String(e)}`);
   }
-  clearTimeout(timer);
-  const d = await r.json();
-  if (!r.ok) throw new Error(d?.error || `Firecrawl ${r.status}`);
-  const markdown: string = d?.data?.markdown ?? d?.markdown ?? "";
-  const screenshot: string = d?.data?.screenshot ?? d?.screenshot ?? "";
-  const raw = (d?.data?.json?.tiers ?? d?.json?.tiers ?? []) as any[];
+}
 
-  const normalized = raw.map((t: any) => {
-    const q = Number(t.quantidade) || 0; const tot = Number(t.preco_total) || 0;
-    const u = Number(t.preco_unitario) || (q > 0 ? tot / q : 0);
-    return { quantidade: q, preco_total: tot, preco_unitario: u, texto_original: String(t.texto_original ?? "") };
-  }).filter((t) => t.quantidade > 0 && t.preco_total > 0);
-
-  const validatedJson: Tier[] = normalized.filter((t) => {
-    const qOk = numberAppearsIn(t.quantidade, markdown) || numberAppearsIn(t.quantidade, t.texto_original);
-    const pOk = numberAppearsIn(t.preco_total, markdown) || numberAppearsIn(t.preco_total, t.texto_original);
-    return qOk || pOk;
-  }).map((t) => ({ quantidade: t.quantidade, preco_total: t.preco_total, preco_unitario: t.preco_unitario }));
-
-  const fromRegex = extractTiersFromMarkdown(markdown);
-
-  const m = new Map<number, Tier>();
-  for (const t of fromRegex) m.set(t.quantidade, t);
-  for (const t of validatedJson) m.set(t.quantidade, t);
-  const textTiers = Array.from(m.values()).sort((a, b) => a.quantidade - b.quantidade);
-
-  const lowConfidence = markdown.length < 500 || textTiers.length < 3 || (fromRegex.length === 0 && validatedJson.length < 3);
-
-  console.log(`scheduled [${url}] md=${markdown.length} validJson=${validatedJson.length} regex=${fromRegex.length} text=${textTiers.length} low=${lowConfidence}`);
-
-  let finalTiers = textTiers;
-  if (lowConfidence && screenshot) {
-    const visual = await extractTiersFromScreenshot(screenshot);
-    console.log(`scheduled [${url}] visual=${visual.length}`);
-    if (visual.length > textTiers.length) finalTiers = mergeConservative(visual, textTiers);
-    else if (visual.length > 0) finalTiers = mergeConservative(textTiers, visual);
-  }
-
-  return { tiers: finalTiers, descartados: normalized.length - validatedJson.length };
+async function scrapeTiers(url: string, apiKey: string) {
+  const { html, markdown } = await scrapeLight(url, apiKey);
+  const domainParser = pickDomainParser(url);
+  let domainTiers: Tier[] = [];
+  if (domainParser) { try { domainTiers = dedupSort(domainParser(html)); } catch { /* ignore */ } }
+  const htmlGeneric = extractTiersFromHtmlGeneric(html);
+  const scriptTiers = extractTiersFromScripts(html);
+  const mdTiers = extractTiersFromMarkdown(markdown);
+  const haystack = markdown + " " + stripTags(html.slice(0, 200000));
+  const validate = (arr: Tier[]) => arr.filter((t) =>
+    numberAppearsIn(t.quantidade, haystack) && numberAppearsIn(t.preco_total, haystack)
+  );
+  const tiers = dedupSort([...domainTiers, ...validate([...htmlGeneric, ...scriptTiers, ...mdTiers])]);
+  console.log(`scheduled [${url}] html=${html.length} md=${markdown.length} domain=${domainTiers.length} final=${tiers.length}`);
+  return { tiers, descartados: 0 };
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -231,9 +195,9 @@ Deno.serve(async (req) => {
         continue;
       }
       try {
-        const { tiers, descartados } = await scrapeTiers(site.url_completa, FIRECRAWL);
+        const { tiers } = await scrapeTiers(site.url_completa, FIRECRAWL);
         if (!tiers.length) {
-          results.push({ site_id: site.id, error: descartados ? `todos os ${descartados} tiers reprovaram` : "sem tiers" });
+          results.push({ site_id: site.id, error: "sem tiers" });
           continue;
         }
         const wh = await fetch(`${SUPABASE_URL}/functions/v1/sync-prices-webhook`, {
@@ -242,7 +206,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({ site_id: site.id, origem: "firecrawl", tiers }),
         });
         const whData = await wh.json();
-        results.push({ site_id: site.id, descartados, ...whData });
+        results.push({ site_id: site.id, ...whData });
       } catch (e) {
         results.push({ site_id: site.id, error: e instanceof Error ? e.message : String(e) });
       }
