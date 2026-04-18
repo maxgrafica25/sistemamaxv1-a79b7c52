@@ -673,13 +673,65 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                 </Button>
               </div>
             </div>
-            {tiersResult && !tiersResult.ok && (
+            {tiersResult && !tiersResult.ok && !manualMode && (
               <Alert variant="destructive">
                 <AlertDescription className="text-xs flex items-start gap-2">
-                  <XCircle className="h-4 w-4 mt-0.5" /><span>{tiersResult.error}</span>
+                  <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <span>{tiersResult.error}</span>
+                    <div>
+                      <Button size="sm" variant="outline" onClick={() => setManualMode(true)}>
+                        <ListPlus className="h-4 w-4 mr-1" />Inserir faixas manualmente
+                      </Button>
+                    </div>
+                  </div>
                 </AlertDescription>
               </Alert>
             )}
+
+            {manualMode && (
+              <div className="space-y-2 border rounded p-3 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Faixas manuais</Label>
+                  <Button size="sm" variant="ghost" onClick={() => setManualMode(false)}>Cancelar</Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Digite as quantidades e preços totais que aparecem no site (ex: 100 → 89,90).</p>
+                <div className="space-y-2">
+                  {manualTiers.map((row, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <Input
+                        placeholder="Quantidade (ex: 100)"
+                        value={row.quantidade}
+                        onChange={(e) => updateManualRow(i, { quantidade: e.target.value })}
+                        className="font-mono"
+                      />
+                      <Input
+                        placeholder="Preço total (ex: 89,90)"
+                        value={row.preco_total}
+                        onChange={(e) => updateManualRow(i, { preco_total: e.target.value })}
+                        className="font-mono"
+                      />
+                      <Button size="icon" variant="ghost" onClick={() => removeManualRow(i)} disabled={manualTiers.length === 1}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button size="sm" variant="outline" onClick={addManualRow}>
+                  <ListPlus className="h-4 w-4 mr-1" />Adicionar faixa
+                </Button>
+                <ProductPicker
+                  selectedId={tiersCatalogoId}
+                  selectedName={tiersNome}
+                  onChange={({ id, name }) => { setTiersCatalogoId(id); setTiersNome(name); }}
+                />
+                <div>
+                  <Label className="text-xs">Fornecedor</Label>
+                  <Input value={fornecedor} onChange={(e) => setFornecedor(e.target.value)} placeholder="Nome do fornecedor" />
+                </div>
+              </div>
+            )}
+
             {tiersResult?.ok && tiersResult.tiers && (
               <>
                 <Alert>
@@ -718,10 +770,17 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button onClick={handleSaveTiers} disabled={savingTiers || !tiersResult?.ok || !tiersNome}>
-                {savingTiers && <Loader2 className="h-4 w-4 animate-spin" />}
-                Salvar produto + {tiersResult?.tiers?.length || 0} faixas
-              </Button>
+              {manualMode ? (
+                <Button onClick={handleSaveManualTiers} disabled={savingTiers || !tiersNome || !tiersUrl}>
+                  {savingTiers && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Salvar faixas manuais
+                </Button>
+              ) : (
+                <Button onClick={handleSaveTiers} disabled={savingTiers || !tiersResult?.ok || !tiersNome}>
+                  {savingTiers && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Salvar produto + {tiersResult?.tiers?.length || 0} faixas
+                </Button>
+              )}
             </DialogFooter>
           </TabsContent>
 
