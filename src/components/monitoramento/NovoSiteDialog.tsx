@@ -1008,7 +1008,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                           {item.status === "processing" && <Badge variant="secondary"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Processando</Badge>}
                           {item.status === "pending" && <Badge variant="outline">Aguardando</Badge>}
                           {item.status === "ok" && <Badge className="bg-[hsl(var(--success))] text-white"><CheckCircle2 className="h-3 w-3 mr-1" />{item.tiers?.length} faixas</Badge>}
-                          {item.status === "error" && <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400"><HelpCircle className="h-3 w-3 mr-1" />Requer ação</Badge>}
+                          {item.status === "error" && <Badge variant="outline" className="border-[hsl(var(--warning))] text-[hsl(var(--warning))]"><HelpCircle className="h-3 w-3 mr-1" />Requer ação</Badge>}
                           {item.status === "duplicate" && <Badge variant="secondary">Duplicado</Badge>}
                           <span className="text-xs text-muted-foreground truncate">{item.url}</span>
                         </div>
