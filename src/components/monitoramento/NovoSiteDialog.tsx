@@ -645,6 +645,110 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
             </DialogFooter>
           </TabsContent>
 
+          {/* === BULK (em massa) === */}
+          <TabsContent value="bulk" className="space-y-3 pt-3">
+            <Alert>
+              <AlertDescription className="text-xs">
+                Cole <strong>várias URLs</strong> (uma por linha) para cadastrar de uma só vez. O sistema detecta produto, fornecedor e tabela de preços de cada link, e você revisa antes de salvar. URLs já cadastradas são marcadas automaticamente.
+              </AlertDescription>
+            </Alert>
+            <div>
+              <Label>URLs (uma por linha) *</Label>
+              <Textarea
+                value={bulkUrls}
+                onChange={(e) => setBulkUrls(e.target.value)}
+                placeholder={"https://www.fornecedor1.com/produto-a\nhttps://www.fornecedor2.com/produto-b\nhttps://www.fornecedor3.com/produto-c"}
+                className="font-mono text-xs min-h-[120px]"
+                disabled={bulkBusy}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleBulkDetect} disabled={bulkBusy || !bulkUrls.trim()}>
+                {bulkBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                Detectar todos
+              </Button>
+              {bulkBusy && (
+                <Button variant="outline" onClick={handleBulkCancel}>Cancelar detecção</Button>
+              )}
+              {bulkItems.length > 0 && !bulkBusy && (
+                <Button variant="ghost" onClick={() => { setBulkItems([]); setBulkUrls(""); setBulkProgress({ done: 0, total: 0 }); }}>
+                  <Trash2 className="h-4 w-4" />Limpar
+                </Button>
+              )}
+            </div>
+
+            {bulkProgress.total > 0 && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Processando {bulkProgress.done} de {bulkProgress.total}…</span>
+                  <span>{Math.round((bulkProgress.done / bulkProgress.total) * 100)}%</span>
+                </div>
+                <Progress value={(bulkProgress.done / bulkProgress.total) * 100} className="h-2" />
+              </div>
+            )}
+
+            {bulkItems.length > 0 && (
+              <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                {bulkItems.map((item, idx) => (
+                  <div key={idx} className="border rounded p-3 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        checked={item.include}
+                        onCheckedChange={(v) => updateBulkItem(idx, { include: !!v })}
+                        disabled={item.status !== "ok"}
+                        className="mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {item.status === "processing" && <Badge variant="secondary"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Processando</Badge>}
+                          {item.status === "pending" && <Badge variant="outline">Aguardando</Badge>}
+                          {item.status === "ok" && <Badge className="bg-[hsl(var(--success))] text-white"><CheckCircle2 className="h-3 w-3 mr-1" />{item.tiers?.length} faixas</Badge>}
+                          {item.status === "error" && <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Erro</Badge>}
+                          {item.status === "duplicate" && <Badge variant="secondary">Duplicado</Badge>}
+                          <span className="text-xs text-muted-foreground truncate">{item.url}</span>
+                        </div>
+                        {item.status === "ok" && (
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            <div>
+                              <Label className="text-xs">Produto</Label>
+                              <Input
+                                value={item.nome || ""}
+                                onChange={(e) => updateBulkItem(idx, { nome: e.target.value })}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Fornecedor</Label>
+                              <Input
+                                value={item.fornecedor || ""}
+                                onChange={(e) => updateBulkItem(idx, { fornecedor: e.target.value })}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {(item.status === "error" || item.status === "duplicate") && item.error && (
+                          <div className="text-xs text-muted-foreground mt-1">{item.error}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+              <Button
+                onClick={handleBulkSave}
+                disabled={bulkSaving || bulkBusy || bulkItems.filter((i) => i.include && i.status === "ok").length === 0}
+              >
+                {bulkSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                Salvar {bulkItems.filter((i) => i.include && i.status === "ok").length} selecionados
+              </Button>
+            </DialogFooter>
+          </TabsContent>
+
           {/* === AUTO === */}
           <TabsContent value="auto" className="space-y-3 pt-3">
             <Alert>
