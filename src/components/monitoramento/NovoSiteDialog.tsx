@@ -125,11 +125,29 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const [savingTiers, setSavingTiers] = useState(false);
   const [tiersCatalogoId, setTiersCatalogoId] = useState<string | null>(null);
 
+  // ===== MODO 5: Em massa (múltiplos URLs) =====
+  type BulkItem = {
+    url: string;
+    status: "pending" | "processing" | "ok" | "error" | "duplicate";
+    nome?: string;
+    fornecedor?: string;
+    tiers?: { quantidade: number; preco_total: number; preco_unitario: number }[];
+    error?: string;
+    include: boolean;
+  };
+  const [bulkUrls, setBulkUrls] = useState("");
+  const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const bulkCancelRef = useState({ cancel: false })[0];
+
   const reset = () => {
     setAutoUrl(""); setAutoNome(""); setAutoResult(null); setAutoCatalogoId(null);
     setAdvUrl(""); setAdvNome(""); setAdvSeletor(""); setAdvResult(null);
     setFile(null); setParsed(null); setColNome(""); setColPreco(""); setColCodigo("__none__");
     setTiersUrl(""); setTiersNome(""); setTiersResult(null); setTiersCatalogoId(null);
+    setBulkUrls(""); setBulkItems([]); setBulkProgress({ done: 0, total: 0 });
   };
 
   // ---- TIERS handlers ----
