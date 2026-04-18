@@ -568,8 +568,9 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
         </div>
 
         <Tabs defaultValue="tiers" className="mt-2">
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-5 w-full">
             <TabsTrigger value="tiers"><Layers className="h-4 w-4 mr-1" />Tabela auto</TabsTrigger>
+            <TabsTrigger value="bulk"><ListPlus className="h-4 w-4 mr-1" />Em massa</TabsTrigger>
             <TabsTrigger value="auto"><Sparkles className="h-4 w-4 mr-1" />URL simples</TabsTrigger>
             <TabsTrigger value="excel"><FileSpreadsheet className="h-4 w-4 mr-1" />Planilha</TabsTrigger>
             <TabsTrigger value="adv"><Code className="h-4 w-4 mr-1" />Avançado</TabsTrigger>
