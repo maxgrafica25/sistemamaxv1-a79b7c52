@@ -144,6 +144,13 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkRetryingIdx, setBulkRetryingIdx] = useState<number | null>(null);
+  const [bulkManualIdx, setBulkManualIdx] = useState<number | null>(null);
+  const [bulkManualTiers, setBulkManualTiers] = useState<{ quantidade: string; preco_total: string }[]>([
+    { quantidade: "", preco_total: "" },
+  ]);
+  const [bulkManualNome, setBulkManualNome] = useState("");
+  const [bulkManualFornecedor, setBulkManualFornecedor] = useState("");
   const bulkCancelRef = useState({ cancel: false })[0];
 
   const reset = () => {
