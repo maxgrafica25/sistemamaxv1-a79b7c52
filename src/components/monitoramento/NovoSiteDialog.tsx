@@ -1008,7 +1008,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                           {item.status === "processing" && <Badge variant="secondary"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Processando</Badge>}
                           {item.status === "pending" && <Badge variant="outline">Aguardando</Badge>}
                           {item.status === "ok" && <Badge className="bg-[hsl(var(--success))] text-white"><CheckCircle2 className="h-3 w-3 mr-1" />{item.tiers?.length} faixas</Badge>}
-                          {item.status === "error" && <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Erro</Badge>}
+                          {item.status === "error" && <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400"><HelpCircle className="h-3 w-3 mr-1" />Requer ação</Badge>}
                           {item.status === "duplicate" && <Badge variant="secondary">Duplicado</Badge>}
                           <span className="text-xs text-muted-foreground truncate">{item.url}</span>
                         </div>
@@ -1032,8 +1032,37 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                             </div>
                           </div>
                         )}
-                        {(item.status === "error" || item.status === "duplicate") && item.error && (
+                        {item.status === "duplicate" && item.error && (
                           <div className="text-xs text-muted-foreground mt-1">{item.error}</div>
+                        )}
+                        {item.status === "error" && (
+                          <div className="mt-2 space-y-2">
+                            {item.error && <div className="text-xs text-muted-foreground">{item.error}</div>}
+                            <div className="flex gap-2 flex-wrap">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleBulkRetryVisual(idx)}
+                                disabled={bulkRetryingIdx !== null || bulkBusy}
+                              >
+                                {bulkRetryingIdx === idx ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Sparkles className="h-3 w-3" />
+                                )}
+                                Tentar com captura visual
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => openBulkManual(idx)}
+                                disabled={bulkRetryingIdx !== null || bulkBusy}
+                              >
+                                <ListPlus className="h-3 w-3" />
+                                Inserir manualmente
+                              </Button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
