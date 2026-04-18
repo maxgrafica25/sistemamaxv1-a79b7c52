@@ -124,6 +124,10 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   } | null>(null);
   const [savingTiers, setSavingTiers] = useState(false);
   const [tiersCatalogoId, setTiersCatalogoId] = useState<string | null>(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualTiers, setManualTiers] = useState<{ quantidade: string; preco_total: string }[]>([
+    { quantidade: "", preco_total: "" },
+  ]);
 
   // ===== MODO 5: Em massa (múltiplos URLs) =====
   type BulkItem = {
