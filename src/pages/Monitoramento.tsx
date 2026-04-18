@@ -477,7 +477,7 @@ export default function Monitoramento() {
       // Caso contrário, só ofertas com tier EXATO para a quantidade alvo.
       const tiersConsiderados = qtdAlvo === 0
         ? siteTiers
-        : siteTiers.filter((t) => t.quantidade === qtdAlvo);
+        : siteTiers.filter((t) => Number(t.quantidade) === Number(qtdAlvo));
       if (!tiersConsiderados.length) continue;
 
       // Chave de agrupamento: usa o produto_catalogo_id quando disponível,
@@ -538,6 +538,8 @@ export default function Monitoramento() {
       return a.nomeExibicao.localeCompare(b.nomeExibicao);
     });
   }, [sites, tiersBySite, minHistByTier, qtdAlvo, searchTerm, filterProduto, produtosCatalogo]);
+
+
 
   const lastSync = useMemo(() => {
     const dates = sites.map((s) => s.timestamp_check).filter(Boolean) as string[];
@@ -709,7 +711,10 @@ export default function Monitoramento() {
         <div className="flex items-center gap-2">
           <Label>Comparar para:</Label>
           <Select value={String(qtdAlvo)} onValueChange={(v) => setQtdAlvo(Number(v))}>
-            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-44">
+              {/* Renderização manual do label para evitar inconsistência com SelectValue do Radix */}
+              <span>{qtdAlvo === 0 ? "Todas as unidades" : `${qtdAlvo.toLocaleString("pt-BR")} un`}</span>
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="0">Todas as unidades</SelectItem>
               {(qtdOptionsDisponiveis.length ? qtdOptionsDisponiveis : QTD_OPTIONS).map((q) => (
@@ -779,7 +784,7 @@ export default function Monitoramento() {
                       const cor = colorFor(corMap, oferta.site.fornecedor_nome);
                       return (
                         <div
-                          key={oferta.site.id}
+                          key={`${oferta.site.id}::${oferta.tier.id}`}
                           className={`flex flex-wrap items-center gap-3 px-3 py-2 border-l-4 ${isMelhor ? "bg-success/5" : ""}`}
                           style={{ borderLeftColor: cor.solid }}
                         >
