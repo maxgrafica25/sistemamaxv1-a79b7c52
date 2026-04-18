@@ -477,7 +477,7 @@ export default function Monitoramento() {
       // Caso contrário, só ofertas com tier EXATO para a quantidade alvo.
       const tiersConsiderados = qtdAlvo === 0
         ? siteTiers
-        : siteTiers.filter((t) => t.quantidade === qtdAlvo);
+        : siteTiers.filter((t) => Number(t.quantidade) === Number(qtdAlvo));
       if (!tiersConsiderados.length) continue;
 
       // Chave de agrupamento: usa o produto_catalogo_id quando disponível,
