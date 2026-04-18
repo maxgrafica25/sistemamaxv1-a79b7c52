@@ -539,15 +539,6 @@ export default function Monitoramento() {
     });
   }, [sites, tiersBySite, minHistByTier, qtdAlvo, searchTerm, filterProduto, produtosCatalogo]);
 
-  // Debug temporário: ajuda a identificar inconsistências entre o filtro de quantidade e as ofertas exibidas.
-  useEffect(() => {
-    if (!oportunidades.length) return;
-    console.log("[Monitoramento] qtdAlvo=", qtdAlvo, "grupos=", oportunidades.map(g => ({
-      title: g.nomeExibicao,
-      n_ofertas: g.ofertas.length,
-      tiers_quantidades: g.ofertas.map(o => o.tier.quantidade),
-    })));
-  }, [oportunidades, qtdAlvo]);
 
 
   const lastSync = useMemo(() => {
