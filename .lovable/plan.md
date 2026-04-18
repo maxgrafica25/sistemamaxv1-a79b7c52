@@ -1,82 +1,44 @@
 
-A proposta é sólida e resolve definitivamente o problema do Imprima Rápido / Atual Card. Análise rápida e plano de execução.
+## Diagnóstico
 
-## Avaliação técnica da proposta
+Dois problemas combinados:
 
-**Pontos fortes:**
-- Playwright headful real em VPS é a única forma confiável de scrapear PWAs como Imprima Rápido. Já validei que Firecrawl não consegue.
-- `waitForFunction(() => document.body.innerText.includes('R$'))` é o detector certo: espera a hidratação real, não um timer fixo.
-- Separação Worker (scraping) ↔ Edge Function (orquestração) ↔ DB ↔ UI é a arquitetura correta.
-- Auth por `WORKER_SECRET` no header é simples e suficiente.
+1. **`SCRAPER_WORKER_URL` está sem `https://`** → `new URL()` no Deno falha com "Invalid URL". Tem que ser `https://import-wizard-production.up.railway.app`, não `import-wizard-production.up.railway.app`.
 
-**Ajustes que recomendo fazer durante a execução:**
+2. **O domínio `import-wizard-production.up.railway.app` não é o worker** — é o nome padrão "import-wizard" do template Railway. Provavelmente nenhum serviço com a pasta `scraper-worker/` foi deployado ainda, ou foi criado um projeto vazio.
 
-1. **Não criar tabela nova `supplier_price_tiers`.** Já existe `sites_monitorado` + `site_precos_tiers` em uso pelo módulo Monitoramento atual, com triggers de alerta de queda de preço, histórico, notificações no sino. Criar uma tabela paralela fragmenta os dados e quebra os alertas. Vou **reaproveitar a estrutura existente** e só adicionar colunas que faltam (`status`, `error_message`, `last_scrape_at`).
+## Plano
 
-2. **Não criar página nova `/monitoramento-precos`.** Já existe `/monitoramento` completa com listagem, drawer, alertas, comparativo, oportunidades. Vou **integrar o novo worker** no fluxo existente do `NovoSiteDialog` e do botão "Sincronizar" do Monitoramento, como mais uma fonte além do Firecrawl.
+### Passo 1 — Tornar a edge function tolerante a URL sem protocolo
+Em `supabase/functions/scrape-via-worker/index.ts`, normalizar `workerUrl`:
+- Se não começa com `http://` ou `https://`, prefixar `https://`.
+- Validar com `new URL()` e devolver erro claro se inválida.
+- Adicionar log com a URL final (sem o secret) pra debug.
 
-3. **Roteamento Worker vs Firecrawl por domínio:**
-   - `imprimarapido.com.br`, `atualcard.com.br` → Worker Railway (Playwright real)
-   - Demais domínios → Firecrawl (mais barato, já funciona)
-   - Fallback: se Worker offline, tenta Firecrawl mesmo assim e mostra status.
+### Passo 2 — Validar se o worker está realmente respondendo
+A edge function `scrape-via-worker` faz um `GET /health` antes do `POST /scrape`. Se o health não responder JSON `{status:"ok"}`, devolve erro:
+> "Worker não encontrado em <URL>. Verifique se o serviço scraper-worker foi deployado no Railway."
 
-4. **Regex mais robusto.** A regex sugerida casa "1.000 ... R$ 251,00" mas pode pegar lixo. Vou validar:
-   - quantidade entre 50 e 100.000
-   - preço entre R$ 1 e R$ 100.000
-   - dedupe por quantidade (manter menor preço)
-   - ordenar crescente
+Isso evita confundir "URL errada" com "site bloqueia scraping".
 
-5. **Health check + status do worker na UI.** Reusar o badge "Worker online/offline" que já existe em `Monitoramento.tsx` (`workerOnline`).
+### Passo 3 — Mensagens mais claras na UI
+Em `NovoSiteDialog.tsx`, quando o erro contiver "Worker não" ou "Invalid URL", mostrar instrução curta:
+> "Configure o Worker no Railway e atualize SCRAPER_WORKER_URL com a URL completa (https://...)."
 
-6. **Variáveis de ambiente:** `SCRAPER_WORKER_URL` e `WORKER_SECRET` vão como secrets do Supabase (runtime). Usuário precisa configurar depois do deploy do Railway.
+### Passo 4 — Atualizar README do `scraper-worker/`
+Reforçar:
+- A URL do Railway deve incluir `https://`.
+- Como descobrir a URL correta (Settings → Networking → Public Domain).
+- Como testar o health: `curl https://SUA-URL/health`.
 
-## Plano de execução
+### Passo 5 — Confirmar com você o estado real do Railway
+Antes de prosseguir, preciso saber: **você já criou um serviço no Railway apontando para a pasta `scraper-worker/`?** Se sim, qual a URL pública gerada em "Settings → Networking → Public Domain"? O domínio `import-wizard-production.up.railway.app` parece ser placeholder de outro template.
 
-### Etapa 1 — Worker Railway (`scraper-worker/`)
-- `package.json`, `index.js` (Express + Playwright + regex), `Dockerfile`, `README.md` com instruções de deploy no Railway.
-- Rotas: `GET /health`, `POST /scrape` (auth bearer).
-- Extração: aguarda `R$` no DOM (timeout 25s), pega HTML renderizado, aplica regex, normaliza, dedup, ordena, retorna `{ tiers, scraped_at }`.
-
-### Etapa 2 — Migration mínima
-- Adicionar a `sites_monitorado`: `scrape_status text default 'pending'`, `scrape_error text`, `scrape_source text` (firecrawl|worker).
-- Sem nova tabela. Sem quebrar dados existentes.
-
-### Etapa 3 — Edge Function `scrape-via-worker`
-- Nova função que recebe `{ site_id }`, busca a URL no `sites_monitorado`, chama Worker Railway com bearer, faz upsert dos tiers em `site_precos_tiers`, atualiza `scrape_status`/`scrape_error`/`atualizado_em`.
-- Reaproveita a lógica de upsert que já existe em `sync-prices-webhook`.
-
-### Etapa 4 — Roteamento na função `detect-price-tiers`
-- Adicionar função `pickBackend(url)` que retorna `"worker"` para Imprima Rápido / Atual Card e `"firecrawl"` para o resto.
-- Quando backend = worker: chamar `scrape-via-worker` em vez de Firecrawl.
-- Mensagens de erro claras se `SCRAPER_WORKER_URL` não estiver setado.
-
-### Etapa 5 — Pequenos ajustes na UI
-- `NovoSiteDialog.tsx`: nada a mudar — continua chamando `detect-price-tiers`, agora ele resolve o backend automaticamente.
-- `Monitoramento.tsx`: adicionar coluna/badge "Fonte" (Firecrawl / Worker) e exibir `scrape_error` quando houver.
-
-### Etapa 6 — Secrets + README
-- Adicionar `SCRAPER_WORKER_URL` e `WORKER_SECRET` como secrets no Supabase via tool.
-- README na pasta `scraper-worker/` com passo a passo Railway: criar projeto, conectar repo, definir env vars, deploy via Dockerfile.
-
-## Arquivos criados/alterados
-
-Novos:
-- `scraper-worker/package.json`
-- `scraper-worker/index.js`
-- `scraper-worker/Dockerfile`
-- `scraper-worker/README.md`
-- `supabase/functions/scrape-via-worker/index.ts`
-
-Alterados:
-- `supabase/functions/detect-price-tiers/index.ts` (roteamento por domínio)
-- `src/pages/Monitoramento.tsx` (badge de fonte + erro)
-- 1 migration adicionando 3 colunas em `sites_monitorado`
-
-Sem mudança destrutiva no banco, sem perda de dados, sem nova rota no app.
+## Arquivos
+- `supabase/functions/scrape-via-worker/index.ts` (normalização + health check)
+- `src/components/monitoramento/NovoSiteDialog.tsx` (mensagem de erro mais útil)
+- `scraper-worker/README.md` (instruções reforçadas)
 
 ## Resultado esperado
-
-- Imprima Rápido e Atual Card detectados automaticamente pelo Worker em ~10–15s, sem intervenção manual, sem créditos Firecrawl gastos.
-- Demais sites continuam pelo Firecrawl exatamente como hoje.
-- "Em massa" funciona para todos os domínios.
-- Custo Railway: ~US$ 5/mês no plano Hobby, escala fácil.
+- Se o worker estiver deployado e a URL setada com ou sem `https://`: funciona.
+- Se a URL estiver errada ou worker offline: erro claro indicando exatamente o que corrigir, em vez de "Invalid URL".
