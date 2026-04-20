@@ -17,33 +17,45 @@ export type Database = {
       alertas_precos: {
         Row: {
           created_at: string
+          fornecedor_nome: string | null
           id: string
           lida: boolean
           mensagem: string
           preco_antigo: number | null
           preco_novo: number | null
           prioridade: string
+          produto_nome: string | null
+          quantidade: number | null
           site_id: string
+          variacao_pct: number | null
         }
         Insert: {
           created_at?: string
+          fornecedor_nome?: string | null
           id?: string
           lida?: boolean
           mensagem: string
           preco_antigo?: number | null
           preco_novo?: number | null
           prioridade?: string
+          produto_nome?: string | null
+          quantidade?: number | null
           site_id: string
+          variacao_pct?: number | null
         }
         Update: {
           created_at?: string
+          fornecedor_nome?: string | null
           id?: string
           lida?: boolean
           mensagem?: string
           preco_antigo?: number | null
           preco_novo?: number | null
           prioridade?: string
+          produto_nome?: string | null
+          quantidade?: number | null
           site_id?: string
+          variacao_pct?: number | null
         }
         Relationships: [
           {
