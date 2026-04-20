@@ -1,7 +1,11 @@
 // Unified webhook for price coletors (Firecrawl edge function or VPS Playwright worker).
 // Accepts: { site_id, tiers: [{quantidade, preco_total, preco_unitario}], origem }
 // Auth: Bearer VPS_WORKER_TOKEN  (skipped when called from another edge function via service-role)
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+//
+// SERVICE ROLE: necessária — endpoint público autenticado por token externo (VPS),
+// sem JWT de usuário. Escreve em site_precos_tiers/sites_monitorados.
+// Cliente via wrapper auditado (_shared/admin-client).
+import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
