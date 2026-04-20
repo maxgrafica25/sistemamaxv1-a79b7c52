@@ -666,7 +666,7 @@ export default function Monitoramento() {
             <Plus className="h-4 w-4" />
             Novo Site
           </Button>
-          <NovoSiteDialog open={openDialog} onOpenChange={setOpenDialog} onCreated={fetchAll} />
+          <NovoSiteDialog open={openDialog} onOpenChange={setOpenDialog} onCreated={fetchAll} categoriasExistentes={categorias} />
           <CatalogoProdutosDialog
             open={openCatalogo}
             onOpenChange={setOpenCatalogo}
