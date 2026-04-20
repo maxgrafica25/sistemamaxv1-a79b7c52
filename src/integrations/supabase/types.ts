@@ -1921,6 +1921,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      detectar_duplicatas_categorias: {
+        Args: { _destino: string; _origem: string }
+        Returns: {
+          destino_count: number
+          fornecedor: string
+          origem_count: number
+          produto: string
+        }[]
+      }
       is_channel_creator: {
         Args: { _channel_id: string; _user_id: string }
         Returns: boolean
