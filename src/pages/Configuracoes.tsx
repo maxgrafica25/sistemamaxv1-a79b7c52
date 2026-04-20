@@ -7,11 +7,12 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Save, Info, Loader2, Cog, Download, FileJson, FileCode, RefreshCw, AlertTriangle } from "lucide-react";
+import { Save, Info, Loader2, Cog, Download, FileJson, FileCode, RefreshCw, AlertTriangle, Database } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 function formatBytes(n: number): string {
   if (!n) return "0 B";
@@ -52,6 +53,14 @@ export default function Configuracoes() {
   const [backupRuns, setBackupRuns] = useState<BackupRun[]>([]);
   const [loadingBackups, setLoadingBackups] = useState(false);
   const [generating, setGenerating] = useState<"sql" | "json" | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (generating === null) { setElapsed(0); return; }
+    setElapsed(0);
+    const id = setInterval(() => setElapsed((v) => v + 1), 1000);
+    return () => clearInterval(id);
+  }, [generating]);
 
   useEffect(() => {
     const load = async () => {
@@ -347,6 +356,35 @@ export default function Configuracoes() {
           </TabsContent>
         )}
       </Tabs>
+
+      <Dialog open={generating !== null}>
+        <DialogContent
+          className="sm:max-w-md [&>button]:hidden"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <div className="flex flex-col items-center text-center py-4 space-y-4">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Database className="h-10 w-10 text-primary animate-pulse" />
+              </div>
+              <Loader2 className="h-20 w-20 text-primary/30 animate-spin" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">Gerando backup, aguarde...</h3>
+              <p className="text-sm text-muted-foreground">
+                Formato: <span className="font-mono uppercase">{generating ?? ""}</span>
+              </p>
+              <p className="text-sm text-muted-foreground" aria-live="polite">
+                Tempo decorrido: {elapsed}s
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground border-t pt-3 w-full">
+              Não feche esta janela. O download iniciará automaticamente ao concluir.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
