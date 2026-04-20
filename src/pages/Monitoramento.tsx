@@ -873,6 +873,41 @@ export default function Monitoramento() {
           )}
           {gruposComparativoPorCategoria.map(([cat, compGroups]) => {
             const minPrecoUnit = minUnitPriceByCategory[cat];
+
+            // União de quantidades entre todos os fornecedores do MESMO produto canônico.
+            // Mapeia: prodKey -> Set<quantidade>
+            const qtdsUniaoPorProduto = new Map<string, number[]>();
+            for (const g of compGroups) {
+              const prodKey = g.key.split("__")[0]; // remove sufixo do fornecedor
+              const set = new Set(qtdsUniaoPorProduto.get(prodKey) || []);
+              for (const t of g.mergedTiers) set.add(t.quantidade);
+              qtdsUniaoPorProduto.set(prodKey, Array.from(set).sort((a, b) => a - b));
+            }
+
+            // Economia potencial: para qtdAlvo, min/max entre fornecedores da categoria.
+            let economiaInfo: { min: number; max: number; fornMin: string; fornMax: string; pct: number } | null = null;
+            if (qtdAlvo !== 0) {
+              const ofertas: { forn: string; total: number }[] = [];
+              for (const g of compGroups) {
+                const t = getTierForQty(g.mergedTiers, qtdAlvo);
+                if (t) ofertas.push({ forn: g.fornecedor || "—", total: Number(t.preco_total) });
+              }
+              if (ofertas.length >= 2) {
+                ofertas.sort((a, b) => a.total - b.total);
+                const min = ofertas[0];
+                const max = ofertas[ofertas.length - 1];
+                if (max.total > min.total) {
+                  economiaInfo = {
+                    min: min.total,
+                    max: max.total,
+                    fornMin: min.forn,
+                    fornMax: max.forn,
+                    pct: ((max.total - min.total) / max.total) * 100,
+                  };
+                }
+              }
+            }
+
             return (
               <div key={cat} className="space-y-3">
                 <div className="flex items-baseline justify-between">
@@ -894,6 +929,11 @@ export default function Monitoramento() {
                     const trend = !hasTiers && repr.preco_anterior != null && repr.preco_atual != null
                       ? repr.preco_atual - repr.preco_anterior : 0;
                     const isMerged = g.sites.length > 1;
+
+                    // Lista união (todas as quantidades existentes para o produto entre fornecedores)
+                    const prodKey = g.key.split("__")[0];
+                    const qtdsUniao = qtdsUniaoPorProduto.get(prodKey) || [];
+                    const tiersByQty = new Map(mergedTiers.map((t) => [t.quantidade, t]));
 
                     return (
                       <Card key={g.key} className={isMin ? "border-2" : ""} style={isMin ? { borderColor: "hsl(var(--success))" } : undefined}>
