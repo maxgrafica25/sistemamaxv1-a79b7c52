@@ -1099,6 +1099,36 @@ export default function Monitoramento() {
                     );
                   })}
                 </div>
+
+                {/* Card Economia Potencial */}
+                <Card className="border-l-4" style={{ borderLeftColor: "hsl(var(--success))" }}>
+                  <CardContent className="py-3 flex items-center gap-3">
+                    <Sparkles className="h-5 w-5 shrink-0" style={{ color: "hsl(var(--success))" }} />
+                    <div className="text-sm">
+                      <div className="font-semibold mb-0.5">
+                        Economia Potencial {qtdAlvo !== 0 && `— ${qtdAlvo.toLocaleString("pt-BR")} un`}
+                      </div>
+                      {qtdAlvo === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          Selecione uma quantidade no filtro acima para ver a economia potencial.
+                        </p>
+                      ) : economiaInfo ? (
+                        <p className="text-xs text-muted-foreground">
+                          Escolhendo <strong className="text-foreground">{economiaInfo.fornMin}</strong> em vez de{" "}
+                          <strong className="text-foreground">{economiaInfo.fornMax}</strong>, você economiza{" "}
+                          <strong style={{ color: "hsl(var(--success))" }}>
+                            {formatBRL(economiaInfo.max - economiaInfo.min)} ({economiaInfo.pct.toFixed(1)}%)
+                          </strong>
+                          .
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Sem dados suficientes para esta quantidade (precisa de ≥2 fornecedores com tier).
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             );
           })}
