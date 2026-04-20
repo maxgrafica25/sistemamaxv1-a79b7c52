@@ -262,18 +262,39 @@ export default async function ({ page, context }) {
       const n = parseFloat(s);
       return isFinite(n) ? n : null;
     };
-    const parseQty = (raw) => {
+    // BR: trata ponto como separador de milhar. "1.000" -> 1000, "1.000.000" -> 1000000.
+    const parseQtyBR = (raw) => {
       if (raw == null) return null;
-      const m = String(raw).replace(/\\./g, '').match(/(\\d{2,7})/);
+      const s = String(raw);
+      const m = s.match(/(\\d{1,3}(?:\\.\\d{3})+|\\d{2,7})/);
       if (!m) return null;
-      const n = parseInt(m[1], 10);
-      return isFinite(n) ? n : null;
+      const n = parseInt(m[1].replace(/\\./g, ''), 10);
+      return isFinite(n) && n >= 100 ? n : null;
     };
+
+    // Localiza o container da seção "Quantidade" para escopar o varrimento de listas
+    const findQuantidadeRoot = () => {
+      const headings = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,label,strong,legend,div,span,p'));
+      for (const h of headings) {
+        const t = (h.textContent || '').trim().toLowerCase();
+        if (t === 'quantidade' || t === 'quantidades' || t.startsWith('quantidade ') || t.startsWith('quantidades ')) {
+          let node = h;
+          for (let i = 0; i < 6 && node; i++) {
+            node = node.parentElement;
+            if (!node) break;
+            const count = (node.textContent.match(/R\\\$/g) || []).length;
+            if (count >= 5) return node;
+          }
+        }
+      }
+      return null;
+    };
+    const qtyRoot = findQuantidadeRoot() || document;
 
     const tiers = [];
     const counts = { table: 0, radio: 0, dataAttr: 0, list: 0 };
     const pushTier = (qty, total, unit) => {
-      if (!qty || qty < 1 || qty > 1000000) return;
+      if (!qty || qty < 100 || qty > 1000000) return;
       const t = { quantity: qty };
       if (total != null && total > 0) t.total_price = total;
       if (unit != null && unit > 0) t.unit_price = unit;
@@ -281,7 +302,7 @@ export default async function ({ page, context }) {
       tiers.push(t);
     };
 
-    document.querySelectorAll('table').forEach((tbl) => {
+    qtyRoot.querySelectorAll('table').forEach((tbl) => {
       tbl.querySelectorAll('tr').forEach((tr) => {
         const cells = Array.from(tr.querySelectorAll('td,th')).map((c) => c.textContent.trim());
         if (cells.length < 2) return;
@@ -292,7 +313,7 @@ export default async function ({ page, context }) {
             const p = parsePriceBR(cell);
             if (p != null) prices.push(p);
           } else if (qty == null) {
-            const q = parseQty(cell);
+            const q = parseQtyBR(cell);
             if (q != null) qty = q;
           }
         }
@@ -308,8 +329,8 @@ export default async function ({ page, context }) {
       });
     });
 
-    document.querySelectorAll('input[type="radio"][name*="quant" i], input[type="radio"][name*="qtd" i]').forEach((inp) => {
-      const qty = parseQty(inp.value || inp.getAttribute('data-quantidade') || inp.getAttribute('data-qtd'));
+    qtyRoot.querySelectorAll('input[type="radio"][name*="quant" i], input[type="radio"][name*="qtd" i]').forEach((inp) => {
+      const qty = parseQtyBR(inp.value || inp.getAttribute('data-quantidade') || inp.getAttribute('data-qtd'));
       if (!qty) return;
       let total = parsePriceBR(inp.getAttribute('data-price') || inp.getAttribute('data-preco') || inp.getAttribute('data-valor'));
       if (!total && inp.id) {
@@ -326,28 +347,28 @@ export default async function ({ page, context }) {
           if (m) total = parsePriceBR(m[0]);
         }
       }
-      if (total) { counts.radio++; pushTier(qty, total, null); }
+      if (total && total > 1) { counts.radio++; pushTier(qty, total, null); }
     });
 
-    document.querySelectorAll('[data-quantidade],[data-qtd],[data-quantity]').forEach((el) => {
-      const qty = parseQty(el.getAttribute('data-quantidade') || el.getAttribute('data-qtd') || el.getAttribute('data-quantity'));
+    qtyRoot.querySelectorAll('[data-quantidade],[data-qtd],[data-quantity]').forEach((el) => {
+      const qty = parseQtyBR(el.getAttribute('data-quantidade') || el.getAttribute('data-qtd') || el.getAttribute('data-quantity'));
       if (!qty) return;
       const total = parsePriceBR(el.getAttribute('data-price') || el.getAttribute('data-preco') || el.getAttribute('data-valor'));
-      if (total) { counts.dataAttr++; pushTier(qty, total, null); }
+      if (total && total > 1) { counts.dataAttr++; pushTier(qty, total, null); }
     });
 
-    document.querySelectorAll('ul li, ol li, [class*="preco"], [class*="tier"], [class*="quantidade"]').forEach((el) => {
+    qtyRoot.querySelectorAll('ul li, ol li, [class*="preco"], [class*="tier"], [class*="quantidade"]').forEach((el) => {
       const txt = (el.textContent || '').replace(/\\s+/g, ' ').trim();
       if (!txt || txt.length > 200) return;
-      const qm = txt.match(/(\\d{2,7})\\s*(?:un|unid|unidades|x|pç|pcs|peças)?/i);
+      const qm = txt.match(/(\\d{1,3}(?:\\.\\d{3})+|\\d{3,7})\\s*(?:un|unid|unidades|x|pç|pcs|peças)?/i);
       const pm = txt.match(/R\\\$\\s*([\\d.,]+)/i);
       if (!qm || !pm) return;
-      const qty = parseQty(qm[1]);
+      const qty = parseQtyBR(qm[1]);
       const total = parsePriceBR(pm[1]);
-      if (qty && total) { counts.list++; pushTier(qty, total, null); }
+      if (qty && total && total > 1) { counts.list++; pushTier(qty, total, null); }
     });
 
-    return { tiers, counts };
+    return { tiers, counts, scoped: qtyRoot !== document };
   });
 
   return data;
@@ -391,7 +412,7 @@ async function scrapeAtualCard(url: string, token: string): Promise<ScrapeResult
       counts?: Record<string, number>;
     }>(url, token, ATUALCARD_FN_SOURCE);
 
-    console.log(`[atualcard /function] tiers=${result?.tiers?.length ?? 0} counts=${JSON.stringify(result?.counts ?? {})}`);
+    console.log(`[atualcard /function] tiers=${result?.tiers?.length ?? 0} counts=${JSON.stringify(result?.counts ?? {})} scoped=${(result as any)?.scoped ?? false} sample=${JSON.stringify((result?.tiers ?? []).slice(0, 3))}`);
 
     let prices = finalizeTiers(result?.tiers ?? [], url);
 
