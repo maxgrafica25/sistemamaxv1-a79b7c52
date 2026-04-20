@@ -450,6 +450,68 @@ export default function GerenciarCategoriasDialog({
         confirmText="Sim, excluir tudo"
         onConfirm={executeHardDelete}
       />
+
+      {/* Confirmação de merge com duplicatas */}
+      <Dialog
+        open={!!duplicates && !!pendingMerge}
+        onOpenChange={(v) => {
+          if (!v) {
+            setDuplicates(null);
+            setPendingMerge(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span>⚠️</span> Possíveis duplicatas detectadas
+            </DialogTitle>
+            <DialogDescription>
+              Ao mover sites para "{pendingMerge?.destino}", os seguintes pares
+              fornecedor/produto ficarão duplicados no comparativo:
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-72 overflow-y-auto space-y-2 rounded-md border p-3 bg-muted/30">
+            {duplicates?.map((d, i) => (
+              <div key={i} className="text-sm">
+                <div className="font-medium">
+                  • {d.fornecedor} — {d.produto}
+                </div>
+                <div className="ml-4 text-xs text-muted-foreground">
+                  └ origem ({pendingMerge?.origem}): {d.origemCount} site(s)
+                </div>
+                <div className="ml-4 text-xs text-muted-foreground">
+                  └ destino ({pendingMerge?.destino}): {d.destinoCount} site(s)
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDuplicates(null);
+                setPendingMerge(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={busy}
+              onClick={() =>
+                pendingMerge &&
+                performMove(pendingMerge.origem, pendingMerge.destino, pendingMerge.from)
+              }
+            >
+              {busy && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Mover mesmo assim
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
