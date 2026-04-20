@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { TrendingUp, TrendingDown, RefreshCw, Plus, Trash2, ExternalLink, Trophy, AlertTriangle, Wifi, WifiOff, Layers, Target, Flame, ShoppingCart, Sparkles, BookOpen } from "lucide-react";
 import NovoSiteDialog from "@/components/monitoramento/NovoSiteDialog";
 import CatalogoProdutosDialog from "@/components/monitoramento/CatalogoProdutosDialog";
+import GerenciarCategoriasDialog from "@/components/monitoramento/GerenciarCategoriasDialog";
+import { useAuth } from "@/hooks/useAuth";
 import { LineChart, Line, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
