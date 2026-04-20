@@ -1,106 +1,119 @@
 
 
-# Corrigir parser de quantidade BR + filtrar seção Quantidade
+# Monitoramento: 4 melhorias + explicação do sistema de alertas atual
 
-Os logs mostram `counts={"table":0,"radio":0,"dataAttr":0,"list":12}`. Tudo veio do varrimento genérico de `ul li / [class*="preco"]`, que:
+## Como funciona o sistema de alertas hoje (resposta à pergunta da melhoria #3)
 
-1. Pegou "R$ 20,00" da seção de **Acabamentos Opcionais** como se fosse tier (qty=1, total=20).
-2. Leu "1.000" como `1`, "10.000" como `10`, "100.000" como `100`, etc., porque o `parseQty` faz `replace(/\./g, '')` mas a regex `(\d{2,7})` captura só o primeiro grupo de dígitos antes do ponto quando aplicada ao texto cru "1.000 unidades".
+Já existe um pipeline automático no banco — toda alteração de preço é detectada por **triggers do Postgres**, sem precisar de código no front:
 
-## Mudanças em `ATUALCARD_FN_SOURCE` (`supabase/functions/scrape-prices/index.ts`)
+1. **`handle_price_change`** dispara em `UPDATE` de `sites_monitorados` quando `preco_atual` muda. Insere histórico em `historico_precos` e, **se o preço caiu**, cria registro em `alertas_precos` (prioridade `alta` se queda ≥10%, `baixa` caso contrário) + uma `notification` no sino para cada usuário.
+2. **`handle_tier_price_change`** faz o mesmo para cada tier individual em `site_precos_tiers`: salva em `historico_precos_tiers` e gera alerta + notificação por tier alterado, com a quantidade no texto.
 
-### 1) `parseQtyBR` que entende ponto como milhar
+Ou seja: a edge function `scrape-prices` apenas faz `INSERT/UPDATE` nos tiers; **histórico e alertas já são gerados automaticamente** pelos triggers. A aba "Alertas" do `Monitoramento.tsx` consome `alertas_precos` em realtime.
 
-Substituir o `parseQty` interno do `page.evaluate` por uma versão que casa o **número inteiro com pontos de milhar** primeiro:
+**O que falta hoje:**
+- Os triggers só registram **quedas**. Subidas não geram alerta (vou manter assim — é o comportamento desejado para "oportunidade").
+- Os alertas atuais não trazem **% de variação estruturado** — só um texto. Vou adicionar `variacao_pct` como coluna nova.
+- Não existe **cron** que dispare a sincronização automática diária.
+- A tabela `site_precos_historico` que você pediu já existe com nome diferente (`historico_precos_tiers`). Vou reaproveitá-la em vez de criar duplicata.
 
-```js
-const parseQtyBR = (raw) => {
-  if (raw == null) return null;
-  const s = String(raw);
-  // Padrão BR: 1.000  10.000  100.000  1.000.000  ou simples 2500
-  const m = s.match(/(\d{1,3}(?:\.\d{3})+|\d{2,7})/);
-  if (!m) return null;
-  const n = parseInt(m[1].replace(/\./g, ''), 10);
-  return isFinite(n) && n >= 100 ? n : null; // mínimo 100 evita "R$20"→20
-};
+---
+
+## 1) Dropdown de categorias no modal "Novo Site"
+
+Em `src/components/monitoramento/NovoSiteDialog.tsx`:
+
+- Trocar o `<Input>` de Categoria por um `<Select>` populado via `supabase.from("sites_monitorados").select("categoria")` (distinct client-side, lowercase).
+- Adicionar opção fixa **"+ Nova categoria…"** no final. Ao escolher, troca por um `<Input>` inline com botão "Voltar para lista".
+- Receber `categoriasExistentes: string[]` por prop (passar do `Monitoramento.tsx`, que já calcula `categorias`) para evitar nova query.
+- Validação continua igual; ao salvar usa `.toLowerCase().trim()`.
+
+## 2) Tag "Faixa não disponível" no comparativo
+
+Hoje a aba Comparativo mostra **um card por fornecedor** com a lista própria de tiers — não há uma matriz qty×fornecedor. Para tornar a falta de faixa visível sem quebrar o layout existente:
+
+- Calcular dentro de `gruposComparativoPorCategoria` o **conjunto-união de quantidades** entre todos os fornecedores de cada produto canônico (mesma `key` de produto: `cat:<id>` ou `name:<nome>`).
+- No render dos tiers de cada card, percorrer a lista união em vez de apenas `mergedTiers`. Para quantidades que o fornecedor **não cobre**, renderizar uma linha com badge cinza:
+  ```
+  {qty}un  ·  [Faixa não disponível]   (badge variant="secondary" + texto muted)
+  ```
+- Linha mantém a mesma altura (`px-2 py-1.5 text-xs`) para não quebrar grid.
+- Adicionar tooltip: "Este fornecedor não oferece esta quantidade. Quantidades disponíveis: 1.000, 5.000, …".
+
+## 3) Cron diário de varredura + alertas com % variação
+
+### Schema (migration)
+
+Adicionar colunas calculadas em `alertas_precos` para o front exibir % sem reparsear texto:
+```sql
+ALTER TABLE public.alertas_precos
+  ADD COLUMN IF NOT EXISTS variacao_pct numeric,
+  ADD COLUMN IF NOT EXISTS quantidade integer,
+  ADD COLUMN IF NOT EXISTS fornecedor_nome text,
+  ADD COLUMN IF NOT EXISTS produto_nome text;
 ```
 
-Aplica-se a todos os pontos onde hoje se usa `parseQty` dentro do `page.evaluate`.
+Atualizar `handle_tier_price_change` para popular essas colunas (trivial, já tem `v_pct`, `v_site` e `NEW.quantidade` em escopo). Atualizar `handle_price_change` para popular `produto_nome`/`fornecedor_nome` (sem `quantidade`).
 
-### 2) Restringir varrimento à seção "Quantidade"
+### Edge function nova: `scrape-prices-cron`
 
-Antes do loop de `ul li / [class*="preco"]`, localizar o **container da seção Quantidade** e só varrer dentro dele:
+Em `supabase/functions/scrape-prices-cron/index.ts`:
+- Service-role client.
+- Carrega `sites_monitorados` onde `ativo = true`.
+- Itera em série (com `await` entre cada) chamando a função existente `scrape-prices` via `supabase.functions.invoke("scrape-prices", { body: { site_id } })` — reaproveita 100% da lógica atual e já dispara os triggers de alerta automaticamente.
+- Logga sumário final (`{ total, ok, fail }`).
+- Sem CORS (não é chamada do browser), `verify_jwt = false` no `supabase/config.toml`.
 
-```js
-// Encontra o título "Quantidade" e pega o container irmão/ancestral relevante
-const findQuantidadeRoot = () => {
-  const headings = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,label,strong,legend,div'));
-  for (const h of headings) {
-    const t = (h.textContent || '').trim().toLowerCase();
-    if (t === 'quantidade' || t.startsWith('quantidade ')) {
-      // sobe até um container que contenha vários itens com R$
-      let node = h;
-      for (let i = 0; i < 5 && node; i++) {
-        node = node.parentElement;
-        if (node && (node.querySelectorAll('R$').length > 5 ||
-            (node.textContent.match(/R\$/g) || []).length >= 5)) {
-          return node;
-        }
-      }
-    }
-  }
-  return null;
-};
-const qtyRoot = findQuantidadeRoot() || document;
+### Cron diário
+
+Habilitar `pg_cron` + `pg_net` e agendar via **insert tool** (NÃO migration, contém URL+anon-key específicos):
+```sql
+SELECT cron.schedule(
+  'scrape-prices-daily',
+  '0 6 * * *',            -- 06:00 UTC = 03:00 BRT
+  $$ SELECT net.http_post(
+       url:='https://nxkmxslugblhsyohrrvm.supabase.co/functions/v1/scrape-prices-cron',
+       headers:='{"Content-Type":"application/json","Authorization":"Bearer <ANON_KEY>"}'::jsonb,
+       body:='{}'::jsonb
+     ); $$
+);
 ```
 
-Trocar `document.querySelectorAll('ul li, ol li, [class*="preco"], …')` por `qtyRoot.querySelectorAll(...)`. Isso elimina tiers fantasma vindos de Acabamentos, Serviços, Frete, etc.
+### Front
 
-### 3) Fortalecer o regex de quantidade no varrimento de listas
+Aba **Alertas** em `Monitoramento.tsx`: usar `variacao_pct` (quando presente) para mostrar badge "−12,4%" ao lado da seta, e expor `quantidade`/`fornecedor_nome` em colunas dedicadas. Texto antigo cai no fallback.
 
-No loop de listas, trocar:
+## 4) Card "Economia Potencial" abaixo do comparativo
 
-```js
-const qm = txt.match(/(\d{2,7})\s*(?:un|unid|unidades|x|pç|pcs|peças)?/i);
-```
+Logo abaixo da grade de cards de cada categoria (dentro do `.map(([cat, compGroups]) => ...)`), inserir um `<Card>` por categoria com o cálculo:
 
-por (BR-aware + exige unidade explícita ou ≥1000):
+- Para a `qtdAlvo` atual (quando ≠ 0), pegar entre todos os `compGroups` da categoria o `tier` aplicável (`getTierForQty`) por fornecedor, então `min`/`max` de `preco_total`.
+- Se houver pelo menos 2 fornecedores com tier para a quantidade:
+  ```
+  💡 Economia Potencial — {qtdAlvo} un
+  Escolhendo {fornecedorMin} em vez de {fornecedorMax}, você economiza
+  R$ {max-min} ({((max-min)/max*100).toFixed(1)}%).
+  ```
+- Quando `qtdAlvo === 0`: mostra texto "Selecione uma quantidade no filtro acima para ver a economia potencial."
+- Estilo: borda esquerda verde (`hsl(var(--success))`), ícone `Sparkles`.
 
-```js
-const qm = txt.match(/(\d{1,3}(?:\.\d{3})+|\d{3,7})\s*(?:un|unid|unidades|x|pç|pcs|peças)?/i);
-```
+---
 
-E após parsear `qty`, descartar valores < 100 e descartar tiers cujo `total < 1` (proteção extra).
-
-### 4) Mesma correção nos demais blocos
-
-Aplicar `parseQtyBR` também:
-- no varrimento de `<table>` (caso a tabela JS de Atual Card use "1.000" no `td`).
-- nos seletores de `input[type="radio"][name*="quant"]` (lê `value`/`data-quantidade`).
-- nos `[data-quantidade]/[data-qtd]/[data-quantity]`.
-
-### 5) Logar `counts` por seção e amostra dos 3 primeiros tiers
-
-Manter `[atualcard /function] tiers=N counts=...` e adicionar um log com os 3 primeiros pares `(qty,total)` retornados, para validar rapidamente que vieram 1000/2500/5000... e não 1/2/5.
-
-## O que não muda
-
-- Fallback `scrapeAtualCardDataLayerFallback` continua igual (rede de segurança).
-- `finalizeTiers`, dispatcher por host, demais fornecedores, UI e schema do banco intactos.
-- `parsePriceBR` já trata corretamente `R$ 1.234,56` e não precisa mudar.
-
-## Resultado esperado
-
-Após o teste da URL do flyer 14×10 cm:
-
-- Logs: `[atualcard /function] tiers=12 counts={"list":12}` (ou distribuído entre table/radio/list conforme o DOM).
-- Banco: 12 tiers com quantidades **1.000, 2.500, 5.000, 10.000, 20.000, 30.000, 40.000, 50.000, 100.000, 250.000, 500.000, 1.000.000**.
-- Sem mais "qty=1 total=20" (R$20 de Acabamentos sumiu).
-- Sem mais quantidades quebradas (1, 10, 100, 250, 500 → viram 1.000, 10.000, 100.000, 250.000, 500.000).
-
-## Arquivo afetado
+## Arquivos afetados
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `supabase/functions/scrape-prices/index.ts` (substituir `parseQty` por `parseQtyBR` em `ATUALCARD_FN_SOURCE`; adicionar `findQuantidadeRoot` para escopar varrimento; ajustar regex BR de qty no loop de listas; log de amostra dos primeiros tiers) |
+| Editar | `src/components/monitoramento/NovoSiteDialog.tsx` (Select + opção "Nova categoria") |
+| Editar | `src/pages/Monitoramento.tsx` (passar `categorias` ao dialog; união de qtds no comparativo + linhas "Faixa não disponível"; card Economia Potencial; usar `variacao_pct` na aba Alertas) |
+| Criar | `supabase/functions/scrape-prices-cron/index.ts` (orquestrador diário) |
+| Migration | `ALTER TABLE alertas_precos` (4 colunas) + atualizar `handle_price_change` e `handle_tier_price_change` para preenchê-las |
+| Insert SQL | habilitar `pg_cron`/`pg_net` + `cron.schedule('scrape-prices-daily', ...)` |
+| Editar | `supabase/config.toml` (registrar `scrape-prices-cron` com `verify_jwt = false`) |
+
+## Resultado esperado
+
+- Modal "Novo Site": dropdown evita variantes "panfleto"/"Panfleto"/" panfleto ".
+- Comparativo: cada card de fornecedor mostra todas as faixas do produto, com tag cinza onde aquele fornecedor não cobre.
+- Todo dia às 03:00 BRT a varredura roda sozinha; quedas geram histórico (`historico_precos_tiers` — já existente) + alerta com `variacao_pct` estruturado.
+- Aba Comparativo ganha card verde mostrando "economize R$ X (Y%) escolhendo {forn} em vez de {forn}" para a quantidade selecionada.
 
