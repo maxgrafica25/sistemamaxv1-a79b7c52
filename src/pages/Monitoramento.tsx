@@ -60,6 +60,10 @@ type Alerta = {
   preco_antigo: number | null;
   lida: boolean;
   created_at: string;
+  variacao_pct?: number | null;
+  quantidade?: number | null;
+  fornecedor_nome?: string | null;
+  produto_nome?: string | null;
 };
 
 const formatBRL = (v: number | null | undefined) =>
@@ -662,7 +666,7 @@ export default function Monitoramento() {
             <Plus className="h-4 w-4" />
             Novo Site
           </Button>
-          <NovoSiteDialog open={openDialog} onOpenChange={setOpenDialog} onCreated={fetchAll} />
+          <NovoSiteDialog open={openDialog} onOpenChange={setOpenDialog} onCreated={fetchAll} categoriasExistentes={categorias} />
           <CatalogoProdutosDialog
             open={openCatalogo}
             onOpenChange={setOpenCatalogo}
@@ -869,6 +873,41 @@ export default function Monitoramento() {
           )}
           {gruposComparativoPorCategoria.map(([cat, compGroups]) => {
             const minPrecoUnit = minUnitPriceByCategory[cat];
+
+            // União de quantidades entre todos os fornecedores do MESMO produto canônico.
+            // Mapeia: prodKey -> Set<quantidade>
+            const qtdsUniaoPorProduto = new Map<string, number[]>();
+            for (const g of compGroups) {
+              const prodKey = g.key.split("__")[0]; // remove sufixo do fornecedor
+              const set = new Set(qtdsUniaoPorProduto.get(prodKey) || []);
+              for (const t of g.mergedTiers) set.add(t.quantidade);
+              qtdsUniaoPorProduto.set(prodKey, Array.from(set).sort((a, b) => a - b));
+            }
+
+            // Economia potencial: para qtdAlvo, min/max entre fornecedores da categoria.
+            let economiaInfo: { min: number; max: number; fornMin: string; fornMax: string; pct: number } | null = null;
+            if (qtdAlvo !== 0) {
+              const ofertas: { forn: string; total: number }[] = [];
+              for (const g of compGroups) {
+                const t = getTierForQty(g.mergedTiers, qtdAlvo);
+                if (t) ofertas.push({ forn: g.fornecedor || "—", total: Number(t.preco_total) });
+              }
+              if (ofertas.length >= 2) {
+                ofertas.sort((a, b) => a.total - b.total);
+                const min = ofertas[0];
+                const max = ofertas[ofertas.length - 1];
+                if (max.total > min.total) {
+                  economiaInfo = {
+                    min: min.total,
+                    max: max.total,
+                    fornMin: min.forn,
+                    fornMax: max.forn,
+                    pct: ((max.total - min.total) / max.total) * 100,
+                  };
+                }
+              }
+            }
+
             return (
               <div key={cat} className="space-y-3">
                 <div className="flex items-baseline justify-between">
@@ -890,6 +929,11 @@ export default function Monitoramento() {
                     const trend = !hasTiers && repr.preco_anterior != null && repr.preco_atual != null
                       ? repr.preco_atual - repr.preco_anterior : 0;
                     const isMerged = g.sites.length > 1;
+
+                    // Lista união (todas as quantidades existentes para o produto entre fornecedores)
+                    const prodKey = g.key.split("__")[0];
+                    const qtdsUniao = qtdsUniaoPorProduto.get(prodKey) || [];
+                    const tiersByQty = new Map(mergedTiers.map((t) => [t.quantidade, t]));
 
                     return (
                       <Card key={g.key} className={isMin ? "border-2" : ""} style={isMin ? { borderColor: "hsl(var(--success))" } : undefined}>
@@ -926,7 +970,24 @@ export default function Monitoramento() {
                                 </div>
                               )}
                               <div className="rounded border divide-y">
-                                {mergedTiers.map((t) => {
+                                {qtdsUniao.map((qty) => {
+                                  const t = tiersByQty.get(qty);
+                                  if (!t) {
+                                    // Faixa não disponível neste fornecedor
+                                    const disponiveis = mergedTiers.map((mt) => mt.quantidade.toLocaleString("pt-BR")).join(", ");
+                                    return (
+                                      <div
+                                        key={`miss-${qty}`}
+                                        className="flex items-center justify-between text-xs px-2 py-1.5 opacity-60"
+                                        title={`Este fornecedor não oferece esta quantidade. Disponíveis: ${disponiveis}`}
+                                      >
+                                        <span className="font-mono text-muted-foreground">{qty.toLocaleString("pt-BR")}un</span>
+                                        <Badge variant="secondary" className="text-[10px] font-normal">
+                                          Faixa não disponível
+                                        </Badge>
+                                      </div>
+                                    );
+                                  }
                                   const tTrend = t.preco_anterior != null ? t.preco_total - Number(t.preco_anterior) : 0;
                                   const isSweet = sweet?.tier.id === t.id;
                                   const isMinHist = minHistByTier[t.id] != null && Number(t.preco_total) <= minHistByTier[t.id];
@@ -934,7 +995,7 @@ export default function Monitoramento() {
                                   return (
                                     <div key={t.id} className={`flex items-center justify-between text-xs px-2 py-1.5 ${isTargetTier ? "bg-primary/5" : ""}`}>
                                       <div className="flex items-center gap-1.5">
-                                        <span className="font-mono text-muted-foreground">{t.quantidade}un</span>
+                                        <span className="font-mono text-muted-foreground">{t.quantidade.toLocaleString("pt-BR")}un</span>
                                         {isSweet && <Target className="h-3 w-3" style={{ color: "hsl(var(--primary))" }} />}
                                         {isMinHist && <Flame className="h-3 w-3" style={{ color: "hsl(var(--success))" }} />}
                                       </div>
@@ -1038,6 +1099,36 @@ export default function Monitoramento() {
                     );
                   })}
                 </div>
+
+                {/* Card Economia Potencial */}
+                <Card className="border-l-4" style={{ borderLeftColor: "hsl(var(--success))" }}>
+                  <CardContent className="py-3 flex items-center gap-3">
+                    <Sparkles className="h-5 w-5 shrink-0" style={{ color: "hsl(var(--success))" }} />
+                    <div className="text-sm">
+                      <div className="font-semibold mb-0.5">
+                        Economia Potencial {qtdAlvo !== 0 && `— ${qtdAlvo.toLocaleString("pt-BR")} un`}
+                      </div>
+                      {qtdAlvo === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          Selecione uma quantidade no filtro acima para ver a economia potencial.
+                        </p>
+                      ) : economiaInfo ? (
+                        <p className="text-xs text-muted-foreground">
+                          Escolhendo <strong className="text-foreground">{economiaInfo.fornMin}</strong> em vez de{" "}
+                          <strong className="text-foreground">{economiaInfo.fornMax}</strong>, você economiza{" "}
+                          <strong style={{ color: "hsl(var(--success))" }}>
+                            {formatBRL(economiaInfo.max - economiaInfo.min)} ({economiaInfo.pct.toFixed(1)}%)
+                          </strong>
+                          .
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Sem dados suficientes para esta quantidade (precisa de ≥2 fornecedores com tier).
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             );
           })}
@@ -1128,9 +1219,19 @@ export default function Monitoramento() {
                 <div className="flex items-center gap-3">
                   <TrendingDown className="h-5 w-5" style={{ color: a.prioridade === "alta" ? "hsl(var(--destructive))" : "hsl(var(--warning))" }} />
                   <div>
-                    <div className="font-medium">{a.mensagem}</div>
+                    <div className="font-medium flex items-center gap-2 flex-wrap">
+                      <span>{a.mensagem}</span>
+                      {a.variacao_pct != null && (
+                        <Badge style={{ backgroundColor: "hsl(var(--success))", color: "hsl(var(--success-foreground))" }} className="text-[10px]">
+                          −{Number(a.variacao_pct).toFixed(1)}%
+                        </Badge>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground">
-                      {formatBRL(a.preco_antigo)} → {formatBRL(a.preco_novo)} ·{" "}
+                      {formatBRL(a.preco_antigo)} → {formatBRL(a.preco_novo)}
+                      {a.fornecedor_nome && <> · {a.fornecedor_nome}</>}
+                      {a.quantidade != null && <> · {a.quantidade.toLocaleString("pt-BR")} un</>}
+                      {" · "}
                       {formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}
                     </div>
                   </div>

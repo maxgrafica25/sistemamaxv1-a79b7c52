@@ -1,1 +1,4 @@
 project_id = "nxkmxslugblhsyohrrvm"
+
+[functions.scrape-prices-cron]
+verify_jwt = false

@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,6 +20,7 @@ type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onCreated: () => void;
+  categoriasExistentes?: string[];
 };
 
 type WorkerPrice = {
@@ -87,15 +90,21 @@ const strategyBadge = (s: WorkerResult["strategy"]) => {
   return map[s] ?? { label: String(s ?? "unknown"), cls: "bg-muted text-muted-foreground border-border" };
 };
 
-export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props) {
+export default function NovoSiteDialog({ open, onOpenChange, onCreated, categoriasExistentes = [] }: Props) {
   const [urlsText, setUrlsText] = useState("");
   const [categoria, setCategoria] = useState("");
+  const [novaCategoriaMode, setNovaCategoriaMode] = useState(false);
   const [produtoCatalogoId, setProdutoCatalogoId] = useState<string | null>(null);
   const [produtoCatalogoNome, setProdutoCatalogoNome] = useState("");
   const [results, setResults] = useState<WorkerResult[]>([]);
   const [fornecedorOverrides, setFornecedorOverrides] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const categoriasOrdenadas = useMemo(
+    () => Array.from(new Set(categoriasExistentes.map((c) => c.toLowerCase().trim()).filter(Boolean))).sort(),
+    [categoriasExistentes],
+  );
 
   const urls = useMemo(
     () =>
@@ -123,6 +132,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const reset = () => {
     setUrlsText("");
     setCategoria("");
+    setNovaCategoriaMode(false);
     setProdutoCatalogoId(null);
     setProdutoCatalogoNome("");
     setResults([]);
@@ -281,11 +291,52 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>Categoria *</Label>
-              <Input
-                placeholder="ex: panfleto, flyer, cartão"
-                value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
-              />
+              {novaCategoriaMode || categoriasOrdenadas.length === 0 ? (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="ex: panfleto, flyer, cartão"
+                    value={categoria}
+                    onChange={(e) => setCategoria(e.target.value)}
+                    autoFocus
+                  />
+                  {categoriasOrdenadas.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setNovaCategoriaMode(false);
+                        setCategoria("");
+                      }}
+                      title="Voltar para lista"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <Select
+                  value={categoria}
+                  onValueChange={(v) => {
+                    if (v === "__nova__") {
+                      setNovaCategoriaMode(true);
+                      setCategoria("");
+                    } else {
+                      setCategoria(v);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma categoria..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoriasOrdenadas.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                    <SelectItem value="__nova__">+ Nova categoria…</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-1">
               <Label>Produto canônico *</Label>
