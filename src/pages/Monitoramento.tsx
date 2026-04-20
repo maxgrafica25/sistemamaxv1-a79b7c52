@@ -303,6 +303,12 @@ export default function Monitoramento() {
     [sites]
   );
 
+  const categoriasComCount = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of sites) map.set(s.categoria, (map.get(s.categoria) || 0) + 1);
+    return Array.from(map.entries()).map(([nome, count]) => ({ nome, count }));
+  }, [sites]);
+
   const sitesFiltrados = useMemo(() => {
     const search = stripAccents((searchTerm || "").toLowerCase()).trim();
     return sites.filter((s) => {
