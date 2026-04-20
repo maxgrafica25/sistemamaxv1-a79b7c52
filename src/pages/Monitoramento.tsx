@@ -727,7 +727,24 @@ export default function Monitoramento() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setOpenGerenciarCat(true)}
+            title="Gerenciar categorias"
+          >
+            <Layers className="h-3.5 w-3.5 mr-1" /> Gerenciar
+          </Button>
         </div>
+        <GerenciarCategoriasDialog
+          open={openGerenciarCat}
+          onOpenChange={setOpenGerenciarCat}
+          categorias={categoriasComCount}
+          onChanged={fetchAll}
+          onCategoriaRemoved={(nome) => {
+            if (filterCategoria === nome) setFilterCategoria("all");
+          }}
+        />
         <div className="flex items-center gap-2">
           <Label>Produto:</Label>
           <Select value={filterProduto} onValueChange={setFilterProduto}>
