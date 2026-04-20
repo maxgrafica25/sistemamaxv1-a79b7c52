@@ -53,6 +53,14 @@ export default function Configuracoes() {
   const [backupRuns, setBackupRuns] = useState<BackupRun[]>([]);
   const [loadingBackups, setLoadingBackups] = useState(false);
   const [generating, setGenerating] = useState<"sql" | "json" | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (generating === null) { setElapsed(0); return; }
+    setElapsed(0);
+    const id = setInterval(() => setElapsed((v) => v + 1), 1000);
+    return () => clearInterval(id);
+  }, [generating]);
 
   useEffect(() => {
     const load = async () => {
