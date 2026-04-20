@@ -130,6 +130,36 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          format: string
+          id: string
+          size_bytes: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          format: string
+          id?: string
+          size_bytes?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          format?: string
+          id?: string
+          size_bytes?: number
+          status?: string
+        }
+        Relationships: []
+      }
       channel_members: {
         Row: {
           channel_id: string
@@ -1954,6 +1984,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      backup_get_foreign_keys: { Args: never; Returns: Json }
+      backup_get_functions: { Args: never; Returns: Json }
+      backup_get_indexes: { Args: never; Returns: Json }
+      backup_get_policies: { Args: never; Returns: Json }
+      backup_get_tables: { Args: never; Returns: Json }
+      backup_get_triggers: { Args: never; Returns: Json }
       detectar_duplicatas_categorias: {
         Args: { _destino: string; _origem: string }
         Returns: {
