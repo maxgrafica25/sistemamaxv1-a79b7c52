@@ -1219,9 +1219,19 @@ export default function Monitoramento() {
                 <div className="flex items-center gap-3">
                   <TrendingDown className="h-5 w-5" style={{ color: a.prioridade === "alta" ? "hsl(var(--destructive))" : "hsl(var(--warning))" }} />
                   <div>
-                    <div className="font-medium">{a.mensagem}</div>
+                    <div className="font-medium flex items-center gap-2 flex-wrap">
+                      <span>{a.mensagem}</span>
+                      {a.variacao_pct != null && (
+                        <Badge style={{ backgroundColor: "hsl(var(--success))", color: "hsl(var(--success-foreground))" }} className="text-[10px]">
+                          −{Number(a.variacao_pct).toFixed(1)}%
+                        </Badge>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground">
-                      {formatBRL(a.preco_antigo)} → {formatBRL(a.preco_novo)} ·{" "}
+                      {formatBRL(a.preco_antigo)} → {formatBRL(a.preco_novo)}
+                      {a.fornecedor_nome && <> · {a.fornecedor_nome}</>}
+                      {a.quantidade != null && <> · {a.quantidade.toLocaleString("pt-BR")} un</>}
+                      {" · "}
                       {formatDistanceToNow(new Date(a.created_at), { addSuffix: true, locale: ptBR })}
                     </div>
                   </div>
