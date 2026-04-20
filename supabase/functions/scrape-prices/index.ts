@@ -412,7 +412,7 @@ async function scrapeAtualCard(url: string, token: string): Promise<ScrapeResult
       counts?: Record<string, number>;
     }>(url, token, ATUALCARD_FN_SOURCE);
 
-    console.log(`[atualcard /function] tiers=${result?.tiers?.length ?? 0} counts=${JSON.stringify(result?.counts ?? {})}`);
+    console.log(`[atualcard /function] tiers=${result?.tiers?.length ?? 0} counts=${JSON.stringify(result?.counts ?? {})} scoped=${(result as any)?.scoped ?? false} sample=${JSON.stringify((result?.tiers ?? []).slice(0, 3))}`);
 
     let prices = finalizeTiers(result?.tiers ?? [], url);
 
