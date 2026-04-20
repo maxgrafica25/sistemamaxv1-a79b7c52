@@ -832,7 +832,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
           </div>
         </div>
 
-        <Tabs defaultValue="tiers" className="mt-2">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-2">
           <TabsList className="grid grid-cols-5 w-full">
             <TabsTrigger value="tiers"><Layers className="h-4 w-4 mr-1" />Tabela auto</TabsTrigger>
             <TabsTrigger value="bulk"><ListPlus className="h-4 w-4 mr-1" />Em massa</TabsTrigger>
