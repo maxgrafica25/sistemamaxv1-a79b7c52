@@ -223,7 +223,7 @@ export default function Monitoramento() {
   const [openDialog, setOpenDialog] = useState(false);
   const [openCatalogo, setOpenCatalogo] = useState(false);
   const [openGerenciarCat, setOpenGerenciarCat] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [qtdAlvo, setQtdAlvo] = useState<number>(100);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -603,27 +603,6 @@ export default function Monitoramento() {
     }
   };
 
-  const handleSyncAll = async () => {
-    setSyncing(true);
-    let ok = 0;
-    let fail = 0;
-    try {
-      const ativos = sites.filter((s) => s.ativo);
-      for (const s of ativos) {
-        try {
-          await syncSite(s.id);
-          ok++;
-        } catch {
-          fail++;
-        }
-      }
-      toast.success(`Sincronização: ${ok} ok · ${fail} falha(s)`);
-    } catch (e: any) {
-      toast.error(e.message || "Falha ao disparar sincronização");
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const markAlertasLidos = async () => {
     const ids = alertas.filter((a) => !a.lida).map((a) => a.id);
@@ -655,15 +634,10 @@ export default function Monitoramento() {
             )}
             <span className="text-muted-foreground">
               {lastSync
-                ? `Última sync: ${formatDistanceToNow(new Date(lastSync), { addSuffix: true, locale: ptBR })}`
-                : "Aguardando primeira sincronização"}
+                ? `Sincronização automática diária · Última: ${formatDistanceToNow(new Date(lastSync), { addSuffix: true, locale: ptBR })}`
+                : "Sincronização automática diária às 03:00 — aguardando primeira execução"}
             </span>
           </div>
-
-          <Button variant="outline" onClick={handleSyncAll} disabled={syncing}>
-            <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-            Atualizar todos
-          </Button>
 
           <Button variant="outline" onClick={() => setOpenCatalogo(true)}>
             <BookOpen className="h-4 w-4" />

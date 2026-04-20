@@ -52,6 +52,43 @@ export default function GerenciarCategoriasDialog({
   const [confirmHardDelete, setConfirmHardDelete] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  type DuplicateGroup = {
+    fornecedor: string;
+    produto: string;
+    origemCount: number;
+    destinoCount: number;
+  };
+  const [duplicates, setDuplicates] = useState<DuplicateGroup[] | null>(null);
+  const [pendingMerge, setPendingMerge] = useState<{ origem: string; destino: string; from: "move" | "delete" } | null>(null);
+
+  const detectDuplicates = async (origem: string, destino: string): Promise<DuplicateGroup[]> => {
+    const { data, error } = await supabase
+      .from("sites_monitorados")
+      .select("id, fornecedor_nome, nome_produto, categoria")
+      .in("categoria", [origem, destino]);
+    if (error) {
+      toast.error("Erro ao verificar duplicatas: " + error.message);
+      return [];
+    }
+    const norm = (s: string | null) => (s || "").toLowerCase().trim();
+    const map = new Map<string, { fornecedor: string; produto: string; origem: number; destino: number }>();
+    for (const s of data || []) {
+      const key = `${norm(s.fornecedor_nome)}|${norm(s.nome_produto)}`;
+      const entry = map.get(key) || {
+        fornecedor: s.fornecedor_nome || "(sem fornecedor)",
+        produto: s.nome_produto || "(sem produto)",
+        origem: 0,
+        destino: 0,
+      };
+      if (s.categoria === origem) entry.origem++;
+      else if (s.categoria === destino) entry.destino++;
+      map.set(key, entry);
+    }
+    return Array.from(map.values())
+      .filter((g) => g.origem > 0 && g.destino > 0)
+      .map((g) => ({ fornecedor: g.fornecedor, produto: g.produto, origemCount: g.origem, destinoCount: g.destino }));
+  };
+
   useEffect(() => {
     if (!open) {
       setEditingName(null);
@@ -88,20 +125,40 @@ export default function GerenciarCategoriasDialog({
     onCategoriaRemoved?.(oldName);
   };
 
-  const handleMove = async (origem: string) => {
-    if (!moveTarget) return toast.error("Selecione uma categoria de destino");
+  const performMove = async (origem: string, destino: string, from: "move" | "delete") => {
     setBusy(true);
     const { error, count } = await supabase
       .from("sites_monitorados")
-      .update({ categoria: moveTarget }, { count: "exact" })
+      .update({ categoria: destino }, { count: "exact" })
       .eq("categoria", origem);
     setBusy(false);
     if (error) return toast.error("Erro ao mover: " + error.message);
-    toast.success(`${count ?? 0} sites movidos para "${moveTarget}"`);
+    const dupCount = duplicates?.length ?? 0;
+    if (dupCount > 0) {
+      toast.success(`${count ?? 0} sites movidos · ${dupCount} duplicata(s) criada(s) — revise no Comparativo`);
+    } else {
+      toast.success(`${count ?? 0} sites movidos para "${destino}"`);
+    }
     setMovingFrom(null);
     setMoveTarget("");
+    setDuplicates(null);
+    setPendingMerge(null);
+    if (from === "delete") setDeleting(null);
     onChanged();
     onCategoriaRemoved?.(origem);
+  };
+
+  const handleMove = async (origem: string) => {
+    if (!moveTarget) return toast.error("Selecione uma categoria de destino");
+    setBusy(true);
+    const dups = await detectDuplicates(origem, moveTarget);
+    setBusy(false);
+    if (dups.length > 0) {
+      setDuplicates(dups);
+      setPendingMerge({ origem, destino: moveTarget, from: "move" });
+      return;
+    }
+    await performMove(origem, moveTarget, "move");
   };
 
   const handleDelete = async () => {
@@ -109,16 +166,14 @@ export default function GerenciarCategoriasDialog({
     if (deleteMode === "move") {
       if (!deleteMoveTarget) return toast.error("Selecione uma categoria de destino");
       setBusy(true);
-      const { error, count } = await supabase
-        .from("sites_monitorados")
-        .update({ categoria: deleteMoveTarget }, { count: "exact" })
-        .eq("categoria", deleting.nome);
+      const dups = await detectDuplicates(deleting.nome, deleteMoveTarget);
       setBusy(false);
-      if (error) return toast.error("Erro ao mover: " + error.message);
-      toast.success(`${count ?? 0} sites movidos para "${deleteMoveTarget}"`);
-      onCategoriaRemoved?.(deleting.nome);
-      setDeleting(null);
-      onChanged();
+      if (dups.length > 0) {
+        setDuplicates(dups);
+        setPendingMerge({ origem: deleting.nome, destino: deleteMoveTarget, from: "delete" });
+        return;
+      }
+      await performMove(deleting.nome, deleteMoveTarget, "delete");
     } else {
       // hard delete - exige confirmação extra
       setConfirmHardDelete(true);
@@ -395,6 +450,68 @@ export default function GerenciarCategoriasDialog({
         confirmText="Sim, excluir tudo"
         onConfirm={executeHardDelete}
       />
+
+      {/* Confirmação de merge com duplicatas */}
+      <Dialog
+        open={!!duplicates && !!pendingMerge}
+        onOpenChange={(v) => {
+          if (!v) {
+            setDuplicates(null);
+            setPendingMerge(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span>⚠️</span> Possíveis duplicatas detectadas
+            </DialogTitle>
+            <DialogDescription>
+              Ao mover sites para "{pendingMerge?.destino}", os seguintes pares
+              fornecedor/produto ficarão duplicados no comparativo:
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-72 overflow-y-auto space-y-2 rounded-md border p-3 bg-muted/30">
+            {duplicates?.map((d, i) => (
+              <div key={i} className="text-sm">
+                <div className="font-medium">
+                  • {d.fornecedor} — {d.produto}
+                </div>
+                <div className="ml-4 text-xs text-muted-foreground">
+                  └ origem ({pendingMerge?.origem}): {d.origemCount} site(s)
+                </div>
+                <div className="ml-4 text-xs text-muted-foreground">
+                  └ destino ({pendingMerge?.destino}): {d.destinoCount} site(s)
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDuplicates(null);
+                setPendingMerge(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={busy}
+              onClick={() =>
+                pendingMerge &&
+                performMove(pendingMerge.origem, pendingMerge.destino, pendingMerge.from)
+              }
+            >
+              {busy && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Mover mesmo assim
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
