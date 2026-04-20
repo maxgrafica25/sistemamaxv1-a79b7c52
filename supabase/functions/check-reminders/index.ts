@@ -84,6 +84,16 @@ Deno.serve(async (req) => {
       processed++;
     }
 
+    if (processed > 0) {
+      await logAdminOperation(supabase, {
+        function_name: "check-reminders",
+        operation: "create_notifications",
+        target_table: "notifications",
+        target_count: processed,
+        metadata: { total_due: dueReminders.length },
+      });
+    }
+
     return new Response(JSON.stringify({ processed, total: dueReminders.length }), { status: 200 });
   } catch (err) {
     console.error("Unexpected error:", err);

@@ -63,6 +63,14 @@ Deno.serve(async (req) => {
   const summary = { total, ok, fail, startedAt, finishedAt: new Date().toISOString(), failures };
   console.log(`[scrape-prices-cron] done`, summary);
 
+  await logAdminOperation(supabase, {
+    function_name: "scrape-prices-cron",
+    operation: "orchestrate_scrape",
+    target_table: "sites_monitorados",
+    target_count: total,
+    metadata: { ok, fail },
+  });
+
   return new Response(JSON.stringify({ success: true, ...summary }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
