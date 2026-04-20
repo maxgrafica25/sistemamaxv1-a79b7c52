@@ -132,6 +132,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
   const reset = () => {
     setUrlsText("");
     setCategoria("");
+    setNovaCategoriaMode(false);
     setProdutoCatalogoId(null);
     setProdutoCatalogoNome("");
     setResults([]);
