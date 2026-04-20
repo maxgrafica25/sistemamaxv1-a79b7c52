@@ -94,28 +94,55 @@ function fromHeuristic(html: string): { price: number | null; source: string } {
   return { price: sorted[0], source: "heurística (R$ no HTML)" };
 }
 
+const WORKER_ONLY_DOMAINS = ["atualcard.com.br", "imprimarapido.com.br"];
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   try {
     const { url } = await req.json();
-    if (!url) {
-      return new Response(JSON.stringify({ error: "url obrigatória" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!url) return json({ success: false, error: "url obrigatória" }, 400);
+
+    // Guard: PWA/SPA suppliers that don't render price in raw HTML.
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      if (WORKER_ONLY_DOMAINS.some((d) => host.includes(d))) {
+        return json({
+          success: false,
+          useTabelaAuto: true,
+          error: "Esse fornecedor não funciona no modo URL simples. Use 'Tabela auto', que usa captura avançada (Playwright).",
+        });
+      }
+    } catch {
+      return json({ success: false, error: "URL inválida" }, 400);
     }
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "pt-BR,pt;q=0.9",
-      },
-    });
+
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml",
+          "Accept-Language": "pt-BR,pt;q=0.9",
+        },
+      });
+    } catch (fetchErr) {
+      return json({ success: false, error: `Falha ao acessar a URL: ${(fetchErr as Error).message}. Tente 'Tabela auto'.` });
+    }
     if (!res.ok) {
-      return new Response(JSON.stringify({ error: `Falha HTTP ${res.status}` }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return json({ success: false, error: `Falha HTTP ${res.status}. Tente 'Tabela auto'.` });
     }
-    const html = await res.text();
+
+    let html = "";
+    try {
+      html = await res.text();
+    } catch (bodyErr) {
+      return json({ success: false, useTabelaAuto: true, error: `Falha ao ler conteúdo da página: ${(bodyErr as Error).message}. Use 'Tabela auto'.` });
+    }
+
     const doc = new DOMParser().parseFromString(html, "text/html");
-    if (!doc) {
-      return new Response(JSON.stringify({ error: "Não foi possível parsear o HTML" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    if (!doc) return json({ success: false, error: "Não foi possível parsear o HTML" });
 
     const title =
       doc.querySelector('meta[property="og:title"]')?.getAttribute("content") ||
@@ -127,17 +154,15 @@ Deno.serve(async (req) => {
     if (!result.price) result = fromHeuristic(html);
 
     if (!result.price) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Não consegui detectar o preço automaticamente. Use o modo avançado com seletor CSS.", title }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return json({
+        success: false,
+        error: "Não consegui detectar o preço automaticamente. Use 'Tabela auto' (captura avançada) ou o modo Avançado com seletor CSS.",
+        title,
+      });
     }
 
-    return new Response(
-      JSON.stringify({ success: true, price: result.price, source: result.source, title: title.trim().slice(0, 200) }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return json({ success: true, price: result.price, source: result.source, title: title.trim().slice(0, 200) });
   } catch (e) {
-    return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return json({ success: false, error: (e as Error).message }, 200);
   }
 });
