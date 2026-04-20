@@ -199,7 +199,141 @@ async function fetchRenderedHtml(url: string, token: string): Promise<string> {
   }
 }
 
+// ---------- Browserless /function (JS remoto) ----------
+async function scrapeViaBrowserlessFunction<T = unknown>(
+  code: string,
+  context: Record<string, unknown>,
+  token: string,
+): Promise<T> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 60_000);
+  try {
+    const r = await fetch(`${BROWSERLESS_BASE}/function?token=${encodeURIComponent(token)}`, {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, context }),
+    });
+    clearTimeout(timer);
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      let friendly = `Browserless /function HTTP ${r.status}`;
+      if (r.status === 401) friendly = "API key inválida (BROWSERLESS_API_KEY)";
+      else if (r.status === 402) friendly = "Cota Browserless excedida (402)";
+      else if (r.status === 429) friendly = "Rate limit Browserless (429)";
+      else if (r.status === 408 || r.status === 504) friendly = `Timeout Browserless (${r.status})`;
+      throw new Error(`${friendly}: ${txt.slice(0, 200)}`);
+    }
+    const json = await r.json();
+    return (json?.data ?? json) as T;
+  } catch (e) {
+    clearTimeout(timer);
+    throw new Error(e instanceof Error ? e.message : String(e));
+  }
+}
+
+async function scrapeAtualCard(url: string, token: string): Promise<ScrapeResult> {
+  const startedAt = Date.now();
+  const code = `
+export default async ({ page, context }) => {
+  await page.goto(context.url, { waitUntil: 'networkidle2', timeout: 30000 });
+  try {
+    await page.waitForSelector('table, [class*="preco"], [class*="tier"], [class*="price"]', { timeout: 15000 });
+  } catch (_) {}
+  await new Promise(r => setTimeout(r, 2000));
+  const rows = await page.evaluate(() => {
+    const out = [];
+    document.querySelectorAll('table tr').forEach(tr => {
+      const cells = [...tr.querySelectorAll('td,th')].map(c => (c.innerText || c.textContent || '').trim());
+      if (cells.length >= 2) out.push(cells);
+    });
+    return out;
+  });
+  const html = await page.content();
+  return { data: { rows, html }, type: 'application/json' };
+};
+`.trim();
+
+  let lastErr: string | null = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const result = await scrapeViaBrowserlessFunction<{ rows: string[][]; html: string }>(
+        code,
+        { url },
+        token,
+      );
+
+      const raw: RawTier[] = [];
+      for (const cells of result.rows || []) {
+        let qty: number | null = null;
+        const prices: number[] = [];
+        for (const cell of cells) {
+          const q = parseQty(cell);
+          const p = parsePriceBR(cell);
+          if (/R\$/i.test(cell) && p != null) {
+            prices.push(p);
+          } else if (qty == null && q != null && !/R\$/i.test(cell)) {
+            qty = q;
+          } else if (p != null && q == null) {
+            prices.push(p);
+          }
+        }
+        if (qty != null && prices.length >= 1) {
+          if (prices.length >= 2) {
+            const sorted = [...prices].sort((a, b) => a - b);
+            raw.push({ quantity: qty, unit_price: sorted[0], total_price: sorted[sorted.length - 1] });
+          } else {
+            raw.push({ quantity: qty, total_price: prices[0] });
+          }
+        }
+      }
+
+      let prices = finalizeTiers(raw, url);
+
+      if (prices.length < 2 && result.html) {
+        console.warn(`[atualcard fallback-regex] ${url}`);
+        const fromRegex = extractByRegex(result.html);
+        prices = finalizeTiers([...raw, ...fromRegex], url);
+      }
+
+      console.log(`[scrape-atualcard] ${url} | tiers=${prices.length} | ${Date.now() - startedAt}ms`);
+
+      return {
+        source_url: url,
+        scraped_at: new Date().toISOString(),
+        strategy: "function-atualcard",
+        prices,
+        error: prices.length === 0 ? "Nenhum tier encontrado" : null,
+        elapsed_ms: Date.now() - startedAt,
+      };
+    } catch (e) {
+      lastErr = e instanceof Error ? e.message : String(e);
+      console.warn(`[atualcard retry ${attempt}/2] ${url}: ${lastErr}`);
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+
+  return {
+    source_url: url,
+    scraped_at: new Date().toISOString(),
+    strategy: "function-atualcard",
+    prices: [],
+    error: lastErr || "Falha desconhecida",
+    elapsed_ms: Date.now() - startedAt,
+  };
+}
+
 async function scrapeOne(url: string, token: string): Promise<ScrapeResult> {
+  // Dispatcher por host: domínios com preços via JS usam /function
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    if (host === "atualcard.com.br") {
+      return await scrapeAtualCard(url, token);
+    }
+  } catch (_) {
+    // URL inválida cai no fluxo padrão (vai falhar lá com erro claro)
+  }
+
   const startedAt = Date.now();
   let lastErr: string | null = null;
 
