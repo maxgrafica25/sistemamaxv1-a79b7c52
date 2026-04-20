@@ -112,6 +112,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const [importing, setImporting] = useState(false);
 
   // ===== MODO 4: Tabela de preços (tiers via Firecrawl) =====
+  const [activeTab, setActiveTab] = useState("tiers");
   const [tiersUrl, setTiersUrl] = useState("");
   const [tiersNome, setTiersNome] = useState("");
   const [tiersBusy, setTiersBusy] = useState(false);
