@@ -62,31 +62,20 @@ export default function GerenciarCategoriasDialog({
   const [pendingMerge, setPendingMerge] = useState<{ origem: string; destino: string; from: "move" | "delete" } | null>(null);
 
   const detectDuplicates = async (origem: string, destino: string): Promise<DuplicateGroup[]> => {
-    const { data, error } = await supabase
-      .from("sites_monitorados")
-      .select("id, fornecedor_nome, nome_produto, categoria")
-      .in("categoria", [origem, destino]);
+    const { data, error } = await (supabase.rpc as any)("detectar_duplicatas_categorias", {
+      _origem: origem,
+      _destino: destino,
+    });
     if (error) {
       toast.error("Erro ao verificar duplicatas: " + error.message);
       return [];
     }
-    const norm = (s: string | null) => (s || "").toLowerCase().trim();
-    const map = new Map<string, { fornecedor: string; produto: string; origem: number; destino: number }>();
-    for (const s of data || []) {
-      const key = `${norm(s.fornecedor_nome)}|${norm(s.nome_produto)}`;
-      const entry = map.get(key) || {
-        fornecedor: s.fornecedor_nome || "(sem fornecedor)",
-        produto: s.nome_produto || "(sem produto)",
-        origem: 0,
-        destino: 0,
-      };
-      if (s.categoria === origem) entry.origem++;
-      else if (s.categoria === destino) entry.destino++;
-      map.set(key, entry);
-    }
-    return Array.from(map.values())
-      .filter((g) => g.origem > 0 && g.destino > 0)
-      .map((g) => ({ fornecedor: g.fornecedor, produto: g.produto, origemCount: g.origem, destinoCount: g.destino }));
+    return ((data ?? []) as any[]).map((r) => ({
+      fornecedor: r.fornecedor,
+      produto: r.produto,
+      origemCount: Number(r.origem_count),
+      destinoCount: Number(r.destino_count),
+    }));
   };
 
   useEffect(() => {
