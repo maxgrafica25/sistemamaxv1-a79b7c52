@@ -187,10 +187,28 @@ function isWorkerDomain(url: string): boolean {
   }
 }
 
+function normalizeWorkerUrl(raw: string | undefined): string | null {
+  if (!raw) return null;
+  let value = raw.trim().replace(/\/$/, "");
+  if (!/^https?:\/\//i.test(value)) value = `https://${value}`;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
 async function tryWorker(url: string): Promise<{ tiers: Tier[]; error?: string } | null> {
-  const workerUrl = Deno.env.get("SCRAPER_WORKER_URL");
+  const rawWorkerUrl = Deno.env.get("SCRAPER_WORKER_URL");
+  const workerUrl = normalizeWorkerUrl(rawWorkerUrl);
   const workerSecret = Deno.env.get("WORKER_SECRET");
-  if (!workerUrl || !workerSecret) return null;
+  if (!rawWorkerUrl || !workerSecret) return null;
+  if (!workerUrl) {
+    return {
+      tiers: [],
+      error: `SCRAPER_WORKER_URL inválida: "${rawWorkerUrl}". Use a URL completa do serviço scraper-worker (https://...).`,
+    };
+  }
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 60000);
   try {
