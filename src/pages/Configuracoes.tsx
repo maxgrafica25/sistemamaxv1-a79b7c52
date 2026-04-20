@@ -7,11 +7,12 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Save, Info, Loader2, Cog, Download, FileJson, FileCode, RefreshCw, AlertTriangle } from "lucide-react";
+import { Save, Info, Loader2, Cog, Download, FileJson, FileCode, RefreshCw, AlertTriangle, Database } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 function formatBytes(n: number): string {
   if (!n) return "0 B";
