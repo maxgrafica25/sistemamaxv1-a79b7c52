@@ -291,11 +291,52 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>Categoria *</Label>
-              <Input
-                placeholder="ex: panfleto, flyer, cartão"
-                value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
-              />
+              {novaCategoriaMode || categoriasOrdenadas.length === 0 ? (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="ex: panfleto, flyer, cartão"
+                    value={categoria}
+                    onChange={(e) => setCategoria(e.target.value)}
+                    autoFocus
+                  />
+                  {categoriasOrdenadas.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setNovaCategoriaMode(false);
+                        setCategoria("");
+                      }}
+                      title="Voltar para lista"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <Select
+                  value={categoria}
+                  onValueChange={(v) => {
+                    if (v === "__nova__") {
+                      setNovaCategoriaMode(true);
+                      setCategoria("");
+                    } else {
+                      setCategoria(v);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma categoria..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoriasOrdenadas.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                    <SelectItem value="__nova__">+ Nova categoria…</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-1">
               <Label>Produto canônico *</Label>
