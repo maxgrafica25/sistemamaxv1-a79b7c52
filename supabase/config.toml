@@ -2,3 +2,6 @@ project_id = "nxkmxslugblhsyohrrvm"
 
 [functions.scrape-prices-cron]
 verify_jwt = false
+
+[functions.monitor-admin-usage]
+verify_jwt = false
