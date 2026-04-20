@@ -212,7 +212,6 @@ const colorFor = (
 ) => map.get((name || "—").trim().toLowerCase()) || getSupplierColor(name);
 
 export default function Monitoramento() {
-  const { profile } = useAuth();
   const [sites, setSites] = useState<Site[]>([]);
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
