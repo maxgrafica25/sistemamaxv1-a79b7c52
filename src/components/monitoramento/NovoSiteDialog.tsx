@@ -602,8 +602,23 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   };
 
   // ---- handlers ----
+  const WORKER_ONLY_DOMAINS = ["atualcard.com.br", "imprimarapido.com.br"];
+  const isWorkerOnlyDomain = (url: string) => {
+    try {
+      const host = new URL(url.trim()).hostname.toLowerCase();
+      return WORKER_ONLY_DOMAINS.some((d) => host.includes(d));
+    } catch { return false; }
+  };
+
   const handleAutoDetect = async () => {
     if (!autoUrl) return toast.error("Cole a URL do produto");
+    if (isWorkerOnlyDomain(autoUrl)) {
+      const url = autoUrl.trim();
+      setTiersUrl(url);
+      setActiveTab("tiers");
+      toast.info("Este fornecedor usa tabela dinâmica. Mudamos para 'Tabela auto' — clique em Detectar tabela.");
+      return;
+    }
     setAutoBusy(true); setAutoResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("auto-detect-price", { body: { url: autoUrl.trim() } });
@@ -612,7 +627,14 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
         setAutoResult({ ok: true, price: data.price, source: data.source, title: data.title });
         if (!autoNome && data.title) setAutoNome(String(data.title).slice(0, 100));
       } else {
-        setAutoResult({ ok: false, error: data?.error || "Não detectado" });
+        const msg = data?.useTabelaAuto
+          ? "Esse fornecedor não funciona no modo URL simples. Use 'Tabela auto'."
+          : (data?.error || "Não detectado");
+        setAutoResult({ ok: false, error: msg });
+        if (data?.useTabelaAuto) {
+          setTiersUrl(autoUrl.trim());
+          setActiveTab("tiers");
+        }
       }
     } catch (e: any) {
       setAutoResult({ ok: false, error: e.message });
