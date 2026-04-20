@@ -1,178 +1,70 @@
 
 
-# Reescrita do módulo de Monitoramento
+# Migração para Browserless.io via Edge Function
 
-Tudo que está abaixo é exatamente o escopo aprovado por você na mensagem.
+Substituir o `scraper-worker` Playwright (Railway) por uma chamada HTTP ao **Browserless.io** direto da edge function `scrape-prices`. Sem servidor externo, sem Docker, sem Railway.
 
-## 1) Remoções
+## Como funciona
 
-### Edge functions deletadas (via tool de delete)
-- `auto-detect-price`
-- `detect-price-tiers`
-- `parse-price-table`
-- `scheduled-sync-firecrawl`
-- `trigger-vps-sync`
-- `test-css-selector`
-- `scrape-via-worker`
-
-Mantida: `sync-prices-webhook`.
-
-### Código removido na UI
-- `NovoSiteDialog.tsx`: as 5 abas (Tabela auto / Em massa / URL simples / Excel / Avançado).
-- Todo código relacionado a Firecrawl, parse de Excel, seletor CSS e bulk detect.
-
-### Worker antigo
-- `scraper-worker/index.js` reescrito do zero.
-
-## 2) Worker Playwright unificado (`scraper-worker/`)
-
-### Arquivos
-| Ação | Arquivo |
-|------|---------|
-| Reescrever | `scraper-worker/index.js` (servidor Express) |
-| Criar | `scraper-worker/cli.js` (modo standalone) |
-| Criar | `scraper-worker/urls.json` |
-| Atualizar | `scraper-worker/package.json` (+ `cheerio`, `axios`) |
-| Atualizar | `scraper-worker/README.md` |
-
-### Endpoints
-- `GET /health` público.
-- `POST /scrape` autenticado por `Authorization: Bearer ${WORKER_SECRET}`. Recebe `{ urls: string[] }`. Devolve `{ results: [...] }`.
-
-### Lógica por URL (idêntica para todas, Playwright único)
-1. Lança Chromium headless. Antes de `goto`, registra `page.on('response', ...)` filtrando `xhr|fetch` com `application/json` e empilha cada JSON num buffer.
-2. `page.goto(url, { waitUntil: 'networkidle', timeout: 25000 })`.
-3. **Estratégia API:** percorre buffer, busca recursiva por chaves `quantidade|qtd|quantity` e `preco|price|total|unit`. Se ≥ 2 pares válidos → `strategy: "api"`, ignora HTML.
-4. **Estratégia HTML (Cheerio) em ordem rígida:**
-   - Primária: `table > tr > td`
-   - Secundária: `ul li` + `[class*=preco]`, `[class*=tier]`
-   - Último recurso: regex `\d{2,6}` próximo de `R\$\s*[\d.,]+` em texto livre → `strategy: "html-regex"` + `console.warn` explícito de fallback.
-5. **Normalização:** remove `R$`/espaços, BR `1.234,56` → `1234.56`, parse float.
-6. **`unit_price_calculated`:** se vier só `total_price`, calcula `total/quantity`, marca `true` e emite warning. Se vier explícito, `false`.
-7. **Retry:** 3 tentativas, 2s de delay, try/catch isolado por URL (uma falha não derruba as outras).
-8. **Console table:** `URL | tiers | strategy | calculated? | timestamp`.
-
-### Modo CLI
-`node cli.js` lê `urls.json`, scrapeia, grava `/app/results.json` e imprime a tabela.
-
-### `urls.json`
 ```text
-[
-  "https://www.futuraim.com.br/produto/folheto-em-couche-brilho?id=16301",
-  "https://www.atualcard.com.br/flyer/134/8893/flyer-couche-80g-4x0-sem-verniz-14x10-cm-1000-22533",
-  "https://www.ans.com.br/panfleto-90gr-4x0-10x14cm/"
-]
+UI → scrape-prices (Deno) → Browserless /content (HTML renderizado) → Cheerio (parsing) → Supabase
 ```
 
-### Shape de resposta exato
-```text
-{
-  "results": [
-    {
-      "source_url": "...",
-      "scraped_at": "ISO",
-      "strategy": "api | html | html-regex",
-      "prices": [
-        { "quantity": 1000, "unit_price": 0.10, "unit_price_calculated": false, "total_price": 96.99 }
-      ],
-      "error": null
-    }
-  ]
-}
-```
+A edge function pede pro Browserless renderizar a URL com Chromium remoto e devolver o HTML final. A função então roda Cheerio (estratégias `html` → `html-regex`) e persiste igual hoje.
 
-## 3) Edge function `scrape-prices`
+**Trade-off honesto:** sem Playwright local, perdemos o interceptador `page.on('response')` que dava a estratégia `api` (capturar JSON XHR). Em troca, ganhamos zero infra. Pra recuperar JSON, dá pra usar o endpoint `/function` do Browserless (executar JS remoto), mas começamos só com `/content` + Cheerio — cobre Atual Card, Imprima Rápido, ANS e similares porque o HTML pós-render já contém os preços.
 
-Arquivo: `supabase/functions/scrape-prices/index.ts`
+## Mudanças
 
-- CORS completo + handler `OPTIONS`.
-- Helpers internos:
-  - `normalizeWorkerUrl(raw)`: prefixa `https://` se faltar, remove trailing slash, valida via `new URL()`.
-  - `checkWorkerHealth(origin)`: `GET /health` com `AbortController` timeout 8s.
-- Sempre executa `checkWorkerHealth` antes de `POST /scrape`. Se falhar, retorna erro claro (sem 500 genérico).
+### 1) Pré-requisito (você faz)
 
-### Modo preview
-`POST { urls: string[] }` → chama worker, devolve `{ results }` cru. Não persiste.
+- Criar conta gratuita em https://www.browserless.io (free tier: ~1.000 páginas/mês — suficiente pra começar).
+- Copiar a API key.
+- Eu peço o secret `BROWSERLESS_API_KEY` via tool de secrets quando começar a implementação.
 
-### Modo persistência
-`POST { site_id: string }`:
-1. Busca `sites_monitorados.url_completa` por id.
-2. Chama worker com essa URL única.
-3. Marca tiers existentes do site como `ativo = false`.
-4. Para cada item de `prices[]`: upsert em `site_precos_tiers` por `(site_id, quantidade)` — update se existir, insert se não. Inclui `preco_total`, `preco_unitario`, `ativo = true`, `atualizado_em = now()`.
-5. Atualiza `sites_monitorados`:
-   - `preco_atual = min(unit_price)`
-   - `scrape_status = 'ok' | 'error'`
-   - `scrape_error`
-   - `scrape_source = 'playwright'`
-   - `timestamp_check = now()`
+### 2) Reescrever `supabase/functions/scrape-prices/index.ts`
 
-## 4) UI: `NovoSiteDialog.tsx` (reescrita)
+- Remove qualquer chamada ao worker Railway (`SCRAPER_WORKER_URL`, `WORKER_SECRET`, `checkWorkerHealth`).
+- Adiciona `import * as cheerio from "npm:cheerio@1.0.0"`.
+- Nova função interna `scrapeViaBrowserless(url)`:
+  1. `POST https://production-sfo.browserless.io/content?token=${BROWSERLESS_API_KEY}` com body `{ url, gotoOptions: { waitUntil: "networkidle2", timeout: 25000 } }`.
+  2. Recebe HTML renderizado em texto.
+  3. Carrega com Cheerio.
+  4. Estratégias em ordem: `table > tr > td` → `ul li` + `[class*=preco|tier]` → regex `\d{2,6}` perto de `R\$\s*[\d.,]+`.
+  5. Normaliza BR (`1.234,56` → `1234.56`), calcula `unit_price_calculated` quando só tem total.
+  6. Retorna no shape exato já existente: `{ source_url, scraped_at, strategy: "html"|"html-regex", prices, error }`.
+- Retry 3x com 2s entre tentativas, isolado por URL.
+- Health check passa a ser: `GET https://production-sfo.browserless.io/pressure?token=...` com timeout 8s.
+- **Modos preview e persistência inalterados** (mesmo body, mesmo shape, mesma escrita em `sites_monitorados` + `site_precos_tiers`).
 
-Tela única dentro do `Dialog`:
-- **Textarea** "Cole 1 ou mais URLs (uma por linha)".
-- **ProductPicker** (mantido) para vincular ao catálogo.
-- Botão **Testar scraping** → chama `scrape-prices` em modo preview, exibe tabela:
+### 3) Limpeza
 
-| Qtd | Preço unit. | Preço total | Estratégia | Calc.? |
-|-----|-------------|-------------|------------|--------|
+- Deletar `scraper-worker/` inteiro (não é mais usado).
+- Deletar secrets antigos `SCRAPER_WORKER_URL` e `WORKER_SECRET` (eu faço via tool).
+- `Monitoramento.tsx`: badge `workerOnline` continua existindo, mas refletindo o `/pressure` do Browserless. Nenhuma outra mudança na UI.
+- `NovoSiteDialog.tsx`: nenhuma mudança — o shape de resposta é idêntico.
 
-- Badge da estratégia: `api` verde, `html` azul, `html-regex` amarelo.
-- Ícone de aviso (`AlertTriangle`) quando `unit_price_calculated = true`.
-- **Dedupe** consultando `sites_monitorados.url_completa` antes de salvar.
-- Botão **Salvar** → para cada URL com `prices.length > 0`:
-  - Insert em `sites_monitorados` (vincula produto via ProductPicker).
-  - Insert dos tiers em `site_precos_tiers`.
-  - Toast com resumo final.
+### 4) Banco de dados
 
-Mantém: `ProductPicker`, `CatalogoProdutosDialog` (intactos).
+Nenhuma migration. Tabelas e colunas existentes atendem.
 
-## 5) `Monitoramento.tsx` (ajustes mínimos)
-
-- Função pura **`syncSite(siteId)`**: encapsula a chamada `supabase.functions.invoke('scrape-prices', { body: { site_id: siteId } })`. Tanto `handleSyncOne` quanto `handleSyncAll` (loop sequencial) chamam ela. Pronto para migrar para cron sem reescrita.
-- Badge de fonte nos cards/tabela: passa a mostrar apenas `playwright`.
-- Remove qualquer referência visual a Firecrawl/worker antigo.
-- `workerOnline`: continua refletindo o health (agora via `scrape-prices`).
-- Mantém as 4 views: oportunidades, comparativo, tabela, alertas.
-
-## 6) Banco de dados
-
-- `sites_monitorados`: nenhuma migration. Colunas `scrape_status`, `scrape_error`, `scrape_source` já existem.
-- `site_precos_tiers`: já tem coluna `ativo` (`boolean default true`) — confirmado no schema atual. **Sem migration**.
-
-## 7) Secrets
-
-Já configurados: `SCRAPER_WORKER_URL` e `WORKER_SECRET`. Nada a fazer.
-
-## 8) Pré-requisito pós-deploy (responsabilidade do usuário)
-
-Após o deploy, **redeploy manual do `scraper-worker` no Railway** para puxar `cheerio`, `axios` e o novo `index.js`. `SCRAPER_WORKER_URL` continua igual.
-
-## Resumo dos arquivos
+## Arquivos afetados
 
 | Ação | Arquivo |
 |------|---------|
-| Reescrever | `scraper-worker/index.js` |
-| Reescrever | `src/components/monitoramento/NovoSiteDialog.tsx` |
-| Criar | `scraper-worker/cli.js` |
-| Criar | `scraper-worker/urls.json` |
-| Criar | `supabase/functions/scrape-prices/index.ts` |
-| Atualizar | `scraper-worker/package.json` |
-| Atualizar | `scraper-worker/README.md` |
-| Atualizar | `src/pages/Monitoramento.tsx` |
-| Deletar | `supabase/functions/auto-detect-price/` |
-| Deletar | `supabase/functions/detect-price-tiers/` |
-| Deletar | `supabase/functions/parse-price-table/` |
-| Deletar | `supabase/functions/scheduled-sync-firecrawl/` |
-| Deletar | `supabase/functions/trigger-vps-sync/` |
-| Deletar | `supabase/functions/test-css-selector/` |
-| Deletar | `supabase/functions/scrape-via-worker/` |
-| Manter | `supabase/functions/sync-prices-webhook/` |
+| Reescrever | `supabase/functions/scrape-prices/index.ts` |
+| Deletar | `scraper-worker/` (pasta inteira) |
+| Inalterado | `src/components/monitoramento/NovoSiteDialog.tsx` |
+| Inalterado | `src/pages/Monitoramento.tsx` (exceto remoção de referências mortas a Railway) |
 
 ## Resultado esperado
 
-- 1 edge function, 1 worker, 1 dialog, 1 fluxo.
-- Mesmo caminho para FuturaIM, Atual Card e ANS.
-- Saída sempre no shape com `unit_price_calculated` explícito.
-- Zero Firecrawl. Sync isolado em função pura, pronto para cron.
+- 1 edge function. Zero servidor externo. Zero Railway/Docker.
+- Mesmo shape de saída → UI não muda.
+- Custa R$ 0 enquanto estiver no free tier (1k páginas/mês ≈ 33 syncs/dia).
+- Limitação aceita: estratégia `api` (captura de XHR JSON) sai de cena. Se algum site específico depender disso, depois migramos só ele pro `/function` do Browserless.
+
+## Próximo passo após aprovar
+
+Eu peço o secret `BROWSERLESS_API_KEY` (você cria a conta e cola a key), e em seguida implemento a reescrita completa.
 
