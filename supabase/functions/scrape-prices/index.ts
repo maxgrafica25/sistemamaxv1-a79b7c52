@@ -659,6 +659,14 @@ Deno.serve(async (req) => {
       timestamp_check: nowIso,
     }).eq("id", site.id);
 
+    await logAdminOperation(supabase, {
+      function_name: "scrape-prices",
+      operation: "persist_tiers",
+      target_table: "site_precos_tiers",
+      target_count: result.prices.length,
+      metadata: { site_id: site.id, strategy: result.strategy, elapsed_ms: result.elapsed_ms },
+    });
+
     return new Response(
       JSON.stringify({
         success: true,
