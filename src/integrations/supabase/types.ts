@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_operations_log: {
+        Row: {
+          created_at: string
+          function_name: string
+          id: string
+          invoked_by: string | null
+          metadata: Json | null
+          operation: string
+          target_count: number | null
+          target_table: string | null
+        }
+        Insert: {
+          created_at?: string
+          function_name: string
+          id?: string
+          invoked_by?: string | null
+          metadata?: Json | null
+          operation: string
+          target_count?: number | null
+          target_table?: string | null
+        }
+        Update: {
+          created_at?: string
+          function_name?: string
+          id?: string
+          invoked_by?: string | null
+          metadata?: Json | null
+          operation?: string
+          target_count?: number | null
+          target_table?: string | null
+        }
+        Relationships: []
+      }
       alertas_precos: {
         Row: {
           created_at: string
