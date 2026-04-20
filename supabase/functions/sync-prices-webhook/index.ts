@@ -1,7 +1,11 @@
 // Unified webhook for price coletors (Firecrawl edge function or VPS Playwright worker).
 // Accepts: { site_id, tiers: [{quantidade, preco_total, preco_unitario}], origem }
 // Auth: Bearer VPS_WORKER_TOKEN  (skipped when called from another edge function via service-role)
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+//
+// SERVICE ROLE: necessária — endpoint público autenticado por token externo (VPS),
+// sem JWT de usuário. Escreve em site_precos_tiers/sites_monitorados.
+// Cliente via wrapper auditado (_shared/admin-client).
+import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,8 +39,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
-      auth: { persistSession: false },
+    const supabase = getAdminClient({
+      fnName: "sync-prices-webhook",
+      reason: "Webhook externo (VPS worker) sem JWT — escreve em site_precos_tiers/sites_monitorados",
     });
 
     // Limpar e validar tiers
@@ -96,6 +101,14 @@ Deno.serve(async (req) => {
         preco_atual: minTier.preco_total,
       })
       .eq("id", site_id);
+
+    await logAdminOperation(supabase, {
+      function_name: "sync-prices-webhook",
+      operation: "upsert_tiers",
+      target_table: "site_precos_tiers",
+      target_count: inserted + updated,
+      metadata: { site_id, origem: origem || "unknown", inserted, updated, unchanged },
+    });
 
     return new Response(
       JSON.stringify({ success: true, origem: origem || "unknown", inserted, updated, unchanged }),

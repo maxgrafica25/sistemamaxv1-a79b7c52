@@ -1,7 +1,11 @@
 // Cron orchestrator: runs daily and triggers scrape-prices for every active monitored site.
 // Postgres triggers automatically generate price-drop alerts and history rows.
+//
+// SERVICE ROLE: necessária — invocada por cron sem JWT de usuário; precisa ler
+// todos os sites ativos (RLS authenticated não se aplica). Cliente criado via
+// wrapper auditado (_shared/admin-client).
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,10 +17,9 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(supabaseUrl, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
+  const supabase = getAdminClient({
+    fnName: "scrape-prices-cron",
+    reason: "Cron diário: ler todos os sites monitorados ativos e disparar scrape-prices",
   });
 
   const startedAt = new Date().toISOString();
@@ -59,6 +62,14 @@ Deno.serve(async (req) => {
 
   const summary = { total, ok, fail, startedAt, finishedAt: new Date().toISOString(), failures };
   console.log(`[scrape-prices-cron] done`, summary);
+
+  await logAdminOperation(supabase, {
+    function_name: "scrape-prices-cron",
+    operation: "orchestrate_scrape",
+    target_table: "sites_monitorados",
+    target_count: total,
+    metadata: { ok, fail },
+  });
 
   return new Response(JSON.stringify({ success: true, ...summary }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -1,11 +1,13 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// SERVICE ROLE: necessária — cria notifications para múltiplos usuários
+// (bypass RLS user_id = auth.uid()). Cliente via wrapper auditado.
+import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
 
 Deno.serve(async (req) => {
   try {
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const supabase = getAdminClient({
+      fnName: "check-reminders",
+      reason: "Cron: criar notificações para outros usuários a partir de reminders vencidos",
+    });
     const now = new Date().toISOString();
 
     // Find reminders that are due and not completed
@@ -80,6 +82,16 @@ Deno.serve(async (req) => {
       }
 
       processed++;
+    }
+
+    if (processed > 0) {
+      await logAdminOperation(supabase, {
+        function_name: "check-reminders",
+        operation: "create_notifications",
+        target_table: "notifications",
+        target_count: processed,
+        metadata: { total_due: dueReminders.length },
+      });
     }
 
     return new Response(JSON.stringify({ processed, total: dueReminders.length }), { status: 200 });

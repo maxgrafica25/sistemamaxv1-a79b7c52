@@ -3,9 +3,13 @@
 //   - modo preview      → POST { urls: string[] }   → devolve resultados crus
 //   - modo persistência → POST { site_id: string }  → persiste em
 //                          site_precos_tiers + sites_monitorados
+//
+// SERVICE ROLE: necessária — modo persistência atualiza sites_monitorados e
+// site_precos_tiers em nome de chamadas internas (cron, webhook) sem JWT de
+// usuário. Cliente criado via wrapper auditado (_shared/admin-client).
 // =====================================================================
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import * as cheerio from "npm:cheerio@1.0.0";
+import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -536,9 +540,10 @@ async function scrapeMany(urls: string[]): Promise<ScrapeResult[]> {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+  const supabase = getAdminClient({
+    fnName: "scrape-prices",
+    reason: "Persistir resultados de scraping em sites_monitorados/site_precos_tiers (chamadas sem JWT de usuário)",
+  });
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -653,6 +658,14 @@ Deno.serve(async (req) => {
       scrape_source: "browserless",
       timestamp_check: nowIso,
     }).eq("id", site.id);
+
+    await logAdminOperation(supabase, {
+      function_name: "scrape-prices",
+      operation: "persist_tiers",
+      target_table: "site_precos_tiers",
+      target_count: result.prices.length,
+      metadata: { site_id: site.id, strategy: result.strategy, elapsed_ms: result.elapsed_ms },
+    });
 
     return new Response(
       JSON.stringify({
