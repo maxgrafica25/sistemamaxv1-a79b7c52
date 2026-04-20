@@ -90,15 +90,21 @@ const strategyBadge = (s: WorkerResult["strategy"]) => {
   return map[s] ?? { label: String(s ?? "unknown"), cls: "bg-muted text-muted-foreground border-border" };
 };
 
-export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props) {
+export default function NovoSiteDialog({ open, onOpenChange, onCreated, categoriasExistentes = [] }: Props) {
   const [urlsText, setUrlsText] = useState("");
   const [categoria, setCategoria] = useState("");
+  const [novaCategoriaMode, setNovaCategoriaMode] = useState(false);
   const [produtoCatalogoId, setProdutoCatalogoId] = useState<string | null>(null);
   const [produtoCatalogoNome, setProdutoCatalogoNome] = useState("");
   const [results, setResults] = useState<WorkerResult[]>([]);
   const [fornecedorOverrides, setFornecedorOverrides] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const categoriasOrdenadas = useMemo(
+    () => Array.from(new Set(categoriasExistentes.map((c) => c.toLowerCase().trim()).filter(Boolean))).sort(),
+    [categoriasExistentes],
+  );
 
   const urls = useMemo(
     () =>
