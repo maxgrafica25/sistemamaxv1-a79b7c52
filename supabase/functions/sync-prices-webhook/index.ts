@@ -102,6 +102,14 @@ Deno.serve(async (req) => {
       })
       .eq("id", site_id);
 
+    await logAdminOperation(supabase, {
+      function_name: "sync-prices-webhook",
+      operation: "upsert_tiers",
+      target_table: "site_precos_tiers",
+      target_count: inserted + updated,
+      metadata: { site_id, origem: origem || "unknown", inserted, updated, unchanged },
+    });
+
     return new Response(
       JSON.stringify({ success: true, origem: origem || "unknown", inserted, updated, unchanged }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
