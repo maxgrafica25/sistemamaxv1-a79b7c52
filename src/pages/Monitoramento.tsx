@@ -970,7 +970,24 @@ export default function Monitoramento() {
                                 </div>
                               )}
                               <div className="rounded border divide-y">
-                                {mergedTiers.map((t) => {
+                                {qtdsUniao.map((qty) => {
+                                  const t = tiersByQty.get(qty);
+                                  if (!t) {
+                                    // Faixa não disponível neste fornecedor
+                                    const disponiveis = mergedTiers.map((mt) => mt.quantidade.toLocaleString("pt-BR")).join(", ");
+                                    return (
+                                      <div
+                                        key={`miss-${qty}`}
+                                        className="flex items-center justify-between text-xs px-2 py-1.5 opacity-60"
+                                        title={`Este fornecedor não oferece esta quantidade. Disponíveis: ${disponiveis}`}
+                                      >
+                                        <span className="font-mono text-muted-foreground">{qty.toLocaleString("pt-BR")}un</span>
+                                        <Badge variant="secondary" className="text-[10px] font-normal">
+                                          Faixa não disponível
+                                        </Badge>
+                                      </div>
+                                    );
+                                  }
                                   const tTrend = t.preco_anterior != null ? t.preco_total - Number(t.preco_anterior) : 0;
                                   const isSweet = sweet?.tier.id === t.id;
                                   const isMinHist = minHistByTier[t.id] != null && Number(t.preco_total) <= minHistByTier[t.id];
@@ -978,7 +995,7 @@ export default function Monitoramento() {
                                   return (
                                     <div key={t.id} className={`flex items-center justify-between text-xs px-2 py-1.5 ${isTargetTier ? "bg-primary/5" : ""}`}>
                                       <div className="flex items-center gap-1.5">
-                                        <span className="font-mono text-muted-foreground">{t.quantidade}un</span>
+                                        <span className="font-mono text-muted-foreground">{t.quantidade.toLocaleString("pt-BR")}un</span>
                                         {isSweet && <Target className="h-3 w-3" style={{ color: "hsl(var(--primary))" }} />}
                                         {isMinHist && <Flame className="h-3 w-3" style={{ color: "hsl(var(--success))" }} />}
                                       </div>
