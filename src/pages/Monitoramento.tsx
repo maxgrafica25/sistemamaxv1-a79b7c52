@@ -60,6 +60,10 @@ type Alerta = {
   preco_antigo: number | null;
   lida: boolean;
   created_at: string;
+  variacao_pct?: number | null;
+  quantidade?: number | null;
+  fornecedor_nome?: string | null;
+  produto_nome?: string | null;
 };
 
 const formatBRL = (v: number | null | undefined) =>
