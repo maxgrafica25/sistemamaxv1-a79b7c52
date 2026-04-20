@@ -185,28 +185,17 @@ async function fetchRenderedHtml(url: string, token: string): Promise<string> {
     clearTimeout(timer);
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
-      throw new Error(`Browserless HTTP ${r.status}: ${txt.slice(0, 200)}`);
+      let friendly = `Browserless HTTP ${r.status}`;
+      if (r.status === 401) friendly = "API key inválida (BROWSERLESS_API_KEY)";
+      else if (r.status === 402) friendly = "Cota Browserless excedida (402)";
+      else if (r.status === 429) friendly = "Rate limit Browserless (429)";
+      else if (r.status === 408 || r.status === 504) friendly = `Timeout Browserless (${r.status})`;
+      throw new Error(`${friendly}: ${txt.slice(0, 200)}`);
     }
     return await r.text();
   } catch (e) {
     clearTimeout(timer);
     throw new Error(e instanceof Error ? e.message : String(e));
-  }
-}
-
-async function checkBrowserlessHealth(token: string): Promise<{ ok: boolean; detail?: string }> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 8000);
-  try {
-    const r = await fetch(`${BROWSERLESS_BASE}/pressure?token=${encodeURIComponent(token)}`, {
-      signal: ctrl.signal,
-    });
-    clearTimeout(timer);
-    if (!r.ok) return { ok: false, detail: `pressure HTTP ${r.status}` };
-    return { ok: true };
-  } catch (e) {
-    clearTimeout(timer);
-    return { ok: false, detail: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -269,11 +258,6 @@ async function scrapeOne(url: string, token: string): Promise<ScrapeResult> {
 async function scrapeMany(urls: string[]): Promise<ScrapeResult[]> {
   const token = Deno.env.get("BROWSERLESS_API_KEY");
   if (!token) throw new Error("BROWSERLESS_API_KEY não configurada");
-
-  const health = await checkBrowserlessHealth(token);
-  if (!health.ok) {
-    throw new Error(`Browserless offline (${health.detail}). Verifique a API key e o status do serviço.`);
-  }
 
   const results: ScrapeResult[] = [];
   for (const url of urls) {
