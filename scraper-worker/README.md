@@ -1,66 +1,67 @@
-# Scraper Worker (Playwright)
+# Scraper Worker (Playwright unificado)
 
-Worker independente que roda Chromium real (headless) para extrair tabelas de preços de sites que o Firecrawl não consegue renderizar (PWAs como Imprima Rápido e Atual Card).
+Worker que usa Chromium real (Playwright) para extrair tabelas de quantidade × preço de qualquer página, com 3 estratégias em cascata.
 
-## Rotas
+## Estratégias (em ordem)
 
-- `GET /health` → `{ status: "ok", uptime }` — health check público.
-- `POST /scrape` (Bearer auth) → recebe `{ url }`, devolve `{ tiers: [{ quantidade, preco }], scraped_at, elapsed_ms }`.
+1. **`api`** — JSON capturado via `page.on('response')` filtrando `xhr|fetch` com `application/json`. Busca recursiva por chaves de quantidade/preço.
+2. **`html`** — `page.content()` parseado com Cheerio. Primeiro tenta `<table>`, depois `ul li` + `[class*=preco|tier]`.
+3. **`html-regex`** — fallback regex `\d{2,6}` próximo de `R\$\s*[\d.,]+`. Sempre logado como warning.
 
-Header obrigatório no `/scrape`:
+Quando `unit_price` não vem explícito e é derivado de `total/qty`, o resultado vem com `unit_price_calculated: true` + warning no console.
 
+## Modos
+
+### Servidor HTTP (default)
+- `GET /health` → `{ status: "ok", uptime }` — público.
+- `POST /scrape` → `{ results: [...] }` — Bearer auth obrigatório.
+
+```bash
+node index.js
 ```
-Authorization: Bearer <WORKER_SECRET>
+
+### CLI standalone
+Lê `urls.json` e grava `/app/results.json`.
+
+```bash
+node cli.js
+```
+
+## Shape de resposta
+
+```json
+{
+  "results": [
+    {
+      "source_url": "...",
+      "scraped_at": "2026-04-20T13:36:00Z",
+      "strategy": "api | html | html-regex",
+      "prices": [
+        {
+          "quantity": 1000,
+          "unit_price": 0.10,
+          "unit_price_calculated": false,
+          "total_price": 96.99
+        }
+      ],
+      "error": null
+    }
+  ]
+}
 ```
 
 ## Variáveis de ambiente
 
 | Nome            | Obrigatório | Descrição                                |
 |-----------------|-------------|------------------------------------------|
-| `WORKER_SECRET` | sim         | String secreta usada no Bearer.          |
-| `PORT`          | não (3000)  | Porta HTTP.                              |
+| `WORKER_SECRET` | sim         | Bearer token aceito em `POST /scrape`.   |
+| `PORT`          | não (3000)  | Porta HTTP do servidor Express.          |
 
-## Deploy no Railway (passo a passo)
+## Deploy no Railway
 
-1. Acesse [https://railway.app](https://railway.app) e crie um novo projeto.
-2. **New → Deploy from GitHub repo** (ou **Empty Service → Deploy** e suba via CLI).
-3. Selecione a pasta `scraper-worker/` como **Root Directory** nas configurações do serviço.
-4. O Railway vai detectar o `Dockerfile` automaticamente. Não é preciso buildpack.
-5. Em **Variables**, adicione:
-   - `WORKER_SECRET` = um valor aleatório longo (ex.: `openssl rand -hex 32`)
-   - `PORT` = `3000` (opcional)
-6. Em **Settings → Networking**, clique em **Generate Domain** para receber a URL pública (algo como `https://scraper-worker-production.up.railway.app`).
-7. Teste o health: `curl https://SUA-URL.up.railway.app/health`.
-
-## Configurar no Supabase
-
-Depois do deploy, configure dois secrets no Supabase (já feito via Lovable):
-
-- `SCRAPER_WORKER_URL` → **URL pública completa** do Railway, **incluindo `https://`** e **sem** `/scrape` no final.
-  - ✅ `https://scraper-worker-production.up.railway.app`
-  - ❌ `scraper-worker-production.up.railway.app` (faltando `https://`)
-  - ❌ `https://scraper-worker-production.up.railway.app/scrape` (não inclua `/scrape`)
-- `WORKER_SECRET` → mesmo valor configurado no Railway.
-
-### Como descobrir a URL correta no Railway
-
-1. No projeto Railway, abra o serviço do scraper-worker.
-2. Vá em **Settings → Networking → Public Networking**.
-3. Se não houver domínio, clique em **Generate Domain**.
-4. Copie a URL e adicione `https://` na frente antes de salvar em `SCRAPER_WORKER_URL`.
-
-### Como testar se o worker está no ar
-
-```bash
-curl https://SUA-URL.up.railway.app/health
-# resposta esperada: {"status":"ok","uptime":123.45}
-```
-
-Se `curl` retornar 404, "Application not found" ou timeout: o serviço **não está deployado** nesse domínio. Verifique se você criou um serviço Railway apontando para a pasta `scraper-worker/` (e não um projeto vazio com nome de outro template).
-
-## Custo
-
-Plano Hobby do Railway (~US$ 5/mês) sustenta esse worker tranquilamente para volumes baixos/médios de scraping.
+1. Após qualquer mudança nessas pastas, **redeploye o serviço no Railway** para puxar `cheerio`, `axios` e o novo `index.js`.
+2. `SCRAPER_WORKER_URL` no Supabase **continua igual** — é o mesmo domínio público do Railway.
+3. Health check: `curl https://SUA-URL.up.railway.app/health` → `{"status":"ok",...}`.
 
 ## Teste local
 
@@ -68,10 +69,11 @@ Plano Hobby do Railway (~US$ 5/mês) sustenta esse worker tranquilamente para vo
 cd scraper-worker
 npm install
 npx playwright install chromium --with-deps
-WORKER_SECRET=dev npm start
-# em outro terminal:
+WORKER_SECRET=dev node cli.js
+# ou modo servidor:
+WORKER_SECRET=dev node index.js
 curl -X POST http://localhost:3000/scrape \
   -H "Authorization: Bearer dev" \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://www.imprimarapido.com.br/folder-a5-reduzido-14x20cm/2135/3335/folder-a5-reduzido---14x20cm-couche-80g-4x0-sem-verniz-14x20-cm-1000-31680"}'
+  -d '{"urls":["https://www.ans.com.br/panfleto-90gr-4x0-10x14cm/"]}'
 ```
