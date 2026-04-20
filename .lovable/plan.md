@@ -1,113 +1,74 @@
 
 
-# Hardening da service role key no Lovable Cloud
+# Atualizar `docs/security-incident.md` com expectativa realista de SLA
 
-Reduzir o blast radius de um vazamento da `SUPABASE_SERVICE_ROLE_KEY` sem migrar para Supabase Connection. A key em si não pode ser limitada (por design ela bypassa RLS — é o ponto dela), então a estratégia é **reduzir a superfície de uso** e **detectar abuso rápido**.
+## Contexto
 
-## Camada 1: Auditar onde a service role é realmente usada
+A documentação oficial do Lovable (`docs.lovable.dev/introduction/support-policy`) **não publica tempo de resposta garantido** para nenhuma categoria de incidente, incluindo rotação de service role key. Não há SLA diferenciado por plano publicado. Inventar um número ("4 horas", "24 horas") na doc interna seria pior que não ter número — cria falsa segurança.
 
-Hoje os secrets disponíveis incluem `SUPABASE_SERVICE_ROLE_KEY`, e várias edge functions têm acesso automático a todos os secrets do projeto. Precisamos mapear **quais funções realmente precisam dela** vs. quais poderiam usar a anon key + RLS.
+A abordagem correta: documentar o que é **fato verificável** + dar ao usuário um procedimento para **medir o SLA real** do próprio workspace antes do incidente acontecer.
 
-Edge functions atuais:
-- `scrape-prices` — precisa (escreve em tabelas com RLS restritiva)
-- `scrape-prices-cron` — precisa (orquestra a anterior)
-- `sync-prices-webhook` — precisa (escreve via webhook externo)
-- `check-reminders` — precisa (cria notificações para outros usuários)
+## Mudanças no arquivo
 
-**Ação**: revisar cada função e documentar inline (comentário no topo) **por que** precisa de service role. Funções que só leem dados públicos ou só escrevem dados do próprio usuário autenticado devem usar **anon key + JWT do usuário** em vez de service role:
+Editar `docs/security-incident.md`, **Fase 2** (escalar para suporte) e seção final **Limites conhecidos**:
 
-```ts
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  global: { headers: { Authorization: req.headers.get("Authorization")! } },
-});
-// Agora roda com a identidade do usuário, RLS aplica normalmente
-```
+### Fase 2 — substituir o texto atual por versão com fatos da doc oficial
 
-Resultado esperado: das 4 funções, idealmente reduzir para 2-3 que realmente precisam de service role.
+Hoje a fase 2 lista email + Discord. Adicionar:
 
-## Camada 2: Wrapper centralizado com auditoria
+- Link para o formulário oficial (`https://lovable.dev/support`) como canal **primário** — é o caminho que a doc indica.
+- Esclarecer que email `support@lovable.dev` é fallback se o formulário estiver fora do ar.
+- Mencionar que a primeira resposta é AI, com opção de escalar para humano — então no corpo do chamado já pedir explicitamente "escalate to human, security incident, service role key compromise".
+- Discord (`discord.gg/lovable-dev`) é community-only, **sem garantia de resposta oficial** — usar como canal complementar para visibilidade, não como canal primário.
+- Verificar `https://status.lovable.dev/` antes de abrir chamado: se há incidente plataforma-wide em andamento, pode acelerar contexto.
 
-Criar `supabase/functions/_shared/admin-client.ts` (módulo compartilhado importado pelas funções que ainda precisam de service role):
+### Nova seção: "Tempo de resposta esperado"
 
-```ts
-export function getAdminClient(context: { fnName: string; reason: string }) {
-  // Log estruturado de cada criação de cliente service-role
-  console.log(JSON.stringify({
-    type: "admin_client_created",
-    fn: context.fnName,
-    reason: context.reason,
-    timestamp: new Date().toISOString(),
-  }));
-  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-}
-```
+Bloco curto e honesto:
 
-Com isso, todo uso aparece nos logs do Cloud → Edge Functions com formato pesquisável. Se houver abuso, dá pra ver na hora qual função está sendo invocada de forma anormal.
+> Lovable **não publica SLA numérico** para incidentes de segurança em nenhum plano (Free, Pro, Teams, Business, Enterprise). O escopo oficial cobre "platform bugs", mas sem tempo de resposta garantido publicamente.
+>
+> **Não documentamos um número aqui** porque qualquer estimativa seria especulação. Em vez disso, temos um procedimento de calibração:
 
-## Camada 3: Tabela de auditoria de operações privilegiadas
+### Nova subseção: "Calibração proativa do SLA real"
 
-Criar tabela `admin_operations_log`:
+Procedimento de uma página para o usuário rodar **antes** de precisar de verdade:
 
-| campo | tipo |
-|---|---|
-| id | uuid |
-| created_at | timestamptz |
-| function_name | text |
-| operation | text (ex: "delete_user", "bulk_price_update") |
-| target_table | text |
-| target_count | integer |
-| invoked_by | uuid (auth.uid() se houver, senão null) |
-| metadata | jsonb |
+1. Abrir um chamado não-crítico (ex: "dúvida sobre limites do plano X") via formulário oficial.
+2. Cronometrar: tempo até primeira resposta humana (não AI).
+3. Repetir 2-3x ao longo de semanas diferentes (semana, fim de semana, feriado).
+4. Anotar resultado no fim do próprio `security-incident.md` numa tabela:
 
-RLS: apenas admins podem `SELECT`. INSERT só via service role (das próprias funções). Cada função service-role registra o que faz aqui antes de executar. Permite forensics se uma key vazar.
+   ```
+   | Data       | Plano   | Canal       | 1ª resposta humana |
+   |------------|---------|-------------|--------------------|
+   | YYYY-MM-DD | Pro     | Formulário  | XhYm               |
+   ```
 
-## Camada 4: Rate limiting nas edge functions expostas
+5. Usar a média observada como estimativa realista para o pior caso.
 
-`sync-prices-webhook` e `scrape-prices` aceitam requisições externas. Adicionar rate limiting por IP usando uma tabela `rate_limits` (window de 1 minuto, max N requests). Se uma key vazar e alguém tentar usar para spam, o rate limit corta antes de gerar dano.
+### Atualizar "Limites conhecidos" (final do arquivo)
 
-## Camada 5: Detecção de anomalias
+Substituir a linha vaga "SLA de suporte: varia por plano" por:
 
-Edge function `monitor-admin-usage` (rodando em cron a cada 15min) que:
-- Lê `admin_operations_log` da última hora.
-- Compara com baseline (média móvel das últimas 24h).
-- Se desvio > 3x, cria notificação para todos os admins com tipo `security_alert`.
+> SLA de suporte: **não publicado oficialmente**. Lovable garante apenas que clientes pagantes têm acesso ao canal oficial; tempo de resposta não é contratual exceto em Enterprise (negociado caso a caso). Para autonomia total na rotação, única alternativa é migrar para Supabase Connection (ver decisão técnica em conversa anterior).
 
-Exemplo: se normalmente `scrape-prices` registra 50 ops/hora e de repente registra 5000, dispara alerta. Você descobre o vazamento em 15min em vez de em uma fatura inflada no fim do mês.
+### Manter inalterado
 
-## Camada 6: Procedimento de emergência documentado
+Fases 1 (mitigação imediata que você faz sozinho) e 3 (forensics pós-rotação) continuam como estão — são o ponto forte do documento e independem do SLA do suporte.
 
-Criar `docs/security-incident.md` com checklist passo-a-passo para o caso de vazamento:
+## Resultado
 
-1. **Imediato (você sozinho)**:
-   - Cloud → Edge Functions → desabilitar todas que usam service role (corta o uso da key).
-   - Cloud → Users → "Sign out all users" (revoga sessões).
-   - Trocar `BROWSERLESS_API_KEY`, `FIRECRAWL_API_KEY` em Cloud → Secrets (você consegue rotacionar essas sozinho, e como a service role vazada poderia ler os outros secrets via edge function, melhor trocar tudo).
-2. **Em paralelo (suporte)**:
-   - Email para `support@lovable.dev` com assunto "URGENT: service role key compromise — project 667f8a1f-61e4-4274-8da0-fdacd8d61791".
-   - Mensagem no Discord oficial canal #support marcando equipe.
-3. **Pós-rotação**:
-   - Auditar `admin_operations_log` no período entre vazamento e rotação.
-   - Revisar `historico_precos`, `notifications`, `messages` por inserções suspeitas.
+- Doc não tem número fictício que dá falsa segurança.
+- Usuário tem procedimento concreto para gerar seu próprio número, baseado no comportamento real do suporte no plano atual.
+- Fica explícito que a única forma de **eliminar** essa incerteza é arquitetural (migrar para Supabase Connection), não procedural.
+- Fontes citadas inline na doc para auditabilidade futura: `docs.lovable.dev/introduction/support-policy` e `status.lovable.dev`.
 
 ## Arquivos afetados
 
 | Ação | Arquivo |
-|---|---|
-| Criar | `supabase/functions/_shared/admin-client.ts` (wrapper auditado) |
-| Editar | `supabase/functions/scrape-prices/index.ts`, `scrape-prices-cron/index.ts`, `sync-prices-webhook/index.ts`, `check-reminders/index.ts` (usar wrapper + comentário justificando) |
-| Migration | criar tabela `admin_operations_log` + RLS (admin-only SELECT) |
-| Migration | criar tabela `rate_limits` + função `check_rate_limit(_key text, _max int, _window_seconds int)` |
-| Editar | `supabase/functions/sync-prices-webhook/index.ts` e `scrape-prices/index.ts` — chamar `check_rate_limit` no início |
-| Criar | `supabase/functions/monitor-admin-usage/index.ts` + cron job a cada 15min |
-| Criar | `docs/security-incident.md` |
+|------|---------|
+| Editar | `docs/security-incident.md` (Fase 2 + nova seção SLA + nova subseção Calibração + Limites conhecidos) |
 
-## Resultado esperado
-
-- Service role key continua existindo (não dá pra eliminar), mas:
-  - Uso é logado e auditável em tabela própria.
-  - Anomalias geram alerta em ≤15min.
-  - Rate limiting impede abuso volumétrico.
-  - Procedimento de emergência permite mitigação imediata sem esperar suporte.
-- Custo: zero (tudo dentro do Lovable Cloud atual).
-- Trabalho de migração futura para Supabase Connection: desacoplado — se um dia decidir migrar, todas essas camadas continuam funcionando lá também.
+Sem mudanças de código ou banco. Documentação pura.
 
