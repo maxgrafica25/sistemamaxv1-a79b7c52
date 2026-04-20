@@ -212,12 +212,16 @@ async function scrapeAtualCard(url: string, token: string): Promise<ScrapeResult
 
   // 1) Quantidade vem do path da URL: .../algo-1000-22533
   let qty: number | null = null;
+  let pathname = "";
+  let qtyMatchRaw: RegExpMatchArray | null = null;
   try {
-    const qtyMatch = new URL(url).pathname.match(/-(\d{2,7})-\d+\/?$/);
-    qty = qtyMatch ? parseInt(qtyMatch[1], 10) : null;
+    pathname = new URL(url).pathname;
+    qtyMatchRaw = pathname.match(/-(\d{2,7})-\d+\/?$/);
+    qty = qtyMatchRaw ? parseInt(qtyMatchRaw[1], 10) : null;
   } catch (_) {
     // URL inválida
   }
+  console.log(`[atualcard debug qty] pathname=${pathname} match=${JSON.stringify(qtyMatchRaw)} qty=${qty}`);
 
   if (!qty || !isValidQty(qty)) {
     return {
@@ -230,15 +234,36 @@ async function scrapeAtualCard(url: string, token: string): Promise<ScrapeResult
   try {
     const html = await fetchRenderedHtml(url, token);
 
+    // DEBUG: HTML preview
+    const compact = html.replace(/\s+/g, " ");
+    console.log(`[atualcard debug html] url=${url} len=${html.length} preview=${compact.slice(0, 3000)}`);
+
     // 2) Preço do dataLayer (fonte primária)
     let total: number | null = null;
     const dlMatch = html.match(/item_id:\s*"\d+"[^}]*?price:\s*([\d.]+)/);
     if (dlMatch) total = parseFloat(dlMatch[1]);
 
     // 3) Fallback: data-price="93.00"
-    if (!total || total <= 0) {
-      const dpMatch = html.match(/data-price="(\d+\.\d{1,2})"/);
-      if (dpMatch) total = parseFloat(dpMatch[1]);
+    const dpMatch = html.match(/data-price="(\d+\.\d{1,2})"/);
+    let totalDp: number | null = null;
+    if (dpMatch) totalDp = parseFloat(dpMatch[1]);
+    if ((!total || total <= 0) && totalDp) total = totalDp;
+
+    console.log(`[atualcard debug regex] dlMatch=${JSON.stringify(dlMatch?.slice(0, 2))} dpMatch=${JSON.stringify(dpMatch?.slice(0, 2))} totalDl=${dlMatch ? parseFloat(dlMatch[1]) : null} totalDp=${totalDp} totalFinal=${total}`);
+
+    // DEBUG: contexto ao redor de keywords se regex falharem
+    if (!total) {
+      const keywords = ["data-price", "item_id", "dataLayer", "\"price\"", "valor", "preco", "R$"];
+      for (const kw of keywords) {
+        const idx = html.indexOf(kw);
+        if (idx >= 0) {
+          const start = Math.max(0, idx - 100);
+          const snippet = html.slice(start, idx + 300).replace(/\s+/g, " ");
+          console.log(`[atualcard debug keyword "${kw}"] idx=${idx} ctx=${snippet}`);
+        } else {
+          console.log(`[atualcard debug keyword "${kw}"] NOT FOUND`);
+        }
+      }
     }
 
     if (!total || !isValidPrice(total)) {
@@ -251,6 +276,7 @@ async function scrapeAtualCard(url: string, token: string): Promise<ScrapeResult
     }
 
     const prices = finalizeTiers([{ quantity: qty, total_price: total }], url);
+    console.log(`[atualcard debug final] qty=${qty} total=${total} tiers=${JSON.stringify(prices)}`);
     console.log(`[scrape-atualcard] ${url} | qty=${qty} total=${total} tiers=${prices.length} | ${Date.now() - startedAt}ms`);
 
     return {
