@@ -78,12 +78,13 @@ const detectSupplier = (url: string): string => {
 };
 
 const strategyBadge = (s: WorkerResult["strategy"]) => {
-  const map = {
+  const map: Record<string, { label: string; cls: string }> = {
     api: { label: "api", cls: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-200 dark:border-emerald-800" },
     html: { label: "html", cls: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800" },
     "html-regex": { label: "html-regex", cls: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-200 dark:border-amber-800" },
+    "function-atualcard": { label: "function", cls: "bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-950 dark:text-violet-200 dark:border-violet-800" },
   };
-  return map[s];
+  return map[s] ?? { label: String(s ?? "unknown"), cls: "bg-muted text-muted-foreground border-border" };
 };
 
 export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props) {
