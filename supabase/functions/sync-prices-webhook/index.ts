@@ -39,8 +39,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
-      auth: { persistSession: false },
+    const supabase = getAdminClient({
+      fnName: "sync-prices-webhook",
+      reason: "Webhook externo (VPS worker) sem JWT — escreve em site_precos_tiers/sites_monitorados",
     });
 
     // Limpar e validar tiers
