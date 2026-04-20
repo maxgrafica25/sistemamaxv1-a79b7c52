@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,19 @@ type WorkerResult = {
 const formatBRL = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 4 });
 
+const KNOWN_SUPPLIERS: Record<string, string> = {
+  "atualcard.com.br": "Atual Card",
+  "imprimarapido.com.br": "Imprima Rápido",
+  "ans.com.br": "ANS",
+  "futuraim.com.br": "Futura IM",
+  "graficadosite.com.br": "Gráfica do Site",
+  "graficaonline.com.br": "Gráfica Online",
+  "printi.com.br": "Printi",
+  "santograf.com.br": "Santograf",
+  "ksgrafica.com.br": "KS Gráfica",
+  "graficacentro.com.br": "Gráfica Centro",
+};
+
 const extractDomainName = (url: string): string => {
   try {
     const u = new URL(url.trim());
@@ -47,6 +60,20 @@ const extractDomainName = (url: string): string => {
     return core.charAt(0).toUpperCase() + core.slice(1);
   } catch {
     return "";
+  }
+};
+
+const detectSupplier = (url: string): string => {
+  try {
+    const host = new URL(url.trim()).hostname.replace(/^www\./, "").toLowerCase();
+    if (KNOWN_SUPPLIERS[host]) return KNOWN_SUPPLIERS[host];
+    // try matching parent domain (e.g. shop.atualcard.com.br)
+    for (const key of Object.keys(KNOWN_SUPPLIERS)) {
+      if (host.endsWith("." + key) || host === key) return KNOWN_SUPPLIERS[key];
+    }
+    return extractDomainName(url);
+  } catch {
+    return extractDomainName(url);
   }
 };
 
@@ -65,6 +92,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
   const [produtoCatalogoId, setProdutoCatalogoId] = useState<string | null>(null);
   const [produtoCatalogoNome, setProdutoCatalogoNome] = useState("");
   const [results, setResults] = useState<WorkerResult[]>([]);
+  const [fornecedorOverrides, setFornecedorOverrides] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -77,12 +105,27 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     [urlsText],
   );
 
+  // Prepopulate fornecedor names when results arrive (without overwriting user edits)
+  useEffect(() => {
+    if (!results.length) return;
+    setFornecedorOverrides((prev) => {
+      const next = { ...prev };
+      for (const r of results) {
+        if (!next[r.source_url]) {
+          next[r.source_url] = detectSupplier(r.source_url);
+        }
+      }
+      return next;
+    });
+  }, [results]);
+
   const reset = () => {
     setUrlsText("");
     setCategoria("");
     setProdutoCatalogoId(null);
     setProdutoCatalogoNome("");
     setResults([]);
+    setFornecedorOverrides({});
   };
 
   const handleClose = (v: boolean) => {
@@ -114,9 +157,11 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     }
   };
 
+  const validResults = useMemo(() => results.filter((r) => r.prices.length > 0), [results]);
+  const invalidResults = useMemo(() => results.filter((r) => r.prices.length === 0), [results]);
+
   const handleSave = async () => {
-    const valid = results.filter((r) => r.prices.length > 0);
-    if (!valid.length) {
+    if (!validResults.length) {
       toast.error("Nenhuma URL com tiers para salvar. Rode o teste primeiro.");
       return;
     }
@@ -133,16 +178,15 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
     let created = 0;
     let skipped = 0;
     let failed = 0;
+    const notScraped = invalidResults.length;
 
     try {
-      // Resolver produto canônico uma única vez
       let catalogoId = produtoCatalogoId;
       if (!catalogoId) {
         catalogoId = await findOrCreateCatalogo(produtoCatalogoNome, categoria);
       }
 
-      for (const r of valid) {
-        // Dedupe por URL exata
+      for (const r of validResults) {
         const { data: dup } = await supabase
           .from("sites_monitorados")
           .select("id")
@@ -153,7 +197,8 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
           continue;
         }
 
-        const fornecedor = extractDomainName(r.source_url);
+        const fornecedor =
+          (fornecedorOverrides[r.source_url] || detectSupplier(r.source_url)).trim() || null;
         const minUnit = Math.min(...r.prices.map((p) => p.unit_price));
 
         const { data: inserted, error: insErr } = await supabase
@@ -162,7 +207,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
             nome_produto: produtoCatalogoNome.trim(),
             categoria: categoria.trim().toLowerCase(),
             url_completa: r.source_url,
-            fornecedor_nome: fornecedor || null,
+            fornecedor_nome: fornecedor,
             produto_catalogo_id: catalogoId,
             preco_atual: minUnit,
             ativo: true,
@@ -199,6 +244,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
         created > 0 && `${created} criado(s)`,
         skipped > 0 && `${skipped} duplicado(s)`,
         failed > 0 && `${failed} falha(s)`,
+        notScraped > 0 && `${notScraped} sem tiers ignorado(s)`,
       ].filter(Boolean) as string[];
 
       if (created > 0) {
@@ -280,15 +326,38 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
           </div>
 
           {results.length > 0 && (
+            <Alert variant={invalidResults.length > 0 ? "destructive" : "default"}>
+              <AlertDescription className="text-sm">
+                {results.length} URL(s) testada(s):{" "}
+                <strong>{validResults.length}</strong> com tiers
+                {validResults.length > 0 && (
+                  <> ({validResults.map((r) => fornecedorOverrides[r.source_url] || detectSupplier(r.source_url)).join(", ")})</>
+                )}
+                {invalidResults.length > 0 && (
+                  <>
+                    {" · "}
+                    <strong>{invalidResults.length}</strong> sem tiers (
+                    {invalidResults
+                      .map((r) => `${detectSupplier(r.source_url)} — ${r.error || "Nenhum tier encontrado"}`)
+                      .join("; ")}
+                    )
+                  </>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {results.length > 0 && (
             <div className="space-y-3">
               {results.map((r, idx) => {
                 const sb = strategyBadge(r.strategy);
+                const hasTiers = r.prices.length > 0;
                 return (
-                  <div key={idx} className="rounded-lg border">
+                  <div key={idx} className={`rounded-lg border ${!hasTiers ? "border-destructive/50" : ""}`}>
                     <div className="flex items-start justify-between gap-2 p-3 border-b bg-muted/40">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          {r.prices.length > 0 ? (
+                          {hasTiers ? (
                             <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                           ) : (
                             <XCircle className="h-4 w-4 text-destructive shrink-0" />
@@ -308,7 +377,20 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
                       </div>
                       <Badge variant="outline" className={sb.cls}>{sb.label}</Badge>
                     </div>
-                    {r.prices.length > 0 && (
+
+                    <div className="p-3 border-b bg-background flex items-center gap-2">
+                      <Label className="text-xs text-muted-foreground shrink-0">Fornecedor:</Label>
+                      <Input
+                        value={fornecedorOverrides[r.source_url] ?? ""}
+                        onChange={(e) =>
+                          setFornecedorOverrides((prev) => ({ ...prev, [r.source_url]: e.target.value }))
+                        }
+                        placeholder="Nome do fornecedor"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+
+                    {hasTiers && (
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -356,12 +438,13 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated }: Props)
           <Button variant="outline" onClick={() => handleClose(false)} disabled={saving}>
             Cancelar
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={saving || !results.some((r) => r.prices.length > 0)}
-          >
+          <Button onClick={handleSave} disabled={saving || !validResults.length}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Salvar {results.filter((r) => r.prices.length > 0).length || ""}
+            {results.length > 0
+              ? `Salvar ${validResults.length} / ${results.length} URL(s)${
+                  invalidResults.length > 0 ? ` (${invalidResults.length} sem tiers ignorada${invalidResults.length > 1 ? "s" : ""})` : ""
+                }`
+              : "Salvar"}
           </Button>
         </DialogFooter>
       </DialogContent>
