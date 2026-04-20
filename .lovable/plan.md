@@ -1,87 +1,97 @@
 
 
-# Corrigir extração de fornecedores no `NovoSiteDialog`
+# Estratégia específica para `atualcard.com.br` via Browserless `/function`
 
-Dois problemas reais quando o usuário cola múltiplas URLs:
+O site da Atual Card carrega a tabela de preços via JavaScript após o `networkidle2`, então o `/content` (que devolve só o HTML inicial) não enxerga os tiers. A solução é usar o endpoint `/function` do Browserless, que roda JS remoto dentro da página e devolve o resultado já extraído.
 
-1. **URL com 0 tiers some sem aviso** → parece que "só 1 fornecedor foi salvo".
-2. **Nome do fornecedor é gerado automaticamente do domínio** (`atualcard.com.br` → "Atualcard") e não pode ser corrigido antes de salvar.
-
-## Mudanças em `src/components/monitoramento/NovoSiteDialog.tsx`
-
-### 1) Mostrar e permitir editar o fornecedor por URL
-
-Adicionar estado `fornecedorOverrides: Record<string, string>` (chave = `source_url`).
-
-Para cada URL no resultado, mostrar um campo `Input` com o nome detectado, editável:
+## Como funciona
 
 ```text
-[ ✓ ] https://www.atualcard.com.br/...     [strategy: html]
-      Fornecedor: [ Atual Card          ]   ← editável
-      (tabela de tiers)
+URL recebida
+  ↓
+host = atualcard.com.br?  ──sim──→  scrapeAtualCard(url) via /function
+  ↓ não
+fluxo atual (/content + Cheerio)
 ```
 
-Detecção inicial usa um **dicionário de domínios conhecidos** (Atual Card, Imprima Rápido, ANS, Futuraim, Gráfica do Site, etc.) com fallback para o atual `extractDomainName`. Dicionário pequeno (~10 entradas), mantido inline no arquivo:
+O dispatcher fica no início do `scrapeOne`. Tudo que já funciona pra ANS e FuturaIM **não muda**.
 
-```ts
-const KNOWN_SUPPLIERS: Record<string, string> = {
-  "atualcard.com.br": "Atual Card",
-  "imprimarapido.com.br": "Imprima Rápido",
-  "ans.com.br": "ANS",
-  "futuraim.com.br": "Futura IM",
-  "graficadosite.com.br": "Gráfica do Site",
-  // ...
+## Mudanças em `supabase/functions/scrape-prices/index.ts`
+
+### 1) Novo helper `scrapeViaBrowserlessFunction`
+
+Chama `POST https://production-sfo.browserless.io/function?token=...` com um payload `{ code, context }`. O `code` é uma função JS executada no contexto da página (já com `page` do Puppeteer disponível). Retorna `{ data, type }` onde `data` é o JSON que a função devolveu.
+
+### 2) Função específica `scrapeAtualCard(url)`
+
+Roda no Browserless:
+
+```js
+// pseudocódigo do que vai dentro do /function
+export default async ({ page }) => {
+  await page.goto(context.url, { waitUntil: 'networkidle2', timeout: 30000 });
+  // espera a tabela de preços renderizar
+  await page.waitForSelector('table, [class*="preco"], [class*="tier"]', { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(2000); // garante render de JS tardio
+  // extrai linhas da tabela com qty + preços
+  const rows = await page.evaluate(() => {
+    const out = [];
+    document.querySelectorAll('table tr').forEach(tr => {
+      const cells = [...tr.querySelectorAll('td,th')].map(c => c.innerText.trim());
+      if (cells.length >= 2) out.push(cells);
+    });
+    return out;
+  });
+  return { data: rows, type: 'application/json' };
 };
 ```
 
-Função `detectSupplier(url)`: tenta `KNOWN_SUPPLIERS` por hostname (sem `www.`), senão cai no `extractDomainName` atual.
+Devolve as linhas cruas. Em seguida, no Deno, passa pelo mesmo `parsePriceBR` / `parseQty` / `finalizeTiers` já existentes para virar `Price[]`. Reaproveita 100% da normalização BR.
 
-Quando `results` muda, prepopular `fornecedorOverrides[url]` com o detectado, sem sobrescrever o que o usuário já editou.
+Se mesmo assim vier vazio, faz fallback final com `extractByRegex` no HTML completo (também obtido via `/function` retornando `document.documentElement.outerHTML`).
 
-### 2) Mostrar URLs com 0 tiers de forma clara
+### 3) Dispatcher em `scrapeOne`
 
-Hoje elas aparecem (com badge vermelho), mas o **botão Salvar ignora silenciosamente**. Mudanças:
-
-- Adicionar contador no botão: `"Salvar 1 / 2 URLs (1 sem tiers será ignorada)"`.
-- Acima da lista de resultados, banner de resumo: `"2 URLs testadas: 1 com tiers (Futuraim), 1 sem tiers (Atual Card — Nenhum tier encontrado)"`.
-- No card vermelho da URL falha, manter a mensagem de erro já existente, mas destacar visualmente com borda destrutiva.
-
-### 3) Usar o fornecedor editado ao salvar
-
-Em `handleSave`, trocar:
+No topo do `scrapeOne(url, token)`:
 
 ```ts
-const fornecedor = extractDomainName(r.source_url);
+const host = new URL(url).hostname.replace(/^www\./, '');
+if (host === 'atualcard.com.br') {
+  return await scrapeAtualCard(url, token);
+}
+// ... fluxo atual intacto
 ```
 
-por:
+`scrapeAtualCard` retorna o mesmo shape `ScrapeResult` (com `strategy: "function-atualcard"` adicionado ao tipo).
+
+### 4) Ajuste mínimo no tipo `strategy`
 
 ```ts
-const fornecedor = (fornecedorOverrides[r.source_url] || detectSupplier(r.source_url)).trim() || null;
+strategy: "html" | "html-regex" | "function-atualcard"
 ```
 
-Resto do insert fica igual.
+Sem impacto na UI — `NovoSiteDialog` já mostra `strategy` como string genérica.
 
-### 4) Toast final mais informativo
+## O que NÃO muda
 
-Já existe `created/skipped/failed`. Adicionar `not_scraped` (URLs sem tiers que foram ignoradas):
+- Lógica de extração para ANS, FuturaIM e qualquer outro domínio.
+- `extractFromTables`, `extractFromLists`, `extractByRegex`, `finalizeTiers`, `parsePriceBR`.
+- Modo PERSISTÊNCIA, modo PREVIEW, retries, mensagens de erro HTTP.
+- `NovoSiteDialog.tsx`, schema, `Monitoramento.tsx`.
 
-`"1 criado · 1 sem tiers ignorado"` em vez do atual silêncio.
+## Custo Browserless
+
+`/function` consome o mesmo crédito que `/content` (1 unit por execução). Sem mudança de plano.
+
+## Resultado esperado
+
+- Colar URL da Atual Card + URL da FuturaIM no mesmo campo: ambas retornam tiers.
+- Logs vão mostrar `strategy=function-atualcard` para Atual Card e `strategy=html` para os outros.
+- Se Atual Card mudar o HTML/JS no futuro, a função específica pode ser ajustada sem mexer no resto.
 
 ## Arquivo afetado
 
 | Ação | Arquivo |
 |------|---------|
-| Editar | `src/components/monitoramento/NovoSiteDialog.tsx` |
-
-## Não muda
-
-- Edge function `scrape-prices` — está funcionando, problema é só na UI.
-- Schema do banco.
-- `Monitoramento.tsx`.
-
-## Resultado esperado
-
-- Ao colar 2 URLs e testar, o usuário vê os 2 resultados, **edita o nome do fornecedor** se quiser (já vem detectado bonito para sites conhecidos), e ao salvar fica claro quantos foram salvos e quantos foram ignorados por falta de tiers.
-- Para o caso atual (Atual Card 0 tiers), o usuário vai ver explicitamente "Atual Card — Nenhum tier encontrado" e poder decidir o que fazer (corrigir URL, ou ignorar).
+| Editar | `supabase/functions/scrape-prices/index.ts` (adicionar `scrapeViaBrowserlessFunction`, `scrapeAtualCard`, dispatcher por host) |
 
