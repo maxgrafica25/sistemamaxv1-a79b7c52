@@ -199,102 +199,224 @@ async function fetchRenderedHtml(url: string, token: string): Promise<string> {
   }
 }
 
-// ---------- Atual Card (preço único + qty da URL) ----------
+// ---------- Browserless /function (executa JS na página renderizada) ----------
+async function fetchViaBrowserlessFunction<T>(
+  url: string,
+  token: string,
+  fnSource: string,
+  context: Record<string, unknown> = {},
+): Promise<T> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 60_000);
+  try {
+    const r = await fetch(`${BROWSERLESS_BASE}/function?token=${encodeURIComponent(token)}`, {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: fnSource,
+        context: { url, ...context },
+      }),
+    });
+    clearTimeout(timer);
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      let friendly = `Browserless /function HTTP ${r.status}`;
+      if (r.status === 401) friendly = "API key inválida (BROWSERLESS_API_KEY)";
+      else if (r.status === 402) friendly = "Cota Browserless excedida (402)";
+      else if (r.status === 429) friendly = "Rate limit Browserless (429)";
+      else if (r.status === 408 || r.status === 504) friendly = `Timeout Browserless (${r.status})`;
+      throw new Error(`${friendly}: ${txt.slice(0, 200)}`);
+    }
+    const json = await r.json();
+    return (json?.data ?? json) as T;
+  } catch (e) {
+    clearTimeout(timer);
+    throw new Error(e instanceof Error ? e.message : String(e));
+  }
+}
+
+// Função JS executada DENTRO do navegador headless do Browserless.
+const ATUALCARD_FN_SOURCE = `
+module.exports = async ({ page, context }) => {
+  await page.goto(context.url, { waitUntil: 'networkidle2', timeout: 30000 });
+
+  try {
+    await page.waitForFunction(() => {
+      const txt = document.body ? document.body.innerText : '';
+      const matches = txt.match(/R\\\$\\s*[\\d.,]+/g) || [];
+      return matches.length >= 3;
+    }, { timeout: 15000 });
+  } catch (_) { /* segue mesmo sem match */ }
+
+  const data = await page.evaluate(() => {
+    const parsePriceBR = (raw) => {
+      if (!raw) return null;
+      let s = String(raw).replace(/R\\\$/gi, '').replace(/\\s/g, '').trim();
+      if (!s) return null;
+      if (s.includes(',')) s = s.replace(/\\./g, '').replace(',', '.');
+      const n = parseFloat(s);
+      return isFinite(n) ? n : null;
+    };
+    const parseQty = (raw) => {
+      if (raw == null) return null;
+      const m = String(raw).replace(/\\./g, '').match(/(\\d{2,7})/);
+      if (!m) return null;
+      const n = parseInt(m[1], 10);
+      return isFinite(n) ? n : null;
+    };
+
+    const tiers = [];
+    const counts = { table: 0, radio: 0, dataAttr: 0, list: 0 };
+    const pushTier = (qty, total, unit) => {
+      if (!qty || qty < 1 || qty > 1000000) return;
+      const t = { quantity: qty };
+      if (total != null && total > 0) t.total_price = total;
+      if (unit != null && unit > 0) t.unit_price = unit;
+      if (t.total_price == null && t.unit_price == null) return;
+      tiers.push(t);
+    };
+
+    document.querySelectorAll('table').forEach((tbl) => {
+      tbl.querySelectorAll('tr').forEach((tr) => {
+        const cells = Array.from(tr.querySelectorAll('td,th')).map((c) => c.textContent.trim());
+        if (cells.length < 2) return;
+        let qty = null;
+        const prices = [];
+        for (const cell of cells) {
+          if (/R\\\$/i.test(cell)) {
+            const p = parsePriceBR(cell);
+            if (p != null) prices.push(p);
+          } else if (qty == null) {
+            const q = parseQty(cell);
+            if (q != null) qty = q;
+          }
+        }
+        if (qty != null && prices.length >= 1) {
+          counts.table++;
+          if (prices.length >= 2) {
+            const sorted = [...prices].sort((a, b) => a - b);
+            pushTier(qty, sorted[sorted.length - 1], sorted[0]);
+          } else {
+            pushTier(qty, prices[0], null);
+          }
+        }
+      });
+    });
+
+    document.querySelectorAll('input[type="radio"][name*="quant" i], input[type="radio"][name*="qtd" i]').forEach((inp) => {
+      const qty = parseQty(inp.value || inp.getAttribute('data-quantidade') || inp.getAttribute('data-qtd'));
+      if (!qty) return;
+      let total = parsePriceBR(inp.getAttribute('data-price') || inp.getAttribute('data-preco') || inp.getAttribute('data-valor'));
+      if (!total && inp.id) {
+        const lbl = document.querySelector('label[for="' + inp.id + '"]');
+        if (lbl) {
+          const m = lbl.textContent.match(/R\\\$\\s*[\\d.,]+/);
+          if (m) total = parsePriceBR(m[0]);
+        }
+      }
+      if (!total) {
+        const parent = inp.closest('label,li,tr,div');
+        if (parent) {
+          const m = parent.textContent.match(/R\\\$\\s*[\\d.,]+/);
+          if (m) total = parsePriceBR(m[0]);
+        }
+      }
+      if (total) { counts.radio++; pushTier(qty, total, null); }
+    });
+
+    document.querySelectorAll('[data-quantidade],[data-qtd],[data-quantity]').forEach((el) => {
+      const qty = parseQty(el.getAttribute('data-quantidade') || el.getAttribute('data-qtd') || el.getAttribute('data-quantity'));
+      if (!qty) return;
+      const total = parsePriceBR(el.getAttribute('data-price') || el.getAttribute('data-preco') || el.getAttribute('data-valor'));
+      if (total) { counts.dataAttr++; pushTier(qty, total, null); }
+    });
+
+    document.querySelectorAll('ul li, ol li, [class*="preco"], [class*="tier"], [class*="quantidade"]').forEach((el) => {
+      const txt = (el.textContent || '').replace(/\\s+/g, ' ').trim();
+      if (!txt || txt.length > 200) return;
+      const qm = txt.match(/(\\d{2,7})\\s*(?:un|unid|unidades|x|pç|pcs|peças)?/i);
+      const pm = txt.match(/R\\\$\\s*([\\d.,]+)/i);
+      if (!qm || !pm) return;
+      const qty = parseQty(qm[1]);
+      const total = parsePriceBR(pm[1]);
+      if (qty && total) { counts.list++; pushTier(qty, total, null); }
+    });
+
+    return { tiers, counts };
+  });
+
+  return data;
+};
+`;
+
+// Fallback: 1 tier do dataLayer/data-price do HTML estático
+async function scrapeAtualCardDataLayerFallback(url: string, token: string): Promise<Price[]> {
+  let qty: number | null = null;
+  try {
+    const pathname = new URL(url).pathname;
+    const m = pathname.match(/-(\d{2,7})-\d+\/?$/);
+    qty = m ? parseInt(m[1], 10) : null;
+  } catch (_) { /* ignore */ }
+  if (!qty || !isValidQty(qty)) return [];
+
+  const html = await fetchRenderedHtml(url, token);
+  let total: number | null = null;
+  const dlMatch = html.match(/item_id:\s*"\d+"[^}]*?price:\s*([\d.]+)/);
+  if (dlMatch) total = parseFloat(dlMatch[1]);
+  if (!total || total <= 0) {
+    const dpMatch = html.match(/data-price="(\d+\.\d{1,2})"/);
+    if (dpMatch) total = parseFloat(dpMatch[1]);
+  }
+  if (!total || !isValidPrice(total)) return [];
+  return finalizeTiers([{ quantity: qty, total_price: total }], url);
+}
+
+// ---------- Atual Card ----------
 async function scrapeAtualCard(url: string, token: string): Promise<ScrapeResult> {
   const startedAt = Date.now();
-  const baseEmpty = {
+  const base = {
     source_url: url,
     scraped_at: new Date().toISOString(),
     strategy: "function-atualcard" as const,
-    prices: [] as Price[],
-    elapsed_ms: 0,
   };
 
-  // 1) Quantidade vem do path da URL: .../algo-1000-22533
-  let qty: number | null = null;
-  let pathname = "";
-  let qtyMatchRaw: RegExpMatchArray | null = null;
   try {
-    pathname = new URL(url).pathname;
-    qtyMatchRaw = pathname.match(/-(\d{2,7})-\d+\/?$/);
-    qty = qtyMatchRaw ? parseInt(qtyMatchRaw[1], 10) : null;
-  } catch (_) {
-    // URL inválida
-  }
-  console.log(`[atualcard debug qty] pathname=${pathname} match=${JSON.stringify(qtyMatchRaw)} qty=${qty}`);
+    const result = await fetchViaBrowserlessFunction<{
+      tiers: RawTier[];
+      counts?: Record<string, number>;
+    }>(url, token, ATUALCARD_FN_SOURCE);
 
-  if (!qty || !isValidQty(qty)) {
-    return {
-      ...baseEmpty,
-      error: "Quantidade não detectada na URL da Atual Card",
-      elapsed_ms: Date.now() - startedAt,
-    };
-  }
+    console.log(`[atualcard /function] tiers=${result?.tiers?.length ?? 0} counts=${JSON.stringify(result?.counts ?? {})}`);
 
-  try {
-    const html = await fetchRenderedHtml(url, token);
+    let prices = finalizeTiers(result?.tiers ?? [], url);
 
-    // DEBUG: HTML preview
-    const compact = html.replace(/\s+/g, " ");
-    console.log(`[atualcard debug html] url=${url} len=${html.length} preview=${compact.slice(0, 3000)}`);
-
-    // 2) Preço do dataLayer (fonte primária)
-    let total: number | null = null;
-    const dlMatch = html.match(/item_id:\s*"\d+"[^}]*?price:\s*([\d.]+)/);
-    if (dlMatch) total = parseFloat(dlMatch[1]);
-
-    // 3) Fallback: data-price="93.00"
-    const dpMatch = html.match(/data-price="(\d+\.\d{1,2})"/);
-    let totalDp: number | null = null;
-    if (dpMatch) totalDp = parseFloat(dpMatch[1]);
-    if ((!total || total <= 0) && totalDp) total = totalDp;
-
-    console.log(`[atualcard debug regex] dlMatch=${JSON.stringify(dlMatch?.slice(0, 2))} dpMatch=${JSON.stringify(dpMatch?.slice(0, 2))} totalDl=${dlMatch ? parseFloat(dlMatch[1]) : null} totalDp=${totalDp} totalFinal=${total}`);
-
-    // DEBUG: contexto ao redor de keywords se regex falharem
-    if (!total) {
-      const keywords = ["data-price", "item_id", "dataLayer", "\"price\"", "valor", "preco", "R$"];
-      for (const kw of keywords) {
-        const idx = html.indexOf(kw);
-        if (idx >= 0) {
-          const start = Math.max(0, idx - 100);
-          const snippet = html.slice(start, idx + 300).replace(/\s+/g, " ");
-          console.log(`[atualcard debug keyword "${kw}"] idx=${idx} ctx=${snippet}`);
-        } else {
-          console.log(`[atualcard debug keyword "${kw}"] NOT FOUND`);
-        }
+    if (prices.length === 0) {
+      const fallback = await scrapeAtualCardDataLayerFallback(url, token);
+      if (fallback.length > 0) {
+        console.warn(`[atualcard fallback dataLayer] tiers=${fallback.length}`);
+        prices = fallback;
       }
     }
 
-    if (!total || !isValidPrice(total)) {
-      console.warn(`[scrape-atualcard] ${url} | preço não encontrado | ${Date.now() - startedAt}ms`);
-      return {
-        ...baseEmpty,
-        error: "Preço não encontrado no HTML da Atual Card",
-        elapsed_ms: Date.now() - startedAt,
-      };
-    }
-
-    const prices = finalizeTiers([{ quantity: qty, total_price: total }], url);
-    console.log(`[atualcard debug final] qty=${qty} total=${total} tiers=${JSON.stringify(prices)}`);
-    console.log(`[scrape-atualcard] ${url} | qty=${qty} total=${total} tiers=${prices.length} | ${Date.now() - startedAt}ms`);
-
+    console.log(`[scrape-atualcard] ${url} | tiers=${prices.length} | ${Date.now() - startedAt}ms`);
     return {
-      source_url: url,
-      scraped_at: new Date().toISOString(),
-      strategy: "function-atualcard",
+      ...base,
       prices,
-      error: prices.length === 0 ? "Falha ao finalizar tier" : null,
+      error: prices.length === 0 ? "Tabela de preços não encontrada" : null,
       elapsed_ms: Date.now() - startedAt,
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.warn(`[scrape-atualcard] ${url} | erro: ${msg}`);
-    return {
-      ...baseEmpty,
-      error: msg,
-      elapsed_ms: Date.now() - startedAt,
-    };
+    console.warn(`[scrape-atualcard] ${url} | erro /function: ${msg}`);
+    try {
+      const prices = await scrapeAtualCardDataLayerFallback(url, token);
+      if (prices.length > 0) {
+        console.warn(`[atualcard fallback dataLayer pós-erro] tiers=${prices.length}`);
+        return { ...base, prices, error: null, elapsed_ms: Date.now() - startedAt };
+      }
+    } catch (_) { /* ignore */ }
+    return { ...base, prices: [], error: msg, elapsed_ms: Date.now() - startedAt };
   }
 }
 
