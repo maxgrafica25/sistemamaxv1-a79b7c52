@@ -20,6 +20,7 @@ type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onCreated: () => void;
+  categoriasExistentes?: string[];
 };
 
 type WorkerPrice = {
