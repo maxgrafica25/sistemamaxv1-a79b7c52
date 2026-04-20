@@ -109,7 +109,17 @@ Depois que a key nova estiver em uso:
 
 - **Sem dashboard direto do Supabase**: rotação da service role exige suporte. Para autonomia total nesse aspecto, considerar migração para Supabase Connection (projeto Supabase próprio com login completo no dashboard).
 - **Rate limiting**: backend ainda não tem primitivos adequados; mitigação por hora é via desativação manual das funções.
-- **SLA de suporte**: varia por plano (Free/Pro/Business/Enterprise). Recomenda-se testar tempo de resposta em incidente não-crítico **antes** de precisar de verdade.
+- **SLA de suporte**: **não publicado oficialmente**. Lovable garante apenas que clientes pagantes têm acesso ao canal oficial; tempo de resposta **não é contratual** exceto em Enterprise (negociado caso a caso). Para eliminar essa incerteza, única alternativa é arquitetural: migrar para Supabase Connection (controle direto da rotação, sem depender de suporte).
+
+---
+
+## Registro de calibração de SLA
+
+Preencher conforme rodar a calibração proativa (Fase 2). Manter histórico para comparar evolução do suporte ao longo do tempo.
+
+| Data       | Plano   | Canal       | 1ª resposta humana | Observações |
+|------------|---------|-------------|--------------------|-------------|
+| _(vazio)_  |         |             |                    |             |
 
 ---
 
