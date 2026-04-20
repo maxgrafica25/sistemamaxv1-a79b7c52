@@ -568,13 +568,21 @@ export default function Monitoramento() {
     setSites((prev) => prev.map((x) => (x.id === s.id ? { ...x, ativo: !s.ativo } : x)));
   };
 
+  // Função pura: sincroniza UM site via edge function scrape-prices.
+  // Pronta para ser chamada tanto pelo loop manual quanto por um futuro cron.
+  const syncSite = async (siteId: string) => {
+    const { data, error } = await supabase.functions.invoke("scrape-prices", {
+      body: { site_id: siteId },
+    });
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.error || "Falha ao sincronizar");
+    return data;
+  };
+
   const handleSyncOne = async (siteId: string) => {
     setSyncingId(siteId);
     try {
-      const { error } = await supabase.functions.invoke("scheduled-sync-firecrawl", {
-        body: { site_id: siteId },
-      });
-      if (error) throw error;
+      await syncSite(siteId);
       toast.success("Sincronização concluída");
     } catch (e: any) {
       toast.error(e.message || "Falha ao sincronizar");
@@ -585,10 +593,19 @@ export default function Monitoramento() {
 
   const handleSyncAll = async () => {
     setSyncing(true);
+    let ok = 0;
+    let fail = 0;
     try {
-      const { data, error } = await supabase.functions.invoke("scheduled-sync-firecrawl", { body: {} });
-      if (error) throw error;
-      toast.success(`Sincronização: ${data?.processed ?? 0} sites processados`);
+      const ativos = sites.filter((s) => s.ativo);
+      for (const s of ativos) {
+        try {
+          await syncSite(s.id);
+          ok++;
+        } catch {
+          fail++;
+        }
+      }
+      toast.success(`Sincronização: ${ok} ok · ${fail} falha(s)`);
     } catch (e: any) {
       toast.error(e.message || "Falha ao disparar sincronização");
     } finally {
@@ -882,9 +899,9 @@ export default function Monitoramento() {
                               <CardTitle className="text-base truncate">{g.nome}</CardTitle>
                               <CardDescription className="flex items-center gap-1.5 flex-wrap">
                                 <span>{g.fornecedor || "—"}</span>
-                                {repr.metodo_coleta === "firecrawl" && (
-                                  <Badge variant="outline" className="text-[10px] h-4 px-1"><Layers className="h-2.5 w-2.5 mr-0.5" />auto</Badge>
-                                )}
+                                <Badge variant="outline" className="text-[10px] h-4 px-1">
+                                  <Layers className="h-2.5 w-2.5 mr-0.5" />playwright
+                                </Badge>
                                 {isMerged && (
                                   <Badge variant="outline" className="text-[10px] h-4 px-1">
                                     {g.sites.length} links
@@ -1004,18 +1021,16 @@ export default function Monitoramento() {
                                   ? formatDistanceToNow(new Date(g.latestCheck), { addSuffix: true, locale: ptBR })
                                   : "Nunca"}
                               </span>
-                              {repr.metodo_coleta === "firecrawl" && (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-6 w-6"
-                                  onClick={() => g.sites.forEach((s) => handleSyncOne(s.id))}
-                                  disabled={g.sites.some((s) => syncingId === s.id)}
-                                  title={isMerged ? `Sincronizar ${g.sites.length} sites` : "Sincronizar"}
-                                >
-                                  <RefreshCw className={`h-3 w-3 ${g.sites.some((s) => syncingId === s.id) ? "animate-spin" : ""}`} />
-                                </Button>
-                              )}
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => g.sites.forEach((s) => handleSyncOne(s.id))}
+                                disabled={g.sites.some((s) => syncingId === s.id)}
+                                title={isMerged ? `Sincronizar ${g.sites.length} sites` : "Sincronizar"}
+                              >
+                                <RefreshCw className={`h-3 w-3 ${g.sites.some((s) => syncingId === s.id) ? "animate-spin" : ""}`} />
+                              </Button>
                             </div>
                           </div>
                         </CardContent>
@@ -1051,18 +1066,16 @@ export default function Monitoramento() {
                       <TableCell className="font-medium">{s.nome_produto}</TableCell>
                       <TableCell><Badge variant="outline">{s.categoria}</Badge></TableCell>
                       <TableCell>{s.fornecedor_nome || "—"}</TableCell>
-                      <TableCell><Badge variant="secondary" className="text-xs">{s.metodo_coleta || "url_simples"}</Badge></TableCell>
+                      <TableCell><Badge variant="secondary" className="text-xs">playwright</Badge></TableCell>
                       <TableCell className="text-right font-mono">{formatBRL(s.preco_atual)}</TableCell>
                       <TableCell className="text-right font-mono">{(tiersBySite[s.id] || []).length || "—"}</TableCell>
                       <TableCell className="text-xs">
                         <div className="flex flex-col gap-1">
                           <span>{s.timestamp_check ? new Date(s.timestamp_check).toLocaleString("pt-BR") : "—"}</span>
                           <div className="flex items-center gap-1">
-                            {s.scrape_source && (
-                              <Badge variant="outline" className="text-[10px] py-0 px-1 h-4">
-                                {s.scrape_source === "worker" ? "Worker" : "Firecrawl"}
-                              </Badge>
-                            )}
+                            <Badge variant="outline" className="text-[10px] py-0 px-1 h-4">
+                              playwright
+                            </Badge>
                             {s.scrape_status === "error" && s.scrape_error && (
                               <Badge variant="destructive" className="text-[10px] py-0 px-1 h-4" title={s.scrape_error}>
                                 erro
