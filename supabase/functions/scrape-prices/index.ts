@@ -222,11 +222,15 @@ async function fetchViaBrowserlessFunction<T>(
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
       let friendly = `Browserless /function HTTP ${r.status}`;
-      if (r.status === 401) friendly = "API key inválida (BROWSERLESS_API_KEY)";
+      if (r.status === 400) {
+        console.warn(`[browserless /function 400] body=${txt.slice(0, 300)}`);
+        friendly = "Browserless /function 400 (formato do código rejeitado)";
+      }
+      else if (r.status === 401) friendly = "API key inválida (BROWSERLESS_API_KEY)";
       else if (r.status === 402) friendly = "Cota Browserless excedida (402)";
       else if (r.status === 429) friendly = "Rate limit Browserless (429)";
       else if (r.status === 408 || r.status === 504) friendly = `Timeout Browserless (${r.status})`;
-      throw new Error(`${friendly}: ${txt.slice(0, 200)}`);
+      throw new Error(`${friendly}: ${txt.slice(0, 300)}`);
     }
     const json = await r.json();
     return (json?.data ?? json) as T;
@@ -238,7 +242,7 @@ async function fetchViaBrowserlessFunction<T>(
 
 // Função JS executada DENTRO do navegador headless do Browserless.
 const ATUALCARD_FN_SOURCE = `
-module.exports = async ({ page, context }) => {
+export default async function ({ page, context }) {
   await page.goto(context.url, { waitUntil: 'networkidle2', timeout: 30000 });
 
   try {
@@ -347,7 +351,7 @@ module.exports = async ({ page, context }) => {
   });
 
   return data;
-};
+}
 `;
 
 // Fallback: 1 tier do dataLayer/data-price do HTML estático
