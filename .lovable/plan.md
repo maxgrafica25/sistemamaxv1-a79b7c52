@@ -1,94 +1,89 @@
 
+# Adicionar logs temporários de depuração no `scrapeAtualCard`
 
-# Atual Card: extrair preço único + quantidade da URL
+Vou preparar uma depuração focada só na Atual Card para mostrar exatamente o que o `/content` está retornando e por que a regex não está encontrando preço.
 
-## Descoberta
+## Arquivo a ajustar
 
-A Atual Card **não tem tabela de tiers escalonados** por página. Cada URL representa um SKU específico para **uma quantidade fixa** que está codificada no próprio path:
+- `supabase/functions/scrape-prices/index.ts`
 
-```
-.../flyer-couche-80g-4x0-sem-verniz-14x10-cm-1000-22533
-                                            ^^^^  ^^^^^
-                                            qty   sku_id
-```
+## Mudanças
 
-E o preço aparece em **dois lugares estáveis no HTML**, sem precisar de JS render:
-
-1. No `dataLayer` do Google Tag Manager (mais confiável):
-   ```js
-   item_id: "22533", item_name: "Flyer", ..., price: 93.00, quantity: quantidade
-   ```
-2. Em `data-price="93.00"` num elemento renderizado.
-
-Os preços dos templates Handlebars (`{{price}}`) são placeholders — o valor real (`93.00`) está hardcoded no script `dataLayer.push(...)` injetado no HTML.
-
-## Estratégia nova para `scrapeAtualCard`
-
-Não precisa mais do `/function` do Browserless. Volta a usar `/content` (mais barato e rápido), e extrai via regex:
-
-1. **Quantidade** vem do path da URL: regex `/-(\d{2,7})-\d+\/?$/` no pathname → `1000`.
-2. **Preço unitário total** vem do dataLayer: regex `/item_id:\s*"(\d+)"[^}]*?price:\s*([\d.]+)/` → `93.00`.
-3. Calcula `unit_price = total_price / quantity` → `0.093`.
-4. Devolve **um único tier** com `{ quantity: 1000, total_price: 93.00, unit_price: 0.093 }`.
-
-Fallback se o dataLayer falhar:
-- Procurar `data-price="(\d+\.\d{2})"` no HTML como segunda fonte.
-- Se nada funcionar, retorna `error: "Preço não encontrado no HTML da Atual Card"`.
-
-## Mudanças em `supabase/functions/scrape-prices/index.ts`
-
-Substituir a função `scrapeAtualCard` atual (que usa `/function` e devolve 0 tiers) por uma versão simples baseada em `/content` + regex:
+### 1) Logar preview do HTML bruto retornado pelo `/content`
+Dentro de `scrapeAtualCard`, logo após:
 
 ```ts
-async function scrapeAtualCard(url: string, token: string): Promise<ScrapeResult> {
-  const startedAt = Date.now();
-  
-  // 1) qty da URL
-  const qtyMatch = new URL(url).pathname.match(/-(\d{2,7})-\d+\/?$/);
-  const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : null;
-  
-  if (!qty || !isValidQty(qty)) {
-    return { ...empty, error: "Quantidade não detectada na URL da Atual Card" };
-  }
-  
-  try {
-    const html = await fetchRenderedHtml(url, token);
-    
-    // 2) preço do dataLayer (fonte primária)
-    let total: number | null = null;
-    const dlMatch = html.match(/item_id:\s*"\d+"[^}]*?price:\s*([\d.]+)/);
-    if (dlMatch) total = parseFloat(dlMatch[1]);
-    
-    // 3) fallback: data-price=
-    if (!total || total <= 0) {
-      const dpMatch = html.match(/data-price="(\d+\.\d{1,2})"/);
-      if (dpMatch) total = parseFloat(dpMatch[1]);
-    }
-    
-    if (!total || !isValidPrice(total)) {
-      return { ...empty, error: "Preço não encontrado no HTML da Atual Card" };
-    }
-    
-    const prices = finalizeTiers([{ quantity: qty, total_price: total }], url);
-    return { source_url: url, scraped_at: new Date().toISOString(), strategy: "function-atualcard", prices, error: null, elapsed_ms: Date.now() - startedAt };
-  } catch (e) {
-    return { ...empty, error: e instanceof Error ? e.message : String(e) };
-  }
-}
+const html = await fetchRenderedHtml(url, token);
 ```
 
-A função `scrapeViaBrowserlessFunction` pode ficar no arquivo (sem uso ativo) ou ser removida — vou removê-la para manter o arquivo limpo.
+adicionar um log temporário com:
+- tamanho total do HTML
+- primeiros 3000 caracteres
+- versão compactada opcional (`replace(/\s+/g, " ")`) para facilitar leitura nos logs
 
-## Comportamento observado pelo usuário
+Exemplo de saída esperada:
 
-- Colar URL da Atual Card → resultado mostra **1 tier** (qty=1000, R$ 93,00, R$ 0,093/un).
-- Estratégia continua aparecendo como `function-atualcard` (badge violeta — sem mudança no UI).
-- Mais rápido (~1-2s em vez de ~12s) e sem chamar `/function`.
-- ANS, FuturaIM, Imprima Rápido continuam usando o fluxo HTML padrão sem alteração.
+```text
+[atualcard debug html] url=... len=123456 preview=<html>...</html>
+```
 
-## Arquivo afetado
+### 2) Logar a extração da quantidade da URL
+Antes da busca de preço, registrar:
+- `pathname`
+- `qtyMatch?.[0]`
+- `qtyMatch?.[1]`
+- `qty` final parseado
 
-| Ação | Arquivo |
-|------|---------|
-| Editar | `supabase/functions/scrape-prices/index.ts` (reescrever `scrapeAtualCard`, remover `scrapeViaBrowserlessFunction`) |
+Isso confirma se a parte da quantidade está correta.
 
+### 3) Logar o resultado exato das regex atuais
+Registrar separadamente:
+- resultado cru de `html.match(...)` do dataLayer
+- resultado cru de `html.match(...)` do `data-price`
+- valor parseado de cada um
+
+Exemplo:
+
+```text
+[atualcard debug regex] dlMatch=["...", "93.00"] dpMatch=["data-price=\"93.00\"", "93.00"] totalFromDataLayer=93 totalFromDataPrice=93
+```
+
+### 4) Logar pistas adicionais no HTML para achar o seletor real
+Se as regex falharem, adicionar logs auxiliares com pequenas amostras quando existirem:
+- primeira ocorrência de `"price"`
+- primeira ocorrência de `"data-price"`
+- primeira ocorrência de `"valor"`
+- primeira ocorrência de `"preco"`
+- primeira ocorrência de `"item_id"`
+- primeira ocorrência de `"dataLayer"`
+
+A ideia é capturar um trecho de contexto próximo ao match, por exemplo 200–400 caracteres ao redor da ocorrência, sem despejar o HTML inteiro.
+
+### 5) Logar o motivo final do tier zerado
+Antes do retorno final, registrar:
+- `qty`
+- `total`
+- resultado de `finalizeTiers(...)`
+- se falhou por regex não encontrada ou por validação do `finalizeTiers`
+
+Assim fica claro se o problema é:
+- HTML não contém preço
+- regex errada
+- preço vem em outro formato
+- `finalizeTiers` descartou o dado
+
+## O que não muda
+
+- Nenhuma mudança no fluxo de ANS, Futura IM ou outros fornecedores.
+- Nenhuma alteração em UI, banco ou `NovoSiteDialog`.
+- A estratégia automática por domínio continua igual.
+
+## Resultado esperado
+
+Após clicar em “Testar scraping” para a URL da Atual Card, os logs da função vão mostrar:
+- o começo real do HTML vindo do `/content`
+- o resultado real das regex do `dataLayer` e `data-price`
+- a quantidade detectada na URL
+- o ponto exato em que o tier está sendo perdido
+
+Com isso, na próxima iteração dá para ajustar a regex/seletor certo com base no HTML real e depois remover esses logs temporários.
