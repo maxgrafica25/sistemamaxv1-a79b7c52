@@ -221,6 +221,7 @@ export default function Monitoramento() {
   const [filterProduto, setFilterProduto] = useState<string>("all");
   const [openDialog, setOpenDialog] = useState(false);
   const [openCatalogo, setOpenCatalogo] = useState(false);
+  const [openGerenciarCat, setOpenGerenciarCat] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [qtdAlvo, setQtdAlvo] = useState<number>(100);
