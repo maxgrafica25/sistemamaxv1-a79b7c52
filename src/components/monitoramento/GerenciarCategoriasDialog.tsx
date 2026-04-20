@@ -125,20 +125,40 @@ export default function GerenciarCategoriasDialog({
     onCategoriaRemoved?.(oldName);
   };
 
-  const handleMove = async (origem: string) => {
-    if (!moveTarget) return toast.error("Selecione uma categoria de destino");
+  const performMove = async (origem: string, destino: string, from: "move" | "delete") => {
     setBusy(true);
     const { error, count } = await supabase
       .from("sites_monitorados")
-      .update({ categoria: moveTarget }, { count: "exact" })
+      .update({ categoria: destino }, { count: "exact" })
       .eq("categoria", origem);
     setBusy(false);
     if (error) return toast.error("Erro ao mover: " + error.message);
-    toast.success(`${count ?? 0} sites movidos para "${moveTarget}"`);
+    const dupCount = duplicates?.length ?? 0;
+    if (dupCount > 0) {
+      toast.success(`${count ?? 0} sites movidos · ${dupCount} duplicata(s) criada(s) — revise no Comparativo`);
+    } else {
+      toast.success(`${count ?? 0} sites movidos para "${destino}"`);
+    }
     setMovingFrom(null);
     setMoveTarget("");
+    setDuplicates(null);
+    setPendingMerge(null);
+    if (from === "delete") setDeleting(null);
     onChanged();
     onCategoriaRemoved?.(origem);
+  };
+
+  const handleMove = async (origem: string) => {
+    if (!moveTarget) return toast.error("Selecione uma categoria de destino");
+    setBusy(true);
+    const dups = await detectDuplicates(origem, moveTarget);
+    setBusy(false);
+    if (dups.length > 0) {
+      setDuplicates(dups);
+      setPendingMerge({ origem, destino: moveTarget, from: "move" });
+      return;
+    }
+    await performMove(origem, moveTarget, "move");
   };
 
   const handleDelete = async () => {
@@ -146,16 +166,14 @@ export default function GerenciarCategoriasDialog({
     if (deleteMode === "move") {
       if (!deleteMoveTarget) return toast.error("Selecione uma categoria de destino");
       setBusy(true);
-      const { error, count } = await supabase
-        .from("sites_monitorados")
-        .update({ categoria: deleteMoveTarget }, { count: "exact" })
-        .eq("categoria", deleting.nome);
+      const dups = await detectDuplicates(deleting.nome, deleteMoveTarget);
       setBusy(false);
-      if (error) return toast.error("Erro ao mover: " + error.message);
-      toast.success(`${count ?? 0} sites movidos para "${deleteMoveTarget}"`);
-      onCategoriaRemoved?.(deleting.nome);
-      setDeleting(null);
-      onChanged();
+      if (dups.length > 0) {
+        setDuplicates(dups);
+        setPendingMerge({ origem: deleting.nome, destino: deleteMoveTarget, from: "delete" });
+        return;
+      }
+      await performMove(deleting.nome, deleteMoveTarget, "delete");
     } else {
       // hard delete - exige confirmação extra
       setConfirmHardDelete(true);
