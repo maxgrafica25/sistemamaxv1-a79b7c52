@@ -34,18 +34,42 @@ Objetivo: cortar o uso ativo da chave vazada antes da rotação oficial.
 
 ## Fase 2 — Em paralelo, escalar para suporte Lovable (rotação oficial)
 
-A `SUPABASE_SERVICE_ROLE_KEY` em si só é rotacionada pela equipe Lovable. Abrir chamado por **dois canais simultaneamente** para acelerar resposta:
+A `SUPABASE_SERVICE_ROLE_KEY` em si só é rotacionada pela equipe Lovable. Antes de abrir chamado, conferir `https://status.lovable.dev/` — se há incidente plataforma-wide em andamento, mencionar no corpo do ticket pode acelerar contexto.
 
-1. **Email**
+Abrir chamado por canais oficiais, em ordem de prioridade:
+
+1. **Formulário oficial (canal primário)**
+   - URL: `https://lovable.dev/support`
+   - Esse é o caminho indicado pela [support policy](https://docs.lovable.dev/introduction/support-policy) oficial.
+   - A primeira resposta é via AI. **No corpo do chamado, já pedir explicitamente**: `"Escalate to human — security incident — service role key compromise — project 667f8a1f-61e4-4274-8da0-fdacd8d61791"`.
+   - Descrever: quando começou a suspeita, como foi descoberto, mitigação da Fase 1 já aplicada.
+
+2. **Email (fallback)**
    - Para: `support@lovable.dev`
-   - Assunto: `URGENT: service role key compromise — project 667f8a1f-61e4-4274-8da0-fdacd8d61791`
-   - Corpo: descrever quando suspeita do vazamento, como descobriu, e que mitigação da Fase 1 já foi aplicada.
+   - Usar apenas se o formulário estiver indisponível.
+   - Mesmo assunto/corpo do item 1.
 
-2. **Discord oficial Lovable**
-   - Canal `#support`
-   - Mencionar @staff/@admin com mesma informação resumida.
+3. **Discord (complementar — community-only, sem garantia de resposta oficial)**
+   - `https://discord.gg/lovable-dev`, canal `#support`.
+   - Útil para visibilidade pública do incidente, **não substitui** o canal primário.
 
 Aguardar confirmação de que a rotação foi feita e que `.env`/secrets do projeto foram atualizados.
+
+### Tempo de resposta esperado
+
+Lovable **não publica SLA numérico** para incidentes de segurança em nenhum plano (Free, Pro, Teams, Business, Enterprise). A [support policy](https://docs.lovable.dev/introduction/support-policy) oficial cobre "platform bugs" no escopo, mas **sem tempo de resposta garantido publicamente** exceto em contratos Enterprise (negociados caso a caso).
+
+**Não documentamos um número fixo aqui** porque qualquer estimativa seria especulação e criaria falsa segurança. Em vez disso, calibre o SLA real do seu workspace antes de precisar (ver subseção abaixo).
+
+### Calibração proativa do SLA real
+
+Rodar **antes** de um incidente de verdade, para ter número realista baseado no comportamento real do suporte no plano atual:
+
+1. Abrir chamado não-crítico (ex: "dúvida sobre limites do plano X") via formulário oficial.
+2. Cronometrar: tempo até **primeira resposta humana** (não AI).
+3. Repetir 2-3x em momentos diferentes (semana útil, fim de semana, feriado).
+4. Anotar resultado na tabela ao final deste documento.
+5. Usar a **média observada × 2** como estimativa realista para pior caso de incidente.
 
 ---
 
