@@ -13,7 +13,6 @@ import { TrendingUp, TrendingDown, RefreshCw, Plus, Trash2, ExternalLink, Trophy
 import NovoSiteDialog from "@/components/monitoramento/NovoSiteDialog";
 import CatalogoProdutosDialog from "@/components/monitoramento/CatalogoProdutosDialog";
 import GerenciarCategoriasDialog from "@/components/monitoramento/GerenciarCategoriasDialog";
-import { useAuth } from "@/hooks/useAuth";
 import { LineChart, Line, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
