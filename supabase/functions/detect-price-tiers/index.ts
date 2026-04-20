@@ -198,6 +198,27 @@ function normalizeWorkerUrl(raw: string | undefined): string | null {
   }
 }
 
+function isWorkerSetupError(message: string | undefined): boolean {
+  if (!message) return false;
+  return /SCRAPER_WORKER_URL inválida|Worker não encontrado|unauthorized|Worker HTTP (401|403|404|405)|Invalid URL/i.test(message);
+}
+
+async function checkWorkerHealth(workerUrl: string): Promise<{ ok: boolean; detail?: string }> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const response = await fetch(`${workerUrl}/health`, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!response.ok) return { ok: false, detail: `health HTTP ${response.status}` };
+    const data = await response.json().catch(() => null);
+    if (!data || data.status !== "ok") return { ok: false, detail: "health sem {status:'ok'}" };
+    return { ok: true };
+  } catch (error) {
+    clearTimeout(timer);
+    return { ok: false, detail: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 async function tryWorker(url: string): Promise<{ tiers: Tier[]; error?: string } | null> {
   const rawWorkerUrl = Deno.env.get("SCRAPER_WORKER_URL");
   const workerUrl = normalizeWorkerUrl(rawWorkerUrl);
@@ -207,6 +228,13 @@ async function tryWorker(url: string): Promise<{ tiers: Tier[]; error?: string }
     return {
       tiers: [],
       error: `SCRAPER_WORKER_URL inválida: "${rawWorkerUrl}". Use a URL completa do serviço scraper-worker (https://...).`,
+    };
+  }
+  const health = await checkWorkerHealth(workerUrl);
+  if (!health.ok) {
+    return {
+      tiers: [],
+      error: `Worker não encontrado em ${workerUrl} (${health.detail}). Verifique se o serviço scraper-worker foi deployado no Railway e se SCRAPER_WORKER_URL aponta para o domínio público correto.`,
     };
   }
   const ctrl = new AbortController();
@@ -369,6 +397,13 @@ export async function scrapeAndExtractTiers(url: string, firecrawlKey: string, o
     const w = await tryWorker(url);
     if (w && w.tiers.length) {
       return { produto: "", fornecedor: "", tiers: w.tiers, diagnostics: { used_worker: true } };
+    }
+    if (w?.error && isWorkerSetupError(w.error)) {
+      return {
+        produto: "", fornecedor: "", tiers: [],
+        diagnostics: { worker_attempted: true, worker_error: w.error },
+        error_user: w.error,
+      };
     }
     // Worker indisponível ou sem tiers — cai para visual se permitido
     if (!allowVisual) {
