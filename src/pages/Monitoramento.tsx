@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { TrendingUp, TrendingDown, RefreshCw, Plus, Trash2, ExternalLink, Trophy, AlertTriangle, Wifi, WifiOff, Layers, Target, Flame, ShoppingCart, Sparkles, BookOpen } from "lucide-react";
 import NovoSiteDialog from "@/components/monitoramento/NovoSiteDialog";
 import CatalogoProdutosDialog from "@/components/monitoramento/CatalogoProdutosDialog";
+import GerenciarCategoriasDialog from "@/components/monitoramento/GerenciarCategoriasDialog";
 import { LineChart, Line, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -221,6 +222,7 @@ export default function Monitoramento() {
   const [filterProduto, setFilterProduto] = useState<string>("all");
   const [openDialog, setOpenDialog] = useState(false);
   const [openCatalogo, setOpenCatalogo] = useState(false);
+  const [openGerenciarCat, setOpenGerenciarCat] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [qtdAlvo, setQtdAlvo] = useState<number>(100);
@@ -301,6 +303,12 @@ export default function Monitoramento() {
     () => Array.from(new Set(sites.map((s) => s.categoria))).sort(),
     [sites]
   );
+
+  const categoriasComCount = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of sites) map.set(s.categoria, (map.get(s.categoria) || 0) + 1);
+    return Array.from(map.entries()).map(([nome, count]) => ({ nome, count }));
+  }, [sites]);
 
   const sitesFiltrados = useMemo(() => {
     const search = stripAccents((searchTerm || "").toLowerCase()).trim();
@@ -717,7 +725,24 @@ export default function Monitoramento() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setOpenGerenciarCat(true)}
+            title="Gerenciar categorias"
+          >
+            <Layers className="h-3.5 w-3.5 mr-1" /> Gerenciar
+          </Button>
         </div>
+        <GerenciarCategoriasDialog
+          open={openGerenciarCat}
+          onOpenChange={setOpenGerenciarCat}
+          categorias={categoriasComCount}
+          onChanged={fetchAll}
+          onCategoriaRemoved={(nome) => {
+            if (filterCategoria === nome) setFilterCategoria("all");
+          }}
+        />
         <div className="flex items-center gap-2">
           <Label>Produto:</Label>
           <Select value={filterProduto} onValueChange={setFilterProduto}>
