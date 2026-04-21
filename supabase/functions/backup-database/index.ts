@@ -206,7 +206,9 @@ Deno.serve(async (req) => {
           write(`    "foreign_keys": ${JSON.stringify(fks)},\n`);
           write(`    "functions": ${JSON.stringify(functions)},\n`);
           write(`    "triggers": ${JSON.stringify(triggers)},\n`);
-          write(`    "policies": ${JSON.stringify(policies)}\n`);
+          write(`    "policies": ${JSON.stringify(policies)},\n`);
+          write(`    "cron_jobs": ${JSON.stringify(cronJobs)},\n`);
+          write(`    "realtime_publication": ${JSON.stringify(realtimePub)}\n`);
           write(`  },\n  "auth_users": ${JSON.stringify(authUsers)},\n`);
           write(`  "data": {\n`);
           for (let i = 0; i < ordered.length; i++) {
