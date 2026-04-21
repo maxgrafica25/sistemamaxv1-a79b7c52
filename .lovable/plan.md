@@ -1,57 +1,64 @@
 
 
-# Polir UX do "Cadastrar novo produto" no ProductPicker
+# Refinar UX da aba Monitoramento (revisado)
 
-## Problemas
+## 1. ProductPicker — clarificar dupla função
 
-1. Botão roxo gigante (`variant="default"`, `w-full`) dentro do popover — visualmente agressivo e desproporcional.
-2. Quando não há texto digitado, dispara `window.prompt()` nativo do navegador — UI feia, fora do tema, intrusivo.
+- **Trigger label**: `"Buscar ou cadastrar produto..."`
+- **Placeholder do CommandInput**: `"Digite para buscar ou cadastrar..."`
+- **Cabeçalho do popover** (linha curta `text-xs text-muted-foreground` acima do input): **"Selecione um produto existente ou cadastre um novo abaixo"**
+- Botão "Cadastrar" mantém estilo ghost atual; quando habilitado, ícone `Plus` em `text-primary` e a palavra "Cadastrar" em `font-medium`.
 
-## Solução
+## 2. Renomear "Testar scraping" → "Buscar preços"
 
-### 1. Botão "Cadastrar" mais discreto
+Em `NovoSiteDialog.tsx`:
+- Texto do botão: **"Buscar preços"**, ícone trocado de `FlaskConical` para `Search`.
+- Toasts: `"Erro ao testar scraping"` → `"Erro ao buscar preços"`; `'Clique em "Testar scraping" antes de salvar'` → `'Clique em "Buscar preços" antes de salvar'`.
 
-No `ProductPicker.tsx`, trocar o bloco do botão por um item compacto, alinhado ao estilo do resto do Command:
-- `variant="ghost"` em vez de `default` (sem fundo roxo).
-- Texto menor, ícone `+` discreto à esquerda.
-- Quando não há busca digitada: rotular **"Digite um nome para cadastrar"** e deixar o botão **desabilitado** (em vez de abrir prompt nativo).
-- Quando há busca: rotular **`Cadastrar: "texto"`** e habilitar.
+## 3. Renomear abas
 
-```tsx
-<div className="p-1 border-b">
-  <Button
-    type="button"
-    variant="ghost"
-    size="sm"
-    className="w-full justify-start gap-2 h-8 text-sm font-normal"
-    disabled={!trimmedSearch}
-    onClick={handleCreateNew}
-  >
-    <Plus className="h-3.5 w-3.5 text-primary" />
-    {trimmedSearch ? (
-      <>Cadastrar: <span className="font-medium">"{trimmedSearch}"</span></>
-    ) : (
-      <span className="text-muted-foreground">Digite um nome acima para cadastrar</span>
-    )}
-  </Button>
-</div>
-```
+| Atual | Nova |
+|---|---|
+| Oportunidades | Oportunidades |
+| Comparativo | **Comparar fornecedores** |
+| Tabela completa | **Gerenciar sites** |
+| Alertas | Alertas |
 
-### 2. Eliminar o `window.prompt`
+"Gerenciar sites" mantida — é a única view com CRUD (ativar/desativar, excluir, sync manual) e mostra inclusive sites sem preço coletado.
 
-Removido completamente. O fluxo passa a ser: usuário digita no `CommandInput` → o próprio texto vira o nome do novo produto ao clicar em "Cadastrar". Mais rápido, mais limpo, no mesmo controle que ele já está usando para buscar.
+## 4. Botão "Gerar alerta de teste" na aba Alertas (Opção B confirmada viável)
 
-### 3. Mensagem do empty state
+**Constraint verificada:** `alertas_precos.site_id` é NOT NULL com FK para `sites_monitorados` (ON DELETE CASCADE). A inserção direta funciona desde que use um `site_id` real.
 
-Ajustar para refletir o novo fluxo: **"Nenhum produto encontrado. Digite o nome desejado e clique em Cadastrar."**
+**Implementação:**
+1. Pequeno botão `variant="outline" size="sm"` no rodapé da aba Alertas: **"Gerar alerta de teste"**.
+2. Ao clicar:
+   - Buscar 1 site qualquer ativo: `supabase.from("sites_monitorados").select("id, nome_produto, fornecedor_nome").eq("ativo", true).limit(1)`.
+   - Se não houver site ativo: toast `"Cadastre ao menos um site ativo para testar alertas"` e aborta.
+   - Se houver: insere em `alertas_precos`:
+     ```ts
+     {
+       site_id: <id do site>,
+       mensagem: "[TESTE] Alerta sintético — pode marcar como lido",
+       prioridade: "baixa",
+       produto_nome: "[TESTE]",
+       fornecedor_nome: site.fornecedor_nome,
+     }
+     ```
+3. Realtime existente já propaga para a UI; usuário valida exibição + "marcar como lido" + remoção da lista.
+4. **Não toca em `site_precos_tiers`** → não polui histórico, não dispara trigger, não precisa reverter.
+
+## Arquivos afetados
+
+- `src/components/monitoramento/ProductPicker.tsx`
+- `src/components/monitoramento/NovoSiteDialog.tsx`
+- `src/pages/Monitoramento.tsx`
 
 ## Fora de escopo
 
-- Lógica de criação no Supabase (`findOrCreateCatalogo`) — intacta.
-- `NovoSiteDialog`, demais componentes — intactos.
-- Cor primária / tema global.
+Scraping, schema, RLS, triggers, layout/cores globais.
 
 ## Risco
 
-Mínimo. Mudança puramente visual + remoção de `window.prompt`. Sem alterações de schema, RLS ou contrato de `onChange`.
+Mínimo. Mudanças textuais + 1 botão isolado que insere uma linha descartável em `alertas_precos` referenciando um site existente.
 
