@@ -1984,10 +1984,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      backup_get_cron_jobs: { Args: never; Returns: Json }
       backup_get_foreign_keys: { Args: never; Returns: Json }
       backup_get_functions: { Args: never; Returns: Json }
       backup_get_indexes: { Args: never; Returns: Json }
       backup_get_policies: { Args: never; Returns: Json }
+      backup_get_realtime_publication: { Args: never; Returns: Json }
       backup_get_tables: { Args: never; Returns: Json }
       backup_get_triggers: { Args: never; Returns: Json }
       detectar_duplicatas_categorias: {
