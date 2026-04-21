@@ -1,0 +1,254 @@
+# =============================================================================
+# docker-compose.yml — stack completo para VPS (frontend + Supabase self-hosted)
+# =============================================================================
+# Variáveis vêm do .env (template em .env.example, doc em docs/deployment-vars.md)
+# Subir: docker compose up -d
+# =============================================================================
+
+name: lovable-stack
+
+x-restart: &restart
+  restart: unless-stopped
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  pgdata:
+  minio_data:
+  caddy_data:
+  caddy_config:
+
+services:
+  # ---------------------------------------------------------------------------
+  # Postgres — banco principal com pg_cron + extensões
+  # ---------------------------------------------------------------------------
+  db:
+    <<: *restart
+    image: postgres:15
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_cron
+      - -c
+      - cron.database_name=${POSTGRES_DB:-postgres}
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  # ---------------------------------------------------------------------------
+  # GoTrue — autenticação (JWT HS256)
+  # ---------------------------------------------------------------------------
+  auth:
+    <<: *restart
+    image: supabase/gotrue:v2.158.1
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}?search_path=auth
+      GOTRUE_SITE_URL: ${SITE_URL}
+      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}
+      GOTRUE_DISABLE_SIGNUP: ${DISABLE_SIGNUP:-false}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_JWT_EXP: ${JWT_EXP:-3600}
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_RATE_LIMIT_EMAIL_SENT: ${GOTRUE_RATE_LIMIT_EMAIL_SENT:-300}
+      GOTRUE_MAILER_AUTOCONFIRM: "false"
+      GOTRUE_SMTP_HOST: ${GOTRUE_SMTP_HOST}
+      GOTRUE_SMTP_PORT: ${GOTRUE_SMTP_PORT}
+      GOTRUE_SMTP_USER: ${GOTRUE_SMTP_USER}
+      GOTRUE_SMTP_PASS: ${GOTRUE_SMTP_PASS}
+      GOTRUE_SMTP_ADMIN_EMAIL: ${GOTRUE_SMTP_ADMIN_EMAIL}
+      GOTRUE_SMTP_SENDER_NAME: ${GOTRUE_SMTP_SENDER_NAME}
+    networks: [internal]
+
+  # ---------------------------------------------------------------------------
+  # PostgREST — REST API automática a partir do schema public
+  # ---------------------------------------------------------------------------
+  rest:
+    <<: *restart
+    image: postgrest/postgrest:v12.2.3
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}
+      PGRST_DB_SCHEMAS: public,storage
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXP:-3600}
+    networks: [internal]
+
+  # ---------------------------------------------------------------------------
+  # Realtime — broadcast de mudanças via Postgres logical replication
+  # ---------------------------------------------------------------------------
+  realtime:
+    <<: *restart
+    image: supabase/realtime:v2.33.70
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB:-postgres}
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC_KEY: supabaserealtime
+      API_JWT_SECRET: ${JWT_SECRET}
+      SECRET_KEY_BASE: ${JWT_SECRET}${JWT_SECRET}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
+    networks: [internal]
+
+  # ---------------------------------------------------------------------------
+  # MinIO — backend S3 self-hosted (substitui Supabase Storage no AWS)
+  # ---------------------------------------------------------------------------
+  minio:
+    <<: *restart
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  # Cria buckets uma vez após MinIO subir (idempotente)
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio: { condition: service_healthy }
+    environment:
+      MINIO_HOST: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ./docker/init-buckets.sh:/init-buckets.sh:ro
+    entrypoint: ["/bin/sh", "/init-buckets.sh"]
+    networks: [internal]
+
+  # ---------------------------------------------------------------------------
+  # Storage API — wrapper Supabase Storage sobre MinIO
+  # ---------------------------------------------------------------------------
+  storage:
+    <<: *restart
+    image: supabase/storage-api:v1.11.13
+    depends_on:
+      db: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}
+      FILE_SIZE_LIMIT: "52428800"
+      STORAGE_BACKEND: s3
+      GLOBAL_S3_BUCKET: ${STORAGE_S3_BUCKET:-storage}
+      GLOBAL_S3_ENDPOINT: http://minio:9000
+      GLOBAL_S3_PROTOCOL: http
+      GLOBAL_S3_FORCE_PATH_STYLE: "true"
+      AWS_ACCESS_KEY_ID: ${STORAGE_S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${STORAGE_S3_SECRET_KEY}
+      AWS_DEFAULT_REGION: ${STORAGE_S3_REGION:-us-east-1}
+      TENANT_ID: stub
+      REGION: ${STORAGE_S3_REGION:-us-east-1}
+    networks: [internal]
+
+  # ---------------------------------------------------------------------------
+  # Edge Functions — Deno runtime (compatível com supabase/functions/*)
+  # ---------------------------------------------------------------------------
+  functions:
+    <<: *restart
+    image: supabase/edge-runtime:v1.58.12
+    depends_on: [db, auth]
+    command: ["start", "--main-service", "/home/deno/functions/main"]
+    environment:
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      SUPABASE_DB_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}
+      BROWSERLESS_API_KEY: ${BROWSERLESS_API_KEY}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY}
+      LOVABLE_API_KEY: ${LOVABLE_API_KEY}
+      VPS_WORKER_TOKEN: ${VPS_WORKER_TOKEN}
+      VERIFY_JWT: "false"
+    volumes:
+      - ./supabase/functions:/home/deno/functions:ro
+    networks: [internal]
+
+  # ---------------------------------------------------------------------------
+  # Kong — gateway que roteia /auth /rest /realtime /storage /functions
+  # ---------------------------------------------------------------------------
+  kong:
+    <<: *restart
+    image: kong:3.7
+    depends_on: [auth, rest, realtime, storage, functions]
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+    volumes:
+      - ./docker/kong.yml:/var/lib/kong/kong.yml:ro
+    networks: [internal]
+
+  # ---------------------------------------------------------------------------
+  # Frontend — build Vite servido via Nginx
+  # ---------------------------------------------------------------------------
+  frontend:
+    <<: *restart
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
+        VITE_SUPABASE_PROJECT_ID: ${VITE_SUPABASE_PROJECT_ID:-self-hosted}
+    networks: [internal]
+
+  # ---------------------------------------------------------------------------
+  # Caddy — reverse proxy com TLS automático (Let's Encrypt)
+  # ---------------------------------------------------------------------------
+  caddy:
+    <<: *restart
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CADDY_DOMAIN_APP: ${CADDY_DOMAIN_APP}
+      CADDY_DOMAIN_API: ${CADDY_DOMAIN_API}
+      CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [frontend, kong]
+    networks: [internal]

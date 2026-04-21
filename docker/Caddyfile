@@ -1,0 +1,27 @@
+# =============================================================================
+# Caddyfile — TLS automático (Let's Encrypt) + reverse proxy
+# =============================================================================
+# Domínios vêm de variáveis de ambiente (CADDY_DOMAIN_APP / CADDY_DOMAIN_API).
+# Caddy provisiona certificados sozinho desde que o DNS aponte para a VPS.
+# =============================================================================
+
+{
+	email {$CADDY_ACME_EMAIL}
+}
+
+# ---- Frontend (SPA Vite/Nginx) ----
+{$CADDY_DOMAIN_APP} {
+	encode zstd gzip
+	reverse_proxy frontend:80
+}
+
+# ---- API gateway (Kong → auth/rest/realtime/storage/functions) ----
+{$CADDY_DOMAIN_API} {
+	encode zstd gzip
+
+	# Realtime usa WebSocket — Caddy detecta automaticamente via Upgrade header
+	reverse_proxy kong:8000 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+	}
+}
