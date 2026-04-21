@@ -157,6 +157,8 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
     setProdutoCatalogoNome("");
     setResults([]);
     setFornecedorOverrides({});
+    setDuplicados([]);
+    setConfirmDupOpen(false);
   };
 
   const handleClose = (v: boolean) => {
