@@ -1,79 +1,46 @@
 
 
-# Debug — capturar `outerHTML` e devolver no response HTTP
+# Corrigir estratégia C — ler qty do `span.radio_content`, ignorar `input.value`
 
-Adicionar instrumentação em `IMPRIMARAPIDO_FN_SOURCE` + propagar `debugHtml` no body da resposta HTTP (não só no log) pra evitar truncamento silencioso do log do Supabase.
+O `value` do `input[name="quantidade"]` é ID interno (103, 105, 106), não quantidade. A qty real está em `span.radio_content.fz-sm` dentro do `<label>` do mesmo `li.desc--check`. O preço continua em `span.js-qtd-radio` irmão do label.
 
-## Mudanças em `supabase/functions/scrape-prices/index.ts`
+## Mudança em `supabase/functions/scrape-prices/index.ts`
 
-### 1) `IMPRIMARAPIDO_FN_SOURCE` — capturar `outerHTML` quando vazio
-
-Dentro do `page.evaluate`, após as estratégias A/B/C/D (sem tocar nelas):
+Substituir a estratégia C dentro de `IMPRIMARAPIDO_FN_SOURCE`:
 
 ```js
-let debugHtml = null;
-if (tiers.length === 0) {
-  const container = document.querySelector("div.js-quantity-container");
-  if (container) {
-    debugHtml = container.outerHTML.slice(0, 8000);
-  } else {
-    debugHtml = "NO_CONTAINER | body sample: " + document.body.innerHTML.slice(0, 4000);
-  }
-}
-return { tiers, debugHtml };
+// C) Imprima Rápido: li.desc--check com span.radio_content (qty) + span.js-qtd-radio (preço)
+document.querySelectorAll("li.desc--check").forEach((li) => {
+  const qtyEl = li.querySelector("span.radio_content, .radio_content");
+  const priceEl = li.querySelector("span.js-qtd-radio, .js-qtd-radio");
+  if (!qtyEl || !priceEl) return;
+  const qty = parseQtyBR(qtyEl.textContent || "");
+  const price = parsePriceBR(priceEl.textContent || "");
+  if (qty && price) tiers.push({ quantity: qty, total_price: price });
+});
 ```
 
-### 2) Tipo `ScrapeResult` — adicionar campo opcional
-
-```ts
-type ScrapeResult = {
-  url: string;
-  prices: Price[];
-  strategy: "...existing..." | "function-imprimarapido";
-  error?: string;
-  debugHtml?: string | null; // NOVO
-};
-```
-
-### 3) `scrapeImprimaRapido` — devolver `debugHtml` quando vazio + logar
-
-```ts
-const result = await fetchViaBrowserlessFunction<{ tiers: RawTier[]; debugHtml: string | null }>(
-  url, token, IMPRIMARAPIDO_FN_SOURCE
-);
-const prices = finalizeTiers(result.tiers ?? [], url);
-if (prices.length === 0) {
-  console.log(`[imprimarapido] tiers vazios | url=${url} | debugHtml(len)=${result.debugHtml?.length ?? 0}`);
-  return {
-    url,
-    prices: [],
-    strategy: "function-imprimarapido",
-    error: "no tiers",
-    debugHtml: result.debugHtml ?? null,
-  };
-}
-return { url, prices, strategy: "function-imprimarapido" };
-```
-
-### 4) Handler HTTP — preservar `debugHtml` no response
-
-No `Deno.serve`, ao montar o JSON de resposta (modo preview), garantir que o campo `debugHtml` seja repassado quando presente. Como o response já faz `JSON.stringify` do array de `ScrapeResult`, basta o tipo aceitar o campo — sem filtragem extra.
+Mudanças vs versão anterior:
+- Itera direto em `li.desc--check` (não no `input`).
+- Qty vem de `span.radio_content` (ignora completamente `input.value`).
+- Preço vem de `span.js-qtd-radio` (já correto).
+- Sem fallback — se faltar qualquer um dos dois spans, pula o item.
 
 ## Validação
 
-1. POST `/scrape-prices` com a URL do folder A6 que falha.
-2. Ler `debugHtml` direto no body do response (sem risco de truncamento).
-3. Com o HTML em mãos, definir o seletor correto numa próxima iteração.
+1. POST `/scrape-prices` com a URL do folder A6.
+2. Esperar `prices.length > 0`, `strategy: "function-imprimarapido"`, qty em milhares (1000, 2500, 5000…) — não 103/105/106.
+3. 1 URL Atual Card → manter `function-atualcard` (zero regressão).
 
 ## Risco
 
-- 100% isolado ao fluxo `imprimarapido.com.br`.
-- Estratégias A/B/C/D **não são alteradas**.
-- Campo `debugHtml` é opcional — outros scrapers não são afetados.
+- 100% isolado a `IMPRIMARAPIDO_FN_SOURCE`.
+- Estratégias A, B, D **intactas**.
+- `debugHtml` instrumentação mantida — se voltar vazio, ainda dá pra inspecionar.
 - Sem migration, sem schema.
 
 ## Fora de escopo
 
-- Nenhuma mudança em seletores de extração nesta rodada.
-- Próximo passo (após você ler o `debugHtml`) será uma correção cirúrgica de seletor.
+- Não toco em A/B/D nem no parser genérico nem em outros scrapers.
+- `debugHtml` fica no código por enquanto; remoção pode ser feita numa rodada de cleanup depois da validação.
 
