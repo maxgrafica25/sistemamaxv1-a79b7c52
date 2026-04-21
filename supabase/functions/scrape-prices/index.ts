@@ -34,7 +34,7 @@ type Price = {
 type ScrapeResult = {
   source_url: string;
   scraped_at: string;
-  strategy: "html" | "html-regex" | "function-atualcard";
+  strategy: "html" | "html-regex" | "function-atualcard" | "function-imprimarapido";
   prices: Price[];
   error: string | null;
   elapsed_ms?: number;
