@@ -563,8 +563,11 @@ export default function MaintenanceTab({ equipmentId, equipmentName, printerType
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>Cancelar</Button>
-            <Button onClick={save}>Salvar</Button>
+            <Button variant="outline" onClick={() => setShowDialog(false)} disabled={isSaving}>Cancelar</Button>
+            <Button onClick={save} disabled={isSaving || uploading}>
+              {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {isSaving ? "Salvando..." : "Salvar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

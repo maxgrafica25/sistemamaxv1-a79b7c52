@@ -14,9 +14,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, AlertTriangle, User, Trash2 } from "lucide-react";
+import { Plus, AlertTriangle, User, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { handleError } from "@/lib/handleError";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 interface Props {
@@ -40,6 +41,8 @@ export default function ProductionLossesTab({ equipmentId, equipmentName }: Prop
   const [losses, setLosses] = useState<Loss[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Form
   const [quantity, setQuantity] = useState("1");
@@ -52,11 +55,12 @@ export default function ProductionLossesTab({ equipmentId, equipmentName }: Prop
 
   const fetchLosses = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("production_losses")
       .select("*")
       .eq("equipment_id", equipmentId)
       .order("created_at", { ascending: false });
+    if (error) handleError(error, "carregar perdas");
     if (data) setLosses(data as Loss[]);
     setLoading(false);
   };
@@ -80,6 +84,7 @@ export default function ProductionLossesTab({ equipmentId, equipmentName }: Prop
   const handleSave = async () => {
     if (!description.trim()) return toast.error("Descreva o ocorrido");
 
+    setIsSaving(true);
     const { error } = await supabase.from("production_losses").insert({
       equipment_id: equipmentId,
       operator_name: profile?.display_name || "Desconhecido",
@@ -87,8 +92,9 @@ export default function ProductionLossesTab({ equipmentId, equipmentName }: Prop
       error_type: errorType,
       description: description.trim(),
     });
+    setIsSaving(false);
 
-    if (error) return toast.error("Erro ao registrar perda");
+    if (error) return handleError(error, "registrar perda");
     toast.success("Perda registrada!");
     resetForm();
     setShowDialog(false);
@@ -96,7 +102,10 @@ export default function ProductionLossesTab({ equipmentId, equipmentName }: Prop
   };
 
   const handleDelete = async () => {
-    await supabase.from("production_losses").delete().eq("id", deleteId);
+    setIsDeleting(true);
+    const { error } = await supabase.from("production_losses").delete().eq("id", deleteId);
+    setIsDeleting(false);
+    if (error) return handleError(error, "remover registro");
     toast.success("Registro removido");
     setConfirmOpen(false);
     fetchLosses();
@@ -237,8 +246,11 @@ export default function ProductionLossesTab({ equipmentId, equipmentName }: Prop
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>Cancelar</Button>
-            <Button onClick={handleSave}>Registrar</Button>
+            <Button variant="outline" onClick={() => setShowDialog(false)} disabled={isSaving}>Cancelar</Button>
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {isSaving ? "Registrando..." : "Registrar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
