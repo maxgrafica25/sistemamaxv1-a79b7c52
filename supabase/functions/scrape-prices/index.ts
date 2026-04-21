@@ -38,6 +38,7 @@ type ScrapeResult = {
   prices: Price[];
   error: string | null;
   elapsed_ms?: number;
+  debugHtml?: string | null;
 };
 
 // ---------- Normalização BR ----------
