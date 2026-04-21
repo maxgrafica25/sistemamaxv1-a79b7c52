@@ -193,6 +193,94 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
   const validResults = useMemo(() => results.filter((r) => r.prices.length > 0), [results]);
   const invalidResults = useMemo(() => results.filter((r) => r.prices.length === 0), [results]);
 
+  const performSave = async (skipDuplicateUrls: Set<string>) => {
+    setSaving(true);
+    let created = 0;
+    let skipped = 0;
+    let failed = 0;
+    const notScraped = invalidResults.length;
+
+    try {
+      let catalogoId = produtoCatalogoId;
+      if (!catalogoId) {
+        catalogoId = await findOrCreateCatalogo(produtoCatalogoNome, categoria);
+      }
+
+      for (const r of validResults) {
+        if (skipDuplicateUrls.has(r.source_url)) {
+          skipped++;
+          continue;
+        }
+
+        const fornecedor =
+          (fornecedorOverrides[r.source_url] || detectSupplier(r.source_url)).trim() || null;
+        const minUnit = Math.min(...r.prices.map((p) => p.unit_price));
+
+        const { data: inserted, error: insErr } = await supabase
+          .from("sites_monitorados")
+          .insert({
+            nome_produto: produtoCatalogoNome.trim(),
+            categoria: categoria.trim().toLowerCase(),
+            url_completa: r.source_url,
+            fornecedor_nome: fornecedor,
+            produto_catalogo_id: catalogoId,
+            preco_atual: minUnit,
+            ativo: true,
+            metodo_coleta: "playwright",
+            tipo_fonte: "playwright",
+            scrape_status: "ok",
+            scrape_source: "playwright",
+            timestamp_check: new Date().toISOString(),
+          })
+          .select("id")
+          .single();
+
+        if (insErr || !inserted) {
+          failed++;
+          continue;
+        }
+
+        const tierRows = r.prices.map((p) => ({
+          site_id: inserted.id,
+          quantidade: p.quantity,
+          preco_total: p.total_price,
+          preco_unitario: p.unit_price,
+          ativo: true,
+        }));
+        const { error: tierErr } = await supabase.from("site_precos_tiers").insert(tierRows);
+        if (tierErr) {
+          failed++;
+        } else {
+          created++;
+        }
+      }
+
+      const parts = [
+        created > 0 && `${created} criado(s)`,
+        skipped > 0 && `${skipped} já cadastrado(s)`,
+        failed > 0 && `${failed} falha(s)`,
+        notScraped > 0 && `${notScraped} sem tiers ignorado(s)`,
+      ].filter(Boolean) as string[];
+
+      if (created > 0) {
+        toast.success(parts.join(" · "));
+        onCreated();
+        reset();
+        onOpenChange(false);
+      } else {
+        toast.error(
+          (parts.join(" · ") || "Nada foi salvo") +
+            (skipped > 0 ? " — veja em Gerenciar sites" : ""),
+          { duration: 8000 },
+        );
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao salvar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!urls.length) {
       toast.error("Cole pelo menos uma URL válida (http/https)");
@@ -214,6 +302,33 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
       toast.error("Selecione ou digite o produto do catálogo");
       return;
     }
+
+    // Pré-checagem em lote de duplicatas
+    const candidateUrls = validResults.map((r) => r.source_url);
+    const { data: existentes, error: dupErr } = await supabase
+      .from("sites_monitorados")
+      .select("url_completa, nome_produto, fornecedor_nome")
+      .in("url_completa", candidateUrls);
+
+    if (dupErr) {
+      toast.error("Erro ao verificar duplicatas: " + dupErr.message);
+      return;
+    }
+
+    const dupList: DuplicadoInfo[] = (existentes || []).map((e: any) => ({
+      url: e.url_completa,
+      nome_produto: e.nome_produto,
+      fornecedor_nome: e.fornecedor_nome,
+    }));
+
+    if (dupList.length > 0) {
+      setDuplicados(dupList);
+      setConfirmDupOpen(true);
+      return;
+    }
+
+    await performSave(new Set());
+  };
 
     setSaving(true);
     let created = 0;
