@@ -1,132 +1,132 @@
 
 
-# Implementar A (cron + realtime no backup) + B (script reset de senhas)
+# Preparar projeto para deploy em VPS com Supabase self-hosted
 
-## Item A — Exportar `cron.job` e `pg_publication_tables` no backup SQL
+Entrega artefatos de infra para subir o stack completo (frontend + Supabase self-hosted) numa VPS, com variáveis centralizadas e documentadas. Não muda código de aplicação — só adiciona arquivos de deploy.
 
-### A.1 Migration: 2 funções SECURITY DEFINER
+## 1) Centralizar variáveis no frontend
 
-Como `cron.job` está no schema `cron` e `pg_publication_tables` em `pg_catalog`, e o service-role pode até ter acesso direto, padronizamos via funções helpers (mesmo padrão dos outros `backup_get_*`):
+Hoje `src/integrations/supabase/client.ts` lê `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` do `import.meta.env` — **não muda**, já está correto. O que falta é garantir que o build aceite essas variáveis injetadas em build-time no Docker.
 
-```sql
-CREATE OR REPLACE FUNCTION public.backup_get_cron_jobs()
-RETURNS jsonb
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = public, cron, pg_catalog
-AS $$
-  SELECT COALESCE(jsonb_agg(jsonb_build_object(
-    'jobname', jobname,
-    'schedule', schedule,
-    'command', command,
-    'database', database,
-    'username', username,
-    'active', active
-  ) ORDER BY jobname), '[]'::jsonb)
-  FROM cron.job;
-$$;
+Criar:
 
-CREATE OR REPLACE FUNCTION public.backup_get_realtime_publication()
-RETURNS jsonb
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = public, pg_catalog
-AS $$
-  SELECT COALESCE(jsonb_agg(jsonb_build_object(
-    'pubname', pubname,
-    'schemaname', schemaname,
-    'tablename', tablename
-  ) ORDER BY pubname, tablename), '[]'::jsonb)
-  FROM pg_publication_tables
-  WHERE pubname = 'supabase_realtime';
-$$;
+- **`.env.example`** na raiz — template versionável com todas as `VITE_*` necessárias (sem valores reais):
+  ```
+  VITE_SUPABASE_URL=https://api.seudominio.com
+  VITE_SUPABASE_PUBLISHABLE_KEY=<anon key do GoTrue self-hosted>
+  VITE_SUPABASE_PROJECT_ID=self-hosted
+  ```
 
-GRANT EXECUTE ON FUNCTION public.backup_get_cron_jobs() TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.backup_get_realtime_publication() TO authenticated, service_role;
+- **`.dockerignore`** — exclui `node_modules`, `dist`, `.env`, `.git`, `supabase/.branches`, `playwright-report`, etc.
+
+## 2) Dockerfile multi-stage para o frontend
+
+Criar **`Dockerfile`** na raiz, build com Bun (já é o gerenciador do projeto — `bun.lock` presente) + serve estático com Nginx:
+
+```dockerfile
+# Stage 1: build
+FROM oven/bun:1 AS builder
+WORKDIR /app
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
+COPY . .
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_PUBLISHABLE_KEY
+ARG VITE_SUPABASE_PROJECT_ID
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
+    VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY \
+    VITE_SUPABASE_PROJECT_ID=$VITE_SUPABASE_PROJECT_ID
+RUN bun run build
+
+# Stage 2: serve
+FROM nginx:1.27-alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
 ```
 
-Se `cron.job` não for selecionável mesmo via SECURITY DEFINER (postgres owner não tem permissão em ambientes restritos), a função retornará `[]` em try/catch — o backup não quebra.
+Criar **`docker/nginx.conf`** com fallback SPA (`try_files $uri /index.html`), gzip e cache de assets.
 
-### A.2 `supabase/functions/backup-database/index.ts`
+## 3) `docker-compose.yml` para o stack completo
 
-- Adicionar 2 chamadas no `Promise.all` inicial: `admin.rpc("backup_get_cron_jobs")` e `admin.rpc("backup_get_realtime_publication")`. Tratar erro como array vazio.
-- **Formato JSON**: dentro de `schema`, adicionar `cron_jobs` e `realtime_publication`.
-- **Formato SQL**: novos blocos no final, antes de `AUTH USERS`:
+Criar **`docker-compose.yml`** na raiz cobrindo:
 
-  ```sql
-  -- ===== REALTIME PUBLICATION =====
-  -- Recria publicação supabase_realtime com tabelas selecionadas.
-  DROP PUBLICATION IF EXISTS supabase_realtime;
-  CREATE PUBLICATION supabase_realtime FOR TABLE
-    public."messages", public."notifications", ...;
+- **`db`** — Postgres 15 com `pg_cron` + `pgcrypto` + `uuid-ossp` pré-carregados (`shared_preload_libraries=pg_cron`), volume `pgdata`.
+- **`auth`** — `supabase/gotrue` com JWT HS256, rate limit de email aumentado (`GOTRUE_RATE_LIMIT_EMAIL_SENT=300`).
+- **`rest`** — `postgrest/postgrest` apontando pro `db`.
+- **`realtime`** — `supabase/realtime` com a publication `supabase_realtime` (criada pelo backup SQL).
+- **`storage`** — `supabase/storage-api` + **`minio`** (substituto S3 self-hosted) + bucket init para `chat-attachments` e `maintenance-attachments` (públicos).
+- **`functions`** — `supabase/edge-runtime` montando `./supabase/functions`.
+- **`kong`** — gateway que expõe tudo num único domínio (`api.seudominio.com`) roteando `/auth/v1/*`, `/rest/v1/*`, `/realtime/v1/*`, `/storage/v1/*`, `/functions/v1/*`.
+- **`frontend`** — build do Dockerfile acima, exposto na porta 80.
+- **`caddy`** — reverse proxy com TLS automático (Let's Encrypt) para `app.seudominio.com` → frontend e `api.seudominio.com` → kong.
 
-  -- ===== CRON JOBS =====
-  -- Reagenda jobs (requer pg_cron instalado e shared_preload_libraries='pg_cron').
-  -- IMPORTANTE: jobs apontam para URL/keys do AMBIENTE ORIGINAL — revisar antes de aplicar.
-  SELECT cron.unschedule('check-reminders') WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname='check-reminders');
-  SELECT cron.schedule('check-reminders', '*/5 * * * *', $cron$ ...command original... $cron$);
-  ```
+Todos os serviços leem secrets de um único **`.env`** na raiz (não comitado). Volumes nomeados para `db`, `minio`, `caddy_data`.
 
-  Para cada job: emitir `unschedule` condicional + `schedule` com o `command` original entre `$cron$ ... $cron$` (dollar quoting evita escapar aspas internas).
+## 4) Documentação de variáveis
 
-- Lista de tabelas do realtime vem dinâmica do helper; se vier vazia, comentar o bloco com aviso.
+Criar **`docs/deployment-vars.md`** — tabela completa agrupada por serviço:
 
-## Item B — Script `scripts/reset-passwords-bulk.ts`
+| Variável | Serviço | Obrigatória | Descrição | Como gerar |
+|---|---|---|---|---|
+| `POSTGRES_PASSWORD` | db | sim | Senha do superuser | `openssl rand -base64 32` |
+| `JWT_SECRET` | auth, rest, realtime, storage | sim | Secret HS256 compartilhado entre todos os serviços Supabase | `openssl rand -base64 64` |
+| `ANON_KEY` | kong, frontend | sim | JWT assinado com `JWT_SECRET`, role=anon | Usar script `scripts/generate-jwt.ts` (ver item 5) |
+| `SERVICE_ROLE_KEY` | edge functions, scripts | sim | JWT assinado com `JWT_SECRET`, role=service_role | idem |
+| `SITE_URL` | auth | sim | URL do frontend (`https://app.seudominio.com`) | manual |
+| `GOTRUE_SMTP_*` | auth | sim p/ email | Configuração SMTP para reset/confirmação | conta no Resend/SES/etc |
+| `GOTRUE_RATE_LIMIT_EMAIL_SENT` | auth | recomendado | Default 30/h é baixo demais para reset em lote | `300` |
+| `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | minio | sim | Credenciais admin do MinIO | `openssl rand -base64 24` |
+| `STORAGE_S3_ACCESS_KEY` / `STORAGE_S3_SECRET_KEY` | storage | sim | Credenciais S3 (apontam pro MinIO) | criar no MinIO console |
+| `BROWSERLESS_API_KEY` | edge functions | sim | Reuso da existente | já configurada |
+| `FIRECRAWL_API_KEY` | edge functions | opcional | Reuso da existente | já configurada |
+| `LOVABLE_API_KEY` | edge functions | opcional | Reuso da existente | já configurada |
+| `VPS_WORKER_TOKEN` | edge functions | opcional | Token para webhook `sync-prices-webhook` se usar worker externo | `openssl rand -hex 32` |
+| `CADDY_DOMAIN_APP` / `CADDY_DOMAIN_API` | caddy | sim | Domínios para TLS automático | DNS deve apontar pra VPS |
+| `VITE_SUPABASE_URL` | frontend (build) | sim | `https://api.seudominio.com` | manual |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | frontend (build) | sim | Mesmo valor de `ANON_KEY` | copiar |
 
-### B.1 Novo arquivo `scripts/reset-passwords-bulk.ts`
+Cada linha com nota explicando consequência se faltar.
 
-Script Deno standalone (não é edge function — roda no terminal do operador da migração no destino):
+## 5) Helpers de bootstrap
 
-- **Entrada**: `users.json` extraído do bloco `AUTH_USERS_JSON` do backup SQL (formato: array de `{id, email, ...}`).
-- **Variáveis de ambiente**: `AUTH_URL` (ex: `https://api.exemplo.com`), `AUTH_ANON_KEY` (do GoTrue do destino).
-- **Lógica**:
-  - Lê `users.json` via `Deno.readTextFile`.
-  - Para cada usuário com `email` válido: `POST {AUTH_URL}/auth/v1/recover` com body `{ "email": "..." }` e header `apikey`.
-  - **Rate limit**: batches de 5 paralelos via `Promise.all` + `await new Promise(r=>setTimeout(r,1000))` entre batches (evita rate limit GoTrue padrão de 30/h por IP — operador deve ajustar GoTrue antes).
-  - **Retry**: 1 retry após 5s em caso de 429/5xx.
-  - **Log**: arquivo `reset-log-YYYYMMDD.csv` com colunas `email,status,http_code,error`.
-  - **Resumo final**: stdout com totais de sucesso/falha.
-- **Uso**:
-  ```bash
-  AUTH_URL=https://api.dest.com AUTH_ANON_KEY=eyJ... deno run --allow-net --allow-env --allow-read --allow-write scripts/reset-passwords-bulk.ts users.json
-  ```
-- **Sem dependências externas** — usa `fetch` nativo do Deno.
-
-### B.2 Atualizar `docs/migration-runbook.md` Fase 3
-
-Substituir o `xargs curl` improvisado pelo comando do script real:
-
+Criar **`scripts/generate-jwt.ts`** (Deno) — gera `ANON_KEY` e `SERVICE_ROLE_KEY` assinados com `JWT_SECRET` (compatível GoTrue self-hosted). Uso:
 ```bash
-# Extrair usuários do bloco AUTH_USERS_JSON do SQL
-sed -n '/AUTH_USERS_JSON/,/\*\//p' backup-*.sql | sed '1d;$d' > users.json
-
-# Rodar reset em lote (rate-limited, com retry e log CSV)
-AUTH_URL=https://api.<vps> AUTH_ANON_KEY=<gotrue-anon-key> \
-  deno run --allow-net --allow-env --allow-read --allow-write \
-  scripts/reset-passwords-bulk.ts users.json
-
-# Verificar reset-log-*.csv para falhas
+JWT_SECRET=... deno run --allow-env scripts/generate-jwt.ts
 ```
+Imprime os 2 JWTs prontos pra colar no `.env`.
 
-Adicionar nota: "Antes de rodar, aumentar `GOTRUE_RATE_LIMIT_EMAIL_SENT` no destino (default 30/h é muito baixo para reset em lote)."
+Criar **`docker/init-buckets.sh`** — script `mc` (MinIO client) que cria os 2 buckets públicos no primeiro start.
 
-## Validação pós-implementação
+## 6) Atualizar runbook
 
-1. Migration aplica sem erro → confirmar via `read_query` que as 2 funções existem.
-2. Deploy `backup-database` → `curl_edge_functions` em `?format=sql` autenticado → confirmar blocos `-- ===== CRON JOBS =====` e `-- ===== REALTIME PUBLICATION =====` presentes.
-3. `?format=json` → confirmar `schema.cron_jobs` e `schema.realtime_publication` no payload.
-4. `deno check scripts/reset-passwords-bulk.ts` → confirmar que tipa sem erro (não executar — não há GoTrue de teste).
+Editar **`docs/migration-runbook.md`**: adicionar **Fase 0.5 — "Deploy do stack via docker-compose"** referenciando os novos arquivos, antes da Fase 1 manual atual. Manter Fase 1 como alternativa pra quem quer Postgres bare-metal.
 
 ## Arquivos afetados
 
 | Ação | Arquivo |
 |---|---|
-| Migration | criar `backup_get_cron_jobs()` + `backup_get_realtime_publication()` |
-| Editar | `supabase/functions/backup-database/index.ts` (RPCs + 2 blocos SQL + 2 campos JSON) |
-| Criar | `scripts/reset-passwords-bulk.ts` |
-| Editar | `docs/migration-runbook.md` (Fase 3 com comando real do script) |
+| Criar | `.env.example` |
+| Criar | `.dockerignore` |
+| Criar | `Dockerfile` |
+| Criar | `docker/nginx.conf` |
+| Criar | `docker/init-buckets.sh` |
+| Criar | `docker-compose.yml` |
+| Criar | `docs/deployment-vars.md` |
+| Criar | `scripts/generate-jwt.ts` |
+| Editar | `docs/migration-runbook.md` (nova Fase 0.5) |
+
+## Validação pós-implementação
+
+1. `docker compose config` — valida sintaxe do compose sem subir nada.
+2. `docker build .` localmente (build do frontend isolado) — confirma que Dockerfile compila.
+3. `deno check scripts/generate-jwt.ts` — confirma tipos.
+4. Listar visualmente que cada variável de `docs/deployment-vars.md` aparece em pelo menos um serviço do `docker-compose.yml`.
 
 ## Fora de escopo
 
-- Importação de usuários (`import-users.js`) — depende de qual stack de Auth o destino usar (GoTrue puro vs Supabase self-hosted vs Auth0). Criar quando a migração real começar.
-- Reaplicação de secrets do Vault Supabase — não há API pública para extrair.
-- Testar o script contra um GoTrue real — sem ambiente de teste disponível agora.
+- **Não vou subir o stack de fato** — sandbox não tem Docker daemon nem domínio público. Validação é estática (build + config check).
+- **Não vou portar edge functions pra Node.js** — uso `supabase/edge-runtime` (Deno nativo) que aceita o código atual sem mudanças.
+- **Não vou criar pipeline CI/CD** (GitHub Actions etc) — fora do escopo "preparar para deploy". Pode ser próximo passo.
+- **Não vou configurar backup automatizado da VPS** (pg_dump cron, snapshots) — runbook menciona, mas implementação depende do provedor.
 
