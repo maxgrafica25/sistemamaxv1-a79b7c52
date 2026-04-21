@@ -479,7 +479,16 @@ export default async function ({ page, context }) {
       });
     } catch (_) {}
 
-    return { tiers };
+    let debugHtml = null;
+    if (tiers.length === 0) {
+      const container = document.querySelector('div.js-quantity-container');
+      if (container) {
+        debugHtml = container.outerHTML.slice(0, 8000);
+      } else {
+        debugHtml = 'NO_CONTAINER | body sample: ' + document.body.innerHTML.slice(0, 4000);
+      }
+    }
+    return { tiers, debugHtml };
   });
 
   return data;
