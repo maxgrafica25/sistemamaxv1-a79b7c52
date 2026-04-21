@@ -83,27 +83,26 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
               onValueChange={setSearch}
             />
             <CommandList>
-              <div className="p-2 border-b sticky top-0 bg-popover z-10">
+              <div className="p-1 border-b sticky top-0 bg-popover z-10">
                 <Button
                   type="button"
-                  variant="default"
+                  variant="ghost"
                   size="sm"
-                  className="w-full justify-start gap-2"
-                  onClick={() => {
-                    const nome = trimmedSearch || window.prompt("Digite o nome do novo produto:")?.trim() || "";
-                    if (!nome) return;
-                    onChange({ id: null, name: nome });
-                    setOpen(false);
-                    setSearch("");
-                  }}
+                  className="w-full justify-start gap-2 h-8 text-sm font-normal"
+                  disabled={!trimmedSearch}
+                  onClick={handleCreateNew}
                 >
-                  <Plus className="h-4 w-4" />
-                  {trimmedSearch ? `Cadastrar: "${trimmedSearch}"` : "Cadastrar novo nome"}
+                  <Plus className="h-3.5 w-3.5 text-primary" />
+                  {trimmedSearch ? (
+                    <span className="truncate">Cadastrar: <span className="font-medium">"{trimmedSearch}"</span></span>
+                  ) : (
+                    <span className="text-muted-foreground">Digite um nome acima para cadastrar</span>
+                  )}
                 </Button>
               </div>
               <CommandEmpty>
-                <p className="py-6 text-sm text-muted-foreground text-center">
-                  Nenhum produto encontrado. Use o botão acima para cadastrar.
+                <p className="py-6 text-sm text-muted-foreground text-center px-4">
+                  Nenhum produto encontrado. Digite o nome desejado e clique em Cadastrar.
                 </p>
               </CommandEmpty>
               {produtos.length > 0 && (
