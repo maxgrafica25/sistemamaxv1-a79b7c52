@@ -276,12 +276,12 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-6xl w-[95vw] h-[92vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <DialogTitle>Novo site monitorado</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto px-6 py-4 flex-1 min-h-0">
           <Alert>
             <FlaskConical className="h-4 w-4" />
             <AlertDescription>
@@ -487,7 +487,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="px-6 py-4 border-t shrink-0 bg-background">
           <Button variant="outline" onClick={() => handleClose(false)} disabled={saving}>
             Cancelar
           </Button>
