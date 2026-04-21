@@ -18,6 +18,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { ProdutoCatalogo } from "@/lib/produtoCatalogo";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type Site = {
   id: string;
@@ -995,8 +996,26 @@ export default function Monitoramento() {
                                     <div key={t.id} className={`flex items-center justify-between text-xs px-2 py-1.5 ${isTargetTier ? "bg-primary/5" : ""}`}>
                                       <div className="flex items-center gap-1.5">
                                         <span className="font-mono text-muted-foreground">{t.quantidade.toLocaleString("pt-BR")}un</span>
-                                        {isSweet && <Target className="h-3 w-3" style={{ color: "hsl(var(--primary))" }} />}
-                                        {isMinHist && <Flame className="h-3 w-3" style={{ color: "hsl(var(--success))" }} />}
+                                        {isSweet && (
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <Target className="h-3 w-3 cursor-help" style={{ color: "hsl(var(--primary))" }} />
+                                              </TooltipTrigger>
+                                              <TooltipContent>Melhor preço unitário deste fornecedor</TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        )}
+                                        {isMinHist && (
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <Flame className="h-3 w-3 cursor-help" style={{ color: "hsl(var(--success))" }} />
+                                              </TooltipTrigger>
+                                              <TooltipContent>Menor preço já registrado nesta faixa</TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        )}
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <span className="text-muted-foreground">{formatBRL(Number(t.preco_unitario))}/un</span>
