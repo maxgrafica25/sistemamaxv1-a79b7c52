@@ -407,6 +407,112 @@ async function scrapeAtualCardDataLayerFallback(url: string, token: string): Pro
   return finalizeTiers([{ quantity: qty, total_price: total }], url);
 }
 
+// ---------- Imprima Rápido ----------
+const IMPRIMARAPIDO_FN_SOURCE = `
+export default async function ({ page, context }) {
+  await page.goto(context.url, { waitUntil: 'networkidle2', timeout: 45000 });
+
+  const tierSelector = [
+    'select[name*="quant" i] option[value]:not([value=""])',
+    'select[name*="qtd" i] option[value]:not([value=""])',
+    '[data-quantidade]',
+    '[data-qtd]',
+    '[data-quantity]',
+    'input[type="radio"][name*="quant" i]',
+    'input[type="radio"][name*="qtd" i]',
+  ].join(', ');
+
+  try {
+    await page.waitForSelector(tierSelector, { timeout: 8000 });
+  } catch (_) { /* segue mesmo sem o seletor — estratégias abaixo podem pegar dataLayer */ }
+
+  const data = await page.evaluate(() => {
+    const parsePriceBR = (s) => {
+      const m = String(s).replace(/\\s|\\u00a0/g, '').match(/(\\d{1,3}(?:\\.\\d{3})*(?:,\\d+)?|\\d+(?:,\\d+)?)/);
+      if (!m) return null;
+      const n = parseFloat(m[1].replace(/\\./g, '').replace(',', '.'));
+      return isFinite(n) && n > 0 ? n : null;
+    };
+    const parseQtyBR = (s) => {
+      if (s == null) return null;
+      const m = String(s).replace(/\\s|\\u00a0/g, '').match(/(\\d{1,3}(?:\\.\\d{3})+|\\d{2,7})/);
+      if (!m) return null;
+      const n = parseInt(m[1].replace(/\\./g, ''), 10);
+      return isFinite(n) && n >= 10 && n <= 1000000 ? n : null;
+    };
+
+    const tiers = [];
+
+    // A) <select><option>
+    document.querySelectorAll('select option').forEach((opt) => {
+      const txt = (opt.textContent || '').trim();
+      const qty = parseQtyBR(opt.value) || parseQtyBR(txt);
+      const priceAttr = opt.getAttribute('data-preco') || opt.getAttribute('data-price') || opt.getAttribute('data-valor');
+      let price = priceAttr ? parsePriceBR(priceAttr) : null;
+      if (!price && txt.includes('R$')) price = parsePriceBR(txt.split('R$')[1]);
+      if (qty && price) tiers.push({ quantity: qty, total_price: price });
+    });
+
+    // B) [data-quantidade] / [data-qtd] / [data-quantity]
+    document.querySelectorAll('[data-quantidade], [data-qtd], [data-quantity]').forEach((el) => {
+      const qty = parseQtyBR(el.getAttribute('data-quantidade') || el.getAttribute('data-qtd') || el.getAttribute('data-quantity'));
+      const price = parsePriceBR(el.getAttribute('data-preco') || el.getAttribute('data-price') || el.getAttribute('data-valor') || el.textContent || '');
+      if (qty && price) tiers.push({ quantity: qty, total_price: price });
+    });
+
+    // C) Radios + label
+    document.querySelectorAll('input[type="radio"][name*="quant" i], input[type="radio"][name*="qtd" i]').forEach((r) => {
+      const qty = parseQtyBR(r.value);
+      const label = r.closest('label') || (r.id ? document.querySelector('label[for="' + r.id + '"]') : null);
+      const price = label ? parsePriceBR(label.textContent || '') : null;
+      if (qty && price) tiers.push({ quantity: qty, total_price: price });
+    });
+
+    // D) dataLayer (GTM)
+    try {
+      const dl = (window.dataLayer || []).flatMap((o) => (o && o.ecommerce && (o.ecommerce.detail && o.ecommerce.detail.products || o.ecommerce.items)) || []);
+      dl.forEach((p) => {
+        const qty = parseQtyBR(p.quantity || p.variant);
+        const price = parsePriceBR(p.price);
+        if (qty && price) tiers.push({ quantity: qty, total_price: price });
+      });
+    } catch (_) {}
+
+    return { tiers };
+  });
+
+  return data;
+}
+`;
+
+async function scrapeImprimaRapido(url: string, token: string): Promise<ScrapeResult> {
+  const startedAt = Date.now();
+  const base = {
+    source_url: url,
+    scraped_at: new Date().toISOString(),
+    strategy: "function-imprimarapido" as const,
+  };
+  try {
+    const result = await fetchViaBrowserlessFunction<{ tiers: RawTier[] }>(
+      url,
+      token,
+      IMPRIMARAPIDO_FN_SOURCE,
+    );
+    const prices = finalizeTiers(result?.tiers ?? [], url);
+    console.log(`[scrape-imprimarapido] ${url} | tiers=${prices.length} | ${Date.now() - startedAt}ms`);
+    return {
+      ...base,
+      prices,
+      error: prices.length === 0 ? "Tabela de preços não encontrada" : null,
+      elapsed_ms: Date.now() - startedAt,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[scrape-imprimarapido] ${url} | erro /function: ${msg}`);
+    return { ...base, prices: [], error: msg, elapsed_ms: Date.now() - startedAt };
+  }
+}
+
 // ---------- Atual Card ----------
 async function scrapeAtualCard(url: string, token: string): Promise<ScrapeResult> {
   const startedAt = Date.now();
