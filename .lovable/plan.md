@@ -1,64 +1,63 @@
 
 
-# Refinar UX da aba Monitoramento (revisado)
+# Resolver "1 duplicado(s)" e melhorar o feedback de duplicata
 
-## 1. ProductPicker — clarificar dupla função
+## Diagnóstico
 
-- **Trigger label**: `"Buscar ou cadastrar produto..."`
-- **Placeholder do CommandInput**: `"Digite para buscar ou cadastrar..."`
-- **Cabeçalho do popover** (linha curta `text-xs text-muted-foreground` acima do input): **"Selecione um produto existente ou cadastre um novo abaixo"**
-- Botão "Cadastrar" mantém estilo ghost atual; quando habilitado, ícone `Plus` em `text-primary` e a palavra "Cadastrar" em `font-medium`.
+A URL `https://www.ans.com.br/panfleto-90gr/` **já existe** em `sites_monitorados` (id `0dd91da9-8227-443a-ad52-fa903e7508af`, ativa, ANS, "Panfletos 10x14cm (A6) - Couchê 90g - 4x4 cor"). A guarda anti-duplicata em `NovoSiteDialog.handleSave` filtra por `url_completa` exato e descarta — daí o toast "1 duplicado(s)" e nada criado.
 
-## 2. Renomear "Testar scraping" → "Buscar preços"
+Hoje o usuário não tem como saber **qual** site é o duplicado nem o que fazer (atualizar? excluir o antigo? ignorar?).
 
-Em `NovoSiteDialog.tsx`:
-- Texto do botão: **"Buscar preços"**, ícone trocado de `FlaskConical` para `Search`.
-- Toasts: `"Erro ao testar scraping"` → `"Erro ao buscar preços"`; `'Clique em "Testar scraping" antes de salvar'` → `'Clique em "Buscar preços" antes de salvar'`.
+## Solução (2 partes)
 
-## 3. Renomear abas
+### Parte 1 — Excluir o duplicado pendente da extração anterior
 
-| Atual | Nova |
-|---|---|
-| Oportunidades | Oportunidades |
-| Comparativo | **Comparar fornecedores** |
-| Tabela completa | **Gerenciar sites** |
-| Alertas | Alertas |
+Remover **somente** a linha duplicada que está bloqueando o cadastro agora:
 
-"Gerenciar sites" mantida — é a única view com CRUD (ativar/desativar, excluir, sync manual) e mostra inclusive sites sem preço coletado.
+```sql
+DELETE FROM sites_monitorados WHERE id = '0dd91da9-8227-443a-ad52-fa903e7508af';
+```
 
-## 4. Botão "Gerar alerta de teste" na aba Alertas (Opção B confirmada viável)
+Cascata: `site_precos_tiers`, `historico_precos`, `historico_precos_tiers` e `alertas_precos` referenciando esse `site_id` somem junto via FK ON DELETE CASCADE (já configurado nas migrations existentes).
 
-**Constraint verificada:** `alertas_precos.site_id` é NOT NULL com FK para `sites_monitorados` (ON DELETE CASCADE). A inserção direta funciona desde que use um `site_id` real.
+A outra linha (`b4c202c7...`, URL `panfleto-90gr-4x0-10x14cm`, "4x0 cor") **permanece** — é um site diferente, já consolidado, não é duplicata da URL atual.
 
-**Implementação:**
-1. Pequeno botão `variant="outline" size="sm"` no rodapé da aba Alertas: **"Gerar alerta de teste"**.
-2. Ao clicar:
-   - Buscar 1 site qualquer ativo: `supabase.from("sites_monitorados").select("id, nome_produto, fornecedor_nome").eq("ativo", true).limit(1)`.
-   - Se não houver site ativo: toast `"Cadastre ao menos um site ativo para testar alertas"` e aborta.
-   - Se houver: insere em `alertas_precos`:
-     ```ts
-     {
-       site_id: <id do site>,
-       mensagem: "[TESTE] Alerta sintético — pode marcar como lido",
-       prioridade: "baixa",
-       produto_nome: "[TESTE]",
-       fornecedor_nome: site.fornecedor_nome,
-     }
-     ```
-3. Realtime existente já propaga para a UI; usuário valida exibição + "marcar como lido" + remoção da lista.
-4. **Não toca em `site_precos_tiers`** → não polui histórico, não dispara trigger, não precisa reverter.
+Após isso o usuário recadastra normalmente clicando em "Salvar" no diálogo aberto.
+
+### Parte 2 — Melhorar o aviso de duplicata em `NovoSiteDialog.tsx`
+
+Mudanças no fluxo de `handleSave` para nunca mais deixar o usuário sem saber o que aconteceu:
+
+1. **Antes de iterar para inserir**, fazer um `select` único listando todos os duplicados com nome do produto e fornecedor:
+   ```ts
+   const { data: existentes } = await supabase
+     .from("sites_monitorados")
+     .select("url_completa, nome_produto, fornecedor_nome")
+     .in("url_completa", validResults.map(r => r.source_url));
+   ```
+
+2. **Se houver duplicados**, mostrar um diálogo de confirmação (`AlertDialog` shadcn, não toast) listando:
+   - URLs duplicadas
+   - Para cada uma: nome do produto e fornecedor já cadastrados
+   - Duas opções: **"Ignorar duplicadas e salvar o resto"** (comportamento atual) ou **"Cancelar"**.
+   
+   Se 100% das URLs forem duplicadas, só "Cancelar" + um botão **"Ir para Gerenciar sites"** que fecha o diálogo e troca a aba ativa via callback ao parent (`onOpenChange(false)` + um novo prop `onNavigateToManagement?: () => void`).
+
+3. **Toast final** detalhado e persistente até clicar (sem auto-dismiss em 2.5s para esse caso): em vez de `"1 duplicado(s)"`, algo como `"0 criado(s) · 1 já cadastrado(s) — veja em Gerenciar sites"`.
 
 ## Arquivos afetados
 
-- `src/components/monitoramento/ProductPicker.tsx`
-- `src/components/monitoramento/NovoSiteDialog.tsx`
-- `src/pages/Monitoramento.tsx`
+- `src/components/monitoramento/NovoSiteDialog.tsx` — pré-checagem em lote, AlertDialog de confirmação, toast detalhado, novo prop opcional `onNavigateToManagement`.
+- `src/pages/Monitoramento.tsx` — passar `onNavigateToManagement={() => setActiveTab("gerenciar")}` ao `NovoSiteDialog`.
+- **Migration** com o `DELETE` da Parte 1 (1 linha).
 
 ## Fora de escopo
 
-Scraping, schema, RLS, triggers, layout/cores globais.
+- Lógica de scraping, schema, RLS, triggers — intactos.
+- Comportamento de `findOrCreateCatalogo` — intacto.
+- Demais URLs/sites do banco.
 
 ## Risco
 
-Mínimo. Mudanças textuais + 1 botão isolado que insere uma linha descartável em `alertas_precos` referenciando um site existente.
+Baixo. O `DELETE` é cirúrgico (id específico, confirmado por SELECT). A mudança no `handleSave` mantém o caminho atual quando o usuário escolhe "ignorar duplicadas"; apenas adiciona um passo de confirmação antes.
 
