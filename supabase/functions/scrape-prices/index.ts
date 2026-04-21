@@ -38,6 +38,7 @@ type ScrapeResult = {
   prices: Price[];
   error: string | null;
   elapsed_ms?: number;
+  debugHtml?: string | null;
 };
 
 // ---------- Normalização BR ----------
@@ -478,7 +479,16 @@ export default async function ({ page, context }) {
       });
     } catch (_) {}
 
-    return { tiers };
+    let debugHtml = null;
+    if (tiers.length === 0) {
+      const container = document.querySelector('div.js-quantity-container');
+      if (container) {
+        debugHtml = container.outerHTML.slice(0, 8000);
+      } else {
+        debugHtml = 'NO_CONTAINER | body sample: ' + document.body.innerHTML.slice(0, 4000);
+      }
+    }
+    return { tiers, debugHtml };
   });
 
   return data;
@@ -493,17 +503,27 @@ async function scrapeImprimaRapido(url: string, token: string): Promise<ScrapeRe
     strategy: "function-imprimarapido" as const,
   };
   try {
-    const result = await fetchViaBrowserlessFunction<{ tiers: RawTier[] }>(
+    const result = await fetchViaBrowserlessFunction<{ tiers: RawTier[]; debugHtml?: string | null }>(
       url,
       token,
       IMPRIMARAPIDO_FN_SOURCE,
     );
     const prices = finalizeTiers(result?.tiers ?? [], url);
     console.log(`[scrape-imprimarapido] ${url} | tiers=${prices.length} | ${Date.now() - startedAt}ms`);
+    if (prices.length === 0) {
+      console.log(`[scrape-imprimarapido] tiers vazios | url=${url} | debugHtml(len)=${result?.debugHtml?.length ?? 0}`);
+      return {
+        ...base,
+        prices,
+        error: "Tabela de preços não encontrada",
+        elapsed_ms: Date.now() - startedAt,
+        debugHtml: result?.debugHtml ?? null,
+      };
+    }
     return {
       ...base,
       prices,
-      error: prices.length === 0 ? "Tabela de preços não encontrada" : null,
+      error: null,
       elapsed_ms: Date.now() - startedAt,
     };
   } catch (e) {
