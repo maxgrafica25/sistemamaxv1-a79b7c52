@@ -563,10 +563,16 @@ async function scrapeAtualCard(url: string, token: string): Promise<ScrapeResult
 
 async function scrapeOne(url: string, token: string): Promise<ScrapeResult> {
   // Dispatcher por host: domínios com preços via JS usam /function
+  let host = "";
   try {
-    const host = new URL(url).hostname.replace(/^www\./, "");
+    host = new URL(url).hostname.replace(/^www\./, "");
     if (host === "atualcard.com.br") {
       return await scrapeAtualCard(url, token);
+    }
+    if (host.endsWith("imprimarapido.com.br")) {
+      const r = await scrapeImprimaRapido(url, token);
+      if (r.prices.length > 0) return r;
+      // se vazio, cai no parser genérico abaixo
     }
   } catch (_) {
     // URL inválida cai no fluxo padrão (vai falhar lá com erro claro)
