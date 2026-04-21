@@ -151,8 +151,8 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       supabase.from("equipments").select("id, name, printer_type").order("sort_order"),
       supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
       supabase.from("papers").select("id, name, grammage, pack_price, freight_price, sheet_qty").eq("is_active", true),
-      supabase.from("markup_tiers").select("*").order("sort_order"),
-      supabase.from("global_settings").select("*").limit(1).single(),
+      supabase.from("markup_tiers").select("id, printer_category_id, markup_group_id, label, min_qty, max_qty, fixed_cost_pct, variable_cost_pct, margin_pct, sort_order").order("sort_order"),
+      supabase.from("global_settings").select("id, invoice_pct, collection_pct, waste_pct, default_margin_pct, tax_pct, collection_fee_pct, credit_card_pct").limit(1).single(),
     ]);
 
     if (stepsRes.data) {
@@ -286,7 +286,7 @@ export default function NewQuoteForm({ onSave, onCancel, nextId, editingQuote, i
       supabase.from("monthly_expenses").select("value"),
       supabase.from("salaries").select("salary, is_production"),
       supabase.from("equipment_depreciation").select("purchase_value, useful_life_months, residual_value"),
-      supabase.from("productive_capacity").select("*").limit(1).single(),
+      supabase.from("productive_capacity").select("id, hours_per_month, production_employees").limit(1).single(),
     ]);
     const totalExp = (expRes.data || []).reduce((s: number, e: any) => s + e.value, 0);
     const totalSal = (salRes.data || []).reduce((s: number, e: any) => s + e.salary, 0) * 1.45;

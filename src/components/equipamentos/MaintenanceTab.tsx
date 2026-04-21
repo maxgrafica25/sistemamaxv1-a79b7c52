@@ -18,6 +18,7 @@ import { Plus, Trash2, Edit2, Wrench, Paperclip, X, Copy, Image, FileVideo, Exte
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { handleError } from "@/lib/handleError";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Maintenance {
   id: string;
@@ -204,7 +205,7 @@ export default function MaintenanceTab({ equipmentId, equipmentName, printerType
     setIsSaving(true);
     const { error } = editing
       ? await supabase.from("equipment_maintenances").update(payload).eq("id", editing.id)
-      : await supabase.from("equipment_maintenances").insert(payload);
+      : await supabase.from("equipment_maintenances").insert({ ...payload, created_by: user?.id });
     setIsSaving(false);
 
     if (error) return handleError(error, editing ? "atualizar manutenção" : "criar manutenção");

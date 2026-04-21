@@ -2,7 +2,10 @@
 // Protegida: somente admins (is_profile_admin) podem invocar. Service-role só é instanciado
 // após validação de admin. Streaming via ReadableStream para não estourar memória.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { z } from "https://esm.sh/zod@3.23.8";
 import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
+
+const FormatSchema = z.enum(["sql", "json"]).catch("sql");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -127,7 +130,7 @@ Deno.serve(async (req) => {
   });
 
   const url = new URL(req.url);
-  const format = url.searchParams.get("format") === "json" ? "json" : "sql";
+  const format = FormatSchema.parse(url.searchParams.get("format") ?? "sql");
   const ts = new Date();
   const stamp = ts.toISOString().slice(0, 16).replace("T", "-").replace(":", "");
   const filename = `backup-${stamp}.${format}`;

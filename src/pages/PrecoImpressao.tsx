@@ -185,12 +185,12 @@ export default function PrecoImpressao() {
     setLoading(true);
     const [catRes, tierRes, itemRes, eqRes, consRes, papRes, groupRes, settingsRes] = await Promise.all([
       supabase.from("printer_categories").select("*").order("sort_order"),
-      supabase.from("markup_tiers").select("*").order("sort_order"),
+      supabase.from("markup_tiers").select("id, printer_category_id, markup_group_id, label, min_qty, max_qty, fixed_cost_pct, variable_cost_pct, margin_pct, sort_order").order("sort_order"),
       supabase.from("printing_price_items").select("*").order("sort_order"),
       supabase.from("equipments").select("id, name, printer_type").order("sort_order"),
       supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
       supabase.from("papers").select("id, name, grammage, sheet_qty, pack_price, freight_price").eq("is_active", true).order("sort_order"),
-      supabase.from("markup_groups").select("*").order("name"),
+      supabase.from("markup_groups").select("id, name").order("name"),
       supabase.from("global_settings").select("*").limit(1).single(),
     ]);
     if (catRes.data) setCategories(catRes.data as PrinterCategory[]);
