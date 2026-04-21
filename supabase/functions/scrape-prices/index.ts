@@ -461,15 +461,18 @@ export default async function ({ page, context }) {
       if (qty && price) tiers.push({ quantity: qty, total_price: price });
     });
 
-    // C) Imprima Rápido: li.desc--check com span.radio_content (qty) + span.js-qtd-radio (preço)
-    document.querySelectorAll('li.desc--check').forEach((li) => {
-      const qtyEl = li.querySelector('span.radio_content, .radio_content');
-      const priceEl = li.querySelector('span.js-qtd-radio, .js-qtd-radio');
-      if (!qtyEl || !priceEl) return;
-      const qty = parseQtyBR(qtyEl.textContent || '');
-      const price = parsePriceBR(priceEl.textContent || '');
-      if (qty && price) tiers.push({ quantity: qty, total_price: price });
-    });
+    // C) Imprima Rápido: escopar ao div.js-quantity-container
+    const qtyContainer = document.querySelector('div.js-quantity-container');
+    if (qtyContainer) {
+      qtyContainer.querySelectorAll('li.desc--check').forEach((li) => {
+        const qtyEl = li.querySelector('span.radio_content, .radio_content');
+        const priceEl = li.querySelector('span.js-qtd-radio, .js-qtd-radio');
+        if (!qtyEl || !priceEl) return;
+        const qty = parseQtyBR(qtyEl.textContent || '');
+        const price = parsePriceBR(priceEl.textContent || '');
+        if (qty && price) tiers.push({ quantity: qty, total_price: price });
+      });
+    }
 
     // D) dataLayer (GTM)
     try {
