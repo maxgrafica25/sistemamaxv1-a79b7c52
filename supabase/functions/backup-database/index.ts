@@ -147,13 +147,15 @@ Deno.serve(async (req) => {
 
       try {
         // Buscar metadata via helpers
-        const [tablesRes, fnsRes, trigsRes, polsRes, idxRes, fksRes] = await Promise.all([
+        const [tablesRes, fnsRes, trigsRes, polsRes, idxRes, fksRes, cronRes, pubRes] = await Promise.all([
           admin.rpc("backup_get_tables"),
           admin.rpc("backup_get_functions"),
           admin.rpc("backup_get_triggers"),
           admin.rpc("backup_get_policies"),
           admin.rpc("backup_get_indexes"),
           admin.rpc("backup_get_foreign_keys"),
+          admin.rpc("backup_get_cron_jobs"),
+          admin.rpc("backup_get_realtime_publication"),
         ]);
 
         const tables = (tablesRes.data as any[]) || [];
@@ -162,6 +164,8 @@ Deno.serve(async (req) => {
         const policies = (polsRes.data as any[]) || [];
         const indexes = (idxRes.data as any[]) || [];
         const fks = (fksRes.data as any[]) || [];
+        const cronJobs = (cronRes.data as any[]) || [];
+        const realtimePub = (pubRes.data as any[]) || [];
         tableCount = tables.length;
 
         const tableNames = tables.map((t) => t.table_name);
