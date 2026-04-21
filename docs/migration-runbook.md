@@ -87,7 +87,10 @@ psql -U app_owner -d app -c "SELECT tablename, count(*) FROM pg_policies WHERE s
 ## Fase 3 — Auth (GoTrue)
 
 1. **Subir GoTrue** via docker-compose (use o `docker-compose.yml` oficial do Supabase self-hosted).
-2. **Importar usuários** a partir do bloco `AUTH_USERS_JSON` no SQL:
+
+2. **Antes de qualquer reset em lote**, aumente o rate limit de email do GoTrue no destino — o default (`GOTRUE_RATE_LIMIT_EMAIL_SENT=30` por hora) é muito baixo para reset em massa. Algo como `300/hora` cobre bases até ~1500 usuários sem bloqueios.
+
+3. **Importar usuários** a partir do bloco `AUTH_USERS_JSON` no SQL:
 
    ```bash
    sed -n '/AUTH_USERS_JSON/,/\*\//p' backup-*.sql | sed '1d;$d' > users.json
@@ -96,15 +99,17 @@ psql -U app_owner -d app -c "SELECT tablename, count(*) FROM pg_policies WHERE s
    node scripts/import-users.js users.json
    ```
 
-3. **Disparar reset de senha em lote** (todos os usuários precisam redefinir, pois hashes não são exportados pela Auth API):
+4. **Disparar reset de senha em lote** (todos os usuários precisam redefinir, pois hashes não são exportados pela Auth API). Use o script `scripts/reset-passwords-bulk.ts` deste repo — ele faz batches de 5 paralelos, retry em 429/5xx e gera log CSV:
 
    ```bash
-   jq -r '.[].email' users.json | xargs -I{} curl -X POST "$AUTH_URL/recover" \
-     -H "Content-Type: application/json" \
-     -d '{"email":"{}"}'
+   AUTH_URL=https://api.<vps> AUTH_ANON_KEY=<gotrue-anon-key> \
+     deno run --allow-net --allow-env --allow-read --allow-write \
+     scripts/reset-passwords-bulk.ts users.json
+
+   # Inspecionar reset-log-YYYYMMDD.csv para identificar falhas
    ```
 
-4. **Reconfigurar manualmente** no GoTrue:
+5. **Reconfigurar manualmente** no GoTrue:
    - Providers OAuth (Google, GitHub, etc.)
    - Templates de email (recuperação, confirmação)
    - Rate limits
