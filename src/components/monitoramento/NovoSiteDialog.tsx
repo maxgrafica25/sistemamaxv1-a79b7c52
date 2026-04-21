@@ -173,8 +173,16 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
   const invalidResults = useMemo(() => results.filter((r) => r.prices.length === 0), [results]);
 
   const handleSave = async () => {
+    if (!urls.length) {
+      toast.error("Cole pelo menos uma URL válida (http/https)");
+      return;
+    }
+    if (!results.length) {
+      toast.error('Clique em "Testar scraping" antes de salvar');
+      return;
+    }
     if (!validResults.length) {
-      toast.error("Nenhuma URL com tiers para salvar. Rode o teste primeiro.");
+      toast.error("Nenhuma URL retornou tiers válidos. Verifique as URLs e teste novamente.");
       return;
     }
     if (!categoria.trim()) {
