@@ -588,20 +588,31 @@ async function scrapeAtualCard(url: string, token: string): Promise<ScrapeResult
 }
 
 async function scrapeOne(url: string, token: string): Promise<ScrapeResult> {
-  // Dispatcher por host: domínios com preços via JS usam /function
-  let host = "";
+  // 1) Parse host — se falhar, retorna erro IMEDIATAMENTE (não cai no genérico)
+  let host: string;
   try {
-    host = new URL(url).hostname.replace(/^www\./, "");
-    if (host === "atualcard.com.br") {
-      return await scrapeAtualCard(url, token);
-    }
-    if (host.endsWith("imprimarapido.com.br")) {
-      // NUNCA cair no parser genérico — gera tiers lixo de outras seções da página
-      return await scrapeImprimaRapido(url, token);
-    }
-  } catch (_) {
-    // URL inválida cai no fluxo padrão (vai falhar lá com erro claro)
+    host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return {
+      source_url: url,
+      scraped_at: new Date().toISOString(),
+      strategy: "html",
+      prices: [],
+      error: "URL inválida",
+      elapsed_ms: 0,
+    };
   }
+
+  // 2) Dispatcher por host — SEM try/catch externo.
+  //    Resultado (ou exceção) propaga direto. NUNCA cai no genérico abaixo.
+  if (host === "atualcard.com.br" || host.endsWith(".atualcard.com.br")) {
+    return await scrapeAtualCard(url, token);
+  }
+  if (host === "imprimarapido.com.br" || host.endsWith(".imprimarapido.com.br")) {
+    return await scrapeImprimaRapido(url, token);
+  }
+
+  // 3) Genérico — só para hosts não-especializados
 
   const startedAt = Date.now();
   let lastErr: string | null = null;
