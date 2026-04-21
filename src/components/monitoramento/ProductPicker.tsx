@@ -44,7 +44,7 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
     ? selected.nome_canonico
     : selectedName
       ? `${selectedName} (novo)`
-      : "Selecione ou digite um novo nome...";
+      : "Buscar ou cadastrar produto...";
 
   const trimmedSearch = search.trim();
   const hasExactMatch = produtos.some(
@@ -77,8 +77,11 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[420px] max-w-[90vw] p-0" align="start">
           <Command>
+            <div className="px-3 py-2 text-xs text-muted-foreground border-b bg-muted/30">
+              Selecione um produto existente ou cadastre um novo abaixo
+            </div>
             <CommandInput
-              placeholder="Buscar produto existente..."
+              placeholder="Digite para buscar ou cadastrar..."
               value={search}
               onValueChange={setSearch}
             />

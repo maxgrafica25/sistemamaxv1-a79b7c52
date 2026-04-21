@@ -762,8 +762,8 @@ export default function Monitoramento() {
           <TabsTrigger value="oportunidades">
             <Sparkles className="h-4 w-4 mr-1" /> Oportunidades {oportunidades.length > 0 && `(${oportunidades.length})`}
           </TabsTrigger>
-          <TabsTrigger value="comparativo">Comparativo</TabsTrigger>
-          <TabsTrigger value="tabela">Tabela completa</TabsTrigger>
+          <TabsTrigger value="comparativo">Comparar fornecedores</TabsTrigger>
+          <TabsTrigger value="tabela">Gerenciar sites</TabsTrigger>
           <TabsTrigger value="alertas">Alertas {alertasNaoLidos > 0 && `(${alertasNaoLidos})`}</TabsTrigger>
         </TabsList>
 
@@ -1221,7 +1221,37 @@ export default function Monitoramento() {
         </TabsContent>
 
         <TabsContent value="alertas" className="space-y-3">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                const { data: site, error } = await supabase
+                  .from("sites_monitorados")
+                  .select("id, nome_produto, fornecedor_nome")
+                  .eq("ativo", true)
+                  .limit(1)
+                  .maybeSingle();
+                if (error || !site) {
+                  toast.error("Cadastre ao menos um site ativo para testar alertas");
+                  return;
+                }
+                const { error: insErr } = await supabase.from("alertas_precos").insert({
+                  site_id: site.id,
+                  mensagem: "[TESTE] Alerta sintético — pode marcar como lido",
+                  prioridade: "baixa",
+                  produto_nome: "[TESTE]",
+                  fornecedor_nome: site.fornecedor_nome,
+                });
+                if (insErr) {
+                  toast.error("Erro ao gerar alerta de teste: " + insErr.message);
+                  return;
+                }
+                toast.success("Alerta de teste gerado");
+              }}
+            >
+              Gerar alerta de teste
+            </Button>
             <Button variant="outline" size="sm" onClick={markAlertasLidos} disabled={!alertasNaoLidos}>
               Marcar todos como lidos
             </Button>

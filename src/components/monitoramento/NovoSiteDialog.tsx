@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { FlaskConical, Loader2, Save, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { Search, Loader2, Save, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { findOrCreateCatalogo } from "@/lib/produtoCatalogo";
 import ProductPicker from "./ProductPicker";
@@ -163,7 +163,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
       const ok = got.filter((r) => r.prices.length).length;
       toast.success(`${ok}/${got.length} URL(s) com tiers encontrados`);
     } catch (e: any) {
-      toast.error(e?.message || "Erro ao testar scraping");
+      toast.error(e?.message || "Erro ao buscar preços");
     } finally {
       setTesting(false);
     }
@@ -178,7 +178,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
       return;
     }
     if (!results.length) {
-      toast.error('Clique em "Testar scraping" antes de salvar');
+      toast.error('Clique em "Buscar preços" antes de salvar');
       return;
     }
     if (!validResults.length) {
@@ -291,7 +291,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
 
         <div className="space-y-4 overflow-y-auto px-6 py-4 flex-1 min-h-0">
           <Alert>
-            <FlaskConical className="h-4 w-4" />
+            <Search className="h-4 w-4" />
             <AlertDescription>
               Cole uma ou mais URLs (uma por linha), teste o scraping e salve. Tudo passa pelo mesmo motor Playwright.
             </AlertDescription>
@@ -376,8 +376,8 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
 
           <div className="flex items-center gap-2">
             <Button onClick={handleTest} disabled={testing || !urls.length} variant="outline">
-              {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
-              Testar scraping
+              {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Buscar preços
             </Button>
             {results.length > 0 && (
               <span className="text-xs text-muted-foreground">
