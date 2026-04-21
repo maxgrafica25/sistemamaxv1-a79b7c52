@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -21,6 +31,13 @@ type Props = {
   onOpenChange: (v: boolean) => void;
   onCreated: () => void;
   categoriasExistentes?: string[];
+  onNavigateToManagement?: () => void;
+};
+
+type DuplicadoInfo = {
+  url: string;
+  nome_produto: string;
+  fornecedor_nome: string | null;
 };
 
 type WorkerPrice = {
@@ -91,7 +108,7 @@ const strategyBadge = (s: WorkerResult["strategy"]) => {
   return map[s] ?? { label: String(s ?? "unknown"), cls: "bg-muted text-muted-foreground border-border" };
 };
 
-export default function NovoSiteDialog({ open, onOpenChange, onCreated, categoriasExistentes = [] }: Props) {
+export default function NovoSiteDialog({ open, onOpenChange, onCreated, categoriasExistentes = [], onNavigateToManagement }: Props) {
   const [urlsText, setUrlsText] = useState("");
   const [categoria, setCategoria] = useState("");
   const [novaCategoriaMode, setNovaCategoriaMode] = useState(false);
@@ -101,6 +118,8 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
   const [fornecedorOverrides, setFornecedorOverrides] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [duplicados, setDuplicados] = useState<DuplicadoInfo[]>([]);
+  const [confirmDupOpen, setConfirmDupOpen] = useState(false);
 
   const categoriasOrdenadas = useMemo(
     () => Array.from(new Set(categoriasExistentes.map((c) => c.toLowerCase().trim()).filter(Boolean))).sort(),
