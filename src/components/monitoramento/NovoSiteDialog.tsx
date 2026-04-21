@@ -487,7 +487,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="px-6 py-4 border-t shrink-0 bg-background">
           <Button variant="outline" onClick={() => handleClose(false)} disabled={saving}>
             Cancelar
           </Button>
