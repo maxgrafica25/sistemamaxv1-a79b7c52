@@ -69,12 +69,13 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
             variant="outline"
             role="combobox"
             className="w-full justify-between font-normal"
+            title={triggerLabel}
           >
             <span className="truncate">{triggerLabel}</span>
             <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[420px] max-w-[90vw] p-0" align="start">
           <Command>
             <CommandInput
               placeholder="Buscar produto existente..."
@@ -111,15 +112,17 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
                     <CommandItem
                       key={p.id}
                       value={p.nome_canonico}
+                      title={p.nome_canonico}
+                      className="items-start gap-2"
                       onSelect={() => {
                         onChange({ id: p.id, name: p.nome_canonico });
                         setOpen(false);
                         setSearch("");
                       }}
                     >
-                      <Check className={cn("h-4 w-4", selectedId === p.id ? "opacity-100" : "opacity-0")} />
-                      <span className="flex-1 truncate">{p.nome_canonico}</span>
-                      {p.categoria && <Badge variant="outline" className="text-xs ml-2">{p.categoria}</Badge>}
+                      <Check className={cn("h-4 w-4 shrink-0 mt-0.5", selectedId === p.id ? "opacity-100" : "opacity-0")} />
+                      <span className="flex-1 break-words leading-snug">{p.nome_canonico}</span>
+                      {p.categoria && <Badge variant="outline" className="text-xs ml-2 shrink-0 self-start mt-0.5">{p.categoria}</Badge>}
                     </CommandItem>
                   ))}
                 </CommandGroup>
