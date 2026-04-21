@@ -63,7 +63,8 @@ function parseQty(raw: string): number | null {
 }
 
 function isValidQty(q: number): boolean {
-  return q >= 1 && q <= 1_000_000;
+  // Mínimo 100: gráficas não vendem tiragens menores. Evita lixo tipo "10x14" virar qty=10.
+  return q >= 100 && q <= 1_000_000;
 }
 function isValidPrice(p: number): boolean {
   return p > 0 && p < 1_000_000;
