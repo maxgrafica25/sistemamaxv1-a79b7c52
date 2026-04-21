@@ -558,6 +558,65 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <AlertDialog open={confirmDupOpen} onOpenChange={setConfirmDupOpen}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {duplicados.length === validResults.length
+                ? "Todas as URLs já estão cadastradas"
+                : `${duplicados.length} URL(s) já cadastrada(s)`}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  {duplicados.length === validResults.length
+                    ? "Nenhuma URL nova para salvar. Você pode revisar os sites já cadastrados em Gerenciar sites."
+                    : "Os itens abaixo já existem no banco e serão ignorados. As demais URLs serão salvas normalmente."}
+                </p>
+                <ul className="text-sm border rounded-md divide-y max-h-48 overflow-y-auto">
+                  {duplicados.map((d) => (
+                    <li key={d.url} className="p-2">
+                      <div className="font-medium truncate">{d.nome_produto}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {d.fornecedor_nome || "sem fornecedor"}
+                      </div>
+                      <div className="text-xs font-mono text-muted-foreground truncate">{d.url}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            {duplicados.length === validResults.length ? (
+              onNavigateToManagement && (
+                <AlertDialogAction
+                  onClick={() => {
+                    setConfirmDupOpen(false);
+                    onOpenChange(false);
+                    reset();
+                    onNavigateToManagement();
+                  }}
+                >
+                  Ir para Gerenciar sites
+                </AlertDialogAction>
+              )
+            ) : (
+              <AlertDialogAction
+                onClick={async () => {
+                  const skipSet = new Set(duplicados.map((d) => d.url));
+                  setConfirmDupOpen(false);
+                  await performSave(skipSet);
+                }}
+              >
+                Ignorar duplicadas e salvar o resto
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
