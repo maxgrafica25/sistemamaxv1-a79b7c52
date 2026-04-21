@@ -596,9 +596,8 @@ async function scrapeOne(url: string, token: string): Promise<ScrapeResult> {
       return await scrapeAtualCard(url, token);
     }
     if (host.endsWith("imprimarapido.com.br")) {
-      const r = await scrapeImprimaRapido(url, token);
-      if (r.prices.length > 0) return r;
-      // se vazio, cai no parser genérico abaixo
+      // NUNCA cair no parser genérico — gera tiers lixo de outras seções da página
+      return await scrapeImprimaRapido(url, token);
     }
   } catch (_) {
     // URL inválida cai no fluxo padrão (vai falhar lá com erro claro)
