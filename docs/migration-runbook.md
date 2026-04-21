@@ -41,7 +41,53 @@ Checklist passo-a-passo para migrar o sistema completo do Lovable Cloud (Supabas
 
 ---
 
-## Fase 1 — Provisionar Postgres
+## Fase 0.5 — Deploy do stack via docker-compose (recomendado)
+
+O repositório já inclui `docker-compose.yml` + `Dockerfile` + configs auxiliares para subir tudo (Postgres, Auth, REST, Realtime, MinIO, Storage API, Edge Functions, Kong, Caddy e frontend) em um único `docker compose up -d`.
+
+1. **Pré-requisitos na VPS:** Docker 24+ com Compose v2, portas 80/443 livres, DNS apontando.
+
+2. **Configurar variáveis** (uma única vez):
+
+   ```bash
+   cp .env.example .env
+   # Gerar secrets:
+   echo "JWT_SECRET=$(openssl rand -base64 64)" >> .env
+   echo "POSTGRES_PASSWORD=$(openssl rand -base64 32)" >> .env
+   echo "MINIO_ROOT_PASSWORD=$(openssl rand -base64 24)" >> .env
+   # Gerar ANON_KEY e SERVICE_ROLE_KEY (script abaixo lê JWT_SECRET do .env):
+   set -a && source .env && set +a
+   deno run --allow-env scripts/generate-jwt.ts
+   # Copiar a saída para .env. VITE_SUPABASE_PUBLISHABLE_KEY = ANON_KEY.
+   ```
+
+   Documentação completa de cada variável: `docs/deployment-vars.md`.
+
+3. **Subir o stack:**
+
+   ```bash
+   docker compose config > /dev/null   # valida sintaxe
+   docker compose up -d --build
+   docker compose ps                   # todos devem estar healthy
+   ```
+
+4. **Restaurar dados** (continua nas Fases 2–6, mas agora apontando para os containers):
+
+   ```bash
+   docker compose exec -T db psql -U postgres -d postgres < backup-YYYY-MM-DD-HHmm.sql
+   ```
+
+5. **Restaurar Storage** via MinIO Client (Fase 4 adaptada):
+
+   ```bash
+   docker compose run --rm minio-init mc cp --recursive /storage-dump/ local/
+   ```
+
+A Fase 1 abaixo (Postgres bare-metal) só é necessária se você **não** quiser usar Docker.
+
+---
+
+## Fase 1 — Provisionar Postgres (alternativa bare-metal)
 
 ```bash
 sudo apt install postgresql-15 postgresql-15-cron postgresql-contrib
