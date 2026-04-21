@@ -52,7 +52,7 @@ export default function Configuracoes() {
   // Backup state
   const [backupRuns, setBackupRuns] = useState<BackupRun[]>([]);
   const [loadingBackups, setLoadingBackups] = useState(false);
-  const [generating, setGenerating] = useState<"sql" | "json" | null>(null);
+  const [generating, setGenerating] = useState<"sql" | "json" | "storage" | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -138,16 +138,20 @@ export default function Configuracoes() {
 
   useEffect(() => { if (isAdmin) loadBackups(); }, [isAdmin, loadBackups]);
 
-  const handleGenerateBackup = async (format: "sql" | "json") => {
+  const handleGenerateBackup = async (kind: "sql" | "json" | "storage") => {
     if (!session?.access_token) {
       toast.error("Sessão expirada. Faça login novamente.");
       return;
     }
-    setGenerating(format);
-    const toastId = toast.loading(`Gerando backup ${format.toUpperCase()}...`);
+    setGenerating(kind);
+    const labelMap = { sql: "SQL", json: "JSON", storage: "Storage" } as const;
+    const toastId = toast.loading(`Gerando backup ${labelMap[kind]}...`);
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const url = `https://${projectId}.supabase.co/functions/v1/backup-database?format=${format}`;
+      const url =
+        kind === "storage"
+          ? `https://${projectId}.supabase.co/functions/v1/backup-storage`
+          : `https://${projectId}.supabase.co/functions/v1/backup-database?format=${kind}`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
@@ -157,14 +161,16 @@ export default function Configuracoes() {
       }
       const blob = await res.blob();
       const stamp = new Date().toISOString().slice(0, 16).replace("T", "-").replace(":", "");
+      const filename =
+        kind === "storage" ? `storage-manifest-${stamp}.json` : `backup-${stamp}.${kind}`;
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `backup-${stamp}.${format}`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(a.href);
-      toast.success(`Backup ${format.toUpperCase()} gerado (${formatBytes(blob.size)})`, { id: toastId });
+      toast.success(`Backup ${labelMap[kind]} gerado (${formatBytes(blob.size)})`, { id: toastId });
       loadBackups();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -306,9 +312,16 @@ export default function Configuracoes() {
                     {generating === "json" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileJson className="h-4 w-4" />}
                     Backup JSON
                   </Button>
+                  <Button variant="outline" onClick={() => handleGenerateBackup("storage")} disabled={generating !== null} className="gap-2">
+                    {generating === "storage" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderArchive className="h-4 w-4" />}
+                    Exportar lista de arquivos (Storage)
+                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Use <code className="rounded bg-muted px-1">psql destino &lt; backup.sql</code> para restaurar o arquivo SQL em outro Postgres.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  <strong>Storage:</strong> URLs assinadas válidas por 24h. Baixe os arquivos imediatamente após gerar (ex: <code className="rounded bg-muted px-1">wget -i urls.txt</code>).
                 </p>
               </CardContent>
             </Card>
@@ -339,7 +352,7 @@ export default function Configuracoes() {
                         <TableRow key={r.id}>
                           <TableCell className="text-sm">{new Date(r.created_at).toLocaleString("pt-BR")}</TableCell>
                           <TableCell className="text-sm">{r.profiles?.display_name || "—"}</TableCell>
-                          <TableCell className="text-sm uppercase font-mono">{r.format}</TableCell>
+                          <TableCell className="text-sm uppercase font-mono">{r.format === "storage-json" ? "Storage" : r.format}</TableCell>
                           <TableCell className="text-sm">{formatBytes(r.size_bytes)}</TableCell>
                           <TableCell>
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${r.status === "success" ? "bg-accent/10 text-accent" : "bg-destructive/10 text-destructive"}`}>
