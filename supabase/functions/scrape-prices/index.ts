@@ -461,13 +461,13 @@ export default async function ({ page, context }) {
       if (qty && price) tiers.push({ quantity: qty, total_price: price });
     });
 
-    // C) Imprima Rápido: escopar ao js-quantity-container, parsear texto do li
-    const qtyContainer = document.querySelector('div.js-quantity-container, .js-quantity-container, [class*="quantity-container"]');
+    // C) Imprima Rápido — regex no textContent do <li>, escopado ao js-quantity-container
+    const qtyContainer = document.querySelector('div.js-quantity-container');
     if (qtyContainer) {
       qtyContainer.querySelectorAll('li').forEach((li) => {
         const txt = (li.textContent || '').replace(/\\s+/g, ' ').trim();
-        const qtyMatch = txt.match(/(\\d{1,3}(?:\\.\\d{3})+|\\d{3,7})/);
-        const priceMatch = txt.match(/R\\$\\s*(\\d{1,3}(?:\\.\\d{3})*(?:,\\d{2})?)/);
+        const qtyMatch = txt.match(/(\\d{1,3}(?:\\.\\d{3})+)/);
+        const priceMatch = txt.match(/R\\$\\s*([\\d.]+,\\d{2})/);
         if (!qtyMatch || !priceMatch) return;
         const qty = parseQtyBR(qtyMatch[1]);
         const price = parsePriceBR(priceMatch[1]);
