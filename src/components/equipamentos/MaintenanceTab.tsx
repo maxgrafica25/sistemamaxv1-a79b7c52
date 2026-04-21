@@ -77,6 +77,7 @@ function buildClipboardText(r: Maintenance, equipmentName: string) {
 }
 
 export default function MaintenanceTab({ equipmentId, equipmentName, printerType }: Props) {
+  const { user } = useAuth();
   const [records, setRecords] = useState<Maintenance[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
