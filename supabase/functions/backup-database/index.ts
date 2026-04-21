@@ -147,13 +147,15 @@ Deno.serve(async (req) => {
 
       try {
         // Buscar metadata via helpers
-        const [tablesRes, fnsRes, trigsRes, polsRes, idxRes, fksRes] = await Promise.all([
+        const [tablesRes, fnsRes, trigsRes, polsRes, idxRes, fksRes, cronRes, pubRes] = await Promise.all([
           admin.rpc("backup_get_tables"),
           admin.rpc("backup_get_functions"),
           admin.rpc("backup_get_triggers"),
           admin.rpc("backup_get_policies"),
           admin.rpc("backup_get_indexes"),
           admin.rpc("backup_get_foreign_keys"),
+          admin.rpc("backup_get_cron_jobs"),
+          admin.rpc("backup_get_realtime_publication"),
         ]);
 
         const tables = (tablesRes.data as any[]) || [];
@@ -162,6 +164,8 @@ Deno.serve(async (req) => {
         const policies = (polsRes.data as any[]) || [];
         const indexes = (idxRes.data as any[]) || [];
         const fks = (fksRes.data as any[]) || [];
+        const cronJobs = (cronRes.data as any[]) || [];
+        const realtimePub = (pubRes.data as any[]) || [];
         tableCount = tables.length;
 
         const tableNames = tables.map((t) => t.table_name);
@@ -202,7 +206,9 @@ Deno.serve(async (req) => {
           write(`    "foreign_keys": ${JSON.stringify(fks)},\n`);
           write(`    "functions": ${JSON.stringify(functions)},\n`);
           write(`    "triggers": ${JSON.stringify(triggers)},\n`);
-          write(`    "policies": ${JSON.stringify(policies)}\n`);
+          write(`    "policies": ${JSON.stringify(policies)},\n`);
+          write(`    "cron_jobs": ${JSON.stringify(cronJobs)},\n`);
+          write(`    "realtime_publication": ${JSON.stringify(realtimePub)}\n`);
           write(`  },\n  "auth_users": ${JSON.stringify(authUsers)},\n`);
           write(`  "data": {\n`);
           for (let i = 0; i < ordered.length; i++) {
@@ -300,6 +306,40 @@ Deno.serve(async (req) => {
           write(`-- ===== TRIGGERS =====\n`);
           for (const t of triggers) write(`${t.definition};\n`);
           write(`\n`);
+
+          // Realtime publication
+          write(`-- ===== REALTIME PUBLICATION =====\n`);
+          if (realtimePub.length > 0) {
+            const tablesList = realtimePub
+              .map((r) => `${quoteIdent(r.schemaname)}.${quoteIdent(r.tablename)}`)
+              .join(", ");
+            write(`-- Recria publicação supabase_realtime com as tabelas que estavam habilitadas.\n`);
+            write(`DROP PUBLICATION IF EXISTS supabase_realtime;\n`);
+            write(`CREATE PUBLICATION supabase_realtime FOR TABLE ${tablesList};\n\n`);
+          } else {
+            write(`-- Nenhuma tabela em supabase_realtime no ambiente de origem (ou sem permissão de leitura).\n`);
+            write(`-- Para habilitar realtime no destino, ver migration-runbook.md Fase 6.\n\n`);
+          }
+
+          // Cron jobs
+          write(`-- ===== CRON JOBS =====\n`);
+          write(`-- Reagenda jobs do pg_cron (requer extensão instalada e shared_preload_libraries='pg_cron').\n`);
+          write(`-- IMPORTANTE: o 'command' de cada job aponta para URLs/keys do AMBIENTE DE ORIGEM.\n`);
+          write(`-- Revise e ajuste antes de aplicar no destino.\n`);
+          if (cronJobs.length > 0) {
+            for (const j of cronJobs) {
+              const safeName = String(j.jobname).replace(/'/g, "''");
+              write(
+                `SELECT cron.unschedule('${safeName}') WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname='${safeName}');\n`,
+              );
+              write(
+                `SELECT cron.schedule('${safeName}', '${String(j.schedule).replace(/'/g, "''")}', $cron$${j.command}$cron$);\n`,
+              );
+            }
+            write(`\n`);
+          } else {
+            write(`-- Nenhum cron job exportado (sem permissão em cron.job ou pg_cron ausente).\n\n`);
+          }
 
           // Auth users como comentário JSON
           write(`-- ===== AUTH USERS (sem hashes de senha) =====\n`);
