@@ -33,7 +33,7 @@ type WorkerPrice = {
 type WorkerResult = {
   source_url: string;
   scraped_at: string;
-  strategy: "api" | "html" | "html-regex" | "function-atualcard";
+  strategy: "api" | "html" | "html-regex" | "function-atualcard" | "function-imprimarapido";
   prices: WorkerPrice[];
   error: string | null;
 };
