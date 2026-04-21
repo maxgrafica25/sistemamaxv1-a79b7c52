@@ -1,47 +1,61 @@
 
 
-# Validação end-to-end do sistema de backup
+# Corrigir crash das edge functions de backup
 
-## Estado atual constatado
+## Causa raiz
 
-- **`backup_runs` está vazio** (0 registros). Nenhum dos 3 formatos foi disparado ainda — então não há o que "confirmar no histórico" sem antes gerar.
-- Tentar chamar `backup-database` e `backup-storage` por curl direto retorna **401 Unauthorized** (esperado: as funções validam JWT + `is_profile_admin` antes de instanciar o service-role). Isso confirma que a proteção admin está ativa, mas significa que a única forma de gerar um backup real é a partir do navegador autenticado.
+`backup-database/index.ts` e `backup-storage/index.ts` importam `@supabase/supabase-js@2.45.0` e chamam `userClient.auth.getClaims(token)`. Esse método não existe nessa versão → `TypeError` na linha de validação de admin → stream nunca abre → browser reporta "Failed to fetch".
 
-## O que vou executar (após aprovação)
+Confirmado nos logs:
+```
+TypeError: userClient.auth.getClaims is not a function
+  at backup-database/index.ts:110
+  at backup-storage/index.ts:91
+```
 
-1. **Abrir o preview autenticado** em `/configuracoes` no viewport atual (394x625), trocar para a aba **"Backup & Exportação"**.
-2. **Clicar "Gerar backup SQL"** → aguardar download → ler o arquivo baixado e confirmar:
-   - Header contém os 4 `CREATE EXTENSION IF NOT EXISTS` (`pgcrypto`, `"uuid-ossp"`, `pg_net`, `pg_cron`).
-   - Ordem dos blocos: EXTENSIONS → FUNCTIONS → TABLES → INDEXES → DATA → FOREIGN KEYS → RLS/POLICIES → TRIGGERS → AUTH_USERS_JSON.
-   - Bloco `AUTH_USERS_JSON` presente como comentário.
-3. **Clicar "Backup JSON"** → confirmar download e que o JSON tem `schema.extensions: ["pgcrypto","uuid-ossp","pg_net","pg_cron"]`.
-4. **Clicar "Exportar lista de arquivos (Storage)"** → confirmar download e que o JSON tem:
-   - `generated_at`, `expires_at` (~24h à frente).
-   - `buckets["chat-attachments"]` e `buckets["maintenance-attachments"]` como arrays.
-   - Cada item com `path`, `size`, `mime_type`, `signed_url` (URL https válida com `?token=…`).
-   - `totals.files` e `totals.bytes` consistentes.
-5. **Re-consultar `backup_runs`** via `supabase--read_query` e confirmar 3 linhas novas:
-   - `format='sql'`, `format='json'`, `format='storage-json'`
-   - todas com `status='success'` e `size_bytes > 0`
-   - `created_by` = uuid do admin logado
-6. **Conferir `admin_operations_log`** — confirmar 3 entradas correspondentes (`backup-database` x2 + `backup-storage` x1).
-7. **Logs das edge functions** (`supabase--edge_function_logs` em `backup-database` e `backup-storage`) para checar erros silenciosos no stream (ex.: `read failed for X`).
+Config (`verify_jwt = false`) e deploy estão corretos — o crash é puramente em runtime.
 
-## Pré-requisito do usuário
+## Correção
 
-A edge function precisa do JWT do admin logado. Confirme que **você está logado como admin** no preview antes de eu rodar a validação. Se o preview mostrar a tela de login, vou parar e pedir login manual antes de continuar.
+Substituir `getClaims(token)` por `getUser()` nas duas funções. `getUser()` existe desde versões antigas do SDK, valida o JWT contra o servidor Auth e retorna `data.user.id` (equivalente a `claims.sub`).
 
-## Saída esperada
+### `supabase/functions/backup-database/index.ts` (linhas ~108-118)
 
-Relatório com 3 verdes/vermelhos:
-- [ ] CREATE EXTENSION presente no SQL
-- [ ] storage manifest com signed URLs válidas
-- [ ] backup_runs registrou os 3 formatos com tamanho e status corretos
+Trocar:
+```ts
+const token = authHeader.replace("Bearer ", "");
+const { data: claims, error: claimsErr } = await userClient.auth.getClaims(token);
+if (claimsErr || !claims?.claims?.sub) { ...401... }
+const userId = claims.claims.sub as string;
+```
 
-Se algum falhar, identifico a causa nos logs e proponho correção em mensagem separada (não corrijo dentro desta validação).
+Por:
+```ts
+const { data: userData, error: userErr } = await userClient.auth.getUser();
+if (userErr || !userData?.user?.id) { ...401... }
+const userId = userData.user.id;
+```
+
+### `supabase/functions/backup-storage/index.ts` (linhas ~89-99)
+
+Mesma substituição, mesma lógica.
+
+## Validação após correção
+
+1. Deploy das duas funções (`supabase--deploy_edge_functions`).
+2. `supabase--curl_edge_functions` em `/backup-database?format=sql` (sem auth) → confirmar 401 ainda funciona.
+3. Verificar `supabase--edge_function_logs` — não deve haver mais `TypeError`.
+4. Pedir ao usuário para clicar os 3 botões em `/configuracoes` e confirmar downloads + registros em `backup_runs`.
+
+## Arquivos afetados
+
+| Ação | Arquivo |
+|---|---|
+| Editar | `supabase/functions/backup-database/index.ts` (substituir `getClaims` por `getUser`) |
+| Editar | `supabase/functions/backup-storage/index.ts` (idem) |
 
 ## Fora de escopo
 
-- Não vou baixar de fato os blobs do storage (apenas validar que as URLs assinadas têm formato válido).
-- Não vou restaurar o SQL em outro Postgres — esse teste é o runbook completo (Fase 1+2), não cabe aqui.
+- Atualizar versão do `@supabase/supabase-js` — risco de quebrar outros métodos usados (storage admin, listUsers). `getUser()` é a correção mínima.
+- Avisos de acessibilidade do `DialogContent` (faltando `DialogTitle`/`Description`) — não bloqueiam funcionalidade, tratar separado se desejado.
 
