@@ -224,6 +224,7 @@ export default function Monitoramento() {
   const [openDialog, setOpenDialog] = useState(false);
   const [openCatalogo, setOpenCatalogo] = useState(false);
   const [openGerenciarCat, setOpenGerenciarCat] = useState(false);
+  const [activeTab, setActiveTab] = useState("oportunidades");
   
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [qtdAlvo, setQtdAlvo] = useState<number>(100);
@@ -649,7 +650,13 @@ export default function Monitoramento() {
             <Plus className="h-4 w-4" />
             Novo Site
           </Button>
-          <NovoSiteDialog open={openDialog} onOpenChange={setOpenDialog} onCreated={fetchAll} categoriasExistentes={categorias} />
+          <NovoSiteDialog
+            open={openDialog}
+            onOpenChange={setOpenDialog}
+            onCreated={fetchAll}
+            categoriasExistentes={categorias}
+            onNavigateToManagement={() => setActiveTab("tabela")}
+          />
           <CatalogoProdutosDialog
             open={openCatalogo}
             onOpenChange={setOpenCatalogo}
@@ -757,7 +764,7 @@ export default function Monitoramento() {
         </div>
       </div>
 
-      <Tabs defaultValue="oportunidades">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="oportunidades">
             <Sparkles className="h-4 w-4 mr-1" /> Oportunidades {oportunidades.length > 0 && `(${oportunidades.length})`}

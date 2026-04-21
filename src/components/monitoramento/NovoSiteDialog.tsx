@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -21,6 +31,13 @@ type Props = {
   onOpenChange: (v: boolean) => void;
   onCreated: () => void;
   categoriasExistentes?: string[];
+  onNavigateToManagement?: () => void;
+};
+
+type DuplicadoInfo = {
+  url: string;
+  nome_produto: string;
+  fornecedor_nome: string | null;
 };
 
 type WorkerPrice = {
@@ -91,7 +108,7 @@ const strategyBadge = (s: WorkerResult["strategy"]) => {
   return map[s] ?? { label: String(s ?? "unknown"), cls: "bg-muted text-muted-foreground border-border" };
 };
 
-export default function NovoSiteDialog({ open, onOpenChange, onCreated, categoriasExistentes = [] }: Props) {
+export default function NovoSiteDialog({ open, onOpenChange, onCreated, categoriasExistentes = [], onNavigateToManagement }: Props) {
   const [urlsText, setUrlsText] = useState("");
   const [categoria, setCategoria] = useState("");
   const [novaCategoriaMode, setNovaCategoriaMode] = useState(false);
@@ -101,6 +118,8 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
   const [fornecedorOverrides, setFornecedorOverrides] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [duplicados, setDuplicados] = useState<DuplicadoInfo[]>([]);
+  const [confirmDupOpen, setConfirmDupOpen] = useState(false);
 
   const categoriasOrdenadas = useMemo(
     () => Array.from(new Set(categoriasExistentes.map((c) => c.toLowerCase().trim()).filter(Boolean))).sort(),
@@ -138,6 +157,8 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
     setProdutoCatalogoNome("");
     setResults([]);
     setFornecedorOverrides({});
+    setDuplicados([]);
+    setConfirmDupOpen(false);
   };
 
   const handleClose = (v: boolean) => {
@@ -172,28 +193,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
   const validResults = useMemo(() => results.filter((r) => r.prices.length > 0), [results]);
   const invalidResults = useMemo(() => results.filter((r) => r.prices.length === 0), [results]);
 
-  const handleSave = async () => {
-    if (!urls.length) {
-      toast.error("Cole pelo menos uma URL válida (http/https)");
-      return;
-    }
-    if (!results.length) {
-      toast.error('Clique em "Buscar preços" antes de salvar');
-      return;
-    }
-    if (!validResults.length) {
-      toast.error("Nenhuma URL retornou tiers válidos. Verifique as URLs e teste novamente.");
-      return;
-    }
-    if (!categoria.trim()) {
-      toast.error("Informe a categoria");
-      return;
-    }
-    if (!produtoCatalogoNome.trim()) {
-      toast.error("Selecione ou digite o produto do catálogo");
-      return;
-    }
-
+  const performSave = async (skipDuplicateUrls: Set<string>) => {
     setSaving(true);
     let created = 0;
     let skipped = 0;
@@ -207,12 +207,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
       }
 
       for (const r of validResults) {
-        const { data: dup } = await supabase
-          .from("sites_monitorados")
-          .select("id")
-          .eq("url_completa", r.source_url)
-          .limit(1);
-        if (dup && dup.length) {
+        if (skipDuplicateUrls.has(r.source_url)) {
           skipped++;
           continue;
         }
@@ -262,7 +257,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
 
       const parts = [
         created > 0 && `${created} criado(s)`,
-        skipped > 0 && `${skipped} duplicado(s)`,
+        skipped > 0 && `${skipped} já cadastrado(s)`,
         failed > 0 && `${failed} falha(s)`,
         notScraped > 0 && `${notScraped} sem tiers ignorado(s)`,
       ].filter(Boolean) as string[];
@@ -273,7 +268,11 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
         reset();
         onOpenChange(false);
       } else {
-        toast.error(parts.join(" · ") || "Nada foi salvo");
+        toast.error(
+          (parts.join(" · ") || "Nada foi salvo") +
+            (skipped > 0 ? " — veja em Gerenciar sites" : ""),
+          { duration: 8000 },
+        );
       }
     } catch (e: any) {
       toast.error(e?.message || "Erro ao salvar");
@@ -281,6 +280,56 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
       setSaving(false);
     }
   };
+
+  const handleSave = async () => {
+    if (!urls.length) {
+      toast.error("Cole pelo menos uma URL válida (http/https)");
+      return;
+    }
+    if (!results.length) {
+      toast.error('Clique em "Buscar preços" antes de salvar');
+      return;
+    }
+    if (!validResults.length) {
+      toast.error("Nenhuma URL retornou tiers válidos. Verifique as URLs e teste novamente.");
+      return;
+    }
+    if (!categoria.trim()) {
+      toast.error("Informe a categoria");
+      return;
+    }
+    if (!produtoCatalogoNome.trim()) {
+      toast.error("Selecione ou digite o produto do catálogo");
+      return;
+    }
+
+    // Pré-checagem em lote de duplicatas
+    const candidateUrls = validResults.map((r) => r.source_url);
+    const { data: existentes, error: dupErr } = await supabase
+      .from("sites_monitorados")
+      .select("url_completa, nome_produto, fornecedor_nome")
+      .in("url_completa", candidateUrls);
+
+    if (dupErr) {
+      toast.error("Erro ao verificar duplicatas: " + dupErr.message);
+      return;
+    }
+
+    const dupList: DuplicadoInfo[] = (existentes || []).map((e: any) => ({
+      url: e.url_completa,
+      nome_produto: e.nome_produto,
+      fornecedor_nome: e.fornecedor_nome,
+    }));
+
+    if (dupList.length > 0) {
+      setDuplicados(dupList);
+      setConfirmDupOpen(true);
+      return;
+    }
+
+    await performSave(new Set());
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -509,6 +558,65 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <AlertDialog open={confirmDupOpen} onOpenChange={setConfirmDupOpen}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {duplicados.length === validResults.length
+                ? "Todas as URLs já estão cadastradas"
+                : `${duplicados.length} URL(s) já cadastrada(s)`}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  {duplicados.length === validResults.length
+                    ? "Nenhuma URL nova para salvar. Você pode revisar os sites já cadastrados em Gerenciar sites."
+                    : "Os itens abaixo já existem no banco e serão ignorados. As demais URLs serão salvas normalmente."}
+                </p>
+                <ul className="text-sm border rounded-md divide-y max-h-48 overflow-y-auto">
+                  {duplicados.map((d) => (
+                    <li key={d.url} className="p-2">
+                      <div className="font-medium truncate">{d.nome_produto}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {d.fornecedor_nome || "sem fornecedor"}
+                      </div>
+                      <div className="text-xs font-mono text-muted-foreground truncate">{d.url}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            {duplicados.length === validResults.length ? (
+              onNavigateToManagement && (
+                <AlertDialogAction
+                  onClick={() => {
+                    setConfirmDupOpen(false);
+                    onOpenChange(false);
+                    reset();
+                    onNavigateToManagement();
+                  }}
+                >
+                  Ir para Gerenciar sites
+                </AlertDialogAction>
+              )
+            ) : (
+              <AlertDialogAction
+                onClick={async () => {
+                  const skipSet = new Set(duplicados.map((d) => d.url));
+                  setConfirmDupOpen(false);
+                  await performSave(skipSet);
+                }}
+              >
+                Ignorar duplicadas e salvar o resto
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
