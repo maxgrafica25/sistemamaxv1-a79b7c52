@@ -461,11 +461,13 @@ export default async function ({ page, context }) {
       if (qty && price) tiers.push({ quantity: qty, total_price: price });
     });
 
-    // C) Radios + label
-    document.querySelectorAll('input[type="radio"][name*="quant" i], input[type="radio"][name*="qtd" i]').forEach((r) => {
-      const qty = parseQtyBR(r.value);
-      const label = r.closest('label') || (r.id ? document.querySelector('label[for="' + r.id + '"]') : null);
-      const price = label ? parsePriceBR(label.textContent || '') : null;
+    // C) Imprima Rápido: li.desc--check com span.radio_content (qty) + span.js-qtd-radio (preço)
+    document.querySelectorAll('li.desc--check').forEach((li) => {
+      const qtyEl = li.querySelector('span.radio_content, .radio_content');
+      const priceEl = li.querySelector('span.js-qtd-radio, .js-qtd-radio');
+      if (!qtyEl || !priceEl) return;
+      const qty = parseQtyBR(qtyEl.textContent || '');
+      const price = parsePriceBR(priceEl.textContent || '');
       if (qty && price) tiers.push({ quantity: qty, total_price: price });
     });
 
