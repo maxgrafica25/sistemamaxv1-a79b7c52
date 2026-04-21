@@ -461,13 +461,13 @@ export default async function ({ page, context }) {
       if (qty && price) tiers.push({ quantity: qty, total_price: price });
     });
 
-    // C) Imprima Rápido: escopar ao js-quantity-container, parsear texto do li
-    const qtyContainer = document.querySelector('div.js-quantity-container, .js-quantity-container, [class*="quantity-container"]');
+    // C) Imprima Rápido — regex no textContent do <li>, escopado ao js-quantity-container
+    const qtyContainer = document.querySelector('div.js-quantity-container');
     if (qtyContainer) {
       qtyContainer.querySelectorAll('li').forEach((li) => {
         const txt = (li.textContent || '').replace(/\\s+/g, ' ').trim();
-        const qtyMatch = txt.match(/(\\d{1,3}(?:\\.\\d{3})+|\\d{3,7})/);
-        const priceMatch = txt.match(/R\\$\\s*(\\d{1,3}(?:\\.\\d{3})*(?:,\\d{2})?)/);
+        const qtyMatch = txt.match(/(\\d{1,3}(?:\\.\\d{3})+)/);
+        const priceMatch = txt.match(/R\\$\\s*([\\d.]+,\\d{2})/);
         if (!qtyMatch || !priceMatch) return;
         const qty = parseQtyBR(qtyMatch[1]);
         const price = parsePriceBR(priceMatch[1]);
@@ -588,20 +588,31 @@ async function scrapeAtualCard(url: string, token: string): Promise<ScrapeResult
 }
 
 async function scrapeOne(url: string, token: string): Promise<ScrapeResult> {
-  // Dispatcher por host: domínios com preços via JS usam /function
-  let host = "";
+  // 1) Parse host — se falhar, retorna erro IMEDIATAMENTE (não cai no genérico)
+  let host: string;
   try {
-    host = new URL(url).hostname.replace(/^www\./, "");
-    if (host === "atualcard.com.br") {
-      return await scrapeAtualCard(url, token);
-    }
-    if (host.endsWith("imprimarapido.com.br")) {
-      // NUNCA cair no parser genérico — gera tiers lixo de outras seções da página
-      return await scrapeImprimaRapido(url, token);
-    }
-  } catch (_) {
-    // URL inválida cai no fluxo padrão (vai falhar lá com erro claro)
+    host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return {
+      source_url: url,
+      scraped_at: new Date().toISOString(),
+      strategy: "html",
+      prices: [],
+      error: "URL inválida",
+      elapsed_ms: 0,
+    };
   }
+
+  // 2) Dispatcher por host — SEM try/catch externo.
+  //    Resultado (ou exceção) propaga direto. NUNCA cai no genérico abaixo.
+  if (host === "atualcard.com.br" || host.endsWith(".atualcard.com.br")) {
+    return await scrapeAtualCard(url, token);
+  }
+  if (host === "imprimarapido.com.br" || host.endsWith(".imprimarapido.com.br")) {
+    return await scrapeImprimaRapido(url, token);
+  }
+
+  // 3) Genérico — só para hosts não-especializados
 
   const startedAt = Date.now();
   let lastErr: string | null = null;
