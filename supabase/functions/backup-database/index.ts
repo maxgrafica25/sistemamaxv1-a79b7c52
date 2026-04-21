@@ -307,6 +307,40 @@ Deno.serve(async (req) => {
           for (const t of triggers) write(`${t.definition};\n`);
           write(`\n`);
 
+          // Realtime publication
+          write(`-- ===== REALTIME PUBLICATION =====\n`);
+          if (realtimePub.length > 0) {
+            const tablesList = realtimePub
+              .map((r) => `${quoteIdent(r.schemaname)}.${quoteIdent(r.tablename)}`)
+              .join(", ");
+            write(`-- Recria publicação supabase_realtime com as tabelas que estavam habilitadas.\n`);
+            write(`DROP PUBLICATION IF EXISTS supabase_realtime;\n`);
+            write(`CREATE PUBLICATION supabase_realtime FOR TABLE ${tablesList};\n\n`);
+          } else {
+            write(`-- Nenhuma tabela em supabase_realtime no ambiente de origem (ou sem permissão de leitura).\n`);
+            write(`-- Para habilitar realtime no destino, ver migration-runbook.md Fase 6.\n\n`);
+          }
+
+          // Cron jobs
+          write(`-- ===== CRON JOBS =====\n`);
+          write(`-- Reagenda jobs do pg_cron (requer extensão instalada e shared_preload_libraries='pg_cron').\n`);
+          write(`-- IMPORTANTE: o 'command' de cada job aponta para URLs/keys do AMBIENTE DE ORIGEM.\n`);
+          write(`-- Revise e ajuste antes de aplicar no destino.\n`);
+          if (cronJobs.length > 0) {
+            for (const j of cronJobs) {
+              const safeName = String(j.jobname).replace(/'/g, "''");
+              write(
+                `SELECT cron.unschedule('${safeName}') WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname='${safeName}');\n`,
+              );
+              write(
+                `SELECT cron.schedule('${safeName}', '${String(j.schedule).replace(/'/g, "''")}', $cron$${j.command}$cron$);\n`,
+              );
+            }
+            write(`\n`);
+          } else {
+            write(`-- Nenhum cron job exportado (sem permissão em cron.job ou pg_cron ausente).\n\n`);
+          }
+
           // Auth users como comentário JSON
           write(`-- ===== AUTH USERS (sem hashes de senha) =====\n`);
           write(`-- Restaurar manualmente via Auth API. Total: ${authUsers.length} usuarios.\n`);
