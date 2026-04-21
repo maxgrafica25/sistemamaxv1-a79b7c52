@@ -197,6 +197,7 @@ Deno.serve(async (req) => {
           write(`{\n  "generated_at": ${JSON.stringify(ts.toISOString())},\n`);
           write(`  "limitations": ${JSON.stringify(LIMITATIONS)},\n`);
           write(`  "schema": {\n`);
+          write(`    "extensions": ["pgcrypto","uuid-ossp","pg_net","pg_cron"],\n`);
           write(`    "tables": ${JSON.stringify(tables)},\n`);
           write(`    "indexes": ${JSON.stringify(indexes)},\n`);
           write(`    "foreign_keys": ${JSON.stringify(fks)},\n`);
