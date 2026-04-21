@@ -14,9 +14,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Edit2, Wrench, Paperclip, X, Copy, Image, FileVideo, ExternalLink } from "lucide-react";
+import { Plus, Trash2, Edit2, Wrench, Paperclip, X, Copy, Image, FileVideo, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { handleError } from "@/lib/handleError";
 
 interface Maintenance {
   id: string;
@@ -94,16 +95,18 @@ export default function MaintenanceTab({ equipmentId, equipmentName, printerType
   const [notes, setNotes] = useState("");
   const [attachments, setAttachments] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const hasCounter = printerType === "pb" || printerType === "color";
 
   const fetchRecords = async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("equipment_maintenances")
       .select("*")
       .eq("equipment_id", equipmentId)
       .order("date", { ascending: false });
+    if (error) handleError(error, "carregar manutenções");
     if (data) setRecords(data as unknown as Maintenance[]);
     setLoading(false);
   };
@@ -161,7 +164,7 @@ export default function MaintenanceTab({ equipmentId, equipmentName, printerType
         .from("maintenance-attachments")
         .upload(path, file);
       if (error) {
-        toast.error(`Erro ao enviar ${file.name}`);
+        handleError(error, `enviar ${file.name}`);
         continue;
       }
       const { data: urlData } = supabase.storage
@@ -198,18 +201,21 @@ export default function MaintenanceTab({ equipmentId, equipmentName, printerType
       attachments,
     };
 
-    if (editing) {
-      await supabase.from("equipment_maintenances").update(payload).eq("id", editing.id);
-    } else {
-      await supabase.from("equipment_maintenances").insert(payload);
-    }
+    setIsSaving(true);
+    const { error } = editing
+      ? await supabase.from("equipment_maintenances").update(payload).eq("id", editing.id)
+      : await supabase.from("equipment_maintenances").insert(payload);
+    setIsSaving(false);
+
+    if (error) return handleError(error, editing ? "atualizar manutenção" : "criar manutenção");
     setShowDialog(false);
     toast.success("Manutenção salva!");
     fetchRecords();
   };
 
   const remove = async (id: string) => {
-    await supabase.from("equipment_maintenances").delete().eq("id", id);
+    const { error } = await supabase.from("equipment_maintenances").delete().eq("id", id);
+    if (error) return handleError(error, "remover manutenção");
     toast.success("Registro removido!");
     fetchRecords();
   };
