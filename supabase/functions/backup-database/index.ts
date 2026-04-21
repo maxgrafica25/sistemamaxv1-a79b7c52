@@ -223,6 +223,15 @@ Deno.serve(async (req) => {
           write(`-- =====================================================\n\n`);
           write(`SET client_encoding = 'UTF8';\nSET standard_conforming_strings = on;\n\n`);
 
+          // Extensions necessárias para o restore funcionar em Postgres limpo
+          write(`-- ===== EXTENSIONS =====\n`);
+          write(`-- NOTA: pg_cron requer "shared_preload_libraries = 'pg_cron'" em postgresql.conf + restart.\n`);
+          write(`-- Se o destino não tiver o package, o CREATE abaixo falhará — comente a linha e reaplique cron jobs manualmente (ver migration-runbook.md).\n`);
+          write(`CREATE EXTENSION IF NOT EXISTS pgcrypto;\n`);
+          write(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";\n`);
+          write(`CREATE EXTENSION IF NOT EXISTS pg_net;\n`);
+          write(`CREATE EXTENSION IF NOT EXISTS pg_cron;\n\n`);
+
           // Functions primeiro (triggers/policies podem depender)
           write(`-- ===== FUNCTIONS =====\n`);
           for (const f of functions) write(`${f.definition};\n\n`);
