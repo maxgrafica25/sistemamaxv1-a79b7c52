@@ -9,7 +9,13 @@
 // usuário. Cliente criado via wrapper auditado (_shared/admin-client).
 // =====================================================================
 import * as cheerio from "npm:cheerio@1.0.0";
+import { z } from "https://esm.sh/zod@3.23.8";
 import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
+
+const BodySchema = z.union([
+  z.object({ site_id: z.string().uuid() }),
+  z.object({ urls: z.array(z.string().url().max(2000)).min(1).max(20) }),
+]);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -546,9 +552,20 @@ Deno.serve(async (req) => {
   });
 
   try {
-    const body = await req.json().catch(() => ({}));
-    const siteId: string | undefined = body?.site_id;
-    const urls: string[] | undefined = Array.isArray(body?.urls) ? body.urls : undefined;
+    const rawBody = await req.json().catch(() => ({}));
+    const parsed = BodySchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Payload inválido: informe { site_id: uuid } OU { urls: string[] (1-20 URLs, máx 2000 chars cada) }",
+          details: parsed.error.flatten(),
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    const siteId: string | undefined = "site_id" in parsed.data ? parsed.data.site_id : undefined;
+    const urls: string[] | undefined = "urls" in parsed.data ? parsed.data.urls : undefined;
 
     // ---------- Modo PREVIEW ----------
     if (!siteId && urls && urls.length) {

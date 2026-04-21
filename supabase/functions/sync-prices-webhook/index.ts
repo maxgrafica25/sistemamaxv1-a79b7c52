@@ -5,7 +5,19 @@
 // SERVICE ROLE: necessária — endpoint público autenticado por token externo (VPS),
 // sem JWT de usuário. Escreve em site_precos_tiers/sites_monitorados.
 // Cliente via wrapper auditado (_shared/admin-client).
+import { z } from "https://esm.sh/zod@3.23.8";
 import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
+
+const TierSchema = z.object({
+  quantidade: z.number().int().positive().max(1_000_000),
+  preco_total: z.number().nonnegative().max(10_000_000),
+  preco_unitario: z.number().nonnegative().max(10_000_000).optional(),
+});
+const BodySchema = z.object({
+  site_id: z.string().uuid(),
+  tiers: z.array(TierSchema).min(1).max(100),
+  origem: z.string().max(50).optional(),
+});
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,13 +43,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = await req.json();
-    const { site_id, tiers, origem } = body || {};
-    if (!site_id || !Array.isArray(tiers)) {
-      return new Response(JSON.stringify({ success: false, error: "site_id e tiers[] obrigatórios" }), {
+    const rawBody = await req.json().catch(() => ({}));
+    const parsed = BodySchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Payload inválido",
+        details: parsed.error.flatten().fieldErrors,
+      }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const { site_id, tiers, origem } = parsed.data;
 
     const supabase = getAdminClient({
       fnName: "sync-prices-webhook",

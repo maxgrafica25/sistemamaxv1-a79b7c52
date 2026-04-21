@@ -37,7 +37,7 @@ interface Loss {
 }
 
 export default function ProductionLossesTab({ equipmentId, equipmentName }: Props) {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [losses, setLosses] = useState<Loss[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
@@ -91,6 +91,7 @@ export default function ProductionLossesTab({ equipmentId, equipmentName }: Prop
       quantity: parseInt(quantity) || 1,
       error_type: errorType,
       description: description.trim(),
+      created_by: user?.id,
     });
     setIsSaving(false);
 

@@ -71,7 +71,10 @@ export default function Orcamentos() {
 
   const fetchQuotes = useCallback(async () => {
     setLoading(true);
-    const { data: quotesData } = await supabase.from("quotes").select("*").order("created_at", { ascending: false });
+    const { data: quotesData } = await supabase
+      .from("quotes")
+      .select("id, quote_number, client, product, value, status, date, rejection_reason, validity, profit_margin")
+      .order("created_at", { ascending: false });
     if (quotesData) {
       const mapped: Quote[] = quotesData.map(q => ({
         id: q.id,
@@ -94,9 +97,9 @@ export default function Orcamentos() {
 
   const loadQuoteDetails = async (quote: Quote) => {
     const [laborRes, matRes, tpRes] = await Promise.all([
-      supabase.from("quote_labor_steps").select("*").eq("quote_id", quote.id).order("sort_order"),
-      supabase.from("quote_materials").select("*").eq("quote_id", quote.id).order("sort_order"),
-      supabase.from("quote_third_party").select("*").eq("quote_id", quote.id).order("sort_order"),
+      supabase.from("quote_labor_steps").select("id, description, time_minutes, sort_order").eq("quote_id", quote.id).order("sort_order"),
+      supabase.from("quote_materials").select("id, description, quantity, unit_price, sort_order").eq("quote_id", quote.id).order("sort_order"),
+      supabase.from("quote_third_party").select("id, description, supplier, cost, sort_order").eq("quote_id", quote.id).order("sort_order"),
     ]);
     return {
       ...quote,

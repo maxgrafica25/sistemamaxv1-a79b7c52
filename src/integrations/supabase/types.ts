@@ -416,6 +416,7 @@ export type Database = {
           attachments: string[] | null
           cost: number
           created_at: string
+          created_by: string | null
           date: string
           equipment_id: string
           hours_spent: number
@@ -432,6 +433,7 @@ export type Database = {
           attachments?: string[] | null
           cost?: number
           created_at?: string
+          created_by?: string | null
           date?: string
           equipment_id: string
           hours_spent?: number
@@ -448,6 +450,7 @@ export type Database = {
           attachments?: string[] | null
           cost?: number
           created_at?: string
+          created_by?: string | null
           date?: string
           equipment_id?: string
           hours_spent?: number
@@ -1235,6 +1238,7 @@ export type Database = {
       production_losses: {
         Row: {
           created_at: string
+          created_by: string | null
           date: string
           description: string
           equipment_id: string
@@ -1245,6 +1249,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           date?: string
           description?: string
           equipment_id: string
@@ -1255,6 +1260,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           date?: string
           description?: string
           equipment_id?: string

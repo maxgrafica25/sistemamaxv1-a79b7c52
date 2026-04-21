@@ -46,10 +46,10 @@ export default function DespesasFixas() {
     const load = async () => {
       setLoading(true);
       const [expRes, salRes, eqRes, capRes] = await Promise.all([
-        supabase.from("monthly_expenses").select("*").order("created_at"),
-        supabase.from("salaries").select("*").order("created_at"),
-        supabase.from("equipment_depreciation").select("*").order("created_at"),
-        supabase.from("productive_capacity").select("*").limit(1).single(),
+        supabase.from("monthly_expenses").select("id, name, value").order("created_at"),
+        supabase.from("salaries").select("id, name, salary, is_production").order("created_at"),
+        supabase.from("equipment_depreciation").select("id, name, purchase_value, residual_value, useful_life_months").order("created_at"),
+        supabase.from("productive_capacity").select("id, hours_per_month, production_employees").limit(1).single(),
       ]);
       if (expRes.data) setExpenses(expRes.data);
       if (salRes.data) setSalaries(salRes.data);
