@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Shield, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { handleError } from "@/lib/handleError";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -38,11 +39,12 @@ export default function Auditoria() {
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("audit_logs")
-        .select("*")
+        .select("id, action, entity_type, entity_id, entity_name, details, created_at")
         .order("created_at", { ascending: false })
         .limit(500);
+      if (error) handleError(error, "carregar logs de auditoria");
       if (data) setLogs(data as AuditLog[]);
       setLoading(false);
     };

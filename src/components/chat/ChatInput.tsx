@@ -1,9 +1,10 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Send, Paperclip, X, Reply } from "lucide-react";
+import { Send, Paperclip, X, Reply, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { handleError } from "@/lib/handleError";
 
 interface ReplyTo {
   id: string;
@@ -22,6 +23,7 @@ export default function ChatInput({ channelId, replyTo, onClearReply, onSent }: 
   const { user } = useAuth();
   const [content, setContent] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [sending, setSending] = useState(false);
   const [attachment, setAttachment] = useState<{ url: string; name: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -36,7 +38,7 @@ export default function ChatInput({ channelId, replyTo, onClearReply, onSent }: 
     const path = `${user.id}/${Date.now()}-${file.name}`;
     const { error } = await supabase.storage.from("chat-attachments").upload(path, file);
     if (error) {
-      toast.error("Erro ao enviar arquivo");
+      handleError(error, "enviar arquivo");
       setUploading(false);
       return;
     }
@@ -46,8 +48,9 @@ export default function ChatInput({ channelId, replyTo, onClearReply, onSent }: 
   };
 
   const handleSend = async () => {
-    if ((!content.trim() && !attachment) || !user) return;
-    await supabase.from("messages").insert({
+    if ((!content.trim() && !attachment) || !user || sending) return;
+    setSending(true);
+    const { error } = await supabase.from("messages").insert({
       channel_id: channelId,
       user_id: user.id,
       content: content.trim(),
@@ -55,6 +58,8 @@ export default function ChatInput({ channelId, replyTo, onClearReply, onSent }: 
       attachment_url: attachment?.url || null,
       attachment_name: attachment?.name || null,
     });
+    setSending(false);
+    if (error) return handleError(error, "enviar mensagem");
     setContent("");
     setAttachment(null);
     onClearReply();
@@ -124,9 +129,9 @@ export default function ChatInput({ channelId, replyTo, onClearReply, onSent }: 
           size="icon"
           className="h-9 w-9 shrink-0"
           onClick={handleSend}
-          disabled={!content.trim() && !attachment}
+          disabled={(!content.trim() && !attachment) || sending || uploading}
         >
-          <Send className="h-4 w-4" />
+          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </div>
     </div>
