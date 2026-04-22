@@ -17,6 +17,24 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
+// Cobertura de referência do fabricante (yield_pages cadastrado no banco) vs cobertura real da gráfica
+const COVERAGE_REFERENCE = 5;    // % — valor de fábrica cadastrado em yield_pages
+const COVERAGE_OPERATIONAL = 20; // % — cobertura real da gráfica
+
+// Classificação estrita por nome: só é toner o que contém "toner".
+// Exclusões explícitas evitam falso-positivo (ex.: "Revelador color").
+const isTonerConsumable = (c: { name: string }): boolean => {
+  const n = (c?.name || "").toLowerCase();
+  if (/revelador|cilindro|belt|fusor|manuten|deprecia|ribbon|fita/i.test(n)) return false;
+  return /toner/i.test(n);
+};
+
+const realYieldPages = (c: { name: string; yield_pages: number }): number => {
+  const y = Number(c?.yield_pages || 0);
+  if (!isTonerConsumable(c)) return y;
+  return Math.floor(y * (COVERAGE_REFERENCE / COVERAGE_OPERATIONAL));
+};
+
 const BodySchema = z.object({
   pergunta: z.string().min(1).max(4000),
   historico: z
@@ -159,8 +177,9 @@ Quando houver mais de um item com o MESMO papel + gramatura + tamanho + lado + m
             .join("\n\n")
         : "## BASE DE CONHECIMENTO\n(vazia)";
 
-    // Equipamentos (sem preços/rendimentos para evitar que o LLM tente recalcular)
+    // Equipamentos + consumíveis com rendimento real (toner = yield × 5/20)
     const eqLines: string[] = [];
+    const fmtNum = (n: number) => n.toLocaleString("pt-BR");
     for (const eq of equipments) {
       const tipo = eq.printer_type;
       const lastTotal = lastReadingByEq.get(eq.id);
@@ -169,11 +188,27 @@ Quando houver mais de um item com o MESMO papel + gramatura + tamanho + lado + m
         lastTotal != null && lastTonerTotal != null ? lastTotal - lastTonerTotal : null;
       eqLines.push(
         `- **${eq.name}** (${tipo})${eq.description ? ` — ${eq.description}` : ""}` +
-          (lastTotal != null ? ` | Contador atual: ${lastTotal.toLocaleString("pt-BR")}` : "") +
+          (lastTotal != null ? ` | Contador atual: ${fmtNum(lastTotal)}` : "") +
           (desdeToner != null
-            ? ` | Impressões desde última troca de toner: ${desdeToner.toLocaleString("pt-BR")}`
+            ? ` | Impressões desde última troca de toner: ${fmtNum(desdeToner)}`
             : ""),
       );
+
+      const cons = consumables.filter((c: any) => c.equipment_id === eq.id);
+      for (const c of cons) {
+        const yFab = Number(c.yield_pages || 0);
+        if (isTonerConsumable(c)) {
+          const yReal = realYieldPages(c);
+          let line = `    • ${c.name}: rendimento fabricante ${fmtNum(yFab)} pgs (${COVERAGE_REFERENCE}%) → rendimento real a ${COVERAGE_OPERATIONAL}%: ${fmtNum(yReal)} pgs`;
+          if (desdeToner != null) {
+            const restante = Math.max(0, yReal - desdeToner);
+            line += `\n        Estimativa restante: ~${fmtNum(restante)} pgs`;
+          }
+          eqLines.push(line);
+        } else {
+          eqLines.push(`    • ${c.name}: rendimento ${fmtNum(yFab)} pgs (independe de cobertura)`);
+        }
+      }
     }
 
     const papLines = papers.map(
