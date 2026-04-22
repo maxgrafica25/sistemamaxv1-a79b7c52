@@ -205,7 +205,7 @@ export default function AssistenteButton() {
             <Button
               type="button"
               size="icon"
-              onClick={enviar}
+              onClick={() => enviar()}
               disabled={loading || !input.trim()}
               aria-label="Enviar"
             >
