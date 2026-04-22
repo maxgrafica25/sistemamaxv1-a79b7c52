@@ -1,0 +1,209 @@
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useLocation } from "react-router-dom";
+import { Sparkles, Send, X } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { AssistenteMensagem } from "./AssistenteMensagem";
+import { cn } from "@/lib/utils";
+
+type Msg = { role: "user" | "assistant"; content: string };
+
+const HIDDEN_ROUTES = ["/auth", "/reset-password"];
+
+export default function AssistenteButton() {
+  const { user } = useAuth();
+  const { pathname } = useLocation();
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [unread, setUnread] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // auto-scroll para a última mensagem
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, loading]);
+
+  // limpa contador ao abrir
+  useEffect(() => {
+    if (open) setUnread(0);
+  }, [open]);
+
+  if (!user) return null;
+  if (HIDDEN_ROUTES.includes(pathname)) return null;
+
+  async function enviar() {
+    const pergunta = input.trim();
+    if (!pergunta || loading) return;
+    const novaUser: Msg = { role: "user", content: pergunta };
+    const historico = messages.slice(-10);
+    setMessages((prev) => [...prev, novaUser]);
+    setInput("");
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("assistente-virtual", {
+        body: { pergunta, historico },
+      });
+
+      if (error) {
+        // erros HTTP do edge function vêm como FunctionsHttpError
+        const ctx: any = (error as any).context;
+        const status = ctx?.status;
+        let msg = "Não consegui responder agora. Tente novamente.";
+        try {
+          const body = ctx ? await ctx.json() : null;
+          if (body?.error) msg = body.error;
+        } catch {
+          // ignore
+        }
+        if (status === 429) {
+          toast({
+            title: "Muitas perguntas",
+            description: "Aguarde alguns segundos antes de perguntar de novo.",
+            variant: "destructive",
+          });
+        } else if (status === 402) {
+          toast({
+            title: "Créditos esgotados",
+            description: "Adicione créditos para continuar usando o assistente.",
+            variant: "destructive",
+          });
+        } else {
+          toast({ title: "Erro no assistente", description: msg, variant: "destructive" });
+        }
+        setMessages((prev) => [...prev, { role: "assistant", content: msg }]);
+      } else {
+        const resposta: string = data?.resposta ?? "Sem resposta.";
+        setMessages((prev) => [...prev, { role: "assistant", content: resposta }]);
+        if (!open) setUnread((n) => n + 1);
+      }
+    } catch (e) {
+      console.error(e);
+      toast({
+        title: "Erro inesperado",
+        description: "Não foi possível contactar o assistente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      enviar();
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Abrir assistente virtual"
+        onClick={() => setOpen(true)}
+        className={cn(
+          "fixed bottom-6 right-6 z-50 h-[52px] w-[52px] rounded-full",
+          "bg-primary text-primary-foreground shadow-lg",
+          "flex items-center justify-center",
+          "hover:scale-105 active:scale-95 transition-transform",
+          "ring-1 ring-primary/30",
+        )}
+      >
+        <Sparkles className="h-6 w-6" />
+        {unread > 0 && (
+          <Badge
+            variant="destructive"
+            className="absolute -top-1 -right-1 h-5 min-w-5 px-1 text-xs flex items-center justify-center"
+          >
+            {unread > 9 ? "9+" : unread}
+          </Badge>
+        )}
+      </button>
+
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-[420px] p-0 flex flex-col gap-0"
+        >
+          <SheetHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <SheetTitle className="text-base">Assistente</SheetTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setOpen(false)}
+              aria-label="Fechar"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </SheetHeader>
+
+          <ScrollArea className="flex-1 px-4 py-4">
+            <div ref={scrollRef} className="space-y-3">
+              {messages.length === 0 && !loading && (
+                <div className="text-sm text-muted-foreground text-center py-8 px-2">
+                  Olá! Pergunte sobre toners, preços, papéis ou qualquer coisa cadastrada no sistema.
+                </div>
+              )}
+              {messages.map((m, i) => (
+                <AssistenteMensagem key={i} role={m.role} content={m.content} />
+              ))}
+              {loading && (
+                <div className="flex gap-2 items-start">
+                  <div className="h-7 w-7 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div className="bg-muted rounded-lg rounded-tl-sm px-3 py-2">
+                    <div className="flex gap-1">
+                      <span className="h-2 w-2 rounded-full bg-muted-foreground/50 animate-bounce [animation-delay:-0.3s]" />
+                      <span className="h-2 w-2 rounded-full bg-muted-foreground/50 animate-bounce [animation-delay:-0.15s]" />
+                      <span className="h-2 w-2 rounded-full bg-muted-foreground/50 animate-bounce" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+
+          <div className="border-t p-3 flex gap-2 items-end">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Pergunte algo..."
+              className="min-h-[40px] max-h-32 resize-none"
+              rows={1}
+              disabled={loading}
+            />
+            <Button
+              type="button"
+              size="icon"
+              onClick={enviar}
+              disabled={loading || !input.trim()}
+              aria-label="Enviar"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+}
