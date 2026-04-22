@@ -1,95 +1,62 @@
 
 
-# Reformular ProductPicker: vincular como ação primária, cadastrar como secundária
+# Limpar registros 4x4 órfãos e enriquecer feedback de duplicata
 
-## Diagnóstico
+## Decisões confirmadas
 
-Hoje o `ProductPicker` mistura "buscar" e "cadastrar" no mesmo input, sem hierarquia visual. Como o catálogo está vazio (você acabou de limpar tudo), a lista aparece sem opções e o único caminho visível é digitar para criar um produto novo "no escuro" — sem categoria, dimensões, gramatura ou observações. Isso é confuso e gera produtos canônicos pobres.
+- **Manter** apenas o produto canônico **"Panfletos 10x14cm (A6) - Couchê 90g - Impressão Offset - 4x0 cor"** e seus respectivos sites cadastrados.
+- **Excluir** os 3 registros 4x4 que foram criados acidentalmente (ANS, Atual Card, Futura IM) — eles travam o recadastro e são órfãos da tentativa anterior.
+- O 4x4 cor é um **produto novo** que será cadastrado pelo usuário do zero após a limpeza, no fluxo normal do `NovoSiteDialog`.
 
-A solução pedida é: tratar o caminho **vincular a existente** como o normal, e oferecer **cadastrar novo** apenas como botão pequeno dentro do popover, abrindo um **formulário completo** (igual ao da página Catálogo Produtos).
+## Parte 1 — Limpeza cirúrgica no banco
 
-## Solução
+DELETE em `sites_monitorados` filtrando pelas 3 URLs 4x4 identificadas:
 
-### 1. Reestruturar o popover do `ProductPicker.tsx`
-
-Estrutura nova (de cima para baixo dentro do `PopoverContent`):
-
-```
-┌──────────────────────────────────────────────┐
-│ 🔍 Buscar produto no catálogo...             │  ← CommandInput (só busca)
-├──────────────────────────────────────────────┤
-│ Produtos do catálogo                         │
-│ ✓ Panfleto 10x14 Couché 90g     [panfleto]  │
-│   Banner 80x120 Lona            [banner]    │
-│   ...                                        │
-├──────────────────────────────────────────────┤
-│ + Cadastrar novo produto no catálogo         │  ← botão pequeno, no rodapé
-└──────────────────────────────────────────────┘
+```sql
+DELETE FROM sites_monitorados
+WHERE url_completa IN (
+  'https://www.ans.com.br/panfleto-90gr/',
+  'https://www.atualcard.com.br/flyer/.../22549',           -- URL exata da Atual Card 4x4
+  'https://www.futuraim.com.br/produto/...?id=5592'         -- URL exata da Futura IM 4x4
+);
 ```
 
-Mudanças concretas:
+Cascata via FK ON DELETE CASCADE remove automaticamente: `site_precos_tiers`, `historico_precos`, `historico_precos_tiers`, `alertas_precos` desses sites.
 
-- **Remover** o botão "Cadastrar: '<texto>'" no topo (atualmente ocupa o lugar de destaque) e a lógica `handleCreateNew` que cria um produto "fantasma" só com o nome digitado.
-- **Remover** a frase `(novo)` no trigger label e o helper "Será criado um novo produto: ...".
-- **Trigger label** simplificado: `"Selecione um produto do catálogo..."` (ou nome do selecionado).
-- **CommandInput** muda placeholder para `"Buscar produto..."` — função única: filtrar.
-- **CommandEmpty**: quando nada bate com a busca, exibir mensagem `"Nenhum produto encontrado."` + botão `"Cadastrar novo produto"` que dispara o item 2.
-- **Rodapé fixo do popover** (sempre visível, abaixo da lista): pequeno botão `variant="ghost" size="sm"` com ícone `Plus` e texto `"Cadastrar novo produto no catálogo"`. Pré-preenche o campo Nome do formulário com o texto que estiver no input de busca (se houver).
-- **Carregar o catálogo completo** (não só os que têm site vinculado). Hoje filtra `idsComSite.has(p.id)` — isso esconde produtos recém-criados que ainda não têm link, justo o caso de uso.
+**Não toca** em `produtos_catalogo` — o produto canônico 4x0 e qualquer outro produto permanecem intactos.
 
-### 2. Novo componente `NovoProdutoCatalogoDialog.tsx`
+Antes do DELETE confirmo as URLs exatas via `read_query` (já validei os IDs `0dd91da9...` ANS; preciso reconfirmar IDs/URLs exatos da Atual Card e Futura IM no momento da execução).
 
-Pequeno dialog reutilizável extraído da lógica de "Novo produto" da página `Produtos.tsx`. Mesmos campos:
+## Parte 2 — Enriquecer o AlertDialog de duplicata em `NovoSiteDialog.tsx`
 
-- Nome canônico * (string)
-- Categoria (string lowercase)
-- Dimensões (string)
-- Gramatura (string)
-- Observações (string)
+Para evitar repetição do problema, ampliar a query de pré-checagem e mostrar contexto suficiente para o usuário decidir o que fazer:
 
-Props:
+**Query** (substitui o select atual):
 ```ts
-type Props = {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  initialName?: string;          // pré-preenche Nome com o que está na busca
-  initialCategoria?: string;     // pré-preenche com a categoria já escolhida no NovoSiteDialog
-  onCreated: (produto: ProdutoCatalogo) => void;  // devolve o produto criado para auto-vincular
-};
+.select("id, url_completa, nome_produto, fornecedor_nome, ativo, preco_atual, timestamp_check")
 ```
 
-Ao salvar:
-1. `INSERT` em `produtos_catalogo`.
-2. Toast `"Produto cadastrado"`.
-3. Chama `onCreated(novoProduto)` — o `ProductPicker` então atualiza sua lista interna, seleciona automaticamente esse produto (`onChange({ id: novo.id, name: novo.nome_canonico })`) e fecha o popover.
+**UI do AlertDialog** — para cada URL duplicada exibir uma linha com:
+- Nome do produto + nome do fornecedor (já existe)
+- **Badge** "Ativo" (verde) ou "Inativo" (cinza)
+- **"Última coleta: dd/mm hh:mm"** ou **"Sem preço coletado"** se `timestamp_check` for null
+- Botão pequeno **"Abrir URL"** (`<a target="_blank">` com ícone `ExternalLink`) ao lado para conferir
 
-### 3. Reuso na página `Produtos.tsx` (opcional, mas limpa)
-
-A página `Produtos.tsx` tem hoje um Dialog inline com a mesma lógica. Substituir por `NovoProdutoCatalogoDialog` (passando `initialName` e callback de refresh) elimina duplicação. Edição continua inline (ou fazemos o mesmo dialog aceitar modo edição — recomendo manter edição inline por simplicidade, só extrai o "novo").
-
-### 4. Ajuste de tipo no contrato `onChange`
-
-Como agora **toda** seleção no `ProductPicker` resulta num produto que existe no banco (nunca mais um `id: null` "fantasma"), simplificar o callback:
-
-```ts
-onChange: (val: { id: string; name: string }) => void
-```
-
-E no `NovoSiteDialog.handleSave` remover o ramo que chama `findOrCreateCatalogo` quando id é `null` (ele continua existindo no `lib/produtoCatalogo.ts` e segue sendo usado por outros consumidores, então não removo a função, só a chamada agora desnecessária aqui — se o id chega preenchido, usa direto).
+**Botões do diálogo**:
+- Se houver pelo menos 1 URL nova: **"Ignorar duplicadas e salvar o resto"** + **"Cancelar"**
+- Se 100% forem duplicatas: **"Cancelar"** + **"Ir para Gerenciar sites"** (já existe)
 
 ## Arquivos afetados
 
-- `src/components/monitoramento/ProductPicker.tsx` — reestruturação do popover + remoção do "criar inline".
-- `src/components/monitoramento/NovoProdutoCatalogoDialog.tsx` — **novo arquivo**.
-- `src/components/monitoramento/NovoSiteDialog.tsx` — ajustar handler do `ProductPicker` para o novo contrato e reaproveitar `selectedCategoria` ao abrir o dialog de novo produto.
-- `src/pages/Produtos.tsx` — (opcional) trocar dialog inline pelo novo componente.
+- **Operação no banco** — DELETE das 3 linhas 4x4 (com confirmação prévia das URLs via SELECT).
+- `src/components/monitoramento/NovoSiteDialog.tsx` — ampliar query de pré-checagem e enriquecer linhas do AlertDialog com badge de status, última coleta e botão "Abrir URL".
 
 ## Fora de escopo
 
-- Lógica de scraping, schema, RLS, triggers, `findOrCreateCatalogo` — intactos.
-- Renomeação de abas, layout do `NovoSiteDialog` em si — intactos.
+- `produtos_catalogo`, `ProductPicker`, lógica de scraping, RLS, triggers — intactos.
+- Não adicionar botão "Excluir e recadastrar" inline no diálogo (decisão postergada — ainda dá pra usar a aba Gerenciar sites).
 
 ## Risco
 
-Baixo. Mudança principalmente de UI; o contrato fica mais estrito (`id` sempre presente), o que reduz bugs futuros. O dialog de cadastro reutiliza colunas que já existem em `produtos_catalogo`.
+Mínimo. DELETE filtrado por URLs específicas confirmadas previamente. A mudança no AlertDialog é só visual — query continua read-only.
 
