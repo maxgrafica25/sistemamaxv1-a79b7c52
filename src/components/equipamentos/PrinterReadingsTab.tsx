@@ -39,7 +39,21 @@ interface Reading {
   total_prints: number | null;
   counter: number;
   notes: string | null;
+  consumable_id: string | null;
 }
+
+interface Consumable {
+  id: string;
+  name: string;
+}
+
+const isTonerName = (name: string) => {
+  const n = name.toLowerCase();
+  if (!n.includes("toner")) return false;
+  // Exclude non-toner items that might contain related words
+  if (n.includes("revelador") || n.includes("cilindro") || n.includes("belt") || n.includes("fusor") || n.includes("drum")) return false;
+  return true;
+};
 
 const getTypeBadge = (type: string) => {
   switch (type) {
@@ -55,11 +69,13 @@ const getTypeBadge = (type: string) => {
 export default function PrinterReadingsTab({ equipmentId, equipmentName, printerType }: PrinterReadingsTabProps) {
   const { profile } = useAuth();
   const [readings, setReadings] = useState<Reading[]>([]);
+  const [consumables, setConsumables] = useState<Consumable[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
 
   // Form state
   const [readingType, setReadingType] = useState("daily");
+  const [selectedConsumableId, setSelectedConsumableId] = useState<string>("__generic__");
   const [copiesBw, setCopiesBw] = useState("");
   const [colorPrints, setColorPrints] = useState("");
   const [bwPrints, setBwPrints] = useState("");
@@ -77,7 +93,25 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
     setLoading(false);
   };
 
-  useEffect(() => { fetchReadings(); }, [equipmentId]);
+  const fetchConsumables = async () => {
+    const { data } = await supabase
+      .from("equipment_consumables")
+      .select("id, name")
+      .eq("equipment_id", equipmentId)
+      .order("sort_order");
+    if (data) {
+      const toners = (data as Consumable[]).filter(c => isTonerName(c.name));
+      setConsumables(toners);
+    }
+  };
+
+  useEffect(() => { fetchReadings(); fetchConsumables(); }, [equipmentId]);
+
+  const consumableMap = useMemo(() => {
+    const m = new Map<string, string>();
+    consumables.forEach(c => m.set(c.id, c.name));
+    return m;
+  }, [consumables]);
 
   const stats = useMemo(() => {
     if (readings.length === 0) return null;
@@ -97,6 +131,7 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
 
   const resetForm = () => {
     setReadingType("daily");
+    setSelectedConsumableId(consumables.length === 1 ? consumables[0].id : "__generic__");
     setCopiesBw("");
     setColorPrints("");
     setBwPrints("");
@@ -129,6 +164,15 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
       }
     }
 
+    // Light validation: warn if toner_change with multiple toners and "generic" selected
+    if (readingType === "toner_change" && consumables.length >= 2 && selectedConsumableId === "__generic__") {
+      if (!window.confirm(
+        "Você não especificou qual toner foi trocado. A Júlia não conseguirá estimar o restante por cor. Deseja continuar mesmo assim?"
+      )) {
+        return;
+      }
+    }
+
     const { error } = await supabase.from("printer_readings").insert({
       equipment_id: equipmentId,
       printer_model: equipmentName,
@@ -142,6 +186,9 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
       bw_prints: bwPrints ? parseInt(bwPrints) : null,
       total_prints: newTotal,
       notes: notes || null,
+      consumable_id: readingType === "toner_change" && selectedConsumableId !== "__generic__"
+        ? selectedConsumableId
+        : null,
     });
 
     if (error) {
@@ -288,7 +335,14 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
                       {fmtDate(r.reading_time || r.date)} {r.reading_time && fmtTime(r.reading_time)}
                     </div>
                   </TableCell>
-                  <TableCell>{getTypeBadge(r.type)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {getTypeBadge(r.type)}
+                      {r.type === "toner_change" && r.consumable_id && consumableMap.get(r.consumable_id) && (
+                        <span className="text-xs text-muted-foreground">— {consumableMap.get(r.consumable_id)}</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-sm">
                     <div className="flex items-center gap-1">
                       <User className="h-3 w-3 text-muted-foreground" />
@@ -348,6 +402,27 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
                 />
               </div>
             </div>
+
+            {/* Consumable selector — only for toner_change */}
+            {readingType === "toner_change" && consumables.length > 0 && (
+              <div className="space-y-2">
+                <Label>Consumível trocado *</Label>
+                <Select value={selectedConsumableId} onValueChange={setSelectedConsumableId}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {consumables.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                    <SelectItem value="__generic__">Não especificar / genérico</SelectItem>
+                  </SelectContent>
+                </Select>
+                {consumables.length >= 2 && selectedConsumableId === "__generic__" && (
+                  <p className="text-xs text-muted-foreground">
+                    💡 Selecione a cor específica para a Júlia conseguir estimar o restante por toner.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Fields based on printer type */}
             {printerType === "pb" ? (
