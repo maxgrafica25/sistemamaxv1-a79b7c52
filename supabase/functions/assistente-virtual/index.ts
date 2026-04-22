@@ -201,8 +201,7 @@ REGRAS PARA FERRAMENTAS:
 - Para "me avise X antes de Y", calcule remind_at = Y menos X e grave esse horário (não há campo de antecedência).
 - Após executar, confirme em pt-BR repetindo título + data/hora amigável (ex.: "Pronto! Lembrete 'Dentista' criado para amanhã, 23/04 às 14h.").
 - Para excluir, se houver mais de um lembrete que casa com a descrição, peça confirmação listando os candidatos.
-- Para "quais meus lembretes", chame list_reminders e formate em lista curta.
-
+- Para "quais meus lembretes", chame list_reminders e formate em lista curta.`;
 
     const camada2 =
       bc.length > 0
