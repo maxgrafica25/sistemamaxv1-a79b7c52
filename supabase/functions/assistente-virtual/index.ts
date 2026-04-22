@@ -134,30 +134,26 @@ Deno.serve(async (req) => {
 
 REGRA CRÍTICA — NÃO INVENTE:
 - Use SOMENTE as informações nas seções "BASE DE CONHECIMENTO" e "DADOS OPERACIONAIS" abaixo como fonte de verdade.
-- Se a pergunta estiver incompleta para uma resposta precisa (ex: "quanto custa uma impressão?" sem especificar tamanho/papel/quantidade), NÃO chute. Liste as opções disponíveis nos dados e peça ao usuário que escolha.
-- Se a informação simplesmente não existir nos dados, diga claramente: "Essa informação não está cadastrada no sistema."
+- Se a informação não existir nos dados, diga claramente: "Não consegui localizar essa informação no sistema." e liste o que faltou.
 - Valores monetários sempre em R$ com vírgula decimal. Seja conciso.
 
-REGRA CRÍTICA — PREÇO DE VENDA (calcule, não chute):
-Quando perguntarem preço, valor, "quanto cobrar", "quanto custa para o cliente" etc., você DEVE calcular o preço de venda (PV) seguindo EXATAMENTE estes passos. Se faltar qualquer dado, NÃO chute — responda "Não consegui localizar essa informação no sistema." e liste o que faltou.
+REGRA CRÍTICA — PREÇO DE VENDA:
+Os preços de venda JÁ ESTÃO CALCULADOS na seção "PREÇOS DE IMPRESSÃO" por item e por faixa de quantidade (TP1, TP2, ...). Você NUNCA deve calcular markup, custo, fórmulas ou aplicar percentuais. Sua tarefa é APENAS:
 
-PASSOS OBRIGATÓRIOS:
-1. Identifique o item EXATO em "PREÇOS DE IMPRESSÃO" combinando: paper_type + grammage + size + side + equipment_mode. Se não existir item idêntico, pare e diga que não localizou (cite o que procurou).
-2. Some custo unitário = paper_cost + printing_cost (valores já mostrados no item).
-3. Identifique a categoria do item e, dentro das "Faixas" dessa categoria, a faixa (TP) cuja quantidade pedida cai entre min_qty e max_qty. Se nenhuma faixa cobrir a quantidade, pare e diga que não localizou.
-4. Pegue os 3 percentuais da faixa: fixed_cost_pct, variable_cost_pct, margin_pct. Se algum estiver ausente, pare e diga que não localizou. NUNCA use a "Margem padrão" global como substituto.
-5. Calcule: PV_unitario = custo / (1 - (fixed_cost_pct + variable_cost_pct + margin_pct) / 100).
-6. Arredonde PV_unitario PARA CIMA ao próximo múltiplo de R$ 0,05 (ex.: 3,67 → 3,70; 3,71 → 3,75).
-7. Se a quantidade foi informada, calcule total = PV_unitario_arredondado × quantidade.
+1. Localizar o item EXATO combinando paper_type + grammage + size + side + equipment_mode.
+2. Localizar a faixa (TP) cuja quantidade pedida cai entre min e max da faixa.
+3. Responder com o PV unitário JÁ LISTADO ali, no formato: "Preço de venda: R$ X,XX por folha (faixa TPn)".
+4. Se a quantidade foi informada, multiplicar PV × quantidade e informar o total: "Total para N un: R$ Y,YY".
 
-FORMATO DA RESPOSTA quando o cálculo é possível:
-- "Preço de venda: R$ X,XX por folha (faixa TPn)" + "Total para N un: R$ Y,YY" quando aplicável. Sem mostrar o custo, sem explicar a fórmula a menos que pedido.
+REGRAS:
+- Se o item não existir, responda exatamente: "Não consegui localizar essa informação no sistema." e diga o que procurou (ex.: "não encontrei Couchê 210 A4 F color").
+- Se nenhuma faixa cobrir a quantidade pedida, responda exatamente: "Não consegui localizar essa informação no sistema." e diga que não há faixa cadastrada para aquela quantidade.
+- Se a pergunta for ambígua (ex.: "quanto custa um folder?" sem papel/tamanho/lado/modo/quantidade), peça os dados que faltam antes de responder.
 
 PROIBIÇÕES ABSOLUTAS:
-- Nunca aproximar, estimar ou "dar uma ideia" de preço.
-- Nunca usar margem padrão global, percentuais de outra faixa, ou multiplicar custo por fator inventado.
-- Nunca informar o custo como se fosse preço de venda.
-- Se a pergunta for ambígua (ex.: "quanto custa um folder?" sem papel/tamanho/lado/quantidade), peça os dados que faltam antes de calcular.`;
+- Nunca calcular, estimar, aproximar ou "dar uma ideia" de preço.
+- Nunca aplicar percentuais, margens, fórmulas ou markup — os preços vêm prontos.
+- Nunca informar custo como se fosse preço de venda.`;
 
 
     const camada2 =
@@ -209,7 +205,7 @@ PROIBIÇÕES ABSOLUTAS:
         `- ${p.name}${p.grammage ? ` ${p.grammage}` : ""}: ${p.sheet_qty} fls/pacote, pacote ${fmtBRL(p.pack_price)} + frete ${fmtBRL(p.freight_price)}`,
     );
 
-    // Preços agrupados por categoria
+    // Preços agrupados por categoria + pré-cálculo de PV por faixa (mesma fórmula da página Preço de Impressão)
     const ppByCat = new Map<string, any[]>();
     for (const item of pp) {
       const arr = ppByCat.get(item.printer_category_id) ?? [];
@@ -217,44 +213,64 @@ PROIBIÇÕES ABSOLUTAS:
       ppByCat.set(item.printer_category_id, arr);
     }
     const tiersByCat = new Map<string, any[]>();
+    const tiersByGroup = new Map<string, any[]>();
     for (const t of tiers) {
-      const arr = tiersByCat.get(t.printer_category_id) ?? [];
-      arr.push(t);
-      tiersByCat.set(t.printer_category_id, arr);
+      const arrCat = tiersByCat.get(t.printer_category_id) ?? [];
+      arrCat.push(t);
+      tiersByCat.set(t.printer_category_id, arrCat);
+      if (t.markup_group_id) {
+        const arrG = tiersByGroup.get(t.markup_group_id) ?? [];
+        arrG.push(t);
+        tiersByGroup.set(t.markup_group_id, arrG);
+      }
     }
+
+    const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size || "");
+    const roundUp10 = (v: number) => Math.ceil(v * 10) / 10; // arredonda para cima ao próximo R$ 0,10
+
+    const calcPV = (item: any, tier: any): number => {
+      const sizeMult = isLargerThanA4(item.size) ? 2 : 1;
+      const sideMult = item.side === "F/V" ? 2 : 1;
+      const printCost = roundUp10(Number(item.printing_cost || 0) * sizeMult * sideMult);
+      const baseCost = Number(item.paper_cost || 0) + printCost;
+      const soma = (Number(tier.fixed_cost_pct || 0) + Number(tier.variable_cost_pct || 0) + Number(tier.margin_pct || 0)) / 100;
+      const divisor = 1 - soma;
+      if (divisor <= 0) return 0;
+      return roundUp10(baseCost / divisor);
+    };
+
+    const tiersForItem = (item: any): any[] => {
+      let list: any[] = [];
+      if (item.markup_group_id) {
+        list = tiersByGroup.get(item.markup_group_id) ?? [];
+      } else {
+        list = (tiersByCat.get(item.printer_category_id) ?? []).filter((t: any) => !t.markup_group_id);
+        if (list.length === 0) list = tiersByCat.get(item.printer_category_id) ?? [];
+      }
+      return [...list].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || (a.min_qty ?? 0) - (b.min_qty ?? 0));
+    };
 
     const precoLines: string[] = [];
     for (const cat of cats) {
       const items = ppByCat.get(cat.id) ?? [];
-      const cTiers = tiersByCat.get(cat.id) ?? [];
-      if (items.length === 0 && cTiers.length === 0) continue;
+      if (items.length === 0) continue;
       precoLines.push(`### Categoria: ${cat.name}`);
-      if (cTiers.length > 0) {
-        precoLines.push(
-          "  Faixas: " +
-            cTiers
-              .map(
-                (t: any) =>
-                  `${t.label} (${t.min_qty}${t.max_qty ? `-${t.max_qty}` : "+"}; margem ${t.margin_pct}%, fixo ${t.fixed_cost_pct}%, variável ${t.variable_cost_pct}%)`,
-              )
-              .join(", "),
-        );
-      }
-      if (items.length > 0) {
-        precoLines.push("  Itens:");
-        for (const it of items.slice(0, 50)) {
-          const total = Number(it.paper_cost || 0) + Number(it.printing_cost || 0);
-          precoLines.push(
-            `    - ${it.paper_type}${it.grammage ? ` ${it.grammage}` : ""} ${it.size} ${it.side} (${it.equipment_mode}): papel ${fmtBRL(it.paper_cost)} + impressão ${fmtBRL(it.printing_cost)} = custo ${fmtBRL(total)}`,
-          );
+      for (const it of items.slice(0, 80)) {
+        const itemTiers = tiersForItem(it);
+        const label = `${it.paper_type}${it.grammage ? ` ${it.grammage}` : ""} ${it.size} ${it.side} (${it.equipment_mode})`;
+        if (itemTiers.length === 0) {
+          precoLines.push(`  - ${label}: (sem faixas de markup cadastradas)`);
+          continue;
         }
-        if (items.length > 50) precoLines.push(`    ... (+${items.length - 50} itens)`);
+        const tierStrs = itemTiers.map((t: any) => {
+          const range = t.max_qty ? `${t.min_qty}-${t.max_qty} un` : `${t.min_qty}+ un`;
+          const pv = calcPV(it, t);
+          return `${t.label} (${range}) → ${fmtBRL(pv)}/un`;
+        });
+        precoLines.push(`  - ${label}: ${tierStrs.join(" | ")}`);
       }
+      if (items.length > 80) precoLines.push(`  ... (+${items.length - 80} itens)`);
     }
-
-    const gsLine = gs
-      ? `Imposto: ${gs.tax_pct}% | Nota fiscal: ${gs.invoice_pct}% | Comissão: ${gs.collection_pct}% | Taxa cobrança: ${gs.collection_fee_pct}% | Cartão: ${gs.credit_card_pct}% | Perda: ${gs.waste_pct}% | Margem padrão: ${gs.default_margin_pct}%`
-      : "(não cadastrado)";
 
     const camada3 = `## DADOS OPERACIONAIS
 
@@ -264,11 +280,8 @@ ${eqLines.length > 0 ? eqLines.join("\n") : "(nenhum equipamento cadastrado)"}
 ### PAPÉIS DISPONÍVEIS
 ${papLines.length > 0 ? papLines.join("\n") : "(nenhum papel ativo)"}
 
-### PREÇOS DE IMPRESSÃO
-${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}
-
-### CONFIGURAÇÕES GLOBAIS DE PREÇO
-${gsLine}`;
+### PREÇOS DE IMPRESSÃO (preço de venda já calculado por faixa de quantidade)
+${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`;
 
     const systemPrompt = `${camada1}\n\n${camada2}\n\n${camada3}`;
 
