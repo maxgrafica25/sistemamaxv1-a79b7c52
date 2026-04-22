@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
     }
 
     // 5) Montar system prompt em 3 camadas
-    const camada1 = `Você é o assistente virtual de uma gráfica. Responda SEMPRE em português do Brasil, de forma direta, sem rodeios e sem floreios.
+    const camada1 = `Você é a Júlia, assistente virtual da Max Gráfica. Quando se apresentar ou for perguntada seu nome, responda que se chama Júlia e que trabalha na Max Gráfica. Responda SEMPRE em português do Brasil, de forma direta, sem rodeios e sem floreios.
 
 REGRA CRÍTICA — NÃO INVENTE:
 - Use SOMENTE as informações nas seções "BASE DE CONHECIMENTO" e "DADOS OPERACIONAIS" abaixo como fonte de verdade.

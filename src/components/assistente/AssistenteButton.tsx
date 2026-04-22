@@ -80,7 +80,7 @@ export default function AssistenteButton() {
             variant: "destructive",
           });
         } else {
-          toast({ title: "Erro no assistente", description: msg, variant: "destructive" });
+          toast({ title: "Erro na Júlia", description: msg, variant: "destructive" });
         }
         setMessages((prev) => [...prev, { role: "assistant", content: msg }]);
       } else {
@@ -92,7 +92,7 @@ export default function AssistenteButton() {
       console.error(e);
       toast({
         title: "Erro inesperado",
-        description: "Não foi possível contactar o assistente.",
+        description: "Não foi possível contactar a Júlia.",
         variant: "destructive",
       });
     } finally {
@@ -142,7 +142,7 @@ export default function AssistenteButton() {
               <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
                 <Sparkles className="h-4 w-4" />
               </div>
-              <SheetTitle className="text-base">Assistente</SheetTitle>
+              <SheetTitle className="text-base">Júlia</SheetTitle>
             </div>
             <Button
               variant="ghost"
@@ -159,7 +159,7 @@ export default function AssistenteButton() {
             <div ref={scrollRef} className="space-y-3">
               {messages.length === 0 && !loading && (
                 <div className="text-sm text-muted-foreground text-center py-8 px-2">
-                  Olá! Pergunte sobre toners, preços, papéis ou qualquer coisa cadastrada no sistema.
+                  Oi, eu sou a Júlia, assistente da Max Gráfica! Pergunte sobre toners, preços, papéis ou qualquer coisa cadastrada no sistema.
                 </div>
               )}
               {messages.map((m, i) => (
