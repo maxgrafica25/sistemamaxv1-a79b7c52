@@ -335,7 +335,14 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
                       {fmtDate(r.reading_time || r.date)} {r.reading_time && fmtTime(r.reading_time)}
                     </div>
                   </TableCell>
-                  <TableCell>{getTypeBadge(r.type)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {getTypeBadge(r.type)}
+                      {r.type === "toner_change" && r.consumable_id && consumableMap.get(r.consumable_id) && (
+                        <span className="text-xs text-muted-foreground">— {consumableMap.get(r.consumable_id)}</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-sm">
                     <div className="flex items-center gap-1">
                       <User className="h-3 w-3 text-muted-foreground" />
@@ -395,6 +402,27 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
                 />
               </div>
             </div>
+
+            {/* Consumable selector — only for toner_change */}
+            {readingType === "toner_change" && consumables.length > 0 && (
+              <div className="space-y-2">
+                <Label>Consumível trocado *</Label>
+                <Select value={selectedConsumableId} onValueChange={setSelectedConsumableId}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {consumables.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                    <SelectItem value="__generic__">Não especificar / genérico</SelectItem>
+                  </SelectContent>
+                </Select>
+                {consumables.length >= 2 && selectedConsumableId === "__generic__" && (
+                  <p className="text-xs text-muted-foreground">
+                    💡 Selecione a cor específica para a Júlia conseguir estimar o restante por toner.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Fields based on printer type */}
             {printerType === "pb" ? (
