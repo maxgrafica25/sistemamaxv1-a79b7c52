@@ -88,14 +88,14 @@ Deno.serve(async (req) => {
         admin
           .from("printing_price_items")
           .select(
-            "printer_category_id,equipment_id,paper_type,grammage,size,side,paper_cost,printing_cost,equipment_mode",
+            "id,printer_category_id,equipment_id,markup_group_id,paper_type,grammage,size,side,paper_cost,printing_cost,equipment_mode",
           )
           .eq("is_active", true),
-        admin.from("printer_categories").select("id,name").order("sort_order"),
+        admin.from("printer_categories").select("id,name,default_markup_group_id").order("sort_order"),
         admin
           .from("markup_tiers")
           .select(
-            "printer_category_id,label,min_qty,max_qty,fixed_cost_pct,variable_cost_pct,margin_pct",
+            "id,printer_category_id,markup_group_id,label,min_qty,max_qty,fixed_cost_pct,variable_cost_pct,margin_pct,sort_order",
           )
           .order("sort_order"),
         admin
