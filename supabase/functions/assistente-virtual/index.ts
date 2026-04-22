@@ -159,7 +159,7 @@ Quando houver mais de um item com o MESMO papel + gramatura + tamanho + lado + m
             .join("\n\n")
         : "## BASE DE CONHECIMENTO\n(vazia)";
 
-    // Equipamentos + consumíveis + estimativa de toner
+    // Equipamentos (sem preços/rendimentos para evitar que o LLM tente recalcular)
     const eqLines: string[] = [];
     for (const eq of equipments) {
       const tipo = eq.printer_type;
@@ -171,30 +171,13 @@ Quando houver mais de um item com o MESMO papel + gramatura + tamanho + lado + m
         `- **${eq.name}** (${tipo})${eq.description ? ` — ${eq.description}` : ""}` +
           (lastTotal != null ? ` | Contador atual: ${lastTotal.toLocaleString("pt-BR")}` : "") +
           (desdeToner != null
-            ? ` | Impressões desde última troca de toner registrada: ${desdeToner.toLocaleString("pt-BR")}`
+            ? ` | Impressões desde última troca de toner: ${desdeToner.toLocaleString("pt-BR")}`
             : ""),
       );
-      const eqCons = consumables.filter((c: any) => c.equipment_id === eq.id);
-      if (eqCons.length > 0) {
-        eqLines.push("  Consumíveis:");
-        for (const c of eqCons) {
-          const restante =
-            desdeToner != null && c.yield_pages > 0
-              ? Math.max(0, c.yield_pages - desdeToner)
-              : null;
-          eqLines.push(
-            `    - ${c.name} (${c.mode}): ${fmtBRL(c.price)} | rendimento ${c.yield_pages.toLocaleString("pt-BR")} pgs` +
-              (restante != null
-                ? ` | estimativa restante (compartilhada): ~${restante.toLocaleString("pt-BR")} pgs`
-                : ""),
-          );
-        }
-      }
     }
 
     const papLines = papers.map(
-      (p: any) =>
-        `- ${p.name}${p.grammage ? ` ${p.grammage}` : ""}: ${p.sheet_qty} fls/pacote, pacote ${fmtBRL(p.pack_price)} + frete ${fmtBRL(p.freight_price)}`,
+      (p: any) => `- ${p.name}${p.grammage ? ` ${p.grammage}` : ""}`,
     );
 
     // Preços agrupados por categoria + pré-cálculo de PV por faixa (mesma fórmula da página Preço de Impressão)
