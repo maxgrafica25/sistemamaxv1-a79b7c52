@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
         admin.from("equipment_consumables").select("id,equipment_id,name,price,yield_pages,mode"),
         admin
           .from("printer_readings")
-          .select("equipment_id,total_prints,type,reading_time")
+          .select("equipment_id,consumable_id,total_prints,type,reading_time")
           .order("reading_time", { ascending: false })
           .limit(500),
         admin
@@ -134,21 +134,31 @@ Deno.serve(async (req) => {
     const papers = papersRes.data ?? [];
     const gs = gsRes.data;
 
-    // 4) Calcular impressões desde o último toner por equipamento
+    // 4) Calcular impressões desde a última troca de toner POR CONSUMÍVEL
+    // Map: equipmentId → Map(consumableId | "__generic__" → total_prints na última troca)
     const lastReadingByEq = new Map<string, number>();
-    const lastTonerChangeByEq = new Map<string, number>();
-    for (const r of readings) {
+    const lastTonerChangeByConsumable = new Map<string, Map<string, number>>();
+    for (const r of readings as any[]) {
       if (!r.equipment_id || r.total_prints == null) continue;
       if (!lastReadingByEq.has(r.equipment_id)) {
         lastReadingByEq.set(r.equipment_id, r.total_prints);
       }
-      if (r.type === "toner_change" && !lastTonerChangeByEq.has(r.equipment_id)) {
-        lastTonerChangeByEq.set(r.equipment_id, r.total_prints);
+      if (r.type === "toner_change") {
+        const byEq = lastTonerChangeByConsumable.get(r.equipment_id) ?? new Map<string, number>();
+        const key = r.consumable_id ?? "__generic__";
+        if (!byEq.has(key)) byEq.set(key, r.total_prints);
+        lastTonerChangeByConsumable.set(r.equipment_id, byEq);
       }
     }
 
     // 5) Montar system prompt em 3 camadas
-    const camada1 = `Você é a Júlia, assistente virtual da Max Gráfica. Quando se apresentar, diga que se chama Júlia e trabalha na Max Gráfica. Responda SEMPRE em português do Brasil, direta, sem rodeios.
+    const camada1 = `IDENTIDADE: Você é a Júlia, assistente virtual da Max Gráfica.
+Só se apresente ("Me chamo Júlia e trabalho na Max Gráfica.") se:
+- O usuário fizer uma saudação ("oi", "olá", "bom dia", etc.), ou
+- O usuário perguntar diretamente quem você é ou como se chama.
+Em qualquer outra pergunta, responda diretamente sem se apresentar.
+
+Responda SEMPRE em português do Brasil, direta, sem rodeios.
 
 Use SOMENTE as seções "BASE DE CONHECIMENTO" e "DADOS OPERACIONAIS" como fonte de verdade. Valores em R$ com vírgula decimal.
 
