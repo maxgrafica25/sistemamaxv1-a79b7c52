@@ -188,20 +188,16 @@ Quando houver mais de um item com o MESMO papel + gramatura + tamanho + lado + m
         : "## BASE DE CONHECIMENTO\n(vazia)";
 
     // Equipamentos + consumíveis com rendimento real (toner = yield × 5/20)
+    // Trocas de toner são rastreadas por consumível específico (cor) com fallback genérico.
     const eqLines: string[] = [];
     const fmtNum = (n: number) => n.toLocaleString("pt-BR");
     for (const eq of equipments) {
       const tipo = eq.printer_type;
       const lastTotal = lastReadingByEq.get(eq.id);
-      const lastTonerTotal = lastTonerChangeByEq.get(eq.id);
-      const desdeToner =
-        lastTotal != null && lastTonerTotal != null ? lastTotal - lastTonerTotal : null;
+      const byEqMap = lastTonerChangeByConsumable.get(eq.id);
       eqLines.push(
         `- **${eq.name}** (${tipo})${eq.description ? ` — ${eq.description}` : ""}` +
-          (lastTotal != null ? ` | Contador atual: ${fmtNum(lastTotal)}` : "") +
-          (desdeToner != null
-            ? ` | Impressões desde última troca de toner: ${fmtNum(desdeToner)}`
-            : ""),
+          (lastTotal != null ? ` | Contador atual: ${fmtNum(lastTotal)}` : ""),
       );
 
       const cons = consumables.filter((c: any) => c.equipment_id === eq.id);
@@ -210,9 +206,23 @@ Quando houver mais de um item com o MESMO papel + gramatura + tamanho + lado + m
         if (isTonerConsumable(c)) {
           const yReal = realYieldPages(c);
           let line = `    • ${c.name}: rendimento fabricante ${fmtNum(yFab)} pgs (${COVERAGE_REFERENCE}%) → rendimento real a ${COVERAGE_OPERATIONAL}%: ${fmtNum(yReal)} pgs`;
-          if (desdeToner != null) {
-            const restante = Math.max(0, yReal - desdeToner);
-            line += `\n        Estimativa restante: ~${fmtNum(restante)} pgs`;
+
+          // Buscar troca específica deste consumível; se não houver, fallback para troca genérica.
+          const specificTotal = byEqMap?.get(c.id);
+          const genericTotal = byEqMap?.get("__generic__");
+          const lastTonerTotal = specificTotal ?? genericTotal;
+          const isFallback = specificTotal == null && genericTotal != null;
+
+          if (lastTotal != null && lastTonerTotal != null) {
+            const desde = lastTotal - lastTonerTotal;
+            const restante = Math.max(0, yReal - desde);
+            if (isFallback) {
+              line += `\n        Estimativa restante: ~${fmtNum(restante)} pgs (baseado na última troca registrada sem especificar cor)`;
+            } else {
+              line += `\n        Impressões desde troca deste toner: ${fmtNum(desde)} | Estimativa restante: ~${fmtNum(restante)} pgs`;
+            }
+          } else {
+            line += `\n        Nenhuma troca registrada — estimativa indisponível`;
           }
           eqLines.push(line);
         } else {
