@@ -136,7 +136,14 @@ REGRA CRÍTICA — NÃO INVENTE:
 - Use SOMENTE as informações nas seções "BASE DE CONHECIMENTO" e "DADOS OPERACIONAIS" abaixo como fonte de verdade.
 - Se a pergunta estiver incompleta para uma resposta precisa (ex: "quanto custa uma impressão?" sem especificar tamanho/papel/quantidade), NÃO chute. Liste as opções disponíveis nos dados e peça ao usuário que escolha.
 - Se a informação simplesmente não existir nos dados, diga claramente: "Essa informação não está cadastrada no sistema."
-- Valores monetários sempre em R$ com vírgula decimal. Seja conciso.`;
+- Valores monetários sempre em R$ com vírgula decimal. Seja conciso.
+
+REGRA CRÍTICA — PREÇO DE VENDA:
+- Os dados em "PREÇOS DE IMPRESSÃO" mostram apenas o CUSTO (papel + impressão). NÃO é o preço de venda ao cliente.
+- O preço de venda final depende de uma fórmula de BDI (markup) que combina: faixa de quantidade (TP1/TP2/TP3/TP4), percentuais de custo fixo, custo variável, imposto, nota fiscal, comissão, taxa de cobrança, cartão, perda e margem. Você NÃO deve calcular esse preço — qualquer cálculo manual estará errado.
+- Quando perguntarem "quanto custa para o cliente", "qual o preço de venda", "quanto cobrar" ou similar: informe o CUSTO cadastrado, identifique a faixa (TP) pela quantidade, e diga: "O preço final está calculado na tela **Preço de Impressão** — consulte lá o valor exato da faixa."
+- NUNCA invente um preço de venda multiplicando custo por algum fator.`;
+
 
     const camada2 =
       bc.length > 0
