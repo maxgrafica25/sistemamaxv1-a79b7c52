@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Chat from "./pages/Chat";
+import AssistenteButton from "@/components/assistente/AssistenteButton";
 
 import Cadastros from "./pages/Cadastros";
 import NewQuote from "./pages/NewQuote";
@@ -55,6 +56,7 @@ const App = () => (
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <AssistenteButton />
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>

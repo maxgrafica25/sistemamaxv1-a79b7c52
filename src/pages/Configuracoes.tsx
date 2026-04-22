@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import BaseConhecimentoTab from "@/components/assistente/BaseConhecimentoTab";
 
 function formatBytes(n: number): string {
   if (!n) return "0 B";
@@ -199,6 +200,7 @@ export default function Configuracoes() {
       <Tabs defaultValue="geral" className="max-w-3xl">
         <TabsList>
           <TabsTrigger value="geral">Geral</TabsTrigger>
+          {isAdmin && <TabsTrigger value="conhecimento">Base de Conhecimento</TabsTrigger>}
           {isAdmin && <TabsTrigger value="backup">Backup &amp; Exportação</TabsTrigger>}
         </TabsList>
 
@@ -288,6 +290,12 @@ export default function Configuracoes() {
             </Button>
           </div>
         </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="conhecimento" className="mt-4 max-w-5xl">
+            <BaseConhecimentoTab />
+          </TabsContent>
+        )}
 
         {isAdmin && (
           <TabsContent value="backup" className="space-y-6 mt-4">
