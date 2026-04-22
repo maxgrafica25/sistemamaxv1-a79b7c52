@@ -264,18 +264,30 @@ Quando houver mais de um item com o MESMO papel + gramatura + tamanho + lado + m
       for (const it of items.slice(0, 120)) {
         const itemTiers = tiersForItem(it);
         const eqName = it.equipment_id ? equipmentNameById.get(it.equipment_id) : null;
-        const eqTag = eqName ? ` [${eqName}]` : "";
-        const label = `${it.paper_type}${it.grammage ? ` ${it.grammage}` : ""} ${it.size} ${it.side} (${it.equipment_mode})${eqTag}`;
+        const eqTag = eqName ? `${eqName} | ` : "";
+        const label = `[${eqTag}${it.equipment_mode}] ${it.paper_type}${it.grammage ? ` ${it.grammage}` : ""} | ${it.size} | ${it.side}`;
         if (itemTiers.length === 0) {
-          precoLines.push(`  - ${label}: (sem faixas de markup cadastradas)`);
+          precoLines.push(`- ${label}: (sem faixas de markup cadastradas)`);
           continue;
         }
-        const tierStrs = itemTiers.map((t: any) => {
-          const range = t.max_qty ? `${t.min_qty}-${t.max_qty} un` : `${t.min_qty}+ un`;
+        precoLines.push(`- ${label}:`);
+        for (const t of itemTiers) {
+          const range = t.max_qty ? `${t.min_qty}–${t.max_qty} un` : `${t.min_qty}+ un`;
           const pv = calcPV(it, t);
-          return `${t.label} (${range}) → ${fmtBRL(pv)}/un`;
-        });
-        precoLines.push(`  - ${label}: ${tierStrs.join(" | ")}`);
+          precoLines.push(`    ${t.label} (${range}) → ${fmtBRL(pv)}/un`);
+        }
+
+        // Log de validação: Couche 210 A4 F color
+        if (
+          /couch[eê]/i.test(it.paper_type) &&
+          /210/.test(it.grammage || "") &&
+          /^A4$/i.test(it.size) &&
+          it.side === "F" &&
+          it.equipment_mode === "color"
+        ) {
+          const pvs = itemTiers.map((t: any) => `${t.label}=${fmtBRL(calcPV(it, t))}`).join(" | ");
+          console.log(`[validação PV] ${label} → ${pvs}`);
+        }
       }
       if (items.length > 120) precoLines.push(`  ... (+${items.length - 120} itens)`);
     }
