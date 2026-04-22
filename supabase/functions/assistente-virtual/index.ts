@@ -138,11 +138,26 @@ REGRA CRÍTICA — NÃO INVENTE:
 - Se a informação simplesmente não existir nos dados, diga claramente: "Essa informação não está cadastrada no sistema."
 - Valores monetários sempre em R$ com vírgula decimal. Seja conciso.
 
-REGRA CRÍTICA — PREÇO DE VENDA:
-- Os dados em "PREÇOS DE IMPRESSÃO" mostram apenas o CUSTO (papel + impressão). NÃO é o preço de venda ao cliente.
-- O preço de venda final depende de uma fórmula de BDI (markup) que combina: faixa de quantidade (TP1/TP2/TP3/TP4), percentuais de custo fixo, custo variável, imposto, nota fiscal, comissão, taxa de cobrança, cartão, perda e margem. Você NÃO deve calcular esse preço — qualquer cálculo manual estará errado.
-- Quando perguntarem "quanto custa para o cliente", "qual o preço de venda", "quanto cobrar" ou similar: informe o CUSTO cadastrado, identifique a faixa (TP) pela quantidade, e diga: "O preço final está calculado na tela **Preço de Impressão** — consulte lá o valor exato da faixa."
-- NUNCA invente um preço de venda multiplicando custo por algum fator.`;
+REGRA CRÍTICA — PREÇO DE VENDA (calcule, não chute):
+Quando perguntarem preço, valor, "quanto cobrar", "quanto custa para o cliente" etc., você DEVE calcular o preço de venda (PV) seguindo EXATAMENTE estes passos. Se faltar qualquer dado, NÃO chute — responda "Não consegui localizar essa informação no sistema." e liste o que faltou.
+
+PASSOS OBRIGATÓRIOS:
+1. Identifique o item EXATO em "PREÇOS DE IMPRESSÃO" combinando: paper_type + grammage + size + side + equipment_mode. Se não existir item idêntico, pare e diga que não localizou (cite o que procurou).
+2. Some custo unitário = paper_cost + printing_cost (valores já mostrados no item).
+3. Identifique a categoria do item e, dentro das "Faixas" dessa categoria, a faixa (TP) cuja quantidade pedida cai entre min_qty e max_qty. Se nenhuma faixa cobrir a quantidade, pare e diga que não localizou.
+4. Pegue os 3 percentuais da faixa: fixed_cost_pct, variable_cost_pct, margin_pct. Se algum estiver ausente, pare e diga que não localizou. NUNCA use a "Margem padrão" global como substituto.
+5. Calcule: PV_unitario = custo / (1 - (fixed_cost_pct + variable_cost_pct + margin_pct) / 100).
+6. Arredonde PV_unitario PARA CIMA ao próximo múltiplo de R$ 0,05 (ex.: 3,67 → 3,70; 3,71 → 3,75).
+7. Se a quantidade foi informada, calcule total = PV_unitario_arredondado × quantidade.
+
+FORMATO DA RESPOSTA quando o cálculo é possível:
+- "Preço de venda: R$ X,XX por folha (faixa TPn)" + "Total para N un: R$ Y,YY" quando aplicável. Sem mostrar o custo, sem explicar a fórmula a menos que pedido.
+
+PROIBIÇÕES ABSOLUTAS:
+- Nunca aproximar, estimar ou "dar uma ideia" de preço.
+- Nunca usar margem padrão global, percentuais de outra faixa, ou multiplicar custo por fator inventado.
+- Nunca informar o custo como se fosse preço de venda.
+- Se a pergunta for ambígua (ex.: "quanto custa um folder?" sem papel/tamanho/lado/quantidade), peça os dados que faltam antes de calcular.`;
 
 
     const camada2 =
