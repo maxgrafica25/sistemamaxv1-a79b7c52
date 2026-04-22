@@ -218,42 +218,36 @@ Nunca escolha sozinho um dos itens duplicados.`;
       arr.push(item);
       ppByCat.set(item.printer_category_id, arr);
     }
-    const tiersByCat = new Map<string, any[]>();
-    const tiersByGroup = new Map<string, any[]>();
-    for (const t of tiers) {
-      const arrCat = tiersByCat.get(t.printer_category_id) ?? [];
-      arrCat.push(t);
-      tiersByCat.set(t.printer_category_id, arrCat);
-      if (t.markup_group_id) {
-        const arrG = tiersByGroup.get(t.markup_group_id) ?? [];
-        arrG.push(t);
-        tiersByGroup.set(t.markup_group_id, arrG);
-      }
-    }
+
+    // Mapa de grupo padrão por categoria (igual a activeGroupId da página)
+    const defaultGroupByCat = new Map<string, string | null>();
+    for (const c of cats) defaultGroupByCat.set(c.id, c.default_markup_group_id ?? null);
+
+    // Mapa de nome de equipamento por id (para desambiguar itens duplicados)
+    const equipmentNameById = new Map<string, string>();
+    for (const eq of equipments) equipmentNameById.set(eq.id, eq.name);
 
     const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size || "");
-    const roundUp10 = (v: number) => Math.ceil(v * 10) / 10; // arredonda para cima ao próximo R$ 0,10
+    // Mesmo arredondamento da página: para cima ao próximo R$ 0,05
+    const roundUp5 = (v: number) => Math.ceil(v * 20 - 1e-9) / 20;
 
     const calcPV = (item: any, tier: any): number => {
       const sizeMult = isLargerThanA4(item.size) ? 2 : 1;
       const sideMult = item.side === "F/V" ? 2 : 1;
-      const printCost = roundUp10(Number(item.printing_cost || 0) * sizeMult * sideMult);
+      const printCost = roundUp5(Number(item.printing_cost || 0) * sizeMult * sideMult);
       const baseCost = Number(item.paper_cost || 0) + printCost;
       const soma = (Number(tier.fixed_cost_pct || 0) + Number(tier.variable_cost_pct || 0) + Number(tier.margin_pct || 0)) / 100;
       const divisor = 1 - soma;
       if (divisor <= 0) return 0;
-      return roundUp10(baseCost / divisor);
+      return roundUp5(baseCost / divisor);
     };
 
+    // Replica getItemTiers da página: groupId = item.markup_group_id || default da categoria
     const tiersForItem = (item: any): any[] => {
-      let list: any[] = [];
-      if (item.markup_group_id) {
-        list = tiersByGroup.get(item.markup_group_id) ?? [];
-      } else {
-        list = (tiersByCat.get(item.printer_category_id) ?? []).filter((t: any) => !t.markup_group_id);
-        if (list.length === 0) list = tiersByCat.get(item.printer_category_id) ?? [];
-      }
-      return [...list].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || (a.min_qty ?? 0) - (b.min_qty ?? 0));
+      const groupId = item.markup_group_id || defaultGroupByCat.get(item.printer_category_id) || null;
+      return tiers
+        .filter((t: any) => (t.markup_group_id ?? null) === groupId && t.printer_category_id === item.printer_category_id)
+        .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || (a.min_qty ?? 0) - (b.min_qty ?? 0));
     };
 
     const precoLines: string[] = [];
@@ -261,9 +255,11 @@ Nunca escolha sozinho um dos itens duplicados.`;
       const items = ppByCat.get(cat.id) ?? [];
       if (items.length === 0) continue;
       precoLines.push(`### Categoria: ${cat.name}`);
-      for (const it of items.slice(0, 80)) {
+      for (const it of items.slice(0, 120)) {
         const itemTiers = tiersForItem(it);
-        const label = `${it.paper_type}${it.grammage ? ` ${it.grammage}` : ""} ${it.size} ${it.side} (${it.equipment_mode})`;
+        const eqName = it.equipment_id ? equipmentNameById.get(it.equipment_id) : null;
+        const eqTag = eqName ? ` [${eqName}]` : "";
+        const label = `${it.paper_type}${it.grammage ? ` ${it.grammage}` : ""} ${it.size} ${it.side} (${it.equipment_mode})${eqTag}`;
         if (itemTiers.length === 0) {
           precoLines.push(`  - ${label}: (sem faixas de markup cadastradas)`);
           continue;
@@ -275,7 +271,7 @@ Nunca escolha sozinho um dos itens duplicados.`;
         });
         precoLines.push(`  - ${label}: ${tierStrs.join(" | ")}`);
       }
-      if (items.length > 80) precoLines.push(`  ... (+${items.length - 80} itens)`);
+      if (items.length > 120) precoLines.push(`  ... (+${items.length - 120} itens)`);
     }
 
     const camada3 = `## DADOS OPERACIONAIS
