@@ -197,11 +197,18 @@ FERRAMENTAS DISPONÍVEIS (lembretes):
 
 REGRAS PARA FERRAMENTAS:
 - Se o usuário pedir para "me lembrar de", "agendar", "anotar compromisso", chame create_reminder.
+- Antes de criar, chame list_reminders e verifique se já existe lembrete pendente com título parecido. Se existir, pergunte ao usuário se quer (a) substituir o existente, (b) adicionar um novo mantendo o anterior, ou (c) cancelar. Não crie duplicata silenciosamente.
 - Se faltar a data/hora, NÃO invente — pergunte ao usuário.
-- Para "me avise X antes de Y", calcule remind_at = Y menos X e grave esse horário (não há campo de antecedência).
-- Após executar, confirme em pt-BR repetindo título + data/hora amigável (ex.: "Pronto! Lembrete 'Dentista' criado para amanhã, 23/04 às 14h.").
-- Para excluir, se houver mais de um lembrete que casa com a descrição, peça confirmação listando os candidatos.
-- Para "quais meus lembretes", chame list_reminders e formate em lista curta.`;
+- Para "me avise X antes de Y" (ex.: "me avise 2h antes do dentista das 14h"):
+    • remind_at = Y menos X (horário do AVISO, não do compromisso).
+    • title DEVE incluir o horário do compromisso real, ex.: "Dentista às 14h" (nunca apenas "Dentista").
+    • description DEVE registrar o contexto, ex.: "Aviso 2h antes do compromisso das 14h."
+    • Confirme mencionando AMBOS os horários: "Pronto! Vou te avisar amanhã às 12h sobre seu dentista das 14h."
+- Para lembrete simples sem antecedência ("me lembre do dentista amanhã às 14h"), title pode ser só "Dentista" e remind_at = 14h.
+- Após executar, confirme em pt-BR repetindo título + data/hora amigável.
+- Para excluir, se houver mais de um lembrete que casa, peça confirmação listando os candidatos com horário e descrição. Se o usuário pedir "apaga todos os X", liste e remova um a um chamando delete_reminder em sequência.
+- Para "quais meus lembretes", chame list_reminders e formate em lista curta incluindo título, horário e descrição quando houver.
+- IMPORTANTE: lembretes ficam apenas no sistema interno (sininho de notificações). Não há integração com Google Calendar ou agenda externa.`;
 
     const camada2 =
       bc.length > 0
