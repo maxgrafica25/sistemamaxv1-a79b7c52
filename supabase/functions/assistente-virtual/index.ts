@@ -199,16 +199,23 @@ REGRAS PARA FERRAMENTAS:
 - Se o usuário pedir para "me lembrar de", "agendar", "anotar compromisso", chame create_reminder.
 - Antes de criar, chame list_reminders e verifique se já existe lembrete pendente com título parecido. Se existir, pergunte ao usuário se quer (a) substituir o existente, (b) adicionar um novo mantendo o anterior, ou (c) cancelar. Não crie duplicata silenciosamente.
 - Se faltar a data/hora, NÃO invente — pergunte ao usuário.
-- Para "me avise X antes de Y" (ex.: "me avise 2h antes do dentista das 14h"):
-    • remind_at = Y menos X (horário do AVISO, não do compromisso).
-    • title DEVE incluir o horário do compromisso real, ex.: "Dentista às 14h" (nunca apenas "Dentista").
-    • description DEVE registrar o contexto, ex.: "Aviso 2h antes do compromisso das 14h."
-    • Confirme mencionando AMBOS os horários: "Pronto! Vou te avisar amanhã às 12h sobre seu dentista das 14h."
-- Para lembrete simples sem antecedência ("me lembre do dentista amanhã às 14h"), title pode ser só "Dentista" e remind_at = 14h.
+- COMPROMISSO COM HORÁRIO MARCADO (consulta, reunião, viagem, prazo, dentista, médico, entrega):
+    • Se o usuário NÃO disse com quanto tempo de antecedência quer ser avisado, NÃO crie ainda. Responda apenas:
+      "Quando quer ser avisado?"
+      e termine sua resposta EXATAMENTE com o marcador (em linha separada, sem nada depois):
+      [JULIA_CHIPS:lead_time]
+      O frontend vai mostrar botões (Na hora / 1 hora antes / 3 horas antes / Personalizar). Espere a resposta do usuário.
+    • Quando o usuário responder a antecedência (ex.: "1 hora antes", "na hora", "45min", "2h"), aplique:
+        - "na hora" / "no horário": remind_at = horário do compromisso, title = só o assunto (ex.: "Dentista").
+        - "X antes": remind_at = horário do compromisso − X; title DEVE incluir o horário real (ex.: "Dentista às 14h"); description DEVE registrar o contexto (ex.: "Aviso 1h antes do compromisso das 14h.").
+    • Confirme mencionando AMBOS os horários quando houver antecedência: "Pronto! Vou te avisar amanhã às 13h sobre seu dentista das 14h."
+- Para "me avise X antes de Y" dito de uma vez (ex.: "me avise 2h antes do dentista das 14h"): pule a pergunta, já aplique as regras de título/descrição/remind_at acima.
+- TAREFA AVULSA sem compromisso marcado ("me lembra de tomar água às 16h", "me lembra de comprar leite amanhã"): crie direto, remind_at = horário pedido, sem perguntar antecedência, sem mostrar chips.
 - Após executar, confirme em pt-BR repetindo título + data/hora amigável.
 - Para excluir, se houver mais de um lembrete que casa, peça confirmação listando os candidatos com horário e descrição. Se o usuário pedir "apaga todos os X", liste e remova um a um chamando delete_reminder em sequência.
 - Para "quais meus lembretes", chame list_reminders e formate em lista curta incluindo título, horário e descrição quando houver.
-- IMPORTANTE: lembretes ficam apenas no sistema interno (sininho de notificações). Não há integração com Google Calendar ou agenda externa.`;
+- IMPORTANTE: lembretes ficam apenas no sistema interno (sininho de notificações). Não há integração com Google Calendar ou agenda externa.
+- NUNCA mencione o marcador [JULIA_CHIPS:...] em texto explicativo — ele é só uma diretiva técnica para o frontend.`;
 
     const camada2 =
       bc.length > 0
