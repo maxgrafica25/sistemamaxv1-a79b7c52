@@ -93,7 +93,25 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
     setLoading(false);
   };
 
-  useEffect(() => { fetchReadings(); }, [equipmentId]);
+  const fetchConsumables = async () => {
+    const { data } = await supabase
+      .from("equipment_consumables")
+      .select("id, name")
+      .eq("equipment_id", equipmentId)
+      .order("sort_order");
+    if (data) {
+      const toners = (data as Consumable[]).filter(c => isTonerName(c.name));
+      setConsumables(toners);
+    }
+  };
+
+  useEffect(() => { fetchReadings(); fetchConsumables(); }, [equipmentId]);
+
+  const consumableMap = useMemo(() => {
+    const m = new Map<string, string>();
+    consumables.forEach(c => m.set(c.id, c.name));
+    return m;
+  }, [consumables]);
 
   const stats = useMemo(() => {
     if (readings.length === 0) return null;
@@ -113,6 +131,7 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
 
   const resetForm = () => {
     setReadingType("daily");
+    setSelectedConsumableId(consumables.length === 1 ? consumables[0].id : "__generic__");
     setCopiesBw("");
     setColorPrints("");
     setBwPrints("");
@@ -145,6 +164,15 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
       }
     }
 
+    // Light validation: warn if toner_change with multiple toners and "generic" selected
+    if (readingType === "toner_change" && consumables.length >= 2 && selectedConsumableId === "__generic__") {
+      if (!window.confirm(
+        "Você não especificou qual toner foi trocado. A Júlia não conseguirá estimar o restante por cor. Deseja continuar mesmo assim?"
+      )) {
+        return;
+      }
+    }
+
     const { error } = await supabase.from("printer_readings").insert({
       equipment_id: equipmentId,
       printer_model: equipmentName,
@@ -158,6 +186,9 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
       bw_prints: bwPrints ? parseInt(bwPrints) : null,
       total_prints: newTotal,
       notes: notes || null,
+      consumable_id: readingType === "toner_change" && selectedConsumableId !== "__generic__"
+        ? selectedConsumableId
+        : null,
     });
 
     if (error) {
