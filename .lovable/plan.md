@@ -1,60 +1,80 @@
 
 
-# Júlia: chips de antecedência + auto-scroll
+# Fase 1 — Recorrência funcional de lembretes
+
+## Diagnóstico do código atual
+
+Em `supabase/functions/check-reminders/index.ts`, o fluxo de recorrência está quebrado:
+
+1. Só tenta reagendar **depois que detecta uma notificação já existente** — ou seja, na segunda execução do cron, não na primeira.
+2. Quando reagenda, **não cria a notificação da ocorrência atual** (`continue` pula a criação).
+3. Avança a data só **uma vez**; se o cron atrasou e a próxima ocorrência ainda é passada, fica travado.
+4. Não existe coluna `alert_sent_at` na tabela — o controle de "já notificado" hoje é feito olhando se já existe `notifications` com mesmo `source_id`. Vou manter esse padrão (não criar coluna nova).
 
 ## O que muda
 
-Quando você registrar um compromisso com horário (ex.: *"tenho dentista amanhã às 14h"*) sem dizer a antecedência, a Júlia vai:
+**Arquivo único**: `supabase/functions/check-reminders/index.ts`. Reescrever o loop para:
 
-1. Responder em texto: *"Quando quer ser avisado?"*
-2. Mostrar **4 botões clicáveis** logo abaixo da mensagem:
-   - `Na hora`
-   - `1 hora antes`
-   - `3 horas antes`
-   - `Personalizar`
-3. Ao clicar num dos 3 primeiros, a antecedência vai automaticamente como próxima mensagem do usuário e a Júlia cria o lembrete.
-4. Ao clicar em `Personalizar`, abre um campo inline pedindo: *"Ex.: 30min, 2h, 1 dia"* — você digita e envia.
+Para cada lembrete vencido:
 
-Tarefas avulsas sem horário marcado (*"me lembra de tomar água às 16h"*) continuam sendo criadas direto, sem perguntar antecedência.
+1. **Verificar duplicata**: se já existe `notification` com `source_type='reminder'` + `source_id=reminder.id` + `due_date=reminder.remind_at` (mesma ocorrência), pular.
+2. **Criar a notificação** da ocorrência atual (sempre, recorrente ou não).
+3. **Se `recurrence === 'none'`**: marcar `is_completed = true`.
+4. **Se recorrente** (`daily`/`weekly`/`monthly`):
+   - Calcular próxima data a partir do `remind_at` atual usando `Date` nativo (`setDate(+1)`, `setDate(+7)`, `setMonth(+1)`).
+   - **Loop de avanço**: enquanto a próxima data ainda for `<= now()`, avançar mais um intervalo. Isso cobre cron atrasado ou lembretes antigos esquecidos.
+   - `UPDATE reminders SET remind_at = <próxima>, updated_at = now() WHERE id = reminder.id`.
+   - Mantém `is_completed = false`.
 
-## Como funciona por trás (técnico)
+**Chave anti-duplicata** muda de `(source_type, source_id, user_id)` para `(source_type, source_id, user_id, due_date)` — assim cada ocorrência da recorrência gera uma notificação distinta sem colidir com as anteriores.
 
-**Edge function `assistente-virtual/index.ts`** — Camada 1 do prompt:
-- Nova regra: ao detectar compromisso com horário sem antecedência informada, responder com texto curto + um marcador estruturado no fim da resposta:
-  ```
-  [JULIA_CHIPS:lead_time]
-  ```
-- Esse marcador é invisível na UI mas o frontend detecta e renderiza os chips.
-- O contexto do compromisso (título + horário) fica no histórico, então quando o usuário responder "1 hora antes", a Júlia aplica a regra existente (`title="Dentista às 14h"`, `description="Aviso 1h antes do compromisso das 14h."`, `remind_at` calculado).
+## Detalhes técnicos
 
-**Componente `AssistenteMensagem.tsx`**:
-- Detectar `[JULIA_CHIPS:lead_time]` no `content` do assistente.
-- Remover o marcador do texto exibido.
-- Renderizar 4 botões abaixo da mensagem; ao clicar nos 3 primeiros, dispara `onChipClick("na hora" | "1 hora antes" | "3 horas antes")` que entra como mensagem do usuário e chama o envio normal.
-- Ao clicar `Personalizar`, expande um `Input` + botão `Enviar` inline.
-- Os chips desaparecem assim que o usuário responde (uma vez usados).
+- Sem mudança de schema, RLS, cron, frontend ou outras edge functions.
+- Cálculo de datas em UTC nativo do JS — `TIMESTAMPTZ` do Postgres garante consistência.
+- `setMonth(+1)` em 31/jan vira 02/mar (comportamento JS). Aceitável para o caso de uso (lembretes pessoais); se virar problema, trocamos por lógica de "último dia do mês" depois.
+- Sem dependência nova (`date-fns` não está no projeto Deno; nativo basta).
+- Risco: baixo — função isolada, executada por cron a cada minuto, fácil de observar pelos logs.
 
-**Componente `AssistenteButton.tsx`**:
-- Passar callback `onChipClick(text)` para `AssistenteMensagem` que faz `setInput(text)` + chama `enviar()`.
-- **Auto-scroll**: trocar `scrollRef.current.scrollTop = scrollHeight` por sentinela `<div ref={bottomRef} />` no fim da lista + `bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })` no `useEffect`. Isso resolve o bug do Radix `ScrollArea` (o elemento rolável real é o Viewport interno, não o nosso div).
+Esqueleto da nova lógica (linhas ~30-80 de `index.ts`):
 
-## Arquivos tocados
+```text
+for each reminder in dueReminders:
+  alreadyNotified = exists notification where
+    source_type='reminder' AND source_id=reminder.id
+    AND user_id=reminder.user_id AND due_date=reminder.remind_at
+  if alreadyNotified: continue
 
-1. `supabase/functions/assistente-virtual/index.ts` — adicionar regra dos chips no prompt `camada1`.
-2. `src/components/assistente/AssistenteMensagem.tsx` — detectar marcador e renderizar chips/input personalizado.
-3. `src/components/assistente/AssistenteButton.tsx` — callback de chip + fix do auto-scroll com sentinela.
+  insert notification(title, message, type='reminder',
+    source_type='reminder', source_id=reminder.id,
+    due_date=reminder.remind_at, user_id=reminder.user_id)
 
-Sem mudança de schema, RLS, `reminders-api`, cron ou outras telas.
+  if reminder.recurrence == 'none':
+    update reminders set is_completed=true where id=reminder.id
+  else:
+    next = reminder.remind_at
+    repeat:
+      next = advance(next, reminder.recurrence)
+    until next > now()
+    update reminders set remind_at=next where id=reminder.id
 
-## Validação
+  processed++
+```
 
-1. *"Tenho dentista amanhã às 14h"* → Júlia pergunta + 4 chips aparecem. Clicar `1 hora antes` → cria lembrete `Dentista às 14h` para 13h.
-2. Clicar `Personalizar` → input aparece, digitar `45min`, enviar → cria lembrete para 13h15.
-3. *"Me lembra de tomar água às 16h"* → cria direto, sem chips.
-4. Conversa longa → rola sozinha até o fim quando chega resposta nova.
+## Validação após deploy
+
+1. **Diário**: criar lembrete `recurrence='daily'`, `remind_at = now() + 1min`. Esperar o cron. Verificar:
+   - `notifications` ganhou 1 linha com `due_date` = horário original.
+   - `reminders.remind_at` agora é amanhã, mesmo horário.
+   - `is_completed` continua `false`.
+2. **Semanal e mensal**: mesmo teste com `weekly` (avança +7 dias) e `monthly` (avança +1 mês).
+3. **Não recorrente**: `recurrence='none'`, `remind_at = now() + 1min`. Após cron: 1 notificação criada, `is_completed=true`, `remind_at` inalterado.
+4. **Atraso simulado**: criar lembrete diário com `remind_at` 3 dias no passado. Após cron: cria 1 notificação (única) e `remind_at` salta direto para a próxima data **futura** (não fica em loop nem atrasado).
+5. **Idempotência**: rodar o cron duas vezes seguidas no mesmo minuto não duplica notificação.
 
 ## Fora deste escopo
 
-- Persistir chips entre reaberturas do painel (somem ao fechar — aceitável).
+- Notificar todas as ocorrências perdidas (hoje cria só uma "agora" e pula para a próxima futura — comportamento desejado para não floodar o sininho).
+- `update_reminder` via Júlia.
 - Google Calendar (Fase 2.5).
 
