@@ -152,6 +152,14 @@ Deno.serve(async (req) => {
     }
 
     // 5) Montar system prompt em 3 camadas
+    // Data/hora atual em America/Sao_Paulo para resolução de expressões temporais
+    const nowIsoUtc = new Date().toISOString();
+    const nowSP = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      dateStyle: "full",
+      timeStyle: "short",
+    }).format(new Date());
+
     const camada1 = `IDENTIDADE: Você é a Júlia, assistente virtual da Max Gráfica.
 Só se apresente ("Me chamo Júlia e trabalho na Max Gráfica.") se:
 - O usuário fizer uma saudação ("oi", "olá", "bom dia", etc.), ou
@@ -173,7 +181,27 @@ Você NUNCA calcula, estima, aproxima nem aplica percentuais. Apenas localiza e 
 Se o item ou a faixa não existir, responda: "Não encontrei esse item na tabela de preços."
 
 DESAMBIGUAÇÃO POR EQUIPAMENTO:
-Quando houver mais de um item com o MESMO papel + gramatura + tamanho + lado + modo em equipamentos diferentes, pergunte qual equipamento ou liste as opções com [Equipamento] e o PV de cada. Nunca escolha sozinho.`;
+Quando houver mais de um item com o MESMO papel + gramatura + tamanho + lado + modo em equipamentos diferentes, pergunte qual equipamento ou liste as opções com [Equipamento] e o PV de cada. Nunca escolha sozinho.
+
+CONTEXTO TEMPORAL:
+Agora é ${nowSP} (timezone America/Sao_Paulo, equivalente UTC ${nowIsoUtc}).
+Use esta referência para converter expressões relativas como "amanhã", "sexta", "daqui a 2 horas" em data/hora absoluta antes de chamar ferramentas. Sempre converta para ISO 8601 com offset (ex.: "2026-04-23T17:00:00-03:00").
+
+FERRAMENTAS DISPONÍVEIS (lembretes):
+- create_reminder({ title, remind_at, description?, recurrence? }): cria um lembrete pessoal do usuário.
+  • title: descrição curta (ex.: "Dentista").
+  • remind_at: ISO 8601 com offset; deve ser futuro.
+  • recurrence: "none" | "daily" | "weekly" | "monthly" (padrão "none").
+- list_reminders(): lista lembretes pendentes do usuário.
+- delete_reminder({ id }): remove lembrete pelo id (use list_reminders antes para descobrir o id).
+
+REGRAS PARA FERRAMENTAS:
+- Se o usuário pedir para "me lembrar de", "agendar", "anotar compromisso", chame create_reminder.
+- Se faltar a data/hora, NÃO invente — pergunte ao usuário.
+- Para "me avise X antes de Y", calcule remind_at = Y menos X e grave esse horário (não há campo de antecedência).
+- Após executar, confirme em pt-BR repetindo título + data/hora amigável (ex.: "Pronto! Lembrete 'Dentista' criado para amanhã, 23/04 às 14h.").
+- Para excluir, se houver mais de um lembrete que casa com a descrição, peça confirmação listando os candidatos.
+- Para "quais meus lembretes", chame list_reminders e formate em lista curta.
 
 
     const camada2 =
@@ -360,51 +388,185 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
 
     const systemPrompt = `${camada1}\n\n${camada2}\n\n${camada3}`;
 
-    // 6) Chamar Lovable AI Gateway
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
+    // 6) Tool calling — definir ferramentas disponíveis (lembretes)
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "create_reminder",
+          description: "Cria um lembrete pessoal do usuário autenticado.",
+          parameters: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "Descrição curta do lembrete." },
+              remind_at: {
+                type: "string",
+                description: "Data/hora ISO 8601 com offset (ex.: 2026-04-23T17:00:00-03:00). Deve ser futuro.",
+              },
+              description: { type: "string", description: "Detalhe opcional." },
+              recurrence: {
+                type: "string",
+                enum: ["none", "daily", "weekly", "monthly"],
+                description: "Recorrência. Padrão: none.",
+              },
+            },
+            required: ["title", "remind_at"],
+          },
+        },
       },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...historico.slice(-10),
-          { role: "user", content: pergunta },
-        ],
-      }),
-    });
+      {
+        type: "function",
+        function: {
+          name: "list_reminders",
+          description: "Lista os lembretes pendentes (não concluídos) do usuário.",
+          parameters: { type: "object", properties: {} },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "delete_reminder",
+          description: "Remove um lembrete pelo seu id (UUID).",
+          parameters: {
+            type: "object",
+            properties: { id: { type: "string", description: "UUID do lembrete." } },
+            required: ["id"],
+          },
+        },
+      },
+    ];
 
-    if (aiResp.status === 429) {
-      return new Response(
-        JSON.stringify({
-          error: "Muitas perguntas em pouco tempo. Aguarde alguns segundos e tente novamente.",
-        }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-    if (aiResp.status === 402) {
-      return new Response(
-        JSON.stringify({
-          error: "Créditos do assistente esgotados. Adicione créditos em Settings > Workspace > Usage.",
-        }),
-        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-    if (!aiResp.ok) {
-      const text = await aiResp.text();
-      console.error("[assistente-virtual] AI gateway error:", aiResp.status, text);
-      return new Response(JSON.stringify({ error: "Falha no serviço de IA" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const REMINDERS_URL = `${SUPABASE_URL}/functions/v1/reminders-api`;
+
+    async function callRemindersApi(
+      method: "GET" | "POST" | "DELETE",
+      args: Record<string, unknown>,
+    ): Promise<unknown> {
+      let url = REMINDERS_URL;
+      let body: string | undefined;
+      if (method === "POST") {
+        body = JSON.stringify(args);
+      } else if (method === "DELETE") {
+        const id = String(args.id ?? "");
+        url += `?id=${encodeURIComponent(id)}`;
+      }
+      const resp = await fetch(url, {
+        method,
+        headers: {
+          Authorization: authHeader!,
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+        },
+        body,
       });
+      if (resp.status === 204) return { ok: true };
+      const text = await resp.text();
+      try {
+        const json = JSON.parse(text);
+        if (!resp.ok) return { error: json?.error ?? `HTTP ${resp.status}` };
+        return json;
+      } catch {
+        return resp.ok ? { ok: true } : { error: text || `HTTP ${resp.status}` };
+      }
     }
 
-    const aiJson = await aiResp.json();
-    const resposta: string =
-      aiJson?.choices?.[0]?.message?.content?.trim() ?? "Não consegui gerar uma resposta.";
+    async function executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+      try {
+        if (name === "create_reminder") return await callRemindersApi("POST", args);
+        if (name === "list_reminders") return await callRemindersApi("GET", {});
+        if (name === "delete_reminder") return await callRemindersApi("DELETE", args);
+        return { error: `Ferramenta desconhecida: ${name}` };
+      } catch (e) {
+        return { error: e instanceof Error ? e.message : "Erro ao executar ferramenta" };
+      }
+    }
+
+    // 7) Loop de chat com tool calling (máx 3 iterações)
+    const messages: any[] = [
+      { role: "system", content: systemPrompt },
+      ...historico.slice(-10),
+      { role: "user", content: pergunta },
+    ];
+
+    let resposta = "";
+    for (let iter = 0; iter < 3; iter++) {
+      const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages,
+          tools,
+          tool_choice: "auto",
+        }),
+      });
+
+      if (aiResp.status === 429) {
+        return new Response(
+          JSON.stringify({
+            error: "Muitas perguntas em pouco tempo. Aguarde alguns segundos e tente novamente.",
+          }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      if (aiResp.status === 402) {
+        return new Response(
+          JSON.stringify({
+            error: "Créditos do assistente esgotados. Adicione créditos em Settings > Workspace > Usage.",
+          }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      if (!aiResp.ok) {
+        const text = await aiResp.text();
+        console.error("[assistente-virtual] AI gateway error:", aiResp.status, text);
+        return new Response(JSON.stringify({ error: "Falha no serviço de IA" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const aiJson = await aiResp.json();
+      const choice = aiJson?.choices?.[0];
+      const msg = choice?.message;
+      const toolCalls = msg?.tool_calls as
+        | Array<{ id: string; function: { name: string; arguments: string } }>
+        | undefined;
+
+      if (toolCalls && toolCalls.length > 0) {
+        // Adiciona a mensagem do assistente com tool_calls
+        messages.push({
+          role: "assistant",
+          content: msg.content ?? "",
+          tool_calls: toolCalls,
+        });
+        // Executa cada tool e adiciona resposta
+        for (const tc of toolCalls) {
+          let parsedArgs: Record<string, unknown> = {};
+          try {
+            parsedArgs = JSON.parse(tc.function.arguments || "{}");
+          } catch {
+            parsedArgs = {};
+          }
+          const result = await executeTool(tc.function.name, parsedArgs);
+          console.log(`[assistente-virtual] tool ${tc.function.name} →`, JSON.stringify(result));
+          messages.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify(result),
+          });
+        }
+        continue; // próxima iteração para o modelo formatar resposta
+      }
+
+      resposta = (msg?.content ?? "").trim() || "Não consegui gerar uma resposta.";
+      break;
+    }
+
+    if (!resposta) resposta = "Não consegui finalizar a resposta. Tente novamente.";
 
     return new Response(JSON.stringify({ resposta }), {
       status: 200,
