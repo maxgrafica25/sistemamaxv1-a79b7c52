@@ -21,7 +21,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Search, Loader2, Save, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { Search, Loader2, Save, AlertTriangle, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import ProductPicker from "./ProductPicker";
 
@@ -37,6 +37,9 @@ type DuplicadoInfo = {
   url: string;
   nome_produto: string;
   fornecedor_nome: string | null;
+  ativo: boolean;
+  preco_atual: number | null;
+  timestamp_check: string | null;
 };
 
 type WorkerPrice = {
@@ -308,7 +311,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
     const candidateUrls = validResults.map((r) => r.source_url);
     const { data: existentes, error: dupErr } = await supabase
       .from("sites_monitorados")
-      .select("url_completa, nome_produto, fornecedor_nome")
+      .select("url_completa, nome_produto, fornecedor_nome, ativo, preco_atual, timestamp_check")
       .in("url_completa", candidateUrls);
 
     if (dupErr) {
@@ -320,6 +323,9 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
       url: e.url_completa,
       nome_produto: e.nome_produto,
       fornecedor_nome: e.fornecedor_nome,
+      ativo: !!e.ativo,
+      preco_atual: e.preco_atual,
+      timestamp_check: e.timestamp_check,
     }));
 
     if (dupList.length > 0) {
@@ -576,16 +582,57 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
                     ? "Nenhuma URL nova para salvar. Você pode revisar os sites já cadastrados em Gerenciar sites."
                     : "Os itens abaixo já existem no banco e serão ignorados. As demais URLs serão salvas normalmente."}
                 </p>
-                <ul className="text-sm border rounded-md divide-y max-h-48 overflow-y-auto">
-                  {duplicados.map((d) => (
-                    <li key={d.url} className="p-2">
-                      <div className="font-medium truncate">{d.nome_produto}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {d.fornecedor_nome || "sem fornecedor"}
-                      </div>
-                      <div className="text-xs font-mono text-muted-foreground truncate">{d.url}</div>
-                    </li>
-                  ))}
+                <ul className="text-sm border rounded-md divide-y max-h-64 overflow-y-auto">
+                  {duplicados.map((d) => {
+                    const ultima = d.timestamp_check
+                      ? new Date(d.timestamp_check).toLocaleString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : null;
+                    return (
+                      <li key={d.url} className="p-2 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate">{d.nome_produto}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {d.fornecedor_nome || "sem fornecedor"}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Badge
+                              variant={d.ativo ? "default" : "secondary"}
+                              className={
+                                d.ativo
+                                  ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-200 dark:border-emerald-800 hover:bg-emerald-100"
+                                  : ""
+                              }
+                            >
+                              {d.ativo ? "Ativo" : "Inativo"}
+                            </Badge>
+                            <a
+                              href={d.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+                              title="Abrir URL"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {ultima ? `Última coleta: ${ultima}` : "Sem preço coletado"}
+                          {d.preco_atual != null && ultima && (
+                            <> · {formatBRL(d.preco_atual)}</>
+                          )}
+                        </div>
+                        <div className="text-xs font-mono text-muted-foreground truncate">{d.url}</div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             </AlertDialogDescription>
