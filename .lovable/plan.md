@@ -1,72 +1,65 @@
 
 
-# Validar PVs em logs e simplificar prompt da Júlia
+# Adicionar rendimento real de toners (cobertura 20%) na Camada 3
 
-## Diagnóstico
+## O que muda
 
-Calculei manualmente os PVs com a fórmula atual da Edge Function usando os dados reais do banco para Couché 210 A4 F Xerox C70 Color:
+Arquivo único: **`supabase/functions/assistente-virtual/index.ts`**, apenas na montagem das linhas de Equipamentos/Consumíveis da Camada 3 ("DADOS OPERACIONAIS"). Fórmula de preços, autenticação, Zod, CORS, Camada 1, Camada 2 e demais seções **não são tocadas**.
 
-- `paper_cost` = R$ 0,20 (banco)
-- `printing_cost` é recalculado via consumíveis (item tem `equipment_id`, categoria color → cobertura 20%) → custo base ≈ R$ 0,189 × 4 = R$ 0,7566 → `roundUp5` = **R$ 0,80**
-- `baseCost` = 0,20 + 0,80 = **R$ 1,00**
-- Tiers do grupo `2b34d124...` (default da categoria, casa com `markup_group_id` do item): TP1 m=20, TP2 m=15, TP3 m=12, TP4 m=10. Fixo 33 + Variável 20 sempre.
-- PVs: **R$ 3,70 | R$ 3,10 | R$ 2,90 | R$ 2,70** ✓
+## Mudanças
 
-**Conclusão:** A fórmula da Edge Function (`calcPV`, `getEquipmentCostPerPage`, `getEffectivePrintingCost`, `tiersForItem`) já está matematicamente correta e produz exatamente os valores esperados. O problema **não é cálculo** — é que o Gemini está escolhendo linhas erradas ou inventando, apesar de receber os dados certos.
-
-## O que mudar
-
-Arquivo único: `supabase/functions/assistente-virtual/index.ts`. Sem alterar autenticação, Zod, CORS, camada 2, equipamentos/papéis.
-
-### 1. Log de validação no boot (temporário, removível depois)
-
-Após montar `precoLines`, varrer os itens calculados e logar via `console.log` apenas as linhas cujo label contém "Couche" + "210" + "A4" + "F" + "color". Isso aparecerá em `supabase--edge_function_logs` na primeira invocação após deploy e prova que os PVs gerados batem com 3,70/3,10/2,90/2,70 antes de chegarem ao Gemini.
-
-### 2. Reescrever a Camada 1 (prompt) — versão mínima e proibitiva
-
-Substituir todo o bloco "REGRA CRÍTICA — PREÇO DE VENDA" por exatamente:
-
-> **PREÇOS DE VENDA**  
-> Os preços estão pré-calculados na seção PREÇOS DE IMPRESSÃO por item e por faixa.  
-> Para responder:  
-> 1. Localize o item EXATO casando paper_type + grammage + size + side + equipment_mode (e equipamento, se houver mais de um).  
-> 2. Identifique a faixa cujo intervalo cobre a quantidade pedida.  
-> 3. Cite o PV listado. Se houver quantidade, multiplique PV × quantidade.  
->  
-> Você **NUNCA** calcula, estima, aproxima nem aplica percentuais. Apenas localiza e cita.  
-> Se o item ou a faixa não existir, responda: *"Não encontrei esse item na tabela de preços."*
-
-Manter o bloco de "DESAMBIGUAÇÃO POR EQUIPAMENTO" (continua útil quando há mais de um equipamento com mesmo papel).
-
-### 3. Limpar ruído numérico do prompt
-
-- Remover de `eqLines` e dos consumíveis tudo que mostra preço/rendimento por consumível (esses números levam o modelo a tentar refazer o cálculo). Manter só `nome do equipamento`, `tipo`, `contador atual` e `impressões desde última troca`.
-- Não enviar `paper_cost`/`printing_cost` em lugar nenhum (já não enviamos no PREÇOS DE IMPRESSÃO; confirmar que não vaza por outra seção).
-
-### 4. Reforçar o rótulo de cada linha de preço
-
-Trocar o formato atual `Couche 210 A4 F (color) [Xerox C70]:` por algo mais inequívoco com separadores fortes, para reduzir colisão de matching no modelo:
-
-```
-- [Xerox C70 | color] Couche 210 | A4 | F:
-    TP1 (1–10 un) → R$ 3,70/un
-    TP2 (11–50 un) → R$ 3,10/un
-    TP3 (51–100 un) → R$ 2,90/un
-    TP4 (101+ un)  → R$ 2,70/un
+### 1. Constantes no topo do arquivo
+```ts
+const COVERAGE_REFERENCE = 5;    // % — valor de fábrica cadastrado em yield_pages
+const COVERAGE_OPERATIONAL = 20; // % — cobertura real da gráfica
 ```
 
-Cada faixa em uma linha separada (em vez de tudo numa linha com `|`) — facilita o LLM grudar no token certo.
+### 2. Helper de classificação (whitelist por nome, sem fallback por mode)
+
+Para evitar que "Revelador color" seja classificado como toner pelo `mode`, a detecção é **estritamente pelo nome**:
+
+```ts
+const isTonerConsumable = (c: { name: string }) => {
+  const n = (c.name || "").toLowerCase();
+  // Exclusões explícitas primeiro (revelador, cilindro, belt, fusor, manutenção, depreciação, ribbon)
+  if (/revelador|cilindro|belt|fusor|manuten|deprecia|ribbon|fita/i.test(n)) return false;
+  // Apenas o que contém "toner" é toner
+  return /toner/i.test(n);
+};
+
+const realYield = (c) =>
+  isTonerConsumable(c)
+    ? Math.floor(Number(c.yield_pages) * (COVERAGE_REFERENCE / COVERAGE_OPERATIONAL))
+    : Number(c.yield_pages);
+```
+
+Se um consumível não casar com "toner" nem com a lista de exclusão, mantém o `yield_pages` original (comportamento seguro: nunca divide por engano).
+
+### 3. Reformatar `eqLines` na Camada 3
+
+Para cada equipamento, listar consumíveis com nome, rendimento de fábrica (com sufixo "5%"), rendimento real a 20% somente para toners, impressões desde a última troca de toner e estimativa restante:
+
+```
+- Xerox C70 (color) | Contador atual: 123.456 | Impressões desde última troca de toner: 20
+    • Toner Color: rendimento fabricante 35.000 pgs (5%) → rendimento real a 20%: 8.750 pgs
+        Estimativa restante: ~8.730 pgs
+    • Revelador Color: rendimento 200.000 pgs (independe de cobertura)
+    • Cilindro: rendimento 150.000 pgs (independe de cobertura)
+```
+
+### 4. Não mexer em
+- `getEquipmentCostPerPage` / `getEffectivePrintingCost` (a cobertura ali é da **categoria** de impressão, conceito separado)
+- `calcPV`, `tiersForItem`, formato dos PREÇOS DE IMPRESSÃO
+- Camada 1 (prompt) e Camada 2 (base de conhecimento)
+- Queries Supabase (campos já vêm completos)
 
 ## Validação após deploy
 
-1. Invocar a Júlia uma vez (qualquer pergunta) para popular logs.
-2. Em `supabase--edge_function_logs` filtrar por "Couche 210" — deve aparecer linha logada com os 4 valores 3,70/3,10/2,90/2,70.
-3. Perguntar à Júlia: *"Quanto custa Couché 210 A4 F color Xerox C70, 5 unidades?"* → resposta deve citar **R$ 3,70/un** e total **R$ 18,50**.
-4. *"E para 80 unidades?"* → **R$ 2,90/un**, total **R$ 232,00** (faixa TP3, 51–100).
-5. *"Couché 210 A4 F color, 1500 un"* → **R$ 2,70/un**, total **R$ 4.050,00** (TP4).
-6. *"Couché 999 A4"* (inexistente) → "Não encontrei esse item na tabela de preços."
+1. *"Quantas impressões consigo fazer com 1 toner da Xerox C70?"* → **8.750 páginas** (não 35.000).
+2. *"Qual o rendimento do revelador da Xerox C70?"* → mantém rendimento original (ex.: 200.000 pgs), **sem** divisão por 4.
+3. *"Quanto custa Couché 210 A4 F color Xerox C70, 5 unidades?"* → continua **R$ 3,70/un, total R$ 18,50** (preços inalterados).
 
 ## Risco
 
-Baixo. Cálculo já está certo (validado contra o banco). Mudanças são: (a) log temporário, (b) prompt mais curto e proibitivo, (c) formatação das linhas para reduzir ambiguidade no LLM. Sem alterar fórmula, sem alterar banco, sem alterar UI.
+Baixo. Mudança restrita à formatação textual de uma seção do prompt, com classificação estrita por nome para evitar falso-positivo em itens "color" não-toner.
 
