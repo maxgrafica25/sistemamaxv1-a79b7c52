@@ -453,6 +453,32 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           },
         },
       },
+      {
+        type: "function",
+        function: {
+          name: "check_reminder_conflict",
+          description:
+            "Verifica se há lembretes pendentes do usuário próximos a um horário proposto (±window_minutes). Use SEMPRE antes de create_reminder com remind_at definido.",
+          parameters: {
+            type: "object",
+            properties: {
+              remind_at: {
+                type: "string",
+                description: "Horário proposto em ISO 8601 com offset.",
+              },
+              window_minutes: {
+                type: "number",
+                description: "Janela em minutos para considerar conflito. Padrão 15.",
+              },
+              exclude_id: {
+                type: "string",
+                description: "UUID de lembrete a ignorar (para futuras edições).",
+              },
+            },
+            required: ["remind_at"],
+          },
+        },
+      },
     ];
 
     const REMINDERS_URL = `${SUPABASE_URL}/functions/v1/reminders-api`;
