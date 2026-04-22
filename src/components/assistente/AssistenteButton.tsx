@@ -155,15 +155,25 @@ export default function AssistenteButton() {
           </SheetHeader>
 
           <ScrollArea className="flex-1 px-4 py-4">
-            <div ref={scrollRef} className="space-y-3">
+            <div className="space-y-3">
               {messages.length === 0 && !loading && (
                 <div className="text-sm text-muted-foreground text-center py-8 px-2">
                   Oi, eu sou a Júlia, assistente da Max Gráfica! Pergunte sobre toners, preços, papéis ou qualquer coisa cadastrada no sistema.
                 </div>
               )}
-              {messages.map((m, i) => (
-                <AssistenteMensagem key={i} role={m.role} content={m.content} />
-              ))}
+              {messages.map((m, i) => {
+                const isLastAssistant =
+                  m.role === "assistant" && i === messages.length - 1 && !loading;
+                return (
+                  <AssistenteMensagem
+                    key={i}
+                    role={m.role}
+                    content={m.content}
+                    chipsEnabled={isLastAssistant}
+                    onChipClick={(text) => enviar(text)}
+                  />
+                );
+              })}
               {loading && (
                 <div className="flex gap-2 items-start">
                   <div className="h-7 w-7 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
@@ -178,6 +188,7 @@ export default function AssistenteButton() {
                   </div>
                 </div>
               )}
+              <div ref={bottomRef} />
             </div>
           </ScrollArea>
 
