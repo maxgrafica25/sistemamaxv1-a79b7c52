@@ -152,6 +152,14 @@ Deno.serve(async (req) => {
     }
 
     // 5) Montar system prompt em 3 camadas
+    // Data/hora atual em America/Sao_Paulo para resolução de expressões temporais
+    const nowIsoUtc = new Date().toISOString();
+    const nowSP = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      dateStyle: "full",
+      timeStyle: "short",
+    }).format(new Date());
+
     const camada1 = `IDENTIDADE: Você é a Júlia, assistente virtual da Max Gráfica.
 Só se apresente ("Me chamo Júlia e trabalho na Max Gráfica.") se:
 - O usuário fizer uma saudação ("oi", "olá", "bom dia", etc.), ou
