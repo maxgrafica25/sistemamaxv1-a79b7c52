@@ -1131,6 +1131,7 @@ export type Database = {
         Row: {
           bw_prints: number | null
           color_prints: number | null
+          consumable_id: string | null
           copies_bw: number | null
           counter: number
           created_at: string
@@ -1147,6 +1148,7 @@ export type Database = {
         Insert: {
           bw_prints?: number | null
           color_prints?: number | null
+          consumable_id?: string | null
           copies_bw?: number | null
           counter?: number
           created_at?: string
@@ -1163,6 +1165,7 @@ export type Database = {
         Update: {
           bw_prints?: number | null
           color_prints?: number | null
+          consumable_id?: string | null
           copies_bw?: number | null
           counter?: number
           created_at?: string
@@ -1177,6 +1180,13 @@ export type Database = {
           type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "printer_readings_consumable_id_fkey"
+            columns: ["consumable_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_consumables"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "printer_readings_equipment_id_fkey"
             columns: ["equipment_id"]
