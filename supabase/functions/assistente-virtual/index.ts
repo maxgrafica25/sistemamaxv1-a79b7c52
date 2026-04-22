@@ -130,36 +130,22 @@ Deno.serve(async (req) => {
     }
 
     // 5) Montar system prompt em 3 camadas
-    const camada1 = `Você é a Júlia, assistente virtual da Max Gráfica. Quando se apresentar ou for perguntada seu nome, responda que se chama Júlia e que trabalha na Max Gráfica. Responda SEMPRE em português do Brasil, de forma direta, sem rodeios e sem floreios.
+    const camada1 = `Você é a Júlia, assistente virtual da Max Gráfica. Quando se apresentar, diga que se chama Júlia e trabalha na Max Gráfica. Responda SEMPRE em português do Brasil, direta, sem rodeios.
 
-REGRA CRÍTICA — NÃO INVENTE:
-- Use SOMENTE as informações nas seções "BASE DE CONHECIMENTO" e "DADOS OPERACIONAIS" abaixo como fonte de verdade.
-- Se a informação não existir nos dados, diga claramente: "Não consegui localizar essa informação no sistema." e liste o que faltou.
-- Valores monetários sempre em R$ com vírgula decimal. Seja conciso.
+Use SOMENTE as seções "BASE DE CONHECIMENTO" e "DADOS OPERACIONAIS" como fonte de verdade. Valores em R$ com vírgula decimal.
 
-REGRA CRÍTICA — PREÇO DE VENDA:
-Os preços de venda JÁ ESTÃO CALCULADOS na seção "PREÇOS DE IMPRESSÃO" por item e por faixa de quantidade (TP1, TP2, ...). Você NUNCA deve calcular markup, custo, fórmulas ou aplicar percentuais. Sua tarefa é APENAS:
+PREÇOS DE VENDA
+Os preços estão pré-calculados na seção PREÇOS DE IMPRESSÃO por item e por faixa.
+Para responder:
+1. Localize o item EXATO casando paper_type + grammage + size + side + equipment_mode (e equipamento, se houver mais de um).
+2. Identifique a faixa cujo intervalo cobre a quantidade pedida.
+3. Cite o PV listado. Se houver quantidade, multiplique PV × quantidade.
 
-1. Localizar o item EXATO combinando paper_type + grammage + size + side + equipment_mode.
-2. Localizar a faixa (TP) cuja quantidade pedida cai entre min e max da faixa.
-3. Responder com o PV unitário JÁ LISTADO ali, no formato: "Preço de venda: R$ X,XX por folha (faixa TPn)".
-4. Se a quantidade foi informada, multiplicar PV × quantidade e informar o total: "Total para N un: R$ Y,YY".
-
-REGRAS:
-- Se o item não existir, responda exatamente: "Não consegui localizar essa informação no sistema." e diga o que procurou (ex.: "não encontrei Couchê 210 A4 F color").
-- Se nenhuma faixa cobrir a quantidade pedida, responda exatamente: "Não consegui localizar essa informação no sistema." e diga que não há faixa cadastrada para aquela quantidade.
-- Se a pergunta for ambígua (ex.: "quanto custa um folder?" sem papel/tamanho/lado/modo/quantidade), peça os dados que faltam antes de responder.
-
-PROIBIÇÕES ABSOLUTAS:
-- Nunca calcular, estimar, aproximar ou "dar uma ideia" de preço.
-- Nunca aplicar percentuais, margens, fórmulas ou markup — os preços vêm prontos.
-- Nunca informar custo como se fosse preço de venda.
+Você NUNCA calcula, estima, aproxima nem aplica percentuais. Apenas localiza e cita.
+Se o item ou a faixa não existir, responda: "Não encontrei esse item na tabela de preços."
 
 DESAMBIGUAÇÃO POR EQUIPAMENTO:
-Quando houver mais de um item com o MESMO papel + gramatura + tamanho + lado + modo, mas em equipamentos diferentes (ex.: dois Xerox C70 com custos distintos), você DEVE:
-- Perguntar ao usuário em qual equipamento ele quer imprimir, OU
-- Listar todas as opções com o nome do equipamento entre colchetes [Equipamento] e o PV de cada uma, deixando o usuário escolher.
-Nunca escolha sozinho um dos itens duplicados.`;
+Quando houver mais de um item com o MESMO papel + gramatura + tamanho + lado + modo em equipamentos diferentes, pergunte qual equipamento ou liste as opções com [Equipamento] e o PV de cada. Nunca escolha sozinho.`;
 
 
     const camada2 =
@@ -173,7 +159,7 @@ Nunca escolha sozinho um dos itens duplicados.`;
             .join("\n\n")
         : "## BASE DE CONHECIMENTO\n(vazia)";
 
-    // Equipamentos + consumíveis + estimativa de toner
+    // Equipamentos (sem preços/rendimentos para evitar que o LLM tente recalcular)
     const eqLines: string[] = [];
     for (const eq of equipments) {
       const tipo = eq.printer_type;
@@ -185,30 +171,13 @@ Nunca escolha sozinho um dos itens duplicados.`;
         `- **${eq.name}** (${tipo})${eq.description ? ` — ${eq.description}` : ""}` +
           (lastTotal != null ? ` | Contador atual: ${lastTotal.toLocaleString("pt-BR")}` : "") +
           (desdeToner != null
-            ? ` | Impressões desde última troca de toner registrada: ${desdeToner.toLocaleString("pt-BR")}`
+            ? ` | Impressões desde última troca de toner: ${desdeToner.toLocaleString("pt-BR")}`
             : ""),
       );
-      const eqCons = consumables.filter((c: any) => c.equipment_id === eq.id);
-      if (eqCons.length > 0) {
-        eqLines.push("  Consumíveis:");
-        for (const c of eqCons) {
-          const restante =
-            desdeToner != null && c.yield_pages > 0
-              ? Math.max(0, c.yield_pages - desdeToner)
-              : null;
-          eqLines.push(
-            `    - ${c.name} (${c.mode}): ${fmtBRL(c.price)} | rendimento ${c.yield_pages.toLocaleString("pt-BR")} pgs` +
-              (restante != null
-                ? ` | estimativa restante (compartilhada): ~${restante.toLocaleString("pt-BR")} pgs`
-                : ""),
-          );
-        }
-      }
     }
 
     const papLines = papers.map(
-      (p: any) =>
-        `- ${p.name}${p.grammage ? ` ${p.grammage}` : ""}: ${p.sheet_qty} fls/pacote, pacote ${fmtBRL(p.pack_price)} + frete ${fmtBRL(p.freight_price)}`,
+      (p: any) => `- ${p.name}${p.grammage ? ` ${p.grammage}` : ""}`,
     );
 
     // Preços agrupados por categoria + pré-cálculo de PV por faixa (mesma fórmula da página Preço de Impressão)
@@ -295,18 +264,30 @@ Nunca escolha sozinho um dos itens duplicados.`;
       for (const it of items.slice(0, 120)) {
         const itemTiers = tiersForItem(it);
         const eqName = it.equipment_id ? equipmentNameById.get(it.equipment_id) : null;
-        const eqTag = eqName ? ` [${eqName}]` : "";
-        const label = `${it.paper_type}${it.grammage ? ` ${it.grammage}` : ""} ${it.size} ${it.side} (${it.equipment_mode})${eqTag}`;
+        const eqTag = eqName ? `${eqName} | ` : "";
+        const label = `[${eqTag}${it.equipment_mode}] ${it.paper_type}${it.grammage ? ` ${it.grammage}` : ""} | ${it.size} | ${it.side}`;
         if (itemTiers.length === 0) {
-          precoLines.push(`  - ${label}: (sem faixas de markup cadastradas)`);
+          precoLines.push(`- ${label}: (sem faixas de markup cadastradas)`);
           continue;
         }
-        const tierStrs = itemTiers.map((t: any) => {
-          const range = t.max_qty ? `${t.min_qty}-${t.max_qty} un` : `${t.min_qty}+ un`;
+        precoLines.push(`- ${label}:`);
+        for (const t of itemTiers) {
+          const range = t.max_qty ? `${t.min_qty}–${t.max_qty} un` : `${t.min_qty}+ un`;
           const pv = calcPV(it, t);
-          return `${t.label} (${range}) → ${fmtBRL(pv)}/un`;
-        });
-        precoLines.push(`  - ${label}: ${tierStrs.join(" | ")}`);
+          precoLines.push(`    ${t.label} (${range}) → ${fmtBRL(pv)}/un`);
+        }
+
+        // Log de validação: Couche 210 A4 F color
+        if (
+          /couch[eê]/i.test(it.paper_type) &&
+          /210/.test(it.grammage || "") &&
+          /^A4$/i.test(it.size) &&
+          it.side === "F" &&
+          it.equipment_mode === "color"
+        ) {
+          const pvs = itemTiers.map((t: any) => `${t.label}=${fmtBRL(calcPV(it, t))}`).join(" | ");
+          console.log(`[validação PV] ${label} → ${pvs}`);
+        }
       }
       if (items.length > 120) precoLines.push(`  ... (+${items.length - 120} itens)`);
     }
