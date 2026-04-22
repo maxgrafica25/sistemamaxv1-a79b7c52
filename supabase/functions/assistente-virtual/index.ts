@@ -486,14 +486,22 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
     async function callRemindersApi(
       method: "GET" | "POST" | "DELETE",
       args: Record<string, unknown>,
+      pathSuffix = "",
     ): Promise<unknown> {
-      let url = REMINDERS_URL;
+      let url = REMINDERS_URL + pathSuffix;
       let body: string | undefined;
       if (method === "POST") {
         body = JSON.stringify(args);
       } else if (method === "DELETE") {
         const id = String(args.id ?? "");
         url += `?id=${encodeURIComponent(id)}`;
+      } else if (method === "GET" && Object.keys(args).length > 0) {
+        const qs = new URLSearchParams();
+        for (const [k, v] of Object.entries(args)) {
+          if (v !== undefined && v !== null) qs.set(k, String(v));
+        }
+        const q = qs.toString();
+        if (q) url += (url.includes("?") ? "&" : "?") + q;
       }
       const resp = await fetch(url, {
         method,
@@ -520,6 +528,8 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         if (name === "create_reminder") return await callRemindersApi("POST", args);
         if (name === "list_reminders") return await callRemindersApi("GET", {});
         if (name === "delete_reminder") return await callRemindersApi("DELETE", args);
+        if (name === "check_reminder_conflict")
+          return await callRemindersApi("GET", args, "/conflicts");
         return { error: `Ferramenta desconhecida: ${name}` };
       } catch (e) {
         return { error: e instanceof Error ? e.message : "Erro ao executar ferramenta" };
