@@ -25,13 +25,12 @@ export default function AssistenteButton() {
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [unread, setUnread] = useState(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  // auto-scroll para a última mensagem
+  // auto-scroll para a última mensagem (sentinela — o Viewport do Radix ScrollArea
+  // ignora scrollTop manual num div filho).
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading]);
 
   // limpa contador ao abrir
