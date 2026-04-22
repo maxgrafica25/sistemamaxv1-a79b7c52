@@ -23,7 +23,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Search, Loader2, Save, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
-import { findOrCreateCatalogo } from "@/lib/produtoCatalogo";
 import ProductPicker from "./ProductPicker";
 
 type Props = {
@@ -201,9 +200,11 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
     const notScraped = invalidResults.length;
 
     try {
-      let catalogoId = produtoCatalogoId;
+      const catalogoId = produtoCatalogoId;
       if (!catalogoId) {
-        catalogoId = await findOrCreateCatalogo(produtoCatalogoNome, categoria);
+        toast.error("Selecione um produto do catálogo");
+        setSaving(false);
+        return;
       }
 
       for (const r of validResults) {
@@ -298,8 +299,8 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
       toast.error("Informe a categoria");
       return;
     }
-    if (!produtoCatalogoNome.trim()) {
-      toast.error("Selecione ou digite o produto do catálogo");
+    if (!produtoCatalogoId) {
+      toast.error("Selecione um produto do catálogo");
       return;
     }
 
@@ -401,6 +402,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
               <ProductPicker
                 selectedId={produtoCatalogoId}
                 selectedName={produtoCatalogoNome}
+                defaultCategoria={categoria}
                 onChange={({ id, name }) => {
                   setProdutoCatalogoId(id);
                   setProdutoCatalogoNome(name);
