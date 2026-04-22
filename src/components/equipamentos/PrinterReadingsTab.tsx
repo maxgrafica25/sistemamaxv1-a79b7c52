@@ -39,7 +39,21 @@ interface Reading {
   total_prints: number | null;
   counter: number;
   notes: string | null;
+  consumable_id: string | null;
 }
+
+interface Consumable {
+  id: string;
+  name: string;
+}
+
+const isTonerName = (name: string) => {
+  const n = name.toLowerCase();
+  if (!n.includes("toner")) return false;
+  // Exclude non-toner items that might contain related words
+  if (n.includes("revelador") || n.includes("cilindro") || n.includes("belt") || n.includes("fusor") || n.includes("drum")) return false;
+  return true;
+};
 
 const getTypeBadge = (type: string) => {
   switch (type) {
