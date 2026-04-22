@@ -1,60 +1,64 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ProdutoCatalogo } from "@/lib/produtoCatalogo";
+import NovoProdutoCatalogoDialog from "./NovoProdutoCatalogoDialog";
 
 type Props = {
-  /** Quando o usuário seleciona um produto existente: id + nome canônico. Quando digita um novo: id=null. */
   selectedId: string | null;
   selectedName: string;
-  onChange: (val: { id: string | null; name: string }) => void;
+  onChange: (val: { id: string; name: string }) => void;
+  defaultCategoria?: string;
 };
 
-export default function ProductPicker({ selectedId, selectedName, onChange }: Props) {
+export default function ProductPicker({ selectedId, selectedName, onChange, defaultCategoria }: Props) {
   const [produtos, setProdutos] = useState<ProdutoCatalogo[]>([]);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [novoOpen, setNovoOpen] = useState(false);
+
+  const fetchProdutos = async () => {
+    const { data } = await supabase
+      .from("produtos_catalogo")
+      .select("*")
+      .order("nome_canonico");
+    setProdutos((data || []) as ProdutoCatalogo[]);
+  };
 
   useEffect(() => {
-    (async () => {
-      const [{ data: prods }, { data: sites }] = await Promise.all([
-        supabase.from("produtos_catalogo").select("*").order("nome_canonico"),
-        supabase.from("sites_monitorados").select("produto_catalogo_id"),
-      ]);
-      const idsComSite = new Set(
-        (sites || [])
-          .map((s: any) => s.produto_catalogo_id)
-          .filter(Boolean) as string[],
-      );
-      const visiveis = (prods || []).filter(
-        (p: any) => idsComSite.has(p.id) || p.id === selectedId,
-      ) as ProdutoCatalogo[];
-      setProdutos(visiveis);
-    })();
-  }, [selectedId]);
+    fetchProdutos();
+  }, []);
 
   const selected = produtos.find((p) => p.id === selectedId);
   const triggerLabel = selected
     ? selected.nome_canonico
-    : selectedName
-      ? `${selectedName} (novo)`
-      : "Buscar ou cadastrar produto...";
+    : selectedName || "Selecione um produto do catálogo...";
 
-  const trimmedSearch = search.trim();
-  const hasExactMatch = produtos.some(
-    (p) => p.nome_canonico.toLowerCase() === trimmedSearch.toLowerCase(),
-  );
-
-  const handleCreateNew = () => {
-    if (!trimmedSearch) return;
-    onChange({ id: null, name: trimmedSearch });
+  const openNovo = () => {
     setOpen(false);
+    setNovoOpen(true);
+  };
+
+  const handleCreated = async (produto: ProdutoCatalogo) => {
+    setProdutos((prev) =>
+      [...prev.filter((p) => p.id !== produto.id), produto].sort((a, b) =>
+        a.nome_canonico.localeCompare(b.nome_canonico),
+      ),
+    );
+    onChange({ id: produto.id, name: produto.nome_canonico });
     setSearch("");
   };
 
@@ -75,38 +79,31 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
             <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[420px] max-w-[90vw] p-0" align="start">
+        <PopoverContent
+          className="w-[--radix-popover-trigger-width] min-w-[420px] max-w-[90vw] p-0"
+          align="start"
+        >
           <Command>
-            <div className="px-3 py-2 text-xs text-muted-foreground border-b bg-muted/30">
-              Selecione um produto existente ou cadastre um novo abaixo
-            </div>
             <CommandInput
-              placeholder="Digite para buscar ou cadastrar..."
+              placeholder="Buscar produto..."
               value={search}
               onValueChange={setSearch}
             />
             <CommandList>
-              <div className="p-1 border-b sticky top-0 bg-popover z-10">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start gap-2 h-8 text-sm font-normal"
-                  disabled={!trimmedSearch}
-                  onClick={handleCreateNew}
-                >
-                  <Plus className="h-3.5 w-3.5 text-primary" />
-                  {trimmedSearch ? (
-                    <span className="truncate">Cadastrar: <span className="font-medium">"{trimmedSearch}"</span></span>
-                  ) : (
-                    <span className="text-muted-foreground">Digite um nome acima para cadastrar</span>
-                  )}
-                </Button>
-              </div>
               <CommandEmpty>
-                <p className="py-6 text-sm text-muted-foreground text-center px-4">
-                  Nenhum produto encontrado. Digite o nome desejado e clique em Cadastrar.
-                </p>
+                <div className="py-4 px-4 text-center space-y-3">
+                  <p className="text-sm text-muted-foreground">Nenhum produto encontrado.</p>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    onClick={openNovo}
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Cadastrar novo produto
+                  </Button>
+                </div>
               </CommandEmpty>
               {produtos.length > 0 && (
                 <CommandGroup heading="Produtos do catálogo">
@@ -122,28 +119,56 @@ export default function ProductPicker({ selectedId, selectedName, onChange }: Pr
                         setSearch("");
                       }}
                     >
-                      <Check className={cn("h-4 w-4 shrink-0 mt-0.5", selectedId === p.id ? "opacity-100" : "opacity-0")} />
+                      <Check
+                        className={cn(
+                          "h-4 w-4 shrink-0 mt-0.5",
+                          selectedId === p.id ? "opacity-100" : "opacity-0",
+                        )}
+                      />
                       <span className="flex-1 break-words leading-snug">{p.nome_canonico}</span>
-                      {p.categoria && <Badge variant="outline" className="text-xs ml-2 shrink-0 self-start mt-0.5">{p.categoria}</Badge>}
+                      {p.categoria && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs ml-2 shrink-0 self-start mt-0.5"
+                        >
+                          {p.categoria}
+                        </Badge>
+                      )}
                     </CommandItem>
                   ))}
                 </CommandGroup>
               )}
             </CommandList>
+            <div className="border-t p-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start gap-2 h-8 text-sm font-normal"
+                onClick={openNovo}
+              >
+                <Plus className="h-3.5 w-3.5 text-primary" />
+                Cadastrar novo produto no catálogo
+              </Button>
+            </div>
           </Command>
         </PopoverContent>
       </Popover>
 
       {selected && (
         <p className="text-xs text-muted-foreground">
-          Os preços deste link serão agrupados sob "<strong>{selected.nome_canonico}</strong>" no monitoramento.
+          Os preços deste link serão agrupados sob "
+          <strong>{selected.nome_canonico}</strong>" no monitoramento.
         </p>
       )}
-      {!selected && selectedName && (
-        <p className="text-xs text-muted-foreground">
-          Será criado um novo produto: "<strong>{selectedName}</strong>".
-        </p>
-      )}
+
+      <NovoProdutoCatalogoDialog
+        open={novoOpen}
+        onOpenChange={setNovoOpen}
+        initialName={search.trim()}
+        initialCategoria={defaultCategoria}
+        onCreated={handleCreated}
+      />
     </div>
   );
 }
