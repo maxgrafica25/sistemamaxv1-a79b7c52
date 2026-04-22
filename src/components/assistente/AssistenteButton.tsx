@@ -111,7 +111,7 @@ export default function AssistenteButton() {
     <>
       <button
         type="button"
-        aria-label="Abrir assistente virtual"
+        aria-label="Abrir Júlia, assistente virtual da Max Gráfica"
         onClick={() => setOpen(true)}
         className={cn(
           "fixed bottom-6 right-6 z-50 h-[52px] w-[52px] rounded-full",
