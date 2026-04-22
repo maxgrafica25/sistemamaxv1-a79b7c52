@@ -41,8 +41,8 @@ export default function AssistenteButton() {
   if (!user) return null;
   if (HIDDEN_ROUTES.includes(pathname)) return null;
 
-  async function enviar() {
-    const pergunta = input.trim();
+  async function enviar(override?: string) {
+    const pergunta = (override ?? input).trim();
     if (!pergunta || loading) return;
     const novaUser: Msg = { role: "user", content: pergunta };
     const historico = messages.slice(-10);
