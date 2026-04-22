@@ -1,96 +1,51 @@
 
 
-# Trocas de toner por consumível + apresentação contextual da Júlia
+# Adicionar seleção de cor (consumível) ao registrar troca de toner
+
+## Diagnóstico
+
+A troca de 22/04 às 15:53 **está** no banco (`type='toner_change'`, `total_prints=7000`, `notes="Toner Ciano"`), mas com `consumable_id = NULL`. A Júlia, corretamente pelas regras vigentes, cai no fallback genérico e responde "baseado na última troca registrada sem especificar cor".
+
+**Causa raiz:** o diálogo "Nova Leitura" em `PrinterReadingsTab.tsx` não tem seletor de consumível. Quando o operador escolhe tipo "Troca de Toner/Peça", não há como dizer **qual** toner foi trocado — então `consumable_id` nunca é preenchido e a infraestrutura nova fica inutilizada.
 
 ## O que muda
 
-Três alterações isoladas, sem tocar em fórmula de preços, autenticação, Zod ou Camada 2 da Edge Function.
+Arquivo único: `src/components/equipamentos/PrinterReadingsTab.tsx`. Sem alterar Edge Function, banco, auth ou demais telas.
 
-### 1. Migration de banco
+### 1. Carregar consumíveis do equipamento
+Adicionar um `useEffect` que busca `equipment_consumables` filtrados por `equipment_id` e armazena em estado local `consumables`. Filtrar apenas itens classificáveis como toner (nome contém "toner", excluindo revelador/cilindro/belt/fusor) — mesma lógica do helper da Edge Function — para não poluir o select com itens que não fazem sentido trocar.
 
-Novo arquivo `supabase/migrations/<timestamp>_printer_readings_consumable_id.sql`:
+### 2. Novo campo no formulário
+No diálogo "Nova Leitura", adicionar um `Select` rotulado **"Consumível trocado"** que:
+- **Aparece somente quando `type === "toner_change"`** (em outros tipos fica oculto).
+- Lista os toners do equipamento por nome (ex.: "Toner Ciano", "Toner Magenta", "Toner Amarelo", "Toner Preto").
+- Tem opção adicional **"Não especificar / genérico"** que mantém `consumable_id = null` (compatibilidade com fluxo atual).
+- Quando o equipamento tem apenas 1 toner cadastrado, pré-seleciona automaticamente.
 
-```sql
-ALTER TABLE public.printer_readings
-  ADD COLUMN IF NOT EXISTS consumable_id uuid REFERENCES public.equipment_consumables(id);
-```
+### 3. Persistir `consumable_id` no insert
+No `handleSave`, incluir `consumable_id: selectedConsumableId || null` no payload do insert em `printer_readings`. Resetar o campo no fechamento do diálogo.
 
-Coluna nullable — leituras antigas continuam válidas como "troca genérica".
+### 4. Mostrar a cor na tabela de leituras
+Na coluna "Tipo" (ou em "Observações"), quando `type === "toner_change"` e `consumable_id` estiver preenchido, exibir o nome do consumível ao lado do badge ("Troca Toner/Peça — Ciano"). Isso dá feedback visual ao operador de que a cor foi registrada corretamente.
 
-### 2. Edge Function `assistente-virtual/index.ts` — Camada 1 (apresentação)
-
-Substituir o bloco atual de identidade ("Você é a Júlia... Quando se apresentar...") por:
-
-> **IDENTIDADE:** Você é a Júlia, assistente virtual da Max Gráfica.  
-> Só se apresente ("Me chamo Júlia e trabalho na Max Gráfica.") se:  
-> - O usuário fizer uma saudação ("oi", "olá", "bom dia", etc.), ou  
-> - O usuário perguntar diretamente quem você é ou como se chama.  
-> Em qualquer outra pergunta, responda diretamente sem se apresentar.
-
-Resto da Camada 1 (regras de PV, desambiguação por equipamento) permanece intacto.
-
-### 3. Edge Function — cálculo de troca por consumível
-
-**a) Adicionar `consumable_id` ao SELECT de `printer_readings`:**
-
-```ts
-admin
-  .from("printer_readings")
-  .select("equipment_id,consumable_id,total_prints,type,reading_time")
-  .order("reading_time", { ascending: false })
-  .limit(500)
-```
-
-**b) Substituir `lastTonerChangeByEq` por `Map<equipmentId, Map<consumableId|"__generic__", total_prints>>`:**
-
-```ts
-const lastTonerChangeByConsumable = new Map<string, Map<string, number>>();
-for (const r of readings) {
-  if (!r.equipment_id || r.total_prints == null) continue;
-  if (!lastReadingByEq.has(r.equipment_id)) lastReadingByEq.set(r.equipment_id, r.total_prints);
-  if (r.type === "toner_change") {
-    const byEq = lastTonerChangeByConsumable.get(r.equipment_id) ?? new Map();
-    const key = r.consumable_id ?? "__generic__";
-    if (!byEq.has(key)) byEq.set(key, r.total_prints);
-    lastTonerChangeByConsumable.set(r.equipment_id, byEq);
-  }
-}
-```
-
-**c) No loop de consumíveis, buscar troca específica → fallback genérico → nada, e formatar conforme o caso:**
-
-```
-• Toner Ciano: rendimento real a 20%: 8.750 pgs
-    Impressões desde troca deste toner: 320 | Estimativa restante: ~8.430 pgs
-```
-
-```
-• Toner Ciano: rendimento real a 20%: 8.750 pgs
-    Estimativa restante: ~8.730 pgs (baseado na última troca registrada sem especificar cor)
-```
-
-```
-• Toner Ciano: rendimento real a 20%: 8.750 pgs
-    Nenhuma troca registrada — estimativa indisponível
-```
-
-Não-toners (revelador/cilindro/belt/fusor) seguem inalterados — não dependem de troca.
+### 5. Validação leve
+Se `type === "toner_change"` e o equipamento tem 2+ toners cadastrados, mostrar um aviso (não bloqueante) caso o operador deixe como "genérico", lembrando que a Júlia não conseguirá estimar por cor.
 
 ## Não muda
-- Fórmula `calcPV` / `getEffectivePrintingCost` / `getEquipmentCostPerPage`
-- Camada 2 (base de conhecimento) e seções de papéis/preços da Camada 3
-- Auth, Zod, CORS
-- UI da `PrinterReadingsTab` (gravar `consumable_id` nas trocas fica para uma próxima iteração — coluna nullable garante compatibilidade)
+- Edge Function `assistente-virtual` (já lê e usa `consumable_id` corretamente)
+- Migration / schema do banco (coluna já existe e é nullable)
+- Fluxo de leituras "daily" (continua sem campo de consumível)
+- `LeituraImpressoras.tsx` (página legada, fica para depois)
 
 ## Validação após deploy
 
-1. Abrir Júlia sem mandar mensagem → ela não se apresenta.
-2. "oi" → apresenta-se.
-3. "quanto falta no toner ciano da C70?" → responde direto, sem apresentação, citando estimativa.
-4. Inserir manualmente em `printer_readings` uma linha `type='toner_change'` com `consumable_id` do ciano e outra do magenta → perguntar de cada cor → estimativas distintas.
-5. Trocas antigas (sem `consumable_id`) seguem aparecendo como fallback genérico.
+1. Abrir Equipamentos → Xerox C70 → Contadores → Nova Leitura.
+2. Selecionar tipo "Troca de Toner/Peça" → o campo "Consumível trocado" aparece com Ciano/Magenta/Amarelo/Preto + opção genérica.
+3. Trocar Ciano → salvar → conferir no banco que `consumable_id` foi gravado.
+4. Perguntar à Júlia *"quanto falta no toner ciano da C70?"* → resposta específica para ciano (com "Impressões desde troca deste toner: X"), sem o aviso de fallback genérico.
+5. Perguntar sobre toner Magenta → estimativa diferente, baseada na última troca específica do magenta (ou fallback se nunca houve).
 
 ## Risco
 
-Baixo. Coluna nova é nullable, formatação textual é aditiva, apresentação fica condicional via prompt.
+Baixo. Mudança isolada em um componente, com valor padrão "genérico" preservando comportamento atual para quem não usar o seletor.
 
