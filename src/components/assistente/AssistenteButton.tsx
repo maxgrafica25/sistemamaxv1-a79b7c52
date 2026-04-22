@@ -25,13 +25,12 @@ export default function AssistenteButton() {
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [unread, setUnread] = useState(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  // auto-scroll para a última mensagem
+  // auto-scroll para a última mensagem (sentinela — o Viewport do Radix ScrollArea
+  // ignora scrollTop manual num div filho).
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading]);
 
   // limpa contador ao abrir
@@ -42,8 +41,8 @@ export default function AssistenteButton() {
   if (!user) return null;
   if (HIDDEN_ROUTES.includes(pathname)) return null;
 
-  async function enviar() {
-    const pergunta = input.trim();
+  async function enviar(override?: string) {
+    const pergunta = (override ?? input).trim();
     if (!pergunta || loading) return;
     const novaUser: Msg = { role: "user", content: pergunta };
     const historico = messages.slice(-10);
@@ -156,15 +155,25 @@ export default function AssistenteButton() {
           </SheetHeader>
 
           <ScrollArea className="flex-1 px-4 py-4">
-            <div ref={scrollRef} className="space-y-3">
+            <div className="space-y-3">
               {messages.length === 0 && !loading && (
                 <div className="text-sm text-muted-foreground text-center py-8 px-2">
                   Oi, eu sou a Júlia, assistente da Max Gráfica! Pergunte sobre toners, preços, papéis ou qualquer coisa cadastrada no sistema.
                 </div>
               )}
-              {messages.map((m, i) => (
-                <AssistenteMensagem key={i} role={m.role} content={m.content} />
-              ))}
+              {messages.map((m, i) => {
+                const isLastAssistant =
+                  m.role === "assistant" && i === messages.length - 1 && !loading;
+                return (
+                  <AssistenteMensagem
+                    key={i}
+                    role={m.role}
+                    content={m.content}
+                    chipsEnabled={isLastAssistant}
+                    onChipClick={(text) => enviar(text)}
+                  />
+                );
+              })}
               {loading && (
                 <div className="flex gap-2 items-start">
                   <div className="h-7 w-7 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
@@ -179,6 +188,7 @@ export default function AssistenteButton() {
                   </div>
                 </div>
               )}
+              <div ref={bottomRef} />
             </div>
           </ScrollArea>
 
@@ -195,7 +205,7 @@ export default function AssistenteButton() {
             <Button
               type="button"
               size="icon"
-              onClick={enviar}
+              onClick={() => enviar()}
               disabled={loading || !input.trim()}
               aria-label="Enviar"
             >
