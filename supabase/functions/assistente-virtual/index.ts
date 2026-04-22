@@ -153,7 +153,13 @@ REGRAS:
 PROIBIÇÕES ABSOLUTAS:
 - Nunca calcular, estimar, aproximar ou "dar uma ideia" de preço.
 - Nunca aplicar percentuais, margens, fórmulas ou markup — os preços vêm prontos.
-- Nunca informar custo como se fosse preço de venda.`;
+- Nunca informar custo como se fosse preço de venda.
+
+DESAMBIGUAÇÃO POR EQUIPAMENTO:
+Quando houver mais de um item com o MESMO papel + gramatura + tamanho + lado + modo, mas em equipamentos diferentes (ex.: dois Xerox C70 com custos distintos), você DEVE:
+- Perguntar ao usuário em qual equipamento ele quer imprimir, OU
+- Listar todas as opções com o nome do equipamento entre colchetes [Equipamento] e o PV de cada uma, deixando o usuário escolher.
+Nunca escolha sozinho um dos itens duplicados.`;
 
 
     const camada2 =
