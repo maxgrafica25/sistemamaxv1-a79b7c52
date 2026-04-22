@@ -1,0 +1,1 @@
+DELETE FROM public.produtos_catalogo WHERE id = '6c9835c2-755a-4818-aa42-18d49be6ad49';
