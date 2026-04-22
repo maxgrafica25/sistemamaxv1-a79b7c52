@@ -1,66 +1,105 @@
 
 
-# Júlia: detecção de conflitos de horário
+# Júlia → Google Calendar (one-way, por usuário)
 
 ## O que muda para você
 
-Antes de criar (ou futuramente atualizar) qualquer lembrete com horário, a Júlia checa se você já tem outro lembrete dentro de **±15 minutos**. Se houver:
+- Em **Configurações** aparece um botão **"Conectar Google Calendar"**. Cada usuário (você, Juliano, Marcelle…) clica e autoriza com a própria conta Google. Pode desconectar a qualquer momento.
+- Depois de conectado, **todo lembrete que a Júlia criar para você** vira automaticamente um evento na **sua** Google Agenda — com título, descrição, horário e lembrete nativo do Google (notificação no celular/desktop).
+- **Editar/excluir lembrete na Júlia** → atualiza/remove o evento no Google.
+- **Mexer no evento direto no Google** → não volta pra cá (one-way, decisão sua).
+- Quem não conectou continua usando só o sininho interno, sem mudança.
 
-- Ela responde algo como: *"Você já tem 'Dentista' às 14h. Quer marcar 'Reunião' no mesmo horário mesmo assim, ou prefere outro horário?"*
-- Aguarda sua decisão. Se confirmar, cria. Se pedir outro horário, ajusta.
+## Por que OAuth próprio (não conector da Lovable)
 
-Se não houver conflito, cria direto sem perguntar (não adiciona fricção desnecessária).
+O conector "Google Calendar" da Lovable autentica **uma conta só** (a do desenvolvedor). Como você quer que **cada usuário** ligue a **própria** conta, precisamos de OAuth multi-usuário com credenciais nossas no Google Cloud Console.
 
-## Arquivos tocados
+**O que você vai precisar fazer (uma vez só):**
+1. Criar um projeto no Google Cloud Console.
+2. Ativar a Google Calendar API.
+3. Configurar tela de consentimento OAuth (modo "External", scopes `calendar.events`).
+4. Criar credencial OAuth Client ID tipo "Web Application" e me passar o **Client ID** e **Client Secret**.
+5. Adicionar como redirect URI a URL do callback (vou te dar a URL exata depois de criar o endpoint).
 
-### 1. `supabase/functions/reminders-api/index.ts`
+Eu te guio passo a passo quando chegar a hora — é uns 10 minutos no console do Google.
 
-Novo handler `GET` quando a URL termina com `/conflicts`:
+## Arquitetura
 
-- Query params: `remind_at` (ISO obrigatório), `window_minutes` (padrão 15), `exclude_id` (opcional, para futuro `update_reminder`).
-- Valida `remind_at` com Zod, calcula janela `[remind_at - X, remind_at + X]`.
-- `SELECT id, title, remind_at, recurrence FROM reminders WHERE user_id = auth AND is_completed = false AND remind_at BETWEEN start AND end AND id <> exclude_id`.
-- Retorna `{ conflicts: [...] }` com 200. Lista vazia = sem conflito.
-- RLS já garante isolamento por `user_id`.
-
-### 2. `supabase/functions/assistente-virtual/index.ts`
-
-**Nova tool no schema do Gemini**:
-
+```text
+Júlia cria lembrete
+    ↓
+reminders-api (insere em `reminders`)
+    ↓
+trigger Postgres → enfileira em `gcal_sync_queue`
+    ↓
+edge function `gcal-sync-worker` (cron 1min)
+    ↓
+busca tokens do user em `user_google_tokens` (refresh se preciso)
+    ↓
+POST/PATCH/DELETE em calendar.events
+    ↓
+salva `google_event_id` de volta no reminder
 ```
-check_reminder_conflict(remind_at, window_minutes?=15, exclude_id?)
-```
 
-**Roteamento em `executeTool`**: chama o novo endpoint `/conflicts` via `callRemindersApi("GET", { conflicts: true, ...args })` (ou helper dedicado), repassando o Authorization do usuário.
+## Mudanças técnicas
 
-**Regra nova no prompt `camada1`** (FERRAMENTAS / REGRAS):
+### 1. Nova tabela `user_google_tokens`
+- `user_id` (FK auth, PK), `access_token`, `refresh_token`, `expires_at`, `scope`, `connected_at`, `email_google` (só pra mostrar "conectado como X").
+- RLS: usuário só lê/deleta o próprio. Edge functions usam service role.
+- Tokens criptografados em repouso via coluna `pgsodium` ou simplesmente confiando no encryption-at-rest do Postgres gerenciado (vou usar a 2ª opção — padrão Lovable Cloud).
 
-- "Antes de chamar `create_reminder` (e futuramente `update_reminder`) com `remind_at` definido, você DEVE chamar `check_reminder_conflict` primeiro com `window_minutes=15`."
-- "Se a resposta tiver lembretes em `conflicts`: NÃO crie ainda. Liste o(s) conflito(s) ao usuário com título e horário, pergunte se ele quer manter mesmo assim ou escolher outro horário, e aguarde a resposta."
-- "Se o usuário confirmar (ex.: 'pode marcar', 'sim'), aí sim chame `create_reminder`. Se pedir outro horário, peça o novo horário e refaça a verificação."
-- "Se `conflicts` estiver vazio, prossiga normalmente."
+### 2. Nova coluna em `reminders`
+- `google_event_id text null` — guarda o ID do evento no Google pra permitir update/delete.
+- `gcal_synced_at timestamptz null` — última sincronização bem-sucedida.
 
-A regra do fluxo de antecedência (chips) continua valendo: a checagem de conflito acontece **depois** que o `remind_at` final foi calculado (post-chip), não no horário do compromisso.
+### 3. Nova tabela `gcal_sync_queue`
+- `id`, `reminder_id`, `user_id`, `operation` ('create'|'update'|'delete'), `payload jsonb` (snapshot pra delete que perde o reminder), `attempts`, `last_error`, `created_at`, `processed_at`.
+- Trigger em `reminders` AFTER INSERT/UPDATE/DELETE → enfileira (só se o user tem token salvo).
 
-## Detalhes técnicos
+### 4. Novas edge functions
 
-- Sem mudança de schema, RLS, cron, frontend, ou nas tools existentes (`create_reminder`, `list_reminders`, `delete_reminder`).
-- `exclude_id` já entra agora para preparar terreno do futuro `update_reminder` — sem custo adicional.
-- Janela default 15min cobre os casos práticos (compromissos colados) sem gerar falso positivo em coisas distantes.
-- Lembretes recorrentes só conflitam pela próxima ocorrência (`remind_at` atual da linha) — suficiente para o caso de uso.
-- Risco: baixo. Endpoint novo isolado, lógica de conflito vive no prompt + tool — se a Júlia esquecer de chamar a tool num caso, o pior é criar duplicado (comportamento atual).
+**`google-oauth-init`** (verify_jwt em código)
+- Gera URL de autorização Google com `state` assinado contendo `user_id`. Retorna URL pro frontend redirecionar.
+
+**`google-oauth-callback`** (verify_jwt = false, é redirect do Google)
+- Recebe `code` + `state`, valida, troca por tokens, salva em `user_google_tokens`. Redireciona pra `/configuracoes?gcal=ok`.
+
+**`google-disconnect`** (verify_jwt em código)
+- Revoga o token no Google e apaga linha de `user_google_tokens`.
+
+**`gcal-sync-worker`** (verify_jwt = false, cron a cada 1min)
+- Lê até 50 itens pendentes da fila, ordena por `created_at`.
+- Para cada um: refresh do access token se vencido; chama Calendar API; em sucesso marca `processed_at` e atualiza `google_event_id` no reminder; em falha incrementa `attempts` (descarta após 5).
+
+### 5. Frontend — `Configuracoes.tsx`
+Nova seção **"Integrações"** com card Google Calendar:
+- Não conectado: botão "Conectar Google Calendar" → chama `google-oauth-init`, redireciona.
+- Conectado: mostra email Google + "Desconectar" + última sync.
+
+### 6. Recorrência → eventos recorrentes do Google
+- `daily/weekly/monthly` viram `RRULE:FREQ=DAILY/WEEKLY/MONTHLY` no Google. Sem precisar criar 1 evento por ocorrência.
+
+### 7. Secrets necessárias
+- `GOOGLE_OAUTH_CLIENT_ID`
+- `GOOGLE_OAUTH_CLIENT_SECRET`
+- `GOOGLE_OAUTH_REDIRECT_URI` (URL do callback)
+
+Vou pedir essas no momento certo via add_secret.
 
 ## Validação após deploy
 
-1. **Conflito na criação**: criar "Dentista amanhã 14h" (com chip "1h antes" → lembrete às 13h). Depois pedir "Reunião amanhã 13h05" → Júlia avisa do conflito com Dentista, pergunta. Confirmar → cria. Negar e dar novo horário → cria no novo horário.
-2. **Sem conflito**: criar "Dentista 14h" e depois "Almoço 12h" → cria direto, sem aviso.
-3. **Janela exata**: lembrete às 14h00 + novo às 14h20 → fora da janela de 15min, cria sem aviso. Novo às 14h10 → dentro da janela, avisa.
-4. **Lembrete concluído não conflita**: lembrete passado já marcado `is_completed=true` na mesma hora não dispara aviso.
-5. **Endpoint isolado** (curl): `GET /reminders-api/conflicts?remind_at=...&window_minutes=15` retorna `{ conflicts: [...] }`.
+1. **Conectar**: clicar "Conectar Google Calendar" → Google pede permissão → volta pra Configurações com "✓ Conectado como seu@email.com".
+2. **Criar lembrete**: pedir pra Júlia "me lembra dentista amanhã 14h, 1h antes" → 30s depois aparece evento "Dentista" amanhã 13h-13h30 na sua agenda Google, com lembrete nativo.
+3. **Editar**: deletar lembrete pelo sininho → evento some do Google em até 1min.
+4. **Recorrência**: criar lembrete diário → vira 1 evento recorrente no Google (não 30 eventos).
+5. **Desconectar**: clicar desconectar → linha some, lembretes futuros param de sincronizar (os já criados ficam no Google).
+6. **Multi-usuário**: Marcelle conecta a conta dela; lembretes dela vão pra agenda dela, os seus continuam indo pra sua.
+7. **Token expirado** (após 1h): próximo sync usa refresh_token automaticamente, sem você perceber.
 
 ## Fora deste escopo
 
-- `update_reminder` (a tool nem existe ainda; `exclude_id` fica preparado).
-- Sugestão automática de horário alternativo (hoje a Júlia só pergunta; a IA pode sugerir baseada em huecos, mas é fase futura).
-- Conflitos com Google Calendar (Fase 2.5).
+- Bidirecional (mudanças no Google voltarem pra cá) — você pediu one-way.
+- Importar eventos existentes do Google pra detecção de conflito (hoje conflito olha só `reminders` da Júlia).
+- Convidados/participantes nos eventos.
+- Múltiplas agendas (sempre cria na "primary" do usuário).
 
