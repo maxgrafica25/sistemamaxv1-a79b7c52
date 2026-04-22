@@ -160,6 +160,36 @@ export type Database = {
         }
         Relationships: []
       }
+      base_conhecimento: {
+        Row: {
+          ativo: boolean
+          atualizado_em: string
+          categoria: string | null
+          conteudo: string
+          criado_em: string
+          id: string
+          titulo: string
+        }
+        Insert: {
+          ativo?: boolean
+          atualizado_em?: string
+          categoria?: string | null
+          conteudo: string
+          criado_em?: string
+          id?: string
+          titulo: string
+        }
+        Update: {
+          ativo?: boolean
+          atualizado_em?: string
+          categoria?: string | null
+          conteudo?: string
+          criado_em?: string
+          id?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
       channel_members: {
         Row: {
           channel_id: string
