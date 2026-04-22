@@ -194,6 +194,7 @@ FERRAMENTAS DISPONÍVEIS (lembretes):
   • recurrence: "none" | "daily" | "weekly" | "monthly" (padrão "none").
 - list_reminders(): lista lembretes pendentes do usuário.
 - delete_reminder({ id }): remove lembrete pelo id (use list_reminders antes para descobrir o id).
+- check_reminder_conflict({ remind_at, window_minutes?, exclude_id? }): verifica se há lembretes pendentes em ±window_minutes do horário proposto. Padrão window_minutes=15. Retorna { conflicts: [...] }.
 
 REGRAS PARA FERRAMENTAS:
 - Se o usuário pedir para "me lembrar de", "agendar", "anotar compromisso", chame create_reminder.
@@ -211,6 +212,11 @@ REGRAS PARA FERRAMENTAS:
     • Confirme mencionando AMBOS os horários quando houver antecedência: "Pronto! Vou te avisar amanhã às 13h sobre seu dentista das 14h."
 - Para "me avise X antes de Y" dito de uma vez (ex.: "me avise 2h antes do dentista das 14h"): pule a pergunta, já aplique as regras de título/descrição/remind_at acima.
 - TAREFA AVULSA sem compromisso marcado ("me lembra de tomar água às 16h", "me lembra de comprar leite amanhã"): crie direto, remind_at = horário pedido, sem perguntar antecedência, sem mostrar chips.
+- DETECÇÃO DE CONFLITO (obrigatório): IMEDIATAMENTE antes de chamar create_reminder com um remind_at já calculado, chame check_reminder_conflict com esse mesmo remind_at e window_minutes=15.
+    • Se conflicts vier vazio: prossiga e chame create_reminder normalmente.
+    • Se conflicts tiver itens: NÃO chame create_reminder ainda. Liste o(s) conflito(s) com título e horário em pt-BR e pergunte: "Quer marcar mesmo assim ou prefere outro horário?". Aguarde resposta.
+        - Se o usuário confirmar (ex.: "pode marcar", "sim", "mesmo assim"): chame create_reminder com o remind_at original (sem checar conflito de novo).
+        - Se pedir outro horário: peça/calcule o novo remind_at e refaça check_reminder_conflict antes de criar.
 - Após executar, confirme em pt-BR repetindo título + data/hora amigável.
 - Para excluir, se houver mais de um lembrete que casa, peça confirmação listando os candidatos com horário e descrição. Se o usuário pedir "apaga todos os X", liste e remova um a um chamando delete_reminder em sequência.
 - Para "quais meus lembretes", chame list_reminders e formate em lista curta incluindo título, horário e descrição quando houver.
@@ -447,6 +453,32 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           },
         },
       },
+      {
+        type: "function",
+        function: {
+          name: "check_reminder_conflict",
+          description:
+            "Verifica se há lembretes pendentes do usuário próximos a um horário proposto (±window_minutes). Use SEMPRE antes de create_reminder com remind_at definido.",
+          parameters: {
+            type: "object",
+            properties: {
+              remind_at: {
+                type: "string",
+                description: "Horário proposto em ISO 8601 com offset.",
+              },
+              window_minutes: {
+                type: "number",
+                description: "Janela em minutos para considerar conflito. Padrão 15.",
+              },
+              exclude_id: {
+                type: "string",
+                description: "UUID de lembrete a ignorar (para futuras edições).",
+              },
+            },
+            required: ["remind_at"],
+          },
+        },
+      },
     ];
 
     const REMINDERS_URL = `${SUPABASE_URL}/functions/v1/reminders-api`;
@@ -454,14 +486,22 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
     async function callRemindersApi(
       method: "GET" | "POST" | "DELETE",
       args: Record<string, unknown>,
+      pathSuffix = "",
     ): Promise<unknown> {
-      let url = REMINDERS_URL;
+      let url = REMINDERS_URL + pathSuffix;
       let body: string | undefined;
       if (method === "POST") {
         body = JSON.stringify(args);
       } else if (method === "DELETE") {
         const id = String(args.id ?? "");
         url += `?id=${encodeURIComponent(id)}`;
+      } else if (method === "GET" && Object.keys(args).length > 0) {
+        const qs = new URLSearchParams();
+        for (const [k, v] of Object.entries(args)) {
+          if (v !== undefined && v !== null) qs.set(k, String(v));
+        }
+        const q = qs.toString();
+        if (q) url += (url.includes("?") ? "&" : "?") + q;
       }
       const resp = await fetch(url, {
         method,
@@ -488,6 +528,8 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         if (name === "create_reminder") return await callRemindersApi("POST", args);
         if (name === "list_reminders") return await callRemindersApi("GET", {});
         if (name === "delete_reminder") return await callRemindersApi("DELETE", args);
+        if (name === "check_reminder_conflict")
+          return await callRemindersApi("GET", args, "/conflicts");
         return { error: `Ferramenta desconhecida: ${name}` };
       } catch (e) {
         return { error: e instanceof Error ? e.message : "Erro ao executar ferramenta" };

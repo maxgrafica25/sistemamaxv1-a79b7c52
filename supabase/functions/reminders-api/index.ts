@@ -51,6 +51,50 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url);
 
+    // GET /conflicts: detectar lembretes próximos a um horário proposto
+    if (req.method === "GET" && url.pathname.endsWith("/conflicts")) {
+      const remindAtParam = url.searchParams.get("remind_at");
+      const windowParam = url.searchParams.get("window_minutes");
+      const excludeId = url.searchParams.get("exclude_id");
+
+      const ConflictSchema = z.object({
+        remind_at: z.string().datetime({ offset: true }),
+        window_minutes: z.number().int().min(0).max(1440).default(15),
+      });
+      const parsed = ConflictSchema.safeParse({
+        remind_at: remindAtParam,
+        window_minutes: windowParam ? Number(windowParam) : 15,
+      });
+      if (!parsed.success) {
+        return jsonResponse(
+          { error: "Parâmetros inválidos", details: parsed.error.flatten() },
+          400,
+        );
+      }
+      const center = new Date(parsed.data.remind_at).getTime();
+      const windowMs = parsed.data.window_minutes * 60_000;
+      const startIso = new Date(center - windowMs).toISOString();
+      const endIso = new Date(center + windowMs).toISOString();
+
+      let q = userClient
+        .from("reminders")
+        .select("id,title,remind_at,recurrence,description")
+        .eq("user_id", userId)
+        .eq("is_completed", false)
+        .gte("remind_at", startIso)
+        .lte("remind_at", endIso)
+        .order("remind_at", { ascending: true })
+        .limit(20);
+      if (excludeId) q = q.neq("id", excludeId);
+
+      const { data, error } = await q;
+      if (error) {
+        console.error("[reminders-api] conflicts error:", error);
+        return jsonResponse({ error: error.message }, 500);
+      }
+      return jsonResponse({ conflicts: data ?? [] }, 200);
+    }
+
     // POST: criar lembrete
     if (req.method === "POST") {
       const body = await req.json().catch(() => ({}));
