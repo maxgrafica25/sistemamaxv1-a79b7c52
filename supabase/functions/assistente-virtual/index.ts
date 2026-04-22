@@ -228,18 +228,55 @@ Nunca escolha sozinho um dos itens duplicados.`;
     for (const eq of equipments) equipmentNameById.set(eq.id, eq.name);
 
     const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size || "");
-    // Mesmo arredondamento da página: para cima ao próximo R$ 0,05
+    // Mesmo arredondamento da página: para cima ao próximo R$ 0,05 (usado em printCost)
     const roundUp5 = (v: number) => Math.ceil(v * 20 - 1e-9) / 20;
+    // Detecção de cobertura (igual à página)
+    const isColorCategory = (name: string) => /color/i.test(name || "");
+    const getCategoryCoverage = (name: string) => (isColorCategory(name) ? 20 : 5);
 
+    // Mapa de categoria por id para descobrir o nome
+    const categoryNameById = new Map<string, string>();
+    for (const c of cats) categoryNameById.set(c.id, c.name);
+
+    // Replica getEquipmentCostPerPage da página (linhas 215-233)
+    const getEquipmentCostPerPage = (equipmentId: string, categoryCoverage = 20, forcePB?: boolean): number => {
+      const eq = equipments.find((e: any) => e.id === equipmentId);
+      const isRibbonPrinter = eq?.printer_type === "ribbon";
+      if (isRibbonPrinter) {
+        const cons = consumables.filter((c: any) => c.equipment_id === equipmentId);
+        return cons.reduce((sum: number, c: any) => (c.yield_pages <= 0 ? sum : sum + Number(c.price) / Number(c.yield_pages)), 0);
+      }
+      const isColorPrinter = eq?.printer_type === "color";
+      const usePB = forcePB ?? categoryCoverage <= 5;
+      const coverage = isColorPrinter ? 20 : 5;
+      const cons = consumables.filter((c: any) =>
+        c.equipment_id === equipmentId && (usePB ? c.mode === "shared" : true)
+      );
+      const baseCost = cons.reduce((sum: number, c: any) => (c.yield_pages <= 0 ? sum : sum + Number(c.price) / Number(c.yield_pages)), 0);
+      return baseCost * (coverage / 5);
+    };
+
+    // Replica getEffectivePrintingCost da página (linhas 237-240)
+    const getEffectivePrintingCost = (item: any): number => {
+      if (item.equipment_id) {
+        const catName = categoryNameById.get(item.printer_category_id) || "";
+        const coverage = getCategoryCoverage(catName);
+        return getEquipmentCostPerPage(item.equipment_id, coverage, item.equipment_mode === "pb");
+      }
+      return Number(item.printing_cost || 0);
+    };
+
+    // Replica calcSellingPriceWithGlobals da página (linhas 83-88)
     const calcPV = (item: any, tier: any): number => {
+      const printCostA4 = getEffectivePrintingCost(item);
       const sizeMult = isLargerThanA4(item.size) ? 2 : 1;
       const sideMult = item.side === "F/V" ? 2 : 1;
-      const printCost = roundUp5(Number(item.printing_cost || 0) * sizeMult * sideMult);
+      const printCost = roundUp5(printCostA4 * sizeMult * sideMult);
       const baseCost = Number(item.paper_cost || 0) + printCost;
       const soma = (Number(tier.fixed_cost_pct || 0) + Number(tier.variable_cost_pct || 0) + Number(tier.margin_pct || 0)) / 100;
       const divisor = 1 - soma;
       if (divisor <= 0) return 0;
-      return roundUp5(baseCost / divisor);
+      return Math.round((baseCost / divisor) * 10) / 10;
     };
 
     // Replica getItemTiers da página: groupId = item.markup_group_id || default da categoria
