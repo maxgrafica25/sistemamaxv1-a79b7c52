@@ -283,7 +283,6 @@ export default function BaseConhecimentoTab() {
         title="Excluir conhecimento"
         description="Tem certeza? O assistente deixará de usar este conteúdo."
         confirmText="Excluir"
-        variant="destructive"
       />
     </Card>
   );
