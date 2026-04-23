@@ -1,83 +1,66 @@
 
 
-# Júlia: forçar retry automático quando o guard rejeitar UUID
+# Júlia: distinguir "cancelado" de "alterado/remarcado"
 
-## O que aconteceu
+## Problema
 
-Conversa das 15:34 ("troca compromisso das 11 para 11h30 e cancelar o das 15h15"):
+Pergunta: "Algo cancelado pra dia 27?"
+Resposta atual: "Treino às 11h15 — cancelado em 23/04 às 15:49. Teste Sistema 1 às 14h — cancelado em 23/04 às 15:49."
 
-1. Júlia chamou `list_reminders` na iteração atual e recebeu os 10 pendentes corretos.
-2. Mesmo assim, gerou dois UUIDs inventados (`46efcc9b-...` e `4ff7c6b4-...`) para o `delete_reminder` em vez de copiar `76590693-...` (Treino 11h15) e `1cd24fd0-...` (Treino 15h15) que estavam no JSON da tool.
-3. Guard rejeitou os dois (✅ funcionou).
-4. Júlia **não tentou de novo** — pulou pra resposta "me confirma qual era?".
-5. Mas o `create_reminder` do novo Treino 11h30 rodou normalmente.
+O Treino 11h15 não foi cancelado — foi **remarcado** para 13h. Só o Teste Sistema 1 foi cancelado de verdade. A confusão acontece porque todo `delete_reminder` grava `cancelled_reason = 'user_cancelled'`, sem distinguir o motivo.
 
-Resultado: usuário ficou com Treino 11h15 antigo + Treino 11h30 novo (duplicata) + Treino 15h15 não cancelado.
+## Causa raiz
 
-## Por que o prompt não bastou
-
-A instrução "se vier {error} de uuid_not_in_session, chame list_reminders e tente de novo" está enfiada num parágrafo de 6 linhas. O modelo lê e ignora. Precisa de um mecanismo do servidor, não outra regra de prompt.
+1. `reminders-api` DELETE sempre escreve `cancelled_reason: "user_cancelled"`.
+2. O assistente-virtual já detecta "modo remarcar" (`isRemarcarSession`) mas não passa essa informação adiante quando chama `delete_reminder`.
+3. `list_cancelled_reminders` devolve todos os cancelados sem dizer se foi cancelamento puro ou parte de um remarcar.
+4. Prompt da consulta histórica trata tudo como "cancelado".
 
 ## Correções
 
-### 1. Auto-retry no servidor: quando o guard rejeitar, devolver os IDs corretos junto com o erro
+### 1. `reminders-api` aceita `reason` opcional no DELETE
+Arquivo: `supabase/functions/reminders-api/index.ts`
+- Aceitar query param `?id=...&reason=rescheduled` (ou `user_cancelled`, default).
+- Validar contra um whitelist: `["user_cancelled", "rescheduled"]`.
+- Gravar no campo `cancelled_reason` existente (sem mudar schema).
 
+### 2. Tool `delete_reminder` ganha campo `reason`
 Arquivo: `supabase/functions/assistente-virtual/index.ts`
+- Schema: adicionar `reason: enum["user_cancelled", "rescheduled"]`, default `"user_cancelled"`.
+- Quando `executeTool("delete_reminder")` rodar em modo remarcar (`isRemarcarSession === true`), **forçar `reason = "rescheduled"`** server-side (mesmo se o modelo esquecer de passar).
+- Repassar o `reason` na chamada à `reminders-api`.
 
-Quando `delete_reminder` for rejeitado por `uuid_not_in_session`:
-- Em vez de devolver só `{ error: "..." }`, devolver `{ error: "...", available_reminders: [...] }` com a lista atual de pendentes (mesmo formato do `list_reminders`, com id + title + event_at).
-- Isso garante que, na próxima volta do loop de tool-calling, o modelo **tenha o JSON com os IDs reais imediatamente disponível** sem precisar decidir chamar `list_reminders` de novo.
-- O prompt vira: "se vier `uuid_not_in_session`, escolha o id correto da lista `available_reminders` que veio no mesmo retorno e chame `delete_reminder` de novo".
+### 3. Prompt: regra clara para a consulta histórica
+Atualizar a regra "CONSULTA HISTÓRICA" no `camada1`:
+- Ao processar resposta de `list_cancelled_reminders`, separar por `cancelled_reason`:
+  - `"user_cancelled"` → "foi **cancelado** em <data>"
+  - `"rescheduled"` → "foi **remarcado** em <data> (movido para outro horário)"
+- Se o usuário perguntar especificamente "o que foi **cancelado**?", responder SÓ os com `cancelled_reason = "user_cancelled"` e ignorar os remarcados.
+- Se perguntar genérico "o que aconteceu com X?", mostrar ambos com o termo correto.
 
-### 2. Bloquear `create_reminder` que faz parte de um "remarcar" se o `delete_reminder` correspondente falhou
-
-O caso clássico ("trocar X das 11 para 11h30") é semanticamente um par: 1 delete + 1 create. Se o delete falha, o create vira duplicata. Hoje não tem nenhuma proteção.
-
-Solução pragmática (sem inventar API nova): no prompt, regra inviolável:
-- "REMARCAR = DELETE + CREATE atômicos: se o `delete_reminder` da peça antiga falhar (qualquer erro), você NÃO pode chamar `create_reminder` da peça nova. Primeiro resolva o delete (retry com id correto), só depois crie. Se mesmo após retry o delete falhar, NÃO crie nada e diga ao usuário."
-
-Isso é regra de prompt mas é curta, na frente, e fácil do modelo seguir porque o gatilho é claro (erro do delete → não chamar create).
-
-### 3. Forçar retry estrutural no loop de tool-calling
-
-Arquivo: `supabase/functions/assistente-virtual/index.ts`
-
-No loop, quando uma chamada `delete_reminder` retorna `uuid_not_in_session`:
-- Setar uma flag `mustRetryDelete = true` na iteração.
-- Se o modelo na PRÓXIMA volta tentar `create_reminder` antes de um novo `delete_reminder` bem-sucedido para o mesmo "slot lógico", **bloquear o create** com erro: `{ error: "delete pendente — resolva o delete antes de criar para evitar duplicata" }`.
-- Heurística simples para "mesmo slot": comparar `title` (case-insensitive, sem acento) do create proposto contra o que o usuário pediu para remarcar. Se for parecido (ex: ambos "treino"), bloquear.
-
-Como detectar que é "remarcar" e não criar puro? Olhar a mensagem original do usuário: se contém verbos `troca/trocar/remarca/remarcar/muda/mudar de ... para ...`, marcar a sessão como "modo remarcar" e ativar o bloqueio do create até o delete passar.
-
-### 4. Limpar a duplicata criada nesta sessão (limpeza pontual)
-
-A migração não precisa, mas via tool de banco: cancelar o `Treino` `event_at = 2026-04-27 14:30:00 UTC-3` que ficou duplicado. Posso fazer isso direto via SQL no momento da execução (sem migration permanente).
-
-### 5. Melhorar resposta ao usuário quando delete falha mesmo após retry
-
-Hoje a Júlia diz "Não consegui apagar o Treino das 11h15 — me confirma qual era?". Isso confunde porque ela **acabou de listar pra ele**. Trocar para:
-- "Tive um problema interno ao tentar apagar o Treino das 11h15. Tenta de novo dizendo só 'cancelar o treino das 11h15'?"
-
-Sem pedir confirmação que o usuário não tem como dar de forma diferente.
+### 4. Limpeza pontual dos dados existentes (SQL one-shot)
+Os dois Treinos cancelados nas sessões anteriores como parte de remarcar têm `cancelled_reason = 'user_cancelled'`. Atualizar para `rescheduled`:
+- IDs já identificados nos logs anteriores: `76590693-...` (Treino 11h15), `cdf4a8d4-...` (Treino 11h), e qualquer outro Treino cancelado em 23/04 onde haja outro Treino criado nos minutos seguintes para data próxima.
+- Migration simples atualizando esses IDs específicos por uma query: lembretes do user, `cancelled_reason='user_cancelled'`, cancelados em 23/04, cujo `title` começa com "Treino" e existe outro `Treino` ativo do mesmo `user_id` criado dentro de 5min após o cancellation.
 
 ## Arquivos alterados
 
-- `supabase/functions/assistente-virtual/index.ts` (guard devolve `available_reminders`, bloqueia `create_reminder` em modo remarcar, ajusta prompt)
-- limpeza SQL pontual: cancelar a duplicata `Treino 11h30` criada nas 15:34 (id `53cf6d83-...`)
+- `supabase/functions/reminders-api/index.ts`
+- `supabase/functions/assistente-virtual/index.ts`
+- migration nova (corrigir histórico de Treinos remarcados)
 
 ## Resultado esperado
 
-Próxima vez que o usuário disser "trocar treino das 11 para 11h30":
-1. `list_reminders` → ids reais carregados.
-2. `delete_reminder` com UUID inventado → guard rejeita E devolve `available_reminders`.
-3. Modelo escolhe o id correto do `available_reminders` no mesmo turno → delete passa.
-4. `create_reminder` do novo Treino 11h30 → ok.
+Pergunta: "Algo cancelado pra dia 27?"
+Júlia: "Sim — **Teste Sistema 1 às 14h** foi cancelado em 23/04 às 15:49."
+(Os Treinos remarcados não aparecem porque não foram cancelados — foram remarcados.)
 
-Se mesmo assim o modelo insistir em UUID inventado, o `create_reminder` é bloqueado e o usuário recebe mensagem clara em vez de duplicata.
+Pergunta: "O que aconteceu com os treinos do dia 27?"
+Júlia: "**Treino 11h15** foi **remarcado** em 23/04 (movido pra 13h). **Treino 11h** foi **remarcado** anteriormente."
 
 ## Fora do escopo
 
-- Sem mudar schema.
-- Sem mexer em conflito/dedupe.
-- Sem mudar UI.
+- Sem mudar schema (usa `cancelled_reason` que já existe).
+- Sem expor "restaurar" no frontend.
+- Sem mudar UI da inbox.
 
