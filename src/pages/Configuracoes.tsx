@@ -294,11 +294,11 @@ export default function Configuracoes() {
           </div>
         </TabsContent>
 
+        <TabsContent value="integracoes" className="space-y-6 mt-4">
+          <GoogleCalendarCard />
+        </TabsContent>
+
         {isAdmin && (
-          <TabsContent value="conhecimento" className="mt-4 max-w-5xl">
-            <BaseConhecimentoTab />
-          </TabsContent>
-        )}
 
         {isAdmin && (
           <TabsContent value="backup" className="space-y-6 mt-4">
