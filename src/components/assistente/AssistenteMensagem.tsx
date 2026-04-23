@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 import { Sparkles, User, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { format, isToday, isYesterday } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const CHIP_MARKER = "[JULIA_CHIPS:lead_time]";
 
@@ -11,9 +13,17 @@ interface AssistenteMensagemProps {
   content: string;
   chipsEnabled?: boolean;
   onChipClick?: (text: string) => void;
+  timestamp?: number;
 }
 
-export function AssistenteMensagem({ role, content, chipsEnabled, onChipClick }: AssistenteMensagemProps) {
+function formatTimestamp(ts: number): string {
+  const d = new Date(ts);
+  if (isToday(d)) return format(d, "HH:mm", { locale: ptBR });
+  if (isYesterday(d)) return `ontem ${format(d, "HH:mm", { locale: ptBR })}`;
+  return format(d, "dd/MM HH:mm", { locale: ptBR });
+}
+
+export function AssistenteMensagem({ role, content, chipsEnabled, onChipClick, timestamp }: AssistenteMensagemProps) {
   const isUser = role === "user";
   const [customMode, setCustomMode] = useState(false);
   const [customValue, setCustomValue] = useState("");
