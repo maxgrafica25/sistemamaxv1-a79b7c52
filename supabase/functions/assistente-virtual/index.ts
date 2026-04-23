@@ -1117,6 +1117,32 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       break;
     }
 
+    // Override servidor-side: se houve falhas de delete por uuid_not_in_session E nenhum delete teve sucesso,
+    // substituímos a resposta por uma mensagem clara com a lista atual, em vez de "tive um problema interno".
+    const deleteOps = opResults.filter((o) => o.tool === "delete_reminder");
+    const hasDeleteSuccess = deleteOps.some((o) => o.ok);
+    const hasUuidFail = deleteOps.some(
+      (o) => !o.ok && /UUID inválido|uuid_not_in_session|não pertence à sessão/i.test(o.detail),
+    );
+    if (hasUuidFail && !hasDeleteSuccess) {
+      // Garante lista atualizada
+      if (lastPendingList.length === 0) {
+        const res = await callRemindersApi("GET", {});
+        captureIdsFromListResult(res, true);
+      }
+      const formatted = lastPendingList
+        .map((r) => {
+          const f = formatReminderForDisplay(r as RawReminder);
+          return `- ${f.display_line}`;
+        })
+        .join("\n");
+      resposta =
+        "Não consegui identificar exatamente quais lembretes alterar.\n\n" +
+        (formatted
+          ? `Aqui estão os pendentes:\n${formatted}\n\nPode me dizer **qual horário cancelar** e **qual remarcar** copiando da lista acima?`
+          : "Não há lembretes pendentes no momento. Quer me dizer de novo o que precisa?");
+    }
+
     if (!resposta) resposta = "Não consegui finalizar a resposta. Tente novamente.";
 
     return new Response(JSON.stringify({ resposta }), {
