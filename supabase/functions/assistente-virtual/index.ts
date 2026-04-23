@@ -545,6 +545,28 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       {
         type: "function",
         function: {
+          name: "list_cancelled_reminders",
+          description:
+            "Lista lembretes CANCELADOS do usuário em uma janela de tempo (use quando o usuário perguntar se TINHA algum compromisso e a busca em pendentes vier vazia).",
+          parameters: {
+            type: "object",
+            properties: {
+              from: {
+                type: "string",
+                description: "Início da janela em ISO 8601 com offset.",
+              },
+              to: {
+                type: "string",
+                description: "Fim da janela em ISO 8601 com offset.",
+              },
+            },
+            required: ["from", "to"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
           name: "check_reminder_conflict",
           description:
             "Verifica se há lembretes pendentes do usuário próximos a um horário proposto (±window_minutes). Use SEMPRE antes de create_reminder com remind_at definido.",
