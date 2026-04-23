@@ -624,10 +624,18 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       if (!aiResp.ok) {
         const text = await aiResp.text();
         console.error("[assistente-virtual] AI gateway error:", aiResp.status, text);
-        return new Response(JSON.stringify({ error: "Falha no serviço de IA" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        const transient = aiResp.status === 503 || aiResp.status >= 500;
+        return new Response(
+          JSON.stringify({
+            error: transient
+              ? "O serviço de IA está instável agora. Tente de novo em alguns segundos."
+              : "Falha no serviço de IA",
+          }),
+          {
+            status: transient ? 503 : 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       const aiJson = await aiResp.json();
