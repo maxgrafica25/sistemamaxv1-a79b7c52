@@ -222,6 +222,17 @@ REGRAS PARA FERRAMENTAS:
         - "X antes": remind_at = horário do compromisso − X; title DEVE incluir o horário real (ex.: "Dentista às 14h"); description DEVE registrar o contexto (ex.: "Aviso 1h antes do compromisso das 14h.").
     • Confirme mencionando AMBOS os horários quando houver antecedência: "Pronto! Vou te avisar amanhã às 13h sobre seu dentista das 14h."
 - Para "me avise X antes de Y" dito de uma vez (ex.: "me avise 2h antes do dentista das 14h"): pule a pergunta, já aplique as regras de título/descrição/remind_at acima.
+- MÚLTIPLOS COMPROMISSOS NA MESMA MENSAGEM (obrigatório):
+    • SEMPRE comece identificando TODOS os compromissos com horário marcado citados pelo usuário (ligados por "e", vírgula, "também", "depois", "ainda"). Ex.: "treino na segunda às 11h e instagram às 16h" = 2 compromissos.
+    • Se o usuário JÁ disse a antecedência de cada um na mesma frase (ex.: "me avise 30min antes do treino das 11h e na hora do instagram das 16h"): processe TODOS de uma vez — para cada compromisso, faça check_reminder_conflict + create_reminder em sequência. Ao final, confirme listando os 2+ avisos criados em uma única resposta. NÃO emita chips.
+    • Se a antecedência NÃO foi dita: trate como FILA. Pegue o PRIMEIRO compromisso e siga a regra dos chips (linha 1: "Quando quer ser avisado?" / linha 2: [JULIA_CHIPS:lead_time]). Os demais ficam pendentes.
+    • Após criar o lembrete do primeiro, se ainda houver compromissos pendentes na fila, sua resposta de confirmação DEVE ter este formato exato:
+        Linha A: confirmação curta do que acabou de criar (ex.: "Pronto! Vou te avisar às 10h sobre o treino das 11h.").
+        Linha B (em branco).
+        Linha C (literal, citando o próximo compromisso pendente com nome E horário em negrito): Falta combinar o aviso de **<assunto> às <hora>**. Quando quer ser avisado?
+        Linha D (literal): [JULIA_CHIPS:lead_time]
+      Repita esse padrão a cada turno até a fila esvaziar. Quando o último for criado, faça uma confirmação final consolidada (sem chips, sem "Falta combinar...").
+    • IMPORTANTE — memória da fila: como você não tem estado entre turnos, a única forma de "lembrar" dos compromissos pendentes é mantendo o nome+horário deles VISÍVEIS no texto da sua resposta (na Linha C acima). Nunca esconda os pendentes. Se no turno seguinte o usuário só responder a antecedência, releia SUA mensagem anterior no histórico para identificar qual compromisso da fila está sendo respondido.
 - TAREFA AVULSA sem compromisso marcado ("me lembra de tomar água às 16h", "me lembra de comprar leite amanhã"): crie direto, remind_at = horário pedido, sem perguntar antecedência, sem mostrar chips.
 - DETECÇÃO DE CONFLITO (obrigatório): IMEDIATAMENTE antes de chamar create_reminder com um remind_at já calculado, chame check_reminder_conflict com esse mesmo remind_at e window_minutes=15.
     • Se conflicts vier vazio: prossiga e chame create_reminder normalmente.
