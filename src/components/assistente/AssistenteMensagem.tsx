@@ -14,6 +14,7 @@ interface AssistenteMensagemProps {
   chipsEnabled?: boolean;
   onChipClick?: (text: string) => void;
   timestamp?: number;
+  previousUserContent?: string;
 }
 
 function formatTimestamp(ts: number): string {
@@ -23,13 +24,29 @@ function formatTimestamp(ts: number): string {
   return format(d, "dd/MM HH:mm", { locale: ptBR });
 }
 
-export function AssistenteMensagem({ role, content, chipsEnabled, onChipClick, timestamp }: AssistenteMensagemProps) {
+// Fallback: se o modelo esquecer o marcador mas a resposta for claramente
+// uma pergunta curta de "quando avisar" e o usuário mencionou compromisso
+// com horário, mostramos os chips assim mesmo.
+const APPOINTMENT_KEYWORDS = /\b(dentista|médic[oa]|medic[oa]|consulta|reuni[ãa]o|viagem|entrega|prazo|compromisso|hor[áa]rio|às\s*\d|as\s*\d|\d{1,2}\s*h\b|\d{1,2}:\d{2})/i;
+const SHORT_WHEN_RE = /^\s*quando[\s\?\.!,]*$|^\s*quando\s+(voc[êe]|quer|te|deseja)/i;
+
+function shouldShowChipsFallback(content: string, previousUserContent?: string): boolean {
+  if (!previousUserContent) return false;
+  const trimmed = content.trim();
+  if (trimmed.length > 40) return false;
+  if (!SHORT_WHEN_RE.test(trimmed)) return false;
+  return APPOINTMENT_KEYWORDS.test(previousUserContent);
+}
+
+export function AssistenteMensagem({ role, content, chipsEnabled, onChipClick, timestamp, previousUserContent }: AssistenteMensagemProps) {
   const isUser = role === "user";
   const [customMode, setCustomMode] = useState(false);
   const [customValue, setCustomValue] = useState("");
 
-  const hasChips = !isUser && content.includes(CHIP_MARKER);
-  const cleanContent = hasChips ? content.replace(CHIP_MARKER, "").trim() : content;
+  const hasMarker = !isUser && content.includes(CHIP_MARKER);
+  const fallbackChips = !isUser && !hasMarker && shouldShowChipsFallback(content, previousUserContent);
+  const hasChips = hasMarker || fallbackChips;
+  const cleanContent = hasMarker ? content.replace(CHIP_MARKER, "").trim() : content;
 
   function handleChip(text: string) {
     if (!chipsEnabled || !onChipClick) return;
