@@ -718,6 +718,92 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       }
     }
 
+    function fmtDateBR(iso: string): string {
+      try {
+        return new Intl.DateTimeFormat("pt-BR", {
+          timeZone: "America/Sao_Paulo",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }).format(new Date(iso));
+      } catch {
+        return iso;
+      }
+    }
+
+    function fmtHHMM(iso: string): string {
+      // Retorna no formato "13h00" (sem ":")
+      const t = fmtTimeBR(iso); // "13:00"
+      return t.replace(":", "h");
+    }
+
+    function cleanTitleForDisplay(title: string): string {
+      // Remove sufixos tipo "às 11h", "às 13h15" do título
+      return String(title || "")
+        .replace(/\s+[àa]s\s+\d{1,2}(?:h\d{0,2}|:\d{2})?\b/gi, "")
+        .trim();
+    }
+
+    type RawReminder = {
+      id?: string;
+      title?: string;
+      remind_at?: string | null;
+      event_at?: string | null;
+      cancelled_at?: string | null;
+      cancelled_reason?: string | null;
+      description?: string | null;
+      recurrence?: string | null;
+    };
+
+    function formatReminderForDisplay(r: RawReminder, opts?: { cancelled?: boolean }): RawReminder & {
+      display_line: string;
+      event_local: string;
+      remind_local: string;
+      event_date_br: string;
+    } {
+      const eventIso = String(r.event_at ?? r.remind_at ?? "");
+      const remindIso = String(r.remind_at ?? r.event_at ?? "");
+      const titleClean = cleanTitleForDisplay(String(r.title ?? "(sem título)"));
+      const evHHMM = fmtHHMM(eventIso);
+      const rmHHMM = fmtHHMM(remindIso);
+      const dateBR = fmtDateBR(eventIso);
+
+      let suffix = "";
+      // "(aviso 10h45)" só quando remind_at != event_at
+      if (eventIso && remindIso) {
+        const evMs = new Date(eventIso).getTime();
+        const rmMs = new Date(remindIso).getTime();
+        if (!isNaN(evMs) && !isNaN(rmMs) && evMs !== rmMs) {
+          suffix = ` (aviso ${rmHHMM})`;
+        }
+      }
+
+      let cancelTag = "";
+      if (opts?.cancelled && r.cancelled_at) {
+        const reason = (r.cancelled_reason ?? "user_cancelled").toLowerCase();
+        const verb = reason === "rescheduled" ? "remarcado" : "cancelado";
+        cancelTag = ` — ${verb} em ${fmtDateBR(r.cancelled_at)} ${fmtTimeBR(r.cancelled_at)}`;
+      }
+
+      const display_line = `**${evHHMM}** — ${titleClean}${suffix}${cancelTag}`;
+      return {
+        ...r,
+        display_line,
+        event_local: evHHMM,
+        remind_local: rmHHMM,
+        event_date_br: dateBR,
+      };
+    }
+
+    function transformListResult(result: unknown, opts?: { cancelled?: boolean }): unknown {
+      const r = result as { reminders?: RawReminder[]; error?: string } | null;
+      if (!r || !Array.isArray(r.reminders)) return result;
+      return {
+        ...r,
+        reminders: r.reminders.map((it) => formatReminderForDisplay(it, opts)),
+      };
+    }
+
     async function executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
       try {
         if (name === "create_reminder") {
