@@ -135,13 +135,23 @@ Deno.serve(async (req) => {
     // GET: listar
     if (req.method === "GET") {
       const includeCompleted = url.searchParams.get("include_completed") === "1";
+      const includeCancelled = url.searchParams.get("include_cancelled") === "1";
+      const fromParam = url.searchParams.get("from");
+      const toParam = url.searchParams.get("to");
+
       let q = userClient
         .from("reminders")
-        .select("id,title,description,remind_at,recurrence,category,is_completed,created_at")
+        .select(
+          "id,title,description,remind_at,recurrence,category,is_completed,cancelled_at,cancelled_reason,created_at",
+        )
         .eq("user_id", userId)
         .order("remind_at", { ascending: true })
-        .limit(100);
+        .limit(200);
       if (!includeCompleted) q = q.eq("is_completed", false);
+      if (!includeCancelled) q = q.is("cancelled_at", null);
+      if (fromParam) q = q.gte("remind_at", fromParam);
+      if (toParam) q = q.lte("remind_at", toParam);
+
       const { data, error } = await q;
       if (error) {
         console.error("[reminders-api] list error:", error);
@@ -150,7 +160,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ reminders: data ?? [] }, 200);
     }
 
-    // DELETE: remover por id (?id=<uuid>)
+    // DELETE: soft-delete por id (?id=<uuid>) — marca cancelled_at em vez de apagar
     if (req.method === "DELETE") {
       const id = url.searchParams.get("id");
       const UuidSchema = z.string().uuid();
@@ -158,25 +168,30 @@ Deno.serve(async (req) => {
       if (!idParsed.success) {
         return jsonResponse({ error: "id inválido (UUID esperado)" }, 400);
       }
-      const { data: deleted, error } = await userClient
+      const { data: cancelled, error } = await userClient
         .from("reminders")
-        .delete()
+        .update({
+          cancelled_at: new Date().toISOString(),
+          cancelled_reason: "user_cancelled",
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", idParsed.data)
         .eq("user_id", userId)
+        .is("cancelled_at", null)
         .select("id")
         .maybeSingle();
       if (error) {
-        console.error("[reminders-api] delete error:", error, "id:", idParsed.data);
+        console.error("[reminders-api] cancel error:", error, "id:", idParsed.data);
         return jsonResponse({ error: error.message }, 500);
       }
-      if (!deleted) {
-        console.warn("[reminders-api] delete not found id:", idParsed.data);
+      if (!cancelled) {
+        console.warn("[reminders-api] cancel not found / already cancelled id:", idParsed.data);
         return jsonResponse(
           { error: "Lembrete não encontrado", id: idParsed.data },
           404,
         );
       }
-      return jsonResponse({ ok: true, deleted_id: deleted.id }, 200);
+      return jsonResponse({ ok: true, deleted_id: cancelled.id }, 200);
     }
 
     return jsonResponse({ error: "Método não suportado" }, 405);
