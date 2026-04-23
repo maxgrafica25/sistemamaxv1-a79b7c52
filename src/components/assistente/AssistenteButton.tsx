@@ -81,7 +81,7 @@ export default function AssistenteButton() {
         } else {
           toast({ title: "Erro na Júlia", description: msg, variant: "destructive" });
         }
-        setMessages((prev) => [...prev, { role: "assistant", content: msg }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: msg, timestamp: Date.now() }]);
       } else {
         const resposta: string = data?.resposta ?? "Sem resposta.";
         setMessages((prev) => [...prev, { role: "assistant", content: resposta }]);
