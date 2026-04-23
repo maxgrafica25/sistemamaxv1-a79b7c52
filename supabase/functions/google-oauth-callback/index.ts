@@ -9,7 +9,7 @@ const CLIENT_SECRET = Deno.env.get("GOOGLE_OAUTH_CLIENT_SECRET")!;
 const REDIRECT_URI = Deno.env.get("GOOGLE_OAUTH_REDIRECT_URI")!;
 const STATE_SECRET = Deno.env.get("GOOGLE_OAUTH_STATE_SECRET")!;
 
-async function verifyState(state: string): Promise<{ user_id: string } | null> {
+async function verifyState(state: string): Promise<{ user_id: string; app_origin?: string } | null> {
   const [data, sig] = state.split(".");
   if (!data || !sig) return null;
   const key = await crypto.subtle.importKey(
@@ -29,9 +29,19 @@ async function verifyState(state: string): Promise<{ user_id: string } | null> {
   }
 }
 
-function originFromRedirect(): string {
-  // Tenta derivar a origem do app a partir do referer; fallback p/ raiz publicada.
-  return "https://id-preview--667f8a1f-61e4-4274-8da0-fdacd8d61791.lovable.app";
+const ALLOWED_ORIGIN_SUFFIXES = [".lovable.app", ".lovableproject.com"];
+function sanitizeOrigin(origin: string | undefined): string {
+  const fallback = "https://sistemamaxv1.lovable.app";
+  if (!origin) return fallback;
+  try {
+    const u = new URL(origin);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return fallback;
+    const host = u.hostname;
+    if (ALLOWED_ORIGIN_SUFFIXES.some((s) => host.endsWith(s))) return u.origin;
+    return fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function redirectTo(url: string): Response {
