@@ -1008,6 +1008,23 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             content: JSON.stringify(result),
           });
         }
+        // Resumo auditado das operações reais — injetado como system para guiar a resposta final.
+        // Substitui qualquer resumo anterior (mantém só o último estado).
+        if (opResults.length > 0) {
+          const summaryLines = opResults.map((o) => `- ${o.detail}`).join("\n");
+          const auditMsg = `OPERAÇÕES REALIZADAS NESTE TURNO (fonte da verdade — sua resposta final DEVE refletir EXATAMENTE isto, sem inventar sucesso e sem omitir falhas):\n${summaryLines}\n\nRegra: se algo falhou (linha começa com ❌), DIGA explicitamente que falhou e o que tentar (ex.: "tive um problema ao cancelar X — tenta de novo dizendo 'cancelar X das 11h'"). Se houve bloqueio por duplicata, explique ao usuário que já existe e pergunte se quer mesmo duplicar. Não anuncie como sucesso o que não passou.`;
+          // Remove resumo anterior se houver
+          for (let i = messages.length - 1; i >= 0; i--) {
+            if (
+              messages[i]?.role === "system" &&
+              typeof messages[i].content === "string" &&
+              messages[i].content.startsWith("OPERAÇÕES REALIZADAS NESTE TURNO")
+            ) {
+              messages.splice(i, 1);
+            }
+          }
+          messages.push({ role: "system", content: auditMsg });
+        }
         continue; // próxima iteração para o modelo formatar resposta
       }
 
