@@ -969,9 +969,23 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
     }
 
     // 7) Loop de chat com tool calling (máx 3 iterações)
+    // Trunca respostas antigas do assistente para o modelo não pegar listagens desatualizadas
+    // como "fonte" de horários. Mantém intactas as mensagens do usuário.
+    const truncatedHistory = historico.slice(-10).map((h) => {
+      if (h.role === "assistant" && h.content.length > 200) {
+        return {
+          role: h.role,
+          content:
+            "[histórico truncado — pode estar desatualizado, NÃO use como fonte de horários atuais; chame list_reminders se precisar do estado real] " +
+            h.content.slice(0, 200) +
+            "…",
+        };
+      }
+      return h;
+    });
     const messages: any[] = [
       { role: "system", content: systemPrompt },
-      ...historico.slice(-10),
+      ...truncatedHistory,
       { role: "user", content: pergunta },
     ];
 
