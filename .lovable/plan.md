@@ -1,67 +1,83 @@
 
 
-# Júlia: corrigir IDs inventados no delete + listagem confusa
+# Júlia: forçar retry automático quando o guard rejeitar UUID
 
-## O que aconteceu (causa raiz, com evidência)
+## O que aconteceu
 
-Logs do edge function:
-```
-delete_reminder args → {"id":"313797b5-025b-4260-847e-aee6e6ee980b"} → "Lembrete não encontrado"
-delete_reminder args → {"id":"4d5d974e-5a02-4ee1-b952-1925b06214cd"} → "Lembrete não encontrado"
-```
+Conversa das 15:34 ("troca compromisso das 11 para 11h30 e cancelar o das 15h15"):
 
-Esses dois UUIDs **não existem na tabela**. Os IDs reais do dia 27/04 são outros (ex: `cdf4a8d4-...` para "Treino às 11h", `a6371060-...` para "Teste Sistema 1" das 17h).
+1. Júlia chamou `list_reminders` na iteração atual e recebeu os 10 pendentes corretos.
+2. Mesmo assim, gerou dois UUIDs inventados (`46efcc9b-...` e `4ff7c6b4-...`) para o `delete_reminder` em vez de copiar `76590693-...` (Treino 11h15) e `1cd24fd0-...` (Treino 15h15) que estavam no JSON da tool.
+3. Guard rejeitou os dois (✅ funcionou).
+4. Júlia **não tentou de novo** — pulou pra resposta "me confirma qual era?".
+5. Mas o `create_reminder` do novo Treino 11h30 rodou normalmente.
 
-**A Júlia inventou os UUIDs.** Ela não chamou `list_reminders` antes do delete — passou direto pra `delete_reminder` com IDs alucinados. A regra "use o UUID exato do `list_reminders` da mesma iteração" foi adicionada no prompt, mas o modelo está ignorando porque a lista foi mostrada na **mensagem anterior**, não na iteração atual, então ele acha que "lembra" do ID e gera um plausível.
+Resultado: usuário ficou com Treino 11h15 antigo + Treino 11h30 novo (duplicata) + Treino 15h15 não cancelado.
 
-## Bug secundário descoberto na mesma listagem
+## Por que o prompt não bastou
 
-Olhando a screenshot e o banco:
-- Banco tem `event_at = 13h45` com título "Treino às 11h" → a Júlia mostrou "11h00 — Treino" (extraiu do título, não do `event_at`).
-- Banco tem `event_at = 19h00` com título "Treino às 13h15" → mostrou "14h00 — Treino" (errado dos dois lados).
-
-Os dados antigos têm `event_at` = `remind_at` (do backfill), não o horário real do compromisso. O título "Treino às 11h" guarda o horário real. A Júlia está extraindo o horário do **título** em vez de usar o `event_at`, e ainda por cima ignora os "minutos" às vezes.
-
-Ou seja: o refactor `event_at` não ajuda os registros antigos porque o backfill copiou `remind_at` (que era o aviso, não o evento). Esses registros têm `event_at` errado pra sempre.
+A instrução "se vier {error} de uuid_not_in_session, chame list_reminders e tente de novo" está enfiada num parágrafo de 6 linhas. O modelo lê e ignora. Precisa de um mecanismo do servidor, não outra regra de prompt.
 
 ## Correções
 
-### 1. Forçar `list_reminders` antes de QUALQUER `delete_reminder` na mesma iteração
+### 1. Auto-retry no servidor: quando o guard rejeitar, devolver os IDs corretos junto com o erro
+
 Arquivo: `supabase/functions/assistente-virtual/index.ts`
 
-No loop de tool-calling, adicionar **guard de servidor** (não confia só no prompt):
-- Manter um `Set<string>` de IDs vistos vindos de `list_reminders` / `list_cancelled_reminders` na iteração atual.
-- Se `delete_reminder` for chamado com um `id` que NÃO está nesse set, **rejeitar a chamada** retornando ao modelo: `{"error":"id não verificado nesta sessão. Chame list_reminders primeiro e use exatamente o UUID retornado."}`
-- Isso impede a alucinação de UUID estruturalmente, não por instrução de prompt.
+Quando `delete_reminder` for rejeitado por `uuid_not_in_session`:
+- Em vez de devolver só `{ error: "..." }`, devolver `{ error: "...", available_reminders: [...] }` com a lista atual de pendentes (mesmo formato do `list_reminders`, com id + title + event_at).
+- Isso garante que, na próxima volta do loop de tool-calling, o modelo **tenha o JSON com os IDs reais imediatamente disponível** sem precisar decidir chamar `list_reminders` de novo.
+- O prompt vira: "se vier `uuid_not_in_session`, escolha o id correto da lista `available_reminders` que veio no mesmo retorno e chame `delete_reminder` de novo".
 
-### 2. Reforçar prompt: re-listar antes de remarcar/cancelar
-No `camada1`, regra explícita:
-- "Antes de qualquer `delete_reminder`, você DEVE chamar `list_reminders` na mesma iteração e copiar o `id` exato do retorno. Nunca use IDs de mensagens anteriores — eles podem ter mudado."
+### 2. Bloquear `create_reminder` que faz parte de um "remarcar" se o `delete_reminder` correspondente falhou
 
-### 3. Listagem deve usar `event_at` E ignorar horário do título
-- Regra: "Ao listar, exiba SEMPRE o horário de `event_at` formatado. NUNCA extraia horário do `title`. Se o título contém 'às 11h', remova essa parte ao exibir (mostre só 'Treino')."
+O caso clássico ("trocar X das 11 para 11h30") é semanticamente um par: 1 delete + 1 create. Se o delete falha, o create vira duplicata. Hoje não tem nenhuma proteção.
 
-### 4. Migration de correção dos dados antigos
-- Para registros onde o `title` casa o regex `/às (\d{1,2})h(\d{2})?/i`, recalcular `event_at` baseado no horário do título mantendo a data de `remind_at`.
-- Limpar o " às XXh" do `title` para os ajustados.
-- Cuidado: rodar só em `cancelled_at IS NULL AND is_completed = false` para não bagunçar histórico.
+Solução pragmática (sem inventar API nova): no prompt, regra inviolável:
+- "REMARCAR = DELETE + CREATE atômicos: se o `delete_reminder` da peça antiga falhar (qualquer erro), você NÃO pode chamar `create_reminder` da peça nova. Primeiro resolva o delete (retry com id correto), só depois crie. Se mesmo após retry o delete falhar, NÃO crie nada e diga ao usuário."
 
-### 5. Log adicional
-- Quando `delete_reminder` rejeitar por ID não-verificado, logar `{rejected: true, id, reason: "uuid_not_in_session"}` para confirmar via logs que o guard pegou.
+Isso é regra de prompt mas é curta, na frente, e fácil do modelo seguir porque o gatilho é claro (erro do delete → não chamar create).
+
+### 3. Forçar retry estrutural no loop de tool-calling
+
+Arquivo: `supabase/functions/assistente-virtual/index.ts`
+
+No loop, quando uma chamada `delete_reminder` retorna `uuid_not_in_session`:
+- Setar uma flag `mustRetryDelete = true` na iteração.
+- Se o modelo na PRÓXIMA volta tentar `create_reminder` antes de um novo `delete_reminder` bem-sucedido para o mesmo "slot lógico", **bloquear o create** com erro: `{ error: "delete pendente — resolva o delete antes de criar para evitar duplicata" }`.
+- Heurística simples para "mesmo slot": comparar `title` (case-insensitive, sem acento) do create proposto contra o que o usuário pediu para remarcar. Se for parecido (ex: ambos "treino"), bloquear.
+
+Como detectar que é "remarcar" e não criar puro? Olhar a mensagem original do usuário: se contém verbos `troca/trocar/remarca/remarcar/muda/mudar de ... para ...`, marcar a sessão como "modo remarcar" e ativar o bloqueio do create até o delete passar.
+
+### 4. Limpar a duplicata criada nesta sessão (limpeza pontual)
+
+A migração não precisa, mas via tool de banco: cancelar o `Treino` `event_at = 2026-04-27 14:30:00 UTC-3` que ficou duplicado. Posso fazer isso direto via SQL no momento da execução (sem migration permanente).
+
+### 5. Melhorar resposta ao usuário quando delete falha mesmo após retry
+
+Hoje a Júlia diz "Não consegui apagar o Treino das 11h15 — me confirma qual era?". Isso confunde porque ela **acabou de listar pra ele**. Trocar para:
+- "Tive um problema interno ao tentar apagar o Treino das 11h15. Tenta de novo dizendo só 'cancelar o treino das 11h15'?"
+
+Sem pedir confirmação que o usuário não tem como dar de forma diferente.
 
 ## Arquivos alterados
 
-- `supabase/functions/assistente-virtual/index.ts` (guard + prompt)
-- migration nova (recalcular `event_at` e limpar título dos pendentes do dia 27/04 e similares)
+- `supabase/functions/assistente-virtual/index.ts` (guard devolve `available_reminders`, bloqueia `create_reminder` em modo remarcar, ajusta prompt)
+- limpeza SQL pontual: cancelar a duplicata `Treino 11h30` criada nas 15:34 (id `53cf6d83-...`)
 
 ## Resultado esperado
 
-- Júlia nunca mais consegue chamar `delete_reminder` com UUID inventado — o servidor bloqueia.
-- Listagem mostra horários corretos vindos de `event_at`, com títulos limpos.
-- "trocar treino das 11 para 11h30 e cancelar das 17h" funciona: `list_reminders` → pega IDs reais → 2 deletes + 1 create, todos confirmados.
+Próxima vez que o usuário disser "trocar treino das 11 para 11h30":
+1. `list_reminders` → ids reais carregados.
+2. `delete_reminder` com UUID inventado → guard rejeita E devolve `available_reminders`.
+3. Modelo escolhe o id correto do `available_reminders` no mesmo turno → delete passa.
+4. `create_reminder` do novo Treino 11h30 → ok.
+
+Se mesmo assim o modelo insistir em UUID inventado, o `create_reminder` é bloqueado e o usuário recebe mensagem clara em vez de duplicata.
 
 ## Fora do escopo
 
+- Sem mudar schema.
+- Sem mexer em conflito/dedupe.
 - Sem mudar UI.
-- Sem mexer em conflito/dedupe (já tratados).
 
