@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import GoogleCalendarCard from "@/components/configuracoes/GoogleCalendarCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -200,6 +201,7 @@ export default function Configuracoes() {
       <Tabs defaultValue="geral" className="max-w-3xl">
         <TabsList>
           <TabsTrigger value="geral">Geral</TabsTrigger>
+          <TabsTrigger value="integracoes">Integrações</TabsTrigger>
           {isAdmin && <TabsTrigger value="conhecimento">Base de Conhecimento</TabsTrigger>}
           {isAdmin && <TabsTrigger value="backup">Backup &amp; Exportação</TabsTrigger>}
         </TabsList>
@@ -289,6 +291,10 @@ export default function Configuracoes() {
               Salvar Configurações
             </Button>
           </div>
+        </TabsContent>
+
+        <TabsContent value="integracoes" className="space-y-6 mt-4">
+          <GoogleCalendarCard />
         </TabsContent>
 
         {isAdmin && (
