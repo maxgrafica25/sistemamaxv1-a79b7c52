@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const [bcRes, eqRes, consRes, readingsRes, ppRes, catsRes, tiersRes, papersRes, gsRes] =
+    const [bcRes, eqRes, consRes, readingsRes, ppRes, catsRes, tiersRes, papersRes, gsRes, gcalRes] =
       await Promise.all([
         admin.from("base_conhecimento").select("titulo,categoria,conteudo").eq("ativo", true),
         admin.from("equipments").select("id,name,description,printer_type").order("sort_order"),
@@ -122,7 +122,15 @@ Deno.serve(async (req) => {
           .eq("is_active", true)
           .order("sort_order"),
         admin.from("global_settings").select("*").limit(1).maybeSingle(),
+        admin
+          .from("user_google_tokens")
+          .select("email_google")
+          .eq("user_id", userData.user.id)
+          .maybeSingle(),
       ]);
+
+    const gcalConnected = !!gcalRes?.data;
+    const gcalEmail = (gcalRes?.data as any)?.email_google ?? null;
 
     const bc = bcRes.data ?? [];
     const equipments = eqRes.data ?? [];
