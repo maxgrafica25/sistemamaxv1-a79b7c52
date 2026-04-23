@@ -1238,8 +1238,27 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           }
           return result;
         }
-        if (name === "check_reminder_conflict")
-          return await callRemindersApi("GET", args, "/conflicts");
+        if (name === "check_reminder_conflict") {
+          // Normaliza: aceita remind_local (hora Brasil) OU remind_at (ISO).
+          // Se vier com offset diferente, ou só com hora local, sempre converte para -03:00.
+          const a = args as Record<string, unknown>;
+          const conflictArgs: Record<string, unknown> = { ...a };
+          const localStr = typeof a.remind_local === "string" ? a.remind_local as string
+            : typeof a.event_local === "string" ? a.event_local as string
+            : null;
+          if (localStr) {
+            conflictArgs.remind_at = localBRtoISO(localStr);
+            delete conflictArgs.remind_local;
+            delete conflictArgs.event_local;
+          } else if (typeof a.remind_at === "string") {
+            const raw = a.remind_at as string;
+            // Se for "YYYY-MM-DDTHH:mm" sem offset, anexa -03:00
+            if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?$/.test(raw)) {
+              conflictArgs.remind_at = localBRtoISO(raw);
+            }
+          }
+          return await callRemindersApi("GET", conflictArgs, "/conflicts");
+        }
         return { error: `Ferramenta desconhecida: ${name}` };
       } catch (e) {
         return { error: e instanceof Error ? e.message : "Erro ao executar ferramenta" };
