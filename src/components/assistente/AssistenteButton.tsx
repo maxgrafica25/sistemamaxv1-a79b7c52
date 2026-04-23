@@ -44,7 +44,7 @@ export default function AssistenteButton() {
   async function enviar(override?: string) {
     const pergunta = (override ?? input).trim();
     if (!pergunta || loading) return;
-    const novaUser: Msg = { role: "user", content: pergunta };
+    const novaUser: Msg = { role: "user", content: pergunta, timestamp: Date.now() };
     const historico = messages.slice(-10);
     setMessages((prev) => [...prev, novaUser]);
     setInput("");
