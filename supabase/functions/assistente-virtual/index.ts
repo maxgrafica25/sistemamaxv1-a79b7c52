@@ -702,11 +702,15 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       }
     }
 
-    // Detecta intenção de "remarcar" na mensagem original do usuário
-    const remarcarRegex = /\b(troca|trocar|remarc[ao]|remarcar|mud[ao]|mudar|adi[ao]r?|antecip[ao]r?|mov[ei]r?|passa[r]?\s+(?:de|do|da))\b/i;
+    // Detecta intenção de "remarcar/alterar/mover/etc" na mensagem original do usuário
+    const remarcarRegex = /\b(troca|trocar|remarc[ao]|remarcar|mud[ao]|mudar|alter[ao]|alterar|adi[ao]r?|antecip[ao]r?|mov[ei]r?|mova|ajust[ao]r?|reagendar?|passa[r]?\s+(?:de|do|da|para|pra)|de\s+\S+\s+(?:para|pra)\s+\S+)\b/i;
     const isRemarcarSession = remarcarRegex.test(pergunta);
     let mustRetryDelete = false;
     let pendingDeleteTitleHint: string | null = null;
+
+    // Auditoria: registra resultado real de cada tool de mutação para montar o resumo final
+    type OpResult = { tool: string; ok: boolean; detail: string };
+    const opResults: OpResult[] = [];
 
     function normalize(s: string): string {
       return (s || "")
