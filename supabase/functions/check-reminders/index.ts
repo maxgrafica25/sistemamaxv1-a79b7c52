@@ -22,6 +22,7 @@ Deno.serve(async (_req) => {
       .from("reminders")
       .select("*")
       .eq("is_completed", false)
+      .is("cancelled_at", null)
       .lte("remind_at", nowIso);
 
     if (error) {
