@@ -226,7 +226,8 @@ FERRAMENTAS DISPONÍVEIS (lembretes):
   • remind_at: ISO 8601 com offset; deve ser futuro.
   • recurrence: "none" | "daily" | "weekly" | "monthly" (padrão "none").
 - list_reminders(): lista lembretes pendentes do usuário.
-- delete_reminder({ id }): remove lembrete pelo id (use list_reminders antes para descobrir o id).
+- list_cancelled_reminders({ from, to }): lista lembretes JÁ CANCELADOS do usuário numa janela ISO 8601. Use APENAS quando o usuário perguntar "eu tinha algo?" / "tinha compromisso?" e list_reminders não trouxer nada no horário.
+- delete_reminder({ id }): cancela lembrete pelo id (use list_reminders antes para descobrir o id).
 - check_reminder_conflict({ remind_at, window_minutes?, exclude_id? }): verifica se há lembretes pendentes em ±window_minutes do horário proposto. Padrão window_minutes=15. Retorna { conflicts: [...] }.
 
 REGRAS PARA FERRAMENTAS:
