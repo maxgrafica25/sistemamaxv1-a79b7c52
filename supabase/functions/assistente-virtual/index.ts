@@ -760,7 +760,14 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
               available_reminders: lastPendingList,
             };
           }
-          const result = await callRemindersApi("DELETE", args);
+          // Em modo remarcar, força reason='rescheduled' (mesmo se modelo esquecer)
+          const finalArgs: Record<string, unknown> = { ...args };
+          if (isRemarcarSession) {
+            finalArgs.reason = "rescheduled";
+          } else if (!finalArgs.reason) {
+            finalArgs.reason = "user_cancelled";
+          }
+          const result = await callRemindersApi("DELETE", finalArgs);
           // Se delete passou, libera o create
           if ((result as { ok?: boolean })?.ok) {
             mustRetryDelete = false;
