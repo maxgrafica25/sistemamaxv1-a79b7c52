@@ -412,7 +412,14 @@ REGRAS PARA FERRAMENTAS:
       if (items.length > 120) precoLines.push(`  ... (+${items.length - 120} itens)`);
     }
 
+    const gcalStatusLine = gcalConnected
+      ? `conectado=true | email=${gcalEmail ?? "(desconhecido)"}`
+      : `conectado=false`;
+
     const camada3 = `## DADOS OPERACIONAIS
+
+### GOOGLE CALENDAR DO USUÁRIO
+${gcalStatusLine}
 
 ### EQUIPAMENTOS E CONSUMÍVEIS
 ${eqLines.length > 0 ? eqLines.join("\n") : "(nenhum equipamento cadastrado)"}
