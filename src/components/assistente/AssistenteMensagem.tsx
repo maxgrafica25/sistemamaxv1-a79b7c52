@@ -94,6 +94,9 @@ export function AssistenteMensagem({ role, content, chipsEnabled, onChipClick, t
                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleChip("na hora")}>
                   Na hora
                 </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleChip("15 minutos antes")}>
+                  15 min antes
+                </Button>
                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleChip("1 hora antes")}>
                   1 hora antes
                 </Button>
