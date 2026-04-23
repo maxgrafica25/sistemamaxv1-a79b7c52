@@ -267,10 +267,10 @@ REGRAS PARA FERRAMENTAS:
       ❌ ERRADO (quebra a interface — NUNCA faça assim): responder só "Quando", "Quando?", "Quando você quer?", "Me diga quando", ou mesmo "Quando quer ser avisado?" sem o marcador na linha de baixo.
       O frontend usa o marcador para mostrar botões (Na hora / 1 hora antes / 3 horas antes / Personalizar). Sem o marcador em linha separada, os botões não aparecem e o usuário fica travado. Espere a resposta do usuário.
     • Quando o usuário responder a antecedência (ex.: "1 hora antes", "na hora", "45min", "2h"), aplique:
-        - "na hora" / "no horário": remind_at = horário do compromisso, title = só o assunto (ex.: "Dentista").
-        - "X antes": remind_at = horário do compromisso − X; title DEVE incluir o horário real (ex.: "Dentista às 14h"); description DEVE registrar o contexto (ex.: "Aviso 1h antes do compromisso das 14h.").
+        - "na hora" / "no horário": remind_at = event_at = horário do compromisso, title = só o assunto (ex.: "Dentista").
+        - "X antes": event_at = horário do compromisso; remind_at = event_at − X; title = SÓ o assunto (ex.: "Dentista", NUNCA "Dentista às 14h" — o horário sai de event_at). description opcional pode registrar contexto.
     • Confirme mencionando AMBOS os horários quando houver antecedência: "Pronto! Vou te avisar amanhã às 13h sobre seu dentista das 14h."
-- Para "me avise X antes de Y" dito de uma vez (ex.: "me avise 2h antes do dentista das 14h"): pule a pergunta, já aplique as regras de título/descrição/remind_at acima.
+- Para "me avise X antes de Y" dito de uma vez (ex.: "me avise 2h antes do dentista das 14h"): pule a pergunta, já aplique as regras de event_at/remind_at/título acima.
 - MÚLTIPLOS COMPROMISSOS NA MESMA MENSAGEM (obrigatório):
     • COMANDOS MISTOS (criar + remarcar + cancelar numa só frase, ex.: "trocar treino das 11 para 11h15 E cancelar o das 16"): processe cada comando na ordem citada, aplicando a regra correspondente — "trocar/mudar/remarcar" segue PRIORIDADE MÁXIMA (delete+create direto, sem (a)/(b)/(c)); "cancelar" segue PRIORIDADE MÁXIMA (delete direto); "criar/me avisa" segue o fluxo normal com DEDUPE. Ao final, confirme TUDO numa única resposta consolidada.
     • SEMPRE comece identificando TODOS os compromissos com horário marcado citados pelo usuário (ligados por "e", vírgula, "também", "depois", "ainda"). Ex.: "treino na segunda às 11h e instagram às 16h" = 2 compromissos.
