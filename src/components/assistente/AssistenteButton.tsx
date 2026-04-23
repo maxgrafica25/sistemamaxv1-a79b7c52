@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AssistenteMensagem } from "./AssistenteMensagem";
 import { cn } from "@/lib/utils";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant"; content: string; timestamp: number };
 
 const HIDDEN_ROUTES = ["/auth", "/reset-password"];
 
