@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 import { Sparkles, User, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -74,13 +75,35 @@ export function AssistenteMensagem({ role, content, chipsEnabled, onChipClick, t
       <div className="flex flex-col gap-2 max-w-[85%]">
         <div
           className={cn(
-            "rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words",
+            "rounded-lg px-3 py-2 text-sm break-words",
             isUser
-              ? "bg-primary text-primary-foreground rounded-tr-sm"
+              ? "bg-primary text-primary-foreground rounded-tr-sm whitespace-pre-wrap"
               : "bg-muted text-foreground rounded-tl-sm",
           )}
         >
-          {cleanContent}
+          {isUser ? (
+            cleanContent
+          ) : (
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>,
+                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                ul: ({ children }) => <ul className="my-1 ml-4 list-disc space-y-0.5">{children}</ul>,
+                ol: ({ children }) => <ol className="my-1 ml-4 list-decimal space-y-0.5">{children}</ol>,
+                li: ({ children }) => <li className="leading-snug">{children}</li>,
+                code: ({ children }) => (
+                  <code className="rounded bg-background/60 px-1 py-0.5 text-xs font-mono">{children}</code>
+                ),
+                a: ({ children, href }) => (
+                  <a href={href} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                    {children}
+                  </a>
+                ),
+              }}
+            >
+              {cleanContent}
+            </ReactMarkdown>
+          )}
         </div>
         {timestamp && (
           <span className={cn("text-[10px] text-muted-foreground/60", isUser ? "self-end" : "self-start")}>
