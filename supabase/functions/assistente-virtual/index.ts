@@ -991,22 +991,20 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
 
     let resposta = "";
     // Helper: chama o gateway com retry/backoff em 5xx (ex.: Cloudflare 1102 → 503)
-    async function callGateway(): Promise<Response> {
+    async function callGateway(forceNoTools = false): Promise<Response> {
       const maxAttempts = 3;
       let lastResp: Response | null = null;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const body: Record<string, unknown> = forceNoTools
+          ? { model: "google/gemini-2.5-flash", messages, tool_choice: "none" }
+          : { model: "google/gemini-2.5-flash", messages, tools, tool_choice: "auto" };
         const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${LOVABLE_API_KEY}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages,
-            tools,
-            tool_choice: "auto",
-          }),
+          body: JSON.stringify(body),
         });
         // Sucesso ou erro "definitivo" (não-transitório) → devolve
         if (resp.ok || (resp.status !== 503 && resp.status < 500 && resp.status !== 408)) {
@@ -1023,7 +1021,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       return lastResp!;
     }
 
-    for (let iter = 0; iter < 3; iter++) {
+    for (let iter = 0; iter < 6; iter++) {
       const aiResp = await callGateway();
 
       if (aiResp.status === 429) {
@@ -1141,6 +1139,39 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         (formatted
           ? `Aqui estão os pendentes:\n${formatted}\n\nPode me dizer **qual horário cancelar** e **qual remarcar** copiando da lista acima?`
           : "Não há lembretes pendentes no momento. Quer me dizer de novo o que precisa?");
+    }
+
+    // Se não conseguimos resposta textual mas houve operações, força 1 chamada extra sem tools.
+    if (!resposta && opResults.length > 0) {
+      try {
+        const forcedResp = await callGateway(true);
+        if (forcedResp.ok) {
+          const forcedJson = await forcedResp.json();
+          const forcedMsg = forcedJson?.choices?.[0]?.message?.content;
+          if (typeof forcedMsg === "string" && forcedMsg.trim()) {
+            resposta = forcedMsg.trim();
+          }
+        }
+      } catch (e) {
+        console.warn("[assistente-virtual] forced no-tools call failed:", e);
+      }
+    }
+
+    // Último recurso: monta resposta servidor-side a partir dos opResults.
+    if (!resposta && opResults.length > 0) {
+      const successes = opResults.filter((o) => o.ok);
+      const failures = opResults.filter((o) => !o.ok);
+      const lines: string[] = [];
+      if (successes.length > 0) {
+        lines.push("✅ Pronto! Operações realizadas:");
+        for (const o of successes) lines.push(`- ${o.detail}`);
+      }
+      if (failures.length > 0) {
+        if (lines.length > 0) lines.push("");
+        lines.push("⚠️ Não consegui:");
+        for (const o of failures) lines.push(`- ${o.detail}`);
+      }
+      resposta = lines.join("\n");
     }
 
     if (!resposta) resposta = "Não consegui finalizar a resposta. Tente novamente.";
