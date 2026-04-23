@@ -1,98 +1,66 @@
 
-# Júlia: garantir que remarcar/cancelar apague o item certo
 
-## O que aconteceu
+# Júlia: avisar quando um compromisso foi cancelado
 
-A troca foi só pela metade:
+## Problema
 
-- o novo lembrete das **11h15** foi criado;
-- mas o lembrete antigo das **11h** e o das **16h** continuaram existindo.
+Quando o usuário pergunta "eu tinha algum compromisso dia 27 às 16h?" depois de ter pedido para cancelar, a Júlia responde "Nada agendado para 27/04 às 16h". Isso é tecnicamente verdade (o registro foi apagado), mas confunde — o usuário queria saber se *havia* algo lá.
 
-Pelos logs, houve `delete_reminder` duas vezes e `create_reminder` uma vez, mas a lista final ainda mostra os itens antigos. Isso indica dois problemas combinados:
+Hoje o fluxo de cancelar chama `delete_reminder`, que faz `DELETE` físico na tabela `reminders`. Não sobra rastro nenhum, então `list_reminders` não tem como saber que existiu.
 
-1. **A Júlia não ancorou o comando ao dia 27/04** no follow-up “trocar o treino das 11…” e “cancelar o compromisso das 16h”.
-2. **O endpoint `DELETE` hoje responde sucesso mesmo quando não apagou nada**, então a IA acha que removeu, mas pode ter enviado id errado/vazio e ninguém percebe.
+## Solução: soft-delete + consulta histórica
 
-## Mudanças
+### 1. Migration: marcar cancelados em vez de apagar
+- Adicionar coluna `cancelled_at timestamptz null` em `public.reminders`.
+- Adicionar coluna `cancelled_reason text null` (livre, ex.: "cancelado pelo usuário via Júlia").
+- Índice parcial em `(user_id, remind_at)` filtrando `cancelled_at is null` para manter listagens rápidas.
 
-### 1. Tornar o `DELETE` confiável no backend
+### 2. `reminders-api`: trocar DELETE físico por soft-delete
 Arquivo: `supabase/functions/reminders-api/index.ts`
+- No handler `DELETE`, em vez de `.delete()`, fazer `update({ cancelled_at: now(), cancelled_reason: 'user_cancelled' })`.
+- Continuar exigindo UUID válido e `user_id` do dono.
+- Continuar retornando 404 quando o id não existir OU já estiver cancelado (para a Júlia não confirmar duas vezes).
+- Continuar retornando `{ ok: true, deleted_id }` no sucesso (mesma forma — assistente não precisa saber que virou soft-delete).
+- Em `GET` (listar pendentes): filtrar `cancelled_at is null` (igual ao que `is_completed=false` já faz hoje, somando a regra).
+- Adicionar query param novo: `GET /reminders-api?include_cancelled=1&from=ISO&to=ISO` — retorna também os cancelados na janela, com campos `cancelled_at` populados. Usado só para consulta histórica.
 
-- Validar o `id` recebido no `DELETE`.
-- Fazer o delete retornar o registro apagado (`.delete().select("id").maybeSingle()` ou equivalente).
-- Se nenhum registro for removido, responder **404 / "lembrete não encontrado"** em vez de `204`.
-- Manter o filtro por `user_id`, mas sem mascarar “não achei” como sucesso.
+### 3. Atualizar `check-reminders` (cron) para ignorar cancelados
+Arquivo: `supabase/functions/check-reminders/index.ts`
+- Adicionar `.is('cancelled_at', null)` na query principal pra não disparar notificação de algo que o usuário cancelou.
 
-Resultado: a Júlia só poderá confirmar exclusão quando a exclusão realmente acontecer.
-
-### 2. Ensinar a Júlia a herdar o contexto da lista anterior
+### 4. Nova ferramenta para a Júlia: `list_cancelled_reminders`
 Arquivo: `supabase/functions/assistente-virtual/index.ts`
+- Adicionar tool `list_cancelled_reminders({ from, to })` que chama o endpoint com `include_cancelled=1` e retorna só os itens com `cancelled_at != null` na janela.
+- Manter `list_reminders()` como está (só pendentes).
 
-Adicionar regra explícita no `camada1`:
+### 5. Regra nova no prompt (`camada1`)
+Quando o usuário perguntar **se tinha algum compromisso num horário/dia específico** ("eu tinha algo às 16h?", "tinha alguma coisa marcada ontem?", "o compromisso das 16h não estava marcado?"):
+1. Chame `list_reminders()` normalmente.
+2. Se a lista filtrada por dia/horário vier **vazia**, ANTES de responder "Nada agendado", chame `list_cancelled_reminders` na mesma janela do dia perguntado.
+3. Se achar item cancelado batendo:
+   - Responda: "Tinha sim — **<título> às <hora>** — mas foi cancelado em <data/hora amigável do `cancelled_at`>."
+4. Se não achar nem em pendentes nem em cancelados: aí sim "Nada agendado para <período>."
 
-- Se a mensagem anterior da própria Júlia foi uma **lista filtrada por data** (“Seus pendentes para 27/04”), e o usuário responder com referências curtas como:
-  - “o treino das 11”
-  - “o compromisso das 16h”
-  - “troca esse”
-  - “cancela o das 16”
-  
-  então a data implícita deve ser **a mesma da lista anterior**, salvo se o usuário disser outra data.
-
-Isso faz “trocar o treino das 11 para 11h15 e cancelar o compromisso das 16h” mirar os itens de **27/04**, não qualquer lembrete de 11h/16h em outra data.
-
-### 3. Endurecer a regra de seleção do alvo antes de apagar
-Arquivo: `supabase/functions/assistente-virtual/index.ts`
-
-Ajustar as regras de remarcar/cancelar para:
-
-- chamar `list_reminders`;
-- primeiro filtrar pelo **dia em contexto**;
-- depois filtrar por **horário citado**;
-- depois usar assunto/título como refinamento;
-- só chamar `delete_reminder` quando houver **1 match exato**.
-
-Se houver:
-- **0 matches** → dizer que não encontrou naquele dia/horário;
-- **2+ matches** → listar opções e pedir escolha;
-- nunca apagar “por aproximação” quando o alvo não estiver unívoco.
-
-### 4. Exigir uso de id exato retornado por `list_reminders`
-Arquivo: `supabase/functions/assistente-virtual/index.ts`
-
-Adicionar instrução clara:
-
-- `delete_reminder` só pode ser chamado com o **UUID exato** vindo do `list_reminders` da mesma iteração;
-- nunca inventar, truncar, reaproveitar ou inferir id;
-- se o `DELETE` voltar erro/404, a Júlia deve assumir falha e responder que não conseguiu apagar aquele item.
-
-### 5. Melhorar observabilidade para confirmar a correção
-Arquivo: `supabase/functions/assistente-virtual/index.ts`
-
-- Melhorar logs dos tools para incluir nome + argumentos relevantes (especialmente `id`, horário e título alvo), sem expor nada sensível ao usuário.
-- Assim, numa próxima ocorrência, fica claro **qual id** ela tentou apagar.
+### 6. Sincronia com Google Calendar
+- O trigger `enqueue_gcal_sync` hoje dispara `delete` no `TG_OP = 'DELETE'`. Como agora o cancelamento vira `UPDATE`, ajustar o trigger pra também enfileirar `delete` quando `OLD.cancelled_at IS NULL AND NEW.cancelled_at IS NOT NULL`. O evento no Google continua sendo apagado (comportamento equivalente ao atual).
 
 ## Arquivos alterados
 
+- migration nova (coluna + trigger ajustado)
 - `supabase/functions/reminders-api/index.ts`
+- `supabase/functions/check-reminders/index.ts`
 - `supabase/functions/assistente-virtual/index.ts`
 
 ## Resultado esperado
 
-Fluxo esperado após a correção:
+Usuário: "eu tinha algum compromisso dia 27 às 16h?"
+Júlia: "Tinha sim — **instagram às 16h** — mas você cancelou hoje às 14h42."
 
-1. Usuário pergunta: “Quais são meus compromissos do dia 27/04?”
-2. Júlia lista os itens de 27/04.
-3. Usuário responde: “Quero trocar o treino das 11 para as 11h15 e cancelar o compromisso das 16h.”
-4. Júlia:
-   - entende que ambos os comandos se referem a **27/04**;
-   - encontra os ids exatos do treino das 11h e do item das 16h;
-   - apaga o treino das 11h;
-   - cria o das 11h15;
-   - apaga o das 16h;
-   - só confirma se tudo realmente tiver dado certo.
+Se nunca existiu: "Nada agendado para 27/04 às 16h."
 
 ## Fora do escopo
 
-- Sem mudar schema da tabela `reminders`.
-- Sem mudar frontend do chat.
-- Sem alterar fluxo de chips de antecedência.
+- Sem expor "lixeira" / restaurar cancelados no frontend.
+- Sem mudar fluxo de chips, dedupe ou conflito.
+- Sem mudar schema de `notifications`.
+
