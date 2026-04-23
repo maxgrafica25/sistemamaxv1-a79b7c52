@@ -1,31 +1,60 @@
 
 
-# Verificação dos 3 cenários (sem mudanças necessárias)
+# Júlia: evitar duplicatas e desambiguar comandos de remarcar/cancelar
 
-## 1. "Desmarcar o das 16h e remarcar para 17h, me avisando 15min antes" — ✅ vai funcionar
+## Causa raiz
 
-A Júlia já tem as ferramentas e regras pra isso:
-- `list_reminders` → encontra o lembrete das 16h.
-- `delete_reminder({ id })` → remove o antigo.
-- Linha 224 do prompt: *"Para 'me avise X antes de Y' dito de uma vez (...): pule a pergunta, já aplique as regras de título/descrição/remind_at acima."* Ou seja, ela cria o novo às 17h com remind_at = 16h45, title "Teste Sistema 2 às 17h", description "Aviso 15min antes".
-- Antes de criar, dispara `check_reminder_conflict` (linha 243), e como o antigo já foi removido, não vai conflitar consigo mesmo.
+1. **Duplicatas silenciosas**: a regra "antes de criar, chame `list_reminders` e cheque título parecido" (linha 209 do prompt) está sendo ignorada na prática. Resultado: hoje há 2× "Treino às 11h" e 2 lembretes às 14h no banco do usuário.
+2. **Confusão pra remarcar/cancelar**: quando o usuário diz "remarca o treino das 11" e existem 2 treinos das 11h, a Júlia devolve "qual deles?" — comportamento correto, mas só aconteceu porque a duplicata existiu.
+3. **Horário errado**: "instagram às 16h" foi salvo como 14h em UTC errado — pode ter sido o modelo confundindo o fuso ao processar múltiplos compromissos numa mesma frase.
 
-No print que você mandou, é exatamente o que ela fez ("Vou te avisar... às 16h45 sobre seu Teste Sistema 2 às 17h"). Funcionou.
+## Mudanças (apenas no system prompt)
 
-## 2. "Determinar na mensagem o tempo de antecedência (15min ou outro)" — ✅ vai funcionar automático, sem chips
+Editar `supabase/functions/assistente-virtual/index.ts`, string `camada1`:
 
-Linha 224 do prompt cobre **qualquer antecedência dita de uma vez**, não só os valores dos chips:
-- "me avise 15min antes do treino das 11h" → cria direto, sem chips.
-- "me avise 45min antes" / "2h antes" / "1 dia antes" → mesma coisa, calcula `remind_at = horário − X` e cria.
-- Para múltiplos compromissos com antecedência dita na mesma frase (linha 227): processa todos em sequência sem chips.
+### 1. Reforçar dedupe antes de `create_reminder` (substitui a linha 209 vaga)
+Nova regra explícita e obrigatória:
+- **ANTES** de toda chamada `create_reminder`, chamar `list_reminders` e procurar lembretes pendentes cujo título contém o mesmo assunto E `remind_at` está no mesmo dia.
+- Se achar match, **NÃO criar**. Listar o(s) existente(s) com horário e perguntar: "Já existe **<título>** marcado pra <dia/hora>. Quer (a) substituir, (b) manter os dois, ou (c) cancelar essa nova?"
+- Só criar duplicata se o usuário escolher explicitamente (b).
 
-Os chips só aparecem quando o usuário **não disse** a antecedência. Se você falar o tempo, ela aplica e pronto.
+### 2. Regra de fuso ao processar múltiplos compromissos
+Acrescentar à seção "MÚLTIPLOS COMPROMISSOS" uma frase explícita: "Sempre calcule `remind_at` em America/Sao_Paulo. Para cada compromisso da lista, recalcule do zero — não reaproveite o offset/horário do anterior. Confira mentalmente: se o usuário disse '16h', o ISO deve terminar em `T16:00:00-03:00` (ou `T19:00:00Z`), nunca `T14:00:00`."
 
-## 3. Chip "15 min antes" para todos os usuários — ✅ confirmado
+### 3. Comando de remarcar/cancelar com desambiguação automática
+Nova regra:
+- Quando o usuário pedir "remarca/cancela o <X> das <hora>", chamar `list_reminders`, filtrar por título contendo `<X>` E horário próximo a `<hora>` (±2h ou mesmo dia).
+- Se houver 1 match: executar direto (delete + create no caso de remarcar).
+- Se houver 2+ matches: listar com **id curto** (últimos 4 caracteres), título e horário, e perguntar qual.
+- Se 0 matches: dizer claramente "Não achei nenhum <X> por volta das <hora> nos seus pendentes."
 
-O botão está em `src/components/assistente/AssistenteMensagem.tsx` linha 97-99, dentro do bloco renderizado sempre que a Júlia emite o marcador `[JULIA_CHIPS:lead_time]`. Não há condicional por usuário, role, ou feature flag — todo usuário autenticado que abrir a Júlia vê os 5 chips na mesma ordem: **Na hora · 15 min antes · 1 hora antes · 3 horas antes · Personalizar**.
+### 4. Limpeza dos lembretes duplicados existentes do usuário
+Via migration SQL (1x), remover as duplicatas atuais que travaram a conversa do print:
+```sql
+-- Mantém o mais recente de cada par título+remind_at; deleta os antigos
+DELETE FROM public.reminders r
+USING public.reminders r2
+WHERE r.user_id = r2.user_id
+  AND r.title = r2.title
+  AND r.remind_at = r2.remind_at
+  AND r.created_at < r2.created_at
+  AND r.is_completed = false
+  AND r2.is_completed = false;
+```
 
-## Conclusão
+## Arquivos alterados
 
-Nada precisa ser alterado. Os três fluxos já estão suportados pelo prompt e pelo frontend atuais.
+- `supabase/functions/assistente-virtual/index.ts` (apenas string `camada1`, sem mexer em ferramentas/schema)
+- 1 migration SQL para limpar duplicatas existentes
+
+## Resultado esperado
+
+- "Tenho treino às 11h e instagram às 16h" → cria os dois com horários certos, sem duplicar se você pedir de novo.
+- "Remarca o treino das 11 pra 11:15" → acha o único treino das 11, deleta, cria novo às 11:15 sem perguntar "qual?".
+- "Cancela o compromisso das 14h" → se houver só um, cancela direto; se houver vários, lista pra escolher.
+
+## Fora do escopo
+
+- Sem mudanças em `reminders-api`, `gcal-sync-worker`, frontend ou schema da tabela `reminders`.
+- Sem mexer no fluxo de chips de antecedência.
 
