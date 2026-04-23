@@ -55,6 +55,19 @@ Deno.serve(async (req) => {
   const errorParam = u.searchParams.get("error");
   const appOrigin = req.headers.get("referer")?.split("/").slice(0, 3).join("/") || originFromRedirect();
 
+  // Pre-parse state (sem validar ainda) para extrair app_origin antes mesmo de validar erros do Google
+  let preOrigin = "";
+  if (state) {
+    try {
+      const [data] = state.split(".");
+      if (data) {
+        const payload = JSON.parse(atob(data));
+        if (payload?.app_origin) preOrigin = payload.app_origin;
+      }
+    } catch (_) { /* ignore */ }
+  }
+  const appOrigin = sanitizeOrigin(preOrigin);
+
   if (errorParam) {
     return redirectTo(`${appOrigin}/configuracoes?gcal=error&reason=${encodeURIComponent(errorParam)}`);
   }
