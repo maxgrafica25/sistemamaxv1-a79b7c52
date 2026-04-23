@@ -579,13 +579,13 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         function: {
           name: "check_reminder_conflict",
           description:
-            "Verifica se há lembretes pendentes do usuário próximos a um horário proposto (±window_minutes). Use SEMPRE antes de create_reminder com remind_at definido.",
+            "Verifica se há lembretes pendentes do usuário próximos ao HORÁRIO REAL DO COMPROMISSO proposto (±window_minutes, comparando com event_at). Use SEMPRE antes de create_reminder, passando o event_at do novo compromisso (ou o remind_at se for tarefa avulsa).",
           parameters: {
             type: "object",
             properties: {
               remind_at: {
                 type: "string",
-                description: "Horário proposto em ISO 8601 com offset.",
+                description: "Horário do COMPROMISSO REAL em ISO 8601 com offset (passe event_at do novo lembrete; se for tarefa avulsa, passe remind_at).",
               },
               window_minutes: {
                 type: "number",
