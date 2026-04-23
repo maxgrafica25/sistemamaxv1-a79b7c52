@@ -1,40 +1,60 @@
 
 
-# Júlia: responder "compromissos do dia X" usando `list_reminders`
+# Júlia: priorizar comando "remarcar" sobre dedupe
 
-## Problema
+## Causa raiz
 
-Usuário perguntou "Quais são meus compromissos do dia 27/04?" e a Júlia respondeu que não tem acesso por data específica. Isso é falso — ela tem a ferramenta `list_reminders()` que retorna todos os lembretes pendentes; basta filtrar pelo dia pedido na hora de formatar.
+No prompt atual (`camada1`), a regra **DEDUPE OBRIGATÓRIO** (linha 234) é descrita como obrigatória "antes de TODA chamada `create_reminder`, sem exceção". Quando o usuário diz "trocar treino das 11 para 11h15", o modelo:
 
-A regra atual no prompt só cobre "quais meus lembretes" (linha 284), e não menciona explicitamente perguntas com data ("hoje", "amanhã", "27/04", "essa semana"). O modelo interpretou isso como falta de capacidade.
+1. Identifica que vai criar um treino às 11h15
+2. Roda o dedupe → encontra o treino das 11h
+3. Pergunta a/b/c → ignora que o usuário JÁ disse "trocar" (= substituir)
+
+A regra de **REMARCAR** (linha 239) existe mas perde a disputa porque o modelo entra primeiro no fluxo de criação.
 
 ## Mudança (apenas no prompt)
 
-Editar `supabase/functions/assistente-virtual/index.ts`, string `camada1`, na seção de regras de `list_reminders`:
+Editar `supabase/functions/assistente-virtual/index.ts`, string `camada1`:
 
-Substituir a regra única atual por uma regra explícita cobrindo qualquer pergunta sobre lembretes/compromissos, com ou sem filtro de data:
+### 1. Mover REMARCAR/CANCELAR para ANTES do DEDUPE e marcar como prioritário
 
-- "Para qualquer pergunta sobre lembretes/compromissos do usuário ('quais meus lembretes', 'o que tenho hoje', 'compromissos de amanhã', 'agenda de 27/04', 'essa semana', etc.), SEMPRE chame `list_reminders()` primeiro. Nunca diga que não tem acesso — você tem."
-- "Depois de receber a lista, filtre você mesmo pelo período que o usuário pediu (interpretando 'hoje', 'amanhã', '27/04', 'segunda', etc. em America/Sao_Paulo). Formate em bullets markdown com horário em negrito, conforme o padrão da seção LAYOUT."
-- "Se a lista filtrada vier vazia, responda curto: 'Nada agendado para <período>.' Não invente compromissos."
+Reordenar para que a primeira regra após "REGRAS PARA FERRAMENTAS" seja:
 
-## Arquivos alterados
+> **PRIORIDADE MÁXIMA — INTENÇÃO DE REMARCAR/CANCELAR:** Antes de qualquer outra regra, detecte se a mensagem contém verbos de remarcar (`trocar`, `mudar`, `remarcar`, `passar de X pra Y`, `adiar`, `antecipar`, `mover`) ou cancelar (`cancela`, `desmarca`, `apaga`, `remove`). Se sim:
+> - É um comando de EDIÇÃO, não de criação. NÃO entre no fluxo de DEDUPE.
+> - Chame `list_reminders`, filtre por título + horário antigo, e execute conforme a regra abaixo.
+> - "Trocar/mudar X de H1 pra H2" = `delete_reminder` no antigo + `create_reminder` no novo, SEM perguntar a/b/c (o usuário já decidiu substituir).
 
-- `supabase/functions/assistente-virtual/index.ts` (somente texto da `camada1`)
+### 2. Tornar o DEDUPE explicitamente condicional
+
+Mudar o início da regra DEDUPE de "antes de TODA chamada create_reminder, sem exceção" para:
+
+> "DEDUPE OBRIGATÓRIO (apenas quando a intenção é CRIAR um lembrete novo — NÃO se aplica quando o usuário pediu remarcar/trocar/cancelar; nesses casos, siga a regra de PRIORIDADE MÁXIMA acima)."
+
+### 3. Reforçar processamento de múltiplos comandos numa frase
+
+Adicionar à seção MÚLTIPLOS COMPROMISSOS:
+
+> Se a mensagem mistura comandos diferentes (ex.: "trocar treino das 11 para 11h15 E cancelar o das 16"), processe cada um na ordem citada, aplicando as regras corretas: o "trocar" vai pelo fluxo REMARCAR, o "cancelar" pelo fluxo CANCELAR. Confirme tudo numa resposta só ao final.
+
+## Arquivo alterado
+
+- `supabase/functions/assistente-virtual/index.ts` (apenas string `camada1`)
 
 ## Resultado esperado
 
-"Quais são meus compromissos do dia 27/04?" → Júlia chama `list_reminders()`, filtra pelos que caem em 27/04, e responde:
+Usuário: *"Trocar treino das 11 para 11h15 e me avisa 15min antes. Cancelar o compromisso das 16."*
 
+Júlia:
 ```
-Seus compromissos de 27/04:
-- **09h00** Reunião cliente
-- **14h30** Dentista
+✅ Pronto!
+- Treino remarcado pra **11h15** (aviso às **11h**).
+- Compromisso das **16h** cancelado.
 ```
 
-Ou, se vazio: "Nada agendado para 27/04."
+Sem perguntar "a, b ou c".
 
 ## Fora do escopo
 
-- Sem mudar ferramentas, schema, frontend, ou outras regras.
+- Sem mudar ferramentas, schema, frontend ou outras regras.
 
