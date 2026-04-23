@@ -628,6 +628,9 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       } else if (method === "DELETE") {
         const id = String(args.id ?? "");
         url += `?id=${encodeURIComponent(id)}`;
+        if (args.reason) {
+          url += `&reason=${encodeURIComponent(String(args.reason))}`;
+        }
       } else if (method === "GET" && Object.keys(args).length > 0) {
         const qs = new URLSearchParams();
         for (const [k, v] of Object.entries(args)) {
