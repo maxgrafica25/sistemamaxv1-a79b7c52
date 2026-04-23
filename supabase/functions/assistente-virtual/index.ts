@@ -721,6 +721,18 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         .trim();
     }
 
+    function fmtTimeBR(iso: string): string {
+      try {
+        return new Intl.DateTimeFormat("pt-BR", {
+          timeZone: "America/Sao_Paulo",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(new Date(iso));
+      } catch {
+        return iso;
+      }
+    }
+
     async function executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
       try {
         if (name === "create_reminder") {
@@ -740,6 +752,8 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
                 `[assistente-virtual] create_reminder BLOCKED (reschedule pending delete)`,
                 JSON.stringify({ newTitle: args.title, oldTitle: pendingDeleteTitleHint }),
               );
+              const detail = `Bloqueado: criar "${args.title}" enquanto há delete pendente do antigo.`;
+              opResults.push({ tool: "create_reminder", ok: false, detail });
               return {
                 error:
                   "delete pendente — você precisa apagar o lembrete antigo (com o UUID correto da lista available_reminders) ANTES de criar o novo, senão vira duplicata. Tente delete_reminder de novo com o id certo.",
@@ -747,7 +761,63 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
               };
             }
           }
-          return await callRemindersApi("POST", args);
+
+          // Anti-duplicata GERAL: comparar com pendentes (mesmo título normalizado + event_at na mesma data ±30min)
+          // Garante lista atualizada
+          if (lastPendingList.length === 0) {
+            const listRes = await callRemindersApi("GET", {});
+            captureIdsFromListResult(listRes, true);
+          }
+          const newTitleNorm = normalize(String(args.title ?? ""));
+          const newEventIso = String(args.event_at ?? args.remind_at ?? "");
+          const newEventMs = new Date(newEventIso).getTime();
+          if (newTitleNorm && !isNaN(newEventMs)) {
+            const matches = lastPendingList.filter((r) => {
+              const tNorm = normalize(String(r.title ?? ""));
+              const evIso = String(r.event_at ?? r.remind_at ?? "");
+              const evMs = new Date(evIso).getTime();
+              if (isNaN(evMs)) return false;
+              if (tNorm !== newTitleNorm) return false;
+              return Math.abs(evMs - newEventMs) <= 30 * 60_000;
+            });
+            if (matches.length > 0) {
+              const list = matches
+                .map((m) => `"${m.title}" às ${fmtTimeBR(String(m.event_at ?? m.remind_at))} (id ${String(m.id).slice(-4)})`)
+                .join(", ");
+              console.warn(
+                `[assistente-virtual] create_reminder BLOCKED (duplicate)`,
+                JSON.stringify({ newTitle: args.title, newEventIso, matches: matches.map((m) => m.id) }),
+              );
+              opResults.push({
+                tool: "create_reminder",
+                ok: false,
+                detail: `Bloqueado duplicata de "${args.title}" às ${fmtTimeBR(newEventIso)} — já existe ${list}.`,
+              });
+              return {
+                error: `Já existe '${args.title}' em horário muito próximo: ${list}. Cancele o existente primeiro (delete_reminder) ou, se o usuário confirmar explicitamente que quer duplicar, ignore este aviso e prossiga.`,
+                duplicates: matches,
+              };
+            }
+          }
+
+          const result = await callRemindersApi("POST", args);
+          const r = result as { reminder?: { id?: string; title?: string; event_at?: string; remind_at?: string }; error?: string };
+          if (r?.reminder?.id) {
+            verifiedIds.add(r.reminder.id);
+            const ev = r.reminder.event_at ?? r.reminder.remind_at ?? newEventIso;
+            opResults.push({
+              tool: "create_reminder",
+              ok: true,
+              detail: `✅ Criado "${r.reminder.title}" às ${fmtTimeBR(String(ev))}.`,
+            });
+          } else {
+            opResults.push({
+              tool: "create_reminder",
+              ok: false,
+              detail: `❌ Falha ao criar "${args.title}": ${r?.error ?? "erro desconhecido"}.`,
+            });
+          }
+          return result;
         }
         if (name === "list_reminders") {
           const res = await callRemindersApi("GET", {});
@@ -777,8 +847,11 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
               captureIdsFromListResult(res, true);
             }
             mustRetryDelete = true;
-            // Tenta capturar uma dica do título visado a partir do hint do modelo (se vier)
-            // Como não temos title nos args do delete, mantemos o hint da última tentativa de create
+            opResults.push({
+              tool: "delete_reminder",
+              ok: false,
+              detail: `❌ Falha ao cancelar (UUID inválido ${id.slice(0, 8)}…) — não pertence à sessão atual.`,
+            });
             return {
               error:
                 "id não verificado nesta sessão. Use EXATAMENTE um id da lista available_reminders abaixo e chame delete_reminder de novo no mesmo turno.",
@@ -792,11 +865,27 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           } else if (!finalArgs.reason) {
             finalArgs.reason = "user_cancelled";
           }
+          // Captura título do alvo (para resumo)
+          const target = lastPendingList.find((r) => r.id === id);
+          const targetTitle = String(target?.title ?? "lembrete");
+          const targetEv = String(target?.event_at ?? target?.remind_at ?? "");
           const result = await callRemindersApi("DELETE", finalArgs);
           // Se delete passou, libera o create
           if ((result as { ok?: boolean })?.ok) {
             mustRetryDelete = false;
             pendingDeleteTitleHint = null;
+            const verb = finalArgs.reason === "rescheduled" ? "Remarcado" : "Cancelado";
+            opResults.push({
+              tool: "delete_reminder",
+              ok: true,
+              detail: `✅ ${verb} "${targetTitle}"${targetEv ? ` (era às ${fmtTimeBR(targetEv)})` : ""}.`,
+            });
+          } else {
+            opResults.push({
+              tool: "delete_reminder",
+              ok: false,
+              detail: `❌ Falha ao cancelar "${targetTitle}": ${(result as { error?: string })?.error ?? "erro"}.`,
+            });
           }
           return result;
         }
