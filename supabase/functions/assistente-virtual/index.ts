@@ -549,10 +549,17 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         type: "function",
         function: {
           name: "delete_reminder",
-          description: "Remove um lembrete pelo seu id (UUID).",
+          description: "Cancela um lembrete pelo seu id (UUID). Use reason='rescheduled' quando o cancelamento for parte de um remarcar (delete antigo + create novo); use 'user_cancelled' (default) para cancelamento puro.",
           parameters: {
             type: "object",
-            properties: { id: { type: "string", description: "UUID do lembrete." } },
+            properties: {
+              id: { type: "string", description: "UUID do lembrete." },
+              reason: {
+                type: "string",
+                enum: ["user_cancelled", "rescheduled"],
+                description: "Motivo do cancelamento. 'rescheduled' = parte de um remarcar (vai criar outro no lugar). 'user_cancelled' = cancelamento puro. Default: user_cancelled.",
+              },
+            },
             required: ["id"],
           },
         },
