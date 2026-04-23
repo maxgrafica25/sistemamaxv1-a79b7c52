@@ -995,7 +995,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       const maxAttempts = 3;
       let lastResp: Response | null = null;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const body: Record<string, unknown> = forceNoTools
+        const requestBody: Record<string, unknown> = forceNoTools
           ? { model: "google/gemini-2.5-flash", messages, tool_choice: "none" }
           : { model: "google/gemini-2.5-flash", messages, tools, tool_choice: "auto" };
         const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -1004,15 +1004,15 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             Authorization: `Bearer ${LOVABLE_API_KEY}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(body),
+          body: JSON.stringify(requestBody),
         });
         // Sucesso ou erro "definitivo" (não-transitório) → devolve
         if (resp.ok || (resp.status !== 503 && resp.status < 500 && resp.status !== 408)) {
           return resp;
         }
         lastResp = resp;
-        const body = await resp.clone().text().catch(() => "");
-        console.warn(`[assistente-virtual] gateway transient ${resp.status} (attempt ${attempt}/${maxAttempts}): ${body.slice(0, 200)}`);
+        const errorText = await resp.clone().text().catch(() => "");
+        console.warn(`[assistente-virtual] gateway transient ${resp.status} (attempt ${attempt}/${maxAttempts}): ${errorText.slice(0, 200)}`);
         if (attempt < maxAttempts) {
           // backoff: 600ms, 1500ms
           await new Promise((r) => setTimeout(r, attempt === 1 ? 600 : 1500));
