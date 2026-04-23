@@ -84,7 +84,7 @@ export default function AssistenteButton() {
         setMessages((prev) => [...prev, { role: "assistant", content: msg, timestamp: Date.now() }]);
       } else {
         const resposta: string = data?.resposta ?? "Sem resposta.";
-        setMessages((prev) => [...prev, { role: "assistant", content: resposta }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: resposta, timestamp: Date.now() }]);
         if (!open) setUnread((n) => n + 1);
       }
     } catch (e) {
