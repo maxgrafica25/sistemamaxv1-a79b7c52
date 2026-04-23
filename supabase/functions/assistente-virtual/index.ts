@@ -724,6 +724,10 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           } catch {
             parsedArgs = {};
           }
+          console.log(
+            `[assistente-virtual] tool ${tc.function.name} args →`,
+            JSON.stringify(parsedArgs),
+          );
           const result = await executeTool(tc.function.name, parsedArgs);
           console.log(`[assistente-virtual] tool ${tc.function.name} →`, JSON.stringify(result));
           messages.push({
