@@ -79,13 +79,13 @@ Deno.serve(async (req) => {
 
       let q = userClient
         .from("reminders")
-        .select("id,title,remind_at,recurrence,description")
+        .select("id,title,remind_at,event_at,recurrence,description")
         .eq("user_id", userId)
         .eq("is_completed", false)
         .is("cancelled_at", null)
-        .gte("remind_at", startIso)
-        .lte("remind_at", endIso)
-        .order("remind_at", { ascending: true })
+        .gte("event_at", startIso)
+        .lte("event_at", endIso)
+        .order("event_at", { ascending: true })
         .limit(20);
       if (excludeId) q = q.neq("id", excludeId);
 
