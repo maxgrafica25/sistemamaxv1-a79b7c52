@@ -18,6 +18,7 @@ const CreateSchema = z.object({
   title: z.string().min(1).max(300),
   description: z.string().max(2000).optional().nullable(),
   remind_at: z.string().datetime({ offset: true }),
+  event_at: z.string().datetime({ offset: true }).optional().nullable(),
   recurrence: z.enum(["none", "daily", "weekly", "monthly"]).optional().default("none"),
   category: z.string().max(50).optional().default("assistente"),
 });
@@ -78,13 +79,13 @@ Deno.serve(async (req) => {
 
       let q = userClient
         .from("reminders")
-        .select("id,title,remind_at,recurrence,description")
+        .select("id,title,remind_at,event_at,recurrence,description")
         .eq("user_id", userId)
         .eq("is_completed", false)
         .is("cancelled_at", null)
-        .gte("remind_at", startIso)
-        .lte("remind_at", endIso)
-        .order("remind_at", { ascending: true })
+        .gte("event_at", startIso)
+        .lte("event_at", endIso)
+        .order("event_at", { ascending: true })
         .limit(20);
       if (excludeId) q = q.neq("id", excludeId);
 
@@ -106,11 +107,25 @@ Deno.serve(async (req) => {
           400,
         );
       }
-      const { title, description, remind_at, recurrence, category } = parsed.data;
+      const { title, description, remind_at, event_at, recurrence, category } = parsed.data;
 
       const remindDate = new Date(remind_at);
       if (isNaN(remindDate.getTime()) || remindDate.getTime() <= Date.now()) {
         return jsonResponse({ error: "remind_at deve ser uma data/hora no futuro" }, 400);
+      }
+      // event_at default = remind_at; se vier, deve ser >= remind_at
+      const finalEventAt = event_at ?? remind_at;
+      if (event_at) {
+        const eventDate = new Date(event_at);
+        if (isNaN(eventDate.getTime())) {
+          return jsonResponse({ error: "event_at inválido" }, 400);
+        }
+        if (eventDate.getTime() < remindDate.getTime()) {
+          return jsonResponse(
+            { error: "event_at deve ser igual ou posterior a remind_at (avise antes do evento)." },
+            400,
+          );
+        }
       }
 
       const { data, error } = await userClient
@@ -120,6 +135,7 @@ Deno.serve(async (req) => {
           title,
           description: description ?? null,
           remind_at,
+          event_at: finalEventAt,
           recurrence: recurrence ?? "none",
           category: category ?? "assistente",
         })
@@ -143,7 +159,7 @@ Deno.serve(async (req) => {
       let q = userClient
         .from("reminders")
         .select(
-          "id,title,description,remind_at,recurrence,category,is_completed,cancelled_at,cancelled_reason,created_at",
+          "id,title,description,remind_at,event_at,recurrence,category,is_completed,cancelled_at,cancelled_reason,created_at",
         )
         .eq("user_id", userId)
         .order("remind_at", { ascending: true })

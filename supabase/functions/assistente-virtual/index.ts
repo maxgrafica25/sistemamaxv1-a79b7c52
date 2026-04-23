@@ -195,11 +195,11 @@ PADRÕES DE RESPOSTA (siga literalmente):
   ⚠️ Já tem **<título>** marcado pra **<dia> às <hora>**.
 
   Quer (a) substituir, (b) manter os dois ou (c) cancelar?
-- Listagem de lembretes (list_reminders): bullets em markdown, horário em negrito.
+- Listagem de lembretes (list_reminders): bullets em markdown, horário em negrito. SEMPRE use event_at (horário real do compromisso) — se event_at for null, use remind_at. NUNCA repita o horário no título (não escreva "Treino às 11h" se o bullet já mostra **11h**). Se o aviso (remind_at) for diferente do compromisso (event_at), adicione discreto entre parênteses no fim.
   Exemplo:
   Seus pendentes:
-  - **10h45** — Treino das 11h
-  - **16h** — Instagram
+  - **11h00** — Treino (aviso 10h45)
+  - **16h00** — Instagram
 
 Use SOMENTE as seções "BASE DE CONHECIMENTO" e "DADOS OPERACIONAIS" como fonte de verdade. Valores em R$ com vírgula decimal. Respostas de PREÇO mantêm tom técnico, sem emoji.
 
@@ -221,14 +221,15 @@ Agora é ${nowSP} (timezone America/Sao_Paulo, equivalente UTC ${nowIsoUtc}).
 Use esta referência para converter expressões relativas como "amanhã", "sexta", "daqui a 2 horas" em data/hora absoluta antes de chamar ferramentas. Sempre converta para ISO 8601 com offset (ex.: "2026-04-23T17:00:00-03:00").
 
 FERRAMENTAS DISPONÍVEIS (lembretes):
-- create_reminder({ title, remind_at, description?, recurrence? }): cria um lembrete pessoal do usuário.
-  • title: descrição curta (ex.: "Dentista").
-  • remind_at: ISO 8601 com offset; deve ser futuro.
+- create_reminder({ title, remind_at, event_at?, description?, recurrence? }): cria um lembrete pessoal do usuário.
+  • title: descrição curta SEM o horário (ex.: "Dentista", NUNCA "Dentista às 14h").
+  • remind_at: ISO 8601 com offset; QUANDO DISPARAR O AVISO; deve ser futuro.
+  • event_at: ISO 8601 com offset; horário REAL do compromisso. OBRIGATÓRIO sempre que houver aviso antecipado (remind_at < event_at). OMITIR para tarefas avulsas ("tomar água às 16h" → só remind_at).
   • recurrence: "none" | "daily" | "weekly" | "monthly" (padrão "none").
-- list_reminders(): lista lembretes pendentes do usuário.
+- list_reminders(): lista lembretes pendentes do usuário (cada item traz remind_at e event_at).
 - list_cancelled_reminders({ from, to }): lista lembretes JÁ CANCELADOS do usuário numa janela ISO 8601. Use APENAS quando o usuário perguntar "eu tinha algo?" / "tinha compromisso?" e list_reminders não trouxer nada no horário.
 - delete_reminder({ id }): cancela lembrete pelo id (use list_reminders antes para descobrir o id).
-- check_reminder_conflict({ remind_at, window_minutes?, exclude_id? }): verifica se há lembretes pendentes em ±window_minutes do horário proposto. Padrão window_minutes=15. Retorna { conflicts: [...] }.
+- check_reminder_conflict({ remind_at, window_minutes?, exclude_id? }): verifica conflito comparando event_at dos pendentes contra o valor passado em remind_at (que aqui representa o HORÁRIO DO COMPROMISSO REAL — passe o event_at do novo lembrete; se for tarefa avulsa, passe o remind_at). Padrão window_minutes=15. Retorna { conflicts: [...] }.
 
 REGRAS PARA FERRAMENTAS:
 - Se o usuário pedir para "me lembrar de", "agendar", "anotar compromisso", chame create_reminder.
@@ -236,11 +237,11 @@ REGRAS PARA FERRAMENTAS:
     • É um comando de EDIÇÃO, não de criação. NÃO entre no fluxo de DEDUPE — o usuário JÁ decidiu substituir, não pergunte (a)/(b)/(c).
     • Chame list_reminders, filtre por título contendo o assunto E remind_at no mesmo dia (±2h do horário antigo quando citado) e execute conforme a regra COMANDO DE REMARCAR/CANCELAR abaixo.
     • "Trocar/mudar X de H1 pra H2" = delete_reminder no antigo + create_reminder no novo, direto, sem confirmar substituição.
-- DEDUPE OBRIGATÓRIO (apenas quando a intenção é CRIAR um lembrete novo — NÃO se aplica quando o usuário pediu remarcar/trocar/cancelar; nesses casos siga a PRIORIDADE MÁXIMA acima): chame list_reminders e procure lembretes pendentes cujo título contenha o MESMO assunto (ex.: "treino", "instagram", "dentista") E cujo remind_at esteja no MESMO DIA (em America/Sao_Paulo) do que você está prestes a criar. Se achar 1+ match:
+- DEDUPE OBRIGATÓRIO (apenas quando a intenção é CRIAR um lembrete novo — NÃO se aplica quando o usuário pediu remarcar/trocar/cancelar; nesses casos siga a PRIORIDADE MÁXIMA acima): chame list_reminders e procure lembretes pendentes cujo título contenha o MESMO assunto (ex.: "treino", "instagram", "dentista") E cujo event_at (ou remind_at se event_at for null) esteja no MESMO DIA (em America/Sao_Paulo) do que você está prestes a criar. Se achar 1+ match:
     • NÃO chame create_reminder.
-    • Liste o(s) existente(s) com título e horário em pt-BR e pergunte LITERALMENTE: "Já existe **<título do existente>** marcado pra <dia> às <hora>. Quer (a) substituir, (b) manter os dois, ou (c) cancelar essa nova?"
+    • Liste o(s) existente(s) com título e horário REAL (event_at) em pt-BR e pergunte LITERALMENTE: "Já existe **<título do existente>** marcado pra <dia> às <hora>. Quer (a) substituir, (b) manter os dois, ou (c) cancelar essa nova?"
     • Só crie a duplicata se o usuário responder explicitamente (b)/"manter os dois"/"pode duplicar". Se escolher (a), chame delete_reminder no antigo e depois create_reminder no novo. Se (c), não faça nada.
-    • Esta checagem é SEPARADA e ADICIONAL ao check_reminder_conflict (que olha janela de ±15min, não mesmo assunto). Faça AMBAS.
+    • Esta checagem é SEPARADA e ADICIONAL ao check_reminder_conflict (que olha janela de ±15min sobre event_at). Faça AMBAS.
 - COMANDO DE REMARCAR/CANCELAR ("remarca o X das H", "cancela o X das H", "muda o X de H1 pra H2", "trocar X de H1 pra H2"): SEMPRE chame list_reminders PRIMEIRO (na MESMA iteração) e selecione o alvo aplicando, NESTA ORDEM, os filtros:
     1. dia em contexto (ver "CONTEXTO HERDADO DA LISTA ANTERIOR" abaixo) — descarte tudo que não cair no dia certo.
     2. horário citado (±2h) quando o usuário citou hora.
@@ -266,12 +267,12 @@ REGRAS PARA FERRAMENTAS:
       ❌ ERRADO (quebra a interface — NUNCA faça assim): responder só "Quando", "Quando?", "Quando você quer?", "Me diga quando", ou mesmo "Quando quer ser avisado?" sem o marcador na linha de baixo.
       O frontend usa o marcador para mostrar botões (Na hora / 1 hora antes / 3 horas antes / Personalizar). Sem o marcador em linha separada, os botões não aparecem e o usuário fica travado. Espere a resposta do usuário.
     • Quando o usuário responder a antecedência (ex.: "1 hora antes", "na hora", "45min", "2h"), aplique:
-        - "na hora" / "no horário": remind_at = horário do compromisso, title = só o assunto (ex.: "Dentista").
-        - "X antes": remind_at = horário do compromisso − X; title DEVE incluir o horário real (ex.: "Dentista às 14h"); description DEVE registrar o contexto (ex.: "Aviso 1h antes do compromisso das 14h.").
+        - "na hora" / "no horário": remind_at = event_at = horário do compromisso, title = só o assunto (ex.: "Dentista").
+        - "X antes": event_at = horário do compromisso; remind_at = event_at − X; title = SÓ o assunto (ex.: "Dentista", NUNCA "Dentista às 14h" — o horário sai de event_at). description opcional pode registrar contexto.
     • Confirme mencionando AMBOS os horários quando houver antecedência: "Pronto! Vou te avisar amanhã às 13h sobre seu dentista das 14h."
-- Para "me avise X antes de Y" dito de uma vez (ex.: "me avise 2h antes do dentista das 14h"): pule a pergunta, já aplique as regras de título/descrição/remind_at acima.
+- Para "me avise X antes de Y" dito de uma vez (ex.: "me avise 2h antes do dentista das 14h"): pule a pergunta, já aplique as regras de event_at/remind_at/título acima.
 - MÚLTIPLOS COMPROMISSOS NA MESMA MENSAGEM (obrigatório):
-    • COMANDOS MISTOS (criar + remarcar + cancelar numa só frase, ex.: "trocar treino das 11 para 11h15 E cancelar o das 16"): processe cada comando na ordem citada, aplicando a regra correspondente — "trocar/mudar/remarcar" segue PRIORIDADE MÁXIMA (delete+create direto, sem (a)/(b)/(c)); "cancelar" segue PRIORIDADE MÁXIMA (delete direto); "criar/me avisa" segue o fluxo normal com DEDUPE. Ao final, confirme TUDO numa única resposta consolidada.
+    • COMANDOS MISTOS — REGRA DE INDEPENDÊNCIA (criar + remarcar + cancelar numa só frase, ex.: "trocar treino das 11 para 11h15 E cancelar o das 16"): cada subcomando é avaliado ISOLADAMENTE. Um conflito/dedupe num subcomando NUNCA bloqueia os outros. Processe na ordem citada — "trocar/mudar/remarcar" segue PRIORIDADE MÁXIMA (delete+create direto, sem (a)/(b)/(c)); "cancelar" segue PRIORIDADE MÁXIMA (delete direto); "criar/me avisa" segue o fluxo normal com DEDUPE+conflito. Execute TODOS os deletes/creates possíveis no mesmo turno e só pergunte ao usuário sobre o subcomando específico que travou. Ao final, confirme TUDO numa única resposta consolidada listando o que foi feito e o que ficou pendente.
     • SEMPRE comece identificando TODOS os compromissos com horário marcado citados pelo usuário (ligados por "e", vírgula, "também", "depois", "ainda"). Ex.: "treino na segunda às 11h e instagram às 16h" = 2 compromissos.
     • FUSO HORÁRIO — REGRA CRÍTICA: sempre calcule remind_at em America/Sao_Paulo (UTC−3, sem horário de verão). Para CADA compromisso da lista, recalcule do zero — NÃO reaproveite o offset/horário do anterior. Confira mentalmente antes de chamar a ferramenta: se o usuário disse "16h", o ISO DEVE terminar em "T16:00:00-03:00" (equivalente a "T19:00:00Z"), NUNCA "T14:00:00-03:00" ou "T16:00:00Z". Errar o fuso ao processar múltiplos compromissos é o defeito mais grave possível neste fluxo.
     • Se o usuário JÁ disse a antecedência de cada um na mesma frase (ex.: "me avise 30min antes do treino das 11h e na hora do instagram das 16h"): processe TODOS de uma vez — para cada compromisso, faça check_reminder_conflict + create_reminder em sequência. Ao final, confirme listando os 2+ avisos criados em uma única resposta. NÃO emita chips.
@@ -289,12 +290,12 @@ REGRAS PARA FERRAMENTAS:
           Aguarde a decisão do usuário. Quando o horário definitivo do próximo for decidido (mantido ou trocado), aí sim pergunte a antecedência com [JULIA_CHIPS:lead_time] (sem precisar refazer check_reminder_conflict se o usuário confirmou "mesmo assim"; refaça se ele deu outro horário).
       Repita esse padrão (checar conflito → chips ou aviso de conflito) a cada turno até a fila esvaziar. Quando o último for criado, faça uma confirmação final consolidada (sem chips, sem "Falta combinar...").
     • IMPORTANTE — memória da fila: como você não tem estado entre turnos, a única forma de "lembrar" dos compromissos pendentes é mantendo o nome+horário deles VISÍVEIS no texto da sua resposta (na Linha C acima, seja na versão "Falta combinar..." ou na versão de aviso de conflito). Nunca esconda os pendentes. Se no turno seguinte o usuário só responder a antecedência ou um novo horário, releia SUA mensagem anterior no histórico para identificar qual compromisso da fila está sendo respondido.
-- TAREFA AVULSA sem compromisso marcado ("me lembra de tomar água às 16h", "me lembra de comprar leite amanhã"): crie direto, remind_at = horário pedido, sem perguntar antecedência, sem mostrar chips.
-- DETECÇÃO DE CONFLITO (obrigatório): IMEDIATAMENTE antes de chamar create_reminder com um remind_at já calculado, chame check_reminder_conflict com esse mesmo remind_at e window_minutes=15.
+- TAREFA AVULSA sem compromisso marcado ("me lembra de tomar água às 16h", "me lembra de comprar leite amanhã"): crie direto, remind_at = horário pedido, NÃO mande event_at, sem perguntar antecedência, sem mostrar chips.
+- DETECÇÃO DE CONFLITO (obrigatório): IMEDIATAMENTE antes de chamar create_reminder, chame check_reminder_conflict passando no campo remind_at o HORÁRIO REAL DO COMPROMISSO que você vai criar (ou seja: o event_at se houver aviso antecipado; o próprio remind_at se for tarefa avulsa). Use window_minutes=15.
     • Se conflicts vier vazio: prossiga e chame create_reminder normalmente.
     • Se conflicts tiver itens: NÃO chame create_reminder ainda. Liste o(s) conflito(s) com título e horário em pt-BR e pergunte: "Quer marcar mesmo assim ou prefere outro horário?". Aguarde resposta.
-        - Se o usuário confirmar (ex.: "pode marcar", "sim", "mesmo assim"): chame create_reminder com o remind_at original (sem checar conflito de novo).
-        - Se pedir outro horário: peça/calcule o novo remind_at e refaça check_reminder_conflict antes de criar.
+        - Se o usuário confirmar (ex.: "pode marcar", "sim", "mesmo assim"): chame create_reminder com os mesmos remind_at/event_at originais (sem checar conflito de novo).
+        - Se pedir outro horário: peça/calcule o novo event_at (e recalcule remind_at se houver antecedência) e refaça check_reminder_conflict antes de criar.
 - Após executar, confirme em pt-BR repetindo título + data/hora amigável.
 - Para excluir, se houver mais de um lembrete que casa, peça confirmação listando os candidatos com horário e descrição. Se o usuário pedir "apaga todos os X", liste e remova um a um chamando delete_reminder em sequência.
 - CONSULTA DE LEMBRETES/COMPROMISSOS (com ou sem filtro de data): para QUALQUER pergunta tipo "quais meus lembretes", "o que tenho hoje", "compromissos de amanhã", "minha agenda de 27/04", "o que tem na sexta", "essa semana", etc., SEMPRE chame list_reminders() primeiro. NUNCA diga que não tem acesso ou que não consegue filtrar por data — você tem e consegue.
@@ -512,10 +513,14 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           parameters: {
             type: "object",
             properties: {
-              title: { type: "string", description: "Descrição curta do lembrete." },
+              title: { type: "string", description: "Descrição curta do lembrete (ex.: 'Dentista', SEM o horário no nome)." },
               remind_at: {
                 type: "string",
-                description: "Data/hora ISO 8601 com offset (ex.: 2026-04-23T17:00:00-03:00). Deve ser futuro.",
+                description: "Data/hora ISO 8601 com offset de QUANDO DISPARAR O AVISO (ex.: 2026-04-23T13:00:00-03:00). Deve ser futuro.",
+              },
+              event_at: {
+                type: "string",
+                description: "Data/hora ISO 8601 com offset do HORÁRIO REAL DO COMPROMISSO (ex.: 2026-04-23T14:00:00-03:00). OBRIGATÓRIO quando há aviso antecipado (remind_at < event_at). OMITIR para tarefas avulsas (ex.: 'tomar água às 16h'). Deve ser >= remind_at.",
               },
               description: { type: "string", description: "Detalhe opcional." },
               recurrence: {
@@ -575,13 +580,13 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         function: {
           name: "check_reminder_conflict",
           description:
-            "Verifica se há lembretes pendentes do usuário próximos a um horário proposto (±window_minutes). Use SEMPRE antes de create_reminder com remind_at definido.",
+            "Verifica se há lembretes pendentes do usuário próximos ao HORÁRIO REAL DO COMPROMISSO proposto (±window_minutes, comparando com event_at). Use SEMPRE antes de create_reminder, passando o event_at do novo compromisso (ou o remind_at se for tarefa avulsa).",
           parameters: {
             type: "object",
             properties: {
               remind_at: {
                 type: "string",
-                description: "Horário proposto em ISO 8601 com offset.",
+                description: "Horário do COMPROMISSO REAL em ISO 8601 com offset (passe event_at do novo lembrete; se for tarefa avulsa, passe remind_at).",
               },
               window_minutes: {
                 type: "number",

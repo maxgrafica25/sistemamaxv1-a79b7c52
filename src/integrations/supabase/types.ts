@@ -1658,6 +1658,7 @@ export type Database = {
           category: string
           created_at: string
           description: string | null
+          event_at: string | null
           gcal_synced_at: string | null
           google_event_id: string | null
           id: string
@@ -1675,6 +1676,7 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
+          event_at?: string | null
           gcal_synced_at?: string | null
           google_event_id?: string | null
           id?: string
@@ -1692,6 +1694,7 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
+          event_at?: string | null
           gcal_synced_at?: string | null
           google_event_id?: string | null
           id?: string
