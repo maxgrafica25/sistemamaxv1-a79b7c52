@@ -1,36 +1,31 @@
 
 
-# Júlia: checar conflito também para o 2º+ compromisso da fila
+# Verificação dos 3 cenários (sem mudanças necessárias)
 
-## Problema
+## 1. "Desmarcar o das 16h e remarcar para 17h, me avisando 15min antes" — ✅ vai funcionar
 
-Hoje a Júlia, ao processar o 1º compromisso da fila, faz `check_reminder_conflict` antes de criar e avisa o usuário se houver conflito (ex.: "treino às 11h" → conflitou → trocou pra 12h). Mas ao avançar para o 2º compromisso da fila ("instagram às 16h"), ela pula direto para "Quando quer ser avisado?" + chips, sem nunca rodar `check_reminder_conflict` para esse horário. Resultado: se houver conflito no 16h, o usuário só vai descobrir depois que o lembrete for criado.
+A Júlia já tem as ferramentas e regras pra isso:
+- `list_reminders` → encontra o lembrete das 16h.
+- `delete_reminder({ id })` → remove o antigo.
+- Linha 224 do prompt: *"Para 'me avise X antes de Y' dito de uma vez (...): pule a pergunta, já aplique as regras de título/descrição/remind_at acima."* Ou seja, ela cria o novo às 17h com remind_at = 16h45, title "Teste Sistema 2 às 17h", description "Aviso 15min antes".
+- Antes de criar, dispara `check_reminder_conflict` (linha 243), e como o antigo já foi removido, não vai conflitar consigo mesmo.
 
-A regra de detecção de conflito (linha 237 do prompt) só dispara "imediatamente antes de `create_reminder`". Como, para o 2º item, primeiro a Júlia pergunta a antecedência (e só depois chama `create_reminder`), o aviso de conflito acaba acontecendo num momento ruim — ou nem aparece, dependendo do raciocínio do modelo.
+No print que você mandou, é exatamente o que ela fez ("Vou te avisar... às 16h45 sobre seu Teste Sistema 2 às 17h"). Funcionou.
 
-## Mudança
+## 2. "Determinar na mensagem o tempo de antecedência (15min ou outro)" — ✅ vai funcionar automático, sem chips
 
-Editar **somente o system prompt** (`camada1`) em `supabase/functions/assistente-virtual/index.ts`, na seção "MÚLTIPLOS COMPROMISSOS NA MESMA MENSAGEM", para adicionar uma regra explícita:
+Linha 224 do prompt cobre **qualquer antecedência dita de uma vez**, não só os valores dos chips:
+- "me avise 15min antes do treino das 11h" → cria direto, sem chips.
+- "me avise 45min antes" / "2h antes" / "1 dia antes" → mesma coisa, calcula `remind_at = horário − X` e cria.
+- Para múltiplos compromissos com antecedência dita na mesma frase (linha 227): processa todos em sequência sem chips.
 
-**Antes de pedir a antecedência do PRÓXIMO compromisso da fila** (Linha C/D atuais), a Júlia DEVE primeiro chamar `check_reminder_conflict` para o horário desse compromisso (window_minutes=15).
+Os chips só aparecem quando o usuário **não disse** a antecedência. Se você falar o tempo, ela aplica e pronto.
 
-- Se houver conflito: a resposta naquele turno NÃO mostra os chips. Em vez disso, ela lista o conflito do 2º compromisso e pergunta "Quer marcar mesmo assim ou prefere outro horário?". A Linha A (confirmação do anterior) continua presente. O nome+horário do compromisso pendente continua visível na resposta para preservar a memória da fila. Os chips só aparecem depois que o horário definitivo do 2º compromisso estiver decidido.
-- Se não houver conflito: segue o fluxo atual (Linha A + Linha C "Falta combinar..." + Linha D `[JULIA_CHIPS:lead_time]`).
+## 3. Chip "15 min antes" para todos os usuários — ✅ confirmado
 
-A mesma regra vale para o 3º, 4º compromisso, etc. — sempre que a fila avançar para um próximo item, checar conflito **antes** de perguntar a antecedência.
+O botão está em `src/components/assistente/AssistenteMensagem.tsx` linha 97-99, dentro do bloco renderizado sempre que a Júlia emite o marcador `[JULIA_CHIPS:lead_time]`. Não há condicional por usuário, role, ou feature flag — todo usuário autenticado que abrir a Júlia vê os 5 chips na mesma ordem: **Na hora · 15 min antes · 1 hora antes · 3 horas antes · Personalizar**.
 
-## Arquivo alterado
+## Conclusão
 
-- `supabase/functions/assistente-virtual/index.ts` — apenas a string `camada1`, dentro do bloco "MÚLTIPLOS COMPROMISSOS NA MESMA MENSAGEM" (linhas ~225-235).
-
-## Resultado esperado
-
-Cenário do print: "Tenho treino na segunda às 11h e instagram às 16"
-- Trata treino: conflito → resolve para 12h → cria.
-- **Antes de perguntar antecedência do instagram às 16h**, roda `check_reminder_conflict` para 16h. Se conflitar, avisa o usuário e espera ele decidir o horário antes de mostrar os chips. Se não conflitar, mostra os chips normalmente.
-
-## Fora do escopo
-
-- Sem mudanças em ferramentas, schema, `reminders-api`, ou frontend.
-- Sem mudança no fluxo de Google Calendar.
+Nada precisa ser alterado. Os três fluxos já estão suportados pelo prompt e pelo frontend atuais.
 
