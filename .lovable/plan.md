@@ -1,98 +1,129 @@
 
-# Júlia: herdar a data da lista anterior no servidor e nunca mostrar lembretes fora desse escopo
+# O que ela não conseguiu fazer
 
-## Diagnóstico
+Ela não conseguiu transformar a sua frase:
 
-O problema continua porque o filtro por data ainda depende demais do modelo no segundo turno.
+- “alterar 13h para 13h30”
+- “cancelar 14h”
 
-No fluxo atual:
-1. Na pergunta inicial (“o que tenho dia 27?”), a tool pode trazer a lista filtrada e a resposta sai correta.
-2. No turno seguinte (“altera o treino de 13 para 11h e cancela o das 14h”), começa uma nova execução da função.
-3. Nessa nova execução, `lastDateFilter` nasce `null`.
-4. Se o modelo chamar `list_reminders()` sem `from_date/to_date`, o servidor recarrega todos os pendentes.
-5. Quando o delete falha por `uuid_not_in_session`, o fallback usa `lastPendingList` já contaminada com a lista global, então aparecem horários de outros dias.
+nos **UUIDs exatos** dos lembretes da lista de 27/04.
 
-Ou seja: o bug real não é só “filtro não aplicado”; é que o **contexto do dia 27 não é reconstruído no servidor no turno seguinte**.
+## O que aconteceu de verdade
 
-## O que vou ajustar
+Pelos logs, a Júlia tentou chamar:
 
-### 1. Inferir o “dia em contexto” a partir do histórico antes de qualquer tool
-No início de `supabase/functions/assistente-virtual/index.ts`, vou extrair do `historico` a última data explícita da listagem anterior da Júlia, por exemplos como:
-- `Seus pendentes para 27/04:`
-- `Aqui estão os pendentes do dia 27/04:`
+```text
+delete_reminder { id: "4e8a4a2b-de94-436f-80d5-171b3e1b7829", reason: "rescheduled" }
+```
 
-Essa data vira um `inheritedDateFilter` no formato `YYYY-MM-DD`.
+e o servidor recusou com:
 
-Regra:
-- se o usuário atual **não citar nova data**, e a mensagem parecer continuação de edição/cancelamento/remarcação (“o de 13”, “cancela o das 14h”, “troca o treino”), o servidor assume o mesmo dia da última lista;
-- se o usuário citar nova data explicitamente, a nova data prevalece.
+```text
+uuid_not_in_session
+```
 
-### 2. Aplicar esse filtro herdado automaticamente em `list_reminders`
-Na execução de `list_reminders`:
-- se vier `from_date/to_date`, usa o que a tool mandou;
-- se não vierem, mas existir `inheritedDateFilter` e a sessão for de edição/cancelamento, o servidor injeta esse filtro automaticamente;
-- `lastDateFilter` passa a ser preenchido também por esse caminho herdado, não só quando o modelo manda os parâmetros.
+Ou seja:
+- ela **não escolheu o id certo** da lista atual;
+- usou um UUID que **não estava entre os lembretes válidos daquela consulta**;
+- por segurança, o servidor bloqueou a exclusão.
 
-Assim, mesmo se o modelo esquecer de reenviar a data, o servidor mantém a consulta presa ao dia certo.
+## Em termos simples
 
-### 3. Filtrar `available_reminders` do guard por data antes de devolver erro
-Hoje, no `delete_reminder`, quando o UUID não foi verificado:
-- ele devolve `available_reminders: lastPendingList` crua.
+Ela entendeu a intenção geral:
+- trocar o compromisso das 13h
+- cancelar o das 14h
 
-Vou mudar para:
-- montar uma lista filtrada por `lastDateFilter` / `inheritedDateFilter` antes de retornar `uuid_not_in_session`;
-- isso garante que o retry do modelo já receba apenas os lembretes do dia correto.
+Mas **não conseguiu casar isso automaticamente com os dois registros exatos** que vieram na listagem.
 
-Resultado: a própria resposta de erro intermediária deixa de poluir o modelo com lembretes de outros dias.
+Hoje o fluxo funciona assim:
+1. a lista mostra os lembretes corretos;
+2. o modelo precisa escolher, sozinho, qual item da lista corresponde a “13h” e “14h”;
+3. se ele errar o UUID, o servidor barra.
 
-### 4. Corrigir o fallback final para sempre re-filtrar, mesmo se `lastPendingList` já estiver preenchida
-Hoje o bloco final de override só re-filtra se `lastPendingList.length === 0`.
+Então o que falhou não foi “entender português” no sentido amplo — foi a etapa de **resolver a referência textual para o identificador exato**.
 
-Vou ajustar para:
-- sempre aplicar uma função única de filtro por data ao `lastPendingList` antes de montar a mensagem final;
-- se necessário, refazer o GET, mas sem depender de a lista estar vazia.
+## Por que ela respondeu “não consegui identificar exatamente quais lembretes alterar”
 
-Isso corrige exatamente o caso do screenshot: lista já preenchida, porém com escopo errado.
+Porque esse é justamente o fallback do servidor quando:
+- houve tentativa de `delete_reminder`,
+- o id usado não era válido para a sessão atual,
+- e nenhum delete chegou a ser concluído com sucesso.
 
-### 5. Centralizar a lógica de filtro em helper único
-Para evitar divergência, vou criar helpers internos como:
-- `extractDateContextFromHistory(...)`
-- `applyDateFilterToReminderList(...)`
-- `resolveActiveDateFilter(...)`
+Nesse caso, o backend monta a resposta:
+- “Não consegui identificar exatamente quais lembretes alterar”
+- e reapresenta os candidatos do dia em contexto.
 
-Esses helpers serão usados em:
-- `list_reminders`
-- retorno de `uuid_not_in_session`
-- fallback final “não consegui identificar exatamente quais lembretes alterar”
+## O problema que ainda sobra
 
-Assim o mesmo critério vale em todos os pontos.
+O filtro por data agora está melhor: ela já restringiu a resposta para 27/04.
 
-### 6. Reforçar o prompt, mas sem depender dele
-Vou manter o prompt instruindo a usar a data da lista anterior, mas o comportamento correto ficará garantido no servidor.
+Mas ainda falta a parte mais importante:
+- o servidor **não resolve por conta própria** “13h” → lembrete A
+- e “14h” → lembrete B
 
-Objetivo:
-- o prompt ajuda;
-- o servidor assegura.
+Ele ainda depende do modelo fazer esse casamento corretamente.
 
-## Arquivo a alterar
+## Próximo ajuste recomendado
+
+## 1. Resolver o alvo no servidor, não no modelo
+Criar uma resolução determinística para comandos como:
+- “cancelar 14h”
+- “alterar 13h para 13h30”
+- “trocar o treino das 13”
+
+O servidor deve:
+- pegar a lista já filtrada do dia em contexto;
+- localizar por horário (`event_at`) e, se houver, por título;
+- se houver 1 match exato, usar esse UUID automaticamente;
+- só pedir esclarecimento se houver 2+ matches reais.
+
+## 2. Separar subcomandos mistos no backend
+Para frases como:
+- “alterar 13h para 13h30 e cancelar 14h”
+
+o servidor deve quebrar em duas ações independentes:
+- ação A: remarcar 13h → 13h30
+- ação B: cancelar 14h
+
+Cada uma resolve seu próprio alvo na lista filtrada.
+
+## 3. Parar de depender do retry do modelo após `uuid_not_in_session`
+Hoje, quando o guard rejeita o UUID:
+- o servidor devolve `available_reminders`
+- e espera que o modelo tente de novo com o id certo
+
+Esse retry ainda é frágil.
+
+Melhor caminho:
+- quando houver horário claro na frase original,
+- o próprio servidor refaz o match com `available_reminders`
+- e executa o delete correto sem depender de nova escolha do modelo.
+
+## Arquivo a ajustar
 
 - `supabase/functions/assistente-virtual/index.ts`
 
 ## Resultado esperado
 
-Para este fluxo:
-1. “olha pra mim o que tenho dia 27”
-2. Júlia lista só os itens de 27/04
-3. “Altera o treino de 13 para 11h e cancela o das 14h”
+No mesmo fluxo:
+1. “o que tenho dia 27?”
+2. lista com 13h, 13h15, 14h, 17h
+3. “alterar 13h para 13h30 e cancelar 14h”
 
-Com a correção:
-- a busca de candidatos fica presa ao dia 27;
-- se ela não localizar com segurança, o fallback mostra **somente** os lembretes de 27/04;
-- nunca mais aparecem itens de 24, 25, 28 etc. nesse contexto.
+o servidor deve:
+- mapear 13h para o lembrete certo;
+- mapear 14h para o lembrete certo;
+- cancelar/remarcar sem pedir para você copiar a lista;
+- só perguntar algo se realmente houver ambiguidade.
 
-## Fora do escopo
+## Detalhe técnico
 
-- Sem mudança de schema
-- Sem migration
-- Sem mexer no frontend
-- Sem trocar modelo
+Hoje existe proteção boa contra exclusão errada:
+- `delete_reminder` só aceita ids vistos na sessão;
+- se vier id fora da sessão, retorna `uuid_not_in_session`.
+
+O que falta é um resolvedor server-side entre:
+- linguagem natural do usuário
+- lista filtrada de lembretes já carregada
+
+Sem isso, a segurança está correta, mas a automação ainda falha.
