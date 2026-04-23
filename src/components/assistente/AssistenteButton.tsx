@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AssistenteMensagem } from "./AssistenteMensagem";
 import { cn } from "@/lib/utils";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant"; content: string; timestamp: number };
 
 const HIDDEN_ROUTES = ["/auth", "/reset-password"];
 
@@ -44,7 +44,7 @@ export default function AssistenteButton() {
   async function enviar(override?: string) {
     const pergunta = (override ?? input).trim();
     if (!pergunta || loading) return;
-    const novaUser: Msg = { role: "user", content: pergunta };
+    const novaUser: Msg = { role: "user", content: pergunta, timestamp: Date.now() };
     const historico = messages.slice(-10);
     setMessages((prev) => [...prev, novaUser]);
     setInput("");
@@ -81,10 +81,10 @@ export default function AssistenteButton() {
         } else {
           toast({ title: "Erro na Júlia", description: msg, variant: "destructive" });
         }
-        setMessages((prev) => [...prev, { role: "assistant", content: msg }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: msg, timestamp: Date.now() }]);
       } else {
         const resposta: string = data?.resposta ?? "Sem resposta.";
-        setMessages((prev) => [...prev, { role: "assistant", content: resposta }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: resposta, timestamp: Date.now() }]);
         if (!open) setUnread((n) => n + 1);
       }
     } catch (e) {
@@ -171,6 +171,7 @@ export default function AssistenteButton() {
                     content={m.content}
                     chipsEnabled={isLastAssistant}
                     onChipClick={(text) => enviar(text)}
+                    timestamp={m.timestamp}
                   />
                 );
               })}
