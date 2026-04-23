@@ -1021,7 +1021,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       return lastResp!;
     }
 
-    for (let iter = 0; iter < 3; iter++) {
+    for (let iter = 0; iter < 6; iter++) {
       const aiResp = await callGateway();
 
       if (aiResp.status === 429) {
