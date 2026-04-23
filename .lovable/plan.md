@@ -1,49 +1,87 @@
 
+# Corrigir conexão do Google Calendar no preview e no app publicado
 
-# Corrigir redirect URI do Google OAuth (Júlia → Calendar)
+## Diagnóstico confirmado
 
-## Diagnóstico
+O `google-oauth-init` já está retornando a URL correta do Google com o callback correto:
 
-O fluxo de "Conectar Google Calendar" está terminando em **403 do Google em `lovable.dev/projects/...`** porque o secret `GOOGLE_OAUTH_REDIRECT_URI` (e/ou o cadastro no Google Cloud Console) está apontando pra URL errada — não pra edge function `google-oauth-callback`.
-
-## Correção em 2 lugares
-
-### 1. Atualizar o secret `GOOGLE_OAUTH_REDIRECT_URI` no projeto
-
-Trocar o valor atual pelo URL público da edge function de callback:
-
-```
+```text
 https://nxkmxslugblhsyohrrvm.supabase.co/functions/v1/google-oauth-callback
 ```
 
-Faço isso via `update_secret` (precisa de aprovação sua).
+Então o problema principal não é mais o secret do redirect URI.
 
-### 2. Registrar o mesmo URL no Google Cloud Console
+O erro atual acontece porque o botão **Conectar Google Calendar** usa:
 
-Você (manualmente) precisa abrir o OAuth Client correspondente ao `GOOGLE_OAUTH_CLIENT_ID` em **Google Cloud Console → APIs & Services → Credentials**, editar o client OAuth 2.0 e adicionar em **Authorized redirect URIs**:
-
+```ts
+window.location.href = data.url
 ```
+
+Dentro do editor da Lovable isso navega o **iframe do preview**, não a janela principal. O OAuth do Google não se comporta bem nesse contexto embutido, por isso você continua caindo nessa tela 403.
+
+Além disso, o callback hoje decide para onde voltar usando `referer` ou um fallback hardcoded para a URL de preview, o que é frágil e pode quebrar entre preview/publicado.
+
+## O que vou ajustar
+
+### 1. Fazer o OAuth sair do iframe
+No `src/components/configuracoes/GoogleCalendarCard.tsx` vou trocar a navegação para um fluxo que:
+- detecta se o app está rodando embutido;
+- tenta abrir o Google fora do iframe (`_top` ou nova aba);
+- mantém fallback seguro se estiver rodando standalone.
+
+Objetivo: o clique em **Conectar Google Calendar** sempre abrir o Google no contexto correto.
+
+### 2. Passar a origem do app no `state`
+No `supabase/functions/google-oauth-init/index.ts` vou incluir no `state` assinado:
+- `user_id`
+- `ts`
+- `app_origin`
+
+Esse `app_origin` virá da origem real do app que iniciou o fluxo.
+
+### 3. Remover a dependência de `referer` no callback
+No `supabase/functions/google-oauth-callback/index.ts` vou:
+- validar o `state`;
+- ler `app_origin` do `state`;
+- redirecionar de volta para essa origem exata em `/configuracoes?gcal=ok` ou `?gcal=error=...`.
+
+Com isso:
+- preview volta para o preview;
+- publicado volta para o publicado;
+- não fica preso a URL hardcoded;
+- não depende do `referer` enviado pelo Google.
+
+### 4. Preservar o fluxo atual de tokens
+Não vou mexer em:
+- tabela `user_google_tokens`
+- `google-disconnect`
+- `gcal-sync-worker`
+- escopos atuais do Google
+
+O OAuth próprio continua sendo o único fluxo oficial.
+
+## Arquivos a alterar
+
+- `src/components/configuracoes/GoogleCalendarCard.tsx`
+- `supabase/functions/google-oauth-init/index.ts`
+- `supabase/functions/google-oauth-callback/index.ts`
+
+## Resultado esperado
+
+Depois da correção:
+1. clicar em **Conectar Google Calendar** abre o Google fora do iframe do editor;
+2. concluir a autorização volta corretamente para a mesma origem do app;
+3. o card em **Configurações → Integrações** mostra conexão ativa;
+4. `user_google_tokens` continua sendo a fonte única da integração.
+
+## Observação importante
+
+A configuração no Google Cloud Console com este redirect URI continua necessária e deve permanecer assim:
+
+```text
 https://nxkmxslugblhsyohrrvm.supabase.co/functions/v1/google-oauth-callback
 ```
 
-Salvar. Esse passo é obrigatório — sem isso o Google continua recusando o callback.
+## Solução temporária até aplicar a correção
 
-### 3. Garantir que a edge function `google-oauth-callback` permite chamada anônima
-
-O Google bate nessa URL **sem JWT do Supabase**, então a função precisa estar deployada com `verify_jwt = false`. Vou conferir o `supabase/config.toml` e ajustar se necessário.
-
-### 4. Testar de novo
-
-Depois de (1) + (2) deployados, abrir **Configurações → Integrações → Conectar Google Calendar**, escolher a conta Google → deve voltar pro app com `?gcal=ok` e popular `user_google_tokens`.
-
-## Fora deste escopo
-
-- Mudar o fluxo pra usar o connector gerenciado da Lovable (já decidimos manter OAuth próprio multi-usuário).
-- Mexer em escopos do consent screen (já contemplam `calendar.events` + `userinfo.email`).
-
-## Detalhes técnicos
-
-- O secret `GOOGLE_OAUTH_REDIRECT_URI` é lido em `google-oauth-init` (montar URL de autorização) **e** em `google-oauth-callback` (trocar code por token). Os dois precisam usar o mesmo valor — daí salvar como secret único é correto.
-- O `state` HMAC continua válido (não depende do redirect).
-- Não há mudança em tabelas; `user_google_tokens` continua igual.
-
+Enquanto isso não é implementado, o teste mais confiável é abrir o app fora do preview embutido (em aba própria / URL publicada), porque o erro atual é consistente com tentativa de OAuth dentro do iframe do editor.
