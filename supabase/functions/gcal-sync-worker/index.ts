@@ -50,7 +50,9 @@ function recurrenceToRRule(rec: string): string[] | undefined {
 }
 
 function buildEventBody(reminder: any): Record<string, unknown> {
-  const start = new Date(reminder.remind_at);
+  // Usa event_at (compromisso real) quando disponível; fallback para remind_at (lembretes antigos / tarefas avulsas)
+  const startSrc = reminder.event_at ?? reminder.remind_at;
+  const start = new Date(startSrc);
   const end = new Date(start.getTime() + 30 * 60 * 1000);
   const body: Record<string, unknown> = {
     summary: reminder.title,
