@@ -1062,6 +1062,11 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
               const res = await callRemindersApi("GET", {});
               captureIdsFromListResult(res, true);
             }
+            // Filtra a lista de candidatos pelo escopo de data ativo (explícito ou herdado)
+            const activeFilter = resolveActiveDateFilter();
+            const filteredAvailable = activeFilter
+              ? applyDateFilterToReminderList(lastPendingList as RawReminder[], activeFilter)
+              : lastPendingList;
             mustRetryDelete = true;
             opResults.push({
               tool: "delete_reminder",
@@ -1071,7 +1076,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             return {
               error:
                 "id não verificado nesta sessão. Use EXATAMENTE um id da lista available_reminders abaixo e chame delete_reminder de novo no mesmo turno.",
-              available_reminders: lastPendingList,
+              available_reminders: filteredAvailable,
             };
           }
           // Em modo remarcar, força reason='rescheduled' (mesmo se modelo esquecer)
