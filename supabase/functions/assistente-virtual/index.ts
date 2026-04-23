@@ -221,12 +221,12 @@ Agora é ${nowSP} (timezone America/Sao_Paulo, equivalente UTC ${nowIsoUtc}).
 Use esta referência para converter expressões relativas como "amanhã", "sexta", "daqui a 2 horas" em data/hora absoluta antes de chamar ferramentas. Sempre converta para ISO 8601 com offset (ex.: "2026-04-23T17:00:00-03:00").
 
 FERRAMENTAS DISPONÍVEIS (lembretes):
-- create_reminder({ title, remind_at, event_at?, description?, recurrence? }): cria um lembrete pessoal do usuário.
+- create_reminder({ title, remind_local, event_local?, description?, recurrence? }): cria um lembrete pessoal do usuário.
   • title: descrição curta SEM o horário (ex.: "Dentista", NUNCA "Dentista às 14h").
-  • remind_at: ISO 8601 com offset; QUANDO DISPARAR O AVISO; deve ser futuro.
-  • event_at: ISO 8601 com offset; horário REAL do compromisso. OBRIGATÓRIO sempre que houver aviso antecipado (remind_at < event_at). OMITIR para tarefas avulsas ("tomar água às 16h" → só remind_at).
+  • remind_local: HORÁRIO LOCAL Brasil de QUANDO DISPARAR O AVISO no formato 'YYYY-MM-DDTHH:mm' (ex.: '2026-04-27T12:30'). NUNCA inclua offset/Z — o servidor adiciona −03:00. Deve ser futuro.
+  • event_local: HORÁRIO LOCAL Brasil do COMPROMISSO REAL no mesmo formato (ex.: '2026-04-27T14:00'). OBRIGATÓRIO sempre que houver aviso antecipado (remind_local < event_local). OMITIR para tarefas avulsas ("tomar água às 16h" → só remind_local).
   • recurrence: "none" | "daily" | "weekly" | "monthly" (padrão "none").
-- list_reminders(): lista lembretes pendentes do usuário (cada item traz remind_at e event_at).
+- list_reminders({ from_date?, to_date? }): lista lembretes pendentes do usuário (cada item traz remind_at, event_at e display_line). SEMPRE que o usuário pedir um dia/intervalo específico ("o que tenho dia 27?", "amanhã", "quinta", "essa semana"), passe from_date e to_date no formato 'YYYY-MM-DD' (data LOCAL Brasil). Para um único dia, from_date = to_date.
 - list_cancelled_reminders({ from, to }): lista lembretes JÁ CANCELADOS do usuário numa janela ISO 8601. Use APENAS quando o usuário perguntar "eu tinha algo?" / "tinha compromisso?" e list_reminders não trouxer nada no horário.
 - delete_reminder({ id, reason? }): cancela lembrete pelo id (use list_reminders antes para descobrir o id). reason='user_cancelled' (default) para cancelamento puro; reason='rescheduled' quando o cancelamento é parte de um remarcar (delete antigo + create novo). O servidor força automaticamente 'rescheduled' se a frase do usuário for de remarcar, mas SEMPRE passe explicitamente quando souber.
 - check_reminder_conflict({ remind_at, window_minutes?, exclude_id? }): verifica conflito comparando event_at dos pendentes contra o valor passado em remind_at (que aqui representa o HORÁRIO DO COMPROMISSO REAL — passe o event_at do novo lembrete; se for tarefa avulsa, passe o remind_at). Padrão window_minutes=15. Retorna { conflicts: [...] }.
@@ -519,18 +519,18 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         type: "function",
         function: {
           name: "create_reminder",
-          description: "Cria um lembrete pessoal do usuário autenticado.",
+          description: "Cria um lembrete pessoal do usuário autenticado. Use SEMPRE horário LOCAL Brasil (sem fuso) — o servidor adiciona o offset −03:00 automaticamente.",
           parameters: {
             type: "object",
             properties: {
               title: { type: "string", description: "Descrição curta do lembrete (ex.: 'Dentista', SEM o horário no nome)." },
-              remind_at: {
+              remind_local: {
                 type: "string",
-                description: "Data/hora ISO 8601 com offset de QUANDO DISPARAR O AVISO (ex.: 2026-04-23T13:00:00-03:00). Deve ser futuro.",
+                description: "Horário LOCAL Brasil de QUANDO DISPARAR O AVISO no formato 'YYYY-MM-DDTHH:mm' (ex.: '2026-04-27T12:30'). NUNCA inclua offset/Z. Deve ser futuro.",
               },
-              event_at: {
+              event_local: {
                 type: "string",
-                description: "Data/hora ISO 8601 com offset do HORÁRIO REAL DO COMPROMISSO (ex.: 2026-04-23T14:00:00-03:00). OBRIGATÓRIO quando há aviso antecipado (remind_at < event_at). OMITIR para tarefas avulsas (ex.: 'tomar água às 16h'). Deve ser >= remind_at.",
+                description: "Horário LOCAL Brasil do COMPROMISSO REAL no formato 'YYYY-MM-DDTHH:mm' (ex.: '2026-04-27T14:00'). OBRIGATÓRIO quando há aviso antecipado. OMITIR para tarefas avulsas. Deve ser >= remind_local. NUNCA inclua offset/Z.",
               },
               description: { type: "string", description: "Detalhe opcional." },
               recurrence: {
@@ -539,7 +539,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
                 description: "Recorrência. Padrão: none.",
               },
             },
-            required: ["title", "remind_at"],
+            required: ["title", "remind_local"],
           },
         },
       },
@@ -547,8 +547,20 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         type: "function",
         function: {
           name: "list_reminders",
-          description: "Lista os lembretes pendentes (não concluídos) do usuário.",
-          parameters: { type: "object", properties: {} },
+          description: "Lista os lembretes pendentes (não concluídos) do usuário. Aceita filtros opcionais de data LOCAL Brasil.",
+          parameters: {
+            type: "object",
+            properties: {
+              from_date: {
+                type: "string",
+                description: "Data LOCAL Brasil INICIAL (inclusive) no formato 'YYYY-MM-DD'. Use quando o usuário pedir um dia/intervalo específico (ex.: 'o que tenho dia 27?' → from_date='2026-04-27', to_date='2026-04-27').",
+              },
+              to_date: {
+                type: "string",
+                description: "Data LOCAL Brasil FINAL (inclusive) no formato 'YYYY-MM-DD'. Sempre passe junto com from_date.",
+              },
+            },
+          },
         },
       },
       {
@@ -692,6 +704,17 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
     const isRemarcarSession = remarcarRegex.test(pergunta);
     let mustRetryDelete = false;
     let pendingDeleteTitleHint: string | null = null;
+    // Último filtro de data usado em list_reminders (escopo do request) — usado pelos fallbacks
+    let lastDateFilter: { from_date?: string; to_date?: string } | null = null;
+
+    // Converte 'YYYY-MM-DDTHH:mm' (hora local Brasil) → ISO com offset -03:00
+    function localBRtoISO(local: string): string {
+      const s = String(local || "").trim();
+      const m = s.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
+      if (!m) return s; // deixa o servidor reclamar se vier malformado
+      const [, date, hh, mm, ss] = m;
+      return `${date}T${hh}:${mm}:${ss ?? "00"}-03:00`;
+    }
 
     // Auditoria: registra resultado real de cada tool de mutação para montar o resumo final
     type OpResult = { tool: string; ok: boolean; detail: string };
@@ -807,9 +830,21 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
     async function executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
       try {
         if (name === "create_reminder") {
+          // Converte horário LOCAL Brasil (sem fuso) → ISO com -03:00 antes de qualquer validação.
+          // Aceita também os campos antigos remind_at/event_at por compatibilidade.
+          const apiArgs: Record<string, unknown> = { ...args };
+          if (typeof args.remind_local === "string" && args.remind_local) {
+            apiArgs.remind_at = localBRtoISO(args.remind_local);
+            delete apiArgs.remind_local;
+          }
+          if (typeof args.event_local === "string" && args.event_local) {
+            apiArgs.event_at = localBRtoISO(args.event_local);
+            delete apiArgs.event_local;
+          }
+
           // Bloqueio estrutural: em modo remarcar, se há delete pendente para um título parecido, bloqueia
           if (isRemarcarSession && mustRetryDelete) {
-            const newTitle = normalize(String(args.title ?? ""));
+            const newTitle = normalize(String(apiArgs.title ?? ""));
             const oldTitle = normalize(pendingDeleteTitleHint ?? "");
             const similar =
               !!newTitle &&
@@ -821,9 +856,9 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             if (similar) {
               console.warn(
                 `[assistente-virtual] create_reminder BLOCKED (reschedule pending delete)`,
-                JSON.stringify({ newTitle: args.title, oldTitle: pendingDeleteTitleHint }),
+                JSON.stringify({ newTitle: apiArgs.title, oldTitle: pendingDeleteTitleHint }),
               );
-              const detail = `Bloqueado: criar "${args.title}" enquanto há delete pendente do antigo.`;
+              const detail = `Bloqueado: criar "${apiArgs.title}" enquanto há delete pendente do antigo.`;
               opResults.push({ tool: "create_reminder", ok: false, detail });
               return {
                 error:
@@ -839,8 +874,8 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             const listRes = await callRemindersApi("GET", {});
             captureIdsFromListResult(listRes, true);
           }
-          const newTitleNorm = normalize(String(args.title ?? ""));
-          const newEventIso = String(args.event_at ?? args.remind_at ?? "");
+          const newTitleNorm = normalize(String(apiArgs.title ?? ""));
+          const newEventIso = String(apiArgs.event_at ?? apiArgs.remind_at ?? "");
           const newEventMs = new Date(newEventIso).getTime();
           if (newTitleNorm && !isNaN(newEventMs)) {
             const matches = lastPendingList.filter((r) => {
@@ -857,21 +892,21 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
                 .join(", ");
               console.warn(
                 `[assistente-virtual] create_reminder BLOCKED (duplicate)`,
-                JSON.stringify({ newTitle: args.title, newEventIso, matches: matches.map((m) => m.id) }),
+                JSON.stringify({ newTitle: apiArgs.title, newEventIso, matches: matches.map((m) => m.id) }),
               );
               opResults.push({
                 tool: "create_reminder",
                 ok: false,
-                detail: `Bloqueado duplicata de "${args.title}" às ${fmtTimeBR(newEventIso)} — já existe ${list}.`,
+                detail: `Bloqueado duplicata de "${apiArgs.title}" às ${fmtTimeBR(newEventIso)} — já existe ${list}.`,
               });
               return {
-                error: `Já existe '${args.title}' em horário muito próximo: ${list}. Cancele o existente primeiro (delete_reminder) ou, se o usuário confirmar explicitamente que quer duplicar, ignore este aviso e prossiga.`,
+                error: `Já existe '${apiArgs.title}' em horário muito próximo: ${list}. Cancele o existente primeiro (delete_reminder) ou, se o usuário confirmar explicitamente que quer duplicar, ignore este aviso e prossiga.`,
                 duplicates: matches,
               };
             }
           }
 
-          const result = await callRemindersApi("POST", args);
+          const result = await callRemindersApi("POST", apiArgs);
           const r = result as { reminder?: { id?: string; title?: string; event_at?: string; remind_at?: string }; error?: string };
           if (r?.reminder?.id) {
             verifiedIds.add(r.reminder.id);
@@ -885,15 +920,42 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             opResults.push({
               tool: "create_reminder",
               ok: false,
-              detail: `❌ Falha ao criar "${args.title}": ${r?.error ?? "erro desconhecido"}.`,
+              detail: `❌ Falha ao criar "${apiArgs.title}": ${r?.error ?? "erro desconhecido"}.`,
             });
           }
           return result;
         }
         if (name === "list_reminders") {
+          const fromDate = typeof args.from_date === "string" ? args.from_date : undefined;
+          const toDate = typeof args.to_date === "string" ? args.to_date : undefined;
+          if (fromDate || toDate) {
+            lastDateFilter = { from_date: fromDate, to_date: toDate };
+          }
           const res = await callRemindersApi("GET", {});
           captureIdsFromListResult(res, true);
-          return transformListResult(res);
+          const transformed = transformListResult(res) as { reminders?: Array<RawReminder & { event_date_br: string }> };
+          // Filtra por data LOCAL Brasil (event_date_br vem como "DD/MM/YYYY")
+          if ((fromDate || toDate) && transformed && Array.isArray(transformed.reminders)) {
+            const toKey = (br: string): string => {
+              // "27/04/2026" → "2026-04-27"
+              const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+              return m ? `${m[3]}-${m[2]}-${m[1]}` : br;
+            };
+            const fromK = fromDate ?? "0000-00-00";
+            const toK = toDate ?? "9999-99-99";
+            transformed.reminders = transformed.reminders.filter((r) => {
+              const k = toKey(r.event_date_br);
+              return k >= fromK && k <= toK;
+            });
+            // Atualiza lastPendingList pra refletir o filtro (fallbacks vão usar essa lista)
+            lastPendingList = transformed.reminders.map((it) => ({
+              id: it.id,
+              title: it.title,
+              event_at: it.event_at ?? it.remind_at,
+              remind_at: it.remind_at,
+            }));
+          }
+          return transformed;
         }
         if (name === "list_cancelled_reminders") {
           const res = await callRemindersApi("GET", {
@@ -1123,10 +1185,23 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       (o) => !o.ok && /UUID inválido|uuid_not_in_session|não pertence à sessão/i.test(o.detail),
     );
     if (hasUuidFail && !hasDeleteSuccess) {
-      // Garante lista atualizada
+      // Garante lista atualizada respeitando o último filtro de data da sessão
       if (lastPendingList.length === 0) {
         const res = await callRemindersApi("GET", {});
         captureIdsFromListResult(res, true);
+        if (lastDateFilter && (lastDateFilter.from_date || lastDateFilter.to_date)) {
+          const toKey = (br: string): string => {
+            const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            return m ? `${m[3]}-${m[2]}-${m[1]}` : br;
+          };
+          const fromK = lastDateFilter.from_date ?? "0000-00-00";
+          const toK = lastDateFilter.to_date ?? "9999-99-99";
+          lastPendingList = lastPendingList.filter((r) => {
+            const f = formatReminderForDisplay(r as RawReminder);
+            const k = toKey(f.event_date_br);
+            return k >= fromK && k <= toK;
+          });
+        }
       }
       const formatted = lastPendingList
         .map((r) => {
@@ -1134,10 +1209,15 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           return `- ${f.display_line}`;
         })
         .join("\n");
+      const scopeLabel = lastDateFilter && (lastDateFilter.from_date || lastDateFilter.to_date)
+        ? (lastDateFilter.from_date === lastDateFilter.to_date && lastDateFilter.from_date
+          ? `do dia ${lastDateFilter.from_date.split("-").reverse().join("/")}`
+          : "no período pedido")
+        : "pendentes";
       resposta =
         "Não consegui identificar exatamente quais lembretes alterar.\n\n" +
         (formatted
-          ? `Aqui estão os pendentes:\n${formatted}\n\nPode me dizer **qual horário cancelar** e **qual remarcar** copiando da lista acima?`
+          ? `Aqui estão os ${scopeLabel}:\n${formatted}\n\nPode me dizer **qual horário cancelar** e **qual remarcar** copiando da lista acima?`
           : "Não há lembretes pendentes no momento. Quer me dizer de novo o que precisa?");
     }
 
