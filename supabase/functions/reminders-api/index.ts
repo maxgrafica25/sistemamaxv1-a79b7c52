@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
         .select("id,title,remind_at,recurrence,description")
         .eq("user_id", userId)
         .eq("is_completed", false)
+        .is("cancelled_at", null)
         .gte("remind_at", startIso)
         .lte("remind_at", endIso)
         .order("remind_at", { ascending: true })
