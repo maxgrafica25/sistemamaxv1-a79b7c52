@@ -153,17 +153,30 @@ Deno.serve(async (req) => {
     // DELETE: remover por id (?id=<uuid>)
     if (req.method === "DELETE") {
       const id = url.searchParams.get("id");
-      if (!id) return jsonResponse({ error: "id é obrigatório" }, 400);
-      const { error } = await userClient
+      const UuidSchema = z.string().uuid();
+      const idParsed = UuidSchema.safeParse(id);
+      if (!idParsed.success) {
+        return jsonResponse({ error: "id inválido (UUID esperado)" }, 400);
+      }
+      const { data: deleted, error } = await userClient
         .from("reminders")
         .delete()
-        .eq("id", id)
-        .eq("user_id", userId);
+        .eq("id", idParsed.data)
+        .eq("user_id", userId)
+        .select("id")
+        .maybeSingle();
       if (error) {
-        console.error("[reminders-api] delete error:", error);
+        console.error("[reminders-api] delete error:", error, "id:", idParsed.data);
         return jsonResponse({ error: error.message }, 500);
       }
-      return new Response(null, { status: 204, headers: corsHeaders });
+      if (!deleted) {
+        console.warn("[reminders-api] delete not found id:", idParsed.data);
+        return jsonResponse(
+          { error: "Lembrete não encontrado", id: idParsed.data },
+          404,
+        );
+      }
+      return jsonResponse({ ok: true, deleted_id: deleted.id }, 200);
     }
 
     return jsonResponse({ error: "Método não suportado" }, 405);

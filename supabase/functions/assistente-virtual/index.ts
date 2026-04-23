@@ -240,10 +240,15 @@ REGRAS PARA FERRAMENTAS:
     • Liste o(s) existente(s) com título e horário em pt-BR e pergunte LITERALMENTE: "Já existe **<título do existente>** marcado pra <dia> às <hora>. Quer (a) substituir, (b) manter os dois, ou (c) cancelar essa nova?"
     • Só crie a duplicata se o usuário responder explicitamente (b)/"manter os dois"/"pode duplicar". Se escolher (a), chame delete_reminder no antigo e depois create_reminder no novo. Se (c), não faça nada.
     • Esta checagem é SEPARADA e ADICIONAL ao check_reminder_conflict (que olha janela de ±15min, não mesmo assunto). Faça AMBAS.
-- COMANDO DE REMARCAR/CANCELAR ("remarca o X das H", "cancela o X das H", "muda o X de H1 pra H2", "trocar X de H1 pra H2"): chame list_reminders e filtre por título contendo X E remind_at no mesmo dia, dentro de ±2h de H quando H foi citado.
-    • 1 match → execute direto: cancelar = delete_reminder; remarcar = delete_reminder do antigo + create_reminder do novo (sem perguntar "qual?", sem perguntar (a)/(b)/(c) — o verbo "trocar/mudar/remarcar" JÁ é confirmação de substituição).
-    • 2+ matches → liste com **id curto** (últimos 4 caracteres do uuid), título e horário, e pergunte "Qual deles? (responda com o código entre parênteses)".
-    • 0 matches → responda claramente "Não achei nenhum **<X>** por volta das <hora> nos seus pendentes. Quer que eu crie um novo?"
+- COMANDO DE REMARCAR/CANCELAR ("remarca o X das H", "cancela o X das H", "muda o X de H1 pra H2", "trocar X de H1 pra H2"): SEMPRE chame list_reminders PRIMEIRO (na MESMA iteração) e selecione o alvo aplicando, NESTA ORDEM, os filtros:
+    1. dia em contexto (ver "CONTEXTO HERDADO DA LISTA ANTERIOR" abaixo) — descarte tudo que não cair no dia certo.
+    2. horário citado (±2h) quando o usuário citou hora.
+    3. assunto/título contendo X.
+    • 1 match exato → execute direto: cancelar = delete_reminder com o UUID exato; remarcar = delete_reminder do antigo (UUID exato) + create_reminder do novo. Sem perguntar "qual?", sem (a)/(b)/(c).
+    • 2+ matches após os 3 filtros → liste com **id curto** (últimos 4 chars do uuid), título e horário, e pergunte "Qual deles? (responda com o código entre parênteses)". NUNCA apague por aproximação.
+    • 0 matches → responda "Não achei nenhum **<X>** por volta das <hora> em <dia>. Quer que eu crie um novo?". NUNCA apague algo de outro dia.
+- USO OBRIGATÓRIO DE UUID EXATO: delete_reminder SÓ pode ser chamado com o UUID exato (campo "id") retornado por list_reminders na MESMA iteração. NUNCA invente, trunque, reaproveite de turnos antigos, nem infira id. Se o resultado de delete_reminder vier com {error} ou status 404 ("Lembrete não encontrado"), assuma que NÃO foi apagado e diga ao usuário "Não consegui apagar o **<título>** das **<hora>** — me confirma qual era?" — NUNCA confirme exclusão sem ter recebido {ok:true, deleted_id}.
+- CONTEXTO HERDADO DA LISTA ANTERIOR: se a SUA mensagem anterior no histórico foi uma listagem de lembretes filtrada por uma data específica (ex.: "Seus pendentes para 27/04: ..."), e o usuário responder com referências curtas SEM citar nova data ("o treino das 11", "cancela o das 16h", "troca esse das 11 pra 11h15", "muda o de 14h pra 15h"), então o DIA dessas referências é o MESMO da sua listagem anterior. Use SEMPRE essa data como filtro 1 antes de chamar delete_reminder. Só mude de dia se o usuário disser explicitamente outra data.
 - Se faltar a data/hora, NÃO invente — pergunte ao usuário.
 - COMPROMISSO COM HORÁRIO MARCADO (consulta, reunião, viagem, prazo, dentista, médico, entrega):
     • Se o usuário NÃO disse com quanto tempo de antecedência quer ser avisado, NÃO crie ainda. Sua resposta DEVE ter EXATAMENTE 2 linhas, sem nada antes, no meio ou depois:
@@ -719,6 +724,10 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           } catch {
             parsedArgs = {};
           }
+          console.log(
+            `[assistente-virtual] tool ${tc.function.name} args →`,
+            JSON.stringify(parsedArgs),
+          );
           const result = await executeTool(tc.function.name, parsedArgs);
           console.log(`[assistente-virtual] tool ${tc.function.name} →`, JSON.stringify(result));
           messages.push({
