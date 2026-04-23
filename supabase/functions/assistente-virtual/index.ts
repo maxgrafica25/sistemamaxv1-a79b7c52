@@ -716,6 +716,89 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       return `${date}T${hh}:${mm}:${ss ?? "00"}-03:00`;
     }
 
+    // === Contexto de data herdado da listagem anterior da Júlia ===
+    // Procura no histórico a última mensagem da assistente que listou lembretes filtrados
+    // por uma data específica (ex.: "Seus pendentes para 27/04:", "do dia 27/04").
+    // Retorna YYYY-MM-DD ou null. Usa o ano da maior data de mensagem se disponível.
+    function extractDateContextFromHistory(): string | null {
+      try {
+        const msgs = Array.isArray(historico) ? historico : [];
+        // Percorre do mais recente pro mais antigo
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          const m = msgs[i];
+          if (!m || m.role !== "assistant" || typeof m.content !== "string") continue;
+          const txt = m.content;
+          // Padrões aceitos: "27/04", "27/04/2026", "dia 27/04", "para 27/04"
+          const re = /\b(0?[1-9]|[12][0-9]|3[01])\/(0?[1-9]|1[0-2])(?:\/(\d{4}))?\b/;
+          const mm = txt.match(re);
+          if (!mm) continue;
+          // Confere se o contexto fala de listagem/pendentes/agenda
+          const contextHint = /pendentes?|lembrete|agenda|compromisso|para o dia|do dia|seus|aqui est[aã]o|para \d/i;
+          if (!contextHint.test(txt)) continue;
+          const dd = mm[1].padStart(2, "0");
+          const mo = mm[2].padStart(2, "0");
+          const yy = mm[3] ?? String(new Date().getFullYear());
+          return `${yy}-${mo}-${dd}`;
+        }
+      } catch (e) {
+        console.warn("[assistente-virtual] extractDateContextFromHistory failed:", e);
+      }
+      return null;
+    }
+
+    // Detecta se a mensagem atual do usuário cita uma data nova (DD/MM, "amanhã", "hoje", "semana", etc.)
+    function userMentionsExplicitDate(): boolean {
+      const p = String(pergunta || "").toLowerCase();
+      if (/\b\d{1,2}\/\d{1,2}\b/.test(p)) return true;
+      if (/\b(hoje|amanh[ãa]|depois\s+de\s+amanh[ãa]|ontem|semana|m[eê]s|segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)\b/.test(p)) return true;
+      return false;
+    }
+
+    // Detecta se a mensagem atual parece ser de edição/cancelamento/remarcação
+    // (continuação de uma listagem anterior).
+    function isEditCancelContinuation(): boolean {
+      const p = String(pergunta || "").toLowerCase();
+      return /\b(altera|alterar|troc[ao]|trocar|mud[ao]|mudar|remarc[ao]r?|cancel[ao]r?|apag[ao]r?|exclu[ií]r?|remov[ae]r?|adi[ao]r?|antecip[ao]r?|reagend[ao]r?|esse|essa|esses|essas|aquele|aquela|aqueles|aquelas|o\s+das?\s+|o\s+de\s+\d|das\s+\d|de\s+\d{1,2}h)\b/.test(p);
+    }
+
+    const inheritedDateFilter: string | null = (!userMentionsExplicitDate() && isEditCancelContinuation())
+      ? extractDateContextFromHistory()
+      : null;
+    if (inheritedDateFilter) {
+      console.log("[assistente-virtual] inheritedDateFilter =", inheritedDateFilter);
+    }
+
+    // Helper: resolve o filtro de data ativo (explícito da sessão > herdado do histórico)
+    function resolveActiveDateFilter(): { from_date: string; to_date: string } | null {
+      if (lastDateFilter && (lastDateFilter.from_date || lastDateFilter.to_date)) {
+        return {
+          from_date: lastDateFilter.from_date ?? "0000-00-00",
+          to_date: lastDateFilter.to_date ?? "9999-99-99",
+        };
+      }
+      if (inheritedDateFilter) {
+        return { from_date: inheritedDateFilter, to_date: inheritedDateFilter };
+      }
+      return null;
+    }
+
+    // Helper: aplica filtro por data (YYYY-MM-DD) a uma lista de lembretes brutos
+    function applyDateFilterToReminderList<T extends RawReminder>(
+      list: T[],
+      filter: { from_date: string; to_date: string } | null,
+    ): T[] {
+      if (!filter) return list;
+      const toKey = (br: string): string => {
+        const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return m ? `${m[3]}-${m[2]}-${m[1]}` : br;
+      };
+      return list.filter((r) => {
+        const f = formatReminderForDisplay(r);
+        const k = toKey(f.event_date_br);
+        return k >= filter.from_date && k <= filter.to_date;
+      });
+    }
+
     // Auditoria: registra resultado real de cada tool de mutação para montar o resumo final
     type OpResult = { tool: string; ok: boolean; detail: string };
     const opResults: OpResult[] = [];
@@ -926,8 +1009,14 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           return result;
         }
         if (name === "list_reminders") {
-          const fromDate = typeof args.from_date === "string" ? args.from_date : undefined;
-          const toDate = typeof args.to_date === "string" ? args.to_date : undefined;
+          let fromDate = typeof args.from_date === "string" ? args.from_date : undefined;
+          let toDate = typeof args.to_date === "string" ? args.to_date : undefined;
+          // Se o modelo esqueceu a data e há contexto herdado da listagem anterior, aplica
+          if (!fromDate && !toDate && inheritedDateFilter) {
+            fromDate = inheritedDateFilter;
+            toDate = inheritedDateFilter;
+            console.log("[assistente-virtual] list_reminders: injecting inheritedDateFilter", inheritedDateFilter);
+          }
           if (fromDate || toDate) {
             lastDateFilter = { from_date: fromDate, to_date: toDate };
           }
@@ -936,17 +1025,11 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           const transformed = transformListResult(res) as { reminders?: Array<RawReminder & { event_date_br: string }> };
           // Filtra por data LOCAL Brasil (event_date_br vem como "DD/MM/YYYY")
           if ((fromDate || toDate) && transformed && Array.isArray(transformed.reminders)) {
-            const toKey = (br: string): string => {
-              // "27/04/2026" → "2026-04-27"
-              const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-              return m ? `${m[3]}-${m[2]}-${m[1]}` : br;
+            const filter = {
+              from_date: fromDate ?? "0000-00-00",
+              to_date: toDate ?? "9999-99-99",
             };
-            const fromK = fromDate ?? "0000-00-00";
-            const toK = toDate ?? "9999-99-99";
-            transformed.reminders = transformed.reminders.filter((r) => {
-              const k = toKey(r.event_date_br);
-              return k >= fromK && k <= toK;
-            });
+            transformed.reminders = applyDateFilterToReminderList(transformed.reminders, filter);
             // Atualiza lastPendingList pra refletir o filtro (fallbacks vão usar essa lista)
             lastPendingList = transformed.reminders.map((it) => ({
               id: it.id,
@@ -979,6 +1062,11 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
               const res = await callRemindersApi("GET", {});
               captureIdsFromListResult(res, true);
             }
+            // Filtra a lista de candidatos pelo escopo de data ativo (explícito ou herdado)
+            const activeFilter = resolveActiveDateFilter();
+            const filteredAvailable = activeFilter
+              ? applyDateFilterToReminderList(lastPendingList as RawReminder[], activeFilter)
+              : lastPendingList;
             mustRetryDelete = true;
             opResults.push({
               tool: "delete_reminder",
@@ -988,7 +1076,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             return {
               error:
                 "id não verificado nesta sessão. Use EXATAMENTE um id da lista available_reminders abaixo e chame delete_reminder de novo no mesmo turno.",
-              available_reminders: lastPendingList,
+              available_reminders: filteredAvailable,
             };
           }
           // Em modo remarcar, força reason='rescheduled' (mesmo se modelo esquecer)
@@ -1185,33 +1273,26 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       (o) => !o.ok && /UUID inválido|uuid_not_in_session|não pertence à sessão/i.test(o.detail),
     );
     if (hasUuidFail && !hasDeleteSuccess) {
-      // Garante lista atualizada respeitando o último filtro de data da sessão
+      // Garante lista atualizada (se ainda não temos)
       if (lastPendingList.length === 0) {
         const res = await callRemindersApi("GET", {});
         captureIdsFromListResult(res, true);
-        if (lastDateFilter && (lastDateFilter.from_date || lastDateFilter.to_date)) {
-          const toKey = (br: string): string => {
-            const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-            return m ? `${m[3]}-${m[2]}-${m[1]}` : br;
-          };
-          const fromK = lastDateFilter.from_date ?? "0000-00-00";
-          const toK = lastDateFilter.to_date ?? "9999-99-99";
-          lastPendingList = lastPendingList.filter((r) => {
-            const f = formatReminderForDisplay(r as RawReminder);
-            const k = toKey(f.event_date_br);
-            return k >= fromK && k <= toK;
-          });
-        }
       }
-      const formatted = lastPendingList
+      // SEMPRE re-aplica o filtro de data ativo (explícito ou herdado),
+      // mesmo se lastPendingList já estava preenchida com lista crua.
+      const activeFilter = resolveActiveDateFilter();
+      const scopedList = activeFilter
+        ? applyDateFilterToReminderList(lastPendingList as RawReminder[], activeFilter)
+        : lastPendingList;
+      const formatted = scopedList
         .map((r) => {
           const f = formatReminderForDisplay(r as RawReminder);
           return `- ${f.display_line}`;
         })
         .join("\n");
-      const scopeLabel = lastDateFilter && (lastDateFilter.from_date || lastDateFilter.to_date)
-        ? (lastDateFilter.from_date === lastDateFilter.to_date && lastDateFilter.from_date
-          ? `do dia ${lastDateFilter.from_date.split("-").reverse().join("/")}`
+      const scopeLabel = activeFilter
+        ? (activeFilter.from_date === activeFilter.to_date
+          ? `do dia ${activeFilter.from_date.split("-").reverse().join("/")}`
           : "no período pedido")
         : "pendentes";
       resposta =
