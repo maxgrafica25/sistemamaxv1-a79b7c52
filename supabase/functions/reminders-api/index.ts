@@ -18,6 +18,7 @@ const CreateSchema = z.object({
   title: z.string().min(1).max(300),
   description: z.string().max(2000).optional().nullable(),
   remind_at: z.string().datetime({ offset: true }),
+  event_at: z.string().datetime({ offset: true }).optional().nullable(),
   recurrence: z.enum(["none", "daily", "weekly", "monthly"]).optional().default("none"),
   category: z.string().max(50).optional().default("assistente"),
 });
