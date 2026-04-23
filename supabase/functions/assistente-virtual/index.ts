@@ -228,7 +228,7 @@ FERRAMENTAS DISPONÍVEIS (lembretes):
   • recurrence: "none" | "daily" | "weekly" | "monthly" (padrão "none").
 - list_reminders(): lista lembretes pendentes do usuário (cada item traz remind_at e event_at).
 - list_cancelled_reminders({ from, to }): lista lembretes JÁ CANCELADOS do usuário numa janela ISO 8601. Use APENAS quando o usuário perguntar "eu tinha algo?" / "tinha compromisso?" e list_reminders não trouxer nada no horário.
-- delete_reminder({ id }): cancela lembrete pelo id (use list_reminders antes para descobrir o id).
+- delete_reminder({ id, reason? }): cancela lembrete pelo id (use list_reminders antes para descobrir o id). reason='user_cancelled' (default) para cancelamento puro; reason='rescheduled' quando o cancelamento é parte de um remarcar (delete antigo + create novo). O servidor força automaticamente 'rescheduled' se a frase do usuário for de remarcar, mas SEMPRE passe explicitamente quando souber.
 - check_reminder_conflict({ remind_at, window_minutes?, exclude_id? }): verifica conflito comparando event_at dos pendentes contra o valor passado em remind_at (que aqui representa o HORÁRIO DO COMPROMISSO REAL — passe o event_at do novo lembrete; se for tarefa avulsa, passe o remind_at). Padrão window_minutes=15. Retorna { conflicts: [...] }.
 
 REGRAS PARA FERRAMENTAS:
@@ -255,11 +255,17 @@ REGRAS PARA FERRAMENTAS:
 - REMARCAR = DELETE + CREATE ATÔMICOS (REGRA INVIOLÁVEL): quando o usuário pede pra "trocar/remarcar/mudar X de H1 pra H2", o delete do antigo e o create do novo formam um par. Se o delete_reminder do antigo falhar (qualquer erro, inclusive uuid_not_in_session), você ESTÁ PROIBIDA de chamar create_reminder do novo até resolver o delete. O servidor também bloqueia esse create automaticamente e devolve {error:"delete pendente...", available_reminders:[...]}. Se mesmo após o retry do delete ele falhar, NÃO crie o novo e diga ao usuário: "Tive um problema interno ao tentar apagar o **<título> das <hora>**. Tenta de novo dizendo só 'cancelar o **<título>** das **<hora>**'?".
 - HORÁRIO VEM DE event_at, NUNCA DO TÍTULO: ao listar/citar lembretes, o horário exibido SEMPRE vem de event_at (ou remind_at se event_at for null). NUNCA extraia hora do title — mesmo que o título contenha "às 11h" ou "às 13h15", IGNORE essa parte e use o event_at. Ao exibir o título, REMOVA qualquer trecho "às XXh" / "às XXhMM" do texto (mostre só "Treino", não "Treino às 11h").
 - CONTEXTO HERDADO DA LISTA ANTERIOR: se a SUA mensagem anterior no histórico foi uma listagem de lembretes filtrada por uma data específica (ex.: "Seus pendentes para 27/04: ..."), e o usuário responder com referências curtas SEM citar nova data ("o treino das 11", "cancela o das 16h", "troca esse das 11 pra 11h15", "muda o de 14h pra 15h"), então o DIA dessas referências é o MESMO da sua listagem anterior. Use SEMPRE essa data como filtro 1 antes de chamar delete_reminder. Só mude de dia se o usuário disser explicitamente outra data.
-- CONSULTA HISTÓRICA ("eu tinha algo?", "tinha compromisso ontem?", "o das 16h não estava marcado?", "tinha alguma coisa marcada dia X?"): quando o usuário pergunta se EXISTIA algo num dia/horário (não está pedindo pra criar nem listar pendentes futuros):
+- CONSULTA HISTÓRICA ("eu tinha algo?", "tinha compromisso ontem?", "o das 16h não estava marcado?", "tinha alguma coisa marcada dia X?", "algo cancelado pra dia X?", "o que aconteceu com X?"): quando o usuário pergunta se EXISTIA algo num dia/horário (não está pedindo pra criar nem listar pendentes futuros):
     1. Chame list_reminders() e filtre pelo dia/horário pedido.
-    2. Se vier vazio, ANTES de responder "Nada agendado", chame list_cancelled_reminders({ from, to }) com from/to cobrindo o dia inteiro pedido (em America/Sao_Paulo, convertido pra ISO com offset).
-    3. Se achar item cancelado batendo com horário/assunto: responda "Tinha sim — **<título> às <hora>** — mas foi cancelado em <data/hora amigável do cancelled_at em pt-BR>." NÃO ofereça restaurar (não há essa funcionalidade).
-    4. Se não achar nem em pendentes nem em cancelados: "Nada agendado para <período>."
+    2. Se vier vazio (ou se a pergunta for explicitamente sobre "cancelado"/"o que aconteceu com"), chame list_cancelled_reminders({ from, to }) com from/to cobrindo o dia inteiro pedido (em America/Sao_Paulo, convertido pra ISO com offset).
+    3. Ao processar a resposta de list_cancelled_reminders, SEPARE por cancelled_reason:
+        • cancelled_reason = "user_cancelled" → o item foi de fato CANCELADO pelo usuário. Frase: "**<título> às <hora>** — foi **cancelado** em <data/hora amigável de cancelled_at em pt-BR>."
+        • cancelled_reason = "rescheduled" → o item NÃO foi cancelado, foi REMARCADO (substituído por outro lembrete). Frase: "**<título> às <hora>** — foi **remarcado** em <data/hora amigável de cancelled_at> (movido para outro horário)."
+    4. FILTRO POR INTENÇÃO DA PERGUNTA:
+        • Se o usuário perguntou ESPECIFICAMENTE "o que foi cancelado?" / "algo cancelado?" / "tem cancelamento?": mostre SOMENTE os com cancelled_reason='user_cancelled'. IGNORE os 'rescheduled' completamente — eles não são cancelamentos. Se sobrar zero, responda "Nada cancelado para <período>."
+        • Se a pergunta é genérica ("o que aconteceu com X?", "tinha algo dia X?"): mostre AMBOS, usando os termos corretos (cancelado vs remarcado) conforme o cancelled_reason de cada um.
+    5. NÃO ofereça restaurar (não há essa funcionalidade).
+    6. Se não achar nem em pendentes nem em cancelados: "Nada agendado para <período>."
 - Se faltar a data/hora, NÃO invente — pergunte ao usuário.
 - COMPROMISSO COM HORÁRIO MARCADO (consulta, reunião, viagem, prazo, dentista, médico, entrega):
     • Se o usuário NÃO disse com quanto tempo de antecedência quer ser avisado, NÃO crie ainda. Sua resposta DEVE ter EXATAMENTE 2 linhas, sem nada antes, no meio ou depois:
@@ -549,10 +555,17 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         type: "function",
         function: {
           name: "delete_reminder",
-          description: "Remove um lembrete pelo seu id (UUID).",
+          description: "Cancela um lembrete pelo seu id (UUID). Use reason='rescheduled' quando o cancelamento for parte de um remarcar (delete antigo + create novo); use 'user_cancelled' (default) para cancelamento puro.",
           parameters: {
             type: "object",
-            properties: { id: { type: "string", description: "UUID do lembrete." } },
+            properties: {
+              id: { type: "string", description: "UUID do lembrete." },
+              reason: {
+                type: "string",
+                enum: ["user_cancelled", "rescheduled"],
+                description: "Motivo do cancelamento. 'rescheduled' = parte de um remarcar (vai criar outro no lugar). 'user_cancelled' = cancelamento puro. Default: user_cancelled.",
+              },
+            },
             required: ["id"],
           },
         },
@@ -621,6 +634,9 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       } else if (method === "DELETE") {
         const id = String(args.id ?? "");
         url += `?id=${encodeURIComponent(id)}`;
+        if (args.reason) {
+          url += `&reason=${encodeURIComponent(String(args.reason))}`;
+        }
       } else if (method === "GET" && Object.keys(args).length > 0) {
         const qs = new URLSearchParams();
         for (const [k, v] of Object.entries(args)) {
@@ -750,7 +766,14 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
               available_reminders: lastPendingList,
             };
           }
-          const result = await callRemindersApi("DELETE", args);
+          // Em modo remarcar, força reason='rescheduled' (mesmo se modelo esquecer)
+          const finalArgs: Record<string, unknown> = { ...args };
+          if (isRemarcarSession) {
+            finalArgs.reason = "rescheduled";
+          } else if (!finalArgs.reason) {
+            finalArgs.reason = "user_cancelled";
+          }
+          const result = await callRemindersApi("DELETE", finalArgs);
           // Se delete passou, libera o create
           if ((result as { ok?: boolean })?.ok) {
             mustRetryDelete = false;
