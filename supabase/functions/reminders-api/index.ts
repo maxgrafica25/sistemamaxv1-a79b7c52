@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
       let q = userClient
         .from("reminders")
         .select(
-          "id,title,description,remind_at,recurrence,category,is_completed,cancelled_at,cancelled_reason,created_at",
+          "id,title,description,remind_at,event_at,recurrence,category,is_completed,cancelled_at,cancelled_reason,created_at",
         )
         .eq("user_id", userId)
         .order("remind_at", { ascending: true })
