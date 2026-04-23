@@ -830,9 +830,21 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
     async function executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
       try {
         if (name === "create_reminder") {
+          // Converte horário LOCAL Brasil (sem fuso) → ISO com -03:00 antes de qualquer validação.
+          // Aceita também os campos antigos remind_at/event_at por compatibilidade.
+          const apiArgs: Record<string, unknown> = { ...args };
+          if (typeof args.remind_local === "string" && args.remind_local) {
+            apiArgs.remind_at = localBRtoISO(args.remind_local);
+            delete apiArgs.remind_local;
+          }
+          if (typeof args.event_local === "string" && args.event_local) {
+            apiArgs.event_at = localBRtoISO(args.event_local);
+            delete apiArgs.event_local;
+          }
+
           // Bloqueio estrutural: em modo remarcar, se há delete pendente para um título parecido, bloqueia
           if (isRemarcarSession && mustRetryDelete) {
-            const newTitle = normalize(String(args.title ?? ""));
+            const newTitle = normalize(String(apiArgs.title ?? ""));
             const oldTitle = normalize(pendingDeleteTitleHint ?? "");
             const similar =
               !!newTitle &&
@@ -844,9 +856,9 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             if (similar) {
               console.warn(
                 `[assistente-virtual] create_reminder BLOCKED (reschedule pending delete)`,
-                JSON.stringify({ newTitle: args.title, oldTitle: pendingDeleteTitleHint }),
+                JSON.stringify({ newTitle: apiArgs.title, oldTitle: pendingDeleteTitleHint }),
               );
-              const detail = `Bloqueado: criar "${args.title}" enquanto há delete pendente do antigo.`;
+              const detail = `Bloqueado: criar "${apiArgs.title}" enquanto há delete pendente do antigo.`;
               opResults.push({ tool: "create_reminder", ok: false, detail });
               return {
                 error:
@@ -862,8 +874,8 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             const listRes = await callRemindersApi("GET", {});
             captureIdsFromListResult(listRes, true);
           }
-          const newTitleNorm = normalize(String(args.title ?? ""));
-          const newEventIso = String(args.event_at ?? args.remind_at ?? "");
+          const newTitleNorm = normalize(String(apiArgs.title ?? ""));
+          const newEventIso = String(apiArgs.event_at ?? apiArgs.remind_at ?? "");
           const newEventMs = new Date(newEventIso).getTime();
           if (newTitleNorm && !isNaN(newEventMs)) {
             const matches = lastPendingList.filter((r) => {
@@ -880,21 +892,21 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
                 .join(", ");
               console.warn(
                 `[assistente-virtual] create_reminder BLOCKED (duplicate)`,
-                JSON.stringify({ newTitle: args.title, newEventIso, matches: matches.map((m) => m.id) }),
+                JSON.stringify({ newTitle: apiArgs.title, newEventIso, matches: matches.map((m) => m.id) }),
               );
               opResults.push({
                 tool: "create_reminder",
                 ok: false,
-                detail: `Bloqueado duplicata de "${args.title}" às ${fmtTimeBR(newEventIso)} — já existe ${list}.`,
+                detail: `Bloqueado duplicata de "${apiArgs.title}" às ${fmtTimeBR(newEventIso)} — já existe ${list}.`,
               });
               return {
-                error: `Já existe '${args.title}' em horário muito próximo: ${list}. Cancele o existente primeiro (delete_reminder) ou, se o usuário confirmar explicitamente que quer duplicar, ignore este aviso e prossiga.`,
+                error: `Já existe '${apiArgs.title}' em horário muito próximo: ${list}. Cancele o existente primeiro (delete_reminder) ou, se o usuário confirmar explicitamente que quer duplicar, ignore este aviso e prossiga.`,
                 duplicates: matches,
               };
             }
           }
 
-          const result = await callRemindersApi("POST", args);
+          const result = await callRemindersApi("POST", apiArgs);
           const r = result as { reminder?: { id?: string; title?: string; event_at?: string; remind_at?: string }; error?: string };
           if (r?.reminder?.id) {
             verifiedIds.add(r.reminder.id);
@@ -908,15 +920,42 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             opResults.push({
               tool: "create_reminder",
               ok: false,
-              detail: `❌ Falha ao criar "${args.title}": ${r?.error ?? "erro desconhecido"}.`,
+              detail: `❌ Falha ao criar "${apiArgs.title}": ${r?.error ?? "erro desconhecido"}.`,
             });
           }
           return result;
         }
         if (name === "list_reminders") {
+          const fromDate = typeof args.from_date === "string" ? args.from_date : undefined;
+          const toDate = typeof args.to_date === "string" ? args.to_date : undefined;
+          if (fromDate || toDate) {
+            lastDateFilter = { from_date: fromDate, to_date: toDate };
+          }
           const res = await callRemindersApi("GET", {});
           captureIdsFromListResult(res, true);
-          return transformListResult(res);
+          const transformed = transformListResult(res) as { reminders?: Array<RawReminder & { event_date_br: string }> };
+          // Filtra por data LOCAL Brasil (event_date_br vem como "DD/MM/YYYY")
+          if ((fromDate || toDate) && transformed && Array.isArray(transformed.reminders)) {
+            const toKey = (br: string): string => {
+              // "27/04/2026" → "2026-04-27"
+              const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+              return m ? `${m[3]}-${m[2]}-${m[1]}` : br;
+            };
+            const fromK = fromDate ?? "0000-00-00";
+            const toK = toDate ?? "9999-99-99";
+            transformed.reminders = transformed.reminders.filter((r) => {
+              const k = toKey(r.event_date_br);
+              return k >= fromK && k <= toK;
+            });
+            // Atualiza lastPendingList pra refletir o filtro (fallbacks vão usar essa lista)
+            lastPendingList = transformed.reminders.map((it) => ({
+              id: it.id,
+              title: it.title,
+              event_at: it.event_at ?? it.remind_at,
+              remind_at: it.remind_at,
+            }));
+          }
+          return transformed;
         }
         if (name === "list_cancelled_reminders") {
           const res = await callRemindersApi("GET", {
