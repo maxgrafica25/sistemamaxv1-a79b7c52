@@ -195,22 +195,7 @@ PADRÕES DE RESPOSTA (siga literalmente):
   ⚠️ Já tem **<título>** marcado pra **<dia> às <hora>**.
 
   Quer (a) substituir, (b) manter os dois ou (c) cancelar?
-- Listagem de lembretes (list_reminders): bullets em markdown, horário em negrito.
-  ⚠️ REGRA INVIOLÁVEL DOS DOIS CAMPOS — leia com atenção:
-    • Cada lembrete tem DOIS timestamps distintos: event_at (horário REAL do compromisso) e remind_at (horário do AVISO/notificação).
-    • Para EXIBIR o horário do bullet (o **negrito** principal), use SEMPRE event_at. Se event_at for null, aí sim use remind_at.
-    • Para mostrar entre parênteses "(aviso XXhYY)", use SEMPRE remind_at — e SÓ inclua se remind_at for diferente de event_at.
-    • NUNCA inverta. NUNCA pegue remind_at para o bullet principal só porque aparece primeiro no JSON. Compare mentalmente os dois campos antes de escrever.
-    • NUNCA repita o horário no título (se o bullet mostra **11h**, escreva só "Treino", não "Treino às 11h").
-  Exemplo concreto de input → output:
-    JSON do lembrete: { "title": "Treino", "remind_at": "2026-04-27T13:45:00+00:00", "event_at": "2026-04-27T16:00:00+00:00" }
-    Em America/Sao_Paulo (UTC-3): event_at = 13h00 local, remind_at = 10h45 local.
-    Saída CORRETA: "- **13h00** — Treino (aviso 10h45)"
-    Saída ERRADA: "- **10h45** — Treino (aviso 13h00)"  ← inverteu os campos
-    Saída ERRADA: "- **13h00** — Treino às 13h" ← repetiu horário no título
-  Outro exemplo (sem aviso antecipado):
-    JSON: { "title": "Teste Sistema 1", "remind_at": "2026-04-27T17:00:00+00:00", "event_at": "2026-04-27T17:00:00+00:00" }
-    Local: 14h00. Saída CORRETA: "- **14h00** — Teste Sistema 1"  (sem parênteses, pois remind_at == event_at)
+- Listagem de lembretes (list_reminders / list_cancelled_reminders): cada item já vem com o campo display_line PRÉ-FORMATADO pelo servidor (ex.: "**13h00** — Treino (aviso 10h45)"). REGRA: copie display_line LITERALMENTE como bullet. NÃO recalcule horário, NÃO converta timezone, NÃO use event_at/remind_at brutos para exibir, NÃO invente itens que não estão na resposta. Apenas prefixe "- " e copie display_line.
   Modelo de resposta:
   Seus pendentes:
   - **11h00** — Treino (aviso 10h45)
@@ -733,6 +718,92 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       }
     }
 
+    function fmtDateBR(iso: string): string {
+      try {
+        return new Intl.DateTimeFormat("pt-BR", {
+          timeZone: "America/Sao_Paulo",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }).format(new Date(iso));
+      } catch {
+        return iso;
+      }
+    }
+
+    function fmtHHMM(iso: string): string {
+      // Retorna no formato "13h00" (sem ":")
+      const t = fmtTimeBR(iso); // "13:00"
+      return t.replace(":", "h");
+    }
+
+    function cleanTitleForDisplay(title: string): string {
+      // Remove sufixos tipo "às 11h", "às 13h15" do título
+      return String(title || "")
+        .replace(/\s+[àa]s\s+\d{1,2}(?:h\d{0,2}|:\d{2})?\b/gi, "")
+        .trim();
+    }
+
+    type RawReminder = {
+      id?: string;
+      title?: string;
+      remind_at?: string | null;
+      event_at?: string | null;
+      cancelled_at?: string | null;
+      cancelled_reason?: string | null;
+      description?: string | null;
+      recurrence?: string | null;
+    };
+
+    function formatReminderForDisplay(r: RawReminder, opts?: { cancelled?: boolean }): RawReminder & {
+      display_line: string;
+      event_local: string;
+      remind_local: string;
+      event_date_br: string;
+    } {
+      const eventIso = String(r.event_at ?? r.remind_at ?? "");
+      const remindIso = String(r.remind_at ?? r.event_at ?? "");
+      const titleClean = cleanTitleForDisplay(String(r.title ?? "(sem título)"));
+      const evHHMM = fmtHHMM(eventIso);
+      const rmHHMM = fmtHHMM(remindIso);
+      const dateBR = fmtDateBR(eventIso);
+
+      let suffix = "";
+      // "(aviso 10h45)" só quando remind_at != event_at
+      if (eventIso && remindIso) {
+        const evMs = new Date(eventIso).getTime();
+        const rmMs = new Date(remindIso).getTime();
+        if (!isNaN(evMs) && !isNaN(rmMs) && evMs !== rmMs) {
+          suffix = ` (aviso ${rmHHMM})`;
+        }
+      }
+
+      let cancelTag = "";
+      if (opts?.cancelled && r.cancelled_at) {
+        const reason = (r.cancelled_reason ?? "user_cancelled").toLowerCase();
+        const verb = reason === "rescheduled" ? "remarcado" : "cancelado";
+        cancelTag = ` — ${verb} em ${fmtDateBR(r.cancelled_at)} ${fmtTimeBR(r.cancelled_at)}`;
+      }
+
+      const display_line = `**${evHHMM}** — ${titleClean}${suffix}${cancelTag}`;
+      return {
+        ...r,
+        display_line,
+        event_local: evHHMM,
+        remind_local: rmHHMM,
+        event_date_br: dateBR,
+      };
+    }
+
+    function transformListResult(result: unknown, opts?: { cancelled?: boolean }): unknown {
+      const r = result as { reminders?: RawReminder[]; error?: string } | null;
+      if (!r || !Array.isArray(r.reminders)) return result;
+      return {
+        ...r,
+        reminders: r.reminders.map((it) => formatReminderForDisplay(it, opts)),
+      };
+    }
+
     async function executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
       try {
         if (name === "create_reminder") {
@@ -822,7 +893,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         if (name === "list_reminders") {
           const res = await callRemindersApi("GET", {});
           captureIdsFromListResult(res, true);
-          return res;
+          return transformListResult(res);
         }
         if (name === "list_cancelled_reminders") {
           const res = await callRemindersApi("GET", {
@@ -832,7 +903,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             to: args.to,
           });
           captureIdsFromListResult(res);
-          return res;
+          return transformListResult(res, { cancelled: true });
         }
         if (name === "delete_reminder") {
           const id = String(args.id ?? "");
@@ -898,9 +969,23 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
     }
 
     // 7) Loop de chat com tool calling (máx 3 iterações)
+    // Trunca respostas antigas do assistente para o modelo não pegar listagens desatualizadas
+    // como "fonte" de horários. Mantém intactas as mensagens do usuário.
+    const truncatedHistory = historico.slice(-10).map((h) => {
+      if (h.role === "assistant" && h.content.length > 200) {
+        return {
+          role: h.role,
+          content:
+            "[histórico truncado — pode estar desatualizado, NÃO use como fonte de horários atuais; chame list_reminders se precisar do estado real] " +
+            h.content.slice(0, 200) +
+            "…",
+        };
+      }
+      return h;
+    });
     const messages: any[] = [
       { role: "system", content: systemPrompt },
-      ...historico.slice(-10),
+      ...truncatedHistory,
       { role: "user", content: pergunta },
     ];
 
@@ -1030,6 +1115,32 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
 
       resposta = (msg?.content ?? "").trim() || "Não consegui gerar uma resposta.";
       break;
+    }
+
+    // Override servidor-side: se houve falhas de delete por uuid_not_in_session E nenhum delete teve sucesso,
+    // substituímos a resposta por uma mensagem clara com a lista atual, em vez de "tive um problema interno".
+    const deleteOps = opResults.filter((o) => o.tool === "delete_reminder");
+    const hasDeleteSuccess = deleteOps.some((o) => o.ok);
+    const hasUuidFail = deleteOps.some(
+      (o) => !o.ok && /UUID inválido|uuid_not_in_session|não pertence à sessão/i.test(o.detail),
+    );
+    if (hasUuidFail && !hasDeleteSuccess) {
+      // Garante lista atualizada
+      if (lastPendingList.length === 0) {
+        const res = await callRemindersApi("GET", {});
+        captureIdsFromListResult(res, true);
+      }
+      const formatted = lastPendingList
+        .map((r) => {
+          const f = formatReminderForDisplay(r as RawReminder);
+          return `- ${f.display_line}`;
+        })
+        .join("\n");
+      resposta =
+        "Não consegui identificar exatamente quais lembretes alterar.\n\n" +
+        (formatted
+          ? `Aqui estão os pendentes:\n${formatted}\n\nPode me dizer **qual horário cancelar** e **qual remarcar** copiando da lista acima?`
+          : "Não há lembretes pendentes no momento. Quer me dizer de novo o que precisa?");
     }
 
     if (!resposta) resposta = "Não consegui finalizar a resposta. Tente novamente.";
