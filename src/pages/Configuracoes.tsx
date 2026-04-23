@@ -299,6 +299,10 @@ export default function Configuracoes() {
         </TabsContent>
 
         {isAdmin && (
+          <TabsContent value="conhecimento" className="mt-4 max-w-5xl">
+            <BaseConhecimentoTab />
+          </TabsContent>
+        )}
 
         {isAdmin && (
           <TabsContent value="backup" className="space-y-6 mt-4">
