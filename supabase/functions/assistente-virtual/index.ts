@@ -638,6 +638,13 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       try {
         if (name === "create_reminder") return await callRemindersApi("POST", args);
         if (name === "list_reminders") return await callRemindersApi("GET", {});
+        if (name === "list_cancelled_reminders")
+          return await callRemindersApi("GET", {
+            include_cancelled: "1",
+            include_completed: "1",
+            from: args.from,
+            to: args.to,
+          });
         if (name === "delete_reminder") return await callRemindersApi("DELETE", args);
         if (name === "check_reminder_conflict")
           return await callRemindersApi("GET", args, "/conflicts");
