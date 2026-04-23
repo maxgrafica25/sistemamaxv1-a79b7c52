@@ -1273,33 +1273,26 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       (o) => !o.ok && /UUID inválido|uuid_not_in_session|não pertence à sessão/i.test(o.detail),
     );
     if (hasUuidFail && !hasDeleteSuccess) {
-      // Garante lista atualizada respeitando o último filtro de data da sessão
+      // Garante lista atualizada (se ainda não temos)
       if (lastPendingList.length === 0) {
         const res = await callRemindersApi("GET", {});
         captureIdsFromListResult(res, true);
-        if (lastDateFilter && (lastDateFilter.from_date || lastDateFilter.to_date)) {
-          const toKey = (br: string): string => {
-            const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-            return m ? `${m[3]}-${m[2]}-${m[1]}` : br;
-          };
-          const fromK = lastDateFilter.from_date ?? "0000-00-00";
-          const toK = lastDateFilter.to_date ?? "9999-99-99";
-          lastPendingList = lastPendingList.filter((r) => {
-            const f = formatReminderForDisplay(r as RawReminder);
-            const k = toKey(f.event_date_br);
-            return k >= fromK && k <= toK;
-          });
-        }
       }
-      const formatted = lastPendingList
+      // SEMPRE re-aplica o filtro de data ativo (explícito ou herdado),
+      // mesmo se lastPendingList já estava preenchida com lista crua.
+      const activeFilter = resolveActiveDateFilter();
+      const scopedList = activeFilter
+        ? applyDateFilterToReminderList(lastPendingList as RawReminder[], activeFilter)
+        : lastPendingList;
+      const formatted = scopedList
         .map((r) => {
           const f = formatReminderForDisplay(r as RawReminder);
           return `- ${f.display_line}`;
         })
         .join("\n");
-      const scopeLabel = lastDateFilter && (lastDateFilter.from_date || lastDateFilter.to_date)
-        ? (lastDateFilter.from_date === lastDateFilter.to_date && lastDateFilter.from_date
-          ? `do dia ${lastDateFilter.from_date.split("-").reverse().join("/")}`
+      const scopeLabel = activeFilter
+        ? (activeFilter.from_date === activeFilter.to_date
+          ? `do dia ${activeFilter.from_date.split("-").reverse().join("/")}`
           : "no período pedido")
         : "pendentes";
       resposta =
