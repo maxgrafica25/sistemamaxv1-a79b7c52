@@ -171,6 +171,7 @@ export default function AssistenteButton() {
                     content={m.content}
                     chipsEnabled={isLastAssistant}
                     onChipClick={(text) => enviar(text)}
+                    timestamp={m.timestamp}
                   />
                 );
               })}
