@@ -195,8 +195,23 @@ PADRÕES DE RESPOSTA (siga literalmente):
   ⚠️ Já tem **<título>** marcado pra **<dia> às <hora>**.
 
   Quer (a) substituir, (b) manter os dois ou (c) cancelar?
-- Listagem de lembretes (list_reminders): bullets em markdown, horário em negrito. SEMPRE use event_at (horário real do compromisso) — se event_at for null, use remind_at. NUNCA repita o horário no título (não escreva "Treino às 11h" se o bullet já mostra **11h**). Se o aviso (remind_at) for diferente do compromisso (event_at), adicione discreto entre parênteses no fim.
-  Exemplo:
+- Listagem de lembretes (list_reminders): bullets em markdown, horário em negrito.
+  ⚠️ REGRA INVIOLÁVEL DOS DOIS CAMPOS — leia com atenção:
+    • Cada lembrete tem DOIS timestamps distintos: `event_at` (horário REAL do compromisso) e `remind_at` (horário do AVISO/notificação).
+    • Para EXIBIR o horário do bullet (o **negrito** principal), use SEMPRE `event_at`. Se `event_at` for null, aí sim use `remind_at`.
+    • Para mostrar entre parênteses "(aviso XXhYY)", use SEMPRE `remind_at` — e SÓ inclua se `remind_at` for diferente de `event_at`.
+    • NUNCA inverta. NUNCA pegue `remind_at` para o bullet principal só porque aparece primeiro no JSON. Compare mentalmente os dois campos antes de escrever.
+    • NUNCA repita o horário no título (se o bullet mostra **11h**, escreva só "Treino", não "Treino às 11h").
+  Exemplo concreto de input → output:
+    JSON do lembrete: { "title": "Treino", "remind_at": "2026-04-27T13:45:00+00:00", "event_at": "2026-04-27T16:00:00+00:00" }
+    Em America/Sao_Paulo (UTC-3): event_at = 13h00 local, remind_at = 10h45 local.
+    Saída CORRETA: "- **13h00** — Treino (aviso 10h45)"
+    Saída ERRADA: "- **10h45** — Treino (aviso 13h00)"  ← inverteu os campos
+    Saída ERRADA: "- **13h00** — Treino às 13h" ← repetiu horário no título
+  Outro exemplo (sem aviso antecipado):
+    JSON: { "title": "Teste Sistema 1", "remind_at": "2026-04-27T17:00:00+00:00", "event_at": "2026-04-27T17:00:00+00:00" }
+    Local: 14h00. Saída CORRETA: "- **14h00** — Teste Sistema 1"  (sem parênteses, pois remind_at == event_at)
+  Modelo de resposta:
   Seus pendentes:
   - **11h00** — Treino (aviso 10h45)
   - **16h00** — Instagram
