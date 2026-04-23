@@ -9,7 +9,7 @@ const CLIENT_SECRET = Deno.env.get("GOOGLE_OAUTH_CLIENT_SECRET")!;
 const REDIRECT_URI = Deno.env.get("GOOGLE_OAUTH_REDIRECT_URI")!;
 const STATE_SECRET = Deno.env.get("GOOGLE_OAUTH_STATE_SECRET")!;
 
-async function verifyState(state: string): Promise<{ user_id: string } | null> {
+async function verifyState(state: string): Promise<{ user_id: string; app_origin?: string } | null> {
   const [data, sig] = state.split(".");
   if (!data || !sig) return null;
   const key = await crypto.subtle.importKey(
@@ -29,9 +29,19 @@ async function verifyState(state: string): Promise<{ user_id: string } | null> {
   }
 }
 
-function originFromRedirect(): string {
-  // Tenta derivar a origem do app a partir do referer; fallback p/ raiz publicada.
-  return "https://id-preview--667f8a1f-61e4-4274-8da0-fdacd8d61791.lovable.app";
+const ALLOWED_ORIGIN_SUFFIXES = [".lovable.app", ".lovableproject.com"];
+function sanitizeOrigin(origin: string | undefined): string {
+  const fallback = "https://sistemamaxv1.lovable.app";
+  if (!origin) return fallback;
+  try {
+    const u = new URL(origin);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return fallback;
+    const host = u.hostname;
+    if (ALLOWED_ORIGIN_SUFFIXES.some((s) => host.endsWith(s))) return u.origin;
+    return fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function redirectTo(url: string): Response {
@@ -43,7 +53,20 @@ Deno.serve(async (req) => {
   const code = u.searchParams.get("code");
   const state = u.searchParams.get("state");
   const errorParam = u.searchParams.get("error");
-  const appOrigin = req.headers.get("referer")?.split("/").slice(0, 3).join("/") || originFromRedirect();
+  
+
+  // Pre-parse state (sem validar ainda) para extrair app_origin antes mesmo de validar erros do Google
+  let preOrigin = "";
+  if (state) {
+    try {
+      const [data] = state.split(".");
+      if (data) {
+        const payload = JSON.parse(atob(data));
+        if (payload?.app_origin) preOrigin = payload.app_origin;
+      }
+    } catch (_) { /* ignore */ }
+  }
+  const appOrigin = sanitizeOrigin(preOrigin);
 
   if (errorParam) {
     return redirectTo(`${appOrigin}/configuracoes?gcal=error&reason=${encodeURIComponent(errorParam)}`);

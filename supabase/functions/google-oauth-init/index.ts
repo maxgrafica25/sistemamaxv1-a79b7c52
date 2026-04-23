@@ -56,7 +56,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    const state = await signState({ user_id: user.id, ts: Date.now() });
+    let appOrigin = "";
+    try {
+      const body = await req.json().catch(() => ({} as any));
+      if (body && typeof body.app_origin === "string") appOrigin = body.app_origin;
+    } catch (_) { /* ignore */ }
+    if (!appOrigin) {
+      const ref = req.headers.get("origin") || req.headers.get("referer") || "";
+      try { appOrigin = new URL(ref).origin; } catch { appOrigin = ""; }
+    }
+
+    const state = await signState({ user_id: user.id, ts: Date.now(), app_origin: appOrigin });
     const params = new URLSearchParams({
       client_id: CLIENT_ID,
       redirect_uri: REDIRECT_URI,
