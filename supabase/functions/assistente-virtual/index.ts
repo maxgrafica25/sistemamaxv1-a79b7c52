@@ -519,18 +519,18 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         type: "function",
         function: {
           name: "create_reminder",
-          description: "Cria um lembrete pessoal do usuário autenticado.",
+          description: "Cria um lembrete pessoal do usuário autenticado. Use SEMPRE horário LOCAL Brasil (sem fuso) — o servidor adiciona o offset −03:00 automaticamente.",
           parameters: {
             type: "object",
             properties: {
               title: { type: "string", description: "Descrição curta do lembrete (ex.: 'Dentista', SEM o horário no nome)." },
-              remind_at: {
+              remind_local: {
                 type: "string",
-                description: "Data/hora ISO 8601 com offset de QUANDO DISPARAR O AVISO (ex.: 2026-04-23T13:00:00-03:00). Deve ser futuro.",
+                description: "Horário LOCAL Brasil de QUANDO DISPARAR O AVISO no formato 'YYYY-MM-DDTHH:mm' (ex.: '2026-04-27T12:30'). NUNCA inclua offset/Z. Deve ser futuro.",
               },
-              event_at: {
+              event_local: {
                 type: "string",
-                description: "Data/hora ISO 8601 com offset do HORÁRIO REAL DO COMPROMISSO (ex.: 2026-04-23T14:00:00-03:00). OBRIGATÓRIO quando há aviso antecipado (remind_at < event_at). OMITIR para tarefas avulsas (ex.: 'tomar água às 16h'). Deve ser >= remind_at.",
+                description: "Horário LOCAL Brasil do COMPROMISSO REAL no formato 'YYYY-MM-DDTHH:mm' (ex.: '2026-04-27T14:00'). OBRIGATÓRIO quando há aviso antecipado. OMITIR para tarefas avulsas. Deve ser >= remind_local. NUNCA inclua offset/Z.",
               },
               description: { type: "string", description: "Detalhe opcional." },
               recurrence: {
@@ -539,7 +539,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
                 description: "Recorrência. Padrão: none.",
               },
             },
-            required: ["title", "remind_at"],
+            required: ["title", "remind_local"],
           },
         },
       },
@@ -547,8 +547,20 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         type: "function",
         function: {
           name: "list_reminders",
-          description: "Lista os lembretes pendentes (não concluídos) do usuário.",
-          parameters: { type: "object", properties: {} },
+          description: "Lista os lembretes pendentes (não concluídos) do usuário. Aceita filtros opcionais de data LOCAL Brasil.",
+          parameters: {
+            type: "object",
+            properties: {
+              from_date: {
+                type: "string",
+                description: "Data LOCAL Brasil INICIAL (inclusive) no formato 'YYYY-MM-DD'. Use quando o usuário pedir um dia/intervalo específico (ex.: 'o que tenho dia 27?' → from_date='2026-04-27', to_date='2026-04-27').",
+              },
+              to_date: {
+                type: "string",
+                description: "Data LOCAL Brasil FINAL (inclusive) no formato 'YYYY-MM-DD'. Sempre passe junto com from_date.",
+              },
+            },
+          },
         },
       },
       {
