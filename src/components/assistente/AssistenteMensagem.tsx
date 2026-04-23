@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 import { Sparkles, User, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
