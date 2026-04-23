@@ -645,18 +645,49 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       }
     }
 
+    // Guard anti-alucinação: só aceita delete_reminder com ids vistos em list_* na MESMA sessão
+    const verifiedIds = new Set<string>();
+    function captureIdsFromListResult(result: unknown): void {
+      const r = result as { reminders?: Array<{ id?: string }> } | null;
+      if (r && Array.isArray(r.reminders)) {
+        for (const item of r.reminders) {
+          if (item?.id && typeof item.id === "string") verifiedIds.add(item.id);
+        }
+      }
+    }
+
     async function executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
       try {
         if (name === "create_reminder") return await callRemindersApi("POST", args);
-        if (name === "list_reminders") return await callRemindersApi("GET", {});
-        if (name === "list_cancelled_reminders")
-          return await callRemindersApi("GET", {
+        if (name === "list_reminders") {
+          const res = await callRemindersApi("GET", {});
+          captureIdsFromListResult(res);
+          return res;
+        }
+        if (name === "list_cancelled_reminders") {
+          const res = await callRemindersApi("GET", {
             include_cancelled: "1",
             include_completed: "1",
             from: args.from,
             to: args.to,
           });
-        if (name === "delete_reminder") return await callRemindersApi("DELETE", args);
+          captureIdsFromListResult(res);
+          return res;
+        }
+        if (name === "delete_reminder") {
+          const id = String(args.id ?? "");
+          if (!verifiedIds.has(id)) {
+            console.warn(
+              `[assistente-virtual] delete_reminder REJECTED`,
+              JSON.stringify({ rejected: true, id, reason: "uuid_not_in_session" }),
+            );
+            return {
+              error:
+                "id não verificado nesta sessão. Chame list_reminders primeiro e use EXATAMENTE o UUID retornado (não invente nem use de mensagens anteriores).",
+            };
+          }
+          return await callRemindersApi("DELETE", args);
+        }
         if (name === "check_reminder_conflict")
           return await callRemindersApi("GET", args, "/conflicts");
         return { error: `Ferramenta desconhecida: ${name}` };
