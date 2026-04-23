@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
       response_type: "code",
       access_type: "offline",
       prompt: "consent",
-      include_granted_scopes: "true",
+      include_granted_scopes: "false",
       scope: SCOPES,
       state,
     });

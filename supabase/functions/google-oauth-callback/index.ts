@@ -104,6 +104,13 @@ Deno.serve(async (req) => {
     token_type: string;
   };
 
+  // Validar que o escopo de escrita do Calendar foi concedido
+  const REQUIRED_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+  if (!tokens.scope || !tokens.scope.split(/\s+/).includes(REQUIRED_SCOPE)) {
+    console.error("[gcal-callback] missing calendar.events scope. got:", tokens.scope);
+    return redirectTo(`${appOrigin}/configuracoes?gcal=error&reason=missing_calendar_scope`);
+  }
+
   // Buscar email do usuário Google
   let email = "";
   try {

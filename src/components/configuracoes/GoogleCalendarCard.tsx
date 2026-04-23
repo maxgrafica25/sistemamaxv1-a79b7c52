@@ -41,7 +41,11 @@ export default function GoogleCalendarCard() {
       load();
     } else if (status === "error") {
       const reason = params.get("reason") || "desconhecido";
-      toast.error(`Falha ao conectar: ${reason}`);
+      if (reason === "missing_calendar_scope") {
+        toast.error("Você precisa marcar a permissão de Google Calendar na tela de consentimento. Tente conectar de novo e marque todas as permissões pedidas.");
+      } else {
+        toast.error(`Falha ao conectar: ${reason}`);
+      }
     }
     params.delete("gcal");
     params.delete("reason");
