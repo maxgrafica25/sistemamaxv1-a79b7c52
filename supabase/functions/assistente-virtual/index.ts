@@ -716,6 +716,89 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       return `${date}T${hh}:${mm}:${ss ?? "00"}-03:00`;
     }
 
+    // === Contexto de data herdado da listagem anterior da Júlia ===
+    // Procura no histórico a última mensagem da assistente que listou lembretes filtrados
+    // por uma data específica (ex.: "Seus pendentes para 27/04:", "do dia 27/04").
+    // Retorna YYYY-MM-DD ou null. Usa o ano da maior data de mensagem se disponível.
+    function extractDateContextFromHistory(): string | null {
+      try {
+        const msgs = Array.isArray(historico) ? historico : [];
+        // Percorre do mais recente pro mais antigo
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          const m = msgs[i];
+          if (!m || m.role !== "assistant" || typeof m.content !== "string") continue;
+          const txt = m.content;
+          // Padrões aceitos: "27/04", "27/04/2026", "dia 27/04", "para 27/04"
+          const re = /\b(0?[1-9]|[12][0-9]|3[01])\/(0?[1-9]|1[0-2])(?:\/(\d{4}))?\b/;
+          const mm = txt.match(re);
+          if (!mm) continue;
+          // Confere se o contexto fala de listagem/pendentes/agenda
+          const contextHint = /pendentes?|lembrete|agenda|compromisso|para o dia|do dia|seus|aqui est[aã]o|para \d/i;
+          if (!contextHint.test(txt)) continue;
+          const dd = mm[1].padStart(2, "0");
+          const mo = mm[2].padStart(2, "0");
+          const yy = mm[3] ?? String(new Date().getFullYear());
+          return `${yy}-${mo}-${dd}`;
+        }
+      } catch (e) {
+        console.warn("[assistente-virtual] extractDateContextFromHistory failed:", e);
+      }
+      return null;
+    }
+
+    // Detecta se a mensagem atual do usuário cita uma data nova (DD/MM, "amanhã", "hoje", "semana", etc.)
+    function userMentionsExplicitDate(): boolean {
+      const p = String(pergunta || "").toLowerCase();
+      if (/\b\d{1,2}\/\d{1,2}\b/.test(p)) return true;
+      if (/\b(hoje|amanh[ãa]|depois\s+de\s+amanh[ãa]|ontem|semana|m[eê]s|segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)\b/.test(p)) return true;
+      return false;
+    }
+
+    // Detecta se a mensagem atual parece ser de edição/cancelamento/remarcação
+    // (continuação de uma listagem anterior).
+    function isEditCancelContinuation(): boolean {
+      const p = String(pergunta || "").toLowerCase();
+      return /\b(altera|alterar|troc[ao]|trocar|mud[ao]|mudar|remarc[ao]r?|cancel[ao]r?|apag[ao]r?|exclu[ií]r?|remov[ae]r?|adi[ao]r?|antecip[ao]r?|reagend[ao]r?|esse|essa|esses|essas|aquele|aquela|aqueles|aquelas|o\s+das?\s+|o\s+de\s+\d|das\s+\d|de\s+\d{1,2}h)\b/.test(p);
+    }
+
+    const inheritedDateFilter: string | null = (!userMentionsExplicitDate() && isEditCancelContinuation())
+      ? extractDateContextFromHistory()
+      : null;
+    if (inheritedDateFilter) {
+      console.log("[assistente-virtual] inheritedDateFilter =", inheritedDateFilter);
+    }
+
+    // Helper: resolve o filtro de data ativo (explícito da sessão > herdado do histórico)
+    function resolveActiveDateFilter(): { from_date: string; to_date: string } | null {
+      if (lastDateFilter && (lastDateFilter.from_date || lastDateFilter.to_date)) {
+        return {
+          from_date: lastDateFilter.from_date ?? "0000-00-00",
+          to_date: lastDateFilter.to_date ?? "9999-99-99",
+        };
+      }
+      if (inheritedDateFilter) {
+        return { from_date: inheritedDateFilter, to_date: inheritedDateFilter };
+      }
+      return null;
+    }
+
+    // Helper: aplica filtro por data (YYYY-MM-DD) a uma lista de lembretes brutos
+    function applyDateFilterToReminderList<T extends RawReminder>(
+      list: T[],
+      filter: { from_date: string; to_date: string } | null,
+    ): T[] {
+      if (!filter) return list;
+      const toKey = (br: string): string => {
+        const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return m ? `${m[3]}-${m[2]}-${m[1]}` : br;
+      };
+      return list.filter((r) => {
+        const f = formatReminderForDisplay(r);
+        const k = toKey(f.event_date_br);
+        return k >= filter.from_date && k <= filter.to_date;
+      });
+    }
+
     // Auditoria: registra resultado real de cada tool de mutação para montar o resumo final
     type OpResult = { tool: string; ok: boolean; detail: string };
     const opResults: OpResult[] = [];
