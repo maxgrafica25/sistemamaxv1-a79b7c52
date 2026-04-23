@@ -893,7 +893,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         if (name === "list_reminders") {
           const res = await callRemindersApi("GET", {});
           captureIdsFromListResult(res, true);
-          return res;
+          return transformListResult(res);
         }
         if (name === "list_cancelled_reminders") {
           const res = await callRemindersApi("GET", {
@@ -903,7 +903,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             to: args.to,
           });
           captureIdsFromListResult(res);
-          return res;
+          return transformListResult(res, { cancelled: true });
         }
         if (name === "delete_reminder") {
           const id = String(args.id ?? "");
