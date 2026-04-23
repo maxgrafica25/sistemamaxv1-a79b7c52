@@ -1,0 +1,1 @@
+DELETE FROM public.reminders WHERE user_id = '056da65d-8552-4163-ae37-11d14d152805' AND category = 'assistente';

@@ -229,7 +229,7 @@ FERRAMENTAS DISPONÍVEIS (lembretes):
 - list_reminders({ from_date?, to_date? }): lista lembretes pendentes do usuário (cada item traz remind_at, event_at e display_line). SEMPRE que o usuário pedir um dia/intervalo específico ("o que tenho dia 27?", "amanhã", "quinta", "essa semana"), passe from_date e to_date no formato 'YYYY-MM-DD' (data LOCAL Brasil). Para um único dia, from_date = to_date.
 - list_cancelled_reminders({ from, to }): lista lembretes JÁ CANCELADOS do usuário numa janela ISO 8601. Use APENAS quando o usuário perguntar "eu tinha algo?" / "tinha compromisso?" e list_reminders não trouxer nada no horário.
 - delete_reminder({ id, reason? }): cancela lembrete pelo id (use list_reminders antes para descobrir o id). reason='user_cancelled' (default) para cancelamento puro; reason='rescheduled' quando o cancelamento é parte de um remarcar (delete antigo + create novo). O servidor força automaticamente 'rescheduled' se a frase do usuário for de remarcar, mas SEMPRE passe explicitamente quando souber.
-- check_reminder_conflict({ remind_at, window_minutes?, exclude_id? }): verifica conflito comparando event_at dos pendentes contra o valor passado em remind_at (que aqui representa o HORÁRIO DO COMPROMISSO REAL — passe o event_at do novo lembrete; se for tarefa avulsa, passe o remind_at). Padrão window_minutes=15. Retorna { conflicts: [...] }.
+- check_reminder_conflict({ remind_local, window_minutes?, exclude_id? }): verifica conflito comparando event_at dos pendentes contra o horário proposto. PASSE remind_local em hora LOCAL Brasil 'YYYY-MM-DDTHH:mm' (ex.: '2026-04-27T11:00') — o servidor anexa o fuso. NÃO monte ISO com offset manualmente. Se houver evento real, passe event_local; se for tarefa avulsa, o próprio remind_local. Padrão window_minutes=15. Retorna { conflicts: [...] }.
 
 REGRAS PARA FERRAMENTAS:
 - Se o usuário pedir para "me lembrar de", "agendar", "anotar compromisso", chame create_reminder.
@@ -613,9 +613,13 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           parameters: {
             type: "object",
             properties: {
+              remind_local: {
+                type: "string",
+                description: "PREFERENCIAL. Horário do COMPROMISSO REAL em hora LOCAL Brasil no formato 'YYYY-MM-DDTHH:mm' (ex.: '2026-04-27T11:00'). Passe o event_local do novo lembrete; se for tarefa avulsa, o remind_local. NÃO inclua offset/Z — o servidor anexa -03:00.",
+              },
               remind_at: {
                 type: "string",
-                description: "Horário do COMPROMISSO REAL em ISO 8601 com offset (passe event_at do novo lembrete; se for tarefa avulsa, passe remind_at).",
+                description: "Legado. Use remind_local. Se usar este, deve ser ISO 8601 com offset -03:00.",
               },
               window_minutes: {
                 type: "number",
@@ -626,7 +630,6 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
                 description: "UUID de lembrete a ignorar (para futuras edições).",
               },
             },
-            required: ["remind_at"],
           },
         },
       },
@@ -1127,8 +1130,18 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           return result;
         }
         if (name === "list_reminders") {
-          let fromDate = typeof args.from_date === "string" ? args.from_date : undefined;
-          let toDate = typeof args.to_date === "string" ? args.to_date : undefined;
+          // Aceita variações de nome que o modelo às vezes inventa (from1_date, fromDate, etc.)
+          const argsAny = args as Record<string, unknown>;
+          let fromDate = typeof argsAny.from_date === "string" ? argsAny.from_date as string
+            : typeof argsAny.from1_date === "string" ? argsAny.from1_date as string
+            : typeof argsAny.fromDate === "string" ? argsAny.fromDate as string
+            : typeof argsAny.from === "string" ? argsAny.from as string
+            : undefined;
+          let toDate = typeof argsAny.to_date === "string" ? argsAny.to_date as string
+            : typeof argsAny.to1_date === "string" ? argsAny.to1_date as string
+            : typeof argsAny.toDate === "string" ? argsAny.toDate as string
+            : typeof argsAny.to === "string" ? argsAny.to as string
+            : undefined;
           // Se o modelo esqueceu a data e há contexto herdado da listagem anterior, aplica
           if (!fromDate && !toDate && inheritedDateFilter) {
             fromDate = inheritedDateFilter;
@@ -1228,8 +1241,27 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           }
           return result;
         }
-        if (name === "check_reminder_conflict")
-          return await callRemindersApi("GET", args, "/conflicts");
+        if (name === "check_reminder_conflict") {
+          // Normaliza: aceita remind_local (hora Brasil) OU remind_at (ISO).
+          // Se vier com offset diferente, ou só com hora local, sempre converte para -03:00.
+          const a = args as Record<string, unknown>;
+          const conflictArgs: Record<string, unknown> = { ...a };
+          const localStr = typeof a.remind_local === "string" ? a.remind_local as string
+            : typeof a.event_local === "string" ? a.event_local as string
+            : null;
+          if (localStr) {
+            conflictArgs.remind_at = localBRtoISO(localStr);
+            delete conflictArgs.remind_local;
+            delete conflictArgs.event_local;
+          } else if (typeof a.remind_at === "string") {
+            const raw = a.remind_at as string;
+            // Se for "YYYY-MM-DDTHH:mm" sem offset, anexa -03:00
+            if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?$/.test(raw)) {
+              conflictArgs.remind_at = localBRtoISO(raw);
+            }
+          }
+          return await callRemindersApi("GET", conflictArgs, "/conflicts");
+        }
         return { error: `Ferramenta desconhecida: ${name}` };
       } catch (e) {
         return { error: e instanceof Error ? e.message : "Erro ao executar ferramenta" };

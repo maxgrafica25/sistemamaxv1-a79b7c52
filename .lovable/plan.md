@@ -1,129 +1,81 @@
-
-# O que ela não conseguiu fazer
-
-Ela não conseguiu transformar a sua frase:
-
-- “alterar 13h para 13h30”
-- “cancelar 14h”
-
-nos **UUIDs exatos** dos lembretes da lista de 27/04.
+# Júlia: corrigir criação dos lembretes de 27/04 e parâmetro do filtro de data
 
 ## O que aconteceu de verdade
 
-Pelos logs, a Júlia tentou chamar:
+Não foi a busca que falhou. Foi a criação que **não salvou os lembretes do dia 27**.
 
-```text
-delete_reminder { id: "4e8a4a2b-de94-436f-80d5-171b3e1b7829", reason: "rescheduled" }
+Olhando o banco, os únicos lembretes recentes são:
+- `Festa de aniversário Lilinda` — 24/04 19h
+- `Dentista` — 30/04 17h
+
+Não existe nenhum registro para 27/04. Por isso, quando você perguntou “quais meus compromissos dia 27?”, ela respondeu **“Nada agendado para 27/04/2026”** — está tecnicamente correta, o problema é que os create nunca chegaram a acontecer.
+
+## Causa raiz nos logs
+
+### Bug 1: `check_reminder_conflict` está recebendo horário no fuso errado
+Nos logs vejo:
+```
+check_reminder_conflict args → {"remind_at":"2026-04-27T11:00:00-03:00"}
+check_reminder_conflict args → {"remind_at":"2026-04-30T17:00:00-03:00"}
 ```
 
-e o servidor recusou com:
+O modelo está mandando horário **local com offset -03:00**, mas a tool `check_reminder_conflict` ainda usa o schema antigo que espera **ISO UTC** (`event_at`). Resultado:
+- Para o Dentista (30/04 17h local), o servidor entendeu certo por coincidência.
+- Para os do dia 27, o conflict-check pode ter retornado coisa estranha e o modelo desistiu silenciosamente de chamar `create_reminder`.
 
-```text
-uuid_not_in_session
+Repare: nos logs **só aparece um `create_reminder` para 27/04** (o de 11h, que nem aparece no banco), e nenhum para os outros horários que você criou. Os create simplesmente nunca foram emitidos pelo modelo após o conflict-check confuso.
+
+### Bug 2: `list_reminders` está sendo chamado com `from1_date` (typo)
+```
+tool list_reminders args → {"from1_date":"2026-04-27","to_date":"2026-04-27"}
+tool list_reminders args → {"from1_date":"2026-04-01","to_date":"2026-04-30"}
 ```
 
-Ou seja:
-- ela **não escolheu o id certo** da lista atual;
-- usou um UUID que **não estava entre os lembretes válidos daquela consulta**;
-- por segurança, o servidor bloqueou a exclusão.
+O parâmetro correto é `from_date`, mas o modelo mandou `from1_date` em todas as chamadas. Isso significa que o schema que registramos no `tools` array tem o nome errado — é uma colisão / typo no próprio servidor (o modelo só repete o nome que está exposto no schema).
 
-## Em termos simples
+Como o servidor faz `args.from_date`, ele recebe `undefined`, ignora o filtro de data e cai no caminho “lista tudo”. Por sorte, nesse caso o resultado coincidiu (lista vinda completa, sem nada do dia 27), mas é um bug latente.
 
-Ela entendeu a intenção geral:
-- trocar o compromisso das 13h
-- cancelar o das 14h
+### Bug 3 (consequência): mesmo o `create_reminder` que foi tentado para 27/04 11h não persistiu
+Vejo `check_reminder_conflict` para 27/04 11h às 22:24:57, mas o `create_reminder` correspondente nunca aparece nos logs. Provavelmente o modelo recebeu retorno de conflito malformado e cancelou a criação.
 
-Mas **não conseguiu casar isso automaticamente com os dois registros exatos** que vieram na listagem.
+## O que vou ajustar
 
-Hoje o fluxo funciona assim:
-1. a lista mostra os lembretes corretos;
-2. o modelo precisa escolher, sozinho, qual item da lista corresponde a “13h” e “14h”;
-3. se ele errar o UUID, o servidor barra.
+### 1. Corrigir o typo `from1_date` → `from_date` no schema da tool `list_reminders`
+Em `supabase/functions/assistente-virtual/index.ts`, dentro do array `tools`, o parâmetro do `list_reminders` está declarado como `from1_date`. Renomear para `from_date`. Manter `to_date`.
 
-Então o que falhou não foi “entender português” no sentido amplo — foi a etapa de **resolver a referência textual para o identificador exato**.
+### 2. Migrar `check_reminder_conflict` para o mesmo padrão das outras tools
+Hoje `create_reminder` aceita `event_local` e `remind_local` (string `YYYY-MM-DDTHH:mm` em hora Brasil) e o servidor anexa `-03:00`. Mas `check_reminder_conflict` ainda exige `remind_at` em formato ISO completo.
 
-## Por que ela respondeu “não consegui identificar exatamente quais lembretes alterar”
+Vou:
+- adicionar `remind_local` ao schema do `check_reminder_conflict`
+- aceitar tanto `remind_local` (preferencial) quanto `remind_at` (legado)
+- converter internamente com o mesmo `localBRtoISO` usado no `create_reminder`
 
-Porque esse é justamente o fallback do servidor quando:
-- houve tentativa de `delete_reminder`,
-- o id usado não era válido para a sessão atual,
-- e nenhum delete chegou a ser concluído com sucesso.
+Resultado: o modelo não precisa mais lidar com fuso, igual já faz no create.
 
-Nesse caso, o backend monta a resposta:
-- “Não consegui identificar exatamente quais lembretes alterar”
-- e reapresenta os candidatos do dia em contexto.
+### 3. Atualizar o prompt para refletir os nomes corretos
+Garantir que a documentação inline da Júlia mencione:
+- `from_date` / `to_date` (sem o `1`)
+- `remind_local` no `check_reminder_conflict`
+- nunca tente montar ISO com offset manualmente
 
-## O problema que ainda sobra
+### 4. Aceitar “fallback de typo” por segurança
+Para o caso de o modelo continuar mandando `from1_date` (cache de prompt), o servidor lê `args.from_date ?? args.from1_date`. Mesma coisa para `to_date`. Isso evita regressão imediata enquanto o novo schema propaga.
 
-O filtro por data agora está melhor: ela já restringiu a resposta para 27/04.
-
-Mas ainda falta a parte mais importante:
-- o servidor **não resolve por conta própria** “13h” → lembrete A
-- e “14h” → lembrete B
-
-Ele ainda depende do modelo fazer esse casamento corretamente.
-
-## Próximo ajuste recomendado
-
-## 1. Resolver o alvo no servidor, não no modelo
-Criar uma resolução determinística para comandos como:
-- “cancelar 14h”
-- “alterar 13h para 13h30”
-- “trocar o treino das 13”
-
-O servidor deve:
-- pegar a lista já filtrada do dia em contexto;
-- localizar por horário (`event_at`) e, se houver, por título;
-- se houver 1 match exato, usar esse UUID automaticamente;
-- só pedir esclarecimento se houver 2+ matches reais.
-
-## 2. Separar subcomandos mistos no backend
-Para frases como:
-- “alterar 13h para 13h30 e cancelar 14h”
-
-o servidor deve quebrar em duas ações independentes:
-- ação A: remarcar 13h → 13h30
-- ação B: cancelar 14h
-
-Cada uma resolve seu próprio alvo na lista filtrada.
-
-## 3. Parar de depender do retry do modelo após `uuid_not_in_session`
-Hoje, quando o guard rejeita o UUID:
-- o servidor devolve `available_reminders`
-- e espera que o modelo tente de novo com o id certo
-
-Esse retry ainda é frágil.
-
-Melhor caminho:
-- quando houver horário claro na frase original,
-- o próprio servidor refaz o match com `available_reminders`
-- e executa o delete correto sem depender de nova escolha do modelo.
-
-## Arquivo a ajustar
+## Arquivo a alterar
 
 - `supabase/functions/assistente-virtual/index.ts`
 
 ## Resultado esperado
 
-No mesmo fluxo:
-1. “o que tenho dia 27?”
-2. lista com 13h, 13h15, 14h, 17h
-3. “alterar 13h para 13h30 e cancelar 14h”
+Refazendo o teste:
+1. Criar 3 compromissos para 27/04 → todos passam pelo `check_reminder_conflict` corretamente, todos chegam ao `create_reminder`, todos persistem no banco.
+2. “quais meus compromissos dia 27?” → `list_reminders` é chamada com `from_date=2026-04-27&to_date=2026-04-27`, servidor filtra de verdade, retorna os 3.
+3. “altera 13h para 13h30 e cancela 14h” → como o `lastPendingList` agora está populado corretamente, o resolver determinístico server-side encontra os UUIDs e executa.
 
-o servidor deve:
-- mapear 13h para o lembrete certo;
-- mapear 14h para o lembrete certo;
-- cancelar/remarcar sem pedir para você copiar a lista;
-- só perguntar algo se realmente houver ambiguidade.
+## Fora do escopo
 
-## Detalhe técnico
-
-Hoje existe proteção boa contra exclusão errada:
-- `delete_reminder` só aceita ids vistos na sessão;
-- se vier id fora da sessão, retorna `uuid_not_in_session`.
-
-O que falta é um resolvedor server-side entre:
-- linguagem natural do usuário
-- lista filtrada de lembretes já carregada
-
-Sem isso, a segurança está correta, mas a automação ainda falha.
+- Sem mudança de schema do banco
+- Sem migration
+- Sem mexer no frontend
+- Sem trocar modelo
