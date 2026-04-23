@@ -1653,6 +1653,8 @@ export type Database = {
       }
       reminders: {
         Row: {
+          cancelled_at: string | null
+          cancelled_reason: string | null
           category: string
           created_at: string
           description: string | null
@@ -1668,6 +1670,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
           category?: string
           created_at?: string
           description?: string | null
@@ -1683,6 +1687,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
           category?: string
           created_at?: string
           description?: string | null
