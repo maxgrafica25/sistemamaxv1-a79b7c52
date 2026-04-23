@@ -1,37 +1,31 @@
 
 
-# Data/hora discreta nas mensagens da Júlia
+# Júlia: corrigir resposta "Quando" sem chips
 
-## O que muda para você
+## O problema
 
-Cada balão de mensagem (seu e da Júlia) ganha um **timestamp pequeno e discreto** logo abaixo do texto, alinhado à borda do balão. Formato curto e inteligente:
+Você disse "amanhã às 16h tenho dentista". A Júlia deveria perguntar "Quando quer ser avisado?" e mostrar os botões **Na hora / 1h antes / 3h antes / Personalizar**. Em vez disso respondeu só **"Quando"** seco, sem chips.
 
-- Mensagem de **hoje**: só a hora — `14:32`
-- Mensagem de **ontem**: `ontem 14:32`
-- Mensagem **mais antiga**: `22/04 14:32`
+Causa: a regra no prompt diz pra ela responder *"Quando quer ser avisado?"* + marcador técnico `[JULIA_CHIPS:lead_time]`. O modelo (Gemini 3 Flash) abreviou a frase pra "Quando" e esqueceu o marcador — sem o marcador o frontend não sabe que tem que mostrar os chips.
 
-Visual:
-- Tamanho `text-[10px]` (bem pequeno)
-- Cor `text-muted-foreground/60` (apagado)
-- Aparece embaixo do balão, alinhado à direita nas suas mensagens e à esquerda nas da Júlia
-- Não quebra layout dos chips de "lembrar antes" — fica acima deles
+## Correção
 
-## Mudanças técnicas
+Endurecer a instrução em `supabase/functions/assistente-virtual/index.ts` (camada1 do system prompt) pra deixar à prova de improviso:
 
-**1. `src/components/assistente/AssistenteButton.tsx`**
-- Tipo `MSG` ganha campo `timestamp: number` (epoch ms).
-- Ao adicionar mensagem (usuário ou assistente), incluir `timestamp: Date.now()`.
-- Passar `timestamp` como prop para `<AssistenteMensagem>`.
+1. **Frase obrigatória, palavra por palavra**: trocar "Responda apenas: 'Quando quer ser avisado?'" por instrução mais firme — "Sua resposta DEVE ter exatamente 2 linhas: linha 1 = `Quando quer ser avisado?` (literal, sem variar), linha 2 = `[JULIA_CHIPS:lead_time]`. Nada antes, nada depois, nada no meio."
 
-**2. `src/components/assistente/AssistenteMensagem.tsx`**
-- Nova prop opcional `timestamp?: number`.
-- Helper `formatTimestamp(ts)` que decide entre `HH:mm`, `ontem HH:mm` ou `dd/MM HH:mm` usando `date-fns` (`isToday`, `isYesterday`, `format` com locale `ptBR`) — já são dependências do projeto.
-- Renderizar `<span className="text-[10px] text-muted-foreground/60 mt-0.5">{formatted}</span>` dentro do mesmo container do balão, depois do conteúdo e antes dos chips.
+2. **Exemplo positivo e negativo** dentro do prompt mostrando: ✅ resposta correta de 2 linhas vs ❌ "Quando" / "Quando você quer?" / "Me diga quando" sozinhos.
 
-**Sem persistência:** as conversas com a Júlia já são em memória (resetam ao recarregar). O timestamp é só visual, não precisa salvar em lugar nenhum.
+3. **Reforço no fim do prompt**: adicionar uma regra final tipo "Se for emitir um marcador `[JULIA_CHIPS:...]`, ele é OBRIGATÓRIO em linha separada — sua resposta sem ele quebra a interface."
+
+4. **Fallback no frontend** (`AssistenteMensagem.tsx`): se a resposta for muito curta (≤15 caracteres) e contiver "quando" + sinal de pergunta ou ambiguidade, e a última mensagem do usuário mencionou compromisso com horário (dentista, médico, reunião, etc.), mostrar os chips assim mesmo. Rede de segurança caso o modelo erre de novo.
+
+## Validação
+
+Mande de novo "amanhã às 16h tenho dentista" → deve aparecer "Quando quer ser avisado?" + 4 botões logo abaixo.
 
 ## Fora deste escopo
 
-- Histórico persistente das conversas com a Júlia (continua em memória).
-- Separadores de data tipo "Hoje" / "Ontem" entre grupos de mensagens (manteve estilo minimal — só carimbo no balão).
+- Trocar de modelo (Gemini 3 Flash continua — só ajustamos o prompt).
+- Mudar visual dos chips.
 
