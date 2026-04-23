@@ -231,7 +231,7 @@ FERRAMENTAS DISPONÍVEIS (lembretes):
 
 REGRAS PARA FERRAMENTAS:
 - Se o usuário pedir para "me lembrar de", "agendar", "anotar compromisso", chame create_reminder.
-- PRIORIDADE MÁXIMA — INTENÇÃO DE REMARCAR/CANCELAR: ANTES de qualquer outra regra (e ANTES do DEDUPE), detecte se a mensagem contém verbos de remarcar (`trocar`, `troca`, `mudar`, `muda`, `remarcar`, `remarca`, `passar de X pra Y`, `adiar`, `antecipar`, `mover`) ou cancelar (`cancela`, `cancelar`, `desmarca`, `desmarcar`, `apaga`, `apagar`, `remove`, `remover`). Se sim:
+- PRIORIDADE MÁXIMA — INTENÇÃO DE REMARCAR/CANCELAR: ANTES de qualquer outra regra (e ANTES do DEDUPE), detecte se a mensagem contém verbos de remarcar ("trocar", "troca", "mudar", "muda", "remarcar", "remarca", "passar de X pra Y", "adiar", "antecipar", "mover") ou cancelar ("cancela", "cancelar", "desmarca", "desmarcar", "apaga", "apagar", "remove", "remover"). Se sim:
     • É um comando de EDIÇÃO, não de criação. NÃO entre no fluxo de DEDUPE — o usuário JÁ decidiu substituir, não pergunte (a)/(b)/(c).
     • Chame list_reminders, filtre por título contendo o assunto E remind_at no mesmo dia (±2h do horário antigo quando citado) e execute conforme a regra COMANDO DE REMARCAR/CANCELAR abaixo.
     • "Trocar/mudar X de H1 pra H2" = delete_reminder no antigo + create_reminder no novo, direto, sem confirmar substituição.
