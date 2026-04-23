@@ -226,7 +226,8 @@ FERRAMENTAS DISPONÍVEIS (lembretes):
   • remind_at: ISO 8601 com offset; deve ser futuro.
   • recurrence: "none" | "daily" | "weekly" | "monthly" (padrão "none").
 - list_reminders(): lista lembretes pendentes do usuário.
-- delete_reminder({ id }): remove lembrete pelo id (use list_reminders antes para descobrir o id).
+- list_cancelled_reminders({ from, to }): lista lembretes JÁ CANCELADOS do usuário numa janela ISO 8601. Use APENAS quando o usuário perguntar "eu tinha algo?" / "tinha compromisso?" e list_reminders não trouxer nada no horário.
+- delete_reminder({ id }): cancela lembrete pelo id (use list_reminders antes para descobrir o id).
 - check_reminder_conflict({ remind_at, window_minutes?, exclude_id? }): verifica se há lembretes pendentes em ±window_minutes do horário proposto. Padrão window_minutes=15. Retorna { conflicts: [...] }.
 
 REGRAS PARA FERRAMENTAS:
@@ -249,6 +250,11 @@ REGRAS PARA FERRAMENTAS:
     • 0 matches → responda "Não achei nenhum **<X>** por volta das <hora> em <dia>. Quer que eu crie um novo?". NUNCA apague algo de outro dia.
 - USO OBRIGATÓRIO DE UUID EXATO: delete_reminder SÓ pode ser chamado com o UUID exato (campo "id") retornado por list_reminders na MESMA iteração. NUNCA invente, trunque, reaproveite de turnos antigos, nem infira id. Se o resultado de delete_reminder vier com {error} ou status 404 ("Lembrete não encontrado"), assuma que NÃO foi apagado e diga ao usuário "Não consegui apagar o **<título>** das **<hora>** — me confirma qual era?" — NUNCA confirme exclusão sem ter recebido {ok:true, deleted_id}.
 - CONTEXTO HERDADO DA LISTA ANTERIOR: se a SUA mensagem anterior no histórico foi uma listagem de lembretes filtrada por uma data específica (ex.: "Seus pendentes para 27/04: ..."), e o usuário responder com referências curtas SEM citar nova data ("o treino das 11", "cancela o das 16h", "troca esse das 11 pra 11h15", "muda o de 14h pra 15h"), então o DIA dessas referências é o MESMO da sua listagem anterior. Use SEMPRE essa data como filtro 1 antes de chamar delete_reminder. Só mude de dia se o usuário disser explicitamente outra data.
+- CONSULTA HISTÓRICA ("eu tinha algo?", "tinha compromisso ontem?", "o das 16h não estava marcado?", "tinha alguma coisa marcada dia X?"): quando o usuário pergunta se EXISTIA algo num dia/horário (não está pedindo pra criar nem listar pendentes futuros):
+    1. Chame list_reminders() e filtre pelo dia/horário pedido.
+    2. Se vier vazio, ANTES de responder "Nada agendado", chame list_cancelled_reminders({ from, to }) com from/to cobrindo o dia inteiro pedido (em America/Sao_Paulo, convertido pra ISO com offset).
+    3. Se achar item cancelado batendo com horário/assunto: responda "Tinha sim — **<título> às <hora>** — mas foi cancelado em <data/hora amigável do cancelled_at em pt-BR>." NÃO ofereça restaurar (não há essa funcionalidade).
+    4. Se não achar nem em pendentes nem em cancelados: "Nada agendado para <período>."
 - Se faltar a data/hora, NÃO invente — pergunte ao usuário.
 - COMPROMISSO COM HORÁRIO MARCADO (consulta, reunião, viagem, prazo, dentista, médico, entrega):
     • Se o usuário NÃO disse com quanto tempo de antecedência quer ser avisado, NÃO crie ainda. Sua resposta DEVE ter EXATAMENTE 2 linhas, sem nada antes, no meio ou depois:
@@ -545,6 +551,28 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       {
         type: "function",
         function: {
+          name: "list_cancelled_reminders",
+          description:
+            "Lista lembretes CANCELADOS do usuário em uma janela de tempo (use quando o usuário perguntar se TINHA algum compromisso e a busca em pendentes vier vazia).",
+          parameters: {
+            type: "object",
+            properties: {
+              from: {
+                type: "string",
+                description: "Início da janela em ISO 8601 com offset.",
+              },
+              to: {
+                type: "string",
+                description: "Fim da janela em ISO 8601 com offset.",
+              },
+            },
+            required: ["from", "to"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
           name: "check_reminder_conflict",
           description:
             "Verifica se há lembretes pendentes do usuário próximos a um horário proposto (±window_minutes). Use SEMPRE antes de create_reminder com remind_at definido.",
@@ -616,6 +644,13 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       try {
         if (name === "create_reminder") return await callRemindersApi("POST", args);
         if (name === "list_reminders") return await callRemindersApi("GET", {});
+        if (name === "list_cancelled_reminders")
+          return await callRemindersApi("GET", {
+            include_cancelled: "1",
+            include_completed: "1",
+            from: args.from,
+            to: args.to,
+          });
         if (name === "delete_reminder") return await callRemindersApi("DELETE", args);
         if (name === "check_reminder_conflict")
           return await callRemindersApi("GET", args, "/conflicts");
