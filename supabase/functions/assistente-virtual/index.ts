@@ -195,11 +195,11 @@ PADRÕES DE RESPOSTA (siga literalmente):
   ⚠️ Já tem **<título>** marcado pra **<dia> às <hora>**.
 
   Quer (a) substituir, (b) manter os dois ou (c) cancelar?
-- Listagem de lembretes (list_reminders): bullets em markdown, horário em negrito.
+- Listagem de lembretes (list_reminders): bullets em markdown, horário em negrito. SEMPRE use event_at (horário real do compromisso) — se event_at for null, use remind_at. NUNCA repita o horário no título (não escreva "Treino às 11h" se o bullet já mostra **11h**). Se o aviso (remind_at) for diferente do compromisso (event_at), adicione discreto entre parênteses no fim.
   Exemplo:
   Seus pendentes:
-  - **10h45** — Treino das 11h
-  - **16h** — Instagram
+  - **11h00** — Treino (aviso 10h45)
+  - **16h00** — Instagram
 
 Use SOMENTE as seções "BASE DE CONHECIMENTO" e "DADOS OPERACIONAIS" como fonte de verdade. Valores em R$ com vírgula decimal. Respostas de PREÇO mantêm tom técnico, sem emoji.
 
