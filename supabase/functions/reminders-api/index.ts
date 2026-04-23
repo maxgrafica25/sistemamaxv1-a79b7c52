@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ reminders: data ?? [] }, 200);
     }
 
-    // DELETE: soft-delete por id (?id=<uuid>) — marca cancelled_at em vez de apagar
+    // DELETE: soft-delete por id (?id=<uuid>&reason=user_cancelled|rescheduled)
     if (req.method === "DELETE") {
       const id = url.searchParams.get("id");
       const UuidSchema = z.string().uuid();
@@ -185,11 +185,16 @@ Deno.serve(async (req) => {
       if (!idParsed.success) {
         return jsonResponse({ error: "id inválido (UUID esperado)" }, 400);
       }
+      const reasonParam = url.searchParams.get("reason") ?? "user_cancelled";
+      const ReasonSchema = z.enum(["user_cancelled", "rescheduled"]);
+      const reasonParsed = ReasonSchema.safeParse(reasonParam);
+      const cancelledReason = reasonParsed.success ? reasonParsed.data : "user_cancelled";
+
       const { data: cancelled, error } = await userClient
         .from("reminders")
         .update({
           cancelled_at: new Date().toISOString(),
-          cancelled_reason: "user_cancelled",
+          cancelled_reason: cancelledReason,
           updated_at: new Date().toISOString(),
         })
         .eq("id", idParsed.data)
