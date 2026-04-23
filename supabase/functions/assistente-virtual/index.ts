@@ -1402,22 +1402,93 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       const scopedList = activeFilter
         ? applyDateFilterToReminderList(lastPendingList as RawReminder[], activeFilter)
         : lastPendingList;
-      const formatted = scopedList
-        .map((r) => {
-          const f = formatReminderForDisplay(r as RawReminder);
-          return `- ${f.display_line}`;
-        })
-        .join("\n");
-      const scopeLabel = activeFilter
-        ? (activeFilter.from_date === activeFilter.to_date
-          ? `do dia ${activeFilter.from_date.split("-").reverse().join("/")}`
-          : "no período pedido")
-        : "pendentes";
-      resposta =
-        "Não consegui identificar exatamente quais lembretes alterar.\n\n" +
-        (formatted
-          ? `Aqui estão os ${scopeLabel}:\n${formatted}\n\nPode me dizer **qual horário cancelar** e **qual remarcar** copiando da lista acima?`
-          : "Não há lembretes pendentes no momento. Quer me dizer de novo o que precisa?");
+
+      // === Resolver server-side: tenta executar as intenções automaticamente
+      // a partir dos horários citados na pergunta original. Se conseguir 1 match exato,
+      // executa o delete (e o create no caso de remarcar) sem depender do modelo.
+      const intents = parseUserIntents(pergunta);
+      const autoExecuted: string[] = [];
+      const autoFailed: string[] = [];
+      if (intents.length > 0 && scopedList.length > 0) {
+        console.log(
+          "[assistente-virtual] auto-resolver intents:",
+          JSON.stringify(intents),
+          "scopedList ids:",
+          scopedList.map((r) => String(r.id).slice(-4)),
+        );
+        for (const intent of intents) {
+          const target = findReminderByTime(scopedList, intent.sourceMinutes);
+          if (!target) {
+            autoFailed.push(
+              `${intent.kind === "cancel" ? "cancelar" : "alterar"} ${intent.sourceHHMM.replace(":", "h")} — não achei match exato`,
+            );
+            continue;
+          }
+          // Whitelist o id e executa o delete diretamente
+          verifiedIds.add(target.id);
+          const reason = intent.kind === "reschedule" ? "rescheduled" : "user_cancelled";
+          const delRes = await callRemindersApi("DELETE", { id: target.id, reason });
+          const delOk = (delRes as { ok?: boolean })?.ok === true;
+          if (!delOk) {
+            autoFailed.push(
+              `${intent.kind === "cancel" ? "cancelar" : "alterar"} ${intent.sourceHHMM.replace(":", "h")} (${cleanTitleForDisplay(target.title)}) — ${(delRes as { error?: string })?.error ?? "erro"}`,
+            );
+            continue;
+          }
+          if (intent.kind === "cancel") {
+            autoExecuted.push(
+              `❌ Cancelado **${cleanTitleForDisplay(target.title)}** das **${intent.sourceHHMM.replace(":", "h")}**`,
+            );
+          } else if (intent.kind === "reschedule" && intent.targetMinutes != null) {
+            // Cria o novo lembrete no horário pedido (mantém o título limpo)
+            const newEventIso = rescheduleEventIso(target.eventIso, intent.targetMinutes);
+            const cleanTitle = cleanTitleForDisplay(target.title);
+            const createRes = await callRemindersApi("POST", {
+              title: cleanTitle,
+              remind_at: newEventIso,
+              event_at: newEventIso,
+            });
+            const newId = (createRes as { reminder?: { id?: string } })?.reminder?.id;
+            if (newId) {
+              autoExecuted.push(
+                `🔄 Remarcado **${cleanTitle}** das **${intent.sourceHHMM.replace(":", "h")}** para **${intent.targetHHMM!.replace(":", "h")}**`,
+              );
+            } else {
+              autoFailed.push(
+                `criar novo ${cleanTitle} às ${intent.targetHHMM!.replace(":", "h")} — ${(createRes as { error?: string })?.error ?? "erro"}`,
+              );
+            }
+          }
+        }
+      }
+
+      if (autoExecuted.length > 0) {
+        // Sucesso (parcial ou total): substitui a resposta pelo resumo
+        const lines = ["✅ **Pronto!**", "", ...autoExecuted];
+        if (autoFailed.length > 0) {
+          lines.push("", "⚠️ Não consegui:");
+          for (const f of autoFailed) lines.push(`- ${f}`);
+        }
+        resposta = lines.join("\n");
+      } else {
+        // Não conseguiu resolver nada → mostra a lista filtrada como antes
+        const formatted = scopedList
+          .map((r) => {
+            const f = formatReminderForDisplay(r as RawReminder);
+            return `- ${f.display_line}`;
+          })
+          .join("\n");
+        const scopeLabel = activeFilter
+          ? (activeFilter.from_date === activeFilter.to_date
+            ? `do dia ${activeFilter.from_date.split("-").reverse().join("/")}`
+            : "no período pedido")
+          : "pendentes";
+        resposta =
+          "Não consegui identificar exatamente quais lembretes alterar.\n\n" +
+          (formatted
+            ? `Aqui estão os ${scopeLabel}:\n${formatted}\n\nPode me dizer **qual horário cancelar** e **qual remarcar** copiando da lista acima?`
+            : "Não há lembretes pendentes no momento. Quer me dizer de novo o que precisa?");
+      }
     }
 
     // Se não conseguimos resposta textual mas houve operações, força 1 chamada extra sem tools.
