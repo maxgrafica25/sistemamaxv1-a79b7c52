@@ -1,23 +1,43 @@
 
 
-# Desconectar Google Calendar Connector do Lovable
+# Resolver login do emailparaojuliano@gmail.com
 
-## O que vou fazer
+## Diagnóstico
 
-Remover o connector do Google Calendar (linkado via Lovable Connectors) do projeto. Ele não é usado por nenhuma edge function — a sincronização da Júlia continua funcionando 100% pelo OAuth próprio em `user_google_tokens`.
+A conta existe e está saudável (e‑mail confirmado, sem bloqueio, último login em 17/04). O erro **"Invalid login credentials"** é **senha errada**, não bug.
 
-## Passos
+O que aconteceu nos logs hoje 14:33:
+1. Usuário foi em **Criar Conta** e digitou e‑mail + uma senha nova → Supabase respondeu `user_repeated_signup` (conta já existe; senha **não foi alterada**).
+2. Em seguida tentou **Entrar** 4× com essa mesma senha nova → todas rejeitadas, porque a senha real cadastrada é outra (a usada em 17/04).
 
-1. Listar as conexões do workspace pra achar o `connection_id` do Google Calendar connector.
-2. Chamar `standard_connectors--disconnect` com esse ID — isso remove os secrets do projeto mas mantém a conexão disponível no workspace (caso outro projeto queira usar no futuro).
+## Solução (sem código)
 
-## O que NÃO muda
+Peça pra ele clicar em **"Esqueci minha senha"** na tela de login:
 
-- Tabela `user_google_tokens` intacta.
-- Edge functions `google-oauth-init`, `google-oauth-callback`, `google-disconnect`, `gcal-sync-worker` intactas.
-- Card "Google Calendar" em **Configurações → Integrações** continua sendo o caminho oficial pra você (e cada colaborador) conectar.
+1. Digita `emailparaojuliano@gmail.com` → **Enviar Link de Recuperação**.
+2. Abre o e‑mail (checar spam) → clica no link.
+3. Cai em `/reset-password` → define senha nova.
+4. Volta no login com a senha nova → entra normal.
 
-## Próximo passo seu
+O fluxo de recuperação já está implementado em `src/pages/Auth.tsx` (modo `recoveryMode`) e a página `/reset-password` está pública.
 
-Depois que eu desconectar, abrir **Configurações → Integrações → Conectar Google Calendar** dentro do app pra popular `user_google_tokens` e ativar a sync da Júlia.
+## Alternativa rápida (admin)
+
+Se o usuário não receber o e‑mail de recuperação (problema de SMTP/spam), você pode resetar manualmente. Existem dois caminhos:
+
+- **Pelo painel Cloud:** abrir **Backend → Users**, achar o usuário, usar a opção de enviar magic link / definir senha.
+- **Via script já pronto:** `scripts/reset-passwords-bulk.ts` aceita uma lista de e‑mails e dispara o link de recuperação em lote (já existe no projeto, não precisa criar nada).
+
+## Melhoria opcional (requer aprovação separada)
+
+Hoje o signup com e‑mail já existente mostra a mensagem genérica do Supabase ("User already registered"), o que confunde — o usuário acha que criou conta nova. Posso ajustar `Auth.tsx` pra detectar esse erro específico no `handleSignup` e mostrar:
+
+> Esse e‑mail já tem conta. Use **Entrar** ou clique em **Esqueci minha senha**.
+
+Avise se quer que eu faça essa melhoria também.
+
+## Fora deste escopo
+
+- Trocar senha do usuário direto via SQL (não dá — `auth.users.encrypted_password` exige hash bcrypt do GoTrue, não pode ser feito por migration).
+- Mudar política de senhas ou fluxo de signup.
 
