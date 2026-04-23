@@ -613,9 +613,13 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           parameters: {
             type: "object",
             properties: {
+              remind_local: {
+                type: "string",
+                description: "PREFERENCIAL. Horário do COMPROMISSO REAL em hora LOCAL Brasil no formato 'YYYY-MM-DDTHH:mm' (ex.: '2026-04-27T11:00'). Passe o event_local do novo lembrete; se for tarefa avulsa, o remind_local. NÃO inclua offset/Z — o servidor anexa -03:00.",
+              },
               remind_at: {
                 type: "string",
-                description: "Horário do COMPROMISSO REAL em ISO 8601 com offset (passe event_at do novo lembrete; se for tarefa avulsa, passe remind_at).",
+                description: "Legado. Use remind_local. Se usar este, deve ser ISO 8601 com offset -03:00.",
               },
               window_minutes: {
                 type: "number",
@@ -626,7 +630,6 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
                 description: "UUID de lembrete a ignorar (para futuras edições).",
               },
             },
-            required: ["remind_at"],
           },
         },
       },
