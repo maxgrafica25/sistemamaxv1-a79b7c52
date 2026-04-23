@@ -1127,8 +1127,18 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           return result;
         }
         if (name === "list_reminders") {
-          let fromDate = typeof args.from_date === "string" ? args.from_date : undefined;
-          let toDate = typeof args.to_date === "string" ? args.to_date : undefined;
+          // Aceita variações de nome que o modelo às vezes inventa (from1_date, fromDate, etc.)
+          const argsAny = args as Record<string, unknown>;
+          let fromDate = typeof argsAny.from_date === "string" ? argsAny.from_date as string
+            : typeof argsAny.from1_date === "string" ? argsAny.from1_date as string
+            : typeof argsAny.fromDate === "string" ? argsAny.fromDate as string
+            : typeof argsAny.from === "string" ? argsAny.from as string
+            : undefined;
+          let toDate = typeof argsAny.to_date === "string" ? argsAny.to_date as string
+            : typeof argsAny.to1_date === "string" ? argsAny.to1_date as string
+            : typeof argsAny.toDate === "string" ? argsAny.toDate as string
+            : typeof argsAny.to === "string" ? argsAny.to as string
+            : undefined;
           // Se o modelo esqueceu a data e há contexto herdado da listagem anterior, aplica
           if (!fromDate && !toDate && inheritedDateFilter) {
             fromDate = inheritedDateFilter;
