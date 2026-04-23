@@ -799,6 +799,124 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       });
     }
 
+    // === Resolver server-side: extrai "alvos" (horários) da frase do usuário e tenta
+    // casá-los com os lembretes da lista filtrada. Permite executar delete sem depender
+    // do modelo escolher o UUID certo.
+    type TargetIntent = {
+      kind: "cancel" | "reschedule";
+      sourceHHMM: string;            // "13:00", "14:00"
+      sourceMinutes: number;         // 13*60+0
+      targetHHMM?: string;           // só para reschedule
+      targetMinutes?: number;
+    };
+
+    function hhmmToMinutes(hh: number, mm: number): number {
+      return hh * 60 + mm;
+    }
+
+    function fmtMinutesAsHHMM(min: number): string {
+      const h = Math.floor(min / 60);
+      const m = min % 60;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+
+    // Extrai horários da pergunta (formatos: "13h", "13h30", "13:00", "13h00")
+    // Retorna lista ordenada de minutos do dia.
+    function extractTimesFromText(text: string): number[] {
+      const out: number[] = [];
+      const re = /\b(\d{1,2})(?:h(\d{0,2})|:(\d{2}))\b/gi;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text)) !== null) {
+        const h = parseInt(m[1], 10);
+        const mmStr = m[2] ?? m[3] ?? "";
+        const mm = mmStr ? parseInt(mmStr, 10) : 0;
+        if (h >= 0 && h < 24 && mm >= 0 && mm < 60) {
+          out.push(hhmmToMinutes(h, mm));
+        }
+      }
+      return out;
+    }
+
+    // Detecta intenções compostas tipo:
+    //   "altera 13h pra 11h e cancela 14h"
+    //   "muda 13h para 13h30"
+    //   "cancela 14h"
+    function parseUserIntents(text: string): TargetIntent[] {
+      const intents: TargetIntent[] = [];
+      const t = text.toLowerCase();
+
+      // Quebra em cláusulas por " e ", " , ", "; "
+      const clauses = t.split(/\s+e\s+|\s*,\s*|\s*;\s*/g).filter(Boolean);
+
+      for (const clause of clauses) {
+        const isReschedule = /\b(altera|alterar|troca|trocar|mud[ao]|mudar|remarc|passa[r]?\s+(?:de|do|da)|de\s+\d.*(?:para|pra)\s+\d|adi[ao]r?|antecip|reagend|mov[ei]r?)\b/i.test(clause);
+        const isCancel = /\b(cancel|desmarc|apag|exclu[ií]|remov)/i.test(clause);
+
+        const times = extractTimesFromText(clause);
+        if (times.length === 0) continue;
+
+        if (isReschedule && times.length >= 2) {
+          intents.push({
+            kind: "reschedule",
+            sourceHHMM: fmtMinutesAsHHMM(times[0]),
+            sourceMinutes: times[0],
+            targetHHMM: fmtMinutesAsHHMM(times[1]),
+            targetMinutes: times[1],
+          });
+        } else if (isCancel) {
+          for (const tm of times) {
+            intents.push({
+              kind: "cancel",
+              sourceHHMM: fmtMinutesAsHHMM(tm),
+              sourceMinutes: tm,
+            });
+          }
+        } else if (isReschedule && times.length === 1) {
+          // Pouco comum, sem horário destino — ignora
+        }
+      }
+      return intents;
+    }
+
+    // Dado um horário em minutos do dia (Brasil), encontra o lembrete da lista cujo
+    // event_at (em SP) bate exatamente. Retorna {id, title, eventIso} ou null.
+    function findReminderByTime(
+      list: Array<Record<string, unknown>>,
+      minutesOfDay: number,
+    ): { id: string; title: string; eventIso: string } | null {
+      const matches: Array<{ id: string; title: string; eventIso: string; diff: number }> = [];
+      for (const r of list) {
+        const eventIso = String(r.event_at ?? r.remind_at ?? "");
+        if (!eventIso) continue;
+        const t = fmtTimeBR(eventIso); // "HH:MM"
+        const m = t.match(/^(\d{2}):(\d{2})$/);
+        if (!m) continue;
+        const minOfDay = hhmmToMinutes(parseInt(m[1], 10), parseInt(m[2], 10));
+        const diff = Math.abs(minOfDay - minutesOfDay);
+        if (diff === 0) {
+          matches.push({ id: String(r.id), title: String(r.title ?? ""), eventIso, diff });
+        }
+      }
+      // Só aceita 1 match exato
+      if (matches.length === 1) return matches[0];
+      return null;
+    }
+
+    // Constrói o ISO do novo event_at a partir da data do antigo + novo HH:MM (em SP)
+    function rescheduleEventIso(oldEventIso: string, newMinutes: number): string {
+      // Pega a data local SP do evento antigo (DD/MM/YYYY)
+      const dateBR = fmtDateBR(oldEventIso); // "27/04/2026"
+      const m = dateBR.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (!m) {
+        // fallback: usa a data do ISO bruto
+        return oldEventIso;
+      }
+      const [, dd, mo, yy] = m;
+      const hh = String(Math.floor(newMinutes / 60)).padStart(2, "0");
+      const mm = String(newMinutes % 60).padStart(2, "0");
+      return `${yy}-${mo}-${dd}T${hh}:${mm}:00-03:00`;
+    }
+
     // Auditoria: registra resultado real de cada tool de mutação para montar o resumo final
     type OpResult = { tool: string; ok: boolean; detail: string };
     const opResults: OpResult[] = [];
@@ -1284,22 +1402,93 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       const scopedList = activeFilter
         ? applyDateFilterToReminderList(lastPendingList as RawReminder[], activeFilter)
         : lastPendingList;
-      const formatted = scopedList
-        .map((r) => {
-          const f = formatReminderForDisplay(r as RawReminder);
-          return `- ${f.display_line}`;
-        })
-        .join("\n");
-      const scopeLabel = activeFilter
-        ? (activeFilter.from_date === activeFilter.to_date
-          ? `do dia ${activeFilter.from_date.split("-").reverse().join("/")}`
-          : "no período pedido")
-        : "pendentes";
-      resposta =
-        "Não consegui identificar exatamente quais lembretes alterar.\n\n" +
-        (formatted
-          ? `Aqui estão os ${scopeLabel}:\n${formatted}\n\nPode me dizer **qual horário cancelar** e **qual remarcar** copiando da lista acima?`
-          : "Não há lembretes pendentes no momento. Quer me dizer de novo o que precisa?");
+
+      // === Resolver server-side: tenta executar as intenções automaticamente
+      // a partir dos horários citados na pergunta original. Se conseguir 1 match exato,
+      // executa o delete (e o create no caso de remarcar) sem depender do modelo.
+      const intents = parseUserIntents(pergunta);
+      const autoExecuted: string[] = [];
+      const autoFailed: string[] = [];
+      if (intents.length > 0 && scopedList.length > 0) {
+        console.log(
+          "[assistente-virtual] auto-resolver intents:",
+          JSON.stringify(intents),
+          "scopedList ids:",
+          scopedList.map((r) => String(r.id).slice(-4)),
+        );
+        for (const intent of intents) {
+          const target = findReminderByTime(scopedList, intent.sourceMinutes);
+          if (!target) {
+            autoFailed.push(
+              `${intent.kind === "cancel" ? "cancelar" : "alterar"} ${intent.sourceHHMM.replace(":", "h")} — não achei match exato`,
+            );
+            continue;
+          }
+          // Whitelist o id e executa o delete diretamente
+          verifiedIds.add(target.id);
+          const reason = intent.kind === "reschedule" ? "rescheduled" : "user_cancelled";
+          const delRes = await callRemindersApi("DELETE", { id: target.id, reason });
+          const delOk = (delRes as { ok?: boolean })?.ok === true;
+          if (!delOk) {
+            autoFailed.push(
+              `${intent.kind === "cancel" ? "cancelar" : "alterar"} ${intent.sourceHHMM.replace(":", "h")} (${cleanTitleForDisplay(target.title)}) — ${(delRes as { error?: string })?.error ?? "erro"}`,
+            );
+            continue;
+          }
+          if (intent.kind === "cancel") {
+            autoExecuted.push(
+              `❌ Cancelado **${cleanTitleForDisplay(target.title)}** das **${intent.sourceHHMM.replace(":", "h")}**`,
+            );
+          } else if (intent.kind === "reschedule" && intent.targetMinutes != null) {
+            // Cria o novo lembrete no horário pedido (mantém o título limpo)
+            const newEventIso = rescheduleEventIso(target.eventIso, intent.targetMinutes);
+            const cleanTitle = cleanTitleForDisplay(target.title);
+            const createRes = await callRemindersApi("POST", {
+              title: cleanTitle,
+              remind_at: newEventIso,
+              event_at: newEventIso,
+            });
+            const newId = (createRes as { reminder?: { id?: string } })?.reminder?.id;
+            if (newId) {
+              autoExecuted.push(
+                `🔄 Remarcado **${cleanTitle}** das **${intent.sourceHHMM.replace(":", "h")}** para **${intent.targetHHMM!.replace(":", "h")}**`,
+              );
+            } else {
+              autoFailed.push(
+                `criar novo ${cleanTitle} às ${intent.targetHHMM!.replace(":", "h")} — ${(createRes as { error?: string })?.error ?? "erro"}`,
+              );
+            }
+          }
+        }
+      }
+
+      if (autoExecuted.length > 0) {
+        // Sucesso (parcial ou total): substitui a resposta pelo resumo
+        const lines = ["✅ **Pronto!**", "", ...autoExecuted];
+        if (autoFailed.length > 0) {
+          lines.push("", "⚠️ Não consegui:");
+          for (const f of autoFailed) lines.push(`- ${f}`);
+        }
+        resposta = lines.join("\n");
+      } else {
+        // Não conseguiu resolver nada → mostra a lista filtrada como antes
+        const formatted = scopedList
+          .map((r) => {
+            const f = formatReminderForDisplay(r as RawReminder);
+            return `- ${f.display_line}`;
+          })
+          .join("\n");
+        const scopeLabel = activeFilter
+          ? (activeFilter.from_date === activeFilter.to_date
+            ? `do dia ${activeFilter.from_date.split("-").reverse().join("/")}`
+            : "no período pedido")
+          : "pendentes";
+        resposta =
+          "Não consegui identificar exatamente quais lembretes alterar.\n\n" +
+          (formatted
+            ? `Aqui estão os ${scopeLabel}:\n${formatted}\n\nPode me dizer **qual horário cancelar** e **qual remarcar** copiando da lista acima?`
+            : "Não há lembretes pendentes no momento. Quer me dizer de novo o que precisa?");
+      }
     }
 
     // Se não conseguimos resposta textual mas houve operações, força 1 chamada extra sem tools.
