@@ -1,60 +1,74 @@
 
 
-# Júlia: evitar duplicatas e desambiguar comandos de remarcar/cancelar
+# Júlia: respostas mais objetivas, amigáveis e legíveis
 
-## Causa raiz
+## Problema
 
-1. **Duplicatas silenciosas**: a regra "antes de criar, chame `list_reminders` e cheque título parecido" (linha 209 do prompt) está sendo ignorada na prática. Resultado: hoje há 2× "Treino às 11h" e 2 lembretes às 14h no banco do usuário.
-2. **Confusão pra remarcar/cancelar**: quando o usuário diz "remarca o treino das 11" e existem 2 treinos das 11h, a Júlia devolve "qual deles?" — comportamento correto, mas só aconteceu porque a duplicata existiu.
-3. **Horário errado**: "instagram às 16h" foi salvo como 14h em UTC errado — pode ter sido o modelo confundindo o fuso ao processar múltiplos compromissos numa mesma frase.
+1. **Asteriscos crus**: o prompt manda usar `**negrito**` (ex.: "**Treino às 11h**"), mas o bubble da Júlia renderiza como texto puro com `whitespace-pre-wrap`. O usuário vê `**Treino às 11h**` literal, polui a leitura.
+2. **Tom seco**: o prompt diz "direta, sem rodeios" — vira robótico. Falta um toque amigável (1 emoji ocasional, frases curtas com personalidade).
+3. **Blocos densos**: confirmação + próximo passo + chips vêm coladas. Falta hierarquia visual (título da ação, detalhe abaixo, separação).
 
-## Mudanças (apenas no system prompt)
+## Mudanças
 
-Editar `supabase/functions/assistente-virtual/index.ts`, string `camada1`:
+### 1. Renderizar markdown no bubble da Júlia
+`src/components/assistente/AssistenteMensagem.tsx`:
+- Adicionar `react-markdown` (já é a prática recomendada para chats de IA).
+- Renderizar **só as mensagens do assistente** com `<ReactMarkdown>` (mensagens do usuário continuam texto puro).
+- Estilizar com classes Tailwind para: `**negrito**`, listas `-`, quebras de linha, e `code` inline. Sem `prose` pesado — manter compacto e coerente com o bubble atual.
 
-### 1. Reforçar dedupe antes de `create_reminder` (substitui a linha 209 vaga)
-Nova regra explícita e obrigatória:
-- **ANTES** de toda chamada `create_reminder`, chamar `list_reminders` e procurar lembretes pendentes cujo título contém o mesmo assunto E `remind_at` está no mesmo dia.
-- Se achar match, **NÃO criar**. Listar o(s) existente(s) com horário e perguntar: "Já existe **<título>** marcado pra <dia/hora>. Quer (a) substituir, (b) manter os dois, ou (c) cancelar essa nova?"
-- Só criar duplicata se o usuário escolher explicitamente (b).
+### 2. Atualizar tom e formato no prompt (`camada1`)
+`supabase/functions/assistente-virtual/index.ts`:
+- Trocar "direta, sem rodeios" por: **"objetiva, amigável e calorosa, sem ser longa. Use no máximo 1 emoji por resposta, só quando agregar (✅ confirmação, ⏰ horário, 📅 data, ⚠️ conflito). Nunca emoji em respostas técnicas de preço."**
+- Padrão de confirmação de lembrete criado:
+  ```
+  ✅ **Pronto!** Te aviso às **10h45** sobre o **treino das 11h**.
+  ```
+  (1 linha, em vez do "Pronto! Vou te avisar às 10h sobre o treino das 11h." atual)
+- Padrão para fila de pendentes (Linha A/C):
+  ```
+  ✅ Treino das 11h confirmado.
 
-### 2. Regra de fuso ao processar múltiplos compromissos
-Acrescentar à seção "MÚLTIPLOS COMPROMISSOS" uma frase explícita: "Sempre calcule `remind_at` em America/Sao_Paulo. Para cada compromisso da lista, recalcule do zero — não reaproveite o offset/horário do anterior. Confira mentalmente: se o usuário disse '16h', o ISO deve terminar em `T16:00:00-03:00` (ou `T19:00:00Z`), nunca `T14:00:00`."
+  Falta combinar o **instagram às 16h**. Quando quer ser avisado?
+  ```
+- Padrão para conflito:
+  ```
+  ⚠️ Já tem **<título>** marcado pra **<hora>**.
 
-### 3. Comando de remarcar/cancelar com desambiguação automática
-Nova regra:
-- Quando o usuário pedir "remarca/cancela o <X> das <hora>", chamar `list_reminders`, filtrar por título contendo `<X>` E horário próximo a `<hora>` (±2h ou mesmo dia).
-- Se houver 1 match: executar direto (delete + create no caso de remarcar).
-- Se houver 2+ matches: listar com **id curto** (últimos 4 caracteres), título e horário, e perguntar qual.
-- Se 0 matches: dizer claramente "Não achei nenhum <X> por volta das <hora> nos seus pendentes."
+  Quer (a) substituir, (b) manter os dois ou (c) cancelar?
+  ```
+- Padrão para listagem de lembretes (`list_reminders`): bullet list em markdown com horário em negrito.
+- Regra geral nova: **"Respostas curtas. Máx 3 linhas para confirmações, 5 para listagens. Use `**negrito**` só em horários, títulos e ações principais. Use `-` para listas com 2+ itens."**
 
-### 4. Limpeza dos lembretes duplicados existentes do usuário
-Via migration SQL (1x), remover as duplicatas atuais que travaram a conversa do print:
-```sql
--- Mantém o mais recente de cada par título+remind_at; deleta os antigos
-DELETE FROM public.reminders r
-USING public.reminders r2
-WHERE r.user_id = r2.user_id
-  AND r.title = r2.title
-  AND r.remind_at = r2.remind_at
-  AND r.created_at < r2.created_at
-  AND r.is_completed = false
-  AND r2.is_completed = false;
-```
+### 3. Preservar exceções
+- Respostas de **preço** continuam técnicas, sem emoji, formato atual.
+- Respostas de erro/"não encontrei" continuam diretas.
+- O marcador `[JULIA_CHIPS:lead_time]` continua igual (o frontend já remove antes de exibir).
 
 ## Arquivos alterados
 
-- `supabase/functions/assistente-virtual/index.ts` (apenas string `camada1`, sem mexer em ferramentas/schema)
-- 1 migration SQL para limpar duplicatas existentes
+- `src/components/assistente/AssistenteMensagem.tsx` — adicionar render markdown nas mensagens do assistente
+- `package.json` — dependência `react-markdown`
+- `supabase/functions/assistente-virtual/index.ts` — ajustar tom + formatos na string `camada1`
 
 ## Resultado esperado
 
-- "Tenho treino às 11h e instagram às 16h" → cria os dois com horários certos, sem duplicar se você pedir de novo.
-- "Remarca o treino das 11 pra 11:15" → acha o único treino das 11, deleta, cria novo às 11:15 sem perguntar "qual?".
-- "Cancela o compromisso das 14h" → se houver só um, cancela direto; se houver vários, lista pra escolher.
+**Antes:**
+```
+Pronto! Vou te avisar às 10h sobre o treino das 11h.
+
+Falta combinar o aviso de **instagram às 16h**. Quando quer ser avisado?
+```
+
+**Depois:**
+```
+✅ Treino das 11h confirmado.
+
+Falta combinar o instagram às 16h. Quando quer ser avisado?
+```
+(com "instagram às 16h" em negrito real, sem asteriscos visíveis)
 
 ## Fora do escopo
 
-- Sem mudanças em `reminders-api`, `gcal-sync-worker`, frontend ou schema da tabela `reminders`.
-- Sem mexer no fluxo de chips de antecedência.
+- Sem mudanças nas ferramentas, schema, fluxo de chips, ou lógica de dedupe/conflito.
+- Sem mudar respostas de preço.
 
