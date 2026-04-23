@@ -704,6 +704,17 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
     const isRemarcarSession = remarcarRegex.test(pergunta);
     let mustRetryDelete = false;
     let pendingDeleteTitleHint: string | null = null;
+    // Último filtro de data usado em list_reminders (escopo do request) — usado pelos fallbacks
+    let lastDateFilter: { from_date?: string; to_date?: string } | null = null;
+
+    // Converte 'YYYY-MM-DDTHH:mm' (hora local Brasil) → ISO com offset -03:00
+    function localBRtoISO(local: string): string {
+      const s = String(local || "").trim();
+      const m = s.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
+      if (!m) return s; // deixa o servidor reclamar se vier malformado
+      const [, date, hh, mm, ss] = m;
+      return `${date}T${hh}:${mm}:${ss ?? "00"}-03:00`;
+    }
 
     // Auditoria: registra resultado real de cada tool de mutação para montar o resumo final
     type OpResult = { tool: string; ok: boolean; detail: string };
