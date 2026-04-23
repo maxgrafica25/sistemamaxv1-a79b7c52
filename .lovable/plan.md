@@ -1,109 +1,63 @@
 
 
-# Júlia: parar de depender do modelo para formatar horários
+# Júlia: aumentar limite de iterações de tools + fallback que mostra o que foi feito
 
-## Diagnóstico
+## Diagnóstico (com base nos logs)
 
-Estado real do banco para 27/04 (pendentes ativos):
-- 12h00 — Treino
-- 13h00 — Treino (aviso 10h45)
-- 13h15 — Treino (aviso 16h00)
-- 14h00 — Teste Sistema 1
-- 16h00 — Teste Sistema 2
-- 17h00 — Teste Sistema 2 (aviso 16h45)
+A operação **funcionou no banco** (logs 19:21):
+1. `list_reminders` (iter 0) — listou tudo certo
+2. `delete_reminder 77e2f837` (Treino 12h, motivo=rescheduled) — ✅
+3. `check_reminder_conflict` + `create_reminder` (Treino 12h30) — ✅ (id 41380526)
+4. `delete_reminder a6371060` (Teste Sistema 1 14h, motivo=user_cancelled) — ✅
 
-Júlia disse: 11h00, 12h00, 13h15, 16h00 Treino, 17h00 Teste 1, 17h00 Teste 2. Continua **invertendo `event_at` ↔ `remind_at`** apesar de duas rodadas de regras explícitas no prompt.
+Mas a Júlia respondeu: **"Não consegui finalizar a resposta. Tente novamente."**
 
-**Causa raiz:** o `list_reminders` devolve JSON cru com os dois timestamps em ISO/UTC. O modelo (gemini-2.5-flash) escolhe o primeiro campo de tempo que aparece, ignora o offset, ou converte errado. Regra de prompt não resolve — gemini-flash não é confiável o suficiente pra essa disciplina.
+## Causa raiz
 
-Pior: além disso, o `list_reminders` já filtra `cancelled_at IS NULL`, então os "11h Treino" cancelados NÃO vieram da API. O modelo está **inventando** o item das 11h ou pegando do histórico da conversa anterior. A janela de 10 mensagens passadas inclui listas antigas onde 11h aparecia.
+`for (let iter = 0; iter < 3; iter++)` no loop de tools (linha 1026) limita a **3 iterações**. Cada round em que o modelo chama tools consome 1 iteração. Para "alterar X e cancelar Y" o modelo gastou:
+- iter 0 → `list_reminders`
+- iter 1 → `delete_reminder` (X antigo)
+- iter 2 → `check_conflict` + `create_reminder` (X novo) + `delete_reminder` (Y)
 
-E o "altera 11h pra 11h30 e cancela 16" falhou com `uuid_not_in_session` em ambos os deletes — porque o modelo gerou IDs inventados de novo, mesmo com `available_reminders` injetado. O guard funcionou (bloqueou), mas a UX final só disse "tive um problema interno" duas vezes, sem propor próxima ação clara.
+Após a iter 2 o `continue` pula pra iter 3 → condição falsa → **loop sai sem dar ao modelo a iteração de geração de texto final**. `resposta` fica vazio → cai no fallback genérico.
 
-## Correção
+Pior: o `OPERAÇÕES REALIZADAS NESTE TURNO` (resumo auditado que injetamos) foi adicionado mas o modelo nunca foi chamado pra lê-lo. Toda a auditoria virou inútil.
 
-### 1. Servidor formata os horários ANTES de devolver (não confia no modelo)
+## Correções
 
-Em `executeTool("list_reminders")`, em vez de devolver o JSON cru da API, transformar cada item em:
-```json
-{
-  "id": "82a34daa-...",
-  "title": "Treino",
-  "display_line": "**13h00** — Treino (aviso 10h45)",
-  "event_local": "13h00",
-  "remind_local": "10h45",
-  "event_date_br": "27/04/2026",
-  "event_at": "<iso>",
-  "remind_at": "<iso>"
-}
-```
+### 1. Aumentar limite de iterações de 3 → 6
+Operações compostas legítimas (remarcar + cancelar outro) precisam de até 4-5 rounds. 6 dá folga sem risco de loop infinito (cada chamada tem custo no gateway, então o próprio modelo tende a parar quando termina).
 
-A `display_line` é a string EXATA que a Júlia deve copiar para o bullet. Sem chance de inverter campos, sem chance de timezone errado.
+### 2. Garantir 1 iteração final SÓ pra texto, mesmo se atingir o limite
+Se o loop termina por limite atingido E houve `opResults`, fazer **uma chamada extra ao gateway com `tool_choice: "none"`** forçando o modelo a gerar texto baseado no resumo auditado já injetado. Sem novas tools — só resposta final.
 
-Mesma transformação para `list_cancelled_reminders`, com sufixo "(cancelado em DD/MM)" ou "(remarcado em DD/MM)" baseado em `cancelled_reason`.
+### 3. Fallback final melhorado quando ainda assim não houver resposta
+Se mesmo após a chamada forçada não houver texto, e tivermos `opResults` com sucessos, **gerar resposta servidor-side** listando o que foi feito:
+> "✅ Pronto! Operações realizadas:
+> - Cancelei Treino das 12h00 (remarcado)
+> - Criei Treino das 12h30 (aviso 12h15)
+> - Cancelei Teste Sistema 1 das 14h00"
+>
+> Em vez do "Não consegui finalizar a resposta."
 
-### 2. Prompt: regra simplificada para listagem
-
-Trocar todo o bloco "REGRA INVIOLÁVEL DOS DOIS CAMPOS" (linhas 199-217) por:
-> "Para listar lembretes, use EXATAMENTE o campo `display_line` de cada item de `list_reminders`. Não recalcule, não converta timezone, não invente. Apenas copie. Se faltar bullet, use '- ' antes do `display_line`."
-
-### 3. Mensagem clara quando o reschedule falha por UUID inventado 2x seguidas
-
-No final do loop, se `opResults` contém ≥1 `delete_reminder` falhado por `uuid_not_in_session` E nenhum sucesso, **substituir** a resposta do modelo por uma mensagem servidor-side:
-> "Não consegui identificar exatamente quais lembretes alterar. Aqui estão os pendentes pra hoje/27:
-> [lista formatada]
-> Pode me dizer **qual horário cancelar** e **qual remarcar** copiando da lista acima?"
-
-Isso evita o "tive um problema interno" duplicado e dá ao usuário o que ele precisa pra corrigir.
-
-### 4. Filtrar histórico da conversa antes de mandar ao gateway
-
-O histórico das últimas 10 mensagens contém listas antigas com horários hoje desatualizados (11h Treino que já não existe). O modelo está pegando de lá. **Truncar mensagens do assistant antigas** para no máximo 200 caracteres no contexto enviado ao gateway, ou marcar com prefixo "[histórico — pode estar desatualizado, NÃO use como fonte de horários atuais]".
-
-### 5. Limpeza pontual: cancelar duplicatas residuais de 27/04
-
-Não há duplicatas vivas neste momento (todas as duplicatas anteriores foram canceladas). Nenhuma migration nova precisa.
-
-Mas o `1cd24fd0` (Treino event 13h15 / remind 16h00) tem `remind_at` DEPOIS do `event_at` — invertido no banco. Provavelmente foi criado já trocado. Sugiro corrigir: setar `remind_at = event_at - 15min` = 13h00 UTC (10h00 local). Migration pontual.
+Isso usa os `opResults.detail` que já temos.
 
 ## Arquivos alterados
 
 - `supabase/functions/assistente-virtual/index.ts`:
-  - `executeTool("list_reminders")` e `executeTool("list_cancelled_reminders")`: transformar resposta com `display_line` pré-formatada em pt-BR.
-  - Prompt: substituir bloco de regras de exibição (linhas 199-217) pela regra simplificada "use display_line".
-  - Após loop: detectar falha total de delete em sessão de remarcar e injetar mensagem servidor-side com a lista atual.
-  - Histórico: truncar respostas antigas do assistant a 200 chars antes de enviar ao gateway.
-- 1 migration SQL: corrigir `remind_at` do `1cd24fd0` (de 16h00 UTC para 13h00 UTC).
+  - Linha 1026: `iter < 3` → `iter < 6`.
+  - Após o loop, antes do fallback genérico: se `!resposta && opResults.length > 0`, fazer chamada extra ao gateway com `tool_choice: "none"` pra forçar texto.
+  - Se ainda assim vazio, montar resposta servidor-side a partir de `opResults`.
 
 ## Resultado esperado
 
-Pergunta: "o que tenho dia 27?"
-Júlia (server-formatted, sem chance de erro):
-```
-Pendentes para 27/04/2026:
-- **12h00** — Treino
-- **13h00** — Treino (aviso 10h45)
-- **13h15** — Treino (aviso 13h00)
-- **14h00** — Teste Sistema 1
-- **16h00** — Teste Sistema 2
-- **17h00** — Teste Sistema 2 (aviso 16h45)
-```
-
-Pergunta: "altera treino 11h para 11h30 e cancela 16"
-Como não há Treino às 11h, e 16h é Teste Sistema 2 (não treino), o reschedule vai falhar por UUID inventado. Mensagem que aparece:
-> "Não consegui identificar exatamente quais lembretes alterar. Aqui estão os pendentes pra 27/04:
-> - **12h00** — Treino
-> - **13h00** — Treino (aviso 10h45)
-> - **13h15** — Treino
-> - **14h00** — Teste Sistema 1
-> - **16h00** — Teste Sistema 2
-> - **17h00** — Teste Sistema 2
->
-> Não tem Treino às 11h. Quer alterar qual desses?"
+Mesmo cenário ("alterar treino das 12 para 12h30 e cancelar 14h"):
+- Tools rodam (já funciona).
+- Modelo tem iterações suficientes pra gerar resposta normal.
+- Caso extremo: servidor formata texto baseado em `opResults`, usuário vê confirmação real do que foi feito em vez de mensagem de erro genérica.
 
 ## Fora do escopo
 
-- Sem mudar schema.
-- Sem trocar modelo (gemini-2.5-flash continua, mas agora não precisa formatar nada delicado).
-- Sem mexer em UI.
+- Sem mudar schema, sem mudar tools, sem mudar prompt.
+- Sem migration.
 
