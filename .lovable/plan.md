@@ -1,43 +1,49 @@
 
 
-# Resolver login do emailparaojuliano@gmail.com
+# Corrigir redirect URI do Google OAuth (Júlia → Calendar)
 
 ## Diagnóstico
 
-A conta existe e está saudável (e‑mail confirmado, sem bloqueio, último login em 17/04). O erro **"Invalid login credentials"** é **senha errada**, não bug.
+O fluxo de "Conectar Google Calendar" está terminando em **403 do Google em `lovable.dev/projects/...`** porque o secret `GOOGLE_OAUTH_REDIRECT_URI` (e/ou o cadastro no Google Cloud Console) está apontando pra URL errada — não pra edge function `google-oauth-callback`.
 
-O que aconteceu nos logs hoje 14:33:
-1. Usuário foi em **Criar Conta** e digitou e‑mail + uma senha nova → Supabase respondeu `user_repeated_signup` (conta já existe; senha **não foi alterada**).
-2. Em seguida tentou **Entrar** 4× com essa mesma senha nova → todas rejeitadas, porque a senha real cadastrada é outra (a usada em 17/04).
+## Correção em 2 lugares
 
-## Solução (sem código)
+### 1. Atualizar o secret `GOOGLE_OAUTH_REDIRECT_URI` no projeto
 
-Peça pra ele clicar em **"Esqueci minha senha"** na tela de login:
+Trocar o valor atual pelo URL público da edge function de callback:
 
-1. Digita `emailparaojuliano@gmail.com` → **Enviar Link de Recuperação**.
-2. Abre o e‑mail (checar spam) → clica no link.
-3. Cai em `/reset-password` → define senha nova.
-4. Volta no login com a senha nova → entra normal.
+```
+https://nxkmxslugblhsyohrrvm.supabase.co/functions/v1/google-oauth-callback
+```
 
-O fluxo de recuperação já está implementado em `src/pages/Auth.tsx` (modo `recoveryMode`) e a página `/reset-password` está pública.
+Faço isso via `update_secret` (precisa de aprovação sua).
 
-## Alternativa rápida (admin)
+### 2. Registrar o mesmo URL no Google Cloud Console
 
-Se o usuário não receber o e‑mail de recuperação (problema de SMTP/spam), você pode resetar manualmente. Existem dois caminhos:
+Você (manualmente) precisa abrir o OAuth Client correspondente ao `GOOGLE_OAUTH_CLIENT_ID` em **Google Cloud Console → APIs & Services → Credentials**, editar o client OAuth 2.0 e adicionar em **Authorized redirect URIs**:
 
-- **Pelo painel Cloud:** abrir **Backend → Users**, achar o usuário, usar a opção de enviar magic link / definir senha.
-- **Via script já pronto:** `scripts/reset-passwords-bulk.ts` aceita uma lista de e‑mails e dispara o link de recuperação em lote (já existe no projeto, não precisa criar nada).
+```
+https://nxkmxslugblhsyohrrvm.supabase.co/functions/v1/google-oauth-callback
+```
 
-## Melhoria opcional (requer aprovação separada)
+Salvar. Esse passo é obrigatório — sem isso o Google continua recusando o callback.
 
-Hoje o signup com e‑mail já existente mostra a mensagem genérica do Supabase ("User already registered"), o que confunde — o usuário acha que criou conta nova. Posso ajustar `Auth.tsx` pra detectar esse erro específico no `handleSignup` e mostrar:
+### 3. Garantir que a edge function `google-oauth-callback` permite chamada anônima
 
-> Esse e‑mail já tem conta. Use **Entrar** ou clique em **Esqueci minha senha**.
+O Google bate nessa URL **sem JWT do Supabase**, então a função precisa estar deployada com `verify_jwt = false`. Vou conferir o `supabase/config.toml` e ajustar se necessário.
 
-Avise se quer que eu faça essa melhoria também.
+### 4. Testar de novo
+
+Depois de (1) + (2) deployados, abrir **Configurações → Integrações → Conectar Google Calendar**, escolher a conta Google → deve voltar pro app com `?gcal=ok` e popular `user_google_tokens`.
 
 ## Fora deste escopo
 
-- Trocar senha do usuário direto via SQL (não dá — `auth.users.encrypted_password` exige hash bcrypt do GoTrue, não pode ser feito por migration).
-- Mudar política de senhas ou fluxo de signup.
+- Mudar o fluxo pra usar o connector gerenciado da Lovable (já decidimos manter OAuth próprio multi-usuário).
+- Mexer em escopos do consent screen (já contemplam `calendar.events` + `userinfo.email`).
+
+## Detalhes técnicos
+
+- O secret `GOOGLE_OAUTH_REDIRECT_URI` é lido em `google-oauth-init` (montar URL de autorização) **e** em `google-oauth-callback` (trocar code por token). Os dois precisam usar o mesmo valor — daí salvar como secret único é correto.
+- O `state` HMAC continua válido (não depende do redirect).
+- Não há mudança em tabelas; `user_google_tokens` continua igual.
 
