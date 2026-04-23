@@ -648,21 +648,72 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
 
     // Guard anti-alucinação: só aceita delete_reminder com ids vistos em list_* na MESMA sessão
     const verifiedIds = new Set<string>();
-    function captureIdsFromListResult(result: unknown): void {
-      const r = result as { reminders?: Array<{ id?: string }> } | null;
+    // Cache da última lista de pendentes pra reinjetar quando o guard rejeita
+    let lastPendingList: Array<Record<string, unknown>> = [];
+    function captureIdsFromListResult(result: unknown, capturePending = false): void {
+      const r = result as { reminders?: Array<Record<string, unknown>> } | null;
       if (r && Array.isArray(r.reminders)) {
         for (const item of r.reminders) {
-          if (item?.id && typeof item.id === "string") verifiedIds.add(item.id);
+          const id = item?.id;
+          if (id && typeof id === "string") verifiedIds.add(id);
+        }
+        if (capturePending) {
+          lastPendingList = r.reminders.map((it) => ({
+            id: it.id,
+            title: it.title,
+            event_at: it.event_at ?? it.remind_at,
+            remind_at: it.remind_at,
+          }));
         }
       }
     }
 
+    // Detecta intenção de "remarcar" na mensagem original do usuário
+    const remarcarRegex = /\b(troca|trocar|remarc[ao]|remarcar|mud[ao]|mudar|adi[ao]r?|antecip[ao]r?|mov[ei]r?|passa[r]?\s+(?:de|do|da))\b/i;
+    const isRemarcarSession = remarcarRegex.test(pergunta);
+    let mustRetryDelete = false;
+    let pendingDeleteTitleHint: string | null = null;
+
+    function normalize(s: string): string {
+      return (s || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
     async function executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
       try {
-        if (name === "create_reminder") return await callRemindersApi("POST", args);
+        if (name === "create_reminder") {
+          // Bloqueio estrutural: em modo remarcar, se há delete pendente para um título parecido, bloqueia
+          if (isRemarcarSession && mustRetryDelete) {
+            const newTitle = normalize(String(args.title ?? ""));
+            const oldTitle = normalize(pendingDeleteTitleHint ?? "");
+            const similar =
+              !!newTitle &&
+              !!oldTitle &&
+              (newTitle === oldTitle ||
+                newTitle.includes(oldTitle) ||
+                oldTitle.includes(newTitle) ||
+                newTitle.split(" ")[0] === oldTitle.split(" ")[0]);
+            if (similar) {
+              console.warn(
+                `[assistente-virtual] create_reminder BLOCKED (reschedule pending delete)`,
+                JSON.stringify({ newTitle: args.title, oldTitle: pendingDeleteTitleHint }),
+              );
+              return {
+                error:
+                  "delete pendente — você precisa apagar o lembrete antigo (com o UUID correto da lista available_reminders) ANTES de criar o novo, senão vira duplicata. Tente delete_reminder de novo com o id certo.",
+                available_reminders: lastPendingList,
+              };
+            }
+          }
+          return await callRemindersApi("POST", args);
+        }
         if (name === "list_reminders") {
           const res = await callRemindersApi("GET", {});
-          captureIdsFromListResult(res);
+          captureIdsFromListResult(res, true);
           return res;
         }
         if (name === "list_cancelled_reminders") {
@@ -682,12 +733,27 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
               `[assistente-virtual] delete_reminder REJECTED`,
               JSON.stringify({ rejected: true, id, reason: "uuid_not_in_session" }),
             );
+            // Garante lista atualizada pra reinjetar
+            if (lastPendingList.length === 0) {
+              const res = await callRemindersApi("GET", {});
+              captureIdsFromListResult(res, true);
+            }
+            mustRetryDelete = true;
+            // Tenta capturar uma dica do título visado a partir do hint do modelo (se vier)
+            // Como não temos title nos args do delete, mantemos o hint da última tentativa de create
             return {
               error:
-                "id não verificado nesta sessão. Chame list_reminders primeiro e use EXATAMENTE o UUID retornado (não invente nem use de mensagens anteriores).",
+                "id não verificado nesta sessão. Use EXATAMENTE um id da lista available_reminders abaixo e chame delete_reminder de novo no mesmo turno.",
+              available_reminders: lastPendingList,
             };
           }
-          return await callRemindersApi("DELETE", args);
+          const result = await callRemindersApi("DELETE", args);
+          // Se delete passou, libera o create
+          if ((result as { ok?: boolean })?.ok) {
+            mustRetryDelete = false;
+            pendingDeleteTitleHint = null;
+          }
+          return result;
         }
         if (name === "check_reminder_conflict")
           return await callRemindersApi("GET", args, "/conflicts");
