@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
   const code = u.searchParams.get("code");
   const state = u.searchParams.get("state");
   const errorParam = u.searchParams.get("error");
-  const appOrigin = req.headers.get("referer")?.split("/").slice(0, 3).join("/") || originFromRedirect();
+  
 
   // Pre-parse state (sem validar ainda) para extrair app_origin antes mesmo de validar erros do Google
   let preOrigin = "";
