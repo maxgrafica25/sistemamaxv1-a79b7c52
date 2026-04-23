@@ -1,60 +1,36 @@
 
 
-# Eventos não aparecem no Google Calendar — token sem permissão de escrita
+# Júlia: checar conflito também para o 2º+ compromisso da fila
 
-## Diagnóstico
+## Problema
 
-Os logs do worker mostram o erro real, repetido em loop:
+Hoje a Júlia, ao processar o 1º compromisso da fila, faz `check_reminder_conflict` antes de criar e avisa o usuário se houver conflito (ex.: "treino às 11h" → conflitou → trocou pra 12h). Mas ao avançar para o 2º compromisso da fila ("instagram às 16h"), ela pula direto para "Quando quer ser avisado?" + chips, sem nunca rodar `check_reminder_conflict` para esse horário. Resultado: se houver conflito no 16h, o usuário só vai descobrir depois que o lembrete for criado.
 
-```
-403 PERMISSION_DENIED
-"Request had insufficient authentication scopes."
-reason: ACCESS_TOKEN_SCOPE_INSUFFICIENT
-method: calendar.v3.Events.Insert
-```
+A regra de detecção de conflito (linha 237 do prompt) só dispara "imediatamente antes de `create_reminder`". Como, para o 2º item, primeiro a Júlia pergunta a antecedência (e só depois chama `create_reminder`), o aviso de conflito acaba acontecendo num momento ruim — ou nem aparece, dependendo do raciocínio do modelo.
 
-Ou seja: o código está pedindo o escopo certo (`calendar.events`) no `google-oauth-init`, mas **o token Google que está salvo hoje na sua conta não inclui esse escopo**. Provavelmente foi gerado em uma reconexão antiga (quando o escopo era só `userinfo.email`) ou o Google reaproveitou um consentimento prévio sem incluir o novo escopo.
+## Mudança
 
-A fila `gcal_sync_queue` tem itens travados batendo 403 toda vez que o cron roda — daí "antes funcionou e agora parou".
+Editar **somente o system prompt** (`camada1`) em `supabase/functions/assistente-virtual/index.ts`, na seção "MÚLTIPLOS COMPROMISSOS NA MESMA MENSAGEM", para adicionar uma regra explícita:
 
-## O que vou fazer
+**Antes de pedir a antecedência do PRÓXIMO compromisso da fila** (Linha C/D atuais), a Júlia DEVE primeiro chamar `check_reminder_conflict` para o horário desse compromisso (window_minutes=15).
 
-### 1. Forçar reconsentimento ao reconectar
-Em `supabase/functions/google-oauth-init/index.ts`, garantir que o pedido de autorização force a tela de consentimento mostrando os escopos atuais. O parâmetro `prompt: "consent"` já está lá, mas vou adicionar também `include_granted_scopes: "false"` para impedir o Google de devolver um token reaproveitado sem o `calendar.events`.
+- Se houver conflito: a resposta naquele turno NÃO mostra os chips. Em vez disso, ela lista o conflito do 2º compromisso e pergunta "Quer marcar mesmo assim ou prefere outro horário?". A Linha A (confirmação do anterior) continua presente. O nome+horário do compromisso pendente continua visível na resposta para preservar a memória da fila. Os chips só aparecem depois que o horário definitivo do 2º compromisso estiver decidido.
+- Se não houver conflito: segue o fluxo atual (Linha A + Linha C "Falta combinar..." + Linha D `[JULIA_CHIPS:lead_time]`).
 
-### 2. Validar escopos no callback
-Em `supabase/functions/google-oauth-callback/index.ts`, depois de trocar o `code` por token, checar se o campo `scope` da resposta inclui `https://www.googleapis.com/auth/calendar.events`. Se não incluir, **não salvar** o token e redirecionar com `?gcal=error&reason=missing_calendar_scope` para a Júlia avisar claramente.
+A mesma regra vale para o 3º, 4º compromisso, etc. — sempre que a fila avançar para um próximo item, checar conflito **antes** de perguntar a antecedência.
 
-### 3. Limpar o token atual e a fila travada
-Após você desconectar e reconectar:
-- a row antiga de `user_google_tokens` é apagada pelo `google-disconnect` (já existente);
-- vou também marcar como processados os itens antigos da `gcal_sync_queue` que estão batendo 403, pra parar o loop de erro nos logs e não reenviar lembretes antigos.
+## Arquivo alterado
 
-Isso será feito via migration de uma vez só:
-```sql
-UPDATE public.gcal_sync_queue
-SET processed_at = now(),
-    last_error = 'cleared: scope reconnect'
-WHERE processed_at IS NULL
-  AND last_error LIKE '%insufficient authentication scopes%';
-```
+- `supabase/functions/assistente-virtual/index.ts` — apenas a string `camada1`, dentro do bloco "MÚLTIPLOS COMPROMISSOS NA MESMA MENSAGEM" (linhas ~225-235).
 
-### 4. Passo manual seu (essencial)
-Depois que eu publicar as correções, você precisa:
+## Resultado esperado
 
-1. Ir em **Configurações → Google Calendar → Desconectar**.
-2. Clicar em **Conectar Google Calendar** de novo.
-3. Na tela do Google, **marcar a permissão "Ver, editar, compartilhar e excluir permanentemente todos os calendários"** (ou equivalente). É essa marcação que estava faltando.
-4. Voltar ao app — a partir daí, lembretes novos da Júlia vão pra agenda.
-
-## Arquivos alterados
-
-- `supabase/functions/google-oauth-init/index.ts` (forçar novo consent, sem reaproveitamento)
-- `supabase/functions/google-oauth-callback/index.ts` (validar escopo recebido)
-- Migration SQL para limpar a fila travada
+Cenário do print: "Tenho treino na segunda às 11h e instagram às 16"
+- Trata treino: conflito → resolve para 12h → cria.
+- **Antes de perguntar antecedência do instagram às 16h**, roda `check_reminder_conflict` para 16h. Se conflitar, avisa o usuário e espera ele decidir o horário antes de mostrar os chips. Se não conflitar, mostra os chips normalmente.
 
 ## Fora do escopo
 
-- Não vou mexer em `gcal-sync-worker`, `user_google_tokens`, schema de `reminders`, nem no fluxo da Júlia.
-- Não vou tentar "reaproveitar" o token atual — ele precisa ser substituído pela reconexão manual.
+- Sem mudanças em ferramentas, schema, `reminders-api`, ou frontend.
+- Sem mudança no fluxo de Google Calendar.
 
