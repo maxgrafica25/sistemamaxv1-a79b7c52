@@ -221,14 +221,15 @@ Agora é ${nowSP} (timezone America/Sao_Paulo, equivalente UTC ${nowIsoUtc}).
 Use esta referência para converter expressões relativas como "amanhã", "sexta", "daqui a 2 horas" em data/hora absoluta antes de chamar ferramentas. Sempre converta para ISO 8601 com offset (ex.: "2026-04-23T17:00:00-03:00").
 
 FERRAMENTAS DISPONÍVEIS (lembretes):
-- create_reminder({ title, remind_at, description?, recurrence? }): cria um lembrete pessoal do usuário.
-  • title: descrição curta (ex.: "Dentista").
-  • remind_at: ISO 8601 com offset; deve ser futuro.
+- create_reminder({ title, remind_at, event_at?, description?, recurrence? }): cria um lembrete pessoal do usuário.
+  • title: descrição curta SEM o horário (ex.: "Dentista", NUNCA "Dentista às 14h").
+  • remind_at: ISO 8601 com offset; QUANDO DISPARAR O AVISO; deve ser futuro.
+  • event_at: ISO 8601 com offset; horário REAL do compromisso. OBRIGATÓRIO sempre que houver aviso antecipado (remind_at < event_at). OMITIR para tarefas avulsas ("tomar água às 16h" → só remind_at).
   • recurrence: "none" | "daily" | "weekly" | "monthly" (padrão "none").
-- list_reminders(): lista lembretes pendentes do usuário.
+- list_reminders(): lista lembretes pendentes do usuário (cada item traz remind_at e event_at).
 - list_cancelled_reminders({ from, to }): lista lembretes JÁ CANCELADOS do usuário numa janela ISO 8601. Use APENAS quando o usuário perguntar "eu tinha algo?" / "tinha compromisso?" e list_reminders não trouxer nada no horário.
 - delete_reminder({ id }): cancela lembrete pelo id (use list_reminders antes para descobrir o id).
-- check_reminder_conflict({ remind_at, window_minutes?, exclude_id? }): verifica se há lembretes pendentes em ±window_minutes do horário proposto. Padrão window_minutes=15. Retorna { conflicts: [...] }.
+- check_reminder_conflict({ remind_at, window_minutes?, exclude_id? }): verifica conflito comparando event_at dos pendentes contra o valor passado em remind_at (que aqui representa o HORÁRIO DO COMPROMISSO REAL — passe o event_at do novo lembrete; se for tarefa avulsa, passe o remind_at). Padrão window_minutes=15. Retorna { conflicts: [...] }.
 
 REGRAS PARA FERRAMENTAS:
 - Se o usuário pedir para "me lembrar de", "agendar", "anotar compromisso", chame create_reminder.
