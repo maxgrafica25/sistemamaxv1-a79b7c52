@@ -164,6 +164,9 @@ export default function AssistenteButton() {
               {messages.map((m, i) => {
                 const isLastAssistant =
                   m.role === "assistant" && i === messages.length - 1 && !loading;
+                const prevUser = m.role === "assistant"
+                  ? [...messages.slice(0, i)].reverse().find((x) => x.role === "user")?.content
+                  : undefined;
                 return (
                   <AssistenteMensagem
                     key={i}
@@ -172,6 +175,7 @@ export default function AssistenteButton() {
                     chipsEnabled={isLastAssistant}
                     onChipClick={(text) => enviar(text)}
                     timestamp={m.timestamp}
+                    previousUserContent={prevUser}
                   />
                 );
               })}
