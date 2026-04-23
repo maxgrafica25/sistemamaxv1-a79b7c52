@@ -1,106 +1,67 @@
 
 
-# Júlia: corrigir confusão entre "horário do aviso" e "horário do compromisso"
+# Júlia: corrigir IDs inventados no delete + listagem confusa
 
-## Diagnóstico (causa raiz)
+## O que aconteceu (causa raiz, com evidência)
 
-Olhando a conversa da screenshot, três bugs combinados explicam o comportamento errático:
-
-### Bug 1 — Listagem mostra `remind_at` (aviso), não o compromisso real
-O que apareceu para o usuário:
+Logs do edge function:
 ```
-- 11h00 — Treino às 11h15
-- 11h45 — Treino às 12h
-- 16h45 — Treino às 13h15
+delete_reminder args → {"id":"313797b5-025b-4260-847e-aee6e6ee980b"} → "Lembrete não encontrado"
+delete_reminder args → {"id":"4d5d974e-5a02-4ee1-b952-1925b06214cd"} → "Lembrete não encontrado"
 ```
-Cada linha tem dois horários diferentes porque o **bullet usa `remind_at`** (horário do aviso) e o **título guarda o horário real do compromisso**. Para o usuário parece "tem 7 treinos no dia"; na verdade são 3 treinos com avisos antecipados. Confunde o usuário e confunde a própria Júlia nas decisões seguintes.
 
-### Bug 2 — Detecção de conflito olha o `remind_at`, não o compromisso
-`check_reminder_conflict` compara o horário proposto contra `remind_at` dos pendentes. Resultado: ao tentar marcar **Dentista às 16h15**, a Júlia detectou conflito com "Treino às 13h15" (que tem `remind_at` próximo de 16h45 por algum aviso antecipado). Conflito falso → trava em "quer marcar mesmo assim?".
+Esses dois UUIDs **não existem na tabela**. Os IDs reais do dia 27/04 são outros (ex: `cdf4a8d4-...` para "Treino às 11h", `a6371060-...` para "Teste Sistema 1" das 17h).
 
-### Bug 3 — DEDUPE entra mesmo em comando misto
-A mensagem "cancela o oftalmo e marca Dentista às 16h15" tinha intenção dupla. Apesar da regra de PRIORIDADE MÁXIMA, o modelo entrou no fluxo de DEDUPE/CONFLITO antes de processar o "marcar Dentista" como criação nova legítima.
+**A Júlia inventou os UUIDs.** Ela não chamou `list_reminders` antes do delete — passou direto pra `delete_reminder` com IDs alucinados. A regra "use o UUID exato do `list_reminders` da mesma iteração" foi adicionada no prompt, mas o modelo está ignorando porque a lista foi mostrada na **mensagem anterior**, não na iteração atual, então ele acha que "lembra" do ID e gera um plausível.
 
-### Bug 4 — Loop de chips
-Após "na hora", a Júlia voltou a perguntar conflito em vez de criar — porque o conflito falso (bug 2) reentrou no fluxo.
+## Bug secundário descoberto na mesma listagem
+
+Olhando a screenshot e o banco:
+- Banco tem `event_at = 13h45` com título "Treino às 11h" → a Júlia mostrou "11h00 — Treino" (extraiu do título, não do `event_at`).
+- Banco tem `event_at = 19h00` com título "Treino às 13h15" → mostrou "14h00 — Treino" (errado dos dois lados).
+
+Os dados antigos têm `event_at` = `remind_at` (do backfill), não o horário real do compromisso. O título "Treino às 11h" guarda o horário real. A Júlia está extraindo o horário do **título** em vez de usar o `event_at`, e ainda por cima ignora os "minutos" às vezes.
+
+Ou seja: o refactor `event_at` não ajuda os registros antigos porque o backfill copiou `remind_at` (que era o aviso, não o evento). Esses registros têm `event_at` errado pra sempre.
 
 ## Correções
 
-### 1. Separar dois campos: `event_at` (compromisso) vs `remind_at` (aviso)
-Migration nova:
-- Adicionar coluna `event_at timestamptz null` em `public.reminders`. Significa "horário real do compromisso". Quando o lembrete é apenas tarefa avulsa ("tomar água às 16h"), `event_at = remind_at`.
-- Backfill: `UPDATE reminders SET event_at = remind_at WHERE event_at IS NULL` (registros antigos viram tarefas avulsas — sem aviso antecipado).
-- Sem mudar `remind_at` (continua sendo o trigger de notificação).
-
-### 2. `reminders-api`: aceitar e devolver `event_at`
-Arquivo: `supabase/functions/reminders-api/index.ts`
-- `POST` aceita `event_at` opcional no body. Se ausente, usa `remind_at`.
-- `GET` devolve `event_at` em todos os retornos.
-- `GET /conflicts`: passa a olhar **`event_at`** dentro da janela ±15min, não mais `remind_at`. (Conflito é entre compromissos reais, não entre horários de aviso.)
-- Validação: se `event_at` vier, deve ser ≥ `remind_at` (faz sentido só avisar antes do evento, não depois).
-
-### 3. `assistente-virtual`: prompt + tool `create_reminder`
+### 1. Forçar `list_reminders` antes de QUALQUER `delete_reminder` na mesma iteração
 Arquivo: `supabase/functions/assistente-virtual/index.ts`
 
-**Tool schema** — `create_reminder` ganha campo `event_at`:
-- `remind_at`: quando disparar o aviso (ex.: 13h15).
-- `event_at`: horário real do compromisso (ex.: 16h). Se for tarefa avulsa, omitir.
+No loop de tool-calling, adicionar **guard de servidor** (não confia só no prompt):
+- Manter um `Set<string>` de IDs vistos vindos de `list_reminders` / `list_cancelled_reminders` na iteração atual.
+- Se `delete_reminder` for chamado com um `id` que NÃO está nesse set, **rejeitar a chamada** retornando ao modelo: `{"error":"id não verificado nesta sessão. Chame list_reminders primeiro e use exatamente o UUID retornado."}`
+- Isso impede a alucinação de UUID estruturalmente, não por instrução de prompt.
 
-**Prompt — regras novas em `camada1`**:
-- "COMPROMISSO COM HORÁRIO MARCADO": ao calcular o aviso ("1h antes do dentista das 14h"):
-  - `remind_at = 13h00` (quando avisar)
-  - `event_at = 14h00` (compromisso real)
-  - `title = "Dentista"` (sem "às 14h" — o horário sai do `event_at`)
-- "TAREFA AVULSA" ("me lembra de tomar água às 16h"): só `remind_at`, sem `event_at`.
-- "LISTAGEM DE LEMBRETES" — o bullet DEVE usar `event_at` (ou `remind_at` se `event_at` for null), e mostrar a antecedência em texto pequeno entre parênteses só se diferente:
-  ```
-  - **14h00** — Dentista (aviso 13h)
-  - **16h00** — Tomar água
-  ```
-  Não duplicar "às 14h" no título.
-- "DEDUPE OBRIGATÓRIO": continua, mas agora compara `event_at` no mesmo dia (não `remind_at`).
-- "DETECÇÃO DE CONFLITO": continua chamando `check_reminder_conflict` mas passa o `event_at` do novo compromisso.
+### 2. Reforçar prompt: re-listar antes de remarcar/cancelar
+No `camada1`, regra explícita:
+- "Antes de qualquer `delete_reminder`, você DEVE chamar `list_reminders` na mesma iteração e copiar o `id` exato do retorno. Nunca use IDs de mensagens anteriores — eles podem ter mudado."
 
-### 4. `check-reminders` (cron): nada muda
-O worker continua disparando notificação por `remind_at` (que é o "quando avisar") — isso já está correto.
+### 3. Listagem deve usar `event_at` E ignorar horário do título
+- Regra: "Ao listar, exiba SEMPRE o horário de `event_at` formatado. NUNCA extraia horário do `title`. Se o título contém 'às 11h', remova essa parte ao exibir (mostre só 'Treino')."
 
-### 5. Corrigir o bug do comando misto travado (independente do refactor)
-No prompt `camada1`, reforçar:
-- "COMANDOS MISTOS — REGRA DE INDEPENDÊNCIA": cada subcomando é avaliado isoladamente. O `cancela X` NÃO bloqueia o `marca Y`. Se o segundo subcomando dispara conflito legítimo, processe o primeiro até o fim e só depois pergunte sobre o segundo. Se o conflito for falso (após refactor do `event_at`), nem aparece.
+### 4. Migration de correção dos dados antigos
+- Para registros onde o `title` casa o regex `/às (\d{1,2})h(\d{2})?/i`, recalcular `event_at` baseado no horário do título mantendo a data de `remind_at`.
+- Limpar o " às XXh" do `title` para os ajustados.
+- Cuidado: rodar só em `cancelled_at IS NULL AND is_completed = false` para não bagunçar histórico.
 
-### 6. Sincronizar Google Calendar com `event_at`
-Arquivo: `supabase/functions/gcal-sync-worker/index.ts` (ler para confirmar payload).
-- O evento no Google deve usar `event_at` como hora de início (não `remind_at`). Hoje provavelmente usa `remind_at`, o que faz o evento aparecer no Google na hora do aviso, não na hora do compromisso real.
-- Ajustar o payload do `create`/`update` pra mandar `start = event_at ?? remind_at`.
+### 5. Log adicional
+- Quando `delete_reminder` rejeitar por ID não-verificado, logar `{rejected: true, id, reason: "uuid_not_in_session"}` para confirmar via logs que o guard pegou.
 
 ## Arquivos alterados
 
-- migration nova (coluna `event_at` + backfill)
-- `supabase/functions/reminders-api/index.ts`
-- `supabase/functions/assistente-virtual/index.ts`
-- `supabase/functions/gcal-sync-worker/index.ts`
+- `supabase/functions/assistente-virtual/index.ts` (guard + prompt)
+- migration nova (recalcular `event_at` e limpar título dos pendentes do dia 27/04 e similares)
 
 ## Resultado esperado
 
-Pergunta: "compromissos dia 27"
-Júlia (após fix):
-```
-Seus pendentes para segunda-feira, 27 de abril:
-- **11h15** — Treino (aviso na hora)
-- **12h00** — Treino (aviso 15min antes)
-- **13h15** — Treino (aviso 1h antes)
-- **13h00** — Oftalmo
-- **16h00** — Teste Sistema 2
-- **17h00** — Oftalmo
-```
-(Lista enxuta, sem duplicar horário no título, sem confundir aviso com compromisso.)
-
-Pergunta: "cancela o oftalmo e marca Dentista às 16h15"
-Júlia: cancela oftalmo (1 delete), checa conflito de Dentista 16h15 contra `event_at` dos pendentes (não tem nada às 16h15), pergunta antecedência do Dentista com chips. Sem conflito falso.
+- Júlia nunca mais consegue chamar `delete_reminder` com UUID inventado — o servidor bloqueia.
+- Listagem mostra horários corretos vindos de `event_at`, com títulos limpos.
+- "trocar treino das 11 para 11h30 e cancelar das 17h" funciona: `list_reminders` → pega IDs reais → 2 deletes + 1 create, todos confirmados.
 
 ## Fora do escopo
 
-- Sem mudar UI de notificações.
-- Sem migrar o conceito de `event_at` para outras features.
-- Sem expor edição direta do `event_at` no frontend.
+- Sem mudar UI.
+- Sem mexer em conflito/dedupe (já tratados).
 
