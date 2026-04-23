@@ -55,10 +55,37 @@ export default function GoogleCalendarCard() {
     }
     setConnecting(true);
     try {
-      const { data, error } = await supabase.functions.invoke("google-oauth-init");
+      // Detecta origem real do app (top window, mesmo dentro de iframe do editor)
+      let appOrigin = window.location.origin;
+      try {
+        if (window.top && window.top !== window.self) {
+          appOrigin = window.top.location.origin;
+        }
+      } catch {
+        // Cross-origin: usa document.referrer como pista, senão fica com window.location.origin
+        if (document.referrer) {
+          try { appOrigin = new URL(document.referrer).origin; } catch { /* keep */ }
+        }
+      }
+
+      const { data, error } = await supabase.functions.invoke("google-oauth-init", {
+        body: { app_origin: appOrigin },
+      });
       if (error) throw error;
       if (!data?.url) throw new Error("Resposta inválida");
-      window.location.href = data.url;
+
+      // Sair do iframe: navega a janela topo se possível, senão abre nova aba
+      const inIframe = window.self !== window.top;
+      if (inIframe) {
+        try {
+          window.top!.location.href = data.url;
+        } catch {
+          window.open(data.url, "_blank", "noopener,noreferrer");
+          setConnecting(false);
+        }
+      } else {
+        window.location.href = data.url;
+      }
     } catch (e) {
       toast.error(`Falha: ${e instanceof Error ? e.message : String(e)}`);
       setConnecting(false);
