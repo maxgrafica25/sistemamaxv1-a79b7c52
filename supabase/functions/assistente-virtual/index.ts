@@ -1009,8 +1009,14 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           return result;
         }
         if (name === "list_reminders") {
-          const fromDate = typeof args.from_date === "string" ? args.from_date : undefined;
-          const toDate = typeof args.to_date === "string" ? args.to_date : undefined;
+          let fromDate = typeof args.from_date === "string" ? args.from_date : undefined;
+          let toDate = typeof args.to_date === "string" ? args.to_date : undefined;
+          // Se o modelo esqueceu a data e há contexto herdado da listagem anterior, aplica
+          if (!fromDate && !toDate && inheritedDateFilter) {
+            fromDate = inheritedDateFilter;
+            toDate = inheritedDateFilter;
+            console.log("[assistente-virtual] list_reminders: injecting inheritedDateFilter", inheritedDateFilter);
+          }
           if (fromDate || toDate) {
             lastDateFilter = { from_date: fromDate, to_date: toDate };
           }
@@ -1019,17 +1025,11 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           const transformed = transformListResult(res) as { reminders?: Array<RawReminder & { event_date_br: string }> };
           // Filtra por data LOCAL Brasil (event_date_br vem como "DD/MM/YYYY")
           if ((fromDate || toDate) && transformed && Array.isArray(transformed.reminders)) {
-            const toKey = (br: string): string => {
-              // "27/04/2026" → "2026-04-27"
-              const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-              return m ? `${m[3]}-${m[2]}-${m[1]}` : br;
+            const filter = {
+              from_date: fromDate ?? "0000-00-00",
+              to_date: toDate ?? "9999-99-99",
             };
-            const fromK = fromDate ?? "0000-00-00";
-            const toK = toDate ?? "9999-99-99";
-            transformed.reminders = transformed.reminders.filter((r) => {
-              const k = toKey(r.event_date_br);
-              return k >= fromK && k <= toK;
-            });
+            transformed.reminders = applyDateFilterToReminderList(transformed.reminders, filter);
             // Atualiza lastPendingList pra refletir o filtro (fallbacks vão usar essa lista)
             lastPendingList = transformed.reminders.map((it) => ({
               id: it.id,
