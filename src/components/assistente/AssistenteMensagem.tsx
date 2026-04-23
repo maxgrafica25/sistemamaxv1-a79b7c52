@@ -65,6 +65,11 @@ export function AssistenteMensagem({ role, content, chipsEnabled, onChipClick, t
         >
           {cleanContent}
         </div>
+        {timestamp && (
+          <span className={cn("text-[10px] text-muted-foreground/60", isUser ? "self-end" : "self-start")}>
+            {formatTimestamp(timestamp)}
+          </span>
+        )}
         {hasChips && chipsEnabled && (
           <div className="flex flex-col gap-2">
             {!customMode ? (
