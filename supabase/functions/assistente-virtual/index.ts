@@ -569,20 +569,41 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
     ];
 
     let resposta = "";
+    // Helper: chama o gateway com retry/backoff em 5xx (ex.: Cloudflare 1102 → 503)
+    async function callGateway(): Promise<Response> {
+      const maxAttempts = 3;
+      let lastResp: Response | null = null;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages,
+            tools,
+            tool_choice: "auto",
+          }),
+        });
+        // Sucesso ou erro "definitivo" (não-transitório) → devolve
+        if (resp.ok || (resp.status !== 503 && resp.status < 500 && resp.status !== 408)) {
+          return resp;
+        }
+        lastResp = resp;
+        const body = await resp.clone().text().catch(() => "");
+        console.warn(`[assistente-virtual] gateway transient ${resp.status} (attempt ${attempt}/${maxAttempts}): ${body.slice(0, 200)}`);
+        if (attempt < maxAttempts) {
+          // backoff: 600ms, 1500ms
+          await new Promise((r) => setTimeout(r, attempt === 1 ? 600 : 1500));
+        }
+      }
+      return lastResp!;
+    }
+
     for (let iter = 0; iter < 3; iter++) {
-      const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages,
-          tools,
-          tool_choice: "auto",
-        }),
-      });
+      const aiResp = await callGateway();
 
       if (aiResp.status === 429) {
         return new Response(
@@ -603,10 +624,18 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       if (!aiResp.ok) {
         const text = await aiResp.text();
         console.error("[assistente-virtual] AI gateway error:", aiResp.status, text);
-        return new Response(JSON.stringify({ error: "Falha no serviço de IA" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        const transient = aiResp.status === 503 || aiResp.status >= 500;
+        return new Response(
+          JSON.stringify({
+            error: transient
+              ? "O serviço de IA está instável agora. Tente de novo em alguns segundos."
+              : "Falha no serviço de IA",
+          }),
+          {
+            status: transient ? 503 : 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       const aiJson = await aiResp.json();
