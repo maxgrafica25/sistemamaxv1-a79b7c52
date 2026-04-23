@@ -1,87 +1,44 @@
 
-# Corrigir conexão do Google Calendar no preview e no app publicado
 
-## Diagnóstico confirmado
+# Júlia: tratar múltiplos compromissos em uma única frase
 
-O `google-oauth-init` já está retornando a URL correta do Google com o callback correto:
+## Problema
 
-```text
-https://nxkmxslugblhsyohrrvm.supabase.co/functions/v1/google-oauth-callback
-```
+Quando o usuário diz **"Tenho treino na segunda às 11h e instagram às 16"** (dois compromissos numa frase só), Júlia processa apenas o primeiro (treino) e ignora o segundo (instagram). Isso acontece porque o system prompt em `assistente-virtual/index.ts` foi escrito assumindo **um compromisso por mensagem** — manda emitir o marcador `[JULIA_CHIPS:lead_time]` e parar, então o segundo compromisso some.
 
-Então o problema principal não é mais o secret do redirect URI.
-
-O erro atual acontece porque o botão **Conectar Google Calendar** usa:
-
-```ts
-window.location.href = data.url
-```
-
-Dentro do editor da Lovable isso navega o **iframe do preview**, não a janela principal. O OAuth do Google não se comporta bem nesse contexto embutido, por isso você continua caindo nessa tela 403.
-
-Além disso, o callback hoje decide para onde voltar usando `referer` ou um fallback hardcoded para a URL de preview, o que é frágil e pode quebrar entre preview/publicado.
+Confirmado no print: a Júlia respondeu pedindo a antecedência só do treino, criou o lembrete do treino, e nunca mais mencionou o Instagram.
 
 ## O que vou ajustar
 
-### 1. Fazer o OAuth sair do iframe
-No `src/components/configuracoes/GoogleCalendarCard.tsx` vou trocar a navegação para um fluxo que:
-- detecta se o app está rodando embutido;
-- tenta abrir o Google fora do iframe (`_top` ou nova aba);
-- mantém fallback seguro se estiver rodando standalone.
+Editar **somente o system prompt** dentro de `supabase/functions/assistente-virtual/index.ts` (camada1) para adicionar uma regra explícita de **fila de compromissos pendentes**:
 
-Objetivo: o clique em **Conectar Google Calendar** sempre abrir o Google no contexto correto.
+1. **Detecção:** logo no início, antes de qualquer ação, identificar TODOS os compromissos com horário marcado mencionados na mensagem do usuário (separados por "e", vírgula, "também", "depois", etc.).
 
-### 2. Passar a origem do app no `state`
-No `supabase/functions/google-oauth-init/index.ts` vou incluir no `state` assinado:
-- `user_id`
-- `ts`
-- `app_origin`
+2. **Processamento sequencial — UM de cada vez:**
+   - Pega o primeiro compromisso da fila.
+   - Pergunta a antecedência com o marcador `[JULIA_CHIPS:lead_time]` (regra atual mantida).
+   - Após o usuário responder a antecedência, faz `check_reminder_conflict` + `create_reminder` desse compromisso.
+   - Na confirmação, **se ainda houver compromissos pendentes na fila**, acrescenta uma linha tipo: *"Falta combinar o aviso de **Instagram às 16h**. Quando quer ser avisado?"* seguido do marcador `[JULIA_CHIPS:lead_time]` em linha separada.
+   - Repete até a fila esvaziar.
 
-Esse `app_origin` virá da origem real do app que iniciou o fluxo.
+3. **Atalho "X antes de Y" repetido:** se o usuário já disser a antecedência de cada compromisso na mesma frase ("me avise 1h antes do treino e na hora do instagram"), processa todos de uma vez sem chips, criando os lembretes em sequência (cada um com seu próprio `check_reminder_conflict` + `create_reminder`).
 
-### 3. Remover a dependência de `referer` no callback
-No `supabase/functions/google-oauth-callback/index.ts` vou:
-- validar o `state`;
-- ler `app_origin` do `state`;
-- redirecionar de volta para essa origem exata em `/configuracoes?gcal=ok` ou `?gcal=error=...`.
+4. **Confirmação final consolidada:** quando a fila esvazia, fecha com um resumo curto listando os 2+ avisos criados.
 
-Com isso:
-- preview volta para o preview;
-- publicado volta para o publicado;
-- não fica preso a URL hardcoded;
-- não depende do `referer` enviado pelo Google.
+5. **Memória da fila:** como o backend é stateless entre turnos, instruir o modelo a **manter a fila visível no texto da resposta** (a frase "Falta combinar o aviso de **Instagram às 16h**") — assim, no próximo turno, o histórico carrega esse contexto e a Júlia não esquece.
 
-### 4. Preservar o fluxo atual de tokens
-Não vou mexer em:
-- tabela `user_google_tokens`
-- `google-disconnect`
-- `gcal-sync-worker`
-- escopos atuais do Google
+## Arquivo alterado
 
-O OAuth próprio continua sendo o único fluxo oficial.
-
-## Arquivos a alterar
-
-- `src/components/configuracoes/GoogleCalendarCard.tsx`
-- `supabase/functions/google-oauth-init/index.ts`
-- `supabase/functions/google-oauth-callback/index.ts`
+- `supabase/functions/assistente-virtual/index.ts` — apenas a string `camada1` (system prompt). Sem mudanças em ferramentas, schema, tabelas ou frontend.
 
 ## Resultado esperado
 
-Depois da correção:
-1. clicar em **Conectar Google Calendar** abre o Google fora do iframe do editor;
-2. concluir a autorização volta corretamente para a mesma origem do app;
-3. o card em **Configurações → Integrações** mostra conexão ativa;
-4. `user_google_tokens` continua sendo a fonte única da integração.
+- "Tenho treino na segunda às 11h e instagram às 16" → Júlia detecta 2 compromissos, pergunta antecedência do treino com chips, cria, depois pergunta antecedência do instagram com chips, cria, e fecha confirmando os dois.
+- "Me avise 30min antes do treino das 11h e na hora do instagram das 16h" → Júlia cria os dois direto, sem chips, e confirma.
 
-## Observação importante
+## Fora deste escopo
 
-A configuração no Google Cloud Console com este redirect URI continua necessária e deve permanecer assim:
+- Tarefas avulsas continuam direto como hoje.
+- Nenhuma alteração em `reminders-api`, schema ou UI dos chips.
+- Não vou mexer no fluxo de Google Calendar.
 
-```text
-https://nxkmxslugblhsyohrrvm.supabase.co/functions/v1/google-oauth-callback
-```
-
-## Solução temporária até aplicar a correção
-
-Enquanto isso não é implementado, o teste mais confiável é abrir o app fora do preview embutido (em aba própria / URL publicada), porque o erro atual é consistente com tentativa de OAuth dentro do iframe do editor.
