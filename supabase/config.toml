@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.backup-storage]
 verify_jwt = false
+
+[functions.google-oauth-callback]
+verify_jwt = false
+
+[functions.gcal-sync-worker]
+verify_jwt = false
