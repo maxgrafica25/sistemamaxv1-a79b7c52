@@ -512,10 +512,14 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           parameters: {
             type: "object",
             properties: {
-              title: { type: "string", description: "Descrição curta do lembrete." },
+              title: { type: "string", description: "Descrição curta do lembrete (ex.: 'Dentista', SEM o horário no nome)." },
               remind_at: {
                 type: "string",
-                description: "Data/hora ISO 8601 com offset (ex.: 2026-04-23T17:00:00-03:00). Deve ser futuro.",
+                description: "Data/hora ISO 8601 com offset de QUANDO DISPARAR O AVISO (ex.: 2026-04-23T13:00:00-03:00). Deve ser futuro.",
+              },
+              event_at: {
+                type: "string",
+                description: "Data/hora ISO 8601 com offset do HORÁRIO REAL DO COMPROMISSO (ex.: 2026-04-23T14:00:00-03:00). OBRIGATÓRIO quando há aviso antecipado (remind_at < event_at). OMITIR para tarefas avulsas (ex.: 'tomar água às 16h'). Deve ser >= remind_at.",
               },
               description: { type: "string", description: "Detalhe opcional." },
               recurrence: {
