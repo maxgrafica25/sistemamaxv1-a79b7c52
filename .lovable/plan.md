@@ -1,31 +1,55 @@
 
 
-# Júlia: corrigir resposta "Quando" sem chips
+# Esclarecer integração Google Calendar da Júlia
 
-## O problema
+## O que está acontecendo hoje
 
-Você disse "amanhã às 16h tenho dentista". A Júlia deveria perguntar "Quando quer ser avisado?" e mostrar os botões **Na hora / 1h antes / 3h antes / Personalizar**. Em vez disso respondeu só **"Quando"** seco, sem chips.
+A Júlia **tem integração com Google Calendar**, mas ela é **one-way** (Júlia → Google) e exige **conexão prévia** em **Configurações → Integrações**. Hoje:
 
-Causa: a regra no prompt diz pra ela responder *"Quando quer ser avisado?"* + marcador técnico `[JULIA_CHIPS:lead_time]`. O modelo (Gemini 3 Flash) abreviou a frase pra "Quando" e esqueceu o marcador — sem o marcador o frontend não sabe que tem que mostrar os chips.
+- Você ainda não conectou sua conta Google (verificado no banco: `user_google_tokens` vazio para você).
+- Por isso o lembrete "Aula às 18h" foi salvo só no sistema interno e **não foi enviado para o Google Calendar**.
+- A Júlia respondeu literalmente "não tenho acesso ao Google Calendar" — tecnicamente correto (ela não *lê* a agenda), mas confuso, porque dá a entender que não existe integração nenhuma.
 
-## Correção
+## O que vou ajustar
 
-Endurecer a instrução em `supabase/functions/assistente-virtual/index.ts` (camada1 do system prompt) pra deixar à prova de improviso:
+**1. Ensinar a Júlia a explicar a integração corretamente**
 
-1. **Frase obrigatória, palavra por palavra**: trocar "Responda apenas: 'Quando quer ser avisado?'" por instrução mais firme — "Sua resposta DEVE ter exatamente 2 linhas: linha 1 = `Quando quer ser avisado?` (literal, sem variar), linha 2 = `[JULIA_CHIPS:lead_time]`. Nada antes, nada depois, nada no meio."
+No prompt em `supabase/functions/assistente-virtual/index.ts`, adicionar uma seção **"Sobre Google Calendar"** com regras:
 
-2. **Exemplo positivo e negativo** dentro do prompt mostrando: ✅ resposta correta de 2 linhas vs ❌ "Quando" / "Quando você quer?" / "Me diga quando" sozinhos.
+- Se o usuário perguntar "você salvou no Google Calendar?" / "tem acesso ao Google Calendar?":
+  - Verificar (via dado ao vivo já injetado) se o usuário tem `user_google_tokens`.
+  - **Se conectado**: responder "Sim, já mandei pra sua agenda do Google" (e citar o email Google conectado).
+  - **Se não conectado**: responder algo como "Salvei aqui no sistema. Pra também aparecer no seu Google Calendar, conecta sua conta em **Configurações → Integrações**. Depois disso, todo lembrete que eu criar pra você vira evento automaticamente."
+- Nunca dizer só "não tenho acesso" sem explicar o caminho da conexão.
 
-3. **Reforço no fim do prompt**: adicionar uma regra final tipo "Se for emitir um marcador `[JULIA_CHIPS:...]`, ele é OBRIGATÓRIO em linha separada — sua resposta sem ele quebra a interface."
+**2. Injetar status de conexão nos "dados ao vivo"**
 
-4. **Fallback no frontend** (`AssistenteMensagem.tsx`): se a resposta for muito curta (≤15 caracteres) e contiver "quando" + sinal de pergunta ou ambiguidade, e a última mensagem do usuário mencionou compromisso com horário (dentista, médico, reunião, etc.), mostrar os chips assim mesmo. Rede de segurança caso o modelo erre de novo.
+A função `assistente-virtual` já busca várias tabelas em paralelo no início. Adicionar uma consulta extra a `user_google_tokens` filtrada pelo `userData.user.id` e passar pro prompt um campo simples tipo:
 
-## Validação
+```
+GOOGLE_CALENDAR: { conectado: true, email: "voce@gmail.com" }
+```
+ou
+```
+GOOGLE_CALENDAR: { conectado: false }
+```
 
-Mande de novo "amanhã às 16h tenho dentista" → deve aparecer "Quando quer ser avisado?" + 4 botões logo abaixo.
+Assim a Júlia responde com a verdade do estado atual, sem chutar.
+
+**3. Sinalização visual nos lembretes recém-criados**
+
+Quando a Júlia confirma criação de lembrete ("Pronto! Vou te avisar..."), se o usuário **não** estiver conectado, ela acrescenta uma linha curta no fim:
+
+> 💡 Pra também salvar no seu Google Calendar, conecta em Configurações → Integrações.
+
+Aparece **só uma vez por sessão** (controlado por flag em memória do componente `AssistenteButton.tsx`) pra não virar spam.
+
+## Passo seguinte (você)
+
+Pra testar a sincronização real, basta ir em **Configurações → Integrações → Conectar Google Calendar**. Depois disso, qualquer novo lembrete que a Júlia criar vai aparecer na sua agenda em até 1 minuto (worker roda a cada minuto).
 
 ## Fora deste escopo
 
-- Trocar de modelo (Gemini 3 Flash continua — só ajustamos o prompt).
-- Mudar visual dos chips.
+- Reenviar pro Google os lembretes antigos criados antes da conexão (eles ficam só no sistema interno).
+- Permitir que a Júlia *leia* eventos do Google Calendar (continua one-way).
 
