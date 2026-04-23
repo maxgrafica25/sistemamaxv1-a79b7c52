@@ -533,6 +533,42 @@ export type Database = {
         }
         Relationships: []
       }
+      gcal_sync_queue: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          last_error: string | null
+          operation: string
+          payload: Json
+          processed_at: string | null
+          reminder_id: string | null
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          operation: string
+          payload?: Json
+          processed_at?: string | null
+          reminder_id?: string | null
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          operation?: string
+          payload?: Json
+          processed_at?: string | null
+          reminder_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       global_settings: {
         Row: {
           collection_fee_pct: number
@@ -1620,6 +1656,8 @@ export type Database = {
           category: string
           created_at: string
           description: string | null
+          gcal_synced_at: string | null
+          google_event_id: string | null
           id: string
           is_completed: boolean
           recurrence: string
@@ -1633,6 +1671,8 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
+          gcal_synced_at?: string | null
+          google_event_id?: string | null
           id?: string
           is_completed?: boolean
           recurrence?: string
@@ -1646,6 +1686,8 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
+          gcal_synced_at?: string | null
+          google_event_id?: string | null
           id?: string
           is_completed?: boolean
           recurrence?: string
@@ -2022,6 +2064,39 @@ export type Database = {
           observacoes?: string | null
           total_linhas?: number
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_google_tokens: {
+        Row: {
+          access_token: string
+          connected_at: string
+          email_google: string | null
+          expires_at: string
+          refresh_token: string
+          scope: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          connected_at?: string
+          email_google?: string | null
+          expires_at: string
+          refresh_token: string
+          scope: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          connected_at?: string
+          email_google?: string | null
+          expires_at?: string
+          refresh_token?: string
+          scope?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
