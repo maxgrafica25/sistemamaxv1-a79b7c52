@@ -991,22 +991,20 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
 
     let resposta = "";
     // Helper: chama o gateway com retry/backoff em 5xx (ex.: Cloudflare 1102 → 503)
-    async function callGateway(): Promise<Response> {
+    async function callGateway(forceNoTools = false): Promise<Response> {
       const maxAttempts = 3;
       let lastResp: Response | null = null;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const body: Record<string, unknown> = forceNoTools
+          ? { model: "google/gemini-2.5-flash", messages, tool_choice: "none" }
+          : { model: "google/gemini-2.5-flash", messages, tools, tool_choice: "auto" };
         const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${LOVABLE_API_KEY}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages,
-            tools,
-            tool_choice: "auto",
-          }),
+          body: JSON.stringify(body),
         });
         // Sucesso ou erro "definitivo" (não-transitório) → devolve
         if (resp.ok || (resp.status !== 503 && resp.status < 500 && resp.status !== 408)) {
