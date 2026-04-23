@@ -1,60 +1,98 @@
 
+# Júlia: garantir que remarcar/cancelar apague o item certo
 
-# Júlia: priorizar comando "remarcar" sobre dedupe
+## O que aconteceu
 
-## Causa raiz
+A troca foi só pela metade:
 
-No prompt atual (`camada1`), a regra **DEDUPE OBRIGATÓRIO** (linha 234) é descrita como obrigatória "antes de TODA chamada `create_reminder`, sem exceção". Quando o usuário diz "trocar treino das 11 para 11h15", o modelo:
+- o novo lembrete das **11h15** foi criado;
+- mas o lembrete antigo das **11h** e o das **16h** continuaram existindo.
 
-1. Identifica que vai criar um treino às 11h15
-2. Roda o dedupe → encontra o treino das 11h
-3. Pergunta a/b/c → ignora que o usuário JÁ disse "trocar" (= substituir)
+Pelos logs, houve `delete_reminder` duas vezes e `create_reminder` uma vez, mas a lista final ainda mostra os itens antigos. Isso indica dois problemas combinados:
 
-A regra de **REMARCAR** (linha 239) existe mas perde a disputa porque o modelo entra primeiro no fluxo de criação.
+1. **A Júlia não ancorou o comando ao dia 27/04** no follow-up “trocar o treino das 11…” e “cancelar o compromisso das 16h”.
+2. **O endpoint `DELETE` hoje responde sucesso mesmo quando não apagou nada**, então a IA acha que removeu, mas pode ter enviado id errado/vazio e ninguém percebe.
 
-## Mudança (apenas no prompt)
+## Mudanças
 
-Editar `supabase/functions/assistente-virtual/index.ts`, string `camada1`:
+### 1. Tornar o `DELETE` confiável no backend
+Arquivo: `supabase/functions/reminders-api/index.ts`
 
-### 1. Mover REMARCAR/CANCELAR para ANTES do DEDUPE e marcar como prioritário
+- Validar o `id` recebido no `DELETE`.
+- Fazer o delete retornar o registro apagado (`.delete().select("id").maybeSingle()` ou equivalente).
+- Se nenhum registro for removido, responder **404 / "lembrete não encontrado"** em vez de `204`.
+- Manter o filtro por `user_id`, mas sem mascarar “não achei” como sucesso.
 
-Reordenar para que a primeira regra após "REGRAS PARA FERRAMENTAS" seja:
+Resultado: a Júlia só poderá confirmar exclusão quando a exclusão realmente acontecer.
 
-> **PRIORIDADE MÁXIMA — INTENÇÃO DE REMARCAR/CANCELAR:** Antes de qualquer outra regra, detecte se a mensagem contém verbos de remarcar (`trocar`, `mudar`, `remarcar`, `passar de X pra Y`, `adiar`, `antecipar`, `mover`) ou cancelar (`cancela`, `desmarca`, `apaga`, `remove`). Se sim:
-> - É um comando de EDIÇÃO, não de criação. NÃO entre no fluxo de DEDUPE.
-> - Chame `list_reminders`, filtre por título + horário antigo, e execute conforme a regra abaixo.
-> - "Trocar/mudar X de H1 pra H2" = `delete_reminder` no antigo + `create_reminder` no novo, SEM perguntar a/b/c (o usuário já decidiu substituir).
+### 2. Ensinar a Júlia a herdar o contexto da lista anterior
+Arquivo: `supabase/functions/assistente-virtual/index.ts`
 
-### 2. Tornar o DEDUPE explicitamente condicional
+Adicionar regra explícita no `camada1`:
 
-Mudar o início da regra DEDUPE de "antes de TODA chamada create_reminder, sem exceção" para:
+- Se a mensagem anterior da própria Júlia foi uma **lista filtrada por data** (“Seus pendentes para 27/04”), e o usuário responder com referências curtas como:
+  - “o treino das 11”
+  - “o compromisso das 16h”
+  - “troca esse”
+  - “cancela o das 16”
+  
+  então a data implícita deve ser **a mesma da lista anterior**, salvo se o usuário disser outra data.
 
-> "DEDUPE OBRIGATÓRIO (apenas quando a intenção é CRIAR um lembrete novo — NÃO se aplica quando o usuário pediu remarcar/trocar/cancelar; nesses casos, siga a regra de PRIORIDADE MÁXIMA acima)."
+Isso faz “trocar o treino das 11 para 11h15 e cancelar o compromisso das 16h” mirar os itens de **27/04**, não qualquer lembrete de 11h/16h em outra data.
 
-### 3. Reforçar processamento de múltiplos comandos numa frase
+### 3. Endurecer a regra de seleção do alvo antes de apagar
+Arquivo: `supabase/functions/assistente-virtual/index.ts`
 
-Adicionar à seção MÚLTIPLOS COMPROMISSOS:
+Ajustar as regras de remarcar/cancelar para:
 
-> Se a mensagem mistura comandos diferentes (ex.: "trocar treino das 11 para 11h15 E cancelar o das 16"), processe cada um na ordem citada, aplicando as regras corretas: o "trocar" vai pelo fluxo REMARCAR, o "cancelar" pelo fluxo CANCELAR. Confirme tudo numa resposta só ao final.
+- chamar `list_reminders`;
+- primeiro filtrar pelo **dia em contexto**;
+- depois filtrar por **horário citado**;
+- depois usar assunto/título como refinamento;
+- só chamar `delete_reminder` quando houver **1 match exato**.
 
-## Arquivo alterado
+Se houver:
+- **0 matches** → dizer que não encontrou naquele dia/horário;
+- **2+ matches** → listar opções e pedir escolha;
+- nunca apagar “por aproximação” quando o alvo não estiver unívoco.
 
-- `supabase/functions/assistente-virtual/index.ts` (apenas string `camada1`)
+### 4. Exigir uso de id exato retornado por `list_reminders`
+Arquivo: `supabase/functions/assistente-virtual/index.ts`
+
+Adicionar instrução clara:
+
+- `delete_reminder` só pode ser chamado com o **UUID exato** vindo do `list_reminders` da mesma iteração;
+- nunca inventar, truncar, reaproveitar ou inferir id;
+- se o `DELETE` voltar erro/404, a Júlia deve assumir falha e responder que não conseguiu apagar aquele item.
+
+### 5. Melhorar observabilidade para confirmar a correção
+Arquivo: `supabase/functions/assistente-virtual/index.ts`
+
+- Melhorar logs dos tools para incluir nome + argumentos relevantes (especialmente `id`, horário e título alvo), sem expor nada sensível ao usuário.
+- Assim, numa próxima ocorrência, fica claro **qual id** ela tentou apagar.
+
+## Arquivos alterados
+
+- `supabase/functions/reminders-api/index.ts`
+- `supabase/functions/assistente-virtual/index.ts`
 
 ## Resultado esperado
 
-Usuário: *"Trocar treino das 11 para 11h15 e me avisa 15min antes. Cancelar o compromisso das 16."*
+Fluxo esperado após a correção:
 
-Júlia:
-```
-✅ Pronto!
-- Treino remarcado pra **11h15** (aviso às **11h**).
-- Compromisso das **16h** cancelado.
-```
-
-Sem perguntar "a, b ou c".
+1. Usuário pergunta: “Quais são meus compromissos do dia 27/04?”
+2. Júlia lista os itens de 27/04.
+3. Usuário responde: “Quero trocar o treino das 11 para as 11h15 e cancelar o compromisso das 16h.”
+4. Júlia:
+   - entende que ambos os comandos se referem a **27/04**;
+   - encontra os ids exatos do treino das 11h e do item das 16h;
+   - apaga o treino das 11h;
+   - cria o das 11h15;
+   - apaga o das 16h;
+   - só confirma se tudo realmente tiver dado certo.
 
 ## Fora do escopo
 
-- Sem mudar ferramentas, schema, frontend ou outras regras.
-
+- Sem mudar schema da tabela `reminders`.
+- Sem mudar frontend do chat.
+- Sem alterar fluxo de chips de antecedência.
