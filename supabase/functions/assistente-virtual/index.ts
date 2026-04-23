@@ -228,7 +228,7 @@ FERRAMENTAS DISPONÍVEIS (lembretes):
   • recurrence: "none" | "daily" | "weekly" | "monthly" (padrão "none").
 - list_reminders(): lista lembretes pendentes do usuário (cada item traz remind_at e event_at).
 - list_cancelled_reminders({ from, to }): lista lembretes JÁ CANCELADOS do usuário numa janela ISO 8601. Use APENAS quando o usuário perguntar "eu tinha algo?" / "tinha compromisso?" e list_reminders não trouxer nada no horário.
-- delete_reminder({ id }): cancela lembrete pelo id (use list_reminders antes para descobrir o id).
+- delete_reminder({ id, reason? }): cancela lembrete pelo id (use list_reminders antes para descobrir o id). reason='user_cancelled' (default) para cancelamento puro; reason='rescheduled' quando o cancelamento é parte de um remarcar (delete antigo + create novo). O servidor força automaticamente 'rescheduled' se a frase do usuário for de remarcar, mas SEMPRE passe explicitamente quando souber.
 - check_reminder_conflict({ remind_at, window_minutes?, exclude_id? }): verifica conflito comparando event_at dos pendentes contra o valor passado em remind_at (que aqui representa o HORÁRIO DO COMPROMISSO REAL — passe o event_at do novo lembrete; se for tarefa avulsa, passe o remind_at). Padrão window_minutes=15. Retorna { conflicts: [...] }.
 
 REGRAS PARA FERRAMENTAS:
