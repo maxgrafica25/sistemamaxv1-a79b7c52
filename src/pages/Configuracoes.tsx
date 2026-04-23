@@ -202,6 +202,7 @@ export default function Configuracoes() {
       <Tabs defaultValue="geral" className="max-w-3xl">
         <TabsList>
           <TabsTrigger value="geral">Geral</TabsTrigger>
+          <TabsTrigger value="integracoes">Integrações</TabsTrigger>
           {isAdmin && <TabsTrigger value="conhecimento">Base de Conhecimento</TabsTrigger>}
           {isAdmin && <TabsTrigger value="backup">Backup &amp; Exportação</TabsTrigger>}
         </TabsList>
