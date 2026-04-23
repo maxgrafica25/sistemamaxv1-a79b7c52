@@ -195,8 +195,23 @@ PADRÕES DE RESPOSTA (siga literalmente):
   ⚠️ Já tem **<título>** marcado pra **<dia> às <hora>**.
 
   Quer (a) substituir, (b) manter os dois ou (c) cancelar?
-- Listagem de lembretes (list_reminders): bullets em markdown, horário em negrito. SEMPRE use event_at (horário real do compromisso) — se event_at for null, use remind_at. NUNCA repita o horário no título (não escreva "Treino às 11h" se o bullet já mostra **11h**). Se o aviso (remind_at) for diferente do compromisso (event_at), adicione discreto entre parênteses no fim.
-  Exemplo:
+- Listagem de lembretes (list_reminders): bullets em markdown, horário em negrito.
+  ⚠️ REGRA INVIOLÁVEL DOS DOIS CAMPOS — leia com atenção:
+    • Cada lembrete tem DOIS timestamps distintos: `event_at` (horário REAL do compromisso) e `remind_at` (horário do AVISO/notificação).
+    • Para EXIBIR o horário do bullet (o **negrito** principal), use SEMPRE `event_at`. Se `event_at` for null, aí sim use `remind_at`.
+    • Para mostrar entre parênteses "(aviso XXhYY)", use SEMPRE `remind_at` — e SÓ inclua se `remind_at` for diferente de `event_at`.
+    • NUNCA inverta. NUNCA pegue `remind_at` para o bullet principal só porque aparece primeiro no JSON. Compare mentalmente os dois campos antes de escrever.
+    • NUNCA repita o horário no título (se o bullet mostra **11h**, escreva só "Treino", não "Treino às 11h").
+  Exemplo concreto de input → output:
+    JSON do lembrete: { "title": "Treino", "remind_at": "2026-04-27T13:45:00+00:00", "event_at": "2026-04-27T16:00:00+00:00" }
+    Em America/Sao_Paulo (UTC-3): event_at = 13h00 local, remind_at = 10h45 local.
+    Saída CORRETA: "- **13h00** — Treino (aviso 10h45)"
+    Saída ERRADA: "- **10h45** — Treino (aviso 13h00)"  ← inverteu os campos
+    Saída ERRADA: "- **13h00** — Treino às 13h" ← repetiu horário no título
+  Outro exemplo (sem aviso antecipado):
+    JSON: { "title": "Teste Sistema 1", "remind_at": "2026-04-27T17:00:00+00:00", "event_at": "2026-04-27T17:00:00+00:00" }
+    Local: 14h00. Saída CORRETA: "- **14h00** — Teste Sistema 1"  (sem parênteses, pois remind_at == event_at)
+  Modelo de resposta:
   Seus pendentes:
   - **11h00** — Treino (aviso 10h45)
   - **16h00** — Instagram
@@ -687,11 +702,15 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       }
     }
 
-    // Detecta intenção de "remarcar" na mensagem original do usuário
-    const remarcarRegex = /\b(troca|trocar|remarc[ao]|remarcar|mud[ao]|mudar|adi[ao]r?|antecip[ao]r?|mov[ei]r?|passa[r]?\s+(?:de|do|da))\b/i;
+    // Detecta intenção de "remarcar/alterar/mover/etc" na mensagem original do usuário
+    const remarcarRegex = /\b(troca|trocar|remarc[ao]|remarcar|mud[ao]|mudar|alter[ao]|alterar|adi[ao]r?|antecip[ao]r?|mov[ei]r?|mova|ajust[ao]r?|reagendar?|passa[r]?\s+(?:de|do|da|para|pra)|de\s+\S+\s+(?:para|pra)\s+\S+)\b/i;
     const isRemarcarSession = remarcarRegex.test(pergunta);
     let mustRetryDelete = false;
     let pendingDeleteTitleHint: string | null = null;
+
+    // Auditoria: registra resultado real de cada tool de mutação para montar o resumo final
+    type OpResult = { tool: string; ok: boolean; detail: string };
+    const opResults: OpResult[] = [];
 
     function normalize(s: string): string {
       return (s || "")
@@ -700,6 +719,18 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/\s+/g, " ")
         .trim();
+    }
+
+    function fmtTimeBR(iso: string): string {
+      try {
+        return new Intl.DateTimeFormat("pt-BR", {
+          timeZone: "America/Sao_Paulo",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(new Date(iso));
+      } catch {
+        return iso;
+      }
     }
 
     async function executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
@@ -721,6 +752,8 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
                 `[assistente-virtual] create_reminder BLOCKED (reschedule pending delete)`,
                 JSON.stringify({ newTitle: args.title, oldTitle: pendingDeleteTitleHint }),
               );
+              const detail = `Bloqueado: criar "${args.title}" enquanto há delete pendente do antigo.`;
+              opResults.push({ tool: "create_reminder", ok: false, detail });
               return {
                 error:
                   "delete pendente — você precisa apagar o lembrete antigo (com o UUID correto da lista available_reminders) ANTES de criar o novo, senão vira duplicata. Tente delete_reminder de novo com o id certo.",
@@ -728,7 +761,63 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
               };
             }
           }
-          return await callRemindersApi("POST", args);
+
+          // Anti-duplicata GERAL: comparar com pendentes (mesmo título normalizado + event_at na mesma data ±30min)
+          // Garante lista atualizada
+          if (lastPendingList.length === 0) {
+            const listRes = await callRemindersApi("GET", {});
+            captureIdsFromListResult(listRes, true);
+          }
+          const newTitleNorm = normalize(String(args.title ?? ""));
+          const newEventIso = String(args.event_at ?? args.remind_at ?? "");
+          const newEventMs = new Date(newEventIso).getTime();
+          if (newTitleNorm && !isNaN(newEventMs)) {
+            const matches = lastPendingList.filter((r) => {
+              const tNorm = normalize(String(r.title ?? ""));
+              const evIso = String(r.event_at ?? r.remind_at ?? "");
+              const evMs = new Date(evIso).getTime();
+              if (isNaN(evMs)) return false;
+              if (tNorm !== newTitleNorm) return false;
+              return Math.abs(evMs - newEventMs) <= 30 * 60_000;
+            });
+            if (matches.length > 0) {
+              const list = matches
+                .map((m) => `"${m.title}" às ${fmtTimeBR(String(m.event_at ?? m.remind_at))} (id ${String(m.id).slice(-4)})`)
+                .join(", ");
+              console.warn(
+                `[assistente-virtual] create_reminder BLOCKED (duplicate)`,
+                JSON.stringify({ newTitle: args.title, newEventIso, matches: matches.map((m) => m.id) }),
+              );
+              opResults.push({
+                tool: "create_reminder",
+                ok: false,
+                detail: `Bloqueado duplicata de "${args.title}" às ${fmtTimeBR(newEventIso)} — já existe ${list}.`,
+              });
+              return {
+                error: `Já existe '${args.title}' em horário muito próximo: ${list}. Cancele o existente primeiro (delete_reminder) ou, se o usuário confirmar explicitamente que quer duplicar, ignore este aviso e prossiga.`,
+                duplicates: matches,
+              };
+            }
+          }
+
+          const result = await callRemindersApi("POST", args);
+          const r = result as { reminder?: { id?: string; title?: string; event_at?: string; remind_at?: string }; error?: string };
+          if (r?.reminder?.id) {
+            verifiedIds.add(r.reminder.id);
+            const ev = r.reminder.event_at ?? r.reminder.remind_at ?? newEventIso;
+            opResults.push({
+              tool: "create_reminder",
+              ok: true,
+              detail: `✅ Criado "${r.reminder.title}" às ${fmtTimeBR(String(ev))}.`,
+            });
+          } else {
+            opResults.push({
+              tool: "create_reminder",
+              ok: false,
+              detail: `❌ Falha ao criar "${args.title}": ${r?.error ?? "erro desconhecido"}.`,
+            });
+          }
+          return result;
         }
         if (name === "list_reminders") {
           const res = await callRemindersApi("GET", {});
@@ -758,8 +847,11 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
               captureIdsFromListResult(res, true);
             }
             mustRetryDelete = true;
-            // Tenta capturar uma dica do título visado a partir do hint do modelo (se vier)
-            // Como não temos title nos args do delete, mantemos o hint da última tentativa de create
+            opResults.push({
+              tool: "delete_reminder",
+              ok: false,
+              detail: `❌ Falha ao cancelar (UUID inválido ${id.slice(0, 8)}…) — não pertence à sessão atual.`,
+            });
             return {
               error:
                 "id não verificado nesta sessão. Use EXATAMENTE um id da lista available_reminders abaixo e chame delete_reminder de novo no mesmo turno.",
@@ -773,11 +865,27 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           } else if (!finalArgs.reason) {
             finalArgs.reason = "user_cancelled";
           }
+          // Captura título do alvo (para resumo)
+          const target = lastPendingList.find((r) => r.id === id);
+          const targetTitle = String(target?.title ?? "lembrete");
+          const targetEv = String(target?.event_at ?? target?.remind_at ?? "");
           const result = await callRemindersApi("DELETE", finalArgs);
           // Se delete passou, libera o create
           if ((result as { ok?: boolean })?.ok) {
             mustRetryDelete = false;
             pendingDeleteTitleHint = null;
+            const verb = finalArgs.reason === "rescheduled" ? "Remarcado" : "Cancelado";
+            opResults.push({
+              tool: "delete_reminder",
+              ok: true,
+              detail: `✅ ${verb} "${targetTitle}"${targetEv ? ` (era às ${fmtTimeBR(targetEv)})` : ""}.`,
+            });
+          } else {
+            opResults.push({
+              tool: "delete_reminder",
+              ok: false,
+              detail: `❌ Falha ao cancelar "${targetTitle}": ${(result as { error?: string })?.error ?? "erro"}.`,
+            });
           }
           return result;
         }
@@ -899,6 +1007,23 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             tool_call_id: tc.id,
             content: JSON.stringify(result),
           });
+        }
+        // Resumo auditado das operações reais — injetado como system para guiar a resposta final.
+        // Substitui qualquer resumo anterior (mantém só o último estado).
+        if (opResults.length > 0) {
+          const summaryLines = opResults.map((o) => `- ${o.detail}`).join("\n");
+          const auditMsg = `OPERAÇÕES REALIZADAS NESTE TURNO (fonte da verdade — sua resposta final DEVE refletir EXATAMENTE isto, sem inventar sucesso e sem omitir falhas):\n${summaryLines}\n\nRegra: se algo falhou (linha começa com ❌), DIGA explicitamente que falhou e o que tentar (ex.: "tive um problema ao cancelar X — tenta de novo dizendo 'cancelar X das 11h'"). Se houve bloqueio por duplicata, explique ao usuário que já existe e pergunte se quer mesmo duplicar. Não anuncie como sucesso o que não passou.`;
+          // Remove resumo anterior se houver
+          for (let i = messages.length - 1; i >= 0; i--) {
+            if (
+              messages[i]?.role === "system" &&
+              typeof messages[i].content === "string" &&
+              messages[i].content.startsWith("OPERAÇÕES REALIZADAS NESTE TURNO")
+            ) {
+              messages.splice(i, 1);
+            }
+          }
+          messages.push({ role: "system", content: auditMsg });
         }
         continue; // próxima iteração para o modelo formatar resposta
       }
