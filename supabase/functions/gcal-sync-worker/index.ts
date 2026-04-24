@@ -17,7 +17,7 @@ interface TokenRow {
   expires_at: string;
 }
 
-async function refreshIfNeeded(admin: ReturnType<typeof createClient>, t: TokenRow): Promise<string> {
+async function refreshIfNeeded(admin: any, t: TokenRow): Promise<string> {
   const expiresAt = new Date(t.expires_at).getTime();
   if (expiresAt - Date.now() > 60_000) return t.access_token;
   const res = await fetch("https://oauth2.googleapis.com/token", {
@@ -66,7 +66,7 @@ function buildEventBody(reminder: any): Record<string, unknown> {
   return body;
 }
 
-async function processItem(admin: ReturnType<typeof createClient>, item: any): Promise<void> {
+async function processItem(admin: any, item: any): Promise<void> {
   const { data: tokenRow } = await admin
     .from("user_google_tokens").select("*").eq("user_id", item.user_id).maybeSingle();
   if (!tokenRow) {
