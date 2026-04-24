@@ -1,45 +1,70 @@
-## Objetivo
+## Refinamentos aprovados — pronto para implementação
 
-Na Xerox C70, remover o consumível "Toners Colors" (R$ 2.100 / 35.000 pág) e cadastrar 3 toners separados:
+Aplicar 4 mudanças em `src/pages/Equipamentos.tsx` (não há `EquipamentoCards.tsx` separado — os cards estão inline dentro de `Equipamentos.tsx`, por isso só esse arquivo será editado).
 
-- Toner Ciano — R$ 860,00 — 35.000 pág (5%)
-- Toner Magenta — R$ 860,00 — 35.000 pág (5%)
-- Toner Amarelo — R$ 860,00 — 35.000 pág (5%)
+### 1. Banner de alerta acima da tabela
 
-Todos no modo **color_only** (igual ao "Toners Colors" atual), para continuarem entrando só no custo de páginas coloridas.
-
-## O que muda
-
-- **1 deleção** na tabela `equipment_consumables` (Toners Colors da C70)
-- **3 inserções** na mesma tabela, vinculadas ao equipamento Xerox C70
-- Sort_order ajustado para os 3 toners aparecerem juntos no topo da lista colorida (posições 1, 2, 3), empurrando os demais para baixo
-
-## Resultado esperado na tela
-
-A aba "Consumíveis — Xerox C70" passa a mostrar:
+Adicionar logo no início da aba "Consumíveis" (só para impressoras não-ribbon):
 
 ```text
-Toner Preto         R$    700,00   35.000   R$ 0,0200
-Toner Ciano         R$    860,00   35.000   R$ 0,0246
-Toner Magenta       R$    860,00   35.000   R$ 0,0246
-Toner Amarelo       R$    860,00   35.000   R$ 0,0246
-Revelador Preto     R$  2.125,00  600.000   R$ 0,0035
-Relevadores Color   R$  6.375,00  600.000   R$ 0,0106
-... (demais inalterados)
+💡 Orçamentos baseados no Custo de Produção (20% de cobertura).
+   O rendimento cadastrado segue o padrão do fabricante (5%).
 ```
 
-**Custo total color por página** (5% cobertura) sobe ~R$ 0,018 vs. hoje, refletindo o custo real (3 × R$ 860 = R$ 2.580 em vez de R$ 2.100).
+Estilo: `border border-border/60 bg-muted/40`, texto `text-xs text-muted-foreground`, termo "Custo de Produção (20% de cobertura)" em **negrito** com `text-foreground`.
 
-## Observação sobre cobertura 20%
+### 2. Linha-resumo dupla (substitui a atual "Custo/página (5%)")
 
-Você mencionou que em 20% o rendimento real é 8.000 páginas. Conforme combinado, **vamos cadastrar com 35.000 (5%)** para manter consistência com o resto do sistema. Se mais adiante quiser ver os dois custos lado a lado (5% e 20%), posso evoluir o módulo para suportar rendimento duplo.
+```text
+10 consumíveis    Fabricante (5%): R$ 0,1992    Produção (20%): R$ 0,7968
+                  ↑ opacity-70                  ↑ text-primary (destacado)
+```
 
-## Detalhes técnicos
+### 3. Renomeação e estilização dos 4 cards
 
-- Tabela: `public.equipment_consumables`
-- `equipment_id`: Xerox C70 (já identificado)
-- `mode`: `color_only`
-- Operação feita via tool de inserção de dados (1 DELETE + 3 INSERT)
-- Nenhuma alteração de schema, código ou UI necessária
+Atualizar o array `scenarios` (linhas ~590-600):
 
-**Aprova?**
+| Card atual | Novo label | Nova legenda | Estilo |
+|---|---|---|---|
+| Color • 5% | **FABRICANTE • COLOR** | Referência teórica | `opacity-60`, borda neutra |
+| Color • 20% | **PRODUÇÃO • COLOR** | Valor de orçamento | borda `border-primary`, `shadow-sm`, badge "Ativo" |
+| PB • 5% | **FABRICANTE • PB** | Referência teórica | `opacity-60`, borda neutra |
+| PB • 20% | **PRODUÇÃO • PB** | Valor de orçamento | borda `border-primary`, `shadow-sm`, badge "Ativo" |
+
+Adicionar campos no objeto de cada cenário: `isProduction: boolean`, `subtitle: string`. No JSX dos cards, condicionar:
+- Se `isProduction`: classe `border-primary/60 shadow-sm` + `<Badge variant="default" className="text-[9px] h-4">Ativo</Badge>` no canto
+- Se não: classe `opacity-60`
+
+### 4. Tooltip no campo Rendimento (dialog de cadastro)
+
+No dialog (linha ~762), substituir o `<Label>` por um label com ícone `HelpCircle` e tooltip:
+
+> "Informe o valor que consta na embalagem (cobertura 5%). O sistema converterá automaticamente para 20% nos cálculos de venda."
+
+Importar `HelpCircle` de `lucide-react` e os componentes `Tooltip, TooltipContent, TooltipProvider, TooltipTrigger` de `@/components/ui/tooltip`. Aplicar só quando `!isRibbon` (ribbon não usa cobertura).
+
+### 5. Tabela de consumíveis — destaque do total real
+
+A tabela mantém a coluna "Custo/Página" baseada no rendimento do fabricante (útil pra conferir nota fiscal). No rodapé `<TableRow>` "TOTAL" (linha ~523-530), adicionar **uma segunda linha de total destacada**:
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ TOTAL (Fabricante 5%)                          R$ 0,1992 100%│  ← linha existente, atenuada
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━│
+│ TOTAL DE PRODUÇÃO (20%) — usado nos orçamentos  R$ 0,7968    │  ← nova linha, destacada
+└──────────────────────────────────────────────────────────────┘
+```
+
+Estilo da nova linha: `bg-primary/5 border-t-2 border-primary/30`, fonte `font-bold text-primary`.
+
+## Arquivo afetado
+
+- `src/pages/Equipamentos.tsx` (único arquivo)
+
+## Sem mudanças
+
+- Banco de dados (nenhuma migração)
+- Lógica de cálculo de orçamentos (já está correta usando 20%)
+- Demais abas e componentes
+
+**Pronto pra implementar — basta sair do modo de planejamento.**

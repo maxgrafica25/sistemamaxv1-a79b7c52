@@ -20,8 +20,9 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
-  Plus, Trash2, Edit2, Printer, Cpu, Gauge, ClipboardList, History, Wrench, AlertTriangle, MailWarning, BarChart3, ChevronDown,
+  Plus, Trash2, Edit2, Printer, Cpu, Gauge, ClipboardList, History, Wrench, AlertTriangle, MailWarning, BarChart3, ChevronDown, HelpCircle,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/audit";
@@ -455,13 +456,26 @@ export default function Equipamentos() {
 
                 {/* ── Consumíveis Tab ── */}
                 <TabsContent value="consumiveis" className="space-y-6 mt-4">
+                  {/* Coverage info banner */}
+                  {!isRibbon && (
+                    <div className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                      <span className="text-base leading-none">💡</span>
+                      <span>
+                        Orçamentos baseados no <strong className="text-foreground">Custo de Produção (20% de cobertura)</strong>. O rendimento cadastrado segue o padrão do fabricante (5%).
+                      </span>
+                    </div>
+                  )}
+
                   {/* Summary line */}
-                  <div className="flex items-center gap-6 text-sm text-muted-foreground px-1">
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm text-muted-foreground px-1">
                     <span><strong className="text-foreground">{activeConsumables.length}</strong> consumíveis</span>
                     {isRibbon ? (
                       <span>Custo/impressão: <strong className="text-foreground">{fmt4(costPerPage)}</strong></span>
                     ) : (
-                      <span>Custo/página (5%): <strong className="text-foreground">{fmt4(costPerPage)}</strong></span>
+                      <>
+                        <span className="opacity-70">Fabricante (5%): <strong className="text-foreground/80">{fmt4(costPerPage)}</strong></span>
+                        <span>Produção (20%): <strong className="text-primary">{fmt4(costPerPage * 4)}</strong></span>
+                      </>
                     )}
                   </div>
 
@@ -520,14 +534,29 @@ export default function Equipamentos() {
                                   </TableRow>
                                 );
                               })}
-                              <TableRow className="bg-muted/30 font-semibold">
-                                <TableCell>TOTAL</TableCell>
+                              <TableRow className="bg-muted/30 font-semibold opacity-80">
+                                <TableCell>TOTAL (Fabricante 5%)</TableCell>
                                 <TableCell className="text-right">—</TableCell>
                                 <TableCell className="text-right">—</TableCell>
                                 <TableCell className="text-right font-mono">{fmt4(costPerPage)}</TableCell>
-                                <TableCell className="text-right"><Badge className="font-mono text-xs">100%</Badge></TableCell>
+                                <TableCell className="text-right"><Badge variant="outline" className="font-mono text-xs">100%</Badge></TableCell>
                                 <TableCell />
                               </TableRow>
+                              {!isRibbon && (
+                                <TableRow className="bg-primary/5 border-t-2 border-primary/30">
+                                  <TableCell className="font-bold text-primary">
+                                    TOTAL DE PRODUÇÃO (20%)
+                                    <span className="ml-2 text-[10px] font-normal text-muted-foreground">usado nos orçamentos</span>
+                                  </TableCell>
+                                  <TableCell className="text-right">—</TableCell>
+                                  <TableCell className="text-right">—</TableCell>
+                                  <TableCell className="text-right font-mono font-bold text-primary text-base">{fmt4(costPerPage * 4)}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Badge className="font-mono text-xs">Ativo</Badge>
+                                  </TableCell>
+                                  <TableCell />
+                                </TableRow>
+                              )}
                             </TableBody>
                           </Table>
                         </div>
@@ -589,29 +618,37 @@ export default function Equipamentos() {
 
                     const scenarios = costScenarios.isColor
                       ? [
-                          { label: "Color • 5%", value: costScenarios.color5, items: allCons, multiplier: 1, borderClass: "border-violet-200 dark:border-violet-800", bgClass: "bg-violet-50/50 dark:bg-violet-950/30", dotColor: "bg-violet-400" },
-                          { label: "Color • 20%", value: costScenarios.color20, items: allCons, multiplier: 4, borderClass: "border-violet-300 dark:border-violet-700", bgClass: "bg-violet-100/60 dark:bg-violet-950/50", dotColor: "bg-violet-500" },
-                          { label: "PB • 5%", value: costScenarios.pb5, items: sharedCons, multiplier: 1, borderClass: "border-slate-200 dark:border-slate-700", bgClass: "bg-slate-50/50 dark:bg-slate-900/30", dotColor: "bg-slate-400" },
-                          { label: "PB • 20%", value: costScenarios.pb20, items: sharedCons, multiplier: 4, borderClass: "border-slate-300 dark:border-slate-600", bgClass: "bg-slate-100/60 dark:bg-slate-900/50", dotColor: "bg-slate-500" },
+                          { label: "FABRICANTE • COLOR", subtitle: "Referência teórica",   isProduction: false, value: costScenarios.color5,  items: allCons,    multiplier: 1, dotColor: "bg-violet-400" },
+                          { label: "PRODUÇÃO • COLOR",   subtitle: "Valor de orçamento",   isProduction: true,  value: costScenarios.color20, items: allCons,    multiplier: 4, dotColor: "bg-violet-500" },
+                          { label: "FABRICANTE • PB",    subtitle: "Referência teórica",   isProduction: false, value: costScenarios.pb5,     items: sharedCons, multiplier: 1, dotColor: "bg-slate-400" },
+                          { label: "PRODUÇÃO • PB",      subtitle: "Valor de orçamento",   isProduction: true,  value: costScenarios.pb20,    items: sharedCons, multiplier: 4, dotColor: "bg-slate-500" },
                         ]
                       : [
-                          { label: "PB • 5%", value: costScenarios.pb5, items: allCons, multiplier: 1, borderClass: "border-slate-200 dark:border-slate-700", bgClass: "bg-slate-50/50 dark:bg-slate-900/30", dotColor: "bg-slate-400" },
-                          { label: "PB • 20%", value: costScenarios.pb20, items: allCons, multiplier: 4, borderClass: "border-slate-300 dark:border-slate-600", bgClass: "bg-slate-100/60 dark:bg-slate-900/50", dotColor: "bg-slate-500" },
+                          { label: "FABRICANTE • PB", subtitle: "Referência teórica", isProduction: false, value: costScenarios.pb5,  items: allCons, multiplier: 1, dotColor: "bg-slate-400" },
+                          { label: "PRODUÇÃO • PB",   subtitle: "Valor de orçamento", isProduction: true,  value: costScenarios.pb20, items: allCons, multiplier: 4, dotColor: "bg-slate-500" },
                         ];
 
                     return (
                       <div className={`grid gap-3 ${costScenarios.isColor ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
                         {scenarios.map((sc) => (
                           <Collapsible key={sc.label}>
-                            <Card className={`${sc.borderClass} ${sc.bgClass}`}>
+                            <Card className={sc.isProduction
+                              ? "border-primary/60 shadow-sm bg-primary/5"
+                              : "opacity-60 border-border bg-muted/20"
+                            }>
                               <CollapsibleTrigger className="w-full text-left">
                                 <CardContent className="p-4">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{sc.label}</p>
-                                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <div className="flex items-center justify-between mb-1 gap-2">
+                                    <p className={`text-[10px] uppercase tracking-widest font-semibold truncate ${sc.isProduction ? 'text-primary' : 'text-muted-foreground'}`}>{sc.label}</p>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {sc.isProduction && (
+                                        <Badge variant="default" className="text-[9px] h-4 px-1.5 leading-none">Ativo</Badge>
+                                      )}
+                                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                    </div>
                                   </div>
-                                  <p className="text-xl font-bold text-foreground">{fmtRound(sc.value)}</p>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5">{sc.items.length} consumíve{sc.items.length === 1 ? 'l' : 'is'}</p>
+                                  <p className={`text-xl font-bold ${sc.isProduction ? 'text-primary' : 'text-foreground'}`}>{fmtRound(sc.value)}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">{sc.subtitle} · {sc.items.length} consumíve{sc.items.length === 1 ? 'l' : 'is'}</p>
                                 </CardContent>
                               </CollapsibleTrigger>
                               <CollapsibleContent>
@@ -629,7 +666,7 @@ export default function Equipamentos() {
                                       </div>
                                     );
                                   })}
-                                  {costScenarios.isColor && sc.label.startsWith("PB") && colorOnlyCons.length > 0 && (
+                                  {costScenarios.isColor && sc.label.includes("PB") && colorOnlyCons.length > 0 && (
                                     <div className="pt-1 border-t border-border/30">
                                       <p className="text-[10px] text-muted-foreground italic">
                                         Excluídos: {colorOnlyCons.map(c => c.name).join(", ")}
@@ -759,7 +796,23 @@ export default function Equipamentos() {
                 <Input type="number" step="0.01" value={consPrice} onChange={(e) => setConsPrice(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>{isRibbon ? "Rendimento (impressões)" : "Rendimento (páginas)"}</Label>
+                <div className="flex items-center gap-1.5">
+                  <Label>{isRibbon ? "Rendimento (impressões)" : "Rendimento (páginas)"}</Label>
+                  {!isRibbon && (
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                            <HelpCircle className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-xs">
+                          Informe o valor que consta na embalagem (cobertura 5%). O sistema converterá automaticamente para 20% nos cálculos de venda.
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
                 <Input type="number" step="1" value={consYield} onChange={(e) => setConsYield(e.target.value)} />
               </div>
             </div>
