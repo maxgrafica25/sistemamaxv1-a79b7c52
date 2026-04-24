@@ -88,39 +88,59 @@ Deno.serve(async (req) => {
     }
     const { pergunta, historico } = parsed.data;
 
+    // ⚡ Classificação de intenção: se for só sobre agenda/lembretes, pulamos o fetch
+    // de tabelas de produção/preços (centenas de registros) → resposta muito mais rápida.
+    const isAgendaOnly = /\b(lembrete|lembre|agenda|compromisso|avis(ar|e|o|a)|amanh[ãa]|hoje|ontem|dia\s*\d|às\s*\d|as\s*\d|cancela|remarca|treino|dentista|reuni[ãa]o|consulta|m[ée]dico|encontro|evento|calend[áa]rio|google\s*calendar)\b/i
+      .test(pergunta);
+
     // 3) Buscar dados ao vivo (admin client - bypass RLS para leitura agregada)
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
+    // Helper para retornar shape compatível com .data quando pulamos um fetch
+    const empty = Promise.resolve({ data: [] as any[] });
+
     const [bcRes, eqRes, consRes, readingsRes, ppRes, catsRes, tiersRes, papersRes, gsRes, gcalRes] =
       await Promise.all([
         admin.from("base_conhecimento").select("titulo,categoria,conteudo").eq("ativo", true),
         admin.from("equipments").select("id,name,description,printer_type").order("sort_order"),
-        admin.from("equipment_consumables").select("id,equipment_id,name,price,yield_pages,mode"),
-        admin
-          .from("printer_readings")
-          .select("equipment_id,consumable_id,total_prints,type,reading_time")
-          .order("reading_time", { ascending: false })
-          .limit(500),
-        admin
-          .from("printing_price_items")
-          .select(
-            "id,printer_category_id,equipment_id,markup_group_id,paper_type,grammage,size,side,paper_cost,printing_cost,equipment_mode",
-          )
-          .eq("is_active", true),
-        admin.from("printer_categories").select("id,name,default_markup_group_id").order("sort_order"),
-        admin
-          .from("markup_tiers")
-          .select(
-            "id,printer_category_id,markup_group_id,label,min_qty,max_qty,fixed_cost_pct,variable_cost_pct,margin_pct,sort_order",
-          )
-          .order("sort_order"),
-        admin
-          .from("papers")
-          .select("name,grammage,sheet_qty,pack_price,freight_price")
-          .eq("is_active", true)
-          .order("sort_order"),
+        isAgendaOnly
+          ? empty
+          : admin.from("equipment_consumables").select("id,equipment_id,name,price,yield_pages,mode"),
+        isAgendaOnly
+          ? empty
+          : admin
+              .from("printer_readings")
+              .select("equipment_id,consumable_id,total_prints,type,reading_time")
+              .order("reading_time", { ascending: false })
+              .limit(100),
+        isAgendaOnly
+          ? empty
+          : admin
+              .from("printing_price_items")
+              .select(
+                "id,printer_category_id,equipment_id,markup_group_id,paper_type,grammage,size,side,paper_cost,printing_cost,equipment_mode",
+              )
+              .eq("is_active", true),
+        isAgendaOnly
+          ? empty
+          : admin.from("printer_categories").select("id,name,default_markup_group_id").order("sort_order"),
+        isAgendaOnly
+          ? empty
+          : admin
+              .from("markup_tiers")
+              .select(
+                "id,printer_category_id,markup_group_id,label,min_qty,max_qty,fixed_cost_pct,variable_cost_pct,margin_pct,sort_order",
+              )
+              .order("sort_order"),
+        isAgendaOnly
+          ? empty
+          : admin
+              .from("papers")
+              .select("name,grammage,sheet_qty,pack_price,freight_price")
+              .eq("is_active", true)
+              .order("sort_order"),
         admin.from("global_settings").select("*").limit(1).maybeSingle(),
         admin
           .from("user_google_tokens")
@@ -128,6 +148,8 @@ Deno.serve(async (req) => {
           .eq("user_id", userData.user.id)
           .maybeSingle(),
       ]);
+
+    console.log(`[assistente-virtual] modo=${isAgendaOnly ? "agenda" : "completo"} pergunta="${pergunta.slice(0, 80)}"`);
 
     const gcalConnected = !!gcalRes?.data;
     const gcalEmail = (gcalRes?.data as any)?.email_google ?? null;
@@ -526,7 +548,21 @@ ${papLines.length > 0 ? papLines.join("\n") : "(nenhum papel ativo)"}
 ### PREÇOS DE IMPRESSÃO (preço de venda já calculado por faixa de quantidade)
 ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`;
 
-    const systemPrompt = `${camada1}\n\n${camada2}\n\n${camada3}`;
+    // ⚡ Em modo agenda, troca a camada3 por uma versão enxuta (só Google Calendar + equipamentos)
+    // para reduzir drasticamente os tokens enviados ao modelo.
+    const camada3Slim = `## DADOS OPERACIONAIS
+
+### GOOGLE CALENDAR DO USUÁRIO
+${gcalStatusLine}
+
+### EQUIPAMENTOS (resumo)
+${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cadastrado)"}
+
+(Dados de consumíveis, leituras de impressora, papéis e preços não foram carregados nesta resposta — peça especificamente se precisar.)`;
+
+    const systemPrompt = isAgendaOnly
+      ? `${camada1}\n\n${camada2}\n\n${camada3Slim}`
+      : `${camada1}\n\n${camada2}\n\n${camada3}`;
 
     // 6) Tool calling — definir ferramentas disponíveis (lembretes)
     const tools = [
@@ -1387,8 +1423,8 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       let lastResp: Response | null = null;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const requestBody: Record<string, unknown> = forceNoTools
-          ? { model: "google/gemini-2.5-flash", messages, tool_choice: "none" }
-          : { model: "google/gemini-2.5-flash", messages, tools, tool_choice: "auto" };
+          ? { model: "google/gemini-3-flash-preview", messages, tool_choice: "none" }
+          : { model: "google/gemini-3-flash-preview", messages, tools, tool_choice: "auto" };
         const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -1406,13 +1442,13 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         console.warn(`[assistente-virtual] gateway transient ${resp.status} (attempt ${attempt}/${maxAttempts}): ${errorText.slice(0, 200)}`);
         if (attempt < maxAttempts) {
           // backoff: 600ms, 1500ms
-          await new Promise((r) => setTimeout(r, attempt === 1 ? 600 : 1500));
+          await new Promise((r) => setTimeout(r, attempt === 1 ? 300 : 800));
         }
       }
       return lastResp!;
     }
 
-    for (let iter = 0; iter < 6; iter++) {
+    for (let iter = 0; iter < 4; iter++) {
       const aiResp = await callGateway();
 
       if (aiResp.status === 429) {

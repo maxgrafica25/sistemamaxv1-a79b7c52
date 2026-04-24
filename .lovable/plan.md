@@ -1,68 +1,57 @@
-## Problema
+## Objetivo
 
-No turno "Dia 29/05 tenho treino às 11 e dentista às 14h" a Júlia respondeu:
+Reduzir o tempo de resposta da Júlia (hoje 3–13s) para ~1–3s em perguntas de agenda, sem usar nenhum modelo pago. Tudo continua no **Lovable AI Gateway** (gratuito).
 
-> ✅ Pronto! O lembrete de **Treino** para **29/05 às 11h** foi agendado.
-> Agora, quando quer ser avisado do **Dentista às 14h**?
+## Mudanças
 
-Mas os logs mostram: `tools_called: ["check_reminder_conflict"]`, `operations: []`. O `create_reminder` **nunca foi chamado**, e o banco confirma — não existe nenhum lembrete para 29/05. Ela alucinou a confirmação.
+### 1. Trocar o modelo para Gemini 3 Flash Preview (gratuito)
+Em `supabase/functions/assistente-virtual/index.ts`, linhas 1390–1391:
+- `google/gemini-2.5-flash` → `google/gemini-3-flash-preview`
 
-Pior ainda: ela pulou a etapa de perguntar a antecedência do Treino e foi direto pedir a antecedência do Dentista, dando a falsa impressão de que o Treino já estava resolvido.
+É o mesmo gateway gratuito, da família Gemini Flash mais nova. Costuma responder mais rápido que o 2.5 Flash mantendo boa qualidade pra tool-calling.
 
-## Causa
+### 2. Carregamento de contexto sob demanda (intent-based)
+Hoje, **toda** pergunta carrega 10 tabelas em paralelo (base de conhecimento, equipamentos, consumíveis, 500 leituras de impressora, preços, categorias, tiers, papéis, configurações globais, Google Calendar). Isso pesa em tokens enviados ao modelo.
 
-O guard existente em `supabase/functions/assistente-virtual/index.ts` (linhas 1554-1578) só dispara quando a pergunta do usuário **bate na regex de "resposta de antecedência"** (`"15 minutos antes"`, `"na hora"`, etc.). 
-
-Aqui o usuário deu a frase inicial com 2 compromissos. O fluxo correto seria:
-1. `check_reminder_conflict` para o 1º compromisso → perguntar antecedência
-2. (após resposta) `create_reminder` do 1º + `check_reminder_conflict` do 2º → perguntar antecedência
-3. (após resposta) `create_reminder` do 2º
-
-O modelo chamou só conflict para um deles, pulou a pergunta de antecedência do Treino, e respondeu "Pronto" como se tivesse criado. Não há guard que detecte esse caso.
-
-## Correção
-
-Adicionar um guard genérico **anti-alucinação de confirmação**: se a resposta final do modelo contém frases de confirmação ("Pronto", "agendado", "Te aviso", "Criado", "lembrete... foi") **mas `create_reminder` (com `ok:true`) NÃO foi executado neste turno**, bloquear a resposta e forçar uma correção.
-
-Local: `supabase/functions/assistente-virtual/index.ts`, dentro do loop de iterações, **antes** de `resposta = (msg?.content ?? "").trim()` na linha 1580.
-
-Lógica:
-
+Vou classificar a intenção logo no início:
 ```ts
-const finalText = (msg?.content ?? "").trim();
-const confirmRegex = /\b(pronto|agendad[oa]|criad[oa]|te aviso|aviso (você|voce)|foi (agendad|criad|adicionad)|lembrete .* foi)\b/i;
-const createSucceeded = opResults.some(o => o.tool === "create_reminder" && o.ok);
-const deleteSucceeded = opResults.some(o => o.tool === "delete_reminder" && o.ok);
-const claimsConfirmation = confirmRegex.test(finalText);
-
-if (claimsConfirmation && !createSucceeded && !deleteSucceeded && iter < 5) {
-  // log + push system message bloqueando e forçando o fluxo correto
-  messages.push({
-    role: "system",
-    content:
-      `BLOQUEIO CRÍTICO: você respondeu confirmando ("${finalText.slice(0,80)}…") mas NÃO chamou create_reminder/delete_reminder neste turno. ` +
-      `PROIBIDO confirmar criação/cancelamento sem operação executada. ` +
-      `Releia o pedido original do usuário. Se você ainda precisa perguntar a antecedência, NÃO confirme nada — apenas pergunte a antecedência do PRIMEIRO compromisso pendente, emita [JULIA_CHIPS:lead_time] e pare. Se você já tem todos os dados, chame create_reminder AGORA.`,
-  });
-  continue;
-}
+const isAgendaOnly = /\b(lembrete|agenda|compromisso|avis(ar|e|o)|amanh[ãa]|hoje|ontem|dia \d|às \d|cancela|remarca|treino|dentista|reuni[ãa]o)\b/i
+  .test(pergunta);
 ```
 
-Isso fecha o buraco: qualquer "Pronto/agendado/Te aviso" sem operação real força um retry corretivo.
+Se `isAgendaOnly` for true:
+- **Pula** o fetch de `printer_readings`, `equipment_consumables`, `printing_price_items`, `printer_categories`, `markup_tiers`, `papers`.
+- Mantém apenas: `base_conhecimento`, `equipments` (leve, usado em alguns lembretes), `global_settings`, `user_google_tokens`.
+- Usa um **prompt de sistema enxuto** (versão curta, só com regras de agenda/lembretes/Google Calendar), reduzindo drasticamente os tokens enviados.
 
-Atualizar também o system prompt (perto do bloco "REMARCAR = DELETE + CREATE ATÔMICOS", linha ~255) com uma regra explícita:
+Se a pergunta for de produção/preços/equipamento, mantém o comportamento atual (prompt completo + todas as tabelas).
 
-> **PROIBIÇÃO ABSOLUTA**: nunca diga "Pronto", "agendado", "Te aviso" ou "criado" sem ter recebido `created_id` do `create_reminder` no MESMO turno. Se você só chamou `check_reminder_conflict`, sua única ação válida é PERGUNTAR a antecedência (com `[JULIA_CHIPS:lead_time]`) — nunca confirmar.
+### 3. Reduzir teto de iterações da tool-loop
+Linha 1415: `for (let iter = 0; iter < 6; iter++)` → `iter < 4`. Operações de agenda raramente passam de 2–3 iterações; o limite alto só penaliza casos onde o modelo loopa.
 
-Por fim, redeploy do edge function `assistente-virtual`.
+### 4. Backoff de retry mais curto
+Linha 1409: `600ms / 1500ms` → `300ms / 800ms`. Em 503 transitório do gateway, recupera mais rápido.
 
-## Validação
+### 5. Reduzir limite de leituras de impressora
+Quando o modo "completo" rodar, baixar `limit(500)` → `limit(100)` em `printer_readings`. As últimas 100 leituras já cobrem todos os cálculos de "impressões desde a última troca de toner".
 
-Repetir o cenário:
-1. Apagar os lembretes de 28/04 (opcional) e enviar: "Dia 29/05 tenho treino às 11 e dentista às 14h"
-2. Esperado: Júlia chama `check_reminder_conflict` para o Treino e responde **só** "Falta combinar o aviso de Treino às 11h. Quando quer ser avisado?" + chips. **Sem** "Pronto".
-3. Responder "15 minutos antes" → `create_reminder` do Treino é executado, depois pede antecedência do Dentista.
-4. Responder "15 minutos antes" → `create_reminder` do Dentista executado.
-5. "Mostre todos os compromissos do dia 29" → lista os dois.
+## Detalhes técnicos
 
-Caso o modelo ainda tente alucinar, o novo guard captura e força o fluxo certo no mesmo turno.
+- Arquivo único alterado: `supabase/functions/assistente-virtual/index.ts`.
+- Sem mudanças de schema, sem migrations.
+- Sem mudanças no front-end — UX idêntica, só mais rápido.
+- Modelo continua no gateway gratuito (Gemini), zero custo de API externa.
+- Anti-alucinação implementada na rodada anterior continua ativa.
+- Deploy automático do edge function ao salvar.
+
+## Fora de escopo
+
+- Streaming de tokens (mudaria o front também; podemos fazer depois se quiser ganho percebido extra).
+- Cache de contexto entre turnos (mais complexo, fica pra v2 se necessário).
+
+## Resultado esperado
+
+- Perguntas de agenda ("mostra meus compromissos", "cria lembrete X às Y"): **~1–3s** (hoje 3–8s).
+- Perguntas de produção/preços: **~2–5s** (hoje 5–13s) — ganho menor, vem só do modelo novo + menos iterações.
+
+Aprova?
