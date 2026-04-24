@@ -1437,6 +1437,32 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         continue; // próxima iteração para o modelo formatar resposta
       }
 
+      // GUARD: se a pergunta é sobre cancelados/deletados mas o modelo não chamou
+      // list_cancelled_reminders neste turno, força re-execução com instrução explícita.
+      const cancelKeywordsRegex = /\b(cancel|delet|apag|remov|exclu[ií])/i;
+      const askedAboutCancelled = cancelKeywordsRegex.test(pergunta);
+      const calledCancelledList = toolsCalled.includes("list_cancelled_reminders");
+      if (askedAboutCancelled && !calledCancelledList && iter < 5) {
+        console.log(JSON.stringify({
+          type: "guard_force_cancelled_lookup",
+          iter,
+          pergunta_preview: pergunta.slice(0, 120),
+        }));
+        // Calcula janela ampla padrão (−30d / +90d) em offset −03:00, caso o modelo precise.
+        const nowMs = Date.now();
+        const fromIso = new Date(nowMs - 30 * 86400_000).toISOString().replace(/\.\d+Z$/, "-03:00");
+        const toIso = new Date(nowMs + 90 * 86400_000).toISOString().replace(/\.\d+Z$/, "-03:00");
+        messages.push({
+          role: "system",
+          content:
+            `BLOQUEIO: o usuário perguntou sobre lembretes CANCELADOS/DELETADOS (palavra detectada na frase). Você NÃO pode responder ainda. Chame list_cancelled_reminders AGORA. ` +
+            `Se a pergunta cita um dia, use aquele dia inteiro em America/Sao_Paulo. ` +
+            `Se a pergunta NÃO cita data (ex.: "algum compromisso foi cancelado?", "deletei alguma coisa?", "toda a agenda"), use janela ampla: from='${fromIso}' to='${toIso}'. ` +
+            `Depois de receber a resposta, mostre só os com cancelled_reason='user_cancelled' (ignore 'rescheduled'). Se vier vazio, responda "Nada cancelado <período>." NÃO chute.`,
+        });
+        continue;
+      }
+
       resposta = (msg?.content ?? "").trim() || "Não consegui gerar uma resposta.";
       break;
     }
