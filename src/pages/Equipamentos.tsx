@@ -618,29 +618,37 @@ export default function Equipamentos() {
 
                     const scenarios = costScenarios.isColor
                       ? [
-                          { label: "Color • 5%", value: costScenarios.color5, items: allCons, multiplier: 1, borderClass: "border-violet-200 dark:border-violet-800", bgClass: "bg-violet-50/50 dark:bg-violet-950/30", dotColor: "bg-violet-400" },
-                          { label: "Color • 20%", value: costScenarios.color20, items: allCons, multiplier: 4, borderClass: "border-violet-300 dark:border-violet-700", bgClass: "bg-violet-100/60 dark:bg-violet-950/50", dotColor: "bg-violet-500" },
-                          { label: "PB • 5%", value: costScenarios.pb5, items: sharedCons, multiplier: 1, borderClass: "border-slate-200 dark:border-slate-700", bgClass: "bg-slate-50/50 dark:bg-slate-900/30", dotColor: "bg-slate-400" },
-                          { label: "PB • 20%", value: costScenarios.pb20, items: sharedCons, multiplier: 4, borderClass: "border-slate-300 dark:border-slate-600", bgClass: "bg-slate-100/60 dark:bg-slate-900/50", dotColor: "bg-slate-500" },
+                          { label: "FABRICANTE • COLOR", subtitle: "Referência teórica",   isProduction: false, value: costScenarios.color5,  items: allCons,    multiplier: 1, dotColor: "bg-violet-400" },
+                          { label: "PRODUÇÃO • COLOR",   subtitle: "Valor de orçamento",   isProduction: true,  value: costScenarios.color20, items: allCons,    multiplier: 4, dotColor: "bg-violet-500" },
+                          { label: "FABRICANTE • PB",    subtitle: "Referência teórica",   isProduction: false, value: costScenarios.pb5,     items: sharedCons, multiplier: 1, dotColor: "bg-slate-400" },
+                          { label: "PRODUÇÃO • PB",      subtitle: "Valor de orçamento",   isProduction: true,  value: costScenarios.pb20,    items: sharedCons, multiplier: 4, dotColor: "bg-slate-500" },
                         ]
                       : [
-                          { label: "PB • 5%", value: costScenarios.pb5, items: allCons, multiplier: 1, borderClass: "border-slate-200 dark:border-slate-700", bgClass: "bg-slate-50/50 dark:bg-slate-900/30", dotColor: "bg-slate-400" },
-                          { label: "PB • 20%", value: costScenarios.pb20, items: allCons, multiplier: 4, borderClass: "border-slate-300 dark:border-slate-600", bgClass: "bg-slate-100/60 dark:bg-slate-900/50", dotColor: "bg-slate-500" },
+                          { label: "FABRICANTE • PB", subtitle: "Referência teórica", isProduction: false, value: costScenarios.pb5,  items: allCons, multiplier: 1, dotColor: "bg-slate-400" },
+                          { label: "PRODUÇÃO • PB",   subtitle: "Valor de orçamento", isProduction: true,  value: costScenarios.pb20, items: allCons, multiplier: 4, dotColor: "bg-slate-500" },
                         ];
 
                     return (
                       <div className={`grid gap-3 ${costScenarios.isColor ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
                         {scenarios.map((sc) => (
                           <Collapsible key={sc.label}>
-                            <Card className={`${sc.borderClass} ${sc.bgClass}`}>
+                            <Card className={sc.isProduction
+                              ? "border-primary/60 shadow-sm bg-primary/5"
+                              : "opacity-60 border-border bg-muted/20"
+                            }>
                               <CollapsibleTrigger className="w-full text-left">
                                 <CardContent className="p-4">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">{sc.label}</p>
-                                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <div className="flex items-center justify-between mb-1 gap-2">
+                                    <p className={`text-[10px] uppercase tracking-widest font-semibold truncate ${sc.isProduction ? 'text-primary' : 'text-muted-foreground'}`}>{sc.label}</p>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {sc.isProduction && (
+                                        <Badge variant="default" className="text-[9px] h-4 px-1.5 leading-none">Ativo</Badge>
+                                      )}
+                                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                    </div>
                                   </div>
-                                  <p className="text-xl font-bold text-foreground">{fmtRound(sc.value)}</p>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5">{sc.items.length} consumíve{sc.items.length === 1 ? 'l' : 'is'}</p>
+                                  <p className={`text-xl font-bold ${sc.isProduction ? 'text-primary' : 'text-foreground'}`}>{fmtRound(sc.value)}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">{sc.subtitle} · {sc.items.length} consumíve{sc.items.length === 1 ? 'l' : 'is'}</p>
                                 </CardContent>
                               </CollapsibleTrigger>
                               <CollapsibleContent>
@@ -658,7 +666,7 @@ export default function Equipamentos() {
                                       </div>
                                     );
                                   })}
-                                  {costScenarios.isColor && sc.label.startsWith("PB") && colorOnlyCons.length > 0 && (
+                                  {costScenarios.isColor && sc.label.includes("PB") && colorOnlyCons.length > 0 && (
                                     <div className="pt-1 border-t border-border/30">
                                       <p className="text-[10px] text-muted-foreground italic">
                                         Excluídos: {colorOnlyCons.map(c => c.name).join(", ")}
@@ -670,6 +678,8 @@ export default function Equipamentos() {
                             </Card>
                           </Collapsible>
                         ))}
+                      </div>
+                    );
                       </div>
                     );
                   })()}
