@@ -1,34 +1,35 @@
 ## Problema
 
-A Júlia respondeu "Tive um problema interno" quando o usuário pediu "Ok! Então me mostra todos cancelados". Os logs mostram o erro real: `iter is not defined`.
+Quando a Júlia lista compromissos pendentes, cada item mostra só o horário (`**15h00** — Dentista (aviso 14h45)`). Se o compromisso é em outro dia (ex.: criado para 28/04 enquanto hoje é 24/04), o usuário não consegue saber a data — fica parecendo que é hoje.
 
-São **dois bugs** no guard reverso adicionado na última correção (`supabase/functions/assistente-virtual/index.ts`, linhas 1195-1212):
-
-### Bug 1 — `iter is not defined` (crash)
-O `console.log` dentro do handler de `list_cancelled_reminders` referencia a variável `iter`, que só existe dentro do loop `for (let iter...)` na linha 1411. Como o handler é parte de uma função `executeTool` definida fora do loop, `iter` não está em escopo → `ReferenceError` → resposta genérica de erro.
-
-### Bug 2 — Regex não cobre plurais
-O regex `/\b(cancel(ado|ei|ou|amento|ar|a)|delet(ado|ei|ou|ar|a)|apag(ado|uei|ou|ar|a)|remov(ido|i|eu|er|e)|exclu[ií](do|i|iu|r|a)|aconteceu|aconteceram)\b/i` exige `\b` (word-boundary) imediatamente após "cancelado". Como o `s` do plural NÃO é word-boundary, palavras como **"cancelados"**, **"deletados"**, **"apagados"**, **"removidos"**, **"excluídos"** falham no teste — exatamente o que o usuário escreveu ("me mostra todos cancelados").
-
-Mesmo se o Bug 1 fosse corrigido sozinho, o guard ainda bloquearia incorretamente o pedido legítimo do usuário.
+A causa está em `supabase/functions/assistente-virtual/index.ts` (linha 1032), na função `formatReminderForDisplay`:
+```ts
+const display_line = `**${evHHMM}** — ${titleClean}${suffix}${cancelTag}`;
+```
+Já é calculado o `dateBR` (data BR), mas ele nunca é incluído no `display_line`.
 
 ## Correção
 
-Editar `supabase/functions/assistente-virtual/index.ts` (linhas 1195–1212):
+Editar `formatReminderForDisplay` para prefixar a data **somente quando o compromisso NÃO é hoje**. Hoje continua só com hora (mantém o estilo enxuto que já existe); em outro dia mostra `**28/04 14h00** — Treino de teste`.
 
-1. **Remover `iter`** do `console.log` do guard (substituir por `pergunta_preview` apenas, ou usar `"guard"` como marcador). Isso elimina o crash.
-2. **Adicionar `s?` opcional** após cada terminação verbal/adjetiva no regex para cobrir plurais:
-   - `cancel(ado|ei|ou|amento|ar|a)s?`
-   - `delet(ado|ei|ou|ar|a)s?`
-   - `apag(ado|uei|ou|ar|a)s?`
-   - `remov(ido|i|eu|er|e)s?`
-   - `exclu[ií](do|i|iu|r|a)s?`
+Pseudocódigo da mudança:
+```ts
+const todayBR = fmtDateBR(new Date().toISOString()); // já em America/Sao_Paulo
+const datePrefix = (dateBR && dateBR !== todayBR) ? `${dateBR} ` : "";
+const display_line = `**${datePrefix}${evHHMM}** — ${titleClean}${suffix}${cancelTag}`;
+```
 
-Após editar, redeployar a função `assistente-virtual`.
+Aplicado tanto a pendentes (`list_reminders`) quanto a cancelados (`list_cancelled_reminders`), porque ambos passam pela mesma função.
+
+Atualizar também o trecho do system prompt (linha 198-201) que dá o exemplo de `display_line`, mencionando que pode vir com data quando não é hoje, para o modelo não tentar "consertar" o formato.
+
+Redeploy do edge function `assistente-virtual` ao final.
 
 ## Validação
 
-Testar o mesmo fluxo:
-1. "Me mostre todos os compromissos da agenda" → só pendentes (já funciona).
-2. "Só tenho esse compromisso em toda agenda?" → confirmação com base em pendentes (já funciona).
-3. "Ok! Então me mostra todos cancelados" → deve listar os cancelados (atualmente quebra).
+1. "Me mostre todos os compromissos da agenda" hoje (24/04) com Dentista hoje 15h e Treino dia 28/04 14h:
+   - Esperado: 
+     - `**15h00** — Dentista (aviso 14h45)`
+     - `**28/04 14h00** — Treino de teste (aviso 13h45)`
+2. Listar cancelados do dia anterior também deve mostrar a data correta.
+3. Itens só de hoje continuam sem prefixo de data (sem regressão visual).
