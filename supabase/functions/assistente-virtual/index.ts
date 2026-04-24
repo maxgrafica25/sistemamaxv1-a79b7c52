@@ -1399,6 +1399,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             name: tc.function.name,
             args: parsedArgs,
           }));
+          toolsCalled.push(tc.function.name);
           const result = await executeTool(tc.function.name, parsedArgs);
           const resAny = result as { error?: string; reminder?: { id?: string }; ok?: boolean; reminders?: unknown[] };
           console.log(JSON.stringify({
