@@ -930,6 +930,9 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
     // Auditoria: registra resultado real de cada tool de mutação para montar o resumo final
     type OpResult = { tool: string; ok: boolean; detail: string };
     const opResults: OpResult[] = [];
+    // Auditoria de TODAS as tools chamadas no turno (incluindo leituras como list_*),
+    // usado para guards e turn_summary.
+    const toolsCalled: string[] = [];
 
     function normalize(s: string): string {
       return (s || "")
