@@ -1577,7 +1577,33 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         continue;
       }
 
-      resposta = (msg?.content ?? "").trim() || "Não consegui gerar uma resposta.";
+      // GUARD ANTI-ALUCINAÇÃO DE CONFIRMAÇÃO: o modelo respondeu "Pronto/agendado/Te aviso/criado"
+      // mas NÃO executou create_reminder nem delete_reminder com sucesso neste turno.
+      // Sem essa rede de proteção, o usuário recebe confirmações falsas (lembrete inexistente).
+      const finalText = (msg?.content ?? "").trim();
+      const confirmRegex =
+        /\b(pronto|agendad[oa]|criad[oa]|te aviso|aviso (você|voce)|foi (agendad|criad|adicionad|cancelad|removid|deletad)|lembrete .{0,40}foi|adicionei|cancelei|removi|deletei|apaguei)\b/i;
+      const createSucceeded = opResults.some((o) => o.tool === "create_reminder" && o.ok);
+      const deleteSucceeded = opResults.some((o) => o.tool === "delete_reminder" && o.ok);
+      const claimsConfirmation = confirmRegex.test(finalText);
+      if (claimsConfirmation && !createSucceeded && !deleteSucceeded && iter < 5) {
+        console.log(JSON.stringify({
+          type: "guard_blocked_fake_confirmation",
+          iter,
+          tools_called: toolsCalled,
+          resposta_preview: finalText.slice(0, 120),
+        }));
+        messages.push({
+          role: "system",
+          content:
+            `BLOQUEIO CRÍTICO: você acabou de responder confirmando uma operação ("${finalText.slice(0, 100)}…") MAS você NÃO chamou create_reminder/delete_reminder com sucesso neste turno. ` +
+            `É TERMINANTEMENTE PROIBIDO dizer "Pronto", "agendado", "criado", "Te aviso", "cancelei", "removi" ou similar sem ter executado a operação correspondente. ` +
+            `AÇÃO CORRETIVA: Releia o pedido original do usuário. Se você ainda precisa perguntar a antecedência (lead time) de algum compromisso, sua ÚNICA resposta válida agora é perguntar a antecedência do PRIMEIRO compromisso pendente da fila e emitir [JULIA_CHIPS:lead_time] — NADA de "Pronto" antes disso. Se você já tem todos os dados (título + event_local + remind_local), CHAME create_reminder AGORA para cada compromisso pendente.`,
+        });
+        continue;
+      }
+
+      resposta = finalText || "Não consegui gerar uma resposta.";
       break;
     }
 
