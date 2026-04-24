@@ -1,50 +1,47 @@
 ## Problema
 
-Nos logs, dois turnos vieram com `operations:[]` (a Júlia respondeu **sem chamar nenhuma ferramenta**):
+Quando o usuário disse **"Deletar todos os compromissos da agenda"**, a Júlia respondeu *"Não consegui identificar exatamente quais lembretes alterar..."* em vez de listar e apagar tudo.
 
-1. *"Algum compromisso foi cancelado?"* → respondeu "Nada cancelado para hoje" (chute)
-2. *"Algum compromisso foi deletado de toda agenda?"* → respondeu "Nada agendado para 24/04/2026" (errado: confundiu "deletado" com "agendado" e ignorou "toda agenda")
+### Causa raiz
 
-A ferramenta `list_cancelled_reminders` já existe no backend, mas o prompt só a aciona como *fallback* dentro da regra "consulta histórica" (linha 258-268). Quando o usuário faz uma pergunta direta tipo "algo cancelado?" / "algo foi deletado?", o modelo não reconhece como gatilho e responde no chute.
+No `supabase/functions/assistente-virtual/index.ts` (linha 1442) existe um guard que intercepta qualquer pergunta com as palavras `cancel|delet|apag|remov|exclu` e **força a chamada de `list_cancelled_reminders`** (que lista lembretes JÁ cancelados no passado).
 
-Também faltam dois comportamentos:
-- Tratar **"deletado" como sinônimo de "cancelado"** (no app só existe soft-delete = cancelamento).
-- Quando o usuário diz **"toda a agenda"** / "qualquer dia", não filtrar por dia — buscar uma janela ampla (ex.: últimos 30 dias + próximos 90).
+Esse guard foi feito pra perguntas tipo *"foi deletado algum compromisso?"* (consulta de histórico).
+Mas ele dispara errado pra **comandos imperativos** como *"deletar todos"*, *"apaga o treino"*, *"cancela o dentista"* — que são ordens pra agir, não perguntas sobre o passado.
 
-## Solução
+Resultado: o modelo recebe uma lista de cancelados (vazia ou irrelevante), fica confuso, mistura com lembretes pendentes e responde pedindo esclarecimento em vez de executar.
 
-### 1. `supabase/functions/assistente-virtual/index.ts` — prompt da Júlia
+## Correção
 
-Adicionar uma regra de **PRIORIDADE MÁXIMA** sobre consultas de cancelados/deletados, acima da regra atual de "consulta histórica":
+### 1. Refinar o guard de cancelados (linhas 1440-1464)
 
-> **CONSULTA DE CANCELADOS/DELETADOS (REGRA INVIOLÁVEL):** se a pergunta do usuário contém qualquer das palavras **cancelado, cancelei, cancelamento, deletado, deletei, apagado, apaguei, removido, excluído** (com ou sem filtro de data), você é OBRIGADA a chamar `list_cancelled_reminders` ANTES de responder. Nunca responda "nada cancelado" / "nada deletado" sem ter chamado essa ferramenta no turno atual.
->
-> - **Escopo da janela `from`/`to`:**
->   - Se o usuário citou um dia específico → janela = aquele dia inteiro em America/Sao_Paulo.
->   - Se disse **"toda a agenda" / "qualquer dia" / "alguma vez" / sem data** → janela ampla: `from` = 30 dias atrás, `to` = 90 dias à frente (ISO com offset −03:00).
-> - **"Deletado" == "cancelado"** neste app (não existe hard-delete pelo usuário). Trate as duas palavras como sinônimos.
-> - Após chamar a ferramenta, aplique o FILTRO POR INTENÇÃO já existente (linhas 264-266): mostrar só `cancelled_reason='user_cancelled'` quando a pergunta é especificamente sobre cancelamento/deleção.
-> - Se vier vazio: responda "Nada cancelado em <período citado>." (use "em toda a agenda" quando a janela foi a ampla).
+Distinguir **consulta de histórico** vs **comando de ação**:
 
-### 2. Backend — defesa contra modelo preguiçoso
+- **Consulta** (dispara guard → `list_cancelled_reminders`): frases interrogativas ou no pretérito sobre o que já foi cancelado.
+  Ex.: *"foi cancelado algo?"*, *"deletei alguma coisa?"*, *"o que aconteceu com X?"*, *"algum compromisso foi removido?"*
 
-No tratamento da resposta final (`supabase/functions/assistente-virtual/index.ts`), adicionar verificação: se a pergunta do usuário do turno atual casa com regex `/cancel|delet|apag|remov|excluí/i` E `operations` não contém `list_cancelled_reminders`, injetar uma mensagem `system` extra forçando re-execução com a tool antes de finalizar (mesmo padrão já usado em outras regras invioláveis do arquivo).
+- **Comando** (NÃO dispara guard → fluxo normal de `list_reminders` + `delete_reminder`): verbo no infinitivo/imperativo pedindo pra agir agora.
+  Ex.: *"deletar todos"*, *"apaga o treino"*, *"cancela o dentista das 14h"*, *"remove tudo"*, *"exclui X"*
 
-### 3. Logging
+Heurística: se a frase começa (ou é dominada) por verbo imperativo/infinitivo de ação (`delet(ar|a|e)`, `apag(ar|a|ue)`, `cancel(ar|a|e)`, `remov(er|e|a)`, `exclu(ir|i|a)`) **sem** palavras interrogativas (`foi`, `algum`, `alguma`, `algo`, `?`, `que aconteceu`, `tinha`, `deletei`, `cancelei`, `apaguei`), tratar como comando — pular o guard.
 
-Já existe `turn_summary`. Adicionar no log o array `tools_called: string[]` para facilitar auditoria futura ("a Júlia chamou list_cancelled_reminders ou não?").
+### 2. Reforçar regra de "apagar todos" no prompt (linha 317)
 
-## Como testar
+Trocar a frase atual por algo mais explícito e em destaque:
 
-Após o deploy:
-1. *"Algum compromisso foi cancelado hoje?"* → deve chamar `list_cancelled_reminders` com janela do dia.
-2. *"Algum compromisso foi deletado de toda agenda?"* → deve chamar `list_cancelled_reminders` com janela ampla (−30d / +90d) e listar o "Dentista 14h" cancelado às 11:39.
-3. *"Deletei alguma coisa essa semana?"* → janela = semana atual.
+> **APAGAR EM MASSA (REGRA INVIOLÁVEL)**: se o usuário disser *"apaga/deleta/cancela TODOS"*, *"limpa a agenda"*, *"remove tudo"* ou variações sem citar item específico:
+> 1. Chame `list_reminders` com janela ampla (próximos 90 dias).
+> 2. Se vazio: responda *"Sua agenda já está vazia."*
+> 3. Se 1 item: chame `delete_reminder` direto, confirme.
+> 4. Se 2+ itens: liste TODOS em bullets e pergunte *"Confirma apagar TODOS os N compromissos acima? (responda SIM pra apagar tudo, ou cite quais manter)"*. Aguarde resposta. Se "sim/confirma/pode": chame `delete_reminder` em sequência pra cada id e confirme no fim *"Pronto, apaguei os N compromissos."*
+> Nunca responda *"não consegui identificar quais lembretes alterar"* — você TEM acesso, é só listar.
 
-Nos logs, conferir `turn_summary.tools_called` contendo `"list_cancelled_reminders"`.
+### 3. Redeploy
+
+Deploy `assistente-virtual` e validar com:
+- *"Deletar todos os compromissos da agenda"* → deve listar + pedir confirmação + apagar.
+- *"Algum compromisso foi cancelado?"* → ainda deve cair no guard antigo e chamar `list_cancelled_reminders`.
 
 ## Arquivos alterados
 
-- `supabase/functions/assistente-virtual/index.ts` (prompt + guard de re-execução + log).
-
-Sem migration, sem mudança de schema, sem mudança no frontend.
+- `supabase/functions/assistente-virtual/index.ts` (regex do guard + texto do prompt)
