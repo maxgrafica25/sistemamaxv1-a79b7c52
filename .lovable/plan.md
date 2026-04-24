@@ -1,39 +1,50 @@
-## Mudanças aprovadas — implementar ao sair do modo plano
+## Problema
 
-### 1. `supabase/functions/assistente-virtual/index.ts`
+Nos logs, dois turnos vieram com `operations:[]` (a Júlia respondeu **sem chamar nenhuma ferramenta**):
 
-**A) Anti-alucinação de confirmação**
-- Acumular durante o loop de tools:
-  - `createdInThisTurn: Array<{title, remind_at, id}>`
-  - `failedInThisTurn: Array<{title, reason}>`
-- Antes da resposta final, injetar mensagem `system` obrigatória:
-  > "REGRAS ESTRITAS DE CONFIRMAÇÃO: só use ✅ para itens em CRIADOS_NESTE_TURNO. Para itens em FALHAS_NESTE_TURNO, use ❌ e diga o motivo. Não invente confirmações."
-- Incluir os dois arrays serializados como JSON nessa mensagem.
+1. *"Algum compromisso foi cancelado?"* → respondeu "Nada cancelado para hoje" (chute)
+2. *"Algum compromisso foi deletado de toda agenda?"* → respondeu "Nada agendado para 24/04/2026" (errado: confundiu "deletado" com "agendado" e ignorou "toda agenda")
 
-**B) Sanitização de datas em `list_reminders`**
-- Aplicar `?.slice(0, 10)` em `from_date` / `to_date` antes do filtro, garantindo formato `YYYY-MM-DD`.
-- Converter para limites do dia em UTC (`T00:00:00Z` / `T23:59:59Z`) antes de comparar com `remind_at`.
+A ferramenta `list_cancelled_reminders` já existe no backend, mas o prompt só a aciona como *fallback* dentro da regra "consulta histórica" (linha 258-268). Quando o usuário faz uma pergunta direta tipo "algo cancelado?" / "algo foi deletado?", o modelo não reconhece como gatilho e responde no chute.
 
-**C) Logging estruturado**
-- Para cada iteração de tool: `console.log(JSON.stringify({type:'tool_call', name, args}))`.
-- Para cada resultado: `console.log(JSON.stringify({type:'tool_result', name, ok, error?, id?}))`.
-- Ao final do turno: `console.log(JSON.stringify({type:'turn_summary', created: createdInThisTurn, failed: failedInThisTurn}))`.
+Também faltam dois comportamentos:
+- Tratar **"deletado" como sinônimo de "cancelado"** (no app só existe soft-delete = cancelamento).
+- Quando o usuário diz **"toda a agenda"** / "qualquer dia", não filtrar por dia — buscar uma janela ampla (ex.: últimos 30 dias + próximos 90).
 
-### 2. Migration — limpar duplicatas de teste
-SQL:
-```sql
-UPDATE public.reminders
-SET cancelled_at = now(), cancelled_reason = 'user_cancelled'
-WHERE title ILIKE 'Academia'
-  AND event_at >= '2026-04-27T00:00:00-03:00'
-  AND event_at <  '2026-04-28T00:00:00-03:00'
-  AND cancelled_at IS NULL;
-```
+## Solução
 
-### 3. Redeploy
-Automático após salvar a função.
+### 1. `supabase/functions/assistente-virtual/index.ts` — prompt da Júlia
+
+Adicionar uma regra de **PRIORIDADE MÁXIMA** sobre consultas de cancelados/deletados, acima da regra atual de "consulta histórica":
+
+> **CONSULTA DE CANCELADOS/DELETADOS (REGRA INVIOLÁVEL):** se a pergunta do usuário contém qualquer das palavras **cancelado, cancelei, cancelamento, deletado, deletei, apagado, apaguei, removido, excluído** (com ou sem filtro de data), você é OBRIGADA a chamar `list_cancelled_reminders` ANTES de responder. Nunca responda "nada cancelado" / "nada deletado" sem ter chamado essa ferramenta no turno atual.
+>
+> - **Escopo da janela `from`/`to`:**
+>   - Se o usuário citou um dia específico → janela = aquele dia inteiro em America/Sao_Paulo.
+>   - Se disse **"toda a agenda" / "qualquer dia" / "alguma vez" / sem data** → janela ampla: `from` = 30 dias atrás, `to` = 90 dias à frente (ISO com offset −03:00).
+> - **"Deletado" == "cancelado"** neste app (não existe hard-delete pelo usuário). Trate as duas palavras como sinônimos.
+> - Após chamar a ferramenta, aplique o FILTRO POR INTENÇÃO já existente (linhas 264-266): mostrar só `cancelled_reason='user_cancelled'` quando a pergunta é especificamente sobre cancelamento/deleção.
+> - Se vier vazio: responda "Nada cancelado em <período citado>." (use "em toda a agenda" quando a janela foi a ampla).
+
+### 2. Backend — defesa contra modelo preguiçoso
+
+No tratamento da resposta final (`supabase/functions/assistente-virtual/index.ts`), adicionar verificação: se a pergunta do usuário do turno atual casa com regex `/cancel|delet|apag|remov|excluí/i` E `operations` não contém `list_cancelled_reminders`, injetar uma mensagem `system` extra forçando re-execução com a tool antes de finalizar (mesmo padrão já usado em outras regras invioláveis do arquivo).
+
+### 3. Logging
+
+Já existe `turn_summary`. Adicionar no log o array `tools_called: string[]` para facilitar auditoria futura ("a Júlia chamou list_cancelled_reminders ou não?").
 
 ## Como testar
-1. "Júlia, crie Treino dia 27 às 11h e Dentista dia 27 às 14h."
-2. "Quais compromissos tenho dia 27?"
-3. Conferir nos logs o `turn_summary` para validar criados vs. confirmados.
+
+Após o deploy:
+1. *"Algum compromisso foi cancelado hoje?"* → deve chamar `list_cancelled_reminders` com janela do dia.
+2. *"Algum compromisso foi deletado de toda agenda?"* → deve chamar `list_cancelled_reminders` com janela ampla (−30d / +90d) e listar o "Dentista 14h" cancelado às 11:39.
+3. *"Deletei alguma coisa essa semana?"* → janela = semana atual.
+
+Nos logs, conferir `turn_summary.tools_called` contendo `"list_cancelled_reminders"`.
+
+## Arquivos alterados
+
+- `supabase/functions/assistente-virtual/index.ts` (prompt + guard de re-execução + log).
+
+Sem migration, sem mudança de schema, sem mudança no frontend.
