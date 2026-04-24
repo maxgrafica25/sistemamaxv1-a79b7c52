@@ -66,7 +66,7 @@ function buildEventBody(reminder: any): Record<string, unknown> {
   return body;
 }
 
-async function processItem(admin: ReturnType<typeof createClient>, item: any): Promise<void> {
+async function processItem(admin: any, item: any): Promise<void> {
   const { data: tokenRow } = await admin
     .from("user_google_tokens").select("*").eq("user_id", item.user_id).maybeSingle();
   if (!tokenRow) {
