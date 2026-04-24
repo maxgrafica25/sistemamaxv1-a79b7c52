@@ -796,7 +796,23 @@ export default function Equipamentos() {
                 <Input type="number" step="0.01" value={consPrice} onChange={(e) => setConsPrice(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>{isRibbon ? "Rendimento (impressões)" : "Rendimento (páginas)"}</Label>
+                <div className="flex items-center gap-1.5">
+                  <Label>{isRibbon ? "Rendimento (impressões)" : "Rendimento (páginas)"}</Label>
+                  {!isRibbon && (
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                            <HelpCircle className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-xs">
+                          Informe o valor que consta na embalagem (cobertura 5%). O sistema converterá automaticamente para 20% nos cálculos de venda.
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
                 <Input type="number" step="1" value={consYield} onChange={(e) => setConsYield(e.target.value)} />
               </div>
             </div>
