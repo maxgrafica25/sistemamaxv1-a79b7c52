@@ -1231,6 +1231,51 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
               available_reminders: filteredAvailable,
             };
           }
+          // Guard de ambiguidade: se a frase do usuário cita só horário (sem título distintivo)
+          // e há 2+ pendentes exatamente naquele horário no escopo de data ativo, recusa o delete
+          // e devolve a lista pra Júlia perguntar qual.
+          {
+            const userTimes = extractTimesFromText(pergunta);
+            const titleMentions = /\b(treino|dentista|m[eé]dico|consulta|reuni[aã]o|aula|instagram|entrega|viagem|prazo|aniversari|m[ãa]e|pai|filh|carro|reuniao)\b/i.test(pergunta);
+            if (userTimes.length > 0 && !titleMentions) {
+              const activeFilter = resolveActiveDateFilter();
+              const scopedList = activeFilter
+                ? applyDateFilterToReminderList(lastPendingList as RawReminder[], activeFilter)
+                : (lastPendingList as RawReminder[]);
+              for (const tm of userTimes) {
+                const exact = scopedList.filter((r) => {
+                  const evIso = String(r.event_at ?? r.remind_at ?? "");
+                  if (!evIso) return false;
+                  const t = fmtTimeBR(evIso);
+                  const m = t.match(/^(\d{2}):(\d{2})$/);
+                  if (!m) return false;
+                  return hhmmToMinutes(parseInt(m[1], 10), parseInt(m[2], 10)) === tm;
+                });
+                if (exact.length >= 2 && !exact.some((r) => r.id === id)) continue;
+                if (exact.length >= 2) {
+                  const hh = String(Math.floor(tm / 60)).padStart(2, "0");
+                  const mm = String(tm % 60).padStart(2, "0");
+                  console.warn(`[assistente-virtual] delete ambiguous at ${hh}h${mm}: ${exact.length} matches`);
+                  opResults.push({
+                    tool: "delete_reminder",
+                    ok: false,
+                    detail: `⚠️ Ambíguo: ${exact.length} compromissos às ${hh}h${mm} — preciso saber qual.`,
+                  });
+                  return {
+                    error: `Há ${exact.length} compromissos pendentes às ${hh}h${mm}. NÃO chame delete_reminder. Liste-os pro usuário e pergunte qual cancelar (cite título e data de cada um).`,
+                    ambiguous_at: `${hh}:${mm}`,
+                    candidates: exact.map((r) => ({
+                      id: r.id,
+                      title: cleanTitleForDisplay(String(r.title ?? "")),
+                      event_at: r.event_at ?? r.remind_at,
+                      event_date_br: fmtDateBR(String(r.event_at ?? r.remind_at ?? "")),
+                      event_time_br: fmtTimeBR(String(r.event_at ?? r.remind_at ?? "")),
+                    })),
+                  };
+                }
+              }
+            }
+          }
           // Em modo remarcar, força reason='rescheduled' (mesmo se modelo esquecer)
           const finalArgs: Record<string, unknown> = { ...args };
           if (isRemarcarSession) {
