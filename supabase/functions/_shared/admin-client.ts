@@ -6,7 +6,7 @@
 //
 // Por que existe: a SERVICE_ROLE_KEY bypassa todas as RLS policies. Se vazar, todo o
 // banco fica exposto. Centralizar o uso reduz a superfície e permite detectar abuso.
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
