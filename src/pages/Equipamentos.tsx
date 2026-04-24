@@ -504,7 +504,19 @@ export default function Equipamentos() {
                                 <TableHead className="text-right">Preço (R$)</TableHead>
                                 <TableHead className="text-right">Rendimento</TableHead>
                                 <TableHead className="text-right">Custo/Página</TableHead>
-                                <TableHead className="text-right">% Custo</TableHead>
+                                <TableHead className="text-right">
+                                  <div className="inline-flex items-center gap-1 justify-end">
+                                    % Custo
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-xs">
+                                        Participação deste consumível no custo total por página. Soma = 100%.
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                </TableHead>
                                 <TableHead className="w-[80px]" />
                               </TableRow>
                             </TableHeader>
