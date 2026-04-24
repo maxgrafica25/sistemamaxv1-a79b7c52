@@ -1442,7 +1442,7 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
         console.warn(`[assistente-virtual] gateway transient ${resp.status} (attempt ${attempt}/${maxAttempts}): ${errorText.slice(0, 200)}`);
         if (attempt < maxAttempts) {
           // backoff: 600ms, 1500ms
-          await new Promise((r) => setTimeout(r, attempt === 1 ? 600 : 1500));
+          await new Promise((r) => setTimeout(r, attempt === 1 ? 300 : 800));
         }
       }
       return lastResp!;
