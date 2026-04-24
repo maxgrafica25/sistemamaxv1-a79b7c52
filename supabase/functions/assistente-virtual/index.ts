@@ -1029,7 +1029,11 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         cancelTag = ` — ${verb} em ${fmtDateBR(r.cancelled_at)} ${fmtTimeBR(r.cancelled_at)}`;
       }
 
-      const display_line = `**${evHHMM}** — ${titleClean}${suffix}${cancelTag}`;
+      // Prefixa a data (DD/MM) somente quando o evento NÃO é hoje (em America/Sao_Paulo).
+      // Hoje continua só com hora (estilo enxuto). Outros dias mostram "28/04 14h00".
+      const todayBR = fmtDateBR(new Date().toISOString()); // "DD/MM/YYYY"
+      const datePrefix = (dateBR && dateBR !== todayBR) ? `${dateBR.slice(0, 5)} ` : "";
+      const display_line = `**${datePrefix}${evHHMM}** — ${titleClean}${suffix}${cancelTag}`;
       return {
         ...r,
         display_line,
