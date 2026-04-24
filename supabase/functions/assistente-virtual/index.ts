@@ -1238,6 +1238,10 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             const userTimes = extractTimesFromText(pergunta);
             const titleMentions = /\b(treino|dentista|m[eé]dico|consulta|reuni[aã]o|aula|instagram|entrega|viagem|prazo|aniversari|m[ãa]e|pai|filh|carro|reuniao)\b/i.test(pergunta);
             if (userTimes.length > 0 && !titleMentions) {
+              if (lastPendingList.length === 0) {
+                const res = await callRemindersApi("GET", {});
+                captureIdsFromListResult(res, true);
+              }
               const activeFilter = resolveActiveDateFilter();
               const scopedList = activeFilter
                 ? applyDateFilterToReminderList(lastPendingList as RawReminder[], activeFilter)
