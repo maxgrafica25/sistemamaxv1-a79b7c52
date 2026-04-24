@@ -1573,6 +1573,14 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
 
     if (!resposta) resposta = "Não consegui finalizar a resposta. Tente novamente.";
 
+    console.log(JSON.stringify({
+      type: "turn_summary",
+      user_id: userData.user.id,
+      pergunta: pergunta.slice(0, 200),
+      operations: opResults,
+      resposta_preview: resposta.slice(0, 300),
+    }));
+
     return new Response(JSON.stringify({ resposta }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
