@@ -534,14 +534,29 @@ export default function Equipamentos() {
                                   </TableRow>
                                 );
                               })}
-                              <TableRow className="bg-muted/30 font-semibold">
-                                <TableCell>TOTAL</TableCell>
+                              <TableRow className="bg-muted/30 font-semibold opacity-80">
+                                <TableCell>TOTAL (Fabricante 5%)</TableCell>
                                 <TableCell className="text-right">—</TableCell>
                                 <TableCell className="text-right">—</TableCell>
                                 <TableCell className="text-right font-mono">{fmt4(costPerPage)}</TableCell>
-                                <TableCell className="text-right"><Badge className="font-mono text-xs">100%</Badge></TableCell>
+                                <TableCell className="text-right"><Badge variant="outline" className="font-mono text-xs">100%</Badge></TableCell>
                                 <TableCell />
                               </TableRow>
+                              {!isRibbon && (
+                                <TableRow className="bg-primary/5 border-t-2 border-primary/30">
+                                  <TableCell className="font-bold text-primary">
+                                    TOTAL DE PRODUÇÃO (20%)
+                                    <span className="ml-2 text-[10px] font-normal text-muted-foreground">usado nos orçamentos</span>
+                                  </TableCell>
+                                  <TableCell className="text-right">—</TableCell>
+                                  <TableCell className="text-right">—</TableCell>
+                                  <TableCell className="text-right font-mono font-bold text-primary text-base">{fmt4(costPerPage * 4)}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Badge className="font-mono text-xs">Ativo</Badge>
+                                  </TableCell>
+                                  <TableCell />
+                                </TableRow>
+                              )}
                             </TableBody>
                           </Table>
                         </div>
