@@ -680,8 +680,6 @@ export default function Equipamentos() {
                         ))}
                       </div>
                     );
-                      </div>
-                    );
                   })()}
                 </TabsContent>
 
