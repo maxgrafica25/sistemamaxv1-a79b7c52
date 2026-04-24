@@ -315,6 +315,12 @@ REGRAS PARA FERRAMENTAS:
         - Se pedir outro horário: peça/calcule o novo event_at (e recalcule remind_at se houver antecedência) e refaça check_reminder_conflict antes de criar.
 - Após executar, confirme em pt-BR repetindo título + data/hora amigável.
 - Para excluir, se houver mais de um lembrete que casa, peça confirmação listando os candidatos com horário e descrição. Se o usuário pedir "apaga todos os X", liste e remova um a um chamando delete_reminder em sequência.
+- APAGAR EM MASSA / "TODOS" (REGRA INVIOLÁVEL): se o usuário disser "apaga/deleta/cancela TODOS [os compromissos/lembretes/agenda]", "limpa minha agenda", "remove tudo", "zera a agenda" ou variações genéricas SEM citar item específico:
+    1. Chame list_reminders() com janela ampla (próximos 90 dias a partir de AGORA).
+    2. Se vier vazio: responda "Sua agenda já está vazia."
+    3. Se vier 1 item: chame delete_reminder direto com reason='user_cancelled' e confirme.
+    4. Se vier 2+ itens: liste TODOS em bullets com horário e título e pergunte: "Confirma apagar TODOS os N compromissos acima? Responda **sim** pra apagar tudo, ou diga quais quer manter." AGUARDE resposta. Se usuário responder "sim/confirma/pode/manda/apaga": chame delete_reminder em sequência pra CADA id da lista (todos no mesmo turno) e finalize com "Pronto, apaguei os N compromissos da sua agenda."
+    NUNCA responda "não consegui identificar quais lembretes alterar" nesse fluxo — você TEM acesso, é só listar com list_reminders e agir.
 - CONSULTA DE LEMBRETES/COMPROMISSOS (com ou sem filtro de data): para QUALQUER pergunta tipo "quais meus lembretes", "o que tenho hoje", "compromissos de amanhã", "minha agenda de 27/04", "o que tem na sexta", "essa semana", etc., SEMPRE chame list_reminders() primeiro. NUNCA diga que não tem acesso ou que não consegue filtrar por data — você tem e consegue.
     • Depois de receber a lista, filtre VOCÊ MESMO pelo período pedido, interpretando "hoje", "amanhã", "27/04", "segunda", "essa semana", etc. em America/Sao_Paulo (use AGORA da seção DADOS OPERACIONAIS como referência).
     • Formate em bullets markdown com horário em negrito, conforme o padrão da seção LAYOUT (ex.: "- **09h00** Reunião cliente").
@@ -1440,7 +1446,19 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       // GUARD: se a pergunta é sobre cancelados/deletados mas o modelo não chamou
       // list_cancelled_reminders neste turno, força re-execução com instrução explícita.
       const cancelKeywordsRegex = /\b(cancel|delet|apag|remov|exclu[ií])/i;
-      const askedAboutCancelled = cancelKeywordsRegex.test(pergunta);
+      // Detecta COMANDOS imperativos/infinitivos de ação ("deletar todos", "apaga o treino",
+      // "cancela o dentista", "remover tudo", "excluir X"). Esses são ordens — devem cair
+      // no fluxo normal (list_reminders + delete_reminder), NÃO no lookup de cancelados.
+      // Só dispara o guard pra perguntas de CONSULTA sobre o que já foi cancelado no passado
+      // ("foi cancelado?", "deletei algo?", "o que aconteceu com X?").
+      const imperativeDeleteRegex =
+        /^\s*(me\s+)?(pode\s+|por\s+favor\s+|favor\s+)?(delet(ar|a|e|em)|apag(ar|a|ue|uem|e)|cancel(ar|a|e|em)|remov(er|e|a|am)|exclu(ir|i|a|am)|limp(ar|a|e)|zer(ar|a|e))\b/i;
+      const interrogativeCancelRegex =
+        /\?|\b(foi|foram|tinha|tinham|t[ií]nhamos|deletei|deletou|cancelei|cancelou|apaguei|apagou|removi|removeu|exclu[ií]|excluiu|que aconteceu|aconteceu com|o que houve)\b/i;
+      const looksLikeImperativeDelete =
+        imperativeDeleteRegex.test(pergunta) && !interrogativeCancelRegex.test(pergunta);
+      const askedAboutCancelled =
+        cancelKeywordsRegex.test(pergunta) && !looksLikeImperativeDelete;
       const calledCancelledList = toolsCalled.includes("list_cancelled_reminders");
       if (askedAboutCancelled && !calledCancelledList && iter < 5) {
         console.log(JSON.stringify({
