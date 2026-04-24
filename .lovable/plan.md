@@ -1,57 +1,45 @@
 ## Objetivo
 
-Reduzir o tempo de resposta da Júlia (hoje 3–13s) para ~1–3s em perguntas de agenda, sem usar nenhum modelo pago. Tudo continua no **Lovable AI Gateway** (gratuito).
+Na Xerox C70, remover o consumível "Toners Colors" (R$ 2.100 / 35.000 pág) e cadastrar 3 toners separados:
 
-## Mudanças
+- Toner Ciano — R$ 860,00 — 35.000 pág (5%)
+- Toner Magenta — R$ 860,00 — 35.000 pág (5%)
+- Toner Amarelo — R$ 860,00 — 35.000 pág (5%)
 
-### 1. Trocar o modelo para Gemini 3 Flash Preview (gratuito)
-Em `supabase/functions/assistente-virtual/index.ts`, linhas 1390–1391:
-- `google/gemini-2.5-flash` → `google/gemini-3-flash-preview`
+Todos no modo **color_only** (igual ao "Toners Colors" atual), para continuarem entrando só no custo de páginas coloridas.
 
-É o mesmo gateway gratuito, da família Gemini Flash mais nova. Costuma responder mais rápido que o 2.5 Flash mantendo boa qualidade pra tool-calling.
+## O que muda
 
-### 2. Carregamento de contexto sob demanda (intent-based)
-Hoje, **toda** pergunta carrega 10 tabelas em paralelo (base de conhecimento, equipamentos, consumíveis, 500 leituras de impressora, preços, categorias, tiers, papéis, configurações globais, Google Calendar). Isso pesa em tokens enviados ao modelo.
+- **1 deleção** na tabela `equipment_consumables` (Toners Colors da C70)
+- **3 inserções** na mesma tabela, vinculadas ao equipamento Xerox C70
+- Sort_order ajustado para os 3 toners aparecerem juntos no topo da lista colorida (posições 1, 2, 3), empurrando os demais para baixo
 
-Vou classificar a intenção logo no início:
-```ts
-const isAgendaOnly = /\b(lembrete|agenda|compromisso|avis(ar|e|o)|amanh[ãa]|hoje|ontem|dia \d|às \d|cancela|remarca|treino|dentista|reuni[ãa]o)\b/i
-  .test(pergunta);
+## Resultado esperado na tela
+
+A aba "Consumíveis — Xerox C70" passa a mostrar:
+
+```text
+Toner Preto         R$    700,00   35.000   R$ 0,0200
+Toner Ciano         R$    860,00   35.000   R$ 0,0246
+Toner Magenta       R$    860,00   35.000   R$ 0,0246
+Toner Amarelo       R$    860,00   35.000   R$ 0,0246
+Revelador Preto     R$  2.125,00  600.000   R$ 0,0035
+Relevadores Color   R$  6.375,00  600.000   R$ 0,0106
+... (demais inalterados)
 ```
 
-Se `isAgendaOnly` for true:
-- **Pula** o fetch de `printer_readings`, `equipment_consumables`, `printing_price_items`, `printer_categories`, `markup_tiers`, `papers`.
-- Mantém apenas: `base_conhecimento`, `equipments` (leve, usado em alguns lembretes), `global_settings`, `user_google_tokens`.
-- Usa um **prompt de sistema enxuto** (versão curta, só com regras de agenda/lembretes/Google Calendar), reduzindo drasticamente os tokens enviados.
+**Custo total color por página** (5% cobertura) sobe ~R$ 0,018 vs. hoje, refletindo o custo real (3 × R$ 860 = R$ 2.580 em vez de R$ 2.100).
 
-Se a pergunta for de produção/preços/equipamento, mantém o comportamento atual (prompt completo + todas as tabelas).
+## Observação sobre cobertura 20%
 
-### 3. Reduzir teto de iterações da tool-loop
-Linha 1415: `for (let iter = 0; iter < 6; iter++)` → `iter < 4`. Operações de agenda raramente passam de 2–3 iterações; o limite alto só penaliza casos onde o modelo loopa.
-
-### 4. Backoff de retry mais curto
-Linha 1409: `600ms / 1500ms` → `300ms / 800ms`. Em 503 transitório do gateway, recupera mais rápido.
-
-### 5. Reduzir limite de leituras de impressora
-Quando o modo "completo" rodar, baixar `limit(500)` → `limit(100)` em `printer_readings`. As últimas 100 leituras já cobrem todos os cálculos de "impressões desde a última troca de toner".
+Você mencionou que em 20% o rendimento real é 8.000 páginas. Conforme combinado, **vamos cadastrar com 35.000 (5%)** para manter consistência com o resto do sistema. Se mais adiante quiser ver os dois custos lado a lado (5% e 20%), posso evoluir o módulo para suportar rendimento duplo.
 
 ## Detalhes técnicos
 
-- Arquivo único alterado: `supabase/functions/assistente-virtual/index.ts`.
-- Sem mudanças de schema, sem migrations.
-- Sem mudanças no front-end — UX idêntica, só mais rápido.
-- Modelo continua no gateway gratuito (Gemini), zero custo de API externa.
-- Anti-alucinação implementada na rodada anterior continua ativa.
-- Deploy automático do edge function ao salvar.
+- Tabela: `public.equipment_consumables`
+- `equipment_id`: Xerox C70 (já identificado)
+- `mode`: `color_only`
+- Operação feita via tool de inserção de dados (1 DELETE + 3 INSERT)
+- Nenhuma alteração de schema, código ou UI necessária
 
-## Fora de escopo
-
-- Streaming de tokens (mudaria o front também; podemos fazer depois se quiser ganho percebido extra).
-- Cache de contexto entre turnos (mais complexo, fica pra v2 se necessário).
-
-## Resultado esperado
-
-- Perguntas de agenda ("mostra meus compromissos", "cria lembrete X às Y"): **~1–3s** (hoje 3–8s).
-- Perguntas de produção/preços: **~2–5s** (hoje 5–13s) — ganho menor, vem só do modelo novo + menos iterações.
-
-Aprova?
+**Aprova?**
