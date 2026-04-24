@@ -1193,6 +1193,23 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           return transformed;
         }
         if (name === "list_cancelled_reminders") {
+          // GUARD REVERSO: bloqueia chamada se a pergunta do usuário não menciona cancelamento/deleção.
+          // Evita que o modelo despeje histórico de cancelados em perguntas de confirmação de agenda
+          // ("só tenho esse?", "é só isso?", "esses são todos?").
+          const explicitCancelKeywordsRegex =
+            /\b(cancel(ado|ei|ou|amento|ar|a)|delet(ado|ei|ou|ar|a)|apag(ado|uei|ou|ar|a)|remov(ido|i|eu|er|e)|exclu[ií](do|i|iu|r|a)|aconteceu|aconteceram)\b/i;
+          if (!explicitCancelKeywordsRegex.test(pergunta)) {
+            console.log(JSON.stringify({
+              type: "guard_block_cancelled_lookup",
+              iter,
+              pergunta_preview: pergunta.slice(0, 120),
+              reason: "no_cancel_keyword_in_user_question",
+            }));
+            return {
+              error:
+                "BLOQUEIO: a pergunta do usuário NÃO menciona cancelamento/deleção (palavras como 'cancelado', 'deletei', 'apaguei', 'removido', 'excluído'). NÃO chame list_cancelled_reminders. Para confirmar a agenda, responda APENAS com base nos pendentes (use list_reminders se precisar do estado atual, ou referencie a sua listagem anterior). NÃO mostre seção 'Histórico de cancelamentos/remarcações'.",
+            };
+          }
           const res = await callRemindersApi("GET", {
             include_cancelled: "1",
             include_completed: "1",
