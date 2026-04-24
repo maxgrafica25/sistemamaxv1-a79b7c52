@@ -255,7 +255,8 @@ REGRAS PARA FERRAMENTAS:
 - REMARCAR = DELETE + CREATE ATÔMICOS (REGRA INVIOLÁVEL): quando o usuário pede pra "trocar/remarcar/mudar X de H1 pra H2", o delete do antigo e o create do novo formam um par. Se o delete_reminder do antigo falhar (qualquer erro, inclusive uuid_not_in_session), você ESTÁ PROIBIDA de chamar create_reminder do novo até resolver o delete. O servidor também bloqueia esse create automaticamente e devolve {error:"delete pendente...", available_reminders:[...]}. Se mesmo após o retry do delete ele falhar, NÃO crie o novo e diga ao usuário: "Tive um problema interno ao tentar apagar o **<título> das <hora>**. Tenta de novo dizendo só 'cancelar o **<título>** das **<hora>**'?".
 - HORÁRIO VEM DE event_at, NUNCA DO TÍTULO: ao listar/citar lembretes, o horário exibido SEMPRE vem de event_at (ou remind_at se event_at for null). NUNCA extraia hora do title — mesmo que o título contenha "às 11h" ou "às 13h15", IGNORE essa parte e use o event_at. Ao exibir o título, REMOVA qualquer trecho "às XXh" / "às XXhMM" do texto (mostre só "Treino", não "Treino às 11h").
 - CONTEXTO HERDADO DA LISTA ANTERIOR: se a SUA mensagem anterior no histórico foi uma listagem de lembretes filtrada por uma data específica (ex.: "Seus pendentes para 27/04: ..."), e o usuário responder com referências curtas SEM citar nova data ("o treino das 11", "cancela o das 16h", "troca esse das 11 pra 11h15", "muda o de 14h pra 15h"), então o DIA dessas referências é o MESMO da sua listagem anterior. Use SEMPRE essa data como filtro 1 antes de chamar delete_reminder. Só mude de dia se o usuário disser explicitamente outra data.
-- CONSULTA DE CANCELADOS/DELETADOS (REGRA INVIOLÁVEL — PRIORIDADE MÁXIMA): se a pergunta do usuário contém qualquer das palavras **cancelado, cancelei, cancelamento, deletado, deletei, deletou, apagado, apaguei, removido, excluído, excluí**, você é OBRIGADA a chamar list_cancelled_reminders ANTES de responder. NUNCA responda "nada cancelado", "nada deletado", "nada agendado" sem ter chamado essa ferramenta no turno atual. NESTE APP, "deletado" == "cancelado" (não existe hard-delete pelo usuário) — trate como sinônimos.
+- AGENDA = SOMENTE PENDENTES (REGRA INVIOLÁVEL): perguntas genéricas como "tenho algum compromisso?", "o que tenho na agenda?", "quais meus compromissos?", "olhe toda a agenda", "esses são todos?" devem ser respondidas APENAS com os pendentes (resposta de list_reminders). NÃO inclua histórico de cancelamentos/remarcações nessas respostas — esse histórico SÓ aparece quando o usuário pedir EXPLICITAMENTE com palavras como "cancelado/cancelamento/deletado/deletei/apagado/apaguei/removido/excluído/o que aconteceu com X". Se a pergunta é só "tenho compromisso?" / "o que tem na agenda?" sem nenhuma dessas palavras, NUNCA mostre seção "Histórico de cancelamentos/remarcações".
+- CONSULTA DE CANCELADOS/DELETADOS (REGRA INVIOLÁVEL — PRIORIDADE MÁXIMA): se a pergunta do usuário contém qualquer das palavras **cancelado, cancelei, cancelamento, deletado, deletei, deletou, apagado, apaguei, removido, excluído, excluí** E é uma PERGUNTA/CONSULTA sobre o passado (não um comando "cancela X"/"deleta Y"), você é OBRIGADA a chamar list_cancelled_reminders ANTES de responder. NUNCA responda "nada cancelado", "nada deletado", "nada agendado" sem ter chamado essa ferramenta no turno atual. NESTE APP, "deletado" == "cancelado" (não existe hard-delete pelo usuário) — trate como sinônimos.
     • ESCOPO da janela from/to (ISO 8601 com offset −03:00):
         - Pergunta cita um dia específico ("foi cancelado dia 27?", "deletei algo ontem?"): from = '<dia>T00:00:00-03:00', to = '<dia>T23:59:59-03:00'.
         - Pergunta diz "hoje" / "essa semana" / "esse mês": janela correspondente em America/Sao_Paulo.
@@ -319,7 +320,7 @@ REGRAS PARA FERRAMENTAS:
     1. Chame list_reminders() com janela ampla (próximos 90 dias a partir de AGORA).
     2. Se vier vazio: responda "Sua agenda já está vazia."
     3. Se vier 1 item: chame delete_reminder direto com reason='user_cancelled' e confirme.
-    4. Se vier 2+ itens: liste TODOS em bullets com horário e título e pergunte: "Confirma apagar TODOS os N compromissos acima? Responda **sim** pra apagar tudo, ou diga quais quer manter." AGUARDE resposta. Se usuário responder "sim/confirma/pode/manda/apaga": chame delete_reminder em sequência pra CADA id da lista (todos no mesmo turno) e finalize com "Pronto, apaguei os N compromissos da sua agenda."
+    4. Se vier 2+ itens: liste TODOS em bullets com horário e título e pergunte: "Confirma apagar TODOS os N **compromissos pendentes** acima? Responda **sim** pra apagar tudo, ou diga quais quer manter." (N = quantidade EXATA retornada por list_reminders, NÃO conte itens da sua mensagem anterior — só o que list_reminders retornou agora). AGUARDE resposta. Se usuário responder "sim/confirma/pode/manda/apaga": chame delete_reminder em sequência pra CADA id da lista (todos no mesmo turno) e finalize com "Pronto, apaguei os N compromissos da sua agenda."
     NUNCA responda "não consegui identificar quais lembretes alterar" nesse fluxo — você TEM acesso, é só listar com list_reminders e agir.
 - CONSULTA DE LEMBRETES/COMPROMISSOS (com ou sem filtro de data): para QUALQUER pergunta tipo "quais meus lembretes", "o que tenho hoje", "compromissos de amanhã", "minha agenda de 27/04", "o que tem na sexta", "essa semana", etc., SEMPRE chame list_reminders() primeiro. NUNCA diga que não tem acesso ou que não consegue filtrar por data — você tem e consegue.
     • Depois de receber a lista, filtre VOCÊ MESMO pelo período pedido, interpretando "hoje", "amanhã", "27/04", "segunda", "essa semana", etc. em America/Sao_Paulo (use AGORA da seção DADOS OPERACIONAIS como referência).
@@ -1229,6 +1230,55 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
                 "id não verificado nesta sessão. Use EXATAMENTE um id da lista available_reminders abaixo e chame delete_reminder de novo no mesmo turno.",
               available_reminders: filteredAvailable,
             };
+          }
+          // Guard de ambiguidade: se a frase do usuário cita só horário (sem título distintivo)
+          // e há 2+ pendentes exatamente naquele horário no escopo de data ativo, recusa o delete
+          // e devolve a lista pra Júlia perguntar qual.
+          {
+            const userTimes = extractTimesFromText(pergunta);
+            const titleMentions = /\b(treino|dentista|m[eé]dico|consulta|reuni[aã]o|aula|instagram|entrega|viagem|prazo|aniversari|m[ãa]e|pai|filh|carro|reuniao)\b/i.test(pergunta);
+            if (userTimes.length > 0 && !titleMentions) {
+              if (lastPendingList.length === 0) {
+                const res = await callRemindersApi("GET", {});
+                captureIdsFromListResult(res, true);
+              }
+              const activeFilter = resolveActiveDateFilter();
+              const scopedList = activeFilter
+                ? applyDateFilterToReminderList(lastPendingList as RawReminder[], activeFilter)
+                : (lastPendingList as RawReminder[]);
+              for (const tm of userTimes) {
+                const exact = scopedList.filter((r) => {
+                  const evIso = String(r.event_at ?? r.remind_at ?? "");
+                  if (!evIso) return false;
+                  const t = fmtTimeBR(evIso);
+                  const m = t.match(/^(\d{2}):(\d{2})$/);
+                  if (!m) return false;
+                  return hhmmToMinutes(parseInt(m[1], 10), parseInt(m[2], 10)) === tm;
+                });
+                if (exact.length >= 2 && !exact.some((r) => r.id === id)) continue;
+                if (exact.length >= 2) {
+                  const hh = String(Math.floor(tm / 60)).padStart(2, "0");
+                  const mm = String(tm % 60).padStart(2, "0");
+                  console.warn(`[assistente-virtual] delete ambiguous at ${hh}h${mm}: ${exact.length} matches`);
+                  opResults.push({
+                    tool: "delete_reminder",
+                    ok: false,
+                    detail: `⚠️ Ambíguo: ${exact.length} compromissos às ${hh}h${mm} — preciso saber qual.`,
+                  });
+                  return {
+                    error: `Há ${exact.length} compromissos pendentes às ${hh}h${mm}. NÃO chame delete_reminder. Liste-os pro usuário e pergunte qual cancelar (cite título e data de cada um).`,
+                    ambiguous_at: `${hh}:${mm}`,
+                    candidates: exact.map((r) => ({
+                      id: r.id,
+                      title: cleanTitleForDisplay(String(r.title ?? "")),
+                      event_at: r.event_at ?? r.remind_at,
+                      event_date_br: fmtDateBR(String(r.event_at ?? r.remind_at ?? "")),
+                      event_time_br: fmtTimeBR(String(r.event_at ?? r.remind_at ?? "")),
+                    })),
+                  };
+                }
+              }
+            }
           }
           // Em modo remarcar, força reason='rescheduled' (mesmo se modelo esquecer)
           const finalArgs: Record<string, unknown> = { ...args };
