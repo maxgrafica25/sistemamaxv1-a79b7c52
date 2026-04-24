@@ -456,13 +456,26 @@ export default function Equipamentos() {
 
                 {/* ── Consumíveis Tab ── */}
                 <TabsContent value="consumiveis" className="space-y-6 mt-4">
+                  {/* Coverage info banner */}
+                  {!isRibbon && (
+                    <div className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                      <span className="text-base leading-none">💡</span>
+                      <span>
+                        Orçamentos baseados no <strong className="text-foreground">Custo de Produção (20% de cobertura)</strong>. O rendimento cadastrado segue o padrão do fabricante (5%).
+                      </span>
+                    </div>
+                  )}
+
                   {/* Summary line */}
-                  <div className="flex items-center gap-6 text-sm text-muted-foreground px-1">
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm text-muted-foreground px-1">
                     <span><strong className="text-foreground">{activeConsumables.length}</strong> consumíveis</span>
                     {isRibbon ? (
                       <span>Custo/impressão: <strong className="text-foreground">{fmt4(costPerPage)}</strong></span>
                     ) : (
-                      <span>Custo/página (5%): <strong className="text-foreground">{fmt4(costPerPage)}</strong></span>
+                      <>
+                        <span className="opacity-70">Fabricante (5%): <strong className="text-foreground/80">{fmt4(costPerPage)}</strong></span>
+                        <span>Produção (20%): <strong className="text-primary">{fmt4(costPerPage * 4)}</strong></span>
+                      </>
                     )}
                   </div>
 
