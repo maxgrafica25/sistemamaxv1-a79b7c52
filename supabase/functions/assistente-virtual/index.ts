@@ -1463,6 +1463,32 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         continue;
       }
 
+      // GUARD: usuário respondeu antecedência (ex.: "15 minutos antes", "na hora", "1h antes", "30min", "45 min")
+      // e o modelo chamou check_reminder_conflict mas NÃO chamou create_reminder neste turno.
+      // Isso causou alucinação ("Pronto! Te aviso...") sem persistir o lembrete. Força criação.
+      const leadTimeAnswerRegex =
+        /^\s*(na hora|em cima da hora|no hor[áa]rio|\d{1,3}\s*(min(uto)?s?|m|h|hora|horas)(\s+antes)?|\d{1,2}\s*h\s*antes|uma?\s+hora\s+antes|meia\s+hora\s+antes)\s*\.?\s*$/i;
+      const looksLikeLeadTime = leadTimeAnswerRegex.test(pergunta.trim());
+      const calledConflict = toolsCalled.includes("check_reminder_conflict");
+      const calledCreate = toolsCalled.includes("create_reminder");
+      if (looksLikeLeadTime && calledConflict && !calledCreate && iter < 5) {
+        console.log(JSON.stringify({
+          type: "guard_force_create_after_lead_time",
+          iter,
+          pergunta_preview: pergunta.slice(0, 80),
+          tools_called: toolsCalled,
+        }));
+        messages.push({
+          role: "system",
+          content:
+            `BLOQUEIO: o usuário acabou de responder a ANTECEDÊNCIA do lembrete (ex.: "${pergunta.trim().slice(0, 40)}"). ` +
+            `Você chamou check_reminder_conflict mas NÃO chamou create_reminder. Você está PROIBIDA de responder "Pronto/Criado/Te aviso" sem antes chamar create_reminder e receber created_id. ` +
+            `Releia SUA mensagem anterior no histórico para identificar o título e o horário do compromisso pendente, calcule remind_local = event_local − antecedência respondida, e CHAME create_reminder AGORA com { title, event_local, remind_local }. ` +
+            `Se houver mais de um compromisso na fila, processe apenas o que está sendo respondido neste turno; depois siga a regra da fila para o próximo.`,
+        });
+        continue;
+      }
+
       resposta = (msg?.content ?? "").trim() || "Não consegui gerar uma resposta.";
       break;
     }
