@@ -1614,6 +1614,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       type: "turn_summary",
       user_id: userData.user.id,
       pergunta: pergunta.slice(0, 200),
+      tools_called: toolsCalled,
       operations: opResults,
       resposta_preview: resposta.slice(0, 300),
     }));
