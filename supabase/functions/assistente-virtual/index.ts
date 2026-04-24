@@ -294,6 +294,7 @@ REGRAS PARA FERRAMENTAS:
     • SEMPRE comece identificando TODOS os compromissos com horário marcado citados pelo usuário (ligados por "e", vírgula, "também", "depois", "ainda"). Ex.: "treino na segunda às 11h e instagram às 16h" = 2 compromissos.
     • FUSO HORÁRIO — REGRA CRÍTICA: sempre calcule remind_at em America/Sao_Paulo (UTC−3, sem horário de verão). Para CADA compromisso da lista, recalcule do zero — NÃO reaproveite o offset/horário do anterior. Confira mentalmente antes de chamar a ferramenta: se o usuário disse "16h", o ISO DEVE terminar em "T16:00:00-03:00" (equivalente a "T19:00:00Z"), NUNCA "T14:00:00-03:00" ou "T16:00:00Z". Errar o fuso ao processar múltiplos compromissos é o defeito mais grave possível neste fluxo.
     • Se o usuário JÁ disse a antecedência de cada um na mesma frase (ex.: "me avise 30min antes do treino das 11h e na hora do instagram das 16h"): processe TODOS de uma vez — para cada compromisso, faça check_reminder_conflict + create_reminder em sequência. Ao final, confirme listando os 2+ avisos criados em uma única resposta. NÃO emita chips.
+    • PROIBIÇÃO ABSOLUTA DE CONFIRMAÇÃO FALSA (REGRA INVIOLÁVEL): NUNCA diga "Pronto", "agendado", "Te aviso", "criado", "lembrete foi agendado" ou similar sem ter recebido created_id de uma chamada create_reminder neste MESMO turno. Se você só chamou check_reminder_conflict (sem create), sua única ação válida é PERGUNTAR a antecedência do compromisso (Linha 1: "Falta combinar o aviso de **<assunto> às <hora>**. Quando quer ser avisado?" / Linha 2: [JULIA_CHIPS:lead_time]). Confirmar sem ter criado é alucinar — o lembrete NÃO existe no banco e o usuário será enganado.
     • Se a antecedência NÃO foi dita: trate como FILA. Pegue o PRIMEIRO compromisso e siga a regra dos chips (linha 1: "Quando quer ser avisado?" / linha 2: [JULIA_CHIPS:lead_time]). Os demais ficam pendentes.
     • Após criar o lembrete do primeiro, se ainda houver compromissos pendentes na fila, ANTES de pedir a antecedência do próximo você DEVE chamar check_reminder_conflict para o horário desse próximo compromisso (window_minutes=15).
         - Se conflicts vier vazio: sua resposta de confirmação DEVE ter este formato exato:
@@ -1577,7 +1578,33 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
         continue;
       }
 
-      resposta = (msg?.content ?? "").trim() || "Não consegui gerar uma resposta.";
+      // GUARD ANTI-ALUCINAÇÃO DE CONFIRMAÇÃO: o modelo respondeu "Pronto/agendado/Te aviso/criado"
+      // mas NÃO executou create_reminder nem delete_reminder com sucesso neste turno.
+      // Sem essa rede de proteção, o usuário recebe confirmações falsas (lembrete inexistente).
+      const finalText = (msg?.content ?? "").trim();
+      const confirmRegex =
+        /\b(pronto|agendad[oa]|criad[oa]|te aviso|aviso (você|voce)|foi (agendad|criad|adicionad|cancelad|removid|deletad)|lembrete .{0,40}foi|adicionei|cancelei|removi|deletei|apaguei)\b/i;
+      const createSucceeded = opResults.some((o) => o.tool === "create_reminder" && o.ok);
+      const deleteSucceeded = opResults.some((o) => o.tool === "delete_reminder" && o.ok);
+      const claimsConfirmation = confirmRegex.test(finalText);
+      if (claimsConfirmation && !createSucceeded && !deleteSucceeded && iter < 5) {
+        console.log(JSON.stringify({
+          type: "guard_blocked_fake_confirmation",
+          iter,
+          tools_called: toolsCalled,
+          resposta_preview: finalText.slice(0, 120),
+        }));
+        messages.push({
+          role: "system",
+          content:
+            `BLOQUEIO CRÍTICO: você acabou de responder confirmando uma operação ("${finalText.slice(0, 100)}…") MAS você NÃO chamou create_reminder/delete_reminder com sucesso neste turno. ` +
+            `É TERMINANTEMENTE PROIBIDO dizer "Pronto", "agendado", "criado", "Te aviso", "cancelei", "removi" ou similar sem ter executado a operação correspondente. ` +
+            `AÇÃO CORRETIVA: Releia o pedido original do usuário. Se você ainda precisa perguntar a antecedência (lead time) de algum compromisso, sua ÚNICA resposta válida agora é perguntar a antecedência do PRIMEIRO compromisso pendente da fila e emitir [JULIA_CHIPS:lead_time] — NADA de "Pronto" antes disso. Se você já tem todos os dados (título + event_local + remind_local), CHAME create_reminder AGORA para cada compromisso pendente.`,
+        });
+        continue;
+      }
+
+      resposta = finalText || "Não consegui gerar uma resposta.";
       break;
     }
 
