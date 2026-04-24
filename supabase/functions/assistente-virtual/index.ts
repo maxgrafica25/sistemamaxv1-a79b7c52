@@ -548,7 +548,21 @@ ${papLines.length > 0 ? papLines.join("\n") : "(nenhum papel ativo)"}
 ### PREÇOS DE IMPRESSÃO (preço de venda já calculado por faixa de quantidade)
 ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`;
 
-    const systemPrompt = `${camada1}\n\n${camada2}\n\n${camada3}`;
+    // ⚡ Em modo agenda, troca a camada3 por uma versão enxuta (só Google Calendar + equipamentos)
+    // para reduzir drasticamente os tokens enviados ao modelo.
+    const camada3Slim = `## DADOS OPERACIONAIS
+
+### GOOGLE CALENDAR DO USUÁRIO
+${gcalStatusLine}
+
+### EQUIPAMENTOS (resumo)
+${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cadastrado)"}
+
+(Dados de consumíveis, leituras de impressora, papéis e preços não foram carregados nesta resposta — peça especificamente se precisar.)`;
+
+    const systemPrompt = isAgendaOnly
+      ? `${camada1}\n\n${camada2}\n\n${camada3Slim}`
+      : `${camada1}\n\n${camada2}\n\n${camada3}`;
 
     // 6) Tool calling — definir ferramentas disponíveis (lembretes)
     const tools = [
