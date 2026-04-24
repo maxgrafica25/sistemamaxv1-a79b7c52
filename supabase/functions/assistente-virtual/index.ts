@@ -1197,11 +1197,10 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           // Evita que o modelo despeje histórico de cancelados em perguntas de confirmação de agenda
           // ("só tenho esse?", "é só isso?", "esses são todos?").
           const explicitCancelKeywordsRegex =
-            /\b(cancel(ado|ei|ou|amento|ar|a)|delet(ado|ei|ou|ar|a)|apag(ado|uei|ou|ar|a)|remov(ido|i|eu|er|e)|exclu[ií](do|i|iu|r|a)|aconteceu|aconteceram)\b/i;
+            /\b(cancel(ado|ei|ou|amento|ar|a)s?|delet(ado|ei|ou|ar|a)s?|apag(ado|uei|ou|ar|a)s?|remov(ido|i|eu|er|e)s?|exclu[ií](do|i|iu|r|a)s?|aconteceu|aconteceram)\b/i;
           if (!explicitCancelKeywordsRegex.test(pergunta)) {
             console.log(JSON.stringify({
               type: "guard_block_cancelled_lookup",
-              iter,
               pergunta_preview: pergunta.slice(0, 120),
               reason: "no_cancel_keyword_in_user_question",
             }));
