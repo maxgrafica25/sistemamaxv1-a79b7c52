@@ -1142,6 +1142,10 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             : typeof argsAny.toDate === "string" ? argsAny.toDate as string
             : typeof argsAny.to === "string" ? argsAny.to as string
             : undefined;
+          // Sanitiza: se vier ISO completo ('2026-04-27T00:00:00-03:00'), corta pra YYYY-MM-DD.
+          // O filtro depende do formato curto pra comparar contra event_date_br.
+          if (fromDate && fromDate.length > 10) fromDate = fromDate.slice(0, 10);
+          if (toDate && toDate.length > 10) toDate = toDate.slice(0, 10);
           // Se o modelo esqueceu a data e há contexto herdado da listagem anterior, aplica
           if (!fromDate && !toDate && inheritedDateFilter) {
             fromDate = inheritedDateFilter;
@@ -1379,12 +1383,23 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           } catch {
             parsedArgs = {};
           }
-          console.log(
-            `[assistente-virtual] tool ${tc.function.name} args →`,
-            JSON.stringify(parsedArgs),
-          );
+          console.log(JSON.stringify({
+            type: "tool_call",
+            iter,
+            name: tc.function.name,
+            args: parsedArgs,
+          }));
           const result = await executeTool(tc.function.name, parsedArgs);
-          console.log(`[assistente-virtual] tool ${tc.function.name} →`, JSON.stringify(result));
+          const resAny = result as { error?: string; reminder?: { id?: string }; ok?: boolean; reminders?: unknown[] };
+          console.log(JSON.stringify({
+            type: "tool_result",
+            iter,
+            name: tc.function.name,
+            ok: !resAny?.error,
+            error: resAny?.error ?? null,
+            created_id: resAny?.reminder?.id ?? null,
+            list_count: Array.isArray(resAny?.reminders) ? resAny.reminders.length : null,
+          }));
           messages.push({
             role: "tool",
             tool_call_id: tc.id,
@@ -1557,6 +1572,14 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
     }
 
     if (!resposta) resposta = "Não consegui finalizar a resposta. Tente novamente.";
+
+    console.log(JSON.stringify({
+      type: "turn_summary",
+      user_id: userData.user.id,
+      pergunta: pergunta.slice(0, 200),
+      operations: opResults,
+      resposta_preview: resposta.slice(0, 300),
+    }));
 
     return new Response(JSON.stringify({ resposta }), {
       status: 200,

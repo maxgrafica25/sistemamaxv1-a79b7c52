@@ -1,29 +1,39 @@
-# Melhorar acessibilidade do botão da Júlia no mobile
+## Mudanças aprovadas — implementar ao sair do modo plano
 
-## Problema
-O botão flutuante da Júlia (canto inferior direito) às vezes não é clicável no celular, especialmente quando:
-- A barra de navegação do navegador móvel (Chrome/Safari) cobre o botão
-- Modais, Sheets ou Toasts aparecem com z-index maior
-- O touch target é muito pequeno para dedos
+### 1. `supabase/functions/assistente-virtual/index.ts`
 
-## Solução
-Ajustar o componente `AssistenteButton.tsx` com:
+**A) Anti-alucinação de confirmação**
+- Acumular durante o loop de tools:
+  - `createdInThisTurn: Array<{title, remind_at, id}>`
+  - `failedInThisTurn: Array<{title, reason}>`
+- Antes da resposta final, injetar mensagem `system` obrigatória:
+  > "REGRAS ESTRITAS DE CONFIRMAÇÃO: só use ✅ para itens em CRIADOS_NESTE_TURNO. Para itens em FALHAS_NESTE_TURNO, use ❌ e diga o motivo. Não invente confirmações."
+- Incluir os dois arrays serializados como JSON nessa mensagem.
 
-1. **Posicionamento responsivo**:
-   - Mobile: `bottom-20 right-4` (mais acima, longe da barra do navegador)
-   - Desktop: `sm:bottom-6 sm:right-6` (posição original)
+**B) Sanitização de datas em `list_reminders`**
+- Aplicar `?.slice(0, 10)` em `from_date` / `to_date` antes do filtro, garantindo formato `YYYY-MM-DD`.
+- Converter para limites do dia em UTC (`T00:00:00Z` / `T23:59:59Z`) antes de comparar com `remind_at`.
 
-2. **Z-index maior**: `z-[60]` para ficar acima de modais/sheets (que usam z-50)
+**C) Logging estruturado**
+- Para cada iteração de tool: `console.log(JSON.stringify({type:'tool_call', name, args}))`.
+- Para cada resultado: `console.log(JSON.stringify({type:'tool_result', name, ok, error?, id?}))`.
+- Ao final do turno: `console.log(JSON.stringify({type:'turn_summary', created: createdInThisTurn, failed: failedInThisTurn}))`.
 
-3. **Touch target maior**: `h-14 w-14` no mobile (mínimo 44px recomendado), `sm:h-[52px] sm:w-[52px]` no desktop
+### 2. Migration — limpar duplicatas de teste
+SQL:
+```sql
+UPDATE public.reminders
+SET cancelled_at = now(), cancelled_reason = 'user_cancelled'
+WHERE title ILIKE 'Academia'
+  AND event_at >= '2026-04-27T00:00:00-03:00'
+  AND event_at <  '2026-04-28T00:00:00-03:00'
+  AND cancelled_at IS NULL;
+```
 
-4. **Remover delay de touch**: `[touch-action:manipulation]` para eliminar o delay de 300ms em dispositivos móveis
+### 3. Redeploy
+Automático após salvar a função.
 
-## Arquivo a modificar
-- `src/components/assistente/AssistenteButton.tsx` (linhas 111-132 aproximadamente)
-
-## Resultado esperado
-- Botão sempre visível e clicável no celular
-- Não fica escondido atrás da barra do navegador
-- Funciona normalmente no desktop
-- Responde imediatamente ao toque (sem delay)
+## Como testar
+1. "Júlia, crie Treino dia 27 às 11h e Dentista dia 27 às 14h."
+2. "Quais compromissos tenho dia 27?"
+3. Conferir nos logs o `turn_summary` para validar criados vs. confirmados.
