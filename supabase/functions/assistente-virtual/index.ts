@@ -1448,7 +1448,7 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
       return lastResp!;
     }
 
-    for (let iter = 0; iter < 6; iter++) {
+    for (let iter = 0; iter < 4; iter++) {
       const aiResp = await callGateway();
 
       if (aiResp.status === 429) {
