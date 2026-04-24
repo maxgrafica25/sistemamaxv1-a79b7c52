@@ -804,7 +804,21 @@ export default function Equipamentos() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Preço (R$)</Label>
+                <div className="flex items-center gap-1.5">
+                  <Label>Preço (R$)</Label>
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                          <HelpCircle className="h-3.5 w-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs text-xs">
+                        Valor de compra do consumível. <strong>Para Depreciação:</strong> informe o valor pago na impressora menos o valor residual estimado de revenda (ex: pagou R$ 30.000, espera vender por R$ 5.000 → cadastre R$ 25.000). No campo Rendimento, informe o total de páginas previstas na vida útil.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <Input type="number" step="0.01" value={consPrice} onChange={(e) => setConsPrice(e.target.value)} />
               </div>
               <div className="space-y-2">
