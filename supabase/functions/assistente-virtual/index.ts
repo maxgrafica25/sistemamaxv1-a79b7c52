@@ -1423,8 +1423,8 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
       let lastResp: Response | null = null;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const requestBody: Record<string, unknown> = forceNoTools
-          ? { model: "google/gemini-2.5-flash", messages, tool_choice: "none" }
-          : { model: "google/gemini-2.5-flash", messages, tools, tool_choice: "auto" };
+          ? { model: "google/gemini-3-flash-preview", messages, tool_choice: "none" }
+          : { model: "google/gemini-3-flash-preview", messages, tools, tool_choice: "auto" };
         const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
