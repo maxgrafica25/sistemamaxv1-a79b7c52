@@ -1446,7 +1446,19 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       // GUARD: se a pergunta é sobre cancelados/deletados mas o modelo não chamou
       // list_cancelled_reminders neste turno, força re-execução com instrução explícita.
       const cancelKeywordsRegex = /\b(cancel|delet|apag|remov|exclu[ií])/i;
-      const askedAboutCancelled = cancelKeywordsRegex.test(pergunta);
+      // Detecta COMANDOS imperativos/infinitivos de ação ("deletar todos", "apaga o treino",
+      // "cancela o dentista", "remover tudo", "excluir X"). Esses são ordens — devem cair
+      // no fluxo normal (list_reminders + delete_reminder), NÃO no lookup de cancelados.
+      // Só dispara o guard pra perguntas de CONSULTA sobre o que já foi cancelado no passado
+      // ("foi cancelado?", "deletei algo?", "o que aconteceu com X?").
+      const imperativeDeleteRegex =
+        /^\s*(me\s+)?(pode\s+|por\s+favor\s+|favor\s+)?(delet(ar|a|e|em)|apag(ar|a|ue|uem|e)|cancel(ar|a|e|em)|remov(er|e|a|am)|exclu(ir|i|a|am)|limp(ar|a|e)|zer(ar|a|e))\b/i;
+      const interrogativeCancelRegex =
+        /\?|\b(foi|foram|tinha|tinham|t[ií]nhamos|deletei|deletou|cancelei|cancelou|apaguei|apagou|removi|removeu|exclu[ií]|excluiu|que aconteceu|aconteceu com|o que houve)\b/i;
+      const looksLikeImperativeDelete =
+        imperativeDeleteRegex.test(pergunta) && !interrogativeCancelRegex.test(pergunta);
+      const askedAboutCancelled =
+        cancelKeywordsRegex.test(pergunta) && !looksLikeImperativeDelete;
       const calledCancelledList = toolsCalled.includes("list_cancelled_reminders");
       if (askedAboutCancelled && !calledCancelledList && iter < 5) {
         console.log(JSON.stringify({
