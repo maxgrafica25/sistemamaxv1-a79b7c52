@@ -112,12 +112,24 @@ export default function AssistenteButton() {
         type="button"
         aria-label="Abrir Júlia, assistente virtual da Max Gráfica"
         onClick={() => setOpen(true)}
+        style={{
+          // Respeita safe-area do iPhone (home indicator) e mantém o mínimo do mobile
+          bottom: "max(5rem, env(safe-area-inset-bottom) + 1rem)",
+        }}
         className={cn(
-          "fixed bottom-6 right-6 z-50 h-[52px] w-[52px] rounded-full",
+          // Posição: mobile mais alto pra fugir da barra do navegador; desktop volta ao normal
+          "fixed right-4 sm:right-6 sm:!bottom-6",
+          // Z-index acima de Sheets/Dialogs/Toasts (que usam z-50)
+          "z-[60]",
+          // Touch target maior no mobile
+          "h-14 w-14 sm:h-[52px] sm:w-[52px]",
+          "rounded-full",
           "bg-primary text-primary-foreground shadow-lg",
           "flex items-center justify-center",
           "hover:scale-105 active:scale-95 transition-transform",
           "ring-1 ring-primary/30",
+          // Elimina delay de 300ms em alguns Androids
+          "[touch-action:manipulation]",
         )}
       >
         <Sparkles className="h-6 w-6" />
