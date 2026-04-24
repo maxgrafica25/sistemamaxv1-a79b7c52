@@ -227,7 +227,7 @@ FERRAMENTAS DISPONÍVEIS (lembretes):
   • event_local: HORÁRIO LOCAL Brasil do COMPROMISSO REAL no mesmo formato (ex.: '2026-04-27T14:00'). OBRIGATÓRIO sempre que houver aviso antecipado (remind_local < event_local). OMITIR para tarefas avulsas ("tomar água às 16h" → só remind_local).
   • recurrence: "none" | "daily" | "weekly" | "monthly" (padrão "none").
 - list_reminders({ from_date?, to_date? }): lista lembretes pendentes do usuário (cada item traz remind_at, event_at e display_line). SEMPRE que o usuário pedir um dia/intervalo específico ("o que tenho dia 27?", "amanhã", "quinta", "essa semana"), passe from_date e to_date no formato 'YYYY-MM-DD' (data LOCAL Brasil). Para um único dia, from_date = to_date.
-- list_cancelled_reminders({ from, to }): lista lembretes JÁ CANCELADOS do usuário numa janela ISO 8601. Use APENAS quando o usuário perguntar "eu tinha algo?" / "tinha compromisso?" e list_reminders não trouxer nada no horário.
+- list_cancelled_reminders({ from, to }): lista lembretes JÁ CANCELADOS/DELETADOS do usuário numa janela ISO 8601 (with offset, ex.: '2026-04-24T00:00:00-03:00'). Use SEMPRE que o usuário perguntar sobre cancelamento/deleção (palavras: cancelado, cancelei, cancelamento, deletado, deletei, apagado, apaguei, removido, excluído, "o que aconteceu com X", "eu tinha algo?"). NÃO espere list_reminders vir vazio — chame direto.
 - delete_reminder({ id, reason? }): cancela lembrete pelo id (use list_reminders antes para descobrir o id). reason='user_cancelled' (default) para cancelamento puro; reason='rescheduled' quando o cancelamento é parte de um remarcar (delete antigo + create novo). O servidor força automaticamente 'rescheduled' se a frase do usuário for de remarcar, mas SEMPRE passe explicitamente quando souber.
 - check_reminder_conflict({ remind_local, window_minutes?, exclude_id? }): verifica conflito comparando event_at dos pendentes contra o horário proposto. PASSE remind_local em hora LOCAL Brasil 'YYYY-MM-DDTHH:mm' (ex.: '2026-04-27T11:00') — o servidor anexa o fuso. NÃO monte ISO com offset manualmente. Se houver evento real, passe event_local; se for tarefa avulsa, o próprio remind_local. Padrão window_minutes=15. Retorna { conflicts: [...] }.
 
@@ -255,6 +255,13 @@ REGRAS PARA FERRAMENTAS:
 - REMARCAR = DELETE + CREATE ATÔMICOS (REGRA INVIOLÁVEL): quando o usuário pede pra "trocar/remarcar/mudar X de H1 pra H2", o delete do antigo e o create do novo formam um par. Se o delete_reminder do antigo falhar (qualquer erro, inclusive uuid_not_in_session), você ESTÁ PROIBIDA de chamar create_reminder do novo até resolver o delete. O servidor também bloqueia esse create automaticamente e devolve {error:"delete pendente...", available_reminders:[...]}. Se mesmo após o retry do delete ele falhar, NÃO crie o novo e diga ao usuário: "Tive um problema interno ao tentar apagar o **<título> das <hora>**. Tenta de novo dizendo só 'cancelar o **<título>** das **<hora>**'?".
 - HORÁRIO VEM DE event_at, NUNCA DO TÍTULO: ao listar/citar lembretes, o horário exibido SEMPRE vem de event_at (ou remind_at se event_at for null). NUNCA extraia hora do title — mesmo que o título contenha "às 11h" ou "às 13h15", IGNORE essa parte e use o event_at. Ao exibir o título, REMOVA qualquer trecho "às XXh" / "às XXhMM" do texto (mostre só "Treino", não "Treino às 11h").
 - CONTEXTO HERDADO DA LISTA ANTERIOR: se a SUA mensagem anterior no histórico foi uma listagem de lembretes filtrada por uma data específica (ex.: "Seus pendentes para 27/04: ..."), e o usuário responder com referências curtas SEM citar nova data ("o treino das 11", "cancela o das 16h", "troca esse das 11 pra 11h15", "muda o de 14h pra 15h"), então o DIA dessas referências é o MESMO da sua listagem anterior. Use SEMPRE essa data como filtro 1 antes de chamar delete_reminder. Só mude de dia se o usuário disser explicitamente outra data.
+- CONSULTA DE CANCELADOS/DELETADOS (REGRA INVIOLÁVEL — PRIORIDADE MÁXIMA): se a pergunta do usuário contém qualquer das palavras **cancelado, cancelei, cancelamento, deletado, deletei, deletou, apagado, apaguei, removido, excluído, excluí**, você é OBRIGADA a chamar list_cancelled_reminders ANTES de responder. NUNCA responda "nada cancelado", "nada deletado", "nada agendado" sem ter chamado essa ferramenta no turno atual. NESTE APP, "deletado" == "cancelado" (não existe hard-delete pelo usuário) — trate como sinônimos.
+    • ESCOPO da janela from/to (ISO 8601 com offset −03:00):
+        - Pergunta cita um dia específico ("foi cancelado dia 27?", "deletei algo ontem?"): from = '<dia>T00:00:00-03:00', to = '<dia>T23:59:59-03:00'.
+        - Pergunta diz "hoje" / "essa semana" / "esse mês": janela correspondente em America/Sao_Paulo.
+        - Pergunta diz "toda a agenda" / "qualquer dia" / "alguma vez" / SEM data ("algum compromisso foi cancelado?", "deletei alguma coisa?"): use janela ampla — from = AGORA − 30 dias, to = AGORA + 90 dias.
+    • Após receber a resposta, aplique o FILTRO POR INTENÇÃO da regra abaixo (mostrar só cancelled_reason='user_cancelled' quando a pergunta é especificamente sobre cancelamento/deleção; ignorar 'rescheduled').
+    • Se vier vazio: "Nada cancelado <período>." (ex.: "Nada cancelado em toda a agenda.", "Nada cancelado para 27/04.").
 - CONSULTA HISTÓRICA ("eu tinha algo?", "tinha compromisso ontem?", "o das 16h não estava marcado?", "tinha alguma coisa marcada dia X?", "algo cancelado pra dia X?", "o que aconteceu com X?"): quando o usuário pergunta se EXISTIA algo num dia/horário (não está pedindo pra criar nem listar pendentes futuros):
     1. Chame list_reminders() e filtre pelo dia/horário pedido.
     2. Se vier vazio (ou se a pergunta for explicitamente sobre "cancelado"/"o que aconteceu com"), chame list_cancelled_reminders({ from, to }) com from/to cobrindo o dia inteiro pedido (em America/Sao_Paulo, convertido pra ISO com offset).
@@ -923,6 +930,9 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
     // Auditoria: registra resultado real de cada tool de mutação para montar o resumo final
     type OpResult = { tool: string; ok: boolean; detail: string };
     const opResults: OpResult[] = [];
+    // Auditoria de TODAS as tools chamadas no turno (incluindo leituras como list_*),
+    // usado para guards e turn_summary.
+    const toolsCalled: string[] = [];
 
     function normalize(s: string): string {
       return (s || "")
@@ -1389,6 +1399,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             name: tc.function.name,
             args: parsedArgs,
           }));
+          toolsCalled.push(tc.function.name);
           const result = await executeTool(tc.function.name, parsedArgs);
           const resAny = result as { error?: string; reminder?: { id?: string }; ok?: boolean; reminders?: unknown[] };
           console.log(JSON.stringify({
@@ -1424,6 +1435,32 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           messages.push({ role: "system", content: auditMsg });
         }
         continue; // próxima iteração para o modelo formatar resposta
+      }
+
+      // GUARD: se a pergunta é sobre cancelados/deletados mas o modelo não chamou
+      // list_cancelled_reminders neste turno, força re-execução com instrução explícita.
+      const cancelKeywordsRegex = /\b(cancel|delet|apag|remov|exclu[ií])/i;
+      const askedAboutCancelled = cancelKeywordsRegex.test(pergunta);
+      const calledCancelledList = toolsCalled.includes("list_cancelled_reminders");
+      if (askedAboutCancelled && !calledCancelledList && iter < 5) {
+        console.log(JSON.stringify({
+          type: "guard_force_cancelled_lookup",
+          iter,
+          pergunta_preview: pergunta.slice(0, 120),
+        }));
+        // Calcula janela ampla padrão (−30d / +90d) em offset −03:00, caso o modelo precise.
+        const nowMs = Date.now();
+        const fromIso = new Date(nowMs - 30 * 86400_000).toISOString().replace(/\.\d+Z$/, "-03:00");
+        const toIso = new Date(nowMs + 90 * 86400_000).toISOString().replace(/\.\d+Z$/, "-03:00");
+        messages.push({
+          role: "system",
+          content:
+            `BLOQUEIO: o usuário perguntou sobre lembretes CANCELADOS/DELETADOS (palavra detectada na frase). Você NÃO pode responder ainda. Chame list_cancelled_reminders AGORA. ` +
+            `Se a pergunta cita um dia, use aquele dia inteiro em America/Sao_Paulo. ` +
+            `Se a pergunta NÃO cita data (ex.: "algum compromisso foi cancelado?", "deletei alguma coisa?", "toda a agenda"), use janela ampla: from='${fromIso}' to='${toIso}'. ` +
+            `Depois de receber a resposta, mostre só os com cancelled_reason='user_cancelled' (ignore 'rescheduled'). Se vier vazio, responda "Nada cancelado <período>." NÃO chute.`,
+        });
+        continue;
       }
 
       resposta = (msg?.content ?? "").trim() || "Não consegui gerar uma resposta.";
@@ -1577,6 +1614,7 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
       type: "turn_summary",
       user_id: userData.user.id,
       pergunta: pergunta.slice(0, 200),
+      tools_called: toolsCalled,
       operations: opResults,
       resposta_preview: resposta.slice(0, 300),
     }));
