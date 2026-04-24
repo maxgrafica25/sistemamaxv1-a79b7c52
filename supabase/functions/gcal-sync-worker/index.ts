@@ -17,7 +17,7 @@ interface TokenRow {
   expires_at: string;
 }
 
-async function refreshIfNeeded(admin: ReturnType<typeof createClient>, t: TokenRow): Promise<string> {
+async function refreshIfNeeded(admin: any, t: TokenRow): Promise<string> {
   const expiresAt = new Date(t.expires_at).getTime();
   if (expiresAt - Date.now() > 60_000) return t.access_token;
   const res = await fetch("https://oauth2.googleapis.com/token", {
