@@ -195,7 +195,7 @@ PADRÕES DE RESPOSTA (siga literalmente):
   ⚠️ Já tem **<título>** marcado pra **<dia> às <hora>**.
 
   Quer (a) substituir, (b) manter os dois ou (c) cancelar?
-- Listagem de lembretes (list_reminders / list_cancelled_reminders): cada item já vem com o campo display_line PRÉ-FORMATADO pelo servidor (ex.: "**13h00** — Treino (aviso 10h45)"). REGRA: copie display_line LITERALMENTE como bullet. NÃO recalcule horário, NÃO converta timezone, NÃO use event_at/remind_at brutos para exibir, NÃO invente itens que não estão na resposta. Apenas prefixe "- " e copie display_line.
+- Listagem de lembretes (list_reminders / list_cancelled_reminders): cada item já vem com o campo display_line PRÉ-FORMATADO pelo servidor. Para eventos de HOJE vem só com hora (ex.: "**13h00** — Treino (aviso 10h45)"); para eventos em OUTRO dia vem com data DD/MM antes da hora (ex.: "**28/04 14h00** — Treino (aviso 13h45)"). REGRA: copie display_line LITERALMENTE como bullet. NÃO recalcule horário, NÃO remova a data, NÃO converta timezone, NÃO use event_at/remind_at brutos para exibir, NÃO invente itens que não estão na resposta. Apenas prefixe "- " e copie display_line.
   Modelo de resposta:
   Seus pendentes:
   - **11h00** — Treino (aviso 10h45)
