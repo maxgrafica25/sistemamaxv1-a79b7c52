@@ -1142,6 +1142,10 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
             : typeof argsAny.toDate === "string" ? argsAny.toDate as string
             : typeof argsAny.to === "string" ? argsAny.to as string
             : undefined;
+          // Sanitiza: se vier ISO completo ('2026-04-27T00:00:00-03:00'), corta pra YYYY-MM-DD.
+          // O filtro depende do formato curto pra comparar contra event_date_br.
+          if (fromDate && fromDate.length > 10) fromDate = fromDate.slice(0, 10);
+          if (toDate && toDate.length > 10) toDate = toDate.slice(0, 10);
           // Se o modelo esqueceu a data e há contexto herdado da listagem anterior, aplica
           if (!fromDate && !toDate && inheritedDateFilter) {
             fromDate = inheritedDateFilter;
