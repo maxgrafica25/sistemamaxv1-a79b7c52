@@ -1383,12 +1383,23 @@ ${precoLines.length > 0 ? precoLines.join("\n") : "(nenhum preço cadastrado)"}`
           } catch {
             parsedArgs = {};
           }
-          console.log(
-            `[assistente-virtual] tool ${tc.function.name} args →`,
-            JSON.stringify(parsedArgs),
-          );
+          console.log(JSON.stringify({
+            type: "tool_call",
+            iter,
+            name: tc.function.name,
+            args: parsedArgs,
+          }));
           const result = await executeTool(tc.function.name, parsedArgs);
-          console.log(`[assistente-virtual] tool ${tc.function.name} →`, JSON.stringify(result));
+          const resAny = result as { error?: string; reminder?: { id?: string }; ok?: boolean; reminders?: unknown[] };
+          console.log(JSON.stringify({
+            type: "tool_result",
+            iter,
+            name: tc.function.name,
+            ok: !resAny?.error,
+            error: resAny?.error ?? null,
+            created_id: resAny?.reminder?.id ?? null,
+            list_count: Array.isArray(resAny?.reminders) ? resAny.reminders.length : null,
+          }));
           messages.push({
             role: "tool",
             tool_call_id: tc.id,
