@@ -1,47 +1,58 @@
-## Problema
+## Problema identificado
+A falha está na camada da assistente em `supabase/functions/assistente-virtual/index.ts`, não no banco.
 
-Quando o usuário disse **"Deletar todos os compromissos da agenda"**, a Júlia respondeu *"Não consegui identificar exatamente quais lembretes alterar..."* em vez de listar e apagar tudo.
+O comportamento incorreto vem de 3 pontos combinados:
+1. A Júlia está misturando **pendentes** com **histórico de cancelados** em consultas genéricas como “tenho algum compromisso?” e “olhe toda a agenda”.
+2. Depois, no fluxo de “deletar todos”, ela conta só os **pendentes** (`list_reminders`), mas confirma “os N compromissos acima”, mesmo quando a mensagem anterior mostrava também cancelados — por isso apareceu **1** quando você tinha visto **2 itens na tela**.
+3. Em cancelamento por horário (“deletar compromisso das 14”), a lógica atual pode agir com base só nos pendentes visíveis internamente, sem desambiguar direito quando a conversa deixou o usuário olhando uma lista mista ou quando houver mais de um candidato real.
 
-### Causa raiz
+## Plano
+### 1. Separar agenda atual de histórico
+Ajustar o prompt e os guards para que perguntas genéricas como:
+- “Tenho algum compromisso na agenda?”
+- “Quais compromissos tenho em toda agenda?”
+- “Esses são todos os compromissos?”
 
-No `supabase/functions/assistente-virtual/index.ts` (linha 1442) existe um guard que intercepta qualquer pergunta com as palavras `cancel|delet|apag|remov|exclu` e **força a chamada de `list_cancelled_reminders`** (que lista lembretes JÁ cancelados no passado).
+retornem **somente compromissos pendentes**.
 
-Esse guard foi feito pra perguntas tipo *"foi deletado algum compromisso?"* (consulta de histórico).
-Mas ele dispara errado pra **comandos imperativos** como *"deletar todos"*, *"apaga o treino"*, *"cancela o dentista"* — que são ordens pra agir, não perguntas sobre o passado.
+O histórico de cancelamentos/remarcações só deve aparecer quando o usuário pedir explicitamente algo como:
+- “o que foi cancelado?”
+- “teve cancelamento?”
+- “o que aconteceu com o compromisso X?”
 
-Resultado: o modelo recebe uma lista de cancelados (vazia ou irrelevante), fica confuso, mistura com lembretes pendentes e responde pedindo esclarecimento em vez de executar.
+### 2. Tornar “deletar todos” determinístico
+No fluxo de apagar em massa, fazer a resposta final usar o **total real vindo de `list_reminders`** e deixar explícito que se trata de **compromissos pendentes**.
 
-## Correção
+Exemplo esperado:
+- “Confirma apagar todos os **2 compromissos pendentes** acima?”
 
-### 1. Refinar o guard de cancelados (linhas 1440-1464)
+Isso evita o erro de contar 1 enquanto a mensagem anterior mostrava 2 itens por ter misturado histórico.
 
-Distinguir **consulta de histórico** vs **comando de ação**:
+### 3. Exigir desambiguação quando houver mais de um alvo possível
+Reforçar a lógica server-side para cancelamento por horário/título:
+- se houver **1 candidato real**, cancela direto;
+- se houver **2+ candidatos reais**, a Júlia **não pode escolher sozinha**;
+- ela deve listar as opções com título, data, horário e código curto do id, e perguntar qual delas cancelar.
 
-- **Consulta** (dispara guard → `list_cancelled_reminders`): frases interrogativas ou no pretérito sobre o que já foi cancelado.
-  Ex.: *"foi cancelado algo?"*, *"deletei alguma coisa?"*, *"o que aconteceu com X?"*, *"algum compromisso foi removido?"*
+Isso cobre casos como dois compromissos às 14h.
 
-- **Comando** (NÃO dispara guard → fluxo normal de `list_reminders` + `delete_reminder`): verbo no infinitivo/imperativo pedindo pra agir agora.
-  Ex.: *"deletar todos"*, *"apaga o treino"*, *"cancela o dentista das 14h"*, *"remove tudo"*, *"exclui X"*
+### 4. Adicionar um fallback server-side para não depender só do modelo
+Como a resposta final do modelo ainda pode misturar histórico indevidamente, incluir um override no servidor para estes casos:
+- consulta genérica de agenda → responder a partir de `lastPendingList` apenas;
+- apagar todos → confirmar com a contagem exata dos pendentes;
+- cancelamento ambíguo → responder com pedido de escolha, sem executar delete.
 
-Heurística: se a frase começa (ou é dominada) por verbo imperativo/infinitivo de ação (`delet(ar|a|e)`, `apag(ar|a|ue)`, `cancel(ar|a|e)`, `remov(er|e|a)`, `exclu(ir|i|a)`) **sem** palavras interrogativas (`foi`, `algum`, `alguma`, `algo`, `?`, `que aconteceu`, `tinha`, `deletei`, `cancelei`, `apaguei`), tratar como comando — pular o guard.
+## Validação
+Vou validar estes cenários após aplicar:
+1. “Tenho algum compromisso na agenda? Olhe em toda a agenda” → listar só pendentes.
+2. “Deletar todos” após essa listagem → confirmar o número correto de pendentes.
+3. “Não” → manter tudo sem efeitos colaterais.
+4. Criar novo compromisso e listar novamente → mostrar todos os pendentes corretos.
+5. “Cancelar/deletar compromisso das 14” com 2 candidatos reais → pedir qual deles.
+6. “Quais compromissos tenho em toda agenda?” depois de um cancelamento → listar só os pendentes restantes, sem confundir com histórico.
+7. “O que foi cancelado?” → aí sim mostrar o histórico.
 
-### 2. Reforçar regra de "apagar todos" no prompt (linha 317)
-
-Trocar a frase atual por algo mais explícito e em destaque:
-
-> **APAGAR EM MASSA (REGRA INVIOLÁVEL)**: se o usuário disser *"apaga/deleta/cancela TODOS"*, *"limpa a agenda"*, *"remove tudo"* ou variações sem citar item específico:
-> 1. Chame `list_reminders` com janela ampla (próximos 90 dias).
-> 2. Se vazio: responda *"Sua agenda já está vazia."*
-> 3. Se 1 item: chame `delete_reminder` direto, confirme.
-> 4. Se 2+ itens: liste TODOS em bullets e pergunte *"Confirma apagar TODOS os N compromissos acima? (responda SIM pra apagar tudo, ou cite quais manter)"*. Aguarde resposta. Se "sim/confirma/pode": chame `delete_reminder` em sequência pra cada id e confirme no fim *"Pronto, apaguei os N compromissos."*
-> Nunca responda *"não consegui identificar quais lembretes alterar"* — você TEM acesso, é só listar.
-
-### 3. Redeploy
-
-Deploy `assistente-virtual` e validar com:
-- *"Deletar todos os compromissos da agenda"* → deve listar + pedir confirmação + apagar.
-- *"Algum compromisso foi cancelado?"* → ainda deve cair no guard antigo e chamar `list_cancelled_reminders`.
-
-## Arquivos alterados
-
-- `supabase/functions/assistente-virtual/index.ts` (regex do guard + texto do prompt)
+## Detalhes técnicos
+- Arquivo principal: `supabase/functions/assistente-virtual/index.ts`
+- Banco e RLS: sem mudanças necessárias
+- `reminders-api`: em princípio não precisa alteração; o problema está na orquestração e formatação da resposta da assistente
