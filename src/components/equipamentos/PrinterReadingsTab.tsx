@@ -18,8 +18,25 @@ import {
   Plus, Printer, Droplet, ClipboardList, Clock, User, Sparkles, AlertTriangle, ChevronRight, Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
+import confetti from "canvas-confetti";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+
+// ─── Celebração: confete quando resolve um alerta crítico ───────────────────
+const fireCelebration = () => {
+  if (typeof window === "undefined") return;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  const colors = ["#a855f7", "#7c3aed", "#f97316", "#fbbf24"]; // roxo + accent laranja/amarelo
+  confetti({
+    particleCount: 80,
+    spread: 70,
+    startVelocity: 38,
+    origin: { y: 0.35 },
+    colors,
+    ticks: 200,
+    disableForReducedMotion: true,
+  });
+};
 
 // ─── Constantes de módulo (não recriar a cada render) ───────────────────────
 const OUTLIER_THRESHOLD = 2000;
