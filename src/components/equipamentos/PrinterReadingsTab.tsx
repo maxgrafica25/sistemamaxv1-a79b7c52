@@ -627,6 +627,14 @@ function TonerChangeDialog({
               onChange={(e) => setNotes(e.target.value)}
             />
           </div>
+
+          {/* Aviso de redirecionamento para Manutenções */}
+          <div className="text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-2 flex items-start gap-2 border border-border/50">
+            <Wrench className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
+            <span>
+              Para troca de peças ou chamados técnicos (fusor, cilindro, belt...), utilize a aba <strong className="text-foreground">Manutenções</strong>.
+            </span>
+          </div>
         </div>
 
         <DialogFooter className="gap-2">
