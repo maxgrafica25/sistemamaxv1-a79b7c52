@@ -15,7 +15,7 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
-  Plus, Printer, Package, Droplet, ClipboardList, Clock, User, Sparkles, AlertTriangle, ChevronRight, Wrench,
+  Plus, Printer, Droplet, ClipboardList, Clock, User, Sparkles, AlertTriangle, ChevronRight, Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
