@@ -5,6 +5,7 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput,
   CommandItem, CommandList, CommandSeparator,
 } from "@/components/ui/command";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCommandPalette } from "@/hooks/useCommandPalette";
 import { useUrgentAlerts } from "@/hooks/useUrgentAlerts";
 import { supabase } from "@/integrations/supabase/client";

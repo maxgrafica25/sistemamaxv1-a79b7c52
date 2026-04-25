@@ -10,7 +10,10 @@ export interface UrgentAlert {
 /**
  * Carrega alertas críticos não-resolvidos da tabela `reading_alerts_sent`,
  * deduplicando por equipamento (mantém o pior dias_overdue).
- * Atualiza em tempo real via Postgres Changes.
+ *
+ * Atualização realtime cirúrgica:
+ *  - DELETE / UPDATE com resolved_at != null → remove localmente (instantâneo)
+ *  - INSERT com severity='critical' e resolved_at null → refetch (precisa do JOIN equipments.name)
  *
  * Só efetivamente busca/escuta quando `enabled` é true (ex: quando a paleta abre)
  * para não desperdiçar conexões realtime.
@@ -40,7 +43,6 @@ export function useUrgentAlerts(enabled: boolean) {
         return;
       }
 
-      // Deduplicar por equipment_id (já vem ordenado pelo pior)
       const seen = new Set<string>();
       const list: UrgentAlert[] = [];
       for (const row of data as any[]) {
@@ -63,7 +65,38 @@ export function useUrgentAlerts(enabled: boolean) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "reading_alerts_sent" },
-        () => fetchAlerts(),
+        (payload: any) => {
+          const evt = payload.eventType;
+          const newRow = payload.new ?? {};
+          const oldRow = payload.old ?? {};
+
+          // Resolução / remoção → tira do estado imediatamente
+          if (
+            evt === "DELETE" ||
+            (evt === "UPDATE" && newRow.resolved_at != null)
+          ) {
+            const id = newRow.equipment_id ?? oldRow.equipment_id;
+            if (id) {
+              setAlerts((prev) => prev.filter((a) => a.equipment_id !== id));
+            }
+            return;
+          }
+
+          // Novo crítico ou mudança que pode introduzir um → refetch (precisa do JOIN)
+          if (
+            evt === "INSERT" &&
+            newRow.severity === "critical" &&
+            newRow.resolved_at == null
+          ) {
+            fetchAlerts();
+            return;
+          }
+
+          // UPDATE que ainda mantém o alerta ativo: refetch defensivo (raro)
+          if (evt === "UPDATE" && newRow.resolved_at == null) {
+            fetchAlerts();
+          }
+        },
       )
       .subscribe();
 
