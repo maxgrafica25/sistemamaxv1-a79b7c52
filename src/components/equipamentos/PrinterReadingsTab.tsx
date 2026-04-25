@@ -69,7 +69,7 @@ const getTypeBadge = (type: string, consumableName?: string | null) => {
       const colorKey = consumableName ? detectTonerColor(consumableName) : null;
       const colorClass = colorKey && TONER_BADGE_CLASSES[colorKey];
       return (
-        <Badge className={cn("gap-1 text-xs", colorClass || "bg-blue-500 hover:bg-blue-600 text-white")}>
+        <Badge className={cn("gap-1 text-xs", colorClass || "bg-orange-500 hover:bg-orange-600 text-white")}>
           <Droplet className="h-3 w-3" />Troca de Toner
         </Badge>
       );
