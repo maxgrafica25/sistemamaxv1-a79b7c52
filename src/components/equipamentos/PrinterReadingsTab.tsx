@@ -513,8 +513,8 @@ function TonerChangeDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Wrench className="h-5 w-5 text-blue-500" />
-            Troca de Toner/Peça — {equipmentName}
+            <Package className="h-5 w-5 text-blue-500" />
+            Troca de Toner — {equipmentName}
           </DialogTitle>
           <DialogDescription className="flex items-center gap-1.5 text-xs">
             <User className="h-3 w-3" />
