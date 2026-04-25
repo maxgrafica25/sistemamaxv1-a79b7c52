@@ -513,8 +513,8 @@ function TonerChangeDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Wrench className="h-5 w-5 text-blue-500" />
-            Troca de Toner/Peça — {equipmentName}
+            <Package className="h-5 w-5 text-blue-500" />
+            Troca de Toner — {equipmentName}
           </DialogTitle>
           <DialogDescription className="flex items-center gap-1.5 text-xs">
             <User className="h-3 w-3" />
@@ -526,7 +526,7 @@ function TonerChangeDialog({
           {/* Chips de consumível */}
           {consumables.length > 0 ? (
             <div className="space-y-2">
-              <Label className="text-xs">Qual peça foi trocada? *</Label>
+              <Label className="text-xs">Qual toner foi trocado? *</Label>
               <div className="flex flex-wrap gap-2">
                 {consumables.map((c) => {
                   const isSelected = selectedConsumableId === c.id;
@@ -548,24 +548,14 @@ function TonerChangeDialog({
                     </button>
                   );
                 })}
-                <button
-                  type="button"
-                  onClick={() => setSelectedConsumableId("__other__")}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all",
-                    selectedConsumableId === "__other__"
-                      ? "border-primary bg-primary/10 shadow-sm"
-                      : "border-border bg-card hover:border-primary/40"
-                  )}
-                >
-                  <Wrench className="h-3 w-3" />
-                  Outra peça
-                </button>
               </div>
             </div>
           ) : (
-            <div className="text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2">
-              Sem consumíveis cadastrados. A troca será registrada como genérica.
+            <div className="text-xs text-muted-foreground bg-blue-500/5 border border-blue-500/20 rounded-md px-3 py-2 flex items-start gap-2">
+              <Wrench className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
+              <span>
+                Sem toners cadastrados. Para peças de reposição (fusor, cilindro...), use a aba <strong className="text-foreground">Manutenções</strong>.
+              </span>
             </div>
           )}
 
@@ -636,6 +626,14 @@ function TonerChangeDialog({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
+          </div>
+
+          {/* Aviso de redirecionamento para Manutenções */}
+          <div className="text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-2 flex items-start gap-2 border border-border/50">
+            <Wrench className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
+            <span>
+              Para troca de peças ou chamados técnicos (fusor, cilindro, belt...), utilize a aba <strong className="text-foreground">Manutenções</strong>.
+            </span>
           </div>
         </div>
 
@@ -780,7 +778,7 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
     notes: string | null;
     consumableId: string | null;
   }) => {
-    const consumableId = data.consumableId === "__other__" ? null : data.consumableId;
+    // consumableId é sempre um ID real (UI bloqueia submit sem seleção)
     const { error } = await supabase.from("printer_readings").insert({
       equipment_id: equipmentId,
       printer_model: equipmentName,
@@ -794,7 +792,7 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
       bw_prints: data.bwPrints,
       total_prints: data.total,
       notes: data.notes,
-      consumable_id: consumableId,
+      consumable_id: data.consumableId,
     });
     if (error) {
       toast.error("Erro ao salvar troca");
@@ -848,7 +846,7 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
           variant="outline"
           className="gap-1.5"
         >
-          <Wrench className="h-4 w-4" /> Troca de Toner/Peça
+          <Package className="h-4 w-4" /> Troca de Toner
         </Button>
         <Button
           onClick={() => setShowQuickDialog(true)}
