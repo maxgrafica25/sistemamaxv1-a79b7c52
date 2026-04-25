@@ -778,7 +778,7 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
     notes: string | null;
     consumableId: string | null;
   }) => {
-    const consumableId = data.consumableId === "__other__" ? null : data.consumableId;
+    // consumableId é sempre um ID real (UI bloqueia submit sem seleção)
     const { error } = await supabase.from("printer_readings").insert({
       equipment_id: equipmentId,
       printer_model: equipmentName,
