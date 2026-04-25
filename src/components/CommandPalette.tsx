@@ -38,7 +38,7 @@ export default function CommandPalette() {
   const { open, setOpen } = useCommandPalette();
   const navigate = useNavigate();
   const [equipments, setEquipments] = useState<Equipment[]>([]);
-  const { alerts: urgentAlerts } = useUrgentAlerts(open);
+  const { alerts: urgentAlerts, loading: urgentLoading } = useUrgentAlerts(open);
 
   useEffect(() => {
     if (!open || equipments.length > 0) return;
@@ -53,6 +53,14 @@ export default function CommandPalette() {
   const defaultValue = useMemo(() => {
     if (urgentAlerts.length > 0) return `urgent-${urgentAlerts[0].equipment_id}`;
     return undefined;
+  }, [urgentAlerts]);
+
+  // Mensagem para leitor de tela quando há urgência ao abrir
+  const announcement = useMemo(() => {
+    if (urgentAlerts.length === 0) return "";
+    const first = urgentAlerts[0];
+    const extras = urgentAlerts.length > 1 ? ` e mais ${urgentAlerts.length - 1}` : "";
+    return `Alerta crítico encontrado: Lançar leitura para ${first.equipment_name}, ${first.days_overdue} ${first.days_overdue === 1 ? "dia" : "dias"} atrasada${extras}. Pressione Enter para resolver.`;
   }, [urgentAlerts]);
 
   const close = () => setOpen(false);
