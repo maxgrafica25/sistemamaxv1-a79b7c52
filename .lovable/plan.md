@@ -1,53 +1,68 @@
-# Modo Dark — Implementação Completa
+## Manutenções Elite Mode — Pronto para codar
 
-O sistema já tem `next-themes` instalado e tokens HSL light/dark definidos no `index.css`, mas falta o **provider**, o **toggle** e a integração com o `Ctrl+K`. Vamos finalizar.
+Todas as dependências (`canvas-confetti`, `cmdk`, `@types/canvas-confetti`) já estão instaladas. Realtime de `reading_alerts_sent` já habilitado em migration anterior. **Zero migrações novas.**
 
-## O que será entregue
+---
 
-**3 modos de tema:**
-- ☀️ Claro (light)
-- 🌙 Escuro (dark)
-- 💻 Sistema (segue o SO automaticamente)
+### Arquivos a criar (3)
 
-**3 formas de alternar:**
-1. **Toggle no header** — ícone sol/lua ao lado do sino de notificações, com dropdown (Claro / Escuro / Sistema)
-2. **Atalho de teclado** — `Ctrl + Shift + L` alterna instantaneamente entre Claro ↔ Escuro
-3. **Paleta de Comandos** — novo grupo "🎨 Aparência" no `Ctrl+K` com as 3 opções
+**1. `src/hooks/useMaintenanceHotkeys.tsx`** — hotkey global "M" com guard de inputs e detecção de dialog aberto.
 
-**Polimento UX (nível sênior):**
-- **Anti-flash (FOUC)** — script bloqueante no `index.html` aplica o tema correto **antes** do React montar, eliminando o "piscar branco" ao recarregar em modo escuro
-- **Persistência** — escolha salva em `localStorage['max-theme']`
-- **Transição suave** — 200ms em `background-color` e `color` no body, sem deixar lento
-- **Tokens já existentes** — usa o `.dark` já definido em `src/index.css` (sem reinventar paleta)
-- **Ícone animado** — sol/lua faz crossfade ao trocar (estilo shadcn padrão)
-- **Sincronização entre abas** — se o usuário trocar o tema em outra aba, esta atualiza
+**2. `src/components/equipamentos/PartsMultiSelect.tsx`** — Combobox cmdk:
+- Carrega `equipment_consumables` (catálogo) + peças usadas em manutenções anteriores deste equipamento (extraídas de `replaced_parts`).
+- 3 grupos: "Catálogo do equipamento" (com preço), "Usadas anteriormente", "Personalizada" (Enter cria tag livre).
+- Callback `onPriceSuggestion(price, name)` quando o usuário escolhe uma peça do catálogo com preço > 0.
+- Tags clicáveis com ícone de remover.
 
-## Arquivos
+**3. `src/components/equipamentos/MaintenanceTimeline.tsx`** — Lista Collapsible:
+- Linha de **48px** (`h-12`): ícone tipo (Shield/Wrench), data DD/MM, técnico, peça principal +N, badge valor, contagem de anexos, chevron.
+- **Barra lateral roxa de 3px** aparece somente no item expandido (transição opacity).
+- Conteúdo expandido: grid de stats, tags de peças, descrição, observações, galeria de anexos, botões Copiar/Editar/Excluir.
+- Empty state com hint do hotkey "M".
 
-**Criar:**
-- `src/components/ThemeProvider.tsx` — wrapper do `next-themes` com config (`attribute="class"`, `defaultTheme="system"`, `storageKey="max-theme"`)
-- `src/components/ThemeToggle.tsx` — botão sol/lua + dropdown com 3 opções
+### Arquivo a refatorar (1)
 
-**Modificar:**
-- `index.html` — script inline anti-FOUC (lê localStorage e aplica `.dark` no `<html>` antes do paint)
-- `src/App.tsx` — envolver app com `<ThemeProvider>`
-- `src/components/Layout.tsx` — adicionar `<ThemeToggle />` no header, antes do `<NotificationBell />`
-- `src/components/CommandPalette.tsx` — novo grupo "Aparência" com 3 itens + handler do atalho `Ctrl+Shift+L`
-- `src/index.css` — adicionar `transition: background-color 200ms, color 200ms` no `body`
+**`src/components/equipamentos/MaintenanceTab.tsx`** — refatoração completa:
 
-## Detalhes técnicos
+- **Auto-fill ao abrir nova manutenção:**
+  - Query paralela: `printer_readings` (último counter) + `equipment_maintenances` (último technician do equipamento).
+  - Estados `suggestedCounter` e `suggestedTechnician` controlam chips `↩ sugerido` que somem quando o campo é alterado.
 
-- **Sem nova dependência** — `next-themes@0.3.0` já está no `package.json`
-- **Hook `useTheme()`** do `next-themes` para ler/escrever tema nos componentes
-- **Atalho** registrado dentro do `CommandPalette.tsx` (já tem listener global de teclado), evitando duplicação
-- **Paleta de cores `.dark`** atual do projeto já é grafite sóbrio (slate-900 base) — sem roxo saturado, alinhado ao pedido anterior
-- **Acessibilidade** — `aria-label` no toggle, foco visível, navegável por teclado
+- **Validação de contador:** se `Number(totalCounter) < suggestedCounter`, mostra alerta vermelho inline ("Atenção: Contador inferior à última leitura registrada (XXX)").
 
-## Resultado
+- **Banner de alerta crítico:** ao abrir o dialog, busca `reading_alerts_sent WHERE equipment_id=? AND severity='critical' AND resolved_at IS NULL`. Se existir, renderiza banner amarelo no topo com checkbox "Resolver com esta manutenção" (default ON). Ao salvar com checkbox ativo: `UPDATE reading_alerts_sent SET resolved_at = now()` para todos os alertas críticos abertos do equipamento.
 
-Ao aprovar, em ~10s o usuário poderá:
-1. Clicar no ícone sol/lua no header → escolher tema
-2. Pressionar `Ctrl+Shift+L` em qualquer tela → alternar instantâneo
-3. Abrir `Ctrl+K` → digitar "escuro" / "claro" / "sistema" → Enter
+- **Hotkeys:** `useMaintenanceHotkeys({ enabled: !showDialog, onOpenNew: () => openDialog() })`. Dentro do `<DialogContent>`: `onKeyDown` global captura `Ctrl/Cmd+Enter` para chamar `save()`. Esc nativo do Radix.
 
-A escolha persiste entre sessões e respeita o sistema operacional por padrão.
+- **Auto-focus:** `useEffect` no abrir → `technicianRef.current?.focus()`.
+
+- **Botão "↻ Repetir última":** no header da Timeline, busca a última manutenção do equipamento e abre dialog com `technician`, `maintenance_type`, `replaced_parts` clonados.
+
+- **PartsMultiSelect:** substitui o `<Input>` de `replaced_parts`. Internamente armazena `string[]` e serializa como CSV ao salvar (compat retroativa: ao editar, faz split por `,`). Callback `onPriceSuggestion`: se o usuário escolhe peça do catálogo e o campo `cost` ainda está em "0", auto-preenche e mostra toast discreto "💡 Valor sugerido pelo catálogo".
+
+- **Confetti + toast premium:** ao salvar, se `alertResolved === true` OU `(maintenance_type === 'preventiva' && hadCriticalAlert)`:
+  ```ts
+  confetti({
+    particleCount: 80, spread: 70, origin: { y: 0.7 },
+    colors: ['hsl(270 70% 60%)', 'hsl(150 60% 50%)', 'hsl(45 90% 60%)']
+  });
+  toast.success('🎉 Equipamento de volta ao verde!', {
+    description: 'Manutenção registrada e alerta crítico resolvido.'
+  });
+  ```
+
+- **Form compacto:** grid 3 colunas para Contador|Horas|Valor já no mobile (`grid-cols-3`, sem `sm:`). Bordas `border-border/60`, `space-y-3`, labels `text-xs`, inputs `h-9`.
+
+- **URL searchParams:** se a tab foi aberta via link com param tipo `?openMaintenance=1`, limpar com `setSearchParams({})` após abrir o dialog (já há padrão similar em `Equipamentos.tsx` — verificar se aplicável; só adicionar se houver param).
+
+---
+
+### Detalhes técnicos
+
+- **Schema:** zero alterações. Usa colunas existentes em `equipment_maintenances`, `printer_readings`, `reading_alerts_sent`, `equipment_consumables`.
+- **RLS:** UPDATE em `reading_alerts_sent` já é permitido a authenticated (verificado nas policies atuais).
+- **Realtime:** já configurado anteriormente (`REPLICA IDENTITY DEFAULT` + publicação) — qualquer resolução de alerta dispara o `useUrgentAlerts` automaticamente.
+- **Compatibilidade retroativa:** registros antigos com `replaced_parts = "Cilindro, Belt"` (texto livre) continuam abrindo corretamente — o parser CSV do MultiSelect aceita qualquer string.
+- **Acessibilidade:** hotkey "M" só dispara fora de campos editáveis e quando nenhum dialog está aberto. Dialog mantém trap de foco do Radix.
+
+Pronto para mudar para modo build e aplicar.
