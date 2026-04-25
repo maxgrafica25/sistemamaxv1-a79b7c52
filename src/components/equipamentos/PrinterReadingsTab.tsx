@@ -792,7 +792,7 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
       bw_prints: data.bwPrints,
       total_prints: data.total,
       notes: data.notes,
-      consumable_id: consumableId,
+      consumable_id: data.consumableId,
     });
     if (error) {
       toast.error("Erro ao salvar troca");
