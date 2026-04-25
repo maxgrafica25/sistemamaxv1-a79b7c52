@@ -18,8 +18,25 @@ import {
   Plus, Printer, Droplet, ClipboardList, Clock, User, Sparkles, AlertTriangle, ChevronRight, Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
+import confetti from "canvas-confetti";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+
+// ─── Celebração: confete quando resolve um alerta crítico ───────────────────
+const fireCelebration = () => {
+  if (typeof window === "undefined") return;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  const colors = ["#a855f7", "#7c3aed", "#f97316", "#fbbf24"]; // roxo + accent laranja/amarelo
+  confetti({
+    particleCount: 80,
+    spread: 70,
+    startVelocity: 38,
+    origin: { y: 0.35 },
+    colors,
+    ticks: 200,
+    disableForReducedMotion: true,
+  });
+};
 
 // ─── Constantes de módulo (não recriar a cada render) ───────────────────────
 const OUTLIER_THRESHOLD = 2000;
@@ -775,6 +792,17 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
     total: number;
     notes: string | null;
   }) => {
+    // Antes do INSERT: verificar se há um alerta crítico ativo (será resolvido pelo trigger)
+    const { data: pendingAlert } = await supabase
+      .from("reading_alerts_sent")
+      .select("id, days_overdue")
+      .eq("equipment_id", equipmentId)
+      .eq("severity", "critical")
+      .is("resolved_at", null)
+      .limit(1)
+      .maybeSingle();
+    const wasOverdue = !!pendingAlert;
+
     const { error } = await supabase.from("printer_readings").insert({
       equipment_id: equipmentId,
       printer_model: equipmentName,
@@ -795,7 +823,17 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
       return;
     }
     await checkTonerAlert(data.total);
-    toast.success("Leitura registrada!");
+
+    if (wasOverdue) {
+      fireCelebration();
+      const dias = pendingAlert?.days_overdue ?? 0;
+      toast.success("🎉 Alerta crítico resolvido!", {
+        description: `Equipamento de volta ao verde após ${dias} ${dias === 1 ? "dia" : "dias"} de atraso. A Júlia agradece.`,
+        duration: 4000,
+      });
+    } else {
+      toast.success("Leitura registrada!");
+    }
     fetchReadings();
   };
 

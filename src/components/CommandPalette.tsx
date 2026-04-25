@@ -5,6 +5,7 @@ import {
   Command, CommandEmpty, CommandGroup, CommandInput,
   CommandItem, CommandList, CommandSeparator,
 } from "@/components/ui/command";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCommandPalette } from "@/hooks/useCommandPalette";
 import { useUrgentAlerts } from "@/hooks/useUrgentAlerts";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,7 +38,7 @@ export default function CommandPalette() {
   const { open, setOpen } = useCommandPalette();
   const navigate = useNavigate();
   const [equipments, setEquipments] = useState<Equipment[]>([]);
-  const { alerts: urgentAlerts } = useUrgentAlerts(open);
+  const { alerts: urgentAlerts, loading: urgentLoading } = useUrgentAlerts(open);
 
   useEffect(() => {
     if (!open || equipments.length > 0) return;
@@ -52,6 +53,14 @@ export default function CommandPalette() {
   const defaultValue = useMemo(() => {
     if (urgentAlerts.length > 0) return `urgent-${urgentAlerts[0].equipment_id}`;
     return undefined;
+  }, [urgentAlerts]);
+
+  // Mensagem para leitor de tela quando há urgência ao abrir
+  const announcement = useMemo(() => {
+    if (urgentAlerts.length === 0) return "";
+    const first = urgentAlerts[0];
+    const extras = urgentAlerts.length > 1 ? ` e mais ${urgentAlerts.length - 1}` : "";
+    return `Alerta crítico encontrado: Lançar leitura para ${first.equipment_name}, ${first.days_overdue} ${first.days_overdue === 1 ? "dia" : "dias"} atrasada${extras}. Pressione Enter para resolver.`;
   }, [urgentAlerts]);
 
   const close = () => setOpen(false);
@@ -90,8 +99,13 @@ export default function CommandPalette() {
         >
           <DialogPrimitive.Title className="sr-only">Paleta de Comandos</DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
-            Use as setas para navegar e Enter para executar.
+            {announcement || "Use as setas para navegar e Enter para executar."}
           </DialogPrimitive.Description>
+
+          {/* Live region: anuncia urgência ao abrir/quando aparece */}
+          <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+            {announcement}
+          </div>
 
           <Command
             // remount sempre que mudam as urgências, garantindo que defaultValue surta efeito
@@ -103,7 +117,19 @@ export default function CommandPalette() {
             <CommandList className="max-h-[60vh]">
               <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
 
-              {/* 🔥 SUGESTÕES DE URGÊNCIA */}
+              {/* 🔥 SUGESTÕES DE URGÊNCIA — skeleton enquanto carrega para evitar layout shift */}
+              {urgentLoading && urgentAlerts.length === 0 && (
+                <>
+                  <CommandGroup heading="🔥 Sugestões de Urgência">
+                    <div aria-hidden="true" className="space-y-1 px-2 py-1.5">
+                      <Skeleton className="h-9 w-full rounded-sm" />
+                      <Skeleton className="h-9 w-3/4 rounded-sm" />
+                    </div>
+                  </CommandGroup>
+                  <CommandSeparator />
+                </>
+              )}
+
               {urgentAlerts.length > 0 && (
                 <>
                   <CommandGroup heading="🔥 Sugestões de Urgência">
