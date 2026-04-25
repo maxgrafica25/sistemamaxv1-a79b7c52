@@ -99,8 +99,13 @@ export default function CommandPalette() {
         >
           <DialogPrimitive.Title className="sr-only">Paleta de Comandos</DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
-            Use as setas para navegar e Enter para executar.
+            {announcement || "Use as setas para navegar e Enter para executar."}
           </DialogPrimitive.Description>
+
+          {/* Live region: anuncia urgência ao abrir/quando aparece */}
+          <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+            {announcement}
+          </div>
 
           <Command
             // remount sempre que mudam as urgências, garantindo que defaultValue surta efeito
@@ -112,7 +117,19 @@ export default function CommandPalette() {
             <CommandList className="max-h-[60vh]">
               <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
 
-              {/* 🔥 SUGESTÕES DE URGÊNCIA */}
+              {/* 🔥 SUGESTÕES DE URGÊNCIA — skeleton enquanto carrega para evitar layout shift */}
+              {urgentLoading && urgentAlerts.length === 0 && (
+                <>
+                  <CommandGroup heading="🔥 Sugestões de Urgência">
+                    <div aria-hidden="true" className="space-y-1 px-2 py-1.5">
+                      <Skeleton className="h-9 w-full rounded-sm" />
+                      <Skeleton className="h-9 w-3/4 rounded-sm" />
+                    </div>
+                  </CommandGroup>
+                  <CommandSeparator />
+                </>
+              )}
+
               {urgentAlerts.length > 0 && (
                 <>
                   <CommandGroup heading="🔥 Sugestões de Urgência">
