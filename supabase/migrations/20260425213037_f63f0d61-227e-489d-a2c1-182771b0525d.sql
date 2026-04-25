@@ -1,0 +1,1 @@
+ALTER TABLE public.reading_alerts_sent REPLICA IDENTITY DEFAULT;
