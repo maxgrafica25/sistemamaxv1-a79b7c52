@@ -792,6 +792,17 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
     total: number;
     notes: string | null;
   }) => {
+    // Antes do INSERT: verificar se há um alerta crítico ativo (será resolvido pelo trigger)
+    const { data: pendingAlert } = await supabase
+      .from("reading_alerts_sent")
+      .select("id, days_overdue")
+      .eq("equipment_id", equipmentId)
+      .eq("severity", "critical")
+      .is("resolved_at", null)
+      .limit(1)
+      .maybeSingle();
+    const wasOverdue = !!pendingAlert;
+
     const { error } = await supabase.from("printer_readings").insert({
       equipment_id: equipmentId,
       printer_model: equipmentName,
@@ -812,7 +823,17 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
       return;
     }
     await checkTonerAlert(data.total);
-    toast.success("Leitura registrada!");
+
+    if (wasOverdue) {
+      fireCelebration();
+      const dias = pendingAlert?.days_overdue ?? 0;
+      toast.success("🎉 Alerta crítico resolvido!", {
+        description: `Equipamento de volta ao verde após ${dias} ${dias === 1 ? "dia" : "dias"} de atraso. A Júlia agradece.`,
+        duration: 4000,
+      });
+    } else {
+      toast.success("Leitura registrada!");
+    }
     fetchReadings();
   };
 
