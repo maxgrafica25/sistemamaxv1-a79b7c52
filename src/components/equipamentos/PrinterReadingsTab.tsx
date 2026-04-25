@@ -846,7 +846,7 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
           variant="outline"
           className="gap-1.5"
         >
-          <Wrench className="h-4 w-4" /> Troca de Toner/Peça
+          <Package className="h-4 w-4" /> Troca de Toner
         </Button>
         <Button
           onClick={() => setShowQuickDialog(true)}
