@@ -47,6 +47,45 @@ export type Database = {
         }
         Relationships: []
       }
+      alert_recipients: {
+        Row: {
+          active: boolean
+          created_at: string
+          external_email: string | null
+          id: string
+          name: string
+          notify_chat: boolean
+          notify_email: boolean
+          notify_inbox: boolean
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          external_email?: string | null
+          id?: string
+          name: string
+          notify_chat?: boolean
+          notify_email?: boolean
+          notify_inbox?: boolean
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          external_email?: string | null
+          id?: string
+          name?: string
+          notify_chat?: boolean
+          notify_email?: boolean
+          notify_inbox?: boolean
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       alertas_precos: {
         Row: {
           created_at: string
@@ -1648,6 +1687,45 @@ export type Database = {
           updated_at?: string
           validity?: string | null
           value?: number
+        }
+        Relationships: []
+      }
+      reading_alerts_sent: {
+        Row: {
+          alerted_at: string
+          alerted_on: string
+          channel: string
+          days_overdue: number
+          equipment_id: string
+          gap_start_date: string
+          id: string
+          is_first_critical: boolean
+          resolved_at: string | null
+          severity: string
+        }
+        Insert: {
+          alerted_at?: string
+          alerted_on?: string
+          channel?: string
+          days_overdue: number
+          equipment_id: string
+          gap_start_date: string
+          id?: string
+          is_first_critical?: boolean
+          resolved_at?: string | null
+          severity?: string
+        }
+        Update: {
+          alerted_at?: string
+          alerted_on?: string
+          channel?: string
+          days_overdue?: number
+          equipment_id?: string
+          gap_start_date?: string
+          id?: string
+          is_first_critical?: boolean
+          resolved_at?: string | null
+          severity?: string
         }
         Relationships: []
       }
