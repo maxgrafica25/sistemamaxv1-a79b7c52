@@ -11,6 +11,8 @@ import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Chat from "./pages/Chat";
 import AssistenteButton from "@/components/assistente/AssistenteButton";
+import CommandPalette from "@/components/CommandPalette";
+import { CommandPaletteProvider } from "@/hooks/useCommandPalette";
 
 import Cadastros from "./pages/Cadastros";
 import NewQuote from "./pages/NewQuote";

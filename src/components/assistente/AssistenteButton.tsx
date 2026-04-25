@@ -27,6 +27,13 @@ export default function AssistenteButton() {
   const [unread, setUnread] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Permite abrir o assistente via Command Palette (Ctrl+K → "Falar com a Júlia")
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener("open-assistente", handler);
+    return () => window.removeEventListener("open-assistente", handler);
+  }, []);
+
   // auto-scroll para a última mensagem (sentinela — o Viewport do Radix ScrollArea
   // ignora scrollTop manual num div filho).
   useEffect(() => {
