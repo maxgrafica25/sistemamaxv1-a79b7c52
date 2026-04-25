@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 import { Menu, Search } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 import Sidebar from "./Sidebar";
+import ThemeToggle from "./ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useSidebarState } from "@/hooks/useSidebarState";
 import { useCommandPalette } from "@/hooks/useCommandPalette";
@@ -44,7 +45,8 @@ export default function Layout() {
             </kbd>
           </button>
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-1.5">
+            <ThemeToggle />
             <NotificationBell />
             {profile && (
               <span className="hidden sm:inline text-sm text-muted-foreground">
