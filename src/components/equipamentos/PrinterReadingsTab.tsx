@@ -526,7 +526,7 @@ function TonerChangeDialog({
           {/* Chips de consumível */}
           {consumables.length > 0 ? (
             <div className="space-y-2">
-              <Label className="text-xs">Qual peça foi trocada? *</Label>
+              <Label className="text-xs">Qual toner foi trocado? *</Label>
               <div className="flex flex-wrap gap-2">
                 {consumables.map((c) => {
                   const isSelected = selectedConsumableId === c.id;
@@ -548,24 +548,14 @@ function TonerChangeDialog({
                     </button>
                   );
                 })}
-                <button
-                  type="button"
-                  onClick={() => setSelectedConsumableId("__other__")}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all",
-                    selectedConsumableId === "__other__"
-                      ? "border-primary bg-primary/10 shadow-sm"
-                      : "border-border bg-card hover:border-primary/40"
-                  )}
-                >
-                  <Wrench className="h-3 w-3" />
-                  Outra peça
-                </button>
               </div>
             </div>
           ) : (
-            <div className="text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2">
-              Sem consumíveis cadastrados. A troca será registrada como genérica.
+            <div className="text-xs text-muted-foreground bg-blue-500/5 border border-blue-500/20 rounded-md px-3 py-2 flex items-start gap-2">
+              <Wrench className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
+              <span>
+                Sem toners cadastrados. Para peças de reposição (fusor, cilindro...), use a aba <strong className="text-foreground">Manutenções</strong>.
+              </span>
             </div>
           )}
 
