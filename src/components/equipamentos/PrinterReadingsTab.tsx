@@ -84,6 +84,8 @@ interface PrinterReadingsTabProps {
   equipmentId: string;
   equipmentName: string;
   printerType: string; // 'pb' | 'color' | 'other'
+  autoOpenQuick?: boolean; // abre o modal de Leitura Rápida ao montar (deep link)
+  onAutoOpenHandled?: () => void;
 }
 
 interface Reading {
@@ -666,13 +668,21 @@ function TonerChangeDialog({
 }
 
 // ─── Componente principal ───────────────────────────────────────────────────
-export default function PrinterReadingsTab({ equipmentId, equipmentName, printerType }: PrinterReadingsTabProps) {
+export default function PrinterReadingsTab({ equipmentId, equipmentName, printerType, autoOpenQuick, onAutoOpenHandled }: PrinterReadingsTabProps) {
   const { profile } = useAuth();
   const [readings, setReadings] = useState<Reading[]>([]);
   const [consumables, setConsumables] = useState<Consumable[]>([]);
   const [loading, setLoading] = useState(true);
   const [showQuickDialog, setShowQuickDialog] = useState(false);
   const [showTonerDialog, setShowTonerDialog] = useState(false);
+
+  // Deep link: abre Leitura Rápida automaticamente ao chegar via /equipamentos?eq=...&quick=...
+  useEffect(() => {
+    if (autoOpenQuick) {
+      setShowQuickDialog(true);
+      onAutoOpenHandled?.();
+    }
+  }, [autoOpenQuick, onAutoOpenHandled]);
 
   const fetchReadings = async () => {
     setLoading(true);
