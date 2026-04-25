@@ -1,131 +1,153 @@
-# Alertas de Leituras Atrasadas via Chat Interno
+# Sidebar Slim + Command Palette com Foco Preditivo da Júlia
 
-Substituir email por **notificações no chat interno** + **inbox**, com escalada de severidade, **link de ação direta** que abre o modal de Leitura Rápida em 1 clique, e gancho preparado para a Júlia (assistente virtual) assumir o envio das mensagens no futuro.
+Pacote completo de upgrade de navegação + integração proativa com os alertas da Júlia.
 
-## Parte 1 — Ajuste de UI (rápido)
+---
 
-Em `src/components/equipamentos/PrinterReadingsTab.tsx`, na função `getTypeBadge`:
-- Quando o registro for **troca de toner sem cor identificável** (não-CMYK), usar **laranja** (`bg-orange-500`) em vez de ciano, evitando confusão com o badge "Ciano".
+## 1. Novo Sidebar (claro, slim, recolhível)
 
-## Parte 2 — Sistema de alerta no chat interno
+**Visual (light):**
+- Fundo `slate-50`, borda direita 1px `slate-200`. Sem sombras.
+- Item inativo: ícone + texto `slate-600`; hover `slate-100`.
+- Item ativo: fundo `purple-50`, ícone/texto em roxo da marca (`hsl(270 70% 50%)`), barra vertical 3px à esquerda em roxo.
+- Logo "OrçaGráfica" no topo: roxo da marca.
 
-### Estratégia
-- **Cron diário** (Seg–Sex, 09:00 BRT / 12:00 UTC) varre `printer_readings` e identifica equipamentos `pb`/`color` com **≥ 2 dias úteis** sem leitura `daily`.
-- Equipamentos que **nunca tiveram leitura** são ignorados.
-- Para cada gap detectado dispara **2 canais**:
-  1. Mensagem no canal `#alertas-equipamentos`.
-  2. Notificação individual (sino) para `role='admin'` + destinatários extras.
-- **Reenvio diário** com contador crescente até regularizar.
+**Tema dark:** fundo `slate-900` suave, item ativo em `purple-950` com texto roxo médio.
 
-### Escalada de severidade
+**Comportamento desktop:**
+- Expandido `w-64` ↔ recolhido `w-16` (só ícones, com Tooltip de 200ms no hover).
+- Toggle no rodapé (`PanelLeftClose`/`PanelLeftOpen`).
+- Estado em `localStorage["sidebar-collapsed"]`.
+- Transição `duration-300 ease-in-out`.
 
-| Atraso (dias úteis) | Severidade | Tom | Emoji | Inbox |
-|---|---|---|---|---|
-| 2–4 | **Lembrete** | "Olá! Notei que o equipamento X está sem leitura há N dias. Pode atualizar?" | 🟡 | `info` |
-| 5+ | **CRÍTICO** | "🚨 ATENÇÃO: equipamento X sem leitura há N dias úteis. Esquecimento crônico — regularizar HOJE." | 🔴 🚨 😡 | `warning` |
+**Mobile (<768px):**
+- Off-canvas: hambúrguer no header abre, overlay escuro atrás, fecha automaticamente ao clicar em qualquer link.
 
-Críticos vêm **primeiro** e em **negrito** na mensagem consolidada.
+---
 
-### Link de Ação Direta (NOVO — "pulo do gato")
+## 2. Header
 
-Cada item da mensagem terá um link **`👉 [Lançar Leitura Agora]`** que leva direto ao modal de Leitura Rápida do equipamento certo, em 1 clique:
+- Hambúrguer à esquerda (só mobile).
+- Botão **"Buscar..."** discreto ao lado, com `<kbd>Ctrl K</kbd>` à direita. Abre a paleta.
+- Sino de notificações + nome do usuário à direita (mantém).
 
-**Formato do link**: `/equipamentos?tab=leituras&quick=<equipment_id>`
+---
 
-**Implementação no app**:
-- `src/pages/Equipamentos.tsx` lê `searchParams`:
-  - Se `tab=leituras` → seleciona a aba "Leituras".
-  - Passa `autoOpenQuickFor={equipmentId}` para `<PrinterReadingsTab>`.
-- `PrinterReadingsTab` (linha ~674, onde está `setShowQuickDialog`):
-  - `useEffect` que monitora `autoOpenQuickFor`; se preenchido, seta `selectedEquipment` correspondente e abre `setShowQuickDialog(true)` automaticamente.
-  - Limpa o `?quick=` da URL após abrir (via `navigate(..., { replace: true })`) pra não reabrir em refresh.
-- Na **mensagem do chat**: link em markdown — `[👉 Lançar Leitura Agora](/equipamentos?tab=leituras&quick=<id>)` (o `ChatMessages` já renderiza markdown).
-- Na **notificação do sino**: o `notifications` ganha campo de link no campo `source_id`/`source_type` já existente; ao clicar na notificação, faz `navigate(\`/equipamentos?tab=leituras&quick=${source_id}\`)`.
+## 3. Command Palette (Ctrl+K)
 
-**Por destinatário**, o link é o mesmo (não personalizado). Foco é zero atrito.
+**Ativação:** `Ctrl+K` / `Cmd+K` global, ou clique no botão "Buscar...". `Esc` fecha.
 
-Quando há múltiplos atrasos, cada linha da mensagem tem seu próprio link — o operador não precisa procurar nada.
+**Visual (glassmorphism):**
+- Modal centralizado no topo (margin-top ≈20%), largura ~640px.
+- `bg-white/80 backdrop-blur-xl`, borda fina, shadow grande, `z-[9999]`.
+- Animação fade + scale-in 200ms. Dark: `bg-slate-900/80`.
 
-### "Print de demonstração" do primeiro alerta crítico
+**Estrutura (cmdk):** input com fuzzy nativo, navegação 100% por setas + Enter.
 
-Para servir de evidência institucional:
-- Coluna `is_first_critical` em `reading_alerts_sent` (índice parcial único `WHERE is_first_critical = true`).
-- Card destacado em `/equipamentos` (admins) quando esse primeiro crítico existe, com botão **"Ver mensagem no chat"** que abre o `#alertas-equipamentos` na mensagem em destaque.
-- Quando o evento ocorrer, **eu (assistente) capturarei via `browser--screenshot`** e entregarei a imagem em `/mnt/documents/primeiro-alerta-critico.png`.
+### Grupos de comandos (em ordem de prioridade)
 
-### Banco de dados (migração)
+```text
+🔥 SUGESTÕES DE URGÊNCIA       (só aparece se houver alerta crítico ativo)
+   Lançar Leitura — <Equipamento>      [badge: "5 dias atrasada"]
+   ... (um por equipamento com alerta crítico não-resolvido)
 
-**Tabela `reading_alerts_sent`**:
-```
-id, equipment_id, gap_start_date, days_overdue,
-severity ('reminder'|'critical'),
-is_first_critical boolean default false,
-alerted_at, channel ('chat'|'inbox'),
-resolved_at
-```
-- Índice único `(equipment_id, gap_start_date, DATE(alerted_at))`.
-- Índice único parcial `WHERE is_first_critical = true`.
+NAVEGAÇÃO
+   Dashboard, Orçamentos, Clientes/Fornecedores, Matérias-Primas,
+   Equipamentos, Processos de Produção, Despesas Fixas,
+   Preço Impressão, Monitoramento, Catálogo Produtos,
+   Chat Interno, Configurações, Auditoria
 
-**Tabela `alert_recipients`**:
-```
-id, name, user_id (nullable), external_email (nullable, futuro),
-notify_chat, notify_inbox, notify_email (futuro),
-active, created_at
+AÇÕES RÁPIDAS
+   Novo Orçamento              → /orcamentos/novo
+   Nova Manutenção             → /equipamentos?tab=maintenance&action=new
+   Falar com a Júlia           → abre o AssistenteButton
+
+EQUIPAMENTOS
+   Leitura — <Nome>            → /equipamentos?action=quick-reading&equipment=<id>
+   Toner — <Nome>              → /equipamentos?action=toner-change&equipment=<id>
 ```
 
-**Seed**: canal `alertas-equipamentos` (público, setor "Produção") + perfil "Júlia (Sistema)".
+---
 
-**Trigger de resolução**: `AFTER INSERT` em `printer_readings` (quando `type='daily'`) → marca `resolved_at = now()` em alertas ativos do equipamento.
+## 4. 🔥 Foco Preditivo da Júlia (a "cereja")
 
-### Edge Function `check-overdue-readings`
+**Origem dos dados:** tabela `reading_alerts_sent`.
 
-`supabase/functions/check-overdue-readings/index.ts` (verify_jwt = false, cron):
-
-Modular para a Júlia reaproveitar:
-
-1. **`detectOverdueReadings()`** → `{equipment, lastDate, daysOverdue, lastOperator, severity}`.
-2. **`buildChatMessage(gaps)`** → markdown com bloco crítico primeiro, depois lembretes; **cada linha inclui `[👉 Lançar Leitura Agora](/equipamentos?tab=leituras&quick=<id>)`**.
-3. **`notifyOverdueReadings(gaps)`** → posta no chat (autor "Júlia (Sistema)") + insere `notifications` por destinatário (`source_type='overdue_reading'`, `source_id=equipment_id` para o link funcionar no sino).
-4. **Idempotência**: consulta `reading_alerts_sent` para não repetir no mesmo dia.
-5. **Marca `is_first_critical=true`** no primeiro registro crítico do histórico.
-
-### Cron job (via insert tool, contém URL+chave do projeto)
+**Query no abrir da paleta:**
 ```sql
-SELECT cron.schedule(
-  'check-overdue-readings-daily',
-  '0 12 * * 1-5',
-  $$ SELECT net.http_post(
-       url:='https://nxkmxslugblhsyohrrvm.supabase.co/functions/v1/check-overdue-readings',
-       headers:='{"Content-Type":"application/json","Authorization":"Bearer <anon_key>"}'::jsonb
-     ); $$
-);
+SELECT ras.equipment_id, ras.days_overdue, e.name
+FROM reading_alerts_sent ras
+JOIN equipments e ON e.id = ras.equipment_id
+WHERE ras.resolved_at IS NULL
+  AND ras.severity = 'critical'
+ORDER BY ras.days_overdue DESC, ras.alerted_at DESC;
+```
+Deduplicar por `equipment_id` (pega o pior alerta de cada equipamento).
+
+**Comportamento:**
+- Se a query retornar ≥1 resultado → mostra o grupo **"🔥 Sugestões de Urgência"** no topo, antes de qualquer coisa, **antes do usuário digitar**.
+- Cada item: `Lançar Leitura — <Nome>` com badge vermelho à direita: `<N> dias atrasada`.
+- O **primeiro item desse grupo é pré-selecionado** (highlight) por padrão — basta `Enter` para resolver.
+- Click/Enter → navega para `/equipamentos?action=quick-reading&equipment=<id>` → modal de Leitura Rápida abre instantaneamente.
+- Quando o operador digita, o cmdk filtra normalmente entre todos os grupos (urgência continua aparecendo se bater com a busca).
+
+**Realtime:** subscribe em `reading_alerts_sent` (canal Postgres Changes) para refrescar a lista de urgências enquanto a paleta estiver aberta — se outro usuário lançar a leitura, o item some sozinho.
+
+**Habilitar realtime na tabela** (migração SQL):
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE public.reading_alerts_sent;
 ```
 
-### Gancho para a Júlia (futuro)
-- `detectOverdueReadings()` e `notifyOverdueReadings()` exportáveis.
-- Júlia poderá redigir mensagens em linguagem natural mantendo regra de escalada e **incluindo o link de ação direta** automaticamente.
-- Gerenciamento de `alert_recipients` por comando no chat.
-- Flag `notify_email` pronta para quando o domínio for configurado.
+---
+
+## 5. Roteamento (Equipamentos)
+
+Em `src/pages/Equipamentos.tsx`:
+- Ler `useSearchParams` para `action` (`quick-reading` | `toner-change` | `new`), `equipment` (id), `tab`.
+- Selecionar a aba certa e pré-selecionar o equipamento.
+- Abrir o modal correspondente.
+- Após abrir, `setSearchParams({}, { replace: true })` para limpar a URL e evitar reabertura no refresh.
+
+---
+
+## 6. Acabamento
+
+- Transições `duration-300 ease-in-out` em sidebar e modal.
+- `aria-current="page"` no item ativo, `focus-visible:ring-2 ring-primary` em todos os links.
+- Listener global Ctrl+K com `e.preventDefault()`.
+- Tooltips do sidebar recolhido com delay 200ms.
+
+---
 
 ## Detalhes técnicos
 
-**Cálculo de dias úteis**:
-```sql
-SELECT COUNT(*) FROM generate_series(last_date+1, current_date, '1 day') d
-WHERE EXTRACT(DOW FROM d) NOT IN (0, 6);
-```
+**Arquivos novos:**
+- `src/components/Sidebar.tsx` — novo sidebar claro/slim com toggle e off-canvas mobile.
+- `src/components/CommandPalette.tsx` — paleta com grupos dinâmicos, query de urgências e realtime.
+- `src/hooks/useSidebarState.tsx` — estado expandido/recolhido + persistência localStorage + open mobile.
+- `src/hooks/useCommandPalette.tsx` — open/setOpen + listener Ctrl+K global.
+- `src/hooks/useUrgentAlerts.tsx` — busca + realtime de `reading_alerts_sent` críticos não-resolvidos.
 
-**Autor da mensagem**: perfil "Júlia (Sistema)" criado via seed; edge function usa `service_role`.
+**Arquivos editados:**
+- `src/components/Layout.tsx` — substitui `<aside>` cru pelo novo Sidebar, adiciona hambúrguer + botão "Buscar..." no header, monta `<CommandPalette />` global.
+- `src/index.css` — atualiza tokens `--sidebar-*` no `:root` (slate-50, purple-50, roxo marca) e `.dark` (slate-900 + purple-950).
+- `src/pages/Equipamentos.tsx` — handler de `searchParams` para abrir modais.
 
-**Notificação clicável (sino)**: o componente `NotificationBell` precisa rotear para `/equipamentos?tab=leituras&quick=<source_id>` quando `source_type='overdue_reading'`. Pequeno ajuste no handler de clique.
+**Migração SQL:**
+- Habilitar realtime em `reading_alerts_sent` (uma linha de `ALTER PUBLICATION`).
 
-## Resumo de entregáveis
+**Bibliotecas:** nenhuma nova — `cmdk`, `@radix-ui/*`, `lucide-react`, supabase-js já existem.
 
-1. UI: badge laranja para troca de toner sem cor identificável.
-2. Migração: tabelas `reading_alerts_sent` (com `severity` + `is_first_critical`) e `alert_recipients`, perfil "Júlia (Sistema)", canal `alertas-equipamentos`, trigger de resolução.
-3. Edge function `check-overdue-readings` modular com escalada de severidade e **link de ação direta** em cada item.
-4. Cron job seg–sex 09:00 BRT (via insert tool).
-5. `Equipamentos.tsx` + `PrinterReadingsTab.tsx`: suporte a `?tab=leituras&quick=<id>` para abrir o modal de Leitura Rápida automaticamente.
-6. `NotificationBell`: roteamento para o link direto quando `source_type='overdue_reading'`.
-7. UI mínima em `/configuracoes` para gerenciar destinatários extras.
-8. Card destacado em `/equipamentos` celebrando o primeiro alerta crítico; screenshot entregue por mim quando o evento ocorrer.
+---
+
+## Fluxo do operador (resumo)
+
+1. Operador abre o sistema às 8h da manhã.
+2. Aperta `Ctrl+K` pra fazer qualquer coisa.
+3. Já vê no topo: **"🔥 Lançar Leitura — Xerox C70 — 5 dias atrasada"** já destacado.
+4. `Enter` → modal de leitura abre direto, equipamento já selecionado.
+5. Lança o número, salva. O alerta some da paleta na hora (realtime).
+
+**De problema crônico a 2 teclas.**
+
+Aprove pra eu seguir para a implementação.

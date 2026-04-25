@@ -52,14 +52,15 @@ All colors MUST be HSL.
 
     --radius: 0.5rem;
 
-    --sidebar-background: 270 60% 15%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 25 95% 53%;
+    /* Sidebar — claro, minimalista, estilo Notion/Linear */
+    --sidebar-background: 210 40% 98%;        /* slate-50 */
+    --sidebar-foreground: 215 25% 27%;        /* slate-700 */
+    --sidebar-primary: 270 70% 50%;           /* roxo da marca */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 270 60% 20%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 270 40% 25%;
-    --sidebar-ring: 25 95% 53%;
+    --sidebar-accent: 270 100% 97%;           /* purple-50 (fundo do item ativo) */
+    --sidebar-accent-foreground: 270 70% 50%; /* roxo no item ativo */
+    --sidebar-border: 214 32% 91%;            /* slate-200 */
+    --sidebar-ring: 270 70% 50%;
 
     /* Custom gradients and effects */
     --gradient-primary: linear-gradient(135deg, hsl(270 70% 50%) 0%, hsl(270 70% 60%) 100%);
@@ -113,14 +114,15 @@ All colors MUST be HSL.
     --input: 270 30% 22%;
     --ring: 270 70% 60%;
 
-    --sidebar-background: 270 50% 12%;
-    --sidebar-foreground: 0 0% 85%;
-    --sidebar-primary: 25 95% 58%;
+    /* Sidebar dark — grafite suave com toque de roxo */
+    --sidebar-background: 222 47% 11%;        /* slate-900 */
+    --sidebar-foreground: 215 20% 75%;        /* slate-300 */
+    --sidebar-primary: 270 70% 65%;           /* roxo médio */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 270 50% 18%;
-    --sidebar-accent-foreground: 0 0% 85%;
-    --sidebar-border: 270 40% 20%;
-    --sidebar-ring: 25 95% 58%;
+    --sidebar-accent: 270 50% 18%;            /* purple-950 */
+    --sidebar-accent-foreground: 270 70% 75%;
+    --sidebar-border: 215 28% 17%;            /* slate-800 */
+    --sidebar-ring: 270 70% 65%;
 
     --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
   }

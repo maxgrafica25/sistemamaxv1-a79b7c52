@@ -129,6 +129,7 @@ export default function Equipamentos() {
   const [activeSubTab, setActiveSubTab] = useState<string>("consumiveis");
   const [loading, setLoading] = useState(true);
   const [autoOpenQuickFor, setAutoOpenQuickFor] = useState<string | null>(null);
+  const [autoOpenTonerFor, setAutoOpenTonerFor] = useState<string | null>(null);
 
   // Dialogs
   const [showEquipDialog, setShowEquipDialog] = useState(false);
@@ -173,19 +174,49 @@ export default function Equipamentos() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  // Deep link: ?eq=<id>&quick=1 (vindo dos alertas da Júlia)
+  // Deep link suporta dois formatos:
+  //  - Legado da Júlia: ?eq=<id>&quick=1
+  //  - Command Palette: ?action=quick-reading|toner-change&equipment=<id>  ou  ?tab=maintenance&action=new
   useEffect(() => {
     if (loading || equipments.length === 0) return;
-    const eq = searchParams.get("eq");
-    const quick = searchParams.get("quick");
-    if (eq && equipments.find(e => e.id === eq)) {
-      setActiveEquipment(eq);
+    const next = new URLSearchParams(searchParams);
+    let consumed = false;
+
+    // Formato legado
+    const legacyEq = searchParams.get("eq");
+    const legacyQuick = searchParams.get("quick");
+    if (legacyEq && equipments.find(e => e.id === legacyEq)) {
+      setActiveEquipment(legacyEq);
       setActiveSubTab("contadores");
-      if (quick) setAutoOpenQuickFor(eq);
-      const next = new URLSearchParams(searchParams);
+      if (legacyQuick) setAutoOpenQuickFor(legacyEq);
       next.delete("eq"); next.delete("quick");
-      setSearchParams(next, { replace: true });
+      consumed = true;
     }
+
+    // Formato Command Palette
+    const action = searchParams.get("action");
+    const equipmentId = searchParams.get("equipment");
+    const tab = searchParams.get("tab");
+
+    if (action === "quick-reading" && equipmentId && equipments.find(e => e.id === equipmentId)) {
+      setActiveEquipment(equipmentId);
+      setActiveSubTab("contadores");
+      setAutoOpenQuickFor(equipmentId);
+      next.delete("action"); next.delete("equipment");
+      consumed = true;
+    } else if (action === "toner-change" && equipmentId && equipments.find(e => e.id === equipmentId)) {
+      setActiveEquipment(equipmentId);
+      setActiveSubTab("contadores");
+      setAutoOpenTonerFor(equipmentId);
+      next.delete("action"); next.delete("equipment");
+      consumed = true;
+    } else if (tab === "maintenance") {
+      setActiveSubTab("manutencoes");
+      next.delete("tab"); next.delete("action");
+      consumed = true;
+    }
+
+    if (consumed) setSearchParams(next, { replace: true });
   }, [loading, equipments, searchParams, setSearchParams]);
 
   // Derived
@@ -720,7 +751,11 @@ export default function Equipamentos() {
                     equipmentName={eq.name}
                     printerType={eq.printer_type}
                     autoOpenQuick={autoOpenQuickFor === eq.id}
-                    onAutoOpenHandled={() => setAutoOpenQuickFor(null)}
+                    autoOpenToner={autoOpenTonerFor === eq.id}
+                    onAutoOpenHandled={() => {
+                      setAutoOpenQuickFor(null);
+                      setAutoOpenTonerFor(null);
+                    }}
                   />
                 </TabsContent>
 

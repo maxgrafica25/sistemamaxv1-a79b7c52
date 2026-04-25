@@ -11,6 +11,8 @@ import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Chat from "./pages/Chat";
 import AssistenteButton from "@/components/assistente/AssistenteButton";
+import CommandPalette from "@/components/CommandPalette";
+import { CommandPaletteProvider } from "@/hooks/useCommandPalette";
 
 import Cadastros from "./pages/Cadastros";
 import NewQuote from "./pages/NewQuote";
@@ -35,28 +37,31 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/orcamentos" element={<Orcamentos />} />
-              <Route path="/orcamentos/novo" element={<NewQuote />} />
-              <Route path="/preco-impressao" element={<PrecoImpressao />} />
-              <Route path="/equipamentos" element={<Equipamentos />} />
-              <Route path="/cadastros" element={<Cadastros />} />
-              <Route path="/materias-primas" element={<MateriasPrimas />} />
-              <Route path="/processos-producao" element={<ProcessosProducao />} />
-              <Route path="/despesas-fixas" element={<DespesasFixas />} />
-              <Route path="/configuracoes" element={<Configuracoes />} />
-              <Route path="/auditoria" element={<Auditoria />} />
-              <Route path="/monitoramento" element={<Monitoramento />} />
-              <Route path="/produtos" element={<Produtos />} />
-              <Route path="/chat" element={<Chat />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <AssistenteButton />
+          <CommandPaletteProvider>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/orcamentos" element={<Orcamentos />} />
+                <Route path="/orcamentos/novo" element={<NewQuote />} />
+                <Route path="/preco-impressao" element={<PrecoImpressao />} />
+                <Route path="/equipamentos" element={<Equipamentos />} />
+                <Route path="/cadastros" element={<Cadastros />} />
+                <Route path="/materias-primas" element={<MateriasPrimas />} />
+                <Route path="/processos-producao" element={<ProcessosProducao />} />
+                <Route path="/despesas-fixas" element={<DespesasFixas />} />
+                <Route path="/configuracoes" element={<Configuracoes />} />
+                <Route path="/auditoria" element={<Auditoria />} />
+                <Route path="/monitoramento" element={<Monitoramento />} />
+                <Route path="/produtos" element={<Produtos />} />
+                <Route path="/chat" element={<Chat />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <AssistenteButton />
+            <CommandPalette />
+          </CommandPaletteProvider>
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>
