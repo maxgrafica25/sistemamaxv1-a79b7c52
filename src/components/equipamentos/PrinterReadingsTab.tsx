@@ -913,7 +913,7 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {getTypeBadge(r.type)}
+                      {getTypeBadge(r.type, r.consumable_id ? consumableMap.get(r.consumable_id) : null)}
                       {r.type === "toner_change" && r.consumable_id && consumableMap.get(r.consumable_id) && (
                         <span className="text-xs text-muted-foreground">— {consumableMap.get(r.consumable_id)}</span>
                       )}
