@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Bell, Clock, AlertTriangle, Info, Plus, CalendarDays, CheckCircle2, Trash2, AlarmClock, Archive, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Bell, Clock, AlertTriangle, Info, Plus, CalendarDays, CheckCircle2, Trash2, AlarmClock, Archive, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,6 +37,7 @@ const snoozeOptions = [
 ];
 
 export default function NotificationBell() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
@@ -333,6 +335,21 @@ export default function NotificationBell() {
               <div className="py-3">
                 <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{detailNotification.message}</p>
               </div>
+              {detailNotification.source_type === "overdue_reading" && detailNotification.source_id && (
+                <div className="pb-2">
+                  <Button
+                    size="sm"
+                    className="w-full gap-1.5"
+                    onClick={() => {
+                      navigate(`/equipamentos?eq=${detailNotification.source_id}&quick=1`);
+                      setDetailNotification(null);
+                      setOpen(false);
+                    }}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" /> Lançar Leitura Agora
+                  </Button>
+                </div>
+              )}
               <DialogFooter className="flex-row gap-2 sm:justify-between">
                 <div className="flex gap-2">
                   <Button
