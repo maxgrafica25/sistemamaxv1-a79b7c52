@@ -15,7 +15,7 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
-  Plus, Printer, Package, Droplet, ClipboardList, Clock, User, Sparkles, AlertTriangle, ChevronRight, Wrench,
+  Plus, Printer, Droplet, ClipboardList, Clock, User, Sparkles, AlertTriangle, ChevronRight, Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,12 +53,27 @@ const detectTonerColor = (name: string): string => {
   return "bg-muted-foreground";
 };
 
-const getTypeBadge = (type: string) => {
+// Mapa de cor do toner → classes do Badge (bg + hover) com bom contraste
+const TONER_BADGE_CLASSES: Record<string, string> = {
+  "bg-cyan-500": "bg-cyan-500 hover:bg-cyan-600 text-white",
+  "bg-fuchsia-500": "bg-fuchsia-500 hover:bg-fuchsia-600 text-white",
+  "bg-yellow-500": "bg-yellow-500 hover:bg-yellow-600 text-black",
+  "bg-zinc-800": "bg-zinc-800 hover:bg-zinc-900 text-white",
+};
+
+const getTypeBadge = (type: string, consumableName?: string | null) => {
   switch (type) {
     case "daily":
       return <Badge variant="outline" className="gap-1 text-xs"><ClipboardList className="h-3 w-3" />Leitura Diária</Badge>;
-    case "toner_change":
-      return <Badge className="gap-1 text-xs bg-blue-500 hover:bg-blue-600"><Package className="h-3 w-3" />Troca Toner/Peça</Badge>;
+    case "toner_change": {
+      const colorKey = consumableName ? detectTonerColor(consumableName) : null;
+      const colorClass = colorKey && TONER_BADGE_CLASSES[colorKey];
+      return (
+        <Badge className={cn("gap-1 text-xs", colorClass || "bg-blue-500 hover:bg-blue-600 text-white")}>
+          <Droplet className="h-3 w-3" />Troca de Toner
+        </Badge>
+      );
+    }
     default:
       return <Badge>{type}</Badge>;
   }
@@ -898,7 +913,7 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {getTypeBadge(r.type)}
+                      {getTypeBadge(r.type, r.consumable_id ? consumableMap.get(r.consumable_id) : null)}
                       {r.type === "toner_change" && r.consumable_id && consumableMap.get(r.consumable_id) && (
                         <span className="text-xs text-muted-foreground">— {consumableMap.get(r.consumable_id)}</span>
                       )}
