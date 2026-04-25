@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -121,11 +122,13 @@ const printerTypeBadge = (t: string) => {
 
 // ─── Component ───────────────────────────────────────────────────────
 export default function Equipamentos() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [consumables, setConsumables] = useState<Consumable[]>([]);
   const [activeEquipment, setActiveEquipment] = useState<string>("");
   const [activeSubTab, setActiveSubTab] = useState<string>("consumiveis");
   const [loading, setLoading] = useState(true);
+  const [autoOpenQuickFor, setAutoOpenQuickFor] = useState<string | null>(null);
 
   // Dialogs
   const [showEquipDialog, setShowEquipDialog] = useState(false);
@@ -169,6 +172,21 @@ export default function Equipamentos() {
   };
 
   useEffect(() => { fetchAll(); }, []);
+
+  // Deep link: ?eq=<id>&quick=1 (vindo dos alertas da Júlia)
+  useEffect(() => {
+    if (loading || equipments.length === 0) return;
+    const eq = searchParams.get("eq");
+    const quick = searchParams.get("quick");
+    if (eq && equipments.find(e => e.id === eq)) {
+      setActiveEquipment(eq);
+      setActiveSubTab("contadores");
+      if (quick) setAutoOpenQuickFor(eq);
+      const next = new URLSearchParams(searchParams);
+      next.delete("eq"); next.delete("quick");
+      setSearchParams(next, { replace: true });
+    }
+  }, [loading, equipments, searchParams, setSearchParams]);
 
   // Derived
   const activeEq = equipments.find(e => e.id === activeEquipment);
@@ -701,6 +719,8 @@ export default function Equipamentos() {
                     equipmentId={eq.id}
                     equipmentName={eq.name}
                     printerType={eq.printer_type}
+                    autoOpenQuick={autoOpenQuickFor === eq.id}
+                    onAutoOpenHandled={() => setAutoOpenQuickFor(null)}
                   />
                 </TabsContent>
 
