@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
@@ -32,39 +33,41 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <CommandPaletteProvider>
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/orcamentos" element={<Orcamentos />} />
-                <Route path="/orcamentos/novo" element={<NewQuote />} />
-                <Route path="/preco-impressao" element={<PrecoImpressao />} />
-                <Route path="/equipamentos" element={<Equipamentos />} />
-                <Route path="/cadastros" element={<Cadastros />} />
-                <Route path="/materias-primas" element={<MateriasPrimas />} />
-                <Route path="/processos-producao" element={<ProcessosProducao />} />
-                <Route path="/despesas-fixas" element={<DespesasFixas />} />
-                <Route path="/configuracoes" element={<Configuracoes />} />
-                <Route path="/auditoria" element={<Auditoria />} />
-                <Route path="/monitoramento" element={<Monitoramento />} />
-                <Route path="/produtos" element={<Produtos />} />
-                <Route path="/chat" element={<Chat />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-            <AssistenteButton />
-            <CommandPalette />
-          </CommandPaletteProvider>
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <AuthProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <CommandPaletteProvider>
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/orcamentos" element={<Orcamentos />} />
+                  <Route path="/orcamentos/novo" element={<NewQuote />} />
+                  <Route path="/preco-impressao" element={<PrecoImpressao />} />
+                  <Route path="/equipamentos" element={<Equipamentos />} />
+                  <Route path="/cadastros" element={<Cadastros />} />
+                  <Route path="/materias-primas" element={<MateriasPrimas />} />
+                  <Route path="/processos-producao" element={<ProcessosProducao />} />
+                  <Route path="/despesas-fixas" element={<DespesasFixas />} />
+                  <Route path="/configuracoes" element={<Configuracoes />} />
+                  <Route path="/auditoria" element={<Auditoria />} />
+                  <Route path="/monitoramento" element={<Monitoramento />} />
+                  <Route path="/produtos" element={<Produtos />} />
+                  <Route path="/chat" element={<Chat />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+              <AssistenteButton />
+              <CommandPalette />
+            </CommandPaletteProvider>
+          </BrowserRouter>
+        </AuthProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

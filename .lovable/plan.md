@@ -1,57 +1,53 @@
-## Refinamentos: Polish, Realtime preciso, A11y e Celebração
+# Modo Dark — Implementação Completa
 
-Quatro melhorias cirúrgicas no fluxo "Problema Crônico → 2 Teclas".
+O sistema já tem `next-themes` instalado e tokens HSL light/dark definidos no `index.css`, mas falta o **provider**, o **toggle** e a integração com o `Ctrl+K`. Vamos finalizar.
 
-### 1. Skeleton da Paleta (anti layout-shift)
+## O que será entregue
 
-**`src/components/CommandPalette.tsx`** — Quando `loading=true` da `useUrgentAlerts` e ainda não há cache de `alerts`, renderizar um `CommandGroup heading="🔥 Sugestões de Urgência"` com 1–2 linhas placeholder usando `<Skeleton>` (shadcn) na mesma altura do `CommandItem` real (~36px). Assim o grupo já reserva espaço e não há "pulo" quando os dados chegam.
+**3 modos de tema:**
+- ☀️ Claro (light)
+- 🌙 Escuro (dark)
+- 💻 Sistema (segue o SO automaticamente)
 
-- Expor `loading` no destructuring: `const { alerts, loading } = useUrgentAlerts(open);`
-- Adicionar `aria-hidden` nos skeletons para o leitor de tela ignorar.
+**3 formas de alternar:**
+1. **Toggle no header** — ícone sol/lua ao lado do sino de notificações, com dropdown (Claro / Escuro / Sistema)
+2. **Atalho de teclado** — `Ctrl + Shift + L` alterna instantaneamente entre Claro ↔ Escuro
+3. **Paleta de Comandos** — novo grupo "🎨 Aparência" no `Ctrl+K` com as 3 opções
 
-### 2. Confete + feedback gratificante na Leitura Rápida
+**Polimento UX (nível sênior):**
+- **Anti-flash (FOUC)** — script bloqueante no `index.html` aplica o tema correto **antes** do React montar, eliminando o "piscar branco" ao recarregar em modo escuro
+- **Persistência** — escolha salva em `localStorage['max-theme']`
+- **Transição suave** — 200ms em `background-color` e `color` no body, sem deixar lento
+- **Tokens já existentes** — usa o `.dark` já definido em `src/index.css` (sem reinventar paleta)
+- **Ícone animado** — sol/lua faz crossfade ao trocar (estilo shadcn padrão)
+- **Sincronização entre abas** — se o usuário trocar o tema em outra aba, esta atualiza
 
-**`src/components/equipamentos/PrinterReadingsTab.tsx`** (linha ~798, após `toast.success("Leitura registrada!")`):
+## Arquivos
 
-- Detectar se a leitura **resolveu um alerta crítico**: antes do INSERT, verificar se existe linha em `reading_alerts_sent` com `equipment_id` = atual, `severity='critical'`, `resolved_at IS NULL` (rápido — o trigger `resolve_overdue_alerts_on_reading` já cuida do UPDATE). Guardar em `wasOverdue`.
-- Se `wasOverdue`, disparar:
-  - **Confete** via `canvas-confetti` (lib leve ~3KB, instalar) — burst central de 80 partículas, cores da marca (roxo + laranja-accent), 600ms.
-  - **Toast especial**: `toast.success("🎉 Alerta crítico resolvido!", { description: "Júlia agradece. Equipamento de volta ao verde." })` com duração de 4s.
-- Se não havia urgência, mantém o toast atual.
-- Respeitar `prefers-reduced-motion`: pular confete se `matchMedia('(prefers-reduced-motion: reduce)').matches`.
+**Criar:**
+- `src/components/ThemeProvider.tsx` — wrapper do `next-themes` com config (`attribute="class"`, `defaultTheme="system"`, `storageKey="max-theme"`)
+- `src/components/ThemeToggle.tsx` — botão sol/lua + dropdown com 3 opções
 
-### 3. Realtime preciso (filtro de payload)
+**Modificar:**
+- `index.html` — script inline anti-FOUC (lê localStorage e aplica `.dark` no `<html>` antes do paint)
+- `src/App.tsx` — envolver app com `<ThemeProvider>`
+- `src/components/Layout.tsx` — adicionar `<ThemeToggle />` no header, antes do `<NotificationBell />`
+- `src/components/CommandPalette.tsx` — novo grupo "Aparência" com 3 itens + handler do atalho `Ctrl+Shift+L`
+- `src/index.css` — adicionar `transition: background-color 200ms, color 200ms` no `body`
 
-**`src/hooks/useUrgentAlerts.tsx`** — Hoje o handler chama `fetchAlerts()` para qualquer evento (refetch completo). Vamos torná-lo cirúrgico:
+## Detalhes técnicos
 
-- Para `event: 'DELETE'` ou `event: 'UPDATE'` com `new.resolved_at !== null`: remover localmente do estado via `setAlerts(prev => prev.filter(a => a.equipment_id !== payload.new.equipment_id))` — feedback **instantâneo**, sem round-trip.
-- Para `event: 'INSERT'` com `severity='critical'` e `resolved_at IS NULL`: ainda chamar `fetchAlerts()` (precisa do JOIN em `equipments.name`).
-- Manter `REPLICA IDENTITY DEFAULT` (já está; a migration anterior setou FULL — vou reverter para DEFAULT, suficiente aqui e mais leve).
+- **Sem nova dependência** — `next-themes@0.3.0` já está no `package.json`
+- **Hook `useTheme()`** do `next-themes` para ler/escrever tema nos componentes
+- **Atalho** registrado dentro do `CommandPalette.tsx` (já tem listener global de teclado), evitando duplicação
+- **Paleta de cores `.dark`** atual do projeto já é grafite sóbrio (slate-900 base) — sem roxo saturado, alinhado ao pedido anterior
+- **Acessibilidade** — `aria-label` no toggle, foco visível, navegável por teclado
 
-### 4. Acessibilidade — Announcer
+## Resultado
 
-**`src/components/CommandPalette.tsx`**:
+Ao aprovar, em ~10s o usuário poderá:
+1. Clicar no ícone sol/lua no header → escolher tema
+2. Pressionar `Ctrl+Shift+L` em qualquer tela → alternar instantâneo
+3. Abrir `Ctrl+K` → digitar "escuro" / "claro" / "sistema" → Enter
 
-- Adicionar uma região `aria-live="polite"` (visualmente oculta com `sr-only`) dentro do `DialogContent` que, quando `urgentAlerts.length > 0` ao abrir, anuncia: `"Alerta crítico encontrado: Lançar leitura para {nome}. Pressione Enter para resolver."`.
-- O `cmdk` já marca o item com `aria-selected="true"` via `defaultValue` — confirmado, não precisa mudar.
-- Atualizar a `DialogPrimitive.Description` para incluir hint sobre urgências quando aplicável.
-
-### 5. SQL — ajuste do REPLICA IDENTITY
-
-Migration revertendo para o padrão (mais leve, suficiente já que filtramos por `payload.new`):
-
-```sql
-ALTER TABLE public.reading_alerts_sent REPLICA IDENTITY DEFAULT;
-```
-A publicação `supabase_realtime` já inclui a tabela (migration anterior).
-
-### Dependência nova
-
-- `canvas-confetti` (~3KB gzip) + `@types/canvas-confetti` (dev). Sem alternativa nativa equivalente.
-
-### Resultado
-
-- Paleta abre **sem layout-shift** mesmo com a query do Supabase em voo.
-- Resolver um alerta de 5+ dias dispara **confete + toast premium** — vira hábito gratificante.
-- Itens da urgência somem **instantaneamente** quando resolvidos em outra aba/dispositivo.
-- Leitor de tela anuncia urgência ao abrir Ctrl+K.
+A escolha persiste entre sessões e respeita o sistema operacional por padrão.
