@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "next-themes";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   Command, CommandEmpty, CommandGroup, CommandInput,
@@ -13,7 +14,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, ClipboardList, Users, Package, Cpu, Factory,
   Receipt, Calculator, TrendingUp, BookOpen, MessageSquare, Settings, Shield,
-  FilePlus2, Wrench, Sparkles, Printer, Droplet, Flame,
+  FilePlus2, Wrench, Sparkles, Printer, Droplet, Flame, Sun, Moon, Monitor,
 } from "lucide-react";
 
 interface Equipment { id: string; name: string }
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
 export default function CommandPalette() {
   const { open, setOpen } = useCommandPalette();
   const navigate = useNavigate();
+  const { setTheme } = useTheme();
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const { alerts: urgentAlerts, loading: urgentLoading } = useUrgentAlerts(open);
 
@@ -205,6 +207,32 @@ export default function CommandPalette() {
                   </CommandGroup>
                 </>
               )}
+
+              <CommandSeparator />
+
+              <CommandGroup heading="🎨 Aparência">
+                <CommandItem
+                  value="tema-claro"
+                  onSelect={() => run(() => setTheme("light"))}
+                >
+                  <Sun /> Tema Claro
+                </CommandItem>
+                <CommandItem
+                  value="tema-escuro"
+                  onSelect={() => run(() => setTheme("dark"))}
+                >
+                  <Moon /> Tema Escuro
+                  <kbd className="ml-auto pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                    ⌃⇧L
+                  </kbd>
+                </CommandItem>
+                <CommandItem
+                  value="tema-sistema"
+                  onSelect={() => run(() => setTheme("system"))}
+                >
+                  <Monitor /> Tema Sistema (automático)
+                </CommandItem>
+              </CommandGroup>
             </CommandList>
           </Command>
         </DialogPrimitive.Content>
