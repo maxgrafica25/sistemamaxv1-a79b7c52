@@ -34,6 +34,7 @@ import MaintenanceTab from "@/components/equipamentos/MaintenanceTab";
 import ProductionLossesTab from "@/components/equipamentos/ProductionLossesTab";
 import MaintenanceRequestsTab from "@/components/equipamentos/MaintenanceRequestsTab";
 import EquipmentDashboardTab from "@/components/equipamentos/EquipmentDashboardTab";
+import PriceHistoryGlobalTab from "@/components/equipamentos/PriceHistoryGlobalTab";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Equipment {
@@ -127,6 +128,7 @@ export default function Equipamentos() {
   const [consumables, setConsumables] = useState<Consumable[]>([]);
   const [activeEquipment, setActiveEquipment] = useState<string>("");
   const [activeSubTab, setActiveSubTab] = useState<string>("consumiveis");
+  const [topMode, setTopMode] = useState<"equipments" | "price-history">("equipments");
   const [loading, setLoading] = useState(true);
   const [autoOpenQuickFor, setAutoOpenQuickFor] = useState<string | null>(null);
   const [autoOpenTonerFor, setAutoOpenTonerFor] = useState<string | null>(null);
