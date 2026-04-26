@@ -221,7 +221,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         setDiscountType((q.discount_type as DiscountType) || "brl");
         setPaymentMethod(q.payment_method || "");
         if (Array.isArray(q.options)) {
-          setOptions(q.options as QuoteOption[]);
+          setOptions(q.options as unknown as QuoteOption[]);
         }
       }
       setLabor((lRes.data || []).map((s: any) => ({
@@ -322,7 +322,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         discount_value: discountValue,
         discount_type: discountValue ? discountType : null,
         payment_method: paymentMethod || null,
-        options: options.length > 0 ? options : null,
+        options: (options.length > 0 ? options : null) as never,
       };
 
       let id = savedQuoteId;
@@ -334,7 +334,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           supabase.from("quote_third_party").delete().eq("quote_id", id),
         ]);
       } else {
-        const { data, error } = await supabase.from("quotes").insert(payload).select("id").single();
+        const { data, error } = await supabase.from("quotes").insert([payload]).select("id").single();
         if (error || !data) throw error || new Error("Falha ao salvar");
         id = data.id;
         setSavedQuoteId(id);
