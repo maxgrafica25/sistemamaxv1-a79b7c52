@@ -4,11 +4,12 @@ import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSidebarState } from "@/hooks/useSidebarState";
 
-interface NavItem { name: string; href: string; icon: typeof LayoutDashboard }
+interface NavItem { name: string; href: string; icon: typeof LayoutDashboard; badge?: string }
 
 const navigation: NavItem[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Orçamentos", href: "/orcamentos", icon: ClipboardList },
+  { name: "Orçamentos V2", href: "/orcamentos-v2", icon: ClipboardList, badge: "Beta" },
   { name: "Clientes/Fornecedores", href: "/cadastros", icon: Users },
   { name: "Matérias-Primas", href: "/materias-primas", icon: Package },
   { name: "Equipamentos", href: "/equipamentos", icon: Cpu },
@@ -100,7 +101,16 @@ export default function Sidebar({ collapsed, toggleCollapsed, mobileOpen, closeM
                         <span className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
                       )}
                       <item.icon className={cn("h-[18px] w-[18px] shrink-0", isActive && "text-sidebar-primary")} />
-                      {!collapsed && <span className="truncate">{item.name}</span>}
+                      {!collapsed && (
+                        <span className="flex flex-1 items-center justify-between gap-2 min-w-0">
+                          <span className="truncate">{item.name}</span>
+                          {item.badge && (
+                            <span className="shrink-0 rounded-full bg-sidebar-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sidebar-primary">
+                              {item.badge}
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </>
                   )}
                 </NavLink>
