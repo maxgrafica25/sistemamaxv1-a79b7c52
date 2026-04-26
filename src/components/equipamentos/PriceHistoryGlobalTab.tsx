@@ -184,6 +184,14 @@ export default function PriceHistoryGlobalTab({ equipments, consumables, onChang
 
   return (
     <div className="space-y-4">
+      {/* Context banner */}
+      <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2">
+        <History className="h-4 w-4 text-muted-foreground shrink-0" />
+        <p className="text-xs text-muted-foreground leading-tight">
+          <span className="font-medium text-foreground">Visão gerencial:</span> compras consolidadas de todos os equipamentos, com comparação de fornecedores e variação de preços.
+        </p>
+      </div>
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <KpiCard
