@@ -27,6 +27,10 @@ import Equipamentos from "./pages/Equipamentos";
 import Auditoria from "./pages/Auditoria";
 import Monitoramento from "./pages/Monitoramento";
 import Produtos from "./pages/Produtos";
+import OrcamentosV2 from "./pages/orcamentos-v2/OrcamentosV2";
+import NewQuoteV2 from "./pages/orcamentos-v2/NewQuoteV2";
+import EditQuoteV2 from "./pages/orcamentos-v2/EditQuoteV2";
+import ClientViewer from "./pages/orcamentos-v2/ClientViewer";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,10 +47,14 @@ const App = () => (
               <Routes>
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/view-quote/:id" element={<ClientViewer />} />
                 <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/orcamentos" element={<Orcamentos />} />
                   <Route path="/orcamentos/novo" element={<NewQuote />} />
+                  <Route path="/orcamentos-v2" element={<OrcamentosV2 />} />
+                  <Route path="/orcamentos-v2/novo" element={<NewQuoteV2 />} />
+                  <Route path="/orcamentos-v2/:id" element={<EditQuoteV2 />} />
                   <Route path="/preco-impressao" element={<PrecoImpressao />} />
                   <Route path="/equipamentos" element={<Equipamentos />} />
                   <Route path="/cadastros" element={<Cadastros />} />
