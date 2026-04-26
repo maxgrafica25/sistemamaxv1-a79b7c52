@@ -92,6 +92,14 @@ export default function ConsumablePriceHistoryTab({ equipmentId, equipmentName, 
 
   return (
     <div className="space-y-3">
+      {/* Context banner */}
+      <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2">
+        <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
+        <p className="text-xs text-muted-foreground leading-tight">
+          <span className="font-medium text-foreground">Visão operacional:</span> apenas consumíveis deste equipamento{equipmentName ? ` (${equipmentName})` : ""}.
+        </p>
+      </div>
+
       {/* KPIs + action */}
       <div className="grid grid-cols-3 gap-2">
         <KpiMini icon={<DollarSign className="h-3.5 w-3.5" />} label="Gasto 90d" value={fmt(spent90)} />
