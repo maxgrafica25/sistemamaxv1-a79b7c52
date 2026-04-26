@@ -1662,7 +1662,13 @@ export type Database = {
           client: string
           created_at: string
           date: string
+          discount_type: string | null
+          discount_value: number | null
           id: string
+          is_template: boolean
+          last_viewed_at: string | null
+          options: Json | null
+          payment_method: string | null
           product: string
           profit_margin: string | null
           quote_number: string
@@ -1671,12 +1677,19 @@ export type Database = {
           updated_at: string
           validity: string | null
           value: number
+          view_count: number
         }
         Insert: {
           client: string
           created_at?: string
           date?: string
+          discount_type?: string | null
+          discount_value?: number | null
           id?: string
+          is_template?: boolean
+          last_viewed_at?: string | null
+          options?: Json | null
+          payment_method?: string | null
           product: string
           profit_margin?: string | null
           quote_number: string
@@ -1685,12 +1698,19 @@ export type Database = {
           updated_at?: string
           validity?: string | null
           value?: number
+          view_count?: number
         }
         Update: {
           client?: string
           created_at?: string
           date?: string
+          discount_type?: string | null
+          discount_value?: number | null
           id?: string
+          is_template?: boolean
+          last_viewed_at?: string | null
+          options?: Json | null
+          payment_method?: string | null
           product?: string
           profit_margin?: string | null
           quote_number?: string
@@ -1699,6 +1719,7 @@ export type Database = {
           updated_at?: string
           validity?: string | null
           value?: number
+          view_count?: number
         }
         Relationships: []
       }
@@ -2226,6 +2247,7 @@ export type Database = {
         Returns: boolean
       }
       is_profile_admin: { Args: { _user_id: string }; Returns: boolean }
+      register_quote_view: { Args: { quote_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
