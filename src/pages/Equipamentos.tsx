@@ -414,8 +414,39 @@ export default function Equipamentos() {
         </Button>
       </div>
 
-      {/* No equipment state */}
-      {equipments.length === 0 ? (
+      {/* Top mode toggle */}
+      <div className="inline-flex items-center rounded-lg border bg-muted/40 p-1 gap-1">
+        <button
+          type="button"
+          onClick={() => setTopMode("equipments")}
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+            topMode === "equipments"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Cpu className="h-3.5 w-3.5" /> Por equipamento
+        </button>
+        <button
+          type="button"
+          onClick={() => setTopMode("price-history")}
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+            topMode === "price-history"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <History className="h-3.5 w-3.5" /> Histórico de Preços
+        </button>
+      </div>
+
+      {topMode === "price-history" ? (
+        <PriceHistoryGlobalTab
+          equipments={equipments.map(e => ({ id: e.id, name: e.name }))}
+          consumables={consumables}
+          onChanged={fetchAll}
+        />
+      ) : equipments.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Printer className="h-12 w-12 text-muted-foreground/40 mb-4" />
