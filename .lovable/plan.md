@@ -1,68 +1,160 @@
-## Manutenções Elite Mode — Pronto para codar
+# Histórico de Preços — Refatoração UX/UI (v2)
 
-Todas as dependências (`canvas-confetti`, `cmdk`, `@types/canvas-confetti`) já estão instaladas. Realtime de `reading_alerts_sent` já habilitado em migration anterior. **Zero migrações novas.**
+Transformar o histórico atual em ferramenta de gestão real, com **duas visões** alimentadas pela **mesma tabela centralizada** — uma operacional (no equipamento) e uma gerencial (global). Inclui **barganha por melhor preço histórico** e **preço unitário automático** para compras em múltiplas unidades.
 
 ---
 
-### Arquivos a criar (3)
+## 1. Banco de Dados (mínimas mudanças, máxima compatibilidade)
 
-**1. `src/hooks/useMaintenanceHotkeys.tsx`** — hotkey global "M" com guard de inputs e detecção de dialog aberto.
+A tabela `consumable_price_history` já existe e segue como fonte única. Adicionar:
 
-**2. `src/components/equipamentos/PartsMultiSelect.tsx`** — Combobox cmdk:
-- Carrega `equipment_consumables` (catálogo) + peças usadas em manutenções anteriores deste equipamento (extraídas de `replaced_parts`).
-- 3 grupos: "Catálogo do equipamento" (com preço), "Usadas anteriormente", "Personalizada" (Enter cria tag livre).
-- Callback `onPriceSuggestion(price, name)` quando o usuário escolhe uma peça do catálogo com preço > 0.
-- Tags clicáveis com ícone de remover.
+- `supplier` (text) — fornecedor
+- `invoice_ref` (text) — NF / pedido / referência
+- `quantity` (numeric, default 1) — unidades compradas (numeric para aceitar 1.5L, 0.5kg, etc.)
+- `unit_price` (numeric, **generated column**) — `price / NULLIF(quantity, 0)` calculado automaticamente pelo banco
 
-**3. `src/components/equipamentos/MaintenanceTimeline.tsx`** — Lista Collapsible:
-- Linha de **48px** (`h-12`): ícone tipo (Shield/Wrench), data DD/MM, técnico, peça principal +N, badge valor, contagem de anexos, chevron.
-- **Barra lateral roxa de 3px** aparece somente no item expandido (transição opacity).
-- Conteúdo expandido: grid de stats, tags de peças, descrição, observações, galeria de anexos, botões Copiar/Editar/Excluir.
-- Empty state com hint do hotkey "M".
+> **Por que numeric e generated column?** Garante que o preço unitário seja consistente em qualquer query/relatório, sem depender do client. Ex: 2 toners por R$ 500 → `unit_price = 250`. 5L de tinta por R$ 750 → `unit_price = 150/L`.
 
-### Arquivo a refatorar (1)
+Registros antigos (sem quantity) assumem `1` por default → `unit_price = price`. Compatibilidade total.
 
-**`src/components/equipamentos/MaintenanceTab.tsx`** — refatoração completa:
+---
 
-- **Auto-fill ao abrir nova manutenção:**
-  - Query paralela: `printer_readings` (último counter) + `equipment_maintenances` (último technician do equipamento).
-  - Estados `suggestedCounter` e `suggestedTechnician` controlam chips `↩ sugerido` que somem quando o campo é alterado.
+## 2. Visão Global (nova) — "Histórico de Preços"
 
-- **Validação de contador:** se `Number(totalCounter) < suggestedCounter`, mostra alerta vermelho inline ("Atenção: Contador inferior à última leitura registrada (XXX)").
+Nova aba no nível da página `Equipamentos.tsx`. **Cérebro gerencial.**
 
-- **Banner de alerta crítico:** ao abrir o dialog, busca `reading_alerts_sent WHERE equipment_id=? AND severity='critical' AND resolved_at IS NULL`. Se existir, renderiza banner amarelo no topo com checkbox "Resolver com esta manutenção" (default ON). Ao salvar com checkbox ativo: `UPDATE reading_alerts_sent SET resolved_at = now()` para todos os alertas críticos abertos do equipamento.
+```text
+┌─────────────────────────────────────────────────┐
+│ KPIs (4 cards)                                   │
+│ Compras 30d │ Gasto 30d │ Var. média │ +Caro 30d │
+├─────────────────────────────────────────────────┤
+│ [Equip ▾] [Fornecedor ▾] [Período] [Buscar]      │
+│                              [+ Registrar compra]│
+├─────────────────────────────────────────────────┤
+│ ▾ Toner Preto HP 26A     R$/un 245  ↑ +8% (12m) │
+│   🏆 Menor histórico: R$ 190 — Office (mar/24)   │
+│   ─── sparkline ───                              │
+│   [Timeline detalhada ao expandir]               │
+│ ▸ Cilindro Brother DR-820  R$/un 380  ↓ -3%     │
+└─────────────────────────────────────────────────┘
+```
 
-- **Hotkeys:** `useMaintenanceHotkeys({ enabled: !showDialog, onOpenNew: () => openDialog() })`. Dentro do `<DialogContent>`: `onKeyDown` global captura `Ctrl/Cmd+Enter` para chamar `save()`. Esc nativo do Radix.
+**Recursos-chave:**
+- KPIs de período (compras, gasto, variação média, item que mais subiu).
+- Filtros: equipamento, fornecedor, período (30d/90d/12m/custom), busca.
+- **Tudo em preço unitário** (`unit_price`) para comparação justa entre compras de quantidades diferentes.
+- **Selo 🏆 "Menor preço histórico"** abaixo do nome do consumível: mostra valor + fornecedor + data. Sempre visível.
+- Sparkline com últimas 12 compras (eixo Y = preço unitário).
+- Comparativo de fornecedores: chip do menor preço atual destacado em verde.
+- **Botão "Registrar compra"** sempre acessível.
 
-- **Auto-focus:** `useEffect` no abrir → `technicianRef.current?.focus()`.
+---
 
-- **Botão "↻ Repetir última":** no header da Timeline, busca a última manutenção do equipamento e abre dialog com `technician`, `maintenance_type`, `replaced_parts` clonados.
+## 3. Visão por Equipamento (refinada) — aba "Histórico"
 
-- **PartsMultiSelect:** substitui o `<Input>` de `replaced_parts`. Internamente armazena `string[]` e serializa como CSV ao salvar (compat retroativa: ao editar, faz split por `,`). Callback `onPriceSuggestion`: se o usuário escolhe peça do catálogo e o campo `cost` ainda está em "0", auto-preenche e mostra toast discreto "💡 Valor sugerido pelo catálogo".
+Refeita em `ConsumablePriceHistoryTab.tsx`. Foco operacional.
 
-- **Confetti + toast premium:** ao salvar, se `alertResolved === true` OU `(maintenance_type === 'preventiva' && hadCriticalAlert)`:
-  ```ts
-  confetti({
-    particleCount: 80, spread: 70, origin: { y: 0.7 },
-    colors: ['hsl(270 70% 60%)', 'hsl(150 60% 50%)', 'hsl(45 90% 60%)']
-  });
-  toast.success('🎉 Equipamento de volta ao verde!', {
-    description: 'Manutenção registrada e alerta crítico resolvido.'
-  });
+```text
+┌──────────────────────────────────────────────┐
+│ Gasto 90d │ Var. média │ Compras              │
+├──────────────────────────────────────────────┤
+│ Toner Preto             R$/un 245   ↑ +5%   │
+│ Última: 12/03 • Office • 1 un • R$ 245       │
+│ 🏆 Menor: R$ 190 (Office, mar/24) — economiza│
+│    R$ 55/un se barganhar nesse valor         │
+│ ─── sparkline ───                            │
+│                                              │
+│ Cilindro                R$/un 380   ↓ -2%   │
+│ ...                                          │
+└──────────────────────────────────────────────┘
+```
+
+**Recursos-chave:**
+- Um card por consumível do equipamento.
+- Sempre mostra **preço unitário** (não preço pago bruto).
+- Variação % vs compra anterior (verde ↓ / vermelho ↑).
+- **Selo 🏆 + cálculo de economia potencial** ("economiza R$ X/un se barganhar nesse valor") — poder de barganha direto.
+- Expandir → timeline completa com qtd, preço pago, preço unit, fornecedor, NF.
+- Botão "Registrar compra" no topo (modal pré-preenchido com o equipamento).
+
+---
+
+## 4. Modal "Registrar Compra"
+
+Modal único compartilhado.
+
+```text
+┌─────────────────────────────────────────┐
+│ Registrar compra                        │
+├─────────────────────────────────────────┤
+│ Equipamento: [HP M404 ▾]                │
+│ Consumível:  [Toner Preto HP 26A ▾]     │
+│                                          │
+│ 🏆 Menor preço histórico: R$ 190/un      │
+│    Office Suprimentos · mar/24           │
+│                                          │
+│ Quantidade: [2]    Preço total: [R$ 500]│
+│ → Preço unitário: R$ 250,00 (calculado) │
+│ ⚠ Acima do menor histórico em R$ 60/un  │
+│                                          │
+│ Fornecedor:   [Office ▾] (sugestões)    │
+│ NF / Pedido:  [12345]                   │
+│ Data:         [26/04/2026]              │
+│ Obs:          [_____________________]    │
+│                                          │
+│ ☑ Atualizar preço base do consumível    │
+│              [Cancelar]  [Salvar]        │
+└─────────────────────────────────────────┘
+```
+
+**Comportamento:**
+- Ao escolher consumível: busca menor preço histórico e mostra selo 🏆 acima dos campos.
+- Preço unitário calculado em tempo real (`total / quantity`) e exibido com destaque.
+- **Aviso inteligente** comparando com menor histórico: verde se igual/menor, amarelo se acima.
+- Combobox de fornecedor sugere os já usados antes (distinct de `supplier`).
+- Checkbox "Atualizar preço base" usa `unit_price` (não o total) — corrige bug conceitual.
+
+---
+
+## 5. Detalhes Técnicos
+
+- **Fonte única**: `consumable_price_history` + join com `equipment_consumables` para obter `equipment_id` e `name`.
+- **Migração**:
+  ```sql
+  ALTER TABLE consumable_price_history
+    ADD COLUMN supplier text,
+    ADD COLUMN invoice_ref text,
+    ADD COLUMN quantity numeric NOT NULL DEFAULT 1,
+    ADD COLUMN unit_price numeric GENERATED ALWAYS AS (price / NULLIF(quantity, 0)) STORED;
+  CREATE INDEX idx_cph_supplier ON consumable_price_history(supplier);
+  CREATE INDEX idx_cph_consumable_date ON consumable_price_history(consumable_id, change_date DESC);
   ```
-
-- **Form compacto:** grid 3 colunas para Contador|Horas|Valor já no mobile (`grid-cols-3`, sem `sm:`). Bordas `border-border/60`, `space-y-3`, labels `text-xs`, inputs `h-9`.
-
-- **URL searchParams:** se a tab foi aberta via link com param tipo `?openMaintenance=1`, limpar com `setSearchParams({})` após abrir o dialog (já há padrão similar em `Equipamentos.tsx` — verificar se aplicável; só adicionar se houver param).
+- **Menor preço histórico**: query `MIN(unit_price)` por `consumable_id` + linha completa para mostrar fornecedor/data.
+- **Sparkline**: `recharts` (já instalado) em modo minimalista, eixo Y = `unit_price`.
+- **Sugestão de fornecedores**: query distinct em `supplier` no client (volume baixo).
+- **Realtime**: adicionar `consumable_price_history` ao publication `supabase_realtime`.
+- **RLS**: já cobre — políticas existentes valem para colunas novas.
 
 ---
 
-### Detalhes técnicos
+## 6. Arquivos
 
-- **Schema:** zero alterações. Usa colunas existentes em `equipment_maintenances`, `printer_readings`, `reading_alerts_sent`, `equipment_consumables`.
-- **RLS:** UPDATE em `reading_alerts_sent` já é permitido a authenticated (verificado nas policies atuais).
-- **Realtime:** já configurado anteriormente (`REPLICA IDENTITY DEFAULT` + publicação) — qualquer resolução de alerta dispara o `useUrgentAlerts` automaticamente.
-- **Compatibilidade retroativa:** registros antigos com `replaced_parts = "Cilindro, Belt"` (texto livre) continuam abrindo corretamente — o parser CSV do MultiSelect aceita qualquer string.
-- **Acessibilidade:** hotkey "M" só dispara fora de campos editáveis e quando nenhum dialog está aberto. Dialog mantém trap de foco do Radix.
+**Criados:**
+- `src/components/equipamentos/PriceHistoryGlobalTab.tsx` — visão global
+- `src/components/equipamentos/PriceHistoryCard.tsx` — card reusado nas duas telas (preço unit + variação % + selo 🏆 + sparkline)
+- `src/components/equipamentos/RegisterPurchaseDialog.tsx` — modal compartilhado com cálculo de unitário e alerta de barganha
+- `src/components/equipamentos/SupplierCombobox.tsx` — combobox com sugestões
 
-Pronto para mudar para modo build e aplicar.
+**Editados:**
+- `src/components/equipamentos/ConsumablePriceHistoryTab.tsx` — refeito como visão enxuta por equipamento
+- `src/pages/Equipamentos.tsx` — adicionar tab "Histórico de Preços" global no topo
+
+**Migração SQL** (única, não-destrutiva): colunas + índices.
+
+---
+
+## 7. O que NÃO muda
+
+- Schema atual preservado — apenas colunas adicionais.
+- Fluxo "editar consumível → gera histórico" continua funcionando (assume quantity=1).
+- RLS, manutenções, leituras, dashboard — nada afetado.

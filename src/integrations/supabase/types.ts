@@ -374,8 +374,12 @@ export type Database = {
           consumable_id: string
           created_at: string | null
           id: string
+          invoice_ref: string | null
           notes: string | null
           price: number
+          quantity: number
+          supplier: string | null
+          unit_price: number | null
           yield_pages: number
         }
         Insert: {
@@ -383,8 +387,12 @@ export type Database = {
           consumable_id: string
           created_at?: string | null
           id?: string
+          invoice_ref?: string | null
           notes?: string | null
           price?: number
+          quantity?: number
+          supplier?: string | null
+          unit_price?: number | null
           yield_pages?: number
         }
         Update: {
@@ -392,8 +400,12 @@ export type Database = {
           consumable_id?: string
           created_at?: string | null
           id?: string
+          invoice_ref?: string | null
           notes?: string | null
           price?: number
+          quantity?: number
+          supplier?: string | null
+          unit_price?: number | null
           yield_pages?: number
         }
         Relationships: [
