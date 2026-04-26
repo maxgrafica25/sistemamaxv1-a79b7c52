@@ -763,6 +763,7 @@ export default function Equipamentos() {
                 <TabsContent value="historico" className="mt-4">
                   <ConsumablePriceHistoryTab
                     equipmentId={eq.id}
+                    equipmentName={eq.name}
                     consumables={activeConsumables}
                   />
                 </TabsContent>
