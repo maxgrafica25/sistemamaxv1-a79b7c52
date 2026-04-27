@@ -234,11 +234,12 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
     // Load existing quote if editing or generate next quote number
     if (quoteId) {
-      const [qRes, lRes, mRes, tpRes] = await Promise.all([
+      const [qRes, lRes, mRes, tpRes, cvRes] = await Promise.all([
         supabase.from("quotes").select("*").eq("id", quoteId).single(),
         supabase.from("quote_labor_steps").select("*").eq("quote_id", quoteId).order("sort_order"),
         supabase.from("quote_materials").select("*").eq("quote_id", quoteId).order("sort_order"),
         supabase.from("quote_third_party").select("*").eq("quote_id", quoteId).order("sort_order"),
+        supabase.from("cv_quote_items").select("*").eq("quote_id", quoteId).order("sort_order"),
       ]);
       if (qRes.data) {
         const q = qRes.data;
@@ -271,6 +272,20 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       })));
       setThirdParty((tpRes.data || []).map((t: any) => ({
         id: t.id, description: t.description, supplier: t.supplier, cost: t.cost,
+      })));
+      setCvItems((cvRes.data || []).map((it: any) => ({
+        id: it.id,
+        material_id: it.material_id,
+        printer_id: it.printer_id,
+        largura_cm: Number(it.largura_cm) || 0,
+        altura_cm: Number(it.altura_cm) || 0,
+        quantidade: it.quantidade || 1,
+        acabamentos: Array.isArray(it.finishes_json)
+          ? (it.finishes_json as any[]).map((a) => ({
+              finish_id: a.finish_id,
+              quantidade_unidades: a.quantidade_unidades ?? 1,
+            }))
+          : [],
       })));
     } else {
       const { data: existing } = await supabase
