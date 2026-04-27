@@ -900,6 +900,65 @@ export type Database = {
           },
         ]
       }
+      material_group_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          material_group_id: string
+          quantity: number
+          sort_order: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          material_group_id: string
+          quantity?: number
+          sort_order?: number
+          unit_price?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          material_group_id?: string
+          quantity?: number
+          sort_order?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_group_items_material_group_id_fkey"
+            columns: ["material_group_id"]
+            isOneToOne: false
+            referencedRelation: "material_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      material_groups: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       message_reactions: {
         Row: {
           created_at: string
@@ -1447,6 +1506,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          step_type: string
           time_minutes: number
           updated_at: string
         }
@@ -1454,6 +1514,7 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
+          step_type?: string
           time_minutes?: number
           updated_at?: string
         }
@@ -1461,6 +1522,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          step_type?: string
           time_minutes?: number
           updated_at?: string
         }
@@ -1559,6 +1621,7 @@ export type Database = {
           id: string
           quote_id: string
           sort_order: number
+          step_type: string
           time_minutes: number
         }
         Insert: {
@@ -1566,6 +1629,7 @@ export type Database = {
           id?: string
           quote_id: string
           sort_order?: number
+          step_type?: string
           time_minutes?: number
         }
         Update: {
@@ -1573,6 +1637,7 @@ export type Database = {
           id?: string
           quote_id?: string
           sort_order?: number
+          step_type?: string
           time_minutes?: number
         }
         Relationships: [
@@ -2039,6 +2104,7 @@ export type Database = {
           id: string
           sort_order: number
           step_group_id: string
+          step_type: string
           time_minutes: number
         }
         Insert: {
@@ -2047,6 +2113,7 @@ export type Database = {
           id?: string
           sort_order?: number
           step_group_id: string
+          step_type?: string
           time_minutes?: number
         }
         Update: {
@@ -2055,6 +2122,7 @@ export type Database = {
           id?: string
           sort_order?: number
           step_group_id?: string
+          step_type?: string
           time_minutes?: number
         }
         Relationships: [
