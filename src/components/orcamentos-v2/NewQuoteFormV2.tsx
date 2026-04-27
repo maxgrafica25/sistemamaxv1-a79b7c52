@@ -381,7 +381,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       if (id) {
         if (labor.length > 0) {
           await supabase.from("quote_labor_steps").insert(
-            labor.map((s, i) => ({ quote_id: id, description: s.description, time_minutes: s.timeMinutes, sort_order: i })),
+            labor.map((s, i) => ({ quote_id: id, description: s.description, time_minutes: s.timeMinutes, sort_order: i, step_type: s.stepType || "outro" })),
           );
         }
         // Insere apenas itens NÃO aprovados (aprovados continuam no banco)
