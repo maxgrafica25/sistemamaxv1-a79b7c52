@@ -42,6 +42,7 @@ const STEPS = [
   { label: "Informações", icon: User },
   { label: "Mão de Obra", icon: Clock },
   { label: "Materiais", icon: Package },
+  { label: "Comunicação Visual", icon: Megaphone },
   { label: "Terceirizados", icon: Wrench },
   { label: "Finalizar", icon: FileText },
 ];
