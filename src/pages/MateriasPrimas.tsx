@@ -733,9 +733,9 @@ export default function MateriasPrimas() {
                           <TableRow key={material.id} className="group">
                             <TableCell className="font-medium max-w-[250px] truncate">{material.produto}</TableCell>
                             <TableCell><Badge variant="secondary" className="text-xs font-normal">{material.finalidade || "—"}</Badge></TableCell>
-                            <TableCell className="text-right tabular-nums">{material.quantidade}</TableCell>
+                            <TableCell className="text-right tabular-nums">{material.quantidade} <span className="text-xs text-muted-foreground">{material.unidade || "un"}</span></TableCell>
                             <TableCell className="text-right tabular-nums">{formatCurrency(material.valor)}</TableCell>
-                            <TableCell className="text-right tabular-nums font-medium">{formatCurrency(material.valorUnitario)}</TableCell>
+                            <TableCell className="text-right tabular-nums font-medium">{formatCurrency(material.valorUnitario)} <span className="text-xs text-muted-foreground font-normal">/ {material.unidade || "un"}</span></TableCell>
                             <TableCell className="text-muted-foreground">{material.fornecedor || "—"}</TableCell>
                             <TableCell className="text-center"><VariationBadge variation={variation} /></TableCell>
                             <TableCell className="text-right">
