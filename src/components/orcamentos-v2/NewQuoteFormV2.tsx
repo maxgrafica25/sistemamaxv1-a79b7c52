@@ -899,10 +899,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
       {/* Sticky financial sidebar — visible at all steps */}
       <StickyFinancialSidebar
-        totalCost={live.costsBeforeMarkup + live.printingTotal}
+        totalCost={live.costsBeforeMarkup + live.printingTotal + cvCostTotal}
         totalToCharge={discountedTotal}
-        marginPct={live.effectiveMarginPct}
-        profit={live.profit}
+        marginPct={discountedTotal > 0 ? ((discountedTotal - (live.costsBeforeMarkup + live.printingTotal + cvCostTotal)) / discountedTotal) * 100 : 0}
+        profit={discountedTotal - (live.costsBeforeMarkup + live.printingTotal + cvCostTotal)}
       />
     </div>
   );
