@@ -61,3 +61,25 @@ export const buildItemAdjustMessage = (params: {
   const who = params.clientName ? ` Aqui é ${params.clientName}.` : "";
   return `${greeting}${who} Sobre o item "${params.itemDescription}" do Orçamento ${params.quoteNumber}, gostaria de solicitar uma alteração. Podemos falar?`;
 };
+
+// ─── Comunicação Visual ────────────────────────────────
+export interface CVProposalItem {
+  description: string;   // Ex: "Lona Brilho 440g (90×120cm) c/ Ilhós ×4"
+  value: number;
+}
+
+export const buildCVProposalMessage = (params: {
+  quoteNumber: string;
+  items: CVProposalItem[];
+  total: number;
+  clientName?: string;
+  companyName?: string;
+}) => {
+  const greeting = params.companyName ? `Olá ${params.companyName}!` : "Olá!";
+  const who = params.clientName ? ` Aqui é ${params.clientName}.` : "";
+  const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const lines = params.items
+    .map((it, i) => `📦 *Item ${i + 1}:* ${it.description} — *${fmt(it.value)}*`)
+    .join("\n");
+  return `${greeting}${who} Segue a proposta de Comunicação Visual ${params.quoteNumber}:\n\n${lines}\n─────────────\n💰 *Total: ${fmt(params.total)}*`;
+};
