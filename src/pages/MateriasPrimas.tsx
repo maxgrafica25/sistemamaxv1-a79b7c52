@@ -461,30 +461,24 @@ export default function MateriasPrimas() {
         </div>
 
         <div>
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex gap-1 border-b border-border">
-              {[
-                { key: "papel" as const, label: "Papéis" },
-                { key: "suprimento" as const, label: "Suprimentos" },
-              ].map(t => (
-                <button
-                  key={t.key}
-                  onClick={() => { setActiveTab(t.key); setSearchTerm(""); setFilterFinalidade("all"); }}
-                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-[3px] -mb-px ${
-                    activeTab === t.key
-                      ? "border-primary text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <span className={`h-2 w-2 rounded-full ${activeTab === t.key ? "bg-primary" : "bg-muted-foreground/40"}`} />
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            <Button onClick={() => activeTab === "papel" ? openPaperDialog() : openNewDialog()} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Novo {activeTab === "papel" ? "Papel" : "Suprimento"}
-            </Button>
+          <div className="flex gap-1 border-b border-border">
+            {[
+              { key: "papel" as const, label: "Papéis" },
+              { key: "suprimento" as const, label: "Suprimentos" },
+            ].map(t => (
+              <button
+                key={t.key}
+                onClick={() => { setActiveTab(t.key); setSearchTerm(""); setFilterFinalidade("all"); }}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-[3px] -mb-px ${
+                  activeTab === t.key
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className={`h-2 w-2 rounded-full ${activeTab === t.key ? "bg-primary" : "bg-muted-foreground/40"}`} />
+                {t.label}
+              </button>
+            ))}
           </div>
 
           {/* Stats */}
@@ -548,6 +542,13 @@ export default function MateriasPrimas() {
                 </SelectContent>
               </Select>
             )}
+            <Button
+              onClick={() => activeTab === "papel" ? openPaperDialog() : openNewDialog()}
+              className="gap-2 shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+              Novo {activeTab === "papel" ? "Papel" : "Suprimento"}
+            </Button>
           </div>
 
           {/* ── PAPÉIS TAB ── */}
