@@ -50,6 +50,7 @@ export default function ClientViewer() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+  const { whatsappNumber, companyName } = useCompanySettings();
 
   useEffect(() => {
     if (!id) return;
