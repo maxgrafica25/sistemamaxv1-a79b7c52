@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { format, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  Plus, Edit, Trash2, Search, History,
+  Plus, Edit, Trash2, Search, History, Copy,
   TrendingUp, TrendingDown, Minus, Package, FileText,
   AlertTriangle, DollarSign, ShoppingCart, Layers, HelpCircle, Truck, CalendarIcon, ArrowUpRight
 } from "lucide-react";
@@ -346,6 +346,31 @@ export default function MateriasPrimas() {
     setQuantidade(m.quantidade.toString()); setValor(m.valor.toString());
     setFornecedor(m.fornecedor); setData(m.data); setContato(m.contato); setIsDialogOpen(true);
   };
+  const duplicateMaterial = (m: Material) => {
+    setEditingMaterial(null);
+    setProduto(`${m.produto} (cópia)`);
+    setFinalidade(m.finalidade);
+    setQuantidade(m.quantidade.toString());
+    setValor(m.valor.toString());
+    setFornecedor(m.fornecedor);
+    setContato(m.contato);
+    setData(new Date().toISOString().split("T")[0]);
+    setIsDialogOpen(true);
+  };
+  const duplicatePaper = (p: Paper) => {
+    setEditingPaper(null);
+    setSelectedExistingPaper(null);
+    setPaperName(`${p.name} (cópia)`);
+    setPaperGrammage(p.grammage || "");
+    setPaperSheetQty(String(p.sheet_qty));
+    setPaperPackPrice(String(p.pack_price));
+    setPaperFreightTotal(String(p.freight_price * p.sheet_qty));
+    setPaperFreightDivideBy("1");
+    setPaperSupplier(p.supplier || "");
+    setPaperContact(p.contact || "");
+    setPaperDate(new Date().toISOString().split("T")[0]);
+    setIsPaperDialogOpen(true);
+  };
   const saveMaterial = async () => {
     if (!produto.trim() || !quantidade || !valor) { toast.error("Preencha Produto, Quantidade e Valor"); return; }
     const qtd = parseFloat(quantidade); const val = parseFloat(valor);
@@ -516,39 +541,41 @@ export default function MateriasPrimas() {
             </Card>
           </div>
 
-          {/* Search & Filters */}
-          <div className="flex items-center gap-3 mt-5">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder={`Buscar ${activeTab === "papel" ? "papel por nome ou gramatura" : "suprimento"}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+          {/* Search & Filters — sticky no topo do main */}
+          <div className="sticky top-0 z-20 -mx-8 px-8 py-3 mt-5 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/50">
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder={`Buscar ${activeTab === "papel" ? "papel por nome ou gramatura" : "suprimento"}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+              </div>
+              {activeTab === "papel" && (
+                <Select value={paperSortBy} onValueChange={(v) => setPaperSortBy(v as typeof paperSortBy)}>
+                  <SelectTrigger className="w-[180px] shrink-0"><SelectValue placeholder="Ordenar por" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name">Nome A-Z</SelectItem>
+                    <SelectItem value="grammage">Gramatura</SelectItem>
+                    <SelectItem value="priceA4">Preço A4</SelectItem>
+                    <SelectItem value="date">Data mais recente</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              {activeTab === "suprimento" && (
+                <Select value={filterFinalidade} onValueChange={setFilterFinalidade}>
+                  <SelectTrigger className="w-[200px] shrink-0"><SelectValue placeholder="Filtrar finalidade" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas finalidades</SelectItem>
+                    {uniqueFinalidades.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+              <Button
+                onClick={() => activeTab === "papel" ? openPaperDialog() : openNewDialog()}
+                className="gap-2 shrink-0"
+              >
+                <Plus className="h-4 w-4" />
+                Novo {activeTab === "papel" ? "Papel" : "Suprimento"}
+              </Button>
             </div>
-            {activeTab === "papel" && (
-              <Select value={paperSortBy} onValueChange={(v) => setPaperSortBy(v as typeof paperSortBy)}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Ordenar por" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name">Nome A-Z</SelectItem>
-                  <SelectItem value="grammage">Gramatura</SelectItem>
-                  <SelectItem value="priceA4">Preço A4</SelectItem>
-                  <SelectItem value="date">Data mais recente</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-            {activeTab === "suprimento" && (
-              <Select value={filterFinalidade} onValueChange={setFilterFinalidade}>
-                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filtrar finalidade" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas finalidades</SelectItem>
-                  {uniqueFinalidades.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            )}
-            <Button
-              onClick={() => activeTab === "papel" ? openPaperDialog() : openNewDialog()}
-              className="gap-2 shrink-0"
-            >
-              <Plus className="h-4 w-4" />
-              Novo {activeTab === "papel" ? "Papel" : "Suprimento"}
-            </Button>
           </div>
 
           {/* ── PAPÉIS TAB ── */}
@@ -638,6 +665,9 @@ export default function MateriasPrimas() {
                                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openPaperDialog(paper)} title="Editar">
                                     <Edit className="h-4 w-4" />
                                   </Button>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicatePaper(paper)} title="Duplicar">
+                                    <Copy className="h-4 w-4" />
+                                  </Button>
                                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => requestDeletePaper(paper.id, paper.name)} title="Excluir">
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
@@ -695,6 +725,7 @@ export default function MateriasPrimas() {
                               <div className="flex justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedMaterial(material); setShowHistoryDialog(true); }} title="Histórico"><History className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(material)} title="Editar"><Edit className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicateMaterial(material)} title="Duplicar"><Copy className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => requestDeleteMaterial(material.id, material.produto)} title="Excluir"><Trash2 className="h-4 w-4" /></Button>
                               </div>
                             </TableCell>
