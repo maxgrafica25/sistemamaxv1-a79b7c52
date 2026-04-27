@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   Plus, X, Package, Wrench, ChevronLeft, ChevronRight, Check, User, Clock,
-  FileText, Printer, Loader2, Link2, Lock, AlertTriangle,
+  FileText, Printer, Loader2, Link2, Lock, AlertTriangle, Megaphone,
 } from "lucide-react";
+import { CVItemCard, type CVItemState } from "@/components/orcamentos-v2/CVItemCard";
+import type { CVMaterial, CVPrinter, CVFinish, CVCalcResult } from "@/lib/cv-pricing/engine";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import PrintingItemSearch, { type PrintingCatalogItem, type MarkupTier } from "@/components/orcamentos/PrintingItemSearch";
