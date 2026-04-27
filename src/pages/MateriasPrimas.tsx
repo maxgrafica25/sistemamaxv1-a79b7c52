@@ -665,6 +665,9 @@ export default function MateriasPrimas() {
                                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openPaperDialog(paper)} title="Editar">
                                     <Edit className="h-4 w-4" />
                                   </Button>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicatePaper(paper)} title="Duplicar">
+                                    <Copy className="h-4 w-4" />
+                                  </Button>
                                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => requestDeletePaper(paper.id, paper.name)} title="Excluir">
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
