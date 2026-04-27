@@ -376,10 +376,18 @@ function GruposTab() {
                 )}
 
                 {groupSteps.map((step, idx) => (
-                  <div key={step.id} className="flex gap-3 items-start">
-                    <span className="flex h-10 w-8 items-center justify-center text-xs font-medium text-muted-foreground">{idx + 1}</span>
+                  <div key={step.id} className="flex gap-2 items-start">
+                    <span className="flex h-10 w-7 items-center justify-center text-xs font-medium text-muted-foreground">{idx + 1}</span>
                     <div className="flex-1"><Input placeholder="Descrição da etapa" value={step.description} onChange={(e) => updateStep(step.id, "description", e.target.value)} /></div>
-                    <div className="w-32"><Input type="number" placeholder="Min" value={step.time_minutes || ""} onChange={(e) => updateStep(step.id, "time_minutes", parseFloat(e.target.value) || 0)} /></div>
+                    <div className="w-36">
+                      <Select value={step.step_type} onValueChange={(v) => updateStep(step.id, "step_type", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {STEP_TYPES.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="w-24"><Input type="number" placeholder="Min" value={step.time_minutes || ""} onChange={(e) => updateStep(step.id, "time_minutes", parseFloat(e.target.value) || 0)} /></div>
                     <Button variant="ghost" size="icon" onClick={() => removeStep(step.id)} className="text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 ))}
@@ -422,6 +430,7 @@ function GruposTab() {
                     <TableRow>
                       <TableHead className="w-12 text-center">#</TableHead>
                       <TableHead>Descrição</TableHead>
+                      <TableHead className="w-32">Categoria</TableHead>
                       <TableHead className="w-32 text-center">Tempo (min)</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -432,6 +441,7 @@ function GruposTab() {
                           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-xs font-medium text-primary mx-auto">{index + 1}</span>
                         </TableCell>
                         <TableCell>{item.description}</TableCell>
+                        <TableCell><StepTypeBadge type={item.step_type} /></TableCell>
                         <TableCell className="text-center text-muted-foreground">{item.time_minutes}</TableCell>
                       </TableRow>
                     ))}
