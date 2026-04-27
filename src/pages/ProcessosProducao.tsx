@@ -159,6 +159,17 @@ function EtapasTab() {
                 <Label>Tempo Estimado (minutos)</Label>
                 <Input type="number" placeholder="Ex: 15" value={timeMinutes} onChange={(e) => setTimeMinutes(e.target.value)} />
               </div>
+              <div className="space-y-2">
+                <Label>Categoria do Processo</Label>
+                <Select value={stepType} onValueChange={(v) => setStepType(v as StepType)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STEP_TYPES.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Button onClick={saveStep} className="w-full">{editingStep ? "Salvar Alterações" : "Criar Etapa"}</Button>
             </div>
           </DialogContent>
@@ -178,7 +189,8 @@ function EtapasTab() {
             <TableHeader>
               <TableRow>
                 <TableHead>Descrição</TableHead>
-                <TableHead className="w-40 text-center">Tempo (min)</TableHead>
+                <TableHead className="w-32">Categoria</TableHead>
+                <TableHead className="w-32 text-center">Tempo (min)</TableHead>
                 <TableHead className="w-24 text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -186,6 +198,7 @@ function EtapasTab() {
               {steps.map(step => (
                 <TableRow key={step.id}>
                   <TableCell className="font-medium">{step.description}</TableCell>
+                  <TableCell><StepTypeBadge type={step.step_type} /></TableCell>
                   <TableCell className="text-center">
                     <span className="inline-flex items-center gap-1 text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" /> {step.time_minutes}
