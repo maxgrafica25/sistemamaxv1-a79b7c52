@@ -32,6 +32,7 @@ interface QuoteRow {
 
 const statusBadge = (status: string) => {
   if (status === "approved") return <Badge className="bg-green-500 hover:bg-green-600">Aprovado</Badge>;
+  if (status === "partial") return <Badge className="bg-blue-500 hover:bg-blue-600">Parcial</Badge>;
   if (status === "rejected") return <Badge className="bg-red-500 hover:bg-red-600">Recusado</Badge>;
   if (status === "pending") return <Badge className="bg-yellow-500 hover:bg-yellow-600">Pendente</Badge>;
   return <Badge variant="outline">{status}</Badge>;
