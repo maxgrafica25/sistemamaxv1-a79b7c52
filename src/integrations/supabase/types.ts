@@ -368,6 +368,42 @@ export type Database = {
         }
         Relationships: []
       }
+      company_settings: {
+        Row: {
+          address: string | null
+          company_name: string
+          created_at: string
+          email: string | null
+          id: string
+          logo_url: string | null
+          updated_at: string
+          whatsapp_display: string | null
+          whatsapp_number: string
+        }
+        Insert: {
+          address?: string | null
+          company_name?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          updated_at?: string
+          whatsapp_display?: string | null
+          whatsapp_number?: string
+        }
+        Update: {
+          address?: string | null
+          company_name?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          updated_at?: string
+          whatsapp_display?: string | null
+          whatsapp_number?: string
+        }
+        Relationships: []
+      }
       consumable_price_history: {
         Row: {
           change_date: string | null
