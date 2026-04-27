@@ -2000,6 +2000,7 @@ export type Database = {
       quotes: {
         Row: {
           client: string
+          client_id: string | null
           created_at: string
           date: string
           discount_type: string | null
@@ -2024,6 +2025,7 @@ export type Database = {
         }
         Insert: {
           client: string
+          client_id?: string | null
           created_at?: string
           date?: string
           discount_type?: string | null
@@ -2048,6 +2050,7 @@ export type Database = {
         }
         Update: {
           client?: string
+          client_id?: string | null
           created_at?: string
           date?: string
           discount_type?: string | null

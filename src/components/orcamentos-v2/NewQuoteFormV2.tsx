@@ -10,6 +10,7 @@ import {
   FileText, Printer, Loader2, Link2, Lock, AlertTriangle, Megaphone,
 } from "lucide-react";
 import { CVItemCard, type CVItemState } from "@/components/orcamentos-v2/CVItemCard";
+import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
 import type { CVMaterial, CVPrinter, CVFinish, CVCalcResult } from "@/lib/cv-pricing/engine";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,6 +69,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   // form state
   const [quoteNumber, setQuoteNumber] = useState("");
   const [client, setClient] = useState("");
+  const [clientId, setClientId] = useState<string | null>(null);
   const [product, setProduct] = useState("");
   const [validity, setValidity] = useState("7");
   const [profitMargin, setProfitMargin] = useState("33");
@@ -245,6 +247,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         const q = qRes.data;
         setQuoteNumber(q.quote_number);
         setClient(q.client);
+        setClientId((q as any).client_id ?? null);
         setProduct(q.product);
         setValidity(q.validity || "7");
         setProfitMargin(q.profit_margin || "33");
@@ -382,6 +385,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       const payload = {
         quote_number: quoteNumber,
         client: client.trim(),
+        client_id: clientId,
         product: product.trim(),
         value: discountedTotal,
         date: new Date().toISOString().split("T")[0],
@@ -601,7 +605,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               <h2 className="text-lg font-semibold">Informações Gerais</h2>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2"><Label>Nº Orçamento</Label><Input value={quoteNumber} disabled className="bg-muted" /></div>
-                <div className="space-y-2"><Label>Cliente</Label><Input value={client} onChange={(e) => setClient(e.target.value)} placeholder="Nome do cliente" /></div>
+                <div className="space-y-2">
+                  <Label>Cliente</Label>
+                  <ClientCombobox
+                    value={{ id: clientId, nome: client }}
+                    onChange={(v) => { setClientId(v.id); setClient(v.nome); }}
+                  />
+                </div>
                 <div className="space-y-2 md:col-span-2"><Label>Produto / Serviço</Label><Input value={product} onChange={(e) => setProduct(e.target.value)} placeholder="Ex: Cartões de visita" /></div>
                 <div className="space-y-2"><Label>Validade (dias)</Label><Input type="number" value={validity} onChange={(e) => setValidity(e.target.value)} /></div>
                 <div className="space-y-2"><Label>Margem de lucro (%)</Label><Input type="number" step="0.01" value={profitMargin} onChange={(e) => setProfitMargin(e.target.value)} /></div>
