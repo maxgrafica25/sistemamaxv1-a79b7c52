@@ -326,13 +326,24 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   // Base price uses qty=1 (single-shot) for the live sidebar; options builder explores other quantities
   const live = useMemo(() => recalculateForQuantity(snapshot, 1), [snapshot]);
 
-  // Apply discount on top of live total (for sidebar feedback only; persisted separately)
+  // CV total — sum of all visual communication items
+  const cvTotal = useMemo(
+    () => Object.values(cvResults).reduce((s, r) => s + (r?.preco_total || 0), 0),
+    [cvResults],
+  );
+  const cvCostTotal = useMemo(
+    () => Object.values(cvResults).reduce((s, r) => s + (r?.custo_total || 0), 0),
+    [cvResults],
+  );
+
+  // Apply discount on top of live total + CV (for sidebar feedback only; persisted separately)
   const discountedTotal = useMemo(() => {
-    if (!discountValue || discountValue <= 0) return live.totalToCharge;
+    const baseTotal = live.totalToCharge + cvTotal;
+    if (!discountValue || discountValue <= 0) return baseTotal;
     return discountType === "percent"
-      ? live.totalToCharge * (1 - discountValue / 100)
-      : Math.max(0, live.totalToCharge - discountValue);
-  }, [live.totalToCharge, discountValue, discountType]);
+      ? baseTotal * (1 - discountValue / 100)
+      : Math.max(0, baseTotal - discountValue);
+  }, [live.totalToCharge, cvTotal, discountValue, discountType]);
 
   // ---------- Handlers ----------
   const addPrintingItem = (item: PrintingCatalogItem) => {
