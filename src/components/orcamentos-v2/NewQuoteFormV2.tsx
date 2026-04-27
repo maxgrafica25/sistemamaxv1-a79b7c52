@@ -744,6 +744,81 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
           {step === 3 && (
             <Card><CardContent className="p-5 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Megaphone className="h-5 w-5 text-primary" /> Comunicação Visual
+                  {cvItems.length > 0 && <Badge variant="outline">{cvItems.length} {cvItems.length === 1 ? "item" : "itens"}</Badge>}
+                </h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={cvMaterials.length === 0}
+                  onClick={() => setCvItems((p) => [
+                    ...p,
+                    {
+                      id: `cv-${Date.now()}`,
+                      material_id: null,
+                      printer_id: null,
+                      largura_cm: 0,
+                      altura_cm: 0,
+                      quantidade: 1,
+                      acabamentos: [],
+                    },
+                  ])}
+                >
+                  <Plus className="h-4 w-4" /> Item
+                </Button>
+              </div>
+
+              {cvMaterials.length === 0 ? (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Nenhum cadastro encontrado</AlertTitle>
+                  <AlertDescription>
+                    Cadastre materiais, impressoras e acabamentos em <strong>Cadastros &gt; Comunicação Visual</strong> antes de adicionar itens.
+                  </AlertDescription>
+                </Alert>
+              ) : cvItems.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  Nenhum item de comunicação visual adicionado. Clique em <strong>Item</strong> para começar.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {cvItems.map((it, idx) => (
+                    <CVItemCard
+                      key={it.id}
+                      item={it}
+                      index={idx}
+                      materiais={cvMaterials}
+                      impressoras={cvPrinters}
+                      acabamentos={cvFinishes}
+                      onChange={(updated) =>
+                        setCvItems((p) => p.map((x) => (x.id === it.id ? updated : x)))
+                      }
+                      onRemove={() => {
+                        setCvItems((p) => p.filter((x) => x.id !== it.id));
+                        setCvResults((p) => {
+                          const { [it.id]: _, ...rest } = p;
+                          return rest;
+                        });
+                      }}
+                      onResult={(r) =>
+                        setCvResults((p) => (p[it.id]?.preco_total === r.preco_total && p[it.id]?.custo_total === r.custo_total ? p : { ...p, [it.id]: r }))
+                      }
+                    />
+                  ))}
+                  <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
+                    <span className="text-sm font-medium text-muted-foreground">Subtotal Comunicação Visual</span>
+                    <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
+                  </div>
+                </div>
+              )}
+            </CardContent></Card>
+          )}
+
+          {step === 4 && (
+            <Card><CardContent className="p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold flex items-center gap-2"><Wrench className="h-5 w-5 text-primary" /> Terceirizados</h2>
                 <Button variant="outline" size="sm" onClick={() => setThirdParty((p) => [...p, { id: Date.now().toString(), description: "", supplier: "", cost: 0 }])} className="gap-1.5">
