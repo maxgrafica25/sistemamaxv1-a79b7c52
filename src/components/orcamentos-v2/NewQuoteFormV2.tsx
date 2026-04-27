@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   Plus, X, Package, Wrench, ChevronLeft, ChevronRight, Check, User, Clock,
-  FileText, Printer, Loader2, Link2, Lock, AlertTriangle,
+  FileText, Printer, Loader2, Link2, Lock, AlertTriangle, Megaphone,
 } from "lucide-react";
+import { CVItemCard, type CVItemState } from "@/components/orcamentos-v2/CVItemCard";
+import type { CVMaterial, CVPrinter, CVFinish, CVCalcResult } from "@/lib/cv-pricing/engine";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import PrintingItemSearch, { type PrintingCatalogItem, type MarkupTier } from "@/components/orcamentos/PrintingItemSearch";
@@ -40,6 +42,7 @@ const STEPS = [
   { label: "Informações", icon: User },
   { label: "Mão de Obra", icon: Clock },
   { label: "Materiais", icon: Package },
+  { label: "Comunicação Visual", icon: Megaphone },
   { label: "Terceirizados", icon: Wrench },
   { label: "Finalizar", icon: FileText },
 ];
@@ -73,6 +76,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [materials, setMaterials] = useState<PricingMaterial[]>([]);
   const [thirdParty, setThirdParty] = useState<ThirdParty[]>([]);
 
+  // CV (Comunicação Visual)
+  const [cvMaterials, setCvMaterials] = useState<CVMaterial[]>([]);
+  const [cvPrinters, setCvPrinters] = useState<CVPrinter[]>([]);
+  const [cvFinishes, setCvFinishes] = useState<CVFinish[]>([]);
+  const [cvItems, setCvItems] = useState<CVItemState[]>([]);
+  const [cvResults, setCvResults] = useState<Record<string, CVCalcResult>>({});
+
   const [discountValue, setDiscountValue] = useState<number | null>(null);
   const [discountType, setDiscountType] = useState<DiscountType>("brl");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
@@ -100,7 +110,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   // ---------- Load catalog & quote ----------
   const loadInit = useCallback(async () => {
     setLoadingInit(true);
-    const [printRes, catRes, eqRes, consRes, papersRes, tiersRes, settingsRes, expRes, salRes, depRes, capRes] =
+    const [printRes, catRes, eqRes, consRes, papersRes, tiersRes, settingsRes, expRes, salRes, depRes, capRes, cvMatRes, cvPrtRes, cvFinRes] =
       await Promise.all([
         supabase.from("printing_price_items").select("*").eq("is_active", true).order("sort_order"),
         supabase.from("printer_categories").select("*").order("sort_order"),
@@ -113,7 +123,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         supabase.from("salaries").select("salary, is_production"),
         supabase.from("equipment_depreciation").select("purchase_value, useful_life_months, residual_value"),
         supabase.from("productive_capacity").select("hours_per_month, production_employees").limit(1).single(),
+        supabase.from("cv_materials").select("*").eq("is_active", true).order("sort_order"),
+        supabase.from("cv_printers").select("*").eq("is_active", true).order("sort_order"),
+        supabase.from("cv_finishes").select("*").eq("is_active", true).order("sort_order"),
       ]);
+
+    setCvMaterials((cvMatRes.data || []) as unknown as CVMaterial[]);
+    setCvPrinters((cvPrtRes.data || []) as unknown as CVPrinter[]);
+    setCvFinishes((cvFinRes.data || []) as unknown as CVFinish[]);
 
     const tiers: MarkupTier[] = (tiersRes.data || []).map((t: any) => ({
       id: t.id,
@@ -217,11 +234,12 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
     // Load existing quote if editing or generate next quote number
     if (quoteId) {
-      const [qRes, lRes, mRes, tpRes] = await Promise.all([
+      const [qRes, lRes, mRes, tpRes, cvRes] = await Promise.all([
         supabase.from("quotes").select("*").eq("id", quoteId).single(),
         supabase.from("quote_labor_steps").select("*").eq("quote_id", quoteId).order("sort_order"),
         supabase.from("quote_materials").select("*").eq("quote_id", quoteId).order("sort_order"),
         supabase.from("quote_third_party").select("*").eq("quote_id", quoteId).order("sort_order"),
+        supabase.from("cv_quote_items").select("*").eq("quote_id", quoteId).order("sort_order"),
       ]);
       if (qRes.data) {
         const q = qRes.data;
@@ -254,6 +272,20 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       })));
       setThirdParty((tpRes.data || []).map((t: any) => ({
         id: t.id, description: t.description, supplier: t.supplier, cost: t.cost,
+      })));
+      setCvItems((cvRes.data || []).map((it: any) => ({
+        id: it.id,
+        material_id: it.material_id,
+        printer_id: it.printer_id,
+        largura_cm: Number(it.largura_cm) || 0,
+        altura_cm: Number(it.altura_cm) || 0,
+        quantidade: it.quantidade || 1,
+        acabamentos: Array.isArray(it.finishes_json)
+          ? (it.finishes_json as any[]).map((a) => ({
+              finish_id: a.finish_id,
+              quantidade_unidades: a.quantidade_unidades ?? 1,
+            }))
+          : [],
       })));
     } else {
       const { data: existing } = await supabase
@@ -294,13 +326,24 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   // Base price uses qty=1 (single-shot) for the live sidebar; options builder explores other quantities
   const live = useMemo(() => recalculateForQuantity(snapshot, 1), [snapshot]);
 
-  // Apply discount on top of live total (for sidebar feedback only; persisted separately)
+  // CV total — sum of all visual communication items
+  const cvTotal = useMemo(
+    () => Object.values(cvResults).reduce((s, r) => s + (r?.preco_total || 0), 0),
+    [cvResults],
+  );
+  const cvCostTotal = useMemo(
+    () => Object.values(cvResults).reduce((s, r) => s + (r?.custo_total || 0), 0),
+    [cvResults],
+  );
+
+  // Apply discount on top of live total + CV (for sidebar feedback only; persisted separately)
   const discountedTotal = useMemo(() => {
-    if (!discountValue || discountValue <= 0) return live.totalToCharge;
+    const baseTotal = live.totalToCharge + cvTotal;
+    if (!discountValue || discountValue <= 0) return baseTotal;
     return discountType === "percent"
-      ? live.totalToCharge * (1 - discountValue / 100)
-      : Math.max(0, live.totalToCharge - discountValue);
-  }, [live.totalToCharge, discountValue, discountType]);
+      ? baseTotal * (1 - discountValue / 100)
+      : Math.max(0, baseTotal - discountValue);
+  }, [live.totalToCharge, cvTotal, discountValue, discountType]);
 
   // ---------- Handlers ----------
   const addPrintingItem = (item: PrintingCatalogItem) => {
@@ -366,6 +409,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         await Promise.all([
           supabase.from("quote_labor_steps").delete().eq("quote_id", id),
           supabase.from("quote_third_party").delete().eq("quote_id", id),
+          supabase.from("cv_quote_items").delete().eq("quote_id", id),
         ]);
       } else {
         const { data, error } = await supabase
@@ -411,6 +455,34 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           await supabase.from("quote_third_party").insert(
             thirdParty.map((t, i) => ({ quote_id: id, description: t.description, supplier: t.supplier, cost: t.cost, sort_order: i })),
           );
+        }
+        // CV items — replace strategy (full delete already happened above when editing)
+        if (cvItems.length > 0) {
+          const cvRows = cvItems.map((it, i) => {
+            const r = cvResults[it.id];
+            const mat = cvMaterials.find((m) => m.id === it.material_id);
+            const prt = cvPrinters.find((p) => p.id === it.printer_id);
+            return {
+              quote_id: id,
+              material_id: it.material_id,
+              printer_id: it.printer_id,
+              material_nome: mat?.nome ?? null,
+              printer_nome: prt?.nome ?? null,
+              largura_cm: it.largura_cm,
+              altura_cm: it.altura_cm,
+              quantidade: it.quantidade,
+              area_total_m2: r?.area_total_m2 ?? 0,
+              tem_emenda: r?.tem_emenda ?? false,
+              aplicou_minimo: r?.aplicou_minimo ?? false,
+              preco_midia: r?.preco_midia ?? 0,
+              preco_impressao: r?.preco_impressao ?? 0,
+              preco_acabamentos: r?.preco_acabamentos ?? 0,
+              preco_total: r?.preco_total ?? 0,
+              finishes_json: it.acabamentos as never,
+              sort_order: i,
+            };
+          });
+          await supabase.from("cv_quote_items").insert(cvRows);
         }
       }
 
@@ -500,8 +572,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 (i === 0 && client.trim() && product.trim()) ||
                 (i === 1 && labor.length > 0) ||
                 (i === 2 && materials.length > 0) ||
-                (i === 3 && thirdParty.length > 0) ||
-                (i === 4 && !!savedQuoteId);
+                (i === 3 && cvItems.length > 0) ||
+                (i === 4 && thirdParty.length > 0) ||
+                (i === 5 && !!savedQuoteId);
               return (
                 <button
                   key={i}
@@ -671,6 +744,81 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
           {step === 3 && (
             <Card><CardContent className="p-5 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Megaphone className="h-5 w-5 text-primary" /> Comunicação Visual
+                  {cvItems.length > 0 && <Badge variant="outline">{cvItems.length} {cvItems.length === 1 ? "item" : "itens"}</Badge>}
+                </h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={cvMaterials.length === 0}
+                  onClick={() => setCvItems((p) => [
+                    ...p,
+                    {
+                      id: `cv-${Date.now()}`,
+                      material_id: null,
+                      printer_id: null,
+                      largura_cm: 0,
+                      altura_cm: 0,
+                      quantidade: 1,
+                      acabamentos: [],
+                    },
+                  ])}
+                >
+                  <Plus className="h-4 w-4" /> Item
+                </Button>
+              </div>
+
+              {cvMaterials.length === 0 ? (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Nenhum cadastro encontrado</AlertTitle>
+                  <AlertDescription>
+                    Cadastre materiais, impressoras e acabamentos em <strong>Cadastros &gt; Comunicação Visual</strong> antes de adicionar itens.
+                  </AlertDescription>
+                </Alert>
+              ) : cvItems.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  Nenhum item de comunicação visual adicionado. Clique em <strong>Item</strong> para começar.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {cvItems.map((it, idx) => (
+                    <CVItemCard
+                      key={it.id}
+                      item={it}
+                      index={idx}
+                      materiais={cvMaterials}
+                      impressoras={cvPrinters}
+                      acabamentos={cvFinishes}
+                      onChange={(updated) =>
+                        setCvItems((p) => p.map((x) => (x.id === it.id ? updated : x)))
+                      }
+                      onRemove={() => {
+                        setCvItems((p) => p.filter((x) => x.id !== it.id));
+                        setCvResults((p) => {
+                          const { [it.id]: _, ...rest } = p;
+                          return rest;
+                        });
+                      }}
+                      onResult={(r) =>
+                        setCvResults((p) => (p[it.id]?.preco_total === r.preco_total && p[it.id]?.custo_total === r.custo_total ? p : { ...p, [it.id]: r }))
+                      }
+                    />
+                  ))}
+                  <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
+                    <span className="text-sm font-medium text-muted-foreground">Subtotal Comunicação Visual</span>
+                    <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
+                  </div>
+                </div>
+              )}
+            </CardContent></Card>
+          )}
+
+          {step === 4 && (
+            <Card><CardContent className="p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold flex items-center gap-2"><Wrench className="h-5 w-5 text-primary" /> Terceirizados</h2>
                 <Button variant="outline" size="sm" onClick={() => setThirdParty((p) => [...p, { id: Date.now().toString(), description: "", supplier: "", cost: 0 }])} className="gap-1.5">
@@ -688,7 +836,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             </CardContent></Card>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <div className="space-y-4">
               <Card><CardContent className="p-5 sm:p-6 space-y-5">
                 <h2 className="text-lg font-semibold">Desconto e Pagamento</h2>
@@ -751,10 +899,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
       {/* Sticky financial sidebar — visible at all steps */}
       <StickyFinancialSidebar
-        totalCost={live.costsBeforeMarkup + live.printingTotal}
+        totalCost={live.costsBeforeMarkup + live.printingTotal + cvCostTotal}
         totalToCharge={discountedTotal}
-        marginPct={live.effectiveMarginPct}
-        profit={live.profit}
+        marginPct={discountedTotal > 0 ? ((discountedTotal - (live.costsBeforeMarkup + live.printingTotal + cvCostTotal)) / discountedTotal) * 100 : 0}
+        profit={discountedTotal - (live.costsBeforeMarkup + live.printingTotal + cvCostTotal)}
       />
     </div>
   );
