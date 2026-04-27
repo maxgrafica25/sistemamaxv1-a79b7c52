@@ -218,8 +218,19 @@ export default function OrcamentosV2() {
                       onClick={() => navigate(`/orcamentos-v2/${q.id}`)}
                     >
                       <td className="py-4 pl-4 text-sm font-medium text-primary">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {q.quote_number}
+                          {(q.version ?? 1) > 1 && (
+                            <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                              v{q.version}
+                            </Badge>
+                          )}
+                          {q.is_locked && (
+                            <Badge variant="outline" className="text-[10px] h-4 px-1 gap-0.5 text-muted-foreground">
+                              <Lock className="h-2.5 w-2.5" />
+                              Travado
+                            </Badge>
+                          )}
                           {q.is_template && (
                             <Badge variant="outline" className="text-[10px] h-4 px-1 gap-0.5">
                               <BookmarkCheck className="h-2.5 w-2.5" />
