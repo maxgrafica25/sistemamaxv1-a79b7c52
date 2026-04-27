@@ -32,3 +32,14 @@ export const buildAdjustMessage = (params: {
   const who = params.clientName ? ` Aqui é ${params.clientName}.` : "";
   return `${greeting}${who} Vi o Orçamento ${params.quoteNumber}, mas gostaria de solicitar um ajuste. Podemos falar?`;
 };
+
+export const buildItemAdjustMessage = (params: {
+  quoteNumber: string;
+  itemDescription: string;
+  clientName?: string;
+  companyName?: string;
+}) => {
+  const greeting = params.companyName ? `Olá ${params.companyName}!` : "Olá!";
+  const who = params.clientName ? ` Aqui é ${params.clientName}.` : "";
+  return `${greeting}${who} Sobre o item "${params.itemDescription}" do Orçamento ${params.quoteNumber}, gostaria de solicitar uma alteração. Podemos falar?`;
+};
