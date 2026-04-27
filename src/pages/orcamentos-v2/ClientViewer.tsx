@@ -5,11 +5,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, Loader2, Printer, Package } from "lucide-react";
+import { CheckCircle2, Loader2, Printer, Package, MessageCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { ViewerHeader } from "@/components/orcamentos-v2/client-viewer/ViewerHeader";
 import { OptionCard } from "@/components/orcamentos-v2/client-viewer/OptionCard";
 import { StickyApprovalBar } from "@/components/orcamentos-v2/client-viewer/StickyApprovalBar";
 import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { buildItemAdjustMessage, buildWaUrl } from "@/lib/quotes-v2/whatsapp";
 
 interface QuoteRow {
   id: string;
