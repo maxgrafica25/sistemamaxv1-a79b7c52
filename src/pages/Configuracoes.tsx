@@ -15,6 +15,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import BaseConhecimentoTab from "@/components/assistente/BaseConhecimentoTab";
+import CompanyTab from "@/components/configuracoes/CompanyTab";
 
 function formatBytes(n: number): string {
   if (!n) return "0 B";
@@ -198,13 +199,18 @@ export default function Configuracoes() {
         <p className="text-sm text-muted-foreground mt-1">Configure os valores padrão e gerencie o backup do sistema</p>
       </div>
 
-      <Tabs defaultValue="geral" className="max-w-3xl">
+      <Tabs defaultValue="empresa" className="max-w-3xl">
         <TabsList>
+          <TabsTrigger value="empresa">Empresa</TabsTrigger>
           <TabsTrigger value="geral">Geral</TabsTrigger>
           <TabsTrigger value="integracoes">Integrações</TabsTrigger>
           {isAdmin && <TabsTrigger value="conhecimento">Base de Conhecimento</TabsTrigger>}
           {isAdmin && <TabsTrigger value="backup">Backup &amp; Exportação</TabsTrigger>}
         </TabsList>
+
+        <TabsContent value="empresa">
+          <CompanyTab isAdmin={isAdmin} />
+        </TabsContent>
 
         <TabsContent value="geral" className="space-y-6 mt-4">
           <Card className="shadow-card">
