@@ -456,6 +456,34 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             thirdParty.map((t, i) => ({ quote_id: id, description: t.description, supplier: t.supplier, cost: t.cost, sort_order: i })),
           );
         }
+        // CV items — replace strategy (full delete already happened above when editing)
+        if (cvItems.length > 0) {
+          const cvRows = cvItems.map((it, i) => {
+            const r = cvResults[it.id];
+            const mat = cvMaterials.find((m) => m.id === it.material_id);
+            const prt = cvPrinters.find((p) => p.id === it.printer_id);
+            return {
+              quote_id: id,
+              material_id: it.material_id,
+              printer_id: it.printer_id,
+              material_nome: mat?.nome ?? null,
+              printer_nome: prt?.nome ?? null,
+              largura_cm: it.largura_cm,
+              altura_cm: it.altura_cm,
+              quantidade: it.quantidade,
+              area_total_m2: r?.area_total_m2 ?? 0,
+              tem_emenda: r?.tem_emenda ?? false,
+              aplicou_minimo: r?.aplicou_minimo ?? false,
+              preco_midia: r?.preco_midia ?? 0,
+              preco_impressao: r?.preco_impressao ?? 0,
+              preco_acabamentos: r?.preco_acabamentos ?? 0,
+              preco_total: r?.preco_total ?? 0,
+              finishes_json: it.acabamentos as never,
+              sort_order: i,
+            };
+          });
+          await supabase.from("cv_quote_items").insert(cvRows);
+        }
       }
 
       toast.success(isEditing ? "Orçamento atualizado!" : "Orçamento salvo!");
