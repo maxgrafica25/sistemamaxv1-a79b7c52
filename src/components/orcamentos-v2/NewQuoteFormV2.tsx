@@ -10,6 +10,7 @@ import {
   FileText, Printer, Loader2, Link2, Lock, AlertTriangle, Megaphone,
 } from "lucide-react";
 import { CVItemCard, type CVItemState } from "@/components/orcamentos-v2/CVItemCard";
+import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
 import type { CVMaterial, CVPrinter, CVFinish, CVCalcResult } from "@/lib/cv-pricing/engine";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
