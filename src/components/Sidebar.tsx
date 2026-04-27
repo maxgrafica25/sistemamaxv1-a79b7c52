@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Package, Settings, Factory, Receipt, Calculator, Cpu, Shield, ClipboardList, MessageSquare, TrendingUp, BookOpen, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { LayoutDashboard, Users, Package, Settings, Factory, Receipt, Calculator, Cpu, Shield, ClipboardList, MessageSquare, TrendingUp, BookOpen, PanelLeftClose, PanelLeftOpen, X, Layers } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -12,6 +12,7 @@ const navigation: NavItem[] = [
   { name: "Orçamentos V2", href: "/orcamentos-v2", icon: ClipboardList, badge: "Beta" },
   { name: "Clientes/Fornecedores", href: "/cadastros", icon: Users },
   { name: "Matérias-Primas", href: "/materias-primas", icon: Package },
+  { name: "Grupos de Materiais", href: "/grupos-materiais", icon: Layers },
   { name: "Equipamentos", href: "/equipamentos", icon: Cpu },
   { name: "Processos de Produção", href: "/processos-producao", icon: Factory },
   { name: "Despesas Fixas", href: "/despesas-fixas", icon: Receipt },
