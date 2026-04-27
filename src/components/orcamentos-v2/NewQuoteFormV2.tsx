@@ -23,6 +23,9 @@ import {
 import type { QuoteOption } from "@/lib/quotes-v2/options";
 import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionButton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { LoadFromGroupDialog } from "@/components/orcamentos-v2/LoadFromGroupDialog";
+import { StepTypeBadge, STEP_TYPES } from "@/components/orcamentos-v2/StepTypeBadge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Props {
   quoteId?: string;
@@ -30,7 +33,7 @@ interface Props {
   onCancel: () => void;
 }
 
-interface LaborStep { id: string; description: string; timeMinutes: number; }
+interface LaborStep { id: string; description: string; timeMinutes: number; stepType: string; }
 interface ThirdParty { id: string; description: string; supplier: string; cost: number; }
 
 const STEPS = [
@@ -238,7 +241,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         }
       }
       setLabor((lRes.data || []).map((s: any) => ({
-        id: s.id, description: s.description, timeMinutes: s.time_minutes,
+        id: s.id, description: s.description, timeMinutes: s.time_minutes, stepType: s.step_type || "outro",
       })));
       setMaterials((mRes.data || []).map((m: any) => ({
         id: m.id,
@@ -378,7 +381,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       if (id) {
         if (labor.length > 0) {
           await supabase.from("quote_labor_steps").insert(
-            labor.map((s, i) => ({ quote_id: id, description: s.description, time_minutes: s.timeMinutes, sort_order: i })),
+            labor.map((s, i) => ({ quote_id: id, description: s.description, time_minutes: s.timeMinutes, sort_order: i, step_type: s.stepType || "outro" })),
           );
         }
         // Insere apenas itens NÃO aprovados (aprovados continuam no banco)
@@ -492,6 +495,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             {STEPS.map((s, i) => {
               const Icon = s.icon;
               const active = step === i;
+              // Heurística de "completo" por etapa
+              const completed =
+                (i === 0 && client.trim() && product.trim()) ||
+                (i === 1 && labor.length > 0) ||
+                (i === 2 && materials.length > 0) ||
+                (i === 3 && thirdParty.length > 0) ||
+                (i === 4 && !!savedQuoteId);
               return (
                 <button
                   key={i}
@@ -502,6 +512,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 >
                   <Icon className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">{s.label}</span>
+                  {completed && !active && (
+                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                  )}
                 </button>
               );
             })}
@@ -525,14 +538,20 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
           {step === 1 && (
             <Card><CardContent className="p-5 sm:p-6 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
                   <Clock className="h-5 w-5 text-primary" /> Mão de Obra
                   {labor.length > 0 && <Badge variant="outline">{labor.length} etapas</Badge>}
                 </h2>
-                <Button variant="outline" size="sm" onClick={() => setLabor((p) => [...p, { id: Date.now().toString(), description: "", timeMinutes: 0 }])} className="gap-1.5">
-                  <Plus className="h-4 w-4" /> Etapa
-                </Button>
+                <div className="flex gap-2">
+                  <LoadFromGroupDialog
+                    kind="labor"
+                    onLoad={(items) => setLabor((p) => [...p, ...items])}
+                  />
+                  <Button variant="outline" size="sm" onClick={() => setLabor((p) => [...p, { id: Date.now().toString(), description: "", timeMinutes: 0, stepType: "outro" }])} className="gap-1.5">
+                    <Plus className="h-4 w-4" /> Etapa
+                  </Button>
+                </div>
               </div>
               {labor.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma etapa adicionada</p>
@@ -541,6 +560,16 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                   {labor.map((s, idx) => (
                     <div key={s.id} className="flex items-center gap-3 rounded-lg border bg-card p-3">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">{idx + 1}</span>
+                      <Select value={s.stepType} onValueChange={(v) => setLabor((p) => p.map((x) => x.id === s.id ? { ...x, stepType: v } : x))}>
+                        <SelectTrigger className="w-32 h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {STEP_TYPES.map((t) => (
+                            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Input value={s.description} onChange={(e) => setLabor((p) => p.map((x) => x.id === s.id ? { ...x, description: e.target.value } : x))} placeholder="Descrição" className="flex-1 border-0 bg-transparent p-0 h-auto text-sm focus-visible:ring-0" />
                       <Input type="number" value={s.timeMinutes || ""} onChange={(e) => setLabor((p) => p.map((x) => x.id === s.id ? { ...x, timeMinutes: parseFloat(e.target.value) || 0 } : x))} className="w-20 h-8 text-sm text-center" placeholder="min" />
                       <span className="text-sm font-medium text-muted-foreground w-24 text-right">{formatBRL((s.timeMinutes / 60) * hourlyRate)}</span>
@@ -594,11 +623,27 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               </CardContent></Card>
 
               <Card><CardContent className="p-5 sm:p-6 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <h3 className="text-base font-semibold">Materiais Manuais</h3>
-                  <Button variant="outline" size="sm" onClick={() => setMaterials((p) => [...p, { id: `manual-${Date.now()}`, description: "", quantity: 1, unitPrice: 0 }])} className="gap-1.5">
-                    <Plus className="h-4 w-4" /> Item
-                  </Button>
+                  <div className="flex gap-2">
+                    <LoadFromGroupDialog
+                      kind="materials"
+                      onLoad={(items) =>
+                        setMaterials((p) => [
+                          ...p,
+                          ...items.map((it) => ({
+                            id: it.id,
+                            description: it.description,
+                            quantity: it.quantity,
+                            unitPrice: it.unitPrice,
+                          })),
+                        ])
+                      }
+                    />
+                    <Button variant="outline" size="sm" onClick={() => setMaterials((p) => [...p, { id: `manual-${Date.now()}`, description: "", quantity: 1, unitPrice: 0 }])} className="gap-1.5">
+                      <Plus className="h-4 w-4" /> Item
+                    </Button>
+                  </div>
                 </div>
                 {materials.filter((m) => !m.baseCost).map((m) => {
                   const locked = m.status === "aprovado";
