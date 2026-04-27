@@ -623,11 +623,27 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               </CardContent></Card>
 
               <Card><CardContent className="p-5 sm:p-6 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <h3 className="text-base font-semibold">Materiais Manuais</h3>
-                  <Button variant="outline" size="sm" onClick={() => setMaterials((p) => [...p, { id: `manual-${Date.now()}`, description: "", quantity: 1, unitPrice: 0 }])} className="gap-1.5">
-                    <Plus className="h-4 w-4" /> Item
-                  </Button>
+                  <div className="flex gap-2">
+                    <LoadFromGroupDialog
+                      kind="materials"
+                      onLoad={(items) =>
+                        setMaterials((p) => [
+                          ...p,
+                          ...items.map((it) => ({
+                            id: it.id,
+                            description: it.description,
+                            quantity: it.quantity,
+                            unitPrice: it.unitPrice,
+                          })),
+                        ])
+                      }
+                    />
+                    <Button variant="outline" size="sm" onClick={() => setMaterials((p) => [...p, { id: `manual-${Date.now()}`, description: "", quantity: 1, unitPrice: 0 }])} className="gap-1.5">
+                      <Plus className="h-4 w-4" /> Item
+                    </Button>
+                  </div>
                 </div>
                 {materials.filter((m) => !m.baseCost).map((m) => {
                   const locked = m.status === "aprovado";
