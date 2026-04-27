@@ -559,15 +559,36 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} markupTiers={markupTiers} globalSettings={globalSettings} />
                 {materials.filter((m) => m.baseCost).length > 0 && (
                   <div className="space-y-2">
-                    {materials.filter((m) => m.baseCost).map((m) => (
-                      <div key={m.id} className="flex items-center gap-3 rounded-lg border bg-card p-3">
-                        <Printer className="h-4 w-4 text-primary/60" />
-                        <div className="flex-1 min-w-0 text-sm font-medium truncate">{m.description}</div>
-                        <Input type="number" value={m.quantity || ""} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, quantity: parseFloat(e.target.value) || 0 } : x))} className="w-20 h-8 text-sm text-center" />
-                        <span className="text-sm font-semibold text-primary w-28 text-right">{formatBRL(m.quantity * m.unitPrice)}</span>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMaterials((p) => p.filter((x) => x.id !== m.id))}><X className="h-4 w-4" /></Button>
-                      </div>
-                    ))}
+                    {materials.filter((m) => m.baseCost).map((m) => {
+                      const locked = m.status === "aprovado";
+                      return (
+                        <div
+                          key={m.id}
+                          className={`flex items-center gap-3 rounded-lg border p-3 ${
+                            locked ? "border-green-500/40 bg-green-500/5" : "bg-card"
+                          }`}
+                        >
+                          {locked
+                            ? <Lock className="h-4 w-4 text-green-600" />
+                            : <Printer className="h-4 w-4 text-primary/60" />}
+                          <div className="flex-1 min-w-0 text-sm font-medium truncate flex items-center gap-2">
+                            {m.description}
+                            {locked && <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">Aprovado</Badge>}
+                          </div>
+                          <Input
+                            type="number"
+                            value={m.quantity || ""}
+                            disabled={locked}
+                            onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, quantity: parseFloat(e.target.value) || 0 } : x))}
+                            className="w-20 h-8 text-sm text-center disabled:opacity-70"
+                          />
+                          <span className="text-sm font-semibold text-primary w-28 text-right">{formatBRL(m.quantity * m.unitPrice)}</span>
+                          {locked
+                            ? <span className="w-8" />
+                            : <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMaterials((p) => p.filter((x) => x.id !== m.id))}><X className="h-4 w-4" /></Button>}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent></Card>
@@ -579,14 +600,26 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                     <Plus className="h-4 w-4" /> Item
                   </Button>
                 </div>
-                {materials.filter((m) => !m.baseCost).map((m) => (
-                  <div key={m.id} className="flex items-center gap-2 rounded-lg border bg-card p-3">
-                    <Input value={m.description} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, description: e.target.value } : x))} placeholder="Descrição" className="flex-1 border-0 bg-transparent p-0 h-auto text-sm focus-visible:ring-0" />
-                    <Input type="number" value={m.quantity || ""} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, quantity: parseFloat(e.target.value) || 0 } : x))} className="w-16 h-8 text-sm text-center" placeholder="qtd" />
-                    <Input type="number" step="0.01" value={m.unitPrice || ""} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, unitPrice: parseFloat(e.target.value) || 0 } : x))} className="w-24 h-8 text-sm text-center" placeholder="R$" />
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMaterials((p) => p.filter((x) => x.id !== m.id))}><X className="h-4 w-4" /></Button>
-                  </div>
-                ))}
+                {materials.filter((m) => !m.baseCost).map((m) => {
+                  const locked = m.status === "aprovado";
+                  return (
+                    <div
+                      key={m.id}
+                      className={`flex items-center gap-2 rounded-lg border p-3 ${
+                        locked ? "border-green-500/40 bg-green-500/5" : "bg-card"
+                      }`}
+                    >
+                      {locked && <Lock className="h-4 w-4 text-green-600 shrink-0" />}
+                      <Input value={m.description} disabled={locked} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, description: e.target.value } : x))} placeholder="Descrição" className="flex-1 border-0 bg-transparent p-0 h-auto text-sm focus-visible:ring-0 disabled:opacity-70" />
+                      {locked && <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">Aprovado</Badge>}
+                      <Input type="number" value={m.quantity || ""} disabled={locked} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, quantity: parseFloat(e.target.value) || 0 } : x))} className="w-16 h-8 text-sm text-center disabled:opacity-70" placeholder="qtd" />
+                      <Input type="number" step="0.01" value={m.unitPrice || ""} disabled={locked} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, unitPrice: parseFloat(e.target.value) || 0 } : x))} className="w-24 h-8 text-sm text-center disabled:opacity-70" placeholder="R$" />
+                      {locked
+                        ? <span className="w-8" />
+                        : <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMaterials((p) => p.filter((x) => x.id !== m.id))}><X className="h-4 w-4" /></Button>}
+                    </div>
+                  );
+                })}
               </CardContent></Card>
             </div>
           )}
