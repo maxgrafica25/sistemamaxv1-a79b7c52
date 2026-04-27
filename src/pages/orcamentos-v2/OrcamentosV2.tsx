@@ -295,7 +295,16 @@ export default function OrcamentosV2() {
                               client={q.client}
                             />
                           )}
-                          {q.status === "pending" && (
+                          {(q.status === "partial" || q.status === "approved") && !q.is_locked && (
+                            <CreateVersionButton
+                              quoteId={q.id}
+                              quoteNumber={q.quote_number}
+                              variant="ghost"
+                              size="icon"
+                              iconOnly
+                            />
+                          )}
+                          {q.status === "pending" && !q.is_locked && (
                             <>
                               <Button
                                 variant="ghost" size="icon"
