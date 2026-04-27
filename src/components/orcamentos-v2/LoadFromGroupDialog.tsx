@@ -85,22 +85,40 @@ export function LoadFromGroupDialog(props: Props) {
           setLoading(false);
         });
     } else {
-      supabase
-        .from("material_group_items")
-        .select("id, description, quantity, unit_price")
-        .eq("material_group_id", selected)
-        .order("sort_order")
-        .then(({ data }) => {
-          setPreviewMat(
-            (data || []).map((r: any) => ({
-              id: r.id,
-              description: r.description,
-              quantity: Number(r.quantity) || 1,
-              unitPrice: Number(r.unit_price) || 0,
-            })),
-          );
-          setLoading(false);
-        });
+      (async () => {
+        const { data } = await supabase
+          .from("material_group_items")
+          .select("id, description, quantity, unit_price, supply_id")
+          .eq("material_group_id", selected)
+          .order("sort_order");
+
+        const rows = data || [];
+        const supplyIds = Array.from(
+          new Set(rows.map((r: any) => r.supply_id).filter(Boolean)),
+        ) as string[];
+
+        let liveMap = new Map<string, number>();
+        if (supplyIds.length > 0) {
+          const { data: sup } = await supabase
+            .from("supplies")
+            .select("id, valor_unitario")
+            .in("id", supplyIds);
+          liveMap = new Map((sup || []).map((s: any) => [s.id, Number(s.valor_unitario) || 0]));
+        }
+
+        setPreviewMat(
+          rows.map((r: any) => ({
+            id: r.id,
+            description: r.description,
+            quantity: Number(r.quantity) || 1,
+            unitPrice:
+              r.supply_id && liveMap.has(r.supply_id)
+                ? (liveMap.get(r.supply_id) as number)
+                : Number(r.unit_price) || 0,
+          })),
+        );
+        setLoading(false);
+      })();
     }
   }, [selected, kind]);
 

@@ -908,6 +908,7 @@ export type Database = {
           material_group_id: string
           quantity: number
           sort_order: number
+          supply_id: string | null
           unit_price: number
         }
         Insert: {
@@ -917,6 +918,7 @@ export type Database = {
           material_group_id: string
           quantity?: number
           sort_order?: number
+          supply_id?: string | null
           unit_price?: number
         }
         Update: {
@@ -926,6 +928,7 @@ export type Database = {
           material_group_id?: string
           quantity?: number
           sort_order?: number
+          supply_id?: string | null
           unit_price?: number
         }
         Relationships: [
@@ -934,6 +937,13 @@ export type Database = {
             columns: ["material_group_id"]
             isOneToOne: false
             referencedRelation: "material_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_group_items_supply_id_fkey"
+            columns: ["supply_id"]
+            isOneToOne: false
+            referencedRelation: "supplies"
             referencedColumns: ["id"]
           },
         ]
