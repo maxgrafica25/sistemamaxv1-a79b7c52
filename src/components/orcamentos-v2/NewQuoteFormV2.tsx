@@ -836,7 +836,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             </CardContent></Card>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <div className="space-y-4">
               <Card><CardContent className="p-5 sm:p-6 space-y-5">
                 <h2 className="text-lg font-semibold">Desconto e Pagamento</h2>
