@@ -13,7 +13,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { RealtimeRadar } from "@/components/orcamentos-v2/RealtimeRadar";
 import { CloneQuoteButton } from "@/components/orcamentos-v2/CloneQuoteButton";
+import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionButton";
 import { GenerateOPButton } from "@/components/orcamentos-v2/GenerateOPButton";
+import { Lock } from "lucide-react";
 import { parseOptions } from "@/lib/quotes-v2/options";
 
 interface QuoteRow {
