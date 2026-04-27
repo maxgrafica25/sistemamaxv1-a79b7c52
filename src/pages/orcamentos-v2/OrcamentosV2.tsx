@@ -30,6 +30,9 @@ interface QuoteRow {
   last_viewed_at: string | null;
   is_template: boolean | null;
   options: unknown;
+  version: number | null;
+  is_locked: boolean | null;
+  parent_quote_id: string | null;
 }
 
 const statusBadge = (status: string) => {
