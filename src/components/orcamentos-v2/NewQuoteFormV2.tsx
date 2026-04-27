@@ -324,6 +324,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   };
 
   const handleSave = async () => {
+    if (isLocked) {
+      toast.error("Este orçamento está travado. Crie uma nova versão para alterá-lo.");
+      return;
+    }
     if (!client.trim() || !product.trim()) {
       toast.error("Preencha o cliente e o produto");
       return;
@@ -334,7 +338,6 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         client: client.trim(),
         product: product.trim(),
         value: discountedTotal,
-        status: "pending",
         date: new Date().toISOString().split("T")[0],
         validity,
         profit_margin: profitMargin,
@@ -346,14 +349,27 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
       let id = savedQuoteId;
       if (isEditing && id) {
+        // Preserva status global se houver aprovados
         await supabase.from("quotes").update(payload).eq("id", id);
+
+        // Apaga apenas itens pendentes/recusados; mantém os aprovados intactos
+        const approvedIds = materials
+          .filter((m) => m.status === "aprovado")
+          .map((m) => m.id);
+        let delQ = supabase.from("quote_materials").delete().eq("quote_id", id);
+        if (approvedIds.length > 0) delQ = delQ.not("id", "in", `(${approvedIds.join(",")})`);
+        await delQ;
+
         await Promise.all([
           supabase.from("quote_labor_steps").delete().eq("quote_id", id),
-          supabase.from("quote_materials").delete().eq("quote_id", id),
           supabase.from("quote_third_party").delete().eq("quote_id", id),
         ]);
       } else {
-        const { data, error } = await supabase.from("quotes").insert([payload]).select("id").single();
+        const { data, error } = await supabase
+          .from("quotes")
+          .insert([{ ...payload, status: "pending" }])
+          .select("id")
+          .single();
         if (error || !data) throw error || new Error("Falha ao salvar");
         id = data.id;
         setSavedQuoteId(id);
@@ -365,10 +381,28 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             labor.map((s, i) => ({ quote_id: id, description: s.description, time_minutes: s.timeMinutes, sort_order: i })),
           );
         }
-        if (materials.length > 0) {
+        // Insere apenas itens NÃO aprovados (aprovados continuam no banco)
+        const toInsert = materials
+          .map((m, i) => ({ ...m, sortOrder: i }))
+          .filter((m) => m.status !== "aprovado");
+        if (toInsert.length > 0) {
           await supabase.from("quote_materials").insert(
-            materials.map((m, i) => ({ quote_id: id, description: m.description, quantity: m.quantity, unit_price: m.unitPrice, sort_order: i })),
+            toInsert.map((m) => ({
+              quote_id: id,
+              description: m.description,
+              quantity: m.quantity,
+              unit_price: m.unitPrice,
+              sort_order: m.sortOrder,
+              status: "pendente",
+            })),
           );
+        }
+        // Atualiza sort_order dos aprovados (caso ordem visual tenha mudado)
+        const approvedSorted = materials
+          .map((m, i) => ({ ...m, sortOrder: i }))
+          .filter((m) => m.status === "aprovado");
+        for (const m of approvedSorted) {
+          await supabase.from("quote_materials").update({ sort_order: m.sortOrder }).eq("id", m.id);
         }
         if (thirdParty.length > 0) {
           await supabase.from("quote_third_party").insert(
