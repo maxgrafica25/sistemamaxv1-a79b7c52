@@ -36,9 +36,9 @@ export function StickyFinancialSidebar({ totalCost, totalToCharge, marginPct, pr
       <Row label="Lucro estimado" value={formatBRL(profit)} className={colorCls} />
       <div className="pt-2 border-t border-border">
         <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Margem</p>
-        <div className={cn("flex items-center gap-1.5 text-2xl font-bold", colorCls)}>
+        <div className={cn("flex items-center gap-2 text-2xl font-bold", colorCls)}>
           <MarginIcon pct={marginPct} />
-          {marginPct.toFixed(1)}%
+          <span>{Math.abs(marginPct) < 0.05 ? "0,0" : marginPct.toFixed(1).replace(".", ",")}%</span>
           <span className="text-xs font-medium ml-auto">{marginLabel(marginPct)}</span>
         </div>
       </div>
@@ -80,9 +80,9 @@ export function StickyFinancialSidebar({ totalCost, totalToCharge, marginPct, pr
               {formatBRL(totalToCharge)}
             </span>
           </div>
-          <div className={cn("flex items-center gap-1 text-sm font-semibold", colorCls)}>
+          <div className={cn("flex items-center gap-1.5 text-sm font-semibold", colorCls)}>
             <MarginIcon pct={marginPct} />
-            {marginPct.toFixed(1)}%
+            <span>{Math.abs(marginPct) < 0.05 ? "0,0" : marginPct.toFixed(1).replace(".", ",")}%</span>
           </div>
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
         </button>
