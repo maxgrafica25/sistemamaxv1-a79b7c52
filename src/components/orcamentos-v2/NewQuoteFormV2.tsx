@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   Plus, X, Package, Wrench, ChevronLeft, ChevronRight, Check, User, Clock,
-  FileText, Printer, Loader2, Link2,
+  FileText, Printer, Loader2, Link2, Lock, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +21,8 @@ import {
   type PricingSnapshot,
 } from "@/lib/quotes-v2/pricing";
 import type { QuoteOption } from "@/lib/quotes-v2/options";
+import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionButton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Props {
   quoteId?: string;
@@ -83,6 +85,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   });
 
   const [savedQuoteId, setSavedQuoteId] = useState<string | null>(quoteId ?? null);
+  const [quoteVersion, setQuoteVersion] = useState<number>(1);
+  const [isLocked, setIsLocked] = useState<boolean>(false);
+  const [parentQuoteId, setParentQuoteId] = useState<string | null>(null);
+
+  const hasApprovedItems = useMemo(
+    () => materials.some((m) => m.status === "aprovado"),
+    [materials],
+  );
 
   // ---------- Load catalog & quote ----------
   const loadInit = useCallback(async () => {
@@ -220,6 +230,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         setDiscountValue(q.discount_value);
         setDiscountType((q.discount_type as DiscountType) || "brl");
         setPaymentMethod(q.payment_method || "");
+        setQuoteVersion(q.version ?? 1);
+        setIsLocked(q.is_locked ?? false);
+        setParentQuoteId(q.parent_quote_id ?? null);
         if (Array.isArray(q.options)) {
           setOptions(q.options as unknown as QuoteOption[]);
         }
@@ -228,7 +241,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         id: s.id, description: s.description, timeMinutes: s.time_minutes,
       })));
       setMaterials((mRes.data || []).map((m: any) => ({
-        id: m.id, description: m.description, quantity: m.quantity, unitPrice: m.unit_price,
+        id: m.id,
+        description: m.description,
+        quantity: m.quantity,
+        unitPrice: m.unit_price,
+        status: m.status as "pendente" | "aprovado" | "recusado",
+        approvedAt: m.approved_at,
+        approvedValue: m.approved_value,
       })));
       setThirdParty((tpRes.data || []).map((t: any) => ({
         id: t.id, description: t.description, supplier: t.supplier, cost: t.cost,
@@ -305,6 +324,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   };
 
   const handleSave = async () => {
+    if (isLocked) {
+      toast.error("Este orçamento está travado. Crie uma nova versão para alterá-lo.");
+      return;
+    }
     if (!client.trim() || !product.trim()) {
       toast.error("Preencha o cliente e o produto");
       return;
@@ -315,7 +338,6 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         client: client.trim(),
         product: product.trim(),
         value: discountedTotal,
-        status: "pending",
         date: new Date().toISOString().split("T")[0],
         validity,
         profit_margin: profitMargin,
@@ -327,14 +349,27 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
       let id = savedQuoteId;
       if (isEditing && id) {
+        // Preserva status global se houver aprovados
         await supabase.from("quotes").update(payload).eq("id", id);
+
+        // Apaga apenas itens pendentes/recusados; mantém os aprovados intactos
+        const approvedIds = materials
+          .filter((m) => m.status === "aprovado")
+          .map((m) => m.id);
+        let delQ = supabase.from("quote_materials").delete().eq("quote_id", id);
+        if (approvedIds.length > 0) delQ = delQ.not("id", "in", `(${approvedIds.join(",")})`);
+        await delQ;
+
         await Promise.all([
           supabase.from("quote_labor_steps").delete().eq("quote_id", id),
-          supabase.from("quote_materials").delete().eq("quote_id", id),
           supabase.from("quote_third_party").delete().eq("quote_id", id),
         ]);
       } else {
-        const { data, error } = await supabase.from("quotes").insert([payload]).select("id").single();
+        const { data, error } = await supabase
+          .from("quotes")
+          .insert([{ ...payload, status: "pending" }])
+          .select("id")
+          .single();
         if (error || !data) throw error || new Error("Falha ao salvar");
         id = data.id;
         setSavedQuoteId(id);
@@ -346,10 +381,28 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             labor.map((s, i) => ({ quote_id: id, description: s.description, time_minutes: s.timeMinutes, sort_order: i })),
           );
         }
-        if (materials.length > 0) {
+        // Insere apenas itens NÃO aprovados (aprovados continuam no banco)
+        const toInsert = materials
+          .map((m, i) => ({ ...m, sortOrder: i }))
+          .filter((m) => m.status !== "aprovado");
+        if (toInsert.length > 0) {
           await supabase.from("quote_materials").insert(
-            materials.map((m, i) => ({ quote_id: id, description: m.description, quantity: m.quantity, unit_price: m.unitPrice, sort_order: i })),
+            toInsert.map((m) => ({
+              quote_id: id,
+              description: m.description,
+              quantity: m.quantity,
+              unit_price: m.unitPrice,
+              sort_order: m.sortOrder,
+              status: "pendente",
+            })),
           );
+        }
+        // Atualiza sort_order dos aprovados (caso ordem visual tenha mudado)
+        const approvedSorted = materials
+          .map((m, i) => ({ ...m, sortOrder: i }))
+          .filter((m) => m.status === "aprovado");
+        for (const m of approvedSorted) {
+          await supabase.from("quote_materials").update({ sort_order: m.sortOrder }).eq("id", m.id);
         }
         if (thirdParty.length > 0) {
           await supabase.from("quote_third_party").insert(
@@ -389,13 +442,49 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       <div className="flex-1 min-w-0 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               {isEditing ? "Editar Orçamento V2" : "Novo Orçamento V2"}
+              {quoteVersion > 1 && (
+                <Badge variant="secondary" className="text-xs">v{quoteVersion}</Badge>
+              )}
+              {isLocked && (
+                <Badge variant="outline" className="gap-1 text-xs">
+                  <Lock className="h-3 w-3" /> Travado
+                </Badge>
+              )}
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">{quoteNumber}</p>
           </div>
-          <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
+          <div className="flex gap-2">
+            {isEditing && savedQuoteId && hasApprovedItems && !isLocked && (
+              <CreateVersionButton quoteId={savedQuoteId} quoteNumber={quoteNumber} />
+            )}
+            <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
+          </div>
         </div>
+
+        {isLocked && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Orçamento travado</AlertTitle>
+            <AlertDescription>
+              Este orçamento foi substituído por uma versão mais nova e não pode ser
+              alterado. Localize a versão atual para continuar trabalhando.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!isLocked && hasApprovedItems && (
+          <Alert>
+            <Lock className="h-4 w-4" />
+            <AlertTitle>Itens aprovados estão travados</AlertTitle>
+            <AlertDescription>
+              Para alterar valor ou quantidade de um item já aprovado pelo cliente,
+              clique em <strong>Nova versão</strong> no topo. O item aprovado é
+              preservado e você edita o restante sem confusão.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Steps */}
         <div className="overflow-x-auto">
@@ -470,15 +559,36 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} markupTiers={markupTiers} globalSettings={globalSettings} />
                 {materials.filter((m) => m.baseCost).length > 0 && (
                   <div className="space-y-2">
-                    {materials.filter((m) => m.baseCost).map((m) => (
-                      <div key={m.id} className="flex items-center gap-3 rounded-lg border bg-card p-3">
-                        <Printer className="h-4 w-4 text-primary/60" />
-                        <div className="flex-1 min-w-0 text-sm font-medium truncate">{m.description}</div>
-                        <Input type="number" value={m.quantity || ""} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, quantity: parseFloat(e.target.value) || 0 } : x))} className="w-20 h-8 text-sm text-center" />
-                        <span className="text-sm font-semibold text-primary w-28 text-right">{formatBRL(m.quantity * m.unitPrice)}</span>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMaterials((p) => p.filter((x) => x.id !== m.id))}><X className="h-4 w-4" /></Button>
-                      </div>
-                    ))}
+                    {materials.filter((m) => m.baseCost).map((m) => {
+                      const locked = m.status === "aprovado";
+                      return (
+                        <div
+                          key={m.id}
+                          className={`flex items-center gap-3 rounded-lg border p-3 ${
+                            locked ? "border-green-500/40 bg-green-500/5" : "bg-card"
+                          }`}
+                        >
+                          {locked
+                            ? <Lock className="h-4 w-4 text-green-600" />
+                            : <Printer className="h-4 w-4 text-primary/60" />}
+                          <div className="flex-1 min-w-0 text-sm font-medium truncate flex items-center gap-2">
+                            {m.description}
+                            {locked && <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">Aprovado</Badge>}
+                          </div>
+                          <Input
+                            type="number"
+                            value={m.quantity || ""}
+                            disabled={locked}
+                            onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, quantity: parseFloat(e.target.value) || 0 } : x))}
+                            className="w-20 h-8 text-sm text-center disabled:opacity-70"
+                          />
+                          <span className="text-sm font-semibold text-primary w-28 text-right">{formatBRL(m.quantity * m.unitPrice)}</span>
+                          {locked
+                            ? <span className="w-8" />
+                            : <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMaterials((p) => p.filter((x) => x.id !== m.id))}><X className="h-4 w-4" /></Button>}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent></Card>
@@ -490,14 +600,26 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                     <Plus className="h-4 w-4" /> Item
                   </Button>
                 </div>
-                {materials.filter((m) => !m.baseCost).map((m) => (
-                  <div key={m.id} className="flex items-center gap-2 rounded-lg border bg-card p-3">
-                    <Input value={m.description} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, description: e.target.value } : x))} placeholder="Descrição" className="flex-1 border-0 bg-transparent p-0 h-auto text-sm focus-visible:ring-0" />
-                    <Input type="number" value={m.quantity || ""} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, quantity: parseFloat(e.target.value) || 0 } : x))} className="w-16 h-8 text-sm text-center" placeholder="qtd" />
-                    <Input type="number" step="0.01" value={m.unitPrice || ""} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, unitPrice: parseFloat(e.target.value) || 0 } : x))} className="w-24 h-8 text-sm text-center" placeholder="R$" />
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMaterials((p) => p.filter((x) => x.id !== m.id))}><X className="h-4 w-4" /></Button>
-                  </div>
-                ))}
+                {materials.filter((m) => !m.baseCost).map((m) => {
+                  const locked = m.status === "aprovado";
+                  return (
+                    <div
+                      key={m.id}
+                      className={`flex items-center gap-2 rounded-lg border p-3 ${
+                        locked ? "border-green-500/40 bg-green-500/5" : "bg-card"
+                      }`}
+                    >
+                      {locked && <Lock className="h-4 w-4 text-green-600 shrink-0" />}
+                      <Input value={m.description} disabled={locked} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, description: e.target.value } : x))} placeholder="Descrição" className="flex-1 border-0 bg-transparent p-0 h-auto text-sm focus-visible:ring-0 disabled:opacity-70" />
+                      {locked && <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">Aprovado</Badge>}
+                      <Input type="number" value={m.quantity || ""} disabled={locked} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, quantity: parseFloat(e.target.value) || 0 } : x))} className="w-16 h-8 text-sm text-center disabled:opacity-70" placeholder="qtd" />
+                      <Input type="number" step="0.01" value={m.unitPrice || ""} disabled={locked} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, unitPrice: parseFloat(e.target.value) || 0 } : x))} className="w-24 h-8 text-sm text-center disabled:opacity-70" placeholder="R$" />
+                      {locked
+                        ? <span className="w-8" />
+                        : <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMaterials((p) => p.filter((x) => x.id !== m.id))}><X className="h-4 w-4" /></Button>}
+                    </div>
+                  );
+                })}
               </CardContent></Card>
             </div>
           )}
@@ -552,8 +674,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                   </Badge>
                 </div>
 
-                <Button className="w-full gap-2 h-11" onClick={handleSave}>
-                  <Check className="h-4 w-4" /> {isEditing ? "Atualizar" : "Salvar"} Orçamento
+                <Button className="w-full gap-2 h-11" onClick={handleSave} disabled={isLocked}>
+                  <Check className="h-4 w-4" /> {isLocked ? "Orçamento travado" : `${isEditing ? "Atualizar" : "Salvar"} Orçamento`}
                 </Button>
 
                 {savedQuoteId && (

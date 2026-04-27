@@ -13,7 +13,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { RealtimeRadar } from "@/components/orcamentos-v2/RealtimeRadar";
 import { CloneQuoteButton } from "@/components/orcamentos-v2/CloneQuoteButton";
+import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionButton";
 import { GenerateOPButton } from "@/components/orcamentos-v2/GenerateOPButton";
+import { Lock } from "lucide-react";
 import { parseOptions } from "@/lib/quotes-v2/options";
 
 interface QuoteRow {
@@ -28,6 +30,9 @@ interface QuoteRow {
   last_viewed_at: string | null;
   is_template: boolean | null;
   options: unknown;
+  version: number | null;
+  is_locked: boolean | null;
+  parent_quote_id: string | null;
 }
 
 const statusBadge = (status: string) => {
@@ -52,7 +57,7 @@ export default function OrcamentosV2() {
     setLoading(true);
     const { data } = await supabase
       .from("quotes")
-      .select("id, quote_number, client, product, value, status, date, view_count, last_viewed_at, is_template, options")
+      .select("id, quote_number, client, product, value, status, date, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id")
       .order("created_at", { ascending: false });
     setQuotes((data as QuoteRow[]) || []);
     setLoading(false);
@@ -213,8 +218,19 @@ export default function OrcamentosV2() {
                       onClick={() => navigate(`/orcamentos-v2/${q.id}`)}
                     >
                       <td className="py-4 pl-4 text-sm font-medium text-primary">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {q.quote_number}
+                          {(q.version ?? 1) > 1 && (
+                            <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                              v{q.version}
+                            </Badge>
+                          )}
+                          {q.is_locked && (
+                            <Badge variant="outline" className="text-[10px] h-4 px-1 gap-0.5 text-muted-foreground">
+                              <Lock className="h-2.5 w-2.5" />
+                              Travado
+                            </Badge>
+                          )}
                           {q.is_template && (
                             <Badge variant="outline" className="text-[10px] h-4 px-1 gap-0.5">
                               <BookmarkCheck className="h-2.5 w-2.5" />
@@ -279,7 +295,16 @@ export default function OrcamentosV2() {
                               client={q.client}
                             />
                           )}
-                          {q.status === "pending" && (
+                          {(q.status === "partial" || q.status === "approved") && !q.is_locked && (
+                            <CreateVersionButton
+                              quoteId={q.id}
+                              quoteNumber={q.quote_number}
+                              variant="ghost"
+                              size="icon"
+                              iconOnly
+                            />
+                          )}
+                          {q.status === "pending" && !q.is_locked && (
                             <>
                               <Button
                                 variant="ghost" size="icon"

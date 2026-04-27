@@ -16,6 +16,9 @@ export interface PricingMaterial {
   baseCost?: number;      // printing items: paper + printing cost (already accounting for size/side)
   printerCategoryId?: string;
   markupGroupId?: string | null;
+  status?: "pendente" | "aprovado" | "recusado";
+  approvedAt?: string | null;
+  approvedValue?: number | null;
 }
 
 export interface PricingLaborStep {
