@@ -246,6 +246,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         const q = qRes.data;
         setQuoteNumber(q.quote_number);
         setClient(q.client);
+        setClientId((q as any).client_id ?? null);
         setProduct(q.product);
         setValidity(q.validity || "7");
         setProfitMargin(q.profit_margin || "33");
