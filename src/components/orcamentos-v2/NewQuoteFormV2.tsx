@@ -409,6 +409,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         await Promise.all([
           supabase.from("quote_labor_steps").delete().eq("quote_id", id),
           supabase.from("quote_third_party").delete().eq("quote_id", id),
+          supabase.from("cv_quote_items").delete().eq("quote_id", id),
         ]);
       } else {
         const { data, error } = await supabase
