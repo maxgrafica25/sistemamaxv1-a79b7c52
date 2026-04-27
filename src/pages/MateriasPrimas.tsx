@@ -371,6 +371,7 @@ export default function MateriasPrimas() {
     setPaperDate(new Date().toISOString().split("T")[0]);
     setIsPaperDialogOpen(true);
   };
+  const saveMaterial = async () => {
     if (!produto.trim() || !quantidade || !valor) { toast.error("Preencha Produto, Quantidade e Valor"); return; }
     const qtd = parseFloat(quantidade); const val = parseFloat(valor);
     const unitario = qtd > 0 ? val / qtd : 0;
