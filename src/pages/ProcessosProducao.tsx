@@ -240,7 +240,7 @@ function GruposTab() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<StepGroup | null>(null);
   const [groupName, setGroupName] = useState("");
-  const [groupSteps, setGroupSteps] = useState<{ id: string; description: string; time_minutes: number }[]>([]);
+  const [groupSteps, setGroupSteps] = useState<{ id: string; description: string; time_minutes: number; step_type: StepType }[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchGroups = async () => {
@@ -270,15 +270,15 @@ function GruposTab() {
 
   const openEditDialog = (group: StepGroup) => {
     setEditingGroup(group); setGroupName(group.name);
-    setGroupSteps(group.items.map(i => ({ id: i.id, description: i.description, time_minutes: i.time_minutes })));
+    setGroupSteps(group.items.map(i => ({ id: i.id, description: i.description, time_minutes: i.time_minutes, step_type: (i.step_type ?? "outro") as StepType })));
     setIsDialogOpen(true);
   };
 
   const addExistingStep = (step: Step) => {
-    setGroupSteps(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, description: step.description, time_minutes: step.time_minutes }]);
+    setGroupSteps(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, description: step.description, time_minutes: step.time_minutes, step_type: step.step_type ?? "outro" }]);
   };
 
-  const addBlankStep = () => setGroupSteps(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, description: "", time_minutes: 0 }]);
+  const addBlankStep = () => setGroupSteps(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, description: "", time_minutes: 0, step_type: "outro" }]);
   const removeStep = (id: string) => setGroupSteps(groupSteps.filter(s => s.id !== id));
   const updateStep = (id: string, field: string, value: string | number) =>
     setGroupSteps(groupSteps.map(s => s.id === id ? { ...s, [field]: value } : s));
@@ -293,14 +293,14 @@ function GruposTab() {
       await supabase.from("step_groups").update({ name: groupName }).eq("id", editingGroup.id);
       await supabase.from("step_group_items").delete().eq("step_group_id", editingGroup.id);
       await supabase.from("step_group_items").insert(
-        groupSteps.map((s, i) => ({ step_group_id: editingGroup.id, description: s.description, time_minutes: s.time_minutes, sort_order: i }))
+        groupSteps.map((s, i) => ({ step_group_id: editingGroup.id, description: s.description, time_minutes: s.time_minutes, step_type: s.step_type, sort_order: i }))
       );
       toast.success("Grupo atualizado!");
     } else {
       const { data } = await supabase.from("step_groups").insert({ name: groupName }).select("id").single();
       if (data) {
         await supabase.from("step_group_items").insert(
-          groupSteps.map((s, i) => ({ step_group_id: data.id, description: s.description, time_minutes: s.time_minutes, sort_order: i }))
+          groupSteps.map((s, i) => ({ step_group_id: data.id, description: s.description, time_minutes: s.time_minutes, step_type: s.step_type, sort_order: i }))
         );
       }
       toast.success("Grupo criado!");
