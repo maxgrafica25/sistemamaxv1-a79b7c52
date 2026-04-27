@@ -1587,27 +1587,36 @@ export type Database = {
       }
       quote_materials: {
         Row: {
+          approved_at: string | null
+          approved_value: number | null
           description: string
           id: string
           quantity: number
           quote_id: string
           sort_order: number
+          status: string
           unit_price: number
         }
         Insert: {
+          approved_at?: string | null
+          approved_value?: number | null
           description: string
           id?: string
           quantity?: number
           quote_id: string
           sort_order?: number
+          status?: string
           unit_price?: number
         }
         Update: {
+          approved_at?: string | null
+          approved_value?: number | null
           description?: string
           id?: string
           quantity?: number
           quote_id?: string
           sort_order?: number
+          status?: string
           unit_price?: number
         }
         Relationships: [
@@ -1701,9 +1710,11 @@ export type Database = {
           discount_type: string | null
           discount_value: number | null
           id: string
+          is_locked: boolean
           is_template: boolean
           last_viewed_at: string | null
           options: Json | null
+          parent_quote_id: string | null
           payment_method: string | null
           product: string
           profit_margin: string | null
@@ -1713,6 +1724,7 @@ export type Database = {
           updated_at: string
           validity: string | null
           value: number
+          version: number
           view_count: number
         }
         Insert: {
@@ -1722,9 +1734,11 @@ export type Database = {
           discount_type?: string | null
           discount_value?: number | null
           id?: string
+          is_locked?: boolean
           is_template?: boolean
           last_viewed_at?: string | null
           options?: Json | null
+          parent_quote_id?: string | null
           payment_method?: string | null
           product: string
           profit_margin?: string | null
@@ -1734,6 +1748,7 @@ export type Database = {
           updated_at?: string
           validity?: string | null
           value?: number
+          version?: number
           view_count?: number
         }
         Update: {
@@ -1743,9 +1758,11 @@ export type Database = {
           discount_type?: string | null
           discount_value?: number | null
           id?: string
+          is_locked?: boolean
           is_template?: boolean
           last_viewed_at?: string | null
           options?: Json | null
+          parent_quote_id?: string | null
           payment_method?: string | null
           product?: string
           profit_margin?: string | null
@@ -1755,9 +1772,18 @@ export type Database = {
           updated_at?: string
           validity?: string | null
           value?: number
+          version?: number
           view_count?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quotes_parent_quote_id_fkey"
+            columns: ["parent_quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reading_alerts_sent: {
         Row: {
@@ -2261,6 +2287,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_quote_items: {
+        Args: { p_item_ids: string[]; p_quote_id: string }
+        Returns: {
+          approved_count: number
+          total_value: number
+        }[]
+      }
       backup_get_cron_jobs: { Args: never; Returns: Json }
       backup_get_foreign_keys: { Args: never; Returns: Json }
       backup_get_functions: { Args: never; Returns: Json }
@@ -2269,6 +2302,7 @@ export type Database = {
       backup_get_realtime_publication: { Args: never; Returns: Json }
       backup_get_tables: { Args: never; Returns: Json }
       backup_get_triggers: { Args: never; Returns: Json }
+      create_quote_version: { Args: { p_quote_id: string }; Returns: string }
       detectar_duplicatas_categorias: {
         Args: { _destino: string; _origem: string }
         Returns: {

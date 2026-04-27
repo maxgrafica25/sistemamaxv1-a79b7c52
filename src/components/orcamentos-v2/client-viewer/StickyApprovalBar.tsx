@@ -11,31 +11,58 @@ interface Props {
   ctaEnabled: boolean;
   total: number;
   clientName?: string;
+  /** "option" = legado por opção de quantidade; "items" = aprovação parcial por item */
+  mode?: "option" | "items";
+  selectedItemCount?: number;
+  onApproveItems?: () => void | Promise<void>;
+  submitting?: boolean;
 }
 
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export function StickyApprovalBar({ quoteNumber, optionLabel, ctaEnabled, total, clientName }: Props) {
+export function StickyApprovalBar({
+  quoteNumber,
+  optionLabel,
+  ctaEnabled,
+  total,
+  clientName,
+  mode = "option",
+  selectedItemCount = 0,
+  onApproveItems,
+  submitting = false,
+}: Props) {
   const { whatsappNumber, companyName, loading } = useCompanySettings();
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin";
 
   const hasPhone = !!whatsappNumber;
-  const buttonsReady = ctaEnabled && hasPhone && !loading;
+  const buttonsReady = ctaEnabled && hasPhone && !loading && !submitting;
 
-  const approveUrl = hasPhone
-    ? buildWaUrl(buildApprovalMessage({ quoteNumber, optionLabel, clientName, companyName }), whatsappNumber)
-    : "";
+  // Modo "option" mantém o link wa.me direto. Modo "items" usa callback (RPC + WA)
+  const approveUrl =
+    mode === "option" && hasPhone
+      ? buildWaUrl(
+          buildApprovalMessage({ quoteNumber, optionLabel, clientName, companyName }),
+          whatsappNumber,
+        )
+      : "";
   const adjustUrl = hasPhone
     ? buildWaUrl(buildAdjustMessage({ quoteNumber, clientName, companyName }), whatsappNumber)
     : "";
+
+  const totalLabel =
+    mode === "items"
+      ? selectedItemCount > 0
+        ? `Selecionados (${selectedItemCount} ${selectedItemCount === 1 ? "item" : "itens"})`
+        : "Selecione os itens para aprovar"
+      : "Total da opção selecionada";
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-20 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="mx-auto max-w-2xl px-4 sm:px-6 py-3 space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Total da opção selecionada</span>
+          <span className="text-muted-foreground">{totalLabel}</span>
           <span className="text-base font-bold text-foreground">{formatBRL(total)}</span>
         </div>
 
@@ -51,35 +78,64 @@ export function StickyApprovalBar({ quoteNumber, optionLabel, ctaEnabled, total,
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
-          <Button
-            asChild={buttonsReady}
-            size="lg"
-            disabled={!buttonsReady}
-            className="bg-green-600 hover:bg-green-700 text-white gap-2 h-12 text-base font-semibold disabled:opacity-60"
-          >
-            {buttonsReady ? (
-              <a href={approveUrl} target="_blank" rel="noopener noreferrer">
-                <CheckCircle2 className="h-5 w-5" />
-                Aprovar Orçamento
-              </a>
-            ) : (
-              <span className="flex items-center justify-center gap-2">
-                {loading ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" /> Carregando…
-                  </>
-                ) : !hasPhone ? (
-                  <>
-                    <CheckCircle2 className="h-5 w-5" /> WhatsApp não configurado
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-5 w-5" /> Selecione uma opção
-                  </>
-                )}
-              </span>
-            )}
-          </Button>
+          {mode === "items" ? (
+            <Button
+              size="lg"
+              type="button"
+              disabled={!buttonsReady}
+              onClick={() => onApproveItems?.()}
+              className="bg-green-600 hover:bg-green-700 text-white gap-2 h-12 text-base font-semibold disabled:opacity-60"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" /> Aprovando…
+                </>
+              ) : !hasPhone ? (
+                <>
+                  <CheckCircle2 className="h-5 w-5" /> WhatsApp não configurado
+                </>
+              ) : selectedItemCount === 0 ? (
+                <>
+                  <CheckCircle2 className="h-5 w-5" /> Selecione um ou mais itens
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-5 w-5" /> Aprovar selecionados via WhatsApp
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button
+              asChild={buttonsReady}
+              size="lg"
+              disabled={!buttonsReady}
+              className="bg-green-600 hover:bg-green-700 text-white gap-2 h-12 text-base font-semibold disabled:opacity-60"
+            >
+              {buttonsReady ? (
+                <a href={approveUrl} target="_blank" rel="noopener noreferrer">
+                  <CheckCircle2 className="h-5 w-5" />
+                  Aprovar Orçamento
+                </a>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" /> Carregando…
+                    </>
+                  ) : !hasPhone ? (
+                    <>
+                      <CheckCircle2 className="h-5 w-5" /> WhatsApp não configurado
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-5 w-5" /> Selecione uma opção
+                    </>
+                  )}
+                </span>
+              )}
+            </Button>
+          )}
+
           <Button
             asChild={hasPhone && !loading}
             variant="outline"

@@ -23,6 +23,24 @@ export const buildApprovalMessage = (params: {
   return `${greeting}${who} Analisei o Orçamento ${params.quoteNumber}${opt} e APROVO a produção conforme os detalhes enviados.`;
 };
 
+const formatBRL = (n: number) =>
+  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+export const buildPartialApprovalMessage = (params: {
+  quoteNumber: string;
+  items: Array<{ description: string; value: number }>;
+  total: number;
+  clientName?: string;
+  companyName?: string;
+}) => {
+  const greeting = params.companyName ? `Olá ${params.companyName}!` : "Olá!";
+  const who = params.clientName ? ` Aqui é ${params.clientName}.` : "";
+  const itemsList = params.items
+    .map((it, i) => `${i + 1}. ${it.description} — ${formatBRL(it.value)}`)
+    .join("\n");
+  return `${greeting}${who} Aprovo os seguintes itens do Orçamento ${params.quoteNumber}:\n\n${itemsList}\n\n*Total aprovado: ${formatBRL(params.total)}*\n\nPodem dar andamento à produção destes itens.`;
+};
+
 export const buildAdjustMessage = (params: {
   quoteNumber: string;
   clientName?: string;
