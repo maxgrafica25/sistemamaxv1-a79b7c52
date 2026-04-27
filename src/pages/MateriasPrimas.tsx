@@ -725,6 +725,7 @@ export default function MateriasPrimas() {
                               <div className="flex justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedMaterial(material); setShowHistoryDialog(true); }} title="Histórico"><History className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(material)} title="Editar"><Edit className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicateMaterial(material)} title="Duplicar"><Copy className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => requestDeleteMaterial(material.id, material.produto)} title="Excluir"><Trash2 className="h-4 w-4" /></Button>
                               </div>
                             </TableCell>
