@@ -396,6 +396,7 @@ export default function MateriasPrimas() {
       produto,
       finalidade,
       quantidade: qtd,
+      unidade,
       valor: val,
       valor_unitario: unitario,
       fornecedor,
