@@ -172,7 +172,7 @@ export default function MateriasPrimas() {
       supabase.from("supply_purchase_history").select("*").order("created_at", { ascending: false }),
     ]);
     if (supRes.data) {
-      setMaterials(supRes.data.map((s) => ({
+      setMaterials(supRes.data.map((s: any) => ({
         id: s.id,
         produto: s.produto,
         category: "suprimento" as const,
@@ -181,6 +181,7 @@ export default function MateriasPrimas() {
         valor: Number(s.valor),
         fornecedor: s.fornecedor,
         valorUnitario: Number(s.valor_unitario),
+        unidade: s.unidade || "un",
         data: s.data,
         contato: s.contato,
       })));
