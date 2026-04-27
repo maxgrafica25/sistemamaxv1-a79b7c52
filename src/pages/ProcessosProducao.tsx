@@ -88,25 +88,27 @@ function EtapasTab() {
   const [editingStep, setEditingStep] = useState<Step | null>(null);
   const [description, setDescription] = useState("");
   const [timeMinutes, setTimeMinutes] = useState("");
+  const [stepType, setStepType] = useState<StepType>("outro");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchSteps = async () => {
     setLoading(true);
     const { data } = await supabase.from("production_steps").select("*").order("created_at");
-    if (data) setSteps(data);
+    if (data) setSteps(data as Step[]);
     setLoading(false);
   };
 
   useEffect(() => { fetchSteps(); }, []);
 
   const openCreateDialog = () => {
-    setEditingStep(null); setDescription(""); setTimeMinutes("");
+    setEditingStep(null); setDescription(""); setTimeMinutes(""); setStepType("outro");
     setIsDialogOpen(true);
   };
 
   const openEditDialog = (step: Step) => {
     setEditingStep(step); setDescription(step.description);
     setTimeMinutes(step.time_minutes.toString());
+    setStepType(step.step_type ?? "outro");
     setIsDialogOpen(true);
   };
 
@@ -116,10 +118,10 @@ function EtapasTab() {
     if (!time || time <= 0) { toast.error("Informe um tempo válido"); return; }
 
     if (editingStep) {
-      await supabase.from("production_steps").update({ description, time_minutes: time }).eq("id", editingStep.id);
+      await supabase.from("production_steps").update({ description, time_minutes: time, step_type: stepType }).eq("id", editingStep.id);
       toast.success("Etapa atualizada!");
     } else {
-      await supabase.from("production_steps").insert({ description, time_minutes: time });
+      await supabase.from("production_steps").insert({ description, time_minutes: time, step_type: stepType });
       toast.success("Etapa criada!");
     }
     setIsDialogOpen(false);
