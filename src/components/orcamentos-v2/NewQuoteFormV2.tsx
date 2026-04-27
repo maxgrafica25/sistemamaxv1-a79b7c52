@@ -442,13 +442,49 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       <div className="flex-1 min-w-0 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               {isEditing ? "Editar Orçamento V2" : "Novo Orçamento V2"}
+              {quoteVersion > 1 && (
+                <Badge variant="secondary" className="text-xs">v{quoteVersion}</Badge>
+              )}
+              {isLocked && (
+                <Badge variant="outline" className="gap-1 text-xs">
+                  <Lock className="h-3 w-3" /> Travado
+                </Badge>
+              )}
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">{quoteNumber}</p>
           </div>
-          <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
+          <div className="flex gap-2">
+            {isEditing && savedQuoteId && hasApprovedItems && !isLocked && (
+              <CreateVersionButton quoteId={savedQuoteId} quoteNumber={quoteNumber} />
+            )}
+            <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
+          </div>
         </div>
+
+        {isLocked && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Orçamento travado</AlertTitle>
+            <AlertDescription>
+              Este orçamento foi substituído por uma versão mais nova e não pode ser
+              alterado. Localize a versão atual para continuar trabalhando.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!isLocked && hasApprovedItems && (
+          <Alert>
+            <Lock className="h-4 w-4" />
+            <AlertTitle>Itens aprovados estão travados</AlertTitle>
+            <AlertDescription>
+              Para alterar valor ou quantidade de um item já aprovado pelo cliente,
+              clique em <strong>Nova versão</strong> no topo. O item aprovado é
+              preservado e você edita o restante sem confusão.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Steps */}
         <div className="overflow-x-auto">
