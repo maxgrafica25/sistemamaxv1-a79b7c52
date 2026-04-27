@@ -346,7 +346,31 @@ export default function MateriasPrimas() {
     setQuantidade(m.quantidade.toString()); setValor(m.valor.toString());
     setFornecedor(m.fornecedor); setData(m.data); setContato(m.contato); setIsDialogOpen(true);
   };
-  const saveMaterial = async () => {
+  const duplicateMaterial = (m: Material) => {
+    setEditingMaterial(null);
+    setProduto(`${m.produto} (cópia)`);
+    setFinalidade(m.finalidade);
+    setQuantidade(m.quantidade.toString());
+    setValor(m.valor.toString());
+    setFornecedor(m.fornecedor);
+    setContato(m.contato);
+    setData(new Date().toISOString().split("T")[0]);
+    setIsDialogOpen(true);
+  };
+  const duplicatePaper = (p: Paper) => {
+    setEditingPaper(null);
+    setSelectedExistingPaper(null);
+    setPaperName(`${p.name} (cópia)`);
+    setPaperGrammage(p.grammage || "");
+    setPaperSheetQty(String(p.sheet_qty));
+    setPaperPackPrice(String(p.pack_price));
+    setPaperFreightTotal(String(p.freight_price * p.sheet_qty));
+    setPaperFreightDivideBy("1");
+    setPaperSupplier(p.supplier || "");
+    setPaperContact(p.contact || "");
+    setPaperDate(new Date().toISOString().split("T")[0]);
+    setIsPaperDialogOpen(true);
+  };
     if (!produto.trim() || !quantidade || !valor) { toast.error("Preencha Produto, Quantidade e Valor"); return; }
     const qtd = parseFloat(quantidade); const val = parseFloat(valor);
     const unitario = qtd > 0 ? val / qtd : 0;
