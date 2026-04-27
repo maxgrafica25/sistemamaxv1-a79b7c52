@@ -230,6 +230,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         setDiscountValue(q.discount_value);
         setDiscountType((q.discount_type as DiscountType) || "brl");
         setPaymentMethod(q.payment_method || "");
+        setQuoteVersion(q.version ?? 1);
+        setIsLocked(q.is_locked ?? false);
+        setParentQuoteId(q.parent_quote_id ?? null);
         if (Array.isArray(q.options)) {
           setOptions(q.options as unknown as QuoteOption[]);
         }
@@ -238,7 +241,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         id: s.id, description: s.description, timeMinutes: s.time_minutes,
       })));
       setMaterials((mRes.data || []).map((m: any) => ({
-        id: m.id, description: m.description, quantity: m.quantity, unitPrice: m.unit_price,
+        id: m.id,
+        description: m.description,
+        quantity: m.quantity,
+        unitPrice: m.unit_price,
+        status: m.status as "pendente" | "aprovado" | "recusado",
+        approvedAt: m.approved_at,
+        approvedValue: m.approved_value,
       })));
       setThirdParty((tpRes.data || []).map((t: any) => ({
         id: t.id, description: t.description, supplier: t.supplier, cost: t.cost,
