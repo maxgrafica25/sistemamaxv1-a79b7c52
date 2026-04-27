@@ -76,6 +76,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [materials, setMaterials] = useState<PricingMaterial[]>([]);
   const [thirdParty, setThirdParty] = useState<ThirdParty[]>([]);
 
+  // CV (Comunicação Visual)
+  const [cvMaterials, setCvMaterials] = useState<CVMaterial[]>([]);
+  const [cvPrinters, setCvPrinters] = useState<CVPrinter[]>([]);
+  const [cvFinishes, setCvFinishes] = useState<CVFinish[]>([]);
+  const [cvItems, setCvItems] = useState<CVItemState[]>([]);
+  const [cvResults, setCvResults] = useState<Record<string, CVCalcResult>>({});
+
   const [discountValue, setDiscountValue] = useState<number | null>(null);
   const [discountType, setDiscountType] = useState<DiscountType>("brl");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
