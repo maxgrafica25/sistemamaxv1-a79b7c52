@@ -241,7 +241,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         }
       }
       setLabor((lRes.data || []).map((s: any) => ({
-        id: s.id, description: s.description, timeMinutes: s.time_minutes,
+        id: s.id, description: s.description, timeMinutes: s.time_minutes, stepType: s.step_type || "outro",
       })));
       setMaterials((mRes.data || []).map((m: any) => ({
         id: m.id,
