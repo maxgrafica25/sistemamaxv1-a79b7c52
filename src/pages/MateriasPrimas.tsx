@@ -46,6 +46,8 @@ const UNIDADES_MEDIDA = [
   { value: "un", label: "Unidade (un)" },
   { value: "pç", label: "Peça (pç)" },
   { value: "cx", label: "Caixa (cx)" },
+  { value: "pct", label: "Pacote (pct)" },
+  { value: "fd", label: "Fardo (fd)" },
   { value: "m", label: "Metro linear (m)" },
   { value: "m²", label: "Metro quadrado (m²)" },
   { value: "kg", label: "Quilo (kg)" },
