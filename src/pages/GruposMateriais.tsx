@@ -6,10 +6,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Edit2, Loader2, Package, Layers } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Trash2, Edit2, Loader2, Package, Layers, Link2, Link2Off } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import SupplySearch from "@/components/orcamentos-v2/SupplySearch";
 
 interface MaterialItem {
   id: string;
@@ -17,12 +19,23 @@ interface MaterialItem {
   quantity: number;
   unit_price: number;
   sort_order: number;
+  supply_id: string | null;
+  // Live unit price coming from supplies table (when linked)
+  live_unit_price?: number | null;
 }
 
 interface MaterialGroup {
   id: string;
   name: string;
   items: MaterialItem[];
+}
+
+interface DraftItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  supply_id: string | null;
 }
 
 const formatBRL = (n: number) =>
@@ -34,20 +47,30 @@ export default function GruposMateriais() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<MaterialGroup | null>(null);
   const [name, setName] = useState("");
-  const [items, setItems] = useState<{ id: string; description: string; quantity: number; unit_price: number }[]>([]);
+  const [items, setItems] = useState<DraftItem[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchGroups = async () => {
     setLoading(true);
-    const [gRes, iRes] = await Promise.all([
+    const [gRes, iRes, sRes] = await Promise.all([
       supabase.from("material_groups").select("*").order("created_at"),
       supabase.from("material_group_items").select("*").order("sort_order"),
+      supabase.from("supplies").select("id, valor_unitario"),
     ]);
     if (gRes.data && iRes.data) {
+      const supplyMap = new Map<string, number>(
+        (sRes.data || []).map((s: any) => [s.id, Number(s.valor_unitario) || 0]),
+      );
       setGroups(
         gRes.data.map((g) => ({
           ...g,
-          items: iRes.data.filter((i) => i.material_group_id === g.id),
+          items: iRes.data
+            .filter((i: any) => i.material_group_id === g.id)
+            .map((i: any) => ({
+              ...i,
+              supply_id: i.supply_id ?? null,
+              live_unit_price: i.supply_id ? supplyMap.get(i.supply_id) ?? null : null,
+            })),
         })),
       );
     }
@@ -58,10 +81,18 @@ export default function GruposMateriais() {
     fetchGroups();
   }, []);
 
+  const blankItem = (): DraftItem => ({
+    id: `${Date.now()}-${Math.random()}`,
+    description: "",
+    quantity: 1,
+    unit_price: 0,
+    supply_id: null,
+  });
+
   const openNew = () => {
     setEditing(null);
     setName("");
-    setItems([{ id: `${Date.now()}`, description: "", quantity: 1, unit_price: 0 }]);
+    setItems([blankItem()]);
     setIsDialogOpen(true);
   };
 
@@ -73,17 +104,18 @@ export default function GruposMateriais() {
         id: i.id,
         description: i.description,
         quantity: i.quantity,
-        unit_price: i.unit_price,
+        // If linked, prefer live price from supplies
+        unit_price: i.supply_id && i.live_unit_price != null ? i.live_unit_price : i.unit_price,
+        supply_id: i.supply_id ?? null,
       })),
     );
     setIsDialogOpen(true);
   };
 
-  const addItem = () =>
-    setItems((prev) => [...prev, { id: `${Date.now()}-${Math.random()}`, description: "", quantity: 1, unit_price: 0 }]);
+  const addItem = () => setItems((prev) => [...prev, blankItem()]);
 
-  const updateItem = (id: string, field: string, value: string | number) =>
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, [field]: value } : i)));
+  const updateItem = (id: string, patch: Partial<DraftItem>) =>
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
 
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
 
@@ -97,32 +129,24 @@ export default function GruposMateriais() {
       return;
     }
 
+    const payload = (groupId: string) =>
+      items.map((i, idx) => ({
+        material_group_id: groupId,
+        description: i.description,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        supply_id: i.supply_id,
+        sort_order: idx,
+      }));
+
     if (editing) {
       await supabase.from("material_groups").update({ name }).eq("id", editing.id);
       await supabase.from("material_group_items").delete().eq("material_group_id", editing.id);
-      await supabase.from("material_group_items").insert(
-        items.map((i, idx) => ({
-          material_group_id: editing.id,
-          description: i.description,
-          quantity: i.quantity,
-          unit_price: i.unit_price,
-          sort_order: idx,
-        })),
-      );
+      await supabase.from("material_group_items").insert(payload(editing.id));
       toast.success("Grupo atualizado!");
     } else {
       const { data } = await supabase.from("material_groups").insert({ name }).select("id").single();
-      if (data) {
-        await supabase.from("material_group_items").insert(
-          items.map((i, idx) => ({
-            material_group_id: data.id,
-            description: i.description,
-            quantity: i.quantity,
-            unit_price: i.unit_price,
-            sort_order: idx,
-          })),
-        );
-      }
+      if (data) await supabase.from("material_group_items").insert(payload(data.id));
       toast.success("Grupo criado!");
     }
     setIsDialogOpen(false);
@@ -138,7 +162,10 @@ export default function GruposMateriais() {
   };
 
   const groupTotal = (its: MaterialItem[]) =>
-    its.reduce((s, i) => s + i.quantity * i.unit_price, 0);
+    its.reduce((s, i) => {
+      const price = i.supply_id && i.live_unit_price != null ? i.live_unit_price : i.unit_price;
+      return s + i.quantity * price;
+    }, 0);
 
   if (loading) {
     return (
@@ -156,7 +183,7 @@ export default function GruposMateriais() {
           Grupos de Materiais
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Templates de materiais reutilizáveis para acelerar a montagem de orçamentos
+          Templates reutilizáveis. Vincule cada item a um suprimento cadastrado para usar sempre o preço atualizado.
         </p>
       </div>
 
@@ -168,7 +195,7 @@ export default function GruposMateriais() {
               <Plus className="h-4 w-4" /> Novo Grupo
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editing ? "Editar Grupo de Materiais" : "Novo Grupo de Materiais"}</DialogTitle>
             </DialogHeader>
@@ -189,42 +216,90 @@ export default function GruposMateriais() {
                     <Plus className="h-4 w-4" /> Item
                   </Button>
                 </div>
-                {items.map((it, idx) => (
-                  <div key={it.id} className="flex gap-2 items-start">
-                    <span className="flex h-9 w-7 items-center justify-center text-xs font-medium text-muted-foreground">
-                      {idx + 1}
-                    </span>
-                    <Input
-                      placeholder="Descrição do material"
-                      value={it.description}
-                      onChange={(e) => updateItem(it.id, "description", e.target.value)}
-                      className="flex-1"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Qtd"
-                      value={it.quantity || ""}
-                      onChange={(e) => updateItem(it.id, "quantity", parseFloat(e.target.value) || 0)}
-                      className="w-20"
-                    />
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="R$"
-                      value={it.unit_price || ""}
-                      onChange={(e) => updateItem(it.id, "unit_price", parseFloat(e.target.value) || 0)}
-                      className="w-28"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeItem(it.id)}
-                      className="text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                {items.map((it, idx) => {
+                  const linked = !!it.supply_id;
+                  return (
+                    <div key={it.id} className="rounded-lg border p-3 space-y-2 bg-muted/20">
+                      <div className="flex gap-2 items-center">
+                        <span className="flex h-9 w-7 items-center justify-center text-xs font-medium text-muted-foreground">
+                          {idx + 1}
+                        </span>
+
+                        {linked ? (
+                          <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-md border bg-background">
+                            <Link2 className="h-4 w-4 text-primary shrink-0" />
+                            <span className="flex-1 truncate text-sm font-medium">{it.description}</span>
+                            <Badge variant="secondary" className="text-xs">vinculado</Badge>
+                          </div>
+                        ) : (
+                          <SupplySearch
+                            initialLabel={it.description}
+                            onSelect={(s) =>
+                              updateItem(it.id, {
+                                supply_id: s.id,
+                                description: s.produto,
+                                unit_price: Number(s.valor_unitario) || 0,
+                              })
+                            }
+                          />
+                        )}
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeItem(it.id)}
+                          className="text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      <div className="flex gap-2 items-center pl-9">
+                        <div className="flex flex-col gap-0.5">
+                          <Label className="text-[10px] text-muted-foreground uppercase">Qtd</Label>
+                          <Input
+                            type="number"
+                            value={it.quantity || ""}
+                            onChange={(e) => updateItem(it.id, { quantity: parseFloat(e.target.value) || 0 })}
+                            className="w-20 h-8"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <Label className="text-[10px] text-muted-foreground uppercase">Preço un.</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={it.unit_price || ""}
+                            onChange={(e) => updateItem(it.id, { unit_price: parseFloat(e.target.value) || 0 })}
+                            className="w-32 h-8"
+                            disabled={linked}
+                            title={linked ? "Preço vem do cadastro de Suprimentos" : ""}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <Label className="text-[10px] text-muted-foreground uppercase">Subtotal</Label>
+                          <div className="h-8 flex items-center px-2 text-sm font-medium tabular-nums">
+                            {formatBRL((it.quantity || 0) * (it.unit_price || 0))}
+                          </div>
+                        </div>
+
+                        {linked && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              updateItem(it.id, { supply_id: null })
+                            }
+                            className="ml-auto gap-1 text-xs text-muted-foreground"
+                            title="Desvincular do cadastro (preço passa a ser editável)"
+                          >
+                            <Link2Off className="h-3.5 w-3.5" /> Desvincular
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1">
@@ -291,17 +366,26 @@ export default function GruposMateriais() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {g.items.map((it, idx) => (
-                      <TableRow key={it.id}>
-                        <TableCell className="text-center text-muted-foreground">{idx + 1}</TableCell>
-                        <TableCell>{it.description}</TableCell>
-                        <TableCell className="text-center">{it.quantity}</TableCell>
-                        <TableCell className="text-right">{formatBRL(it.unit_price)}</TableCell>
-                        <TableCell className="text-right pr-6 font-medium">
-                          {formatBRL(it.quantity * it.unit_price)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {g.items.map((it, idx) => {
+                      const livePrice =
+                        it.supply_id && it.live_unit_price != null ? it.live_unit_price : it.unit_price;
+                      return (
+                        <TableRow key={it.id}>
+                          <TableCell className="text-center text-muted-foreground">{idx + 1}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {it.supply_id && <Link2 className="h-3.5 w-3.5 text-primary shrink-0" />}
+                              <span>{it.description}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">{it.quantity}</TableCell>
+                          <TableCell className="text-right">{formatBRL(livePrice)}</TableCell>
+                          <TableCell className="text-right pr-6 font-medium">
+                            {formatBRL(it.quantity * livePrice)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </CardContent>
