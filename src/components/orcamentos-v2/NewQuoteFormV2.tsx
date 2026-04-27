@@ -603,7 +603,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               <h2 className="text-lg font-semibold">Informações Gerais</h2>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2"><Label>Nº Orçamento</Label><Input value={quoteNumber} disabled className="bg-muted" /></div>
-                <div className="space-y-2"><Label>Cliente</Label><Input value={client} onChange={(e) => setClient(e.target.value)} placeholder="Nome do cliente" /></div>
+                <div className="space-y-2">
+                  <Label>Cliente</Label>
+                  <ClientCombobox
+                    value={{ id: clientId, nome: client }}
+                    onChange={(v) => { setClientId(v.id); setClient(v.nome); }}
+                  />
+                </div>
                 <div className="space-y-2 md:col-span-2"><Label>Produto / Serviço</Label><Input value={product} onChange={(e) => setProduct(e.target.value)} placeholder="Ex: Cartões de visita" /></div>
                 <div className="space-y-2"><Label>Validade (dias)</Label><Input type="number" value={validity} onChange={(e) => setValidity(e.target.value)} /></div>
                 <div className="space-y-2"><Label>Margem de lucro (%)</Label><Input type="number" step="0.01" value={profitMargin} onChange={(e) => setProfitMargin(e.target.value)} /></div>
