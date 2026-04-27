@@ -6,16 +6,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Edit2, Clock, Loader2, Factory, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { StepTypeBadge, STEP_TYPES, type StepType } from "@/components/orcamentos-v2/StepTypeBadge";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Step {
   id: string;
   description: string;
   time_minutes: number;
+  step_type: StepType;
 }
 
 interface GroupItem {
@@ -23,6 +26,7 @@ interface GroupItem {
   description: string;
   time_minutes: number;
   sort_order: number;
+  step_type: StepType;
 }
 
 interface StepGroup {
