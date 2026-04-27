@@ -80,9 +80,9 @@ export function StickyFinancialSidebar({ totalCost, totalToCharge, marginPct, pr
               {formatBRL(totalToCharge)}
             </span>
           </div>
-          <div className={cn("flex items-center gap-1 text-sm font-semibold", colorCls)}>
+          <div className={cn("flex items-center gap-1.5 text-sm font-semibold", colorCls)}>
             <MarginIcon pct={marginPct} />
-            {marginPct.toFixed(1)}%
+            <span>{Math.abs(marginPct) < 0.05 ? "0,0" : marginPct.toFixed(1).replace(".", ",")}%</span>
           </div>
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
         </button>
