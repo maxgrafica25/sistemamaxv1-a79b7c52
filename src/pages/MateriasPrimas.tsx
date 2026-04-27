@@ -137,6 +137,7 @@ export default function MateriasPrimas() {
   const [produto, setProduto] = useState("");
   const [finalidade, setFinalidade] = useState("");
   const [quantidade, setQuantidade] = useState("");
+  const [unidade, setUnidade] = useState("un");
   const [valor, setValor] = useState("");
   const [fornecedor, setFornecedor] = useState("");
   const [data, setData] = useState("");
