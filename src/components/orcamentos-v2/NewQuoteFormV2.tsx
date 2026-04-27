@@ -572,8 +572,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 (i === 0 && client.trim() && product.trim()) ||
                 (i === 1 && labor.length > 0) ||
                 (i === 2 && materials.length > 0) ||
-                (i === 3 && thirdParty.length > 0) ||
-                (i === 4 && !!savedQuoteId);
+                (i === 3 && cvItems.length > 0) ||
+                (i === 4 && thirdParty.length > 0) ||
+                (i === 5 && !!savedQuoteId);
               return (
                 <button
                   key={i}
