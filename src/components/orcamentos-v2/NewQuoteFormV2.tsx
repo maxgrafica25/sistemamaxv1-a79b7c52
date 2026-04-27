@@ -385,6 +385,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       const payload = {
         quote_number: quoteNumber,
         client: client.trim(),
+        client_id: clientId,
         product: product.trim(),
         value: discountedTotal,
         date: new Date().toISOString().split("T")[0],
