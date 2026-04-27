@@ -281,6 +281,7 @@ export default function ClientViewer() {
         optionLabel={optionLabelForCta}
         ctaEnabled={ctaEnabled}
         total={displayTotal}
+        clientName={quote.client}
       />
     </div>
   );
