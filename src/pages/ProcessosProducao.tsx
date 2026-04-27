@@ -240,10 +240,10 @@ function GruposTab() {
     if (gRes.data && iRes.data) {
       setGroups(gRes.data.map(g => ({
         ...g,
-        items: iRes.data.filter(i => i.step_group_id === g.id),
-      })));
+        items: iRes.data.filter(i => i.step_group_id === g.id) as GroupItem[],
+      })) as StepGroup[]);
     }
-    if (sRes.data) setAvailableSteps(sRes.data);
+    if (sRes.data) setAvailableSteps(sRes.data as Step[]);
     setLoading(false);
   };
 
