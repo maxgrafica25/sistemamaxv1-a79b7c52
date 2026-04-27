@@ -541,39 +541,41 @@ export default function MateriasPrimas() {
             </Card>
           </div>
 
-          {/* Search & Filters */}
-          <div className="flex items-center gap-3 mt-5">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder={`Buscar ${activeTab === "papel" ? "papel por nome ou gramatura" : "suprimento"}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+          {/* Search & Filters — sticky no topo do main */}
+          <div className="sticky top-0 z-20 -mx-8 px-8 py-3 mt-5 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/50">
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder={`Buscar ${activeTab === "papel" ? "papel por nome ou gramatura" : "suprimento"}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+              </div>
+              {activeTab === "papel" && (
+                <Select value={paperSortBy} onValueChange={(v) => setPaperSortBy(v as typeof paperSortBy)}>
+                  <SelectTrigger className="w-[180px] shrink-0"><SelectValue placeholder="Ordenar por" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name">Nome A-Z</SelectItem>
+                    <SelectItem value="grammage">Gramatura</SelectItem>
+                    <SelectItem value="priceA4">Preço A4</SelectItem>
+                    <SelectItem value="date">Data mais recente</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              {activeTab === "suprimento" && (
+                <Select value={filterFinalidade} onValueChange={setFilterFinalidade}>
+                  <SelectTrigger className="w-[200px] shrink-0"><SelectValue placeholder="Filtrar finalidade" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas finalidades</SelectItem>
+                    {uniqueFinalidades.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+              <Button
+                onClick={() => activeTab === "papel" ? openPaperDialog() : openNewDialog()}
+                className="gap-2 shrink-0"
+              >
+                <Plus className="h-4 w-4" />
+                Novo {activeTab === "papel" ? "Papel" : "Suprimento"}
+              </Button>
             </div>
-            {activeTab === "papel" && (
-              <Select value={paperSortBy} onValueChange={(v) => setPaperSortBy(v as typeof paperSortBy)}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Ordenar por" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name">Nome A-Z</SelectItem>
-                  <SelectItem value="grammage">Gramatura</SelectItem>
-                  <SelectItem value="priceA4">Preço A4</SelectItem>
-                  <SelectItem value="date">Data mais recente</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-            {activeTab === "suprimento" && (
-              <Select value={filterFinalidade} onValueChange={setFilterFinalidade}>
-                <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filtrar finalidade" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas finalidades</SelectItem>
-                  {uniqueFinalidades.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            )}
-            <Button
-              onClick={() => activeTab === "papel" ? openPaperDialog() : openNewDialog()}
-              className="gap-2 shrink-0"
-            >
-              <Plus className="h-4 w-4" />
-              Novo {activeTab === "papel" ? "Papel" : "Suprimento"}
-            </Button>
           </div>
 
           {/* ── PAPÉIS TAB ── */}
