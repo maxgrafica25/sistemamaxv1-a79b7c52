@@ -57,7 +57,7 @@ export default function OrcamentosV2() {
     setLoading(true);
     const { data } = await supabase
       .from("quotes")
-      .select("id, quote_number, client, product, value, status, date, view_count, last_viewed_at, is_template, options")
+      .select("id, quote_number, client, product, value, status, date, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id")
       .order("created_at", { ascending: false });
     setQuotes((data as QuoteRow[]) || []);
     setLoading(false);
