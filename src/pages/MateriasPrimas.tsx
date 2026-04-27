@@ -899,14 +899,22 @@ export default function MateriasPrimas() {
                 </div>
                 <div className="space-y-2"><Label>Fornecedor</Label><SupplierCombobox value={fornecedor} onChange={setFornecedor} onSelectSupplier={(s) => { setFornecedor(s.nome); if (!contato) setContato(s.empresa || ""); }} /></div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-[1fr_140px_1fr] gap-4">
                 <div className="space-y-2"><Label>Quantidade *</Label><Input type="number" step="0.01" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} /></div>
+                <div className="space-y-2">
+                  <Label>Unidade *</Label>
+                  <Select value={unidade} onValueChange={setUnidade}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{UNIDADES_MEDIDA.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2"><Label>Valor Total (R$) *</Label><Input type="number" step="0.01" value={valor} onChange={(e) => setValor(e.target.value)} /></div>
               </div>
               {quantidade && valor && parseFloat(quantidade) > 0 && (
                 <div className="rounded-lg bg-muted p-3 text-center">
                   <span className="text-sm text-muted-foreground">Valor Unitário: </span>
                   <span className="font-bold text-foreground">{formatCurrency(parseFloat(valor) / parseFloat(quantidade))}</span>
+                  <span className="text-sm text-muted-foreground"> / {unidade}</span>
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4 items-end">
