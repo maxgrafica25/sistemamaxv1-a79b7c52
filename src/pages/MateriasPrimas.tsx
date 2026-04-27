@@ -37,9 +37,22 @@ interface Material {
   valor: number;
   fornecedor: string;
   valorUnitario: number;
+  unidade: string;
   data: string;
   contato: string;
 }
+
+const UNIDADES_MEDIDA = [
+  { value: "un", label: "Unidade (un)" },
+  { value: "pç", label: "Peça (pç)" },
+  { value: "cx", label: "Caixa (cx)" },
+  { value: "m", label: "Metro linear (m)" },
+  { value: "m²", label: "Metro quadrado (m²)" },
+  { value: "kg", label: "Quilo (kg)" },
+  { value: "g", label: "Grama (g)" },
+  { value: "L", label: "Litro (L)" },
+  { value: "mL", label: "Mililitro (mL)" },
+];
 
 interface PurchaseHistory {
   id: string;
