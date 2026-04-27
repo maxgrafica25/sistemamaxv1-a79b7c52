@@ -58,6 +58,7 @@ export function ClientCombobox({ value, onChange }: Props) {
       let req = supabase
         .from("clients")
         .select("id, nome, empresa, telefone, email, tipo")
+        .eq("tipo", "cliente")
         .order("nome")
         .limit(20);
       if (q) {
