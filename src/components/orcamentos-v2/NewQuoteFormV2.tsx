@@ -85,6 +85,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   });
 
   const [savedQuoteId, setSavedQuoteId] = useState<string | null>(quoteId ?? null);
+  const [quoteVersion, setQuoteVersion] = useState<number>(1);
+  const [isLocked, setIsLocked] = useState<boolean>(false);
+  const [parentQuoteId, setParentQuoteId] = useState<string | null>(null);
+
+  const hasApprovedItems = useMemo(
+    () => materials.some((m) => m.status === "aprovado"),
+    [materials],
+  );
 
   // ---------- Load catalog & quote ----------
   const loadInit = useCallback(async () => {
