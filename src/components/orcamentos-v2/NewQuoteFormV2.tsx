@@ -23,6 +23,9 @@ import {
 import type { QuoteOption } from "@/lib/quotes-v2/options";
 import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionButton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { LoadFromGroupDialog } from "@/components/orcamentos-v2/LoadFromGroupDialog";
+import { StepTypeBadge, STEP_TYPES } from "@/components/orcamentos-v2/StepTypeBadge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Props {
   quoteId?: string;
@@ -30,7 +33,7 @@ interface Props {
   onCancel: () => void;
 }
 
-interface LaborStep { id: string; description: string; timeMinutes: number; }
+interface LaborStep { id: string; description: string; timeMinutes: number; stepType: string; }
 interface ThirdParty { id: string; description: string; supplier: string; cost: number; }
 
 const STEPS = [
