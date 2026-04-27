@@ -674,8 +674,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                   </Badge>
                 </div>
 
-                <Button className="w-full gap-2 h-11" onClick={handleSave}>
-                  <Check className="h-4 w-4" /> {isEditing ? "Atualizar" : "Salvar"} Orçamento
+                <Button className="w-full gap-2 h-11" onClick={handleSave} disabled={isLocked}>
+                  <Check className="h-4 w-4" /> {isLocked ? "Orçamento travado" : `${isEditing ? "Atualizar" : "Salvar"} Orçamento`}
                 </Button>
 
                 {savedQuoteId && (
