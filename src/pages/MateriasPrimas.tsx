@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { format, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  Plus, Edit, Trash2, Search, History,
+  Plus, Edit, Trash2, Search, History, Copy,
   TrendingUp, TrendingDown, Minus, Package, FileText,
   AlertTriangle, DollarSign, ShoppingCart, Layers, HelpCircle, Truck, CalendarIcon, ArrowUpRight
 } from "lucide-react";
