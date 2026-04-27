@@ -196,12 +196,39 @@ export default function ClientViewer() {
                 O que está incluso
               </h2>
               <ul className="space-y-2 text-sm">
-                {materials.map((m) => (
-                  <li key={m.id} className="flex items-start gap-2">
-                    <Printer className="h-4 w-4 mt-0.5 text-primary shrink-0" />
-                    <span className="text-foreground">{m.description}</span>
-                  </li>
-                ))}
+                {materials.map((m) => {
+                  const itemAdjustUrl = whatsappNumber
+                    ? buildWaUrl(
+                        buildItemAdjustMessage({
+                          quoteNumber: quote!.quote_number,
+                          itemDescription: m.description,
+                          clientName: quote!.client,
+                          companyName,
+                        }),
+                        whatsappNumber,
+                      )
+                    : "";
+                  return (
+                    <li key={m.id} className="flex items-start gap-2 group">
+                      <Printer className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                      <span className="text-foreground flex-1">{m.description}</span>
+                      {itemAdjustUrl && (
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-green-600 shrink-0"
+                          title="Solicitar alteração neste item"
+                        >
+                          <a href={itemAdjustUrl} target="_blank" rel="noopener noreferrer">
+                            <MessageCircle className="h-3.5 w-3.5 sm:mr-1" />
+                            <span className="hidden sm:inline">Alterar</span>
+                          </a>
+                        </Button>
+                      )}
+                    </li>
+                  );
+                })}
                 {labor.length > 0 && (
                   <li className="flex items-start gap-2">
                     <Package className="h-4 w-4 mt-0.5 text-primary shrink-0" />
@@ -211,6 +238,11 @@ export default function ClientViewer() {
                   </li>
                 )}
               </ul>
+              {whatsappNumber && materials.length > 0 && (
+                <p className="text-xs text-muted-foreground pt-1 border-t border-border/50">
+                  💡 Quer ajustar algum item? Toque em <strong>Alterar</strong> ao lado dele para falar conosco.
+                </p>
+              )}
             </CardContent>
           </Card>
         )}
