@@ -37,9 +37,22 @@ interface Material {
   valor: number;
   fornecedor: string;
   valorUnitario: number;
+  unidade: string;
   data: string;
   contato: string;
 }
+
+const UNIDADES_MEDIDA = [
+  { value: "un", label: "Unidade (un)" },
+  { value: "pç", label: "Peça (pç)" },
+  { value: "cx", label: "Caixa (cx)" },
+  { value: "m", label: "Metro linear (m)" },
+  { value: "m²", label: "Metro quadrado (m²)" },
+  { value: "kg", label: "Quilo (kg)" },
+  { value: "g", label: "Grama (g)" },
+  { value: "L", label: "Litro (L)" },
+  { value: "mL", label: "Mililitro (mL)" },
+];
 
 interface PurchaseHistory {
   id: string;
@@ -124,6 +137,7 @@ export default function MateriasPrimas() {
   const [produto, setProduto] = useState("");
   const [finalidade, setFinalidade] = useState("");
   const [quantidade, setQuantidade] = useState("");
+  const [unidade, setUnidade] = useState("un");
   const [valor, setValor] = useState("");
   const [fornecedor, setFornecedor] = useState("");
   const [data, setData] = useState("");
@@ -158,7 +172,7 @@ export default function MateriasPrimas() {
       supabase.from("supply_purchase_history").select("*").order("created_at", { ascending: false }),
     ]);
     if (supRes.data) {
-      setMaterials(supRes.data.map((s) => ({
+      setMaterials(supRes.data.map((s: any) => ({
         id: s.id,
         produto: s.produto,
         category: "suprimento" as const,
@@ -167,6 +181,7 @@ export default function MateriasPrimas() {
         valor: Number(s.valor),
         fornecedor: s.fornecedor,
         valorUnitario: Number(s.valor_unitario),
+        unidade: s.unidade || "un",
         data: s.data,
         contato: s.contato,
       })));
@@ -339,11 +354,11 @@ export default function MateriasPrimas() {
   };
 
   // ── Suprimento logic (DB-backed) ──
-  const resetForm = () => { setProduto(""); setFinalidade(""); setQuantidade(""); setValor(""); setFornecedor(""); setData(""); setContato(""); };
+  const resetForm = () => { setProduto(""); setFinalidade(""); setQuantidade(""); setUnidade("un"); setValor(""); setFornecedor(""); setData(""); setContato(""); };
   const openNewDialog = () => { setEditingMaterial(null); resetForm(); setIsDialogOpen(true); };
   const openEditDialog = (m: Material) => {
     setEditingMaterial(m); setProduto(m.produto); setFinalidade(m.finalidade);
-    setQuantidade(m.quantidade.toString()); setValor(m.valor.toString());
+    setQuantidade(m.quantidade.toString()); setUnidade(m.unidade || "un"); setValor(m.valor.toString());
     setFornecedor(m.fornecedor); setData(m.data); setContato(m.contato); setIsDialogOpen(true);
   };
   const duplicateMaterial = (m: Material) => {
@@ -351,6 +366,7 @@ export default function MateriasPrimas() {
     setProduto(`${m.produto} (cópia)`);
     setFinalidade(m.finalidade);
     setQuantidade(m.quantidade.toString());
+    setUnidade(m.unidade || "un");
     setValor(m.valor.toString());
     setFornecedor(m.fornecedor);
     setContato(m.contato);
@@ -380,6 +396,7 @@ export default function MateriasPrimas() {
       produto,
       finalidade,
       quantidade: qtd,
+      unidade,
       valor: val,
       valor_unitario: unitario,
       fornecedor,
@@ -716,9 +733,9 @@ export default function MateriasPrimas() {
                           <TableRow key={material.id} className="group">
                             <TableCell className="font-medium max-w-[250px] truncate">{material.produto}</TableCell>
                             <TableCell><Badge variant="secondary" className="text-xs font-normal">{material.finalidade || "—"}</Badge></TableCell>
-                            <TableCell className="text-right tabular-nums">{material.quantidade}</TableCell>
+                            <TableCell className="text-right tabular-nums">{material.quantidade} <span className="text-xs text-muted-foreground">{material.unidade || "un"}</span></TableCell>
                             <TableCell className="text-right tabular-nums">{formatCurrency(material.valor)}</TableCell>
-                            <TableCell className="text-right tabular-nums font-medium">{formatCurrency(material.valorUnitario)}</TableCell>
+                            <TableCell className="text-right tabular-nums font-medium">{formatCurrency(material.valorUnitario)} <span className="text-xs text-muted-foreground font-normal">/ {material.unidade || "un"}</span></TableCell>
                             <TableCell className="text-muted-foreground">{material.fornecedor || "—"}</TableCell>
                             <TableCell className="text-center"><VariationBadge variation={variation} /></TableCell>
                             <TableCell className="text-right">
@@ -882,14 +899,22 @@ export default function MateriasPrimas() {
                 </div>
                 <div className="space-y-2"><Label>Fornecedor</Label><SupplierCombobox value={fornecedor} onChange={setFornecedor} onSelectSupplier={(s) => { setFornecedor(s.nome); if (!contato) setContato(s.empresa || ""); }} /></div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-[1fr_140px_1fr] gap-4">
                 <div className="space-y-2"><Label>Quantidade *</Label><Input type="number" step="0.01" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} /></div>
+                <div className="space-y-2">
+                  <Label>Unidade *</Label>
+                  <Select value={unidade} onValueChange={setUnidade}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{UNIDADES_MEDIDA.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2"><Label>Valor Total (R$) *</Label><Input type="number" step="0.01" value={valor} onChange={(e) => setValor(e.target.value)} /></div>
               </div>
               {quantidade && valor && parseFloat(quantidade) > 0 && (
                 <div className="rounded-lg bg-muted p-3 text-center">
                   <span className="text-sm text-muted-foreground">Valor Unitário: </span>
                   <span className="font-bold text-foreground">{formatCurrency(parseFloat(valor) / parseFloat(quantidade))}</span>
+                  <span className="text-sm text-muted-foreground"> / {unidade}</span>
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4 items-end">

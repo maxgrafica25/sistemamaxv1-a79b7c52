@@ -1,0 +1,1 @@
+ALTER TABLE public.supplies ADD COLUMN IF NOT EXISTS unidade text NOT NULL DEFAULT 'un';

@@ -2209,6 +2209,7 @@ export type Database = {
           id: string
           produto: string
           quantidade: number
+          unidade: string
           updated_at: string
           valor: number
           valor_unitario: number
@@ -2222,6 +2223,7 @@ export type Database = {
           id?: string
           produto: string
           quantidade?: number
+          unidade?: string
           updated_at?: string
           valor?: number
           valor_unitario?: number
@@ -2235,6 +2237,7 @@ export type Database = {
           id?: string
           produto?: string
           quantidade?: number
+          unidade?: string
           updated_at?: string
           valor?: number
           valor_unitario?: number

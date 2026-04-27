@@ -1,105 +1,56 @@
-# Polimento de produtividade — Matérias-Primas
+## Problema
 
-Três melhorias na página `src/pages/MateriasPrimas.tsx`. Arquivo único, zero mudanças no banco.
+O cadastro de Suprimento hoje só pede **Quantidade** e **Valor Total** — sem informar **em que unidade**. Isso funciona para itens contáveis (ponteira, espiral, parafuso), mas quebra para insumos vendidos por medida contínua:
 
----
+- **Cordinha, fita, cabo, fio** → metro linear (m)
+- **Lona em rolo, tecido** → metro quadrado (m²)
+- **Cola, pó, granulado** → quilo (kg)
+- **Tinta, verniz, solvente** → litro (L)
 
-## 1. Alinhamento refinado da barra (shrink-0 nos filtros)
+Sem esse campo, o "Valor Unitário" calculado fica ambíguo (R$ 0,35 por quê?) e atrapalha tanto o histórico de preços quanto futuros cálculos de consumo em orçamentos.
 
-O input de busca já tem `flex-1` e o botão `+ Novo` já tem `shrink-0`. Falta blindar os Selects para que nunca encolham quando a busca tiver texto longo.
+## Solução
 
-- Linha 527: `w-[180px]` → `w-[180px] shrink-0` (Select "Ordenar por")
-- Linha 538: `w-[200px]` → `w-[200px] shrink-0` (Select "Filtrar finalidade")
+Adicionar um campo **Unidade de Medida** ao cadastro de suprimento, com opções pré-definidas e exibição clara em toda a interface.
 
-Resultado: `[🔍 Buscar...........................] [Filtro ▼] [+ Novo Suprimento]`
+### 1. Banco de dados
 
----
+Migration adicionando coluna `unidade` em `public.supplies`:
+- Tipo: `text`, NOT NULL, default `'un'` (para não quebrar registros existentes)
+- Valores aceitos via CHECK ou apenas validação no front: `un`, `m`, `m²`, `kg`, `g`, `L`, `mL`, `pç`, `cx`
 
-## 2. Barra Search & Filters sticky no topo
+### 2. Modal "Novo/Editar Suprimento" (`src/pages/MateriasPrimas.tsx`)
 
-Envolver toda a barra em um wrapper `sticky`. O scroll do app acontece dentro do `<main>` (Layout.tsx), então `sticky top-0` cola a barra no topo do main, **logo abaixo** do header global (que é `sticky z-30`).
+Reorganizar a linha de Quantidade/Valor para incluir o seletor:
 
-- Mudar a `<div className="flex items-center gap-3 mt-5">` (linha 520) para uma estrutura sticky:
-```tsx
-<div className="sticky top-0 z-20 -mx-8 px-8 py-3 mt-5 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/50">
-  <div className="flex items-center gap-3">
-    {/* input + selects + botão Novo */}
-  </div>
-</div>
+```text
+┌──────────────┬──────────────┬──────────────────┐
+│ Quantidade * │ Unidade *    │ Valor Total (R$)*│
+│ [   100   ]  │ [ metro  ▼ ] │ [    35,00     ] │
+└──────────────┴──────────────┴──────────────────┘
 ```
 
-Detalhes:
-- `-mx-8 px-8` compensa o `p-8` do container raiz, fazendo a barra ocupar toda a largura quando colada.
-- `z-20` < `z-30` do header global, garantindo que o header fique por cima caso haja sobreposição.
-- `backdrop-blur` + `bg-background/95` mantém legibilidade quando conteúdo passa por baixo.
-- Borda inferior sutil aparece naturalmente quando a barra está colada (visualmente separa do conteúdo).
+- Grid passa de `grid-cols-2` para `grid-cols-[1fr_120px_1fr]` (ou 3 colunas iguais).
+- Default da unidade: `un` (mantém comportamento atual para itens contáveis).
+- Label do "Valor Unitário" calculado passa a mostrar a unidade: **"R$ 0,35 / metro"** em vez de só "Valor Unitário: R$ 0,35".
 
----
+### 3. Tabela de Suprimentos
 
-## 3. Botão "Duplicar" em cada linha (Papéis e Suprimentos)
+- Coluna **Unit.** atual (preço unitário) passa a exibir `R$ 0,35 / m` em vez de só `R$ 0,35`.
+- Opcional (recomendado): coluna "Quantidade" mostra `100 m` em vez de só `100`.
 
-Adicionar dois novos handlers e um botão com ícone `Copy` (Lucide — duas folhas) entre Editar e Excluir.
+### 4. Histórico de preços / duplicação
 
-### Handlers novos
+- Ao duplicar (`duplicateMaterial`), copia também a unidade.
+- No histórico exibido no painel lateral, mostrar a unidade junto do valor unitário para o usuário comparar maçãs com maçãs.
 
-```ts
-// Suprimentos
-const duplicateMaterial = (m: Material) => {
-  setEditingMaterial(null);              // força modo "criar"
-  setProduto(`${m.produto} (cópia)`);
-  setFinalidade(m.finalidade);
-  setQuantidade(String(m.quantidade));
-  setValor(String(m.valor));
-  setFornecedor(m.fornecedor);
-  setContato(m.contato);
-  setData(new Date().toISOString().split("T")[0]);
-  setIsDialogOpen(true);
-};
+## Arquivos afetados
 
-// Papéis
-const duplicatePaper = (p: Paper) => {
-  setEditingPaper(null);
-  setSelectedExistingPaper(null);        // garante modo "criar novo papel", não "atualizar preço"
-  setPaperName(`${p.name} (cópia)`);
-  setPaperGrammage(p.grammage || "");
-  setPaperSheetQty(String(p.sheet_qty));
-  setPaperPackPrice(String(p.pack_price));
-  setPaperFreightTotal(String(p.freight_price * p.sheet_qty));
-  setPaperFreightDivideBy("1");
-  setPaperSupplier(p.supplier || "");
-  setPaperContact(p.contact || "");
-  setPaperDate(new Date().toISOString().split("T")[0]);
-  setIsPaperDialogOpen(true);
-};
-```
+- `supabase/migrations/<nova>.sql` — adicionar coluna `unidade`
+- `src/pages/MateriasPrimas.tsx` — estado `unidade`, select no modal, exibição na tabela, propagação no duplicate/edit/save
+- Constante nova `UNIDADES_MEDIDA` no topo do arquivo (ou em `src/lib/utils.ts` se preferir reuso)
 
-### UI — adicionar entre Editar e Excluir
+## Fora de escopo (sugestão futura)
 
-Importar `Copy` em `lucide-react` e inserir nas duas tabelas:
-
-```tsx
-<Button variant="ghost" size="icon" className="h-8 w-8"
-  onClick={() => duplicatePaper(paper)} title="Duplicar">
-  <Copy className="h-4 w-4" />
-</Button>
-```
-
-(equivalente para `duplicateMaterial(material)` na tabela de Suprimentos).
-
-### Comportamento
-
-- Modal abre **em modo de criação** (não edição) — salvar gera registro novo.
-- Nome vem com sufixo " (cópia)" para deixar claro e evitar duplicar nome idêntico (que viola a regra de integridade do projeto).
-- Data preenchida com hoje; usuário só altera o que quiser.
-
----
-
-## Resumo de impacto
-
-| Item | Arquivo | Linhas | Risco |
-|------|---------|--------|-------|
-| 1. shrink-0 | MateriasPrimas.tsx | 2 linhas | Zero |
-| 2. Sticky bar | MateriasPrimas.tsx | wrapper na linha 520 | Baixo (visual) |
-| 3. Duplicar | MateriasPrimas.tsx | 2 handlers + 2 botões + import Copy | Baixo |
-
-Sem migrações, sem novas dependências, sem mudanças em outros arquivos.
+- Conversão automática entre unidades (ex.: comprei rolo de 100m, quero gastar 1,5m no orçamento) — só vale a pena quando o módulo de Orçamentos consumir suprimentos por unidade real.
+- Adicionar a mesma coluna em `papers` — papel já é sempre por folha, não precisa.
