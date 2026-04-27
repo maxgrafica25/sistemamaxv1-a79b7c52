@@ -14,10 +14,15 @@ interface Props {
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+const formatMarginPct = (pct: number) => {
+  if (Math.abs(pct) < 0.05) return "0,0%";
+  const sign = pct > 0 ? "+" : "";
+  return `${sign}${pct.toFixed(1).replace(".", ",")}%`;
+};
+
 const MarginIcon = ({ pct }: { pct: number }) => {
-  const lvl = marginLevel(pct);
-  if (lvl === "low") return <TrendingDown className="h-4 w-4" />;
-  if (lvl === "mid") return <Minus className="h-4 w-4" />;
+  if (pct < -0.05) return <TrendingDown className="h-4 w-4" />;
+  if (Math.abs(pct) < 0.05) return <Minus className="h-4 w-4" />;
   return <TrendingUp className="h-4 w-4" />;
 };
 
@@ -38,7 +43,7 @@ export function StickyFinancialSidebar({ totalCost, totalToCharge, marginPct, pr
         <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Margem</p>
         <div className={cn("flex items-center gap-2 text-2xl font-bold", colorCls)}>
           <MarginIcon pct={marginPct} />
-          <span>{Math.abs(marginPct) < 0.05 ? "0,0" : marginPct.toFixed(1).replace(".", ",")}%</span>
+          <span>{formatMarginPct(marginPct)}</span>
           <span className="text-xs font-medium ml-auto">{marginLabel(marginPct)}</span>
         </div>
       </div>
@@ -82,7 +87,7 @@ export function StickyFinancialSidebar({ totalCost, totalToCharge, marginPct, pr
           </div>
           <div className={cn("flex items-center gap-1.5 text-sm font-semibold", colorCls)}>
             <MarginIcon pct={marginPct} />
-            <span>{Math.abs(marginPct) < 0.05 ? "0,0" : marginPct.toFixed(1).replace(".", ",")}%</span>
+            <span>{formatMarginPct(marginPct)}</span>
           </div>
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
         </button>
