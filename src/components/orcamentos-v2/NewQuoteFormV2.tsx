@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   Plus, X, Package, Wrench, ChevronLeft, ChevronRight, Check, User, Clock,
-  FileText, Printer, Loader2, Link2,
+  FileText, Printer, Loader2, Link2, Lock, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
