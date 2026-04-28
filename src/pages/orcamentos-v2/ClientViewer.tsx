@@ -132,6 +132,17 @@ export default function ClientViewer() {
   // Scroll depth (1x por sessão, listener passive)
   useScrollDepthTracking(id);
 
+  const options: QuoteOption[] = useMemo(
+    () => (quote ? parseOptions(quote.options) : []),
+    [quote],
+  );
+
+  useEffect(() => {
+    if (options.length >= 2 && !selectedOptionId) {
+      setSelectedOptionId(options[0].id);
+    }
+  }, [options, selectedOptionId]);
+
   // option_selected com debounce de 2s — só registra se permanecer na opção
   useEffect(() => {
     if (!id || !selectedOptionId) return;
@@ -145,17 +156,6 @@ export default function ClientViewer() {
     }, 2000);
     return () => clearTimeout(t);
   }, [id, selectedOptionId, options]);
-
-  const options: QuoteOption[] = useMemo(
-    () => (quote ? parseOptions(quote.options) : []),
-    [quote],
-  );
-
-  useEffect(() => {
-    if (options.length >= 2 && !selectedOptionId) {
-      setSelectedOptionId(options[0].id);
-    }
-  }, [options, selectedOptionId]);
 
   // SEO
   useEffect(() => {
