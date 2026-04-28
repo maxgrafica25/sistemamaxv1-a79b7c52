@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Search, ClipboardList, Loader2, FileDown, CheckCircle2, XCircle,
-  Eye, Bookmark, Link2, BookmarkCheck,
+  Bookmark, Link2, BookmarkCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,13 +15,17 @@ import { RealtimeRadar } from "@/components/orcamentos-v2/RealtimeRadar";
 import { CloneQuoteButton } from "@/components/orcamentos-v2/CloneQuoteButton";
 import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionButton";
 import { GenerateOPButton } from "@/components/orcamentos-v2/GenerateOPButton";
+import { EngagementPopover } from "@/components/orcamentos-v2/EngagementPopover";
 import { Lock } from "lucide-react";
 import { parseOptions } from "@/lib/quotes-v2/options";
+import { buildStatsMap, computeTemperature, type EngagementStats, type Temperature } from "@/lib/quotes-v2/temperature";
+import type { EngagementEventType } from "@/lib/quotes-v2/tracking";
 
 interface QuoteRow {
   id: string;
   quote_number: string;
   client: string;
+  client_phone: string | null;
   product: string;
   value: number;
   status: string;
