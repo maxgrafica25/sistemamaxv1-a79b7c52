@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Search, ClipboardList, Loader2, FileDown, CheckCircle2, XCircle,
-  Eye, Bookmark, Link2, BookmarkCheck,
+  Bookmark, Link2, BookmarkCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,13 +15,17 @@ import { RealtimeRadar } from "@/components/orcamentos-v2/RealtimeRadar";
 import { CloneQuoteButton } from "@/components/orcamentos-v2/CloneQuoteButton";
 import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionButton";
 import { GenerateOPButton } from "@/components/orcamentos-v2/GenerateOPButton";
+import { EngagementPopover } from "@/components/orcamentos-v2/EngagementPopover";
 import { Lock } from "lucide-react";
 import { parseOptions } from "@/lib/quotes-v2/options";
+import { buildStatsMap, computeTemperature, type EngagementStats, type Temperature } from "@/lib/quotes-v2/temperature";
+import type { EngagementEventType } from "@/lib/quotes-v2/tracking";
 
 interface QuoteRow {
   id: string;
   quote_number: string;
   client: string;
+  client_phone: string | null;
   product: string;
   value: number;
   status: string;
@@ -49,17 +53,35 @@ const formatBRL = (n: number) =>
 export default function OrcamentosV2() {
   const navigate = useNavigate();
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
+  const [statsMap, setStatsMap] = useState<Map<string, EngagementStats>>(new Map());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
+  const [tempFilter, setTempFilter] = useState<string>("all");
 
   const fetchQuotes = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("quotes")
-      .select("id, quote_number, client, product, value, status, date, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id")
-      .order("created_at", { ascending: false });
-    setQuotes((data as QuoteRow[]) || []);
+    const [quotesRes, eventsRes] = await Promise.all([
+      supabase
+        .from("quotes")
+        .select("id, quote_number, client, client_phone, product, value, status, date, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("quote_engagement_events")
+        .select("quote_id, event_type, metadata, created_at")
+        .order("created_at", { ascending: false })
+        .limit(2000),
+    ]);
+    setQuotes((quotesRes.data as QuoteRow[]) || []);
+    const map = buildStatsMap(
+      (eventsRes.data ?? []).map((r) => ({
+        quote_id: r.quote_id,
+        event_type: r.event_type as EngagementEventType,
+        metadata: (r.metadata as Record<string, unknown>) ?? {},
+        created_at: r.created_at,
+      })),
+    );
+    setStatsMap(map);
     setLoading(false);
   }, []);
 
@@ -109,17 +131,25 @@ export default function OrcamentosV2() {
     if (w) { w.document.write(html); w.document.close(); w.print(); }
   };
 
-  const filtered = quotes.filter((q) => {
-    const matchSearch =
-      q.quote_number.toLowerCase().includes(search.toLowerCase()) ||
-      q.client.toLowerCase().includes(search.toLowerCase()) ||
-      q.product.toLowerCase().includes(search.toLowerCase());
-    const matchFilter =
-      filter === "all" ||
-      (filter === "templates" && q.is_template) ||
-      filter === q.status;
-    return matchSearch && matchFilter;
-  });
+  const filtered = useMemo(() => {
+    return quotes.filter((q) => {
+      const matchSearch =
+        q.quote_number.toLowerCase().includes(search.toLowerCase()) ||
+        q.client.toLowerCase().includes(search.toLowerCase()) ||
+        q.product.toLowerCase().includes(search.toLowerCase());
+      const matchFilter =
+        filter === "all" ||
+        (filter === "templates" && q.is_template) ||
+        filter === q.status;
+      let matchTemp = true;
+      if (tempFilter !== "all") {
+        const t: Temperature = computeTemperature(statsMap.get(q.id));
+        if (tempFilter === "hot_or_live") matchTemp = t === "hot" || t === "live";
+        else matchTemp = t === tempFilter;
+      }
+      return matchSearch && matchFilter && matchTemp;
+    });
+  }, [quotes, search, filter, tempFilter, statsMap]);
 
   const stats = {
     total: quotes.length,
@@ -176,7 +206,7 @@ export default function OrcamentosV2() {
           />
         </div>
         <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[160px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -185,6 +215,18 @@ export default function OrcamentosV2() {
             <SelectItem value="approved">Aprovados</SelectItem>
             <SelectItem value="rejected">Recusados</SelectItem>
             <SelectItem value="templates">Templates</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={tempFilter} onValueChange={setTempFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Temperatura" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas temperaturas</SelectItem>
+            <SelectItem value="live">🟠 Online agora</SelectItem>
+            <SelectItem value="hot_or_live">🔥 Quentes</SelectItem>
+            <SelectItem value="warm">🔵 Interesse</SelectItem>
+            <SelectItem value="cold">⚪ Frios</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -210,7 +252,7 @@ export default function OrcamentosV2() {
               <tbody>
                 {filtered.map((q) => {
                   const opts = parseOptions(q.options);
-                  const viewCount = q.view_count ?? 0;
+                  const qStats = statsMap.get(q.id);
                   return (
                     <tr
                       key={q.id}
@@ -250,15 +292,14 @@ export default function OrcamentosV2() {
                       </td>
                       <td className="py-4 text-sm font-medium">{formatBRL(q.value)}</td>
                       <td className="py-4">{statusBadge(q.status)}</td>
-                      <td className="py-4 text-sm">
-                        {viewCount > 0 ? (
-                          <Badge variant="outline" className="gap-1 text-xs">
-                            <Eye className="h-3 w-3" />
-                            Visto {viewCount}x
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                      <td className="py-4 text-sm" onClick={(e) => e.stopPropagation()}>
+                        <EngagementPopover
+                          quoteId={q.id}
+                          quoteNumber={q.quote_number}
+                          clientName={q.client}
+                          clientPhone={q.client_phone}
+                          stats={qStats}
+                        />
                       </td>
                       <td className="py-4 pr-4">
                         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>

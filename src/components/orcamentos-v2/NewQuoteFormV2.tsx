@@ -70,6 +70,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [quoteNumber, setQuoteNumber] = useState("");
   const [client, setClient] = useState("");
   const [clientId, setClientId] = useState<string | null>(null);
+  const [clientPhone, setClientPhone] = useState<string | null>(null);
   const [product, setProduct] = useState("");
   const [validity, setValidity] = useState("7");
   const [profitMargin, setProfitMargin] = useState("33");
@@ -248,6 +249,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         setQuoteNumber(q.quote_number);
         setClient(q.client);
         setClientId((q as any).client_id ?? null);
+        setClientPhone((q as any).client_phone ?? null);
         setProduct(q.product);
         setValidity(q.validity || "7");
         setProfitMargin(q.profit_margin || "33");
@@ -386,6 +388,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         quote_number: quoteNumber,
         client: client.trim(),
         client_id: clientId,
+        client_phone: clientPhone,
         product: product.trim(),
         value: discountedTotal,
         date: new Date().toISOString().split("T")[0],
@@ -609,7 +612,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                   <Label>Cliente</Label>
                   <ClientCombobox
                     value={{ id: clientId, nome: client }}
-                    onChange={(v) => { setClientId(v.id); setClient(v.nome); }}
+                    onChange={(v) => { setClientId(v.id); setClient(v.nome); setClientPhone(v.telefone ?? null); }}
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2"><Label>Produto / Serviço</Label><Input value={product} onChange={(e) => setProduct(e.target.value)} placeholder="Ex: Cartões de visita" /></div>

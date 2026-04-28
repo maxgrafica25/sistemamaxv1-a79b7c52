@@ -1845,6 +1845,44 @@ export type Database = {
         }
         Relationships: []
       }
+      quote_engagement_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          ip_hash: string | null
+          metadata: Json
+          quote_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          ip_hash?: string | null
+          metadata?: Json
+          quote_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip_hash?: string | null
+          metadata?: Json
+          quote_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_engagement_events_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_labor_steps: {
         Row: {
           description: string
@@ -2001,6 +2039,7 @@ export type Database = {
         Row: {
           client: string
           client_id: string | null
+          client_phone: string | null
           created_at: string
           date: string
           discount_type: string | null
@@ -2026,6 +2065,7 @@ export type Database = {
         Insert: {
           client: string
           client_id?: string | null
+          client_phone?: string | null
           created_at?: string
           date?: string
           discount_type?: string | null
@@ -2051,6 +2091,7 @@ export type Database = {
         Update: {
           client?: string
           client_id?: string | null
+          client_phone?: string | null
           created_at?: string
           date?: string
           discount_type?: string | null
@@ -2621,6 +2662,16 @@ export type Database = {
         Returns: boolean
       }
       is_profile_admin: { Args: { _user_id: string }; Returns: boolean }
+      register_quote_event: {
+        Args: {
+          p_event_type: string
+          p_metadata?: Json
+          p_quote_id: string
+          p_user_agent?: string
+          p_visitor_id?: string
+        }
+        Returns: undefined
+      }
       register_quote_view: { Args: { quote_id: string }; Returns: undefined }
     }
     Enums: {
