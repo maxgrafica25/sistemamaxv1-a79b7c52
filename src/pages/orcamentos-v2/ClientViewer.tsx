@@ -132,6 +132,20 @@ export default function ClientViewer() {
   // Scroll depth (1x por sessão, listener passive)
   useScrollDepthTracking(id);
 
+  // option_selected com debounce de 2s — só registra se permanecer na opção
+  useEffect(() => {
+    if (!id || !selectedOptionId) return;
+    const opt = options.find((o) => o.id === selectedOptionId);
+    if (!opt) return;
+    const t = setTimeout(() => {
+      void trackEvent(id, "option_selected", {
+        option_id: opt.id,
+        option_label: opt.label,
+      });
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [id, selectedOptionId, options]);
+
   const options: QuoteOption[] = useMemo(
     () => (quote ? parseOptions(quote.options) : []),
     [quote],
