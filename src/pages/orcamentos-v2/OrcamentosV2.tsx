@@ -252,7 +252,7 @@ export default function OrcamentosV2() {
               <tbody>
                 {filtered.map((q) => {
                   const opts = parseOptions(q.options);
-                  const viewCount = q.view_count ?? 0;
+                  const qStats = statsMap.get(q.id);
                   return (
                     <tr
                       key={q.id}
