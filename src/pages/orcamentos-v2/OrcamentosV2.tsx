@@ -53,17 +53,35 @@ const formatBRL = (n: number) =>
 export default function OrcamentosV2() {
   const navigate = useNavigate();
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
+  const [statsMap, setStatsMap] = useState<Map<string, EngagementStats>>(new Map());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
+  const [tempFilter, setTempFilter] = useState<string>("all");
 
   const fetchQuotes = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("quotes")
-      .select("id, quote_number, client, product, value, status, date, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id")
-      .order("created_at", { ascending: false });
-    setQuotes((data as QuoteRow[]) || []);
+    const [quotesRes, eventsRes] = await Promise.all([
+      supabase
+        .from("quotes")
+        .select("id, quote_number, client, client_phone, product, value, status, date, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("quote_engagement_events")
+        .select("quote_id, event_type, metadata, created_at")
+        .order("created_at", { ascending: false })
+        .limit(2000),
+    ]);
+    setQuotes((quotesRes.data as QuoteRow[]) || []);
+    const map = buildStatsMap(
+      (eventsRes.data ?? []).map((r) => ({
+        quote_id: r.quote_id,
+        event_type: r.event_type as EngagementEventType,
+        metadata: (r.metadata as Record<string, unknown>) ?? {},
+        created_at: r.created_at,
+      })),
+    );
+    setStatsMap(map);
     setLoading(false);
   }, []);
 
