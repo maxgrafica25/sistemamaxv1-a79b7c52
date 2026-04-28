@@ -292,15 +292,14 @@ export default function OrcamentosV2() {
                       </td>
                       <td className="py-4 text-sm font-medium">{formatBRL(q.value)}</td>
                       <td className="py-4">{statusBadge(q.status)}</td>
-                      <td className="py-4 text-sm">
-                        {viewCount > 0 ? (
-                          <Badge variant="outline" className="gap-1 text-xs">
-                            <Eye className="h-3 w-3" />
-                            Visto {viewCount}x
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                      <td className="py-4 text-sm" onClick={(e) => e.stopPropagation()}>
+                        <EngagementPopover
+                          quoteId={q.id}
+                          quoteNumber={q.quote_number}
+                          clientName={q.client}
+                          clientPhone={q.client_phone}
+                          stats={qStats}
+                        />
                       </td>
                       <td className="py-4 pr-4">
                         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
