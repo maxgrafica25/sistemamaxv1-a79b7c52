@@ -20,6 +20,8 @@ import { OptionCard } from "@/components/orcamentos-v2/client-viewer/OptionCard"
 import { StickyApprovalBar } from "@/components/orcamentos-v2/client-viewer/StickyApprovalBar";
 import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { trackEvent } from "@/lib/quotes-v2/tracking";
+import { useScrollDepthTracking } from "@/lib/quotes-v2/useScrollDepthTracking";
 import {
   buildItemAdjustMessage,
   buildPartialApprovalMessage,
