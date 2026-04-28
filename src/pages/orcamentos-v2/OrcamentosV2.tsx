@@ -206,7 +206,7 @@ export default function OrcamentosV2() {
           />
         </div>
         <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[160px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -215,6 +215,18 @@ export default function OrcamentosV2() {
             <SelectItem value="approved">Aprovados</SelectItem>
             <SelectItem value="rejected">Recusados</SelectItem>
             <SelectItem value="templates">Templates</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={tempFilter} onValueChange={setTempFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Temperatura" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas temperaturas</SelectItem>
+            <SelectItem value="live">🟠 Online agora</SelectItem>
+            <SelectItem value="hot_or_live">🔥 Quentes</SelectItem>
+            <SelectItem value="warm">🔵 Interesse</SelectItem>
+            <SelectItem value="cold">⚪ Frios</SelectItem>
           </SelectContent>
         </Select>
       </div>
