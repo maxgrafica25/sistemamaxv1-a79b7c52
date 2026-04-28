@@ -131,17 +131,25 @@ export default function OrcamentosV2() {
     if (w) { w.document.write(html); w.document.close(); w.print(); }
   };
 
-  const filtered = quotes.filter((q) => {
-    const matchSearch =
-      q.quote_number.toLowerCase().includes(search.toLowerCase()) ||
-      q.client.toLowerCase().includes(search.toLowerCase()) ||
-      q.product.toLowerCase().includes(search.toLowerCase());
-    const matchFilter =
-      filter === "all" ||
-      (filter === "templates" && q.is_template) ||
-      filter === q.status;
-    return matchSearch && matchFilter;
-  });
+  const filtered = useMemo(() => {
+    return quotes.filter((q) => {
+      const matchSearch =
+        q.quote_number.toLowerCase().includes(search.toLowerCase()) ||
+        q.client.toLowerCase().includes(search.toLowerCase()) ||
+        q.product.toLowerCase().includes(search.toLowerCase());
+      const matchFilter =
+        filter === "all" ||
+        (filter === "templates" && q.is_template) ||
+        filter === q.status;
+      let matchTemp = true;
+      if (tempFilter !== "all") {
+        const t: Temperature = computeTemperature(statsMap.get(q.id));
+        if (tempFilter === "hot_or_live") matchTemp = t === "hot" || t === "live";
+        else matchTemp = t === tempFilter;
+      }
+      return matchSearch && matchFilter && matchTemp;
+    });
+  }, [quotes, search, filter, tempFilter, statsMap]);
 
   const stats = {
     total: quotes.length,
