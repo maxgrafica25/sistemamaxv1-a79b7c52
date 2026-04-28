@@ -121,13 +121,16 @@ export default function ClientViewer() {
       await loadData();
       if (!active) return;
       setLoading(false);
-      supabase.rpc("register_quote_view", { quote_id: id }).then(() => undefined);
+      void trackEvent(id, "viewed");
     })();
     return () => {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Scroll depth (1x por sessão, listener passive)
+  useScrollDepthTracking(id);
 
   const options: QuoteOption[] = useMemo(
     () => (quote ? parseOptions(quote.options) : []),
