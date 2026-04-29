@@ -18,6 +18,9 @@ export interface EngagementStats {
   lastEventAt: Date | null;
   firstEventAt: Date | null;
   favoriteOption?: { id: string; label: string; count: number };
+  hesitatedItems: Array<{ id: string; label: string; cycles: number }>;
+  forwarded: boolean;
+  distinctVisitors: number;
   events: EngagementEvent[]; // ordenados desc, até 15
 }
 
