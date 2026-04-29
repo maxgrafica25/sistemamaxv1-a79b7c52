@@ -118,7 +118,7 @@ export function StickyApprovalBar({
               className="bg-green-600 hover:bg-green-700 text-white gap-2 h-12 text-base font-semibold disabled:opacity-60"
             >
               {buttonsReady ? (
-                <a href={approveUrl} target="_blank" rel="noopener noreferrer">
+                <a href={approveUrl} target="_blank" rel="noopener noreferrer" onClick={handleWaShare}>
                   <CheckCircle2 className="h-5 w-5" />
                   Aprovar Orçamento
                 </a>
@@ -150,7 +150,7 @@ export function StickyApprovalBar({
             className="h-12 gap-2"
           >
             {hasPhone && !loading ? (
-              <a href={adjustUrl} target="_blank" rel="noopener noreferrer">
+              <a href={adjustUrl} target="_blank" rel="noopener noreferrer" onClick={handleWaShare}>
                 <MessageCircle className="h-4 w-4" />
                 Solicitar Alteração
               </a>

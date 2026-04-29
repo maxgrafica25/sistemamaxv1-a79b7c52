@@ -528,6 +528,7 @@ export default function ClientViewer() {
       {/* Sticky bar — só aparece se há algo pra fazer */}
       {!quote.is_locked && (hasAnyPending || showOptionsMode) && (
         <StickyApprovalBar
+          quoteId={quote.id}
           quoteNumber={quote.quote_number}
           optionLabel={showOptionsMode ? selectedOption?.label : undefined}
           ctaEnabled={
