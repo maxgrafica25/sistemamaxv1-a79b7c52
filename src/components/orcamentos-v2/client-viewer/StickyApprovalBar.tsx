@@ -4,8 +4,10 @@ import { Link } from "react-router-dom";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useAuth } from "@/hooks/useAuth";
 import { buildAdjustMessage, buildApprovalMessage, buildWaUrl } from "@/lib/quotes-v2/whatsapp";
+import { trackEvent } from "@/lib/quotes-v2/tracking";
 
 interface Props {
+  quoteId?: string;
   quoteNumber: string;
   optionLabel?: string;
   ctaEnabled: boolean;
@@ -22,6 +24,7 @@ const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function StickyApprovalBar({
+  quoteId,
   quoteNumber,
   optionLabel,
   ctaEnabled,
@@ -32,6 +35,9 @@ export function StickyApprovalBar({
   onApproveItems,
   submitting = false,
 }: Props) {
+  const handleWaShare = () => {
+    void trackEvent(quoteId, "whatsapp_share");
+  };
   const { whatsappNumber, companyName, loading } = useCompanySettings();
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin";
@@ -112,7 +118,7 @@ export function StickyApprovalBar({
               className="bg-green-600 hover:bg-green-700 text-white gap-2 h-12 text-base font-semibold disabled:opacity-60"
             >
               {buttonsReady ? (
-                <a href={approveUrl} target="_blank" rel="noopener noreferrer">
+                <a href={approveUrl} target="_blank" rel="noopener noreferrer" onClick={handleWaShare}>
                   <CheckCircle2 className="h-5 w-5" />
                   Aprovar Orçamento
                 </a>
@@ -144,7 +150,7 @@ export function StickyApprovalBar({
             className="h-12 gap-2"
           >
             {hasPhone && !loading ? (
-              <a href={adjustUrl} target="_blank" rel="noopener noreferrer">
+              <a href={adjustUrl} target="_blank" rel="noopener noreferrer" onClick={handleWaShare}>
                 <MessageCircle className="h-4 w-4" />
                 Solicitar Alteração
               </a>

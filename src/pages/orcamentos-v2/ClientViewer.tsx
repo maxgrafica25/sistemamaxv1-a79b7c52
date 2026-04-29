@@ -253,6 +253,7 @@ export default function ClientViewer() {
       // Recarrega dados para refletir o novo status
       await loadData();
       setSelectedItemIds(new Set());
+      void trackEvent(quote.id, "whatsapp_share");
       window.open(url, "_blank", "noopener,noreferrer");
       toast.success("Itens aprovados! Continue no WhatsApp para confirmar.");
     } catch (err) {
@@ -282,6 +283,7 @@ export default function ClientViewer() {
   return (
     <div className="min-h-screen bg-muted/30 pb-32">
       <ViewerHeader
+        quoteId={quote.id}
         quoteNumber={
           quote.version > 1
             ? `${quote.quote_number} · v${quote.version}`
@@ -432,7 +434,12 @@ export default function ClientViewer() {
                           className="h-7 px-2 text-xs text-muted-foreground hover:text-green-600 shrink-0"
                           title="Solicitar alteração neste item"
                         >
-                          <a href={itemAdjustUrl} target="_blank" rel="noopener noreferrer">
+                          <a
+                            href={itemAdjustUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => void trackEvent(quote.id, "whatsapp_share")}
+                          >
                             <MessageCircle className="h-3.5 w-3.5 sm:mr-1" />
                             <span className="hidden sm:inline">Alterar</span>
                           </a>
@@ -527,6 +534,7 @@ export default function ClientViewer() {
       {/* Sticky bar — só aparece se há algo pra fazer */}
       {!quote.is_locked && (hasAnyPending || showOptionsMode) && (
         <StickyApprovalBar
+          quoteId={quote.id}
           quoteNumber={quote.quote_number}
           optionLabel={showOptionsMode ? selectedOption?.label : undefined}
           ctaEnabled={
