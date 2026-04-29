@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   Eye, Printer, MessageCircle, Link2, Star, CheckCircle2, MessageSquare, Loader2,
+  AlertTriangle, Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
