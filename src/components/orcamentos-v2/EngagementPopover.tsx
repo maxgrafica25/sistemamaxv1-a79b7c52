@@ -193,7 +193,10 @@ export function EngagementPopover({
                 </div>
 
                 {/* Insights */}
-                {(stats.favoriteOption || stats.scrolledFully) && (
+                {(stats.favoriteOption ||
+                  stats.scrolledFully ||
+                  stats.hesitatedItems.length > 0 ||
+                  stats.forwarded) && (
                   <>
                     <Separator />
                     <div className="p-4 space-y-2 text-xs">
@@ -205,6 +208,29 @@ export function EngagementPopover({
                             "{stats.favoriteOption.label}"{" "}
                             <span className="text-muted-foreground">
                               (selecionada {stats.favoriteOption.count}x)
+                            </span>
+                          </span>
+                        </div>
+                      )}
+                      {stats.hesitatedItems.map((h) => (
+                        <div key={h.id} className="flex items-start gap-2">
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
+                          <span>
+                            <span className="font-medium">Dúvida no item:</span>{" "}
+                            "{h.label}"{" "}
+                            <span className="text-muted-foreground">
+                              (marcou e desmarcou {h.cycles}x)
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                      {stats.forwarded && (
+                        <div className="flex items-start gap-2">
+                          <Send className="h-3.5 w-3.5 text-blue-600 mt-0.5 shrink-0" />
+                          <span>
+                            <span className="font-medium">Proposta encaminhada</span>{" "}
+                            <span className="text-muted-foreground">
+                              — acessada por {stats.distinctVisitors} dispositivos
                             </span>
                           </span>
                         </div>
