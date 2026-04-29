@@ -4,8 +4,10 @@ import { Link } from "react-router-dom";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useAuth } from "@/hooks/useAuth";
 import { buildAdjustMessage, buildApprovalMessage, buildWaUrl } from "@/lib/quotes-v2/whatsapp";
+import { trackEvent } from "@/lib/quotes-v2/tracking";
 
 interface Props {
+  quoteId?: string;
   quoteNumber: string;
   optionLabel?: string;
   ctaEnabled: boolean;
@@ -22,6 +24,7 @@ const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function StickyApprovalBar({
+  quoteId,
   quoteNumber,
   optionLabel,
   ctaEnabled,
@@ -32,6 +35,9 @@ export function StickyApprovalBar({
   onApproveItems,
   submitting = false,
 }: Props) {
+  const handleWaShare = () => {
+    void trackEvent(quoteId, "whatsapp_share");
+  };
   const { whatsappNumber, companyName, loading } = useCompanySettings();
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin";

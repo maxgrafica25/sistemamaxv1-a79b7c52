@@ -282,6 +282,7 @@ export default function ClientViewer() {
   return (
     <div className="min-h-screen bg-muted/30 pb-32">
       <ViewerHeader
+        quoteId={quote.id}
         quoteNumber={
           quote.version > 1
             ? `${quote.quote_number} · v${quote.version}`
