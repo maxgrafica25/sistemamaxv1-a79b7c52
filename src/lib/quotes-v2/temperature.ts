@@ -35,6 +35,9 @@ export function emptyStats(): EngagementStats {
     scrolledFully: false,
     lastEventAt: null,
     firstEventAt: null,
+    hesitatedItems: [],
+    forwarded: false,
+    distinctVisitors: 0,
     events: [],
   };
 }
