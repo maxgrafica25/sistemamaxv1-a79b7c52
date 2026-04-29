@@ -68,6 +68,7 @@ const eventLabel = (e: EngagementEvent): string => {
     case "link_copied": return "Copiou o link";
     case "scroll_depth": return "Leu a proposta integralmente";
     case "option_selected": return `Selecionou ${meta.option_label ?? "uma opção"}`;
+    case "option_deselected": return `Desmarcou ${meta.option_label ?? "uma opção"}`;
   }
 };
 
