@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   Eye, Printer, MessageCircle, Link2, Star, CheckCircle2, MessageSquare, Loader2,
+  AlertTriangle, Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,6 +68,7 @@ const eventLabel = (e: EngagementEvent): string => {
     case "link_copied": return "Copiou o link";
     case "scroll_depth": return "Leu a proposta integralmente";
     case "option_selected": return `Selecionou ${meta.option_label ?? "uma opção"}`;
+    case "option_deselected": return `Desmarcou ${meta.option_label ?? "uma opção"}`;
   }
 };
 
@@ -191,7 +193,10 @@ export function EngagementPopover({
                 </div>
 
                 {/* Insights */}
-                {(stats.favoriteOption || stats.scrolledFully) && (
+                {(stats.favoriteOption ||
+                  stats.scrolledFully ||
+                  stats.hesitatedItems.length > 0 ||
+                  stats.forwarded) && (
                   <>
                     <Separator />
                     <div className="p-4 space-y-2 text-xs">
@@ -203,6 +208,29 @@ export function EngagementPopover({
                             "{stats.favoriteOption.label}"{" "}
                             <span className="text-muted-foreground">
                               (selecionada {stats.favoriteOption.count}x)
+                            </span>
+                          </span>
+                        </div>
+                      )}
+                      {stats.hesitatedItems.map((h) => (
+                        <div key={h.id} className="flex items-start gap-2">
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
+                          <span>
+                            <span className="font-medium">Dúvida no item:</span>{" "}
+                            "{h.label}"{" "}
+                            <span className="text-muted-foreground">
+                              (marcou e desmarcou {h.cycles}x)
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                      {stats.forwarded && (
+                        <div className="flex items-start gap-2">
+                          <Send className="h-3.5 w-3.5 text-blue-600 mt-0.5 shrink-0" />
+                          <span>
+                            <span className="font-medium">Proposta encaminhada</span>{" "}
+                            <span className="text-muted-foreground">
+                              — acessada por {stats.distinctVisitors} dispositivos
                             </span>
                           </span>
                         </div>

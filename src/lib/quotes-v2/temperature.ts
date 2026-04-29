@@ -18,6 +18,9 @@ export interface EngagementStats {
   lastEventAt: Date | null;
   firstEventAt: Date | null;
   favoriteOption?: { id: string; label: string; count: number };
+  hesitatedItems: Array<{ id: string; label: string; cycles: number }>;
+  forwarded: boolean;
+  distinctVisitors: number;
   events: EngagementEvent[]; // ordenados desc, até 15
 }
 
@@ -32,6 +35,9 @@ export function emptyStats(): EngagementStats {
     scrolledFully: false,
     lastEventAt: null,
     firstEventAt: null,
+    hesitatedItems: [],
+    forwarded: false,
+    distinctVisitors: 0,
     events: [],
   };
 }
@@ -61,12 +67,19 @@ export function buildStatsMap(
   for (const [quoteId, evs] of byQuote.entries()) {
     const stats = emptyStats();
     const optionCounts = new Map<string, { id: string; label: string; count: number }>();
+    // Pareamento de hesitação: para cada item, contamos selected e deselected.
+    // cycles = min(selected, deselected) — cada par completo é 1 ciclo de dúvida.
+    const itemSelects = new Map<string, { label: string; sel: number; des: number }>();
+    const visitorSet = new Set<string>();
 
     for (const e of evs) {
       const meta = e.metadata ?? {};
       const ts = new Date(e.created_at);
       if (!stats.lastEventAt || ts > stats.lastEventAt) stats.lastEventAt = ts;
       if (!stats.firstEventAt || ts < stats.firstEventAt) stats.firstEventAt = ts;
+
+      const visitor = meta.visitor_id ? String(meta.visitor_id) : "";
+      if (visitor) visitorSet.add(visitor);
 
       switch (e.event_type) {
         case "viewed":
@@ -92,6 +105,22 @@ export function buildStatsMap(
             cur.count++;
             cur.label = label;
             optionCounts.set(id, cur);
+
+            const it = itemSelects.get(id) ?? { label, sel: 0, des: 0 };
+            it.sel++;
+            it.label = label;
+            itemSelects.set(id, it);
+          }
+          break;
+        }
+        case "option_deselected": {
+          const id = String(meta.option_id ?? "");
+          const label = String(meta.option_label ?? "Item");
+          if (id) {
+            const it = itemSelects.get(id) ?? { label, sel: 0, des: 0 };
+            it.des++;
+            it.label = label;
+            itemSelects.set(id, it);
           }
           break;
         }
@@ -101,6 +130,16 @@ export function buildStatsMap(
     if (optionCounts.size > 0) {
       stats.favoriteOption = [...optionCounts.values()].sort((a, b) => b.count - a.count)[0];
     }
+
+    // Hesitação: ciclos = min(sel, des). Top 5 itens com cycles >= 1.
+    stats.hesitatedItems = [...itemSelects.entries()]
+      .map(([id, v]) => ({ id, label: v.label, cycles: Math.min(v.sel, v.des) }))
+      .filter((h) => h.cycles >= 1)
+      .sort((a, b) => b.cycles - a.cycles)
+      .slice(0, 5);
+
+    stats.distinctVisitors = visitorSet.size;
+    stats.forwarded = visitorSet.size >= 2;
 
     // Manter últimos 15 eventos (entrada já vem desc)
     stats.events = evs.slice(0, 15).map((e, i) => ({
@@ -119,7 +158,15 @@ export function buildStatsMap(
 export function computeTemperature(s: EngagementStats | undefined): Temperature {
   if (!s) return "cold";
   if (s.lastEventAt && Date.now() - s.lastEventAt.getTime() < LIVE_WINDOW_MS) return "live";
-  if (s.printedCount > 0 || s.sharedCount > 0 || s.viewCount >= 3) return "hot";
+  if (
+    s.printedCount > 0 ||
+    s.sharedCount > 0 ||
+    s.viewCount >= 3 ||
+    s.hesitatedItems.length > 0 ||
+    s.forwarded
+  ) {
+    return "hot";
+  }
   if (s.viewCount >= 1) return "warm";
   return "cold";
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -206,11 +206,60 @@ export default function ClientViewer() {
   const selectedOption = options.find((o) => o.id === selectedOptionId) || null;
   const hasMultipleOptions = options.length >= 2;
 
+  // Debounce de 2s para rastrear hesitação por item (marcou e desmarcou).
+  // pendingTimers: timeout aguardando virar selected/deselected.
+  // sentSelected: itens que já tiveram option_selected enviado e ainda estão "ativos".
+  const pendingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const sentSelectedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    return () => {
+      pendingTimersRef.current.forEach((t) => clearTimeout(t));
+      pendingTimersRef.current.clear();
+    };
+  }, []);
+
   const toggleItem = (itemId: string) => {
     setSelectedItemIds((prev) => {
       const next = new Set(prev);
-      if (next.has(itemId)) next.delete(itemId);
-      else next.add(itemId);
+      const willBeChecked = !next.has(itemId);
+      if (willBeChecked) next.add(itemId);
+      else next.delete(itemId);
+
+      // Cancela qualquer timer pendente deste item
+      const pending = pendingTimersRef.current.get(itemId);
+      if (pending) {
+        clearTimeout(pending);
+        pendingTimersRef.current.delete(itemId);
+      }
+
+      const item = materials.find((m) => m.id === itemId);
+      const label = item?.description ?? "Item";
+
+      if (willBeChecked) {
+        // Vai disparar selected em 2s se não cancelado
+        const t = setTimeout(() => {
+          pendingTimersRef.current.delete(itemId);
+          void trackEvent(quote?.id, "option_selected", {
+            option_id: itemId,
+            option_label: label,
+          });
+          sentSelectedRef.current.add(itemId);
+        }, 2000);
+        pendingTimersRef.current.set(itemId, t);
+      } else if (sentSelectedRef.current.has(itemId)) {
+        // Já tinha registrado selected → agendar deselected (hesitação)
+        const t = setTimeout(() => {
+          pendingTimersRef.current.delete(itemId);
+          void trackEvent(quote?.id, "option_deselected", {
+            option_id: itemId,
+            option_label: label,
+          });
+          sentSelectedRef.current.delete(itemId);
+        }, 2000);
+        pendingTimersRef.current.set(itemId, t);
+      }
+
       return next;
     });
   };
