@@ -6,6 +6,7 @@ export type EngagementEventType =
   | "whatsapp_share"
   | "link_copied"
   | "option_selected"
+  | "option_deselected"
   | "scroll_depth";
 
 const VISITOR_KEY = "qv2_visitor";
