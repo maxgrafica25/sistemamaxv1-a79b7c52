@@ -501,11 +501,11 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   };
 
   const copyPublicLink = () => {
-    if (!savedQuoteId) {
+    if (!savedQuoteId || !quoteNumber) {
       toast.error("Salve o orçamento primeiro");
       return;
     }
-    const url = `${window.location.origin}/view-quote/${savedQuoteId}`;
+    const url = `${window.location.origin}/p/${quoteNumber}`;
     navigator.clipboard.writeText(url);
     toast.success("Link público copiado!");
   };
