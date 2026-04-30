@@ -17,6 +17,8 @@ interface TemplateRow {
   client: string;
   product: string;
   value: number;
+  materials_count: number;
+  steps_count: number;
 }
 
 interface Props {
