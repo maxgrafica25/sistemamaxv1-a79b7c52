@@ -31,6 +31,7 @@ import Produtos from "./pages/Produtos";
 import GruposMateriais from "./pages/GruposMateriais";
 import CadastrosCV from "./pages/CadastrosCV";
 import OrcamentosV2 from "./pages/orcamentos-v2/OrcamentosV2";
+import Usuarios from "./pages/Usuarios";
 import NewQuoteV2 from "./pages/orcamentos-v2/NewQuoteV2";
 import EditQuoteV2 from "./pages/orcamentos-v2/EditQuoteV2";
 import ClientViewer from "./pages/orcamentos-v2/ClientViewer";
@@ -73,6 +74,7 @@ const App = () => (
                   <Route path="/monitoramento" element={<Monitoramento />} />
                   <Route path="/produtos" element={<Produtos />} />
                   <Route path="/chat" element={<Chat />} />
+                  <Route path="/usuarios" element={<Usuarios />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

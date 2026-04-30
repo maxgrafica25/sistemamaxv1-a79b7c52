@@ -1,10 +1,11 @@
-import { LayoutDashboard, Users, Package, Settings, Factory, Receipt, Calculator, Cpu, Shield, ClipboardList, MessageSquare, TrendingUp, BookOpen, PanelLeftClose, PanelLeftOpen, X, Layers, Megaphone } from "lucide-react";
+import { LayoutDashboard, Users, Package, Settings, Factory, Receipt, Calculator, Cpu, Shield, ClipboardList, MessageSquare, TrendingUp, BookOpen, PanelLeftClose, PanelLeftOpen, X, Layers, Megaphone, UserCog } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSidebarState } from "@/hooks/useSidebarState";
+import { useAuth } from "@/hooks/useAuth";
 
-interface NavItem { name: string; href: string; icon: typeof LayoutDashboard; badge?: string }
+interface NavItem { name: string; href: string; icon: typeof LayoutDashboard; badge?: string; adminOnly?: boolean }
 
 const navigation: NavItem[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -21,6 +22,7 @@ const navigation: NavItem[] = [
   { name: "Monitoramento", href: "/monitoramento", icon: TrendingUp },
   { name: "Catálogo Produtos", href: "/produtos", icon: BookOpen },
   { name: "Chat Interno", href: "/chat", icon: MessageSquare },
+  { name: "Usuários", href: "/usuarios", icon: UserCog, adminOnly: true },
   { name: "Configurações", href: "/configuracoes", icon: Settings },
   { name: "Auditoria", href: "/auditoria", icon: Shield },
 ];
@@ -33,6 +35,9 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ collapsed, toggleCollapsed, mobileOpen, closeMobile }: SidebarProps) {
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin";
+  const visibleNav = navigation.filter((i) => !i.adminOnly || isAdmin);
   return (
     <>
       {/* Overlay mobile */}
@@ -78,7 +83,7 @@ export default function Sidebar({ collapsed, toggleCollapsed, mobileOpen, closeM
         {/* Nav */}
         <TooltipProvider delayDuration={200}>
           <nav className={cn("flex-1 space-y-0.5 overflow-y-auto", collapsed ? "px-2 py-3" : "p-3")}>
-            {navigation.map((item) => {
+            {visibleNav.map((item) => {
               const link = (
                 <NavLink
                   key={item.name}
