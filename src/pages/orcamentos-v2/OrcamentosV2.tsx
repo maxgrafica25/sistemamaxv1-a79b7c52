@@ -338,7 +338,15 @@ export default function OrcamentosV2() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border text-left text-sm font-medium text-muted-foreground">
-                  <th className="pb-3 pl-4">Nº</th>
+                  <th className="pb-3 pl-4 w-10">
+                    <Checkbox
+                      checked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
+                      onCheckedChange={(v) => toggleAll(!!v)}
+                      aria-label="Selecionar todos"
+                      disabled={selectableFiltered.length === 0}
+                    />
+                  </th>
+                  <th className="pb-3">Nº</th>
                   <th className="pb-3">Cliente</th>
                   <th className="pb-3">Produto/Serviço</th>
                   <th className="pb-3">Valor</th>
