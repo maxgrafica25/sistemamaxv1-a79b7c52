@@ -496,6 +496,23 @@ export default function OrcamentosV2() {
       </Card>
 
       <UseTemplateDialog open={useTemplateOpen} onOpenChange={setUseTemplateOpen} />
+
+      <BulkActionBar
+        count={selectedIds.size}
+        totalValue={selectedTotal}
+        onClear={() => setSelectedIds(new Set())}
+        onDelete={() => setConfirmDeleteOpen(true)}
+        canDelete={isAdmin}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title={`Excluir ${selectedIds.size} orçamento(s)?`}
+        description="Esta ação não pode ser desfeita. Itens, etapas, terceirizados, lembretes e histórico de visualizações vinculados também serão removidos. Orçamentos travados ou com versões filhas serão pulados."
+        confirmText={deleting ? "Excluindo..." : "Sim, excluir"}
+        onConfirm={handleBulkDelete}
+      />
     </div>
   );
 }
