@@ -16,6 +16,8 @@ import { CloneQuoteButton } from "@/components/orcamentos-v2/CloneQuoteButton";
 import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionButton";
 import { GenerateOPButton } from "@/components/orcamentos-v2/GenerateOPButton";
 import { EngagementPopover } from "@/components/orcamentos-v2/EngagementPopover";
+import { UseTemplateDialog } from "@/components/orcamentos-v2/UseTemplateDialog";
+import { Sparkles } from "lucide-react";
 import { Lock } from "lucide-react";
 import { parseOptions } from "@/lib/quotes-v2/options";
 import { buildStatsMap, computeTemperature, type EngagementStats, type Temperature } from "@/lib/quotes-v2/temperature";
@@ -58,6 +60,7 @@ export default function OrcamentosV2() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const [tempFilter, setTempFilter] = useState<string>("all");
+  const [useTemplateOpen, setUseTemplateOpen] = useState(false);
 
   const fetchQuotes = useCallback(async () => {
     setLoading(true);
@@ -109,7 +112,7 @@ export default function OrcamentosV2() {
   const handleToggleTemplate = async (q: QuoteRow) => {
     const newVal = !q.is_template;
     await supabase.from("quotes").update({ is_template: newVal }).eq("id", q.id);
-    toast.success(newVal ? "Marcado como template" : "Removido dos templates");
+    toast.success(newVal ? "Salvo como modelo pronto" : "Removido dos modelos prontos");
     fetchQuotes();
   };
 
