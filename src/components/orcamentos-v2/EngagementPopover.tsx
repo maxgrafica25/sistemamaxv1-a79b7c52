@@ -249,9 +249,9 @@ export function EngagementPopover({
                 {stats.events.length > 0 && (
                   <>
                     <Separator />
-                    <div className="p-4 max-h-72 overflow-y-auto">
+                    <div className="p-4 max-h-[28rem] overflow-y-auto">
                       <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-                        Atividade recente
+                        Atividade recente ({stats.events.length})
                       </p>
                       <ul className="space-y-2.5">
                         {stats.events.map((e) => {
