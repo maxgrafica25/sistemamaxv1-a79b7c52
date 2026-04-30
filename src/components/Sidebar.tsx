@@ -42,9 +42,16 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ collapsed, toggleCollapsed, mobileOpen, closeMobile }: SidebarProps) {
-  const { profile } = useAuth();
+  const { profile, user, signOut } = useAuth();
+  const navigate = useNavigate();
   const isAdmin = profile?.role === "admin";
   const visibleNav = navigation.filter((i) => !i.adminOnly || isAdmin);
+
+  const handleSignOut = async () => {
+    closeMobile();
+    await signOut();
+    navigate("/auth", { replace: true });
+  };
   return (
     <>
       {/* Overlay mobile */}
