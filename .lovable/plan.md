@@ -1,46 +1,77 @@
-## Unificar criação de orçamento em um botão único com dropdown
+## Seleção múltipla + barra de ações (estilo Olist)
 
-Hoje há dois botões separados na página `/orcamentos-v2`: **"Começar com um Modelo"** (outline) e **"Novo Orçamento V2"** (primário). Vamos consolidar em um único botão primário **"Incluir Orçamento"** com um menu dropdown, no mesmo padrão visual do ERP do print enviado (Olist).
+Replicar o padrão do print: checkboxes em cada linha, checkbox no cabeçalho para selecionar todos, e uma **barra fixa no rodapé** que aparece quando há itens selecionados, com botão **Excluir orçamentos** e contador.
 
-### Mudanças de UI
+### O que muda na tela `/orcamentos-v2`
 
-**`src/pages/orcamentos-v2/OrcamentosV2.tsx`** (linhas 188-195)
-- Remover os dois botões atuais.
-- Substituir por um único `DropdownMenu` (já disponível em `src/components/ui/dropdown-menu.tsx`):
-  - Trigger: botão primário **"Incluir Orçamento"** com ícone `Plus` e seta para baixo (`ChevronDown`).
-  - Conteúdo do dropdown, com cabeçalho de seção (igual ao print: "a partir do modelo"):
-    - **Item 1 — "Orçamento em branco"** (ícone `FileText`) → navega para `/orcamentos-v2/novo` (comportamento atual do botão primário).
-    - **Separador** com label `"A partir de modelo"`.
-    - **Item 2 — "Escolher modelo pronto..."** (ícone `Sparkles`) → abre o `UseTemplateDialog` existente (estado `useTemplateOpen`).
+1. **Coluna de checkbox** como primeira coluna da tabela.
+   - Checkbox no `<thead>` seleciona/desmarca todos os itens **filtrados** visíveis.
+   - Estado intermediário (`indeterminate`) quando alguns estão marcados.
+   - Clicar no checkbox **não** abre o orçamento (stopPropagation).
 
-### Melhorar identificação dos modelos no diálogo
+2. **Barra de ações flutuante** (aparece só quando `selecionados.length > 0`):
+   - Posição: `fixed bottom-4 left-1/2 -translate-x-1/2`, com sombra e fundo do tema.
+   - Conteúdo:
+     - `↑ XX selecionados`
+     - Botão vermelho **"Excluir orçamentos"** (ícone `Trash2`)
+     - Botão **"Limpar seleção"**
+     - À direita: total de valor somado dos selecionados (ex: `R$ 1.932,00`)
 
-**`src/components/orcamentos-v2/UseTemplateDialog.tsx`**
-Atualmente o card mostra `product` em destaque + linha pequena com `client · valor`. Para que o usuário identifique rapidamente "do que se trata" o modelo, vamos:
+3. **Fluxo de exclusão**:
+   - Clica em "Excluir orçamentos" → abre `ConfirmDialog` (já existe no projeto).
+   - Texto: *"Excluir N orçamento(s)? Esta ação não pode ser desfeita e removerá também itens, etapas e histórico de visualizações vinculados."*
+   - Confirmar → executa exclusão em lote, mostra toast, limpa seleção, recarrega lista.
 
-- **Título do card**: priorizar um nome amigável. Se o produto começa com algum padrão genérico, ainda assim o `product` é a melhor pista — manter como título principal (negrito, maior).
-- **Subtítulo (badge ou texto secundário)**: adicionar uma linha clara com:
-  - Categoria/tipo inferida do produto (primeiras palavras), OU
-  - Indicação de quantos itens/etapas o modelo contém (ex: "3 materiais · 2 etapas · Valor base R$ 343,00") — busca leve em paralelo ao carregar a lista.
-- **Remover** a frase "Modelo baseado em: {client}" porque o cliente original raramente ajuda a identificar o tipo de trabalho. Substituir pela contagem de componentes + valor.
-- **Manter** badge com `quote_number` discreto (canto/lateral).
-- Buscar `count` de `quote_materials` e `quote_labor_steps` por modelo na query inicial (com `count: "exact", head: false` agrupado por `quote_id`, ou um `select` com relação aninhada se disponível nas FKs).
+### Regras de segurança
 
-Layout final de cada linha do diálogo:
-```text
-[Sparkles] Cartão de Visita Premium 4x4                    [#2026-1234]
-           3 materiais · 2 etapas · R$ 343,00
-                                                  [Usar este modelo →]
-```
+- **Apenas admins** podem excluir (consistente com `create_quote_version`). Para não-admins a barra mostra o contador mas o botão de excluir fica oculto.
+- **Bloquear na UI** orçamentos com `is_locked = true` (têm versão mais nova) — checkbox desabilitado com tooltip "Travado: possui versão mais recente".
+- **Bloquear** se for `parent_quote_id` de outro orçamento existente (preservar cadeia de versões). Validado no backend pela função.
+
+### Backend (migration)
+
+Criar função SQL `delete_quotes_bulk(p_ids uuid[])`:
+- Verifica `is_profile_admin(auth.uid())` — senão `RAISE EXCEPTION`.
+- Para cada id: rejeita se `is_locked` ou se for parent de outro quote.
+- Deleta em ordem: `quote_engagement_events`, `quote_materials`, `quote_labor_steps`, `quote_third_party`, `quotes`.
+- Registra em `audit_logs` (action='delete_quote', entity_id, details=número).
+- Retorna `{ deleted_count, skipped: [{id, reason}] }`.
+
+Vantagem da função vs delete direto: garante atomicidade, valida regras e audita em um lugar só.
 
 ### Detalhes técnicos
 
-- Usar `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, `DropdownMenuItem`, `DropdownMenuLabel`, `DropdownMenuSeparator` do shadcn já presente.
-- Importar `ChevronDown`, `FileText` de `lucide-react` (já é usado em outros pontos do projeto).
-- Para a contagem de materiais/etapas: ampliar o `select` em `UseTemplateDialog.tsx` para `id, quote_number, client, product, value, quote_materials(count), quote_labor_steps(count)`. Se as FKs estiverem nomeadas, isso retorna `[{ count: N }]`.
-- Não há mudança de banco de dados nem de rotas.
+**Estado em `OrcamentosV2.tsx`:**
+```ts
+const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+const selectedQuotes = quotes.filter(q => selectedIds.has(q.id));
+const selectedTotal = selectedQuotes.reduce((s, q) => s + q.value, 0);
+```
 
-### Arquivos editados
+**Componentes usados (já existem):**
+- `@/components/ui/checkbox` (Checkbox do shadcn)
+- `@/components/ConfirmDialog`
+- `sonner` toast
 
-- `src/pages/orcamentos-v2/OrcamentosV2.tsx`
-- `src/components/orcamentos-v2/UseTemplateDialog.tsx`
+**Novos arquivos:**
+- `src/components/orcamentos-v2/BulkActionBar.tsx` — barra flutuante reutilizável
+- `supabase/migrations/<timestamp>_delete_quotes_bulk.sql` — função SQL
+
+**Arquivos editados:**
+- `src/pages/orcamentos-v2/OrcamentosV2.tsx` — coluna checkbox, estado de seleção, integração da barra
+
+### Layout da barra (referência)
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│  ↑ 02 selecionados   [🗑 Excluir orçamentos]  [Limpar]  │
+│                                    Total: R$ 1.932,00    │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Fora do escopo (pode vir depois)
+
+- Outras ações em massa do print ("cotar fretes", "alterar marcadores") — só estrutura a barra deixa pronto pra adicionar.
+- Soft delete (recuperação) — mantemos hard delete por simplicidade; auditoria em `audit_logs` cobre rastreabilidade.
+
+Aprovando, eu já implemento.
