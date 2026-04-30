@@ -1821,6 +1821,7 @@ export type Database = {
           created_at: string
           display_name: string
           id: string
+          is_active: boolean
           role: string
           updated_at: string
           user_id: string
@@ -1830,6 +1831,7 @@ export type Database = {
           created_at?: string
           display_name: string
           id?: string
+          is_active?: boolean
           role?: string
           updated_at?: string
           user_id: string
@@ -1839,6 +1841,7 @@ export type Database = {
           created_at?: string
           display_name?: string
           id?: string
+          is_active?: boolean
           role?: string
           updated_at?: string
           user_id?: string
@@ -2663,6 +2666,20 @@ export type Database = {
         Returns: boolean
       }
       is_profile_admin: { Args: { _user_id: string }; Returns: boolean }
+      list_users_admin: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          created_at: string
+          display_name: string
+          email: string
+          email_confirmed_at: string
+          is_active: boolean
+          last_sign_in_at: string
+          role: string
+          user_id: string
+        }[]
+      }
       register_quote_event: {
         Args: {
           p_event_type: string
