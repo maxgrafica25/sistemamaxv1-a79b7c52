@@ -16,6 +16,8 @@ import { CloneQuoteButton } from "@/components/orcamentos-v2/CloneQuoteButton";
 import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionButton";
 import { GenerateOPButton } from "@/components/orcamentos-v2/GenerateOPButton";
 import { EngagementPopover } from "@/components/orcamentos-v2/EngagementPopover";
+import { UseTemplateDialog } from "@/components/orcamentos-v2/UseTemplateDialog";
+import { Sparkles } from "lucide-react";
 import { Lock } from "lucide-react";
 import { parseOptions } from "@/lib/quotes-v2/options";
 import { buildStatsMap, computeTemperature, type EngagementStats, type Temperature } from "@/lib/quotes-v2/temperature";
@@ -58,6 +60,7 @@ export default function OrcamentosV2() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const [tempFilter, setTempFilter] = useState<string>("all");
+  const [useTemplateOpen, setUseTemplateOpen] = useState(false);
 
   const fetchQuotes = useCallback(async () => {
     setLoading(true);
@@ -109,7 +112,7 @@ export default function OrcamentosV2() {
   const handleToggleTemplate = async (q: QuoteRow) => {
     const newVal = !q.is_template;
     await supabase.from("quotes").update({ is_template: newVal }).eq("id", q.id);
-    toast.success(newVal ? "Marcado como template" : "Removido dos templates");
+    toast.success(newVal ? "Salvo como modelo pronto" : "Removido dos modelos prontos");
     fetchQuotes();
   };
 
@@ -182,9 +185,14 @@ export default function OrcamentosV2() {
             Versão experimental com viewer público, ancoragem e radar realtime.
           </p>
         </div>
-        <Button size="sm" className="gap-1.5" onClick={() => navigate("/orcamentos-v2/novo")}>
-          <Plus className="h-4 w-4" /> Novo Orçamento V2
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setUseTemplateOpen(true)}>
+            <Sparkles className="h-4 w-4" /> Começar com um Modelo
+          </Button>
+          <Button size="sm" className="gap-1.5" onClick={() => navigate("/orcamentos-v2/novo")}>
+            <Plus className="h-4 w-4" /> Novo Orçamento V2
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground px-1">
@@ -192,7 +200,7 @@ export default function OrcamentosV2() {
         <span><strong className="text-yellow-500">{stats.pending}</strong> pendentes</span>
         <span><strong className="text-green-500">{stats.approved}</strong> aprovados</span>
         <span><strong className="text-primary">{stats.viewed}</strong> visualizados</span>
-        <span><strong className="text-foreground">{stats.templates}</strong> templates</span>
+        <span><strong className="text-foreground">{stats.templates}</strong> modelos prontos</span>
       </div>
 
       <div className="flex gap-4">
@@ -214,7 +222,7 @@ export default function OrcamentosV2() {
             <SelectItem value="pending">Pendentes</SelectItem>
             <SelectItem value="approved">Aprovados</SelectItem>
             <SelectItem value="rejected">Recusados</SelectItem>
-            <SelectItem value="templates">Templates</SelectItem>
+            <SelectItem value="templates">Modelos Prontos</SelectItem>
           </SelectContent>
         </Select>
         <Select value={tempFilter} onValueChange={setTempFilter}>
@@ -276,7 +284,7 @@ export default function OrcamentosV2() {
                           {q.is_template && (
                             <Badge variant="outline" className="text-[10px] h-4 px-1 gap-0.5">
                               <BookmarkCheck className="h-2.5 w-2.5" />
-                              Template
+                              Modelo
                             </Badge>
                           )}
                         </div>
@@ -312,7 +320,7 @@ export default function OrcamentosV2() {
                           </Button>
                           <Button
                             variant="ghost" size="icon" className="h-8 w-8"
-                            title={q.is_template ? "Remover template" : "Salvar como template"}
+                            title={q.is_template ? "Remover dos modelos prontos" : "Salvar como modelo pronto"}
                             onClick={() => handleToggleTemplate(q)}
                           >
                             <Bookmark className={`h-3.5 w-3.5 ${q.is_template ? "fill-primary text-primary" : ""}`} />
@@ -380,6 +388,8 @@ export default function OrcamentosV2() {
           </div>
         </CardContent>
       </Card>
+
+      <UseTemplateDialog open={useTemplateOpen} onOpenChange={setUseTemplateOpen} />
     </div>
   );
 }
