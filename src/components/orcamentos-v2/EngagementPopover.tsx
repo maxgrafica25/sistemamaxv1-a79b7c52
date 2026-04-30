@@ -101,7 +101,7 @@ export function EngagementPopover({
         .select("quote_id, event_type, metadata, created_at")
         .eq("quote_id", quoteId)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(200);
 
       const map = buildStatsMap(
         (data ?? []).map((r) => ({
