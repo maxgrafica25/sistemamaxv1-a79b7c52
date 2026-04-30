@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import { UserCog, UserPlus, Mail, ShieldCheck, ShieldOff, UserX, UserCheck, RefreshCw, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { UserCog, UserPlus, Mail, ShieldCheck, ShieldOff, UserX, UserCheck, RefreshCw, Loader2, LogOut, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
