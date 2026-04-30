@@ -152,12 +152,59 @@ export default function Sidebar({ collapsed, toggleCollapsed, mobileOpen, closeM
           </nav>
         </TooltipProvider>
 
-        {/* Footer: toggle de colapso (só desktop) */}
-        <div className="hidden md:flex border-t border-sidebar-border p-2">
+        {/* Footer: usuário + sair (todas as telas) + recolher (desktop) */}
+        <div className="border-t border-sidebar-border p-2 space-y-1">
+          {/* Bloco do usuário (expandido) */}
+          {profile && !collapsed && (
+            <div className="flex items-center gap-2 rounded-md px-2 py-2">
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarFallback className="bg-sidebar-primary/15 text-sidebar-primary text-xs font-semibold">
+                  {initialsOf(profile.display_name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-sidebar-foreground truncate">
+                  {profile.display_name}
+                </div>
+                <div className="text-[11px] text-sidebar-foreground/60 truncate">
+                  {profile.role === "admin" ? "Administrador" : "Colaborador"}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Botão Sair */}
+          <TooltipProvider delayDuration={200}>
+            {collapsed ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleSignOut}
+                    className="flex h-10 w-10 mx-auto items-center justify-center rounded-md text-destructive hover:bg-destructive/10 transition-colors"
+                    aria-label="Sair"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">Sair</TooltipContent>
+              </Tooltip>
+            ) : (
+              <button
+                onClick={handleSignOut}
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                aria-label="Sair"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Sair</span>
+              </button>
+            )}
+          </TooltipProvider>
+
+          {/* Recolher (só desktop) */}
           <button
             onClick={toggleCollapsed}
             className={cn(
-              "flex items-center gap-2 rounded-md px-2 py-2 text-xs font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/40 hover:text-sidebar-accent-foreground transition-colors",
+              "hidden md:flex items-center gap-2 rounded-md px-2 py-2 text-xs font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/40 hover:text-sidebar-accent-foreground transition-colors",
               collapsed ? "w-10 justify-center mx-auto" : "w-full",
             )}
             aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
