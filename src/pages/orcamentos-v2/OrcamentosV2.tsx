@@ -190,12 +190,34 @@ export default function OrcamentosV2() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setUseTemplateOpen(true)}>
-            <Sparkles className="h-4 w-4" /> Começar com um Modelo
-          </Button>
-          <Button size="sm" className="gap-1.5" onClick={() => navigate("/orcamentos-v2/novo")}>
-            <Plus className="h-4 w-4" /> Novo Orçamento V2
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="gap-1.5">
+                <Plus className="h-4 w-4" /> Incluir Orçamento
+                <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuItem onClick={() => navigate("/orcamentos-v2/novo")} className="gap-2 py-2.5">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">Orçamento em branco</span>
+                  <span className="text-[11px] text-muted-foreground">Começar do zero</span>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[11px] uppercase tracking-wide text-muted-foreground font-normal">
+                A partir de modelo
+              </DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => setUseTemplateOpen(true)} className="gap-2 py-2.5">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">Escolher modelo pronto…</span>
+                  <span className="text-[11px] text-muted-foreground">Reutilizar um orçamento salvo</span>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
