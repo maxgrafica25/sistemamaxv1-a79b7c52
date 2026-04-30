@@ -72,7 +72,7 @@ const statusBadge = (status: string) => {
 };
 
 export default function ClientViewer() {
-  const { id } = useParams<{ id: string }>();
+  const { id: routeId, quoteNumber: routeQuoteNumber } = useParams<{ id?: string; quoteNumber?: string }>();
   const [quote, setQuote] = useState<QuoteRow | null>(null);
   const [materials, setMaterials] = useState<MaterialRow[]>([]);
   const [labor, setLabor] = useState<LaborRow[]>([]);
@@ -84,53 +84,76 @@ export default function ClientViewer() {
   const { whatsappNumber, companyName } = useCompanySettings();
 
   const loadData = async () => {
-    if (!id) return;
-    const [q, m, l] = await Promise.all([
-      supabase
+    let quoteRow: QuoteRow | null = null;
+
+    if (routeQuoteNumber) {
+      // Lookup amigável por número da proposta — pega a versão mais recente
+      const q = await supabase
         .from("quotes")
         .select(
           "id, quote_number, client, product, value, status, date, validity, discount_value, discount_type, payment_method, options, version, is_locked",
         )
-        .eq("id", id)
-        .maybeSingle(),
+        .eq("quote_number", routeQuoteNumber)
+        .order("version", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      quoteRow = (q.data as QuoteRow | null) ?? null;
+    } else if (routeId) {
+      const q = await supabase
+        .from("quotes")
+        .select(
+          "id, quote_number, client, product, value, status, date, validity, discount_value, discount_type, payment_method, options, version, is_locked",
+        )
+        .eq("id", routeId)
+        .maybeSingle();
+      quoteRow = (q.data as QuoteRow | null) ?? null;
+    }
+
+    if (!quoteRow) {
+      setNotFound(true);
+      return;
+    }
+
+    const [m, l] = await Promise.all([
       supabase
         .from("quote_materials")
         .select("id, description, quantity, unit_price, sort_order, status, approved_at, approved_value")
-        .eq("quote_id", id)
+        .eq("quote_id", quoteRow.id)
         .order("sort_order"),
       supabase
         .from("quote_labor_steps")
         .select("id, description, time_minutes, sort_order")
-        .eq("quote_id", id)
+        .eq("quote_id", quoteRow.id)
         .order("sort_order"),
     ]);
-    if (!q.data) {
-      setNotFound(true);
-      return;
-    }
-    setQuote(q.data as QuoteRow);
+
+    setQuote(quoteRow);
     setMaterials((m.data || []) as MaterialRow[]);
     setLabor((l.data || []) as LaborRow[]);
   };
 
   useEffect(() => {
-    if (!id) return;
+    if (!routeId && !routeQuoteNumber) return;
     let active = true;
     (async () => {
       setLoading(true);
       await loadData();
       if (!active) return;
       setLoading(false);
-      void trackEvent(id, "viewed");
     })();
     return () => {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [routeId, routeQuoteNumber]);
+
+  // Dispara "viewed" assim que sabemos o quote.id real
+  useEffect(() => {
+    if (quote?.id) void trackEvent(quote.id, "viewed");
+  }, [quote?.id]);
 
   // Scroll depth (1x por sessão, listener passive)
-  useScrollDepthTracking(id);
+  useScrollDepthTracking(quote?.id);
 
   const options: QuoteOption[] = useMemo(
     () => (quote ? parseOptions(quote.options) : []),
@@ -145,17 +168,28 @@ export default function ClientViewer() {
 
   // option_selected com debounce de 2s — só registra se permanecer na opção
   useEffect(() => {
-    if (!id || !selectedOptionId) return;
+    if (!quote?.id || !selectedOptionId) return;
     const opt = options.find((o) => o.id === selectedOptionId);
     if (!opt) return;
     const t = setTimeout(() => {
-      void trackEvent(id, "option_selected", {
+      void trackEvent(quote.id, "option_selected", {
         option_id: opt.id,
         option_label: opt.label,
       });
     }, 2000);
     return () => clearTimeout(t);
-  }, [id, selectedOptionId, options]);
+  }, [quote?.id, selectedOptionId, options]);
+
+  // Refs para tracking de hesitação por item — declarados ANTES de qualquer return condicional
+  const pendingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const sentSelectedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    return () => {
+      pendingTimersRef.current.forEach((t) => clearTimeout(t));
+      pendingTimersRef.current.clear();
+    };
+  }, []);
 
   // SEO
   useEffect(() => {
@@ -206,18 +240,7 @@ export default function ClientViewer() {
   const selectedOption = options.find((o) => o.id === selectedOptionId) || null;
   const hasMultipleOptions = options.length >= 2;
 
-  // Debounce de 2s para rastrear hesitação por item (marcou e desmarcou).
-  // pendingTimers: timeout aguardando virar selected/deselected.
-  // sentSelected: itens que já tiveram option_selected enviado e ainda estão "ativos".
-  const pendingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  const sentSelectedRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    return () => {
-      pendingTimersRef.current.forEach((t) => clearTimeout(t));
-      pendingTimersRef.current.clear();
-    };
-  }, []);
+  // (refs/cleanup de hesitação foram movidos para o topo do componente — Rules of Hooks)
 
   const toggleItem = (itemId: string) => {
     setSelectedItemIds((prev) => {

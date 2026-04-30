@@ -113,8 +113,8 @@ export default function OrcamentosV2() {
     fetchQuotes();
   };
 
-  const handleCopyPublicLink = (id: string) => {
-    const url = `${window.location.origin}/view-quote/${id}`;
+  const handleCopyPublicLink = (quoteNumber: string) => {
+    const url = `${window.location.origin}/p/${quoteNumber}`;
     navigator.clipboard.writeText(url);
     toast.success("Link público copiado!");
   };
@@ -306,7 +306,7 @@ export default function OrcamentosV2() {
                           <Button
                             variant="ghost" size="icon" className="h-8 w-8"
                             title="Copiar link público"
-                            onClick={() => handleCopyPublicLink(q.id)}
+                            onClick={() => handleCopyPublicLink(q.quote_number)}
                           >
                             <Link2 className="h-3.5 w-3.5" />
                           </Button>

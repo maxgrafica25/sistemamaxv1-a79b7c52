@@ -1,85 +1,54 @@
-# Engagement Tracking V2 — Consolidação Final
+# Correção: Tela branca + Links amigáveis das propostas
 
-A maior parte da infraestrutura já está no ar (tabela `quote_engagement_events`, RPC com filtro de equipe, badge de temperatura, popover, scroll depth, radar realtime, filtro de temperatura). Este plano fecha os **gaps** da especificação completa: hesitação, encaminhamento (multi-visitor), `ip_hash`, badge de leitura integral e refinos de UX. Sem retrabalho do que já funciona.
+## Problema 1 — Tela branca ao abrir o link da proposta
 
-## 1. Banco de dados (1 migration)
+A página `ClientViewer` (rota `/view-quote/:id`) declara hooks (`useRef`, `useEffect`) **depois** dos `return` condicionais de "carregando" e "não encontrado". Isso viola as Rules of Hooks do React: na 1ª renderização (loading) menos hooks são executados que na 2ª (quando o orçamento carrega), o React aborta o render e mostra tela branca.
 
-- Recriar a RPC `register_quote_event` com:
-  - `option_deselected` adicionado ao `CHECK` de event_types.
-  - Cálculo de `ip_hash` server-side: `encode(digest(inet_client_addr()::text || quote_id::text, 'sha256'), 'hex')` (precisa `pgcrypto`, já vem habilitado). Salvo na coluna `ip_hash` que já existe.
-  - Manter filtro crítico `IF auth.uid() IS NOT NULL THEN RETURN`.
-  - Manter `visit_number` e `location_hint` como já estão.
+**Linhas afetadas em `src/pages/orcamentos-v2/ClientViewer.tsx`:**
+- L175-190: `if (loading)` e `if (notFound)` retornam cedo
+- L212-213: `useRef` declarados depois disso
+- L215-220: `useEffect` de cleanup declarado depois disso
 
-## 2. Tracking client-side
+**Correção:** mover os 2 `useRef` e o `useEffect` de cleanup para perto dos outros hooks (acima dos `return` condicionais, junto da linha ~145).
 
-**`src/lib/quotes-v2/tracking.ts`**
-- Adicionar `"option_deselected"` ao tipo `EngagementEventType`.
+## Problema 2 — Links amigáveis para propostas
 
-**`src/pages/orcamentos-v2/ClientViewer.tsx`** — rastrear hesitação por item:
-- Substituir o tracking de "opção" pelo de **item individual** (que é o que realmente importa hoje, já que aprovação é por item).
-- No `toggleItem(itemId)`:
-  - Manter `Map<itemId, timeoutId>` em `useRef`.
-  - Ao **marcar**: `setTimeout(2000)` → dispara `option_selected` com `{ option_id: itemId, option_label: item.description }`.
-  - Ao **desmarcar antes de 2s** sem ter disparado `selected`: cancela timeout, nada vai pro banco.
-  - Ao **desmarcar depois de 2s** (já registrou selected): novo `setTimeout(2000)` → dispara `option_deselected` com mesmo metadata.
-- Remover/manter compatível o effect atual de `selectedOptionId` (continua válido para orçamentos com múltiplas opções de quantidade).
+Hoje: `https://sistema.../view-quote/8f3c1a92-7b6e-4d18-9f0a-2e5b7c4a1d83`
+Proposta: `https://sistema.../p/2026-018`
 
-## 3. Lógica de inteligência
+Como `quote_number` já é único e legível (formato `AAAA-NNN`), vamos usá-lo no link público.
 
-**`src/lib/quotes-v2/temperature.ts`**
-- Estender `EngagementStats`:
-  ```ts
-  hesitatedItems: Array<{ id: string; label: string; cycles: number }>;
-  forwarded: boolean;          // 2+ visitor_ids distintos
-  distinctVisitors: number;
-  ```
-- `buildStatsMap`:
-  - Pareia `option_selected` + `option_deselected` por `option_id` → conta `cycles` por item, mantém top 5 ordenado desc.
-  - Conta `distinctVisitors` via `metadata.visitor_id` em eventos `viewed`. `forwarded = distinctVisitors >= 2`.
-- `computeTemperature`: bumpar para **hot** quando houver `hesitatedItems.length > 0` **ou** `forwarded === true` (sinais de alta intenção, conforme spec).
+### Mudanças
 
-## 4. UI no popover
+1. **Nova rota em `src/App.tsx`:**
+   - Adicionar `<Route path="/p/:quoteNumber" element={<ClientViewer />} />`
+   - **Manter** `/view-quote/:id` como fallback para não quebrar links já enviados a clientes.
 
-**`src/components/orcamentos-v2/EngagementPopover.tsx`** — adicionar entre Insights e Timeline:
-- **Hesitação** (se `hesitatedItems.length > 0`): ícone âmbar `AlertTriangle` + `"Cliente demonstrou dúvida em '{label}' (marcou e desmarcou {cycles}x)"`.
-- **Encaminhamento** (se `forwarded`): ícone azul `Send` + `"Proposta encaminhada — acessada por {distinctVisitors} dispositivos"`.
-- **Leitura integral** (se `scrolledFully`): já existe, manter.
-- Timeline: novo `eventLabel` para `option_deselected` → `"Desmarcou {option_label}"`.
-- Mensagens de WhatsApp: **sem alterações** (mantém as duas contextuais já aprovadas para hot/live).
+2. **`ClientViewer.tsx`:**
+   - Ler tanto `id` (UUID) quanto `quoteNumber` via `useParams`.
+   - Se vier `quoteNumber`, buscar o orçamento por `.eq("quote_number", quoteNumber)` em vez de `.eq("id", id)`.
+   - Restante do fluxo (eventos de tracking, RPCs) continua usando o `quote.id` interno.
 
-## 5. Lista de orçamentos
+3. **Geração de links (3 lugares):** trocar `/view-quote/${id}` por `/p/${quoteNumber}`:
+   - `src/pages/orcamentos-v2/OrcamentosV2.tsx` (L117) — botão "Copiar link" da listagem
+   - `src/components/orcamentos-v2/NewQuoteFormV2.tsx` (L508) — após salvar
+   - `src/components/orcamentos-v2/EngagementPopover.tsx` (L126) — popover de engajamento
 
-**`src/pages/orcamentos-v2/OrcamentosV2.tsx`**
-- O filtro de temperatura já existe. Garantir que combina via **AND** com o filtro de status no `useMemo` de `filteredQuotes` (verificar e ajustar se necessário).
-- Sem mudanças visuais adicionais.
-
-## 6. Realtime Radar
-
-Sem mudanças. Já dispara toasts 🔥 apenas para `printed` e `whatsapp_share`, com throttle de 60s. `option_deselected` **não** vira toast (evita spam).
+4. **Versões do orçamento:** quando `version > 1`, o `quote_number` permanece igual entre versões? Vou verificar; se houver colisão, o link aponta para a versão mais recente (ordenar por `version desc` na query do viewer). Comportamento já desejado para o cliente.
 
 ## Detalhes técnicos
 
-- **Hesitação conservadora**: debounce de 2s (alinhado ao spec). Marcar/desmarcar em <2s = zero eventos.
-- **ip_hash**: SHA-256 de `IP + quote_id` (não reversível, não identifica pessoa, mas permite agrupar acessos do mesmo IP por orçamento).
-- **forwarded**: usa `visitor_id` (cookie), não IP — captura encaminhamento real (cliente mandou pro sócio), não troca de wifi.
-- **Compat**: estatísticas existentes (viewCount, printedCount etc.) ficam intactas; apenas estendemos.
-- **RLS**: `quote_engagement_events` já está protegida; a RPC continua `SECURITY DEFINER` com filtro de equipe.
+- Não exige migration de banco — `quote_number` já existe e é único.
+- O fallback `/view-quote/:id` continua funcionando indefinidamente; pode ser removido no futuro.
+- Tracking continua identificando o orçamento por `quote.id` (UUID), então a tabela `quote_engagement_events` não muda.
+- Compartilhamento por WhatsApp passa a enviar URL curta e profissional (`/p/2026-018`), mais fácil de digitar/lembrar.
 
-## Arquivos afetados
+## Arquivos a editar
 
-- `supabase/migrations/<novo>.sql` — RPC atualizada (option_deselected + ip_hash)
-- `src/lib/quotes-v2/tracking.ts` — novo event type
-- `src/lib/quotes-v2/temperature.ts` — hesitação + forwarded + bump de temperatura
-- `src/components/orcamentos-v2/EngagementPopover.tsx` — duas novas seções de insight + label do timeline
-- `src/pages/orcamentos-v2/ClientViewer.tsx` — debounce de marcação/desmarcação por item
-- `src/pages/orcamentos-v2/OrcamentosV2.tsx` — confirmar AND temperatura+status
+- `src/pages/orcamentos-v2/ClientViewer.tsx` — corrigir ordem dos hooks + suportar lookup por `quote_number`
+- `src/App.tsx` — adicionar rota `/p/:quoteNumber`
+- `src/pages/orcamentos-v2/OrcamentosV2.tsx` — gerar URL curta
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` — gerar URL curta
+- `src/components/orcamentos-v2/EngagementPopover.tsx` — gerar URL curta
 
-## Checklist de entrega
-
-- [x] Equipe logada ignorada (RPC já filtra `auth.uid()`).
-- [x] WhatsApp aparece só com telefone + status hot/live (já implementado).
-- [x] Contador "nª vez" (já implementado via `visit_number`).
-- [ ] Filtro temperatura × status combinando reativamente (validar nesta entrega).
-- [ ] Hesitação detectada e exibida.
-- [ ] Encaminhamento detectado e exibido.
-- [ ] `ip_hash` populado nos novos eventos.
+Posso prosseguir com a implementação?

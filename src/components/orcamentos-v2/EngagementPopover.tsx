@@ -123,7 +123,7 @@ export function EngagementPopover({
   const isHotOrLive = temp === "hot" || temp === "live";
 
   const handleCopyLink = () => {
-    const url = `${window.location.origin}/view-quote/${quoteId}`;
+    const url = `${window.location.origin}/p/${quoteNumber}`;
     navigator.clipboard.writeText(url);
     toast.success("Link de rastreamento copiado!");
   };
