@@ -606,6 +606,19 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           {step === 0 && (
             <Card><CardContent className="p-5 sm:p-6 space-y-5">
               <h2 className="text-lg font-semibold">Informações Gerais</h2>
+              {!isEditing && (
+                <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+                  <span>💡 Quer agilizar?</span>
+                  <button
+                    type="button"
+                    className="text-primary hover:underline font-medium"
+                    onClick={() => onCancel()}
+                  >
+                    Comece com um modelo pronto
+                  </button>
+                  <span>em vez de criar do zero.</span>
+                </div>
+              )}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2"><Label>Nº Orçamento</Label><Input value={quoteNumber} disabled className="bg-muted" /></div>
                 <div className="space-y-2">
