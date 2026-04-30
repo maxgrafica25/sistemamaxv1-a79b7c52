@@ -21,6 +21,10 @@ import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionBut
 import { GenerateOPButton } from "@/components/orcamentos-v2/GenerateOPButton";
 import { EngagementPopover } from "@/components/orcamentos-v2/EngagementPopover";
 import { UseTemplateDialog } from "@/components/orcamentos-v2/UseTemplateDialog";
+import { BulkActionBar } from "@/components/orcamentos-v2/BulkActionBar";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/hooks/useAuth";
 import { Sparkles } from "lucide-react";
 import { Lock } from "lucide-react";
 import { parseOptions } from "@/lib/quotes-v2/options";
@@ -58,6 +62,8 @@ const formatBRL = (n: number) =>
 
 export default function OrcamentosV2() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin";
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
   const [statsMap, setStatsMap] = useState<Map<string, EngagementStats>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -65,6 +71,9 @@ export default function OrcamentosV2() {
   const [filter, setFilter] = useState<string>("all");
   const [tempFilter, setTempFilter] = useState<string>("all");
   const [useTemplateOpen, setUseTemplateOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchQuotes = useCallback(async () => {
     setLoading(true);
@@ -164,6 +173,61 @@ export default function OrcamentosV2() {
     approved: quotes.filter((q) => q.status === "approved").length,
     viewed: quotes.filter((q) => (q.view_count ?? 0) > 0).length,
     templates: quotes.filter((q) => q.is_template).length,
+  };
+
+  const selectableFiltered = filtered.filter((q) => !q.is_locked);
+  const allFilteredSelected =
+    selectableFiltered.length > 0 &&
+    selectableFiltered.every((q) => selectedIds.has(q.id));
+  const someFilteredSelected =
+    selectableFiltered.some((q) => selectedIds.has(q.id)) && !allFilteredSelected;
+
+  const toggleOne = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleAll = (checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) selectableFiltered.forEach((q) => next.add(q.id));
+      else selectableFiltered.forEach((q) => next.delete(q.id));
+      return next;
+    });
+  };
+
+  const selectedQuotes = quotes.filter((q) => selectedIds.has(q.id));
+  const selectedTotal = selectedQuotes.reduce((s, q) => s + (q.value || 0), 0);
+
+  const handleBulkDelete = async () => {
+    setDeleting(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const { data, error } = await supabase.rpc("delete_quotes_bulk", { p_ids: ids });
+      if (error) throw error;
+      const result = data as { deleted_count: number; skipped: Array<{ number?: string; reason: string }> };
+      if (result.deleted_count > 0) {
+        toast.success(`${result.deleted_count} orçamento(s) excluído(s)`);
+      }
+      if (result.skipped && result.skipped.length > 0) {
+        toast.warning(
+          `${result.skipped.length} não foram excluídos: ${result.skipped
+            .map((s) => `${s.number ?? ""} (${s.reason})`)
+            .join(", ")}`,
+        );
+      }
+      setSelectedIds(new Set());
+      setConfirmDeleteOpen(false);
+      fetchQuotes();
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao excluir orçamentos");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (loading) {
@@ -274,7 +338,15 @@ export default function OrcamentosV2() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border text-left text-sm font-medium text-muted-foreground">
-                  <th className="pb-3 pl-4">Nº</th>
+                  <th className="pb-3 pl-4 w-10">
+                    <Checkbox
+                      checked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
+                      onCheckedChange={(v) => toggleAll(!!v)}
+                      aria-label="Selecionar todos"
+                      disabled={selectableFiltered.length === 0}
+                    />
+                  </th>
+                  <th className="pb-3">Nº</th>
                   <th className="pb-3">Cliente</th>
                   <th className="pb-3">Produto/Serviço</th>
                   <th className="pb-3">Valor</th>
@@ -293,7 +365,15 @@ export default function OrcamentosV2() {
                       className="border-b border-border last:border-0 transition-colors hover:bg-muted/50 cursor-pointer"
                       onClick={() => navigate(`/orcamentos-v2/${q.id}`)}
                     >
-                      <td className="py-4 pl-4 text-sm font-medium text-primary">
+                      <td className="py-4 pl-4 w-10" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(q.id)}
+                          onCheckedChange={(v) => toggleOne(q.id, !!v)}
+                          disabled={!!q.is_locked}
+                          aria-label={`Selecionar ${q.quote_number}`}
+                        />
+                      </td>
+                      <td className="py-4 text-sm font-medium text-primary">
                         <div className="flex items-center gap-2 flex-wrap">
                           {q.quote_number}
                           {(q.version ?? 1) > 1 && (
@@ -404,7 +484,7 @@ export default function OrcamentosV2() {
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                    <td colSpan={8} className="py-12 text-center text-muted-foreground">
                       Nenhum orçamento encontrado
                     </td>
                   </tr>
@@ -416,6 +496,23 @@ export default function OrcamentosV2() {
       </Card>
 
       <UseTemplateDialog open={useTemplateOpen} onOpenChange={setUseTemplateOpen} />
+
+      <BulkActionBar
+        count={selectedIds.size}
+        totalValue={selectedTotal}
+        onClear={() => setSelectedIds(new Set())}
+        onDelete={() => setConfirmDeleteOpen(true)}
+        canDelete={isAdmin}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title={`Excluir ${selectedIds.size} orçamento(s)?`}
+        description="Esta ação não pode ser desfeita. Itens, etapas, terceirizados, lembretes e histórico de visualizações vinculados também serão removidos. Orçamentos travados ou com versões filhas serão pulados."
+        confirmText={deleting ? "Excluindo..." : "Sim, excluir"}
+        onConfirm={handleBulkDelete}
+      />
     </div>
   );
 }

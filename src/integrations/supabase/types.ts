@@ -2648,6 +2648,7 @@ export type Database = {
       backup_get_tables: { Args: never; Returns: Json }
       backup_get_triggers: { Args: never; Returns: Json }
       create_quote_version: { Args: { p_quote_id: string }; Returns: string }
+      delete_quotes_bulk: { Args: { p_ids: string[] }; Returns: Json }
       detectar_duplicatas_categorias: {
         Args: { _destino: string; _origem: string }
         Returns: {
