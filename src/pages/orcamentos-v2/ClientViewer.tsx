@@ -240,18 +240,7 @@ export default function ClientViewer() {
   const selectedOption = options.find((o) => o.id === selectedOptionId) || null;
   const hasMultipleOptions = options.length >= 2;
 
-  // Debounce de 2s para rastrear hesitação por item (marcou e desmarcou).
-  // pendingTimers: timeout aguardando virar selected/deselected.
-  // sentSelected: itens que já tiveram option_selected enviado e ainda estão "ativos".
-  const pendingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  const sentSelectedRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    return () => {
-      pendingTimersRef.current.forEach((t) => clearTimeout(t));
-      pendingTimersRef.current.clear();
-    };
-  }, []);
+  // (refs/cleanup de hesitação foram movidos para o topo do componente — Rules of Hooks)
 
   const toggleItem = (itemId: string) => {
     setSelectedItemIds((prev) => {
