@@ -43,7 +43,8 @@ function formatDate(iso: string | null): string {
 }
 
 export default function Usuarios() {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
+  const navigate = useNavigate();
   const isAdmin = profile?.role === "admin";
 
   const [loading, setLoading] = useState(true);
