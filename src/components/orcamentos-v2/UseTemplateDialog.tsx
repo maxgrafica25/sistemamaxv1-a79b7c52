@@ -150,7 +150,7 @@ export function UseTemplateDialog({ open, onOpenChange }: Props) {
                       </Badge>
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                      Modelo baseado em: {t.client} · {formatBRL(t.value)}
+                      {t.materials_count} {t.materials_count === 1 ? "material" : "materiais"} · {t.steps_count} {t.steps_count === 1 ? "etapa" : "etapas"} · {formatBRL(t.value)}
                     </div>
                   </div>
                   <Button
