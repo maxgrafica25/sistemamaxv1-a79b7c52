@@ -1,61 +1,46 @@
+## Unificar criação de orçamento em um botão único com dropdown
 
-# Plano: Modelos Prontos de Orçamento
+Hoje há dois botões separados na página `/orcamentos-v2`: **"Começar com um Modelo"** (outline) e **"Novo Orçamento V2"** (primário). Vamos consolidar em um único botão primário **"Incluir Orçamento"** com um menu dropdown, no mesmo padrão visual do ERP do print enviado (Olist).
 
-Renomear toda a nomenclatura "Template" para "Modelo Pronto" e adicionar um seletor explícito de modelos ao criar um novo orçamento, tornando a função autoexplicativa para qualquer usuário.
+### Mudanças de UI
 
-## 1. Renomear "Template" para "Modelo Pronto" na interface
+**`src/pages/orcamentos-v2/OrcamentosV2.tsx`** (linhas 188-195)
+- Remover os dois botões atuais.
+- Substituir por um único `DropdownMenu` (já disponível em `src/components/ui/dropdown-menu.tsx`):
+  - Trigger: botão primário **"Incluir Orçamento"** com ícone `Plus` e seta para baixo (`ChevronDown`).
+  - Conteúdo do dropdown, com cabeçalho de seção (igual ao print: "a partir do modelo"):
+    - **Item 1 — "Orçamento em branco"** (ícone `FileText`) → navega para `/orcamentos-v2/novo` (comportamento atual do botão primário).
+    - **Separador** com label `"A partir de modelo"`.
+    - **Item 2 — "Escolher modelo pronto..."** (ícone `Sparkles`) → abre o `UseTemplateDialog` existente (estado `useTemplateOpen`).
 
-Toda a terminologia visível ao usuário será atualizada (nada muda no banco — apenas textos da tela):
+### Melhorar identificação dos modelos no diálogo
 
-- **Lista de Orçamentos V2** (`OrcamentosV2.tsx`):
-  - Filtro do dropdown: "Templates" → "Modelos Prontos"
-  - Estatística no topo: "templates" → "modelos prontos"
-  - Badge na linha do orçamento: "Template" → "Modelo"
-  - Tooltip do ícone de bookmark: "Salvar como template" → "Salvar como modelo pronto" / "Remover template" → "Remover dos modelos"
-  - Toasts: "Marcado como template" → "Salvo como modelo pronto" etc.
+**`src/components/orcamentos-v2/UseTemplateDialog.tsx`**
+Atualmente o card mostra `product` em destaque + linha pequena com `client · valor`. Para que o usuário identifique rapidamente "do que se trata" o modelo, vamos:
 
-- Manter o campo `is_template` no banco (sem migração) — é apenas troca de rótulos.
+- **Título do card**: priorizar um nome amigável. Se o produto começa com algum padrão genérico, ainda assim o `product` é a melhor pista — manter como título principal (negrito, maior).
+- **Subtítulo (badge ou texto secundário)**: adicionar uma linha clara com:
+  - Categoria/tipo inferida do produto (primeiras palavras), OU
+  - Indicação de quantos itens/etapas o modelo contém (ex: "3 materiais · 2 etapas · Valor base R$ 343,00") — busca leve em paralelo ao carregar a lista.
+- **Remover** a frase "Modelo baseado em: {client}" porque o cliente original raramente ajuda a identificar o tipo de trabalho. Substituir pela contagem de componentes + valor.
+- **Manter** badge com `quote_number` discreto (canto/lateral).
+- Buscar `count` de `quote_materials` e `quote_labor_steps` por modelo na query inicial (com `count: "exact", head: false` agrupado por `quote_id`, ou um `select` com relação aninhada se disponível nas FKs).
 
-## 2. Novo botão "Começar com um Modelo"
-
-Na página `/orcamentos-v2`, ao lado do botão **"Novo Orçamento V2"**, adicionar um segundo botão:
-
+Layout final de cada linha do diálogo:
+```text
+[Sparkles] Cartão de Visita Premium 4x4                    [#2026-1234]
+           3 materiais · 2 etapas · R$ 343,00
+                                                  [Usar este modelo →]
 ```
-[ Começar com um Modelo ]   [ + Novo Orçamento V2 ]
-```
 
-- Ícone: `BookmarkCheck` (Lucide), visual secundário (`variant="outline"`).
-- Ao clicar, abre um diálogo **"Escolher Modelo Pronto"** listando todos os orçamentos com `is_template = true`.
+### Detalhes técnicos
 
-### Diálogo de seleção
-- Lista cada modelo com: nome do produto, cliente original (apenas referência), valor base, e botão **"Usar este modelo"**.
-- Campo de busca no topo para filtrar por nome.
-- Caso não haja modelos cadastrados, exibe mensagem amigável:
-  > "Você ainda não tem modelos prontos. Marque qualquer orçamento existente com o ícone de marcador para transformá-lo em modelo reutilizável."
+- Usar `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, `DropdownMenuItem`, `DropdownMenuLabel`, `DropdownMenuSeparator` do shadcn já presente.
+- Importar `ChevronDown`, `FileText` de `lucide-react` (já é usado em outros pontos do projeto).
+- Para a contagem de materiais/etapas: ampliar o `select` em `UseTemplateDialog.tsx` para `id, quote_number, client, product, value, quote_materials(count), quote_labor_steps(count)`. Se as FKs estiverem nomeadas, isso retorna `[{ count: N }]`.
+- Não há mudança de banco de dados nem de rotas.
 
-### Ao confirmar
-- Reaproveita a lógica já existente em `CloneQuoteButton` (clona orçamento + materiais + mão-de-obra + terceirizados).
-- O novo orçamento clonado é criado com `status = 'pending'` e `is_template = false`.
-- Após clonar, redireciona automaticamente para a tela de edição do novo orçamento (`/orcamentos-v2/:id`), já com tudo preenchido — basta o usuário trocar o cliente e ajustar.
+### Arquivos editados
 
-## 3. Pequena melhoria de descoberta
-
-Na página de criação de orçamento (`NewQuoteFormV2`, passo 1 "Informações"), adicionar um link discreto no topo:
-
-> "💡 Quer agilizar? **Comece com um modelo pronto** em vez de criar do zero." (link que volta à lista e abre o diálogo)
-
-Isso garante que mesmo quem clicou direto em "Novo Orçamento" descubra a funcionalidade.
-
-## Detalhes técnicos
-
-- **Novo arquivo**: `src/components/orcamentos-v2/UseTemplateDialog.tsx` — diálogo de seleção de modelos. Reutiliza a query `supabase.from("quotes").select(...).eq("is_template", true)`.
-- **Refatoração leve**: extrair a lógica de clonagem de `CloneQuoteButton.tsx` para uma função utilitária `cloneQuote(quoteId)` em `src/lib/quotes-v2/clone.ts`, para que o diálogo e o botão existente compartilhem o mesmo código.
-- **`OrcamentosV2.tsx`**: adicionar estado `useTemplateOpen`, novo botão no header, montar `<UseTemplateDialog />`. Atualizar todos os textos visíveis.
-- **`NewQuoteFormV2.tsx`**: adicionar o link de descoberta no passo 1.
-- Nenhuma mudança no schema do banco; nenhuma migração.
-
-## Resultado para o usuário
-
-1. Botão grande e claro **"Começar com um Modelo"** na lista de orçamentos.
-2. Em vez do termo técnico "Template", aparece **"Modelo Pronto"** em todos os lugares.
-3. Fluxo guiado: escolher modelo → orçamento já preenchido → ajustar cliente → enviar.
+- `src/pages/orcamentos-v2/OrcamentosV2.tsx`
+- `src/components/orcamentos-v2/UseTemplateDialog.tsx`

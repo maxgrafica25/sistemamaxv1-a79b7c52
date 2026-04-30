@@ -17,6 +17,8 @@ interface TemplateRow {
   client: string;
   product: string;
   value: number;
+  materials_count: number;
+  steps_count: number;
 }
 
 interface Props {
@@ -40,13 +42,22 @@ export function UseTemplateDialog({ open, onOpenChange }: Props) {
       setLoading(true);
       const { data, error } = await supabase
         .from("quotes")
-        .select("id, quote_number, client, product, value")
+        .select("id, quote_number, client, product, value, quote_materials(count), quote_labor_steps(count)")
         .eq("is_template", true)
         .order("created_at", { ascending: false });
       if (error) {
         toast.error("Erro ao carregar modelos");
       } else {
-        setTemplates((data as TemplateRow[]) || []);
+        const rows: TemplateRow[] = (data || []).map((r: any) => ({
+          id: r.id,
+          quote_number: r.quote_number,
+          client: r.client,
+          product: r.product,
+          value: r.value,
+          materials_count: r.quote_materials?.[0]?.count ?? 0,
+          steps_count: r.quote_labor_steps?.[0]?.count ?? 0,
+        }));
+        setTemplates(rows);
       }
       setLoading(false);
     };
@@ -139,7 +150,7 @@ export function UseTemplateDialog({ open, onOpenChange }: Props) {
                       </Badge>
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                      Modelo baseado em: {t.client} · {formatBRL(t.value)}
+                      {t.materials_count} {t.materials_count === 1 ? "material" : "materiais"} · {t.steps_count} {t.steps_count === 1 ? "etapa" : "etapas"} · {formatBRL(t.value)}
                     </div>
                   </div>
                   <Button
