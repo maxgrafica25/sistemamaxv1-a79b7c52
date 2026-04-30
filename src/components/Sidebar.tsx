@@ -83,7 +83,7 @@ export default function Sidebar({ collapsed, toggleCollapsed, mobileOpen, closeM
         {/* Nav */}
         <TooltipProvider delayDuration={200}>
           <nav className={cn("flex-1 space-y-0.5 overflow-y-auto", collapsed ? "px-2 py-3" : "p-3")}>
-            {navigation.map((item) => {
+            {visibleNav.map((item) => {
               const link = (
                 <NavLink
                   key={item.name}
