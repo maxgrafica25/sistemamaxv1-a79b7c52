@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import { UserCog, UserPlus, Mail, ShieldCheck, ShieldOff, UserX, UserCheck, RefreshCw, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { UserCog, UserPlus, Mail, ShieldCheck, ShieldOff, UserX, UserCheck, RefreshCw, Loader2, LogOut, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +43,8 @@ function formatDate(iso: string | null): string {
 }
 
 export default function Usuarios() {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
+  const navigate = useNavigate();
   const isAdmin = profile?.role === "admin";
 
   const [loading, setLoading] = useState(true);
@@ -71,12 +73,26 @@ export default function Usuarios() {
   if (!isAdmin) {
     return (
       <div className="p-6 md:p-8">
-        <Card className="p-12 text-center max-w-md mx-auto">
+        <Card className="p-8 md:p-12 text-center max-w-md mx-auto">
           <ShieldOff className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
           <h2 className="text-lg font-semibold mb-1">Acesso restrito</h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground mb-6">
             Esta área é exclusiva para administradores do sistema.
           </p>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <Button onClick={() => navigate("/")} className="gap-2">
+              <Home className="h-4 w-4" />
+              Voltar ao Dashboard
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => { await signOut(); navigate("/auth", { replace: true }); }}
+              className="gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Sair
+            </Button>
+          </div>
         </Card>
       </div>
     );
