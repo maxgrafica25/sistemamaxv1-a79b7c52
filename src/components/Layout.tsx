@@ -71,9 +71,53 @@ export default function Layout() {
             <ThemeToggle />
             <NotificationBell />
             {profile && (
-              <span className="hidden sm:inline text-sm text-muted-foreground">
-                {profile.display_name}
-              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="flex items-center gap-2 rounded-full p-0.5 pr-2 sm:pr-3 hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Menu do usuário"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
+                      {initialsOf(profile.display_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="hidden sm:inline text-sm text-foreground max-w-[140px] truncate">
+                    {profile.display_name}
+                  </span>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold truncate">{profile.display_name}</span>
+                        {profile.role === "admin" ? (
+                          <Badge className="bg-primary/15 text-primary hover:bg-primary/20 border-primary/20 text-[10px] py-0">
+                            Admin
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[10px] py-0">Colaborador</Badge>
+                        )}
+                      </div>
+                      {user?.email && (
+                        <span className="text-xs text-muted-foreground truncate">{user.email}</span>
+                      )}
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/configuracoes")}>
+                    <SettingsIcon className="h-4 w-4 mr-2" />
+                    Configurações
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
         </header>
