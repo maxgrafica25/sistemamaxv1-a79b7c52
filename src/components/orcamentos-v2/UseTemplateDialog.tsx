@@ -42,13 +42,22 @@ export function UseTemplateDialog({ open, onOpenChange }: Props) {
       setLoading(true);
       const { data, error } = await supabase
         .from("quotes")
-        .select("id, quote_number, client, product, value")
+        .select("id, quote_number, client, product, value, quote_materials(count), quote_labor_steps(count)")
         .eq("is_template", true)
         .order("created_at", { ascending: false });
       if (error) {
         toast.error("Erro ao carregar modelos");
       } else {
-        setTemplates((data as TemplateRow[]) || []);
+        const rows: TemplateRow[] = (data || []).map((r: any) => ({
+          id: r.id,
+          quote_number: r.quote_number,
+          client: r.client,
+          product: r.product,
+          value: r.value,
+          materials_count: r.quote_materials?.[0]?.count ?? 0,
+          steps_count: r.quote_labor_steps?.[0]?.count ?? 0,
+        }));
+        setTemplates(rows);
       }
       setLoading(false);
     };
