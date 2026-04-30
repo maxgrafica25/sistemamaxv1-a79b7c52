@@ -52,6 +52,7 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/view-quote/:id" element={<ClientViewer />} />
+                <Route path="/p/:quoteNumber" element={<ClientViewer />} />
                 <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/orcamentos" element={<Orcamentos />} />
