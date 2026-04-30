@@ -62,6 +62,8 @@ const formatBRL = (n: number) =>
 
 export default function OrcamentosV2() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin";
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
   const [statsMap, setStatsMap] = useState<Map<string, EngagementStats>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -69,6 +71,9 @@ export default function OrcamentosV2() {
   const [filter, setFilter] = useState<string>("all");
   const [tempFilter, setTempFilter] = useState<string>("all");
   const [useTemplateOpen, setUseTemplateOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchQuotes = useCallback(async () => {
     setLoading(true);
