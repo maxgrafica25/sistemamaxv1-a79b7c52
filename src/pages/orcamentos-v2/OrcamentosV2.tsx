@@ -484,7 +484,7 @@ export default function OrcamentosV2() {
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                    <td colSpan={8} className="py-12 text-center text-muted-foreground">
                       Nenhum orçamento encontrado
                     </td>
                   </tr>
