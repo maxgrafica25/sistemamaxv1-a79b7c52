@@ -365,7 +365,15 @@ export default function OrcamentosV2() {
                       className="border-b border-border last:border-0 transition-colors hover:bg-muted/50 cursor-pointer"
                       onClick={() => navigate(`/orcamentos-v2/${q.id}`)}
                     >
-                      <td className="py-4 pl-4 text-sm font-medium text-primary">
+                      <td className="py-4 pl-4 w-10" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(q.id)}
+                          onCheckedChange={(v) => toggleOne(q.id, !!v)}
+                          disabled={!!q.is_locked}
+                          aria-label={`Selecionar ${q.quote_number}`}
+                        />
+                      </td>
+                      <td className="py-4 text-sm font-medium text-primary">
                         <div className="flex items-center gap-2 flex-wrap">
                           {q.quote_number}
                           {(q.version ?? 1) > 1 && (
