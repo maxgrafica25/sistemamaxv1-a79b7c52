@@ -154,7 +154,7 @@ export function EngagementPopover({
 
       <PopoverContent
         align="end"
-        className="w-80 p-0"
+        className="w-[26rem] max-w-[calc(100vw-1.5rem)] p-0"
         onClick={(e) => e.stopPropagation()}
       >
         {loading ? (
