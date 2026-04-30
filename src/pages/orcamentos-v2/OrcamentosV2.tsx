@@ -21,6 +21,10 @@ import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionBut
 import { GenerateOPButton } from "@/components/orcamentos-v2/GenerateOPButton";
 import { EngagementPopover } from "@/components/orcamentos-v2/EngagementPopover";
 import { UseTemplateDialog } from "@/components/orcamentos-v2/UseTemplateDialog";
+import { BulkActionBar } from "@/components/orcamentos-v2/BulkActionBar";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/hooks/useAuth";
 import { Sparkles } from "lucide-react";
 import { Lock } from "lucide-react";
 import { parseOptions } from "@/lib/quotes-v2/options";
