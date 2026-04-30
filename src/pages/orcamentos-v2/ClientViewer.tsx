@@ -166,16 +166,27 @@ export default function ClientViewer() {
     }
   }, [options, selectedOptionId]);
 
-  // option_selected com debounce de 2s — só registra se permanecer na opção
+  // option_selected com debounce de 2s — só registra se permanecer na opção.
+  // Se o cliente já tinha confirmado outra opção e mudou, registramos `option_deselected`
+  // para a anterior (rastreio de hesitação entre opções).
+  const lastConfirmedOptionRef = useRef<{ id: string; label: string } | null>(null);
   useEffect(() => {
     if (!quote?.id || !selectedOptionId) return;
     const opt = options.find((o) => o.id === selectedOptionId);
     if (!opt) return;
     const t = setTimeout(() => {
+      const prev = lastConfirmedOptionRef.current;
+      if (prev && prev.id !== opt.id) {
+        void trackEvent(quote.id, "option_deselected", {
+          option_id: prev.id,
+          option_label: prev.label,
+        });
+      }
       void trackEvent(quote.id, "option_selected", {
         option_id: opt.id,
         option_label: opt.label,
       });
+      lastConfirmedOptionRef.current = { id: opt.id, label: opt.label };
     }, 2000);
     return () => clearTimeout(t);
   }, [quote?.id, selectedOptionId, options]);

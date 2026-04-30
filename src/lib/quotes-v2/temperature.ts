@@ -141,8 +141,8 @@ export function buildStatsMap(
     stats.distinctVisitors = visitorSet.size;
     stats.forwarded = visitorSet.size >= 2;
 
-    // Manter últimos 15 eventos (entrada já vem desc)
-    stats.events = evs.slice(0, 15).map((e, i) => ({
+    // Manter últimos 100 eventos (entrada já vem desc)
+    stats.events = evs.slice(0, 100).map((e, i) => ({
       id: `${quoteId}_${i}_${e.created_at}`,
       event_type: e.event_type,
       metadata: e.metadata ?? {},

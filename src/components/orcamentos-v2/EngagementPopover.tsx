@@ -101,7 +101,7 @@ export function EngagementPopover({
         .select("quote_id, event_type, metadata, created_at")
         .eq("quote_id", quoteId)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(200);
 
       const map = buildStatsMap(
         (data ?? []).map((r) => ({
@@ -154,7 +154,7 @@ export function EngagementPopover({
 
       <PopoverContent
         align="end"
-        className="w-80 p-0"
+        className="w-[26rem] max-w-[calc(100vw-1.5rem)] p-0"
         onClick={(e) => e.stopPropagation()}
       >
         {loading ? (
@@ -249,9 +249,9 @@ export function EngagementPopover({
                 {stats.events.length > 0 && (
                   <>
                     <Separator />
-                    <div className="p-4 max-h-72 overflow-y-auto">
+                    <div className="p-4 max-h-[28rem] overflow-y-auto">
                       <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-                        Atividade recente
+                        Atividade recente ({stats.events.length})
                       </p>
                       <ul className="space-y-2.5">
                         {stats.events.map((e) => {
