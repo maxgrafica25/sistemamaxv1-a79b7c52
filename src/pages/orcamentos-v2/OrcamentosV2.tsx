@@ -388,6 +388,8 @@ export default function OrcamentosV2() {
           </div>
         </CardContent>
       </Card>
+
+      <UseTemplateDialog open={useTemplateOpen} onOpenChange={setUseTemplateOpen} />
     </div>
   );
 }
