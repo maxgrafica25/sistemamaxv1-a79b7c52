@@ -1,14 +1,36 @@
-import { Outlet } from "react-router-dom";
-import { Menu, Search } from "lucide-react";
+import { Outlet, useNavigate } from "react-router-dom";
+import { Menu, Search, LogOut, Settings as SettingsIcon, User as UserIcon } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 import Sidebar from "./Sidebar";
 import ThemeToggle from "./ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useSidebarState } from "@/hooks/useSidebarState";
 import { useCommandPalette } from "@/hooks/useCommandPalette";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+
+function initialsOf(name?: string | null) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
+}
 
 export default function Layout() {
-  const { profile } = useAuth();
+  const { user, profile, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth", { replace: true });
+  };
   const { collapsed, toggleCollapsed, mobileOpen, openMobile, closeMobile } = useSidebarState();
   const { setOpen: setPaletteOpen } = useCommandPalette();
 
