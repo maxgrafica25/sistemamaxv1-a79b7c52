@@ -175,6 +175,61 @@ export default function OrcamentosV2() {
     templates: quotes.filter((q) => q.is_template).length,
   };
 
+  const selectableFiltered = filtered.filter((q) => !q.is_locked);
+  const allFilteredSelected =
+    selectableFiltered.length > 0 &&
+    selectableFiltered.every((q) => selectedIds.has(q.id));
+  const someFilteredSelected =
+    selectableFiltered.some((q) => selectedIds.has(q.id)) && !allFilteredSelected;
+
+  const toggleOne = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleAll = (checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) selectableFiltered.forEach((q) => next.add(q.id));
+      else selectableFiltered.forEach((q) => next.delete(q.id));
+      return next;
+    });
+  };
+
+  const selectedQuotes = quotes.filter((q) => selectedIds.has(q.id));
+  const selectedTotal = selectedQuotes.reduce((s, q) => s + (q.value || 0), 0);
+
+  const handleBulkDelete = async () => {
+    setDeleting(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const { data, error } = await supabase.rpc("delete_quotes_bulk", { p_ids: ids });
+      if (error) throw error;
+      const result = data as { deleted_count: number; skipped: Array<{ number?: string; reason: string }> };
+      if (result.deleted_count > 0) {
+        toast.success(`${result.deleted_count} orçamento(s) excluído(s)`);
+      }
+      if (result.skipped && result.skipped.length > 0) {
+        toast.warning(
+          `${result.skipped.length} não foram excluídos: ${result.skipped
+            .map((s) => `${s.number ?? ""} (${s.reason})`)
+            .join(", ")}`,
+        );
+      }
+      setSelectedIds(new Set());
+      setConfirmDeleteOpen(false);
+      fetchQuotes();
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao excluir orçamentos");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
