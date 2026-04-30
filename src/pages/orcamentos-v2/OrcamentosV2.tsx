@@ -7,8 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Search, ClipboardList, Loader2, FileDown, CheckCircle2, XCircle,
-  Bookmark, Link2, BookmarkCheck,
+  Bookmark, Link2, BookmarkCheck, ChevronDown, FileText,
 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { RealtimeRadar } from "@/components/orcamentos-v2/RealtimeRadar";
