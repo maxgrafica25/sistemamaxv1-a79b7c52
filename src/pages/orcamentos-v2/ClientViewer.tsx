@@ -72,7 +72,7 @@ const statusBadge = (status: string) => {
 };
 
 export default function ClientViewer() {
-  const { id } = useParams<{ id: string }>();
+  const { id: routeId, quoteNumber: routeQuoteNumber } = useParams<{ id?: string; quoteNumber?: string }>();
   const [quote, setQuote] = useState<QuoteRow | null>(null);
   const [materials, setMaterials] = useState<MaterialRow[]>([]);
   const [labor, setLabor] = useState<LaborRow[]>([]);
