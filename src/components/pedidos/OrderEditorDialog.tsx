@@ -161,16 +161,17 @@ export function OrderEditorDialog({ open, onOpenChange, orderId, initialFromQuot
       // Recria itens (estratégia simples: delete + insert)
       if (savedId) {
         await supabase.from("sales_order_items").delete().eq("order_id", savedId);
-        const payload = items.map((it, idx) => ({
-          order_id: savedId!,
-          description: it.description,
-          quantity: it.quantity,
-          unit_price: it.unit_price,
-          line_total: it.quantity * it.unit_price,
-          sort_order: idx,
-        }));
-        const { error: itemsErr } = await supabase.from("sales_order_items").insert(payload);
-        if (itemsErr) throw itemsErr;
+        for (const [idx, it] of items.entries()) {
+          const { error: itemsErr } = await supabase.from("sales_order_items").insert({
+            order_id: savedId,
+            description: it.description,
+            quantity: it.quantity,
+            unit_price: it.unit_price,
+            line_total: it.quantity * it.unit_price,
+            sort_order: idx,
+          });
+          if (itemsErr) throw itemsErr;
+        }
       }
 
       toast.success(orderId ? "Pedido atualizado." : "Pedido criado.");
@@ -203,11 +204,10 @@ export function OrderEditorDialog({ open, onOpenChange, orderId, initialFromQuot
             <div>
               <Label className="mb-1.5 block">Cliente *</Label>
               <ClientCombobox
-                value={clientId}
-                clientName={clientName}
-                onSelect={(c) => {
-                  setClientId(c?.id ?? null);
-                  setClientName(c?.nome ?? "");
+                value={{ id: clientId, nome: clientName }}
+                onChange={(c) => {
+                  setClientId(c.id);
+                  setClientName(c.nome);
                 }}
               />
             </div>

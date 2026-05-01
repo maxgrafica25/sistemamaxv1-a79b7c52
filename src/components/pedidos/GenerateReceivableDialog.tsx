@@ -71,7 +71,7 @@ export function GenerateReceivableDialog({
     try {
       const { data, error } = await supabase.rpc("create_receivable_from_order", {
         p_order_id: orderId,
-        p_installments: installments,
+        p_installments: installments as unknown as any,
       });
       if (error) throw error;
       toast.success(`Conta a receber gerada para ${orderNumber}.`);
