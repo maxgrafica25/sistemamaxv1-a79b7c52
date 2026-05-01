@@ -484,7 +484,26 @@ export function LabelLayoutCalculator({
     }
   };
 
-  // ---- Render --------------------------------------------------------------
+  const handleExportPlt = () => {
+    if (!paramLayout || paramLayout.total <= 0) {
+      toast.error("Modo paramétrico não está ativo ou não cabem etiquetas.");
+      return;
+    }
+    try {
+      const plt = generateSignmasterPlt({
+        sheetW: config.sheetW,
+        sheetH: config.sheetH,
+        labelDiameter: labelW,
+        layout: paramLayout,
+      });
+      const slug = `redonda-${labelW}mm-${config.sheetW}x${config.sheetH}`;
+      downloadPlt(plt, `faca-${slug}.plt`);
+      toast.success("Faca .plt gerada — abra no SignMaster.");
+    } catch (e) {
+      console.error("[label-plt]", e);
+      toast.error("Falha ao gerar .plt. Veja o console.");
+    }
+  };
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
       {/* ============================== SIMULADOR ============================== */}
