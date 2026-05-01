@@ -81,6 +81,7 @@ export const DEFAULT_CONFIG: LabelCalcConfig = {
   marginRight: TENETH.marginRight,
   gap: CUT_DEFAULTS.plotter_redondo.gap,
   pricePerSheet: 0,
+  unit: "mm",
   customSheets: [],
   labelPresets: SEED_LABEL_PRESETS,
 };
