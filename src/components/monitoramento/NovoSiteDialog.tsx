@@ -404,7 +404,23 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
               )}
             </div>
             <div className="space-y-1">
-              <Label>Produto canônico *</Label>
+              <div className="flex items-center gap-1.5">
+                <Label>Produto de Referência *</Label>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground hover:text-foreground" aria-label="Ajuda">
+                        <HelpCircle className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+                      <strong>Por que definir uma referência?</strong>
+                      <br />
+                      Para que o sistema saiba que o "Papel X" do Fornecedor A é o mesmo "Papel Y" do Fornecedor B, permitindo comparar preços corretamente.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <ProductPicker
                 selectedId={produtoCatalogoId}
                 selectedName={produtoCatalogoNome}
