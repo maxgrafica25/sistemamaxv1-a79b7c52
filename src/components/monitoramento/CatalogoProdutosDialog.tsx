@@ -211,7 +211,7 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
           <div className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></div>
         ) : filtered.length === 0 ? (
           <Card><CardContent className="py-10 text-center text-muted-foreground text-sm">
-            Nenhum produto no catálogo. Cadastre um site monitorado para começar.
+            Nenhuma referência cadastrada. Cadastre um site monitorado para começar.
           </CardContent></Card>
         ) : (
           <div className="space-y-2">
