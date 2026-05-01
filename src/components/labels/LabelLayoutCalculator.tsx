@@ -813,12 +813,15 @@ interface SheetPreviewProps {
   imageDataUrl: string | null;
   imageNaturalW: number | null;
   imageNaturalH: number | null;
+  reservedSlots: Array<{ col: number; row: number }>;
+  marksOffsetY: number;
 }
 
 function SheetPreview({
   sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight,
   gap, labelW, labelH, cols, rows,
   shape, imageDataUrl, imageNaturalW, imageNaturalH,
+  reservedSlots, marksOffsetY,
 }: SheetPreviewProps) {
   const MAX = 320;
   const scale = Math.min(MAX / sheetW, MAX / sheetH);
@@ -829,21 +832,24 @@ function SheetPreview({
   const labelWPx = labelW * scale;
   const labelHPx = labelH * scale;
 
-  // Fit "contain" da imagem dentro da etiqueta — calculado uma vez.
   const fit = imageDataUrl && imageNaturalW && imageNaturalH
     ? fitContain(imageNaturalW, imageNaturalH, labelWPx, labelHPx)
     : null;
 
-  // Posições das etiquetas (canto superior esquerdo de cada cell)
-  const labels: Array<{ x: number; y: number }> = [];
+  const reservedKey = new Set(reservedSlots.map((s) => `${s.col},${s.row}`));
+
+  const labels: Array<{ x: number; y: number; col: number; row: number }> = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       labels.push({
         x: (marginLeft + c * (labelW + gap)) * scale,
         y: (marginTop + r * (labelH + gap)) * scale,
+        col: c, row: r,
       });
     }
   }
+
+  const marks = buildCornerMarks(sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight, marksOffsetY, MARK_SIZE_MM);
 
   return (
     <div className="flex justify-center bg-muted/30 rounded-md p-3">
@@ -853,25 +859,22 @@ function SheetPreview({
         viewBox={`0 0 ${w} ${h}`}
         className="border border-border bg-background shadow-sm"
         role="img"
-        aria-label={`Preview de ${cols * rows} etiquetas na folha`}
+        aria-label={`Preview de ${cols * rows - reservedSlots.length} etiquetas vendáveis na folha`}
       >
         <defs>
           <pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
             <line x1="0" y1="0" x2="0" y2="6" stroke="hsl(var(--muted-foreground))" strokeOpacity="0.15" strokeWidth="2" />
           </pattern>
-          {/* clipPath circular reusável (id único) — só usado no modo redondo */}
+          <pattern id="hatch-amber" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="6" stroke="hsl(35 90% 50%)" strokeOpacity="0.4" strokeWidth="2" />
+          </pattern>
           {isRound && (
             <clipPath id="label-circle-clip" clipPathUnits="userSpaceOnUse">
-              <circle
-                cx={labelWPx / 2}
-                cy={labelHPx / 2}
-                r={Math.min(labelWPx, labelHPx) / 2}
-              />
+              <circle cx={labelWPx / 2} cy={labelHPx / 2} r={Math.min(labelWPx, labelHPx) / 2} />
             </clipPath>
           )}
         </defs>
 
-        {/* Margens hachuradas */}
         <rect x="0" y="0" width={w} height={h} fill="url(#hatch)" />
         <rect
           x={marginLeft * scale}
@@ -883,46 +886,48 @@ function SheetPreview({
           strokeDasharray="3 3"
         />
 
-        {/* Etiquetas */}
-        {labels.map((l, i) => (
-          <g key={i} transform={`translate(${l.x} ${l.y})`}>
-            {/* Forma de fundo (mostra "sobras" do contain) */}
-            {isRound ? (
-              <circle
-                cx={labelWPx / 2}
-                cy={labelHPx / 2}
-                r={Math.min(labelWPx, labelHPx) / 2}
-                fill="hsl(var(--primary) / 0.10)"
-                stroke="hsl(var(--primary))"
-                strokeWidth="0.8"
-              />
-            ) : (
-              <rect
-                x={0}
-                y={0}
-                width={labelWPx}
-                height={labelHPx}
-                fill="hsl(var(--primary) / 0.10)"
-                stroke="hsl(var(--primary))"
-                strokeWidth="0.8"
-                rx="1"
-              />
-            )}
+        {labels.map((l, i) => {
+          const isReserved = reservedKey.has(`${l.col},${l.row}`);
+          return (
+            <g key={i} transform={`translate(${l.x} ${l.y})`}>
+              {isReserved ? (
+                <>
+                  <rect x={0} y={0} width={labelWPx} height={labelHPx} fill="url(#hatch-amber)" stroke="hsl(35 90% 50%)" strokeWidth="0.8" rx="1" />
+                  <text x={labelWPx / 2} y={labelHPx / 2 + 3} textAnchor="middle" fontSize="8" fill="hsl(35 90% 30%)" fontWeight="bold">ARMS</text>
+                </>
+              ) : isRound ? (
+                <circle cx={labelWPx / 2} cy={labelHPx / 2} r={Math.min(labelWPx, labelHPx) / 2} fill="hsl(var(--primary) / 0.10)" stroke="hsl(var(--primary))" strokeWidth="0.8" />
+              ) : (
+                <rect x={0} y={0} width={labelWPx} height={labelHPx} fill="hsl(var(--primary) / 0.10)" stroke="hsl(var(--primary))" strokeWidth="0.8" rx="1" />
+              )}
 
-            {/* Imagem com fit contain centralizada (e clip circular se redondo) */}
-            {fit && (
-              <image
-                href={imageDataUrl ?? ""}
-                x={fit.offsetX}
-                y={fit.offsetY}
-                width={fit.width}
-                height={fit.height}
-                preserveAspectRatio="xMidYMid meet"
-                clipPath={isRound ? "url(#label-circle-clip)" : undefined}
-              />
-            )}
-          </g>
-        ))}
+              {!isReserved && fit && (
+                <image
+                  href={imageDataUrl ?? ""}
+                  x={fit.offsetX}
+                  y={fit.offsetY}
+                  width={fit.width}
+                  height={fit.height}
+                  preserveAspectRatio="xMidYMid meet"
+                  clipPath={isRound ? "url(#label-circle-clip)" : undefined}
+                />
+              )}
+            </g>
+          );
+        })}
+
+        {marks.marks.map((m, i) => {
+          const cx = (m.x + m.size / 2) * scale;
+          const cy = (m.y + m.size / 2) * scale;
+          const r = (m.size / 2) * scale;
+          return (
+            <g key={`mark-${i}`} stroke="black" strokeWidth="0.6" fill="none">
+              <circle cx={cx} cy={cy} r={r} />
+              <line x1={cx - r} y1={cy} x2={cx + r} y2={cy} />
+              <line x1={cx} y1={cy - r} x2={cx} y2={cy + r} />
+            </g>
+          );
+        })}
       </svg>
     </div>
   );
