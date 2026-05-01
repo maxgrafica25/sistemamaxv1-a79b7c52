@@ -45,7 +45,7 @@ import {
   Sparkles,
   Settings2,
   Star,
-  StarPlus,
+  Plus,
   Trash2,
   Copy,
   ExternalLink,
