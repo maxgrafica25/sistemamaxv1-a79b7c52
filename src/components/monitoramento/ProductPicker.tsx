@@ -45,7 +45,7 @@ export default function ProductPicker({ selectedId, selectedName, onChange, defa
   const selected = produtos.find((p) => p.id === selectedId);
   const triggerLabel = selected
     ? selected.nome_canonico
-    : selectedName || "Selecione um produto do catálogo...";
+    : selectedName || "Selecione uma referência...";
 
   const openNovo = () => {
     setOpen(false);
