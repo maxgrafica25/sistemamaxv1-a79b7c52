@@ -90,19 +90,23 @@ async function convertToPngAndEmbed(pdf: PDFDocument, dataUrl: string) {
 }
 
 function listLabelPositions(input: ProductionPDFInput) {
-  const { layout, marginLeft, marginTop, gap } = input;
+  const { layout, marginTop, gap } = input;
   const w = layout.best.rotated ? input.labelH : input.labelW;
   const h = layout.best.rotated ? input.labelW : input.labelH;
   const reserved = new Set(layout.reservedSlots.map((s) => `${s.col},${s.row}`));
   const positions: Array<{ x: number; y: number; w: number; h: number; reserved: boolean }> = [];
   for (let r = 0; r < layout.best.rows; r++) {
+    const baseX = layout.rowOffsets[r] ?? input.marginLeft;
     for (let c = 0; c < layout.best.cols; c++) {
+      const isReserved = reserved.has(`${c},${r}`);
+      // Posições reservadas continuam computadas (espaço em branco), mas
+      // marcadas como reserved=true para o renderer pular o desenho.
       positions.push({
-        x: marginLeft + c * (w + gap),
+        x: baseX + c * (w + gap),
         y: marginTop + r * (h + gap),
         w,
         h,
-        reserved: reserved.has(`${c},${r}`),
+        reserved: isReserved,
       });
     }
   }
@@ -127,7 +131,7 @@ export async function generateProductionPDF(input: ProductionPDFInput): Promise<
     input.marginLeft,
     input.marginRight,
     input.marksOffsetY,
-    MARK_SIZE_MM,
+    MARK_ARM_MM,
   );
 
   const embedded = input.imageDataUrl ? await embedImage(pdf, input.imageDataUrl) : null;
