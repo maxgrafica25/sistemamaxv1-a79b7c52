@@ -423,21 +423,8 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
 
           <Separator />
 
-          {/* === 4. Preço === */}
-          <section className="space-y-3">
-            <h3 className="text-sm font-semibold">Preço da folha de produção</h3>
-            <div className="grid grid-cols-2 gap-3 sm:max-w-[300px]">
-              <NumField
-                label="Preço por folha (R$)"
-                value={draft.pricePerSheet}
-                onChange={(v) => update({ pricePerSheet: v })}
-                step={0.1}
-              />
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Custo fixo já incluindo recorte. Ex.: SRA3 + recorte = R$ 15,00.
-            </p>
-          </section>
+          {/* Preço da folha agora vem do cadastro Preço Impressão + Acabamentos.
+              Editado diretamente naquelas telas, não aqui. */}
 
           <Separator />
 
