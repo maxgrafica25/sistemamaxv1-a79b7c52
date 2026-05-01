@@ -92,17 +92,47 @@ interface NumInputProps {
   step?: number;
   className?: string;
 }
+/**
+ * Input numérico que NÃO força "0" enquanto o usuário digita.
+ * Mantém estado interno de string para permitir campo vazio temporariamente;
+ * só propaga `onChange` quando há um número válido. Sincroniza com `value`
+ * externo quando ele muda fora do componente (ex.: presets, troca de shape).
+ */
 function NumInput({ value, onChange, step = 1, className }: NumInputProps) {
+  const [text, setText] = useState<string>(() =>
+    Number.isFinite(value) && value !== 0 ? String(value) : Number.isFinite(value) ? String(value) : "",
+  );
+  const lastEmittedRef = useRef<number>(value);
+
+  // Sincroniza quando `value` externo mudou (e não foi nós que emitimos)
+  useEffect(() => {
+    if (value !== lastEmittedRef.current) {
+      setText(Number.isFinite(value) ? String(value) : "");
+      lastEmittedRef.current = value;
+    }
+  }, [value]);
+
   return (
     <Input
       type="number"
       inputMode="decimal"
-      min={0}
       step={step}
-      value={Number.isFinite(value) ? value : ""}
+      value={text}
       onChange={(e) => {
-        const v = parseFloat(e.target.value);
-        onChange(Number.isFinite(v) ? v : 0);
+        const raw = e.target.value;
+        setText(raw);
+        if (raw === "" || raw === "-" || raw === ".") return; // estados intermediários
+        const v = parseFloat(raw);
+        if (Number.isFinite(v) && v >= 0) {
+          lastEmittedRef.current = v;
+          onChange(v);
+        }
+      }}
+      onBlur={() => {
+        if (text === "" || !Number.isFinite(parseFloat(text))) {
+          // Ao sair do campo vazio, restaura o último valor válido
+          setText(String(lastEmittedRef.current));
+        }
       }}
       className={className}
     />
@@ -337,8 +367,16 @@ export function LabelLayoutCalculator({
       height: labelH,
       pricing,
       ladder,
+      perSheet,
+      pricePerSheet,
+      printingLabel: folhaPricing.selectedPrinting
+        ? `${folhaPricing.selectedPrinting.label}`
+        : null,
+      finishingLabel: folhaPricing.selectedFinishing.id
+        ? folhaPricing.selectedFinishing.label
+        : null,
     });
-  }, [pricePerSheet, qty, perSheet, shape, labelW, labelH, pricing, ladder]);
+  }, [pricePerSheet, qty, perSheet, shape, labelW, labelH, pricing, ladder, folhaPricing.selectedPrinting, folhaPricing.selectedFinishing]);
 
 
   const handleCopyWhats = async () => {
@@ -687,6 +725,13 @@ export function LabelLayoutCalculator({
             <span className="text-muted-foreground">
               área útil {layout.usableW}×{layout.usableH}mm
             </span>
+            <Badge
+              variant="outline"
+              className="gap-1 border-primary/40 text-primary"
+              title={`Margens forçadas pelo equipamento: topo ${config.marginTop}mm · base ${config.marginBottom}mm (tração) · laterais ${config.marginLeft}/${config.marginRight}mm`}
+            >
+              ⚙ {config.hardwareProfileId === "teneth_a3" ? "Teneth A3" : config.hardwareProfileId} · {config.marginTop}/{config.marginBottom}/{config.marginLeft}/{config.marginRight}mm
+            </Badge>
           </div>
 
           <SheetPreview
