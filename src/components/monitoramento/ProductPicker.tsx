@@ -64,7 +64,7 @@ export default function ProductPicker({ selectedId, selectedName, onChange, defa
 
   return (
     <div className="space-y-2">
-      <Label>Vincular ao catálogo *</Label>
+      <Label>Vincular à referência *</Label>
 
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
