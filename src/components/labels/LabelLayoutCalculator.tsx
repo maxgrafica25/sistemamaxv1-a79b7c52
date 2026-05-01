@@ -773,9 +773,13 @@ export function LabelLayoutCalculator({
             <Badge
               variant="outline"
               className="gap-1 border-primary/40 text-primary"
-              title={`Margens forçadas pelo equipamento: topo ${config.marginTop}mm · base ${config.marginBottom}mm (tração) · laterais ${config.marginLeft}/${config.marginRight}mm`}
+              title={
+                isParametric
+                  ? "Modo paramétrico SignMaster: margens 7/7/7/7 mm, gap 3 mm, marcas L (topo) + T (base). Folhas soltas."
+                  : `Margens forçadas pelo equipamento: topo ${config.marginTop}mm · base ${config.marginBottom}mm (tração) · laterais ${config.marginLeft}/${config.marginRight}mm`
+              }
             >
-              ⚙ {config.hardwareProfileId === "teneth_a3" ? "Teneth A3" : config.hardwareProfileId} · {config.marginTop}/{config.marginBottom}/{config.marginLeft}/{config.marginRight}mm
+              ⚙ {isParametric ? "SignMaster paramétrico · 7/7/7/7 · gap 3" : `${config.hardwareProfileId === "teneth_a3" ? "Teneth A3" : config.hardwareProfileId} · ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight}mm`}
             </Badge>
           </div>
 
