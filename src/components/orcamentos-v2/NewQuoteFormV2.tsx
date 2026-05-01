@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
-  Plus, X, Package, Wrench, ChevronLeft, ChevronRight, Check, User, Clock,
-  FileText, Printer, Loader2, Link2, Lock, AlertTriangle, Megaphone,
+  Plus, X, Package, Wrench, ChevronLeft, ChevronRight, Check, User,
+  FileText, Printer, Loader2, Link2, Lock, AlertTriangle, Megaphone, Layers,
 } from "lucide-react";
 import { CVItemCard, type CVItemState } from "@/components/orcamentos-v2/CVItemCard";
 import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
@@ -26,9 +27,8 @@ import {
 import type { QuoteOption } from "@/lib/quotes-v2/options";
 import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionButton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { LoadFromGroupDialog } from "@/components/orcamentos-v2/LoadFromGroupDialog";
-import { StepTypeBadge, STEP_TYPES } from "@/components/orcamentos-v2/StepTypeBadge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PrintingItemEditor } from "@/components/orcamentos-v2/PrintingItemEditor";
+import { LaborAndSupplySubform, type SubformLabor, type SubformMaterial } from "@/components/orcamentos-v2/LaborAndSupplySubform";
 
 interface Props {
   quoteId?: string;
@@ -36,14 +36,11 @@ interface Props {
   onCancel: () => void;
 }
 
-interface LaborStep { id: string; description: string; timeMinutes: number; stepType: string; }
 interface ThirdParty { id: string; description: string; supplier: string; cost: number; }
 
 const STEPS = [
   { label: "Informações", icon: User },
-  { label: "Mão de Obra", icon: Clock },
-  { label: "Materiais", icon: Package },
-  { label: "Comunicação Visual", icon: Megaphone },
+  { label: "Itens do Orçamento", icon: Layers },
   { label: "Terceirizados", icon: Wrench },
   { label: "Finalizar", icon: FileText },
 ];
@@ -74,9 +71,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [product, setProduct] = useState("");
   const [validity, setValidity] = useState("7");
   const [profitMargin, setProfitMargin] = useState("33");
+  const [notes, setNotes] = useState("");
 
-  const [labor, setLabor] = useState<LaborStep[]>([]);
-  const [materials, setMaterials] = useState<PricingMaterial[]>([]);
+  const [labor, setLabor] = useState<SubformLabor[]>([]);
+  const [materials, setMaterials] = useState<SubformMaterial[]>([]);
   const [thirdParty, setThirdParty] = useState<ThirdParty[]>([]);
 
   // CV (Comunicação Visual)
@@ -108,6 +106,20 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const hasApprovedItems = useMemo(
     () => materials.some((m) => m.status === "aprovado"),
     [materials],
+  );
+
+  // ---------- Splits derivados ----------
+  const printingItems = useMemo(
+    () => materials.filter((m) => m.baseCost && !m.parentItemId),
+    [materials],
+  );
+  const standaloneManualMaterials = useMemo(
+    () => materials.filter((m) => !m.baseCost && !m.parentItemId),
+    [materials],
+  );
+  const standaloneLabor = useMemo(
+    () => labor.filter((l) => !l.parentItemId),
+    [labor],
   );
 
   // ---------- Load catalog & quote ----------
@@ -253,6 +265,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         setProduct(q.product);
         setValidity(q.validity || "7");
         setProfitMargin(q.profit_margin || "33");
+        setNotes((q as any).notes || "");
         setDiscountValue(q.discount_value);
         setDiscountType((q.discount_type as DiscountType) || "brl");
         setPaymentMethod(q.payment_method || "");
@@ -264,7 +277,11 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         }
       }
       setLabor((lRes.data || []).map((s: any) => ({
-        id: s.id, description: s.description, timeMinutes: s.time_minutes, stepType: s.step_type || "outro",
+        id: s.id,
+        description: s.description,
+        timeMinutes: s.time_minutes,
+        stepType: s.step_type || "outro",
+        parentItemId: s.parent_item_id || null,
       })));
       setMaterials((mRes.data || []).map((m: any) => ({
         id: m.id,
@@ -274,6 +291,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         status: m.status as "pendente" | "aprovado" | "recusado",
         approvedAt: m.approved_at,
         approvedValue: m.approved_value,
+        parentItemId: m.parent_item_id || null,
       })));
       setThirdParty((tpRes.data || []).map((t: any) => ({
         id: t.id, description: t.description, supplier: t.supplier, cost: t.cost,
@@ -313,8 +331,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
   // ---------- Pricing snapshot + live result ----------
   const snapshot: PricingSnapshot = useMemo(() => ({
-    laborSteps: labor.map((l) => ({ timeMinutes: l.timeMinutes })),
-    materials,
+    laborSteps: labor.map((l) => ({
+      timeMinutes: l.timeMinutes,
+      parentItemId: l.parentItemId ?? null,
+    })),
+    materials: materials.map((m) => ({
+      ...m,
+      parentItemId: m.parentItemId ?? null,
+    })),
     thirdParty: thirdParty.map((t) => ({ cost: t.cost })),
     settings: {
       invoicePct: globalSettings.invoice_pct,
@@ -328,10 +352,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     baseQuantity: 1,
   }), [labor, materials, thirdParty, globalSettings, profitMargin, hourlyRate, markupTiers, categoryGroups]);
 
-  // Base price uses qty=1 (single-shot) for the live sidebar; options builder explores other quantities
   const live = useMemo(() => recalculateForQuantity(snapshot, 1), [snapshot]);
 
-  // CV total — sum of all visual communication items
   const cvTotal = useMemo(
     () => Object.values(cvResults).reduce((s, r) => s + (r?.preco_total || 0), 0),
     [cvResults],
@@ -341,7 +363,6 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     [cvResults],
   );
 
-  // Apply discount on top of live total + CV (for sidebar feedback only; persisted separately)
   const discountedTotal = useMemo(() => {
     const baseTotal = live.totalToCharge + cvTotal;
     if (!discountValue || discountValue <= 0) return baseTotal;
@@ -370,8 +391,47 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       baseCost,
       printerCategoryId: item.printer_category_id,
       markupGroupId: item.markup_group_id,
+      parentItemId: null,
     }]);
     toast.success("Item de impressão adicionado!");
+  };
+
+  const updateMaterialPatch = (id: string, patch: Partial<PricingMaterial>) =>
+    setMaterials((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+
+  const removeMaterial = (id: string) => {
+    // Remover pai cascateia: também remove filhos vinculados (UI e save).
+    setMaterials((prev) => prev.filter((m) => m.id !== id && m.parentItemId !== id));
+    setLabor((prev) => prev.filter((l) => l.parentItemId !== id));
+  };
+
+  const setChildLaborFor = (parentId: string, next: SubformLabor[]) => {
+    setLabor((prev) => {
+      const others = prev.filter((l) => l.parentItemId !== parentId);
+      return [...others, ...next];
+    });
+  };
+
+  const setChildMaterialsFor = (parentId: string, next: SubformMaterial[]) => {
+    setMaterials((prev) => {
+      const others = prev.filter((m) => m.parentItemId !== parentId);
+      return [...others, ...next];
+    });
+  };
+
+  const setStandaloneLabor = (next: SubformLabor[]) => {
+    setLabor((prev) => {
+      const childOnly = prev.filter((l) => l.parentItemId);
+      return [...next, ...childOnly];
+    });
+  };
+
+  const setStandaloneManualMaterials = (next: SubformMaterial[]) => {
+    setMaterials((prev) => {
+      // Mantém: itens de impressão e qualquer filho (com parentItemId)
+      const keep = prev.filter((m) => m.baseCost || m.parentItemId);
+      return [...keep, ...next];
+    });
   };
 
   const handleSave = async () => {
@@ -394,6 +454,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         date: new Date().toISOString().split("T")[0],
         validity,
         profit_margin: profitMargin,
+        notes: notes.trim() || null,
         discount_value: discountValue,
         discount_type: discountValue ? discountType : null,
         payment_method: paymentMethod || null,
@@ -402,10 +463,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
       let id = savedQuoteId;
       if (isEditing && id) {
-        // Preserva status global se houver aprovados
         await supabase.from("quotes").update(payload).eq("id", id);
 
-        // Apaga apenas itens pendentes/recusados; mantém os aprovados intactos
+        // Apaga apenas itens NÃO aprovados; mantém aprovados intactos.
+        // ON DELETE CASCADE em parent_item_id apaga filhos quando o pai é apagado.
         const approvedIds = materials
           .filter((m) => m.status === "aprovado")
           .map((m) => m.id);
@@ -430,40 +491,92 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       }
 
       if (id) {
-        if (labor.length > 0) {
-          await supabase.from("quote_labor_steps").insert(
-            labor.map((s, i) => ({ quote_id: id, description: s.description, time_minutes: s.timeMinutes, sort_order: i, step_type: s.stepType || "outro" })),
-          );
-        }
-        // Insere apenas itens NÃO aprovados (aprovados continuam no banco)
-        const toInsert = materials
+        // ---- FASE 1: Inserir PAIS (materiais raiz: parentItemId == null) que não estão aprovados ----
+        // Mapa do id-temporário → id-real do banco para depois reapontar os filhos.
+        const tempToReal = new Map<string, string>();
+
+        const rootMaterials = materials
           .map((m, i) => ({ ...m, sortOrder: i }))
-          .filter((m) => m.status !== "aprovado");
-        if (toInsert.length > 0) {
+          .filter((m) => !m.parentItemId);
+
+        const rootToInsert = rootMaterials.filter((m) => m.status !== "aprovado");
+        if (rootToInsert.length > 0) {
+          const { data: insertedRoots, error: errRoot } = await supabase
+            .from("quote_materials")
+            .insert(
+              rootToInsert.map((m) => ({
+                quote_id: id,
+                description: m.description,
+                quantity: m.quantity,
+                unit_price: m.unitPrice,
+                sort_order: m.sortOrder,
+                status: "pendente",
+                parent_item_id: null,
+              })),
+            )
+            .select("id");
+          if (errRoot) throw errRoot;
+          // Casa pela ordem (insert preserva ordem dos rows enviados)
+          (insertedRoots || []).forEach((row, idx) => {
+            const original = rootToInsert[idx];
+            tempToReal.set(original.id, row.id);
+          });
+        }
+
+        // Aprovados: mantém id real (já existente no banco)
+        rootMaterials
+          .filter((m) => m.status === "aprovado")
+          .forEach((m) => tempToReal.set(m.id, m.id));
+
+        // Atualiza sort_order dos aprovados
+        for (const m of rootMaterials.filter((x) => x.status === "aprovado")) {
+          await supabase.from("quote_materials").update({ sort_order: m.sortOrder }).eq("id", m.id);
+        }
+
+        // ---- FASE 2: Inserir FILHOS (materials e labor com parentItemId) ----
+        const childMaterials = materials
+          .map((m, i) => ({ ...m, sortOrder: i }))
+          .filter((m) => m.parentItemId && m.status !== "aprovado");
+        if (childMaterials.length > 0) {
           await supabase.from("quote_materials").insert(
-            toInsert.map((m) => ({
+            childMaterials.map((m) => ({
               quote_id: id,
               description: m.description,
               quantity: m.quantity,
               unit_price: m.unitPrice,
               sort_order: m.sortOrder,
               status: "pendente",
+              parent_item_id: tempToReal.get(m.parentItemId!) ?? null,
             })),
           );
         }
-        // Atualiza sort_order dos aprovados (caso ordem visual tenha mudado)
-        const approvedSorted = materials
-          .map((m, i) => ({ ...m, sortOrder: i }))
-          .filter((m) => m.status === "aprovado");
-        for (const m of approvedSorted) {
-          await supabase.from("quote_materials").update({ sort_order: m.sortOrder }).eq("id", m.id);
-        }
-        if (thirdParty.length > 0) {
-          await supabase.from("quote_third_party").insert(
-            thirdParty.map((t, i) => ({ quote_id: id, description: t.description, supplier: t.supplier, cost: t.cost, sort_order: i })),
+
+        // Labor (todos: avulsos + filhos)
+        if (labor.length > 0) {
+          await supabase.from("quote_labor_steps").insert(
+            labor.map((s, i) => ({
+              quote_id: id,
+              description: s.description,
+              time_minutes: s.timeMinutes,
+              sort_order: i,
+              step_type: s.stepType || "outro",
+              parent_item_id: s.parentItemId
+                ? tempToReal.get(s.parentItemId) ?? null
+                : null,
+            })),
           );
         }
-        // CV items — replace strategy (full delete already happened above when editing)
+
+        // Terceirizados
+        if (thirdParty.length > 0) {
+          await supabase.from("quote_third_party").insert(
+            thirdParty.map((t, i) => ({
+              quote_id: id, description: t.description, supplier: t.supplier, cost: t.cost, sort_order: i,
+            })),
+          );
+        }
+
+        // CV items
         if (cvItems.length > 0) {
           const cvRows = cvItems.map((it, i) => {
             const r = cvResults[it.id];
@@ -574,14 +687,11 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             {STEPS.map((s, i) => {
               const Icon = s.icon;
               const active = step === i;
-              // Heurística de "completo" por etapa
               const completed =
                 (i === 0 && client.trim() && product.trim()) ||
-                (i === 1 && labor.length > 0) ||
-                (i === 2 && materials.length > 0) ||
-                (i === 3 && cvItems.length > 0) ||
-                (i === 4 && thirdParty.length > 0) ||
-                (i === 5 && !!savedQuoteId);
+                (i === 1 && (materials.length > 0 || cvItems.length > 0 || labor.length > 0)) ||
+                (i === 2 && thirdParty.length > 0) ||
+                (i === 3 && !!savedQuoteId);
               return (
                 <button
                   key={i}
@@ -603,6 +713,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
         {/* Step content */}
         <div className="min-h-[300px]">
+          {/* ===== STEP 0: Informações ===== */}
           {step === 0 && (
             <Card><CardContent className="p-5 sm:p-6 space-y-5">
               <h2 className="text-lg font-semibold">Informações Gerais</h2>
@@ -631,219 +742,153 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 <div className="space-y-2 md:col-span-2"><Label>Produto / Serviço</Label><Input value={product} onChange={(e) => setProduct(e.target.value)} placeholder="Ex: Cartões de visita" /></div>
                 <div className="space-y-2"><Label>Validade (dias)</Label><Input type="number" value={validity} onChange={(e) => setValidity(e.target.value)} /></div>
                 <div className="space-y-2"><Label>Margem de lucro (%)</Label><Input type="number" step="0.01" value={profitMargin} onChange={(e) => setProfitMargin(e.target.value)} /></div>
-              </div>
-            </CardContent></Card>
-          )}
-
-          {step === 1 && (
-            <Card><CardContent className="p-5 sm:p-6 space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-primary" /> Mão de Obra
-                  {labor.length > 0 && <Badge variant="outline">{labor.length} etapas</Badge>}
-                </h2>
-                <div className="flex gap-2">
-                  <LoadFromGroupDialog
-                    kind="labor"
-                    onLoad={(items) => setLabor((p) => [...p, ...items])}
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Observações Gerais</Label>
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Notas internas, contexto da proposta, instruções para a produção…"
+                    rows={3}
                   />
-                  <Button variant="outline" size="sm" onClick={() => setLabor((p) => [...p, { id: Date.now().toString(), description: "", timeMinutes: 0, stepType: "outro" }])} className="gap-1.5">
-                    <Plus className="h-4 w-4" /> Etapa
-                  </Button>
                 </div>
               </div>
-              {labor.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma etapa adicionada</p>
-              ) : (
-                <div className="space-y-2">
-                  {labor.map((s, idx) => (
-                    <div key={s.id} className="flex items-center gap-3 rounded-lg border bg-card p-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">{idx + 1}</span>
-                      <Select value={s.stepType} onValueChange={(v) => setLabor((p) => p.map((x) => x.id === s.id ? { ...x, stepType: v } : x))}>
-                        <SelectTrigger className="w-32 h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {STEP_TYPES.map((t) => (
-                            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Input value={s.description} onChange={(e) => setLabor((p) => p.map((x) => x.id === s.id ? { ...x, description: e.target.value } : x))} placeholder="Descrição" className="flex-1 border-0 bg-transparent p-0 h-auto text-sm focus-visible:ring-0" />
-                      <Input type="number" value={s.timeMinutes || ""} onChange={(e) => setLabor((p) => p.map((x) => x.id === s.id ? { ...x, timeMinutes: parseFloat(e.target.value) || 0 } : x))} className="w-20 h-8 text-sm text-center" placeholder="min" />
-                      <span className="text-sm font-medium text-muted-foreground w-24 text-right">{formatBRL((s.timeMinutes / 60) * hourlyRate)}</span>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setLabor((p) => p.filter((x) => x.id !== s.id))}><X className="h-4 w-4" /></Button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </CardContent></Card>
           )}
 
-          {step === 2 && (
+          {/* ===== STEP 1: Itens do Orçamento (3 blocos) ===== */}
+          {step === 1 && (
             <div className="space-y-4">
+              {/* Bloco 1: Itens de Impressão */}
               <Card className="border-l-4 border-l-primary/60"><CardContent className="p-5 sm:p-6 space-y-4">
-                <h2 className="text-lg font-semibold flex items-center gap-2"><Printer className="h-5 w-5 text-primary" /> Impressão</h2>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <Printer className="h-5 w-5 text-primary" /> Itens de Impressão
+                    {printingItems.length > 0 && <Badge variant="outline">{printingItems.length}</Badge>}
+                  </h2>
+                </div>
                 <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} markupTiers={markupTiers} globalSettings={globalSettings} />
-                {materials.filter((m) => m.baseCost).length > 0 && (
-                  <div className="space-y-2">
-                    {materials.filter((m) => m.baseCost).map((m) => {
-                      const locked = m.status === "aprovado";
+                {printingItems.length > 0 && (
+                  <div className="space-y-3">
+                    {printingItems.map((m) => {
+                      const childLabor = labor.filter((l) => l.parentItemId === m.id);
+                      const childMats = materials.filter((x) => x.parentItemId === m.id);
                       return (
-                        <div
+                        <PrintingItemEditor
                           key={m.id}
-                          className={`flex items-center gap-3 rounded-lg border p-3 ${
-                            locked ? "border-green-500/40 bg-green-500/5" : "bg-card"
-                          }`}
-                        >
-                          {locked
-                            ? <Lock className="h-4 w-4 text-green-600" />
-                            : <Printer className="h-4 w-4 text-primary/60" />}
-                          <div className="flex-1 min-w-0 text-sm font-medium truncate flex items-center gap-2">
-                            {m.description}
-                            {locked && <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">Aprovado</Badge>}
-                          </div>
-                          <Input
-                            type="number"
-                            value={m.quantity || ""}
-                            disabled={locked}
-                            onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, quantity: parseFloat(e.target.value) || 0 } : x))}
-                            className="w-20 h-8 text-sm text-center disabled:opacity-70"
-                          />
-                          <span className="text-sm font-semibold text-primary w-28 text-right">{formatBRL(m.quantity * m.unitPrice)}</span>
-                          {locked
-                            ? <span className="w-8" />
-                            : <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMaterials((p) => p.filter((x) => x.id !== m.id))}><X className="h-4 w-4" /></Button>}
-                        </div>
+                          item={m}
+                          childLabor={childLabor}
+                          childMaterials={childMats}
+                          hourlyRate={hourlyRate}
+                          onItemChange={(patch) => updateMaterialPatch(m.id, patch)}
+                          onRemove={() => removeMaterial(m.id)}
+                          onChildLaborChange={(next) => setChildLaborFor(m.id, next)}
+                          onChildMaterialChange={(next) => setChildMaterialsFor(m.id, next)}
+                        />
                       );
                     })}
                   </div>
                 )}
               </CardContent></Card>
 
-              <Card><CardContent className="p-5 sm:p-6 space-y-3">
+              {/* Bloco 2: Comunicação Visual */}
+              <Card><CardContent className="p-5 sm:p-6 space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h3 className="text-base font-semibold">Materiais Manuais</h3>
-                  <div className="flex gap-2">
-                    <LoadFromGroupDialog
-                      kind="materials"
-                      onLoad={(items) =>
-                        setMaterials((p) => [
-                          ...p,
-                          ...items.map((it) => ({
-                            id: it.id,
-                            description: it.description,
-                            quantity: it.quantity,
-                            unitPrice: it.unitPrice,
-                          })),
-                        ])
-                      }
-                    />
-                    <Button variant="outline" size="sm" onClick={() => setMaterials((p) => [...p, { id: `manual-${Date.now()}`, description: "", quantity: 1, unitPrice: 0 }])} className="gap-1.5">
-                      <Plus className="h-4 w-4" /> Item
-                    </Button>
-                  </div>
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <Megaphone className="h-5 w-5 text-primary" /> Comunicação Visual
+                    {cvItems.length > 0 && <Badge variant="outline">{cvItems.length} {cvItems.length === 1 ? "item" : "itens"}</Badge>}
+                  </h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={cvMaterials.length === 0}
+                    onClick={() => setCvItems((p) => [
+                      ...p,
+                      {
+                        id: `cv-${Date.now()}`,
+                        material_id: null,
+                        printer_id: null,
+                        largura_cm: 0,
+                        altura_cm: 0,
+                        quantidade: 1,
+                        acabamentos: [],
+                      },
+                    ])}
+                  >
+                    <Plus className="h-4 w-4" /> Item CV
+                  </Button>
                 </div>
-                {materials.filter((m) => !m.baseCost).map((m) => {
-                  const locked = m.status === "aprovado";
-                  return (
-                    <div
-                      key={m.id}
-                      className={`flex items-center gap-2 rounded-lg border p-3 ${
-                        locked ? "border-green-500/40 bg-green-500/5" : "bg-card"
-                      }`}
-                    >
-                      {locked && <Lock className="h-4 w-4 text-green-600 shrink-0" />}
-                      <Input value={m.description} disabled={locked} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, description: e.target.value } : x))} placeholder="Descrição" className="flex-1 border-0 bg-transparent p-0 h-auto text-sm focus-visible:ring-0 disabled:opacity-70" />
-                      {locked && <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">Aprovado</Badge>}
-                      <Input type="number" value={m.quantity || ""} disabled={locked} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, quantity: parseFloat(e.target.value) || 0 } : x))} className="w-16 h-8 text-sm text-center disabled:opacity-70" placeholder="qtd" />
-                      <Input type="number" step="0.01" value={m.unitPrice || ""} disabled={locked} onChange={(e) => setMaterials((p) => p.map((x) => x.id === m.id ? { ...x, unitPrice: parseFloat(e.target.value) || 0 } : x))} className="w-24 h-8 text-sm text-center disabled:opacity-70" placeholder="R$" />
-                      {locked
-                        ? <span className="w-8" />
-                        : <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMaterials((p) => p.filter((x) => x.id !== m.id))}><X className="h-4 w-4" /></Button>}
+
+                {cvMaterials.length === 0 ? (
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Nenhum cadastro encontrado</AlertTitle>
+                    <AlertDescription>
+                      Cadastre materiais, impressoras e acabamentos em <strong>Cadastros &gt; Comunicação Visual</strong> antes de adicionar itens.
+                    </AlertDescription>
+                  </Alert>
+                ) : cvItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    Nenhum item de comunicação visual adicionado.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {cvItems.map((it, idx) => (
+                      <CVItemCard
+                        key={it.id}
+                        item={it}
+                        index={idx}
+                        materiais={cvMaterials}
+                        impressoras={cvPrinters}
+                        acabamentos={cvFinishes}
+                        onChange={(updated) =>
+                          setCvItems((p) => p.map((x) => (x.id === it.id ? updated : x)))
+                        }
+                        onRemove={() => {
+                          setCvItems((p) => p.filter((x) => x.id !== it.id));
+                          setCvResults((p) => {
+                            const { [it.id]: _, ...rest } = p;
+                            return rest;
+                          });
+                        }}
+                        onResult={(r) =>
+                          setCvResults((p) => (p[it.id]?.preco_total === r.preco_total && p[it.id]?.custo_total === r.custo_total ? p : { ...p, [it.id]: r }))
+                        }
+                      />
+                    ))}
+                    <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
+                      <span className="text-sm font-medium text-muted-foreground">Subtotal Comunicação Visual</span>
+                      <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
                     </div>
-                  );
-                })}
+                  </div>
+                )}
+              </CardContent></Card>
+
+              {/* Bloco 3: Avulsos */}
+              <Card><CardContent className="p-5 sm:p-6 space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <Layers className="h-5 w-5 text-muted-foreground" /> Avulsos (não vinculados)
+                  </h2>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Mão de obra e materiais que não pertencem a um item de impressão específico.
+                  Diluídos pela quantidade total do orçamento.
+                </p>
+                <LaborAndSupplySubform
+                  parentItemId={null}
+                  laborItems={standaloneLabor}
+                  materialItems={standaloneManualMaterials}
+                  hourlyRate={hourlyRate}
+                  onLaborChange={setStandaloneLabor}
+                  onMaterialChange={setStandaloneManualMaterials}
+                />
               </CardContent></Card>
             </div>
           )}
 
-          {step === 3 && (
-            <Card><CardContent className="p-5 sm:p-6 space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <Megaphone className="h-5 w-5 text-primary" /> Comunicação Visual
-                  {cvItems.length > 0 && <Badge variant="outline">{cvItems.length} {cvItems.length === 1 ? "item" : "itens"}</Badge>}
-                </h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5"
-                  disabled={cvMaterials.length === 0}
-                  onClick={() => setCvItems((p) => [
-                    ...p,
-                    {
-                      id: `cv-${Date.now()}`,
-                      material_id: null,
-                      printer_id: null,
-                      largura_cm: 0,
-                      altura_cm: 0,
-                      quantidade: 1,
-                      acabamentos: [],
-                    },
-                  ])}
-                >
-                  <Plus className="h-4 w-4" /> Item
-                </Button>
-              </div>
-
-              {cvMaterials.length === 0 ? (
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Nenhum cadastro encontrado</AlertTitle>
-                  <AlertDescription>
-                    Cadastre materiais, impressoras e acabamentos em <strong>Cadastros &gt; Comunicação Visual</strong> antes de adicionar itens.
-                  </AlertDescription>
-                </Alert>
-              ) : cvItems.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">
-                  Nenhum item de comunicação visual adicionado. Clique em <strong>Item</strong> para começar.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {cvItems.map((it, idx) => (
-                    <CVItemCard
-                      key={it.id}
-                      item={it}
-                      index={idx}
-                      materiais={cvMaterials}
-                      impressoras={cvPrinters}
-                      acabamentos={cvFinishes}
-                      onChange={(updated) =>
-                        setCvItems((p) => p.map((x) => (x.id === it.id ? updated : x)))
-                      }
-                      onRemove={() => {
-                        setCvItems((p) => p.filter((x) => x.id !== it.id));
-                        setCvResults((p) => {
-                          const { [it.id]: _, ...rest } = p;
-                          return rest;
-                        });
-                      }}
-                      onResult={(r) =>
-                        setCvResults((p) => (p[it.id]?.preco_total === r.preco_total && p[it.id]?.custo_total === r.custo_total ? p : { ...p, [it.id]: r }))
-                      }
-                    />
-                  ))}
-                  <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
-                    <span className="text-sm font-medium text-muted-foreground">Subtotal Comunicação Visual</span>
-                    <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
-                  </div>
-                </div>
-              )}
-            </CardContent></Card>
-          )}
-
-          {step === 4 && (
+          {/* ===== STEP 2: Terceirizados ===== */}
+          {step === 2 && (
             <Card><CardContent className="p-5 sm:p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold flex items-center gap-2"><Wrench className="h-5 w-5 text-primary" /> Terceirizados</h2>
@@ -851,6 +896,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                   <Plus className="h-4 w-4" /> Serviço
                 </Button>
               </div>
+              {thirdParty.length === 0 && (
+                <p className="text-sm text-muted-foreground py-6 text-center">Nenhum serviço terceirizado adicionado</p>
+              )}
               {thirdParty.map((t) => (
                 <div key={t.id} className="grid grid-cols-12 gap-2 rounded-lg border bg-card p-3 items-center">
                   <Input value={t.description} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, description: e.target.value } : x))} placeholder="Serviço" className="col-span-5 h-9 text-sm" />
@@ -862,7 +910,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             </CardContent></Card>
           )}
 
-          {step === 5 && (
+          {/* ===== STEP 3: Finalizar ===== */}
+          {step === 3 && (
             <div className="space-y-4">
               <Card><CardContent className="p-5 sm:p-6 space-y-5">
                 <h2 className="text-lg font-semibold">Desconto e Pagamento</h2>
