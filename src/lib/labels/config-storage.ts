@@ -35,6 +35,10 @@ export interface LabelCalcConfig {
   sheetPresetId: string;
   sheetW: number;
   sheetH: number;
+  // Hardware
+  hardwareProfileId: string;
+  /** Quando true, usuário destravou margens manualmente (override do hardware). */
+  marginsUnlocked: boolean;
   // Corte + margens
   cutType: CutType;
   marginTop: number;
