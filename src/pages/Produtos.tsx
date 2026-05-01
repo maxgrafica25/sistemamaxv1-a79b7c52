@@ -150,10 +150,10 @@ export default function Produtos() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? "Editar produto" : "Novo produto"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? "Editar Referência" : "Nova Referência"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Nome canônico *</Label>
+              <Label>Nome Padrão *</Label>
               <Input value={form.nome_canonico} onChange={(e) => setForm({ ...form, nome_canonico: e.target.value })} placeholder="Ex: Panfleto 10x14 Couché 90g" />
             </div>
             <div className="grid grid-cols-3 gap-2">
