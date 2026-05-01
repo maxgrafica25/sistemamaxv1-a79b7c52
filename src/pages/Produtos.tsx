@@ -87,7 +87,7 @@ export default function Produtos() {
 
   const handleDelete = async (p: ProdutoComContagem) => {
     if (p._count > 0) {
-      return toast.error(`Este produto tem ${p._count} site(s) vinculado(s). Desvincule ou unifique antes de excluir.`);
+      return toast.error(`Esta referência tem ${p._count} site(s) vinculado(s). Desvincule ou unifique antes de excluir.`);
     }
     if (!confirm(`Excluir "${p.nome_canonico}"?`)) return;
     const { error } = await supabase.from("produtos_catalogo").delete().eq("id", p.id);
