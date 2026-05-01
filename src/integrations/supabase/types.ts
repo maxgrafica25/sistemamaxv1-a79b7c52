@@ -1990,6 +1990,7 @@ export type Database = {
         Row: {
           description: string
           id: string
+          parent_item_id: string | null
           quote_id: string
           sort_order: number
           step_type: string
@@ -1998,6 +1999,7 @@ export type Database = {
         Insert: {
           description: string
           id?: string
+          parent_item_id?: string | null
           quote_id: string
           sort_order?: number
           step_type?: string
@@ -2006,12 +2008,20 @@ export type Database = {
         Update: {
           description?: string
           id?: string
+          parent_item_id?: string | null
           quote_id?: string
           sort_order?: number
           step_type?: string
           time_minutes?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "quote_labor_steps_parent_item_id_fkey"
+            columns: ["parent_item_id"]
+            isOneToOne: false
+            referencedRelation: "quote_materials"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quote_labor_steps_quote_id_fkey"
             columns: ["quote_id"]
@@ -2027,6 +2037,7 @@ export type Database = {
           approved_value: number | null
           description: string
           id: string
+          parent_item_id: string | null
           quantity: number
           quote_id: string
           sort_order: number
@@ -2038,6 +2049,7 @@ export type Database = {
           approved_value?: number | null
           description: string
           id?: string
+          parent_item_id?: string | null
           quantity?: number
           quote_id: string
           sort_order?: number
@@ -2049,6 +2061,7 @@ export type Database = {
           approved_value?: number | null
           description?: string
           id?: string
+          parent_item_id?: string | null
           quantity?: number
           quote_id?: string
           sort_order?: number
@@ -2056,6 +2069,13 @@ export type Database = {
           unit_price?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "quote_materials_parent_item_id_fkey"
+            columns: ["parent_item_id"]
+            isOneToOne: false
+            referencedRelation: "quote_materials"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quote_materials_quote_id_fkey"
             columns: ["quote_id"]
@@ -2151,6 +2171,7 @@ export type Database = {
           is_locked: boolean
           is_template: boolean
           last_viewed_at: string | null
+          notes: string | null
           options: Json | null
           parent_quote_id: string | null
           payment_method: string | null
@@ -2177,6 +2198,7 @@ export type Database = {
           is_locked?: boolean
           is_template?: boolean
           last_viewed_at?: string | null
+          notes?: string | null
           options?: Json | null
           parent_quote_id?: string | null
           payment_method?: string | null
@@ -2203,6 +2225,7 @@ export type Database = {
           is_locked?: boolean
           is_template?: boolean
           last_viewed_at?: string | null
+          notes?: string | null
           options?: Json | null
           parent_quote_id?: string | null
           payment_method?: string | null
