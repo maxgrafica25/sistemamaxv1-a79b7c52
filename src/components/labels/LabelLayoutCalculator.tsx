@@ -245,9 +245,10 @@ export function LabelLayoutCalculator({
     marginRight: config.marginRight,
     gap: config.gap,
     shape,
+    cutType: config.cutType,
   };
   const layout = computeLabelLayout(layoutInput);
-  const perSheet = layout.best.total;
+  const perSheet = layout.effectivePerSheet;
   const pricing = computeSheetPricing({
     pricePerSheet: config.pricePerSheet,
     qtyRequested: qty,
