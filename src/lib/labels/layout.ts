@@ -16,6 +16,8 @@
 //   - Tipo de corte muda os defaults de margem e gap.
 // =============================================================================
 
+import { buildCornerMarks, markBoundingBox } from "./marks";
+
 // ---------- Formato da etiqueta ---------------------------------------------
 //
 // Para fins de aproveitamento, "redondo" usa o MESMO bounding box quadrado
