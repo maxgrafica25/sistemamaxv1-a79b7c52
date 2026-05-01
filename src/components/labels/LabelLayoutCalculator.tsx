@@ -156,6 +156,10 @@ export function LabelLayoutCalculator({
   const [favPopoverOpen, setFavPopoverOpen] = useState(false);
   const [favName, setFavName] = useState("");
 
+  // ---- Ajuste fino das marcas ARMS (não persiste — por job) ---------------
+  const [marksOffsetY, setMarksOffsetY] = useState(0);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
   // Quando troca de formato, mantém medidas coerentes
   const handleShapeChange = (next: string) => {
     if (!next) return;
