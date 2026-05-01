@@ -58,7 +58,7 @@ import {
 import { toast } from "sonner";
 import { Slider } from "@/components/ui/slider";
 import { LabelCalcSettingsDialog } from "./LabelCalcSettingsDialog";
-import { suggestMarksOffset, buildCornerMarks, MARK_SIZE_MM } from "@/lib/labels/marks";
+import { suggestMarksOffset, buildCornerMarks, markSegments, MARK_ARM_MM } from "@/lib/labels/marks";
 import { generateProductionPDF, downloadPDF } from "@/lib/labels/production-pdf";
 
 const formatBRL = (n: number) =>
