@@ -1243,26 +1243,41 @@ function SheetPreview({
           </g>
         ))}
 
-        {/* Marcas de registro: L (TL/TR, round) + tick (BL/BR, butt) — K100 0.5pt */}
-        {marks.marks.map((m, i) => {
-          const segs = markSegments(m);
-          // Tick = traço horizontal limpo (butt). L = round nas pontas.
-          const cap = m.kind === "tick" ? "butt" : "round";
-          const sw = m.kind === "tick" ? 0.8 : 1;
-          return (
-            <g key={`mark-${i}`} stroke="black" strokeWidth={sw} strokeLinecap={cap} fill="none">
-              {segs.map((s, j) => (
-                <line
-                  key={j}
-                  x1={s.x1 * scale}
-                  y1={s.y1 * scale}
-                  x2={s.x2 * scale}
-                  y2={s.y2 * scale}
-                />
-              ))}
-            </g>
-          );
-        })}
+        {/* Marcas de registro */}
+        {paramMarks ? (
+          // Modo paramétrico: L topo + T base, espessura 2 mm conforme spec
+          <g stroke="black" strokeWidth={Math.max(0.6, 2 * scale)} strokeLinecap="butt" fill="none">
+            {paramMarks.all.map((s, i) => (
+              <line
+                key={`pm-${i}`}
+                x1={s.x1 * scale}
+                y1={s.y1 * scale}
+                x2={s.x2 * scale}
+                y2={s.y2 * scale}
+              />
+            ))}
+          </g>
+        ) : (
+          // Modo legado: marcas ARMS (L superiores + tick inferior)
+          marks.marks.map((m, i) => {
+            const segs = markSegments(m);
+            const cap = m.kind === "tick" ? "butt" : "round";
+            const sw = m.kind === "tick" ? 0.8 : 1;
+            return (
+              <g key={`mark-${i}`} stroke="black" strokeWidth={sw} strokeLinecap={cap} fill="none">
+                {segs.map((s, j) => (
+                  <line
+                    key={j}
+                    x1={s.x1 * scale}
+                    y1={s.y1 * scale}
+                    x2={s.x2 * scale}
+                    y2={s.y2 * scale}
+                  />
+                ))}
+              </g>
+            );
+          })
+        )}
       </svg>
     </div>
   );
