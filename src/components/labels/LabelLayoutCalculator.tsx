@@ -12,6 +12,7 @@ import {
 } from "@/lib/labels/layout";
 import {
   loadConfig,
+  saveConfig,
   addLabelPreset,
   removeLabelPreset,
   type LabelCalcConfig,
