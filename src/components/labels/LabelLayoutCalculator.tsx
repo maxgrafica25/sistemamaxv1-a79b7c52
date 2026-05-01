@@ -52,9 +52,14 @@ import {
   ImagePlus,
   X,
   Save,
+  FileDown,
+  Crosshair,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Slider } from "@/components/ui/slider";
 import { LabelCalcSettingsDialog } from "./LabelCalcSettingsDialog";
+import { suggestMarksOffset, buildCornerMarks, MARK_SIZE_MM } from "@/lib/labels/marks";
+import { generateProductionPDF, downloadPDF } from "@/lib/labels/production-pdf";
 
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
