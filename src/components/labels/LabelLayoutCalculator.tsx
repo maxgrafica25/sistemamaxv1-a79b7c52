@@ -822,6 +822,7 @@ export function LabelLayoutCalculator({
             rowOffsets={layout.rowOffsets}
             cellsPerRow={layout.cellsPerRow}
             marksOffsetY={marksOffsetY}
+            paramLayout={paramLayout}
           />
 
           {/* Slider de ajuste das marcas ARMS */}
