@@ -419,20 +419,32 @@ export function LabelLayoutCalculator({
           {shape === "personalizado" ? (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Largura (mm)</Label>
-                <NumInput value={labelW} onChange={setLabelW} />
+                <Label className="text-xs">Largura ({config.unit})</Label>
+                <NumInput
+                  value={toDisplay(labelW, config.unit)}
+                  step={unitStep(config.unit)}
+                  onChange={(v) => setLabelW(fromDisplay(v, config.unit))}
+                />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Altura (mm)</Label>
-                <NumInput value={labelH} onChange={setLabelH} />
+                <Label className="text-xs">Altura ({config.unit})</Label>
+                <NumInput
+                  value={toDisplay(labelH, config.unit)}
+                  step={unitStep(config.unit)}
+                  onChange={(v) => setLabelH(fromDisplay(v, config.unit))}
+                />
               </div>
             </div>
           ) : (
             <div className="space-y-1.5 sm:max-w-[200px]">
               <Label className="text-xs">
-                {shape === "redondo" ? "Diâmetro (mm)" : "Lado (mm)"}
+                {shape === "redondo" ? `Diâmetro (${config.unit})` : `Lado (${config.unit})`}
               </Label>
-              <NumInput value={labelW} onChange={handleSideChange} />
+              <NumInput
+                value={toDisplay(labelW, config.unit)}
+                step={unitStep(config.unit)}
+                onChange={(v) => handleSideChange(fromDisplay(v, config.unit))}
+              />
             </div>
           )}
 
