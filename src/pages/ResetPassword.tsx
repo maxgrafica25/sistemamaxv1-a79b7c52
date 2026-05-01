@@ -98,11 +98,37 @@ export default function ResetPassword() {
     }
 
     setLoading(true);
+    const { data: userData } = await supabase.auth.getUser();
+    const userEmail = userData.user?.email;
+    const userId = userData.user?.id;
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      toast.error(error.message);
+      const isExpired = /expired|invalid token|jwt/i.test(error.message);
+      const isHibp = /pwned|leaked|compromised/i.test(error.message);
+      if (isExpired) {
+        await logAuthEvent("password_reset_failed_token_expired", {
+          email: userEmail,
+          details: { error: error.message },
+        });
+        toast.error("Link expirado. Solicite um novo link de recuperação.");
+      } else if (isHibp) {
+        toast.error("Esta senha apareceu em vazamentos públicos. Escolha outra mais forte.");
+      } else {
+        toast.error(error.message);
+      }
     } else {
+      // Sucesso — registra log e dispara e-mail de confirmação (se já configurado)
+      await logAuthEvent("password_reset_succeeded", {
+        email: userEmail,
+        details: { user_id: userId },
+      });
+      // Tenta enviar e-mail de confirmação (não bloqueia o sucesso se falhar)
+      try {
+        await supabase.functions.invoke("notify-password-changed");
+      } catch (e) {
+        console.warn("[notify-password-changed] envio falhou", e);
+      }
       setSuccess(true);
       toast.success("Senha redefinida com sucesso!");
       setTimeout(() => navigate("/"), 2000);
