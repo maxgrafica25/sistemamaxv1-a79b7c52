@@ -82,6 +82,8 @@ export interface LayoutInput {
   marginLeft: number;
   marginRight: number;
   gap: number;
+  /** Opcional. Não afeta o cálculo (redondo usa bounding box quadrado). */
+  shape?: LabelShape;
 }
 
 export interface LayoutOption {
