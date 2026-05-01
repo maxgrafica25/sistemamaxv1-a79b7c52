@@ -1,75 +1,51 @@
-## Objetivo
+## Problema
 
-Implementar exatamente o **modelo paramétrico SignMaster** descrito na especificação como um novo modo de layout para etiquetas circulares, garantindo que **folha 32×45 cm + Ø 5 cm = 40 etiquetas** (5 colunas × 8 linhas), com marcas de registro em "L" no topo e "T" embaixo.
+A dica amarela "Reduzindo a etiqueta para X×Ymm cabem +N etiquetas por folha" sumiu para etiquetas redondas. Hoje o cálculo de oportunidade (`findShrinkOpportunity`) está bloqueado quando o modo SignMaster paramétrico está ativo:
 
-## Conflito com o modelo atual (decisão)
+```ts
+const shrink = !isParametric && perSheet > 0 ? findShrinkOpportunity(...) : null;
+```
 
-O sistema hoje usa o perfil **Teneth A3** com margens **7/80/7/7 mm** (80 mm de base por causa da tração dos roletes), o que limita a área útil a 306×363 mm e faz o cálculo retornar 42 etiquetas (6×7) em vez de 40.
+Como o modo paramétrico passou a ser o default, a vendedora deixou de ver a sugestão — exatamente onde ela mais agrega (etiquetas redondas em SRA3).
 
-A nova especificação define **margens 7/7/7/7 mm**, o que produz exatamente 40 etiquetas (5×8) — mas é incompatível com a restrição física da Teneth atual.
+## Solução
 
-**Solução:** adicionar um novo perfil de hardware `signmaster_param` (sem restrição de tração) que aplica as constantes da spec. O perfil Teneth permanece intacto para quem precisar dele. Como a spec representa o caso real de produção do usuário, **será definido como o novo default**.
+Calcular a sugestão usando a fórmula correta para cada modo, sem mexer na UI (o card amarelo já existe e renderiza igual).
 
-## Mudanças
+### 1. Nova função `findSignmasterShrinkOpportunity` em `src/lib/labels/signmaster-spec.ts`
 
-### 1. Novo perfil de hardware + constantes da spec
-- Adicionar perfil `signmaster_param` em `src/lib/labels/hardware.ts` com margens 7/7/7/7 mm e sem `maxUsableW/H`.
-- Tornar `signmaster_param` o `DEFAULT_HARDWARE_ID`.
-- Criar `src/lib/labels/signmaster-spec.ts` com todas as constantes nomeadas: `LABEL_SPACING=3`, `REG_MARK_MARGIN=7`, `MARK_LENGTH=15`, `MARK_THICKNESS=2`, `BOTTOM_MARK_TICK=3`, `VERTICAL_NUDGE=-1` (todos em mm).
+Espelha `findShrinkOpportunity`, mas usa `computeSignmasterLayout` para avaliar cada candidato. Como aqui só faz sentido reduzir o diâmetro (W = H sempre), os candidatos passam a ser:
 
-### 2. Função de layout paramétrico
-Em `src/lib/labels/signmaster-spec.ts`:
-- `computeSignmasterLayout({ sheetW, sheetH, labelDiameter })` retornando `{ labelsPerRow, labelsPerColumn, total, totalGridWidth, totalGridHeight, offsetX, offsetY, positions[] }` aplicando exatamente as fórmulas:
-  - `step = labelDiameter + 3`
-  - `labelsPerRow = floor((sheetW − 14 + 3) / step)`
-  - `labelsPerColumn = floor((sheetH − 14 + 3) / step)`
-  - `offsetY = (sheetH − totalGridHeight) / 2 − 1`
-- `computeSignmasterMarks({ sheetW, sheetH, gridBottom, bottomMarkY? })` retornando os 4 conjuntos de segmentos das marcas (L superiores + T inferiores) já em mm absolutos da folha.
+- −1 mm, −2 mm, −3 mm no diâmetro (incluindo passos de 0,5 mm: −0,5 / −1,5 / −2,5 mm para granularidade fina, já que o usuário trabalha em cm com step 0,1).
 
-### 3. Integração no calculador (LabelLayoutCalculator)
-- Quando `cutType === "plotter_redondo"` E `hardwareProfileId === "signmaster_param"`: usar `computeSignmasterLayout` no lugar de `computeLabelLayout`. Manter `labelW === labelH` (diâmetro).
-- Renderizar o preview SVG das marcas pelos segmentos retornados por `computeSignmasterMarks` (substitui o uso de `buildCornerMarks` neste modo).
-- Mostrar badge "SignMaster paramétrico · 7/7/7/7 mm · gap 3 mm" e a fórmula resumida.
+Critério de seleção idêntico ao genérico: maior `delta` (mais etiquetas/folha); empate → menor encolhimento. Trava de segurança: diâmetro mínimo 5 mm.
 
-### 4. PDF de produção e .plt
-- Em `src/lib/labels/production-pdf.ts`: quando o modo paramétrico estiver ativo, emitir os círculos nas posições `(x + d/2, y + d/2)` calculadas pela spec e desenhar as marcas com espessura 2 mm.
-- Geração da faca `.plt` (1016 DPI / 40 unidades por mm, origem inferior-esquerda, círculos como polígono de 72 segmentos, marcas incluídas, cabeçalho `TB26,...;CT1;` + `;:H A L0 ECN U`): novo módulo `src/lib/labels/plt-export.ts` com botão "Baixar faca .plt" exibido apenas quando o modo paramétrico está ativo.
+Retorna o mesmo formato `ShrinkSuggestion` (`newLabelW`, `newLabelH` iguais ao novo diâmetro, `shrinkW === shrinkH === reduçãoMm`, `delta`, `extraUnitsForSameSheets`).
 
-### 5. Persistência
-- Em `config-storage.ts`: ao detectar config v1 antiga com `hardwareProfileId === "teneth_a3"` e `marginsUnlocked === false`, migrar para `signmaster_param` com margens 7/7/7/7 (a menos que o usuário tenha destravado margens manualmente).
+### 2. Integrar em `LabelLayoutCalculator.tsx`
 
-### 6. Testes
-- Adicionar `src/test/signmaster-spec.test.ts` cobrindo:
-  - 320×450 + Ø50 → 5×8 = 40, `offsetX≈3.2`, `offsetY≈3.2`
-  - 320×450 + Ø30 → 9×13 = 117
-  - 297×420 (A3) + Ø40 → cálculo conferido pela fórmula
-  - Posições do primeiro e último círculo dentro da folha
-  - Marcas L (TL/TR) com vértice em (7,7) e (sheetW−7, 7)
+Trocar a linha 386–388 por:
 
-## Pontos técnicos importantes
+```ts
+const shrink = perSheet > 0
+  ? (isParametric
+      ? findSignmasterShrinkOpportunity({ sheetW: config.sheetW, sheetH: config.sheetH, labelDiameter: labelW }, perSheet, pricing.sheetsNeeded || 1)
+      : findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1))
+  : null;
+```
 
-- **Regra inviolável (spec §8):** nada de margens extras, nada de redimensionar etiqueta. Implementação 1-para-1 com as fórmulas.
-- **Rodapé informativo (spec §6): NÃO implementar** (o usuário pediu para pular).
-- **`bottomMarkY` manual:** input opcional no UI com slider em incrementos de 5 mm; default = `min(gridBottom + 5 mm, sheetH − 10 mm)`.
-- **Compatibilidade com etiquetas quadradas:** o modo paramétrico ativa-se apenas quando `cutType="plotter_redondo"`. Para quadradas/retas o modelo atual (`computeLabelLayout`) continua valendo.
+A função `applyShrink` já cobre o caso redondo (mantém shape "redondo" porque W === H).
 
-## Arquivos novos
-- `src/lib/labels/signmaster-spec.ts` — constantes + cálculo de layout + cálculo de marcas
-- `src/lib/labels/plt-export.ts` — gerador de faca .plt
-- `src/test/signmaster-spec.test.ts` — testes da nova fórmula
+### 3. Teste
 
-## Arquivos editados
-- `src/lib/labels/hardware.ts` — novo perfil + novo default
-- `src/lib/labels/config-storage.ts` — migração de perfil
-- `src/components/labels/LabelLayoutCalculator.tsx` — branch paramétrico + preview de marcas L/T + botão .plt
-- `src/lib/labels/production-pdf.ts` — usa posições/marcas paramétricas no modo SignMaster
+Adicionar caso em `src/test/signmaster-spec.test.ts`:
 
-## Validação esperada após implementação
+- SRA3 320×450 + Ø 50 mm → 40 etiquetas. Reduzindo para Ø 49 mm (ou 48), espera-se ganho ≥ 8 etiquetas (próxima coluna entra). Validar que `findSignmasterShrinkOpportunity` retorna sugestão não-nula com `delta > 0`.
 
-| Folha (cm) | Ø (cm) | Esperado | Atual (bug) |
-|---|---|---|---|
-| 32 × 45 | 5,0 | **40** (5×8) | 42 |
-| 32 × 45 | 4,0 | 70 (7×10) | — |
-| 32 × 45 | 3,0 | 117 (9×13) | — |
+## Arquivos
 
-Aprova?
+- editar `src/lib/labels/signmaster-spec.ts` — adicionar `findSignmasterShrinkOpportunity`
+- editar `src/components/labels/LabelLayoutCalculator.tsx` — usar a nova função no modo paramétrico (linhas 386–388 e import)
+- editar `src/test/signmaster-spec.test.ts` — cobertura da nova função
+
+Sem mudanças visuais; o card amarelo "Dica de aproveitamento" volta a aparecer automaticamente. Aprova?
