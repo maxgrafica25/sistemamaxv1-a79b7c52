@@ -46,8 +46,8 @@ export interface CutDefaults {
 
 export const CUT_DEFAULTS: Record<CutType, CutDefaults> = {
   corte_reto: { marginTop: 5, marginBottom: 5, marginLeft: 5, marginRight: 5, gap: 0 },
-  plotter_quadrado: { marginTop: 10, marginBottom: 10, marginLeft: 5, marginRight: 5, gap: 2 },
-  plotter_redondo: { marginTop: 10, marginBottom: 10, marginLeft: 5, marginRight: 5, gap: 3 },
+  plotter_quadrado: { marginTop: 10, marginBottom: 10, marginLeft: 5, marginRight: 5, gap: 1 },
+  plotter_redondo: { marginTop: 10, marginBottom: 10, marginLeft: 5, marginRight: 5, gap: 1 },
 };
 
 export const CUT_LABELS: Record<CutType, string> = {

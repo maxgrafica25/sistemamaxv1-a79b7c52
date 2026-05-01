@@ -61,6 +61,7 @@ import { Slider } from "@/components/ui/slider";
 import { LabelCalcSettingsDialog } from "./LabelCalcSettingsDialog";
 import { suggestMarksOffset, buildCornerMarks, markSegments, MARK_ARM_MM } from "@/lib/labels/marks";
 import { generateProductionPDF, downloadPDF } from "@/lib/labels/production-pdf";
+import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
 
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -235,7 +236,18 @@ export function LabelLayoutCalculator({
     if (!s) return;
     const next = saveConfig({ sheetPresetId: s.id, sheetW: s.w, sheetH: s.h });
     setConfig(next);
+    setMarksOffsetY(0);
+    toast.success(`Folha alterada para ${s.label} — cálculo atualizado`);
   };
+
+  // Mapeia o tamanho da folha para a chave usada nas tabelas de preço.
+  const sheetSizeKey = useMemo(() => {
+    const m = QUICK_SHEETS.find((x) => x.w === config.sheetW && x.h === config.sheetH);
+    return m?.id ?? "SRA3";
+  }, [config.sheetW, config.sheetH]);
+
+  const folhaPricing = useFolhaPricing(sheetSizeKey);
+  const pricePerSheet = folhaPricing.total;
 
   // ---- Imagem upload -------------------------------------------------------
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -291,11 +303,11 @@ export function LabelLayoutCalculator({
   const layout = computeLabelLayout(layoutInput);
   const perSheet = layout.effectivePerSheet;
   const pricing = computeSheetPricing({
-    pricePerSheet: config.pricePerSheet,
+    pricePerSheet,
     qtyRequested: qty,
     perSheet,
   });
-  const ladder = buildAnchoringLadder(qty, perSheet, config.pricePerSheet);
+  const ladder = buildAnchoringLadder(qty, perSheet, pricePerSheet);
   const shrink = perSheet > 0
     ? findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1)
     : null;
@@ -305,7 +317,6 @@ export function LabelLayoutCalculator({
     setLabelW(shrink.newLabelW);
     setLabelH(shrink.newLabelH);
     if (shape === "quadrado" || shape === "redondo") {
-      // Se o shrink quebra simetria, vira personalizado
       if (shrink.newLabelW !== shrink.newLabelH) setShape("personalizado");
     }
   };
@@ -318,7 +329,7 @@ export function LabelLayoutCalculator({
 
   // ---- WhatsApp ------------------------------------------------------------
   const whatsappText = useMemo(() => {
-    if (config.pricePerSheet <= 0 || qty <= 0 || perSheet <= 0) return "";
+    if (pricePerSheet <= 0 || qty <= 0 || perSheet <= 0) return "";
     return formatWhatsAppQuote({
       qty,
       shape,
@@ -327,7 +338,8 @@ export function LabelLayoutCalculator({
       pricing,
       ladder,
     });
-  }, [config.pricePerSheet, qty, perSheet, shape, labelW, labelH, pricing, ladder]);
+  }, [pricePerSheet, qty, perSheet, shape, labelW, labelH, pricing, ladder]);
+
 
   const handleCopyWhats = async () => {
     if (!whatsappText) return;
@@ -618,13 +630,8 @@ export function LabelLayoutCalculator({
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
-          aria-label="Alterar configurações de folha, corte e preço"
-          className={
-            "w-full text-left rounded-md border px-3 py-2.5 text-xs flex items-center justify-between gap-3 transition-colors hover:bg-muted/50 " +
-            (config.pricePerSheet <= 0
-              ? "border-amber-400/60 bg-amber-50/60 dark:bg-amber-950/20"
-              : "border-border bg-card")
-          }
+          aria-label="Alterar configurações de folha e corte"
+          className="w-full text-left rounded-md border border-border bg-card px-3 py-2.5 text-xs flex items-center justify-between gap-3 transition-colors hover:bg-muted/50"
         >
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
             <span>
@@ -634,16 +641,6 @@ export function LabelLayoutCalculator({
             <span>
               <span className="text-muted-foreground">Corte:</span>{" "}
               <strong>{CUT_LABELS[config.cutType]}</strong>
-            </span>
-            <span>
-              <span className="text-muted-foreground">Preço:</span>{" "}
-              {config.pricePerSheet > 0 ? (
-                <strong>{formatBRL(config.pricePerSheet)}/folha</strong>
-              ) : (
-                <strong className="text-amber-700 dark:text-amber-400">
-                  configurar →
-                </strong>
-              )}
             </span>
           </span>
           <span className="flex items-center gap-1 text-primary shrink-0">

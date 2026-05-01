@@ -940,6 +940,42 @@ export type Database = {
         }
         Relationships: []
       }
+      finishings_price_items: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          price_per_sheet: number
+          size: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          price_per_sheet?: number
+          size: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          price_per_sheet?: number
+          size?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       gcal_sync_queue: {
         Row: {
           attempts: number
