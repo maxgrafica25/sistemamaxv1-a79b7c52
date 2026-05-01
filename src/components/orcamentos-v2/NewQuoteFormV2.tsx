@@ -741,9 +741,49 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                   <Label>Cliente</Label>
                   <ClientCombobox
                     value={{ id: clientId, nome: client }}
-                    onChange={(v) => { setClientId(v.id); setClient(v.nome); setClientPhone(v.telefone ?? null); }}
+                    onChange={(v) => {
+                      setClientId(v.id);
+                      setClient(v.nome);
+                      setClientPhone(v.telefone ?? null);
+                      setShowClientData(false);
+                      setShowLastSales(false);
+                    }}
                   />
                 </div>
+                {clientId && (
+                  <div className="md:col-span-2 -mt-2 space-y-2">
+                    <div className="flex items-center gap-4 text-sm flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setShowClientData((v) => !v)}
+                        className="text-primary hover:underline inline-flex items-center gap-1"
+                      >
+                        <User className="h-3.5 w-3.5" />
+                        {showClientData ? "Ocultar dados do cliente" : "Dados do cliente"}
+                        {showClientData ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowLastSales((v) => !v)}
+                        className="text-primary hover:underline inline-flex items-center gap-1"
+                      >
+                        <History className="h-3.5 w-3.5" />
+                        {showLastSales ? "Ocultar últimas vendas" : "Ver últimas vendas"}
+                        {showLastSales ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      </button>
+                    </div>
+                    {showClientData && (
+                      <ClientDetailsPanel
+                        clientId={clientId}
+                        onUpdated={(nome, tel) => {
+                          setClient(nome);
+                          setClientPhone(tel);
+                        }}
+                      />
+                    )}
+                    {showLastSales && <ClientLastSalesPanel clientId={clientId} />}
+                  </div>
+                )}
                 <div className="space-y-2 md:col-span-2"><Label>Produto / Serviço</Label><Input value={product} onChange={(e) => setProduct(e.target.value)} placeholder="Ex: Cartões de visita" /></div>
                 <div className="space-y-2"><Label>Validade (dias)</Label><Input type="number" value={validity} onChange={(e) => setValidity(e.target.value)} /></div>
                 <div className="space-y-2"><Label>Margem de lucro (%)</Label><Input type="number" step="0.01" value={profitMargin} onChange={(e) => setProfitMargin(e.target.value)} /></div>
