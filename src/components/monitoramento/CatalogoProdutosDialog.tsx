@@ -150,7 +150,7 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
   };
 
   const handleUnlink = async (site: SiteRow) => {
-    if (!confirm(`Desvincular "${site.nome_produto}" deste produto do catálogo? Será criado um novo produto canônico para ele.`)) return;
+    if (!confirm(`Desvincular "${site.nome_produto}" desta referência? Será criada uma nova referência para ele.`)) return;
     setBusy(true);
     try {
       const newId = await findOrCreateCatalogo(site.nome_produto + " (variante)");
