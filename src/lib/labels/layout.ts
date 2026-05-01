@@ -223,8 +223,20 @@ export const computeLabelLayout = (input: LayoutInput): LayoutResult => {
   const usableArea = usableW * usableH;
   const utilizationPct = usableArea > 0 ? (usedArea / usableArea) * 100 : 0;
 
-  const reservedSlots = input.cutType
-    ? computeReservedSlots(input.cutType, best.cols, best.rows)
+  const labelWBest = best.rotated ? labelH : labelW;
+  const labelHBest = best.rotated ? labelW : labelH;
+
+  const reservedSlots = input.cutType && best.cols > 0 && best.rows > 0
+    ? computeReservedSlots({
+        cutType: input.cutType,
+        cols: best.cols,
+        rows: best.rows,
+        labelW: labelWBest,
+        labelH: labelHBest,
+        gap,
+        marginTop, marginBottom, marginLeft, marginRight,
+        sheetW, sheetH,
+      })
     : [];
 
   // Conta reservas por linha
