@@ -9,9 +9,12 @@ import { Separator } from "@/components/ui/separator";
 import {
   Plus, X, Package, Wrench, ChevronLeft, ChevronRight, Check, User,
   FileText, Printer, Loader2, Link2, Lock, AlertTriangle, Megaphone, Layers,
+  History, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { CVItemCard, type CVItemState } from "@/components/orcamentos-v2/CVItemCard";
 import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
+import { ClientDetailsPanel } from "@/components/orcamentos-v2/ClientDetailsPanel";
+import { ClientLastSalesPanel } from "@/components/orcamentos-v2/ClientLastSalesPanel";
 import type { CVMaterial, CVPrinter, CVFinish, CVCalcResult } from "@/lib/cv-pricing/engine";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
