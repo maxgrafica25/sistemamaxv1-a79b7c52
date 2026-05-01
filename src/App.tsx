@@ -35,6 +35,8 @@ import Usuarios from "./pages/Usuarios";
 import NewQuoteV2 from "./pages/orcamentos-v2/NewQuoteV2";
 import EditQuoteV2 from "./pages/orcamentos-v2/EditQuoteV2";
 import ClientViewer from "./pages/orcamentos-v2/ClientViewer";
+import Pedidos from "./pages/Pedidos";
+import ContasReceber from "./pages/ContasReceber";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +58,8 @@ const App = () => (
                 <Route path="/p/:quoteNumber" element={<ClientViewer />} />
                 <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                   <Route path="/" element={<Dashboard />} />
+                  <Route path="/pedidos" element={<Pedidos />} />
+                  <Route path="/financeiro/receber" element={<ContasReceber />} />
                   <Route path="/orcamentos" element={<Orcamentos />} />
                   <Route path="/orcamentos/novo" element={<NewQuote />} />
                   <Route path="/orcamentos-v2" element={<OrcamentosV2 />} />
