@@ -109,15 +109,21 @@ export interface LayoutResult {
   utilizationPct: number;
   /** Slots removidos para acomodar marcas de registro. */
   reservedSlots: ReservedSlot[];
-  /** Etiquetas vendáveis = best.total - reservedSlots.length (clampado a ≥0). */
+  /** Quantas etiquetas vendáveis em cada linha (após reservas). */
+  cellsPerRow: number[];
+  /** Offset X (mm) do início de cada linha (centralização das linhas reservadas). */
+  rowOffsets: number[];
+  /** Etiquetas vendáveis = soma de cellsPerRow. */
   effectivePerSheet: number;
 }
 
 /**
- * Slots reservados para marcas de registro (ARMS) por tipo de corte.
- * - plotter_redondo: reserva [0,0]
- * - corte_reto / plotter_quadrado: reserva [0,0] e [cols-1, rows-1]
- * - se cols/rows < 1, retorna vazio
+ * Reservas por FAIXA, conforme padrão SignMaster/Teneth observado:
+ * - plotter_redondo: reserva 1 slot na ponta esquerda da linha 0
+ * - corte_reto / plotter_quadrado: reserva 1 slot em CADA ponta da linha 0
+ *   E 1 slot em cada ponta da última linha
+ *
+ * Retorna a lista de slots removidos (para uso no preview).
  */
 export function computeReservedSlots(
   cutType: CutType,
@@ -125,13 +131,24 @@ export function computeReservedSlots(
   rows: number,
 ): ReservedSlot[] {
   if (cols <= 0 || rows <= 0) return [];
+  const slots: ReservedSlot[] = [];
+  const push = (c: number, r: number) => {
+    if (c < 0 || c >= cols || r < 0 || r >= rows) return;
+    if (slots.some((s) => s.col === c && s.row === r)) return;
+    slots.push({ col: c, row: r });
+  };
+
   if (cutType === "plotter_redondo") {
-    return [{ col: 0, row: 0 }];
+    push(0, 0);
+    return slots;
   }
-  // corte_reto + plotter_quadrado
-  const slots: ReservedSlot[] = [{ col: 0, row: 0 }];
-  const last = { col: cols - 1, row: rows - 1 };
-  if (last.col !== 0 || last.row !== 0) slots.push(last);
+  // corte_reto + plotter_quadrado: faixa nas duas pontas da 1ª e da última linha
+  push(0, 0);
+  push(cols - 1, 0);
+  if (rows > 1) {
+    push(0, rows - 1);
+    push(cols - 1, rows - 1);
+  }
   return slots;
 }
 
@@ -170,7 +187,35 @@ export const computeLabelLayout = (input: LayoutInput): LayoutResult => {
   const reservedSlots = input.cutType
     ? computeReservedSlots(input.cutType, best.cols, best.rows)
     : [];
-  const effectivePerSheet = Math.max(0, best.total - reservedSlots.length);
+
+  // Conta reservas por linha
+  const reservedByRow = new Map<number, number>();
+  for (const s of reservedSlots) {
+    reservedByRow.set(s.row, (reservedByRow.get(s.row) ?? 0) + s.col >= 0 ? 1 : 0);
+    reservedByRow.set(s.row, (reservedByRow.get(s.row) ?? 0));
+  }
+  // (correção do count acima)
+  const counts = new Map<number, number>();
+  for (const s of reservedSlots) counts.set(s.row, (counts.get(s.row) ?? 0) + 1);
+
+  // Largura de uma etiqueta na orientação escolhida
+  const labelWBest = best.rotated ? labelH : labelW;
+
+  const cellsPerRow: number[] = [];
+  const rowOffsets: number[] = [];
+  for (let r = 0; r < best.rows; r++) {
+    const removed = counts.get(r) ?? 0;
+    const cells = Math.max(0, best.cols - removed);
+    cellsPerRow.push(cells);
+    if (removed === 0 || cells === 0) {
+      rowOffsets.push(marginLeft);
+    } else {
+      const occupied = cells * labelWBest + (cells - 1) * gap;
+      const offset = marginLeft + Math.max(0, (usableW - occupied) / 2);
+      rowOffsets.push(offset);
+    }
+  }
+  const effectivePerSheet = cellsPerRow.reduce((a, b) => a + b, 0);
 
   return {
     best,
@@ -180,6 +225,8 @@ export const computeLabelLayout = (input: LayoutInput): LayoutResult => {
     usableH,
     utilizationPct,
     reservedSlots,
+    cellsPerRow,
+    rowOffsets,
     effectivePerSheet,
   };
 };
