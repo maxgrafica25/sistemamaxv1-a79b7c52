@@ -385,7 +385,7 @@ export function LabelLayoutCalculator({
               <Popover open={favPopoverOpen} onOpenChange={setFavPopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className="text-xs">
-                    <StarPlus className="h-3.5 w-3.5 mr-1.5" />
+                    <Plus className="h-3.5 w-3.5 mr-1.5" />
                     Salvar como favorito
                   </Button>
                 </PopoverTrigger>
