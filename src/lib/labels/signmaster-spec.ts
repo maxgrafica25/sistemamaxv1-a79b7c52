@@ -212,7 +212,7 @@ export const findSignmasterShrinkOpportunity = (
   originalPerSheet: number,
   sheetsForOriginal: number,
 ): SignmasterShrinkSuggestion | null => {
-  const candidates = [0.5, 1, 1.5, 2, 2.5, 3];
+  const candidates = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 
   let best: SignmasterShrinkSuggestion | null = null;
   for (const d of candidates) {
