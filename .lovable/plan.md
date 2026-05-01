@@ -1,148 +1,174 @@
 
-# Reforço de Segurança — Itens 2 e 4 via SendGrid
+# Calculadora de Etiquetas — Refatoração Completa (Final)
 
-Os itens 1 (HIBP + senha mínima 8) e 3 (audit logs) já estão entregues. Este plano cobre **apenas** os itens 2 e 4, agora usando **SendGrid** em vez da infra de e-mail do Lovable Cloud.
-
----
-
-## Pré-requisitos do seu lado (antes de eu começar)
-
-1. Conta no SendGrid criada (free tier, 100 e-mails/dia).
-2. **Domain Authentication** configurada no SendGrid para `seudominio.com` (Settings → Sender Authentication → Authenticate Your Domain). Você adiciona os 3 CNAMEs que o SendGrid pede no seu provedor de DNS e aguarda verificação.
-3. **Single Sender** ou **Sender Identity** verificada para o e-mail remetente (ex.: `seguranca@seudominio.com` ou `no-reply@seudominio.com`).
-4. **API Key** com permissão **Mail Send → Full Access** gerada (Settings → API Keys → Create API Key → Restricted Access).
-
-Quando tiver isso pronto, me avisa o e-mail remetente que você quer usar e cola a API Key — eu já preparo o secret prompt.
+Versão final do plano com todos os adendos: split de UI, formato redondo, presets, dialog de configurações, WhatsApp copy e upload de arte com **enquadramento `contain`** (preserva proporção, centraliza, expõe sobras).
 
 ---
 
-## Arquitetura
+## 1. `src/lib/labels/layout.ts`
 
-```text
-ResetPassword.tsx  ──► supabase.functions.invoke('notify-password-changed')
-                                    │
-                                    ▼
-              ┌──────────────────────────────────────┐
-              │  edge function notify-password-changed │
-              │  1. Valida JWT do usuário             │
-              │  2. Resolve email/nome/IP/UA          │
-              │  3. Renderiza HTML do template        │
-              │  4. POST https://api.sendgrid.com/v3/mail/send │
-              │  5. Se admin: busca outros admins +   │
-              │     dispara segundo template          │
-              │  6. Grava audit_logs                  │
-              └──────────────────────────────────────┘
+```ts
+export type LabelShape = "quadrado" | "redondo" | "personalizado";
+export const SHAPE_LABELS: Record<LabelShape, string>;
 ```
 
----
+- `LayoutInput.shape?: LabelShape` (opcional, default `quadrado`).
+- Matemática inalterada — redondo usa bounding box quadrado. Comentário explicando.
 
-## Edge Function `notify-password-changed`
+## 2. Novo: `src/lib/labels/config-storage.ts`
 
-**Arquivo:** `supabase/functions/notify-password-changed/index.ts`
+Persistência única em `labelCalc:config:v1`:
 
-**Fluxo:**
-1. Lê `Authorization` header → valida JWT → obtém `user_id`, `email`.
-2. Busca `profiles` (display_name, role, is_active) via service-role client.
-3. Captura IP do header `x-forwarded-for` e `user-agent`.
-4. Renderiza HTML do template `password-changed` (string template literal — sem React Email; SendGrid quer HTML puro).
-5. Chama SendGrid:
-   ```
-   POST https://api.sendgrid.com/v3/mail/send
-   Authorization: Bearer ${SENDGRID_API_KEY}
-   Content-Type: application/json
-   ```
-   com payload `{ personalizations, from, subject, content }`.
-6. Se `is_profile_admin(user_id) === true`:
-   - Busca `profiles` com `role='admin' AND is_active=true AND user_id <> :resetter` + `auth.users.email` via service role.
-   - Para cada admin, dispara o template `admin-password-alert` (loop sequencial, com `Promise.allSettled` para não derrubar tudo se um falhar).
-   - Grava `admin_password_reset_notified_others` em `audit_logs` com a lista de e-mails notificados (mascarados).
-7. Sempre retorna 200 mesmo se o e-mail falhar (não bloqueia o reset). Erros são logados em `audit_logs` como `password_reset_email_failed` com `details.provider = 'sendgrid'` + status code.
-
-**Configuração:**
-- Não precisa de bloco em `supabase/config.toml` (verify_jwt default = true para esta função, já que validamos identidade do usuário).
-- CORS headers padrão.
-
----
-
-## Templates (HTML strings, embutidos na função)
-
-Como SendGrid recebe HTML puro no campo `content`, vou manter os templates como **funções TypeScript que retornam string** dentro de `supabase/functions/notify-password-changed/templates.ts`. Não precisa de React Email aqui.
-
-### `password-changed.ts`
-- **Assunto:** `Sua senha foi alterada — Sistema MaxV`
-- **Conteúdo:**
-  - Saudação com `display_name`
-  - Data/hora formatada em `America/Sao_Paulo`
-  - IP + User-Agent resumido
-  - Botão CTA "Não fui eu — falar com suporte" (mailto configurável)
-  - Aviso "Se foi você, ignore este e-mail."
-- **Estilo:** branding roxo (cor primária do projeto), inline CSS, fundo branco, container 600px (compatível com clientes de e-mail).
-
-### `admin-password-alert.ts`
-- **Assunto:** `Alerta de Segurança — Senha de admin alterada`
-- **Conteúdo:**
-  - Nome do admin que trocou
-  - Data/hora, IP, User-Agent
-  - Botão "Revisar atividade" → link para `${SITE_URL}/auditoria`
-- Mesmo estilo visual.
-
-`SITE_URL` virá de uma constante baseada em `Deno.env.get('SUPABASE_URL')` ou de um secret opcional `APP_PUBLIC_URL` (recomendo o segundo — me confirma a URL pública que devo usar: `https://sistemamaxv1.lovable.app` ou seu domínio próprio?).
-
----
-
-## Secrets necessários
-
-Vou solicitar via `add_secret`:
-- **`SENDGRID_API_KEY`** — API Key do SendGrid (Restricted, Mail Send Full Access).
-- **`SENDGRID_FROM_EMAIL`** — e-mail remetente verificado (ex.: `no-reply@seudominio.com`).
-- **`SENDGRID_FROM_NAME`** — nome do remetente (default: `Sistema MaxV`).
-- **`APP_PUBLIC_URL`** *(opcional)* — URL base para o link de auditoria. Se não definir, uso `https://sistemamaxv1.lovable.app`.
-
----
-
-## Audit logs adicionais
-
-Adiciono no helper `src/lib/audit.ts` (ou direto na edge function) os seguintes eventos:
-- `password_reset_email_sent` — quando o SendGrid retorna 202.
-- `password_reset_email_failed` — quando retorna erro (com status + body resumido).
-- `admin_password_reset_notified_others` — com `details.notified_admins = ['ad***@x.com', ...]`.
-
-A migration que relaxou a policy de INSERT em `audit_logs` para `entity_type='auth' AND action LIKE 'password_reset_%'` **já cobre esses novos eventos**. Não preciso de nova migration.
-
-> Nota: para `admin_password_reset_notified_others` (que não começa com `password_reset_`), vou usar o prefixo `password_reset_admin_notified` para encaixar na policy existente.
-
----
-
-## Frontend
-
-**Nenhuma mudança em `ResetPassword.tsx`** — a chamada `supabase.functions.invoke("notify-password-changed")` já foi adicionada no item 1 e funciona com try/catch silencioso. Quando a função for deployada, ela passa a responder de verdade.
-
----
-
-## Arquivos que vou criar/editar
-
-```text
-supabase/functions/notify-password-changed/index.ts        [novo]
-supabase/functions/notify-password-changed/templates.ts    [novo]
-src/lib/audit.ts                                           [+ 2 helpers de log opcionais]
+```ts
+interface CustomSheetPreset { id; label; width; height }
+interface LabelPreset { id; label; shape; width; height }
+interface LabelCalcConfig {
+  sheetPresetId; sheetW; sheetH;
+  cutType; marginTop; marginBottom; marginLeft; marginRight; gap;
+  pricePerSheet;
+  customSheets: CustomSheetPreset[];
+  labelPresets: LabelPreset[];
+}
 ```
 
+API: `loadConfig`, `saveConfig`, `addLabelPreset`, `removeLabelPreset`, `addCustomSheet`, `removeCustomSheet`. Migra silenciosamente `labelCalc:lastPricePerSheet`. Seeda 3 favoritos (Lacre 40×40, Validade 20×20, Redonda Ø50) na 1ª execução.
+
+## 3. Novo: `src/lib/labels/whatsapp.ts`
+
+Função pura `formatWhatsAppQuote` produzindo:
+
+```
+Olá! Segue orçamento de etiquetas:
+
+📋 Pedido: 100 un · Quadrado 50×50mm
+💰 Total: R$ 15,00 (R$ 0,15/un)
+
+✨ Sugestão: 1.000 un por R$ 90,00 (R$ 0,09/un — 40% mais barato)
+```
+
+Redondo → `Redonda Ø50mm`. Personalizado → `50×30mm`. Tier 3 só entra se existe e `unitDeltaPct < 0`.
+
+## 4. Novo: `src/lib/labels/image-fit.ts`
+
+Helper puro pra calcular o enquadramento `contain` da imagem dentro do bounding box da etiqueta:
+
+```ts
+export function fitContain(
+  imgW: number, imgH: number,
+  boxW: number, boxH: number,
+): { width: number; height: number; offsetX: number; offsetY: number } {
+  const scale = Math.min(boxW / imgW, boxH / imgH);
+  const width = imgW * scale;
+  const height = imgH * scale;
+  return {
+    width, height,
+    offsetX: (boxW - width) / 2,   // centraliza horizontal
+    offsetY: (boxH - height) / 2,  // centraliza vertical
+  };
+}
+```
+
+Testado isoladamente — o componente só consome.
+
+## 5. Novo: `src/components/labels/LabelCalcSettingsDialog.tsx`
+
+Dialog com 4 seções empilhadas:
+
+1. **Folha** — Select com presets fixos (A4/A3/SRA3/Carta) + customs. Botão `+ Cadastrar nova folha` (mini-form inline). Lixeira ao lado de cada custom.
+2. **Tipo de corte** — ToggleGroup; trocar aplica defaults de margens.
+3. **Margens direcionais + gap** — 5 campos + botão "Restaurar padrões deste corte".
+4. **Preço da folha de produção** — campo R$.
+
+Validação para Salvar: `sheetW>0 && sheetH>0 && marginTop+marginBottom<sheetH && marginLeft+marginRight<sheetW`.
+
+## 6. Refatoração `LabelLayoutCalculator.tsx`
+
+### Coluna esquerda — card único "Simulador"
+
+- **Formato:** ToggleGroup `[Quadrado] [Redondo] [Personalizado]`.
+- **⭐ Carregar favorito** — Select compacto com `labelPresets`.
+- **Tamanho:** quadrado/redondo → 1 campo (Lado/Diâmetro) que atualiza W e H juntos. Personalizado → 2 campos.
+- **Quantidade.**
+- **💾 Salvar como favorito** → popover com input → `addLabelPreset` + toast.
+- **🖼️ Arte da etiqueta (opcional)** — disponível **nos 3 formatos**:
+  - `<input type="file" accept="image/png,image/jpeg,image/webp">`.
+  - Validação ≤ 2 MB.
+  - Convertido para data URL (`FileReader.readAsDataURL`) — **só em memória**, não persiste.
+  - Pré-leitura das dimensões naturais da imagem (`new Image(); .onload → naturalWidth/naturalHeight`) para alimentar `fitContain`.
+  - Botão "🗑️ Remover" + nome do arquivo.
+  - Disclaimer: *"A imagem é só para visualização — o cálculo usa apenas as medidas informadas."*
+  - Aviso âmbar quando a proporção da imagem **diverge** da proporção da etiqueta em mais de ~5%: *"⚠ Sua arte tem proporção diferente da etiqueta — vai sobrar espaço nas laterais (ou topo/base)."*
+
+### Faixa-resumo (abaixo do card)
+
+```
+Folha A4 (210×297) · Corte reto · R$ 15,00/folha   [⚙ Configurações]
+```
+
+Botão abre o `LabelCalcSettingsDialog`. Se `pricePerSheet === 0`, faixa em destaque âmbar.
+
+### Coluna direita — Preview SVG (a parte sensível)
+
+Refatorar `SheetPreview` para suportar shape + imagem com `contain`:
+
+- `quadrado` / `personalizado` → `<rect>` por etiqueta.
+- `redondo` → `<circle>` por etiqueta.
+
+**Renderização da imagem (contain + centralizada):**
+- Se há `imageDataUrl`:
+  1. Calcula `fit = fitContain(imgNaturalW, imgNaturalH, labelW, labelH)`.
+  2. Para **cada** etiqueta na grade (cell em coordenada `cx, cy`):
+     - Renderiza um `<g>` posicionado em `(cx + fit.offsetX, cy + fit.offsetY)`.
+     - Dentro dele, um `<image href={dataUrl} width={fit.width} height={fit.height}>` — **sem** `preserveAspectRatio="slice"`. Como já estamos passando largura/altura calculadas pelo `fitContain`, a imagem entra exatamente proporcional, sem corte e sem distorção.
+     - Para `redondo`: aplicar `clipPath` circular único reaproveitado via `<defs><clipPath id="clip-round-${i,j}"><circle .../></clipPath></defs>` — isso esconde a parte da imagem que sobrasse fora do círculo (caso a sobra do `contain` caia em região canto). O bounding box do `contain` é retangular; sem clip, o canto da imagem aparece "fora" do círculo. Com clip, fica perfeito.
+  3. **Forma da etiqueta (rect/circle)** continua renderizada *atrás* da imagem com fill leve (`fill-primary/5`) — assim, quando a arte tem proporção diferente, o usuário vê visualmente as "sobras" como áreas claras dentro do contorno da etiqueta. **Esse é o alerta visual exato que você pediu.**
+- Se não há imagem: renderiza só a forma com fill leve atual.
+
+**Importante:** `preserveAspectRatio` do `<svg>` raiz não é alterado — a folha continua escalando proporcionalmente no container.
+
+### Pricing principal — adições
+
+Botões lado a lado:
+- `📋 Copiar para WhatsApp` — `navigator.clipboard.writeText` + toast.
+- `↗ Abrir WhatsApp` — `window.open("https://wa.me/?text=" + encodeURIComponent(text))`.
+
+Otimizador (Lâmpada) e Ancoragem permanecem inalterados.
+
+## 7. Testes — `src/test/labels-layout.test.ts`
+
+- `loadConfig` retorna defaults com localStorage vazio.
+- `saveConfig` faz merge sem perder `labelPresets`.
+- Migração da chave antiga `labelCalc:lastPricePerSheet`.
+- `addLabelPreset` / `removeLabelPreset`.
+- `formatWhatsAppQuote` nos 3 formatos + omite tier 3 quando ausente.
+- Redondo produz mesmo `perSheet` que quadrado para mesmo lado.
+- **`fitContain`**:
+  - imagem quadrada em box quadrado → preenche tudo, offset zero.
+  - imagem 2:1 em box 1:1 → largura = boxW, altura = boxW/2, `offsetY > 0`, `offsetX === 0`.
+  - imagem 1:2 em box 1:1 → altura = boxH, largura = boxH/2, `offsetX > 0`, `offsetY === 0`.
+  - imagem maior que o box → escala pra baixo proporcionalmente.
+
+## 8. Arquivos tocados
+
+```text
+src/lib/labels/layout.ts                             [+ LabelShape, shape em LayoutInput]
+src/lib/labels/config-storage.ts                     [novo]
+src/lib/labels/whatsapp.ts                           [novo]
+src/lib/labels/image-fit.ts                          [novo]
+src/components/labels/LabelCalcSettingsDialog.tsx    [novo]
+src/components/labels/LabelLayoutCalculator.tsx      [refatorado + upload + SVG contain + clip redondo]
+src/test/labels-layout.test.ts                       [+ casos novos]
+```
+
+Sem mudanças em: `LabelLayoutDialog.tsx`, `CalculadoraEtiquetas.tsx`, `PrintingItemEditor.tsx` (prop `onApply` preservada).
+
 ---
 
-## Fora do escopo (não muda)
+## 9. Suposições que vou adotar (me corrija antes do "manda bala")
 
-- Item 1 (HIBP + senha mínima 8): **já entregue**.
-- Item 3 (audit logs base): **já entregue**.
-- Item 5 (rate limiting custom): permanece fora.
-- Infra de e-mail do Lovable Cloud: **não vou ativar** — você escolheu SendGrid.
+- Upload disponível **nos 3 formatos** (não só personalizado).
+- Limite de **2 MB** por imagem.
+- **PDF de gabarito fica para uma segunda rodada** (mantém este escopo enxuto).
+- Aviso de proporção divergente aparece **automaticamente** quando |razão_arte − razão_etiqueta| > 5%.
 
----
-
-## Próximo passo
-
-Me responde com:
-1. ✅ "Pode prosseguir, já tenho a API Key" → eu inicio pedindo o secret `SENDGRID_API_KEY` (e os demais).
-2. 📧 O e-mail remetente verificado no SendGrid.
-3. 🔗 Confirma se a URL de auditoria deve ser `https://sistemamaxv1.lovable.app/auditoria` ou outra.
-
-Aprovação do plano pode vir junto com essas infos.
+Aprova? Se sim, mando bala e implemento tudo de uma vez.
