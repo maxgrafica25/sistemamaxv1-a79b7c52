@@ -8,11 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, ArrowLeft, ShieldCheck, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { logAuthEvent } from "@/lib/audit";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL_LENGTH = 255;
 const MAX_NAME_LENGTH = 100;
-const MIN_PASSWORD_LENGTH = 6;
+const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 72;
 const COOLDOWN_SECONDS = 60;
 
@@ -74,6 +75,9 @@ export default function Auth() {
         emailRedirectTo: `${window.location.origin}/reset-password`,
       },
     });
+
+    // Audit log (sempre — sucesso ou e-mail inexistente, para evitar enumeração)
+    await logAuthEvent("password_reset_requested", { email: email.trim() });
 
     // Always show success (prevents email enumeration)
     toast.success("Se o e-mail estiver cadastrado, você receberá um link de acesso.");
