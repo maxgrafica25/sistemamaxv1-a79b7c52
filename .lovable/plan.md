@@ -1,51 +1,60 @@
-## Problema
+## Diagnóstico
 
-A dica amarela "Reduzindo a etiqueta para X×Ymm cabem +N etiquetas por folha" sumiu para etiquetas redondas. Hoje o cálculo de oportunidade (`findShrinkOpportunity`) está bloqueado quando o modo SignMaster paramétrico está ativo:
-
-```ts
-const shrink = !isParametric && perSheet > 0 ? findShrinkOpportunity(...) : null;
-```
-
-Como o modo paramétrico passou a ser o default, a vendedora deixou de ver a sugestão — exatamente onde ela mais agrega (etiquetas redondas em SRA3).
-
-## Solução
-
-Calcular a sugestão usando a fórmula correta para cada modo, sem mexer na UI (o card amarelo já existe e renderiza igual).
-
-### 1. Nova função `findSignmasterShrinkOpportunity` em `src/lib/labels/signmaster-spec.ts`
-
-Espelha `findShrinkOpportunity`, mas usa `computeSignmasterLayout` para avaliar cada candidato. Como aqui só faz sentido reduzir o diâmetro (W = H sempre), os candidatos passam a ser:
-
-- −1 mm, −2 mm, −3 mm no diâmetro (incluindo passos de 0,5 mm: −0,5 / −1,5 / −2,5 mm para granularidade fina, já que o usuário trabalha em cm com step 0,1).
-
-Critério de seleção idêntico ao genérico: maior `delta` (mais etiquetas/folha); empate → menor encolhimento. Trava de segurança: diâmetro mínimo 5 mm.
-
-Retorna o mesmo formato `ShrinkSuggestion` (`newLabelW`, `newLabelH` iguais ao novo diâmetro, `shrinkW === shrinkH === reduçãoMm`, `delta`, `extraUnitsForSameSheets`).
-
-### 2. Integrar em `LabelLayoutCalculator.tsx`
-
-Trocar a linha 386–388 por:
+Pela tela enviada, a "Dica de aproveitamento" (caixa amarela) está aparecendo. O que **some** é a "Sugestões de venda" (escada de upsell), porque o gate atual em `buildAnchoringLadder` exige preço cadastrado:
 
 ```ts
-const shrink = perSheet > 0
-  ? (isParametric
-      ? findSignmasterShrinkOpportunity({ sheetW: config.sheetW, sheetH: config.sheetH, labelDiameter: labelW }, perSheet, pricing.sheetsNeeded || 1)
-      : findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1))
-  : null;
+// src/lib/labels/layout.ts, linha 351
+if (qty <= 0 || perSheet <= 0 || pricePerSheet <= 0) return [];
 ```
 
-A função `applyShrink` já cobre o caso redondo (mantém shape "redondo" porque W === H).
+Quando não há item de impressão cadastrado para a folha (ex.: SRA3 na sua tela), `pricePerSheet === 0` e a escada inteira vira `[]`. A vendedora perde a referência de quantidade mesmo com o cálculo de aproveitamento funcionando.
 
-### 3. Teste
+A "Dica de aproveitamento" já é independente de preço — depende só de `perSheet > 0`, então roda em todos os tipos de corte e formato. Vou confirmar isso na revisão.
 
-Adicionar caso em `src/test/signmaster-spec.test.ts`:
+## Mudanças
 
-- SRA3 320×450 + Ø 50 mm → 40 etiquetas. Reduzindo para Ø 49 mm (ou 48), espera-se ganho ≥ 8 etiquetas (próxima coluna entra). Validar que `findSignmasterShrinkOpportunity` retorna sugestão não-nula com `delta > 0`.
+### 1. `src/lib/labels/layout.ts` — afrouxar gate da ladder
 
-## Arquivos
+Trocar a linha 351 para:
 
-- editar `src/lib/labels/signmaster-spec.ts` — adicionar `findSignmasterShrinkOpportunity`
-- editar `src/components/labels/LabelLayoutCalculator.tsx` — usar a nova função no modo paramétrico (linhas 386–388 e import)
-- editar `src/test/signmaster-spec.test.ts` — cobertura da nova função
+```ts
+if (qty <= 0 || perSheet <= 0) return [];
+```
 
-Sem mudanças visuais; o card amarelo "Dica de aproveitamento" volta a aparecer automaticamente. Aprova?
+Quando `pricePerSheet === 0`, `computeSheetPricing` já devolve `totalPrice = 0` e `unitPrice = 0` naturalmente. A escada continua útil (qty + folhas necessárias).
+
+### 2. `src/components/labels/LabelLayoutCalculator.tsx` — UI da escada sem preço
+
+No bloco `Sugestões de venda` (linhas 1055–1098), quando `pricePerSheet <= 0`:
+
+- Esconder a coluna `formatBRL(tier.unit)/un` e `formatBRL(tier.total)`.
+- Esconder os badges de variação % (não fazem sentido sem preço base).
+- Mostrar uma linha de aviso pequena no topo do card: *"Cadastre o preço da folha para ver os valores."* com link para `/preco-impressao` (já existe esse padrão de link no card "Cálculo do orçamento").
+- Manter visíveis: `qty un` e `N folhas` (que é o que dá referência de salto).
+
+Layout sem preço fica:
+```
+500 un      13 folhas
+1.000 un    25 folhas
+2.000 un    50 folhas
+```
+
+### 3. Revisão de gates (modo paramétrico, formatos, cortes)
+
+Confirmar que tanto a "Dica de aproveitamento" quanto a "Sugestões de venda" aparecem em:
+
+| Corte | Formato | Hardware |
+|---|---|---|
+| Corte reto | quadrado / retangular / personalizado | qualquer |
+| Plotter quadrado | quadrado / retangular | qualquer |
+| Plotter redondo | redondo | Teneth A3 (não-paramétrico) |
+| Plotter redondo | redondo | SignMaster paramétrico |
+
+A "Dica" já roda em todos esses casos (último ajuste cobriu o paramétrico). A "Sugestões de venda" passa a aparecer também quando `pricePerSheet === 0`.
+
+## Arquivos editados
+
+- `src/lib/labels/layout.ts` — remover `pricePerSheet <= 0` do gate de `buildAnchoringLadder`
+- `src/components/labels/LabelLayoutCalculator.tsx` — render condicional da coluna de preço/badges quando `pricePerSheet <= 0`
+
+Sem novos arquivos, sem testes adicionais (a mudança é trivial e não inventa lógica nova). Aprova?

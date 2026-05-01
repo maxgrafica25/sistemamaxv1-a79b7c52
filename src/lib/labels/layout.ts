@@ -348,7 +348,7 @@ export const buildAnchoringLadder = (
   perSheet: number,
   pricePerSheet: number,
 ): AnchoringTier[] => {
-  if (qty <= 0 || perSheet <= 0 || pricePerSheet <= 0) return [];
+  if (qty <= 0 || perSheet <= 0) return [];
 
   const tier1 = qty;
   const tier2 = qty * 2;
