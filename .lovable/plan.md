@@ -1,30 +1,51 @@
-## Mudança
+## Diagnóstico
 
-Reescrever o texto da "Dica de aproveitamento" em `src/components/labels/LabelLayoutCalculator.tsx` (linhas 867–882) para:
+A "Dica de aproveitamento" só aparece quando existe matematicamente um tamanho menor que faz caber **mais** etiquetas por folha. Hoje testamos só reduções de **−1, −2, −3 mm**, e em alguns formatos (especialmente 60, 70, 85, 95, 100 mm em SRA3) essa janela é pequena demais — o próximo "salto" de coluna/linha está além de −3 mm, então nada aparece.
 
-1. Ficar mais claro (objeto da mensagem anterior)
-2. Remover o "+" antes dos números (objeto desta mensagem)
+Confirmei no terminal mapeando todos os tamanhos quadrados de 20 a 100 mm em SRA3:
 
-### Texto novo
+```
+50mm → sugestão 48mm  (+6)   ✓ já aparece
+55mm → sugestão 51mm  (+13)  ✗ −4mm, não testamos
+60mm → impossível mesmo com −5  (sem dica é correto)
+65mm → sugestão 61mm  (+11)  ✗ −4mm, não testamos
+75mm → sugestão 72mm  (+4)   ✓
+80mm → sugestão 76mm  (+5)   ✗ −4mm, não testamos
+85mm → impossível mesmo com −5  (sem dica é correto)
+90mm → sugestão 87mm  (+3)   ✓
+95mm → impossível mesmo com −5
+```
 
-> "Se diminuir a etiqueta para **48mm** (−2mm em cada lado), cabem **8 etiquetas a mais por folha** (de 40 para **48**).
->
-> Usando as mesmas 3 folhas (mesmo custo de produção), o cliente leva **24 etiquetas a mais**."
+Conclusão: o range pequeno está deixando passar várias oportunidades reais. Ampliar para **−1 até −5 mm** cobre os casos importantes (55, 65, 80 etc.). Quando geometricamente não há ganho mesmo até −5 mm, a dica fica oculta de propósito (correto — não inventar sugestão sem ganho).
 
-### Regras de formatação
+## Mudanças
 
-- Quando `newLabelW === newLabelH`: exibir só "**48mm**" (sem "48×48mm" redundante).
-- Texto da redução em português, sem "(−2mm × −0mm)":
-  - encolheu igual nos dois lados → "−2mm em cada lado"
-  - só largura → "−2mm de largura"
-  - só altura → "−2mm de altura"
-  - valores diferentes → "−2mm de largura e −1mm de altura"
-- Ganho exibido como "**N etiquetas a mais**" (sem o "+").
-- Mostrar também o absoluto "(de X para Y)" pra ficar tangível.
-- Quebra em 2 parágrafos: ganho/folha e ganho com mesmas folhas.
+### `src/lib/labels/layout.ts` — ampliar candidatos em `findShrinkOpportunity`
 
-## Arquivo
+Estender a lista de reduções de `[1, 2, 3]` para `[1, 2, 3, 4, 5]` mantendo a regra de "se quadrada, só simétricas":
 
-- `src/components/labels/LabelLayoutCalculator.tsx` — bloco do parágrafo da dica (867–882)
+```ts
+const reductions = [1, 2, 3, 4, 5];
+const candidates = isSquare
+  ? reductions.map(d => ({ dw: d, dh: d }))
+  : reductions.flatMap(d => [{dw:d,dh:0},{dw:0,dh:d},{dw:d,dh:d}]);
+```
+
+### `src/lib/labels/signmaster-spec.ts` — mesmo range para o paramétrico
+
+Em `findSignmasterShrinkOpportunity`, ampliar candidatos de `[0.5, 1, 1.5, 2, 2.5, 3]` para `[0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]`. Mantém passos de 0,5 mm para granularidade fina das etiquetas redondas.
+
+### Texto do aviso
+
+Quando a dica não aparece (matematicamente impossível mesmo com −5 mm), nada muda — continua oculta. **Não vou** adicionar mensagem "Sem sugestão disponível" porque o usuário já tem o card de aproveitamento principal mostrando o número atual; um aviso vazio só polui.
+
+## Arquivos editados
+
+- `src/lib/labels/layout.ts` — ampliar candidatos
+- `src/lib/labels/signmaster-spec.ts` — ampliar candidatos
+
+### Validação
+
+Adicionar um teste em `src/test/labels-layout.test.ts` para 55×55 mm em SRA3 (margens 7/7/7/7, sem gap) — deve agora retornar sugestão com `delta > 0`.
 
 Aprova?
