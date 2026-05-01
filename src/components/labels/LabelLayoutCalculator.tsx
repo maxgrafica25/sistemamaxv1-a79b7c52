@@ -653,6 +653,8 @@ export function LabelLayoutCalculator({
             imageNaturalW={imageDims?.w ?? null}
             imageNaturalH={imageDims?.h ?? null}
             reservedSlots={layout.reservedSlots}
+            rowOffsets={layout.rowOffsets}
+            cellsPerRow={layout.cellsPerRow}
             marksOffsetY={marksOffsetY}
           />
 
