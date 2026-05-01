@@ -66,9 +66,15 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Análise",
+    label: "Inteligência de Mercado",
     items: [
       { name: "Monitoramento", href: "/monitoramento", icon: TrendingUp },
+      { name: "Catálogo Produtos", href: "/produtos", icon: BookOpen },
+    ],
+  },
+  {
+    label: "Análise",
+    items: [
       { name: "Auditoria", href: "/auditoria", icon: Shield, adminOnly: true },
     ],
   },
