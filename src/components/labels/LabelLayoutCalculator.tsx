@@ -60,7 +60,7 @@ import { toast } from "sonner";
 import { Slider } from "@/components/ui/slider";
 import { LabelCalcSettingsDialog } from "./LabelCalcSettingsDialog";
 import { suggestMarksOffset, buildCornerMarks, markSegments, MARK_ARM_MM } from "@/lib/labels/marks";
-import { computeSignmasterLayout, computeSignmasterMarks, SM_REG_MARK_MARGIN, SM_LABEL_SPACING } from "@/lib/labels/signmaster-spec";
+import { computeSignmasterLayout, computeSignmasterMarks, findSignmasterShrinkOpportunity, SM_REG_MARK_MARGIN, SM_LABEL_SPACING } from "@/lib/labels/signmaster-spec";
 import { generateSignmasterPlt, downloadPlt } from "@/lib/labels/plt-export";
 import { generateProductionPDF, downloadPDF } from "@/lib/labels/production-pdf";
 import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
@@ -383,8 +383,14 @@ export function LabelLayoutCalculator({
     perSheet,
   });
   const ladder = buildAnchoringLadder(qty, perSheet, pricePerSheet);
-  const shrink = !isParametric && perSheet > 0
-    ? findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1)
+  const shrink = perSheet > 0
+    ? (isParametric
+        ? findSignmasterShrinkOpportunity(
+            { sheetW: config.sheetW, sheetH: config.sheetH, labelDiameter: labelW },
+            perSheet,
+            pricing.sheetsNeeded || 1,
+          )
+        : findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1))
     : null;
 
   const applyShrink = () => {

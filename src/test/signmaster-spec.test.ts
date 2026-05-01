@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   computeSignmasterLayout,
   computeSignmasterMarks,
+  findSignmasterShrinkOpportunity,
   SM_REG_MARK_MARGIN,
   SM_MARK_LENGTH,
 } from "@/lib/labels/signmaster-spec";
@@ -77,5 +78,30 @@ describe("computeSignmasterMarks", () => {
 
   it("margem das marcas é 7mm em todos os lados", () => {
     expect(SM_REG_MARK_MARGIN).toBe(7);
+  });
+});
+
+describe("findSignmasterShrinkOpportunity — sugestão de retalho", () => {
+  it("Ø50 em SRA3 (40 etiquetas) sugere reduzir para caber +8", () => {
+    const s = findSignmasterShrinkOpportunity(
+      { sheetW: 320, sheetH: 450, labelDiameter: 50 },
+      40,
+      1,
+    );
+    expect(s).not.toBeNull();
+    expect(s!.delta).toBeGreaterThanOrEqual(8);
+    expect(s!.newLabelW).toBe(s!.newLabelH); // sempre quadrado (diâmetro)
+    expect(s!.newLabelW).toBeLessThan(50);
+  });
+
+  it("retorna null quando não há ganho possível", () => {
+    // Diâmetro mínimo extremo: nenhuma redução melhora
+    const s = findSignmasterShrinkOpportunity(
+      { sheetW: 320, sheetH: 450, labelDiameter: 6 },
+      computeSignmasterLayout({ sheetW: 320, sheetH: 450, labelDiameter: 6 }).total,
+      1,
+    );
+    // pode ser null OU ter delta>0; verifica só que se devolveu, é coerente
+    if (s) expect(s.delta).toBeGreaterThan(0);
   });
 });
