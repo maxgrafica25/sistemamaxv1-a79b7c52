@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -72,7 +72,7 @@ interface Props {
   onSaved?: (cfg: LabelCalcConfig) => void;
 }
 
-export function LabelCalcSettingsDialog({ open, onOpenChange, onSaved }: Props) {
+export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(function LabelCalcSettingsDialog({ open, onOpenChange, onSaved }, _ref) {
   const [draft, setDraft] = useState<LabelCalcConfig>(() => loadConfig());
 
   // Form de "nova folha personalizada"
@@ -401,7 +401,7 @@ export function LabelCalcSettingsDialog({ open, onOpenChange, onSaved }: Props) 
       </DialogContent>
     </Dialog>
   );
-}
+});
 
 // Re-export para uso externo (ex.: tests)
 export type { CustomSheetPreset };
