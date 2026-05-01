@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Printer, X, Lock, ChevronDown, ChevronRight } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Printer, X, Lock, ChevronDown, ChevronRight, Ruler } from "lucide-react";
+import { LabelLayoutDialog } from "@/components/labels/LabelLayoutDialog";
 import {
   LaborAndSupplySubform,
   type SubformLabor,
