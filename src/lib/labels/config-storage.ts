@@ -148,7 +148,7 @@ export function loadConfig(): LabelCalcConfig {
     writeRaw(seeded);
     return seeded;
   }
-  const merged: LabelCalcConfig = {
+  let merged: LabelCalcConfig = {
     ...DEFAULT_CONFIG,
     ...stored,
     customSheets: Array.isArray(stored.customSheets) ? stored.customSheets : DEFAULT_CONFIG.customSheets,
@@ -156,6 +156,16 @@ export function loadConfig(): LabelCalcConfig {
       ? stored.labelPresets
       : SEED_LABEL_PRESETS,
   };
+  // Migração: usuários antigos no Teneth (rolo) com margens travadas → SignMaster (folha solta)
+  if (merged.hardwareProfileId === "teneth_a3" && !merged.marginsUnlocked) {
+    merged = {
+      ...merged,
+      hardwareProfileId: "signmaster_param",
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
+      gap: 3,
+    };
+    writeRaw(merged);
+  }
   // Aplica restrições do hardware se margens não estiverem destravadas
   if (!merged.marginsUnlocked) {
     const profile = HARDWARE_PROFILES[merged.hardwareProfileId] ?? HARDWARE_PROFILES.generico;
