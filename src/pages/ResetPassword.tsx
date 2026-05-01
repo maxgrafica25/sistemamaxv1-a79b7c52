@@ -84,6 +84,15 @@ export default function ResetPassword() {
     };
   }, []);
 
+  // Loga evento de token inválido quando a checagem terminar e não for sessão de recovery
+  useEffect(() => {
+    if (!checking && !isRecovery) {
+      logAuthEvent("password_reset_failed_token_invalid", {
+        details: { url_hash: window.location.hash || null },
+      });
+    }
+  }, [checking, isRecovery]);
+
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
 
