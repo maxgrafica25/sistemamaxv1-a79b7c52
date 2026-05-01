@@ -106,10 +106,10 @@ export default function Produtos() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Package className="h-6 w-6" />Catálogo de Produtos</h1>
-          <p className="text-sm text-muted-foreground">Biblioteca de nomes canônicos. Use no monitoramento para padronizar produtos entre fornecedores.</p>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Package className="h-6 w-6" />Produtos de Referência</h1>
+          <p className="text-sm text-muted-foreground">Cadastre os nomes padrão para unificar a comparação de preços entre diferentes fornecedores.</p>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4" />Novo produto</Button>
+        <Button onClick={openNew}><Plus className="h-4 w-4" />Nova Referência</Button>
       </div>
 
       <div className="relative max-w-md">
