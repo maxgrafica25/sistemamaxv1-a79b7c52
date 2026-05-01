@@ -21,7 +21,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Search, Loader2, Save, AlertTriangle, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
+import { Search, Loader2, Save, AlertTriangle, CheckCircle2, XCircle, ExternalLink, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
 import ProductPicker from "./ProductPicker";
 
