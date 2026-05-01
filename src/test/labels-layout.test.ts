@@ -295,17 +295,21 @@ import { computeReservedSlots } from "@/lib/labels/layout";
 import { HARDWARE_PROFILES, clampMarginsToHardware, effectiveUsableArea } from "@/lib/labels/hardware";
 import { suggestMarksOffset, buildCornerMarks } from "@/lib/labels/marks";
 
-describe("computeReservedSlots", () => {
+describe("computeReservedSlots — padrão SignMaster", () => {
   it("plotter_redondo reserva apenas [0,0]", () => {
     expect(computeReservedSlots("plotter_redondo", 4, 5)).toEqual([{ col: 0, row: 0 }]);
   });
-  it("corte_reto reserva [0,0] e [cols-1, rows-1]", () => {
-    expect(computeReservedSlots("corte_reto", 4, 5)).toEqual([
-      { col: 0, row: 0 }, { col: 3, row: 4 },
-    ]);
+  it("corte_reto reserva pontas da 1ª e da última linha", () => {
+    const r = computeReservedSlots("corte_reto", 4, 5);
+    // [0,0], [3,0], [0,4], [3,4]
+    expect(r).toHaveLength(4);
+    expect(r).toContainEqual({ col: 0, row: 0 });
+    expect(r).toContainEqual({ col: 3, row: 0 });
+    expect(r).toContainEqual({ col: 0, row: 4 });
+    expect(r).toContainEqual({ col: 3, row: 4 });
   });
-  it("plotter_quadrado reserva 2 slots", () => {
-    expect(computeReservedSlots("plotter_quadrado", 3, 3)).toHaveLength(2);
+  it("plotter_quadrado também reserva 4 slots quando rows>1", () => {
+    expect(computeReservedSlots("plotter_quadrado", 5, 3)).toHaveLength(4);
   });
   it("retorna vazio se cols/rows = 0", () => {
     expect(computeReservedSlots("corte_reto", 0, 5)).toEqual([]);
@@ -315,24 +319,34 @@ describe("computeReservedSlots", () => {
   });
 });
 
-describe("computeLabelLayout com cutType — effectivePerSheet", () => {
-  it("desconta reservedSlots do total", async () => {
+describe("computeLabelLayout com cutType — rowOffsets/cellsPerRow", () => {
+  it("corte_reto com várias linhas — 1ª e última linha ficam centralizadas e com cols-2", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
     const r = computeLabelLayout({
-      sheetW: 210, sheetH: 297, labelW: 50, labelH: 50,
+      sheetW: 210, sheetH: 297, labelW: 40, labelH: 40,
       marginTop: 5, marginBottom: 5, marginLeft: 5, marginRight: 5, gap: 0,
       cutType: "corte_reto",
     });
-    expect(r.effectivePerSheet).toBe(r.best.total - r.reservedSlots.length);
-    expect(r.reservedSlots.length).toBeGreaterThanOrEqual(1);
+    // cols=5, rows=7
+    expect(r.best.cols).toBe(5);
+    expect(r.best.rows).toBe(7);
+    expect(r.cellsPerRow[0]).toBe(3); // 5 - 2 reservados
+    expect(r.cellsPerRow[6]).toBe(3);
+    expect(r.cellsPerRow[3]).toBe(5); // linha do meio cheia
+    // Centralização: offset > marginLeft na primeira linha
+    expect(r.rowOffsets[0]).toBeGreaterThan(5);
+    expect(r.rowOffsets[3]).toBe(5);
+    expect(r.effectivePerSheet).toBe(r.cellsPerRow.reduce((a, b) => a + b, 0));
   });
-  it("sem cutType — reservedSlots vazio, effective = total", async () => {
+  it("sem cutType — reservedSlots vazio, todas as linhas com offset=marginLeft", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
     const r = computeLabelLayout({
       sheetW: 210, sheetH: 297, labelW: 50, labelH: 50,
       marginTop: 5, marginBottom: 5, marginLeft: 5, marginRight: 5, gap: 0,
     });
     expect(r.reservedSlots).toEqual([]);
+    expect(r.cellsPerRow.every((c) => c === r.best.cols)).toBe(true);
+    expect(r.rowOffsets.every((o) => o === 5)).toBe(true);
     expect(r.effectivePerSheet).toBe(r.best.total);
   });
 });
@@ -378,19 +392,71 @@ describe("suggestMarksOffset", () => {
   });
 });
 
-describe("buildCornerMarks", () => {
-  it("gera 4 marcas nos cantos", () => {
+describe("buildCornerMarks — L (topo) + tick (base)", () => {
+  it("gera 4 marcas: 2 Ls em cima, 2 ticks embaixo", async () => {
+    const { markSegments } = await import("@/lib/labels/marks");
     const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5);
     expect(m.marks).toHaveLength(4);
-    expect(m.offsetY).toBe(0);
+    expect(m.marks[0].kind).toBe("L");
+    expect(m.marks[0].corner).toBe("tl");
+    expect(m.marks[1].kind).toBe("L");
+    expect(m.marks[1].corner).toBe("tr");
+    expect(m.marks[2].kind).toBe("tick");
+    expect(m.marks[2].corner).toBe("bl");
+    expect(m.marks[3].kind).toBe("tick");
+    expect(m.marks[3].corner).toBe("br");
+    // L → 2 segmentos; tick → 1 segmento
+    expect(markSegments(m.marks[0])).toHaveLength(2);
+    expect(markSegments(m.marks[2])).toHaveLength(1);
   });
   it("aplica offsetY ao conjunto", () => {
     const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 3, 5);
     expect(m.offsetY).toBe(3);
-    // Todas as marcas devem ter Y deslocado em +3
     const baseline = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5);
     m.marks.forEach((mk, i) => {
-      expect(mk.y - baseline.marks[i].y).toBeCloseTo(3, 5);
+      expect(mk.vertexY - baseline.marks[i].vertexY).toBeCloseTo(3, 5);
     });
+  });
+  it("L tl: braços vão para +x e +y a partir do vértice", async () => {
+    const { markSegments } = await import("@/lib/labels/marks");
+    const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5);
+    const tl = m.marks[0];
+    const segs = markSegments(tl);
+    // segmento 1: horizontal para +x; segmento 2: vertical para +y
+    expect(segs[0].x2 - segs[0].x1).toBeCloseTo(5, 5);
+    expect(segs[0].y1).toBe(segs[0].y2);
+    expect(segs[1].y2 - segs[1].y1).toBeCloseTo(5, 5);
+    expect(segs[1].x1).toBe(segs[1].x2);
+  });
+  it("L tr: braços vão para -x e +y", async () => {
+    const { markSegments } = await import("@/lib/labels/marks");
+    const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5);
+    const tr = m.marks[1];
+    const segs = markSegments(tr);
+    expect(segs[0].x2 - segs[0].x1).toBeCloseTo(-5, 5);
+    expect(segs[1].y2 - segs[1].y1).toBeCloseTo(5, 5);
+  });
+  it("tick BL: segmento horizontal de 10mm centrado em vertexX", async () => {
+    const { markSegments } = await import("@/lib/labels/marks");
+    const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5);
+    const bl = m.marks[2];
+    const segs = markSegments(bl);
+    expect(segs).toHaveLength(1);
+    expect(segs[0].y1).toBe(segs[0].y2); // horizontal
+    expect(segs[0].x2 - segs[0].x1).toBeCloseTo(10, 5);
+    expect((segs[0].x1 + segs[0].x2) / 2).toBeCloseTo(bl.vertexX, 5);
+  });
+});
+
+describe("LabelCalcConfig — unidade de medida", () => {
+  beforeEach(() => localStorage.clear());
+  it("default é mm", async () => {
+    const { loadConfig } = await import("@/lib/labels/config-storage");
+    expect(loadConfig().unit).toBe("mm");
+  });
+  it("persiste a escolha de cm", async () => {
+    const { saveConfig, loadConfig } = await import("@/lib/labels/config-storage");
+    saveConfig({ unit: "cm" });
+    expect(loadConfig().unit).toBe("cm");
   });
 });
