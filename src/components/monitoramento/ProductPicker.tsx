@@ -92,7 +92,7 @@ export default function ProductPicker({ selectedId, selectedName, onChange, defa
             <CommandList>
               <CommandEmpty>
                 <div className="py-4 px-4 text-center space-y-3">
-                  <p className="text-sm text-muted-foreground">Nenhum produto encontrado.</p>
+                  <p className="text-sm text-muted-foreground">Nenhuma referência encontrada.</p>
                   <Button
                     type="button"
                     variant="default"
@@ -101,12 +101,12 @@ export default function ProductPicker({ selectedId, selectedName, onChange, defa
                     className="gap-2"
                   >
                     <Plus className="h-4 w-4" />
-                    Cadastrar novo produto
+                    Cadastrar nova referência
                   </Button>
                 </div>
               </CommandEmpty>
               {produtos.length > 0 && (
-                <CommandGroup heading="Produtos do catálogo">
+                <CommandGroup heading="Produtos de referência">
                   {produtos.map((p) => (
                     <CommandItem
                       key={p.id}
