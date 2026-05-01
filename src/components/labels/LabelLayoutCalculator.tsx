@@ -212,6 +212,31 @@ export function LabelLayoutCalculator({
     toast.success(`Removido: ${label}`);
   };
 
+  // ---- Troca rápida de folha (Tabs) ----------------------------------------
+  const QUICK_SHEETS: Array<{ id: string; label: string; w: number; h: number }> = [
+    { id: "SRA3", label: "32×45 (SRA3)", w: 320, h: 450 },
+    { id: "A4", label: "A4 21×29.7", w: 210, h: 297 },
+    { id: "A3", label: "A3 29.7×42", w: 297, h: 420 },
+    { id: "330x480", label: "33×48", w: 330, h: 480 },
+  ];
+  const currentSheetTab = useMemo(() => {
+    const m = QUICK_SHEETS.find(
+      (s) => s.w === config.sheetW && s.h === config.sheetH,
+    );
+    return m?.id ?? "__other__";
+  }, [config.sheetW, config.sheetH]);
+
+  const handleQuickSheet = (id: string) => {
+    if (id === "__other__") {
+      setSettingsOpen(true);
+      return;
+    }
+    const s = QUICK_SHEETS.find((x) => x.id === id);
+    if (!s) return;
+    const next = saveConfig({ sheetPresetId: s.id, sheetW: s.w, sheetH: s.h });
+    setConfig(next);
+  };
+
   // ---- Imagem upload -------------------------------------------------------
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
