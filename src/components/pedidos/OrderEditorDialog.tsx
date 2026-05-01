@@ -140,18 +140,19 @@ export function OrderEditorDialog({ open, onOpenChange, orderId, initialFromQuot
         const { data, error } = await supabase
           .from("sales_orders")
           .insert({
-            client_id: clientId,
+            client_id: clientId ?? undefined,
             client_name: clientName,
-            quote_id: quoteId,
+            quote_id: quoteId ?? undefined,
             status: "aberto",
             total_value: totalValue,
             payment_terms: paymentTerms,
             payment_method: paymentMethod,
-            delivery_date: deliveryDate || null,
-            internal_notes: internalNotes || null,
-            production_notes: productionNotes || null,
+            delivery_date: deliveryDate || undefined,
+            internal_notes: internalNotes || undefined,
+            production_notes: productionNotes || undefined,
             created_by: user?.id,
-          })
+            order_number: "", // será preenchido pelo trigger
+          } as any)
           .select("id")
           .single();
         if (error) throw error;
