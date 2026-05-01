@@ -193,7 +193,14 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
       toast.error(validation);
       return;
     }
-    const saved = saveConfig(draft);
+    let toSave = draft;
+    if (!draft.marginsUnlocked) {
+      const profile = HARDWARE_PROFILES[draft.hardwareProfileId];
+      if (profile) {
+        toSave = { ...draft, ...clampMarginsToHardware(draft, profile) };
+      }
+    }
+    const saved = saveConfig(toSave);
     toast.success("Configurações salvas");
     onSaved?.(saved);
     onOpenChange(false);
