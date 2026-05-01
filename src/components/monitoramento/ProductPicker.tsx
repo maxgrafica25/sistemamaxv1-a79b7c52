@@ -148,7 +148,7 @@ export default function ProductPicker({ selectedId, selectedName, onChange, defa
                 onClick={openNovo}
               >
                 <Plus className="h-3.5 w-3.5 text-primary" />
-                Cadastrar novo produto no catálogo
+                Cadastrar nova referência
               </Button>
             </div>
           </Command>
