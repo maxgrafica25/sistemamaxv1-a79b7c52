@@ -61,16 +61,21 @@ export const SEED_LABEL_PRESETS: LabelPreset[] = [
   { id: "seed-redonda-50", label: "Redonda Ø50", shape: "redondo", width: 50, height: 50 },
 ];
 
+// Default usa Teneth A3 + SRA3 (caso real do cliente). Margens já alinhadas
+// com o perfil de hardware Teneth.
+const TENETH = HARDWARE_PROFILES[DEFAULT_HARDWARE_ID];
 export const DEFAULT_CONFIG: LabelCalcConfig = {
-  sheetPresetId: "A4",
-  sheetW: 210,
-  sheetH: 297,
-  cutType: "corte_reto",
-  marginTop: CUT_DEFAULTS.corte_reto.marginTop,
-  marginBottom: CUT_DEFAULTS.corte_reto.marginBottom,
-  marginLeft: CUT_DEFAULTS.corte_reto.marginLeft,
-  marginRight: CUT_DEFAULTS.corte_reto.marginRight,
-  gap: CUT_DEFAULTS.corte_reto.gap,
+  sheetPresetId: "SRA3",
+  sheetW: 320,
+  sheetH: 450,
+  hardwareProfileId: DEFAULT_HARDWARE_ID,
+  marginsUnlocked: false,
+  cutType: "plotter_redondo",
+  marginTop: TENETH.marginTop,
+  marginBottom: TENETH.marginBottom,
+  marginLeft: TENETH.marginLeft,
+  marginRight: TENETH.marginRight,
+  gap: CUT_DEFAULTS.plotter_redondo.gap,
   pricePerSheet: 0,
   customSheets: [],
   labelPresets: SEED_LABEL_PRESETS,
