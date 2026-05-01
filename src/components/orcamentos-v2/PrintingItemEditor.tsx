@@ -42,6 +42,17 @@ export function PrintingItemEditor({
   const locked = item.status === "aprovado";
   const childCount = childLabor.length + childMaterials.length;
   const [expanded, setExpanded] = useState(childCount > 0);
+  const [labelDialogOpen, setLabelDialogOpen] = useState(false);
+
+  // Tenta deduzir o tamanho da folha pelo texto da descrição (A4/A3/SRA3/Carta).
+  const guessSheet = (): { width: number; height: number } | undefined => {
+    const d = item.description.toUpperCase();
+    if (/\bSRA3\b/.test(d)) return { width: 320, height: 450 };
+    if (/\bA3\b/.test(d)) return { width: 297, height: 420 };
+    if (/\bA4\b/.test(d)) return { width: 210, height: 297 };
+    if (/\bCARTA\b/.test(d)) return { width: 216, height: 279 };
+    return undefined;
+  };
 
   return (
     <div
@@ -77,6 +88,26 @@ export function PrintingItemEditor({
           {formatBRL(item.quantity * item.unitPrice)}
         </span>
         {!locked && (
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-primary"
+                  onClick={() => setLabelDialogOpen(true)}
+                  type="button"
+                >
+                  <Ruler className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                Calcular etiquetas por folha
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        {!locked && (
           <Button
             variant="ghost"
             size="icon"
@@ -87,6 +118,14 @@ export function PrintingItemEditor({
           </Button>
         )}
       </div>
+
+      <LabelLayoutDialog
+        open={labelDialogOpen}
+        onOpenChange={setLabelDialogOpen}
+        defaultSheet={guessSheet()}
+        defaultQty={item.quantity || 100}
+        onApply={(folhas) => onItemChange({ quantity: folhas })}
+      />
 
       {/* Toggle de acabamentos vinculados */}
       <div className="border-t border-border/60 px-3 py-2">
