@@ -1,174 +1,88 @@
+## Objetivo
+Evoluir a Calculadora de Etiquetas para virar ferramenta de pré-impressão real para a Plotter Teneth A3 / SignMaster, mantendo o que já existe (simulador, presets, upload de imagem, WhatsApp, otimizador de retalho).
 
-# Calculadora de Etiquetas — Refatoração Completa (Final)
+## O que já está pronto (não tocar)
+- Split UI Simulador + Dialog de Configurações com persistência em `localStorage`
+- Presets de folha (A4/A3/SRA3/Carta) + folhas customizadas
+- Favoritos de etiqueta (Lacre 40, Validade 20, Redonda Ø50 já seedados)
+- Upload de imagem PNG/JPG/WEBP (≤2MB) com `object-fit: contain` + alerta de proporção
+- Formas Quadrado/Redondo/Personalizado com SVG (rect / circle + clipPath)
+- Pricing arredondado pra cima ao R$ 0,10, ancoragem (200/300/500…), WhatsApp copy/abrir
+- Otimizador de retalho (−1/−2/−3 mm)
+- 46 testes verdes em `src/test/labels-layout.test.ts`
 
-Versão final do plano com todos os adendos: split de UI, formato redondo, presets, dialog de configurações, WhatsApp copy e upload de arte com **enquadramento `contain`** (preserva proporção, centraliza, expõe sobras).
+## O que falta (este plano)
 
----
+### 1. Perfil de hardware "Teneth A3 / SignMaster"
+Adicionar em `src/lib/labels/layout.ts`:
+- Novo `HardwareProfile` com: `marginTop=7`, `marginLeft=7`, `marginRight=7`, `marginBottom=80`, área útil máx `306×363mm` na SRA3
+- Função `clampToHardware(input, profile)` que valida margens mínimas e área útil
+- Constante `HARDWARE_PROFILES` com `teneth_a3` (default) e `generico` (atual)
 
-## 1. `src/lib/labels/layout.ts`
+No `LabelCalcSettingsDialog`:
+- Novo seletor "Perfil de hardware" no topo da seção Margens
+- Ao escolher Teneth A3, força margens para os valores reais e desabilita edição (com botão "destravar para ajuste fino")
+- Persistir `hardwareProfileId` em `LabelCalcConfig`
 
-```ts
-export type LabelShape = "quadrado" | "redondo" | "personalizado";
-export const SHAPE_LABELS: Record<LabelShape, string>;
-```
+### 2. Slots reservados para marcas de registro (ARMS)
+Em `layout.ts`:
+- Estender `LayoutResult` com `reservedSlots: Array<{col,row}>` e `effectivePerSheet` (= total − reservados)
+- Regras por `cutType`:
+  - `plotter_redondo` → reserva slot `[0,0]`
+  - `corte_reto`/`plotter_quadrado` → reserva `[0,0]` e `[cols-1, rows-1]`
+- `computeSheetPricing` e `buildAnchoringLadder` passam a usar `effectivePerSheet`
+- `findShrinkOpportunity` também — comparação justa
 
-- `LayoutInput.shape?: LabelShape` (opcional, default `quadrado`).
-- Matemática inalterada — redondo usa bounding box quadrado. Comentário explicando.
+No SVG `SheetPreview`:
+- Renderizar slots reservados com hachura cinza + ícone `+` (marca ARMS) em vez da etiqueta
+- Tooltip "Reservado para marca de registro"
 
-## 2. Novo: `src/lib/labels/config-storage.ts`
+### 3. Nudge vertical das marcas de registro
+No simulador:
+- Novo `Slider` "Ajuste vertical das marcas (mm)" range −10…+10mm, default 0
+- Estado local `marksOffsetY` (não persiste — é por job)
+- Função `suggestMarksOffset(layout)` que calcula o offset que centraliza as marcas no gap mais próximo, retorna sugestão com botão "Aplicar sugestão"
+- SVG desenha as marcas (cruz + círculo de leitura) no canto da folha aplicando o offset
 
-Persistência única em `labelCalc:config:v1`:
+### 4. Geração de PDF de produção (1:1)
+Novo arquivo `src/lib/labels/production-pdf.ts` usando **pdf-lib** (já no stack ou adicionar via `bun add pdf-lib`):
+- `generateProductionPDF({config, layout, image, shape, marksOffsetY})` retorna `Blob`
+- **Página 1 — Impressão**: arte posicionada nas etiquetas + marcas de registro em K100 (CMYK puro)
+- **Página 2 — Faca de corte**: apenas contornos stroke 0.25pt, cor Spot `CutContour` (100% Magenta como fallback RGB), formato seguindo `shape`
+- Quadrado de teste 10×10mm no canto inferior esquerdo (fora da área útil) para conferência de escala
+- Página em mm 1:1 (usar `PageSizes` custom calculado de `sheetW × sheetH`)
 
-```ts
-interface CustomSheetPreset { id; label; width; height }
-interface LabelPreset { id; label; shape; width; height }
-interface LabelCalcConfig {
-  sheetPresetId; sheetW; sheetH;
-  cutType; marginTop; marginBottom; marginLeft; marginRight; gap;
-  pricePerSheet;
-  customSheets: CustomSheetPreset[];
-  labelPresets: LabelPreset[];
-}
-```
+Botão no card de pricing (ao lado do WhatsApp):
+- "Gerar PDF de produção" → download do PDF + toast
 
-API: `loadConfig`, `saveConfig`, `addLabelPreset`, `removeLabelPreset`, `addCustomSheet`, `removeCustomSheet`. Migra silenciosamente `labelCalc:lastPricePerSheet`. Seeda 3 favoritos (Lacre 40×40, Validade 20×20, Redonda Ø50) na 1ª execução.
+### 5. Testes
+Adicionar em `src/test/labels-layout.test.ts`:
+- `reservedSlots` corretos para cada `cutType`
+- `effectivePerSheet` = total − reservados (clampado a ≥0)
+- `pricing` usa effective, não bruto
+- `clampToHardware` rejeita margens menores que perfil
+- `suggestMarksOffset` centraliza no gap
 
-## 3. Novo: `src/lib/labels/whatsapp.ts`
+PDF não tem teste unitário automático — só QA manual (download + abrir no SignMaster).
 
-Função pura `formatWhatsAppQuote` produzindo:
+## Arquivos
+**Editar:**
+- `src/lib/labels/layout.ts` — hardware profiles, reserved slots, effective per sheet
+- `src/lib/labels/config-storage.ts` — `hardwareProfileId` no `LabelCalcConfig`
+- `src/components/labels/LabelCalcSettingsDialog.tsx` — seletor de perfil
+- `src/components/labels/LabelLayoutCalculator.tsx` — slider nudge, botão PDF, SVG com slots reservados e marcas
+- `src/test/labels-layout.test.ts` — novos casos
 
-```
-Olá! Segue orçamento de etiquetas:
+**Criar:**
+- `src/lib/labels/hardware.ts` — perfis (Teneth A3, Genérico) e helpers
+- `src/lib/labels/marks.ts` — geometria das marcas de registro + `suggestMarksOffset`
+- `src/lib/labels/production-pdf.ts` — geração do PDF 2 páginas
 
-📋 Pedido: 100 un · Quadrado 50×50mm
-💰 Total: R$ 15,00 (R$ 0,15/un)
+**Dependência nova:** `pdf-lib` (~200KB, sem deps nativas).
 
-✨ Sugestão: 1.000 un por R$ 90,00 (R$ 0,09/un — 40% mais barato)
-```
+## Riscos / Notas
+- `pdf-lib` não tem suporte nativo a cores Spot (CutContour). Vamos exportar como Magenta 100% (RGB 255,0,255) com nome de camada `CutContour` no PDF — o SignMaster reconhece pelo nome do contorno em workflows recentes; se a planta usar versão antiga, marcar visualmente como "M100" e o operador pode mapear na importação. Documentamos isso num tooltip no botão.
+- Marcas de registro do Teneth seguem o padrão ARMS de 4 cantos — vou desenhar como cruzes 5×5mm + círculo de leitura, mas o operador precisa validar a primeira impressão real.
+- Se margens do hardware Teneth + área útil máx (306×363) entrarem em conflito com SRA3 (320×450), o `clampToHardware` reduz para o menor — o usuário verá um aviso amarelo no simulador.
 
-Redondo → `Redonda Ø50mm`. Personalizado → `50×30mm`. Tier 3 só entra se existe e `unitDeltaPct < 0`.
-
-## 4. Novo: `src/lib/labels/image-fit.ts`
-
-Helper puro pra calcular o enquadramento `contain` da imagem dentro do bounding box da etiqueta:
-
-```ts
-export function fitContain(
-  imgW: number, imgH: number,
-  boxW: number, boxH: number,
-): { width: number; height: number; offsetX: number; offsetY: number } {
-  const scale = Math.min(boxW / imgW, boxH / imgH);
-  const width = imgW * scale;
-  const height = imgH * scale;
-  return {
-    width, height,
-    offsetX: (boxW - width) / 2,   // centraliza horizontal
-    offsetY: (boxH - height) / 2,  // centraliza vertical
-  };
-}
-```
-
-Testado isoladamente — o componente só consome.
-
-## 5. Novo: `src/components/labels/LabelCalcSettingsDialog.tsx`
-
-Dialog com 4 seções empilhadas:
-
-1. **Folha** — Select com presets fixos (A4/A3/SRA3/Carta) + customs. Botão `+ Cadastrar nova folha` (mini-form inline). Lixeira ao lado de cada custom.
-2. **Tipo de corte** — ToggleGroup; trocar aplica defaults de margens.
-3. **Margens direcionais + gap** — 5 campos + botão "Restaurar padrões deste corte".
-4. **Preço da folha de produção** — campo R$.
-
-Validação para Salvar: `sheetW>0 && sheetH>0 && marginTop+marginBottom<sheetH && marginLeft+marginRight<sheetW`.
-
-## 6. Refatoração `LabelLayoutCalculator.tsx`
-
-### Coluna esquerda — card único "Simulador"
-
-- **Formato:** ToggleGroup `[Quadrado] [Redondo] [Personalizado]`.
-- **⭐ Carregar favorito** — Select compacto com `labelPresets`.
-- **Tamanho:** quadrado/redondo → 1 campo (Lado/Diâmetro) que atualiza W e H juntos. Personalizado → 2 campos.
-- **Quantidade.**
-- **💾 Salvar como favorito** → popover com input → `addLabelPreset` + toast.
-- **🖼️ Arte da etiqueta (opcional)** — disponível **nos 3 formatos**:
-  - `<input type="file" accept="image/png,image/jpeg,image/webp">`.
-  - Validação ≤ 2 MB.
-  - Convertido para data URL (`FileReader.readAsDataURL`) — **só em memória**, não persiste.
-  - Pré-leitura das dimensões naturais da imagem (`new Image(); .onload → naturalWidth/naturalHeight`) para alimentar `fitContain`.
-  - Botão "🗑️ Remover" + nome do arquivo.
-  - Disclaimer: *"A imagem é só para visualização — o cálculo usa apenas as medidas informadas."*
-  - Aviso âmbar quando a proporção da imagem **diverge** da proporção da etiqueta em mais de ~5%: *"⚠ Sua arte tem proporção diferente da etiqueta — vai sobrar espaço nas laterais (ou topo/base)."*
-
-### Faixa-resumo (abaixo do card)
-
-```
-Folha A4 (210×297) · Corte reto · R$ 15,00/folha   [⚙ Configurações]
-```
-
-Botão abre o `LabelCalcSettingsDialog`. Se `pricePerSheet === 0`, faixa em destaque âmbar.
-
-### Coluna direita — Preview SVG (a parte sensível)
-
-Refatorar `SheetPreview` para suportar shape + imagem com `contain`:
-
-- `quadrado` / `personalizado` → `<rect>` por etiqueta.
-- `redondo` → `<circle>` por etiqueta.
-
-**Renderização da imagem (contain + centralizada):**
-- Se há `imageDataUrl`:
-  1. Calcula `fit = fitContain(imgNaturalW, imgNaturalH, labelW, labelH)`.
-  2. Para **cada** etiqueta na grade (cell em coordenada `cx, cy`):
-     - Renderiza um `<g>` posicionado em `(cx + fit.offsetX, cy + fit.offsetY)`.
-     - Dentro dele, um `<image href={dataUrl} width={fit.width} height={fit.height}>` — **sem** `preserveAspectRatio="slice"`. Como já estamos passando largura/altura calculadas pelo `fitContain`, a imagem entra exatamente proporcional, sem corte e sem distorção.
-     - Para `redondo`: aplicar `clipPath` circular único reaproveitado via `<defs><clipPath id="clip-round-${i,j}"><circle .../></clipPath></defs>` — isso esconde a parte da imagem que sobrasse fora do círculo (caso a sobra do `contain` caia em região canto). O bounding box do `contain` é retangular; sem clip, o canto da imagem aparece "fora" do círculo. Com clip, fica perfeito.
-  3. **Forma da etiqueta (rect/circle)** continua renderizada *atrás* da imagem com fill leve (`fill-primary/5`) — assim, quando a arte tem proporção diferente, o usuário vê visualmente as "sobras" como áreas claras dentro do contorno da etiqueta. **Esse é o alerta visual exato que você pediu.**
-- Se não há imagem: renderiza só a forma com fill leve atual.
-
-**Importante:** `preserveAspectRatio` do `<svg>` raiz não é alterado — a folha continua escalando proporcionalmente no container.
-
-### Pricing principal — adições
-
-Botões lado a lado:
-- `📋 Copiar para WhatsApp` — `navigator.clipboard.writeText` + toast.
-- `↗ Abrir WhatsApp` — `window.open("https://wa.me/?text=" + encodeURIComponent(text))`.
-
-Otimizador (Lâmpada) e Ancoragem permanecem inalterados.
-
-## 7. Testes — `src/test/labels-layout.test.ts`
-
-- `loadConfig` retorna defaults com localStorage vazio.
-- `saveConfig` faz merge sem perder `labelPresets`.
-- Migração da chave antiga `labelCalc:lastPricePerSheet`.
-- `addLabelPreset` / `removeLabelPreset`.
-- `formatWhatsAppQuote` nos 3 formatos + omite tier 3 quando ausente.
-- Redondo produz mesmo `perSheet` que quadrado para mesmo lado.
-- **`fitContain`**:
-  - imagem quadrada em box quadrado → preenche tudo, offset zero.
-  - imagem 2:1 em box 1:1 → largura = boxW, altura = boxW/2, `offsetY > 0`, `offsetX === 0`.
-  - imagem 1:2 em box 1:1 → altura = boxH, largura = boxH/2, `offsetX > 0`, `offsetY === 0`.
-  - imagem maior que o box → escala pra baixo proporcionalmente.
-
-## 8. Arquivos tocados
-
-```text
-src/lib/labels/layout.ts                             [+ LabelShape, shape em LayoutInput]
-src/lib/labels/config-storage.ts                     [novo]
-src/lib/labels/whatsapp.ts                           [novo]
-src/lib/labels/image-fit.ts                          [novo]
-src/components/labels/LabelCalcSettingsDialog.tsx    [novo]
-src/components/labels/LabelLayoutCalculator.tsx      [refatorado + upload + SVG contain + clip redondo]
-src/test/labels-layout.test.ts                       [+ casos novos]
-```
-
-Sem mudanças em: `LabelLayoutDialog.tsx`, `CalculadoraEtiquetas.tsx`, `PrintingItemEditor.tsx` (prop `onApply` preservada).
-
----
-
-## 9. Suposições que vou adotar (me corrija antes do "manda bala")
-
-- Upload disponível **nos 3 formatos** (não só personalizado).
-- Limite de **2 MB** por imagem.
-- **PDF de gabarito fica para uma segunda rodada** (mantém este escopo enxuto).
-- Aviso de proporção divergente aparece **automaticamente** quando |razão_arte − razão_etiqueta| > 5%.
-
-Aprova? Se sim, mando bala e implemento tudo de uma vez.
+Aprova? Se sim, implemento tudo de uma vez.
