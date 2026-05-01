@@ -48,7 +48,6 @@ const NAV_GROUPS: NavGroup[] = [
       { name: "Matérias-Primas", href: "/materias-primas", icon: Package },
       { name: "Grupos de Materiais", href: "/grupos-materiais", icon: Layers },
       { name: "Comunicação Visual", href: "/cadastros-cv", icon: Megaphone },
-      { name: "Catálogo Produtos", href: "/produtos", icon: BookOpen },
       { name: "Equipamentos", href: "/equipamentos", icon: Cpu },
     ],
   },
@@ -67,9 +66,15 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Análise",
+    label: "Inteligência de Mercado",
     items: [
       { name: "Monitoramento", href: "/monitoramento", icon: TrendingUp },
+      { name: "Catálogo Produtos", href: "/produtos", icon: BookOpen },
+    ],
+  },
+  {
+    label: "Análise",
+    items: [
       { name: "Auditoria", href: "/auditoria", icon: Shield, adminOnly: true },
     ],
   },
