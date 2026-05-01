@@ -426,24 +426,23 @@ describe("buildCornerMarks — L (topo) + tick (base)", () => {
       expect(mk.vertexY - baseline.marks[i].vertexY).toBeCloseTo(3, 5);
     });
   });
-  it("L tl: braços vão para +x e +y a partir do vértice", async () => {
+  it("L tl: braços vão para -x e -y a partir do vértice (fora da grade)", async () => {
     const { markSegments } = await import("@/lib/labels/marks");
     const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5);
     const tl = m.marks[0];
     const segs = markSegments(tl);
-    // segmento 1: horizontal para +x; segmento 2: vertical para +y
-    expect(segs[0].x2 - segs[0].x1).toBeCloseTo(5, 5);
+    expect(segs[0].x2 - segs[0].x1).toBeCloseTo(-5, 5);
     expect(segs[0].y1).toBe(segs[0].y2);
-    expect(segs[1].y2 - segs[1].y1).toBeCloseTo(5, 5);
+    expect(segs[1].y2 - segs[1].y1).toBeCloseTo(-5, 5);
     expect(segs[1].x1).toBe(segs[1].x2);
   });
-  it("L tr: braços vão para -x e +y", async () => {
+  it("L tr: braços vão para +x e -y", async () => {
     const { markSegments } = await import("@/lib/labels/marks");
     const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5);
     const tr = m.marks[1];
     const segs = markSegments(tr);
-    expect(segs[0].x2 - segs[0].x1).toBeCloseTo(-5, 5);
-    expect(segs[1].y2 - segs[1].y1).toBeCloseTo(5, 5);
+    expect(segs[0].x2 - segs[0].x1).toBeCloseTo(5, 5);
+    expect(segs[1].y2 - segs[1].y1).toBeCloseTo(-5, 5);
   });
   it("tick BL: segmento horizontal de 10mm centrado em vertexX", async () => {
     const { markSegments } = await import("@/lib/labels/marks");
