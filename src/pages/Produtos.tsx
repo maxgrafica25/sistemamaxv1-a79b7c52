@@ -121,7 +121,7 @@ export default function Produtos() {
         <div className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></div>
       ) : filtered.length === 0 ? (
         <Card><CardContent className="py-10 text-center text-muted-foreground text-sm">
-          {produtos.length === 0 ? "Nenhum produto cadastrado. Clique em \"Novo produto\" para começar." : "Nenhum produto corresponde à busca."}
+          {produtos.length === 0 ? "Nenhuma referência cadastrada. Adicione um item para começar o monitoramento." : "Nenhuma referência corresponde à busca."}
         </CardContent></Card>
       ) : (
         <div className="grid gap-2">
