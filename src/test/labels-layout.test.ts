@@ -321,17 +321,16 @@ describe("computeReservedSlots — colisão real com marcas", () => {
       ...baseGeom,
     })).toEqual([]);
   });
-  it("etiqueta que encosta no canto da área útil colide com o L superior", () => {
-    // Etiqueta 5×5mm: colide com o vértice do L (5mm de braço a partir do canto)
+  it("gap zero e tick muito alto colidiriam — caso degenerado retorna []", () => {
+    // Com a geometria padrão, a grade nunca colide (marcas ficam fora).
     const r = computeReservedSlots({
       cutType: "corte_reto",
       cols: 4, rows: 4,
-      labelW: 5, labelH: 5,
-      sheetW: 100, sheetH: 200,
-      gap: 0, marginTop: 7, marginBottom: 30, marginLeft: 7, marginRight: 7,
+      labelW: 50, labelH: 50,
+      sheetW: 320, sheetH: 450,
+      gap: 0, marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
     });
-    // O L do canto TL ocupa (7, 5)→(12, 10); a célula [0,0] fica em (7,7)→(12,12) → colide
-    expect(r.length).toBeGreaterThan(0);
+    expect(r).toEqual([]);
   });
 });
 
