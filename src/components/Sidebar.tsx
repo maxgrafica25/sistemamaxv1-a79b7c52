@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, Package, Settings, Factory, Receipt, Calculator, Cpu, Shield,
   ClipboardList, MessageSquare, TrendingUp, BookOpen, PanelLeftClose, PanelLeftOpen, X,
-  Layers, Megaphone, UserCog, LogOut, ShoppingCart, Wallet,
+  Layers, Megaphone, UserCog, LogOut, ShoppingCart, Wallet, Ruler,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -62,6 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Precificação",
     items: [
       { name: "Preço Impressão", href: "/preco-impressao", icon: Calculator },
+      { name: "Calc. Etiquetas", href: "/calculadora-etiquetas", icon: Ruler },
       { name: "Processos de Produção", href: "/processos-producao", icon: Factory },
     ],
   },
