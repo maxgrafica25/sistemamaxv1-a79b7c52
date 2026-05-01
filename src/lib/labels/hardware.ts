@@ -28,9 +28,21 @@ export const HARDWARE_PROFILES: Record<string, HardwareProfile> = {
     maxUsableH: null,
     description: "Use as margens livremente.",
   },
+  signmaster_param: {
+    id: "signmaster_param",
+    label: "SignMaster paramétrico (folha solta)",
+    marginTop: 7,
+    marginBottom: 7,
+    marginLeft: 7,
+    marginRight: 7,
+    maxUsableW: null,
+    maxUsableH: null,
+    description:
+      "Spec SignMaster: margens 7mm em todos os lados, gap 3mm, marcas L (topo) + T (base). Para folhas soltas alimentadas manualmente, sem tração contínua.",
+  },
   teneth_a3: {
     id: "teneth_a3",
-    label: "Plotter Teneth A3 / SignMaster",
+    label: "Plotter Teneth A3 (rolo / tração)",
     marginTop: 7,
     marginLeft: 7,
     marginRight: 7,
@@ -38,11 +50,11 @@ export const HARDWARE_PROFILES: Record<string, HardwareProfile> = {
     maxUsableW: 306,
     maxUsableH: 363,
     description:
-      "Margens reais da Teneth A3: 7mm topo/laterais, 80mm base (tração dos roletes). Área útil máx 306×363mm na SRA3.",
+      "Margens reais da Teneth A3 em rolo: 7mm topo/laterais, 80mm base (tração dos roletes). Área útil máx 306×363mm na SRA3.",
   },
 };
 
-export const DEFAULT_HARDWARE_ID = "teneth_a3";
+export const DEFAULT_HARDWARE_ID = "signmaster_param";
 
 /**
  * Aplica restrições do perfil de hardware sobre as margens informadas.
