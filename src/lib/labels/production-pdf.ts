@@ -142,19 +142,7 @@ export async function generateProductionPDF(input: ProductionPDFInput): Promise<
   const flipY = (yMm: number, hMm = 0) => mm(input.sheetH - yMm - hMm);
 
   for (const p of positions) {
-    if (p.reserved) {
-      // Hachura cinza simples + texto "ARMS"
-      p1.drawRectangle({
-        x: mm(p.x), y: flipY(p.y, p.h),
-        width: mm(p.w), height: mm(p.h),
-        color: grayLight,
-      });
-      p1.drawText("ARMS", {
-        x: mm(p.x + p.w / 2) - 10, y: flipY(p.y + p.h / 2) - 4,
-        size: 7, font, color: black,
-      });
-      continue;
-    }
+    if (p.reserved) continue; // espaço em branco real
     if (embedded) {
       // object-fit: contain
       const ratio = embedded.width / embedded.height;
@@ -177,9 +165,9 @@ export async function generateProductionPDF(input: ProductionPDFInput): Promise<
     }
   }
 
-  // Marcas de registro (K100)
+  // Marcas de registro (K100, 0.5pt)
   for (const m of marks.marks) {
-    drawRegistrationMark(p1, mm(m.x), flipY(m.y, m.size), mm(m.size), black);
+    drawMark(p1, m, flipY, black);
   }
 
   // Quadrado de teste 10×10mm
