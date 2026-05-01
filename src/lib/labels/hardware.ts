@@ -1,0 +1,79 @@
+// =============================================================================
+// Perfis de hardware — define limites físicos da impressora/plotter
+// =============================================================================
+
+export interface HardwareProfile {
+  id: string;
+  label: string;
+  /** Margens mínimas obrigatórias (mm). */
+  marginTop: number;
+  marginBottom: number;
+  marginLeft: number;
+  marginRight: number;
+  /** Área útil máxima absoluta (mm). null = sem limite extra. */
+  maxUsableW: number | null;
+  maxUsableH: number | null;
+  description: string;
+}
+
+export const HARDWARE_PROFILES: Record<string, HardwareProfile> = {
+  generico: {
+    id: "generico",
+    label: "Genérico (sem restrição)",
+    marginTop: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+    marginRight: 0,
+    maxUsableW: null,
+    maxUsableH: null,
+    description: "Use as margens livremente.",
+  },
+  teneth_a3: {
+    id: "teneth_a3",
+    label: "Plotter Teneth A3 / SignMaster",
+    marginTop: 7,
+    marginLeft: 7,
+    marginRight: 7,
+    marginBottom: 80, // tração dos roletes
+    maxUsableW: 306,
+    maxUsableH: 363,
+    description:
+      "Margens reais da Teneth A3: 7mm topo/laterais, 80mm base (tração dos roletes). Área útil máx 306×363mm na SRA3.",
+  },
+};
+
+export const DEFAULT_HARDWARE_ID = "teneth_a3";
+
+/**
+ * Aplica restrições do perfil de hardware sobre as margens informadas.
+ * Sempre usa o MAIOR valor entre o desejado e o mínimo do hardware.
+ */
+export function clampMarginsToHardware(
+  margins: { marginTop: number; marginBottom: number; marginLeft: number; marginRight: number },
+  profile: HardwareProfile,
+) {
+  return {
+    marginTop: Math.max(margins.marginTop, profile.marginTop),
+    marginBottom: Math.max(margins.marginBottom, profile.marginBottom),
+    marginLeft: Math.max(margins.marginLeft, profile.marginLeft),
+    marginRight: Math.max(margins.marginRight, profile.marginRight),
+  };
+}
+
+/**
+ * Calcula área útil efetiva considerando margens E limite máximo do hardware.
+ * Retorna a área útil real (mm) que o equipamento consegue trabalhar.
+ */
+export function effectiveUsableArea(
+  sheetW: number,
+  sheetH: number,
+  margins: { marginTop: number; marginBottom: number; marginLeft: number; marginRight: number },
+  profile: HardwareProfile,
+) {
+  const m = clampMarginsToHardware(margins, profile);
+  let usableW = sheetW - m.marginLeft - m.marginRight;
+  let usableH = sheetH - m.marginTop - m.marginBottom;
+  if (profile.maxUsableW != null) usableW = Math.min(usableW, profile.maxUsableW);
+  if (profile.maxUsableH != null) usableH = Math.min(usableH, profile.maxUsableH);
+  return { usableW: Math.max(0, usableW), usableH: Math.max(0, usableH), margins: m };
+}

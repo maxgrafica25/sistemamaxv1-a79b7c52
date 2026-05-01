@@ -84,6 +84,8 @@ export interface LayoutInput {
   gap: number;
   /** Opcional. Não afeta o cálculo (redondo usa bounding box quadrado). */
   shape?: LabelShape;
+  /** Opcional. Quando informado, calcula slots reservados para marcas ARMS. */
+  cutType?: CutType;
 }
 
 export interface LayoutOption {
@@ -93,6 +95,11 @@ export interface LayoutOption {
   rotated: boolean;
 }
 
+export interface ReservedSlot {
+  col: number;
+  row: number;
+}
+
 export interface LayoutResult {
   best: LayoutOption;
   optionA: LayoutOption;
@@ -100,6 +107,32 @@ export interface LayoutResult {
   usableW: number;
   usableH: number;
   utilizationPct: number;
+  /** Slots removidos para acomodar marcas de registro. */
+  reservedSlots: ReservedSlot[];
+  /** Etiquetas vendáveis = best.total - reservedSlots.length (clampado a ≥0). */
+  effectivePerSheet: number;
+}
+
+/**
+ * Slots reservados para marcas de registro (ARMS) por tipo de corte.
+ * - plotter_redondo: reserva [0,0]
+ * - corte_reto / plotter_quadrado: reserva [0,0] e [cols-1, rows-1]
+ * - se cols/rows < 1, retorna vazio
+ */
+export function computeReservedSlots(
+  cutType: CutType,
+  cols: number,
+  rows: number,
+): ReservedSlot[] {
+  if (cols <= 0 || rows <= 0) return [];
+  if (cutType === "plotter_redondo") {
+    return [{ col: 0, row: 0 }];
+  }
+  // corte_reto + plotter_quadrado
+  const slots: ReservedSlot[] = [{ col: 0, row: 0 }];
+  const last = { col: cols - 1, row: rows - 1 };
+  if (last.col !== 0 || last.row !== 0) slots.push(last);
+  return slots;
 }
 
 /**
@@ -134,7 +167,21 @@ export const computeLabelLayout = (input: LayoutInput): LayoutResult => {
   const usableArea = usableW * usableH;
   const utilizationPct = usableArea > 0 ? (usedArea / usableArea) * 100 : 0;
 
-  return { best, optionA, optionB, usableW, usableH, utilizationPct };
+  const reservedSlots = input.cutType
+    ? computeReservedSlots(input.cutType, best.cols, best.rows)
+    : [];
+  const effectivePerSheet = Math.max(0, best.total - reservedSlots.length);
+
+  return {
+    best,
+    optionA,
+    optionB,
+    usableW,
+    usableH,
+    utilizationPct,
+    reservedSlots,
+    effectivePerSheet,
+  };
 };
 
 /** Quantas folhas para atender `qty` etiquetas. */

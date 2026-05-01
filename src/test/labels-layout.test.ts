@@ -287,3 +287,110 @@ describe("config-storage", () => {
     expect(localStorage.getItem("labelCalc:lastPricePerSheet")).toBeNull();
   });
 });
+
+// =============================================================================
+// Hardware profiles + slots reservados + marcas ARMS
+// =============================================================================
+import { computeReservedSlots } from "@/lib/labels/layout";
+import { HARDWARE_PROFILES, clampMarginsToHardware, effectiveUsableArea } from "@/lib/labels/hardware";
+import { suggestMarksOffset, buildCornerMarks } from "@/lib/labels/marks";
+
+describe("computeReservedSlots", () => {
+  it("plotter_redondo reserva apenas [0,0]", () => {
+    expect(computeReservedSlots("plotter_redondo", 4, 5)).toEqual([{ col: 0, row: 0 }]);
+  });
+  it("corte_reto reserva [0,0] e [cols-1, rows-1]", () => {
+    expect(computeReservedSlots("corte_reto", 4, 5)).toEqual([
+      { col: 0, row: 0 }, { col: 3, row: 4 },
+    ]);
+  });
+  it("plotter_quadrado reserva 2 slots", () => {
+    expect(computeReservedSlots("plotter_quadrado", 3, 3)).toHaveLength(2);
+  });
+  it("retorna vazio se cols/rows = 0", () => {
+    expect(computeReservedSlots("corte_reto", 0, 5)).toEqual([]);
+  });
+  it("layout 1x1 reserva apenas 1 slot mesmo em corte_reto", () => {
+    expect(computeReservedSlots("corte_reto", 1, 1)).toEqual([{ col: 0, row: 0 }]);
+  });
+});
+
+describe("computeLabelLayout com cutType — effectivePerSheet", () => {
+  it("desconta reservedSlots do total", async () => {
+    const { computeLabelLayout } = await import("@/lib/labels/layout");
+    const r = computeLabelLayout({
+      sheetW: 210, sheetH: 297, labelW: 50, labelH: 50,
+      marginTop: 5, marginBottom: 5, marginLeft: 5, marginRight: 5, gap: 0,
+      cutType: "corte_reto",
+    });
+    expect(r.effectivePerSheet).toBe(r.best.total - r.reservedSlots.length);
+    expect(r.reservedSlots.length).toBeGreaterThanOrEqual(1);
+  });
+  it("sem cutType — reservedSlots vazio, effective = total", async () => {
+    const { computeLabelLayout } = await import("@/lib/labels/layout");
+    const r = computeLabelLayout({
+      sheetW: 210, sheetH: 297, labelW: 50, labelH: 50,
+      marginTop: 5, marginBottom: 5, marginLeft: 5, marginRight: 5, gap: 0,
+    });
+    expect(r.reservedSlots).toEqual([]);
+    expect(r.effectivePerSheet).toBe(r.best.total);
+  });
+});
+
+describe("clampMarginsToHardware", () => {
+  it("teneth_a3 força base ≥ 80", () => {
+    const c = clampMarginsToHardware(
+      { marginTop: 5, marginBottom: 10, marginLeft: 5, marginRight: 5 },
+      HARDWARE_PROFILES.teneth_a3,
+    );
+    expect(c.marginBottom).toBe(80);
+    expect(c.marginTop).toBe(7); // mínimo do hardware
+  });
+  it("genérico não altera", () => {
+    const c = clampMarginsToHardware(
+      { marginTop: 2, marginBottom: 2, marginLeft: 2, marginRight: 2 },
+      HARDWARE_PROFILES.generico,
+    );
+    expect(c).toEqual({ marginTop: 2, marginBottom: 2, marginLeft: 2, marginRight: 2 });
+  });
+});
+
+describe("effectiveUsableArea", () => {
+  it("teneth_a3 limita a 306×363 mesmo em SRA3", () => {
+    const r = effectiveUsableArea(320, 450,
+      { marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7 },
+      HARDWARE_PROFILES.teneth_a3,
+    );
+    expect(r.usableW).toBe(306);
+    expect(r.usableH).toBe(363);
+  });
+});
+
+describe("suggestMarksOffset", () => {
+  it("retorna 0 se não há rows ou gap", () => {
+    expect(suggestMarksOffset(5, 50, 0, 5)).toBe(0);
+    expect(suggestMarksOffset(5, 50, 2, 0)).toBe(0);
+  });
+  it("aproxima a marca para o centro do primeiro gap", () => {
+    const offset = suggestMarksOffset(5, 50, 4, 4);
+    expect(offset).toBeGreaterThan(0);
+    expect(offset).toBeLessThanOrEqual(10);
+  });
+});
+
+describe("buildCornerMarks", () => {
+  it("gera 4 marcas nos cantos", () => {
+    const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5);
+    expect(m.marks).toHaveLength(4);
+    expect(m.offsetY).toBe(0);
+  });
+  it("aplica offsetY ao conjunto", () => {
+    const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 3, 5);
+    expect(m.offsetY).toBe(3);
+    // Todas as marcas devem ter Y deslocado em +3
+    const baseline = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5);
+    m.marks.forEach((mk, i) => {
+      expect(mk.y - baseline.marks[i].y).toBeCloseTo(3, 5);
+    });
+  });
+});

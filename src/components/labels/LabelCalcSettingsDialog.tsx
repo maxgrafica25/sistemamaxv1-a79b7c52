@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Separator } from "@/components/ui/separator";
-import { Plus, RotateCw, Trash2, Settings2 } from "lucide-react";
+import { Plus, RotateCw, Trash2, Settings2, Lock, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import {
   CUT_DEFAULTS,
@@ -36,6 +36,7 @@ import {
   type LabelCalcConfig,
   type CustomSheetPreset,
 } from "@/lib/labels/config-storage";
+import { HARDWARE_PROFILES, clampMarginsToHardware } from "@/lib/labels/hardware";
 
 const CUSTOM_SHEET_ID = "__custom__";
 
@@ -192,7 +193,14 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
       toast.error(validation);
       return;
     }
-    const saved = saveConfig(draft);
+    let toSave = draft;
+    if (!draft.marginsUnlocked) {
+      const profile = HARDWARE_PROFILES[draft.hardwareProfileId];
+      if (profile) {
+        toSave = { ...draft, ...clampMarginsToHardware(draft, profile) };
+      }
+    }
+    const saved = saveConfig(toSave);
     toast.success("Configurações salvas");
     onSaved?.(saved);
     onOpenChange(false);
@@ -340,18 +348,61 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
 
           <Separator />
 
+          {/* === 2.5 Perfil de Hardware === */}
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold">Perfil de hardware</h3>
+            <Select
+              value={draft.hardwareProfileId}
+              onValueChange={(id) => {
+                const profile = HARDWARE_PROFILES[id];
+                if (!profile) return;
+                const clamped = clampMarginsToHardware(draft, profile);
+                setDraft((d) => ({
+                  ...d,
+                  hardwareProfileId: id,
+                  marginsUnlocked: false,
+                  ...clamped,
+                }));
+              }}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.values(HARDWARE_PROFILES).map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              {HARDWARE_PROFILES[draft.hardwareProfileId]?.description}
+            </p>
+          </section>
+
+          <Separator />
+
           {/* === 3. Margens + gap === */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Margens direcionais e gap</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs h-7"
-                onClick={restoreCutDefaults}
-              >
-                <RotateCw className="h-3 w-3 mr-1" /> Restaurar padrões
-              </Button>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => update({ marginsUnlocked: !draft.marginsUnlocked })}
+                  title={draft.marginsUnlocked ? "Voltar a respeitar mínimos do hardware" : "Destravar para ajuste fino"}
+                >
+                  {draft.marginsUnlocked ? <Unlock className="h-3 w-3 mr-1" /> : <Lock className="h-3 w-3 mr-1" />}
+                  {draft.marginsUnlocked ? "Destravado" : "Travado p/ hardware"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={restoreCutDefaults}
+                >
+                  <RotateCw className="h-3 w-3 mr-1" /> Padrão de corte
+                </Button>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <NumField label="Topo (mm)" value={draft.marginTop} onChange={(v) => update({ marginTop: v })} />
@@ -362,9 +413,12 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
             <div className="grid grid-cols-2 gap-3 sm:max-w-[240px]">
               <NumField label="Espaçamento entre etiquetas (mm)" value={draft.gap} onChange={(v) => update({ gap: v })} />
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              A marca de registro normalmente exige margem maior no topo e na base.
-            </p>
+            {!draft.marginsUnlocked && draft.hardwareProfileId !== "generico" && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                Margens travadas pelo perfil <strong>{HARDWARE_PROFILES[draft.hardwareProfileId]?.label}</strong>.
+                Os valores menores que o mínimo do hardware serão automaticamente ajustados.
+              </p>
+            )}
           </section>
 
           <Separator />
