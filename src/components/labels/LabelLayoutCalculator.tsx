@@ -367,8 +367,16 @@ export function LabelLayoutCalculator({
       height: labelH,
       pricing,
       ladder,
+      perSheet,
+      pricePerSheet,
+      printingLabel: folhaPricing.selectedPrinting
+        ? `${folhaPricing.selectedPrinting.label}`
+        : null,
+      finishingLabel: folhaPricing.selectedFinishing.id
+        ? folhaPricing.selectedFinishing.label
+        : null,
     });
-  }, [pricePerSheet, qty, perSheet, shape, labelW, labelH, pricing, ladder]);
+  }, [pricePerSheet, qty, perSheet, shape, labelW, labelH, pricing, ladder, folhaPricing.selectedPrinting, folhaPricing.selectedFinishing]);
 
 
   const handleCopyWhats = async () => {
