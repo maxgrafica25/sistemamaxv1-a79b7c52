@@ -8,6 +8,7 @@
 // =============================================================================
 
 import { CUT_DEFAULTS, type CutType, type LabelShape } from "./layout";
+import { DEFAULT_HARDWARE_ID, HARDWARE_PROFILES, clampMarginsToHardware } from "./hardware";
 
 export const CONFIG_STORAGE_KEY = "labelCalc:config:v1";
 const LEGACY_PRICE_KEY = "labelCalc:lastPricePerSheet";
