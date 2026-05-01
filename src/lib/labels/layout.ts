@@ -84,6 +84,8 @@ export interface LayoutInput {
   gap: number;
   /** Opcional. Não afeta o cálculo (redondo usa bounding box quadrado). */
   shape?: LabelShape;
+  /** Opcional. Quando informado, calcula slots reservados para marcas ARMS. */
+  cutType?: CutType;
 }
 
 export interface LayoutOption {
@@ -165,7 +167,21 @@ export const computeLabelLayout = (input: LayoutInput): LayoutResult => {
   const usableArea = usableW * usableH;
   const utilizationPct = usableArea > 0 ? (usedArea / usableArea) * 100 : 0;
 
-  return { best, optionA, optionB, usableW, usableH, utilizationPct };
+  const reservedSlots = input.cutType
+    ? computeReservedSlots(input.cutType, best.cols, best.rows)
+    : [];
+  const effectivePerSheet = Math.max(0, best.total - reservedSlots.length);
+
+  return {
+    best,
+    optionA,
+    optionB,
+    usableW,
+    usableH,
+    utilizationPct,
+    reservedSlots,
+    effectivePerSheet,
+  };
 };
 
 /** Quantas folhas para atender `qty` etiquetas. */
