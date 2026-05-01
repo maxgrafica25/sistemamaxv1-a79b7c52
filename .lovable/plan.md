@@ -1,74 +1,156 @@
 ## Objetivo
 
-Replicar o comportamento do Tiny ERP: abaixo do campo Cliente (após selecionado), exibir dois links/botões discretos:
+Criar a **Calculadora de Aproveitamento de Etiquetas** com:
+- Tipo de corte (Corte Reto, Plotter Quadrado, Plotter Redondo) com defaults próprios.
+- Margens **direcionais** (top/bottom/left/right) — marca de registro afeta principalmente topo/base.
+- 3 regras novas: precificação por folha, ancoragem de upsell, otimizador de retalho (−1/−2/−3mm).
 
-- **Dados do cliente** — abre/fecha um painel inline com os dados cadastrais (empresa, CNPJ, endereço completo, telefone, email, etc), permitindo edição rápida e persistência sem sair do orçamento.
-- **Últimas vendas** — abre/fecha um painel inline com os últimos orçamentos/pedidos do cliente (descrição, valor, data, status, número), com link para abrir o orçamento original em nova aba.
+Tudo client-side; persistência só de "preço da folha" no `localStorage`.
 
-Toggle puro: clicou abre, clicou de novo recolhe. Sem reload da página.
+## Arquitetura
 
-## Escopo (apenas Orçamentos V2)
-
-Aplicar no `NewQuoteFormV2.tsx` (etapa 0 — Informações). Não modificar V1, não modificar pedidos.
-
-## Componentes a criar
-
-### 1. `src/components/orcamentos-v2/ClientDetailsPanel.tsx`
-- Props: `clientId: string`, `onUpdated?: () => void`
-- Faz `select *` em `clients` quando aberto pela primeira vez (cache local).
-- Layout em grid 2 colunas: Tipo de Pessoa (deduzido pelo CNPJ vs CPF — usamos só CNPJ por enquanto), CNPJ, Empresa, Email, Telefone, CEP, Endereço, Número, Complemento, Bairro (não temos coluna — omitir), Município, UF, Observações.
-- Botões: "Salvar alterações" / "Cancelar" (somente se tocou em algum campo).
-- `update` direto na tabela `clients` via supabase client (já tem RLS authenticated all).
-- Toast de sucesso/erro.
-
-### 2. `src/components/orcamentos-v2/ClientLastSalesPanel.tsx`
-- Props: `clientId: string`
-- Busca os últimos 10 registros de `quotes` onde `client_id = clientId`, ordenados por `created_at desc`.
-- Colunas: Nº Orçamento, Produto/Descrição, Data, Valor total (`final_total` ou `total`), Status (badge), Ação (link "abrir" → `/orcamentos-v2/:id` em nova aba).
-- Estado vazio: "Nenhuma venda registrada para este cliente."
-- Skeleton durante loading.
-
-## Mudanças em `NewQuoteFormV2.tsx`
-
-Após o `<ClientCombobox />` (linha ~740), quando `clientId` estiver definido:
-
-```tsx
-{clientId && (
-  <div className="md:col-span-2 -mt-1 space-y-2">
-    <div className="flex items-center gap-4 text-sm">
-      <button type="button" onClick={() => setShowClientData(v => !v)}
-        className="text-primary hover:underline flex items-center gap-1">
-        <UserIcon className="h-3.5 w-3.5" />
-        {showClientData ? "Ocultar dados do cliente" : "Dados do cliente"}
-      </button>
-      <button type="button" onClick={() => setShowLastSales(v => !v)}
-        className="text-primary hover:underline flex items-center gap-1">
-        <HistoryIcon className="h-3.5 w-3.5" />
-        {showLastSales ? "Ocultar últimas vendas" : "Últimas vendas"}
-      </button>
-    </div>
-    {showClientData && <ClientDetailsPanel clientId={clientId} />}
-    {showLastSales && <ClientLastSalesPanel clientId={clientId} />}
-  </div>
-)}
+```text
+src/
+├── lib/labels/
+│   └── layout.ts                        ← lógica pura, testável
+├── components/labels/
+│   ├── LabelLayoutCalculator.tsx        ← UI principal (reutilizável)
+│   └── LabelLayoutDialog.tsx            ← wrapper para abrir do orçamento
+├── pages/
+│   └── CalculadoraEtiquetas.tsx         ← página standalone
+└── test/
+    └── labels-layout.test.ts            ← cobre as 4 funções principais
 ```
 
-Estado adicionado ao componente: `showClientData`, `showLastSales` (booleans, default false). Resetar ambos para `false` quando `clientId` mudar (via `useEffect`).
+## `lib/labels/layout.ts` — exports
 
-## Detalhes visuais
+| Função | Responsabilidade |
+|---|---|
+| `CutType`, `CUT_DEFAULTS`, `CUT_LABELS` | Tipos de corte e defaults de margem/gap |
+| `SHEET_PRESETS` | A4, A3, SRA3, Carta + custom |
+| `computeLabelLayout(input)` | Calcula melhor entre normal e rotacionada 90° |
+| `sheetsNeeded(qty, perSheet)` | `ceil(qty / perSheet)` |
+| `roundUpToTen(n)` | Arredonda para cima ao R$ 0,10 (regra do projeto) |
+| `computeSheetPricing({ pricePerSheet, qtyRequested, perSheet })` | Total + unitário |
+| `pickRoundUpsellQty(qty)` | Faixas confirmadas: 200/300/500/1000/2000/qty×5 |
+| `buildAnchoringLadder(qty, perSheet, pricePerSheet)` | 3 tiers com dedup, % vs base |
+| `findShrinkOpportunity(base, originalPerSheet, sheetsForOriginal)` | Testa −1/−2/−3mm em W, H e ambos. Trava em 5mm mínimos. Maior delta vence; empate → menor encolhimento |
 
-- Painéis renderizados dentro de `<Card className="bg-muted/30 border-dashed">` com transição suave (`animate-in fade-in slide-in-from-top-2`).
-- Layout responsivo igual ao restante do form (grid 2 colunas em md+).
-- Chip "Trocar" do ClientCombobox continua funcionando — ao trocar de cliente, painéis fecham automaticamente.
+### Defaults por tipo de corte (mm)
 
-## Não-objetivos
+| Tipo | Top | Bottom | Left | Right | Gap |
+|---|---|---|---|---|---|
+| Corte reto (guilhotina) | 5 | 5 | 5 | 5 | 0 |
+| Plotter quadrado | 10 | 10 | 5 | 5 | 2 |
+| Plotter redondo | 10 | 10 | 5 | 5 | 3 |
 
-- Não criar dialog/modal — tudo inline conforme o Tiny.
-- Não duplicar a lógica do `Cadastros.tsx` completo; só os campos essenciais editáveis.
-- Não tocar no V1 (`NewQuoteForm.tsx`) nem em `OrderEditorDialog.tsx` (pode ser feito depois se solicitado).
+Cada margem fica editável após escolher o tipo (o tipo só pré-preenche).
 
-## Arquivos afetados
+### Cálculo do layout (chave)
 
-- **Novo**: `src/components/orcamentos-v2/ClientDetailsPanel.tsx`
-- **Novo**: `src/components/orcamentos-v2/ClientLastSalesPanel.tsx`
-- **Editar**: `src/components/orcamentos-v2/NewQuoteFormV2.tsx` (imports + estado + bloco JSX abaixo do ClientCombobox)
+Para N peças em uma direção: `N*lado + (N−1)*gap ≤ útil` → `N = floor((útil + gap) / (lado + gap))`. Testa orientação 0° e 90°, escolhe a que dá mais. Aproveitamento = `(total × labelArea) / (usableW × usableH) × 100`.
+
+## `components/labels/LabelLayoutCalculator.tsx`
+
+Layout em 2 colunas (preview à direita em md+):
+
+**Coluna esquerda — controles (em seções colapsáveis ou cards)**
+1. **Folha**: select com presets + botão "Personalizado" → mostra inputs W×H.
+2. **Tipo de corte**: 3 botões/segmented control. Ao trocar, sobrescreve margens/gap com os defaults do tipo (mostra um botão "Restaurar padrões" caso o usuário tenha editado).
+3. **Margens direcionais**: 4 inputs (Top, Bottom, Left, Right) em grid 2×2 + input "Espaçamento entre etiquetas (gap)".
+4. **Etiqueta**: 2 inputs W×H (mm).
+5. **Quantidade desejada**: input numérico.
+6. **Preço da folha de produção (R$)**: input numérico, persistido em `localStorage` (`labelCalc:lastPricePerSheet`).
+
+**Coluna direita — resultados**
+- **Card de aproveitamento**: "X etiquetas por folha" + "Y% aproveitamento" + badge "Etiqueta em pé" ou "Etiqueta deitada (rotação 90°)". Mostra também `cols × rows`.
+- **SVG de preview** (escala proporcional, max 360×360px): folha cinza com margens hachuradas + grade de etiquetas roxas. Etiqueta rotacionada se for o caso.
+- **Card "Cálculo do orçamento"** (aparece quando preço e qty preenchidos):
+  - `qty desejada` ÷ `por folha` = **N folhas** × R$ preço = **R$ total** _(unit: R$ X,XX)_
+- **Tabela de ancoragem** (3 linhas):
+  ```
+  Quantidade | Folhas | Total      | Custo/un | Δ vs solicitada
+  50  un     | 1      | R$ 15,00   | R$ 0,30  | —
+  100 un     | 2      | R$ 30,00   | R$ 0,30  | 0%
+  300 un     | 5      | R$ 75,00   | R$ 0,25  | −17% (badge verde)
+  ```
+- **Alerta de otimização** (Lightbulb amarelo, só se sugestão existe):
+  > 💡 **Dica:** Se a etiqueta for reduzida para **48×48mm** (−2mm × −2mm), cabem **+12 por folha**. Pelo mesmo custo (5 folhas) o cliente leva **+60 etiquetas**.
+  >
+  > [Aplicar sugestão] (botão pequeno, substitui labelW/labelH e re-calcula)
+
+Quando usado dentro de um item de impressão do orçamento, o card de "Cálculo do orçamento" ganha um botão extra **"Usar X folhas como quantidade"** (via prop `onApply`).
+
+## `components/labels/LabelLayoutDialog.tsx`
+
+`Dialog` simples (max-w-4xl). Props:
+```ts
+{
+  open: boolean;
+  onOpenChange: (b: boolean) => void;
+  defaultSheet?: { width: number; height: number };
+  defaultLabelW?: number;
+  defaultLabelH?: number;
+  defaultQty?: number;
+  onApply?: (folhas: number) => void;
+}
+```
+Renderiza `<LabelLayoutCalculator />` repassando as defaults.
+
+## `pages/CalculadoraEtiquetas.tsx`
+
+Página simples seguindo o padrão dos outros módulos do projeto:
+- Título com ícone Lucide `Ruler` em primary purple.
+- Renderiza `<LabelLayoutCalculator />` em largura total.
+- Sem `onApply` (uso standalone).
+
+## Integrações
+
+### `App.tsx`
+Adicionar:
+```tsx
+import CalculadoraEtiquetas from "./pages/CalculadoraEtiquetas";
+// dentro de ProtectedRoute/Layout:
+<Route path="/calculadora-etiquetas" element={<CalculadoraEtiquetas />} />
+```
+
+### `Sidebar.tsx`
+No grupo **Precificação** (entre "Preço Impressão" e "Processos de Produção"):
+```tsx
+{ name: "Calc. Etiquetas", href: "/calculadora-etiquetas", icon: Ruler }
+```
+Visível para todos (admin + colaborador) — ferramenta operacional.
+
+### `components/orcamentos-v2/PrintingItemEditor.tsx`
+No header do item, ao lado do `<Input quantity>`, adicionar botão pequeno (ícone `Ruler`, `variant="ghost" size="icon"`, tooltip "Calcular etiquetas por folha"). Ao clicar, abre `LabelLayoutDialog` com:
+- `defaultSheet`: derivado de `item.description` se contiver "A4"/"A3"/"SRA3" (regex simples)
+- `defaultQty`: `item.quantity`
+- `onApply: (folhas) => onItemChange({ quantity: folhas })`
+
+Fica desabilitado se o item estiver `aprovado` (segue o padrão atual).
+
+## Testes (`src/test/labels-layout.test.ts`)
+
+Cobertura mínima:
+
+1. **`computeLabelLayout`**
+   - 50×50mm em A4 com margem 5/5/5/5 e gap 0 → `optionA = optionB` (etiqueta quadrada), total = 4×5 = 20.
+   - 100×50mm em A4 → rotacionada cabe mais que normal.
+   - Etiqueta maior que área útil → total 0.
+2. **`sheetsNeeded`**: 50/20=3, 100/20=5, 0/20=0.
+3. **`computeSheetPricing`**: arredondamento para R$ 0,10 (5 × 14,99 = 74,95 → 75,00); qty=0 → unit=0.
+4. **`pickRoundUpsellQty`**: 50→200, 100→300, 200→500, 500→1000, 1500→ múltiplo de 500.
+5. **`buildAnchoringLadder`**: dedup quando tier3 == tier2 (qty=100 → 100/200/300, não duplica); `unitDeltaPct` da última < 0.
+6. **`findShrinkOpportunity`**:
+   - 50×50 em A4 (gap 0, margem 5) → não há ganho (já encaixa redondo) ⇒ pode retornar null.
+   - 51×51 em A4 → −1mm faz caber mais ⇒ retorna sugestão com `delta > 0`.
+   - 90×90 em SRA3 → testa o caminho do −3mm.
+   - Etiqueta 6×6 com −2mm cairia para 4mm → bloqueia (limite 5mm).
+
+## Pontos confirmados
+
+- ✅ `localStorage` para preço da folha
+- ✅ Faixas de upsell 200/300/500/1000/2000
+- ✅ Trava de 5mm
+- ✅ Inclui −3mm no otimizador
+- ✅ Margens direcionais + tipo de corte com defaults
