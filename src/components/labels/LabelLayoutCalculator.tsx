@@ -61,6 +61,7 @@ import { Slider } from "@/components/ui/slider";
 import { LabelCalcSettingsDialog } from "./LabelCalcSettingsDialog";
 import { suggestMarksOffset, buildCornerMarks, markSegments, MARK_ARM_MM } from "@/lib/labels/marks";
 import { generateProductionPDF, downloadPDF } from "@/lib/labels/production-pdf";
+import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
 
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -235,7 +236,18 @@ export function LabelLayoutCalculator({
     if (!s) return;
     const next = saveConfig({ sheetPresetId: s.id, sheetW: s.w, sheetH: s.h });
     setConfig(next);
+    setMarksOffsetY(0);
+    toast.success(`Folha alterada para ${s.label} — cálculo atualizado`);
   };
+
+  // Mapeia o tamanho da folha para a chave usada nas tabelas de preço.
+  const sheetSizeKey = useMemo(() => {
+    const m = QUICK_SHEETS.find((x) => x.w === config.sheetW && x.h === config.sheetH);
+    return m?.id ?? "SRA3";
+  }, [config.sheetW, config.sheetH]);
+
+  const folhaPricing = useFolhaPricing(sheetSizeKey);
+  const pricePerSheet = folhaPricing.total;
 
   // ---- Imagem upload -------------------------------------------------------
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
