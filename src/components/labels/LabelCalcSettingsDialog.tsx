@@ -401,7 +401,7 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
       </DialogContent>
     </Dialog>
   );
-}
+});
 
 // Re-export para uso externo (ex.: tests)
 export type { CustomSheetPreset };
