@@ -394,6 +394,36 @@ export function LabelLayoutCalculator({
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
       {/* ============================== SIMULADOR ============================== */}
       <div className="space-y-4">
+        {/* Seleção rápida de folha — Tabs */}
+        <Card className="p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Label className="text-xs text-muted-foreground">Folha:</Label>
+            <span className="text-xs font-medium">{describeSheet(config)}</span>
+          </div>
+          <ToggleGroup
+            type="single"
+            value={currentSheetTab}
+            onValueChange={(v) => v && handleQuickSheet(v)}
+            className="grid grid-cols-2 sm:grid-cols-5 gap-1.5"
+          >
+            {QUICK_SHEETS.map((s) => (
+              <ToggleGroupItem
+                key={s.id}
+                value={s.id}
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+              >
+                {s.label}
+              </ToggleGroupItem>
+            ))}
+            <ToggleGroupItem
+              value="__other__"
+              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+            >
+              Outro…
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </Card>
+
         <Card className="p-4 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Simulador</h3>
