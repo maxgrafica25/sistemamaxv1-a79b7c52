@@ -630,13 +630,8 @@ export function LabelLayoutCalculator({
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
-          aria-label="Alterar configurações de folha, corte e preço"
-          className={
-            "w-full text-left rounded-md border px-3 py-2.5 text-xs flex items-center justify-between gap-3 transition-colors hover:bg-muted/50 " +
-            (config.pricePerSheet <= 0
-              ? "border-amber-400/60 bg-amber-50/60 dark:bg-amber-950/20"
-              : "border-border bg-card")
-          }
+          aria-label="Alterar configurações de folha e corte"
+          className="w-full text-left rounded-md border border-border bg-card px-3 py-2.5 text-xs flex items-center justify-between gap-3 transition-colors hover:bg-muted/50"
         >
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
             <span>
@@ -646,16 +641,6 @@ export function LabelLayoutCalculator({
             <span>
               <span className="text-muted-foreground">Corte:</span>{" "}
               <strong>{CUT_LABELS[config.cutType]}</strong>
-            </span>
-            <span>
-              <span className="text-muted-foreground">Preço:</span>{" "}
-              {config.pricePerSheet > 0 ? (
-                <strong>{formatBRL(config.pricePerSheet)}/folha</strong>
-              ) : (
-                <strong className="text-amber-700 dark:text-amber-400">
-                  configurar →
-                </strong>
-              )}
             </span>
           </span>
           <span className="flex items-center gap-1 text-primary shrink-0">
