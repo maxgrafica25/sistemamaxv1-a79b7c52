@@ -205,7 +205,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
     try {
       const catalogoId = produtoCatalogoId;
       if (!catalogoId) {
-        toast.error("Selecione um produto do catálogo");
+        toast.error("Selecione uma referência");
         setSaving(false);
         return;
       }
