@@ -70,11 +70,11 @@ export default function Produtos() {
       if (editing) {
         const { error } = await supabase.from("produtos_catalogo").update(payload).eq("id", editing.id);
         if (error) throw error;
-        toast.success("Produto atualizado");
+        toast.success("Referência atualizada!");
       } else {
         const { error } = await supabase.from("produtos_catalogo").insert(payload);
         if (error) throw error;
-        toast.success("Produto cadastrado");
+        toast.success("Referência cadastrada com sucesso!");
       }
       setDialogOpen(false);
       await fetchProdutos();
@@ -87,7 +87,7 @@ export default function Produtos() {
 
   const handleDelete = async (p: ProdutoComContagem) => {
     if (p._count > 0) {
-      return toast.error(`Este produto tem ${p._count} site(s) vinculado(s). Desvincule ou unifique antes de excluir.`);
+      return toast.error(`Esta referência tem ${p._count} site(s) vinculado(s). Desvincule ou unifique antes de excluir.`);
     }
     if (!confirm(`Excluir "${p.nome_canonico}"?`)) return;
     const { error } = await supabase.from("produtos_catalogo").delete().eq("id", p.id);
@@ -106,10 +106,10 @@ export default function Produtos() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Package className="h-6 w-6" />Catálogo de Produtos</h1>
-          <p className="text-sm text-muted-foreground">Biblioteca de nomes canônicos. Use no monitoramento para padronizar produtos entre fornecedores.</p>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Package className="h-6 w-6" />Produtos de Referência</h1>
+          <p className="text-sm text-muted-foreground">Cadastre os nomes padrão para unificar a comparação de preços entre diferentes fornecedores.</p>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4" />Novo produto</Button>
+        <Button onClick={openNew}><Plus className="h-4 w-4" />Nova Referência</Button>
       </div>
 
       <div className="relative max-w-md">
@@ -121,7 +121,7 @@ export default function Produtos() {
         <div className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></div>
       ) : filtered.length === 0 ? (
         <Card><CardContent className="py-10 text-center text-muted-foreground text-sm">
-          {produtos.length === 0 ? "Nenhum produto cadastrado. Clique em \"Novo produto\" para começar." : "Nenhum produto corresponde à busca."}
+          {produtos.length === 0 ? "Nenhuma referência cadastrada. Adicione um item para começar o monitoramento." : "Nenhuma referência corresponde à busca."}
         </CardContent></Card>
       ) : (
         <div className="grid gap-2">
@@ -150,10 +150,10 @@ export default function Produtos() {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? "Editar produto" : "Novo produto"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? "Editar Referência" : "Nova Referência"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Nome canônico *</Label>
+              <Label>Nome Padrão *</Label>
               <Input value={form.nome_canonico} onChange={(e) => setForm({ ...form, nome_canonico: e.target.value })} placeholder="Ex: Panfleto 10x14 Couché 90g" />
             </div>
             <div className="grid grid-cols-3 gap-2">

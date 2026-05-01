@@ -79,11 +79,11 @@ export default function NovoProdutoCatalogoDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Novo produto no catálogo</DialogTitle>
+          <DialogTitle>Nova Referência</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div>
-            <Label>Nome canônico *</Label>
+            <Label>Nome Padrão *</Label>
             <Input
               value={form.nome_canonico}
               onChange={(e) => setForm({ ...form, nome_canonico: e.target.value })}

@@ -643,7 +643,7 @@ export default function Monitoramento() {
 
           <Button variant="outline" onClick={() => setOpenCatalogo(true)}>
             <BookOpen className="h-4 w-4" />
-            Catálogo de Produtos
+            Produtos de Referência
           </Button>
 
           <Button onClick={() => setOpenDialog(true)}>

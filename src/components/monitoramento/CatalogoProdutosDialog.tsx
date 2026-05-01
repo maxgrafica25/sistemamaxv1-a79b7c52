@@ -150,7 +150,7 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
   };
 
   const handleUnlink = async (site: SiteRow) => {
-    if (!confirm(`Desvincular "${site.nome_produto}" deste produto do catálogo? Será criado um novo produto canônico para ele.`)) return;
+    if (!confirm(`Desvincular "${site.nome_produto}" desta referência? Será criada uma nova referência para ele.`)) return;
     setBusy(true);
     try {
       const newId = await findOrCreateCatalogo(site.nome_produto + " (variante)");
@@ -174,15 +174,15 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Catálogo de Produtos</DialogTitle>
+          <DialogTitle>Produtos de Referência</DialogTitle>
         </DialogHeader>
 
         <div className="rounded-md border bg-muted/40 p-3 text-xs space-y-1">
           <p className="font-semibold">Como unificar produtos iguais de fornecedores diferentes:</p>
           <ol className="list-decimal pl-4 space-y-0.5 text-muted-foreground">
             <li>Marque o <strong>checkbox</strong> de 2 ou mais produtos que são o mesmo item.</li>
-            <li>Clique no <strong>radio (●)</strong> do produto cujo nome será mantido como canônico.</li>
-            <li>Clique em <strong>"Unificar selecionados"</strong>. Os links/preços/fornecedores de cada site são <strong>preservados</strong> — só o nome canônico e o agrupamento mudam.</li>
+            <li>Clique no <strong>radio (●)</strong> do produto cujo nome será mantido como padrão.</li>
+            <li>Clique em <strong>"Unificar selecionados"</strong>. Os links/preços/fornecedores de cada site são <strong>preservados</strong> — só o nome padrão e o agrupamento mudam.</li>
           </ol>
         </div>
 
@@ -211,7 +211,7 @@ export default function CatalogoProdutosDialog({ open, onOpenChange, onChanged, 
           <div className="py-10 text-center"><Loader2 className="h-5 w-5 animate-spin inline" /></div>
         ) : filtered.length === 0 ? (
           <Card><CardContent className="py-10 text-center text-muted-foreground text-sm">
-            Nenhum produto no catálogo. Cadastre um site monitorado para começar.
+            Nenhuma referência cadastrada. Cadastre um site monitorado para começar.
           </CardContent></Card>
         ) : (
           <div className="space-y-2">
