@@ -70,11 +70,11 @@ export default function Produtos() {
       if (editing) {
         const { error } = await supabase.from("produtos_catalogo").update(payload).eq("id", editing.id);
         if (error) throw error;
-        toast.success("Produto atualizado");
+        toast.success("Referência atualizada!");
       } else {
         const { error } = await supabase.from("produtos_catalogo").insert(payload);
         if (error) throw error;
-        toast.success("Produto cadastrado");
+        toast.success("Referência cadastrada com sucesso!");
       }
       setDialogOpen(false);
       await fetchProdutos();
