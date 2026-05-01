@@ -1,89 +1,75 @@
 ## Objetivo
-Espelhar o padrão real do SignMaster/Teneth observado no PDF de referência (Rosane_Tags_38): marcas superiores em "L", marcas inferiores em traço simples, primeira/última linha com menos etiquetas centralizadas, e adicionar seletor mm/cm.
 
-## O que o PDF de referência ensina
+Aproximar a Calculadora de Etiquetas do padrão "Label Press": seleção rápida por abas, máximo aproveitamento da Teneth A3 (sem remover etiquetas preventivamente) e UI mais limpa. Confirmar que as marcas inferiores são ticks (já estão, mas reforçar no preview SVG).
 
-1. **Marcas superiores (TL + TR)** = "L" abrindo para dentro da folha. Vértice no canto da área útil.
-2. **Marcas inferiores (BL + BR)** = um único traço horizontal curto (≈10mm) na base — NÃO são L. O sensor da plotter só precisa de uma referência horizontal pra fechar a leitura ARMS na descida.
-3. **Linhas de topo e base têm menos etiquetas que as linhas do meio**, e ficam **centralizadas horizontalmente** dentro da área útil. Não é só o slot [0,0] que sai — sai uma "borda" inteira de etiquetas das duas pontas dessas linhas pra abrir folga em volta das marcas.
-4. **Linhas internas** ocupam toda a largura útil normalmente.
+---
 
-Isso muda a regra de slots reservados: em vez de "1 slot no canto", reservamos **uma faixa lateral** (1 coluna) nas pontas da linha 0 e da linha N−1 — exatamente o que o exemplo mostra.
+## 1. Seleção de folha por abas (Tabs)
 
-## Revisão do plano
+**Arquivo:** `src/components/labels/LabelCalcSettingsDialog.tsx` e/ou novo bloco no topo do `LabelLayoutCalculator.tsx`.
 
-### A. Marcas (`src/lib/labels/marks.ts` — reescrita)
-- Tipo unificado `RegistrationMark` com `kind: 'L' | 'tick'`
-  - `L`: vértice + 2 segmentos perpendiculares (5mm cada perna)
-  - `tick`: traço único horizontal de 10mm
-- `buildCornerMarks(...)` retorna 4 marcas:
-  - TL e TR → `kind: 'L'`, vértice recuado 2mm para dentro da margem (canto da área útil)
-  - BL e BR → `kind: 'tick'`, centro horizontal alinhado ao canto da área útil, posicionado dentro da margem inferior
-- Helper `markSegments(mark)` retorna lista de segmentos (1 para tick, 2 para L) com orientação correta por canto
-- `nudgeY` aplica a TODOS os 4 (Ls e ticks) preservando alinhamento
-- Constantes: `MARK_ARM_MM=5`, `TICK_LEN_MM=10`, `MARK_STROKE_PT=0.5`
+- Substituir o `Select` de folha por uma faixa de `Tabs` (componente `@/components/ui/tabs`) acima do card "Simulador", sempre visível (não escondido em settings).
+- Botões fixos:
+  - `SRA3` → 320×450 mm (já existe)
+  - `A4` → 210×297 mm
+  - `A3` → 297×420 mm
+  - `33×48` → 330×480 mm (novo preset)
+  - `Outro` → abre dialog de configurações com campos manuais
+- Adicionar `33×48` em `SHEET_PRESETS` (`src/lib/labels/layout.ts`).
+- Ao clicar em um preset, atualiza `config` e dispara `saveConfig` — recálculo é automático (já reativo via `useState`).
 
-### B. Reserva por faixa em vez de slot único (`src/lib/labels/layout.ts`)
-Estender `LayoutResult`:
-- `rowOffsets: number[]` — offset X (mm) inicial de cada linha
-- `cellsPerRow: number[]` — quantas etiquetas vendáveis por linha
-- `effectivePerSheet` = soma de `cellsPerRow`
+---
 
-Regra nova de reserva por `cutType`:
-- `plotter_redondo`: reserva **1 etiqueta na linha 0 (à esquerda)** + centraliza a linha 0
-- `corte_reto` / `plotter_quadrado`: reserva **1 etiqueta nas duas pontas da linha 0** + **1 etiqueta nas duas pontas da última linha** + centraliza ambas (visual igual ao PDF de referência)
+## 2. Máximo aproveitamento — remover slots só por colisão real
 
-Centralização: largura ocupada = `cellsPerRow[r] * labelW + (cellsPerRow[r]-1) * gap`; offset = `marginLeft + (usableW − ocupada) / 2`.
+**Arquivo:** `src/lib/labels/layout.ts` (função `computeReservedSlots` e `computeLabelLayout`).
 
-Linhas internas mantêm `cellsPerRow[r] = cols` e offset = `marginLeft`.
+Hoje a função reserva slots fixos nos cantos (4 slots para `corte_reto`/`plotter_quadrado`, 1 para `plotter_redondo`), o que reduz a contagem mesmo quando não há colisão. Trocar por detecção geométrica:
 
-`reservedSlots` continua existindo (lista de `{col,row}` removidos), agora derivado dessa regra de faixa.
+1. Calcular o bounding box real de cada marca:
+   - Top L: vértice em `(marginLeft, marginTop-2)` e `(sheetW-marginRight, marginTop-2)`, braços de 5 mm.
+   - Bottom tick: linha horizontal de 10 mm centrada em `(marginLeft, sheetH-marginBottom/2)` e `(sheetW-marginRight, ...)`.
+2. Calcular o bounding box de cada célula `(col, row)` na grade.
+3. Marcar slot reservado **somente se** o bbox da marca intersectar o bbox da célula (com tolerância de 0,5 mm).
+4. Como o vértice do L fica no canto da área útil (`marginLeft, marginTop-2`), na maioria dos casos ele cai **fora** da grade — nenhum slot precisa ser removido.
 
-### C. SVG (`SheetPreview` em `LabelLayoutCalculator.tsx`)
-- Usar `rowOffsets[r]` para posicionar cada etiqueta vendável
-- Slots reservados: **não desenhar nada** (espaço em branco real)
-- Marcas via `markSegments`: 2 segmentos pretos para L, 1 segmento para tick. `stroke="black"`, espessura ~0.5pt convertida para mm
-- Manter `strokeLinecap="round"` para visual idêntico ao PDF
+Resultado esperado: 50×50 mm em SRA3 com Teneth → grade cheia, sem perder etiquetas dos cantos.
 
-### D. PDF de produção (`src/lib/labels/production-pdf.ts`)
-- `drawMark(page, mark)` usa `markSegments` para K100 0.5pt
-- Posicionamento das etiquetas via `rowOffsets`
-- Slots reservados: nada desenhado
+Manter `cellsPerRow` e `rowOffsets`: linhas sem reserva ficam alinhadas à esquerda; as raras com reserva continuam centralizadas.
 
-### E. Seletor mm/cm
-- Campo `unit: 'mm' | 'cm'` em `LabelCalcConfig`, default `mm`
-- `LabelCalcSettingsDialog`: nova seção "Unidade de medida" com `ToggleGroup`
-- `LabelLayoutCalculator`:
-  - Helpers `toDisplay(mm, unit)` e `fromDisplay(val, unit)` (cm = mm/10)
-  - Labels mostram `(mm)` ou `(cm)`; `NumInput` recebe valor em mm e converte para exibição
-  - Step adaptado: cm usa step=0.1, mm usa step=1
-  - Slider de nudge: range −10mm/+10mm convertido para −1cm/+1cm com step 0.05cm
-- Cálculos internos sempre em mm (intocados)
+---
 
-### F. Testes (`src/test/labels-layout.test.ts`)
-- `markSegments` retorna 2 segmentos para L com sinais corretos por canto, 1 segmento para tick
-- `buildCornerMarks` produz 2 Ls (TL/TR) + 2 ticks (BL/BR)
-- `computeLabelLayout` com `cutType='corte_reto'` produz `cellsPerRow` com −2 na primeira E última linha (e linhas do meio com `cols`)
-- `rowOffsets` centralizam as linhas com reservados
-- `effectivePerSheet` = soma de `cellsPerRow`
-- `nudgeY` desloca todas as 4 marcas em conjunto
-- Conversão mm↔cm bidirecional
+## 3. Marcas inferiores = ticks (verificar)
 
-## Arquivos
-**Editar:**
-- `src/lib/labels/marks.ts` — reescrita (L + tick)
-- `src/lib/labels/layout.ts` — `rowOffsets`, `cellsPerRow`, regra de faixa
-- `src/lib/labels/config-storage.ts` — campo `unit`
-- `src/lib/labels/production-pdf.ts` — `drawMark` e posicionamento por `rowOffsets`
-- `src/components/labels/LabelLayoutCalculator.tsx` — SVG novo, conversão mm/cm
-- `src/components/labels/LabelCalcSettingsDialog.tsx` — toggle mm/cm
-- `src/test/labels-layout.test.ts` — novos casos
+**Já implementado** em `src/lib/labels/marks.ts` (`buildCornerMarks` retorna `kind: "tick"` para `bl/br`) e `production-pdf.ts` (`drawMark` desenha segmento horizontal). 
 
-**Sem novos arquivos. Sem novas dependências.**
+Verificar no preview SVG do `LabelLayoutCalculator.tsx` que ambos os cantos inferiores são renderizados como linha horizontal única e não como L. Ajustar caso ainda use `markSegments` de forma errada.
 
-## Observações
-- A "reserva por faixa" reduz `effectivePerSheet` mais do que a versão atual (perde 4 etiquetas em vez de 2 no corte_reto), mas é o que reflete o layout real e produz folha sem risco de colisão arte↔marca.
-- O PDF mostra o "L" inferior como `tick` simples — provavelmente convenção do SignMaster pra distinguir início/fim de leitura. Mantemos essa convenção fiel.
-- Aspecto cosmético do PDF de referência também tem rotação 90° das etiquetas (mais cabe assim) — isso já é decidido pelo nosso algoritmo de rotação automática quando dá ganho.
+---
 
-Aprova? Implemento.
+## 4. UI mais limpa (estilo Label Press)
+
+**Arquivo:** `src/components/labels/LabelLayoutCalculator.tsx`.
+
+- Remover o select "Carregar favorito" do header do simulador (mover para popover discreto junto do botão "Salvar favorito").
+- Cards com `p-5`, títulos `text-base font-semibold`, separadores sutis, badges com cores semânticas (verde para aproveitamento alto, âmbar para shrink suggestion).
+- Layout 2 colunas: esquerda = "Dados do Pedido" (formato, tamanho, qty, imagem), direita = "Prévia da Folha" + "Pricing" empilhados.
+- Remover ícones decorativos excessivos no header das seções; manter apenas Lucide pequeno (h-4 w-4) ao lado do título.
+
+---
+
+## Detalhes técnicos
+
+**Arquivos editados:**
+- `src/lib/labels/layout.ts` — nova `computeReservedSlots` baseada em bbox; novo preset `33×48`.
+- `src/lib/labels/marks.ts` — exportar bbox de cada marca (`markBoundingBox(mark): {x,y,w,h}`) para reuso na detecção.
+- `src/components/labels/LabelLayoutCalculator.tsx` — adicionar `Tabs` de folha no topo, redesenhar cards, verificar preview SVG das marcas.
+- `src/components/labels/LabelCalcSettingsDialog.tsx` — botão "Outro" abre este dialog para entrada manual de folha.
+- `src/test/labels-layout.test.ts` — atualizar testes:
+  - 50×50 SRA3/Teneth → 30 etiquetas (5 cols × 6 rows), sem reservas.
+  - Adicionar caso onde a etiqueta encosta no canto e o slot É removido.
+  - Cobrir o novo preset 33×48.
+
+**Ganho esperado:** etiquetas 50×50 em SRA3 passam de ~24 para 30 (cinco colunas inteiras × seis linhas dentro de 306×363 mm).
+
+Aprova? Implemento na sequência.
