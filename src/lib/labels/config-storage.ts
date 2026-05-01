@@ -79,7 +79,7 @@ export const DEFAULT_CONFIG: LabelCalcConfig = {
   marginBottom: TENETH.marginBottom,
   marginLeft: TENETH.marginLeft,
   marginRight: TENETH.marginRight,
-  gap: CUT_DEFAULTS.plotter_redondo.gap,
+  gap: CUT_DEFAULTS.plotter_redondo.gap, // 1mm — máx aproveitamento Teneth
   pricePerSheet: 0,
   unit: "mm",
   customSheets: [],
