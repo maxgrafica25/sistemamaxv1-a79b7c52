@@ -146,12 +146,20 @@ export function loadConfig(): LabelCalcConfig {
   const merged: LabelCalcConfig = {
     ...DEFAULT_CONFIG,
     ...stored,
-    // Garante que arrays nunca venham como undefined depois do merge
     customSheets: Array.isArray(stored.customSheets) ? stored.customSheets : DEFAULT_CONFIG.customSheets,
     labelPresets: Array.isArray(stored.labelPresets) && stored.labelPresets.length > 0
       ? stored.labelPresets
       : SEED_LABEL_PRESETS,
   };
+  // Aplica restrições do hardware se margens não estiverem destravadas
+  if (!merged.marginsUnlocked) {
+    const profile = HARDWARE_PROFILES[merged.hardwareProfileId] ?? HARDWARE_PROFILES.generico;
+    const clamped = clampMarginsToHardware(merged, profile);
+    merged.marginTop = clamped.marginTop;
+    merged.marginBottom = clamped.marginBottom;
+    merged.marginLeft = clamped.marginLeft;
+    merged.marginRight = clamped.marginRight;
+  }
   return merged;
 }
 
