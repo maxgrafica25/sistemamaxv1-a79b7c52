@@ -64,9 +64,9 @@ export function buildCornerMarks(
   // Cantos da área útil
   const left = marginLeft;
   const right = sheetW - marginRight;
-  // Marcas em L recuadas levemente para dentro da margem (vértice ~2mm acima
-  // do topo da área útil) — assim o "L" abraça o canto sem invadir a arte.
-  const topY = Math.max(0, marginTop - 2) + offsetY;
+  // Vértice do L exatamente no canto da área útil; braços ficam FORA (para
+  // cima e para o lado externo), de modo que o L não invade a grade.
+  const topY = marginTop + offsetY;
   // Tick na base: posicionado no meio da margem inferior
   const bottomY = sheetH - Math.max(0, marginBottom / 2) + offsetY;
 
