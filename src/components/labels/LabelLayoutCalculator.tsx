@@ -1058,9 +1058,19 @@ export function LabelLayoutCalculator({
               <Sparkles className="h-3.5 w-3.5 text-primary" />
               <h3 className="text-sm font-semibold">Sugestões de venda</h3>
             </div>
+            {pricePerSheet <= 0 && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                Cadastre o preço da folha em{" "}
+                <a href="/preco-impressao" target="_blank" rel="noopener noreferrer" className="underline">
+                  Preço Impressão
+                </a>{" "}
+                para ver os valores.
+              </p>
+            )}
             <div className="space-y-1.5 text-xs">
               {ladder.map((tier) => {
                 const isBase = tier.label === "solicitada";
+                const hasPrice = pricePerSheet > 0;
                 return (
                   <div
                     key={tier.qty}
@@ -1073,16 +1083,19 @@ export function LabelLayoutCalculator({
                       {tier.qty} un
                     </div>
                     <div className="text-muted-foreground tabular-nums">
-                      {tier.sheets} {tier.sheets === 1 ? "folha" : "folhas"} · {formatBRL(tier.unit)}/un
+                      {tier.sheets} {tier.sheets === 1 ? "folha" : "folhas"}
+                      {hasPrice && <> · {formatBRL(tier.unit)}/un</>}
                     </div>
                     <div className="flex items-center gap-2 justify-end">
-                      <span className="font-semibold tabular-nums">{formatBRL(tier.total)}</span>
-                      {!isBase && tier.unitDeltaPct < 0 && (
+                      {hasPrice && (
+                        <span className="font-semibold tabular-nums">{formatBRL(tier.total)}</span>
+                      )}
+                      {hasPrice && !isBase && tier.unitDeltaPct < 0 && (
                         <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">
                           {formatPct(tier.unitDeltaPct, 0)}
                         </Badge>
                       )}
-                      {!isBase && tier.unitDeltaPct === 0 && (
+                      {hasPrice && !isBase && tier.unitDeltaPct === 0 && (
                         <Badge variant="outline" className="text-[10px]">0%</Badge>
                       )}
                     </div>
@@ -1091,8 +1104,9 @@ export function LabelLayoutCalculator({
               })}
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Argumento de venda: o custo unitário cai conforme a quantidade aumenta,
-              porque o custo fixo por folha é diluído.
+              {pricePerSheet > 0
+                ? "Argumento de venda: o custo unitário cai conforme a quantidade aumenta, porque o custo fixo por folha é diluído."
+                : "Referência de quantidades para upsell. Os valores aparecem assim que o preço da folha for cadastrado."}
             </p>
           </Card>
         )}
