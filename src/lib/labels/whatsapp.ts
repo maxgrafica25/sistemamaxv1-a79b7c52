@@ -32,6 +32,14 @@ export interface WhatsAppQuoteInput {
   height: number;
   pricing: PricingResult;
   ladder: AnchoringTier[];
+  /** Etiquetas vendáveis por folha (para mostrar composição). */
+  perSheet?: number;
+  /** Preço por folha (impressão + acabamento). */
+  pricePerSheet?: number;
+  /** Descrição da impressão escolhida (ex.: "Adesivo Brilho · 210g · SRA3 · F · color"). */
+  printingLabel?: string | null;
+  /** Descrição do acabamento escolhido (ex.: "Recorte eletrônico R$ 5,00/folha"). */
+  finishingLabel?: string | null;
 }
 
 /**
@@ -39,15 +47,25 @@ export interface WhatsAppQuoteInput {
  * efetivamente mais barato (unitDeltaPct < 0).
  */
 export function formatWhatsAppQuote(input: WhatsAppQuoteInput): string {
-  const { qty, shape, width, height, pricing, ladder } = input;
+  const { qty, shape, width, height, pricing, ladder, perSheet, pricePerSheet, printingLabel, finishingLabel } = input;
 
   const desc = describeLabel(shape, width, height);
   const lines: string[] = [
     "Olá! Segue orçamento de etiquetas:",
     "",
     `📋 Pedido: ${formatInt(qty)} un · ${desc}`,
-    `💰 Total: ${formatBRL(pricing.totalPrice)} (${formatBRL(pricing.unitPrice)}/un)`,
   ];
+
+  if (printingLabel) lines.push(`🖨️ Impressão: ${printingLabel}`);
+  if (finishingLabel) lines.push(`✂️ Acabamento: ${finishingLabel}`);
+
+  if (perSheet && perSheet > 0) {
+    const folhasStr = `${pricing.sheetsNeeded} ${pricing.sheetsNeeded === 1 ? "folha" : "folhas"}`;
+    const perSheetStr = pricePerSheet ? ` × ${formatBRL(pricePerSheet)}` : "";
+    lines.push(`📄 Produção: ${folhasStr}${perSheetStr} (${perSheet}/folha)`);
+  }
+
+  lines.push(`💰 Total: ${formatBRL(pricing.totalPrice)} (${formatBRL(pricing.unitPrice)}/un)`);
 
   const ideal = ladder.find((t) => t.label === "ideal");
   if (ideal && ideal.unitDeltaPct < 0) {

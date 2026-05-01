@@ -92,17 +92,47 @@ interface NumInputProps {
   step?: number;
   className?: string;
 }
+/**
+ * Input numérico que NÃO força "0" enquanto o usuário digita.
+ * Mantém estado interno de string para permitir campo vazio temporariamente;
+ * só propaga `onChange` quando há um número válido. Sincroniza com `value`
+ * externo quando ele muda fora do componente (ex.: presets, troca de shape).
+ */
 function NumInput({ value, onChange, step = 1, className }: NumInputProps) {
+  const [text, setText] = useState<string>(() =>
+    Number.isFinite(value) && value !== 0 ? String(value) : Number.isFinite(value) ? String(value) : "",
+  );
+  const lastEmittedRef = useRef<number>(value);
+
+  // Sincroniza quando `value` externo mudou (e não foi nós que emitimos)
+  useEffect(() => {
+    if (value !== lastEmittedRef.current) {
+      setText(Number.isFinite(value) ? String(value) : "");
+      lastEmittedRef.current = value;
+    }
+  }, [value]);
+
   return (
     <Input
       type="number"
       inputMode="decimal"
-      min={0}
       step={step}
-      value={Number.isFinite(value) ? value : ""}
+      value={text}
       onChange={(e) => {
-        const v = parseFloat(e.target.value);
-        onChange(Number.isFinite(v) ? v : 0);
+        const raw = e.target.value;
+        setText(raw);
+        if (raw === "" || raw === "-" || raw === ".") return; // estados intermediários
+        const v = parseFloat(raw);
+        if (Number.isFinite(v) && v >= 0) {
+          lastEmittedRef.current = v;
+          onChange(v);
+        }
+      }}
+      onBlur={() => {
+        if (text === "" || !Number.isFinite(parseFloat(text))) {
+          // Ao sair do campo vazio, restaura o último valor válido
+          setText(String(lastEmittedRef.current));
+        }
       }}
       className={className}
     />
