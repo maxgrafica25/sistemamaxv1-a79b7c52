@@ -12,6 +12,7 @@ import {
 } from "@/lib/labels/layout";
 import {
   loadConfig,
+  saveConfig,
   addLabelPreset,
   removeLabelPreset,
   type LabelCalcConfig,
@@ -211,6 +212,31 @@ export function LabelLayoutCalculator({
     toast.success(`Removido: ${label}`);
   };
 
+  // ---- Troca rápida de folha (Tabs) ----------------------------------------
+  const QUICK_SHEETS: Array<{ id: string; label: string; w: number; h: number }> = [
+    { id: "SRA3", label: "32×45 (SRA3)", w: 320, h: 450 },
+    { id: "A4", label: "A4 21×29.7", w: 210, h: 297 },
+    { id: "A3", label: "A3 29.7×42", w: 297, h: 420 },
+    { id: "330x480", label: "33×48", w: 330, h: 480 },
+  ];
+  const currentSheetTab = useMemo(() => {
+    const m = QUICK_SHEETS.find(
+      (s) => s.w === config.sheetW && s.h === config.sheetH,
+    );
+    return m?.id ?? "__other__";
+  }, [config.sheetW, config.sheetH]);
+
+  const handleQuickSheet = (id: string) => {
+    if (id === "__other__") {
+      setSettingsOpen(true);
+      return;
+    }
+    const s = QUICK_SHEETS.find((x) => x.id === id);
+    if (!s) return;
+    const next = saveConfig({ sheetPresetId: s.id, sheetW: s.w, sheetH: s.h });
+    setConfig(next);
+  };
+
   // ---- Imagem upload -------------------------------------------------------
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -368,6 +394,36 @@ export function LabelLayoutCalculator({
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
       {/* ============================== SIMULADOR ============================== */}
       <div className="space-y-4">
+        {/* Seleção rápida de folha — Tabs */}
+        <Card className="p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Label className="text-xs text-muted-foreground">Folha:</Label>
+            <span className="text-xs font-medium">{describeSheet(config)}</span>
+          </div>
+          <ToggleGroup
+            type="single"
+            value={currentSheetTab}
+            onValueChange={(v) => v && handleQuickSheet(v)}
+            className="grid grid-cols-2 sm:grid-cols-5 gap-1.5"
+          >
+            {QUICK_SHEETS.map((s) => (
+              <ToggleGroupItem
+                key={s.id}
+                value={s.id}
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+              >
+                {s.label}
+              </ToggleGroupItem>
+            ))}
+            <ToggleGroupItem
+              value="__other__"
+              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+            >
+              Outro…
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </Card>
+
         <Card className="p-4 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Simulador</h3>

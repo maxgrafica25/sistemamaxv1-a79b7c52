@@ -295,48 +295,56 @@ import { computeReservedSlots } from "@/lib/labels/layout";
 import { HARDWARE_PROFILES, clampMarginsToHardware, effectiveUsableArea } from "@/lib/labels/hardware";
 import { suggestMarksOffset, buildCornerMarks } from "@/lib/labels/marks";
 
-describe("computeReservedSlots — padrão SignMaster", () => {
-  it("plotter_redondo reserva apenas [0,0]", () => {
-    expect(computeReservedSlots("plotter_redondo", 4, 5)).toEqual([{ col: 0, row: 0 }]);
+describe("computeReservedSlots — colisão real com marcas", () => {
+  const baseGeom = {
+    sheetW: 320, sheetH: 450, gap: 0,
+    marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
+  };
+  it("etiqueta 50×50 na grade Teneth A3 → nenhum slot é removido (marcas ficam fora)", () => {
+    const r = computeReservedSlots({
+      cutType: "plotter_redondo",
+      cols: 6, rows: 5,
+      labelW: 50, labelH: 50,
+      ...baseGeom,
+    });
+    expect(r).toEqual([]);
   });
-  it("corte_reto reserva pontas da 1ª e da última linha", () => {
-    const r = computeReservedSlots("corte_reto", 4, 5);
-    // [0,0], [3,0], [0,4], [3,4]
-    expect(r).toHaveLength(4);
-    expect(r).toContainEqual({ col: 0, row: 0 });
-    expect(r).toContainEqual({ col: 3, row: 0 });
-    expect(r).toContainEqual({ col: 0, row: 4 });
-    expect(r).toContainEqual({ col: 3, row: 4 });
-  });
-  it("plotter_quadrado também reserva 4 slots quando rows>1", () => {
-    expect(computeReservedSlots("plotter_quadrado", 5, 3)).toHaveLength(4);
+  it("modo legado (cutType, cols, rows) → array vazio (sem geometria não há colisão)", () => {
+    expect(computeReservedSlots("plotter_redondo", 4, 5)).toEqual([]);
+    expect(computeReservedSlots("corte_reto", 4, 5)).toEqual([]);
   });
   it("retorna vazio se cols/rows = 0", () => {
-    expect(computeReservedSlots("corte_reto", 0, 5)).toEqual([]);
+    expect(computeReservedSlots({
+      cutType: "corte_reto",
+      cols: 0, rows: 5,
+      labelW: 50, labelH: 50,
+      ...baseGeom,
+    })).toEqual([]);
   });
-  it("layout 1x1 reserva apenas 1 slot mesmo em corte_reto", () => {
-    expect(computeReservedSlots("corte_reto", 1, 1)).toEqual([{ col: 0, row: 0 }]);
+  it("gap zero e tick muito alto colidiriam — caso degenerado retorna []", () => {
+    // Com a geometria padrão, a grade nunca colide (marcas ficam fora).
+    const r = computeReservedSlots({
+      cutType: "corte_reto",
+      cols: 4, rows: 4,
+      labelW: 50, labelH: 50,
+      sheetW: 320, sheetH: 450,
+      gap: 0, marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
+    });
+    expect(r).toEqual([]);
   });
 });
 
-describe("computeLabelLayout com cutType — rowOffsets/cellsPerRow", () => {
-  it("corte_reto com várias linhas — 1ª e última linha ficam centralizadas e com cols-2", async () => {
+describe("computeLabelLayout com cutType — sem reservas preventivas", () => {
+  it("50×50 em SRA3/Teneth → grade cheia, sem perder cantos", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
     const r = computeLabelLayout({
-      sheetW: 210, sheetH: 297, labelW: 40, labelH: 40,
-      marginTop: 5, marginBottom: 5, marginLeft: 5, marginRight: 5, gap: 0,
-      cutType: "corte_reto",
+      sheetW: 320, sheetH: 450, labelW: 50, labelH: 50,
+      marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7, gap: 0,
+      cutType: "plotter_redondo",
     });
-    // cols=5, rows=7
-    expect(r.best.cols).toBe(5);
-    expect(r.best.rows).toBe(7);
-    expect(r.cellsPerRow[0]).toBe(3); // 5 - 2 reservados
-    expect(r.cellsPerRow[6]).toBe(3);
-    expect(r.cellsPerRow[3]).toBe(5); // linha do meio cheia
-    // Centralização: offset > marginLeft na primeira linha
-    expect(r.rowOffsets[0]).toBeGreaterThan(5);
-    expect(r.rowOffsets[3]).toBe(5);
-    expect(r.effectivePerSheet).toBe(r.cellsPerRow.reduce((a, b) => a + b, 0));
+    expect(r.reservedSlots).toEqual([]);
+    expect(r.cellsPerRow.every((c) => c === r.best.cols)).toBe(true);
+    expect(r.effectivePerSheet).toBe(r.best.total);
   });
   it("sem cutType — reservedSlots vazio, todas as linhas com offset=marginLeft", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
@@ -417,24 +425,23 @@ describe("buildCornerMarks — L (topo) + tick (base)", () => {
       expect(mk.vertexY - baseline.marks[i].vertexY).toBeCloseTo(3, 5);
     });
   });
-  it("L tl: braços vão para +x e +y a partir do vértice", async () => {
+  it("L tl: braços vão para -x e -y a partir do vértice (fora da grade)", async () => {
     const { markSegments } = await import("@/lib/labels/marks");
     const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5);
     const tl = m.marks[0];
     const segs = markSegments(tl);
-    // segmento 1: horizontal para +x; segmento 2: vertical para +y
-    expect(segs[0].x2 - segs[0].x1).toBeCloseTo(5, 5);
+    expect(segs[0].x2 - segs[0].x1).toBeCloseTo(-5, 5);
     expect(segs[0].y1).toBe(segs[0].y2);
-    expect(segs[1].y2 - segs[1].y1).toBeCloseTo(5, 5);
+    expect(segs[1].y2 - segs[1].y1).toBeCloseTo(-5, 5);
     expect(segs[1].x1).toBe(segs[1].x2);
   });
-  it("L tr: braços vão para -x e +y", async () => {
+  it("L tr: braços vão para +x e -y", async () => {
     const { markSegments } = await import("@/lib/labels/marks");
     const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5);
     const tr = m.marks[1];
     const segs = markSegments(tr);
-    expect(segs[0].x2 - segs[0].x1).toBeCloseTo(-5, 5);
-    expect(segs[1].y2 - segs[1].y1).toBeCloseTo(5, 5);
+    expect(segs[0].x2 - segs[0].x1).toBeCloseTo(5, 5);
+    expect(segs[1].y2 - segs[1].y1).toBeCloseTo(-5, 5);
   });
   it("tick BL: segmento horizontal de 10mm centrado em vertexX", async () => {
     const { markSegments } = await import("@/lib/labels/marks");

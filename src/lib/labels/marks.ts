@@ -64,9 +64,9 @@ export function buildCornerMarks(
   // Cantos da área útil
   const left = marginLeft;
   const right = sheetW - marginRight;
-  // Marcas em L recuadas levemente para dentro da margem (vértice ~2mm acima
-  // do topo da área útil) — assim o "L" abraça o canto sem invadir a arte.
-  const topY = Math.max(0, marginTop - 2) + offsetY;
+  // Vértice do L exatamente no canto da área útil; braços ficam FORA (para
+  // cima e para o lado externo), de modo que o L não invade a grade.
+  const topY = marginTop + offsetY;
   // Tick na base: posicionado no meio da margem inferior
   const bottomY = sheetH - Math.max(0, marginBottom / 2) + offsetY;
 
@@ -82,6 +82,24 @@ export function buildCornerMarks(
 }
 
 /**
+ * Bounding box (mm) ocupado pela marca de registro.
+ * Útil para detecção de colisão com a grade de etiquetas.
+ */
+export function markBoundingBox(mark: RegistrationMark): { x: number; y: number; w: number; h: number } {
+  const { kind, corner, vertexX: x, vertexY: y, arm } = mark;
+  if (kind === "tick") {
+    // Linha horizontal de 2*arm centrada em vertexX, espessura desprezível (~0.2mm)
+    return { x: x - arm, y: y - 0.1, w: arm * 2, h: 0.2 };
+  }
+  // L: braços apontam para fora (TL=-x/-y, TR=+x/-y, BL=-x/+y, BR=+x/+y)
+  const sx = corner === "tl" || corner === "bl" ? -1 : 1;
+  const sy = corner === "tl" || corner === "tr" ? -1 : 1;
+  const xMin = sx > 0 ? x : x - arm;
+  const yMin = sy > 0 ? y : y - arm;
+  return { x: xMin, y: yMin, w: arm, h: arm };
+}
+
+/**
  * Retorna os segmentos de linha da marca, em mm.
  * - L: 2 segmentos perpendiculares partindo do vértice
  * - tick: 1 segmento horizontal centrado em vertexX
@@ -91,13 +109,11 @@ export function markSegments(mark: RegistrationMark): MarkSegment[] {
   if (kind === "tick") {
     return [{ x1: x - arm, y1: y, x2: x + arm, y2: y }];
   }
-  // L: direção dos braços depende do canto
-  // tl: braços vão para direita (+x) e para baixo (+y)
-  // tr: braços vão para esquerda (-x) e para baixo (+y)
-  // bl: braços vão para direita (+x) e para cima (-y)
-  // br: braços vão para esquerda (-x) e para cima (-y)
-  const sx = corner === "tl" || corner === "bl" ? 1 : -1;
-  const sy = corner === "tl" || corner === "tr" ? 1 : -1;
+  // L: braços apontam SEMPRE para fora da área útil (vértice no canto da
+  // área útil). Garante que o L não invade a grade de etiquetas.
+  // tl: -x e -y    tr: +x e -y    bl: -x e +y    br: +x e +y
+  const sx = corner === "tl" || corner === "bl" ? -1 : 1;
+  const sy = corner === "tl" || corner === "tr" ? -1 : 1;
   return [
     { x1: x, y1: y, x2: x + sx * arm, y2: y }, // braço horizontal
     { x1: x, y1: y, x2: x, y2: y + sy * arm }, // braço vertical
