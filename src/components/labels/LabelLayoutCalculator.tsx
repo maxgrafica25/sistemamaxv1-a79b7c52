@@ -312,6 +312,51 @@ export function LabelLayoutCalculator({
     window.open(`https://wa.me/?text=${encodeURIComponent(whatsappText)}`, "_blank", "noopener,noreferrer");
   };
 
+  // ---- Sugestão de offset das marcas + geração de PDF --------------------
+  const suggestedOffset = useMemo(
+    () => suggestMarksOffset(config.marginTop, layout.best.rotated ? labelW : labelH, config.gap, layout.best.rows),
+    [config.marginTop, config.gap, layout.best.rows, layout.best.rotated, labelW, labelH],
+  );
+
+  const applySuggestedOffset = () => {
+    setMarksOffsetY(suggestedOffset);
+    toast.success(`Offset aplicado: ${suggestedOffset > 0 ? "+" : ""}${suggestedOffset}mm`);
+  };
+
+  const handleGeneratePDF = async () => {
+    if (perSheet <= 0) {
+      toast.error("Nenhuma etiqueta cabe na folha — ajuste antes de gerar o PDF.");
+      return;
+    }
+    setGeneratingPdf(true);
+    try {
+      const blob = await generateProductionPDF({
+        sheetW: config.sheetW,
+        sheetH: config.sheetH,
+        marginTop: config.marginTop,
+        marginBottom: config.marginBottom,
+        marginLeft: config.marginLeft,
+        marginRight: config.marginRight,
+        gap: config.gap,
+        labelW,
+        labelH,
+        shape,
+        layout,
+        imageDataUrl,
+        marksOffsetY,
+        jobName: `Etiqueta ${describeLabel(shape, labelW, labelH)} · ${qty}un`,
+      });
+      const slug = describeLabel(shape, labelW, labelH).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+      downloadPDF(blob, `producao-${slug}.pdf`);
+      toast.success("PDF gerado — abra no SignMaster para o corte.");
+    } catch (e) {
+      console.error("[label-pdf]", e);
+      toast.error("Falha ao gerar PDF. Veja o console.");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
   // ---- Render --------------------------------------------------------------
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
