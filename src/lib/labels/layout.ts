@@ -189,12 +189,6 @@ export const computeLabelLayout = (input: LayoutInput): LayoutResult => {
     : [];
 
   // Conta reservas por linha
-  const reservedByRow = new Map<number, number>();
-  for (const s of reservedSlots) {
-    reservedByRow.set(s.row, (reservedByRow.get(s.row) ?? 0) + s.col >= 0 ? 1 : 0);
-    reservedByRow.set(s.row, (reservedByRow.get(s.row) ?? 0));
-  }
-  // (correção do count acima)
   const counts = new Map<number, number>();
   for (const s of reservedSlots) counts.set(s.row, (counts.get(s.row) ?? 0) + 1);
 
