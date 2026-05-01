@@ -525,3 +525,32 @@ describe("findShrinkOpportunity — preserva formato", () => {
     if (s) expect(s.delta).toBeGreaterThan(0);
   });
 });
+
+describe("findShrinkOpportunity — range estendido até −5mm", () => {
+  it("55x55 em SRA3 (margens 7) → encontra ganho com −4mm", () => {
+    const base: LayoutInput = {
+      sheetW: 320, sheetH: 450,
+      labelW: 55, labelH: 55,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
+      gap: 0,
+    };
+    const layout = computeLabelLayout(base);
+    const s = findShrinkOpportunity(base, layout.best.total, 1);
+    expect(s).not.toBeNull();
+    expect(s!.delta).toBeGreaterThan(0);
+    expect(s!.shrinkW).toBe(s!.shrinkH); // mantém quadrado
+    expect(s!.shrinkW).toBeLessThanOrEqual(5);
+  });
+
+  it("85x85 em SRA3 (impossível mesmo com −5mm) → retorna null", () => {
+    const base: LayoutInput = {
+      sheetW: 320, sheetH: 450,
+      labelW: 85, labelH: 85,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
+      gap: 0,
+    };
+    const layout = computeLabelLayout(base);
+    const s = findShrinkOpportunity(base, layout.best.total, 1);
+    expect(s).toBeNull();
+  });
+});
