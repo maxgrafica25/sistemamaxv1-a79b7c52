@@ -189,3 +189,101 @@ describe("CUT_DEFAULTS", () => {
     expect(CUT_DEFAULTS.plotter_quadrado.marginTop).toBeGreaterThan(CUT_DEFAULTS.corte_reto.marginTop);
   });
 });
+
+// =============================================================================
+// Novos helpers (image-fit, whatsapp, config-storage)
+// =============================================================================
+import { fitContain, aspectMismatch } from "@/lib/labels/image-fit";
+import { formatWhatsAppQuote, describeLabel } from "@/lib/labels/whatsapp";
+
+describe("fitContain", () => {
+  it("imagem quadrada em box quadrado → preenche tudo, offset zero", () => {
+    const r = fitContain(100, 100, 50, 50);
+    expect(r.width).toBe(50);
+    expect(r.height).toBe(50);
+    expect(r.offsetX).toBe(0);
+    expect(r.offsetY).toBe(0);
+  });
+  it("imagem 2:1 em box 1:1 → largura preenche, sobra em cima/baixo", () => {
+    const r = fitContain(200, 100, 100, 100);
+    expect(r.width).toBe(100);
+    expect(r.height).toBe(50);
+    expect(r.offsetX).toBe(0);
+    expect(r.offsetY).toBe(25);
+  });
+  it("imagem 1:2 em box 1:1 → altura preenche, sobra nas laterais", () => {
+    const r = fitContain(100, 200, 100, 100);
+    expect(r.width).toBe(50);
+    expect(r.height).toBe(100);
+    expect(r.offsetX).toBe(25);
+    expect(r.offsetY).toBe(0);
+  });
+  it("dimensões inválidas retornam zeros", () => {
+    expect(fitContain(0, 100, 50, 50).width).toBe(0);
+  });
+});
+
+describe("aspectMismatch", () => {
+  it("razões iguais → false", () => {
+    expect(aspectMismatch(100, 100, 50, 50)).toBe(false);
+  });
+  it("razão muito diferente → true", () => {
+    expect(aspectMismatch(200, 100, 50, 50)).toBe(true);
+  });
+});
+
+describe("formatWhatsAppQuote", () => {
+  const pricing = { sheetsNeeded: 1, totalPrice: 15, unitPrice: 0.15 };
+  it("inclui sugestão quando tier ideal é mais barato", () => {
+    const ladder = [
+      { qty: 100, sheets: 1, total: 15, unit: 0.15, unitDeltaPct: 0, label: "solicitada" as const },
+      { qty: 200, sheets: 2, total: 30, unit: 0.15, unitDeltaPct: 0, label: "dobro" as const },
+      { qty: 1000, sheets: 5, total: 75, unit: 0.075, unitDeltaPct: -50, label: "ideal" as const },
+    ];
+    const txt = formatWhatsAppQuote({ qty: 100, shape: "quadrado", width: 50, height: 50, pricing, ladder });
+    expect(txt).toContain("Quadrado 50×50mm");
+    expect(txt).toContain("Sugestão");
+    expect(txt).toContain("1.000 un");
+  });
+  it("omite sugestão quando tier ideal não é mais barato", () => {
+    const ladder = [
+      { qty: 100, sheets: 1, total: 15, unit: 0.15, unitDeltaPct: 0, label: "solicitada" as const },
+    ];
+    const txt = formatWhatsAppQuote({ qty: 100, shape: "redondo", width: 50, height: 50, pricing, ladder });
+    expect(txt).toContain("Redonda Ø50mm");
+    expect(txt).not.toContain("Sugestão");
+  });
+  it("describeLabel cobre os 3 formatos", () => {
+    expect(describeLabel("quadrado", 40, 40)).toBe("Quadrado 40×40mm");
+    expect(describeLabel("redondo", 50, 50)).toBe("Redonda Ø50mm");
+    expect(describeLabel("personalizado", 60, 30)).toBe("Personalizada 60×30mm");
+  });
+});
+
+describe("config-storage", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+  it("loadConfig retorna defaults com localStorage vazio", async () => {
+    const { loadConfig, DEFAULT_CONFIG } = await import("@/lib/labels/config-storage");
+    const cfg = loadConfig();
+    expect(cfg.sheetW).toBe(DEFAULT_CONFIG.sheetW);
+    expect(cfg.labelPresets.length).toBeGreaterThan(0);
+  });
+  it("saveConfig faz merge sem perder labelPresets", async () => {
+    const { loadConfig, saveConfig } = await import("@/lib/labels/config-storage");
+    const initial = loadConfig();
+    const presetsLen = initial.labelPresets.length;
+    saveConfig({ pricePerSheet: 25 });
+    const next = loadConfig();
+    expect(next.pricePerSheet).toBe(25);
+    expect(next.labelPresets.length).toBe(presetsLen);
+  });
+  it("migra a chave antiga labelCalc:lastPricePerSheet", async () => {
+    localStorage.setItem("labelCalc:lastPricePerSheet", "12.5");
+    const { loadConfig } = await import("@/lib/labels/config-storage");
+    const cfg = loadConfig();
+    expect(cfg.pricePerSheet).toBe(12.5);
+    expect(localStorage.getItem("labelCalc:lastPricePerSheet")).toBeNull();
+  });
+});
