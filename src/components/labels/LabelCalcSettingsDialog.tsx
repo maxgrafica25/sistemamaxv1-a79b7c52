@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Separator } from "@/components/ui/separator";
-import { Plus, RotateCw, Trash2, Settings2 } from "lucide-react";
+import { Plus, RotateCw, Trash2, Settings2, Lock, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import {
   CUT_DEFAULTS,
@@ -36,6 +36,7 @@ import {
   type LabelCalcConfig,
   type CustomSheetPreset,
 } from "@/lib/labels/config-storage";
+import { HARDWARE_PROFILES, clampMarginsToHardware } from "@/lib/labels/hardware";
 
 const CUSTOM_SHEET_ID = "__custom__";
 
