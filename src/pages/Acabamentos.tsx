@@ -425,7 +425,6 @@ export default function Acabamentos() {
         title="Remover acabamento?"
         description="Esta ação não pode ser desfeita. A calculadora deixará de oferecer este item."
         confirmText="Remover"
-        variant="destructive"
       />
     </div>
   );
