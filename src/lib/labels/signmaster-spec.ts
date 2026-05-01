@@ -186,3 +186,65 @@ export const computeSignmasterMarks = (
     all: [...topLeft, ...topRight, ...bottomLeft, ...bottomRight],
   };
 };
+
+// ---------- Otimizador de retalho (modo paramétrico) ------------------------
+//
+// Espelha `findShrinkOpportunity` do layout genérico, mas aplicando as
+// fórmulas SignMaster. Como o modo paramétrico só vale para etiquetas
+// circulares (W = H = diâmetro), só faz sentido reduzir o diâmetro.
+// Testa reduções pequenas (0.5 / 1 / 1.5 / 2 / 2.5 / 3 mm) e devolve a
+// melhor sugestão se algum diâmetro menor fizer caber MAIS etiquetas/folha.
+
+export interface SignmasterShrinkSuggestion {
+  newLabelW: number;
+  newLabelH: number;
+  newPerSheet: number;
+  delta: number;
+  extraUnitsForSameSheets: number;
+  shrinkW: number;
+  shrinkH: number;
+}
+
+const SM_MIN_DIAMETER = 5; // mm — trava de segurança
+
+export const findSignmasterShrinkOpportunity = (
+  base: SignmasterLayoutInput,
+  originalPerSheet: number,
+  sheetsForOriginal: number,
+): SignmasterShrinkSuggestion | null => {
+  const candidates = [0.5, 1, 1.5, 2, 2.5, 3];
+
+  let best: SignmasterShrinkSuggestion | null = null;
+  for (const d of candidates) {
+    const newDiameter = +(base.labelDiameter - d).toFixed(2);
+    if (newDiameter < SM_MIN_DIAMETER) continue;
+
+    const r = computeSignmasterLayout({
+      sheetW: base.sheetW,
+      sheetH: base.sheetH,
+      labelDiameter: newDiameter,
+    });
+    if (r.total <= originalPerSheet) continue;
+
+    const delta = r.total - originalPerSheet;
+    const candidate: SignmasterShrinkSuggestion = {
+      newLabelW: newDiameter,
+      newLabelH: newDiameter,
+      newPerSheet: r.total,
+      delta,
+      extraUnitsForSameSheets: delta * Math.max(1, sheetsForOriginal),
+      shrinkW: d,
+      shrinkH: d,
+    };
+
+    if (
+      !best ||
+      candidate.delta > best.delta ||
+      (candidate.delta === best.delta && d < best.shrinkW)
+    ) {
+      best = candidate;
+    }
+  }
+
+  return best;
+};
