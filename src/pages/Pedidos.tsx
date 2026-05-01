@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, MoreHorizontal, Pencil, CheckCircle2, XCircle, Loader2, ClipboardList, LayoutGrid, List, Receipt } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Pencil, CheckCircle2, XCircle, Loader2, ClipboardList, LayoutGrid, List, Receipt, Printer } from "lucide-react";
+import { generateProductionOrderPdf } from "@/lib/erp/production-order-pdf";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useIsFinanceiro } from "@/hooks/useIsFinanceiro";
@@ -217,6 +218,14 @@ export default function Pedidos() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => handleOpenEdit(o.id)}>
                               <Pencil className="h-3.5 w-3.5 mr-2" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={async () => {
+                                try { await generateProductionOrderPdf({ orderId: o.id }); toast.success("OP gerada."); }
+                                catch (e: any) { toast.error(e.message ?? "Erro ao gerar OP."); }
+                              }}
+                            >
+                              <Printer className="h-3.5 w-3.5 mr-2" /> Imprimir OP
                             </DropdownMenuItem>
                             {isFinanceiro && o.status === "aberto" && (
                               <DropdownMenuItem onClick={() => handleApprove(o)}>
