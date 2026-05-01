@@ -768,58 +768,155 @@ export function LabelLayoutCalculator({
           </Alert>
         )}
 
-        {/* Pricing principal */}
-        {config.pricePerSheet > 0 && qty > 0 && perSheet > 0 && (
-          <Card className="p-4 space-y-3 border-primary/40 bg-primary/5">
+        {/* Pricing principal — SEMPRE VISÍVEL */}
+        <Card className="p-4 space-y-3 border-primary/40 bg-primary/5">
+          <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Cálculo do orçamento</h3>
-            <div className="text-sm">
-              <span className="text-muted-foreground">{qty} un ÷ {perSheet}/folha = </span>
-              <strong>{pricing.sheetsNeeded} {pricing.sheetsNeeded === 1 ? "folha" : "folhas"}</strong>
-              <span className="text-muted-foreground"> × {formatBRL(config.pricePerSheet)} = </span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <p className="text-2xl font-bold text-primary">
-                {formatBRL(pricing.totalPrice)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                custo unitário <strong>{formatBRL(pricing.unitPrice)}</strong>
-              </p>
+            <a
+              href="/preco-impressao"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
+            >
+              Editar tabelas <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+
+          {/* Composição do preço da folha */}
+          <div className="space-y-2 rounded-md border border-border bg-background/60 p-2.5">
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Impressão (Tabela de Preços)</Label>
+              {folhaPricing.printingOptions.length > 0 ? (
+                <Select
+                  value={folhaPricing.selectedPrinting?.id ?? ""}
+                  onValueChange={folhaPricing.setPrintingId}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Selecione…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {folhaPricing.printingOptions.map((p) => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">
+                        {p.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                  ⚠ Sem item de impressão cadastrado para <strong>{sheetSizeKey}</strong>.{" "}
+                  <a href="/preco-impressao" target="_blank" rel="noopener noreferrer" className="underline">
+                    Cadastrar agora →
+                  </a>
+                </p>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <Button size="sm" variant="outline" onClick={handleCopyWhats}>
-                <Copy className="h-3.5 w-3.5 mr-1.5" />
-                Copiar WhatsApp
-              </Button>
-              <Button size="sm" variant="outline" onClick={handleOpenWhats}>
-                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                Abrir WhatsApp
-              </Button>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Acabamento (Recorte / outros)</Label>
+              <Select
+                value={folhaPricing.selectedFinishing.id ?? "__none__"}
+                onValueChange={(v) => folhaPricing.setFinishingId(v as string)}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {folhaPricing.finishingOptions.map((f) => (
+                    <SelectItem key={f.id ?? "__none__"} value={f.id ?? "__none__"} className="text-xs">
+                      {f.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <a
+                href="/acabamentos"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] text-primary hover:underline"
+              >
+                Editar acabamentos →
+              </a>
             </div>
 
+            <div className="flex items-center justify-between pt-1.5 border-t text-xs">
+              <span className="text-muted-foreground">Total por folha:</span>
+              <strong className="tabular-nums">{formatBRL(pricePerSheet)}</strong>
+            </div>
+          </div>
+
+          {/* Resultado */}
+          {pricePerSheet > 0 && qty > 0 && perSheet > 0 ? (
+            <>
+              <div className="text-sm">
+                <span className="text-muted-foreground">{qty} un ÷ {perSheet}/folha = </span>
+                <strong>{pricing.sheetsNeeded} {pricing.sheetsNeeded === 1 ? "folha" : "folhas"}</strong>
+                <span className="text-muted-foreground"> × {formatBRL(pricePerSheet)} = </span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <p className="text-2xl font-bold text-primary">
+                  {formatBRL(pricing.totalPrice)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  custo unitário <strong>{formatBRL(pricing.unitPrice)}</strong>
+                </p>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">
+              {perSheet <= 0
+                ? "Nenhuma etiqueta cabe na folha — ajuste medidas/margens."
+                : qty <= 0
+                ? "Informe a quantidade desejada para calcular o total."
+                : "Selecione impressão e acabamento para ver o preço."}
+            </p>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 pt-1">
             <Button
               size="sm"
-              variant="secondary"
-              className="w-full"
-              onClick={handleGeneratePDF}
-              disabled={generatingPdf}
-              title="Gera PDF 1:1 com página de impressão (K100) + página de faca CutContour (M100, 0.25pt)"
+              variant="outline"
+              onClick={handleCopyWhats}
+              disabled={!whatsappText}
+              title={!whatsappText ? "Faltam dados de preço/quantidade" : undefined}
             >
-              <FileDown className="h-3.5 w-3.5 mr-1.5" />
-              {generatingPdf ? "Gerando…" : "Gerar PDF de produção (Impressão + Faca)"}
+              <Copy className="h-3.5 w-3.5 mr-1.5" />
+              Copiar WhatsApp
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleOpenWhats}
+              disabled={!whatsappText}
+              title={!whatsappText ? "Faltam dados de preço/quantidade" : undefined}
+            >
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+              Abrir WhatsApp
+            </Button>
+          </div>
 
-            {onApply && (
-              <Button
-                size="sm"
-                className="w-full"
-                onClick={() => onApply(pricing.sheetsNeeded)}
-              >
-                Usar {pricing.sheetsNeeded} {pricing.sheetsNeeded === 1 ? "folha" : "folhas"} no orçamento
-              </Button>
-            )}
-          </Card>
-        )}
+          <Button
+            size="sm"
+            variant="secondary"
+            className="w-full"
+            onClick={handleGeneratePDF}
+            disabled={generatingPdf || perSheet <= 0}
+            title="Gera PDF 1:1 com página de impressão (K100) + página de faca CutContour (M100, 0.25pt)"
+          >
+            <FileDown className="h-3.5 w-3.5 mr-1.5" />
+            {generatingPdf ? "Gerando…" : "Gerar PDF de produção (Impressão + Faca)"}
+          </Button>
+
+          {onApply && pricing.sheetsNeeded > 0 && (
+            <Button
+              size="sm"
+              className="w-full"
+              onClick={() => onApply(pricing.sheetsNeeded)}
+            >
+              Usar {pricing.sheetsNeeded} {pricing.sheetsNeeded === 1 ? "folha" : "folhas"} no orçamento
+            </Button>
+          )}
+        </Card>
 
         {/* Ancoragem */}
         {ladder.length > 0 && (
@@ -1009,11 +1106,14 @@ function SheetPreview({
           </g>
         ))}
 
-        {/* Marcas de registro: L (TL/TR) + tick (BL/BR) — K100 0.5pt */}
+        {/* Marcas de registro: L (TL/TR, round) + tick (BL/BR, butt) — K100 0.5pt */}
         {marks.marks.map((m, i) => {
           const segs = markSegments(m);
+          // Tick = traço horizontal limpo (butt). L = round nas pontas.
+          const cap = m.kind === "tick" ? "butt" : "round";
+          const sw = m.kind === "tick" ? 0.8 : 1;
           return (
-            <g key={`mark-${i}`} stroke="black" strokeWidth="1" strokeLinecap="round" fill="none">
+            <g key={`mark-${i}`} stroke="black" strokeWidth={sw} strokeLinecap={cap} fill="none">
               {segs.map((s, j) => (
                 <line
                   key={j}

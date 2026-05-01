@@ -182,11 +182,32 @@ describe("findShrinkOpportunity", () => {
 });
 
 describe("CUT_DEFAULTS", () => {
-  it("plotter redondo tem maior gap que corte reto", () => {
-    expect(CUT_DEFAULTS.plotter_redondo.gap).toBeGreaterThan(CUT_DEFAULTS.corte_reto.gap);
+  it("plotter redondo tem gap >= corte reto", () => {
+    expect(CUT_DEFAULTS.plotter_redondo.gap).toBeGreaterThanOrEqual(CUT_DEFAULTS.corte_reto.gap);
+  });
+  it("plotters têm gap reduzido (1mm) para maximizar aproveitamento (Regra dos 40)", () => {
+    expect(CUT_DEFAULTS.plotter_quadrado.gap).toBe(1);
+    expect(CUT_DEFAULTS.plotter_redondo.gap).toBe(1);
   });
   it("plotters têm maior margem top/bottom (marca de registro)", () => {
     expect(CUT_DEFAULTS.plotter_quadrado.marginTop).toBeGreaterThan(CUT_DEFAULTS.corte_reto.marginTop);
+  });
+});
+
+describe("Regra dos 40 — 50×50 em SRA3 com Teneth", () => {
+  it("com gap 1mm e área útil 306×363 cabem ≥40 etiquetas", () => {
+    // Margens conforme hardware Teneth A3: top 7, bottom 80, left/right 7
+    const r = computeLabelLayout({
+      sheetW: 320, sheetH: 450,
+      marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
+      gap: 1, labelW: 50, labelH: 50,
+      cutType: "plotter_quadrado",
+    });
+    // cols=floor((306+1)/51)=6, rows=floor((363+1)/51)=7 → 42
+    expect(r.best.cols).toBe(6);
+    expect(r.best.rows).toBe(7);
+    expect(r.effectivePerSheet).toBeGreaterThanOrEqual(40);
+    expect(r.effectivePerSheet).toBe(42);
   });
 });
 
