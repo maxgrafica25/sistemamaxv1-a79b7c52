@@ -303,11 +303,11 @@ export function LabelLayoutCalculator({
   const layout = computeLabelLayout(layoutInput);
   const perSheet = layout.effectivePerSheet;
   const pricing = computeSheetPricing({
-    pricePerSheet: config.pricePerSheet,
+    pricePerSheet,
     qtyRequested: qty,
     perSheet,
   });
-  const ladder = buildAnchoringLadder(qty, perSheet, config.pricePerSheet);
+  const ladder = buildAnchoringLadder(qty, perSheet, pricePerSheet);
   const shrink = perSheet > 0
     ? findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1)
     : null;
@@ -317,7 +317,6 @@ export function LabelLayoutCalculator({
     setLabelW(shrink.newLabelW);
     setLabelH(shrink.newLabelH);
     if (shape === "quadrado" || shape === "redondo") {
-      // Se o shrink quebra simetria, vira personalizado
       if (shrink.newLabelW !== shrink.newLabelH) setShape("personalizado");
     }
   };
@@ -330,7 +329,7 @@ export function LabelLayoutCalculator({
 
   // ---- WhatsApp ------------------------------------------------------------
   const whatsappText = useMemo(() => {
-    if (config.pricePerSheet <= 0 || qty <= 0 || perSheet <= 0) return "";
+    if (pricePerSheet <= 0 || qty <= 0 || perSheet <= 0) return "";
     return formatWhatsAppQuote({
       qty,
       shape,
@@ -339,7 +338,8 @@ export function LabelLayoutCalculator({
       pricing,
       ladder,
     });
-  }, [config.pricePerSheet, qty, perSheet, shape, labelW, labelH, pricing, ladder]);
+  }, [pricePerSheet, qty, perSheet, shape, labelW, labelH, pricing, ladder]);
+
 
   const handleCopyWhats = async () => {
     if (!whatsappText) return;
