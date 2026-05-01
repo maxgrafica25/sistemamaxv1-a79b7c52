@@ -724,6 +724,18 @@ export function LabelLayoutCalculator({
               </Button>
             </div>
 
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-full"
+              onClick={handleGeneratePDF}
+              disabled={generatingPdf}
+              title="Gera PDF 1:1 com página de impressão (K100) + página de faca CutContour (M100, 0.25pt)"
+            >
+              <FileDown className="h-3.5 w-3.5 mr-1.5" />
+              {generatingPdf ? "Gerando…" : "Gerar PDF de produção (Impressão + Faca)"}
+            </Button>
+
             {onApply && (
               <Button
                 size="sm"
