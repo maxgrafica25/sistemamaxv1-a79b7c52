@@ -128,7 +128,15 @@ describe("buildAnchoringLadder", () => {
   it("entradas inválidas → []", () => {
     expect(buildAnchoringLadder(0, 20, 15)).toEqual([]);
     expect(buildAnchoringLadder(50, 0, 15)).toEqual([]);
-    expect(buildAnchoringLadder(50, 20, 0)).toEqual([]);
+  });
+
+  it("sem preço cadastrado → ainda devolve qty + folhas (preço zerado)", () => {
+    const ladder = buildAnchoringLadder(50, 20, 0);
+    expect(ladder.length).toBeGreaterThan(0);
+    expect(ladder[0].qty).toBe(50);
+    expect(ladder[0].sheets).toBeGreaterThan(0);
+    expect(ladder[0].total).toBe(0);
+    expect(ladder[0].unit).toBe(0);
   });
 });
 
