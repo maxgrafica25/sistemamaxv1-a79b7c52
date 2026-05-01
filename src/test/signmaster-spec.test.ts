@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   computeSignmasterLayout,
   computeSignmasterMarks,
+  findSignmasterShrinkOpportunity,
   SM_REG_MARK_MARGIN,
   SM_MARK_LENGTH,
 } from "@/lib/labels/signmaster-spec";
