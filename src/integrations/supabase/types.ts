@@ -14,6 +14,106 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts_receivable: {
+        Row: {
+          category: string
+          client_id: string | null
+          client_name: string
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          order_id: string | null
+          status: string
+          total_value: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          client_id?: string | null
+          client_name: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          order_id?: string | null
+          status?: string
+          total_value?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          client_id?: string | null
+          client_name?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          order_id?: string | null
+          status?: string
+          total_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_receivable_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounts_receivable_installments: {
+        Row: {
+          account_id: string
+          amount: number
+          created_at: string
+          due_date: string
+          id: string
+          installment_number: number
+          notes: string | null
+          paid_amount: number | null
+          paid_at: string | null
+          payment_method: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          amount?: number
+          created_at?: string
+          due_date: string
+          id?: string
+          installment_number?: number
+          notes?: string | null
+          paid_amount?: number | null
+          paid_at?: string | null
+          payment_method?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          created_at?: string
+          due_date?: string
+          id?: string
+          installment_number?: number
+          notes?: string | null
+          paid_amount?: number | null
+          paid_at?: string | null
+          payment_method?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_receivable_installments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_receivable"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_operations_log: {
         Row: {
           created_at: string
@@ -2250,6 +2350,171 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_order_counters: {
+        Row: {
+          last_number: number
+          year: number
+        }
+        Insert: {
+          last_number?: number
+          year: number
+        }
+        Update: {
+          last_number?: number
+          year?: number
+        }
+        Relationships: []
+      }
+      sales_order_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          line_total: number
+          order_id: string
+          quantity: number
+          sort_order: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          line_total?: number
+          order_id: string
+          quantity?: number
+          sort_order?: number
+          unit_price?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          line_total?: number
+          order_id?: string
+          quantity?: number
+          sort_order?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_order_status_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          from_status: string | null
+          id: string
+          note: string | null
+          order_id: string
+          to_status: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          order_id: string
+          to_status: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          order_id?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_status_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_orders: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          cancelled_at: string | null
+          client_id: string | null
+          client_name: string
+          created_at: string
+          created_by: string | null
+          delivery_date: string | null
+          id: string
+          internal_notes: string | null
+          order_number: string
+          payment_method: string | null
+          payment_terms: string | null
+          production_notes: string | null
+          quote_id: string | null
+          status: string
+          total_value: number
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cancelled_at?: string | null
+          client_id?: string | null
+          client_name: string
+          created_at?: string
+          created_by?: string | null
+          delivery_date?: string | null
+          id?: string
+          internal_notes?: string | null
+          order_number: string
+          payment_method?: string | null
+          payment_terms?: string | null
+          production_notes?: string | null
+          quote_id?: string | null
+          status?: string
+          total_value?: number
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cancelled_at?: string | null
+          client_id?: string | null
+          client_name?: string
+          created_at?: string
+          created_by?: string | null
+          delivery_date?: string | null
+          id?: string
+          internal_notes?: string | null
+          order_number?: string
+          payment_method?: string | null
+          payment_terms?: string | null
+          production_notes?: string | null
+          quote_id?: string | null
+          status?: string
+          total_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_orders_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_precos_tiers: {
         Row: {
           ativo: boolean
@@ -2651,6 +2916,10 @@ export type Database = {
       backup_get_tables: { Args: never; Returns: Json }
       backup_get_triggers: { Args: never; Returns: Json }
       create_quote_version: { Args: { p_quote_id: string }; Returns: string }
+      create_receivable_from_order: {
+        Args: { p_installments: Json; p_order_id: string }
+        Returns: string
+      }
       delete_quotes_bulk: { Args: { p_ids: string[] }; Returns: Json }
       detectar_duplicatas_categorias: {
         Args: { _destino: string; _origem: string }
@@ -2665,6 +2934,7 @@ export type Database = {
         Args: { _channel_id: string; _user_id: string }
         Returns: boolean
       }
+      is_financeiro_user: { Args: { _user_id: string }; Returns: boolean }
       is_profile_admin: { Args: { _user_id: string }; Returns: boolean }
       list_users_admin: {
         Args: never
@@ -2680,6 +2950,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      next_order_number: { Args: never; Returns: string }
       register_quote_event: {
         Args: {
           p_event_type: string
