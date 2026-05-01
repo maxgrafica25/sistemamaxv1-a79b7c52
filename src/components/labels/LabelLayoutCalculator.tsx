@@ -60,6 +60,8 @@ import { toast } from "sonner";
 import { Slider } from "@/components/ui/slider";
 import { LabelCalcSettingsDialog } from "./LabelCalcSettingsDialog";
 import { suggestMarksOffset, buildCornerMarks, markSegments, MARK_ARM_MM } from "@/lib/labels/marks";
+import { computeSignmasterLayout, computeSignmasterMarks, SM_REG_MARK_MARGIN, SM_LABEL_SPACING } from "@/lib/labels/signmaster-spec";
+import { generateSignmasterPlt, downloadPlt } from "@/lib/labels/plt-export";
 import { generateProductionPDF, downloadPDF } from "@/lib/labels/production-pdf";
 import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
 
@@ -316,6 +318,21 @@ export function LabelLayoutCalculator({
     setImageDims(null);
   };
 
+  // ---- Detecta modo paramétrico SignMaster --------------------------------
+  // Ativo quando: hardware = signmaster_param + corte plotter redondo + W===H
+  const isParametric =
+    config.hardwareProfileId === "signmaster_param" &&
+    config.cutType === "plotter_redondo" &&
+    shape === "redondo" &&
+    labelW === labelH;
+
+  const paramLayout = useMemo(
+    () => isParametric
+      ? computeSignmasterLayout({ sheetW: config.sheetW, sheetH: config.sheetH, labelDiameter: labelW })
+      : null,
+    [isParametric, config.sheetW, config.sheetH, labelW],
+  );
+
   // ---- Cálculos ------------------------------------------------------------
   const layoutInput: LayoutInput = {
     sheetW: config.sheetW,
@@ -330,7 +347,35 @@ export function LabelLayoutCalculator({
     shape,
     cutType: config.cutType,
   };
-  const layout = computeLabelLayout(layoutInput);
+  const layoutGeneric = computeLabelLayout(layoutInput);
+
+  // No modo paramétrico, sobrescrevemos o resultado do layout genérico
+  // mantendo a mesma forma de objeto para reuso do código abaixo.
+  const layout = useMemo(() => {
+    if (!paramLayout) return layoutGeneric;
+    const cols = paramLayout.labelsPerRow;
+    const rows = paramLayout.labelsPerColumn;
+    const cellsPerRow = Array.from({ length: rows }, () => cols);
+    const rowOffsets = Array.from({ length: rows }, () => paramLayout.offsetX);
+    const usedArea = paramLayout.total * labelW * labelH;
+    const usableW = config.sheetW - 2 * SM_REG_MARK_MARGIN;
+    const usableH = config.sheetH - 2 * SM_REG_MARK_MARGIN;
+    const utilizationPct = usableW * usableH > 0 ? (usedArea / (usableW * usableH)) * 100 : 0;
+    return {
+      ...layoutGeneric,
+      best: { cols, rows, total: paramLayout.total, rotated: false },
+      optionA: { cols, rows, total: paramLayout.total, rotated: false },
+      optionB: { cols: 0, rows: 0, total: 0, rotated: true },
+      usableW,
+      usableH,
+      utilizationPct,
+      reservedSlots: [],
+      cellsPerRow,
+      rowOffsets,
+      effectivePerSheet: paramLayout.total,
+    };
+  }, [paramLayout, layoutGeneric, labelW, labelH, config.sheetW, config.sheetH]);
+
   const perSheet = layout.effectivePerSheet;
   const pricing = computeSheetPricing({
     pricePerSheet,
@@ -338,7 +383,7 @@ export function LabelLayoutCalculator({
     perSheet,
   });
   const ladder = buildAnchoringLadder(qty, perSheet, pricePerSheet);
-  const shrink = perSheet > 0
+  const shrink = !isParametric && perSheet > 0
     ? findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1)
     : null;
 
@@ -439,7 +484,26 @@ export function LabelLayoutCalculator({
     }
   };
 
-  // ---- Render --------------------------------------------------------------
+  const handleExportPlt = () => {
+    if (!paramLayout || paramLayout.total <= 0) {
+      toast.error("Modo paramétrico não está ativo ou não cabem etiquetas.");
+      return;
+    }
+    try {
+      const plt = generateSignmasterPlt({
+        sheetW: config.sheetW,
+        sheetH: config.sheetH,
+        labelDiameter: labelW,
+        layout: paramLayout,
+      });
+      const slug = `redonda-${labelW}mm-${config.sheetW}x${config.sheetH}`;
+      downloadPlt(plt, `faca-${slug}.plt`);
+      toast.success("Faca .plt gerada — abra no SignMaster.");
+    } catch (e) {
+      console.error("[label-plt]", e);
+      toast.error("Falha ao gerar .plt. Veja o console.");
+    }
+  };
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
       {/* ============================== SIMULADOR ============================== */}
@@ -728,9 +792,13 @@ export function LabelLayoutCalculator({
             <Badge
               variant="outline"
               className="gap-1 border-primary/40 text-primary"
-              title={`Margens forçadas pelo equipamento: topo ${config.marginTop}mm · base ${config.marginBottom}mm (tração) · laterais ${config.marginLeft}/${config.marginRight}mm`}
+              title={
+                isParametric
+                  ? "Modo paramétrico SignMaster: margens 7/7/7/7 mm, gap 3 mm, marcas L (topo) + T (base). Folhas soltas."
+                  : `Margens forçadas pelo equipamento: topo ${config.marginTop}mm · base ${config.marginBottom}mm (tração) · laterais ${config.marginLeft}/${config.marginRight}mm`
+              }
             >
-              ⚙ {config.hardwareProfileId === "teneth_a3" ? "Teneth A3" : config.hardwareProfileId} · {config.marginTop}/{config.marginBottom}/{config.marginLeft}/{config.marginRight}mm
+              ⚙ {isParametric ? "SignMaster paramétrico · 7/7/7/7 · gap 3" : `${config.hardwareProfileId === "teneth_a3" ? "Teneth A3" : config.hardwareProfileId} · ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight}mm`}
             </Badge>
           </div>
 
@@ -754,6 +822,7 @@ export function LabelLayoutCalculator({
             rowOffsets={layout.rowOffsets}
             cellsPerRow={layout.cellsPerRow}
             marksOffsetY={marksOffsetY}
+            paramLayout={paramLayout}
           />
 
           {/* Slider de ajuste das marcas ARMS */}
@@ -952,6 +1021,19 @@ export function LabelLayoutCalculator({
             {generatingPdf ? "Gerando…" : "Gerar PDF de produção (Impressão + Faca)"}
           </Button>
 
+          {isParametric && perSheet > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={handleExportPlt}
+              title="Exporta a faca de corte (1016 DPI, polígono 72 segmentos, marcas de registro inclusas)"
+            >
+              <FileDown className="h-3.5 w-3.5 mr-1.5" />
+              Baixar faca .plt (SignMaster)
+            </Button>
+          )}
+
           {onApply && pricing.sheetsNeeded > 0 && (
             <Button
               size="sm"
@@ -1044,13 +1126,14 @@ interface SheetPreviewProps {
   rowOffsets: number[];
   cellsPerRow: number[];
   marksOffsetY: number;
+  paramLayout: ReturnType<typeof computeSignmasterLayout> | null;
 }
 
 function SheetPreview({
   sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight,
   gap, labelW, labelH, cols, rows,
   shape, imageDataUrl, imageNaturalW, imageNaturalH,
-  reservedSlots, rowOffsets, cellsPerRow, marksOffsetY,
+  reservedSlots, rowOffsets, cellsPerRow, marksOffsetY, paramLayout,
 }: SheetPreviewProps) {
   const MAX = 320;
   const scale = Math.min(MAX / sheetW, MAX / sheetH);
@@ -1065,22 +1148,31 @@ function SheetPreview({
     ? fitContain(imageNaturalW, imageNaturalH, labelWPx, labelHPx)
     : null;
 
-  // Posições efetivas (apenas etiquetas vendáveis), respeitando rowOffsets
+  // Posições efetivas (apenas etiquetas vendáveis)
   const labels: Array<{ x: number; y: number }> = [];
-  for (let r = 0; r < rows; r++) {
-    const cellsInRow = cellsPerRow[r] ?? cols;
-    const baseX = (rowOffsets[r] ?? marginLeft) * scale;
-    const yPx = (marginTop + r * (labelH + gap)) * scale;
-    for (let c = 0; c < cellsInRow; c++) {
-      labels.push({
-        x: baseX + c * (labelW + gap) * scale,
-        y: yPx,
-      });
+  if (paramLayout) {
+    for (const p of paramLayout.positions) {
+      labels.push({ x: p.x * scale, y: p.y * scale });
+    }
+  } else {
+    for (let r = 0; r < rows; r++) {
+      const cellsInRow = cellsPerRow[r] ?? cols;
+      const baseX = (rowOffsets[r] ?? marginLeft) * scale;
+      const yPx = (marginTop + r * (labelH + gap)) * scale;
+      for (let c = 0; c < cellsInRow; c++) {
+        labels.push({
+          x: baseX + c * (labelW + gap) * scale,
+          y: yPx,
+        });
+      }
     }
   }
 
+  const paramMarks = paramLayout
+    ? computeSignmasterMarks({ sheetW, sheetH, gridBottom: paramLayout.gridBottom })
+    : null;
   const marks = buildCornerMarks(sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight, marksOffsetY, MARK_ARM_MM);
-  const totalSellable = cellsPerRow.reduce((a, b) => a + b, 0);
+  const totalSellable = paramLayout ? paramLayout.total : cellsPerRow.reduce((a, b) => a + b, 0);
 
   return (
     <div className="flex justify-center bg-muted/30 rounded-md p-3">
@@ -1151,26 +1243,41 @@ function SheetPreview({
           </g>
         ))}
 
-        {/* Marcas de registro: L (TL/TR, round) + tick (BL/BR, butt) — K100 0.5pt */}
-        {marks.marks.map((m, i) => {
-          const segs = markSegments(m);
-          // Tick = traço horizontal limpo (butt). L = round nas pontas.
-          const cap = m.kind === "tick" ? "butt" : "round";
-          const sw = m.kind === "tick" ? 0.8 : 1;
-          return (
-            <g key={`mark-${i}`} stroke="black" strokeWidth={sw} strokeLinecap={cap} fill="none">
-              {segs.map((s, j) => (
-                <line
-                  key={j}
-                  x1={s.x1 * scale}
-                  y1={s.y1 * scale}
-                  x2={s.x2 * scale}
-                  y2={s.y2 * scale}
-                />
-              ))}
-            </g>
-          );
-        })}
+        {/* Marcas de registro */}
+        {paramMarks ? (
+          // Modo paramétrico: L topo + T base, espessura 2 mm conforme spec
+          <g stroke="black" strokeWidth={Math.max(0.6, 2 * scale)} strokeLinecap="butt" fill="none">
+            {paramMarks.all.map((s, i) => (
+              <line
+                key={`pm-${i}`}
+                x1={s.x1 * scale}
+                y1={s.y1 * scale}
+                x2={s.x2 * scale}
+                y2={s.y2 * scale}
+              />
+            ))}
+          </g>
+        ) : (
+          // Modo legado: marcas ARMS (L superiores + tick inferior)
+          marks.marks.map((m, i) => {
+            const segs = markSegments(m);
+            const cap = m.kind === "tick" ? "butt" : "round";
+            const sw = m.kind === "tick" ? 0.8 : 1;
+            return (
+              <g key={`mark-${i}`} stroke="black" strokeWidth={sw} strokeLinecap={cap} fill="none">
+                {segs.map((s, j) => (
+                  <line
+                    key={j}
+                    x1={s.x1 * scale}
+                    y1={s.y1 * scale}
+                    x2={s.x2 * scale}
+                    y2={s.y2 * scale}
+                  />
+                ))}
+              </g>
+            );
+          })
+        )}
       </svg>
     </div>
   );
