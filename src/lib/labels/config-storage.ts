@@ -30,6 +30,8 @@ export interface LabelPreset {
   height: number;
 }
 
+export type LengthUnit = "mm" | "cm";
+
 export interface LabelCalcConfig {
   // Folha
   sheetPresetId: string;
@@ -48,6 +50,8 @@ export interface LabelCalcConfig {
   gap: number;
   // Preço
   pricePerSheet: number;
+  // Unidade de medida (apenas exibição; cálculos sempre em mm)
+  unit: LengthUnit;
   // Catálogos do usuário
   customSheets: CustomSheetPreset[];
   labelPresets: LabelPreset[];
