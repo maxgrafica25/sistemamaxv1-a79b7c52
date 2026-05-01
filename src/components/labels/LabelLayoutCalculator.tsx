@@ -318,6 +318,21 @@ export function LabelLayoutCalculator({
     setImageDims(null);
   };
 
+  // ---- Detecta modo paramétrico SignMaster --------------------------------
+  // Ativo quando: hardware = signmaster_param + corte plotter redondo + W===H
+  const isParametric =
+    config.hardwareProfileId === "signmaster_param" &&
+    config.cutType === "plotter_redondo" &&
+    shape === "redondo" &&
+    labelW === labelH;
+
+  const paramLayout = useMemo(
+    () => isParametric
+      ? computeSignmasterLayout({ sheetW: config.sheetW, sheetH: config.sheetH, labelDiameter: labelW })
+      : null,
+    [isParametric, config.sheetW, config.sheetH, labelW],
+  );
+
   // ---- Cálculos ------------------------------------------------------------
   const layoutInput: LayoutInput = {
     sheetW: config.sheetW,
@@ -332,7 +347,35 @@ export function LabelLayoutCalculator({
     shape,
     cutType: config.cutType,
   };
-  const layout = computeLabelLayout(layoutInput);
+  const layoutGeneric = computeLabelLayout(layoutInput);
+
+  // No modo paramétrico, sobrescrevemos o resultado do layout genérico
+  // mantendo a mesma forma de objeto para reuso do código abaixo.
+  const layout = useMemo(() => {
+    if (!paramLayout) return layoutGeneric;
+    const cols = paramLayout.labelsPerRow;
+    const rows = paramLayout.labelsPerColumn;
+    const cellsPerRow = Array.from({ length: rows }, () => cols);
+    const rowOffsets = Array.from({ length: rows }, () => paramLayout.offsetX);
+    const usedArea = paramLayout.total * labelW * labelH;
+    const usableW = config.sheetW - 2 * SM_REG_MARK_MARGIN;
+    const usableH = config.sheetH - 2 * SM_REG_MARK_MARGIN;
+    const utilizationPct = usableW * usableH > 0 ? (usedArea / (usableW * usableH)) * 100 : 0;
+    return {
+      ...layoutGeneric,
+      best: { cols, rows, total: paramLayout.total, rotated: false },
+      optionA: { cols, rows, total: paramLayout.total, rotated: false },
+      optionB: { cols: 0, rows: 0, total: 0, rotated: true },
+      usableW,
+      usableH,
+      utilizationPct,
+      reservedSlots: [],
+      cellsPerRow,
+      rowOffsets,
+      effectivePerSheet: paramLayout.total,
+    };
+  }, [paramLayout, layoutGeneric, labelW, labelH, config.sheetW, config.sheetH]);
+
   const perSheet = layout.effectivePerSheet;
   const pricing = computeSheetPricing({
     pricePerSheet,
@@ -340,7 +383,7 @@ export function LabelLayoutCalculator({
     perSheet,
   });
   const ladder = buildAnchoringLadder(qty, perSheet, pricePerSheet);
-  const shrink = perSheet > 0
+  const shrink = !isParametric && perSheet > 0
     ? findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1)
     : null;
 
