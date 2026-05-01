@@ -59,11 +59,11 @@ export function GenerateOrderButton({ quoteId, quoteNumber, client, clientId, pr
           quote_id: quoteId,
           client_id: clientId,
           client_name: client,
-          product,
           total_value: totalValue,
           status: "aberto",
-          notes: `Gerado a partir do orçamento ${quoteNumber}`,
-        })
+          internal_notes: `Gerado a partir do orçamento ${quoteNumber} — ${product}`,
+          order_number: "", // gerado pelo trigger set_order_number
+        } as any)
         .select("id, order_number")
         .single();
 
@@ -73,11 +73,10 @@ export function GenerateOrderButton({ quoteId, quoteNumber, client, clientId, pr
       const items = (matsRes.data ?? []).map((m: any, idx: number) => ({
         order_id: order.id,
         description: m.description,
-        quantity: m.quantity,
-        unit_price: m.unit_price,
-        total_price: Number(m.quantity) * Number(m.unit_price),
+        quantity: Number(m.quantity),
+        unit_price: Number(m.unit_price),
+        line_total: Number(m.quantity) * Number(m.unit_price),
         sort_order: m.sort_order ?? idx,
-        kind: "material",
       }));
 
       if (items.length > 0) {
