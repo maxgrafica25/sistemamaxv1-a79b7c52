@@ -90,7 +90,7 @@ export function ClientLastSalesPanel({ clientId }: Props) {
                       </td>
                       <td className="px-2 py-2 text-right">
                         <a
-                          href={`/orcamentos-v2/${q.id}/editar`}
+                          href={`/orcamentos-v2/${q.id}`}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-1 text-primary hover:underline text-xs"
