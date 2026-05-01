@@ -725,6 +725,13 @@ export function LabelLayoutCalculator({
             <span className="text-muted-foreground">
               área útil {layout.usableW}×{layout.usableH}mm
             </span>
+            <Badge
+              variant="outline"
+              className="gap-1 border-primary/40 text-primary"
+              title={`Margens forçadas pelo equipamento: topo ${config.marginTop}mm · base ${config.marginBottom}mm (tração) · laterais ${config.marginLeft}/${config.marginRight}mm`}
+            >
+              ⚙ {config.hardwareProfileId === "teneth_a3" ? "Teneth A3" : config.hardwareProfileId} · {config.marginTop}/{config.marginBottom}/{config.marginLeft}/{config.marginRight}mm
+            </Badge>
           </div>
 
           <SheetPreview
