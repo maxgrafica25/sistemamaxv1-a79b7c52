@@ -383,8 +383,14 @@ export function LabelLayoutCalculator({
     perSheet,
   });
   const ladder = buildAnchoringLadder(qty, perSheet, pricePerSheet);
-  const shrink = !isParametric && perSheet > 0
-    ? findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1)
+  const shrink = perSheet > 0
+    ? (isParametric
+        ? findSignmasterShrinkOpportunity(
+            { sheetW: config.sheetW, sheetH: config.sheetH, labelDiameter: labelW },
+            perSheet,
+            pricing.sheetsNeeded || 1,
+          )
+        : findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1))
     : null;
 
   const applyShrink = () => {
