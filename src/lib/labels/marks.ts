@@ -91,9 +91,9 @@ export function markBoundingBox(mark: RegistrationMark): { x: number; y: number;
     // Linha horizontal de 2*arm centrada em vertexX, espessura desprezível (~0.2mm)
     return { x: x - arm, y: y - 0.1, w: arm * 2, h: 0.2 };
   }
-  // L: dois braços partindo do vértice
-  const sx = corner === "tl" || corner === "bl" ? 1 : -1;
-  const sy = corner === "tl" || corner === "tr" ? 1 : -1;
+  // L: braços apontam para fora (TL=-x/-y, TR=+x/-y, BL=-x/+y, BR=+x/+y)
+  const sx = corner === "tl" || corner === "bl" ? -1 : 1;
+  const sy = corner === "tl" || corner === "tr" ? -1 : 1;
   const xMin = sx > 0 ? x : x - arm;
   const yMin = sy > 0 ? y : y - arm;
   return { x: xMin, y: yMin, w: arm, h: arm };
