@@ -865,21 +865,39 @@ export function LabelLayoutCalculator({
             <Lightbulb className="h-4 w-4 text-amber-600" />
             <AlertTitle className="text-sm">Dica de aproveitamento</AlertTitle>
             <AlertDescription className="text-xs space-y-2">
-              <p>
-                Reduzindo a etiqueta para{" "}
-                <strong>{shrink.newLabelW}×{shrink.newLabelH}mm</strong>{" "}
-                {shrink.shrinkW || shrink.shrinkH ? (
-                  <span className="text-muted-foreground">
-                    (−{shrink.shrinkW}mm × −{shrink.shrinkH}mm)
-                  </span>
-                ) : null}{" "}
-                cabem <strong>+{shrink.delta} etiquetas por folha</strong>.
-                {pricing.sheetsNeeded > 0 && (
-                  <> Pelo mesmo custo de produção ({pricing.sheetsNeeded}{" "}
-                  {pricing.sheetsNeeded === 1 ? "folha" : "folhas"}), o cliente leva{" "}
-                  <strong>+{shrink.extraUnitsForSameSheets} etiquetas</strong>.</>
-                )}
-              </p>
+              {(() => {
+                const isSquareNew = shrink.newLabelW === shrink.newLabelH;
+                const sizeLabel = isSquareNew
+                  ? `${shrink.newLabelW}mm`
+                  : `${shrink.newLabelW}×${shrink.newLabelH}mm`;
+                let deltaText = "";
+                if (shrink.shrinkW > 0 && shrink.shrinkH > 0 && shrink.shrinkW === shrink.shrinkH) {
+                  deltaText = `−${shrink.shrinkW}mm em cada lado`;
+                } else if (shrink.shrinkW > 0 && shrink.shrinkH > 0) {
+                  deltaText = `−${shrink.shrinkW}mm de largura e −${shrink.shrinkH}mm de altura`;
+                } else if (shrink.shrinkW > 0) {
+                  deltaText = `−${shrink.shrinkW}mm de largura`;
+                } else if (shrink.shrinkH > 0) {
+                  deltaText = `−${shrink.shrinkH}mm de altura`;
+                }
+                return (
+                  <>
+                    <p>
+                      Se diminuir a etiqueta para <strong>{sizeLabel}</strong>
+                      {deltaText && <> ({deltaText})</>}, cabem{" "}
+                      <strong>{shrink.delta} etiquetas a mais por folha</strong>{" "}
+                      (de {perSheet} para <strong>{shrink.newPerSheet}</strong>).
+                    </p>
+                    {pricing.sheetsNeeded > 0 && shrink.extraUnitsForSameSheets > 0 && (
+                      <p>
+                        Usando as mesmas {pricing.sheetsNeeded}{" "}
+                        {pricing.sheetsNeeded === 1 ? "folha" : "folhas"} (mesmo custo de produção),
+                        o cliente leva <strong>{shrink.extraUnitsForSameSheets} etiquetas a mais</strong>.
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
               <Button size="sm" variant="outline" onClick={applyShrink} className="h-7 text-xs">
                 <ArrowRight className="h-3 w-3 mr-1" />
                 Aplicar sugestão
