@@ -67,6 +67,12 @@ const formatBRL = (n: number) =>
 const formatPct = (n: number, digits = 1) =>
   `${n >= 0 ? "" : ""}${n.toFixed(digits)}%`;
 
+// ---------- Conversão mm <-> unidade exibida --------------------------------
+type LengthUnit = "mm" | "cm";
+const toDisplay = (mm: number, unit: LengthUnit) => unit === "cm" ? mm / 10 : mm;
+const fromDisplay = (val: number, unit: LengthUnit) => unit === "cm" ? val * 10 : val;
+const unitStep = (unit: LengthUnit) => unit === "cm" ? 0.1 : 1;
+
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
 
 // ---------- Resolve label da folha (preset fixo OU custom) -------------------
