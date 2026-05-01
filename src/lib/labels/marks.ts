@@ -1,26 +1,55 @@
 // =============================================================================
-// Marcas de registro (ARMS) para leitura óptica do plotter
+// Marcas de registro (ARMS) — padrão SignMaster / Teneth
+// =============================================================================
+// Marcas SUPERIORES (TL/TR): "L" abrindo para dentro da folha (vértice no
+// canto da área útil, dois braços perpendiculares de 5mm).
+//
+// Marcas INFERIORES (BL/BR): traço horizontal único (~10mm) na base. O
+// SignMaster usa esse padrão pra distinguir início de leitura (Ls em cima)
+// de fim de leitura (ticks embaixo).
+//
+// Todas em K100 (preto puro), espessura 0.5pt.
 // =============================================================================
 
+export type MarkKind = "L" | "tick";
+export type Corner = "tl" | "tr" | "bl" | "br";
+
+export interface MarkSegment {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 export interface RegistrationMark {
-  /** Posição em mm (canto superior esquerdo da marca). */
-  x: number;
-  y: number;
-  /** Tamanho em mm. */
-  size: number;
+  kind: MarkKind;
+  corner: Corner;
+  /** Vértice (para L) ou ponto central (para tick), em mm. */
+  vertexX: number;
+  vertexY: number;
+  /** Comprimento do braço (L) ou metade do tick. */
+  arm: number;
 }
 
 export interface MarksLayout {
   marks: RegistrationMark[];
-  /** Quanto o conjunto foi deslocado verticalmente em relação ao default. */
   offsetY: number;
 }
 
-export const MARK_SIZE_MM = 5;
+export const MARK_ARM_MM = 5;
+export const TICK_LEN_MM = 10;
+export const MARK_STROKE_PT = 0.5;
+
+// Mantido por compatibilidade com chamadas antigas que importam MARK_SIZE_MM.
+export const MARK_SIZE_MM = MARK_ARM_MM;
 
 /**
- * Calcula posição padrão das 4 marcas de canto, dentro da área útil.
- * Aplica `offsetY` (mm) ao conjunto inteiro.
+ * Constrói as 4 marcas de canto.
+ * - TL e TR: kind="L", vértice no canto da área útil
+ * - BL e BR: kind="tick", centrado no eixo X do canto da área útil,
+ *   posicionado dentro da margem inferior
+ *
+ * `offsetY` desloca verticalmente o conjunto inteiro (positivo = para baixo).
  */
 export function buildCornerMarks(
   sheetW: number,
@@ -30,26 +59,56 @@ export function buildCornerMarks(
   marginLeft: number,
   marginRight: number,
   offsetY = 0,
-  size = MARK_SIZE_MM,
+  arm = MARK_ARM_MM,
 ): MarksLayout {
-  const left = Math.max(0, marginLeft - size - 1);
-  const right = sheetW - Math.max(0, marginRight - 1);
-  const top = Math.max(0, marginTop - size - 1) + offsetY;
-  const bottom = sheetH - Math.max(0, marginBottom - 1) + offsetY;
+  // Cantos da área útil
+  const left = marginLeft;
+  const right = sheetW - marginRight;
+  // Marcas em L recuadas levemente para dentro da margem (vértice ~2mm acima
+  // do topo da área útil) — assim o "L" abraça o canto sem invadir a arte.
+  const topY = Math.max(0, marginTop - 2) + offsetY;
+  // Tick na base: posicionado no meio da margem inferior
+  const bottomY = sheetH - Math.max(0, marginBottom / 2) + offsetY;
+
   return {
     offsetY,
     marks: [
-      { x: left, y: top, size },
-      { x: right, y: top, size },
-      { x: left, y: bottom - size, size },
-      { x: right, y: bottom - size, size },
+      { kind: "L", corner: "tl", vertexX: left, vertexY: topY, arm },
+      { kind: "L", corner: "tr", vertexX: right, vertexY: topY, arm },
+      { kind: "tick", corner: "bl", vertexX: left, vertexY: bottomY, arm: TICK_LEN_MM / 2 },
+      { kind: "tick", corner: "br", vertexX: right, vertexY: bottomY, arm: TICK_LEN_MM / 2 },
     ],
   };
 }
 
 /**
- * Sugere offsetY que centraliza as marcas no gap entre fileiras de etiquetas,
- * evitando sobreposição com a arte. Retorna 0 se não houver ganho claro.
+ * Retorna os segmentos de linha da marca, em mm.
+ * - L: 2 segmentos perpendiculares partindo do vértice
+ * - tick: 1 segmento horizontal centrado em vertexX
+ */
+export function markSegments(mark: RegistrationMark): MarkSegment[] {
+  const { kind, corner, vertexX: x, vertexY: y, arm } = mark;
+  if (kind === "tick") {
+    return [{ x1: x - arm, y1: y, x2: x + arm, y2: y }];
+  }
+  // L: direção dos braços depende do canto
+  // tl: braços vão para direita (+x) e para baixo (+y)
+  // tr: braços vão para esquerda (-x) e para baixo (+y)
+  // bl: braços vão para direita (+x) e para cima (-y)
+  // br: braços vão para esquerda (-x) e para cima (-y)
+  const sx = corner === "tl" || corner === "bl" ? 1 : -1;
+  const sy = corner === "tl" || corner === "tr" ? 1 : -1;
+  return [
+    { x1: x, y1: y, x2: x + sx * arm, y2: y }, // braço horizontal
+    { x1: x, y1: y, x2: x, y2: y + sy * arm }, // braço vertical
+  ];
+}
+
+/**
+ * Sugere offsetY que centraliza as marcas no gap entre fileiras de etiquetas.
+ * Como agora a primeira linha pode ter "vão" interno (centralizada), a marca
+ * em "L" raramente colide; ainda assim, oferecemos o ajuste para casos onde
+ * o usuário queira aproximar visualmente a marca da arte.
  */
 export function suggestMarksOffset(
   marginTop: number,
@@ -58,11 +117,9 @@ export function suggestMarksOffset(
   rows: number,
 ): number {
   if (rows <= 0 || gap <= 0) return 0;
-  // O ideal é alinhar a marca superior com o meio do primeiro gap (entre row 0 e row 1)
   const firstGapCenter = marginTop + labelH + gap / 2;
   const currentMarkY = marginTop;
-  const offset = firstGapCenter - currentMarkY - MARK_SIZE_MM / 2;
-  // Limita a um range razoável
+  const offset = firstGapCenter - currentMarkY - MARK_ARM_MM / 2;
   if (offset < -10) return -10;
   if (offset > 10) return 10;
   return Math.round(offset * 10) / 10;

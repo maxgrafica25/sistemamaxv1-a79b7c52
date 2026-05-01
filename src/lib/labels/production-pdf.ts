@@ -16,7 +16,7 @@
 
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import type { LayoutResult, LabelShape } from "./layout";
-import { buildCornerMarks, MARK_SIZE_MM } from "./marks";
+import { buildCornerMarks, markSegments, MARK_ARM_MM, MARK_STROKE_PT, type RegistrationMark } from "./marks";
 
 // Conversão mm -> pt (PDF usa pontos: 1pt = 1/72 in; 1mm = 2.83465pt)
 const MM_TO_PT = 72 / 25.4;
@@ -90,19 +90,23 @@ async function convertToPngAndEmbed(pdf: PDFDocument, dataUrl: string) {
 }
 
 function listLabelPositions(input: ProductionPDFInput) {
-  const { layout, marginLeft, marginTop, gap } = input;
+  const { layout, marginTop, gap } = input;
   const w = layout.best.rotated ? input.labelH : input.labelW;
   const h = layout.best.rotated ? input.labelW : input.labelH;
   const reserved = new Set(layout.reservedSlots.map((s) => `${s.col},${s.row}`));
   const positions: Array<{ x: number; y: number; w: number; h: number; reserved: boolean }> = [];
   for (let r = 0; r < layout.best.rows; r++) {
+    const baseX = layout.rowOffsets[r] ?? input.marginLeft;
     for (let c = 0; c < layout.best.cols; c++) {
+      const isReserved = reserved.has(`${c},${r}`);
+      // Posições reservadas continuam computadas (espaço em branco), mas
+      // marcadas como reserved=true para o renderer pular o desenho.
       positions.push({
-        x: marginLeft + c * (w + gap),
+        x: baseX + c * (w + gap),
         y: marginTop + r * (h + gap),
         w,
         h,
-        reserved: reserved.has(`${c},${r}`),
+        reserved: isReserved,
       });
     }
   }
@@ -127,7 +131,7 @@ export async function generateProductionPDF(input: ProductionPDFInput): Promise<
     input.marginLeft,
     input.marginRight,
     input.marksOffsetY,
-    MARK_SIZE_MM,
+    MARK_ARM_MM,
   );
 
   const embedded = input.imageDataUrl ? await embedImage(pdf, input.imageDataUrl) : null;
@@ -138,19 +142,7 @@ export async function generateProductionPDF(input: ProductionPDFInput): Promise<
   const flipY = (yMm: number, hMm = 0) => mm(input.sheetH - yMm - hMm);
 
   for (const p of positions) {
-    if (p.reserved) {
-      // Hachura cinza simples + texto "ARMS"
-      p1.drawRectangle({
-        x: mm(p.x), y: flipY(p.y, p.h),
-        width: mm(p.w), height: mm(p.h),
-        color: grayLight,
-      });
-      p1.drawText("ARMS", {
-        x: mm(p.x + p.w / 2) - 10, y: flipY(p.y + p.h / 2) - 4,
-        size: 7, font, color: black,
-      });
-      continue;
-    }
+    if (p.reserved) continue; // espaço em branco real
     if (embedded) {
       // object-fit: contain
       const ratio = embedded.width / embedded.height;
@@ -173,9 +165,9 @@ export async function generateProductionPDF(input: ProductionPDFInput): Promise<
     }
   }
 
-  // Marcas de registro (K100)
+  // Marcas de registro (K100, 0.5pt)
   for (const m of marks.marks) {
-    drawRegistrationMark(p1, mm(m.x), flipY(m.y, m.size), mm(m.size), black);
+    drawMark(p1, m, flipY, black);
   }
 
   // Quadrado de teste 10×10mm
@@ -206,7 +198,7 @@ export async function generateProductionPDF(input: ProductionPDFInput): Promise<
   }
   // Mesmas marcas para alinhamento
   for (const m of marks.marks) {
-    drawRegistrationMark(p2, mm(m.x), flipY(m.y, m.size), mm(m.size), black);
+    drawMark(p2, m, flipY, black);
   }
   drawTestSquare(p2, flipY, input.sheetH, font);
   p2.drawText("FACA · CutContour (Magenta 100%) · stroke 0.25pt", {
@@ -218,14 +210,21 @@ export async function generateProductionPDF(input: ProductionPDFInput): Promise<
   return new Blob([bytes.slice().buffer as ArrayBuffer], { type: "application/pdf" });
 }
 
-function drawRegistrationMark(page: any, x: number, y: number, size: number, color: any) {
-  // Cruz dentro de círculo — padrão ARMS
-  const cx = x + size / 2;
-  const cy = y + size / 2;
-  const r = size / 2;
-  page.drawCircle({ x: cx, y: cy, size: r, borderColor: color, borderWidth: 0.5 });
-  page.drawLine({ start: { x: cx - r, y: cy }, end: { x: cx + r, y: cy }, thickness: 0.5, color });
-  page.drawLine({ start: { x: cx, y: cy - r }, end: { x: cx, y: cy + r }, thickness: 0.5, color });
+function drawMark(
+  page: any,
+  mark: RegistrationMark,
+  flipY: (y: number, h?: number) => number,
+  color: any,
+) {
+  const segments = markSegments(mark);
+  for (const s of segments) {
+    page.drawLine({
+      start: { x: mm(s.x1), y: flipY(s.y1) },
+      end: { x: mm(s.x2), y: flipY(s.y2) },
+      thickness: MARK_STROKE_PT,
+      color,
+    });
+  }
 }
 
 function drawTestSquare(page: any, flipY: (y: number, h?: number) => number, sheetH: number, font: any) {

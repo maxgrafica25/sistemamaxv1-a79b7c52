@@ -30,6 +30,8 @@ export interface LabelPreset {
   height: number;
 }
 
+export type LengthUnit = "mm" | "cm";
+
 export interface LabelCalcConfig {
   // Folha
   sheetPresetId: string;
@@ -48,6 +50,8 @@ export interface LabelCalcConfig {
   gap: number;
   // Preço
   pricePerSheet: number;
+  // Unidade de medida (apenas exibição; cálculos sempre em mm)
+  unit: LengthUnit;
   // Catálogos do usuário
   customSheets: CustomSheetPreset[];
   labelPresets: LabelPreset[];
@@ -77,6 +81,7 @@ export const DEFAULT_CONFIG: LabelCalcConfig = {
   marginRight: TENETH.marginRight,
   gap: CUT_DEFAULTS.plotter_redondo.gap,
   pricePerSheet: 0,
+  unit: "mm",
   customSheets: [],
   labelPresets: SEED_LABEL_PRESETS,
 };

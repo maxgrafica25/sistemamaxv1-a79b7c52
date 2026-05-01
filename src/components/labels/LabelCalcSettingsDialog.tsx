@@ -439,6 +439,35 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
             </p>
           </section>
 
+          <Separator />
+
+          {/* === 5. Unidade de medida === */}
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold">Unidade de medida</h3>
+            <ToggleGroup
+              type="single"
+              value={draft.unit}
+              onValueChange={(v) => v && update({ unit: v as "mm" | "cm" })}
+              className="grid grid-cols-2 gap-2 sm:max-w-[240px]"
+            >
+              <ToggleGroupItem
+                value="mm"
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+              >
+                Milímetros (mm)
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="cm"
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+              >
+                Centímetros (cm)
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <p className="text-[11px] text-muted-foreground">
+              Afeta apenas a exibição no simulador. Os cálculos internos sempre usam mm.
+            </p>
+          </section>
+
           {validation && (
             <p className="text-xs text-destructive font-medium">{validation}</p>
           )}
