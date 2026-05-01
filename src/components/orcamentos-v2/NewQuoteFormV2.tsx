@@ -71,6 +71,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [client, setClient] = useState("");
   const [clientId, setClientId] = useState<string | null>(null);
   const [clientPhone, setClientPhone] = useState<string | null>(null);
+  const [showClientData, setShowClientData] = useState(false);
+  const [showLastSales, setShowLastSales] = useState(false);
   const [product, setProduct] = useState("");
   const [validity, setValidity] = useState("7");
   const [profitMargin, setProfitMargin] = useState("33");
