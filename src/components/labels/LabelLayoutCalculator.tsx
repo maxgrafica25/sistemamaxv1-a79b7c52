@@ -1,30 +1,60 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   computeLabelLayout,
   computeSheetPricing,
   buildAnchoringLadder,
   findShrinkOpportunity,
-  CUT_DEFAULTS,
   CUT_LABELS,
   SHEET_PRESETS,
-  type CutType,
+  SHAPE_LABELS,
+  type LabelShape,
   type LayoutInput,
 } from "@/lib/labels/layout";
+import {
+  loadConfig,
+  addLabelPreset,
+  removeLabelPreset,
+  type LabelCalcConfig,
+  type LabelPreset,
+} from "@/lib/labels/config-storage";
+import { fitContain, aspectMismatch } from "@/lib/labels/image-fit";
+import { formatWhatsAppQuote, describeLabel } from "@/lib/labels/whatsapp";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group";
-import { Lightbulb, RotateCw, ArrowRight, Sparkles } from "lucide-react";
-
-const STORAGE_KEY_PRICE = "labelCalc:lastPricePerSheet";
-const CUSTOM_SHEET_ID = "__custom__";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Lightbulb,
+  RotateCw,
+  ArrowRight,
+  Sparkles,
+  Settings2,
+  Star,
+  Plus,
+  Trash2,
+  Copy,
+  ExternalLink,
+  ImagePlus,
+  X,
+  Save,
+} from "lucide-react";
+import { toast } from "sonner";
+import { LabelCalcSettingsDialog } from "./LabelCalcSettingsDialog";
 
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -32,21 +62,29 @@ const formatBRL = (n: number) =>
 const formatPct = (n: number, digits = 1) =>
   `${n >= 0 ? "" : ""}${n.toFixed(digits)}%`;
 
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
+
+// ---------- Resolve label da folha (preset fixo OU custom) -------------------
+function describeSheet(cfg: LabelCalcConfig): string {
+  const fixed = SHEET_PRESETS.find((p) => p.id === cfg.sheetPresetId);
+  if (fixed) return `${fixed.id} (${fixed.width}×${fixed.height})`;
+  const custom = cfg.customSheets.find((s) => s.id === cfg.sheetPresetId);
+  if (custom) return `${custom.label} (${custom.width}×${custom.height})`;
+  return `${cfg.sheetW}×${cfg.sheetH} mm`;
+}
+
 interface NumInputProps {
   value: number;
   onChange: (n: number) => void;
-  min?: number;
   step?: number;
   className?: string;
-  id?: string;
 }
-function NumInput({ value, onChange, min = 0, step = 1, className, id }: NumInputProps) {
+function NumInput({ value, onChange, step = 1, className }: NumInputProps) {
   return (
     <Input
-      id={id}
       type="number"
       inputMode="decimal"
-      min={min}
+      min={0}
       step={step}
       value={Number.isFinite(value) ? value : ""}
       onChange={(e) => {
@@ -74,80 +112,148 @@ export function LabelLayoutCalculator({
   defaultQty = 100,
   onApply,
 }: LabelLayoutCalculatorProps) {
-  // ---- Folha ----
-  const initialPreset = useMemo(() => {
+  // ---- Config persistida (folha, corte, margens, preço) -------------------
+  const [config, setConfig] = useState<LabelCalcConfig>(() => {
+    const cfg = loadConfig();
+    // Se veio defaultSheet por prop, sobrepõe a folha SOMENTE para esta sessão
     if (defaultSheet) {
       const match = SHEET_PRESETS.find(
         (p) => p.width === defaultSheet.width && p.height === defaultSheet.height,
       );
-      return match?.id ?? CUSTOM_SHEET_ID;
+      return {
+        ...cfg,
+        sheetW: defaultSheet.width,
+        sheetH: defaultSheet.height,
+        sheetPresetId: match?.id ?? "__custom__",
+      };
     }
-    return "A4";
-  }, [defaultSheet]);
-  const [sheetPresetId, setSheetPresetId] = useState<string>(initialPreset);
-  const [sheetW, setSheetW] = useState<number>(defaultSheet?.width ?? 210);
-  const [sheetH, setSheetH] = useState<number>(defaultSheet?.height ?? 297);
+    return cfg;
+  });
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  useEffect(() => {
-    if (sheetPresetId === CUSTOM_SHEET_ID) return;
-    const preset = SHEET_PRESETS.find((p) => p.id === sheetPresetId);
-    if (preset) {
-      setSheetW(preset.width);
-      setSheetH(preset.height);
-    }
-  }, [sheetPresetId]);
-
-  // ---- Tipo de corte + margens direcionais + gap ----
-  const [cutType, setCutType] = useState<CutType>("corte_reto");
-  const [marginTop, setMarginTop] = useState(CUT_DEFAULTS.corte_reto.marginTop);
-  const [marginBottom, setMarginBottom] = useState(CUT_DEFAULTS.corte_reto.marginBottom);
-  const [marginLeft, setMarginLeft] = useState(CUT_DEFAULTS.corte_reto.marginLeft);
-  const [marginRight, setMarginRight] = useState(CUT_DEFAULTS.corte_reto.marginRight);
-  const [gap, setGap] = useState(CUT_DEFAULTS.corte_reto.gap);
-
-  const applyCutDefaults = (type: CutType) => {
-    const d = CUT_DEFAULTS[type];
-    setMarginTop(d.marginTop);
-    setMarginBottom(d.marginBottom);
-    setMarginLeft(d.marginLeft);
-    setMarginRight(d.marginRight);
-    setGap(d.gap);
-  };
-
-  const handleCutChange = (next: string) => {
-    if (!next) return;
-    const t = next as CutType;
-    setCutType(t);
-    applyCutDefaults(t);
-  };
-
-  // ---- Etiqueta + qty ----
+  // ---- Simulador (não persiste) -------------------------------------------
+  const inferShape = (w: number, h: number): LabelShape =>
+    w === h ? "quadrado" : "personalizado";
+  const [shape, setShape] = useState<LabelShape>(() =>
+    inferShape(defaultLabelW, defaultLabelH),
+  );
   const [labelW, setLabelW] = useState(defaultLabelW);
   const [labelH, setLabelH] = useState(defaultLabelH);
   const [qty, setQty] = useState(defaultQty);
 
-  // ---- Preço por folha (persistido) ----
-  const [pricePerSheet, setPricePerSheet] = useState<number>(() => {
-    if (typeof window === "undefined") return 0;
-    const v = parseFloat(localStorage.getItem(STORAGE_KEY_PRICE) ?? "0");
-    return Number.isFinite(v) ? v : 0;
-  });
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (pricePerSheet > 0) {
-      localStorage.setItem(STORAGE_KEY_PRICE, String(pricePerSheet));
-    }
-  }, [pricePerSheet]);
+  // ---- Imagem opcional (só em memória) ------------------------------------
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [imageName, setImageName] = useState<string | null>(null);
+  const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ---- Cálculos ----
+  // ---- Salvar como favorito (popover) -------------------------------------
+  const [favPopoverOpen, setFavPopoverOpen] = useState(false);
+  const [favName, setFavName] = useState("");
+
+  // Quando troca de formato, mantém medidas coerentes
+  const handleShapeChange = (next: string) => {
+    if (!next) return;
+    const s = next as LabelShape;
+    setShape(s);
+    if (s === "quadrado" || s === "redondo") {
+      // força W = H usando o W atual
+      setLabelH(labelW);
+    }
+  };
+
+  const handleSideChange = (v: number) => {
+    setLabelW(v);
+    setLabelH(v);
+  };
+
+  const handleLoadPreset = (id: string) => {
+    if (id === "__none__") return;
+    const preset = config.labelPresets.find((p) => p.id === id);
+    if (!preset) return;
+    setShape(preset.shape);
+    setLabelW(preset.width);
+    setLabelH(preset.height);
+    toast.success(`Carregado: ${preset.label}`);
+  };
+
+  const handleSaveFavorite = () => {
+    const name = favName.trim();
+    if (!name) {
+      toast.error("Dê um nome para o favorito");
+      return;
+    }
+    addLabelPreset({ label: name, shape, width: labelW, height: labelH });
+    setConfig(loadConfig());
+    setFavPopoverOpen(false);
+    setFavName("");
+    toast.success("Favorito salvo");
+  };
+
+  const handleRemoveFavorite = (id: string, label: string) => {
+    removeLabelPreset(id);
+    setConfig(loadConfig());
+    toast.success(`Removido: ${label}`);
+  };
+
+  // ---- Imagem upload -------------------------------------------------------
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) {
+      toast.error("Formato inválido. Use PNG, JPG ou WEBP.");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast.error("Imagem muito grande. Máximo 2 MB.");
+      e.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result);
+      const img = new Image();
+      img.onload = () => {
+        setImageDataUrl(dataUrl);
+        setImageName(file.name);
+        setImageDims({ w: img.naturalWidth, h: img.naturalHeight });
+      };
+      img.onerror = () => toast.error("Não consegui ler essa imagem.");
+      img.src = dataUrl;
+    };
+    reader.onerror = () => toast.error("Falha ao carregar a imagem.");
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const removeImage = () => {
+    setImageDataUrl(null);
+    setImageName(null);
+    setImageDims(null);
+  };
+
+  // ---- Cálculos ------------------------------------------------------------
   const layoutInput: LayoutInput = {
-    sheetW, sheetH, labelW, labelH,
-    marginTop, marginBottom, marginLeft, marginRight, gap,
+    sheetW: config.sheetW,
+    sheetH: config.sheetH,
+    labelW,
+    labelH,
+    marginTop: config.marginTop,
+    marginBottom: config.marginBottom,
+    marginLeft: config.marginLeft,
+    marginRight: config.marginRight,
+    gap: config.gap,
+    shape,
   };
   const layout = computeLabelLayout(layoutInput);
   const perSheet = layout.best.total;
-  const pricing = computeSheetPricing({ pricePerSheet, qtyRequested: qty, perSheet });
-  const ladder = buildAnchoringLadder(qty, perSheet, pricePerSheet);
+  const pricing = computeSheetPricing({
+    pricePerSheet: config.pricePerSheet,
+    qtyRequested: qty,
+    perSheet,
+  });
+  const ladder = buildAnchoringLadder(qty, perSheet, config.pricePerSheet);
   const shrink = perSheet > 0
     ? findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1)
     : null;
@@ -156,139 +262,271 @@ export function LabelLayoutCalculator({
     if (!shrink) return;
     setLabelW(shrink.newLabelW);
     setLabelH(shrink.newLabelH);
+    if (shape === "quadrado" || shape === "redondo") {
+      // Se o shrink quebra simetria, vira personalizado
+      if (shrink.newLabelW !== shrink.newLabelH) setShape("personalizado");
+    }
   };
 
+  // ---- Aviso de proporção divergente --------------------------------------
+  const showAspectWarning = useMemo(() => {
+    if (!imageDims) return false;
+    return aspectMismatch(imageDims.w, imageDims.h, labelW, labelH, 0.05);
+  }, [imageDims, labelW, labelH]);
+
+  // ---- WhatsApp ------------------------------------------------------------
+  const whatsappText = useMemo(() => {
+    if (config.pricePerSheet <= 0 || qty <= 0 || perSheet <= 0) return "";
+    return formatWhatsAppQuote({
+      qty,
+      shape,
+      width: labelW,
+      height: labelH,
+      pricing,
+      ladder,
+    });
+  }, [config.pricePerSheet, qty, perSheet, shape, labelW, labelH, pricing, ladder]);
+
+  const handleCopyWhats = async () => {
+    if (!whatsappText) return;
+    try {
+      await navigator.clipboard.writeText(whatsappText);
+      toast.success("Copiado para a área de transferência");
+    } catch {
+      toast.error("Não foi possível copiar. Tente abrir o WhatsApp.");
+    }
+  };
+
+  const handleOpenWhats = () => {
+    if (!whatsappText) return;
+    window.open(`https://wa.me/?text=${encodeURIComponent(whatsappText)}`, "_blank", "noopener,noreferrer");
+  };
+
+  // ---- Render --------------------------------------------------------------
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
-      {/* ============================== CONTROLES ============================== */}
-      <div className="space-y-5">
-        {/* Folha */}
-        <Card className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Folha de impressão</h3>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Tamanho</Label>
-              <Select value={sheetPresetId} onValueChange={setSheetPresetId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {SHEET_PRESETS.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
-                  ))}
-                  <SelectItem value={CUSTOM_SHEET_ID}>Personalizado…</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Largura (mm)</Label>
-              <NumInput
-                value={sheetW}
-                onChange={(v) => { setSheetW(v); setSheetPresetId(CUSTOM_SHEET_ID); }}
-                className="w-24"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Altura (mm)</Label>
-              <NumInput
-                value={sheetH}
-                onChange={(v) => { setSheetH(v); setSheetPresetId(CUSTOM_SHEET_ID); }}
-                className="w-24"
-              />
-            </div>
-          </div>
-        </Card>
-
-        {/* Tipo de corte + margens */}
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
+      {/* ============================== SIMULADOR ============================== */}
+      <div className="space-y-4">
         <Card className="p-4 space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold">Tipo de corte e margens</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs h-7"
-              onClick={() => applyCutDefaults(cutType)}
-              title="Restaurar margens padrão deste tipo de corte"
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Simulador</h3>
+            {/* Carregar favorito */}
+            {config.labelPresets.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <Star className="h-3.5 w-3.5 text-amber-500" />
+                <Select onValueChange={handleLoadPreset} value="__none__">
+                  <SelectTrigger className="h-8 w-[180px] text-xs">
+                    <SelectValue placeholder="Carregar favorito…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__" disabled>
+                      Carregar favorito…
+                    </SelectItem>
+                    {config.labelPresets.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.label} · {SHAPE_LABELS[p.shape]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          {/* Formato */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Formato da etiqueta</Label>
+            <ToggleGroup
+              type="single"
+              value={shape}
+              onValueChange={handleShapeChange}
+              className="grid grid-cols-3 gap-2"
             >
-              <RotateCw className="h-3 w-3 mr-1" /> Restaurar padrões
-            </Button>
+              {(Object.keys(SHAPE_LABELS) as LabelShape[]).map((s) => (
+                <ToggleGroupItem
+                  key={s}
+                  value={s}
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+                >
+                  {SHAPE_LABELS[s]}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </div>
 
-          <ToggleGroup
-            type="single"
-            value={cutType}
-            onValueChange={handleCutChange}
-            className="grid grid-cols-3 gap-2"
-          >
-            {(Object.keys(CUT_LABELS) as CutType[]).map((t) => (
-              <ToggleGroupItem
-                key={t}
-                value={t}
-                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-auto py-2 text-xs"
-              >
-                {CUT_LABELS[t]}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Margens direcionais (mm)</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-[11px]">Topo</Label>
-                <NumInput value={marginTop} onChange={setMarginTop} />
+          {/* Tamanho */}
+          {shape === "personalizado" ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Largura (mm)</Label>
+                <NumInput value={labelW} onChange={setLabelW} />
               </div>
-              <div className="space-y-1">
-                <Label className="text-[11px]">Base</Label>
-                <NumInput value={marginBottom} onChange={setMarginBottom} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[11px]">Esquerda</Label>
-                <NumInput value={marginLeft} onChange={setMarginLeft} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[11px]">Direita</Label>
-                <NumInput value={marginRight} onChange={setMarginRight} />
+              <div className="space-y-1.5">
+                <Label className="text-xs">Altura (mm)</Label>
+                <NumInput value={labelH} onChange={setLabelH} />
               </div>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              A marca de registro normalmente exige margem maior no topo e na base.
-            </p>
-          </div>
+          ) : (
+            <div className="space-y-1.5 sm:max-w-[200px]">
+              <Label className="text-xs">
+                {shape === "redondo" ? "Diâmetro (mm)" : "Lado (mm)"}
+              </Label>
+              <NumInput value={labelW} onChange={handleSideChange} />
+            </div>
+          )}
 
-          <div className="space-y-1">
-            <Label className="text-xs">Espaçamento entre etiquetas — gap (mm)</Label>
-            <NumInput value={gap} onChange={setGap} className="w-32" />
-          </div>
-        </Card>
-
-        {/* Etiqueta + qty + preço */}
-        <Card className="p-4 space-y-3">
-          <h3 className="text-sm font-semibold">Etiqueta e pedido</h3>
+          {/* Quantidade */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Largura da etiqueta (mm)</Label>
-              <NumInput value={labelW} onChange={setLabelW} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Altura da etiqueta (mm)</Label>
-              <NumInput value={labelH} onChange={setLabelH} />
-            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Quantidade desejada</Label>
               <NumInput value={qty} onChange={setQty} />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Preço da folha de produção (R$)</Label>
-              <NumInput value={pricePerSheet} onChange={setPricePerSheet} step={0.1} />
+            <div className="space-y-1.5 flex flex-col justify-end">
+              <Popover open={favPopoverOpen} onOpenChange={setFavPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-xs">
+                    <Plus className="h-3.5 w-3.5 mr-1.5" />
+                    Salvar como favorito
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 space-y-2">
+                  <Label className="text-xs">Nome do favorito</Label>
+                  <Input
+                    value={favName}
+                    onChange={(e) => setFavName(e.target.value)}
+                    placeholder={`Ex.: ${describeLabel(shape, labelW, labelH)}`}
+                    autoFocus
+                  />
+                  <Button size="sm" className="w-full" onClick={handleSaveFavorite}>
+                    <Save className="h-3.5 w-3.5 mr-1.5" />
+                    Salvar
+                  </Button>
+                  {config.labelPresets.length > 0 && (
+                    <>
+                      <div className="border-t pt-2 mt-2 space-y-1 max-h-40 overflow-y-auto">
+                        <p className="text-[11px] text-muted-foreground">
+                          Favoritos salvos:
+                        </p>
+                        {config.labelPresets.map((p) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center justify-between text-xs gap-2"
+                          >
+                            <span className="truncate">
+                              {p.label} · {p.width}×{p.height}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-destructive"
+                              onClick={() => handleRemoveFavorite(p.id, p.label)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
+
+          {/* Imagem opcional */}
+          <div className="space-y-2 pt-2 border-t">
+            <Label className="text-xs flex items-center gap-1.5">
+              <ImagePlus className="h-3.5 w-3.5 text-primary" />
+              Arte da etiqueta (opcional)
+            </Label>
+            {!imageDataUrl ? (
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handleImageChange}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <ImagePlus className="h-3.5 w-3.5 mr-1.5" />
+                  Carregar imagem (PNG/JPG/WEBP, até 2 MB)
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs max-w-[260px] truncate">
+                  {imageName}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={removeImage}
+                  className="h-7 text-xs text-destructive"
+                >
+                  <X className="h-3.5 w-3.5 mr-1" />
+                  Remover
+                </Button>
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground">
+              A imagem é só para visualização — o cálculo usa apenas as medidas informadas.
+            </p>
+            {showAspectWarning && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
+                ⚠ Sua arte tem proporção diferente da etiqueta — vai sobrar espaço nas laterais (ou topo/base).
+              </p>
+            )}
+          </div>
         </Card>
+
+        {/* Faixa-resumo das configurações */}
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Alterar configurações de folha, corte e preço"
+          className={
+            "w-full text-left rounded-md border px-3 py-2.5 text-xs flex items-center justify-between gap-3 transition-colors hover:bg-muted/50 " +
+            (config.pricePerSheet <= 0
+              ? "border-amber-400/60 bg-amber-50/60 dark:bg-amber-950/20"
+              : "border-border bg-card")
+          }
+        >
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
+            <span>
+              <span className="text-muted-foreground">Folha:</span>{" "}
+              <strong>{describeSheet(config)}</strong>
+            </span>
+            <span>
+              <span className="text-muted-foreground">Corte:</span>{" "}
+              <strong>{CUT_LABELS[config.cutType]}</strong>
+            </span>
+            <span>
+              <span className="text-muted-foreground">Preço:</span>{" "}
+              {config.pricePerSheet > 0 ? (
+                <strong>{formatBRL(config.pricePerSheet)}/folha</strong>
+              ) : (
+                <strong className="text-amber-700 dark:text-amber-400">
+                  configurar →
+                </strong>
+              )}
+            </span>
+          </span>
+          <span className="flex items-center gap-1 text-primary shrink-0">
+            <Settings2 className="h-3.5 w-3.5" />
+            Configurações
+          </span>
+        </button>
       </div>
 
       {/* ============================== RESULTADOS ============================== */}
       <div className="space-y-4">
-        {/* Card aproveitamento */}
+        {/* Aproveitamento */}
         <Card className="p-4 space-y-3">
           <div className="flex items-baseline justify-between">
             <div>
@@ -319,19 +557,22 @@ export function LabelLayoutCalculator({
             </span>
           </div>
 
-          {/* Preview SVG */}
           <SheetPreview
-            sheetW={sheetW}
-            sheetH={sheetH}
-            marginTop={marginTop}
-            marginBottom={marginBottom}
-            marginLeft={marginLeft}
-            marginRight={marginRight}
-            gap={gap}
+            sheetW={config.sheetW}
+            sheetH={config.sheetH}
+            marginTop={config.marginTop}
+            marginBottom={config.marginBottom}
+            marginLeft={config.marginLeft}
+            marginRight={config.marginRight}
+            gap={config.gap}
             labelW={layout.best.rotated ? labelH : labelW}
             labelH={layout.best.rotated ? labelW : labelH}
             cols={layout.best.cols}
             rows={layout.best.rows}
+            shape={shape}
+            imageDataUrl={imageDataUrl}
+            imageNaturalW={imageDims?.w ?? null}
+            imageNaturalH={imageDims?.h ?? null}
           />
         </Card>
 
@@ -365,13 +606,13 @@ export function LabelLayoutCalculator({
         )}
 
         {/* Pricing principal */}
-        {pricePerSheet > 0 && qty > 0 && perSheet > 0 && (
+        {config.pricePerSheet > 0 && qty > 0 && perSheet > 0 && (
           <Card className="p-4 space-y-3 border-primary/40 bg-primary/5">
             <h3 className="text-sm font-semibold">Cálculo do orçamento</h3>
             <div className="text-sm">
               <span className="text-muted-foreground">{qty} un ÷ {perSheet}/folha = </span>
               <strong>{pricing.sheetsNeeded} {pricing.sheetsNeeded === 1 ? "folha" : "folhas"}</strong>
-              <span className="text-muted-foreground"> × {formatBRL(pricePerSheet)} = </span>
+              <span className="text-muted-foreground"> × {formatBRL(config.pricePerSheet)} = </span>
             </div>
             <div className="flex items-baseline justify-between">
               <p className="text-2xl font-bold text-primary">
@@ -381,6 +622,18 @@ export function LabelLayoutCalculator({
                 custo unitário <strong>{formatBRL(pricing.unitPrice)}</strong>
               </p>
             </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <Button size="sm" variant="outline" onClick={handleCopyWhats}>
+                <Copy className="h-3.5 w-3.5 mr-1.5" />
+                Copiar WhatsApp
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleOpenWhats}>
+                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                Abrir WhatsApp
+              </Button>
+            </div>
+
             {onApply && (
               <Button
                 size="sm"
@@ -439,12 +692,19 @@ export function LabelLayoutCalculator({
           </Card>
         )}
       </div>
+
+      {/* Settings dialog */}
+      <LabelCalcSettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onSaved={(cfg) => setConfig(cfg)}
+      />
     </div>
   );
 }
 
 // =============================================================================
-// Preview SVG da folha + grade de etiquetas
+// Preview SVG da folha + grade de etiquetas (com suporte a shape + imagem)
 // =============================================================================
 
 interface SheetPreviewProps {
@@ -459,25 +719,38 @@ interface SheetPreviewProps {
   labelH: number;
   cols: number;
   rows: number;
+  shape: LabelShape;
+  imageDataUrl: string | null;
+  imageNaturalW: number | null;
+  imageNaturalH: number | null;
 }
 
 function SheetPreview({
   sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight,
   gap, labelW, labelH, cols, rows,
+  shape, imageDataUrl, imageNaturalW, imageNaturalH,
 }: SheetPreviewProps) {
   const MAX = 320;
   const scale = Math.min(MAX / sheetW, MAX / sheetH);
   const w = sheetW * scale;
   const h = sheetH * scale;
 
-  const labels: Array<{ x: number; y: number; w: number; h: number }> = [];
+  const isRound = shape === "redondo";
+  const labelWPx = labelW * scale;
+  const labelHPx = labelH * scale;
+
+  // Fit "contain" da imagem dentro da etiqueta — calculado uma vez.
+  const fit = imageDataUrl && imageNaturalW && imageNaturalH
+    ? fitContain(imageNaturalW, imageNaturalH, labelWPx, labelHPx)
+    : null;
+
+  // Posições das etiquetas (canto superior esquerdo de cada cell)
+  const labels: Array<{ x: number; y: number }> = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       labels.push({
         x: (marginLeft + c * (labelW + gap)) * scale,
         y: (marginTop + r * (labelH + gap)) * scale,
-        w: labelW * scale,
-        h: labelH * scale,
       });
     }
   }
@@ -492,12 +765,23 @@ function SheetPreview({
         role="img"
         aria-label={`Preview de ${cols * rows} etiquetas na folha`}
       >
-        {/* Margens hachuradas */}
         <defs>
           <pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
             <line x1="0" y1="0" x2="0" y2="6" stroke="hsl(var(--muted-foreground))" strokeOpacity="0.15" strokeWidth="2" />
           </pattern>
+          {/* clipPath circular reusável (id único) — só usado no modo redondo */}
+          {isRound && (
+            <clipPath id="label-circle-clip" clipPathUnits="userSpaceOnUse">
+              <circle
+                cx={labelWPx / 2}
+                cy={labelHPx / 2}
+                r={Math.min(labelWPx, labelHPx) / 2}
+              />
+            </clipPath>
+          )}
         </defs>
+
+        {/* Margens hachuradas */}
         <rect x="0" y="0" width={w} height={h} fill="url(#hatch)" />
         <rect
           x={marginLeft * scale}
@@ -508,19 +792,46 @@ function SheetPreview({
           stroke="hsl(var(--border))"
           strokeDasharray="3 3"
         />
+
         {/* Etiquetas */}
         {labels.map((l, i) => (
-          <rect
-            key={i}
-            x={l.x}
-            y={l.y}
-            width={l.w}
-            height={l.h}
-            fill="hsl(var(--primary) / 0.18)"
-            stroke="hsl(var(--primary))"
-            strokeWidth="0.8"
-            rx="1"
-          />
+          <g key={i} transform={`translate(${l.x} ${l.y})`}>
+            {/* Forma de fundo (mostra "sobras" do contain) */}
+            {isRound ? (
+              <circle
+                cx={labelWPx / 2}
+                cy={labelHPx / 2}
+                r={Math.min(labelWPx, labelHPx) / 2}
+                fill="hsl(var(--primary) / 0.10)"
+                stroke="hsl(var(--primary))"
+                strokeWidth="0.8"
+              />
+            ) : (
+              <rect
+                x={0}
+                y={0}
+                width={labelWPx}
+                height={labelHPx}
+                fill="hsl(var(--primary) / 0.10)"
+                stroke="hsl(var(--primary))"
+                strokeWidth="0.8"
+                rx="1"
+              />
+            )}
+
+            {/* Imagem com fit contain centralizada (e clip circular se redondo) */}
+            {fit && (
+              <image
+                href={imageDataUrl ?? ""}
+                x={fit.offsetX}
+                y={fit.offsetY}
+                width={fit.width}
+                height={fit.height}
+                preserveAspectRatio="xMidYMid meet"
+                clipPath={isRound ? "url(#label-circle-clip)" : undefined}
+              />
+            )}
+          </g>
         ))}
       </svg>
     </div>

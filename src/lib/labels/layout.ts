@@ -16,6 +16,20 @@
 //   - Tipo de corte muda os defaults de margem e gap.
 // =============================================================================
 
+// ---------- Formato da etiqueta ---------------------------------------------
+//
+// Para fins de aproveitamento, "redondo" usa o MESMO bounding box quadrado
+// que "quadrado" — o cálculo matemático é idêntico. O shape só afeta o
+// preview SVG (rect vs. circle) e a descrição no texto do WhatsApp.
+
+export type LabelShape = "quadrado" | "redondo" | "personalizado";
+
+export const SHAPE_LABELS: Record<LabelShape, string> = {
+  quadrado: "Quadrado",
+  redondo: "Redondo",
+  personalizado: "Personalizado",
+};
+
 // ---------- Tipo de corte ----------------------------------------------------
 
 export type CutType = "corte_reto" | "plotter_quadrado" | "plotter_redondo";
@@ -68,6 +82,8 @@ export interface LayoutInput {
   marginLeft: number;
   marginRight: number;
   gap: number;
+  /** Opcional. Não afeta o cálculo (redondo usa bounding box quadrado). */
+  shape?: LabelShape;
 }
 
 export interface LayoutOption {
