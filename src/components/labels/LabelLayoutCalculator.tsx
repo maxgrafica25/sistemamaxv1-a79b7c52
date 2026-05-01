@@ -1126,13 +1126,14 @@ interface SheetPreviewProps {
   rowOffsets: number[];
   cellsPerRow: number[];
   marksOffsetY: number;
+  paramLayout: ReturnType<typeof computeSignmasterLayout> | null;
 }
 
 function SheetPreview({
   sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight,
   gap, labelW, labelH, cols, rows,
   shape, imageDataUrl, imageNaturalW, imageNaturalH,
-  reservedSlots, rowOffsets, cellsPerRow, marksOffsetY,
+  reservedSlots, rowOffsets, cellsPerRow, marksOffsetY, paramLayout,
 }: SheetPreviewProps) {
   const MAX = 320;
   const scale = Math.min(MAX / sheetW, MAX / sheetH);
