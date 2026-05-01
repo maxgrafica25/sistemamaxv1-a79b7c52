@@ -37,6 +37,7 @@ import EditQuoteV2 from "./pages/orcamentos-v2/EditQuoteV2";
 import ClientViewer from "./pages/orcamentos-v2/ClientViewer";
 import Pedidos from "./pages/Pedidos";
 import ContasReceber from "./pages/ContasReceber";
+import CalculadoraEtiquetas from "./pages/CalculadoraEtiquetas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -66,6 +67,7 @@ const App = () => (
                   <Route path="/orcamentos-v2/novo" element={<NewQuoteV2 />} />
                   <Route path="/orcamentos-v2/:id" element={<EditQuoteV2 />} />
                   <Route path="/preco-impressao" element={<PrecoImpressao />} />
+                  <Route path="/calculadora-etiquetas" element={<CalculadoraEtiquetas />} />
                   <Route path="/equipamentos" element={<Equipamentos />} />
                   <Route path="/cadastros" element={<Cadastros />} />
                   <Route path="/materias-primas" element={<MateriasPrimas />} />
