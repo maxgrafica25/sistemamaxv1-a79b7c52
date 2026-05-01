@@ -243,8 +243,7 @@ export const computeLabelLayout = (input: LayoutInput): LayoutResult => {
   const counts = new Map<number, number>();
   for (const s of reservedSlots) counts.set(s.row, (counts.get(s.row) ?? 0) + 1);
 
-  // Largura de uma etiqueta na orientação escolhida
-  const labelWBest = best.rotated ? labelH : labelW;
+  // (labelWBest já declarada acima)
 
   const cellsPerRow: number[] = [];
   const rowOffsets: number[] = [];
