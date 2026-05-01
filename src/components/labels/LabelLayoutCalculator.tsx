@@ -1009,11 +1009,14 @@ function SheetPreview({
           </g>
         ))}
 
-        {/* Marcas de registro: L (TL/TR) + tick (BL/BR) — K100 0.5pt */}
+        {/* Marcas de registro: L (TL/TR, round) + tick (BL/BR, butt) — K100 0.5pt */}
         {marks.marks.map((m, i) => {
           const segs = markSegments(m);
+          // Tick = traço horizontal limpo (butt). L = round nas pontas.
+          const cap = m.kind === "tick" ? "butt" : "round";
+          const sw = m.kind === "tick" ? 0.8 : 1;
           return (
-            <g key={`mark-${i}`} stroke="black" strokeWidth="1" strokeLinecap="round" fill="none">
+            <g key={`mark-${i}`} stroke="black" strokeWidth={sw} strokeLinecap={cap} fill="none">
               {segs.map((s, j) => (
                 <line
                   key={j}
