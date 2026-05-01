@@ -1,109 +1,148 @@
 
-# Reforço de Segurança no Fluxo de Recuperação de Senha
+# Reforço de Segurança — Itens 2 e 4 via SendGrid
 
-Plano dividido em 4 entregas, na ordem de prioridade que você sugeriu. **Item 5 (Rate Limiting) ficará de fora** — a plataforma ainda não tem primitivos confiáveis para isso e o Supabase Auth já aplica rate limit nativo nas rotas de recovery. Posso revisitar quando houver infra dedicada.
-
----
-
-## 1. HIBP Check + Senha mínima de 8 caracteres
-
-**Backend (Supabase Auth)**
-- Ativar `password_hibp_enabled: true` via tool `configure_auth`.
-- Definir `password_min_length: 8`.
-- Manter requisitos de caracteres no padrão "letters + digits" (não vou exigir símbolos para não atrapalhar o time interno).
-
-**Frontend**
-- `src/pages/Auth.tsx`: trocar constante `MIN_PASSWORD_LENGTH = 6` → `8`. Atualizar mensagens e o placeholder ("Mínimo 8 caracteres").
-- `src/pages/ResetPassword.tsx`: mesma troca.
-- Tratar o erro retornado pelo HIBP (`weak_password` / mensagem do Supabase) com toast amigável: *"Esta senha apareceu em vazamentos públicos. Escolha outra."*
+Os itens 1 (HIBP + senha mínima 8) e 3 (audit logs) já estão entregues. Este plano cobre **apenas** os itens 2 e 4, agora usando **SendGrid** em vez da infra de e-mail do Lovable Cloud.
 
 ---
 
-## 2. E-mail de confirmação pós-redefinição
+## Pré-requisitos do seu lado (antes de eu começar)
 
-Como o reset hoje passa por `supabase.auth.updateUser({ password })` direto no cliente, vou criar um caminho server-side para disparar o e-mail logo após a troca, sem expor SMTP no front.
+1. Conta no SendGrid criada (free tier, 100 e-mails/dia).
+2. **Domain Authentication** configurada no SendGrid para `seudominio.com` (Settings → Sender Authentication → Authenticate Your Domain). Você adiciona os 3 CNAMEs que o SendGrid pede no seu provedor de DNS e aguarda verificação.
+3. **Single Sender** ou **Sender Identity** verificada para o e-mail remetente (ex.: `seguranca@seudominio.com` ou `no-reply@seudominio.com`).
+4. **API Key** com permissão **Mail Send → Full Access** gerada (Settings → API Keys → Create API Key → Restricted Access).
 
-**Nova edge function: `notify-password-changed`**
-- Recebe nada do body (usa o JWT do usuário autenticado pós-reset).
-- Resolve `user_id`, `email`, `display_name`, `ip` (do header `x-forwarded-for`) e `user_agent`.
-- Envia e-mail usando a **infraestrutura de e-mail do Lovable Cloud** (a mesma que já trataremos no item 4 — vou rodar `setup_email_infra` se ainda não existir, e `scaffold_transactional_email` para criar o template).
-- Template **`password-changed.tsx`**:
-  - Assunto: `Sua senha foi alterada — Sistema MaxV`
-  - Corpo: saudação com nome, data/hora (timezone America/Sao_Paulo), IP, user-agent resumido, botão "Não fui eu — falar com suporte" (mailto ou link configurável).
-  - Aviso: "Se foi você, ignore este e-mail."
-  - Branding roxo (cor primária do projeto), logo se existir em `public/`.
-- Após enviar, grava `password_reset_succeeded` em `audit_logs` (ver item 3).
-
-**Integração no front (`ResetPassword.tsx`)**
-- Após `updateUser({ password })` retornar OK, chamar `supabase.functions.invoke("notify-password-changed")`.
-- Falha no envio do e-mail **não bloqueia** o sucesso do reset (apenas loga via `handleError` em modo silencioso).
+Quando tiver isso pronto, me avisa o e-mail remetente que você quer usar e cola a API Key — eu já preparo o secret prompt.
 
 ---
 
-## 3. Audit logs explícitos para reset de senha
-
-A tabela `audit_logs` já existe com colunas `action / entity_type / entity_id / entity_name / details`. Vou usar o campo `details` em JSON-string para guardar IP + user_agent + metadata (sem alterar schema).
-
-**Eventos a registrar**
-
-| Evento | Onde é gravado | Quem grava |
-|---|---|---|
-| `password_reset_requested` | Após `signInWithOtp` no `Auth.tsx` (sucesso ou não — sempre, para evitar enumeração) | Cliente, com `entity_type='auth'`, `entity_name=email mascarado` |
-| `password_reset_succeeded` | Edge function `notify-password-changed` | Server (com IP real) |
-| `password_reset_failed_token_invalid` | `ResetPassword.tsx` quando `isRecovery=false` após checagem | Cliente |
-| `password_reset_failed_token_expired` | `ResetPassword.tsx` quando `updateUser` retorna erro de token expirado | Cliente |
-| `admin_password_reset_notified_others` | Edge function (item 4) | Server |
-
-**Helper `src/lib/audit.ts`**
-- Adicionar helper `logAuthEvent(action, { email?, details? })` que aceita usuário não autenticado (a policy atual exige `authenticated` — vou trocar para `anon, authenticated` apenas para INSERT, mantendo SELECT/DELETE como estão; ou, alternativa, gravar via edge function `notify-password-changed` para os eventos pós-login). Vou seguir pela **edge function** para os eventos do servidor, e relaxar a policy de INSERT para `anon` apenas com `entity_type='auth'` (CHECK), para os eventos do cliente não autenticado.
-- E-mail no `entity_name` será **mascarado** (`jo***@gmail.com`) para não vazar lista de usuários se alguém ler logs.
-
----
-
-## 4. Notificar outros admins quando admin redefine senha
-
-**Lógica na mesma edge function `notify-password-changed`**
-- Após enviar o e-mail de confirmação, verifica via `is_profile_admin(user_id)`.
-- Se for admin: busca `profiles` com `role='admin' AND is_active=true AND user_id <> :resetter`, e envia o template **`admin-password-alert.tsx`** para cada um.
-- Template:
-  - Assunto: `Alerta de Segurança — Senha de admin alterada`
-  - Corpo: nome do admin que trocou, data/hora, IP, user-agent, botão "Revisar atividade" (link para `/auditoria`).
-- Grava `admin_password_reset_notified_others` em `audit_logs` com lista de admins notificados.
-
----
-
-## Detalhes técnicos
-
-**Pré-requisito de e-mail (executado no início do item 2):**
-1. `email_domain--check_email_domain_status` — se não houver domínio configurado, mostro o diálogo `<lov-open-email-setup>` para você configurar antes de prosseguir.
-2. `email_domain--setup_email_infra` (se ainda não rodou).
-3. `email_domain--scaffold_transactional_email` para gerar a função `send-transactional-email` e a infra de fila.
-4. Crio os 2 templates novos (`password-changed`, `admin-password-alert`) em `supabase/functions/_shared/email-templates/`.
-5. `notify-password-changed` chama `send-transactional-email` (ou enfileira via `enqueue_email`) — mesma fila pgmq com retry.
-
-**Migrations**
-- Apenas uma: relaxar policy `Authenticated can insert audit_logs` para também aceitar `anon` quando `action LIKE 'password_reset_%'` e `entity_type = 'auth'`. Mantém a policy admin-only de DELETE.
-
-**Arquivos que vou criar/editar**
+## Arquitetura
 
 ```text
-supabase/functions/notify-password-changed/index.ts          [novo]
-supabase/functions/_shared/email-templates/password-changed.tsx     [novo]
-supabase/functions/_shared/email-templates/admin-password-alert.tsx [novo]
-supabase/config.toml                                         [+ bloco da função]
-src/pages/Auth.tsx                                           [MIN_PASSWORD_LENGTH=8 + log requested]
-src/pages/ResetPassword.tsx                                  [MIN=8 + invoke notify + logs]
-src/lib/audit.ts                                             [+ logAuthEvent helper]
+ResetPassword.tsx  ──► supabase.functions.invoke('notify-password-changed')
+                                    │
+                                    ▼
+              ┌──────────────────────────────────────┐
+              │  edge function notify-password-changed │
+              │  1. Valida JWT do usuário             │
+              │  2. Resolve email/nome/IP/UA          │
+              │  3. Renderiza HTML do template        │
+              │  4. POST https://api.sendgrid.com/v3/mail/send │
+              │  5. Se admin: busca outros admins +   │
+              │     dispara segundo template          │
+              │  6. Grava audit_logs                  │
+              └──────────────────────────────────────┘
 ```
-
-E uma migration para a policy do `audit_logs`.
 
 ---
 
-## Fora do escopo
+## Edge Function `notify-password-changed`
 
-- **Rate limiting custom** (item 5 do seu pedido): a plataforma não tem primitivos para isso e o Supabase Auth já limita as chamadas de `signInWithOtp` e `updateUser` no servidor. Se quiser uma camada extra mais à frente, posso fazer com tabela própria + bloqueio na edge function — mas não é o caminho recomendado hoje.
-- Reset forçado por outro admin (já tem o fluxo de convite/inativar usuário em `Usuarios.tsx`).
-- Histórico de hashes de senha (Supabase Auth não expõe).
+**Arquivo:** `supabase/functions/notify-password-changed/index.ts`
 
-Confirma esse plano? Assim que aprovar, sigo na ordem: HIBP → e-mail confirmação → audit logs → notificação admin.
+**Fluxo:**
+1. Lê `Authorization` header → valida JWT → obtém `user_id`, `email`.
+2. Busca `profiles` (display_name, role, is_active) via service-role client.
+3. Captura IP do header `x-forwarded-for` e `user-agent`.
+4. Renderiza HTML do template `password-changed` (string template literal — sem React Email; SendGrid quer HTML puro).
+5. Chama SendGrid:
+   ```
+   POST https://api.sendgrid.com/v3/mail/send
+   Authorization: Bearer ${SENDGRID_API_KEY}
+   Content-Type: application/json
+   ```
+   com payload `{ personalizations, from, subject, content }`.
+6. Se `is_profile_admin(user_id) === true`:
+   - Busca `profiles` com `role='admin' AND is_active=true AND user_id <> :resetter` + `auth.users.email` via service role.
+   - Para cada admin, dispara o template `admin-password-alert` (loop sequencial, com `Promise.allSettled` para não derrubar tudo se um falhar).
+   - Grava `admin_password_reset_notified_others` em `audit_logs` com a lista de e-mails notificados (mascarados).
+7. Sempre retorna 200 mesmo se o e-mail falhar (não bloqueia o reset). Erros são logados em `audit_logs` como `password_reset_email_failed` com `details.provider = 'sendgrid'` + status code.
+
+**Configuração:**
+- Não precisa de bloco em `supabase/config.toml` (verify_jwt default = true para esta função, já que validamos identidade do usuário).
+- CORS headers padrão.
+
+---
+
+## Templates (HTML strings, embutidos na função)
+
+Como SendGrid recebe HTML puro no campo `content`, vou manter os templates como **funções TypeScript que retornam string** dentro de `supabase/functions/notify-password-changed/templates.ts`. Não precisa de React Email aqui.
+
+### `password-changed.ts`
+- **Assunto:** `Sua senha foi alterada — Sistema MaxV`
+- **Conteúdo:**
+  - Saudação com `display_name`
+  - Data/hora formatada em `America/Sao_Paulo`
+  - IP + User-Agent resumido
+  - Botão CTA "Não fui eu — falar com suporte" (mailto configurável)
+  - Aviso "Se foi você, ignore este e-mail."
+- **Estilo:** branding roxo (cor primária do projeto), inline CSS, fundo branco, container 600px (compatível com clientes de e-mail).
+
+### `admin-password-alert.ts`
+- **Assunto:** `Alerta de Segurança — Senha de admin alterada`
+- **Conteúdo:**
+  - Nome do admin que trocou
+  - Data/hora, IP, User-Agent
+  - Botão "Revisar atividade" → link para `${SITE_URL}/auditoria`
+- Mesmo estilo visual.
+
+`SITE_URL` virá de uma constante baseada em `Deno.env.get('SUPABASE_URL')` ou de um secret opcional `APP_PUBLIC_URL` (recomendo o segundo — me confirma a URL pública que devo usar: `https://sistemamaxv1.lovable.app` ou seu domínio próprio?).
+
+---
+
+## Secrets necessários
+
+Vou solicitar via `add_secret`:
+- **`SENDGRID_API_KEY`** — API Key do SendGrid (Restricted, Mail Send Full Access).
+- **`SENDGRID_FROM_EMAIL`** — e-mail remetente verificado (ex.: `no-reply@seudominio.com`).
+- **`SENDGRID_FROM_NAME`** — nome do remetente (default: `Sistema MaxV`).
+- **`APP_PUBLIC_URL`** *(opcional)* — URL base para o link de auditoria. Se não definir, uso `https://sistemamaxv1.lovable.app`.
+
+---
+
+## Audit logs adicionais
+
+Adiciono no helper `src/lib/audit.ts` (ou direto na edge function) os seguintes eventos:
+- `password_reset_email_sent` — quando o SendGrid retorna 202.
+- `password_reset_email_failed` — quando retorna erro (com status + body resumido).
+- `admin_password_reset_notified_others` — com `details.notified_admins = ['ad***@x.com', ...]`.
+
+A migration que relaxou a policy de INSERT em `audit_logs` para `entity_type='auth' AND action LIKE 'password_reset_%'` **já cobre esses novos eventos**. Não preciso de nova migration.
+
+> Nota: para `admin_password_reset_notified_others` (que não começa com `password_reset_`), vou usar o prefixo `password_reset_admin_notified` para encaixar na policy existente.
+
+---
+
+## Frontend
+
+**Nenhuma mudança em `ResetPassword.tsx`** — a chamada `supabase.functions.invoke("notify-password-changed")` já foi adicionada no item 1 e funciona com try/catch silencioso. Quando a função for deployada, ela passa a responder de verdade.
+
+---
+
+## Arquivos que vou criar/editar
+
+```text
+supabase/functions/notify-password-changed/index.ts        [novo]
+supabase/functions/notify-password-changed/templates.ts    [novo]
+src/lib/audit.ts                                           [+ 2 helpers de log opcionais]
+```
+
+---
+
+## Fora do escopo (não muda)
+
+- Item 1 (HIBP + senha mínima 8): **já entregue**.
+- Item 3 (audit logs base): **já entregue**.
+- Item 5 (rate limiting custom): permanece fora.
+- Infra de e-mail do Lovable Cloud: **não vou ativar** — você escolheu SendGrid.
+
+---
+
+## Próximo passo
+
+Me responde com:
+1. ✅ "Pode prosseguir, já tenho a API Key" → eu inicio pedindo o secret `SENDGRID_API_KEY` (e os demais).
+2. 📧 O e-mail remetente verificado no SendGrid.
+3. 🔗 Confirma se a URL de auditoria deve ser `https://sistemamaxv1.lovable.app/auditoria` ou outra.
+
+Aprovação do plano pode vir junto com essas infos.
