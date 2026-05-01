@@ -1,75 +1,109 @@
-## Objetivo
+## Correções na Calculadora de Etiquetas
 
-Aproximar a Calculadora de Etiquetas do padrão "Label Press": seleção rápida por abas, máximo aproveitamento da Teneth A3 (sem remover etiquetas preventivamente) e UI mais limpa. Confirmar que as marcas inferiores são ticks (já estão, mas reforçar no preview SVG).
+### 1. Nova tela: Tabela de Acabamentos (com Recorte)
 
----
+**Por quê:** o preço final da folha de etiqueta = **Adesivo (impressão)** + **Recorte (acabamento de plotter)**. O recorte é um serviço independente que pode ser reutilizado em outros contextos no futuro (laminação, verniz, etc.), por isso ganha tabela própria — não vai entrar em `printing_price_items`.
 
-## 1. Seleção de folha por abas (Tabs)
+**Schema novo (`finishings_price_items`):**
 
-**Arquivo:** `src/components/labels/LabelCalcSettingsDialog.tsx` e/ou novo bloco no topo do `LabelLayoutCalculator.tsx`.
+```text
+id                uuid pk
+name              text     -- ex.: "Recorte plotter quadrado", "Recorte plotter redondo"
+category          text     -- ex.: "recorte", "laminacao", "verniz" (extensível)
+size              text     -- "SRA3" | "A4" | "A3" | "33x48" (mesma convenção da tabela atual)
+price_per_sheet   numeric  -- preço fixo por folha
+is_active         boolean
+sort_order        int
+created_at, updated_at
+```
 
-- Substituir o `Select` de folha por uma faixa de `Tabs` (componente `@/components/ui/tabs`) acima do card "Simulador", sempre visível (não escondido em settings).
-- Botões fixos:
-  - `SRA3` → 320×450 mm (já existe)
-  - `A4` → 210×297 mm
-  - `A3` → 297×420 mm
-  - `33×48` → 330×480 mm (novo preset)
-  - `Outro` → abre dialog de configurações com campos manuais
-- Adicionar `33×48` em `SHEET_PRESETS` (`src/lib/labels/layout.ts`).
-- Ao clicar em um preset, atualiza `config` e dispara `saveConfig` — recálculo é automático (já reativo via `useState`).
+RLS igual a `printing_price_items`: leitura para autenticados, escrita só admin.
 
----
+**Nova rota `/acabamentos`** (`src/pages/Acabamentos.tsx`) — telinha simples (CRUD em tabela), com o mesmo visual de `/preco-impressao` (Lucide `Scissors` + roxo). Item no Sidebar logo abaixo de "Preço Impressão".
 
-## 2. Máximo aproveitamento — remover slots só por colisão real
+### 2. Calculadora puxa preço de duas fontes
 
-**Arquivo:** `src/lib/labels/layout.ts` (função `computeReservedSlots` e `computeLabelLayout`).
+Na coluna direita da `/calculadora-etiquetas`, dentro do card "Cálculo do orçamento" (sempre visível agora), substituir o input manual de preço por **dois selects encadeados**:
 
-Hoje a função reserva slots fixos nos cantos (4 slots para `corte_reto`/`plotter_quadrado`, 1 para `plotter_redondo`), o que reduz a contagem mesmo quando não há colisão. Trocar por detecção geométrica:
+```text
+Composição do preço da folha
+  Impressão:  [Adesivo Brilho · A3 · F · color ▾]   R$ 1,43/folha
+  Acabamento: [Recorte plotter redondo ▾]            R$ 0,80/folha
+  Total:      R$ 2,23/folha   [Editar tabelas ↗]
+```
 
-1. Calcular o bounding box real de cada marca:
-   - Top L: vértice em `(marginLeft, marginTop-2)` e `(sheetW-marginRight, marginTop-2)`, braços de 5 mm.
-   - Bottom tick: linha horizontal de 10 mm centrada em `(marginLeft, sheetH-marginBottom/2)` e `(sheetW-marginRight, ...)`.
-2. Calcular o bounding box de cada célula `(col, row)` na grade.
-3. Marcar slot reservado **somente se** o bbox da marca intersectar o bbox da célula (com tolerância de 0,5 mm).
-4. Como o vértice do L fica no canto da área útil (`marginLeft, marginTop-2`), na maioria dos casos ele cai **fora** da grade — nenhum slot precisa ser removido.
+- Select de **impressão** lista entradas ativas de `printing_price_items` filtradas pelo `size` da aba de folha selecionada (SRA3/A4/A3/33×48).
+- Select de **acabamento** lista entradas ativas de `finishings_price_items` filtradas pelo mesmo `size`. Inclui opção "Sem acabamento" (R$ 0).
+- `pricePerSheet` derivado = `printing.paper_cost + printing.printing_cost + finishing.price_per_sheet`. Não persiste em `LabelCalcConfig` — passa a ser estado de runtime.
+- Última escolha (id da impressão + id do acabamento) lembrada por `size` no `localStorage` (`labelCalc:priceChoice:v1`).
+- Quando troca a aba de folha no topo: o select se auto-reposiciona para a última escolha daquele tamanho (ou primeira opção disponível).
 
-Resultado esperado: 50×50 mm em SRA3 com Teneth → grade cheia, sem perder etiquetas dos cantos.
+**Quando faltar cadastro** (ex.: SRA3 sem item em Tabela de Preços ou em Acabamentos):
+```text
+⚠ Não há "Recorte" cadastrado para SRA3.
+   [Cadastrar agora →] (abre /acabamentos em nova aba)
+```
+Botões WhatsApp/PDF ficam desabilitados com tooltip explicando o que falta.
 
-Manter `cellsPerRow` e `rowOffsets`: linhas sem reserva ficam alinhadas à esquerda; as raras com reserva continuam centralizadas.
+**Remover** o campo "Preço por folha (R$)" do `LabelCalcSettingsDialog` e o uso de `pricePerSheet` em `loadConfig/saveConfig` (mantém leitura para retro-compat e descarta).
 
----
+### 3. Card de Cálculo + WhatsApp + PDF SEMPRE visíveis
 
-## 3. Marcas inferiores = ticks (verificar)
+Hoje o card só renderiza se `pricePerSheet > 0`. Vai passar a renderizar sempre que `qty > 0` e `perSheet > 0`:
+- Topo: bloco de composição de preço (item 2).
+- Meio: total + custo unitário (ou "—" enquanto faltar dado).
+- Base: **Copiar WhatsApp / Abrir WhatsApp / Gerar PDF de produção**, sempre montados, com `disabled` + tooltip quando faltar preço/quantidade.
 
-**Já implementado** em `src/lib/labels/marks.ts` (`buildCornerMarks` retorna `kind: "tick"` para `bl/br`) e `production-pdf.ts` (`drawMark` desenha segmento horizontal). 
+### 4. Gap padrão Teneth = 1mm (Regra dos 40)
 
-Verificar no preview SVG do `LabelLayoutCalculator.tsx` que ambos os cantos inferiores são renderizados como linha horizontal única e não como L. Ajustar caso ainda use `markSegments` de forma errada.
+Em `src/lib/labels/layout.ts`:
+- `CUT_DEFAULTS.plotter_redondo.gap`: `3` → `1`
+- `CUT_DEFAULTS.plotter_quadrado.gap`: `2` → `1`
 
----
+Resultado para 50×50 em SRA3 com Teneth (área útil 306×363): `cols=floor(307/51)=6`, `rows=floor(364/51)=7` → **42 etiquetas/folha** (supera o alvo 40). Para usuários com gap antigo no localStorage, basta clicar "Padrão de corte" no diálogo (botão já existe).
 
-## 4. UI mais limpa (estilo Label Press)
+A detecção de colisão atual (`computeReservedSlots`) já está correta (TOL 0.5mm; "L" superior com vértice no canto da área útil + braços para FORA; ticks dentro da margem inferior). Confirmado: nenhuma etiqueta é bloqueada.
 
-**Arquivo:** `src/components/labels/LabelLayoutCalculator.tsx`.
+### 5. Marcas inferiores como TICKS (não L)
 
-- Remover o select "Carregar favorito" do header do simulador (mover para popover discreto junto do botão "Salvar favorito").
-- Cards com `p-5`, títulos `text-base font-semibold`, separadores sutis, badges com cores semânticas (verde para aproveitamento alto, âmbar para shrink suggestion).
-- Layout 2 colunas: esquerda = "Dados do Pedido" (formato, tamanho, qty, imagem), direita = "Prévia da Folha" + "Pricing" empilhados.
-- Remover ícones decorativos excessivos no header das seções; manter apenas Lucide pequeno (h-4 w-4) ao lado do título.
+A geometria já está correta em `src/lib/labels/marks.ts`. O que pode dar aparência de "L" no preview reduzido é o `strokeLinecap="round"` engrossando as pontas. Ajustes:
 
----
+- **Preview SVG**: `strokeLinecap="butt"` para ticks; `strokeWidth` proporcional à escala.
+- **PDF (`production-pdf.ts`)**: confirmar `drawMark` desenha 1 linha horizontal de 10mm em K100 0.5pt para tick. Comentário inline "TL/TR=L; BL/BR=tick".
+- **Teste**: asserção em `labels-layout.test.ts` validando `markSegments(tick).length === 1`.
 
-## Detalhes técnicos
+### 6. Refresh ao trocar de aba de folha
 
-**Arquivos editados:**
-- `src/lib/labels/layout.ts` — nova `computeReservedSlots` baseada em bbox; novo preset `33×48`.
-- `src/lib/labels/marks.ts` — exportar bbox de cada marca (`markBoundingBox(mark): {x,y,w,h}`) para reuso na detecção.
-- `src/components/labels/LabelLayoutCalculator.tsx` — adicionar `Tabs` de folha no topo, redesenhar cards, verificar preview SVG das marcas.
-- `src/components/labels/LabelCalcSettingsDialog.tsx` — botão "Outro" abre este dialog para entrada manual de folha.
-- `src/test/labels-layout.test.ts` — atualizar testes:
-  - 50×50 SRA3/Teneth → 30 etiquetas (5 cols × 6 rows), sem reservas.
-  - Adicionar caso onde a etiqueta encosta no canto e o slot É removido.
-  - Cobrir o novo preset 33×48.
+Em `handleQuickSheet`:
+- Resetar `marksOffsetY = 0`.
+- Re-aplicar a opção de impressão+acabamento salva para o novo `size` (item 2).
+- Toast curto: `"Folha alterada para SRA3 — cálculo atualizado"`.
 
-**Ganho esperado:** etiquetas 50×50 em SRA3 passam de ~24 para 30 (cinco colunas inteiras × seis linhas dentro de 306×363 mm).
+### Arquivos a editar / criar
 
-Aprova? Implemento na sequência.
+**Banco:**
+- Migration: criar `finishings_price_items` + RLS + 2 seeds ("Recorte plotter quadrado" e "Recorte plotter redondo" com `price_per_sheet=0` para o usuário preencher).
+
+**Front:**
+- `src/pages/Acabamentos.tsx` *(novo)* — CRUD básico.
+- `src/App.tsx` + `src/components/Sidebar.tsx` — registrar rota e item de menu.
+- `src/lib/labels/layout.ts` — defaults de gap (3→1, 2→1).
+- `src/lib/labels/config-storage.ts` — remover `pricePerSheet` do tipo público.
+- `src/lib/labels/sheet-pricing.ts` *(novo)* — hook `useFolhaPricing(size)` que retorna `{ printingOptions, finishingOptions, selected, total, missing }` consultando ambas tabelas.
+- `src/components/labels/LabelLayoutCalculator.tsx`:
+  - Card de orçamento sempre montado, com selects de impressão + acabamento.
+  - Botões WhatsApp/PDF sempre visíveis (disabled quando faltam dados).
+  - `handleQuickSheet` reseta offset e re-puxa preços.
+  - SVG de ticks com `strokeLinecap="butt"`.
+- `src/components/labels/LabelCalcSettingsDialog.tsx` — remover campo "Preço por folha".
+- `src/lib/labels/production-pdf.ts` — verificar tick K100 0.5pt.
+- `src/test/labels-layout.test.ts` — atualizar para gap=1, adicionar "50×50 em SRA3 = 42 etiquetas" e teste de geometria do tick.
+
+### Resultado esperado
+
+- Novo menu lateral **"Acabamentos"** onde você cadastra "Recorte SRA3 = R$ 0,80", "Recorte A3 = R$ 0,50", etc.
+- `/calculadora-etiquetas` mostra: **"42 etiquetas por folha"** para 50×50 em SRA3.
+- Card de orçamento sempre visível, com selects de Impressão + Recorte puxando os preços de cada tabela. Total e custo unitário recalculam ao trocar qualquer um.
+- Mudou o preço do Adesivo na Tabela de Preços ou o do Recorte em Acabamentos → calculadora reflete na hora. Zero duplicação.
+- Trocar aba de folha (SRA3 → A4): selects acompanham, preço recarrega, contagem e desenho atualizam.
+- Pé do desenho: dois traços horizontais simples nos cantos.
