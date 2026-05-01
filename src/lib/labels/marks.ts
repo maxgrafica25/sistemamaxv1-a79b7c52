@@ -82,6 +82,24 @@ export function buildCornerMarks(
 }
 
 /**
+ * Bounding box (mm) ocupado pela marca de registro.
+ * Útil para detecção de colisão com a grade de etiquetas.
+ */
+export function markBoundingBox(mark: RegistrationMark): { x: number; y: number; w: number; h: number } {
+  const { kind, corner, vertexX: x, vertexY: y, arm } = mark;
+  if (kind === "tick") {
+    // Linha horizontal de 2*arm centrada em vertexX, espessura desprezível (~0.2mm)
+    return { x: x - arm, y: y - 0.1, w: arm * 2, h: 0.2 };
+  }
+  // L: dois braços partindo do vértice
+  const sx = corner === "tl" || corner === "bl" ? 1 : -1;
+  const sy = corner === "tl" || corner === "tr" ? 1 : -1;
+  const xMin = sx > 0 ? x : x - arm;
+  const yMin = sy > 0 ? y : y - arm;
+  return { x: xMin, y: yMin, w: arm, h: arm };
+}
+
+/**
  * Retorna os segmentos de linha da marca, em mm.
  * - L: 2 segmentos perpendiculares partindo do vértice
  * - tick: 1 segmento horizontal centrado em vertexX
