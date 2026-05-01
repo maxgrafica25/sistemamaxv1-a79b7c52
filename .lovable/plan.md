@@ -1,156 +1,109 @@
-## Objetivo
 
-Criar a **Calculadora de Aproveitamento de Etiquetas** com:
-- Tipo de corte (Corte Reto, Plotter Quadrado, Plotter Redondo) com defaults próprios.
-- Margens **direcionais** (top/bottom/left/right) — marca de registro afeta principalmente topo/base.
-- 3 regras novas: precificação por folha, ancoragem de upsell, otimizador de retalho (−1/−2/−3mm).
+# Reforço de Segurança no Fluxo de Recuperação de Senha
 
-Tudo client-side; persistência só de "preço da folha" no `localStorage`.
+Plano dividido em 4 entregas, na ordem de prioridade que você sugeriu. **Item 5 (Rate Limiting) ficará de fora** — a plataforma ainda não tem primitivos confiáveis para isso e o Supabase Auth já aplica rate limit nativo nas rotas de recovery. Posso revisitar quando houver infra dedicada.
 
-## Arquitetura
+---
+
+## 1. HIBP Check + Senha mínima de 8 caracteres
+
+**Backend (Supabase Auth)**
+- Ativar `password_hibp_enabled: true` via tool `configure_auth`.
+- Definir `password_min_length: 8`.
+- Manter requisitos de caracteres no padrão "letters + digits" (não vou exigir símbolos para não atrapalhar o time interno).
+
+**Frontend**
+- `src/pages/Auth.tsx`: trocar constante `MIN_PASSWORD_LENGTH = 6` → `8`. Atualizar mensagens e o placeholder ("Mínimo 8 caracteres").
+- `src/pages/ResetPassword.tsx`: mesma troca.
+- Tratar o erro retornado pelo HIBP (`weak_password` / mensagem do Supabase) com toast amigável: *"Esta senha apareceu em vazamentos públicos. Escolha outra."*
+
+---
+
+## 2. E-mail de confirmação pós-redefinição
+
+Como o reset hoje passa por `supabase.auth.updateUser({ password })` direto no cliente, vou criar um caminho server-side para disparar o e-mail logo após a troca, sem expor SMTP no front.
+
+**Nova edge function: `notify-password-changed`**
+- Recebe nada do body (usa o JWT do usuário autenticado pós-reset).
+- Resolve `user_id`, `email`, `display_name`, `ip` (do header `x-forwarded-for`) e `user_agent`.
+- Envia e-mail usando a **infraestrutura de e-mail do Lovable Cloud** (a mesma que já trataremos no item 4 — vou rodar `setup_email_infra` se ainda não existir, e `scaffold_transactional_email` para criar o template).
+- Template **`password-changed.tsx`**:
+  - Assunto: `Sua senha foi alterada — Sistema MaxV`
+  - Corpo: saudação com nome, data/hora (timezone America/Sao_Paulo), IP, user-agent resumido, botão "Não fui eu — falar com suporte" (mailto ou link configurável).
+  - Aviso: "Se foi você, ignore este e-mail."
+  - Branding roxo (cor primária do projeto), logo se existir em `public/`.
+- Após enviar, grava `password_reset_succeeded` em `audit_logs` (ver item 3).
+
+**Integração no front (`ResetPassword.tsx`)**
+- Após `updateUser({ password })` retornar OK, chamar `supabase.functions.invoke("notify-password-changed")`.
+- Falha no envio do e-mail **não bloqueia** o sucesso do reset (apenas loga via `handleError` em modo silencioso).
+
+---
+
+## 3. Audit logs explícitos para reset de senha
+
+A tabela `audit_logs` já existe com colunas `action / entity_type / entity_id / entity_name / details`. Vou usar o campo `details` em JSON-string para guardar IP + user_agent + metadata (sem alterar schema).
+
+**Eventos a registrar**
+
+| Evento | Onde é gravado | Quem grava |
+|---|---|---|
+| `password_reset_requested` | Após `signInWithOtp` no `Auth.tsx` (sucesso ou não — sempre, para evitar enumeração) | Cliente, com `entity_type='auth'`, `entity_name=email mascarado` |
+| `password_reset_succeeded` | Edge function `notify-password-changed` | Server (com IP real) |
+| `password_reset_failed_token_invalid` | `ResetPassword.tsx` quando `isRecovery=false` após checagem | Cliente |
+| `password_reset_failed_token_expired` | `ResetPassword.tsx` quando `updateUser` retorna erro de token expirado | Cliente |
+| `admin_password_reset_notified_others` | Edge function (item 4) | Server |
+
+**Helper `src/lib/audit.ts`**
+- Adicionar helper `logAuthEvent(action, { email?, details? })` que aceita usuário não autenticado (a policy atual exige `authenticated` — vou trocar para `anon, authenticated` apenas para INSERT, mantendo SELECT/DELETE como estão; ou, alternativa, gravar via edge function `notify-password-changed` para os eventos pós-login). Vou seguir pela **edge function** para os eventos do servidor, e relaxar a policy de INSERT para `anon` apenas com `entity_type='auth'` (CHECK), para os eventos do cliente não autenticado.
+- E-mail no `entity_name` será **mascarado** (`jo***@gmail.com`) para não vazar lista de usuários se alguém ler logs.
+
+---
+
+## 4. Notificar outros admins quando admin redefine senha
+
+**Lógica na mesma edge function `notify-password-changed`**
+- Após enviar o e-mail de confirmação, verifica via `is_profile_admin(user_id)`.
+- Se for admin: busca `profiles` com `role='admin' AND is_active=true AND user_id <> :resetter`, e envia o template **`admin-password-alert.tsx`** para cada um.
+- Template:
+  - Assunto: `Alerta de Segurança — Senha de admin alterada`
+  - Corpo: nome do admin que trocou, data/hora, IP, user-agent, botão "Revisar atividade" (link para `/auditoria`).
+- Grava `admin_password_reset_notified_others` em `audit_logs` com lista de admins notificados.
+
+---
+
+## Detalhes técnicos
+
+**Pré-requisito de e-mail (executado no início do item 2):**
+1. `email_domain--check_email_domain_status` — se não houver domínio configurado, mostro o diálogo `<lov-open-email-setup>` para você configurar antes de prosseguir.
+2. `email_domain--setup_email_infra` (se ainda não rodou).
+3. `email_domain--scaffold_transactional_email` para gerar a função `send-transactional-email` e a infra de fila.
+4. Crio os 2 templates novos (`password-changed`, `admin-password-alert`) em `supabase/functions/_shared/email-templates/`.
+5. `notify-password-changed` chama `send-transactional-email` (ou enfileira via `enqueue_email`) — mesma fila pgmq com retry.
+
+**Migrations**
+- Apenas uma: relaxar policy `Authenticated can insert audit_logs` para também aceitar `anon` quando `action LIKE 'password_reset_%'` e `entity_type = 'auth'`. Mantém a policy admin-only de DELETE.
+
+**Arquivos que vou criar/editar**
 
 ```text
-src/
-├── lib/labels/
-│   └── layout.ts                        ← lógica pura, testável
-├── components/labels/
-│   ├── LabelLayoutCalculator.tsx        ← UI principal (reutilizável)
-│   └── LabelLayoutDialog.tsx            ← wrapper para abrir do orçamento
-├── pages/
-│   └── CalculadoraEtiquetas.tsx         ← página standalone
-└── test/
-    └── labels-layout.test.ts            ← cobre as 4 funções principais
+supabase/functions/notify-password-changed/index.ts          [novo]
+supabase/functions/_shared/email-templates/password-changed.tsx     [novo]
+supabase/functions/_shared/email-templates/admin-password-alert.tsx [novo]
+supabase/config.toml                                         [+ bloco da função]
+src/pages/Auth.tsx                                           [MIN_PASSWORD_LENGTH=8 + log requested]
+src/pages/ResetPassword.tsx                                  [MIN=8 + invoke notify + logs]
+src/lib/audit.ts                                             [+ logAuthEvent helper]
 ```
 
-## `lib/labels/layout.ts` — exports
+E uma migration para a policy do `audit_logs`.
 
-| Função | Responsabilidade |
-|---|---|
-| `CutType`, `CUT_DEFAULTS`, `CUT_LABELS` | Tipos de corte e defaults de margem/gap |
-| `SHEET_PRESETS` | A4, A3, SRA3, Carta + custom |
-| `computeLabelLayout(input)` | Calcula melhor entre normal e rotacionada 90° |
-| `sheetsNeeded(qty, perSheet)` | `ceil(qty / perSheet)` |
-| `roundUpToTen(n)` | Arredonda para cima ao R$ 0,10 (regra do projeto) |
-| `computeSheetPricing({ pricePerSheet, qtyRequested, perSheet })` | Total + unitário |
-| `pickRoundUpsellQty(qty)` | Faixas confirmadas: 200/300/500/1000/2000/qty×5 |
-| `buildAnchoringLadder(qty, perSheet, pricePerSheet)` | 3 tiers com dedup, % vs base |
-| `findShrinkOpportunity(base, originalPerSheet, sheetsForOriginal)` | Testa −1/−2/−3mm em W, H e ambos. Trava em 5mm mínimos. Maior delta vence; empate → menor encolhimento |
+---
 
-### Defaults por tipo de corte (mm)
+## Fora do escopo
 
-| Tipo | Top | Bottom | Left | Right | Gap |
-|---|---|---|---|---|---|
-| Corte reto (guilhotina) | 5 | 5 | 5 | 5 | 0 |
-| Plotter quadrado | 10 | 10 | 5 | 5 | 2 |
-| Plotter redondo | 10 | 10 | 5 | 5 | 3 |
+- **Rate limiting custom** (item 5 do seu pedido): a plataforma não tem primitivos para isso e o Supabase Auth já limita as chamadas de `signInWithOtp` e `updateUser` no servidor. Se quiser uma camada extra mais à frente, posso fazer com tabela própria + bloqueio na edge function — mas não é o caminho recomendado hoje.
+- Reset forçado por outro admin (já tem o fluxo de convite/inativar usuário em `Usuarios.tsx`).
+- Histórico de hashes de senha (Supabase Auth não expõe).
 
-Cada margem fica editável após escolher o tipo (o tipo só pré-preenche).
-
-### Cálculo do layout (chave)
-
-Para N peças em uma direção: `N*lado + (N−1)*gap ≤ útil` → `N = floor((útil + gap) / (lado + gap))`. Testa orientação 0° e 90°, escolhe a que dá mais. Aproveitamento = `(total × labelArea) / (usableW × usableH) × 100`.
-
-## `components/labels/LabelLayoutCalculator.tsx`
-
-Layout em 2 colunas (preview à direita em md+):
-
-**Coluna esquerda — controles (em seções colapsáveis ou cards)**
-1. **Folha**: select com presets + botão "Personalizado" → mostra inputs W×H.
-2. **Tipo de corte**: 3 botões/segmented control. Ao trocar, sobrescreve margens/gap com os defaults do tipo (mostra um botão "Restaurar padrões" caso o usuário tenha editado).
-3. **Margens direcionais**: 4 inputs (Top, Bottom, Left, Right) em grid 2×2 + input "Espaçamento entre etiquetas (gap)".
-4. **Etiqueta**: 2 inputs W×H (mm).
-5. **Quantidade desejada**: input numérico.
-6. **Preço da folha de produção (R$)**: input numérico, persistido em `localStorage` (`labelCalc:lastPricePerSheet`).
-
-**Coluna direita — resultados**
-- **Card de aproveitamento**: "X etiquetas por folha" + "Y% aproveitamento" + badge "Etiqueta em pé" ou "Etiqueta deitada (rotação 90°)". Mostra também `cols × rows`.
-- **SVG de preview** (escala proporcional, max 360×360px): folha cinza com margens hachuradas + grade de etiquetas roxas. Etiqueta rotacionada se for o caso.
-- **Card "Cálculo do orçamento"** (aparece quando preço e qty preenchidos):
-  - `qty desejada` ÷ `por folha` = **N folhas** × R$ preço = **R$ total** _(unit: R$ X,XX)_
-- **Tabela de ancoragem** (3 linhas):
-  ```
-  Quantidade | Folhas | Total      | Custo/un | Δ vs solicitada
-  50  un     | 1      | R$ 15,00   | R$ 0,30  | —
-  100 un     | 2      | R$ 30,00   | R$ 0,30  | 0%
-  300 un     | 5      | R$ 75,00   | R$ 0,25  | −17% (badge verde)
-  ```
-- **Alerta de otimização** (Lightbulb amarelo, só se sugestão existe):
-  > 💡 **Dica:** Se a etiqueta for reduzida para **48×48mm** (−2mm × −2mm), cabem **+12 por folha**. Pelo mesmo custo (5 folhas) o cliente leva **+60 etiquetas**.
-  >
-  > [Aplicar sugestão] (botão pequeno, substitui labelW/labelH e re-calcula)
-
-Quando usado dentro de um item de impressão do orçamento, o card de "Cálculo do orçamento" ganha um botão extra **"Usar X folhas como quantidade"** (via prop `onApply`).
-
-## `components/labels/LabelLayoutDialog.tsx`
-
-`Dialog` simples (max-w-4xl). Props:
-```ts
-{
-  open: boolean;
-  onOpenChange: (b: boolean) => void;
-  defaultSheet?: { width: number; height: number };
-  defaultLabelW?: number;
-  defaultLabelH?: number;
-  defaultQty?: number;
-  onApply?: (folhas: number) => void;
-}
-```
-Renderiza `<LabelLayoutCalculator />` repassando as defaults.
-
-## `pages/CalculadoraEtiquetas.tsx`
-
-Página simples seguindo o padrão dos outros módulos do projeto:
-- Título com ícone Lucide `Ruler` em primary purple.
-- Renderiza `<LabelLayoutCalculator />` em largura total.
-- Sem `onApply` (uso standalone).
-
-## Integrações
-
-### `App.tsx`
-Adicionar:
-```tsx
-import CalculadoraEtiquetas from "./pages/CalculadoraEtiquetas";
-// dentro de ProtectedRoute/Layout:
-<Route path="/calculadora-etiquetas" element={<CalculadoraEtiquetas />} />
-```
-
-### `Sidebar.tsx`
-No grupo **Precificação** (entre "Preço Impressão" e "Processos de Produção"):
-```tsx
-{ name: "Calc. Etiquetas", href: "/calculadora-etiquetas", icon: Ruler }
-```
-Visível para todos (admin + colaborador) — ferramenta operacional.
-
-### `components/orcamentos-v2/PrintingItemEditor.tsx`
-No header do item, ao lado do `<Input quantity>`, adicionar botão pequeno (ícone `Ruler`, `variant="ghost" size="icon"`, tooltip "Calcular etiquetas por folha"). Ao clicar, abre `LabelLayoutDialog` com:
-- `defaultSheet`: derivado de `item.description` se contiver "A4"/"A3"/"SRA3" (regex simples)
-- `defaultQty`: `item.quantity`
-- `onApply: (folhas) => onItemChange({ quantity: folhas })`
-
-Fica desabilitado se o item estiver `aprovado` (segue o padrão atual).
-
-## Testes (`src/test/labels-layout.test.ts`)
-
-Cobertura mínima:
-
-1. **`computeLabelLayout`**
-   - 50×50mm em A4 com margem 5/5/5/5 e gap 0 → `optionA = optionB` (etiqueta quadrada), total = 4×5 = 20.
-   - 100×50mm em A4 → rotacionada cabe mais que normal.
-   - Etiqueta maior que área útil → total 0.
-2. **`sheetsNeeded`**: 50/20=3, 100/20=5, 0/20=0.
-3. **`computeSheetPricing`**: arredondamento para R$ 0,10 (5 × 14,99 = 74,95 → 75,00); qty=0 → unit=0.
-4. **`pickRoundUpsellQty`**: 50→200, 100→300, 200→500, 500→1000, 1500→ múltiplo de 500.
-5. **`buildAnchoringLadder`**: dedup quando tier3 == tier2 (qty=100 → 100/200/300, não duplica); `unitDeltaPct` da última < 0.
-6. **`findShrinkOpportunity`**:
-   - 50×50 em A4 (gap 0, margem 5) → não há ganho (já encaixa redondo) ⇒ pode retornar null.
-   - 51×51 em A4 → −1mm faz caber mais ⇒ retorna sugestão com `delta > 0`.
-   - 90×90 em SRA3 → testa o caminho do −3mm.
-   - Etiqueta 6×6 com −2mm cairia para 4mm → bloqueia (limite 5mm).
-
-## Pontos confirmados
-
-- ✅ `localStorage` para preço da folha
-- ✅ Faixas de upsell 200/300/500/1000/2000
-- ✅ Trava de 5mm
-- ✅ Inclui −3mm no otimizador
-- ✅ Margens direcionais + tipo de corte com defaults
+Confirma esse plano? Assim que aprovar, sigo na ordem: HIBP → e-mail confirmação → audit logs → notificação admin.
