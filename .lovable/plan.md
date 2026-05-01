@@ -1,64 +1,75 @@
-## Diagnóstico dos 3 problemas relatados
+## Objetivo
 
-### 1. "Cabe 40 mas o sistema mostra outro valor"
-Com o perfil **Teneth A3** (default), as margens reais são `top=7, bottom=80 (tração dos roletes), left/right=7`. Para SRA3 (320×450) e etiqueta 50×50 com gap 1mm:
-- usableW = 320 − 14 = 306 → **6 colunas**
-- usableH = 450 − 87 = 363 → **7 linhas**
-- Total = **42 etiquetas** (próximo dos 40 que o cliente espera, dentro da margem de segurança)
+Implementar exatamente o **modelo paramétrico SignMaster** descrito na especificação como um novo modo de layout para etiquetas circulares, garantindo que **folha 32×45 cm + Ø 5 cm = 40 etiquetas** (5 colunas × 8 linhas), com marcas de registro em "L" no topo e "T" embaixo.
 
-O cálculo está **matematicamente correto**. Para chegar a 40+, basta confirmar que o usuário esteja com o perfil Teneth ativo. Vou adicionar um pequeno **badge visual** no Card de Aproveitamento mostrando o perfil de hardware ativo (`Teneth A3 · 7/80/7/7mm`) para deixar evidente *por que* o número é o que é, evitando confusão com expectativas baseadas em outras impressoras.
+## Conflito com o modelo atual (decisão)
 
-### 2. Input que vira "0" e atrapalha ao digitar
-Causa raiz no `NumInput` (`LabelLayoutCalculator.tsx`): quando o usuário apaga o conteúdo para digitar um novo valor, `parseFloat("")` retorna `NaN`, e o componente **força 0** imediatamente. Isso faz com que apareça um "0" antes do número que está sendo digitado (ex: "050").
+O sistema hoje usa o perfil **Teneth A3** com margens **7/80/7/7 mm** (80 mm de base por causa da tração dos roletes), o que limita a área útil a 306×363 mm e faz o cálculo retornar 42 etiquetas (6×7) em vez de 40.
 
-**Correção**: usar estado de string interna (controlled) que aceita string vazia e só propaga número quando válido; tratar `min={undefined}` para não restringir digitação intermediária; manter `type="number"` mas permitir foco com campo vazio. Aplicar para todos os usos (largura, altura, lado/diâmetro, quantidade).
+A nova especificação define **margens 7/7/7/7 mm**, o que produz exatamente 40 etiquetas (5×8) — mas é incompatível com a restrição física da Teneth atual.
 
-### 3. Cadastrar acabamento "Recorte eletrônico R$ 5,00 / SRA3" e validar WhatsApp
-- Hoje só existem 2 itens com `price_per_sheet = 0` (vazios). Vou **inserir** um item novo: `name="Recorte eletrônico", category="recorte", size="SRA3", price_per_sheet=5.00`.
-- Validar WhatsApp: o texto montado em `whatsapp.ts` está OK (Pedido + Total + Sugestão). Vou adicionar **2 linhas**: composição (`🖨️ Impressão: ...` + `✂️ Acabamento: ...`) e a quantidade de folhas, para que o cliente entenda o que está pagando.
-
----
+**Solução:** adicionar um novo perfil de hardware `signmaster_param` (sem restrição de tração) que aplica as constantes da spec. O perfil Teneth permanece intacto para quem precisar dele. Como a spec representa o caso real de produção do usuário, **será definido como o novo default**.
 
 ## Mudanças
 
-### Frontend
+### 1. Novo perfil de hardware + constantes da spec
+- Adicionar perfil `signmaster_param` em `src/lib/labels/hardware.ts` com margens 7/7/7/7 mm e sem `maxUsableW/H`.
+- Tornar `signmaster_param` o `DEFAULT_HARDWARE_ID`.
+- Criar `src/lib/labels/signmaster-spec.ts` com todas as constantes nomeadas: `LABEL_SPACING=3`, `REG_MARK_MARGIN=7`, `MARK_LENGTH=15`, `MARK_THICKNESS=2`, `BOTTOM_MARK_TICK=3`, `VERTICAL_NUDGE=-1` (todos em mm).
 
-**`src/components/labels/LabelLayoutCalculator.tsx`**
-- Reescrever `NumInput` com estado interno de string (`useState<string>`), commit no `onBlur` ou quando parser retorna número válido. Sem mais "0" fantasma.
-- Adicionar badge `Hardware: Teneth A3 (7/80/7/7mm)` no Card de Aproveitamento, com tooltip explicando os 80mm de tração.
+### 2. Função de layout paramétrico
+Em `src/lib/labels/signmaster-spec.ts`:
+- `computeSignmasterLayout({ sheetW, sheetH, labelDiameter })` retornando `{ labelsPerRow, labelsPerColumn, total, totalGridWidth, totalGridHeight, offsetX, offsetY, positions[] }` aplicando exatamente as fórmulas:
+  - `step = labelDiameter + 3`
+  - `labelsPerRow = floor((sheetW − 14 + 3) / step)`
+  - `labelsPerColumn = floor((sheetH − 14 + 3) / step)`
+  - `offsetY = (sheetH − totalGridHeight) / 2 − 1`
+- `computeSignmasterMarks({ sheetW, sheetH, gridBottom, bottomMarkY? })` retornando os 4 conjuntos de segmentos das marcas (L superiores + T inferiores) já em mm absolutos da folha.
 
-**`src/lib/labels/whatsapp.ts`**
-- Incluir linhas de composição da folha:
-  ```
-  🖨️ Impressão: Adesivo Brilho · 210g · SRA3 · F · color (R$ X,XX/folha)
-  ✂️ Acabamento: Recorte eletrônico (R$ 5,00/folha)
-  📄 Folhas: N
-  ```
-- Assinatura por extenso da config.
+### 3. Integração no calculador (LabelLayoutCalculator)
+- Quando `cutType === "plotter_redondo"` E `hardwareProfileId === "signmaster_param"`: usar `computeSignmasterLayout` no lugar de `computeLabelLayout`. Manter `labelW === labelH` (diâmetro).
+- Renderizar o preview SVG das marcas pelos segmentos retornados por `computeSignmasterMarks` (substitui o uso de `buildCornerMarks` neste modo).
+- Mostrar badge "SignMaster paramétrico · 7/7/7/7 mm · gap 3 mm" e a fórmula resumida.
 
-**Parâmetros de entrada do `formatWhatsAppQuote`** ganham `printingLabel?` e `finishingLabel?` opcionais (retro-compatível). Atualizar a chamada no `LabelLayoutCalculator`.
+### 4. PDF de produção e .plt
+- Em `src/lib/labels/production-pdf.ts`: quando o modo paramétrico estiver ativo, emitir os círculos nas posições `(x + d/2, y + d/2)` calculadas pela spec e desenhar as marcas com espessura 2 mm.
+- Geração da faca `.plt` (1016 DPI / 40 unidades por mm, origem inferior-esquerda, círculos como polígono de 72 segmentos, marcas incluídas, cabeçalho `TB26,...;CT1;` + `;:H A L0 ECN U`): novo módulo `src/lib/labels/plt-export.ts` com botão "Baixar faca .plt" exibido apenas quando o modo paramétrico está ativo.
 
-### Banco
+### 5. Persistência
+- Em `config-storage.ts`: ao detectar config v1 antiga com `hardwareProfileId === "teneth_a3"` e `marginsUnlocked === false`, migrar para `signmaster_param` com margens 7/7/7/7 (a menos que o usuário tenha destravado margens manualmente).
 
-Inserir 1 linha em `finishings_price_items`:
-```sql
-INSERT INTO finishings_price_items
-  (name, category, size, price_per_sheet, sort_order, is_active)
-VALUES
-  ('Recorte eletrônico', 'recorte', 'SRA3', 5.00, 10, true);
-```
+### 6. Testes
+- Adicionar `src/test/signmaster-spec.test.ts` cobrindo:
+  - 320×450 + Ø50 → 5×8 = 40, `offsetX≈3.2`, `offsetY≈3.2`
+  - 320×450 + Ø30 → 9×13 = 117
+  - 297×420 (A3) + Ø40 → cálculo conferido pela fórmula
+  - Posições do primeiro e último círculo dentro da folha
+  - Marcas L (TL/TR) com vértice em (7,7) e (sheetW−7, 7)
 
-### Validação visual (QA)
-- Após aplicar, abrir `/calculadora-etiquetas`, digitar etiqueta 50×50 → confirmar **42** etiquetas, perfil Teneth visível.
-- Selecionar acabamento "Recorte eletrônico R$ 5,00".
-- Clicar "Copiar WhatsApp" e colar em texto → confirmar que aparece composição completa.
-- Apagar campo "Lado" e digitar "75" → não pode aparecer "0" no meio.
+## Pontos técnicos importantes
 
-## Arquivos
-- `src/components/labels/LabelLayoutCalculator.tsx` (NumInput + badge + repassar labels)
-- `src/lib/labels/whatsapp.ts` (composição + assinatura)
-- Nova migration ou INSERT direto em `finishings_price_items`
+- **Regra inviolável (spec §8):** nada de margens extras, nada de redimensionar etiqueta. Implementação 1-para-1 com as fórmulas.
+- **Rodapé informativo (spec §6): NÃO implementar** (o usuário pediu para pular).
+- **`bottomMarkY` manual:** input opcional no UI com slider em incrementos de 5 mm; default = `min(gridBottom + 5 mm, sheetH − 10 mm)`.
+- **Compatibilidade com etiquetas quadradas:** o modo paramétrico ativa-se apenas quando `cutType="plotter_redondo"`. Para quadradas/retas o modelo atual (`computeLabelLayout`) continua valendo.
 
-## Fora de escopo
-- Mexer no algoritmo de layout (já está correto: 42 = limite físico real do Teneth com SRA3 + 50mm).
-- Alterar margens default do Teneth (são especificação do equipamento).
+## Arquivos novos
+- `src/lib/labels/signmaster-spec.ts` — constantes + cálculo de layout + cálculo de marcas
+- `src/lib/labels/plt-export.ts` — gerador de faca .plt
+- `src/test/signmaster-spec.test.ts` — testes da nova fórmula
+
+## Arquivos editados
+- `src/lib/labels/hardware.ts` — novo perfil + novo default
+- `src/lib/labels/config-storage.ts` — migração de perfil
+- `src/components/labels/LabelLayoutCalculator.tsx` — branch paramétrico + preview de marcas L/T + botão .plt
+- `src/lib/labels/production-pdf.ts` — usa posições/marcas paramétricas no modo SignMaster
+
+## Validação esperada após implementação
+
+| Folha (cm) | Ø (cm) | Esperado | Atual (bug) |
+|---|---|---|---|
+| 32 × 45 | 5,0 | **40** (5×8) | 42 |
+| 32 × 45 | 4,0 | 70 (7×10) | — |
+| 32 × 45 | 3,0 | 117 (9×13) | — |
+
+Aprova?
