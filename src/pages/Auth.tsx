@@ -114,7 +114,12 @@ export default function Auth() {
       password,
       options: { data: { display_name: trimmedName } },
     });
-    if (error) toast.error(error.message);
+    if (error) {
+      const msg = /pwned|leaked|compromised/i.test(error.message)
+        ? "Esta senha apareceu em vazamentos públicos. Escolha outra mais forte."
+        : error.message;
+      toast.error(msg);
+    }
     else toast.success("Conta criada! Você já está logado.");
     setLoading(false);
   };
