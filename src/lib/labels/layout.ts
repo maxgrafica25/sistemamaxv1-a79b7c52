@@ -119,36 +119,72 @@ export interface LayoutResult {
 }
 
 /**
- * Reservas por FAIXA, conforme padrão SignMaster/Teneth observado:
- * - plotter_redondo: reserva 1 slot na ponta esquerda da linha 0
- * - corte_reto / plotter_quadrado: reserva 1 slot em CADA ponta da linha 0
- *   E 1 slot em cada ponta da última linha
+ * Reservas por COLISÃO REAL: só remove um slot da grade se o bbox físico de
+ * alguma marca de registro (L superior ou tick inferior) intersecta o bbox
+ * da célula. Padrão SignMaster/Teneth — máximo aproveitamento.
  *
- * Retorna a lista de slots removidos (para uso no preview).
+ * Como o vértice do L fica no canto da área útil e o tick fica na margem
+ * inferior, na maioria dos layouts NENHUM slot é removido.
  */
-export function computeReservedSlots(
-  cutType: CutType,
-  cols: number,
-  rows: number,
-): ReservedSlot[] {
-  if (cols <= 0 || rows <= 0) return [];
-  const slots: ReservedSlot[] = [];
-  const push = (c: number, r: number) => {
-    if (c < 0 || c >= cols || r < 0 || r >= rows) return;
-    if (slots.some((s) => s.col === c && s.row === r)) return;
-    slots.push({ col: c, row: r });
-  };
+export interface ReservedSlotsInput {
+  cutType: CutType;
+  cols: number;
+  rows: number;
+  /** Largura da etiqueta na orientação escolhida (mm). */
+  labelW: number;
+  /** Altura da etiqueta na orientação escolhida (mm). */
+  labelH: number;
+  gap: number;
+  marginTop: number;
+  marginBottom: number;
+  marginLeft: number;
+  marginRight: number;
+  sheetW: number;
+  sheetH: number;
+}
 
-  if (cutType === "plotter_redondo") {
-    push(0, 0);
-    return slots;
+export function computeReservedSlots(input: ReservedSlotsInput): ReservedSlot[];
+// Overload de compatibilidade para chamadas antigas (cutType, cols, rows)
+export function computeReservedSlots(cutType: CutType, cols: number, rows: number): ReservedSlot[];
+export function computeReservedSlots(
+  a: ReservedSlotsInput | CutType,
+  b?: number,
+  c?: number,
+): ReservedSlot[] {
+  // Modo legado (sem geometria): nenhum slot é reservado preventivamente.
+  // A detecção de colisão real depende da geometria, então sem ela não há
+  // como saber se houve colisão.
+  if (typeof a === "string") {
+    return [];
   }
-  // corte_reto + plotter_quadrado: faixa nas duas pontas da 1ª e da última linha
-  push(0, 0);
-  push(cols - 1, 0);
-  if (rows > 1) {
-    push(0, rows - 1);
-    push(cols - 1, rows - 1);
+  const { cols, rows, labelW, labelH, gap, marginTop, marginBottom, marginLeft, marginRight, sheetW, sheetH } = a;
+  if (cols <= 0 || rows <= 0) return [];
+
+  // Importação dinâmica evita ciclo: marks → layout não é necessário.
+  // Como marks.ts não importa layout, podemos importar diretamente.
+  // (feito no topo do arquivo)
+  const marks = buildCornerMarks(sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight, 0);
+  const markBoxes = marks.marks.map(markBoundingBox);
+
+  const TOL = 0.5; // tolerância em mm
+  const slots: ReservedSlot[] = [];
+
+  const intersects = (
+    ax: number, ay: number, aw: number, ah: number,
+    bx: number, by: number, bw: number, bh: number,
+  ) => ax < bx + bw - TOL && ax + aw > bx + TOL && ay < by + bh - TOL && ay + ah > by + TOL;
+
+  for (let r = 0; r < rows; r++) {
+    for (let col = 0; col < cols; col++) {
+      const cellX = marginLeft + col * (labelW + gap);
+      const cellY = marginTop + r * (labelH + gap);
+      for (const m of markBoxes) {
+        if (intersects(cellX, cellY, labelW, labelH, m.x, m.y, m.w, m.h)) {
+          slots.push({ col, row: r });
+          break;
+        }
+      }
+    }
   }
   return slots;
 }
