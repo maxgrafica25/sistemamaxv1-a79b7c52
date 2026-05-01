@@ -496,3 +496,32 @@ describe("LabelCalcConfig — unidade de medida", () => {
     expect(loadConfig().unit).toBe("cm");
   });
 });
+
+describe("findShrinkOpportunity — preserva formato", () => {
+  it("etiqueta quadrada → sugestão também quadrada", () => {
+    const base: LayoutInput = {
+      sheetW: 320, sheetH: 450,
+      labelW: 50, labelH: 50,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
+      gap: 3,
+    };
+    const layout = computeLabelLayout(base);
+    const s = findShrinkOpportunity(base, layout.best.total, 1);
+    expect(s).not.toBeNull();
+    expect(s!.newLabelW).toBe(s!.newLabelH);
+    expect(s!.shrinkW).toBe(s!.shrinkH);
+  });
+
+  it("etiqueta retangular → pode reduzir só um lado", () => {
+    const base: LayoutInput = {
+      sheetW: 320, sheetH: 450,
+      labelW: 50, labelH: 30,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
+      gap: 3,
+    };
+    const layout = computeLabelLayout(base);
+    const s = findShrinkOpportunity(base, layout.best.total, 1);
+    // Pode ou não retornar sugestão — só validamos que não trava
+    if (s) expect(s.delta).toBeGreaterThan(0);
+  });
+});

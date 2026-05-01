@@ -1,60 +1,53 @@
 ## Diagnóstico
 
-Pela tela enviada, a "Dica de aproveitamento" (caixa amarela) está aparecendo. O que **some** é a "Sugestões de venda" (escada de upsell), porque o gate atual em `buildAnchoringLadder` exige preço cadastrado:
+A matemática está correta — reduzindo a largura para 48mm realmente cabem +8 etiquetas (6×8 = 48 vs. 5×8 = 40 originais). O problema é **conceitual / UX**:
+
+1. A etiqueta atual é **quadrada** (50×50mm).
+2. O algoritmo sugeriu **48×50mm** — vira retangular para ganhar 8 unidades.
+3. Para o cliente, "etiqueta 5×5" virar "4,8×5" muda o produto. A vendedora não vai querer oferecer isso.
+
+Validei no terminal: a alternativa **48×48mm** (manter quadrado, encolhendo igual nos dois lados) também dá +8 etiquetas. Então a sugestão correta para etiqueta quadrada seria essa.
+
+A causa raiz: `findShrinkOpportunity` testa `{2,0}, {0,2}, {2,2}` e em empate de delta prefere o de **menor encolhimento total** (`dw+dh`). Como {2,0} soma 2 e {2,2} soma 4, ele escolhe o retangular.
+
+## Mudança
+
+### `src/lib/labels/layout.ts` — preservar formato da etiqueta no shrink
+
+Em `findShrinkOpportunity`, quando a etiqueta original é quadrada (`labelW === labelH`), **só considerar candidatos simétricos** (`dw === dh`). Isso garante que a sugestão preserva o formato:
 
 ```ts
-// src/lib/labels/layout.ts, linha 351
-if (qty <= 0 || perSheet <= 0 || pricePerSheet <= 0) return [];
+const isSquare = base.labelW === base.labelH;
+const candidates = isSquare
+  ? [{dw:1,dh:1}, {dw:2,dh:2}, {dw:3,dh:3}]
+  : [
+      {dw:1,dh:0},{dw:0,dh:1},{dw:1,dh:1},
+      {dw:2,dh:0},{dw:0,dh:2},{dw:2,dh:2},
+      {dw:3,dh:0},{dw:0,dh:3},{dw:3,dh:3},
+    ];
 ```
 
-Quando não há item de impressão cadastrado para a folha (ex.: SRA3 na sua tela), `pricePerSheet === 0` e a escada inteira vira `[]`. A vendedora perde a referência de quantidade mesmo com o cálculo de aproveitamento funcionando.
+Para etiquetas retangulares (50×30 por ex.), continua testando todas as combinações — pode fazer sentido reduzir só um lado.
 
-A "Dica de aproveitamento" já é independente de preço — depende só de `perSheet > 0`, então roda em todos os tipos de corte e formato. Vou confirmar isso na revisão.
+### Comportamento esperado depois
 
-## Mudanças
-
-### 1. `src/lib/labels/layout.ts` — afrouxar gate da ladder
-
-Trocar a linha 351 para:
-
-```ts
-if (qty <= 0 || perSheet <= 0) return [];
-```
-
-Quando `pricePerSheet === 0`, `computeSheetPricing` já devolve `totalPrice = 0` e `unitPrice = 0` naturalmente. A escada continua útil (qty + folhas necessárias).
-
-### 2. `src/components/labels/LabelLayoutCalculator.tsx` — UI da escada sem preço
-
-No bloco `Sugestões de venda` (linhas 1055–1098), quando `pricePerSheet <= 0`:
-
-- Esconder a coluna `formatBRL(tier.unit)/un` e `formatBRL(tier.total)`.
-- Esconder os badges de variação % (não fazem sentido sem preço base).
-- Mostrar uma linha de aviso pequena no topo do card: *"Cadastre o preço da folha para ver os valores."* com link para `/preco-impressao` (já existe esse padrão de link no card "Cálculo do orçamento").
-- Manter visíveis: `qty un` e `N folhas` (que é o que dá referência de salto).
-
-Layout sem preço fica:
-```
-500 un      13 folhas
-1.000 un    25 folhas
-2.000 un    50 folhas
-```
-
-### 3. Revisão de gates (modo paramétrico, formatos, cortes)
-
-Confirmar que tanto a "Dica de aproveitamento" quanto a "Sugestões de venda" aparecem em:
-
-| Corte | Formato | Hardware |
+| Etiqueta atual | Sugestão antes | Sugestão depois |
 |---|---|---|
-| Corte reto | quadrado / retangular / personalizado | qualquer |
-| Plotter quadrado | quadrado / retangular | qualquer |
-| Plotter redondo | redondo | Teneth A3 (não-paramétrico) |
-| Plotter redondo | redondo | SignMaster paramétrico |
+| 50×50 (quadrada) | 48×50 (vira retângulo, +8) | **48×48 (mantém quadrado, +8)** |
+| 50×30 (retangular) | mesmo de antes | mesmo de antes |
+| Ø50 (redondo, paramétrico) | Ø48 (já correto) | Ø48 (sem mudança) |
 
-A "Dica" já roda em todos esses casos (último ajuste cobriu o paramétrico). A "Sugestões de venda" passa a aparecer também quando `pricePerSheet === 0`.
+### Texto da dica
 
-## Arquivos editados
+Bônus rápido: quando `newLabelW === newLabelH`, exibir "**48×48mm**" continua claro. Não precisa reformatar agora, só corrigir o conteúdo da sugestão.
 
-- `src/lib/labels/layout.ts` — remover `pricePerSheet <= 0` do gate de `buildAnchoringLadder`
-- `src/components/labels/LabelLayoutCalculator.tsx` — render condicional da coluna de preço/badges quando `pricePerSheet <= 0`
+## Arquivo editado
 
-Sem novos arquivos, sem testes adicionais (a mudança é trivial e não inventa lógica nova). Aprova?
+- `src/lib/labels/layout.ts` — função `findShrinkOpportunity`, restringir candidatos a simétricos quando entrada é quadrada
+
+### Teste
+
+Adicionar caso em `src/test/labels-layout.test.ts`:
+- Entrada 50×50 em SRA3 com gap 3, margens 7/7/7/7 → sugestão deve ter `newLabelW === newLabelH` (mantém quadrado).
+
+Aprova?
