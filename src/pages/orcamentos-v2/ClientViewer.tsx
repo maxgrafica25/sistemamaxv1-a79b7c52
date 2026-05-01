@@ -117,8 +117,9 @@ export default function ClientViewer() {
     const [m, l] = await Promise.all([
       supabase
         .from("quote_materials")
-        .select("id, description, quantity, unit_price, sort_order, status, approved_at, approved_value")
+        .select("id, description, quantity, unit_price, sort_order, status, approved_at, approved_value, parent_item_id")
         .eq("quote_id", quoteRow.id)
+        .is("parent_item_id", null)
         .order("sort_order"),
       supabase
         .from("quote_labor_steps")
