@@ -1020,6 +1020,19 @@ export function LabelLayoutCalculator({
             {generatingPdf ? "Gerando…" : "Gerar PDF de produção (Impressão + Faca)"}
           </Button>
 
+          {isParametric && perSheet > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={handleExportPlt}
+              title="Exporta a faca de corte (1016 DPI, polígono 72 segmentos, marcas de registro inclusas)"
+            >
+              <FileDown className="h-3.5 w-3.5 mr-1.5" />
+              Baixar faca .plt (SignMaster)
+            </Button>
+          )}
+
           {onApply && pricing.sheetsNeeded > 0 && (
             <Button
               size="sm"
