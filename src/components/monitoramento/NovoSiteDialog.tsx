@@ -303,7 +303,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
       return;
     }
     if (!produtoCatalogoId) {
-      toast.error("Selecione um produto do catálogo");
+      toast.error("Selecione uma referência");
       return;
     }
 
