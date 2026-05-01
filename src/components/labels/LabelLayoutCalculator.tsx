@@ -1148,22 +1148,31 @@ function SheetPreview({
     ? fitContain(imageNaturalW, imageNaturalH, labelWPx, labelHPx)
     : null;
 
-  // Posições efetivas (apenas etiquetas vendáveis), respeitando rowOffsets
+  // Posições efetivas (apenas etiquetas vendáveis)
   const labels: Array<{ x: number; y: number }> = [];
-  for (let r = 0; r < rows; r++) {
-    const cellsInRow = cellsPerRow[r] ?? cols;
-    const baseX = (rowOffsets[r] ?? marginLeft) * scale;
-    const yPx = (marginTop + r * (labelH + gap)) * scale;
-    for (let c = 0; c < cellsInRow; c++) {
-      labels.push({
-        x: baseX + c * (labelW + gap) * scale,
-        y: yPx,
-      });
+  if (paramLayout) {
+    for (const p of paramLayout.positions) {
+      labels.push({ x: p.x * scale, y: p.y * scale });
+    }
+  } else {
+    for (let r = 0; r < rows; r++) {
+      const cellsInRow = cellsPerRow[r] ?? cols;
+      const baseX = (rowOffsets[r] ?? marginLeft) * scale;
+      const yPx = (marginTop + r * (labelH + gap)) * scale;
+      for (let c = 0; c < cellsInRow; c++) {
+        labels.push({
+          x: baseX + c * (labelW + gap) * scale,
+          y: yPx,
+        });
+      }
     }
   }
 
+  const paramMarks = paramLayout
+    ? computeSignmasterMarks({ sheetW, sheetH, gridBottom: paramLayout.gridBottom })
+    : null;
   const marks = buildCornerMarks(sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight, marksOffsetY, MARK_ARM_MM);
-  const totalSellable = cellsPerRow.reduce((a, b) => a + b, 0);
+  const totalSellable = paramLayout ? paramLayout.total : cellsPerRow.reduce((a, b) => a + b, 0);
 
   return (
     <div className="flex justify-center bg-muted/30 rounded-md p-3">
