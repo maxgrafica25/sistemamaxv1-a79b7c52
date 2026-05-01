@@ -1,114 +1,150 @@
+# Reestruturação do Wizard de Orçamentos V2 (6 → 4 etapas) — Plano Final
 
-# Plano — Sprint 1: Pedidos de Venda + Contas a Receber
-
-Migração inicial CRM → ERP. Inclui o "momento uau": aprovar um pedido gera automaticamente a(s) parcela(s) no financeiro. Fases 3 (Pagar) e 4 (Fluxo de Caixa) ficam para a próxima sprint.
-
-## O que entra nesta sprint
-
-### 1) Pedidos de Venda
-- Página `/pedidos` com **dois modos de visualização** alternáveis no topo:
-  - **Lista** (padrão): tabela densa estilo Tiny com filtros (status, cliente, período, busca) e ações inline por linha.
-  - **Kanban**: colunas `Aberto` → `Aprovado` → `Em Produção` → `Entregue`, com cards arrastáveis (`@dnd-kit`). `Cancelado` aparece como filtro lateral, não como coluna (evita poluição).
-- Status do pedido: `aberto` · `aprovado` · `em_producao` · `entregue` · `cancelado`.
-- Numeração automática `PED-2026-0001` (sequence Postgres reiniciando por ano via função).
-- Tela de detalhe/edição em dialog grande (não troca de rota — padrão Tiny).
-- Campos: cliente, itens (descrição/qtd/preço unit/total), valor total, **condição de pagamento** (à vista, 30, 30/60, 30/60/90, parcelado N×), forma prevista (Pix/boleto/cartão/dinheiro), data de entrega, observações internas, observações para produção.
-- **Gerar Pedido a partir do Orçamento V2**: botão no `EditQuoteV2` que copia cliente + opções aprovadas + valor. Mantém `quote_id` para rastreio.
-- **PDF Ordem de Produção**: botão "Imprimir OP" — versão técnica sem preços, para o chão de fábrica. Substitui o `GenerateOPButton` atual (que é mock).
-- **Timeline** no detalhe: "Orçamento criado X → Pedido aberto Y → Aprovado Z → Faturado W → Pago".
-
-### 2) Contas a Receber
-- Página `/financeiro/receber` com **mini-dashboard** no topo:
-  - "A receber hoje", "A receber esta semana", "Vencidos", "Recebido no mês".
-- Tabela com **semáforo**: 🟢 pago · 🟡 a vencer · 🔴 atrasado · ⚪ cancelado.
-- Filtros: status, cliente, categoria, período, forma de recebimento.
-- **Gatilho automático**: ao mudar pedido para `aprovado` → dialog "Gerar conta a receber? (3 parcelas de R$ X em 30/60/90 dias)" com possibilidade de ajustar antes de confirmar.
-- **Baixa inline** (ação rápida na linha): data de pagamento, valor recebido (permite parcial/desconto/juros), forma efetiva, observação. Status da conta-pai recalculado automaticamente.
-- Lançamento manual também permitido (sem pedido vinculado — ex.: reembolso, venda balcão).
-
-### 3) Sidebar reorganizada (parcial, agora)
-Já cria a estrutura completa, mesmo que os itens das próximas sprints (Pagar, Fluxo de Caixa) ainda não existam:
-
-```text
-PRINCIPAL
-  • Dashboard
-  • Pedidos                  ← NOVO
-  • Orçamentos V2 [Beta]
-  • Orçamentos (legado)      ← renomeado, ícone diferente
-  • Chat Interno
-
-CADASTROS
-  • Clientes/Fornecedores
-  • Matérias-Primas
-  • Grupos de Materiais
-  • Comunicação Visual
-  • Catálogo Produtos
-  • Equipamentos
-
-FINANCEIRO                   ← visível só para Juliano/Marcelle/admin
-  • Contas a Receber         ← NOVO
-  • Despesas Fixas
-
-PRECIFICAÇÃO & PRODUÇÃO
-  • Preço Impressão
-  • Processos de Produção
-
-ANÁLISE
-  • Monitoramento de Preços
-
-ADMINISTRAÇÃO
-  • Usuários (admin)
-  • Configurações
-  • Auditoria (admin)
-```
-
-## Permissões (regra Juliano/Marcelle)
-
-| Ação | Colaborador comum | Juliano / Marcelle / Admin |
-|---|---|---|
-| Ver Pedidos | ✅ | ✅ |
-| Criar/editar Pedido | ✅ | ✅ |
-| Mover Kanban entre `aberto` ↔ `em_producao` ↔ `entregue` | ✅ | ✅ |
-| Botão **Aprovar/Faturar** (gera financeiro) | ❌ (botão escondido) | ✅ |
-| Cancelar pedido | ❌ | ✅ |
-| Ver grupo Financeiro na sidebar | ❌ | ✅ |
-| Acessar `/financeiro/*` | ❌ (redirect) | ✅ |
-| Dar baixa em conta | ❌ | ✅ |
-
-Identificação de Juliano/Marcelle: por enquanto via `display_name` na tabela `profiles` (mesma regra que já existe para o chat Financeiro). Quando o sistema de roles expandir, troca para uma role `financeiro`.
-
-## Detalhes técnicos
-
-### Banco
-- `sales_orders`: id, order_number (unique), client_id, quote_id (nullable), status, total_value, payment_terms, payment_method, delivery_date, internal_notes, production_notes, created_by, approved_by, approved_at, timestamps.
-- `sales_order_items`: id, order_id, description, quantity, unit_price, line_total, sort_order.
-- `sales_order_status_history`: id, order_id, from_status, to_status, changed_by, changed_at, note.
-- `accounts_receivable`: id, order_id (nullable), client_id, description, total_value, category, status (`aberto`/`parcial`/`pago`/`cancelado`), created_by, created_at.
-- `accounts_receivable_installments`: id, account_id, installment_number, due_date, amount, paid_at, paid_amount, payment_method, notes.
-- Sequence `sales_order_seq_2026` + função `next_order_number()` que gera `PED-AAAA-0001` e reinicia a cada ano.
-- Função helper `is_financeiro_user(uid)` (security definer) — checa se é admin OU display_name in ('Juliano','Marcelle'). Usada nas RLS e na sidebar.
-
-### RLS
-- `sales_orders`: SELECT/INSERT/UPDATE para todos autenticados; DELETE só admin. Trigger bloqueia mudança de status para `aprovado` se não for `is_financeiro_user`.
-- `accounts_receivable*`: SELECT/INSERT/UPDATE/DELETE só `is_financeiro_user`.
-- Triggers:
-  - `on_sales_order_status_change` → grava history + audit_logs.
-  - `on_sales_order_approved` → não cria conta automática; só sinaliza para o frontend abrir o dialog de confirmação (controle do usuário).
-  - `on_installment_paid` → recalcula status da conta-pai.
-
-### Kanban
-- `@dnd-kit/core` + `@dnd-kit/sortable` (já é o padrão da stack).
-- Drag entre colunas dispara update de status com optimistic UI + rollback em erro.
-- Tentativa de mover para `aprovado` por colaborador comum → toast "Apenas financeiro pode aprovar".
-
-### Realtime
-- `sales_orders` e `accounts_receivable` no `supabase_realtime` para Kanban e dashboard atualizarem ao vivo (vários usuários simultâneos).
-
-## Fora do escopo desta sprint
-- Contas a Pagar (próxima sprint)
-- Fluxo de Caixa Projetado (próxima sprint, depende de ter Pagar)
-- Emissão de NF-e, gateway de pagamento, conciliação bancária, baixa de estoque
+Decisões confirmadas com o usuário marcadas com ✅.
 
 ---
 
-Tudo certo para eu começar a implementar?
+## Objetivo
+
+Reduzir cliques e dar contexto ao orçamento, permitindo que **mão de obra** e **materiais manuais** sejam vinculados a cada **item de impressão** específico. A estrutura de abas é mantida, mas reorganizada em **4 etapas**: Informações → Itens do Orçamento → Terceirizados → Finalizar.
+
+A mudança é principalmente de UX e modelo de dados — engines de cálculo continuam puros, apenas ganham o conceito de "diluição por item pai".
+
+---
+
+## Mudanças no Banco (1 migration)
+
+```sql
+-- 1. Vínculo de filhos ao item de impressão pai
+ALTER TABLE quote_materials   ADD COLUMN parent_item_id uuid NULL
+  REFERENCES quote_materials(id) ON DELETE CASCADE;
+ALTER TABLE quote_labor_steps ADD COLUMN parent_item_id uuid NULL
+  REFERENCES quote_materials(id) ON DELETE CASCADE;
+
+CREATE INDEX idx_quote_materials_parent   ON quote_materials(parent_item_id);
+CREATE INDEX idx_quote_labor_steps_parent ON quote_labor_steps(parent_item_id);
+
+-- 2. Observações gerais do orçamento ✅
+ALTER TABLE quotes ADD COLUMN notes text NULL;
+```
+
+Regras:
+- `parent_item_id IS NULL` → item **avulso** (comportamento atual, retrocompatível).
+- `parent_item_id` preenchido → filho de um item de impressão (sempre `quote_materials` com `baseCost`/`printer_category_id`).
+- Cascata: deletar pai apaga filhos automaticamente.
+
+`quote_third_party` e RLS permanecem como hoje.
+
+---
+
+## Reestruturação do Wizard (`NewQuoteFormV2.tsx`)
+
+### 4 Etapas
+
+1. **Informações** — Nº, Cliente, Produto/Serviço, Validade, Margem %, **+ "Observações Gerais"** (textarea) ✅.
+2. **Itens do Orçamento** — consolida Mão de Obra + Materiais + CV em 3 blocos.
+3. **Terceirizados** — sem mudança.
+4. **Finalizar** — Desconto, forma de pagamento, ancoragem, salvar, link público.
+
+### Etapa 2 — Estrutura visual ✅ (ordem confirmada)
+
+```text
+┌─ Bloco 1: Itens de Impressão ──────────────────────┐
+│  [+ Adicionar Item de Impressão]                   │
+│                                                    │
+│  ▸ Cartão Couché 300g A4 F/V — 1000 un  R$ 1.200  │
+│      └─ Acabamentos vinculados:                    │
+│         • M.Obra: Corte (15min)       R$ 20        │
+│         • Material: Verniz UV (×1)    R$ 35        │
+│         [+ M.Obra] [+ Material] [+ Importar grupo] │
+│                                                    │
+│  ▸ Folder A3 4x4 — 500 un  R$ 2.400               │
+└────────────────────────────────────────────────────┘
+
+┌─ Bloco 2: Itens de Comunicação Visual ─────────────┐
+│  [+ Adicionar Item CV]  → CVItemCard               │
+└────────────────────────────────────────────────────┘
+
+┌─ Bloco 3: Avulsos (não vinculados) ────────────────┐
+│  [+ M.Obra Avulsa] [+ Material Avulso] [+ Grupo]   │
+│  • Setup geral (30min)        R$ 40                │
+│  • Caixa de transporte ×1     R$ 15                │
+└────────────────────────────────────────────────────┘
+```
+
+### Novos componentes
+
+- **`PrintingItemEditor.tsx`** — Card por item de impressão. Topo: `PrintingItemSearch` para escolher do catálogo + qty. Embaixo: área "Acabamentos vinculados" usando `LaborAndSupplySubform` filtrado por `parentItemId === item.id`.
+- **`LaborAndSupplySubform.tsx`** — Mini-lista compacta (descrição + min/qty + custo + remover). Recebe `parentItemId?: string | null` e usa em todas as inserções.
+
+Importação de grupo ✅: `LoadFromGroupDialog` ganha prop opcional `parentItemId`. Quando chamado dentro de um item de impressão, todos os itens importados herdam aquele ID automaticamente. Quando chamado no Bloco 3, vão como avulsos (`parentItemId = null`).
+
+Componentes reutilizados sem mudança: `CVItemCard`, `ClientCombobox`, `SupplySearch`, `StepTypeBadge`, `DiscountPaymentBlock`, `QuoteOptionsBuilder`, `StickyFinancialSidebar`, `CreateVersionButton`.
+
+---
+
+## Engine de Pricing — Diluição por Item Pai
+
+`src/lib/quotes-v2/pricing.ts`:
+
+- `PricingMaterial` ganha `parentItemId?: string | null`.
+- `PricingLaborStep` ganha `parentItemId?: string | null`.
+- `recalculateForQuantity` separa custos:
+  - **Filhos vinculados** → entram no markup proporcional ao item pai (usam o tier e a quantidade do pai).
+  - **Avulsos** (`parentItemId == null`) → comportamento atual (soma absoluta diluída pela qty total).
+
+`globalSettings`, `hourlyRate` e arredondamento (R$ 0,10 para cima) inalterados.
+
+---
+
+## Cascata de Aprovação ✅
+
+Quando um item de impressão pai recebe `status = 'aprovado'`, todos os filhos vinculados (`parent_item_id = pai.id`) também ficam travados:
+
+- RPC `approve_quote_items` é estendida para propagar status para filhos do mesmo conjunto aprovado.
+- No save do form, materiais/labor com `parentItemId` apontando para um pai aprovado **não são deletados** (mesma lógica de preservação que já existe para itens aprovados diretos).
+- Visualmente: filhos exibem o mesmo badge verde de "Aprovado" e ficam read-only.
+
+Razão: o preço prometido ao cliente já inclui o acabamento; alterar minutos/qty de um filho depois quebraria o compromisso.
+
+---
+
+## Persistência (`handleSave`)
+
+Pipeline ajustado:
+
+1. Salva/atualiza `quotes` (com `notes`).
+2. Para cada **item de impressão pai** não aprovado: insert/update primeiro, captura `id` real do banco.
+3. Para cada **filho** (`parentItemId` preenchido): insere com o `parent_item_id` apontando para o `id` real do pai.
+4. Avulsos (`parentItemId == null`): mesma lógica de hoje.
+5. Aprovados (pai e filhos): preserva, atualiza apenas `sort_order`.
+
+A FK `ON DELETE CASCADE` garante que apagar um pai pendente apaga seus filhos juntos.
+
+---
+
+## Retrocompatibilidade
+
+- Orçamentos antigos: todos com `parent_item_id = NULL` → renderizam 100% no Bloco 3 (Avulsos). Nada quebra.
+- Engine trata `parentItemId` ausente exatamente como o cálculo atual.
+- `ClientViewer` (público) continua mostrando lista plana de materiais aprovados/pendentes — sem mudança nessa fase.
+- V1 (`/orcamentos`) intocado.
+
+---
+
+## Não Mudam
+
+Lista (`OrcamentosV2.tsx`), filtros, badges, BulkActionBar, RealtimeRadar, Viewer público, aprovação parcial via WhatsApp, engajamento/temperatura, tracking, scroll depth, versionamento, modelos, clonagem, geração de Pedido/OP, engine CV (`cv-pricing/engine.ts`), multiplicadores de impressão (A3/SRA3=2x, F/V=2x, stackáveis até 4x), arredondamento global R$ 0,10 para cima.
+
+---
+
+## Ordem de Implementação
+
+1. **Migration** — colunas `parent_item_id` (×2) + `notes` + índices.
+2. **Engine `pricing.ts`** — estender tipos e `recalculateForQuantity` com diluição por pai.
+3. **RPC `approve_quote_items`** — propagar aprovação para filhos vinculados.
+4. **Componentes novos** — `PrintingItemEditor.tsx` + `LaborAndSupplySubform.tsx`.
+5. **`LoadFromGroupDialog`** — aceitar prop `parentItemId`.
+6. **`NewQuoteFormV2.tsx`** — refatorar para 4 etapas, agrupar render por pai, estender state com `parentItemId`, pipeline de save em duas fases (pai → filhos), carregar `notes` no edit.
+
+Pronto para implementar quando você aprovar.
