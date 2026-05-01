@@ -16,7 +16,7 @@
 
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import type { LayoutResult, LabelShape } from "./layout";
-import { buildCornerMarks, MARK_SIZE_MM } from "./marks";
+import { buildCornerMarks, markSegments, MARK_ARM_MM, MARK_STROKE_PT, type RegistrationMark } from "./marks";
 
 // Conversão mm -> pt (PDF usa pontos: 1pt = 1/72 in; 1mm = 2.83465pt)
 const MM_TO_PT = 72 / 25.4;
