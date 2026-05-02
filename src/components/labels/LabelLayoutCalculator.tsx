@@ -476,7 +476,7 @@ export function LabelLayoutCalculator({
         marginBottom: config.marginBottom,
         marginLeft: config.marginLeft,
         marginRight: config.marginRight,
-        gap: config.gap,
+        gap: effectiveGap,
         labelW,
         labelH,
         shape,
@@ -844,7 +844,7 @@ export function LabelLayoutCalculator({
             marginBottom={config.marginBottom}
             marginLeft={config.marginLeft}
             marginRight={config.marginRight}
-            gap={config.gap}
+            gap={effectiveGap}
             labelW={layout.best.rotated ? labelH : labelW}
             labelH={layout.best.rotated ? labelW : labelH}
             cols={layout.best.cols}
