@@ -561,13 +561,17 @@ export const findGrowOpportunity = (
 
   for (const c of candidates) {
     if (c.dw > MAX_GROW_MM || c.dh > MAX_GROW_MM) continue;
+    // Sem crescimento real → nada a sugerir.
+    if (c.dw + c.dh < 1) continue;
     const newW = base.labelW + c.dw;
     const newH = base.labelH + c.dh;
     const r = computeLabelLayout({ ...base, labelW: newW, labelH: newH });
+    // Exige manter (ou aumentar) o número de etiquetas/folha.
     if (r.best.total < originalPerSheet) continue;
 
     const newArea = newW * newH;
     const areaIncreasePct = baseArea > 0 ? ((newArea - baseArea) / baseArea) * 100 : 0;
+    // Sem ganho de área não é upgrade — descartar.
     if (areaIncreasePct <= 0) continue;
 
     const candidate: GrowSuggestion = {

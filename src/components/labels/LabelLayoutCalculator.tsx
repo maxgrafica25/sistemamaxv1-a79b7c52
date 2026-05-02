@@ -460,12 +460,16 @@ export function LabelLayoutCalculator({
     //   gap' <= (usableW - (cols+1)*lblW) / cols
     const newGap = Math.max(0, (usableW - (cols + 1) * lblW) / cols);
     if (newGap >= effectiveGap) return null;
+    // Nunca sugerir colar etiquetas — gap mínimo prático = 1mm.
+    if (newGap < 1) return null;
+    const suggestedGap = Math.max(1, Math.floor(newGap * 10) / 10);
+    if (suggestedGap >= effectiveGap) return null;
     const extraRows = layout.best.rows;
     return {
       slackMm: Math.round(slack * 10) / 10,
       missingMm: Math.round(missingMm * 10) / 10,
       currentGap: effectiveGap,
-      suggestedGap: Math.floor(newGap * 10) / 10, // arredonda PARA BAIXO
+      suggestedGap,
       extraPerSheet: extraRows, // +1 coluna × n linhas
     };
   }, [layout.best.cols, layout.best.rows, layout.best.rotated, layout.usableW, labelW, labelH, effectiveGap, perSheet, isParametric, config.sheetW]);
