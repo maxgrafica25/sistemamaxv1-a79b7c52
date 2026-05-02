@@ -105,13 +105,14 @@ export interface UseFolhaPricingResult {
   selectedFinishing: FinishingOption;
   setPrintingId: (id: string) => void;
   setFinishingId: (id: string | "__none__") => void;
-  total: number; // R$ por folha
+  total: number; // R$ por folha (já considerando faixa de quantidade)
+  finishingPricePerSheet: number;
   isLoading: boolean;
   /** "missing-printing" | "missing-finishing" | null */
   missing: "missing-printing" | null;
 }
 
-export function useFolhaPricing(size: string): UseFolhaPricingResult {
+export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPricingResult {
   const printingQ = useQuery({
     queryKey: ["printing_price_items", size],
     queryFn: async () => {
@@ -140,23 +141,37 @@ export function useFolhaPricing(size: string): UseFolhaPricingResult {
   });
 
   const finishingQ = useQuery({
-    queryKey: ["finishings_price_items", size],
+    queryKey: ["finishings_price_items_with_tiers", size],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("finishings_price_items")
-        .select("id, name, category, size, price_per_sheet, is_active")
+        .select(
+          "id, name, category, size, price_per_sheet, is_active, finishing_price_tiers(id, finishing_id, label, min_qty, max_qty, price_per_sheet, sort_order)",
+        )
         .eq("is_active", true)
         .eq("size", size)
         .order("sort_order");
       if (error) throw error;
-      const items: FinishingOption[] = (data ?? []).map((d: any) => ({
-        id: d.id,
-        name: d.name,
-        category: d.category,
-        size: d.size,
-        price_per_sheet: Number(d.price_per_sheet),
-        label: `${d.name} · ${fmtBRL(Number(d.price_per_sheet))}/folha`,
-      }));
+      const items: FinishingOption[] = (data ?? []).map((d: any) => {
+        const tiers: FinishingTier[] = (d.finishing_price_tiers ?? []).map((t: any) => ({
+          id: t.id,
+          finishing_id: t.finishing_id,
+          label: t.label,
+          min_qty: Number(t.min_qty),
+          max_qty: t.max_qty == null ? null : Number(t.max_qty),
+          price_per_sheet: Number(t.price_per_sheet),
+          sort_order: Number(t.sort_order ?? 0),
+        }));
+        return {
+          id: d.id,
+          name: d.name,
+          category: d.category,
+          size: d.size,
+          price_per_sheet: Number(d.price_per_sheet),
+          tiers,
+          label: `${d.name} · ${fmtBRL(Number(d.price_per_sheet))}/folha`,
+        };
+      });
       return [NO_FINISHING, ...items];
     },
   });
