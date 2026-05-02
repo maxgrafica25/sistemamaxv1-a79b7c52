@@ -25,6 +25,8 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { handleError } from "@/lib/handleError";
+import { usePermissionGuard } from "@/lib/permissions";
 
 const SIZES = ["A4", "A3", "SRA3", "33x48"] as const;
 const CATEGORIES = [
@@ -58,6 +60,7 @@ const emptyDraft: Omit<FinishingItem, "id"> = {
 
 export default function Acabamentos() {
   const isAdmin = useIsAdmin();
+  const { requireAdmin } = usePermissionGuard();
   const [items, setItems] = useState<FinishingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterSize, setFilterSize] = useState<string>("all");
@@ -111,6 +114,7 @@ export default function Acabamentos() {
   };
 
   const save = async () => {
+    if (!requireAdmin("salvar acabamento")) return;
     if (!draft.name.trim()) {
       toast.error("Nome é obrigatório");
       return;
@@ -138,10 +142,7 @@ export default function Acabamentos() {
         .from("finishings_price_items")
         .insert(payload));
     }
-    if (error) {
-      toast.error("Falha ao salvar: " + error.message);
-      return;
-    }
+    if (error) return handleError(error, "salvar acabamento");
     toast.success(draft.id ? "Acabamento atualizado" : "Acabamento cadastrado");
     cancelEdit();
     reload();
@@ -149,12 +150,16 @@ export default function Acabamentos() {
 
   const confirmDelete = async () => {
     if (!deleteId) return;
+    if (!requireAdmin("remover acabamento")) {
+      setDeleteId(null);
+      return;
+    }
     const { error } = await (supabase as any)
       .from("finishings_price_items")
       .delete()
       .eq("id", deleteId);
     if (error) {
-      toast.error("Falha ao remover: " + error.message);
+      handleError(error, "remover acabamento");
     } else {
       toast.success("Acabamento removido");
       reload();
@@ -163,12 +168,13 @@ export default function Acabamentos() {
   };
 
   const toggleActive = async (item: FinishingItem) => {
+    if (!requireAdmin("alterar status do acabamento")) return;
     const { error } = await (supabase as any)
       .from("finishings_price_items")
       .update({ is_active: !item.is_active })
       .eq("id", item.id);
     if (error) {
-      toast.error("Falha ao atualizar");
+      handleError(error, "alterar status do acabamento");
     } else {
       reload();
     }

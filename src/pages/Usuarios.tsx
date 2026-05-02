@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import InviteUserDialog from "@/components/usuarios/InviteUserDialog";
+import { handleError } from "@/lib/handleError";
 
 interface UserRow {
   user_id: string;
@@ -110,7 +111,7 @@ export default function Usuarios() {
     setConfirm(null);
 
     if (error) {
-      toast.error("Não foi possível alterar o perfil", { description: error.message });
+      handleError(error, "alterar perfil do usuário");
       return;
     }
     await supabase.from("audit_logs").insert({
@@ -136,7 +137,7 @@ export default function Usuarios() {
     setConfirm(null);
 
     if (error) {
-      toast.error("Não foi possível alterar o status", { description: error.message });
+      handleError(error, "alterar status do usuário");
       return;
     }
     await supabase.from("audit_logs").insert({

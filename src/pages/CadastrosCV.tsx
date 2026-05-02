@@ -12,6 +12,8 @@ import { Plus, Edit, Trash2, Search, Loader2, Megaphone, Layers, Printer as Prin
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { handleError } from "@/lib/handleError";
+import { usePermissionGuard } from "@/lib/permissions";
 
 type Tab = "materiais" | "impressoras" | "acabamentos";
 
@@ -133,16 +135,18 @@ export default function CadastrosCV() {
     setMatForm({ ...m });
     setMatOpen(true);
   };
+  const { requireAdmin } = usePermissionGuard();
   const saveMat = async () => {
+    if (!requireAdmin(matEditing ? "editar material" : "criar material")) return;
     if (!matForm.nome.trim()) return toast.error("Informe o nome do material");
     const payload = { ...matForm };
     if (matEditing) {
       const { error } = await supabase.from("cv_materials" as never).update(payload as never).eq("id", matEditing.id);
-      if (error) return toast.error("Erro: " + error.message);
+      if (error) return handleError(error, "atualizar material");
       toast.success("Material atualizado!");
     } else {
       const { error } = await supabase.from("cv_materials" as never).insert(payload as never);
-      if (error) return toast.error("Erro: " + error.message);
+      if (error) return handleError(error, "criar material");
       toast.success("Material criado!");
     }
     setMatOpen(false);
@@ -161,16 +165,17 @@ export default function CadastrosCV() {
     setPrtOpen(true);
   };
   const savePrt = async () => {
+    if (!requireAdmin(prtEditing ? "editar impressora" : "criar impressora")) return;
     if (!prtForm.nome.trim()) return toast.error("Informe o nome da impressora");
     if (prtForm.categorias_compativeis.length === 0) return toast.error("Marque ao menos uma categoria compatível");
     const payload = { ...prtForm };
     if (prtEditing) {
       const { error } = await supabase.from("cv_printers" as never).update(payload as never).eq("id", prtEditing.id);
-      if (error) return toast.error("Erro: " + error.message);
+      if (error) return handleError(error, "atualizar impressora");
       toast.success("Impressora atualizada!");
     } else {
       const { error } = await supabase.from("cv_printers" as never).insert(payload as never);
-      if (error) return toast.error("Erro: " + error.message);
+      if (error) return handleError(error, "criar impressora");
       toast.success("Impressora criada!");
     }
     setPrtOpen(false);
@@ -189,16 +194,17 @@ export default function CadastrosCV() {
     setFinOpen(true);
   };
   const saveFin = async () => {
+    if (!requireAdmin(finEditing ? "editar acabamento" : "criar acabamento")) return;
     if (!finForm.nome.trim()) return toast.error("Informe o nome do acabamento");
     if (finForm.categoria_compativel.length === 0) return toast.error("Marque ao menos uma categoria compatível");
     const payload = { ...finForm };
     if (finEditing) {
       const { error } = await supabase.from("cv_finishes" as never).update(payload as never).eq("id", finEditing.id);
-      if (error) return toast.error("Erro: " + error.message);
+      if (error) return handleError(error, "atualizar acabamento");
       toast.success("Acabamento atualizado!");
     } else {
       const { error } = await supabase.from("cv_finishes" as never).insert(payload as never);
-      if (error) return toast.error("Erro: " + error.message);
+      if (error) return handleError(error, "criar acabamento");
       toast.success("Acabamento criado!");
     }
     setFinOpen(false);
@@ -212,8 +218,9 @@ export default function CadastrosCV() {
   };
   const confirmDelete = async () => {
     if (!deleteCtx) return;
+    if (!requireAdmin("excluir item")) { setConfirmOpen(false); setDeleteCtx(null); return; }
     const { error } = await supabase.from(deleteCtx.table as never).delete().eq("id", deleteCtx.id);
-    if (error) toast.error("Erro: " + error.message);
+    if (error) handleError(error, "excluir item");
     else toast.success("Excluído!");
     setConfirmOpen(false);
     setDeleteCtx(null);

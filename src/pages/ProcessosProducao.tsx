@@ -12,6 +12,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { StepTypeBadge, STEP_TYPES, type StepType } from "@/components/orcamentos-v2/StepTypeBadge";
+import { handleError } from "@/lib/handleError";
+import { usePermissionGuard } from "@/lib/permissions";
+import { AdminOnly } from "@/components/AdminOnly";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Step {
@@ -112,16 +115,21 @@ function EtapasTab() {
     setIsDialogOpen(true);
   };
 
+  const { requireAdmin } = usePermissionGuard();
+
   const saveStep = async () => {
+    if (!requireAdmin(editingStep ? "editar etapa" : "criar etapa")) return;
     if (!description.trim()) { toast.error("Preencha a descrição da etapa"); return; }
     const time = parseFloat(timeMinutes);
     if (!time || time <= 0) { toast.error("Informe um tempo válido"); return; }
 
     if (editingStep) {
-      await supabase.from("production_steps").update({ description, time_minutes: time, step_type: stepType }).eq("id", editingStep.id);
+      const { error } = await supabase.from("production_steps").update({ description, time_minutes: time, step_type: stepType }).eq("id", editingStep.id);
+      if (error) return handleError(error, "atualizar etapa");
       toast.success("Etapa atualizada!");
     } else {
-      await supabase.from("production_steps").insert({ description, time_minutes: time, step_type: stepType });
+      const { error } = await supabase.from("production_steps").insert({ description, time_minutes: time, step_type: stepType });
+      if (error) return handleError(error, "criar etapa");
       toast.success("Etapa criada!");
     }
     setIsDialogOpen(false);
@@ -130,7 +138,9 @@ function EtapasTab() {
 
   const confirmDelete = async () => {
     if (!deletingId) return;
-    await supabase.from("production_steps").delete().eq("id", deletingId);
+    if (!requireAdmin("excluir etapa")) { setDeletingId(null); return; }
+    const { error } = await supabase.from("production_steps").delete().eq("id", deletingId);
+    if (error) { handleError(error, "excluir etapa"); setDeletingId(null); return; }
     toast.success("Etapa excluída!");
     setDeletingId(null);
     fetchSteps();
@@ -146,7 +156,9 @@ function EtapasTab() {
         <p className="text-sm text-muted-foreground">{steps.length} etapa(s) cadastrada(s)</p>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openCreateDialog} className="gap-2"><Plus className="h-4 w-4" /> Nova Etapa</Button>
+            <AdminOnly mode="disable" action="criar etapa">
+              <Button onClick={openCreateDialog} className="gap-2"><Plus className="h-4 w-4" /> Nova Etapa</Button>
+            </AdminOnly>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{editingStep ? "Editar Etapa" : "Nova Etapa"}</DialogTitle></DialogHeader>
@@ -283,25 +295,33 @@ function GruposTab() {
   const updateStep = (id: string, field: string, value: string | number) =>
     setGroupSteps(groupSteps.map(s => s.id === id ? { ...s, [field]: value } : s));
 
+  const { requireAdmin } = usePermissionGuard();
+
   const saveGroup = async () => {
+    if (!requireAdmin(editingGroup ? "editar grupo" : "criar grupo")) return;
     if (!groupName.trim()) { toast.error("Digite um nome para o grupo"); return; }
     if (groupSteps.length === 0 || groupSteps.some(s => !s.description.trim())) {
       toast.error("Adicione pelo menos uma etapa válida"); return;
     }
 
     if (editingGroup) {
-      await supabase.from("step_groups").update({ name: groupName }).eq("id", editingGroup.id);
-      await supabase.from("step_group_items").delete().eq("step_group_id", editingGroup.id);
-      await supabase.from("step_group_items").insert(
+      const r1 = await supabase.from("step_groups").update({ name: groupName }).eq("id", editingGroup.id);
+      if (r1.error) return handleError(r1.error, "atualizar grupo");
+      const r2 = await supabase.from("step_group_items").delete().eq("step_group_id", editingGroup.id);
+      if (r2.error) return handleError(r2.error, "atualizar itens do grupo");
+      const r3 = await supabase.from("step_group_items").insert(
         groupSteps.map((s, i) => ({ step_group_id: editingGroup.id, description: s.description, time_minutes: s.time_minutes, step_type: s.step_type, sort_order: i }))
       );
+      if (r3.error) return handleError(r3.error, "salvar itens do grupo");
       toast.success("Grupo atualizado!");
     } else {
-      const { data } = await supabase.from("step_groups").insert({ name: groupName }).select("id").single();
+      const { data, error } = await supabase.from("step_groups").insert({ name: groupName }).select("id").single();
+      if (error) return handleError(error, "criar grupo");
       if (data) {
-        await supabase.from("step_group_items").insert(
+        const r = await supabase.from("step_group_items").insert(
           groupSteps.map((s, i) => ({ step_group_id: data.id, description: s.description, time_minutes: s.time_minutes, step_type: s.step_type, sort_order: i }))
         );
+        if (r.error) return handleError(r.error, "salvar itens do grupo");
       }
       toast.success("Grupo criado!");
     }
@@ -311,7 +331,9 @@ function GruposTab() {
 
   const confirmDelete = async () => {
     if (!deletingId) return;
-    await supabase.from("step_groups").delete().eq("id", deletingId);
+    if (!requireAdmin("excluir grupo")) { setDeletingId(null); return; }
+    const { error } = await supabase.from("step_groups").delete().eq("id", deletingId);
+    if (error) { handleError(error, "excluir grupo"); setDeletingId(null); return; }
     toast.success("Grupo excluído!");
     setDeletingId(null);
     fetchGroups();
@@ -329,9 +351,11 @@ function GruposTab() {
         <p className="text-sm text-muted-foreground">{groups.length} grupo(s) cadastrado(s)</p>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openNewGroupDialog} className="gap-2">
-              <Plus className="h-4 w-4" /> Novo Grupo
-            </Button>
+            <AdminOnly mode="disable" action="criar grupo de etapas">
+              <Button onClick={openNewGroupDialog} className="gap-2">
+                <Plus className="h-4 w-4" /> Novo Grupo
+              </Button>
+            </AdminOnly>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editingGroup ? "Editar Grupo de Etapas" : "Novo Grupo de Etapas"}</DialogTitle></DialogHeader>

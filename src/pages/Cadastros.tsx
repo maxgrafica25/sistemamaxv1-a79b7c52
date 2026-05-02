@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/audit";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { handleError } from "@/lib/handleError";
 
 interface Cadastro {
   id: string;
@@ -124,11 +125,13 @@ export default function Cadastros() {
     };
 
     if (editing) {
-      await supabase.from("clients").update(payload as any).eq("id", editing.id);
+      const { error } = await supabase.from("clients").update(payload as any).eq("id", editing.id);
+      if (error) return handleError(error, "atualizar cadastro");
       await logAudit({ action: "edição", entity_type: "Cadastro", entity_id: editing.id, entity_name: nome, details: `Tipo: ${tipo}` });
       toast.success("Cadastro atualizado!");
     } else {
-      const { data } = await supabase.from("clients").insert(payload as any).select("id").single();
+      const { data, error } = await supabase.from("clients").insert(payload as any).select("id").single();
+      if (error) return handleError(error, "criar cadastro");
       await logAudit({ action: "criação", entity_type: "Cadastro", entity_id: data?.id, entity_name: nome, details: `Tipo: ${tipo}` });
       toast.success("Cadastro criado!");
     }
@@ -144,7 +147,8 @@ export default function Cadastros() {
 
   const confirmDelete = async () => {
     if (!deleteId) return;
-    await supabase.from("clients").delete().eq("id", deleteId);
+    const { error } = await supabase.from("clients").delete().eq("id", deleteId);
+    if (error) { handleError(error, "excluir cadastro"); setConfirmOpen(false); return; }
     await logAudit({ action: "exclusão", entity_type: "Cadastro", entity_id: deleteId, entity_name: deleteName });
     toast.success("Cadastro excluído!");
     setConfirmOpen(false);
