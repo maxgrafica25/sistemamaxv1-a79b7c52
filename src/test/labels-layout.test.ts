@@ -324,7 +324,211 @@ import { computeReservedSlots } from "@/lib/labels/layout";
 import { HARDWARE_PROFILES, clampMarginsToHardware, effectiveUsableArea } from "@/lib/labels/hardware";
 import { suggestMarksOffset, buildCornerMarks } from "@/lib/labels/marks";
 
-describe("computeReservedSlots — zona de segurança 10mm", () => {
+describe("computeReservedSlots — critério físico (largura > 55mm OU margem < 5mm)", () => {
+  const baseGeom = {
+    sheetW: 320, sheetH: 450, gap: 0,
+    marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
+  };
+
+  it("etiqueta 50×50mm com margens 7/7/7/7 → NÃO remove nada (L abre para fora, margem ≥ 5)", () => {
+    const r = computeReservedSlots({
+      cutType: "plotter_redondo",
+      cols: 6, rows: 5,
+      labelW: 50, labelH: 50,
+      ...baseGeom,
+    });
+    expect(r).toEqual([]);
+  });
+
+  it("etiqueta 50×50mm em plotter_quadrado com margens 7/7/7/7 → grade cheia", () => {
+    const r = computeReservedSlots({
+      cutType: "plotter_quadrado",
+      cols: 6, rows: 7,
+      labelW: 50, labelH: 50,
+      sheetW: 320, sheetH: 450,
+      gap: 1, marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
+    });
+    expect(r).toEqual([]);
+  });
+
+  it("etiqueta 60×60mm (>55mm) → remove pontas da 1ª linha (redondo)", () => {
+    const r = computeReservedSlots({
+      cutType: "plotter_redondo",
+      cols: 5, rows: 5,
+      labelW: 60, labelH: 60,
+      ...baseGeom,
+    });
+    expect(r).toEqual([
+      { col: 0, row: 0 },
+      { col: 4, row: 0 },
+    ]);
+  });
+
+  it("etiqueta 60×60mm em plotter_quadrado → remove pontas da 1ª E última linha", () => {
+    const r = computeReservedSlots({
+      cutType: "plotter_quadrado",
+      cols: 5, rows: 5,
+      labelW: 60, labelH: 60,
+      sheetW: 320, sheetH: 450,
+      gap: 0, marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
+    });
+    expect(r).toContainEqual({ col: 0, row: 0 });
+    expect(r).toContainEqual({ col: 4, row: 0 });
+    expect(r).toContainEqual({ col: 0, row: 4 });
+    expect(r).toContainEqual({ col: 4, row: 4 });
+  });
+
+  it("margem lateral 3mm (<5mm) com etiqueta pequena → ainda assim aciona remoção", () => {
+    const r = computeReservedSlots({
+      cutType: "plotter_redondo",
+      cols: 6, rows: 5,
+      labelW: 50, labelH: 50,
+      sheetW: 320, sheetH: 450,
+      gap: 0, marginTop: 7, marginBottom: 80, marginLeft: 3, marginRight: 3,
+    });
+    expect(r).toEqual([
+      { col: 0, row: 0 },
+      { col: 5, row: 0 },
+    ]);
+  });
+
+  it("margem inferior 2mm em plotter_quadrado → última linha perde pontas", () => {
+    const r = computeReservedSlots({
+      cutType: "plotter_quadrado",
+      cols: 4, rows: 3,
+      labelW: 50, labelH: 50,
+      sheetW: 210, sheetH: 170,
+      gap: 0, marginTop: 7, marginBottom: 2, marginLeft: 7, marginRight: 7,
+    });
+    expect(r).toContainEqual({ col: 0, row: 2 });
+    expect(r).toContainEqual({ col: 3, row: 2 });
+  });
+
+  it("plotter_redondo NUNCA reserva slots na última linha (mesmo com etiqueta grande)", () => {
+    const r = computeReservedSlots({
+      cutType: "plotter_redondo",
+      cols: 4, rows: 3,
+      labelW: 80, labelH: 80,
+      sheetW: 400, sheetH: 320,
+      gap: 0, marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
+    });
+    const lastRow = r.filter((s) => s.row === 2);
+    expect(lastRow).toEqual([]);
+  });
+
+  it("corte_reto → sempre array vazio", () => {
+    expect(computeReservedSlots({
+      cutType: "corte_reto",
+      cols: 6, rows: 5,
+      labelW: 80, labelH: 80,
+      ...baseGeom,
+    })).toEqual([]);
+  });
+
+  it("modo legado (cutType, cols, rows) → array vazio", () => {
+    expect(computeReservedSlots("plotter_redondo", 4, 5)).toEqual([]);
+    expect(computeReservedSlots("plotter_quadrado", 4, 5)).toEqual([]);
+    expect(computeReservedSlots("corte_reto", 4, 5)).toEqual([]);
+  });
+
+  it("retorna vazio se cols/rows = 0", () => {
+    expect(computeReservedSlots({
+      cutType: "plotter_quadrado",
+      cols: 0, rows: 5,
+      labelW: 50, labelH: 50,
+      ...baseGeom,
+    })).toEqual([]);
+  });
+});
+
+describe("computeLabelLayout com cutType — meta de aproveitamento SRA3", () => {
+  it("META: 50×50mm em SRA3 (margens 7, gap 1, plotter_quadrado) → 42 etiquetas (6×7) cheias", async () => {
+    const { computeLabelLayout } = await import("@/lib/labels/layout");
+    const r = computeLabelLayout({
+      sheetW: 320, sheetH: 450, labelW: 50, labelH: 50,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7, gap: 1,
+      cutType: "plotter_quadrado",
+    });
+    expect(r.best.cols).toBe(6);
+    expect(r.best.rows).toBe(7);
+    expect(r.reservedSlots).toEqual([]);
+    expect(r.effectivePerSheet).toBe(42);
+    expect(r.cellsPerRow.every((c) => c === 6)).toBe(true);
+  });
+
+  it("50×50mm em SRA3 plotter_redondo (margens 7, gap 1) → 42 etiquetas cheias", async () => {
+    const { computeLabelLayout } = await import("@/lib/labels/layout");
+    const r = computeLabelLayout({
+      sheetW: 320, sheetH: 450, labelW: 50, labelH: 50,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7, gap: 1,
+      cutType: "plotter_redondo",
+    });
+    expect(r.effectivePerSheet).toBe(42);
+    expect(r.reservedSlots).toEqual([]);
+  });
+
+  it("60×60mm em SRA3 plotter_redondo → 1ª linha perde pontas e centraliza (simétrico)", async () => {
+    const { computeLabelLayout } = await import("@/lib/labels/layout");
+    const r = computeLabelLayout({
+      sheetW: 320, sheetH: 450, labelW: 60, labelH: 60,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7, gap: 1,
+      cutType: "plotter_redondo",
+    });
+    expect(r.cellsPerRow[0]).toBe(r.best.cols - 2);
+    // Última cheia (redondo)
+    expect(r.cellsPerRow[r.best.rows - 1]).toBe(r.best.cols);
+    // Centralizada conforme fórmula
+    const cells = r.cellsPerRow[0];
+    const occupied = cells * 60 + (cells - 1) * 1;
+    const expectedOffset = 7 + (r.usableW - occupied) / 2;
+    expect(r.rowOffsets[0]).toBeCloseTo(expectedOffset, 5);
+  });
+
+  it("sem cutType — reservedSlots vazio, todas as linhas com offset = marginLeft", async () => {
+    const { computeLabelLayout } = await import("@/lib/labels/layout");
+    const r = computeLabelLayout({
+      sheetW: 210, sheetH: 297, labelW: 50, labelH: 50,
+      marginTop: 5, marginBottom: 5, marginLeft: 5, marginRight: 5, gap: 0,
+    });
+    expect(r.reservedSlots).toEqual([]);
+    expect(r.cellsPerRow.every((c) => c === r.best.cols)).toBe(true);
+    expect(r.rowOffsets.every((o) => o === 5)).toBe(true);
+    expect(r.effectivePerSheet).toBe(r.best.total);
+  });
+
+  it("simetria all-or-nothing — nenhuma linha tem só um lado removido", async () => {
+    const { computeLabelLayout } = await import("@/lib/labels/layout");
+    const r = computeLabelLayout({
+      sheetW: 320, sheetH: 450, labelW: 60, labelH: 45,
+      marginTop: 7, marginBottom: 7, marginLeft: 5, marginRight: 5, gap: 1,
+      cutType: "plotter_quadrado",
+    });
+    const counts = new Map<number, number>();
+    for (const s of r.reservedSlots) counts.set(s.row, (counts.get(s.row) ?? 0) + 1);
+    for (const c of counts.values()) {
+      expect([0, 2]).toContain(c);
+    }
+  });
+
+  it("centralização por fórmula RowStartX em linha afetada (60×60 SRA3 redondo)", async () => {
+    const { computeLabelLayout } = await import("@/lib/labels/layout");
+    const input = {
+      sheetW: 320, sheetH: 450, labelW: 60, labelH: 60,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7, gap: 1,
+      cutType: "plotter_redondo" as const,
+    };
+    const r = computeLabelLayout(input);
+    const labelW = r.best.rotated ? input.labelH : input.labelW;
+    for (let row = 0; row < r.best.rows; row++) {
+      const cells = r.cellsPerRow[row];
+      if (cells === 0) continue;
+      const occupied = cells * labelW + (cells - 1) * input.gap;
+      const expected = input.marginLeft + (r.usableW - occupied) / 2;
+      expect(r.rowOffsets[row]).toBeCloseTo(expected, 5);
+    }
+  });
+});
+
   const baseGeom = {
     sheetW: 320, sheetH: 450, gap: 0,
     marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
