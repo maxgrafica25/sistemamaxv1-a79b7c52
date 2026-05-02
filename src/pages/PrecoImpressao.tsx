@@ -588,7 +588,7 @@ export default function PrecoImpressao() {
         ) : (
           <Tabs value={activeCategory} onValueChange={setActiveCategory}>
             <div className="flex items-start gap-2">
-              <div className="flex-1">
+              <div className="flex-1 min-w-0 overflow-x-auto">
                 <TabsList className="bg-muted/60 h-auto p-1 gap-1 flex flex-wrap">
                   {categories.map(cat => {
                     const isActive = activeCategory === cat.id;
