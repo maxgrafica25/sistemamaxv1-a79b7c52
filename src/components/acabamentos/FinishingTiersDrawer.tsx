@@ -268,7 +268,7 @@ export function FinishingTiersDrawer({
                     value={t.label}
                     onChange={(e) => updateTier(idx, { label: e.target.value })}
                     className="h-8 text-xs"
-                    placeholder="ex.: 11-50"
+                    placeholder={`TP${idx + 1}`}
                   />
                   <Input
                     type="number"
