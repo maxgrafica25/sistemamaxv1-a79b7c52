@@ -227,6 +227,10 @@ export function computeReservedSlots(
  *
  * Para N peças em uma direção: N*lado + (N-1)*gap ≤ útil
  *   ⇒ N = floor((útil + gap) / (lado + gap))
+ *
+ * A escolha da melhor orientação considera o total **efetivo** (após
+ * reduzir 1ª/última linha pela regra ARMS), não o total bruto. Assim,
+ * uma orientação com 5×7=35 efetivos vence outra com 4×8=32 efetivos.
  */
 export const computeLabelLayout = (input: LayoutInput): LayoutResult => {
   const { sheetW, sheetH, labelW, labelH, marginTop, marginBottom, marginLeft, marginRight, gap } = input;
@@ -245,55 +249,59 @@ export const computeLabelLayout = (input: LayoutInput): LayoutResult => {
     return { cols: safeCols, rows: safeRows, total: safeCols * safeRows, rotated };
   };
 
+  // Distribui as células por linha aplicando a regra de zona de segurança ARMS.
+  // Retorna cellsPerRow + offsets já centralizados por linha.
+  const buildRowDistribution = (
+    cols: number,
+    rows: number,
+    lblW: number,
+    lblH: number,
+  ) => {
+    const reserved = input.cutType && cols > 0 && rows > 0
+      ? computeReservedSlots({
+          cutType: input.cutType,
+          cols, rows,
+          labelW: lblW, labelH: lblH,
+          gap,
+          marginTop, marginBottom, marginLeft, marginRight,
+          sheetW, sheetH,
+        })
+      : [];
+    const counts = new Map<number, number>();
+    for (const s of reserved) counts.set(s.row, (counts.get(s.row) ?? 0) + 1);
+    const cellsPerRow: number[] = [];
+    const rowOffsets: number[] = [];
+    for (let r = 0; r < rows; r++) {
+      const removed = counts.get(r) ?? 0;
+      const cells = Math.max(0, cols - removed);
+      cellsPerRow.push(cells);
+      if (cells === 0) {
+        rowOffsets.push(marginLeft);
+      } else {
+        const occupied = cells * lblW + (cells - 1) * gap;
+        rowOffsets.push(marginLeft + Math.max(0, (usableW - occupied) / 2));
+      }
+    }
+    const effective = cellsPerRow.reduce((a, b) => a + b, 0);
+    return { reserved, cellsPerRow, rowOffsets, effective };
+  };
+
   const optionA = fit(labelW, labelH, false);
   const optionB = fit(labelH, labelW, true);
-  const best = optionB.total > optionA.total ? optionB : optionA;
+  const distA = buildRowDistribution(optionA.cols, optionA.rows, labelW, labelH);
+  const distB = buildRowDistribution(optionB.cols, optionB.rows, labelH, labelW);
+
+  // Escolha pela soma efetiva (após reservas das linhas extremas).
+  // Em empate, prefere a opção com mais total bruto (mais robusta).
+  const pickB =
+    distB.effective > distA.effective ||
+    (distB.effective === distA.effective && optionB.total > optionA.total);
+  const best = pickB ? optionB : optionA;
+  const dist = pickB ? distB : distA;
 
   const usedArea = best.total * labelW * labelH;
   const usableArea = usableW * usableH;
   const utilizationPct = usableArea > 0 ? (usedArea / usableArea) * 100 : 0;
-
-  const labelWBest = best.rotated ? labelH : labelW;
-  const labelHBest = best.rotated ? labelW : labelH;
-
-  const reservedSlots = input.cutType && best.cols > 0 && best.rows > 0
-    ? computeReservedSlots({
-        cutType: input.cutType,
-        cols: best.cols,
-        rows: best.rows,
-        labelW: labelWBest,
-        labelH: labelHBest,
-        gap,
-        marginTop, marginBottom, marginLeft, marginRight,
-        sheetW, sheetH,
-      })
-    : [];
-
-  // Conta reservas por linha
-  const counts = new Map<number, number>();
-  for (const s of reservedSlots) counts.set(s.row, (counts.get(s.row) ?? 0) + 1);
-
-  // (labelWBest já declarada acima)
-
-  // Cada linha é tratada como container flexível independente.
-  // Fórmula única (mesmo para linhas cheias): garante consistência total
-  // entre preview SVG e PDF de produção.
-  //   RowStartX = marginLeft + (usableW - (cells*labelW + (cells-1)*gap)) / 2
-  const cellsPerRow: number[] = [];
-  const rowOffsets: number[] = [];
-  for (let r = 0; r < best.rows; r++) {
-    const removed = counts.get(r) ?? 0;
-    const cells = Math.max(0, best.cols - removed);
-    cellsPerRow.push(cells);
-    if (cells === 0) {
-      rowOffsets.push(marginLeft);
-    } else {
-      const occupied = cells * labelWBest + (cells - 1) * gap;
-      const offset = marginLeft + Math.max(0, (usableW - occupied) / 2);
-      rowOffsets.push(offset);
-    }
-  }
-  const effectivePerSheet = cellsPerRow.reduce((a, b) => a + b, 0);
 
   return {
     best,
@@ -302,10 +310,10 @@ export const computeLabelLayout = (input: LayoutInput): LayoutResult => {
     usableW,
     usableH,
     utilizationPct,
-    reservedSlots,
-    cellsPerRow,
-    rowOffsets,
-    effectivePerSheet,
+    reservedSlots: dist.reserved,
+    cellsPerRow: dist.cellsPerRow,
+    rowOffsets: dist.rowOffsets,
+    effectivePerSheet: dist.effective,
   };
 };
 
