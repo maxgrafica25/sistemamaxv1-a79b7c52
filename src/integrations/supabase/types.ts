@@ -940,6 +940,50 @@ export type Database = {
         }
         Relationships: []
       }
+      finishing_price_tiers: {
+        Row: {
+          created_at: string
+          finishing_id: string
+          id: string
+          label: string
+          max_qty: number | null
+          min_qty: number
+          price_per_sheet: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          finishing_id: string
+          id?: string
+          label: string
+          max_qty?: number | null
+          min_qty: number
+          price_per_sheet: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          finishing_id?: string
+          id?: string
+          label?: string
+          max_qty?: number | null
+          min_qty?: number
+          price_per_sheet?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finishing_price_tiers_finishing_id_fkey"
+            columns: ["finishing_id"]
+            isOneToOne: false
+            referencedRelation: "finishings_price_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finishings_price_items: {
         Row: {
           category: string
