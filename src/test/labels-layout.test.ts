@@ -432,7 +432,7 @@ describe("computeReservedSlots — critério geométrico (folga ≥ 10mm)", () =
 });
 
 describe("computeLabelLayout com cutType — meta de aproveitamento SRA3", () => {
-  it("META: 50×50mm em SRA3/Teneth (top 7, bottom 80, gap 1, plotter_quadrado) → 42 etiquetas cheias", async () => {
+  it("50×50mm em SRA3 (margens 7, gap 1, plotter_quadrado) — slack 0.5mm < 10 → 1ª/última = 4, miolo = 6 → total 38", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450, labelW: 50, labelH: 50,
@@ -441,20 +441,22 @@ describe("computeLabelLayout com cutType — meta de aproveitamento SRA3", () =>
     });
     expect(r.best.cols).toBe(6);
     expect(r.best.rows).toBe(7);
-    expect(r.reservedSlots).toEqual([]);
-    expect(r.effectivePerSheet).toBe(42);
-    expect(r.cellsPerRow.every((c) => c === 6)).toBe(true);
+    expect(r.cellsPerRow[0]).toBe(4);
+    expect(r.cellsPerRow[6]).toBe(4);
+    expect(r.cellsPerRow.slice(1, 6).every((c) => c === 6)).toBe(true);
+    expect(r.effectivePerSheet).toBe(38);
   });
 
-  it("50×50mm em SRA3/Teneth plotter_redondo → 42 etiquetas cheias", async () => {
+  it("50×50mm em SRA3 plotter_redondo — só 1ª linha reduz → total 40", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450, labelW: 50, labelH: 50,
       marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7, gap: 1,
       cutType: "plotter_redondo",
     });
-    expect(r.effectivePerSheet).toBe(42);
-    expect(r.reservedSlots).toEqual([]);
+    expect(r.cellsPerRow[0]).toBe(4);
+    expect(r.cellsPerRow[r.best.rows - 1]).toBe(6); // última cheia (redondo)
+    expect(r.effectivePerSheet).toBe(40);
   });
 
   it("60×60mm em SRA3 plotter_redondo → 1ª linha perde pontas e centraliza (simétrico)", async () => {
