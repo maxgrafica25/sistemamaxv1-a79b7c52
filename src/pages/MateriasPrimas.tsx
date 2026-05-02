@@ -702,15 +702,21 @@ export default function MateriasPrimas() {
                                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedPaper(paper); setShowPaperHistoryDialog(true); }} title="Histórico">
                                     <History className="h-4 w-4" />
                                   </Button>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openPaperDialog(paper)} title="Editar">
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicatePaper(paper)} title="Duplicar">
-                                    <Copy className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => requestDeletePaper(paper.id, paper.name)} title="Excluir">
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  <AdminOnly mode="disable" action="editar papel">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openPaperDialog(paper)} title="Editar">
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  </AdminOnly>
+                                  <AdminOnly mode="disable" action="duplicar papel">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicatePaper(paper)} title="Duplicar">
+                                      <Copy className="h-4 w-4" />
+                                    </Button>
+                                  </AdminOnly>
+                                  <AdminOnly mode="disable" action="excluir papel">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => requestDeletePaper(paper.id, paper.name)} title="Excluir">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AdminOnly>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -764,9 +770,15 @@ export default function MateriasPrimas() {
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedMaterial(material); setShowHistoryDialog(true); }} title="Histórico"><History className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(material)} title="Editar"><Edit className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicateMaterial(material)} title="Duplicar"><Copy className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => requestDeleteMaterial(material.id, material.produto)} title="Excluir"><Trash2 className="h-4 w-4" /></Button>
+                                <AdminOnly mode="disable" action="editar suprimento">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(material)} title="Editar"><Edit className="h-4 w-4" /></Button>
+                                </AdminOnly>
+                                <AdminOnly mode="disable" action="duplicar suprimento">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicateMaterial(material)} title="Duplicar"><Copy className="h-4 w-4" /></Button>
+                                </AdminOnly>
+                                <AdminOnly mode="disable" action="excluir suprimento">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => requestDeleteMaterial(material.id, material.produto)} title="Excluir"><Trash2 className="h-4 w-4" /></Button>
+                                </AdminOnly>
                               </div>
                             </TableCell>
                           </TableRow>
