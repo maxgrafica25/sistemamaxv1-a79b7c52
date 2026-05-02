@@ -4,6 +4,7 @@ import {
   computeSheetPricing,
   buildAnchoringLadder,
   findShrinkOpportunity,
+  findGrowOpportunity,
   CUT_LABELS,
   SHEET_PRESETS,
   SHAPE_LABELS,
