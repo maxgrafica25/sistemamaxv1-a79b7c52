@@ -32,6 +32,9 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { handleError } from "@/lib/handleError";
+import { usePermissionGuard } from "@/lib/permissions";
+import { AdminOnly } from "@/components/AdminOnly";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -93,6 +96,7 @@ const paperPriceSRA3 = (p: PaperRecord) => p.sheet_qty > 0 ? roundUp5((p.pack_pr
 
 // ─── Component ───────────────────────────────────────────────────────
 export default function PrecoImpressao() {
+  const { isAdmin, requireAdmin } = usePermissionGuard();
   const [categories, setCategories] = useState<PrinterCategory[]>([]);
   const [tiers, setTiers] = useState<MarkupTier[]>([]);
   const [items, setItems] = useState<PrintingPriceItem[]>([]);
@@ -319,12 +323,17 @@ export default function PrecoImpressao() {
   };
   const saveCategory = async () => {
     if (!catName.trim()) return toast.error("Nome obrigatório");
-    if (editingCategory) await supabase.from("printer_categories").update({ name: catName, description: catDesc || null }).eq("id", editingCategory.id);
-    else await supabase.from("printer_categories").insert({ name: catName, description: catDesc || null, sort_order: categories.length });
+    if (!requireAdmin(editingCategory ? "editar categoria" : "criar categoria")) return;
+    const { error } = editingCategory
+      ? await supabase.from("printer_categories").update({ name: catName, description: catDesc || null }).eq("id", editingCategory.id)
+      : await supabase.from("printer_categories").insert({ name: catName, description: catDesc || null, sort_order: categories.length });
+    if (error) return handleError(error, editingCategory ? "salvar categoria" : "criar categoria");
     setShowCategoryDialog(false); toast.success("Categoria salva!"); fetchAll();
   };
   const deleteCategory = async (id: string) => {
-    await supabase.from("printer_categories").delete().eq("id", id);
+    if (!requireAdmin("excluir categoria")) return;
+    const { error } = await supabase.from("printer_categories").delete().eq("id", id);
+    if (error) return handleError(error, "excluir categoria");
     if (activeCategory === id) setActiveCategory(""); toast.success("Categoria removida!"); fetchAll();
   };
   const requestDeleteCategory = (id: string, name: string) => {
@@ -356,6 +365,7 @@ export default function PrecoImpressao() {
   const saveTier = async () => {
     if (!tierLabel.trim()) return toast.error("Rótulo obrigatório");
     if (!activeGroupId) return toast.error("Nenhum grupo de markup vinculado a esta categoria");
+    if (!requireAdmin(editingTier ? "editar regra de preço" : "criar regra de preço")) return;
     const data = {
       printer_category_id: activeCategory, markup_group_id: activeGroupId, label: tierLabel,
       min_qty: Number(tierMinQty), max_qty: tierMaxQty ? Number(tierMaxQty) : null,
@@ -363,12 +373,17 @@ export default function PrecoImpressao() {
       variable_cost_pct: Number(tierVariablePct),
       margin_pct: Number(tierMarginPct), sort_order: editingTier ? editingTier.sort_order : activeTiers.length,
     };
-    if (editingTier) await supabase.from("markup_tiers").update(data).eq("id", editingTier.id);
-    else await supabase.from("markup_tiers").insert(data);
+    const { error } = editingTier
+      ? await supabase.from("markup_tiers").update(data).eq("id", editingTier.id)
+      : await supabase.from("markup_tiers").insert(data);
+    if (error) return handleError(error, editingTier ? "salvar regra" : "criar regra");
     setShowTierDialog(false); toast.success("Regra salva!"); fetchAll();
   };
   const deleteTier = async (id: string) => {
-    await supabase.from("markup_tiers").delete().eq("id", id); toast.success("Regra removida!"); fetchAll();
+    if (!requireAdmin("excluir regra de preço")) return;
+    const { error } = await supabase.from("markup_tiers").delete().eq("id", id);
+    if (error) return handleError(error, "excluir regra");
+    toast.success("Regra removida!"); fetchAll();
   };
   const requestDeleteTier = (id: string, label: string) => {
     setConfirmItemName(label);
@@ -382,24 +397,31 @@ export default function PrecoImpressao() {
 
   const createMarkupGroup = async () => {
     if (!groupName.trim()) return toast.error("Nome obrigatório");
-    const { data } = await supabase.from("markup_groups").insert({ name: groupName.trim() }).select("id").single();
+    if (!requireAdmin("criar grupo de regras")) return;
+    const { data, error } = await supabase.from("markup_groups").insert({ name: groupName.trim() }).select("id").single();
+    if (error) return handleError(error, "criar grupo de regras");
     if (data) {
       toast.success("Grupo criado!");
       // Auto-assign to current category if it doesn't have one
       if (activeCategoryObj && !activeCategoryObj.default_markup_group_id) {
-        await supabase.from("printer_categories").update({ default_markup_group_id: data.id }).eq("id", activeCategory);
+        const { error: assignError } = await supabase.from("printer_categories").update({ default_markup_group_id: data.id }).eq("id", activeCategory);
+        if (assignError) handleError(assignError, "vincular grupo à categoria");
       }
     }
     setShowGroupDialog(false); setGroupName(""); fetchAll();
   };
 
   const assignGroupToCategory = async (groupId: string) => {
-    await supabase.from("printer_categories").update({ default_markup_group_id: groupId }).eq("id", activeCategory);
+    if (!requireAdmin("vincular grupo à categoria")) return;
+    const { error } = await supabase.from("printer_categories").update({ default_markup_group_id: groupId }).eq("id", activeCategory);
+    if (error) return handleError(error, "vincular grupo");
     toast.success("Grupo vinculado!"); fetchAll();
   };
 
   const assignGroupToItem = async (itemId: string, groupId: string | null) => {
-    await supabase.from("printing_price_items").update({ markup_group_id: groupId }).eq("id", itemId);
+    if (!requireAdmin("alterar grupo do item")) return;
+    const { error } = await supabase.from("printing_price_items").update({ markup_group_id: groupId }).eq("id", itemId);
+    if (error) return handleError(error, "alterar grupo do item");
     toast.success(groupId ? "Grupo personalizado atribuído!" : "Usando grupo padrão da categoria"); fetchAll();
   };
 
@@ -458,7 +480,8 @@ export default function PrecoImpressao() {
 
   const saveItem = async () => {
     if (!itemPaperType.trim()) return toast.error("Tipo de papel obrigatório");
-    
+    if (!requireAdmin(editingItem ? "editar item de impressão" : "cadastrar item de impressão")) return;
+
     if (editingItem) {
       // Single update
       const effectivePrintingCost = itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb') : Number(itemPrintingCost);
@@ -470,7 +493,8 @@ export default function PrecoImpressao() {
         equipment_id: itemEquipmentId || null, equipment_mode: itemEquipmentMode,
         sort_order: editingItem.sort_order, markup_group_id: resolvedGroupId,
       };
-      await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
+      const { error } = await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
+      if (error) return handleError(error, "salvar item de impressão");
       setShowItemDialog(false); toast.success("Item salvo!"); fetchAll();
     } else {
       // Batch creation
@@ -492,7 +516,8 @@ export default function PrecoImpressao() {
           });
         }
       }
-      await supabase.from("printing_price_items").insert(records);
+      const { error } = await supabase.from("printing_price_items").insert(records);
+      if (error) return handleError(error, "cadastrar item de impressão");
       setShowItemDialog(false);
       toast.success(`${records.length} item(ns) criado(s)!`);
       fetchAll();
@@ -500,7 +525,10 @@ export default function PrecoImpressao() {
   };
 
   const deleteItem = async (id: string) => {
-    await supabase.from("printing_price_items").delete().eq("id", id); toast.success("Item removido!"); fetchAll();
+    if (!requireAdmin("excluir item de impressão")) return;
+    const { error } = await supabase.from("printing_price_items").delete().eq("id", id);
+    if (error) return handleError(error, "excluir item de impressão");
+    toast.success("Item removido!"); fetchAll();
   };
   const requestDeleteItem = (id: string, name: string) => {
     setConfirmItemName(name);
@@ -569,9 +597,11 @@ export default function PrecoImpressao() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button onClick={() => openCategoryDialog()} size="sm" className="gap-1.5">
-              <Plus className="h-4 w-4" /> Nova Categoria
-            </Button>
+            <AdminOnly mode="disable" action="criar categorias de impressão">
+              <Button onClick={() => openCategoryDialog()} size="sm" className="gap-1.5">
+                <Plus className="h-4 w-4" /> Nova Categoria
+              </Button>
+            </AdminOnly>
           </div>
         </div>
 
@@ -742,9 +772,11 @@ export default function PrecoImpressao() {
                               </TooltipContent>
                             </Tooltip>
                           </div>
-                          <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5 h-8 text-xs" disabled={!viewingGroupId}>
-                            <Plus className="h-3.5 w-3.5" /> Nova Regra
-                          </Button>
+                          <AdminOnly mode="disable" action="criar regras de preço">
+                            <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5 h-8 text-xs" disabled={!viewingGroupId}>
+                              <Plus className="h-3.5 w-3.5" /> Nova Regra
+                            </Button>
+                          </AdminOnly>
                         </div>
                         {activeTiers.length === 0 ? (
                           <div className="text-center py-6 space-y-2">
@@ -881,7 +913,9 @@ export default function PrecoImpressao() {
                         </PopoverContent>
                       </Popover>
 
-                      <Button onClick={() => openItemDialog()} size="sm" className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Novo Item</Button>
+                      <AdminOnly mode="disable" action="cadastrar itens de impressão">
+                        <Button onClick={() => openItemDialog()} size="sm" className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Novo Item</Button>
+                      </AdminOnly>
                     </div>
                   </CardHeader>
 
