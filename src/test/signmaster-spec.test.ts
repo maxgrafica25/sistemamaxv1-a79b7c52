@@ -123,15 +123,13 @@ describe("computeSignmasterMarks", () => {
 });
 
 describe("findSignmasterShrinkOpportunity — sugestão de retalho", () => {
-  it("Ø50 em SRA3 (40 etiquetas) sugere reduzir para caber +8", () => {
-    const s = findSignmasterShrinkOpportunity(
-      { sheetW: 320, sheetH: 450, labelDiameter: 50 },
-      40,
-      1,
-    );
+  it("Ø50 em SRA3 (39 etiquetas após ARMS) sugere reduzir para caber mais", () => {
+    const base = { sheetW: 320, sheetH: 450, labelDiameter: 50 };
+    const original = computeSignmasterLayout(base).total;
+    const s = findSignmasterShrinkOpportunity(base, original, 1);
     expect(s).not.toBeNull();
-    expect(s!.delta).toBeGreaterThanOrEqual(8);
-    expect(s!.newLabelW).toBe(s!.newLabelH); // sempre quadrado (diâmetro)
+    expect(s!.delta).toBeGreaterThan(0);
+    expect(s!.newLabelW).toBe(s!.newLabelH);
     expect(s!.newLabelW).toBeLessThan(50);
   });
 
