@@ -32,6 +32,9 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { handleError } from "@/lib/handleError";
+import { usePermissionGuard } from "@/lib/permissions";
+import { AdminOnly } from "@/components/AdminOnly";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 // ─── Types ───────────────────────────────────────────────────────────
