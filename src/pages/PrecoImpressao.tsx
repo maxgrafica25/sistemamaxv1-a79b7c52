@@ -96,6 +96,7 @@ const paperPriceSRA3 = (p: PaperRecord) => p.sheet_qty > 0 ? roundUp5((p.pack_pr
 
 // ─── Component ───────────────────────────────────────────────────────
 export default function PrecoImpressao() {
+  const { isAdmin, requireAdmin } = usePermissionGuard();
   const [categories, setCategories] = useState<PrinterCategory[]>([]);
   const [tiers, setTiers] = useState<MarkupTier[]>([]);
   const [items, setItems] = useState<PrintingPriceItem[]>([]);
