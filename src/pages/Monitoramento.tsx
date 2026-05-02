@@ -615,7 +615,7 @@ export default function Monitoramento() {
   const alertasNaoLidos = alertas.filter((a) => !a.lida).length;
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">

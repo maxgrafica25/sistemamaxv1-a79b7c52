@@ -72,7 +72,7 @@ export default function Usuarios() {
   // Restrição de acesso
   if (!isAdmin) {
     return (
-      <div className="p-6 md:p-8">
+      <div className="p-3 sm:p-4 md:p-6 lg:p-8">
         <Card className="p-8 md:p-12 text-center max-w-md mx-auto">
           <ShieldOff className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
           <h2 className="text-lg font-semibold mb-1">Acesso restrito</h2>

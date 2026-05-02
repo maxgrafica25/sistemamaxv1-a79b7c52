@@ -119,7 +119,7 @@ export default function Pedidos() {
   };
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-3 sm:p-4 md:p-6 lg:p-8">
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
