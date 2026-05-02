@@ -413,6 +413,52 @@ export function LabelLayoutCalculator({
     }
   };
 
+  // ---- Aviso de "quase cabe +1 coluna" ------------------------------------
+  // Quando sobra muito espaço lateral mas não o suficiente pra encaixar uma
+  // coluna inteira, ajuda o usuário a entender por que reduzir o gap (ou a
+  // etiqueta em poucos mm) destrava uma coluna nova.
+  const nearMissColumn = useMemo(() => {
+    const cols = layout.best.cols;
+    if (cols <= 0 || perSheet <= 0) return null;
+    const lblW = layout.best.rotated ? labelH : labelW;
+    if (lblW <= 0) return null;
+    // Em modo paramétrico, usableW vem do SignMaster (margens 7/7).
+    const usableW = isParametric
+      ? config.sheetW - 2 * SM_REG_MARK_MARGIN
+      : layout.usableW;
+    const usedW = cols * lblW + Math.max(0, cols - 1) * effectiveGap;
+    const slack = usableW - usedW; // sobra lateral total (mm)
+    const stepW = lblW + effectiveGap; // espaço necessário pra +1 coluna
+    if (stepW <= 0) return null;
+    const missingMm = stepW - slack; // quanto falta pra caber +1
+    // Só mostra se REALMENTE falta pouco (<= 30% do passo) e o gap atual > 0
+    // (se gap=0, não tem o que reduzir sem encolher a etiqueta).
+    if (missingMm <= 0 || missingMm > stepW * 0.3) return null;
+    if (effectiveGap <= 0) return null;
+    // Quanto reduzir do gap pra liberar a coluna extra:
+    //   novo passo: lblW + gap'  ; precisa que (cols+1)*lblW + cols*gap' <= usableW
+    //   gap' <= (usableW - (cols+1)*lblW) / cols
+    const newGap = Math.max(0, (usableW - (cols + 1) * lblW) / cols);
+    if (newGap >= effectiveGap) return null;
+    const extraRows = layout.best.rows;
+    return {
+      slackMm: Math.round(slack * 10) / 10,
+      missingMm: Math.round(missingMm * 10) / 10,
+      currentGap: effectiveGap,
+      suggestedGap: Math.floor(newGap * 10) / 10, // arredonda PARA BAIXO
+      extraPerSheet: extraRows, // +1 coluna × n linhas
+    };
+  }, [layout.best.cols, layout.best.rows, layout.best.rotated, layout.usableW, labelW, labelH, effectiveGap, perSheet, isParametric, config.sheetW]);
+
+  const applyNearMissGap = () => {
+    if (!nearMissColumn) return;
+    const next = saveConfig({ gap: nearMissColumn.suggestedGap });
+    setConfig(next);
+    toast.success(
+      `Gap reduzido para ${nearMissColumn.suggestedGap}mm — uma coluna a mais por folha`,
+    );
+  };
+
   // ---- Aviso de proporção divergente --------------------------------------
   const showAspectWarning = useMemo(() => {
     if (!imageDims) return false;
