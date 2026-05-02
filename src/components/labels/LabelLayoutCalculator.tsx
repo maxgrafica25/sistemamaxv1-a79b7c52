@@ -1152,7 +1152,14 @@ export function LabelLayoutCalculator({
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-[11px] text-muted-foreground">Acabamento (Recorte / outros)</Label>
+              <div className="flex items-center gap-1.5">
+                <Label className="text-[11px] text-muted-foreground">Acabamento (Recorte / outros)</Label>
+                {folhaPricing.finishingIsAuto && folhaPricing.selectedFinishing.id && (
+                  <Badge variant="secondary" className="h-4 px-1.5 text-[9px] uppercase tracking-wide">
+                    auto
+                  </Badge>
+                )}
+              </div>
               <Select
                 value={folhaPricing.selectedFinishing.id ?? "__none__"}
                 onValueChange={(v) => folhaPricing.setFinishingId(v as string)}
