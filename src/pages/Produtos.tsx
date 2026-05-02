@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Search, Loader2, Package } from "lucide-react";
 import { toast } from "sonner";
 import type { ProdutoCatalogo } from "@/lib/produtoCatalogo";
+import { handleError } from "@/lib/handleError";
+import { usePermissionGuard } from "@/lib/permissions";
+import { AdminOnly } from "@/components/AdminOnly";
 
 type ProdutoComContagem = ProdutoCatalogo & { _count: number };
 
@@ -20,6 +23,7 @@ export default function Produtos() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ nome_canonico: "", categoria: "", dimensoes: "", gramatura: "", observacoes: "" });
   const [busy, setBusy] = useState(false);
+  const { requireAdmin } = usePermissionGuard();
 
   const fetchProdutos = async () => {
     setLoading(true);
@@ -56,42 +60,40 @@ export default function Produtos() {
   };
 
   const handleSave = async () => {
+    if (!requireAdmin(editing ? "editar referência" : "criar referência")) return;
     const nome = form.nome_canonico.trim();
     if (!nome) return toast.error("Nome é obrigatório");
     setBusy(true);
-    try {
-      const payload = {
-        nome_canonico: nome,
-        categoria: form.categoria.trim().toLowerCase() || null,
-        dimensoes: form.dimensoes.trim() || null,
-        gramatura: form.gramatura.trim() || null,
-        observacoes: form.observacoes.trim() || null,
-      };
-      if (editing) {
-        const { error } = await supabase.from("produtos_catalogo").update(payload).eq("id", editing.id);
-        if (error) throw error;
-        toast.success("Referência atualizada!");
-      } else {
-        const { error } = await supabase.from("produtos_catalogo").insert(payload);
-        if (error) throw error;
-        toast.success("Referência cadastrada com sucesso!");
-      }
-      setDialogOpen(false);
-      await fetchProdutos();
-    } catch (e: any) {
-      toast.error("Erro: " + e.message);
-    } finally {
+    const payload = {
+      nome_canonico: nome,
+      categoria: form.categoria.trim().toLowerCase() || null,
+      dimensoes: form.dimensoes.trim() || null,
+      gramatura: form.gramatura.trim() || null,
+      observacoes: form.observacoes.trim() || null,
+    };
+    if (editing) {
+      const { error } = await supabase.from("produtos_catalogo").update(payload).eq("id", editing.id);
       setBusy(false);
+      if (error) return handleError(error, "atualizar referência");
+      toast.success("Referência atualizada!");
+    } else {
+      const { error } = await supabase.from("produtos_catalogo").insert(payload);
+      setBusy(false);
+      if (error) return handleError(error, "cadastrar referência");
+      toast.success("Referência cadastrada com sucesso!");
     }
+    setDialogOpen(false);
+    await fetchProdutos();
   };
 
   const handleDelete = async (p: ProdutoComContagem) => {
+    if (!requireAdmin("excluir referência")) return;
     if (p._count > 0) {
       return toast.error(`Esta referência tem ${p._count} site(s) vinculado(s). Desvincule ou unifique antes de excluir.`);
     }
     if (!confirm(`Excluir "${p.nome_canonico}"?`)) return;
     const { error } = await supabase.from("produtos_catalogo").delete().eq("id", p.id);
-    if (error) return toast.error("Erro: " + error.message);
+    if (error) return handleError(error, "excluir referência");
     toast.success("Excluído");
     await fetchProdutos();
   };
@@ -109,7 +111,9 @@ export default function Produtos() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><Package className="h-6 w-6" />Produtos de Referência</h1>
           <p className="text-sm text-muted-foreground">Cadastre os nomes padrão para unificar a comparação de preços entre diferentes fornecedores.</p>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4" />Nova Referência</Button>
+        <AdminOnly mode="disable" action="criar referência">
+          <Button onClick={openNew}><Plus className="h-4 w-4" />Nova Referência</Button>
+        </AdminOnly>
       </div>
 
       <div className="relative max-w-md">
