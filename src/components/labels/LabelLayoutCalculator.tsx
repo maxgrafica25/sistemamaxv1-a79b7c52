@@ -1325,7 +1325,7 @@ function SheetPreview({
   const paramMarks = paramLayout
     ? computeSignmasterMarks({ sheetW, sheetH, gridBottom: paramLayout.gridBottom })
     : null;
-  const marks = buildCornerMarks(sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight, marksOffsetY, MARK_ARM_MM);
+  const marks = buildCornerMarks(sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight, 0, MARK_ARM_MM, marksOffsetY);
   const totalSellable = paramLayout ? paramLayout.total : cellsPerRow.reduce((a, b) => a + b, 0);
 
   return (
