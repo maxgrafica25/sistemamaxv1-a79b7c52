@@ -17,12 +17,10 @@ import CommandPalette from "@/components/CommandPalette";
 import { CommandPaletteProvider } from "@/hooks/useCommandPalette";
 
 import Cadastros from "./pages/Cadastros";
-import NewQuote from "./pages/NewQuote";
 import MateriasPrimas from "./pages/MateriasPrimas";
 import ProcessosProducao from "./pages/ProcessosProducao";
 import Configuracoes from "./pages/Configuracoes";
 import DespesasFixas from "./pages/DespesasFixas";
-import Orcamentos from "./pages/Orcamentos";
 import PrecoImpressao from "./pages/PrecoImpressao";
 import Equipamentos from "./pages/Equipamentos";
 import Auditoria from "./pages/Auditoria";
