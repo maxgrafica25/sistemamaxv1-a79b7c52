@@ -101,7 +101,7 @@ export function FinishingTiersDrawer({
     setTiers([
       ...tiers,
       {
-        label: autoLabel(min, null),
+        label: autoLabel(tiers.length),
         min_qty: min,
         max_qty: null,
         price_per_sheet: basePrice,
@@ -112,16 +112,28 @@ export function FinishingTiersDrawer({
   };
 
   const updateTier = (idx: number, patch: Partial<Tier>) => {
-    const next = tiers.map((t, i) => {
-      if (i !== idx) return t;
-      const merged = { ...t, ...patch };
-      // Auto-atualiza label se min/max mudou e label parecia padrão
-      if ((patch.min_qty != null || patch.max_qty !== undefined) && /^\d+(-\d+|\+)$/.test(t.label)) {
-        merged.label = autoLabel(merged.min_qty, merged.max_qty);
+    setTiers((prev) => {
+      const next = prev.map((t, i) => {
+        if (i !== idx) return t;
+        const merged = { ...t, ...patch };
+        // Auto-atualiza label se min/max mudou e label parecia padrão
+        if ((patch.min_qty != null || patch.max_qty !== undefined) && isAutoLabel(t.label)) {
+          merged.label = autoLabel(idx);
+        }
+        return merged;
+      });
+      // Encadeamento: se o usuário editou o max_qty desta faixa e a próxima
+      // estava colada (min === oldMax+1), atualiza o min da próxima.
+      if (patch.max_qty !== undefined && idx < next.length - 1) {
+        const oldMax = prev[idx].max_qty;
+        const newMax = next[idx].max_qty;
+        const wasChained = oldMax != null && next[idx + 1].min_qty === oldMax + 1;
+        if (newMax != null && wasChained) {
+          next[idx + 1] = { ...next[idx + 1], min_qty: newMax + 1 };
+        }
       }
-      return merged;
+      return next;
     });
-    setTiers(next);
   };
 
   const removeTier = (idx: number) => {
