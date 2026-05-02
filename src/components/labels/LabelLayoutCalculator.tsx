@@ -335,6 +335,11 @@ export function LabelLayoutCalculator({
   );
 
   // ---- Cálculos ------------------------------------------------------------
+  const effectiveGap =
+    config.hardwareProfileId === "signmaster_param" && shape !== "redondo"
+      ? RECTANGULAR_SIGNMASTER_GAP_MM
+      : config.gap;
+
   const layoutInput: LayoutInput = {
     sheetW: config.sheetW,
     sheetH: config.sheetH,
@@ -344,7 +349,7 @@ export function LabelLayoutCalculator({
     marginBottom: config.marginBottom,
     marginLeft: config.marginLeft,
     marginRight: config.marginRight,
-    gap: config.gap,
+    gap: effectiveGap,
     shape,
     cutType: config.cutType,
   };
@@ -448,8 +453,8 @@ export function LabelLayoutCalculator({
 
   // ---- Sugestão de offset das marcas + geração de PDF --------------------
   const suggestedOffset = useMemo(
-    () => suggestMarksOffset(config.marginTop, layout.best.rotated ? labelW : labelH, config.gap, layout.best.rows),
-    [config.marginTop, config.gap, layout.best.rows, layout.best.rotated, labelW, labelH],
+    () => suggestMarksOffset(config.marginTop, layout.best.rotated ? labelW : labelH, effectiveGap, layout.best.rows),
+    [config.marginTop, effectiveGap, layout.best.rows, layout.best.rotated, labelW, labelH],
   );
 
   const applySuggestedOffset = () => {
