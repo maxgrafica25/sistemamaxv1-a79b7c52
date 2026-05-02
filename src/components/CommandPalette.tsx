@@ -21,7 +21,7 @@ interface Equipment { id: string; name: string }
 
 const NAV_ITEMS = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
-  { label: "Orçamentos", path: "/orcamentos", icon: ClipboardList },
+  { label: "Orçamentos", path: "/orcamentos-v2", icon: ClipboardList },
   { label: "Clientes/Fornecedores", path: "/cadastros", icon: Users },
   { label: "Matérias-Primas", path: "/materias-primas", icon: Package },
   { label: "Equipamentos", path: "/equipamentos", icon: Cpu },
@@ -157,7 +157,7 @@ export default function CommandPalette() {
               )}
 
               <CommandGroup heading="Ações Rápidas">
-                <CommandItem value="acao-novo-orcamento" onSelect={() => goTo("/orcamentos/novo")}>
+                <CommandItem value="acao-novo-orcamento" onSelect={() => goTo("/orcamentos-v2/novo")}>
                   <FilePlus2 /> Novo Orçamento
                 </CommandItem>
                 <CommandItem value="acao-nova-manutencao" onSelect={() => goTo("/equipamentos?tab=maintenance&action=new")}>

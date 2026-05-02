@@ -17,12 +17,10 @@ import CommandPalette from "@/components/CommandPalette";
 import { CommandPaletteProvider } from "@/hooks/useCommandPalette";
 
 import Cadastros from "./pages/Cadastros";
-import NewQuote from "./pages/NewQuote";
 import MateriasPrimas from "./pages/MateriasPrimas";
 import ProcessosProducao from "./pages/ProcessosProducao";
 import Configuracoes from "./pages/Configuracoes";
 import DespesasFixas from "./pages/DespesasFixas";
-import Orcamentos from "./pages/Orcamentos";
 import PrecoImpressao from "./pages/PrecoImpressao";
 import Equipamentos from "./pages/Equipamentos";
 import Auditoria from "./pages/Auditoria";
@@ -62,8 +60,8 @@ const App = () => (
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/pedidos" element={<Pedidos />} />
                   <Route path="/financeiro/receber" element={<ContasReceber />} />
-                  <Route path="/orcamentos" element={<Orcamentos />} />
-                  <Route path="/orcamentos/novo" element={<NewQuote />} />
+                  <Route path="/orcamentos" element={<Navigate to="/orcamentos-v2" replace />} />
+                  <Route path="/orcamentos/novo" element={<Navigate to="/orcamentos-v2/novo" replace />} />
                   <Route path="/orcamentos-v2" element={<OrcamentosV2 />} />
                   <Route path="/orcamentos-v2/novo" element={<NewQuoteV2 />} />
                   <Route path="/orcamentos-v2/:id" element={<EditQuoteV2 />} />
