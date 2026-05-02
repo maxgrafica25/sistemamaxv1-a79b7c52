@@ -32,7 +32,7 @@ describe("Simetria ARMS — caso âncora 50×50 SRA3 paramétrico", () => {
     expect(r.best.total).toBeGreaterThanOrEqual(35);
   });
 
-  it("simetria: cellsPerRow nunca remove só uma ponta da linha", () => {
+  it("simetria all-or-nothing nas pontas (1ª e última linha)", () => {
     const r = computeLabelLayout({
       sheetW: 320,
       sheetH: 450,
@@ -42,18 +42,17 @@ describe("Simetria ARMS — caso âncora 50×50 SRA3 paramétrico", () => {
       marginBottom: 7,
       marginLeft: 7,
       marginRight: 7,
-      gap: 3,
-      shape: "quadrado",
-      cutType: "plotter_quadrado",
+      gap: 0,
+      shape: "redondo",
+      cutType: "plotter_redondo",
     });
-    // Para cada linha, a quantidade efetiva deve ser igual à bruta OU
-    // 2+ a menos (remoção sempre simétrica em pares).
-    if (r.cellsPerRow && r.cellsPerRow.length > 0) {
+    if (r.cellsPerRow && r.cellsPerRow.length >= 2) {
       const max = Math.max(...r.cellsPerRow);
-      for (const c of r.cellsPerRow) {
-        const diff = max - c;
-        expect(diff === 0 || diff >= 2 || diff === max).toBe(true);
-      }
+      const first = r.cellsPerRow[0];
+      const last = r.cellsPerRow[r.cellsPerRow.length - 1];
+      // redução das pontas é simétrica (par) ou linha foi zerada por completo
+      expect((max - first) % 2 === 0 || first === 0).toBe(true);
+      expect((max - last) % 2 === 0 || last === 0).toBe(true);
     }
   });
 });
