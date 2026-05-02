@@ -199,23 +199,19 @@ describe("CUT_DEFAULTS", () => {
   });
 });
 
-describe("Regra dos 40 — 50×50 em SRA3 com Teneth (com zona de segurança)", () => {
-  it("com gap 1mm e área útil 306×363, grade 6×7=42, perde 2 pontas da 1ª linha → 40", () => {
-    // Margens conforme hardware Teneth A3: top 7, bottom 80, left/right 7
+describe("Regra dos 42 — 50×50 em SRA3 (margens 7, gap 1)", () => {
+  it("etiqueta pequena (≤55mm) e margens ≥5mm → grade 6×7 = 42 cheia, sem zona de segurança", () => {
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450,
-      marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
       gap: 1, labelW: 50, labelH: 50,
       cutType: "plotter_quadrado",
     });
-    // cols=floor((306+1)/51)=6, rows=floor((363+1)/51)=7 → 42 brutos
     expect(r.best.cols).toBe(6);
     expect(r.best.rows).toBe(7);
-    // Pontas da 1ª linha tocam o vértice do L → reservadas pela zona 10mm.
-    // Última linha está a >40mm do tick → mantida cheia.
-    expect(r.cellsPerRow[0]).toBe(4);
-    expect(r.cellsPerRow[6]).toBe(6);
-    expect(r.effectivePerSheet).toBe(40);
+    expect(r.reservedSlots).toEqual([]);
+    expect(r.cellsPerRow.every((c) => c === 6)).toBe(true);
+    expect(r.effectivePerSheet).toBe(42);
   });
 });
 
