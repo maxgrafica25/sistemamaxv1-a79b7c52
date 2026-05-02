@@ -1,35 +1,65 @@
-Vou corrigir o layout para que cada linha recuada seja tratada como um container independente, sem depender das colunas originais para desenhar as etiquetas.
+## Diagnóstico
 
-Plano de implementação:
+Investigando `src/lib/labels/marks.ts` e o cálculo atual em `src/lib/labels/layout.ts`, encontrei a causa raiz do "conservadorismo excessivo":
 
-1. Ajustar `computeLabelLayout` em `src/lib/labels/layout.ts`
-   - Manter a regra all-or-nothing: se uma ponta da linha invade a zona de 10mm, as duas pontas da mesma linha são removidas.
-   - Garantir que `cellsPerRow[row]` represente exatamente a quantidade real de etiquetas vendáveis naquela linha.
-   - Recalcular `rowOffsets[row]` sempre pela fórmula informada:
+**Geometria real das marcas (já implementada):**
+- Marcas superiores em "L": vértice **exatamente no canto da área útil** (`marginLeft, marginTop`), com os braços de 5mm apontando para **fora** (TL: −x/−y, TR: +x/−y). Ou seja, **o L não invade a área útil em nenhum momento**.
+- Ticks inferiores: traço horizontal de 10mm centrado no canto inferior, dentro da margem inferior.
+
+**O bug:** `rectDistance` mede até o bounding box do L (5×5mm fora da área útil). Como a primeira etiqueta começa exatamente em `(marginLeft, marginTop)`, ela **toca** o vértice do bbox → distância = 0 < 10mm → o algoritmo sacrifica as pontas mesmo quando não há risco físico real.
+
+Para 50×50mm em SRA3 com margens 7/7/7/7 e gap 1, cabem perfeitamente **6×7 = 42** etiquetas, mas o algoritmo atual remove 2 da primeira linha (e potencialmente da última), resultando em ≤40.
+
+## Correção proposta
+
+Substituir a heurística `rectDistance < 10mm` por **critério físico determinístico** baseado nas regras do usuário:
+
+### 1. `src/lib/labels/layout.ts` — `computeReservedSlots`
+
+Trocar a verificação por distância retangular pela seguinte lógica:
 
 ```text
-RowStartX = MargemEsquerda + (LarguraUtil - (QtdEtiquetasLinha * LarguraEtiqueta + (QtdEtiquetasLinha - 1) * Gap)) / 2
+Linha 1 (vs. L superior) está em risco SE:
+  labelW > 55mm  (arte grande chega perto do vértice)
+  OU marginLeft  < 5mm  (braço do L cruza a etiqueta)
+  OU marginRight < 5mm
+  OU marginTop   < 5mm
+
+Última linha (vs. tick inferior) está em risco SE:
+  labelW > 55mm
+  OU marginLeft   < 5mm
+  OU marginRight  < 5mm
+  OU marginBottom < 5mm  (tick toca a etiqueta)
 ```
 
-   - Aplicar isso para cada linha individualmente, inclusive linhas sem remoção, para evitar divergências entre linhas cheias e linhas recuadas.
+Mantém-se:
+- **All-or-nothing**: se em risco, remove as duas pontas (col 0 e col N−1) e a linha é centralizada.
+- **Plotter redondo**: avalia **apenas a 1ª linha**; última fica sempre cheia.
+- **Plotter quadrado/personalizado**: avalia 1ª e última linha.
+- **Corte reto**: nada é reservado.
 
-2. Corrigir a geração das posições no PDF em `src/lib/labels/production-pdf.ts`
-   - Hoje o PDF ainda itera pelas colunas originais e pula slots reservados. Isso pode deixar a linha visualmente deslocada.
-   - Vou alterar para gerar somente `cellsPerRow[row]` etiquetas por linha, iniciando em `rowOffsets[row]`.
-   - Assim, o PDF seguirá exatamente a mesma lógica visual do preview.
+Constantes exportadas para reuso/teste:
+```ts
+export const SAFE_LABEL_MAX_W_MM = 55;
+export const SAFE_SIDE_MARGIN_MM = 5;
+```
 
-3. Confirmar o preview SVG em `src/components/labels/LabelLayoutCalculator.tsx`
-   - O preview já desenha apenas `cellsPerRow[row]` a partir de `rowOffsets[row]`; vou garantir que ele continue sem hachura/texto nos slots removidos e sem usar `reservedSlots` para posicionar etiquetas.
-   - O resultado esperado para o exemplo 6,1 × 5,1 cm em SRA3 será: a linha afetada mostra 3 etiquetas centralizadas, não 4 deslocadas.
+A função `rectDistance` deixa de ser usada para esse fim (pode ser removida se não houver outros consumidores — vou checar).
 
-4. Atualizar testes em `src/test/labels-layout.test.ts`
-   - Adicionar/ajustar testes para validar:
-     - nunca existe remoção unilateral em uma linha;
-     - linhas recuadas usam exatamente o `RowStartX` da fórmula;
-     - exemplo 61×51mm SRA3 com corte de plotter produz 3 etiquetas centralizadas na linha afetada;
-     - o PDF/listagem de posições usa `cellsPerRow + rowOffsets`, e não os slots/colunas originais.
+### 2. `src/test/labels-layout.test.ts` — novos testes
 
-Resultado esperado:
-- Preview e PDF ficam sincronizados.
-- Linhas recuadas aparecem centralizadas em relação às linhas do meio.
-- Não haverá mais linha com só um lado removido nem linha recuada desenhada como colunas antigas deslocadas.
+- **Meta SRA3:** `50×50mm + margens 7/7/7/7 + gap 1 + plotter_quadrado` → `effectivePerSheet = 42`, `reservedSlots = []`, todas as linhas cheias.
+- **Mesmo caso com plotter_redondo** → também 42, todas cheias.
+- **Etiqueta grande (60×60mm)** em SRA3 → 1ª linha (e última, se quadrado) perdem as pontas, simétrico.
+- **Margem lateral apertada (3mm)** com etiqueta pequena → ainda assim aciona remoção (braço do L invade).
+- Atualizar/remover o teste antigo que esperava `cellsPerRow[0] = 4` para 50×50 SRA3 (margens 7/80/7/7) — esse teste codificava o bug; a nova expectativa é linha cheia.
+
+### 3. Sincronização com PDF e preview SVG
+
+Já estão alinhados (correção da iteração anterior usa `cellsPerRow[r]` + `rowOffsets[r]`). Sem mudanças adicionais aqui.
+
+## Resultado esperado
+
+- 50×50mm em SRA3 → **42 etiquetas, grade 6×7 cheia**, badge "zona de segurança" não aparece.
+- 60×60mm em SRA3 → 1ª e última linha com pontas removidas, simétricas e centralizadas.
+- Comportamento determinístico, alinhado à física real do "L para fora".
