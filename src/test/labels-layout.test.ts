@@ -438,11 +438,11 @@ describe("computeReservedSlots — critério físico (largura > 55mm OU margem <
 });
 
 describe("computeLabelLayout com cutType — meta de aproveitamento SRA3", () => {
-  it("META: 50×50mm em SRA3 (margens 7, gap 1, plotter_quadrado) → 42 etiquetas (6×7) cheias", async () => {
+  it("META: 50×50mm em SRA3/Teneth (top 7, bottom 80, gap 1, plotter_quadrado) → 42 etiquetas cheias", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450, labelW: 50, labelH: 50,
-      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7, gap: 1,
+      marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7, gap: 1,
       cutType: "plotter_quadrado",
     });
     expect(r.best.cols).toBe(6);
@@ -452,11 +452,11 @@ describe("computeLabelLayout com cutType — meta de aproveitamento SRA3", () =>
     expect(r.cellsPerRow.every((c) => c === 6)).toBe(true);
   });
 
-  it("50×50mm em SRA3 plotter_redondo (margens 7, gap 1) → 42 etiquetas cheias", async () => {
+  it("50×50mm em SRA3/Teneth plotter_redondo → 42 etiquetas cheias", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450, labelW: 50, labelH: 50,
-      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7, gap: 1,
+      marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7, gap: 1,
       cutType: "plotter_redondo",
     });
     expect(r.effectivePerSheet).toBe(42);
