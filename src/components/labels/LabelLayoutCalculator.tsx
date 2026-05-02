@@ -1107,8 +1107,6 @@ export function LabelLayoutCalculator({
           </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
-
         {/* Pricing principal — SEMPRE VISÍVEL */}
         <Card className="p-4 space-y-3 border-primary/40 bg-primary/5">
           <div className="flex items-center justify-between">
