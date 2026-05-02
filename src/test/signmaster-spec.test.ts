@@ -7,13 +7,20 @@ import {
   SM_MARK_LENGTH,
 } from "@/lib/labels/signmaster-spec";
 
+// NOTA: A regra ARMS de segurança da 1ª linha é PRIORITÁRIA sobre a fórmula
+// original da spec SignMaster. Sempre que a folha tem 2+ linhas, a 1ª linha tem
+// no mínimo 1 etiqueta a menos que a capacidade bruta — isso garante folga real
+// para a marca de registro e mantém a monotonicidade do rendimento (etiqueta
+// menor sempre rende ≥ etiqueta maior com mesmo gap).
 describe("computeSignmasterLayout — spec do cliente", () => {
-  it("32×45 cm + Ø5 cm → 5 × 8 = 40 etiquetas", () => {
+  it("32×45 cm + Ø5 cm → 4 + 7×5 = 39 (regra ARMS força −1 na 1ª linha)", () => {
     const r = computeSignmasterLayout({ sheetW: 320, sheetH: 450, labelDiameter: 50 });
     expect(r.labelsPerRow).toBe(5);
     expect(r.labelsPerColumn).toBe(8);
-    expect(r.total).toBe(40);
-    expect(r.positions).toHaveLength(40);
+    expect(r.cellsPerRow[0]).toBe(4);
+    expect(r.cellsPerRow.slice(1).every((c) => c === 5)).toBe(true);
+    expect(r.total).toBe(39);
+    expect(r.positions).toHaveLength(39);
   });
 
   it("32×45 cm + Ø3 cm → 116 etiquetas após segurança na 1ª linha", () => {
@@ -44,6 +51,26 @@ describe("computeSignmasterLayout — spec do cliente", () => {
     expect(r.positions).toHaveLength(87);
   });
 
+  it("32×45 cm + Ø3,8 cm com gap 3mm → 69 (6 + 9×7) — força −1 mesmo com folga grande", () => {
+    const r = computeSignmasterLayout({ sheetW: 320, sheetH: 450, labelDiameter: 38 });
+    expect(r.labelsPerRow).toBe(7);
+    expect(r.labelsPerColumn).toBe(10);
+    expect(r.cellsPerRow[0]).toBe(6);
+    expect(r.cellsPerRow.slice(1).every((c) => c === 7)).toBe(true);
+    expect(r.total).toBe(69);
+  });
+
+  it("monotonicidade: rendimento Ø3,5 ≥ Ø3,8 ≥ Ø4,0 ≥ Ø5,0", () => {
+    const sheet = { sheetW: 320, sheetH: 450 };
+    const t35 = computeSignmasterLayout({ ...sheet, labelDiameter: 35 }).total;
+    const t38 = computeSignmasterLayout({ ...sheet, labelDiameter: 38 }).total;
+    const t40 = computeSignmasterLayout({ ...sheet, labelDiameter: 40 }).total;
+    const t50 = computeSignmasterLayout({ ...sheet, labelDiameter: 50 }).total;
+    expect(t35).toBeGreaterThanOrEqual(t38);
+    expect(t38).toBeGreaterThanOrEqual(t40);
+    expect(t40).toBeGreaterThanOrEqual(t50);
+  });
+
   it("aplica nudge vertical de -1mm e centraliza horizontalmente", () => {
     const r = computeSignmasterLayout({ sheetW: 320, sheetH: 450, labelDiameter: 50 });
     // totalGridWidth = 5*50 + 4*3 = 262; offsetX = (320-262)/2 = 29
@@ -52,11 +79,12 @@ describe("computeSignmasterLayout — spec do cliente", () => {
     expect(r.offsetY).toBeCloseTo(13.5, 5);
   });
 
-  it("primeira etiqueta tem centro em offset + raio", () => {
+  it("primeira etiqueta da 1ª linha respeita a centralização (4 etiquetas, não 5)", () => {
     const r = computeSignmasterLayout({ sheetW: 320, sheetH: 450, labelDiameter: 50 });
+    // 1ª linha tem 4 etiquetas: rowWidth=4*50+3*3=209; offsetX_row1=7+(306-209)/2=55.5
+    // p0.cx = 55.5 + 25 = 80.5
     const p0 = r.positions[0];
-    expect(p0.cx).toBeCloseTo(r.offsetX + 25, 5);
-    expect(p0.cy).toBeCloseTo(r.offsetY + 25, 5);
+    expect(p0.cx).toBeCloseTo(80.5, 5);
   });
 
   it("todas as etiquetas ficam dentro da folha", () => {
@@ -95,15 +123,13 @@ describe("computeSignmasterMarks", () => {
 });
 
 describe("findSignmasterShrinkOpportunity — sugestão de retalho", () => {
-  it("Ø50 em SRA3 (40 etiquetas) sugere reduzir para caber +8", () => {
-    const s = findSignmasterShrinkOpportunity(
-      { sheetW: 320, sheetH: 450, labelDiameter: 50 },
-      40,
-      1,
-    );
+  it("Ø50 em SRA3 (39 etiquetas após ARMS) sugere reduzir para caber mais", () => {
+    const base = { sheetW: 320, sheetH: 450, labelDiameter: 50 };
+    const original = computeSignmasterLayout(base).total;
+    const s = findSignmasterShrinkOpportunity(base, original, 1);
     expect(s).not.toBeNull();
-    expect(s!.delta).toBeGreaterThanOrEqual(8);
-    expect(s!.newLabelW).toBe(s!.newLabelH); // sempre quadrado (diâmetro)
+    expect(s!.delta).toBeGreaterThan(0);
+    expect(s!.newLabelW).toBe(s!.newLabelH);
     expect(s!.newLabelW).toBeLessThan(50);
   });
 

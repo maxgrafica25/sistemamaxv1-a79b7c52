@@ -232,10 +232,10 @@ describe("Regra geométrica — folga lateral mínima de 10mm vs marca ARMS", ()
     expect(r.effectivePerSheet).toBe(38);
   });
 
-  it("escolha de orientação leva em conta as reservas: prefere 5×7 efetivo (35) a 4×8 efetivo (32)", () => {
+  it("escolha de orientação leva em conta as reservas (regra ARMS forçada): prefere 5×7→33 a 4×8→30", () => {
     // gap=1, labelW=61, labelH=51, SRA3 7/7
-    // optionA (61H×51V): 4×8 = 32 efetivos (slack das pontas com 4 cols ≥ 10mm)
-    // optionB (51H×61V): 5×7 = 35 efetivos
+    // optionA (61H×51V): cols=4 rows=8 → topo=3, base=3, miolo=6×4=24 → 30 efetivos
+    // optionB (51H×61V): cols=5 rows=7 → topo=4, base=4, miolo=5×5=25 → 33 efetivos
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450,
       marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
@@ -243,7 +243,7 @@ describe("Regra geométrica — folga lateral mínima de 10mm vs marca ARMS", ()
       cutType: "plotter_quadrado",
     });
     expect(r.best.rotated).toBe(true);
-    expect(r.effectivePerSheet).toBe(35);
+    expect(r.effectivePerSheet).toBe(33);
   });
 });
 
@@ -371,14 +371,16 @@ describe("computeReservedSlots — critério geométrico (folga ≥ 10mm)", () =
     expect(r).toEqual([{ col: 0, row: 0 }]);
   });
 
-  it("40×40mm gap 0 — 7 cols ocupam 280mm, slack=13mm ≥10 → linha cheia", () => {
+  it("40×40mm gap 0 plotter_redondo — slack=13mm ≥10, mas regra ARMS força −1 na 1ª linha", () => {
     const r = computeReservedSlots({
       cutType: "plotter_redondo",
       cols: 7, rows: 5,
       labelW: 40, labelH: 40,
       ...baseGeom,
     });
-    expect(r).toEqual([]);
+    // Nova regra: mesmo com folga grande, sempre remove ≥1 da 1ª linha
+    // (garante monotonicidade e folga real para a marca ARMS).
+    expect(r).toEqual([{ col: 0, row: 0 }]);
   });
 
   it("50×50mm gap 0 plotter_quadrado — 1ª e última linhas perdem pontas (simétrico)", () => {
