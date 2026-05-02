@@ -1,54 +1,39 @@
-# Correção da regra ARMS na 1ª linha — garantir monotonicidade do rendimento
-
 ## Problema
 
-A regra atual só remove etiquetas da 1ª linha quando a folga lateral é < 10mm. Isso quebra a monotonicidade: Ø3,8cm rende 70 enquanto Ø3,5cm (menor) rende apenas 87 e Ø4,0cm (maior) rende 69. Etiquetas que "se ajeitam" em zonas de folga grande escapam da penalidade e ficam matematicamente inconsistentes.
+Na página **Preço de Impressão** (`/preco-impressao`), a tabela principal tem muitas colunas dinâmicas (Cód, Tipo, Gram., Tam., Lado, Impressora, C. Papel, C. Impr., Custo Total + N colunas de faixas de markup + Ações). Em telas menores que ~1400px, o conteúdo é cortado/escondido e o usuário não consegue visualizar todas as informações nem rolar lateralmente.
+
+Causa: o `<Table>` está dentro de um `<div>` simples sem `overflow-x-auto`, e o container pai usa `max-w-[1400px] mx-auto` com `p-6`, sem permitir scroll horizontal interno.
 
 ## Solução
 
-Para qualquer formato com marcas ARMS (redondo + quadrado plotter), aplicar:
+Adaptar a tela para diferentes tamanhos sem perder informação, usando scroll horizontal controlado na tabela e ajustes finos no padding/largura do container.
 
-> **Quando a folha tem 2+ linhas, a 1ª linha sempre tem ao menos 1 etiqueta a menos do que a capacidade bruta, OU é reduzida até atingir ≥10mm de folga — o que for mais restritivo.**
+### Mudanças em `src/pages/PrecoImpressao.tsx`
 
-Resultado validado matematicamente (SRA3 320×450, gap 3mm):
+1. **Wrapper de scroll horizontal na tabela** (linha ~960):
+   - Trocar o `<div>` que envolve `<Table>` por `<div className="w-full overflow-x-auto rounded-md border">` para que a tabela role lateralmente quando exceder a largura disponível, sem quebrar layout do restante da página.
+   - Adicionar `min-w-max` na `<Table>` (ou usar `whitespace-nowrap` em headers críticos) para preservar a leitura das colunas durante o scroll.
 
-| Ø     | Bruto | Antes | Depois |
-|-------|-------|-------|--------|
-| 3,5cm | 8×10  | 87    | 87     |
-| 3,8cm | 7×10  | 70    | **69** |
-| 4,0cm | 7×9   | 69    | 69     |
-| 5,0cm | 5×8   | 40    | **39** |
+2. **Padding responsivo no container principal** (linha 559):
+   - `p-6 space-y-6 max-w-[1400px] mx-auto` → `p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6 max-w-[1400px] mx-auto`
+   - Reduz o desperdício horizontal em telas médias, dando mais espaço útil para a tabela.
 
-Curva monotônica garantida: tamanho ↑ ⇒ rendimento ↓ (ou igual). Perda máxima de 1 etiqueta por folha em troca da segurança da marca ARMS.
+3. **Cabeçalho de filtros e badges** (acima da tabela):
+   - Garantir que a barra com botões de filtro/colunas/contagem use `flex-wrap gap-2` para não estourar em telas estreitas.
 
-## Arquivos a editar
+4. **Tabs de categorias** (linha ~606):
+   - O `TabsList` já usa `whitespace-nowrap`; envolver em um wrapper com `overflow-x-auto` se ainda não estiver, para permitir rolagem das abas em mobile/tablet.
 
-### 1. `src/lib/labels/signmaster-spec.ts`
+5. **Indicador visual de scroll** (opcional, leve):
+   - Sombra sutil nas bordas do wrapper (`shadow-inner` ou gradiente) só quando há overflow, para sinalizar ao usuário que pode rolar lateralmente. Implementação simples via classes Tailwind, sem JS.
 
-Em `safeCellsForTopRow` (linhas 99-108):
-- Calcular `nByGap` pela regra atual de slack ≥ 10mm
-- Quando `labelsPerColumn ≥ 2`, retornar `min(nByGap, labelsPerRow − 1)`
-- Quando `labelsPerColumn < 2`, manter apenas a regra de slack (não faz sentido remover na única linha)
+### Sem mudanças em
 
-### 2. `src/lib/labels/layout.ts`
+- Lógica de cálculo, queries Supabase, dialogs de edição.
+- Estrutura de colunas dinâmicas (`visibleColumns`) — o usuário continua podendo ocultar colunas via o seletor existente, agora complementado pelo scroll quando todas estiverem visíveis.
 
-Em `computeReservedSlots` (linhas 199-234):
-- Após `topSafe = safeCellsForRow(cols)`, aplicar: se `rows ≥ 2` e `cutType !== "corte_reto"`, então `topSafe = min(topSafe, cols − 1)`
-- Mesmo tratamento para `bottomSafe` (já existente para não-redondo) por simetria visual
-- `corte_reto` permanece intocado — não tem ARMS
+## Resultado esperado
 
-### 3. `src/test/signmaster-spec.test.ts`
-
-Atualizar/adicionar fixtures:
-- Ø3,5cm SRA3 gap 3mm → 87 (mantém)
-- Ø3,8cm SRA3 gap 3mm → **69** (era 70)
-- Ø4,0cm SRA3 gap 3mm → 69 (mantém)
-- Ø5,0cm 320×450 → **39** (era 40 na referência histórica da spec)
-
-Adicionar comentário no topo do arquivo documentando que a regra ARMS é prioritária sobre a fórmula original da spec SignMaster.
-
-## Fora do escopo
-
-- `corte_reto` (sem marca ARMS, sem necessidade)
-- Aviso "near miss column" recém-adicionado (continua funcionando)
-- Preview SVG (a centralização por linha já lida automaticamente com cellsPerRow)
+- Em telas ≥1400px: visual idêntico ao atual.
+- Em telas 768–1399px (caso do usuário, 978px): tabela rola horizontalmente dentro do card, todas as colunas acessíveis, demais elementos da página permanecem visíveis.
+- Em mobile (<768px): padding reduzido, abas roláveis, tabela com scroll horizontal preservando legibilidade.
