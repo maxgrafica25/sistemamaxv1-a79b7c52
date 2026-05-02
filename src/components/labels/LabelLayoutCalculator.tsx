@@ -406,6 +406,14 @@ export function LabelLayoutCalculator({
           )
         : findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1))
     : null;
+  const grow = perSheet > 0
+    ? (isParametric
+        ? findSignmasterGrowOpportunity(
+            { sheetW: config.sheetW, sheetH: config.sheetH, labelDiameter: labelW },
+            perSheet,
+          )
+        : findGrowOpportunity(layoutInput, perSheet))
+    : null;
 
   const applyShrink = () => {
     if (!shrink) return;
@@ -413,6 +421,15 @@ export function LabelLayoutCalculator({
     setLabelH(shrink.newLabelH);
     if (shape === "quadrado" || shape === "redondo") {
       if (shrink.newLabelW !== shrink.newLabelH) setShape("personalizado");
+    }
+  };
+
+  const applyGrow = () => {
+    if (!grow) return;
+    setLabelW(grow.newLabelW);
+    setLabelH(grow.newLabelH);
+    if (shape === "quadrado" || shape === "redondo") {
+      if (grow.newLabelW !== grow.newLabelH) setShape("personalizado");
     }
   };
 
