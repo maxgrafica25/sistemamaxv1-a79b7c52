@@ -199,11 +199,11 @@ describe("CUT_DEFAULTS", () => {
   });
 });
 
-describe("Regra dos 42 — 50×50 em SRA3 (margens 7, gap 1)", () => {
+describe("Regra dos 42 — 50×50 em SRA3/Teneth (margens 7/80, gap 1)", () => {
   it("etiqueta pequena (≤55mm) e margens ≥5mm → grade 6×7 = 42 cheia, sem zona de segurança", () => {
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450,
-      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
+      marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
       gap: 1, labelW: 50, labelH: 50,
       cutType: "plotter_quadrado",
     });
