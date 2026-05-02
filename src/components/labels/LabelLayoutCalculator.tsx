@@ -1223,6 +1223,7 @@ export function LabelLayoutCalculator({
             />
           )}
 
+          <div className="grid grid-cols-2 gap-2 pt-1">
             <Button
               size="sm"
               variant="outline"
