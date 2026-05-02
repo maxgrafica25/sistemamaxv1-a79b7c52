@@ -567,11 +567,39 @@ export function LabelLayoutCalculator({
       toast.error("Falha ao gerar .plt. Veja o console.");
     }
   };
+  // Favoritos visíveis (até 6) + restantes em popover
+  const FAV_VISIBLE = 6;
+  const visibleFavs = config.labelPresets.slice(0, FAV_VISIBLE);
+  const overflowFavs = config.labelPresets.slice(FAV_VISIBLE);
+
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
       {/* ============================== SIMULADOR ============================== */}
       <div className="space-y-4">
-        {/* Seleção rápida de folha — Tabs */}
+        {/* 1. Faixa-resumo das configurações — TOPO da página */}
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Alterar configurações de folha e corte"
+          className="w-full text-left rounded-md border border-border bg-card px-3 py-2.5 text-xs flex items-center justify-between gap-3 transition-colors hover:bg-muted/50"
+        >
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
+            <span>
+              <span className="text-muted-foreground">Folha:</span>{" "}
+              <strong>{describeSheet(config)}</strong>
+            </span>
+            <span>
+              <span className="text-muted-foreground">Corte:</span>{" "}
+              <strong>{CUT_LABELS[config.cutType]}</strong>
+            </span>
+          </span>
+          <span className="flex items-center gap-1 text-primary shrink-0">
+            <Settings2 className="h-3.5 w-3.5" />
+            Configurações
+          </span>
+        </button>
+
+        {/* 2. Seleção rápida de folha — Tabs */}
         <Card className="p-3">
           <div className="flex items-center gap-2 mb-2">
             <Label className="text-xs text-muted-foreground">Folha:</Label>
@@ -602,53 +630,94 @@ export function LabelLayoutCalculator({
         </Card>
 
         <Card className="p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Simulador</h3>
-            {/* Carregar favorito */}
-            {config.labelPresets.length > 0 && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
-                    <Star className="h-3.5 w-3.5 text-amber-500" />
-                    Favoritos ({config.labelPresets.length})
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-72 p-2">
-                  <p className="text-[11px] text-muted-foreground px-2 pb-1.5">
-                    Clique para carregar · lixeira para excluir
-                  </p>
-                  <div className="space-y-0.5 max-h-60 overflow-y-auto">
-                    {config.labelPresets.map((p) => (
-                      <div
-                        key={p.id}
-                        className="flex items-center gap-1 rounded hover:bg-muted/60"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => handleLoadPreset(p.id)}
-                          className="flex-1 text-left text-xs px-2 py-1.5 truncate"
-                        >
-                          <span className="font-medium">{p.label}</span>
-                          <span className="text-muted-foreground">
-                            {" · "}{SHAPE_LABELS[p.shape]} · {p.width}×{p.height}mm
-                          </span>
-                        </button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 text-destructive shrink-0"
-                          onClick={() => handleRemoveFavorite(p.id, p.label)}
-                          title={`Excluir "${p.label}"`}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+          <h3 className="text-sm font-semibold">Simulador</h3>
+
+          {/* Favoritos sempre visíveis (até 6) */}
+          {visibleFavs.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <Star className="h-3.5 w-3.5 text-amber-500" />
+                  Favoritos
+                </Label>
+                {overflowFavs.length > 0 && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-6 text-[11px]">
+                        Ver todos ({config.labelPresets.length})
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-72 p-2">
+                      <p className="text-[11px] text-muted-foreground px-2 pb-1.5">
+                        Clique para carregar · lixeira para excluir
+                      </p>
+                      <div className="space-y-0.5 max-h-60 overflow-y-auto">
+                        {config.labelPresets.map((p) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center gap-1 rounded hover:bg-muted/60"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleLoadPreset(p.id)}
+                              className="flex-1 text-left text-xs px-2 py-1.5 truncate"
+                            >
+                              <span className="font-medium">{p.label}</span>
+                              <span className="text-muted-foreground">
+                                {" · "}{SHAPE_LABELS[p.shape]} · {p.width}×{p.height}mm
+                              </span>
+                            </button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-destructive shrink-0"
+                              onClick={() => handleRemoveFavorite(p.id, p.label)}
+                              title={`Excluir "${p.label}"`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
+                {visibleFavs.map((p) => (
+                  <div
+                    key={p.id}
+                    className="group relative rounded-md border border-border bg-card hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleLoadPreset(p.id)}
+                      className="w-full text-left px-2 py-1.5 pr-6"
+                      title={`${p.label} — ${SHAPE_LABELS[p.shape]} ${p.width}×${p.height}mm`}
+                    >
+                      <div className="text-[11px] font-medium truncate leading-tight">
+                        {p.label}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground truncate">
+                        {p.width}×{p.height}mm
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveFavorite(p.id, p.label);
+                      }}
+                      className="absolute top-0.5 right-0.5 p-0.5 rounded text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                      title={`Excluir "${p.label}"`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </div>
-                </PopoverContent>
-              </Popover>
-            )}
-          </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Formato */}
           <div className="space-y-1.5">
@@ -730,33 +799,6 @@ export function LabelLayoutCalculator({
                     <Save className="h-3.5 w-3.5 mr-1.5" />
                     Salvar
                   </Button>
-                  {config.labelPresets.length > 0 && (
-                    <>
-                      <div className="border-t pt-2 mt-2 space-y-1 max-h-40 overflow-y-auto">
-                        <p className="text-[11px] text-muted-foreground">
-                          Favoritos salvos:
-                        </p>
-                        {config.labelPresets.map((p) => (
-                          <div
-                            key={p.id}
-                            className="flex items-center justify-between text-xs gap-2"
-                          >
-                            <span className="truncate">
-                              {p.label} · {p.width}×{p.height}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 text-destructive"
-                              onClick={() => handleRemoveFavorite(p.id, p.label)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
                 </PopoverContent>
               </Popover>
             </div>
@@ -813,29 +855,6 @@ export function LabelLayoutCalculator({
             )}
           </div>
         </Card>
-
-        {/* Faixa-resumo das configurações */}
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          aria-label="Alterar configurações de folha e corte"
-          className="w-full text-left rounded-md border border-border bg-card px-3 py-2.5 text-xs flex items-center justify-between gap-3 transition-colors hover:bg-muted/50"
-        >
-          <span className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
-            <span>
-              <span className="text-muted-foreground">Folha:</span>{" "}
-              <strong>{describeSheet(config)}</strong>
-            </span>
-            <span>
-              <span className="text-muted-foreground">Corte:</span>{" "}
-              <strong>{CUT_LABELS[config.cutType]}</strong>
-            </span>
-          </span>
-          <span className="flex items-center gap-1 text-primary shrink-0">
-            <Settings2 className="h-3.5 w-3.5" />
-            Configurações
-          </span>
-        </button>
       </div>
 
       {/* ============================== RESULTADOS ============================== */}
