@@ -811,7 +811,7 @@ export function LabelLayoutCalculator({
             {layout.reservedSlots.length > 0 && (
               <Badge variant="outline" className="gap-1 text-amber-700 dark:text-amber-400 border-amber-400/60">
                 <Crosshair className="h-3 w-3" />
-                −{layout.reservedSlots.length} p/ marcas ARMS
+                −{layout.reservedSlots.length} (zona de segurança 10mm)
               </Badge>
             )}
             <span className="text-muted-foreground">
