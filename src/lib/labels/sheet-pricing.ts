@@ -215,7 +215,20 @@ export function useFolhaPricing(size: string): UseFolhaPricingResult {
     saveChoice(size, printingId, next);
   };
 
-  const total = (selectedPrinting?.total ?? 0) + selectedFinishing.price_per_sheet;
+  // Resolve preço/folha do acabamento aplicando faixa por quantidade quando houver
+  const finishingPricePerSheet = useMemo(() => {
+    if (!selectedFinishing.id) return 0;
+    if (!selectedFinishing.tiers.length || sheetsQty == null || sheetsQty <= 0) {
+      return selectedFinishing.price_per_sheet;
+    }
+    return resolveFinishingPricePerSheet(
+      selectedFinishing.price_per_sheet,
+      selectedFinishing.tiers,
+      sheetsQty,
+    );
+  }, [selectedFinishing, sheetsQty]);
+
+  const total = (selectedPrinting?.total ?? 0) + finishingPricePerSheet;
   const isLoading = printingQ.isLoading || finishingQ.isLoading;
 
   return {
@@ -226,6 +239,7 @@ export function useFolhaPricing(size: string): UseFolhaPricingResult {
     setPrintingId,
     setFinishingId,
     total,
+    finishingPricePerSheet,
     isLoading,
     missing: !selectedPrinting && !isLoading ? "missing-printing" : null,
   };
