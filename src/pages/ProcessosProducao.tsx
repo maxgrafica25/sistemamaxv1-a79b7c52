@@ -295,25 +295,33 @@ function GruposTab() {
   const updateStep = (id: string, field: string, value: string | number) =>
     setGroupSteps(groupSteps.map(s => s.id === id ? { ...s, [field]: value } : s));
 
+  const { requireAdmin } = usePermissionGuard();
+
   const saveGroup = async () => {
+    if (!requireAdmin(editingGroup ? "editar grupo" : "criar grupo")) return;
     if (!groupName.trim()) { toast.error("Digite um nome para o grupo"); return; }
     if (groupSteps.length === 0 || groupSteps.some(s => !s.description.trim())) {
       toast.error("Adicione pelo menos uma etapa válida"); return;
     }
 
     if (editingGroup) {
-      await supabase.from("step_groups").update({ name: groupName }).eq("id", editingGroup.id);
-      await supabase.from("step_group_items").delete().eq("step_group_id", editingGroup.id);
-      await supabase.from("step_group_items").insert(
+      const r1 = await supabase.from("step_groups").update({ name: groupName }).eq("id", editingGroup.id);
+      if (r1.error) return handleError(r1.error, "atualizar grupo");
+      const r2 = await supabase.from("step_group_items").delete().eq("step_group_id", editingGroup.id);
+      if (r2.error) return handleError(r2.error, "atualizar itens do grupo");
+      const r3 = await supabase.from("step_group_items").insert(
         groupSteps.map((s, i) => ({ step_group_id: editingGroup.id, description: s.description, time_minutes: s.time_minutes, step_type: s.step_type, sort_order: i }))
       );
+      if (r3.error) return handleError(r3.error, "salvar itens do grupo");
       toast.success("Grupo atualizado!");
     } else {
-      const { data } = await supabase.from("step_groups").insert({ name: groupName }).select("id").single();
+      const { data, error } = await supabase.from("step_groups").insert({ name: groupName }).select("id").single();
+      if (error) return handleError(error, "criar grupo");
       if (data) {
-        await supabase.from("step_group_items").insert(
+        const r = await supabase.from("step_group_items").insert(
           groupSteps.map((s, i) => ({ step_group_id: data.id, description: s.description, time_minutes: s.time_minutes, step_type: s.step_type, sort_order: i }))
         );
+        if (r.error) return handleError(r.error, "salvar itens do grupo");
       }
       toast.success("Grupo criado!");
     }
@@ -323,7 +331,9 @@ function GruposTab() {
 
   const confirmDelete = async () => {
     if (!deletingId) return;
-    await supabase.from("step_groups").delete().eq("id", deletingId);
+    if (!requireAdmin("excluir grupo")) { setDeletingId(null); return; }
+    const { error } = await supabase.from("step_groups").delete().eq("id", deletingId);
+    if (error) { handleError(error, "excluir grupo"); setDeletingId(null); return; }
     toast.success("Grupo excluído!");
     setDeletingId(null);
     fetchGroups();
@@ -341,9 +351,11 @@ function GruposTab() {
         <p className="text-sm text-muted-foreground">{groups.length} grupo(s) cadastrado(s)</p>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openNewGroupDialog} className="gap-2">
-              <Plus className="h-4 w-4" /> Novo Grupo
-            </Button>
+            <AdminOnly mode="disable" action="criar grupo de etapas">
+              <Button onClick={openNewGroupDialog} className="gap-2">
+                <Plus className="h-4 w-4" /> Novo Grupo
+              </Button>
+            </AdminOnly>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editingGroup ? "Editar Grupo de Etapas" : "Novo Grupo de Etapas"}</DialogTitle></DialogHeader>
