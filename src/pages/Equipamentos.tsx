@@ -474,9 +474,11 @@ export default function Equipamentos() {
             <p className="text-sm text-muted-foreground mb-4">
               Cadastre impressoras como "Xerox 252", "Ricoh 5002", etc.
             </p>
-            <Button onClick={() => openEquipDialog()} className="gap-1.5">
-              <Plus className="h-4 w-4" /> Cadastrar primeiro equipamento
-            </Button>
+            <AdminOnly mode="disable" action="cadastrar equipamento">
+              <Button onClick={() => openEquipDialog()} className="gap-1.5">
+                <Plus className="h-4 w-4" /> Cadastrar primeiro equipamento
+              </Button>
+            </AdminOnly>
           </CardContent>
         </Card>
       ) : (
