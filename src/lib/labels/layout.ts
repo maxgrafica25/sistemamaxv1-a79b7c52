@@ -119,12 +119,17 @@ export interface LayoutResult {
 }
 
 /**
- * Reservas por COLISÃO REAL: só remove um slot da grade se o bbox físico de
- * alguma marca de registro (L superior ou tick inferior) intersecta o bbox
- * da célula. Padrão SignMaster/Teneth — máximo aproveitamento.
+ * Zona de Segurança ARMS — 10mm.
  *
- * Como o vértice do L fica no canto da área útil e o tick fica na margem
- * inferior, na maioria dos layouts NENHUM slot é removido.
+ * Verifica os cantos de risco e remove apenas se a distância real até a
+ * marca correspondente for < 10mm. Se a etiqueta naturalmente já estiver
+ * longe (folga ≥ 10mm), mantém para máximo aproveitamento.
+ *
+ * Cantos verificados:
+ * - 1ª linha (col 0 vs L de TL · col cols−1 vs L de TR): sempre.
+ * - Última linha (col 0 vs tick BL · col cols−1 vs tick BR):
+ *   apenas para cortes NÃO redondos (ticks se encaixam nos vãos entre círculos).
+ * - corte_reto: nada é reservado.
  */
 export interface ReservedSlotsInput {
   cutType: CutType;
@@ -143,49 +148,59 @@ export interface ReservedSlotsInput {
   sheetH: number;
 }
 
+export const SAFETY_ZONE_MM = 10;
+
+/** Distância mínima (mm) entre dois retângulos. 0 se sobrepostos. */
+function rectDistance(
+  ax: number, ay: number, aw: number, ah: number,
+  bx: number, by: number, bw: number, bh: number,
+): number {
+  const dx = Math.max(0, Math.max(ax - (bx + bw), bx - (ax + aw)));
+  const dy = Math.max(0, Math.max(ay - (by + bh), by - (ay + ah)));
+  return Math.hypot(dx, dy);
+}
+
 export function computeReservedSlots(input: ReservedSlotsInput): ReservedSlot[];
 // Overload de compatibilidade para chamadas antigas (cutType, cols, rows)
 export function computeReservedSlots(cutType: CutType, cols: number, rows: number): ReservedSlot[];
 export function computeReservedSlots(
   a: ReservedSlotsInput | CutType,
-  b?: number,
-  c?: number,
+  _b?: number,
+  _c?: number,
 ): ReservedSlot[] {
-  // Modo legado (sem geometria): nenhum slot é reservado preventivamente.
-  // A detecção de colisão real depende da geometria, então sem ela não há
-  // como saber se houve colisão.
+  // Modo legado (sem geometria): impossível medir distância → vazio.
   if (typeof a === "string") {
     return [];
   }
-  const { cols, rows, labelW, labelH, gap, marginTop, marginBottom, marginLeft, marginRight, sheetW, sheetH } = a;
+  const { cutType, cols, rows, labelW, labelH, gap, marginTop, marginBottom, marginLeft, marginRight, sheetW, sheetH } = a;
+  if (cutType === "corte_reto") return [];
   if (cols <= 0 || rows <= 0) return [];
 
-  // Importação dinâmica evita ciclo: marks → layout não é necessário.
-  // Como marks.ts não importa layout, podemos importar diretamente.
-  // (feito no topo do arquivo)
   const marks = buildCornerMarks(sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight, 0);
-  const markBoxes = marks.marks.map(markBoundingBox);
+  const byCorner: Record<string, { x: number; y: number; w: number; h: number }> = {};
+  for (const m of marks.marks) byCorner[m.corner] = markBoundingBox(m);
 
-  const TOL = 0.5; // tolerância em mm
+  const isRound = cutType === "plotter_redondo";
   const slots: ReservedSlot[] = [];
 
-  const intersects = (
-    ax: number, ay: number, aw: number, ah: number,
-    bx: number, by: number, bw: number, bh: number,
-  ) => ax < bx + bw - TOL && ax + aw > bx + TOL && ay < by + bh - TOL && ay + ah > by + TOL;
+  const checkSlot = (col: number, row: number, mark: { x: number; y: number; w: number; h: number } | undefined) => {
+    if (!mark) return;
+    const cellX = marginLeft + col * (labelW + gap);
+    const cellY = marginTop + row * (labelH + gap);
+    const dist = rectDistance(cellX, cellY, labelW, labelH, mark.x, mark.y, mark.w, mark.h);
+    if (dist < SAFETY_ZONE_MM) slots.push({ col, row });
+  };
 
-  for (let r = 0; r < rows; r++) {
-    for (let col = 0; col < cols; col++) {
-      const cellX = marginLeft + col * (labelW + gap);
-      const cellY = marginTop + r * (labelH + gap);
-      for (const m of markBoxes) {
-        if (intersects(cellX, cellY, labelW, labelH, m.x, m.y, m.w, m.h)) {
-          slots.push({ col, row: r });
-          break;
-        }
-      }
-    }
+  // 1ª linha — sempre verificada
+  if (cols >= 1) checkSlot(0, 0, byCorner.tl);
+  if (cols >= 2) checkSlot(cols - 1, 0, byCorner.tr);
+
+  // Última linha — só para não-redondo
+  if (!isRound && rows >= 2) {
+    if (cols >= 1) checkSlot(0, rows - 1, byCorner.bl);
+    if (cols >= 2) checkSlot(cols - 1, rows - 1, byCorner.br);
   }
+
   return slots;
 }
 

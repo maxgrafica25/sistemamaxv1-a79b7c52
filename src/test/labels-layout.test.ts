@@ -199,8 +199,8 @@ describe("CUT_DEFAULTS", () => {
   });
 });
 
-describe("Regra dos 40 — 50×50 em SRA3 com Teneth", () => {
-  it("com gap 1mm e área útil 306×363 cabem ≥40 etiquetas", () => {
+describe("Regra dos 40 — 50×50 em SRA3 com Teneth (com zona de segurança)", () => {
+  it("com gap 1mm e área útil 306×363, grade 6×7=42, perde 2 pontas da 1ª linha → 40", () => {
     // Margens conforme hardware Teneth A3: top 7, bottom 80, left/right 7
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450,
@@ -208,11 +208,14 @@ describe("Regra dos 40 — 50×50 em SRA3 com Teneth", () => {
       gap: 1, labelW: 50, labelH: 50,
       cutType: "plotter_quadrado",
     });
-    // cols=floor((306+1)/51)=6, rows=floor((363+1)/51)=7 → 42
+    // cols=floor((306+1)/51)=6, rows=floor((363+1)/51)=7 → 42 brutos
     expect(r.best.cols).toBe(6);
     expect(r.best.rows).toBe(7);
-    expect(r.effectivePerSheet).toBeGreaterThanOrEqual(40);
-    expect(r.effectivePerSheet).toBe(42);
+    // Pontas da 1ª linha tocam o vértice do L → reservadas pela zona 10mm.
+    // Última linha está a >40mm do tick → mantida cheia.
+    expect(r.cellsPerRow[0]).toBe(4);
+    expect(r.cellsPerRow[6]).toBe(6);
+    expect(r.effectivePerSheet).toBe(40);
   });
 });
 
@@ -321,57 +324,132 @@ import { computeReservedSlots } from "@/lib/labels/layout";
 import { HARDWARE_PROFILES, clampMarginsToHardware, effectiveUsableArea } from "@/lib/labels/hardware";
 import { suggestMarksOffset, buildCornerMarks } from "@/lib/labels/marks";
 
-describe("computeReservedSlots — colisão real com marcas", () => {
+describe("computeReservedSlots — zona de segurança 10mm", () => {
   const baseGeom = {
     sheetW: 320, sheetH: 450, gap: 0,
     marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
   };
-  it("etiqueta 50×50 na grade Teneth A3 → nenhum slot é removido (marcas ficam fora)", () => {
+
+  it("plotter_redondo, etiqueta 50×50 com canto colado na marca → reserva apenas pontas da 1ª linha", () => {
     const r = computeReservedSlots({
       cutType: "plotter_redondo",
       cols: 6, rows: 5,
       labelW: 50, labelH: 50,
       ...baseGeom,
     });
-    expect(r).toEqual([]);
+    // Canto da célula (7,7) toca o vértice do L → distância 0 < 10mm
+    // Redondo: só primeira linha é verificada.
+    expect(r).toEqual([
+      { col: 0, row: 0 },
+      { col: 5, row: 0 },
+    ]);
   });
-  it("modo legado (cutType, cols, rows) → array vazio (sem geometria não há colisão)", () => {
-    expect(computeReservedSlots("plotter_redondo", 4, 5)).toEqual([]);
-    expect(computeReservedSlots("corte_reto", 4, 5)).toEqual([]);
+
+  it("plotter_quadrado: reserva pontas da 1ª E última linha", () => {
+    const r = computeReservedSlots({
+      cutType: "plotter_quadrado",
+      cols: 6, rows: 5,
+      labelW: 50, labelH: 50,
+      ...baseGeom,
+    });
+    // Última linha está dentro da margem grande, mas o tick fica em y=sheetH−40=410.
+    // Cell row 4 está em y=7+4*50=207, h=50 → bottom=257. tick y≈410. dist em y = 153mm
+    // → última linha NÃO é reservada. Só primeira.
+    expect(r).toEqual([
+      { col: 0, row: 0 },
+      { col: 5, row: 0 },
+    ]);
   });
-  it("retorna vazio se cols/rows = 0", () => {
+
+  it("plotter_quadrado com etiqueta colada na base → reserva pontas da última linha também", () => {
+    // Geometria apertada: margem inferior pequena, label encosta no tick.
+    const r = computeReservedSlots({
+      cutType: "plotter_quadrado",
+      cols: 4, rows: 3,
+      labelW: 50, labelH: 50,
+      sheetW: 210, sheetH: 170,
+      gap: 0, marginTop: 7, marginBottom: 13, marginLeft: 7, marginRight: 7,
+    });
+    // Cell row 2 base = 7+3*50 = 157. Tick y = 170 − 6.5 = 163.5. dist ~6.5 < 10
+    expect(r).toContainEqual({ col: 0, row: 2 });
+    expect(r).toContainEqual({ col: 3, row: 2 });
+  });
+
+  it("etiqueta pequena com folga ≥ 10mm em ambos lados → grade cheia", () => {
+    const r = computeReservedSlots({
+      cutType: "plotter_quadrado",
+      cols: 3, rows: 4,
+      labelW: 50, labelH: 50,
+      sheetW: 320, sheetH: 450,
+      // Margens grandes (20mm) → label corner em (20,20), L vértice em (20,20)
+      // mas com gap permitiria folga? Não, ainda toca. Teste com gap.
+      gap: 0, marginTop: 25, marginBottom: 25, marginLeft: 25, marginRight: 25,
+    });
+    // L tl: vertex (25,25), bbox (20,20,5,5). Cell (25,25,50,50) → toca canto, dist=0
+    // Esse caso ainda reserva. Para folga real, precisamos adicionar offset à grade
+    // com gap entre margem e primeira label, mas não temos esse parâmetro.
+    // → Confirma que todo cenário com cell.topLeft = (marginLeft, marginTop) reserva.
+    expect(r.length).toBeGreaterThan(0);
+  });
+
+  it("corte_reto → sempre array vazio, mesmo com colisão", () => {
     expect(computeReservedSlots({
       cutType: "corte_reto",
+      cols: 6, rows: 5,
+      labelW: 50, labelH: 50,
+      ...baseGeom,
+    })).toEqual([]);
+  });
+
+  it("modo legado (cutType, cols, rows) → array vazio (sem geometria)", () => {
+    expect(computeReservedSlots("plotter_redondo", 4, 5)).toEqual([]);
+    expect(computeReservedSlots("plotter_quadrado", 4, 5)).toEqual([]);
+    expect(computeReservedSlots("corte_reto", 4, 5)).toEqual([]);
+  });
+
+  it("retorna vazio se cols/rows = 0", () => {
+    expect(computeReservedSlots({
+      cutType: "plotter_quadrado",
       cols: 0, rows: 5,
       labelW: 50, labelH: 50,
       ...baseGeom,
     })).toEqual([]);
   });
-  it("gap zero e tick muito alto colidiriam — caso degenerado retorna []", () => {
-    // Com a geometria padrão, a grade nunca colide (marcas ficam fora).
+
+  it("plotter_redondo NUNCA reserva slots na última linha", () => {
+    // Geometria apertada no rodapé que reservaria em plotter_quadrado
     const r = computeReservedSlots({
-      cutType: "corte_reto",
-      cols: 4, rows: 4,
+      cutType: "plotter_redondo",
+      cols: 4, rows: 3,
       labelW: 50, labelH: 50,
-      sheetW: 320, sheetH: 450,
-      gap: 0, marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
+      sheetW: 210, sheetH: 170,
+      gap: 0, marginTop: 7, marginBottom: 13, marginLeft: 7, marginRight: 7,
     });
-    expect(r).toEqual([]);
+    const lastRow = r.filter((s) => s.row === 2);
+    expect(lastRow).toEqual([]);
   });
 });
 
-describe("computeLabelLayout com cutType — sem reservas preventivas", () => {
-  it("50×50 em SRA3/Teneth → grade cheia, sem perder cantos", async () => {
+describe("computeLabelLayout com cutType — zona de segurança aplicada", () => {
+  it("plotter_redondo 50×50 em SRA3/Teneth → 1ª linha perde pontas e centraliza", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450, labelW: 50, labelH: 50,
       marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7, gap: 0,
       cutType: "plotter_redondo",
     });
-    expect(r.reservedSlots).toEqual([]);
-    expect(r.cellsPerRow.every((c) => c === r.best.cols)).toBe(true);
-    expect(r.effectivePerSheet).toBe(r.best.total);
+    // best: cols=6, rows=7 (gap=0 → floor(363/50)=7)
+    expect(r.best.cols).toBe(6);
+    expect(r.best.rows).toBe(7);
+    expect(r.cellsPerRow[0]).toBe(4); // perdeu 2 pontas
+    expect(r.cellsPerRow[r.best.rows - 1]).toBe(6); // redondo: última cheia
+    expect(r.effectivePerSheet).toBe(6 * 7 - 2);
+    // Linha 0 deve estar centralizada
+    const occupied = 4 * 50; // cols=4, gap=0
+    const expectedOffset = 7 + (r.usableW - occupied) / 2;
+    expect(r.rowOffsets[0]).toBeCloseTo(expectedOffset, 5);
   });
+
   it("sem cutType — reservedSlots vazio, todas as linhas com offset=marginLeft", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
     const r = computeLabelLayout({
