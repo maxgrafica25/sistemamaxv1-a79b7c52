@@ -245,105 +245,107 @@ export default function Acabamentos() {
         </p>
       </header>
 
-      {/* Form */}
-      {isAdmin && editing && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              {draft.id ? "Editar acabamento" : "Novo acabamento"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-1.5 lg:col-span-2">
-                <Label className="text-xs">Nome</Label>
-                <Input
-                  value={draft.name}
-                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                  placeholder="Ex.: Recorte plotter redondo"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Categoria</Label>
-                <Select
-                  value={draft.category}
-                  onValueChange={(v) => setDraft({ ...draft, category: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((c) => (
-                      <SelectItem key={c.value} value={c.value}>
-                        {c.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Tamanho da folha</Label>
-                <Select
-                  value={draft.size}
-                  onValueChange={(v) => setDraft({ ...draft, size: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SIZES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Preço por folha (R$)</Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.10"
-                  min={0}
-                  value={draft.price_per_sheet}
-                  onChange={(e) =>
-                    setDraft({ ...draft, price_per_sheet: parseFloat(e.target.value) || 0 })
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Ordem</Label>
-                <Input
-                  type="number"
-                  value={draft.sort_order}
-                  onChange={(e) =>
-                    setDraft({ ...draft, sort_order: parseInt(e.target.value, 10) || 0 })
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Ativo</Label>
-                <div className="flex items-center h-10">
-                  <Switch
-                    checked={draft.is_active}
-                    onCheckedChange={(c) => setDraft({ ...draft, is_active: c })}
+      {/* Form modal */}
+      {isAdmin && (
+        <Dialog open={editing} onOpenChange={(o) => !o && cancelEdit()}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {draft.id ? "Editar acabamento" : "Novo acabamento"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs">Nome</Label>
+                  <Input
+                    value={draft.name}
+                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                    placeholder="Ex.: Recorte plotter redondo"
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Categoria</Label>
+                  <Select
+                    value={draft.category}
+                    onValueChange={(v) => setDraft({ ...draft, category: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((c) => (
+                        <SelectItem key={c.value} value={c.value}>
+                          {c.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Tamanho da folha</Label>
+                  <Select
+                    value={draft.size}
+                    onValueChange={(v) => setDraft({ ...draft, size: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SIZES.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Preço por folha (R$)</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.10"
+                    min={0}
+                    value={draft.price_per_sheet}
+                    onChange={(e) =>
+                      setDraft({ ...draft, price_per_sheet: parseFloat(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Ordem</Label>
+                  <Input
+                    type="number"
+                    value={draft.sort_order}
+                    onChange={(e) =>
+                      setDraft({ ...draft, sort_order: parseInt(e.target.value, 10) || 0 })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Ativo</Label>
+                  <div className="flex items-center h-10">
+                    <Switch
+                      checked={draft.is_active}
+                      onCheckedChange={(c) => setDraft({ ...draft, is_active: c })}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="flex gap-2 justify-end">
+            <DialogFooter>
               <Button variant="ghost" onClick={cancelEdit}>
                 <X className="h-4 w-4 mr-1" /> Cancelar
               </Button>
               <Button onClick={save}>
                 <Save className="h-4 w-4 mr-1" /> Salvar
               </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Filtros + ação */}
