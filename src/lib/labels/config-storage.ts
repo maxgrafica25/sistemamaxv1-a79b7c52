@@ -152,7 +152,7 @@ export function loadConfig(): LabelCalcConfig {
     ...DEFAULT_CONFIG,
     ...stored,
     customSheets: Array.isArray(stored.customSheets) ? stored.customSheets : DEFAULT_CONFIG.customSheets,
-    labelPresets: Array.isArray(stored.labelPresets) && stored.labelPresets.length > 0
+    labelPresets: Array.isArray(stored.labelPresets)
       ? stored.labelPresets
       : SEED_LABEL_PRESETS,
   };
