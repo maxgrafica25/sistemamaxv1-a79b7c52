@@ -531,9 +531,22 @@ describe("computeLabelLayout com cutType — meta de aproveitamento SRA3", () =>
       expect(r.rowOffsets[row]).toBeCloseTo(expected, 5);
     }
   });
-});
 
-describe("clampMarginsToHardware", () => {
+  it("Ø38mm em SRA3 plotter_redondo gap 0 — 87 etiquetas (7 + 10×8)", async () => {
+    const { computeLabelLayout } = await import("@/lib/labels/layout");
+    const r = computeLabelLayout({
+      sheetW: 320, sheetH: 450, labelW: 38, labelH: 38,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7, gap: 0,
+      shape: "redondo",
+      cutType: "plotter_redondo",
+    });
+    expect(r.best.cols).toBe(8);
+    expect(r.best.rows).toBe(11);
+    expect(r.cellsPerRow[0]).toBe(7);
+    expect(r.cellsPerRow[r.best.rows - 1]).toBe(8);
+    expect(r.effectivePerSheet).toBe(87);
+  });
+});
   it("teneth_a3 força base ≥ 80", () => {
     const c = clampMarginsToHardware(
       { marginTop: 5, marginBottom: 10, marginLeft: 5, marginRight: 5 },
