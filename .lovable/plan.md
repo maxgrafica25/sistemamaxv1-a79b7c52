@@ -1,156 +1,84 @@
-## Objetivo
+## Diagnóstico
 
-Implementar uma **Zona de Segurança de 10mm** entre as etiquetas e as marcas de registro ARMS — mas **só "sacrificar" etiquetas quando a distância real for menor que 10mm**. Se a etiqueta naturalmente já estiver longe da marca (folga ≥ 10mm), ela é mantida e o aproveitamento é máximo.
+Investiguei o código atual e a fórmula de centralização em `computeLabelLayout` **já está matematicamente correta** (`offset = marginLeft + (usableW − occupied)/2`). O SVG preview e o PDF de produção **já consomem `rowOffsets[r]`** corretamente.
 
-## Regras (revisadas)
+O problema visual real é outro: a regra dinâmica atual remove apenas o canto que está fisicamente perto da marca. Em layouts onde só **um lado** dispara a zona de segurança (ex.: 56×45mm em SRA3 com margens 5/5 → o canto esquerdo toca o L de TL, mas o canto direito fica a 26mm da marca direita), o resultado é **assimétrico**:
 
-### 1. Condição dinâmica — Zona de Segurança de 10mm
-
-Para cada etiqueta candidata à remoção (cantos da primeira/última linha), calcula-se a distância em mm entre o **bbox da etiqueta** e o **bbox da marca de registro mais próxima**:
-
-- **Distância ≥ 10mm** → etiqueta é **mantida** (aproveitamento máximo).
-- **Distância < 10mm** → etiqueta é **removida** e a linha é recentralizada.
-
-Exemplo: etiqueta 50×50 em SRA3 com margem padrão e gap 1mm fica naturalmente a >10mm das marcas → **nada é removido**. Já etiquetas 80×80 ou margens apertadas → as pontas serão removidas.
-
-### 2. Quais slots são candidatos à verificação
-
-Apenas em `cutType === "plotter_quadrado"` ou `"plotter_redondo"`. Em `corte_reto` nada muda.
-
-| Formato (cutType) | Slots verificados (candidatos à remoção) | Marca avaliada |
-|---|---|---|
-| `plotter_quadrado` (quadrado/personalizado) | Pontas da **1ª linha** (col 0 e col cols−1, row 0) **e da última linha** (col 0 e col cols−1, row rows−1) | Topo: L de TL/TR. Base: tick de BL/BR |
-| `plotter_redondo` (redondo) | Pontas da **1ª linha apenas** | L de TL/TR (a base usa ticks que se encaixam nos vãos entre círculos) |
-
-### 3. Centralização (`rowOffset`)
-
-Quando uma linha tem `n` etiquetas removidas, recalcula `rowOffset` para que as restantes fiquem centralizadas horizontalmente na área útil. **A lógica já existe** em `computeLabelLayout` (linhas 248-259) — só será exercitada quando `reservedSlots` tiver itens.
-
-### 4. Impacto no cálculo
-
-- `effectivePerSheet` = soma de `cellsPerRow` (já é assim hoje).
-- Pricing, ladder de upsell, sugestão de shrink e WhatsApp continuam consumindo `perSheet = layout.effectivePerSheet`, sem alteração de assinatura.
-- Badge no preview: `"−N (zona de segurança 10mm)"`.
-
-## Detalhes técnicos
-
-### Cálculo da distância etiqueta ↔ marca
-
-```ts
-const SAFETY_ZONE_MM = 10;
-
-// Distância euclidiana entre dois retângulos não sobrepostos.
-// Se sobrepostos, retorna 0.
-function rectDistance(
-  ax: number, ay: number, aw: number, ah: number,
-  bx: number, by: number, bw: number, bh: number,
-): number {
-  const dx = Math.max(0, Math.max(ax - (bx + bw), bx - (ax + aw)));
-  const dy = Math.max(0, Math.max(ay - (by + bh), by - (ay + ah)));
-  return Math.hypot(dx, dy);
-}
+```
+cellsPerRow: [ 4, 5, 5, 5, 5, 5, 5, 5, 5 ]   ← linha 0 perde só 1 etiqueta
+reserved:    [{col:0, row:0}]                 ← só ponta esquerda
+offset[0]:   46.5mm                           ← "centraliza" 4 labels deslocadas pra direita
 ```
 
-Para cada slot candidato, computa-se `rectDistance(célula, markBox)` para cada marca relevante; se **a menor distância** for `< 10mm`, o slot vira `ReservedSlot`.
+Isso é "centralização matemática" mas visualmente parece que a etiqueta sumida foi simplesmente arrastada — não bate com o que o operador faz no CorelDRAW (sempre remove um de cada lado, mantendo simetria).
 
-### Marcas relevantes por linha
+## Correção
 
-- **Primeira linha (row 0):** marcas L de `tl` e `tr` (topo).
-- **Última linha (row rows−1):** marcas tick de `bl` e `br` (base).
+Mudar a regra: **se qualquer canto de uma linha disparar a zona de segurança (<10mm), remover SIMETRICAMENTE as duas pontas dessa linha** (col 0 e col cols−1). Resultado: layout simétrico, centralização visual perfeita.
 
-Otimização: o canto esquerdo (col 0) só compara com a marca esquerda do lado correspondente; o canto direito (col cols−1) com a direita. Isso evita falsos positivos por marcas do outro lado da folha.
+Mantém todas as outras regras intactas:
+- 1ª linha: sempre verificada (vs. Ls de topo).
+- Última linha: verificada apenas para `plotter_quadrado` (redondo nunca mexe na base).
+- `corte_reto`: nada é removido.
+- Folga ≥ 10mm em **ambos** os lados → linha permanece cheia.
 
-## Mudanças no código
+## Mudanças
 
-### `src/lib/labels/layout.ts` — substituir `computeReservedSlots`
+### 1. `src/lib/labels/layout.ts` — `computeReservedSlots`
 
-Nova lógica (modo objeto):
+Substituir o bloco de checagem individual de cada slot por checagem por linha:
 
 ```ts
-const SAFETY_ZONE_MM = 10;
-
-// Pseudocódigo
-if (cutType === "corte_reto") return [];
-if (cols <= 0 || rows <= 0) return [];
-
 const isRound = cutType === "plotter_redondo";
-const marks = buildCornerMarks(sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight, 0);
-const markByCorner = Object.fromEntries(marks.marks.map(m => [m.corner, markBoundingBox(m)]));
-
 const slots: ReservedSlot[] = [];
 
-// Helper para checar 1 candidato
-const checkSlot = (col: number, row: number, cornerMark: BBox) => {
-  const cellX = marginLeft + col * (labelW + gap);
+// Retorna true se algum dos cantos da linha está dentro da zona de 10mm.
+const rowTriggersSafety = (row, leftMark, rightMark) => {
   const cellY = marginTop + row * (labelH + gap);
-  const dist = rectDistance(cellX, cellY, labelW, labelH,
-                            cornerMark.x, cornerMark.y, cornerMark.w, cornerMark.h);
-  if (dist < SAFETY_ZONE_MM) slots.push({ col, row });
+  const cellLeftX = marginLeft;
+  const cellRightX = marginLeft + (cols - 1) * (labelW + gap);
+  if (leftMark && rectDistance(cellLeftX, cellY, labelW, labelH, ...leftMark) < SAFETY_ZONE_MM) return true;
+  if (rightMark && rectDistance(cellRightX, cellY, labelW, labelH, ...rightMark) < SAFETY_ZONE_MM) return true;
+  return false;
 };
 
-// 1ª linha — sempre verificada (quadrado, redondo, personalizado)
-if (cols >= 1) checkSlot(0, 0, markByCorner.tl);
-if (cols >= 2) checkSlot(cols - 1, 0, markByCorner.tr);
+// Remove SIMETRICAMENTE as duas pontas (regra de produção gráfica)
+const reserveBothEnds = (row) => {
+  if (cols >= 1) slots.push({ col: 0, row });
+  if (cols >= 2) slots.push({ col: cols - 1, row });
+};
 
-// Última linha — só p/ não-redondo
-if (!isRound && rows >= 2) {
-  if (cols >= 1) checkSlot(0, rows - 1, markByCorner.bl);
-  if (cols >= 2) checkSlot(cols - 1, rows - 1, markByCorner.br);
+if (rowTriggersSafety(0, byCorner.tl, byCorner.tr)) reserveBothEnds(0);
+if (!isRound && rows >= 2 && rowTriggersSafety(rows - 1, byCorner.bl, byCorner.br)) {
+  reserveBothEnds(rows - 1);
 }
-
-return slots;
 ```
 
-O modo legado `(cutType, cols, rows)` continua retornando `[]` (sem geometria não dá pra medir distância).
+A fórmula de centralização em `computeLabelLayout` já cuida do resto.
 
-### `src/lib/labels/marks.ts`
+### 2. SVG preview e PDF — sem mudança
 
-Sem mudanças funcionais.
+Já estão corretos (consomem `rowOffsets[r]` e `cellsPerRow[r]`, e nenhum slot reservado é desenhado).
 
-### `src/components/labels/LabelLayoutCalculator.tsx`
+### 3. Atualizar testes
 
-Atualizar texto do badge no preview (linha ~814):
-- De: `"−N p/ marcas ARMS"`
-- Para: `"−N (zona de segurança 10mm)"`
+- O teste "plotter_quadrado: reserva pontas da 1ª E última linha" continua válido — agora reserva ambas as pontas em qualquer linha que dispare.
+- O teste "plotter_quadrado com etiqueta colada na base" precisa ajustar: agora a 1ª linha **também** será reservada (já era), e a última terá ambas as pontas.
+- O teste "Regra dos 40 — 50×50 em SRA3 com Teneth" continua: 1ª linha perde 2, última cheia, total 40.
+- O teste do `computeLabelLayout plotter_redondo 50×50 SRA3` continua: 1ª linha perde 2, última cheia.
+- Adicionar teste novo: cenário 56×45 em SRA3 (margens 5/5) → ambas as pontas removidas mesmo com a direita "longe", validando a regra simétrica.
 
-Demais consumidores (`cellsPerRow`, `rowOffsets`) continuam funcionando.
+### 4. Memória `mem://features/label-calculator`
 
-### `src/lib/labels/production-pdf.ts`
+Atualizar a nota da Zona de Segurança ARMS:
+> Quando qualquer canto de uma linha (1ª ou última, conforme formato) está a <10mm da marca, **ambas as pontas** dessa linha são removidas (regra simétrica de produção gráfica), e o `rowOffset` é recalculado para centralizar as etiquetas restantes. Se ambas as pontas estão com folga ≥10mm, a linha permanece cheia.
 
-Sem mudança — já consome `reservedSlots` e `rowOffsets`.
+## Resultado esperado
 
-### Testes — `src/test/labels-layout.test.ts`
-
-Novos / atualizados:
-
-1. **Atualizar** `"50×50 em SRA3/Teneth → grade cheia, sem perder cantos"`: com folga natural >10mm ainda **mantém grade cheia** (validar que `reservedSlots` continua `[]`). Renomear o teste para deixar claro que isso valida a regra dinâmica.
-
-2. **Atualizar** `"computeReservedSlots — colisão real"` → renomear para `"computeReservedSlots — zona de segurança 10mm"`:
-   - Caso A: etiqueta grande (ex.: 80×80) com margens apertadas em SRA3 → distância < 10mm → slots reservados nas pontas.
-   - Caso B: etiqueta pequena (50×50) → distância ≥ 10mm → array vazio.
-   - `corte_reto` → sempre `[]`.
-   - Verificar que `plotter_redondo` **nunca** reserva slots na última linha, mesmo em casos extremos.
-
-3. **Novo** teste de centralização: forçar cenário onde a 1ª linha perde 2 etiquetas e validar que `rowOffsets[0]` está centralizado (>(usableW − occupied)/2 + marginLeft).
-
-4. **Atualizar** `"Regra dos 40 — 50×50 em SRA3 com Teneth"`: como 50×50 fica naturalmente longe das marcas (>10mm), o resultado **continua 42** (regra preservada).
-
-### Memória (`mem://features/label-calculator`)
-
-Adicionar:
-> **Zona de Segurança ARMS (10mm):** em `cutType` plotter, etiquetas dos cantos da 1ª linha (sempre) e da última linha (apenas quadrado/personalizado — redondo não afeta a base) são **removidas só se** a distância real até a marca correspondente for < 10mm. Linhas afetadas são recentralizadas. `effectivePerSheet` reflete a perda. Se a folga natural for ≥ 10mm, a grade permanece cheia.
-
-## Resumo do comportamento
-
-```text
-Etiqueta 50×50, SRA3, gap 1mm, margem 5/5/5/5:
-   distância natural até L de TL ≈ 7mm? → remove canto
-   distância ≥ 10mm? → mantém canto (grade cheia)
-
-Etiqueta 80×80, mesmas margens:
-   distância < 10mm → remove cantos da 1ª linha (e da última se quadrado)
-   linha 0 vai de [□ □ □ □] para [. □ □ .], centralizada
-
-Redondo, qualquer tamanho:
-   última linha NUNCA é mexida (ticks se encaixam no vão entre círculos)
+Caso real do usuário (56×45 em SRA3, margens 5/5/10/10, gap 1):
 ```
+ANTES:  cellsPerRow=[4,5,5,5,5,5,5,5,5]  offsets=[46.50, 5, 5, ...]   ← assimétrico
+DEPOIS: cellsPerRow=[3,5,5,5,5,5,5,5,5]  offsets=[~62.50, 5, 5, ...]  ← simétrico, centrado
+```
+
+A linha 0 fica visivelmente mais curta e centralizada, exatamente como o operador faz manualmente no CorelDRAW para "defender" as marcas ARMS.
