@@ -26,6 +26,7 @@ import {
   CUT_DEFAULTS,
   CUT_LABELS,
   SHEET_PRESETS,
+  SHAPE_LABELS,
   type CutType,
 } from "@/lib/labels/layout";
 import {
