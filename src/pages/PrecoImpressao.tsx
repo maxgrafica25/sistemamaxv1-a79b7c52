@@ -772,9 +772,11 @@ export default function PrecoImpressao() {
                               </TooltipContent>
                             </Tooltip>
                           </div>
-                          <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5 h-8 text-xs" disabled={!viewingGroupId}>
-                            <Plus className="h-3.5 w-3.5" /> Nova Regra
-                          </Button>
+                          <AdminOnly mode="disable" action="criar regras de preço">
+                            <Button onClick={() => openTierDialog()} size="sm" variant="outline" className="gap-1.5 h-8 text-xs" disabled={!viewingGroupId}>
+                              <Plus className="h-3.5 w-3.5" /> Nova Regra
+                            </Button>
+                          </AdminOnly>
                         </div>
                         {activeTiers.length === 0 ? (
                           <div className="text-center py-6 space-y-2">
