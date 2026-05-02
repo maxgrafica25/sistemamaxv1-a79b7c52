@@ -26,6 +26,7 @@ import {
   CUT_DEFAULTS,
   CUT_LABELS,
   SHEET_PRESETS,
+  SHAPE_LABELS,
   type CutType,
 } from "@/lib/labels/layout";
 import {
@@ -33,6 +34,7 @@ import {
   saveConfig,
   addCustomSheet,
   removeCustomSheet,
+  removeLabelPreset,
   type LabelCalcConfig,
   type CustomSheetPreset,
 } from "@/lib/labels/config-storage";
@@ -163,6 +165,7 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
   };
 
   const handleRemoveCustomSheet = (id: string) => {
+    const sheet = draft.customSheets.find((s) => s.id === id);
     removeCustomSheet(id);
     setDraft((d) => {
       const next = { ...d, customSheets: d.customSheets.filter((s) => s.id !== id) };
@@ -174,6 +177,17 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
       }
       return next;
     });
+    if (sheet) toast.success(`Folha "${sheet.label}" removida`);
+  };
+
+  const handleRemoveLabelPreset = (id: string) => {
+    const preset = draft.labelPresets.find((p) => p.id === id);
+    removeLabelPreset(id);
+    setDraft((d) => ({
+      ...d,
+      labelPresets: d.labelPresets.filter((p) => p.id !== id),
+    }));
+    if (preset) toast.success(`Favorito "${preset.label}" removido`);
   };
 
   const isCustomSheet = draft.sheetPresetId === CUSTOM_SHEET_ID;
@@ -258,22 +272,39 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
                 </Button>
               </div>
 
-              {/* Lixeira ao lado da folha custom selecionada */}
-              {(() => {
-                const sel = draft.customSheets.find((s) => s.id === draft.sheetPresetId);
-                if (!sel) return null;
-                return (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive h-7 text-xs"
-                    onClick={() => handleRemoveCustomSheet(sel.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 mr-1" />
-                    Excluir folha "{sel.label}"
-                  </Button>
-                );
-              })()}
+              {/* Lista completa de folhas personalizadas com remover */}
+              {draft.customSheets.length > 0 && (
+                <div className="rounded-md border bg-muted/20 p-2 space-y-1 max-h-44 overflow-y-auto">
+                  <p className="text-[11px] text-muted-foreground px-1">
+                    Folhas personalizadas cadastradas:
+                  </p>
+                  {draft.customSheets.map((s) => (
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between gap-2 text-xs px-1.5 py-1 rounded hover:bg-muted/60"
+                    >
+                      <span className="truncate">
+                        <span className="font-medium">{s.label}</span>
+                        <span className="text-muted-foreground">
+                          {" · "}{s.width}×{s.height}mm
+                        </span>
+                        {draft.sheetPresetId === s.id && (
+                          <span className="ml-1.5 text-[10px] text-primary">(em uso)</span>
+                        )}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-destructive shrink-0"
+                        onClick={() => handleRemoveCustomSheet(s.id)}
+                        title={`Excluir "${s.label}"`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* W x H — editável só se "Personalizado" */}
@@ -319,6 +350,43 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
                     Adicionar folha
                   </Button>
                 </div>
+              </div>
+            )}
+          </section>
+
+          <Separator />
+
+          {/* === 1.5 Favoritos de etiqueta === */}
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold">Favoritos de etiqueta</h3>
+            {draft.labelPresets.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nenhum favorito salvo. Use o botão "Salvar como favorito" no simulador.
+              </p>
+            ) : (
+              <div className="rounded-md border bg-muted/20 p-2 space-y-1 max-h-60 overflow-y-auto">
+                {draft.labelPresets.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between gap-2 text-xs px-1.5 py-1 rounded hover:bg-muted/60"
+                  >
+                    <span className="truncate">
+                      <span className="font-medium">{p.label}</span>
+                      <span className="text-muted-foreground">
+                        {" · "}{SHAPE_LABELS[p.shape]} · {p.width}×{p.height}mm
+                      </span>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-destructive shrink-0"
+                      onClick={() => handleRemoveLabelPreset(p.id)}
+                      title={`Excluir "${p.label}"`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             )}
           </section>
