@@ -69,8 +69,14 @@ const buildPrintingLabel = (i: Omit<PrintingOption, "label" | "total">) => {
 
 // ---------- Persistência da escolha -----------------------------------------
 
+interface SizeChoice {
+  printingId: string | null;
+  finishingId: string | null;
+  /** Escolhas manuais de acabamento por papel (printingId). */
+  finishingByPrinting?: Record<string, string | null>;
+}
 interface ChoiceMap {
-  [size: string]: { printingId: string | null; finishingId: string | null };
+  [size: string]: SizeChoice;
 }
 
 const loadChoices = (): ChoiceMap => {
@@ -89,12 +95,52 @@ const saveChoice = (size: string, printingId: string | null, finishingId: string
   if (typeof window === "undefined") return;
   try {
     const all = loadChoices();
-    all[size] = { printingId, finishingId };
+    const prev = all[size] ?? {};
+    all[size] = { ...prev, printingId, finishingId };
     window.localStorage.setItem(CHOICE_KEY, JSON.stringify(all));
   } catch {
     /* ignore */
   }
 };
+
+const saveManualFinishingForPrinting = (
+  size: string,
+  printingId: string | null,
+  finishingId: string | null,
+) => {
+  if (typeof window === "undefined" || !printingId) return;
+  try {
+    const all = loadChoices();
+    const prev = all[size] ?? { printingId: null, finishingId: null };
+    const map = { ...(prev.finishingByPrinting ?? {}) };
+    map[printingId] = finishingId;
+    all[size] = { ...prev, finishingByPrinting: map };
+    window.localStorage.setItem(CHOICE_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+};
+
+/**
+ * Heurística: dado um item de impressão, escolhe o acabamento de recorte
+ * correspondente. Casamento por palavra-chave no nome do papel vs. nome do
+ * acabamento (já cadastrado no mesmo `size`).
+ */
+export function pickDefaultFinishing(
+  printing: PrintingOption | null,
+  finishingOptions: FinishingOption[],
+): string | null {
+  if (!printing) return null;
+  const paper = printing.paper_type.toLowerCase();
+  const real = finishingOptions.filter((f) => f.id !== null);
+  if (real.length === 0) return null;
+  const find = (re: RegExp) => real.find((f) => re.test(f.name.toLowerCase()))?.id ?? null;
+  if (/adesiv/.test(paper)) {
+    return find(/adesiv/) ?? find(/especia/) ?? real[0].id;
+  }
+  // qualquer outro papel → "papéis especiais"
+  return find(/especia/) ?? find(/adesiv/) ?? real[0].id;
+}
 
 // ---------- Hook principal --------------------------------------------------
 
@@ -105,10 +151,11 @@ export interface UseFolhaPricingResult {
   selectedFinishing: FinishingOption;
   setPrintingId: (id: string) => void;
   setFinishingId: (id: string | "__none__") => void;
-  total: number; // R$ por folha (já considerando faixa de quantidade)
+  total: number;
   finishingPricePerSheet: number;
   isLoading: boolean;
-  /** "missing-printing" | "missing-finishing" | null */
+  /** true quando o acabamento atual veio da heurística automática (não foi escolhido manualmente). */
+  finishingIsAuto: boolean;
   missing: "missing-printing" | null;
 }
 
@@ -179,23 +226,23 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
   const printingOptions = printingQ.data ?? [];
   const finishingOptions = finishingQ.data ?? [NO_FINISHING];
 
-  // Estado local (id selecionado por size). Inicializa do localStorage; se a
-  // opção salva não existe mais, cai na primeira disponível.
   const [printingId, setPrintingIdState] = useState<string | null>(() => {
     return loadChoices()[size]?.printingId ?? null;
   });
   const [finishingId, setFinishingIdState] = useState<string | null>(() => {
     return loadChoices()[size]?.finishingId ?? null;
   });
+  const [finishingIsAuto, setFinishingIsAuto] = useState(false);
 
   // Quando troca o `size`, recarrega escolha salva
   useEffect(() => {
     const c = loadChoices()[size];
     setPrintingIdState(c?.printingId ?? null);
     setFinishingIdState(c?.finishingId ?? null);
+    setFinishingIsAuto(false);
   }, [size]);
 
-  // Se a opção salva não existir nas opções carregadas, cai na primeira
+  // Se a opção salva não existir, cai na primeira
   useEffect(() => {
     if (printingOptions.length === 0) return;
     if (!printingId || !printingOptions.some((p) => p.id === printingId)) {
@@ -205,7 +252,6 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
 
   useEffect(() => {
     if (finishingOptions.length === 0) return;
-    // null = "Sem acabamento" sempre é válido
     if (finishingId !== null && !finishingOptions.some((f) => f.id === finishingId)) {
       setFinishingIdState(null);
     }
@@ -220,17 +266,38 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
     [finishingOptions, finishingId],
   );
 
+  // Auto-vinculação: ao mudar o papel, aplica escolha manual prévia OU heurística.
+  useEffect(() => {
+    if (!selectedPrinting) return;
+    if (finishingOptions.length <= 1) return; // só "Sem acabamento" disponível
+    const choices = loadChoices();
+    const manualMap = choices[size]?.finishingByPrinting ?? {};
+    if (Object.prototype.hasOwnProperty.call(manualMap, selectedPrinting.id)) {
+      const saved = manualMap[selectedPrinting.id];
+      setFinishingIdState(saved);
+      setFinishingIsAuto(false);
+      saveChoice(size, selectedPrinting.id, saved);
+      return;
+    }
+    const auto = pickDefaultFinishing(selectedPrinting, finishingOptions);
+    setFinishingIdState(auto);
+    setFinishingIsAuto(true);
+    saveChoice(size, selectedPrinting.id, auto);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPrinting?.id, finishingOptions.length, size]);
+
   const setPrintingId = (id: string) => {
     setPrintingIdState(id);
-    saveChoice(size, id, finishingId);
+    // finishing será recalculado pelo effect acima
   };
   const setFinishingId = (id: string | "__none__") => {
     const next = id === "__none__" ? null : id;
     setFinishingIdState(next);
+    setFinishingIsAuto(false);
     saveChoice(size, printingId, next);
+    saveManualFinishingForPrinting(size, printingId, next);
   };
 
-  // Resolve preço/folha do acabamento aplicando faixa por quantidade quando houver
   const finishingPricePerSheet = useMemo(() => {
     if (!selectedFinishing.id) return 0;
     if (!selectedFinishing.tiers.length || sheetsQty == null || sheetsQty <= 0) {
@@ -256,6 +323,7 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
     total,
     finishingPricePerSheet,
     isLoading,
+    finishingIsAuto,
     missing: !selectedPrinting && !isLoading ? "missing-printing" : null,
   };
 }
