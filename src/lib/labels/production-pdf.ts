@@ -130,8 +130,9 @@ export async function generateProductionPDF(input: ProductionPDFInput): Promise<
     input.marginBottom,
     input.marginLeft,
     input.marginRight,
-    input.marksOffsetY,
+    0,
     MARK_ARM_MM,
+    input.marksOffsetY,
   );
 
   const embedded = input.imageDataUrl ? await embedImage(pdf, input.imageDataUrl) : null;
