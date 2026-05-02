@@ -37,7 +37,6 @@ const NAV_GROUPS: NavGroup[] = [
       { name: "Dashboard", href: "/", icon: LayoutDashboard },
       { name: "Pedidos", href: "/pedidos", icon: ShoppingCart, badge: "Novo" },
       { name: "Orçamentos V2", href: "/orcamentos-v2", icon: ClipboardList },
-      { name: "Orçamentos (legado)", href: "/orcamentos", icon: ClipboardList },
       { name: "Chat Interno", href: "/chat", icon: MessageSquare },
     ],
   },
