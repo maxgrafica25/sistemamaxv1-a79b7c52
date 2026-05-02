@@ -182,6 +182,49 @@ export default function Acabamentos() {
     }
   };
 
+  const cloneItem = async (item: FinishingItem) => {
+    if (!requireAdmin("clonar acabamento")) return;
+    const { data: inserted, error: insErr } = await (supabase as any)
+      .from("finishings_price_items")
+      .insert({
+        name: `${item.name} (cópia)`,
+        category: item.category,
+        size: item.size,
+        price_per_sheet: item.price_per_sheet,
+        is_active: item.is_active,
+        sort_order: item.sort_order,
+      })
+      .select("id")
+      .single();
+    if (insErr || !inserted) {
+      handleError(insErr ?? new Error("Falha ao clonar"), "clonar acabamento");
+      return;
+    }
+    const { data: tiers } = await (supabase as any)
+      .from("finishing_price_tiers")
+      .select("label, min_qty, max_qty, price_per_sheet, sort_order")
+      .eq("finishing_id", item.id);
+    if (tiers && tiers.length > 0) {
+      const payload = tiers.map((t: any) => ({
+        finishing_id: inserted.id,
+        label: t.label,
+        min_qty: t.min_qty,
+        max_qty: t.max_qty,
+        price_per_sheet: t.price_per_sheet,
+        sort_order: t.sort_order,
+      }));
+      const { error: tErr } = await (supabase as any)
+        .from("finishing_price_tiers")
+        .insert(payload);
+      if (tErr) {
+        handleError(tErr, "clonar faixas");
+        return;
+      }
+    }
+    toast.success("Acabamento clonado — ajuste os preços");
+    reload();
+  };
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       <header className="space-y-1">
