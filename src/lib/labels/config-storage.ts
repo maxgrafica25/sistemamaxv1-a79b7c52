@@ -219,3 +219,17 @@ export function removeCustomSheet(id: string): void {
   const cfg = loadConfig();
   saveConfig({ customSheets: cfg.customSheets.filter((s) => s.id !== id) });
 }
+
+/**
+ * Restaura toda a configuração ao DEFAULT_CONFIG (padrões de fábrica).
+ * Apaga folhas personalizadas e devolve favoritos seed.
+ */
+export function resetConfigToDefaults(): LabelCalcConfig {
+  const fresh: LabelCalcConfig = {
+    ...DEFAULT_CONFIG,
+    customSheets: [],
+    labelPresets: SEED_LABEL_PRESETS.map((p) => ({ ...p })),
+  };
+  writeRaw(fresh);
+  return fresh;
+}
