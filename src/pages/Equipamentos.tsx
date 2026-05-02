@@ -424,9 +424,11 @@ export default function Equipamentos() {
             Registre impressoras, consumíveis, acompanhe contadores e evolução de preços
           </p>
         </div>
-        <Button onClick={() => openEquipDialog()} size="sm" className="gap-1.5">
-          <Plus className="h-4 w-4" /> Novo Equipamento
-        </Button>
+        <AdminOnly mode="disable" action="cadastrar equipamento">
+          <Button onClick={() => openEquipDialog()} size="sm" className="gap-1.5">
+            <Plus className="h-4 w-4" /> Novo Equipamento
+          </Button>
+        </AdminOnly>
       </div>
 
       {/* Top mode toggle */}
@@ -510,16 +512,20 @@ export default function Equipamentos() {
                 );
               })}
             </TabsList>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => {
-              const eq = equipments.find((e) => e.id === activeEquipment);
-              if (eq) openEquipDialog(eq);
-            }}>
-              <Edit2 className="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
-              onClick={() => { if (activeEquipment) requestDeleteEquip(activeEquipment); }}>
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            <AdminOnly mode="disable" action="editar equipamento">
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => {
+                const eq = equipments.find((e) => e.id === activeEquipment);
+                if (eq) openEquipDialog(eq);
+              }}>
+                <Edit2 className="h-3.5 w-3.5" />
+              </Button>
+            </AdminOnly>
+            <AdminOnly mode="disable" action="excluir equipamento">
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
+                onClick={() => { if (activeEquipment) requestDeleteEquip(activeEquipment); }}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </AdminOnly>
           </div>
 
           {equipments.map((eq) => {
@@ -588,9 +594,11 @@ export default function Equipamentos() {
                         <Gauge className="h-4 w-4" style={{ color: config.color }} />
                         Consumíveis — {eq.name}
                       </CardTitle>
-                      <Button onClick={() => openConsDialog()} size="sm" variant="outline" className="gap-1.5">
-                        <Plus className="h-3.5 w-3.5" /> Consumível
-                      </Button>
+                      <AdminOnly mode="disable" action="cadastrar consumível">
+                        <Button onClick={() => openConsDialog()} size="sm" variant="outline" className="gap-1.5">
+                          <Plus className="h-3.5 w-3.5" /> Consumível
+                        </Button>
+                      </AdminOnly>
                     </CardHeader>
                     <CardContent>
                       {activeConsumables.length === 0 ? (
@@ -637,12 +645,16 @@ export default function Equipamentos() {
                                     </TableCell>
                                     <TableCell>
                                       <div className="flex gap-1 justify-end">
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openConsDialog(c)}>
-                                          <Edit2 className="h-3.5 w-3.5" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => requestDeleteCons(c.id, c.name)}>
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
+                                        <AdminOnly mode="disable" action="editar consumível">
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openConsDialog(c)}>
+                                            <Edit2 className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </AdminOnly>
+                                        <AdminOnly mode="disable" action="excluir consumível">
+                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => requestDeleteCons(c.id, c.name)}>
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </AdminOnly>
                                       </div>
                                     </TableCell>
                                   </TableRow>
