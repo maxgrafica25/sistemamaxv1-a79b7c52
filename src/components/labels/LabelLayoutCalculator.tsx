@@ -936,17 +936,17 @@ export function LabelLayoutCalculator({
               <Label className="text-xs flex items-center gap-1.5">
                 <Crosshair className="h-3.5 w-3.5 text-primary" />
                 Ajuste vertical das marcas inferiores:{" "}
-                <strong>+{(marksOffsetY / 10).toFixed(1)} cm</strong>
+                <strong>{marksOffsetY >= 0 ? "+" : ""}{(marksOffsetY / 10).toFixed(2)} cm</strong>
               </Label>
               <Slider
                 value={[marksOffsetY]}
                 onValueChange={([v]) => setMarksOffsetY(v)}
-                min={0}
-                max={Math.max(0, config.marginBottom - CROSS_VERT_LEN_MM / 2)}
-                step={5}
+                min={-Math.max(0, config.marginBottom)}
+                max={Math.max(5, config.marginBottom)}
+                step={0.5}
               />
               <p className="text-[10px] text-muted-foreground">
-                Move apenas as marcas inferiores para baixo, dentro da margem inferior.
+                Move apenas as marcas inferiores (passo 0,5 mm). Negativo = sobe; positivo = desce.
               </p>
             </div>
           )}

@@ -109,9 +109,9 @@ export function markBoundingBox(mark: RegistrationMark): { x: number; y: number;
     const xMin = inward > 0 ? x : x - CROSS_HORIZ_LEN_MM;
     return { x: xMin, y: y - hh, w: CROSS_HORIZ_LEN_MM, h: hh * 2 };
   }
-  // L: braços apontam para fora (TL=-x/-y, TR=+x/-y, BL=-x/+y, BR=+x/+y)
-  const sx = corner === "tl" || corner === "bl" ? -1 : 1;
-  const sy = corner === "tl" || corner === "tr" ? -1 : 1;
+  // L: braços apontam para dentro da área útil
+  const sx = corner === "tl" || corner === "bl" ? 1 : -1;
+  const sy = corner === "tl" || corner === "tr" ? 1 : -1;
   const xMin = sx > 0 ? x : x - arm;
   const yMin = sy > 0 ? y : y - arm;
   return { x: xMin, y: yMin, w: arm, h: arm };
@@ -138,11 +138,11 @@ export function markSegments(mark: RegistrationMark): MarkSegment[] {
       { x1: x, y1: y, x2: x + inward * CROSS_HORIZ_LEN_MM, y2: y }, // perna p/ dentro
     ];
   }
-  // L: braços apontam SEMPRE para fora da área útil (vértice no canto da
-  // área útil). Garante que o L não invade a grade de etiquetas.
-  // tl: -x e -y    tr: +x e -y    bl: -x e +y    br: +x e +y
-  const sx = corner === "tl" || corner === "bl" ? -1 : 1;
-  const sy = corner === "tl" || corner === "tr" ? -1 : 1;
+  // L: braços apontam SEMPRE para DENTRO da área útil (vértice no canto
+  // externo da área útil). Padrão CorelDRAW/plotter visto no anexo:
+  // TL → arms vão +x (direita) e +y (baixo); TR → -x e +y; etc.
+  const sx = corner === "tl" || corner === "bl" ? 1 : -1;
+  const sy = corner === "tl" || corner === "tr" ? 1 : -1;
   return [
     { x1: x, y1: y, x2: x + sx * arm, y2: y }, // braço horizontal
     { x1: x, y1: y, x2: x, y2: y + sy * arm }, // braço vertical
