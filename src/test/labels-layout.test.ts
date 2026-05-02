@@ -359,17 +359,16 @@ describe("computeReservedSlots — critério geométrico (folga ≥ 10mm)", () =
     marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
   };
 
-  it("50×50mm gap 0 — 6 cols ocupam 300mm, slack=3mm <10 → remove pontas (1ª linha redondo)", () => {
+  it("50×50mm gap 0 plotter_redondo — 6 cols slack=3mm <10 → remove 1 (assimétrico, redondo)", () => {
     const r = computeReservedSlots({
       cutType: "plotter_redondo",
+      shape: "redondo",
       cols: 6, rows: 5,
       labelW: 50, labelH: 50,
       ...baseGeom,
     });
-    expect(r).toEqual([
-      { col: 0, row: 0 },
-      { col: 5, row: 0 },
-    ]);
+    // step=1 para redondo: remove só 1 (basta 5×50=250, slack=28 ≥10)
+    expect(r).toEqual([{ col: 0, row: 0 }]);
   });
 
   it("40×40mm gap 0 — 7 cols ocupam 280mm, slack=13mm ≥10 → linha cheia", () => {
@@ -396,20 +395,15 @@ describe("computeReservedSlots — critério geométrico (folga ≥ 10mm)", () =
     expect(r).toHaveLength(4);
   });
 
-  it("etiqueta enorme (80mm) — pode precisar remover mais de 1 par", () => {
-    // usableW=306, 4 cols×80=320 → não cabe; 3×80+2×0=240, slack=33 ≥10 → 3 ok
-    // se chamar com cols=4 (impossível mas hipotético), reduz para 2
+  it("etiqueta enorme (80mm) redondo — step=1, basta remover 1 (3×80=240, slack=33)", () => {
     const r = computeReservedSlots({
       cutType: "plotter_redondo",
+      shape: "redondo",
       cols: 4, rows: 3,
       labelW: 80, labelH: 80,
       ...baseGeom,
     });
-    // 4×80=320 slack=-7, 2×80=160 slack=73 → remove 2 de cada lado? Não: -2 = 2 cells
-    // half = (4-2)/2 = 1 → remove 1 de cada ponta
-    expect(r).toContainEqual({ col: 0, row: 0 });
-    expect(r).toContainEqual({ col: 3, row: 0 });
-    expect(r).toHaveLength(2);
+    expect(r).toEqual([{ col: 0, row: 0 }]);
   });
 
   it("plotter_redondo NUNCA reserva slots na última linha", () => {
@@ -465,26 +459,26 @@ describe("computeLabelLayout com cutType — meta de aproveitamento SRA3", () =>
     expect(r.effectivePerSheet).toBe(38);
   });
 
-  it("50×50mm em SRA3 plotter_redondo — só 1ª linha reduz → total 40", async () => {
+  it("50×50mm em SRA3 plotter_redondo — só 1ª linha reduz em 1 (assimétrico) → total 41", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450, labelW: 50, labelH: 50,
       marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7, gap: 1,
       cutType: "plotter_redondo",
     });
-    expect(r.cellsPerRow[0]).toBe(4);
+    expect(r.cellsPerRow[0]).toBe(5);
     expect(r.cellsPerRow[r.best.rows - 1]).toBe(6); // última cheia (redondo)
-    expect(r.effectivePerSheet).toBe(40);
+    expect(r.effectivePerSheet).toBe(41);
   });
 
-  it("60×60mm em SRA3 plotter_redondo → 1ª linha perde pontas e centraliza (simétrico)", async () => {
+  it("60×60mm em SRA3 plotter_redondo → 1ª linha perde só 1 (assimétrico) e centraliza", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450, labelW: 60, labelH: 60,
       marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7, gap: 1,
       cutType: "plotter_redondo",
     });
-    expect(r.cellsPerRow[0]).toBe(r.best.cols - 2);
+    expect(r.cellsPerRow[0]).toBe(r.best.cols - 1);
     // Última cheia (redondo)
     expect(r.cellsPerRow[r.best.rows - 1]).toBe(r.best.cols);
     // Centralizada conforme fórmula
@@ -536,6 +530,21 @@ describe("computeLabelLayout com cutType — meta de aproveitamento SRA3", () =>
       const expected = input.marginLeft + (r.usableW - occupied) / 2;
       expect(r.rowOffsets[row]).toBeCloseTo(expected, 5);
     }
+  });
+
+  it("Ø38mm em SRA3 plotter_redondo gap 0 — 87 etiquetas (7 + 10×8)", async () => {
+    const { computeLabelLayout } = await import("@/lib/labels/layout");
+    const r = computeLabelLayout({
+      sheetW: 320, sheetH: 450, labelW: 38, labelH: 38,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7, gap: 0,
+      shape: "redondo",
+      cutType: "plotter_redondo",
+    });
+    expect(r.best.cols).toBe(8);
+    expect(r.best.rows).toBe(11);
+    expect(r.cellsPerRow[0]).toBe(7);
+    expect(r.cellsPerRow[r.best.rows - 1]).toBe(8);
+    expect(r.effectivePerSheet).toBe(87);
   });
 });
 
