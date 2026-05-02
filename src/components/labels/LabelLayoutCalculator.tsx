@@ -1415,8 +1415,8 @@ function SheetPreview({
           // Modo legado: marcas ARMS (L superiores + tick inferior)
           marks.marks.map((m, i) => {
             const segs = markSegments(m);
-            const cap = m.kind === "tick" ? "butt" : "round";
-            const sw = m.kind === "tick" ? 0.8 : 1;
+            const cap = (m.kind === "tick" || m.kind === "cross") ? "butt" : "round";
+            const sw = m.kind === "tick" ? 0.8 : m.kind === "cross" ? 0.9 : 1;
             return (
               <g key={`mark-${i}`} stroke="black" strokeWidth={sw} strokeLinecap={cap} fill="none">
                 {segs.map((s, j) => (
