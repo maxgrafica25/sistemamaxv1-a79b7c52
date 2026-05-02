@@ -12,6 +12,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import SupplySearch from "@/components/orcamentos-v2/SupplySearch";
+import { handleError } from "@/lib/handleError";
+import { usePermissionGuard } from "@/lib/permissions";
+import { AdminOnly } from "@/components/AdminOnly";
 
 interface MaterialItem {
   id: string;
@@ -49,6 +52,7 @@ export default function GruposMateriais() {
   const [name, setName] = useState("");
   const [items, setItems] = useState<DraftItem[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { requireAdmin } = usePermissionGuard();
 
   const fetchGroups = async () => {
     setLoading(true);
@@ -128,6 +132,7 @@ export default function GruposMateriais() {
       toast.error("Adicione ao menos um item válido");
       return;
     }
+    if (!requireAdmin(editing ? "atualizar grupo de materiais" : "criar grupo de materiais")) return;
 
     const payload = (groupId: string) =>
       items.map((i, idx) => ({
@@ -140,13 +145,20 @@ export default function GruposMateriais() {
       }));
 
     if (editing) {
-      await supabase.from("material_groups").update({ name }).eq("id", editing.id);
-      await supabase.from("material_group_items").delete().eq("material_group_id", editing.id);
-      await supabase.from("material_group_items").insert(payload(editing.id));
+      const { error: updErr } = await supabase.from("material_groups").update({ name }).eq("id", editing.id);
+      if (updErr) return handleError(updErr, "atualizar grupo de materiais");
+      const { error: delErr } = await supabase.from("material_group_items").delete().eq("material_group_id", editing.id);
+      if (delErr) return handleError(delErr, "atualizar itens do grupo");
+      const { error: insErr } = await supabase.from("material_group_items").insert(payload(editing.id));
+      if (insErr) return handleError(insErr, "atualizar itens do grupo");
       toast.success("Grupo atualizado!");
     } else {
-      const { data } = await supabase.from("material_groups").insert({ name }).select("id").single();
-      if (data) await supabase.from("material_group_items").insert(payload(data.id));
+      const { data, error } = await supabase.from("material_groups").insert({ name }).select("id").single();
+      if (error) return handleError(error, "criar grupo de materiais");
+      if (data) {
+        const { error: insErr } = await supabase.from("material_group_items").insert(payload(data.id));
+        if (insErr) return handleError(insErr, "salvar itens do grupo");
+      }
       toast.success("Grupo criado!");
     }
     setIsDialogOpen(false);
@@ -155,7 +167,9 @@ export default function GruposMateriais() {
 
   const confirmDelete = async () => {
     if (!deletingId) return;
-    await supabase.from("material_groups").delete().eq("id", deletingId);
+    if (!requireAdmin("excluir grupo de materiais")) return;
+    const { error } = await supabase.from("material_groups").delete().eq("id", deletingId);
+    if (error) { setDeletingId(null); return handleError(error, "excluir grupo de materiais"); }
     toast.success("Grupo excluído!");
     setDeletingId(null);
     fetchGroups();
@@ -191,9 +205,13 @@ export default function GruposMateriais() {
         <p className="text-sm text-muted-foreground">{groups.length} grupo(s) cadastrado(s)</p>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openNew} className="gap-2">
-              <Plus className="h-4 w-4" /> Novo Grupo
-            </Button>
+            <span>
+              <AdminOnly mode="disable" action="criar grupo de materiais">
+                <Button onClick={openNew} className="gap-2">
+                  <Plus className="h-4 w-4" /> Novo Grupo
+                </Button>
+              </AdminOnly>
+            </span>
           </DialogTrigger>
           <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
@@ -336,22 +354,26 @@ export default function GruposMateriais() {
                   </p>
                 </div>
                 <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => openEdit(g)}
-                    className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setDeletingId(g.id)}
-                    className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <AdminOnly mode="disable" action="editar grupo">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openEdit(g)}
+                      className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                  </AdminOnly>
+                  <AdminOnly mode="disable" action="excluir grupo">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDeletingId(g.id)}
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AdminOnly>
                 </div>
               </div>
               <CardContent className="p-0">
