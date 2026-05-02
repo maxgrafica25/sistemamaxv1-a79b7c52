@@ -225,16 +225,21 @@ export function FinishingTiersDrawer({
               ({fmt(basePrice)}/folha).
             </p>
             <div className="text-[11px] text-muted-foreground">
-              <div className="font-medium mb-1">Exemplo:</div>
+              <div className="font-medium mb-1">Exemplo (TP = Tabela de Preço):</div>
               <div className="font-mono space-y-0.5">
-                <div>1–10 folhas → R$ 1,80/folha (pequeno volume)</div>
-                <div>11–50 folhas → R$ 1,40/folha (médio)</div>
-                <div>51+ folhas (deixe Máx vazio = ∞) → R$ 1,00/folha (atacado)</div>
+                <div>TP1 · 1–20 folhas → R$ 4,00/folha</div>
+                <div>TP2 · 21–100 folhas → R$ 3,80/folha</div>
+                <div>TP3 · 101–300 folhas → R$ 3,50/folha</div>
+                <div>TP4 · 301+ (Máx vazio = ∞) → R$ 3,30/folha</div>
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              ⚠️ As faixas <strong>não podem se sobrepor</strong>. Encadeie sempre:
-              a próxima Mín deve ser maior que a Máx anterior.
+              💡 Ao preencher o <strong>Máx</strong> de uma faixa, o <strong>Mín</strong> da
+              próxima é ajustado automaticamente. Rótulos TP1, TP2… também são gerados — você
+              pode reescrever se preferir um nome próprio.
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              ⚠️ As faixas <strong>não podem se sobrepor</strong>.
             </p>
           </div>
 
