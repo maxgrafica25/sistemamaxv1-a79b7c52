@@ -127,6 +127,7 @@ const printerTypeBadge = (t: string) => {
 // ─── Component ───────────────────────────────────────────────────────
 export default function Equipamentos() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { requireAdmin } = usePermissionGuard();
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [consumables, setConsumables] = useState<Consumable[]>([]);
   const [activeEquipment, setActiveEquipment] = useState<string>("");
@@ -298,15 +299,18 @@ export default function Equipamentos() {
 
   const saveEquipment = async () => {
     if (!equipName.trim()) return toast.error("Nome obrigatório");
+    if (!requireAdmin(editingEquip ? "atualizar equipamento" : "cadastrar equipamento")) return;
     if (editingEquip) {
-      await supabase.from("equipments").update({
+      const { error } = await supabase.from("equipments").update({
         name: equipName, description: equipDesc || null, printer_type: equipType,
       }).eq("id", editingEquip.id);
+      if (error) return handleError(error, "atualizar equipamento");
       await logAudit({ action: "edição", entity_type: "Equipamento", entity_id: editingEquip.id, entity_name: equipName });
     } else {
-      const { data } = await supabase.from("equipments").insert({
+      const { data, error } = await supabase.from("equipments").insert({
         name: equipName, description: equipDesc || null, printer_type: equipType, sort_order: equipments.length,
       }).select("id").single();
+      if (error) return handleError(error, "cadastrar equipamento");
       await logAudit({ action: "criação", entity_type: "Equipamento", entity_id: data?.id, entity_name: equipName });
     }
     setShowEquipDialog(false);
@@ -322,7 +326,9 @@ export default function Equipamentos() {
   };
 
   const confirmDeleteEquip = async () => {
-    await supabase.from("equipments").delete().eq("id", deleteEquipId);
+    if (!requireAdmin("excluir equipamento")) return;
+    const { error } = await supabase.from("equipments").delete().eq("id", deleteEquipId);
+    if (error) { setConfirmEquipOpen(false); return handleError(error, "excluir equipamento"); }
     await logAudit({ action: "exclusão", entity_type: "Equipamento", entity_id: deleteEquipId, entity_name: deleteItemName });
     if (activeEquipment === deleteEquipId) setActiveEquipment("");
     toast.success("Equipamento removido!");
@@ -348,27 +354,31 @@ export default function Equipamentos() {
 
   const saveConsumable = async () => {
     if (!consName.trim()) return toast.error("Nome obrigatório");
+    if (!requireAdmin(editingCons ? "atualizar consumível" : "cadastrar consumível")) return;
     const newPrice = Number(consPrice);
     const newYield = Number(consYield);
 
     if (editingCons) {
       if (editingCons.price !== newPrice || editingCons.yield_pages !== newYield) {
-        await supabase.from("consumable_price_history").insert({
+        const { error: histErr } = await supabase.from("consumable_price_history").insert({
           consumable_id: editingCons.id,
           price: editingCons.price,
           yield_pages: editingCons.yield_pages,
           change_date: new Date().toISOString().split("T")[0],
           notes: `Preço alterado de ${fmt(editingCons.price)} para ${fmt(newPrice)}`,
         });
+        if (histErr) return handleError(histErr, "registrar histórico de preço");
       }
-      await supabase.from("equipment_consumables").update({
+      const { error } = await supabase.from("equipment_consumables").update({
         name: consName, price: newPrice, yield_pages: newYield,
       }).eq("id", editingCons.id);
+      if (error) return handleError(error, "atualizar consumível");
       await logAudit({ action: "edição", entity_type: "Consumível", entity_id: editingCons.id, entity_name: `${consName} (${activeEq?.name})` });
     } else {
-      const { data } = await supabase.from("equipment_consumables").insert({
+      const { data, error } = await supabase.from("equipment_consumables").insert({
         equipment_id: activeEquipment, name: consName, price: newPrice, yield_pages: newYield, sort_order: activeConsumables.length,
       }).select("id").single();
+      if (error) return handleError(error, "cadastrar consumível");
       await logAudit({ action: "criação", entity_type: "Consumível", entity_id: data?.id, entity_name: `${consName} (${activeEq?.name})` });
     }
     setShowConsDialog(false);
@@ -383,7 +393,9 @@ export default function Equipamentos() {
   };
 
   const confirmDeleteCons = async () => {
-    await supabase.from("equipment_consumables").delete().eq("id", deleteConsId);
+    if (!requireAdmin("excluir consumível")) return;
+    const { error } = await supabase.from("equipment_consumables").delete().eq("id", deleteConsId);
+    if (error) { setConfirmConsOpen(false); return handleError(error, "excluir consumível"); }
     await logAudit({ action: "exclusão", entity_type: "Consumível", entity_id: deleteConsId, entity_name: `${deleteItemName} (${activeEq?.name})` });
     toast.success("Consumível removido!");
     setConfirmConsOpen(false);
