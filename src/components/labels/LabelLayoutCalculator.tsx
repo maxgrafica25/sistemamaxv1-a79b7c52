@@ -930,26 +930,30 @@ export function LabelLayoutCalculator({
             paramLayout={paramLayout}
           />
 
-          {/* Slider de ajuste das marcas inferiores */}
-          {!isParametric && (
-            <div className="space-y-1.5 pt-2 border-t">
-              <Label className="text-xs flex items-center gap-1.5">
-                <Crosshair className="h-3.5 w-3.5 text-primary" />
-                Ajuste vertical das marcas inferiores:{" "}
-                <strong>{marksOffsetY >= 0 ? "+" : ""}{(marksOffsetY / 10).toFixed(2)} cm</strong>
-              </Label>
-              <Slider
-                value={[marksOffsetY]}
-                onValueChange={([v]) => setMarksOffsetY(v)}
-                min={-Math.max(0, config.marginBottom)}
-                max={Math.max(5, config.marginBottom)}
-                step={0.5}
-              />
-              <p className="text-[10px] text-muted-foreground">
-                Move apenas as marcas inferiores (passo 0,5 mm). Negativo = sobe; positivo = desce.
-              </p>
-            </div>
-          )}
+          {/* Slider de ajuste das marcas inferiores — começa no meio da folha, desce até a borda */}
+          {!isParametric && (() => {
+            const sliderMax = Math.max(0, config.sheetH / 2 - config.marginBottom);
+            const clamped = Math.min(Math.max(marksOffsetY, 0), sliderMax);
+            return (
+              <div className="space-y-1.5 pt-2 border-t">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <Crosshair className="h-3.5 w-3.5 text-primary" />
+                  Ajuste vertical das marcas inferiores:{" "}
+                  <strong>{(clamped / 10).toFixed(2)} cm</strong> do meio
+                </Label>
+                <Slider
+                  value={[clamped]}
+                  onValueChange={([v]) => setMarksOffsetY(v)}
+                  min={0}
+                  max={sliderMax || 1}
+                  step={0.5}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Marcas começam no meio da folha. Arraste para descer até o rodapé (passo 0,5 mm).
+                </p>
+              </div>
+            );
+          })()}
         </Card>
 
         {/* Aviso: quase cabe +1 coluna (ajuste de gap) */}
