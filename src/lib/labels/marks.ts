@@ -109,9 +109,9 @@ export function markBoundingBox(mark: RegistrationMark): { x: number; y: number;
     const xMin = inward > 0 ? x : x - CROSS_HORIZ_LEN_MM;
     return { x: xMin, y: y - hh, w: CROSS_HORIZ_LEN_MM, h: hh * 2 };
   }
-  // L: braços apontam para fora (TL=-x/-y, TR=+x/-y, BL=-x/+y, BR=+x/+y)
-  const sx = corner === "tl" || corner === "bl" ? -1 : 1;
-  const sy = corner === "tl" || corner === "tr" ? -1 : 1;
+  // L: braços apontam para dentro da área útil
+  const sx = corner === "tl" || corner === "bl" ? 1 : -1;
+  const sy = corner === "tl" || corner === "tr" ? 1 : -1;
   const xMin = sx > 0 ? x : x - arm;
   const yMin = sy > 0 ? y : y - arm;
   return { x: xMin, y: yMin, w: arm, h: arm };
