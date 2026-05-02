@@ -8,6 +8,9 @@ import { Separator } from "@/components/ui/separator";
 import { Plus, Trash2, Edit, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { handleError } from "@/lib/handleError";
+import { usePermissionGuard } from "@/lib/permissions";
+import { AdminOnly } from "@/components/AdminOnly";
 
 interface GroupItem {
   id: string;
@@ -29,6 +32,7 @@ export default function GruposEtapas() {
   const [editingGroup, setEditingGroup] = useState<StepGroup | null>(null);
   const [groupName, setGroupName] = useState("");
   const [groupSteps, setGroupSteps] = useState<{ id: string; description: string; time_minutes: number }[]>([]);
+  const { requireAdmin } = usePermissionGuard();
 
   const fetchGroups = async () => {
     setLoading(true);
@@ -70,20 +74,26 @@ export default function GruposEtapas() {
     if (groupSteps.length === 0 || groupSteps.some(s => !s.description.trim())) {
       toast.error("Adicione pelo menos uma etapa válida"); return;
     }
+    if (!requireAdmin(editingGroup ? "atualizar grupo de etapas" : "criar grupo de etapas")) return;
 
     if (editingGroup) {
-      await supabase.from("step_groups").update({ name: groupName }).eq("id", editingGroup.id);
-      await supabase.from("step_group_items").delete().eq("step_group_id", editingGroup.id);
-      await supabase.from("step_group_items").insert(
+      const { error: updErr } = await supabase.from("step_groups").update({ name: groupName }).eq("id", editingGroup.id);
+      if (updErr) return handleError(updErr, "atualizar grupo de etapas");
+      const { error: delErr } = await supabase.from("step_group_items").delete().eq("step_group_id", editingGroup.id);
+      if (delErr) return handleError(delErr, "atualizar etapas do grupo");
+      const { error: insErr } = await supabase.from("step_group_items").insert(
         groupSteps.map((s, i) => ({ step_group_id: editingGroup.id, description: s.description, time_minutes: s.time_minutes, sort_order: i }))
       );
+      if (insErr) return handleError(insErr, "atualizar etapas do grupo");
       toast.success("Grupo atualizado!");
     } else {
-      const { data } = await supabase.from("step_groups").insert({ name: groupName }).select("id").single();
+      const { data, error } = await supabase.from("step_groups").insert({ name: groupName }).select("id").single();
+      if (error) return handleError(error, "criar grupo de etapas");
       if (data) {
-        await supabase.from("step_group_items").insert(
+        const { error: insErr } = await supabase.from("step_group_items").insert(
           groupSteps.map((s, i) => ({ step_group_id: data.id, description: s.description, time_minutes: s.time_minutes, sort_order: i }))
         );
+        if (insErr) return handleError(insErr, "salvar etapas do grupo");
       }
       toast.success("Grupo criado!");
     }
@@ -92,7 +102,9 @@ export default function GruposEtapas() {
   };
 
   const deleteGroup = async (id: string) => {
-    await supabase.from("step_groups").delete().eq("id", id);
+    if (!requireAdmin("excluir grupo de etapas")) return;
+    const { error } = await supabase.from("step_groups").delete().eq("id", id);
+    if (error) return handleError(error, "excluir grupo de etapas");
     toast.success("Grupo excluído!");
     fetchGroups();
   };
@@ -112,9 +124,13 @@ export default function GruposEtapas() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="lg" className="gap-2 bg-accent hover:bg-accent-hover" onClick={openNewGroupDialog}>
-              <Plus className="h-5 w-5" /> Novo Grupo
-            </Button>
+            <span>
+              <AdminOnly mode="disable" action="criar grupo de etapas">
+                <Button size="lg" className="gap-2 bg-accent hover:bg-accent-hover" onClick={openNewGroupDialog}>
+                  <Plus className="h-5 w-5" /> Novo Grupo
+                </Button>
+              </AdminOnly>
+            </span>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editingGroup ? "Editar Grupo de Etapas" : "Novo Grupo de Etapas"}</DialogTitle></DialogHeader>
@@ -165,8 +181,12 @@ export default function GruposEtapas() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(group)} className="hover:bg-primary/10 hover:text-primary"><Edit className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => deleteGroup(group.id)} className="text-destructive hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                    <AdminOnly mode="disable" action="editar grupo">
+                      <Button variant="ghost" size="icon" onClick={() => openEditDialog(group)} className="hover:bg-primary/10 hover:text-primary"><Edit className="h-4 w-4" /></Button>
+                    </AdminOnly>
+                    <AdminOnly mode="disable" action="excluir grupo">
+                      <Button variant="ghost" size="icon" onClick={() => deleteGroup(group.id)} className="text-destructive hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                    </AdminOnly>
                   </div>
                 </div>
               </CardHeader>

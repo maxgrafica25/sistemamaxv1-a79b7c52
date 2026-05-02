@@ -8,6 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Edit, Trash2, Search, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { handleError } from "@/lib/handleError";
+import { usePermissionGuard } from "@/lib/permissions";
+import { AdminOnly } from "@/components/AdminOnly";
 
 interface Fornecedor {
   id: string;
@@ -24,6 +27,7 @@ export default function Fornecedores() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingFornecedor, setEditingFornecedor] = useState<Fornecedor | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const { requireAdmin } = usePermissionGuard();
 
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
@@ -58,11 +62,14 @@ export default function Fornecedores() {
       toast.error("Preencha os campos obrigatórios");
       return;
     }
+    if (!requireAdmin(editingFornecedor ? "atualizar fornecedor" : "cadastrar fornecedor")) return;
     if (editingFornecedor) {
-      await supabase.from("suppliers").update({ nome, email, telefone, cnpj: cnpj || null, endereco: endereco || null }).eq("id", editingFornecedor.id);
+      const { error } = await supabase.from("suppliers").update({ nome, email, telefone, cnpj: cnpj || null, endereco: endereco || null }).eq("id", editingFornecedor.id);
+      if (error) return handleError(error, "atualizar fornecedor");
       toast.success("Fornecedor atualizado!");
     } else {
-      await supabase.from("suppliers").insert({ nome, email, telefone, cnpj: cnpj || null, endereco: endereco || null });
+      const { error } = await supabase.from("suppliers").insert({ nome, email, telefone, cnpj: cnpj || null, endereco: endereco || null });
+      if (error) return handleError(error, "cadastrar fornecedor");
       toast.success("Fornecedor cadastrado!");
     }
     setIsDialogOpen(false);
@@ -70,7 +77,9 @@ export default function Fornecedores() {
   };
 
   const deleteFornecedor = async (id: string) => {
-    await supabase.from("suppliers").delete().eq("id", id);
+    if (!requireAdmin("excluir fornecedor")) return;
+    const { error } = await supabase.from("suppliers").delete().eq("id", id);
+    if (error) return handleError(error, "excluir fornecedor");
     toast.success("Fornecedor excluído!");
     fetchFornecedores();
   };
@@ -93,9 +102,13 @@ export default function Fornecedores() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="lg" className="gap-2 bg-accent hover:bg-accent-hover" onClick={openNewDialog}>
-              <Plus className="h-5 w-5" /> Novo Fornecedor
-            </Button>
+            <span>
+              <AdminOnly mode="disable" action="cadastrar fornecedor">
+                <Button size="lg" className="gap-2 bg-accent hover:bg-accent-hover" onClick={openNewDialog}>
+                  <Plus className="h-5 w-5" /> Novo Fornecedor
+                </Button>
+              </AdminOnly>
+            </span>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -150,8 +163,12 @@ export default function Fornecedores() {
                     <TableCell>{f.cnpj || "-"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(f)} className="hover:bg-primary/10 hover:text-primary"><Edit className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => deleteFornecedor(f.id)} className="text-destructive hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                        <AdminOnly mode="disable" action="editar fornecedor">
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(f)} className="hover:bg-primary/10 hover:text-primary"><Edit className="h-4 w-4" /></Button>
+                        </AdminOnly>
+                        <AdminOnly mode="disable" action="excluir fornecedor">
+                          <Button variant="ghost" size="icon" onClick={() => deleteFornecedor(f.id)} className="text-destructive hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                        </AdminOnly>
                       </div>
                     </TableCell>
                   </TableRow>

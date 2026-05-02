@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Edit, Trash2, Search, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { handleError } from "@/lib/handleError";
 
 interface Cliente {
   id: string;
@@ -57,10 +58,12 @@ export default function Clientes() {
       return;
     }
     if (editingCliente) {
-      await supabase.from("clients").update({ nome, email, telefone, empresa: empresa || null }).eq("id", editingCliente.id);
+      const { error } = await supabase.from("clients").update({ nome, email, telefone, empresa: empresa || null }).eq("id", editingCliente.id);
+      if (error) return handleError(error, "atualizar cliente");
       toast.success("Cliente atualizado!");
     } else {
-      await supabase.from("clients").insert({ nome, email, telefone, empresa: empresa || null });
+      const { error } = await supabase.from("clients").insert({ nome, email, telefone, empresa: empresa || null });
+      if (error) return handleError(error, "cadastrar cliente");
       toast.success("Cliente cadastrado!");
     }
     setIsDialogOpen(false);
@@ -68,7 +71,8 @@ export default function Clientes() {
   };
 
   const deleteCliente = async (id: string) => {
-    await supabase.from("clients").delete().eq("id", id);
+    const { error } = await supabase.from("clients").delete().eq("id", id);
+    if (error) return handleError(error, "excluir cliente");
     toast.success("Cliente excluído!");
     fetchClientes();
   };

@@ -24,6 +24,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import SupplierCombobox from "@/components/SupplierCombobox";
+import { handleError } from "@/lib/handleError";
+import { usePermissionGuard } from "@/lib/permissions";
+import { AdminOnly } from "@/components/AdminOnly";
 
 // ─── Types ───────────────────────────────────────────────────────────
 type ActiveTab = "suprimento" | "papel";
@@ -104,6 +107,7 @@ const fmt4 = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curre
 // ─── Component ───────────────────────────────────────────────────────
 export default function MateriasPrimas() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("papel");
+  const { requireAdmin } = usePermissionGuard();
 
   // ── Suprimentos (DB-backed) ──
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -298,6 +302,7 @@ export default function MateriasPrimas() {
       toast.error("Preencha Nome, Qtd. Folhas e Preço do Pacote");
       return;
     }
+    if (!requireAdmin(editingPaper ? "atualizar papel" : "cadastrar papel")) return;
     const quoteDate = paperDate || new Date().toISOString().split("T")[0];
     const freightPerSheet = computedFreightPerSheet;
     const saveData = {
@@ -313,8 +318,9 @@ export default function MateriasPrimas() {
     };
 
     if (editingPaper) {
-      await supabase.from("papers").update(saveData).eq("id", editingPaper.id);
-      await supabase.from("paper_price_history").insert({
+      const { error: updErr } = await supabase.from("papers").update(saveData).eq("id", editingPaper.id);
+      if (updErr) return handleError(updErr, "atualizar papel");
+      const { error: histErr } = await supabase.from("paper_price_history").insert({
         paper_id: editingPaper.id,
         sheet_qty: saveData.sheet_qty,
         pack_price: saveData.pack_price,
@@ -323,11 +329,13 @@ export default function MateriasPrimas() {
         contact: saveData.contact,
         quote_date: quoteDate,
       });
+      if (histErr) return handleError(histErr, "registrar histórico de papel");
       toast.success("Papel atualizado!");
     } else {
-      const { data: inserted } = await supabase.from("papers").insert(saveData).select("id").single();
+      const { data: inserted, error: insErr } = await supabase.from("papers").insert(saveData).select("id").single();
+      if (insErr) return handleError(insErr, "cadastrar papel");
       if (inserted) {
-        await supabase.from("paper_price_history").insert({
+        const { error: histErr } = await supabase.from("paper_price_history").insert({
           paper_id: inserted.id,
           sheet_qty: saveData.sheet_qty,
           pack_price: saveData.pack_price,
@@ -336,6 +344,7 @@ export default function MateriasPrimas() {
           contact: saveData.contact,
           quote_date: quoteDate,
         });
+        if (histErr) return handleError(histErr, "registrar histórico de papel");
       }
       toast.success("Papel cadastrado!");
     }
@@ -344,7 +353,9 @@ export default function MateriasPrimas() {
   };
 
   const deletePaper = async (id: string) => {
-    await supabase.from("papers").delete().eq("id", id);
+    if (!requireAdmin("excluir papel")) return;
+    const { error } = await supabase.from("papers").delete().eq("id", id);
+    if (error) return handleError(error, "excluir papel");
     toast.success("Papel excluído!");
     fetchPapers();
   };
@@ -391,6 +402,7 @@ export default function MateriasPrimas() {
   };
   const saveMaterial = async () => {
     if (!produto.trim() || !quantidade || !valor) { toast.error("Preencha Produto, Quantidade e Valor"); return; }
+    if (!requireAdmin(editingMaterial ? "atualizar suprimento" : "cadastrar suprimento")) return;
     const qtd = parseFloat(quantidade); const val = parseFloat(valor);
     const unitario = qtd > 0 ? val / qtd : 0;
     const dt = data || new Date().toISOString().split("T")[0];
@@ -406,8 +418,9 @@ export default function MateriasPrimas() {
       data: dt,
     };
     if (editingMaterial) {
-      await supabase.from("supplies").update(saveData).eq("id", editingMaterial.id);
-      await supabase.from("supply_purchase_history").insert({
+      const { error: updErr } = await supabase.from("supplies").update(saveData).eq("id", editingMaterial.id);
+      if (updErr) return handleError(updErr, "atualizar suprimento");
+      const { error: histErr } = await supabase.from("supply_purchase_history").insert({
         supply_id: editingMaterial.id,
         produto,
         quantidade: qtd,
@@ -417,11 +430,13 @@ export default function MateriasPrimas() {
         contato,
         data: dt,
       });
+      if (histErr) return handleError(histErr, "registrar histórico de compra");
       toast.success("Item atualizado!");
     } else {
-      const { data: inserted } = await supabase.from("supplies").insert(saveData).select("id").single();
+      const { data: inserted, error: insErr } = await supabase.from("supplies").insert(saveData).select("id").single();
+      if (insErr) return handleError(insErr, "cadastrar suprimento");
       if (inserted) {
-        await supabase.from("supply_purchase_history").insert({
+        const { error: histErr } = await supabase.from("supply_purchase_history").insert({
           supply_id: inserted.id,
           produto,
           quantidade: qtd,
@@ -431,6 +446,7 @@ export default function MateriasPrimas() {
           contato,
           data: dt,
         });
+        if (histErr) return handleError(histErr, "registrar histórico de compra");
       }
       toast.success("Item cadastrado!");
     }
@@ -438,8 +454,11 @@ export default function MateriasPrimas() {
     fetchSupplies();
   };
   const deleteMaterial = async (id: string) => {
-    await supabase.from("supply_purchase_history").delete().eq("supply_id", id);
-    await supabase.from("supplies").delete().eq("id", id);
+    if (!requireAdmin("excluir suprimento")) return;
+    const { error: histErr } = await supabase.from("supply_purchase_history").delete().eq("supply_id", id);
+    if (histErr) return handleError(histErr, "excluir histórico de compra");
+    const { error } = await supabase.from("supplies").delete().eq("id", id);
+    if (error) return handleError(error, "excluir suprimento");
     toast.success("Item excluído!");
     fetchSupplies();
   };
@@ -587,13 +606,15 @@ export default function MateriasPrimas() {
                   </SelectContent>
                 </Select>
               )}
-              <Button
-                onClick={() => activeTab === "papel" ? openPaperDialog() : openNewDialog()}
-                className="gap-2 shrink-0"
-              >
-                <Plus className="h-4 w-4" />
-                Novo {activeTab === "papel" ? "Papel" : "Suprimento"}
-              </Button>
+              <AdminOnly mode="disable" action={`cadastrar ${activeTab === "papel" ? "papel" : "suprimento"}`}>
+                <Button
+                  onClick={() => activeTab === "papel" ? openPaperDialog() : openNewDialog()}
+                  className="gap-2 shrink-0"
+                >
+                  <Plus className="h-4 w-4" />
+                  Novo {activeTab === "papel" ? "Papel" : "Suprimento"}
+                </Button>
+              </AdminOnly>
             </div>
           </div>
 
@@ -681,15 +702,21 @@ export default function MateriasPrimas() {
                                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedPaper(paper); setShowPaperHistoryDialog(true); }} title="Histórico">
                                     <History className="h-4 w-4" />
                                   </Button>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openPaperDialog(paper)} title="Editar">
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicatePaper(paper)} title="Duplicar">
-                                    <Copy className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => requestDeletePaper(paper.id, paper.name)} title="Excluir">
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  <AdminOnly mode="disable" action="editar papel">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openPaperDialog(paper)} title="Editar">
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  </AdminOnly>
+                                  <AdminOnly mode="disable" action="duplicar papel">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicatePaper(paper)} title="Duplicar">
+                                      <Copy className="h-4 w-4" />
+                                    </Button>
+                                  </AdminOnly>
+                                  <AdminOnly mode="disable" action="excluir papel">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => requestDeletePaper(paper.id, paper.name)} title="Excluir">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AdminOnly>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -743,9 +770,15 @@ export default function MateriasPrimas() {
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedMaterial(material); setShowHistoryDialog(true); }} title="Histórico"><History className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(material)} title="Editar"><Edit className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicateMaterial(material)} title="Duplicar"><Copy className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => requestDeleteMaterial(material.id, material.produto)} title="Excluir"><Trash2 className="h-4 w-4" /></Button>
+                                <AdminOnly mode="disable" action="editar suprimento">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(material)} title="Editar"><Edit className="h-4 w-4" /></Button>
+                                </AdminOnly>
+                                <AdminOnly mode="disable" action="duplicar suprimento">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => duplicateMaterial(material)} title="Duplicar"><Copy className="h-4 w-4" /></Button>
+                                </AdminOnly>
+                                <AdminOnly mode="disable" action="excluir suprimento">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => requestDeleteMaterial(material.id, material.produto)} title="Excluir"><Trash2 className="h-4 w-4" /></Button>
+                                </AdminOnly>
                               </div>
                             </TableCell>
                           </TableRow>

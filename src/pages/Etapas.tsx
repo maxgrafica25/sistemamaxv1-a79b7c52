@@ -7,6 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Trash2, Edit, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { handleError } from "@/lib/handleError";
+import { usePermissionGuard } from "@/lib/permissions";
+import { AdminOnly } from "@/components/AdminOnly";
 
 interface Step {
   id: string;
@@ -21,6 +24,7 @@ export default function Etapas() {
   const [editingStep, setEditingStep] = useState<Step | null>(null);
   const [description, setDescription] = useState("");
   const [timeMinutes, setTimeMinutes] = useState("");
+  const { requireAdmin } = usePermissionGuard();
 
   const fetchSteps = async () => {
     setLoading(true);
@@ -46,12 +50,15 @@ export default function Etapas() {
     if (!description.trim()) { toast.error("Preencha a descrição da etapa"); return; }
     const time = parseFloat(timeMinutes);
     if (!time || time <= 0) { toast.error("Informe um tempo válido"); return; }
+    if (!requireAdmin(editingStep ? "atualizar etapa" : "criar etapa")) return;
 
     if (editingStep) {
-      await supabase.from("production_steps").update({ description, time_minutes: time }).eq("id", editingStep.id);
+      const { error } = await supabase.from("production_steps").update({ description, time_minutes: time }).eq("id", editingStep.id);
+      if (error) return handleError(error, "atualizar etapa");
       toast.success("Etapa atualizada!");
     } else {
-      await supabase.from("production_steps").insert({ description, time_minutes: time });
+      const { error } = await supabase.from("production_steps").insert({ description, time_minutes: time });
+      if (error) return handleError(error, "criar etapa");
       toast.success("Etapa criada!");
     }
     setIsDialogOpen(false);
@@ -59,7 +66,9 @@ export default function Etapas() {
   };
 
   const deleteStep = async (id: string) => {
-    await supabase.from("production_steps").delete().eq("id", id);
+    if (!requireAdmin("excluir etapa")) return;
+    const { error } = await supabase.from("production_steps").delete().eq("id", id);
+    if (error) return handleError(error, "excluir etapa");
     toast.success("Etapa excluída!");
     fetchSteps();
   };
@@ -77,7 +86,11 @@ export default function Etapas() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openCreateDialog} className="gap-2"><Plus className="h-4 w-4" /> Nova Etapa</Button>
+            <span>
+              <AdminOnly mode="disable" action="criar etapa">
+                <Button onClick={openCreateDialog} className="gap-2"><Plus className="h-4 w-4" /> Nova Etapa</Button>
+              </AdminOnly>
+            </span>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{editingStep ? "Editar Etapa" : "Nova Etapa"}</DialogTitle></DialogHeader>
@@ -111,8 +124,12 @@ export default function Etapas() {
                 <div className="flex items-start justify-between">
                   <CardTitle className="text-lg">{step.description}</CardTitle>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(step)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => deleteStep(step.id)} className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                    <AdminOnly mode="disable" action="editar etapa">
+                      <Button variant="ghost" size="icon" onClick={() => openEditDialog(step)} className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
+                    </AdminOnly>
+                    <AdminOnly mode="disable" action="excluir etapa">
+                      <Button variant="ghost" size="icon" onClick={() => deleteStep(step.id)} className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                    </AdminOnly>
                   </div>
                 </div>
               </CardHeader>

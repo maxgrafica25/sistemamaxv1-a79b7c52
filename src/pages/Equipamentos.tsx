@@ -28,6 +28,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/audit";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { handleError } from "@/lib/handleError";
+import { usePermissionGuard } from "@/lib/permissions";
+import { AdminOnly } from "@/components/AdminOnly";
 import PrinterReadingsTab from "@/components/equipamentos/PrinterReadingsTab";
 import ConsumablePriceHistoryTab from "@/components/equipamentos/ConsumablePriceHistoryTab";
 import MaintenanceTab from "@/components/equipamentos/MaintenanceTab";
@@ -124,6 +127,7 @@ const printerTypeBadge = (t: string) => {
 // ─── Component ───────────────────────────────────────────────────────
 export default function Equipamentos() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { requireAdmin } = usePermissionGuard();
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [consumables, setConsumables] = useState<Consumable[]>([]);
   const [activeEquipment, setActiveEquipment] = useState<string>("");
@@ -295,15 +299,18 @@ export default function Equipamentos() {
 
   const saveEquipment = async () => {
     if (!equipName.trim()) return toast.error("Nome obrigatório");
+    if (!requireAdmin(editingEquip ? "atualizar equipamento" : "cadastrar equipamento")) return;
     if (editingEquip) {
-      await supabase.from("equipments").update({
+      const { error } = await supabase.from("equipments").update({
         name: equipName, description: equipDesc || null, printer_type: equipType,
       }).eq("id", editingEquip.id);
+      if (error) return handleError(error, "atualizar equipamento");
       await logAudit({ action: "edição", entity_type: "Equipamento", entity_id: editingEquip.id, entity_name: equipName });
     } else {
-      const { data } = await supabase.from("equipments").insert({
+      const { data, error } = await supabase.from("equipments").insert({
         name: equipName, description: equipDesc || null, printer_type: equipType, sort_order: equipments.length,
       }).select("id").single();
+      if (error) return handleError(error, "cadastrar equipamento");
       await logAudit({ action: "criação", entity_type: "Equipamento", entity_id: data?.id, entity_name: equipName });
     }
     setShowEquipDialog(false);
@@ -319,7 +326,9 @@ export default function Equipamentos() {
   };
 
   const confirmDeleteEquip = async () => {
-    await supabase.from("equipments").delete().eq("id", deleteEquipId);
+    if (!requireAdmin("excluir equipamento")) return;
+    const { error } = await supabase.from("equipments").delete().eq("id", deleteEquipId);
+    if (error) { setConfirmEquipOpen(false); return handleError(error, "excluir equipamento"); }
     await logAudit({ action: "exclusão", entity_type: "Equipamento", entity_id: deleteEquipId, entity_name: deleteItemName });
     if (activeEquipment === deleteEquipId) setActiveEquipment("");
     toast.success("Equipamento removido!");
@@ -345,27 +354,31 @@ export default function Equipamentos() {
 
   const saveConsumable = async () => {
     if (!consName.trim()) return toast.error("Nome obrigatório");
+    if (!requireAdmin(editingCons ? "atualizar consumível" : "cadastrar consumível")) return;
     const newPrice = Number(consPrice);
     const newYield = Number(consYield);
 
     if (editingCons) {
       if (editingCons.price !== newPrice || editingCons.yield_pages !== newYield) {
-        await supabase.from("consumable_price_history").insert({
+        const { error: histErr } = await supabase.from("consumable_price_history").insert({
           consumable_id: editingCons.id,
           price: editingCons.price,
           yield_pages: editingCons.yield_pages,
           change_date: new Date().toISOString().split("T")[0],
           notes: `Preço alterado de ${fmt(editingCons.price)} para ${fmt(newPrice)}`,
         });
+        if (histErr) return handleError(histErr, "registrar histórico de preço");
       }
-      await supabase.from("equipment_consumables").update({
+      const { error } = await supabase.from("equipment_consumables").update({
         name: consName, price: newPrice, yield_pages: newYield,
       }).eq("id", editingCons.id);
+      if (error) return handleError(error, "atualizar consumível");
       await logAudit({ action: "edição", entity_type: "Consumível", entity_id: editingCons.id, entity_name: `${consName} (${activeEq?.name})` });
     } else {
-      const { data } = await supabase.from("equipment_consumables").insert({
+      const { data, error } = await supabase.from("equipment_consumables").insert({
         equipment_id: activeEquipment, name: consName, price: newPrice, yield_pages: newYield, sort_order: activeConsumables.length,
       }).select("id").single();
+      if (error) return handleError(error, "cadastrar consumível");
       await logAudit({ action: "criação", entity_type: "Consumível", entity_id: data?.id, entity_name: `${consName} (${activeEq?.name})` });
     }
     setShowConsDialog(false);
@@ -380,7 +393,9 @@ export default function Equipamentos() {
   };
 
   const confirmDeleteCons = async () => {
-    await supabase.from("equipment_consumables").delete().eq("id", deleteConsId);
+    if (!requireAdmin("excluir consumível")) return;
+    const { error } = await supabase.from("equipment_consumables").delete().eq("id", deleteConsId);
+    if (error) { setConfirmConsOpen(false); return handleError(error, "excluir consumível"); }
     await logAudit({ action: "exclusão", entity_type: "Consumível", entity_id: deleteConsId, entity_name: `${deleteItemName} (${activeEq?.name})` });
     toast.success("Consumível removido!");
     setConfirmConsOpen(false);
@@ -409,9 +424,11 @@ export default function Equipamentos() {
             Registre impressoras, consumíveis, acompanhe contadores e evolução de preços
           </p>
         </div>
-        <Button onClick={() => openEquipDialog()} size="sm" className="gap-1.5">
-          <Plus className="h-4 w-4" /> Novo Equipamento
-        </Button>
+        <AdminOnly mode="disable" action="cadastrar equipamento">
+          <Button onClick={() => openEquipDialog()} size="sm" className="gap-1.5">
+            <Plus className="h-4 w-4" /> Novo Equipamento
+          </Button>
+        </AdminOnly>
       </div>
 
       {/* Top mode toggle */}
@@ -457,9 +474,11 @@ export default function Equipamentos() {
             <p className="text-sm text-muted-foreground mb-4">
               Cadastre impressoras como "Xerox 252", "Ricoh 5002", etc.
             </p>
-            <Button onClick={() => openEquipDialog()} className="gap-1.5">
-              <Plus className="h-4 w-4" /> Cadastrar primeiro equipamento
-            </Button>
+            <AdminOnly mode="disable" action="cadastrar equipamento">
+              <Button onClick={() => openEquipDialog()} className="gap-1.5">
+                <Plus className="h-4 w-4" /> Novo Equipamento
+              </Button>
+            </AdminOnly>
           </CardContent>
         </Card>
       ) : (
@@ -495,16 +514,20 @@ export default function Equipamentos() {
                 );
               })}
             </TabsList>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => {
-              const eq = equipments.find((e) => e.id === activeEquipment);
-              if (eq) openEquipDialog(eq);
-            }}>
-              <Edit2 className="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
-              onClick={() => { if (activeEquipment) requestDeleteEquip(activeEquipment); }}>
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            <AdminOnly mode="disable" action="editar equipamento">
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => {
+                const eq = equipments.find((e) => e.id === activeEquipment);
+                if (eq) openEquipDialog(eq);
+              }}>
+                <Edit2 className="h-3.5 w-3.5" />
+              </Button>
+            </AdminOnly>
+            <AdminOnly mode="disable" action="excluir equipamento">
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
+                onClick={() => { if (activeEquipment) requestDeleteEquip(activeEquipment); }}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </AdminOnly>
           </div>
 
           {equipments.map((eq) => {
@@ -573,9 +596,11 @@ export default function Equipamentos() {
                         <Gauge className="h-4 w-4" style={{ color: config.color }} />
                         Consumíveis — {eq.name}
                       </CardTitle>
-                      <Button onClick={() => openConsDialog()} size="sm" variant="outline" className="gap-1.5">
-                        <Plus className="h-3.5 w-3.5" /> Consumível
-                      </Button>
+                      <AdminOnly mode="disable" action="cadastrar consumível">
+                        <Button onClick={() => openConsDialog()} size="sm" variant="outline" className="gap-1.5">
+                          <Plus className="h-3.5 w-3.5" /> Consumível
+                        </Button>
+                      </AdminOnly>
                     </CardHeader>
                     <CardContent>
                       {activeConsumables.length === 0 ? (
@@ -622,12 +647,16 @@ export default function Equipamentos() {
                                     </TableCell>
                                     <TableCell>
                                       <div className="flex gap-1 justify-end">
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openConsDialog(c)}>
-                                          <Edit2 className="h-3.5 w-3.5" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => requestDeleteCons(c.id, c.name)}>
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
+                                        <AdminOnly mode="disable" action="editar consumível">
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openConsDialog(c)}>
+                                            <Edit2 className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </AdminOnly>
+                                        <AdminOnly mode="disable" action="excluir consumível">
+                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => requestDeleteCons(c.id, c.name)}>
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </AdminOnly>
                                       </div>
                                     </TableCell>
                                   </TableRow>
