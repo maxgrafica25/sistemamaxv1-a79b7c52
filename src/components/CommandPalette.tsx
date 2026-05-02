@@ -157,7 +157,7 @@ export default function CommandPalette() {
               )}
 
               <CommandGroup heading="Ações Rápidas">
-                <CommandItem value="acao-novo-orcamento" onSelect={() => goTo("/orcamentos/novo")}>
+                <CommandItem value="acao-novo-orcamento" onSelect={() => goTo("/orcamentos-v2/novo")}>
                   <FilePlus2 /> Novo Orçamento
                 </CommandItem>
                 <CommandItem value="acao-nova-manutencao" onSelect={() => goTo("/equipamentos?tab=maintenance&action=new")}>
