@@ -272,22 +272,39 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
                 </Button>
               </div>
 
-              {/* Lixeira ao lado da folha custom selecionada */}
-              {(() => {
-                const sel = draft.customSheets.find((s) => s.id === draft.sheetPresetId);
-                if (!sel) return null;
-                return (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive h-7 text-xs"
-                    onClick={() => handleRemoveCustomSheet(sel.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 mr-1" />
-                    Excluir folha "{sel.label}"
-                  </Button>
-                );
-              })()}
+              {/* Lista completa de folhas personalizadas com remover */}
+              {draft.customSheets.length > 0 && (
+                <div className="rounded-md border bg-muted/20 p-2 space-y-1 max-h-44 overflow-y-auto">
+                  <p className="text-[11px] text-muted-foreground px-1">
+                    Folhas personalizadas cadastradas:
+                  </p>
+                  {draft.customSheets.map((s) => (
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between gap-2 text-xs px-1.5 py-1 rounded hover:bg-muted/60"
+                    >
+                      <span className="truncate">
+                        <span className="font-medium">{s.label}</span>
+                        <span className="text-muted-foreground">
+                          {" · "}{s.width}×{s.height}mm
+                        </span>
+                        {draft.sheetPresetId === s.id && (
+                          <span className="ml-1.5 text-[10px] text-primary">(em uso)</span>
+                        )}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-destructive shrink-0"
+                        onClick={() => handleRemoveCustomSheet(s.id)}
+                        title={`Excluir "${s.label}"`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* W x H — editável só se "Personalizado" */}
