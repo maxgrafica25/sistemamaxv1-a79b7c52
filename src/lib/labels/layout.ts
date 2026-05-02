@@ -223,13 +223,19 @@ export function computeReservedSlots(
     }
   };
 
-  // 1ª linha — sempre avaliada (vs. L superior)
-  const topSafe = safeCellsForRow(cols);
+  // 1ª linha — sempre avaliada (vs. L superior).
+  // Regra ARMS: quando há 2+ linhas, força sempre ≥1 etiqueta a menos que a capacidade bruta.
+  // Isso garante monotonicidade do rendimento (etiqueta menor sempre rende ≥ etiqueta maior)
+  // e dá folga real para a marca de registro mesmo quando a fórmula de slack não dispara.
+  let topSafe = safeCellsForRow(cols);
+  if (rows >= 2) topSafe = Math.min(topSafe, cols - 1);
   reserveEnds(0, cols - topSafe);
 
-  // Última linha — só para não-redondo (ticks da base se encaixam entre círculos)
+  // Última linha — só para não-redondo (ticks da base se encaixam entre círculos).
+  // Mesma regra forçada por simetria visual com a 1ª linha.
   if (!isRound && rows >= 2) {
-    const bottomSafe = safeCellsForRow(cols);
+    let bottomSafe = safeCellsForRow(cols);
+    bottomSafe = Math.min(bottomSafe, cols - 1);
     reserveEnds(rows - 1, cols - bottomSafe);
   }
 

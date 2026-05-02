@@ -96,15 +96,24 @@ export const computeSignmasterLayout = (
   const offsetY = (sheetH - totalGridHeight) / 2 + SM_VERTICAL_NUDGE;
   const gridBottom = offsetY + totalGridHeight;
 
+  // Regra ARMS: a 1ª linha protege a marca de registro superior.
+  // 1) Reduz por slack até atingir folga lateral ≥ 10mm (segurança física da marca).
+  // 2) Quando a folha tem 2+ linhas, força sempre ≥1 etiqueta a menos que a capacidade bruta.
+  //    Isso garante MONOTONICIDADE do rendimento (etiqueta menor sempre rende ≥ etiqueta maior
+  //    com mesmo gap) e elimina o "degrau" matemático em que diâmetros que se ajeitam em zonas
+  //    de folga grande escapavam da penalidade. Prioritário sobre a fórmula original da spec.
   const safeCellsForTopRow = (startCols: number): number => {
     let n = startCols;
     while (n > 0) {
       const rowWidth = n * labelDiameter + Math.max(0, n - 1) * SM_LABEL_SPACING;
       const slack = (usableW - rowWidth) / 2;
-      if (slack >= 10) return n;
+      if (slack >= 10) break;
       n -= 1;
     }
-    return 0;
+    if (labelsPerColumn >= 2) {
+      n = Math.min(n, startCols - 1);
+    }
+    return Math.max(0, n);
   };
 
   const cellsPerRow = Array.from({ length: labelsPerColumn }, (_, row) =>
