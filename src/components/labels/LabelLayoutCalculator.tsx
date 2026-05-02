@@ -247,10 +247,9 @@ export function LabelLayoutCalculator({
 
   // ---- Troca rápida de folha (Tabs) ----------------------------------------
   const QUICK_SHEETS: Array<{ id: string; label: string; w: number; h: number }> = [
-    { id: "SRA3", label: "32×45 (SRA3)", w: 320, h: 450 },
-    { id: "A4", label: "A4 21×29.7", w: 210, h: 297 },
-    { id: "A3", label: "A3 29.7×42", w: 297, h: 420 },
-    { id: "330x480", label: "33×48", w: 330, h: 480 },
+    { id: "A4", label: "A4 21×29,7", w: 210, h: 297 },
+    { id: "SRA3", label: "SRA3 32×45", w: 320, h: 450 },
+    { id: "Formatao", label: "Formatão 32,8×47,8", w: 328, h: 478 },
   ];
   const currentSheetTab = useMemo(() => {
     const m = QUICK_SHEETS.find(

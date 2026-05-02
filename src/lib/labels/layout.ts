@@ -66,11 +66,9 @@ export interface SheetPreset {
 }
 
 export const SHEET_PRESETS: SheetPreset[] = [
-  { id: "SRA3", label: "32 × 45 cm (SRA3)", width: 320, height: 450 },
-  { id: "A4", label: "A4 (21 × 29.7 cm)", width: 210, height: 297 },
-  { id: "A3", label: "A3 (29.7 × 42 cm)", width: 297, height: 420 },
-  { id: "330x480", label: "33 × 48 cm", width: 330, height: 480 },
-  { id: "Carta", label: "Carta (216 × 279 mm)", width: 216, height: 279 },
+  { id: "A4", label: "A4 (21 × 29,7 cm)", width: 210, height: 297 },
+  { id: "SRA3", label: "SRA3 (32 × 45 cm)", width: 320, height: 450 },
+  { id: "Formatao", label: "Formatão (32,8 × 47,8 cm)", width: 328, height: 478 },
 ];
 
 // ---------- 1. Cálculo de aproveitamento ------------------------------------

@@ -166,6 +166,14 @@ export function loadConfig(): LabelCalcConfig {
     };
     writeRaw(merged);
   }
+  // Migração: presets de folha removidos (A3, Carta, 330x480) → normalizar
+  if (merged.sheetPresetId === "330x480") {
+    merged = { ...merged, sheetPresetId: "Formatao", sheetW: 328, sheetH: 478 };
+    writeRaw(merged);
+  } else if (merged.sheetPresetId === "A3" || merged.sheetPresetId === "Carta") {
+    merged = { ...merged, sheetPresetId: "A4", sheetW: 210, sheetH: 297 };
+    writeRaw(merged);
+  }
   // Aplica restrições do hardware se margens não estiverem destravadas
   if (!merged.marginsUnlocked) {
     const profile = HARDWARE_PROFILES[merged.hardwareProfileId] ?? HARDWARE_PROFILES.generico;
