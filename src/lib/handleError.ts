@@ -9,6 +9,25 @@ interface ErrorLike {
   hint?: string;
 }
 
+const RLS_PATTERNS = [
+  /row-level security/i,
+  /new row violates row-level security/i,
+  /permission denied/i,
+  /insufficient_privilege/i,
+  /violates.*policy/i,
+];
+
+const isRlsError = (msg: string, code?: string) => {
+  if (code === "42501" || code === "PGRST301" || code === "PGRST116") return true;
+  return RLS_PATTERNS.some((re) => re.test(msg));
+};
+
+const isAdminOnlyError = (msg: string) =>
+  /apenas administradores|only admin|admin.*podem|administrador/i.test(msg);
+
+const isFinanceiroOnlyError = (msg: string) =>
+  /financeiro/i.test(msg);
+
 /**
  * Trata erro de operação Supabase/async com feedback visível ao usuário.
  * @param error  Erro retornado por supabase ou catch
@@ -30,13 +49,25 @@ export function handleError(
     hint: err.hint,
   });
 
-  if (!options.silent) {
-    // Mensagens de RLS são confusas pro usuário final — traduzir
-    const friendly = message.includes("row-level security")
-      ? "Você não tem permissão para essa ação. Contate um administrador."
-      : message.includes("duplicate key")
-      ? "Esse registro já existe."
-      : `Falha ao ${context}: ${message}`;
-    toast.error(friendly);
+  if (options.silent) return;
+
+  let friendly: string;
+
+  if (isRlsError(message, err.code)) {
+    // Mensagem de RLS — provavelmente precisa de admin
+    friendly = `Sem permissão para ${context}. Esta ação é restrita aos administradores do sistema. Solicite ao administrador para realizar a alteração.`;
+  } else if (isFinanceiroOnlyError(message)) {
+    friendly = `Sem permissão para ${context}. Esta ação é restrita aos usuários do Financeiro (Juliano ou Marcelle).`;
+  } else if (isAdminOnlyError(message)) {
+    // Erro custom do banco que já menciona admin
+    friendly = `Sem permissão para ${context}. ${message}`;
+  } else if (/duplicate key|already exists/i.test(message)) {
+    friendly = "Esse registro já existe.";
+  } else if (/foreign key|violates foreign key/i.test(message)) {
+    friendly = `Não foi possível ${context}: existem registros vinculados que precisam ser removidos antes.`;
+  } else {
+    friendly = `Falha ao ${context}: ${message}`;
   }
+
+  toast.error(friendly);
 }

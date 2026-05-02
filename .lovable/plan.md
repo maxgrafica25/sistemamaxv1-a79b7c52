@@ -1,117 +1,98 @@
 ## Objetivo
 
-Tornar **todo o sistema** responsivo, garantindo que em qualquer tamanho de tela (mobile ~360px, tablet ~768px, laptop ~1024px, desktop ≥1400px) o usuário consiga visualizar e operar todas as informações sem perda de conteúdo.
+Garantir que **toda ação bloqueada por permissão** (RLS de admin/financeiro/etc.) mostre uma mensagem clara ao usuário, em vez de falhar silenciosamente ou exibir um falso "salvo com sucesso".
 
-## Diagnóstico atual
+Hoje, ações executadas por Colaboradores em telas restritas a Admin (como Preço de Impressão, Equipamentos, Despesas Fixas, Categorias de Materiais, etc.) retornam erro 403 do Supabase, mas o código React ignora o `error` e mostra `toast.success(...)` mesmo assim. Resultado: o usuário pensa que cadastrou, mas o registro nunca foi salvo.
 
-Após varredura no projeto, identifiquei 4 problemas recorrentes:
+## O que já existe
 
-1. **Tabelas largas sem scroll horizontal** — 15 páginas com `<Table>` (Materiais, Despesas Fixas, Equipamentos, Pedidos, Clientes, Fornecedores, Auditoria, etc.) que estouram em telas menores que 1280px.
-2. **Dialogs/Modais sem altura/largura responsivas** — 42 arquivos com `DialogContent`. Muitos usam `max-w-3xl`/`max-w-lg` sem `max-h-[90vh] overflow-y-auto`, fazendo o conteúdo ser cortado verticalmente em telas baixas (visível no print enviado: dialog "Novo Item" cobrindo a tela inteira).
-3. **Padding fixo grande** (`p-6`) em ~20 páginas, desperdiçando espaço útil em telas médias/pequenas.
-4. **Headers com botões/filtros sem `flex-wrap`** quebrando em mobile.
+O projeto já tem o helper `src/lib/handleError.ts` que traduz a mensagem técnica de RLS para "Você não tem permissão para essa ação. Contate um administrador." Porém, está sendo usado em apenas 4 dos ~38 arquivos com mutações.
 
-## Estratégia: padrões reutilizáveis em vez de retrabalho página a página
+## Estratégia
 
-Em vez de editar cada componente manualmente, vou:
+Em vez de proteger cada operação individualmente em 38 arquivos (alto custo), vou agir em **3 camadas complementares**:
 
-### Fase 1 — Padrões globais (efeito amplo, baixo risco)
+### Camada 1 — Aprimorar o helper central (`handleError.ts`)
 
-1. **`src/components/ui/dialog.tsx`**: ajustar `DialogContent` padrão para incluir `max-h-[90vh] overflow-y-auto` e padding responsivo (`p-4 sm:p-6`). Isso corrige automaticamente os 42 dialogs do sistema.
+- Refinar a mensagem de RLS para incluir o contexto da ação:
+  > "Sem permissão para **cadastrar item de impressão**. Apenas administradores podem fazer essa alteração."
+- Detectar também variantes de mensagens de RLS do PostgREST: `"new row violates row-level security"`, `"permission denied"`, `"policy"`.
+- Não alterar API pública — continua sendo `handleError(error, "salvar item")`.
 
-2. **`src/components/ui/table.tsx`**: o componente `Table` já vem dentro de um wrapper `<div className="relative w-full overflow-auto">` (shadcn padrão). Confirmar que está ativo e adicionar classe utilitária.
+### Camada 2 — Helpers de UI preventivos (novo)
 
-3. **Helper de página `PageContainer`** (novo, opcional): componente leve em `src/components/PageContainer.tsx` com padding/largura responsivos padronizados (`p-3 sm:p-4 lg:p-6 max-w-[1400px] mx-auto`). Usado nas próximas refatorações sem precisar mexer em todas hoje.
+Criar `src/lib/permissions.ts` com:
 
-### Fase 2 — Páginas de alto tráfego (impacto visível imediato)
+- `useAdminGuard()` — retorna `{ isAdmin, requireAdmin(action: string): boolean }`. Se chamado por não-admin, dispara `toast.error("Apenas administradores podem {action}")` e retorna `false`. Permite bloquear a ação **antes** de chamar o Supabase, melhorando UX.
+- Componente `<AdminOnly fallback?>{children}</AdminOnly>` para esconder/desabilitar botões de ação para Colaboradores, deixando claro visualmente que aquilo é restrito (badge "Admin" ou tooltip "Apenas administradores").
 
-Aplicar wrapper `overflow-x-auto` + padding responsivo nas páginas que o usuário usa diariamente:
+### Camada 3 — Aplicar nas páginas/componentes de alta prioridade
 
-- `Pedidos.tsx` (kanban + tabela)
-- `OrcamentosV2.tsx` (lista de orçamentos)
-- `ContasReceber.tsx`
-- `MateriasPrimas.tsx` (4 tabelas)
-- `Equipamentos.tsx`
-- `Clientes.tsx` / `Fornecedores.tsx`
-- `DespesasFixas.tsx` (3 tabelas)
-- `Cadastros.tsx` / `CadastrosCV.tsx`
-- `Acabamentos.tsx`
-- `Auditoria.tsx`
-- `LeituraImpressoras.tsx`
-- `Monitoramento.tsx`
-- `Usuarios.tsx`
-- `ProcessosProducao.tsx` / `GruposMateriais.tsx` / `GruposEtapas.tsx`
-- `Dashboard.tsx` (cards do grid)
+Adicionar tratamento de erro nas mutações dos arquivos onde a regra "só admin" se aplica. Identificados pelas RLS do banco que exigem `is_profile_admin`/`has_role('admin')`:
 
-Para cada uma:
-- Container raiz: `p-6` → `p-3 sm:p-4 lg:p-6`
-- Headers com ações: garantir `flex-wrap gap-2`
-- Tabelas: envolver em `<div className="w-full overflow-x-auto rounded-md border">` quando ainda não tiver
-- Tabs com muitas abas: wrapper `overflow-x-auto`
+**Páginas administrativas** (todas as mutações):
+- `src/pages/PrecoImpressao.tsx` — categorias, regras (tiers), grupos de markup, itens de preço
+- `src/pages/Equipamentos.tsx` — equipamentos, consumíveis, manutenções
+- `src/pages/MateriasPrimas.tsx` — papéis, suprimentos
+- `src/pages/Fornecedores.tsx` / `src/pages/Clientes.tsx` / `src/pages/Cadastros.tsx` (se restritos)
+- `src/pages/DespesasFixas.tsx` — despesas, custos
+- `src/pages/Acabamentos.tsx`, `src/pages/Etapas.tsx`, `src/pages/GruposEtapas.tsx`, `src/pages/GruposMateriais.tsx`, `src/pages/ProcessosProducao.tsx`
+- `src/pages/Usuarios.tsx` — gestão de usuários (já admin-only por natureza)
+- `src/pages/Configuracoes.tsx` — configurações da empresa
+- `src/pages/orcamentos-v2/OrcamentosV2.tsx` — exclusões em massa
 
-### Fase 3 — Sidebar e Layout
+**Componentes de dialog/edição** com mutações:
+- `src/components/equipamentos/MaintenanceRequestsTab.tsx`, `ProductionLossesTab.tsx`, `PrinterReadingsTab.tsx`, `MaintenanceTab.tsx`
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx`, `GenerateOrderButton.tsx`, `ClientDetailsPanel.tsx`
+- `src/components/pedidos/OrderEditorDialog.tsx`
+- `src/components/chat/CreateChannelDialog.tsx`, `AddMemberDialog.tsx`, `ChannelDetailsPanel.tsx`
+- `src/components/monitoramento/NovoSiteDialog.tsx`, `GerenciarCategoriasDialog.tsx`
+- `src/components/configuracoes/CompanyTab.tsx`
+- `src/components/CadastroFormDialog.tsx`
 
-- Confirmar que `Sidebar` colapsa corretamente em mobile (já existe `useSidebarState` com `mobileOpen` — verificar funcionamento).
-- Header: garantir que avatar/nome/notificações se adaptem (`hidden sm:inline` onde necessário).
+Para cada um, o padrão de mudança é mecânico:
 
-### Fase 4 — Editores complexos
+```ts
+// Antes
+await supabase.from("printing_price_items").insert(records);
+toast.success("Item criado!");
 
-Páginas com formulários grandes em uma só tela:
-- `NewQuoteV2` / `EditQuoteV2` (orçamentos): garantir que a `StickyFinancialSidebar` (já tem versão mobile bottom-bar) funcione bem.
-- `OrderEditorDialog`, `PrintingItemEditor`: ajustar grids `grid-cols-3` para `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`.
-- `LabelLayoutCalculator`: já tem dialog responsivo, validar.
-
-## Detalhes técnicos
-
-### Padrão de tabela responsiva
-
-```tsx
-<div className="w-full overflow-x-auto rounded-md border">
-  <Table className="min-w-max">
-    {/* ... */}
-  </Table>
-</div>
+// Depois
+const { error } = await supabase.from("printing_price_items").insert(records);
+if (error) return handleError(error, "cadastrar item de impressão");
+toast.success("Item criado!");
 ```
 
-### Padrão de dialog responsivo (no `dialog.tsx`)
+Sem alterar lógica de negócio nem RLS — apenas adicionar a captura `{ error }` e a chamada `handleError(...)`.
 
-```tsx
-<DialogPrimitive.Content
-  className={cn(
-    "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%]",
-    "max-h-[90vh] overflow-y-auto", // <- adicionar
-    "gap-4 border bg-background p-4 sm:p-6 shadow-lg", // <- p-4 sm:p-6
-    "duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out ...",
-    className
-  )}
-/>
-```
+### Camada 4 — Esconder/desabilitar botões para Colaboradores (UX preventiva)
 
-### Padrão de container de página
+Nas telas de gestão restrita, envolver botões "Novo / Editar / Excluir" em `<AdminOnly>` ou desabilitar com tooltip explicativo. Lista de botões a marcar:
 
-```tsx
-<div className="p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6 max-w-[1400px] mx-auto">
-```
+- Preço de Impressão: "Nova Categoria", "Nova Regra", "Novo Item", ícones de editar/excluir nas linhas
+- Equipamentos: "Novo Equipamento", "Editar", "Excluir"
+- Matérias-Primas: "Novo Papel/Suprimento", "Editar", "Excluir"
+- Despesas Fixas: idem
+- Acabamentos / Grupos / Processos: idem
+- Configurações: campos da empresa em modo readonly para não-admins
 
-### Padrão de header de página
+Assim, em vez de "tentar e falhar", o Colaborador vê de imediato que aquela área é restrita.
 
-```tsx
-<div className="flex items-start justify-between flex-wrap gap-3">
-  <div className="min-w-0">...</div>
-  <div className="flex gap-2 flex-wrap">...</div>
-</div>
-```
+## Fora do escopo
 
-## O que fica fora deste plano
-
-- **Redesenho visual** das páginas (cores, hierarquia, layouts novos) — não é o pedido.
-- **PWA / app nativo** — apenas responsividade web.
-- **Componentes de relatório/PDF** (`production-pdf.ts`, `production-order-pdf.ts`) — saídas para impressão, não tela.
+- **Não vou alterar nenhuma RLS do banco** — a regra "só admin gerencia preços/cadastros" é intencional.
+- **Não vou tocar em lógica de cálculo, formulários, layout** — apenas captura de erro e visibilidade de botões.
+- **Tabelas com RLS pública** (que qualquer usuário autenticado pode escrever — ex.: chat messages do próprio user, cliente próprio) ficam como estão, apenas adicionando `handleError` para qualquer erro técnico.
 
 ## Validação
 
-Após as mudanças, vou abrir o navegador embutido em três viewports (1440px, 1024px, 390px) navegando pelas páginas mais críticas (Pedidos, Orçamentos V2, Materiais, Preço Impressão, Equipamentos, Dashboard, Despesas Fixas, Contas a Receber) e tirar screenshots para confirmar que nada está cortado.
+Após as mudanças, vou logar como Colaborador no preview e tentar:
+1. Cadastrar item em Preço de Impressão → deve mostrar mensagem clara de permissão
+2. Editar equipamento → idem
+3. Verificar que botões aparecem desabilitados/escondidos em telas admin-only
 
-## Estimativa
+## Resumo de arquivos a tocar
 
-Mudança em ~25 arquivos, sem risco para lógica de negócio (apenas classes Tailwind). O impacto da Fase 1 (dialog.tsx) sozinho já resolve grande parte dos problemas.
+- 1 arquivo refinado: `src/lib/handleError.ts`
+- 2 arquivos novos: `src/lib/permissions.ts`, `src/components/AdminOnly.tsx`
+- ~25 páginas/componentes ajustados para chamar `handleError(...)` nas mutações e usar `<AdminOnly>` em botões críticos
