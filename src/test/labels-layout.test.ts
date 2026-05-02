@@ -579,15 +579,11 @@ describe("effectiveUsableArea", () => {
   });
 });
 
-describe("suggestMarksOffset", () => {
-  it("retorna 0 se não há rows ou gap", () => {
+describe("suggestMarksOffset (legado)", () => {
+  it("sempre retorna 0 — função neutralizada após adoção das marcas inferiores em cruz", () => {
     expect(suggestMarksOffset(5, 50, 0, 5)).toBe(0);
     expect(suggestMarksOffset(5, 50, 2, 0)).toBe(0);
-  });
-  it("aproxima a marca para o centro do primeiro gap", () => {
-    const offset = suggestMarksOffset(5, 50, 4, 4);
-    expect(offset).toBeGreaterThan(0);
-    expect(offset).toBeLessThanOrEqual(10);
+    expect(suggestMarksOffset(5, 50, 4, 4)).toBe(0);
   });
 });
 
