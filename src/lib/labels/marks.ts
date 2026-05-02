@@ -1,17 +1,22 @@
 // =============================================================================
 // Marcas de registro (ARMS) — padrão SignMaster / Teneth
 // =============================================================================
-// Marcas SUPERIORES (TL/TR): "L" abrindo para dentro da folha (vértice no
+// Marcas SUPERIORES (TL/TR): "L" abrindo para fora da folha (vértice no
 // canto da área útil, dois braços perpendiculares de 5mm).
 //
-// Marcas INFERIORES (BL/BR): traço horizontal único (~10mm) na base. O
-// SignMaster usa esse padrão pra distinguir início de leitura (Ls em cima)
-// de fim de leitura (ticks embaixo).
+// Marcas INFERIORES (BL/BR): "cruz lateral" — traço vertical longo (10mm)
+// cruzado por traço horizontal curto (5mm) no meio. Posicionada FORA da
+// área útil (afastada 3mm da margem lateral), na altura do canto inferior.
+// É a marca de fim de leitura usada pelo SignMaster/Teneth como referência
+// de eixo Y.
+//
+// Tipo "tick" foi mantido por compatibilidade com chamadas legadas, mas
+// não é mais usado por padrão.
 //
 // Todas em K100 (preto puro), espessura 0.5pt.
 // =============================================================================
 
-export type MarkKind = "L" | "tick";
+export type MarkKind = "L" | "tick" | "cross";
 export type Corner = "tl" | "tr" | "bl" | "br";
 
 export interface MarkSegment {
@@ -24,10 +29,10 @@ export interface MarkSegment {
 export interface RegistrationMark {
   kind: MarkKind;
   corner: Corner;
-  /** Vértice (para L) ou ponto central (para tick), em mm. */
+  /** Vértice (para L) ou ponto central (para tick/cross), em mm. */
   vertexX: number;
   vertexY: number;
-  /** Comprimento do braço (L) ou metade do tick. */
+  /** Comprimento do braço (L) ou metade do tick. Para "cross" é referência. */
   arm: number;
 }
 
@@ -40,16 +45,22 @@ export const MARK_ARM_MM = 5;
 export const TICK_LEN_MM = 10;
 export const MARK_STROKE_PT = 0.5;
 
+// "Cruz lateral" inferior — dimensões reais do plotter (anexo CorelDRAW)
+export const CROSS_VERT_LEN_MM = 10;
+export const CROSS_HORIZ_LEN_MM = 5;
+export const CROSS_OUTSIDE_GAP_MM = 3;
+
 // Mantido por compatibilidade com chamadas antigas que importam MARK_SIZE_MM.
 export const MARK_SIZE_MM = MARK_ARM_MM;
 
 /**
  * Constrói as 4 marcas de canto.
  * - TL e TR: kind="L", vértice no canto da área útil
- * - BL e BR: kind="tick", centrado no eixo X do canto da área útil,
- *   posicionado dentro da margem inferior
+ * - BL e BR: kind="cross", posicionada FORA da área útil (lateralmente),
+ *   na altura do canto inferior da área útil
  *
  * `offsetY` desloca verticalmente o conjunto inteiro (positivo = para baixo).
+ * `bottomOffsetY` desloca apenas as marcas inferiores (BL/BR) — somado ao offsetY global.
  */
 export function buildCornerMarks(
   sheetW: number,
@@ -60,23 +71,25 @@ export function buildCornerMarks(
   marginRight: number,
   offsetY = 0,
   arm = MARK_ARM_MM,
+  bottomOffsetY = 0,
 ): MarksLayout {
   // Cantos da área útil
   const left = marginLeft;
   const right = sheetW - marginRight;
-  // Vértice do L exatamente no canto da área útil; braços ficam FORA (para
-  // cima e para o lado externo), de modo que o L não invade a grade.
   const topY = marginTop + offsetY;
-  // Tick na base: posicionado no meio da margem inferior
-  const bottomY = sheetH - Math.max(0, marginBottom / 2) + offsetY;
+  // Marcas inferiores: alinhadas ao canto inferior da área útil
+  const bottomY = (sheetH - marginBottom) + offsetY + bottomOffsetY;
+  // Posicionadas fora da área útil, lateralmente
+  const crossLeftX = left - CROSS_OUTSIDE_GAP_MM;
+  const crossRightX = right + CROSS_OUTSIDE_GAP_MM;
 
   return {
     offsetY,
     marks: [
       { kind: "L", corner: "tl", vertexX: left, vertexY: topY, arm },
       { kind: "L", corner: "tr", vertexX: right, vertexY: topY, arm },
-      { kind: "tick", corner: "bl", vertexX: left, vertexY: bottomY, arm: TICK_LEN_MM / 2 },
-      { kind: "tick", corner: "br", vertexX: right, vertexY: bottomY, arm: TICK_LEN_MM / 2 },
+      { kind: "cross", corner: "bl", vertexX: crossLeftX, vertexY: bottomY, arm },
+      { kind: "cross", corner: "br", vertexX: crossRightX, vertexY: bottomY, arm },
     ],
   };
 }
@@ -88,8 +101,12 @@ export function buildCornerMarks(
 export function markBoundingBox(mark: RegistrationMark): { x: number; y: number; w: number; h: number } {
   const { kind, corner, vertexX: x, vertexY: y, arm } = mark;
   if (kind === "tick") {
-    // Linha horizontal de 2*arm centrada em vertexX, espessura desprezível (~0.2mm)
     return { x: x - arm, y: y - 0.1, w: arm * 2, h: 0.2 };
+  }
+  if (kind === "cross") {
+    const hw = CROSS_HORIZ_LEN_MM / 2;
+    const hh = CROSS_VERT_LEN_MM / 2;
+    return { x: x - hw, y: y - hh, w: hw * 2, h: hh * 2 };
   }
   // L: braços apontam para fora (TL=-x/-y, TR=+x/-y, BL=-x/+y, BR=+x/+y)
   const sx = corner === "tl" || corner === "bl" ? -1 : 1;
@@ -103,11 +120,20 @@ export function markBoundingBox(mark: RegistrationMark): { x: number; y: number;
  * Retorna os segmentos de linha da marca, em mm.
  * - L: 2 segmentos perpendiculares partindo do vértice
  * - tick: 1 segmento horizontal centrado em vertexX
+ * - cross: 2 segmentos cruzados (vertical longo + horizontal curto)
  */
 export function markSegments(mark: RegistrationMark): MarkSegment[] {
   const { kind, corner, vertexX: x, vertexY: y, arm } = mark;
   if (kind === "tick") {
     return [{ x1: x - arm, y1: y, x2: x + arm, y2: y }];
+  }
+  if (kind === "cross") {
+    const hh = CROSS_VERT_LEN_MM / 2;
+    const hw = CROSS_HORIZ_LEN_MM / 2;
+    return [
+      { x1: x, y1: y - hh, x2: x, y2: y + hh }, // vertical longa
+      { x1: x - hw, y1: y, x2: x + hw, y2: y }, // horizontal curta
+    ];
   }
   // L: braços apontam SEMPRE para fora da área útil (vértice no canto da
   // área útil). Garante que o L não invade a grade de etiquetas.
@@ -121,22 +147,15 @@ export function markSegments(mark: RegistrationMark): MarkSegment[] {
 }
 
 /**
- * Sugere offsetY que centraliza as marcas no gap entre fileiras de etiquetas.
- * Como agora a primeira linha pode ter "vão" interno (centralizada), a marca
- * em "L" raramente colide; ainda assim, oferecemos o ajuste para casos onde
- * o usuário queira aproximar visualmente a marca da arte.
+ * Mantida por compatibilidade. Com o novo modelo (marcas inferiores como
+ * cruz lateral fora da área útil), não há mais colisão a sugerir — o ajuste
+ * vertical é decisão do operador, baseada no sensor da impressora.
  */
 export function suggestMarksOffset(
-  marginTop: number,
-  labelH: number,
-  gap: number,
-  rows: number,
+  _marginTop: number,
+  _labelH: number,
+  _gap: number,
+  _rows: number,
 ): number {
-  if (rows <= 0 || gap <= 0) return 0;
-  const firstGapCenter = marginTop + labelH + gap / 2;
-  const currentMarkY = marginTop;
-  const offset = firstGapCenter - currentMarkY - MARK_ARM_MM / 2;
-  if (offset < -10) return -10;
-  if (offset > 10) return 10;
-  return Math.round(offset * 10) / 10;
+  return 0;
 }

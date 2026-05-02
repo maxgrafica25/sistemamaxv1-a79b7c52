@@ -579,20 +579,16 @@ describe("effectiveUsableArea", () => {
   });
 });
 
-describe("suggestMarksOffset", () => {
-  it("retorna 0 se não há rows ou gap", () => {
+describe("suggestMarksOffset (legado)", () => {
+  it("sempre retorna 0 — função neutralizada após adoção das marcas inferiores em cruz", () => {
     expect(suggestMarksOffset(5, 50, 0, 5)).toBe(0);
     expect(suggestMarksOffset(5, 50, 2, 0)).toBe(0);
-  });
-  it("aproxima a marca para o centro do primeiro gap", () => {
-    const offset = suggestMarksOffset(5, 50, 4, 4);
-    expect(offset).toBeGreaterThan(0);
-    expect(offset).toBeLessThanOrEqual(10);
+    expect(suggestMarksOffset(5, 50, 4, 4)).toBe(0);
   });
 });
 
-describe("buildCornerMarks — L (topo) + tick (base)", () => {
-  it("gera 4 marcas: 2 Ls em cima, 2 ticks embaixo", async () => {
+describe("buildCornerMarks — L (topo) + cross (base)", () => {
+  it("gera 4 marcas: 2 Ls em cima, 2 cruzes embaixo", async () => {
     const { markSegments } = await import("@/lib/labels/marks");
     const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5);
     expect(m.marks).toHaveLength(4);
@@ -600,13 +596,13 @@ describe("buildCornerMarks — L (topo) + tick (base)", () => {
     expect(m.marks[0].corner).toBe("tl");
     expect(m.marks[1].kind).toBe("L");
     expect(m.marks[1].corner).toBe("tr");
-    expect(m.marks[2].kind).toBe("tick");
+    expect(m.marks[2].kind).toBe("cross");
     expect(m.marks[2].corner).toBe("bl");
-    expect(m.marks[3].kind).toBe("tick");
+    expect(m.marks[3].kind).toBe("cross");
     expect(m.marks[3].corner).toBe("br");
-    // L → 2 segmentos; tick → 1 segmento
+    // L → 2 segmentos; cross → 2 segmentos
     expect(markSegments(m.marks[0])).toHaveLength(2);
-    expect(markSegments(m.marks[2])).toHaveLength(1);
+    expect(markSegments(m.marks[2])).toHaveLength(2);
   });
   it("aplica offsetY ao conjunto", () => {
     const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 3, 5);
@@ -615,6 +611,16 @@ describe("buildCornerMarks — L (topo) + tick (base)", () => {
     m.marks.forEach((mk, i) => {
       expect(mk.vertexY - baseline.marks[i].vertexY).toBeCloseTo(3, 5);
     });
+  });
+  it("bottomOffsetY desloca apenas marcas inferiores (BL/BR)", () => {
+    const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5, 12);
+    const baseline = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5, 0);
+    // Topo inalterado
+    expect(m.marks[0].vertexY).toBeCloseTo(baseline.marks[0].vertexY, 5);
+    expect(m.marks[1].vertexY).toBeCloseTo(baseline.marks[1].vertexY, 5);
+    // Base deslocada
+    expect(m.marks[2].vertexY - baseline.marks[2].vertexY).toBeCloseTo(12, 5);
+    expect(m.marks[3].vertexY - baseline.marks[3].vertexY).toBeCloseTo(12, 5);
   });
   it("L tl: braços vão para -x e -y a partir do vértice (fora da grade)", async () => {
     const { markSegments } = await import("@/lib/labels/marks");
@@ -634,15 +640,22 @@ describe("buildCornerMarks — L (topo) + tick (base)", () => {
     expect(segs[0].x2 - segs[0].x1).toBeCloseTo(5, 5);
     expect(segs[1].y2 - segs[1].y1).toBeCloseTo(-5, 5);
   });
-  it("tick BL: segmento horizontal de 10mm centrado em vertexX", async () => {
+  it("cross BL: vertical 10mm + horizontal 5mm cruzados, fora da área útil", async () => {
     const { markSegments } = await import("@/lib/labels/marks");
     const m = buildCornerMarks(210, 297, 7, 80, 7, 7, 0, 5);
     const bl = m.marks[2];
+    // Posicionada à esquerda da margem (fora da área útil)
+    expect(bl.vertexX).toBeLessThan(7);
+    // Alinhada ao canto inferior da área útil (sheetH - marginBottom = 297 - 80 = 217)
+    expect(bl.vertexY).toBeCloseTo(217, 5);
     const segs = markSegments(bl);
-    expect(segs).toHaveLength(1);
-    expect(segs[0].y1).toBe(segs[0].y2); // horizontal
-    expect(segs[0].x2 - segs[0].x1).toBeCloseTo(10, 5);
-    expect((segs[0].x1 + segs[0].x2) / 2).toBeCloseTo(bl.vertexX, 5);
+    expect(segs).toHaveLength(2);
+    // Vertical: 10mm
+    expect(segs[0].x1).toBe(segs[0].x2);
+    expect(Math.abs(segs[0].y2 - segs[0].y1)).toBeCloseTo(10, 5);
+    // Horizontal: 5mm
+    expect(segs[1].y1).toBe(segs[1].y2);
+    expect(Math.abs(segs[1].x2 - segs[1].x1)).toBeCloseTo(5, 5);
   });
 });
 
