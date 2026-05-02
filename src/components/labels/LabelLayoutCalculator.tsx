@@ -549,24 +549,47 @@ export function LabelLayoutCalculator({
             <h3 className="text-sm font-semibold">Simulador</h3>
             {/* Carregar favorito */}
             {config.labelPresets.length > 0 && (
-              <div className="flex items-center gap-1.5">
-                <Star className="h-3.5 w-3.5 text-amber-500" />
-                <Select onValueChange={handleLoadPreset} value="__none__">
-                  <SelectTrigger className="h-8 w-[180px] text-xs">
-                    <SelectValue placeholder="Carregar favorito…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__" disabled>
-                      Carregar favorito…
-                    </SelectItem>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                    <Star className="h-3.5 w-3.5 text-amber-500" />
+                    Favoritos ({config.labelPresets.length})
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-72 p-2">
+                  <p className="text-[11px] text-muted-foreground px-2 pb-1.5">
+                    Clique para carregar · lixeira para excluir
+                  </p>
+                  <div className="space-y-0.5 max-h-60 overflow-y-auto">
                     {config.labelPresets.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.label} · {SHAPE_LABELS[p.shape]}
-                      </SelectItem>
+                      <div
+                        key={p.id}
+                        className="flex items-center gap-1 rounded hover:bg-muted/60"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleLoadPreset(p.id)}
+                          className="flex-1 text-left text-xs px-2 py-1.5 truncate"
+                        >
+                          <span className="font-medium">{p.label}</span>
+                          <span className="text-muted-foreground">
+                            {" · "}{SHAPE_LABELS[p.shape]} · {p.width}×{p.height}mm
+                          </span>
+                        </button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-destructive shrink-0"
+                          onClick={() => handleRemoveFavorite(p.id, p.label)}
+                          title={`Excluir "${p.label}"`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             )}
           </div>
 
