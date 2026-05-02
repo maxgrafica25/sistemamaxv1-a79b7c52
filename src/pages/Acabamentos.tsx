@@ -455,6 +455,15 @@ export default function Acabamentos() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
+                            onClick={() => cloneItem(item)}
+                            title="Clonar acabamento (mesmas faixas)"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
                             onClick={() => startEdit(item)}
                           >
                             <Edit2 className="h-3.5 w-3.5" />
