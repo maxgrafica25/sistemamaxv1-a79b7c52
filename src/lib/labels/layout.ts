@@ -159,11 +159,8 @@ export interface ReservedSlotsInput {
   sheetH: number;
 }
 
+/** Folga lateral mínima (mm) entre a borda externa da etiqueta de ponta e a marca ARMS lateral. */
 export const SAFETY_ZONE_MM = 10;
-/** Largura a partir da qual a arte da etiqueta começa a ameaçar o vértice do L. */
-export const SAFE_LABEL_MAX_W_MM = 55;
-/** Margem mínima para o braço da marca (5mm) não cruzar a etiqueta. */
-export const SAFE_SIDE_MARGIN_MM = 5;
 
 export function computeReservedSlots(input: ReservedSlotsInput): ReservedSlot[];
 // Overload de compatibilidade para chamadas antigas (cutType, cols, rows)
@@ -177,45 +174,48 @@ export function computeReservedSlots(
   if (typeof a === "string") {
     return [];
   }
-  const { cutType, cols, rows, labelW, marginTop, marginBottom, marginLeft, marginRight } = a;
+  const { cutType, cols, rows, labelW, gap, marginLeft, marginRight, sheetW } = a;
   if (cutType === "corte_reto") return [];
   if (cols <= 0 || rows <= 0) return [];
 
   const isRound = cutType === "plotter_redondo";
+  const usableW = Math.max(0, sheetW - marginLeft - marginRight);
   const slots: ReservedSlot[] = [];
 
-  /** 1ª linha em risco vs. L de TL/TR. */
-  const topRowAtRisk = (): boolean => {
-    if (labelW > SAFE_LABEL_MAX_W_MM) return true;
-    if (marginLeft < SAFE_SIDE_MARGIN_MM) return true;
-    if (marginRight < SAFE_SIDE_MARGIN_MM) return true;
-    if (marginTop < SAFE_SIDE_MARGIN_MM) return true;
-    return false;
+  /**
+   * Reduz simetricamente o número de etiquetas até que a linha caiba com
+   * pelo menos SAFETY_ZONE_MM de folga em cada ponta. As marcas ARMS laterais
+   * ficam exatamente nos cantos da área útil, então a "folga" é o recuo
+   * lateral disponível ao centralizar a linha.
+   */
+  const safeCellsForRow = (startCols: number): number => {
+    let n = startCols;
+    while (n > 0) {
+      const rowWidth = n * labelW + Math.max(0, n - 1) * gap;
+      const slack = (usableW - rowWidth) / 2;
+      if (slack >= SAFETY_ZONE_MM) return n;
+      n -= 2; // remove sempre 1 de cada ponta (simétrico)
+    }
+    return 0;
   };
 
-  /** Última linha em risco vs. tick de BL/BR. */
-  const bottomRowAtRisk = (): boolean => {
-    if (labelW > SAFE_LABEL_MAX_W_MM) return true;
-    if (marginLeft < SAFE_SIDE_MARGIN_MM) return true;
-    if (marginRight < SAFE_SIDE_MARGIN_MM) return true;
-    if (marginBottom < SAFE_SIDE_MARGIN_MM) return true;
-    return false;
+  const reserveEnds = (row: number, removed: number) => {
+    if (removed <= 0) return;
+    const half = Math.floor(removed / 2);
+    for (let i = 0; i < half; i++) {
+      slots.push({ col: i, row });
+      slots.push({ col: cols - 1 - i, row });
+    }
   };
 
-  /** Remove SIMETRICAMENTE as duas pontas (regra de produção gráfica). */
-  const reserveBothEnds = (row: number) => {
-    if (cols >= 1) slots.push({ col: 0, row });
-    if (cols >= 2) slots.push({ col: cols - 1, row });
-  };
+  // 1ª linha — sempre avaliada (vs. L superior)
+  const topSafe = safeCellsForRow(cols);
+  reserveEnds(0, cols - topSafe);
 
-  // 1ª linha — sempre verificada
-  if (topRowAtRisk()) {
-    reserveBothEnds(0);
-  }
-
-  // Última linha — só para não-redondo
-  if (!isRound && rows >= 2 && bottomRowAtRisk()) {
-    reserveBothEnds(rows - 1);
+  // Última linha — só para não-redondo (ticks da base se encaixam entre círculos)
+  if (!isRound && rows >= 2) {
+    const bottomSafe = safeCellsForRow(cols);
+    reserveEnds(rows - 1, cols - bottomSafe);
   }
 
   return slots;
