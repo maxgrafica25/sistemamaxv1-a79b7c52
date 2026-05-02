@@ -44,8 +44,8 @@ interface Props {
 const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-const autoLabel = (min: number, max: number | null) =>
-  max == null ? `${min}+` : `${min}-${max}`;
+const autoLabel = (index: number) => `TP${index + 1}`;
+const isAutoLabel = (s: string) => /^TP\d+$/.test(s) || /^\d+(-\d+|\+)$/.test(s);
 
 export function FinishingTiersDrawer({
   open,
