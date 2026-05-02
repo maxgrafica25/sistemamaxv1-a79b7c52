@@ -186,28 +186,40 @@ export function computeReservedSlots(
   const slots: ReservedSlot[] = [];
 
   /**
-   * Reduz simetricamente o número de etiquetas até que a linha caiba com
-   * pelo menos SAFETY_ZONE_MM de folga em cada ponta. As marcas ARMS laterais
-   * ficam exatamente nos cantos da área útil, então a "folga" é o recuo
-   * lateral disponível ao centralizar a linha.
+   * Reduz o número de etiquetas até que a linha caiba com pelo menos
+   * SAFETY_ZONE_MM de folga em cada ponta. As marcas ARMS laterais ficam
+   * exatamente nos cantos da área útil, então a "folga" é o recuo lateral
+   * disponível ao centralizar a linha.
+   *
+   * Para etiquetas redondas, a remoção é assimétrica (1 por vez) — a
+   * própria centralização da linha cuida do visual e maximiza o
+   * aproveitamento. Para retangulares, mantém remoção em pares para
+   * preservar o alinhamento visual com as demais linhas.
    */
+  const step = isRound ? 1 : 2;
+
   const safeCellsForRow = (startCols: number): number => {
     let n = startCols;
     while (n > 0) {
       const rowWidth = n * labelW + Math.max(0, n - 1) * gap;
       const slack = (usableW - rowWidth) / 2;
       if (slack >= SAFETY_ZONE_MM) return n;
-      n -= 2; // remove sempre 1 de cada ponta (simétrico)
+      n -= step;
     }
     return 0;
   };
 
   const reserveEnds = (row: number, removed: number) => {
     if (removed <= 0) return;
-    const half = Math.floor(removed / 2);
-    for (let i = 0; i < half; i++) {
-      slots.push({ col: i, row });
-      slots.push({ col: cols - 1 - i, row });
+    // Alterna esquerda/direita; a centralização por linha cuida do visual.
+    let left = 0;
+    let right = cols - 1;
+    for (let i = 0; i < removed; i++) {
+      if (i % 2 === 0) {
+        slots.push({ col: left++, row });
+      } else {
+        slots.push({ col: right--, row });
+      }
     }
   };
 
