@@ -547,6 +547,8 @@ describe("computeLabelLayout com cutType — meta de aproveitamento SRA3", () =>
     expect(r.effectivePerSheet).toBe(87);
   });
 });
+
+describe("clampMarginsToHardware", () => {
   it("teneth_a3 força base ≥ 80", () => {
     const c = clampMarginsToHardware(
       { marginTop: 5, marginBottom: 10, marginLeft: 5, marginRight: 5 },
