@@ -1,45 +1,53 @@
 ## Objetivo
 
-Tornar fácil **excluir formatos (favoritos) e folhas personalizadas** cadastrados na Calculadora de Etiquetas.
+Simplificar a lista de tamanhos de folha da Calculadora de Etiquetas, deixando apenas:
 
-Hoje:
-- Existe `removeLabelPreset` no código, mas no dropdown "Carregar favorito" não há lixeira.
-- A lixeira existente fica escondida dentro do popover "Salvar como favorito" — pouco descobrível.
-- Folhas personalizadas só podem ser excluídas se forem a folha atualmente selecionada.
+1. **A4** — 210 × 297 mm
+2. **SRA3** — 320 × 450 mm
+3. **Formatão** — 328 × 478 mm  *(novo nome do antigo "33×48"; ajustado para 32,8 × 47,8 cm conforme pedido)*
+4. **Personalizado** — folhas custom criadas pelo usuário
+
+Removidos: **A3** (29,7 × 42) e **Carta** (216 × 279).
 
 ## Mudanças
 
-### 1. `src/components/labels/LabelLayoutCalculator.tsx`
+### 1. `src/lib/labels/layout.ts`
+Reduzir `SHEET_PRESETS` para 3 entradas fixas (A4, SRA3, Formatão). O array completo passa a ser:
 
-Trocar o **`Select` "Carregar favorito"** por um **`Popover` "Favoritos (N)"** com:
-- Cada item é um botão clicável (carrega o favorito).
-- Ao lado direito de cada item, ícone de lixeira (`Trash2`) que chama `handleRemoveFavorite` (já existe).
-- Mostra também `SHAPE · WxH mm` para identificação rápida.
-- Header: "Clique para carregar · lixeira para excluir".
+```ts
+export const SHEET_PRESETS: SheetPreset[] = [
+  { id: "A4",       label: "A4 (21 × 29,7 cm)",      width: 210, height: 297 },
+  { id: "SRA3",     label: "SRA3 (32 × 45 cm)",      width: 320, height: 450 },
+  { id: "Formatao", label: "Formatão (32,8 × 47,8 cm)", width: 328, height: 478 },
+];
+```
 
-Resultado: deletar passa a ser uma ação de 2 toques visíveis, sem precisar abrir "Salvar como favorito".
+### 2. `src/components/labels/LabelLayoutCalculator.tsx`
+- Atualizar o array local `QUICK_SHEETS` (linhas ~249-254) para refletir a mesma lista (A4, SRA3, Formatão) + a aba "Personalizado/Outro" que abre as Configurações.
+- Atualizar o fallback em `sheetSizeKey` (linha 278) — manter `"SRA3"` como default.
 
-### 2. `src/components/labels/LabelCalcSettingsDialog.tsx`
+### 3. `src/components/labels/LabelCalcSettingsDialog.tsx`
+Nenhuma mudança estrutural: o `<Select>` em volta da linha 247 já itera `SHEET_PRESETS.map(...)`, então adota a nova lista automaticamente. Confirmar que o fallback "se a folha removida estava selecionada, volta para A4" (linha 172-174) continua válido.
 
-Adicionar nova **seção "Favoritos de etiqueta"** logo após a seção "Folha de impressão" (antes do separador para "Tipo de corte"):
+### 4. Migração de usuários existentes
+Em `src/lib/labels/config-storage.ts`, dentro de `loadConfig()`, adicionar uma migração silenciosa: se o `sheetPresetId` salvo for `"A3"`, `"Carta"` ou `"330x480"`, normalizar:
+- `"330x480"` → `"Formatao"` com `sheetW: 328, sheetH: 478` (atualiza dimensão também).
+- `"A3"` ou `"Carta"` → cair para `"A4"` (210 × 297).
 
-- Lista de todos os `labelPresets` salvos.
-- Cada linha: nome, shape, dimensões, e botão lixeira para remover.
-- Estado vazio: texto "Nenhum favorito salvo. Use o botão 'Salvar como favorito' no simulador."
-- Usar `removeLabelPreset` + atualizar `draft` localmente (mesmo padrão da `handleRemoveCustomSheet` já existente para folhas).
+Isso evita que alguém com config antiga fique com uma folha "fantasma" que não aparece mais nos seletores.
 
-Também melhorar a **gestão de folhas personalizadas**: trocar a lixeira atual (que só aparece quando a folha custom é a selecionada) por uma **lista completa** das folhas personalizadas com botão remover em cada linha. Mantém compatibilidade com `removeCustomSheet`.
-
-### 3. Memória
-
-Atualizar `mem://features/pricing` (ou criar nota curta em Core) registrando que favoritos e folhas personalizadas são gerenciáveis tanto inline (popover do simulador) quanto nas Configurações.
+### 5. Memória
+Atualizar `mem://features/label-calculator` registrando que as folhas suportadas são apenas A4, SRA3, Formatão (32,8 × 47,8) e Personalizado — qualquer tamanho fora disso deve ser cadastrado como folha custom.
 
 ## Arquivos a editar
 
-- `src/components/labels/LabelLayoutCalculator.tsx` — substituir Select por Popover de favoritos com lixeira inline.
-- `src/components/labels/LabelCalcSettingsDialog.tsx` — adicionar seção "Favoritos de etiqueta" + listar todas as folhas personalizadas com remover.
+- `src/lib/labels/layout.ts` — reduzir `SHEET_PRESETS` para 3 itens.
+- `src/components/labels/LabelLayoutCalculator.tsx` — atualizar `QUICK_SHEETS`.
+- `src/lib/labels/config-storage.ts` — migração de IDs antigos.
+- `mem://features/label-calculator` — atualizar nota.
 
 ## Fora do escopo
 
-- Renomear/editar favoritos existentes (apenas excluir).
-- Sincronização entre dispositivos (continua localStorage por usuário).
+- Mexer em `PrecoImpressao` (usa lista própria de tamanhos, independente).
+- Adicionar UI para deletar/ocultar folhas standard (não há mais necessidade — só sobram 3 essenciais).
+- Renomear/deletar folhas personalizadas (já é possível nas Configurações).
