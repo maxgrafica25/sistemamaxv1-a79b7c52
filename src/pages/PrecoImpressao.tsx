@@ -597,9 +597,11 @@ export default function PrecoImpressao() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button onClick={() => openCategoryDialog()} size="sm" className="gap-1.5">
-              <Plus className="h-4 w-4" /> Nova Categoria
-            </Button>
+            <AdminOnly mode="disable" action="criar categorias de impressão">
+              <Button onClick={() => openCategoryDialog()} size="sm" className="gap-1.5">
+                <Plus className="h-4 w-4" /> Nova Categoria
+              </Button>
+            </AdminOnly>
           </div>
         </div>
 
