@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers } from "lucide-react";
+import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers, Copy } from "lucide-react";
 import { FinishingTiersDrawer } from "@/components/acabamentos/FinishingTiersDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
