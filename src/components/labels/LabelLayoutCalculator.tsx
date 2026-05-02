@@ -366,8 +366,8 @@ export function LabelLayoutCalculator({
     if (!paramLayout) return layoutGeneric;
     const cols = paramLayout.labelsPerRow;
     const rows = paramLayout.labelsPerColumn;
-    const cellsPerRow = Array.from({ length: rows }, () => cols);
-    const rowOffsets = Array.from({ length: rows }, () => paramLayout.offsetX);
+    const cellsPerRow = paramLayout.cellsPerRow;
+    const rowOffsets = paramLayout.rowOffsets;
     const usedArea = paramLayout.total * labelW * labelH;
     const usableW = config.sheetW - 2 * SM_REG_MARK_MARGIN;
     const usableH = config.sheetH - 2 * SM_REG_MARK_MARGIN;

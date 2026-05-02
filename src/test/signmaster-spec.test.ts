@@ -16,11 +16,12 @@ describe("computeSignmasterLayout — spec do cliente", () => {
     expect(r.positions).toHaveLength(40);
   });
 
-  it("32×45 cm + Ø3 cm → 9 × 13 = 117 etiquetas", () => {
+  it("32×45 cm + Ø3 cm → 116 etiquetas após segurança na 1ª linha", () => {
     const r = computeSignmasterLayout({ sheetW: 320, sheetH: 450, labelDiameter: 30 });
     expect(r.labelsPerRow).toBe(9);
     expect(r.labelsPerColumn).toBe(13);
-    expect(r.total).toBe(117);
+    expect(r.cellsPerRow[0]).toBe(8);
+    expect(r.total).toBe(116);
   });
 
   it("32×45 cm + Ø4 cm → preenche dentro da folha", () => {
@@ -28,7 +29,19 @@ describe("computeSignmasterLayout — spec do cliente", () => {
     // step=43; cols=floor((306+3)/43)=7; rows=floor((436+3)/43)=10
     expect(r.labelsPerRow).toBe(7);
     expect(r.labelsPerColumn).toBe(10);
-    expect(r.total).toBe(70);
+    expect(r.total).toBe(69);
+    expect(r.cellsPerRow[0]).toBe(6);
+    expect(r.cellsPerRow.slice(1).every((c) => c === 7)).toBe(true);
+  });
+
+  it("32×45 cm + Ø3,5 cm com gap 3mm → 87 etiquetas (7 + 10×8)", () => {
+    const r = computeSignmasterLayout({ sheetW: 320, sheetH: 450, labelDiameter: 35 });
+    expect(r.labelsPerRow).toBe(8);
+    expect(r.labelsPerColumn).toBe(11);
+    expect(r.cellsPerRow[0]).toBe(7);
+    expect(r.cellsPerRow.slice(1).every((c) => c === 8)).toBe(true);
+    expect(r.total).toBe(87);
+    expect(r.positions).toHaveLength(87);
   });
 
   it("aplica nudge vertical de -1mm e centraliza horizontalmente", () => {

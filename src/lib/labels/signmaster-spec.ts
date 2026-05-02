@@ -59,6 +59,10 @@ export interface SignmasterLayout {
   offsetY: number;
   /** Y do final da grade (canto inferior do bbox da última linha). */
   gridBottom: number;
+  /** Quantas etiquetas vendáveis existem em cada linha. A 1ª linha pode ser reduzida para livrar as marcas. */
+  cellsPerRow: number[];
+  /** Offset X por linha, já centralizado conforme a quantidade real daquela linha. */
+  rowOffsets: number[];
   positions: SignmasterPosition[];
 }
 
@@ -71,7 +75,7 @@ export const computeSignmasterLayout = (
     return {
       labelsPerRow: 0, labelsPerColumn: 0, total: 0, step: 0,
       totalGridWidth: 0, totalGridHeight: 0,
-      offsetX: 0, offsetY: 0, gridBottom: 0, positions: [],
+      offsetX: 0, offsetY: 0, gridBottom: 0, cellsPerRow: [], rowOffsets: [], positions: [],
     };
   }
 
@@ -81,8 +85,6 @@ export const computeSignmasterLayout = (
 
   const labelsPerRow = Math.max(0, Math.floor((usableW + SM_LABEL_SPACING) / step));
   const labelsPerColumn = Math.max(0, Math.floor((usableH + SM_LABEL_SPACING) / step));
-  const total = labelsPerRow * labelsPerColumn;
-
   const totalGridWidth = labelsPerRow > 0
     ? labelsPerRow * labelDiameter + (labelsPerRow - 1) * SM_LABEL_SPACING
     : 0;
@@ -94,10 +96,33 @@ export const computeSignmasterLayout = (
   const offsetY = (sheetH - totalGridHeight) / 2 + SM_VERTICAL_NUDGE;
   const gridBottom = offsetY + totalGridHeight;
 
+  const safeCellsForTopRow = (startCols: number): number => {
+    let n = startCols;
+    while (n > 0) {
+      const rowWidth = n * labelDiameter + Math.max(0, n - 1) * SM_LABEL_SPACING;
+      const slack = (usableW - rowWidth) / 2;
+      if (slack >= 10) return n;
+      n -= 1;
+    }
+    return 0;
+  };
+
+  const cellsPerRow = Array.from({ length: labelsPerColumn }, (_, row) =>
+    row === 0 ? safeCellsForTopRow(labelsPerRow) : labelsPerRow,
+  );
+  const rowOffsets = cellsPerRow.map((cells) => {
+    if (cells <= 0) return SM_REG_MARK_MARGIN;
+    const rowWidth = cells * labelDiameter + Math.max(0, cells - 1) * SM_LABEL_SPACING;
+    return SM_REG_MARK_MARGIN + (usableW - rowWidth) / 2;
+  });
+  const total = cellsPerRow.reduce((sum, cells) => sum + cells, 0);
+
   const positions: SignmasterPosition[] = [];
   for (let row = 0; row < labelsPerColumn; row++) {
-    for (let col = 0; col < labelsPerRow; col++) {
-      const x = offsetX + col * step;
+    const cells = cellsPerRow[row] ?? labelsPerRow;
+    const rowOffsetX = rowOffsets[row] ?? offsetX;
+    for (let col = 0; col < cells; col++) {
+      const x = rowOffsetX + col * step;
       const y = offsetY + row * step;
       positions.push({
         col, row, x, y,
@@ -110,7 +135,7 @@ export const computeSignmasterLayout = (
   return {
     labelsPerRow, labelsPerColumn, total, step,
     totalGridWidth, totalGridHeight,
-    offsetX, offsetY, gridBottom, positions,
+    offsetX, offsetY, gridBottom, cellsPerRow, rowOffsets, positions,
   };
 };
 
