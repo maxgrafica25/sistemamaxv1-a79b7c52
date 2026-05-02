@@ -59,7 +59,7 @@ import {
 import { toast } from "sonner";
 import { Slider } from "@/components/ui/slider";
 import { LabelCalcSettingsDialog } from "./LabelCalcSettingsDialog";
-import { suggestMarksOffset, buildCornerMarks, markSegments, MARK_ARM_MM } from "@/lib/labels/marks";
+import { suggestMarksOffset, buildCornerMarks, markSegments, MARK_ARM_MM, CROSS_VERT_LEN_MM } from "@/lib/labels/marks";
 import { computeSignmasterLayout, computeSignmasterMarks, findSignmasterShrinkOpportunity, SM_REG_MARK_MARGIN, SM_LABEL_SPACING } from "@/lib/labels/signmaster-spec";
 import { generateSignmasterPlt, downloadPlt } from "@/lib/labels/plt-export";
 import { generateProductionPDF, downloadPDF } from "@/lib/labels/production-pdf";
@@ -942,11 +942,11 @@ export function LabelLayoutCalculator({
                 value={[marksOffsetY]}
                 onValueChange={([v]) => setMarksOffsetY(v)}
                 min={0}
-                max={Math.max(0, config.sheetH / 2)}
+                max={Math.max(0, config.marginBottom - CROSS_VERT_LEN_MM / 2)}
                 step={5}
               />
               <p className="text-[10px] text-muted-foreground">
-                Move apenas as marcas inferiores para baixo, do meio da folha até a borda.
+                Move apenas as marcas inferiores para baixo, dentro da margem inferior.
               </p>
             </div>
           )}
