@@ -438,12 +438,12 @@ describe("computeLabelLayout com cutType — zona de segurança aplicada", () =>
       marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7, gap: 0,
       cutType: "plotter_redondo",
     });
-    // best: cols=6, rows=5
+    // best: cols=6, rows=7 (gap=0 → floor(363/50)=7)
     expect(r.best.cols).toBe(6);
-    expect(r.best.rows).toBe(5);
+    expect(r.best.rows).toBe(7);
     expect(r.cellsPerRow[0]).toBe(4); // perdeu 2 pontas
     expect(r.cellsPerRow[r.best.rows - 1]).toBe(6); // redondo: última cheia
-    expect(r.effectivePerSheet).toBe(6 * 5 - 2);
+    expect(r.effectivePerSheet).toBe(6 * 7 - 2);
     // Linha 0 deve estar centralizada
     const occupied = 4 * 50; // cols=4, gap=0
     const expectedOffset = 7 + (r.usableW - occupied) / 2;
