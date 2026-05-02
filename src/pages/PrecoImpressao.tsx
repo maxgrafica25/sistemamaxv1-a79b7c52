@@ -480,7 +480,8 @@ export default function PrecoImpressao() {
 
   const saveItem = async () => {
     if (!itemPaperType.trim()) return toast.error("Tipo de papel obrigatório");
-    
+    if (!requireAdmin(editingItem ? "editar item de impressão" : "cadastrar item de impressão")) return;
+
     if (editingItem) {
       // Single update
       const effectivePrintingCost = itemEquipmentId ? getEquipmentCostPerPage(itemEquipmentId, coveragePct, itemEquipmentMode === 'pb') : Number(itemPrintingCost);
@@ -492,7 +493,8 @@ export default function PrecoImpressao() {
         equipment_id: itemEquipmentId || null, equipment_mode: itemEquipmentMode,
         sort_order: editingItem.sort_order, markup_group_id: resolvedGroupId,
       };
-      await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
+      const { error } = await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
+      if (error) return handleError(error, "salvar item de impressão");
       setShowItemDialog(false); toast.success("Item salvo!"); fetchAll();
     } else {
       // Batch creation
@@ -514,7 +516,8 @@ export default function PrecoImpressao() {
           });
         }
       }
-      await supabase.from("printing_price_items").insert(records);
+      const { error } = await supabase.from("printing_price_items").insert(records);
+      if (error) return handleError(error, "cadastrar item de impressão");
       setShowItemDialog(false);
       toast.success(`${records.length} item(ns) criado(s)!`);
       fetchAll();
@@ -522,7 +525,10 @@ export default function PrecoImpressao() {
   };
 
   const deleteItem = async (id: string) => {
-    await supabase.from("printing_price_items").delete().eq("id", id); toast.success("Item removido!"); fetchAll();
+    if (!requireAdmin("excluir item de impressão")) return;
+    const { error } = await supabase.from("printing_price_items").delete().eq("id", id);
+    if (error) return handleError(error, "excluir item de impressão");
+    toast.success("Item removido!"); fetchAll();
   };
   const requestDeleteItem = (id: string, name: string) => {
     setConfirmItemName(name);
