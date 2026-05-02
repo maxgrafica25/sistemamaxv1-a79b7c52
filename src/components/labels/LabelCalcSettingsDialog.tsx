@@ -46,6 +46,7 @@ import {
   addCustomSheet,
   removeCustomSheet,
   removeLabelPreset,
+  resetConfigToDefaults,
   type LabelCalcConfig,
   type CustomSheetPreset,
 } from "@/lib/labels/config-storage";
