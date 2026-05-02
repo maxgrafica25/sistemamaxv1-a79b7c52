@@ -413,17 +413,14 @@ export const findShrinkOpportunity = (
   // simétricas — não faz sentido sugerir transformá-la em retangular
   // só pra ganhar etiquetas (o cliente pediu quadrada).
   const isSquare = base.labelW === base.labelH;
+  const reductions = [1, 2, 3, 4, 5];
   const candidates: Array<{ dw: number; dh: number }> = isSquare
-    ? [
-        { dw: 1, dh: 1 },
-        { dw: 2, dh: 2 },
-        { dw: 3, dh: 3 },
-      ]
-    : [
-        { dw: 1, dh: 0 }, { dw: 0, dh: 1 }, { dw: 1, dh: 1 },
-        { dw: 2, dh: 0 }, { dw: 0, dh: 2 }, { dw: 2, dh: 2 },
-        { dw: 3, dh: 0 }, { dw: 0, dh: 3 }, { dw: 3, dh: 3 },
-      ];
+    ? reductions.map((d) => ({ dw: d, dh: d }))
+    : reductions.flatMap((d) => [
+        { dw: d, dh: 0 },
+        { dw: 0, dh: d },
+        { dw: d, dh: d },
+      ]);
 
   let best: ShrinkSuggestion | null = null;
   for (const c of candidates) {
