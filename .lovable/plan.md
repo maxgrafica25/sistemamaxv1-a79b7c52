@@ -1,204 +1,60 @@
-# Faixas de preço por quantidade + Preditor de Prazo Real (PPR)
 
-## Visão geral
+## O que vamos fazer
 
-Três frentes coordenadas, todas plugadas na **Calculadora de Etiquetas**:
-
-1. **Faixas de preço de acabamento** por quantidade de folhas (espelha markup_tiers da impressão).
-2. **Preditor de Prazo Real (PPR)**: estima metragem linear de corte e tempo de plotter.
-3. **Reforço da simetria ARMS** (regra all-or-nothing) já aplicada hoje, formalizada e protegida por testes.
-
-Os módulos **Preço Impressão** e **Acabamentos** continuam separados — composição em runtime no hook `useFolhaPricing`.
+Três melhorias pequenas e independentes na tela **Acabamentos** + drawer **Faixas por quantidade**.
 
 ---
 
-## 1. Faixas de preço para Acabamentos
+### 1. Botão "Clonar acabamento" (na tabela de Acabamentos)
 
-### 1.1 Banco — nova tabela `finishing_price_tiers`
+**Onde:** coluna **Ações** da tabela em `/acabamentos`, ao lado de Faixas / Editar / Excluir. Ícone `Copy` (Lucide).
 
-```sql
-create table finishing_price_tiers (
-  id uuid pk default gen_random_uuid(),
-  finishing_id uuid not null references finishings_price_items(id) on delete cascade,
-  label text not null,                  -- "1-10", "11-50", "51+"
-  min_qty integer not null,             -- em FOLHAS
-  max_qty integer null,                 -- null = sem teto
-  price_per_sheet numeric not null,
-  sort_order integer default 0,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
--- RLS: SELECT authenticated; INSERT/UPDATE/DELETE admin (mesmo padrão de finishings_price_items).
--- Trigger de validação: min_qty ≥ 1; max_qty IS NULL OU max_qty ≥ min_qty;
---                       sem sobreposição entre tiers do mesmo finishing_id.
--- Seed: para cada finishing existente, cria 1 tier {min:1, max:null, price=price_per_sheet atual}.
-```
+**Comportamento:**
+- Clica → abre `ConfirmDialog` "Clonar 'Recorte Folhas Adesivas'?" com input para o **novo nome** (default: `"<nome original> (cópia)"`).
+- Confirma → insere novo registro em `finishings_price_items` copiando **todos os campos** (categoria, tamanho, preço base, ativo) com o novo nome.
+- Em seguida, **copia também as faixas** de `finishing_price_tiers` apontando para o novo `finishing_id` (preserva label, min, max, preço, sort_order).
+- Toast: *"Acabamento clonado — ajuste os preços nas faixas"* e refetch da lista.
 
-`finishings_price_items.price_per_sheet` permanece como **fallback** quando o acabamento não tem nenhuma tier cadastrada — zero regressão.
-
-### 1.2 UI — `/acabamentos`
-
-Nova coluna "Faixas" com botão `Settings2` que abre um **Drawer lateral** (já temos `sheet.tsx`):
-
-```text
-┌── Recorte plotter · SRA3 ──────────────────────┐
-│ Preço base: R$ 1,80/folha                      │
-│                                                │
-│ Faixas por quantidade (folhas)                 │
-│ ┌────────┬──────┬──────┬───────────┬───┐       │
-│ │ Faixa  │ Min  │ Máx  │ R$/folha  │ × │       │
-│ ├────────┼──────┼──────┼───────────┼───┤       │
-│ │ 1-10   │  1   │  10  │   1,80    │ × │       │
-│ │ 11-50  │  11  │  50  │   1,40    │ × │       │
-│ │ 51+    │  51  │  ∞   │   1,00    │ × │       │
-│ └────────┴──────┴──────┴───────────┴───┘       │
-│ [+ Adicionar faixa]                            │
-└────────────────────────────────────────────────┘
-```
-
-Validação client-side: faixas contínuas, sem buracos nem sobreposição, max ≥ min, preço > 0.
-
-### 1.3 Lógica
-
-Novo módulo `src/lib/labels/finishing-pricing.ts`:
-
-```ts
-pickFinishingTier(tiers: FinishingTier[], sheetsQty: number): number
-// Retorna price_per_sheet da tier onde min ≤ sheetsQty ≤ (max ?? ∞).
-// Se tiers vazio, o caller usa o fallback de finishings_price_items.
-```
-
-`useFolhaPricing(size, sheetsQty?)` ganha o segundo parâmetro:
-- carrega `finishing_price_tiers` junto com `finishings_price_items`;
-- quando `sheetsQty` informado e há tiers → usa `pickFinishingTier`;
-- caso contrário → preço base (comportamento atual).
-
-`LabelLayoutCalculator` já calcula `sheetsNeeded` → passa ao hook. Preço se atualiza ao mudar quantidade.
+**Por quê:** seu caso de uso (TP1/TP2/TP3/TP4 já configurados, só muda o preço por tipo de recorte) fica resolvido em 2 cliques em vez de redigitar 4 faixas.
 
 ---
 
-## 2. Preditor de Prazo Real (PPR)
+### 2. Auto-preencher **Mín** da próxima faixa em `FinishingTiersDrawer`
 
-### 2.1 Módulo de cálculo — `src/lib/labels/production-time.ts`
+**Regra atual:** ao clicar "Adicionar faixa", o Mín já é calculado como `lastMax + 1` (isso já existe). **O problema** é que se o usuário **edita o Máx de uma faixa intermediária**, o Mín da seguinte **não acompanha**.
 
-```ts
-export interface ProductionTimeInput {
-  shape: "quadrado" | "retangulo" | "redondo" | "personalizado";
-  labelW: number;        // mm
-  labelH: number;        // mm
-  totalLabels: number;
-  sheets: number;
-  hardwareId: string;    // para selecionar perfil
-}
+**Mudança:**
+- Ao alterar `max_qty` de uma faixa, se a faixa seguinte tiver `min_qty === max_qty_anterior + 1` (encadeamento padrão), atualizar automaticamente o `min_qty` da próxima para o novo `max + 1`.
+- Detecção: comparar com o valor antigo; se a próxima estava "colada", segue colada. Se o usuário criou um gap manualmente, respeitar.
+- Última faixa (sem Máx = ∞) não precisa de ajuste.
 
-// Perímetro por etiqueta (mm)
-function perimeterMm({ shape, labelW, labelH }) {
-  switch (shape) {
-    case "redondo":       return Math.PI * labelW;          // diâmetro = labelW
-    case "personalizado": return 2 * (labelW + labelH) * 1.20; // bbox + 20%
-    default:              return 2 * (labelW + labelH);
-  }
-}
-
-// Constantes Teneth A3 (em hardware.ts)
-//   bladeSpeedMmPerSec: 300
-//   sheetSetupSec:       15   (troca + leitura ARMS)
-// Outros perfis caem num default genérico (250 mm/s, 10s) ou null = "sem PPR".
-
-export function estimateProductionTime(i): {
-  totalPerimeterM: number;     // metros lineares totais
-  cuttingSec: number;
-  setupSec: number;
-  totalSec: number;
-  loadBadge: "pronta-entrega" | "padrao" | "intensa";
-}
-// totalSec = (perimeter * totalLabels / speed) + (sheets * setupSec)
-// loadBadge: <15min → "pronta-entrega", 15min..1h → "padrao", >1h → "intensa"
-```
-
-### 2.2 Constantes em `hardware.ts`
-
-```ts
-HardwareProfile {
-  ...,
-  bladeSpeedMmPerSec?: number;   // null = não calcular PPR
-  sheetSetupSec?: number;
-  customComplexityFactor?: number; // default 1.20 para "personalizado"
-}
-// teneth_a3:        { bladeSpeedMmPerSec: 300, sheetSetupSec: 15 }
-// signmaster_param: { bladeSpeedMmPerSec: 300, sheetSetupSec: 12 } // sem tração mas com setup manual
-// generico:         sem PPR
-```
-
-### 2.3 UI — card "Produção" no painel lateral
-
-Abaixo do bloco de preço atual, antes do botão WhatsApp:
-
-```text
-┌── Produção (Teneth A3) ─────────────────┐
-│  Metragem linear:   38,4 m              │
-│  Tempo de plotter:  ~12 min             │
-│  [● Pronta entrega]                     │
-│                                         │
-│  Lâmina percorrerá o equivalente a      │
-│  uma quadra de 10 m.                    │
-└─────────────────────────────────────────┘
-```
-
-Badge:
-- `pronta-entrega` (verde) se total ≤ 15 min
-- `padrao` (azul) se 15 min < total ≤ 60 min
-- `intensa` (âmbar) se > 60 min
-
-Texto e número saem direto de `estimateProductionTime`. Se o hardware atual não tiver constantes, o card **não aparece** (comportamento opcional, sem ruído).
+**Resultado:** preencher TP1 (1–20) já deixa TP2 começando em 21 sem digitação.
 
 ---
 
-## 3. Reforço de Simetria ARMS (formalização)
+### 3. Rótulos automáticos — padrão **TP1, TP2, TP3…**
 
-A regra "all-or-nothing" já existe em `layout.ts` (linhas 227–235) e em `signmaster-spec.ts` (linha 99). Esta entrega:
+Sua convenção (TP = Tabela de Preço) é boa: curta, ordinal, neutra (não amarra a um número de folhas que pode mudar). Vamos adotar como padrão.
 
-- Documenta a invariante num comentário-chefe sobre `computeLabelLayout`:
-  > Se uma das pontas da linha invade os 10 mm de zona de segurança ARMS, **as duas pontas** são removidas e a linha é centralizada via `RowStartX`. Nunca remover só uma ponta — quebra simetria visual.
+**Mudança em `autoLabel()`:**
+- Hoje gera `"1-20"` / `"21+"` (range numérico).
+- Novo padrão: `"TP{n}"` onde `n` = `sort_order + 1`. Ex.: TP1, TP2, TP3, TP4.
+- Mantém a regra existente: se o usuário digitou um rótulo customizado, **não sobrescreve**. Só auto-preenche enquanto o rótulo estiver no formato padrão (regex atualizada para `/^TP\d+$/` ou range antigo).
+- Adicionar **placeholder** sutil no input mostrando o range atual: `placeholder="TP1 (1–20)"` — assim o usuário vê o range sem ele virar parte do rótulo.
 
-- Garante via teste o caso-âncora **50×50 mm em SRA3 (paramétrico)** → **42 etiquetas** (6 col × 7 lin), sem remoção de ponta — os "braços" do L ficam externos.
-
-- Sem mudança de algoritmo. É uma "trava" via teste para evitar regressão futura.
-
----
-
-## 4. Arquivos afetados
-
-### Novos
-- migração SQL: `finishing_price_tiers` + RLS + trigger anti-overlap + seed.
-- `src/lib/labels/finishing-pricing.ts` — `pickFinishingTier` + tipos.
-- `src/lib/labels/production-time.ts` — `estimateProductionTime` + tipos + badge.
-- `src/components/acabamentos/FinishingTiersDrawer.tsx` — editor de faixas.
-- `src/components/labels/ProductionTimeCard.tsx` — card "Produção".
-- `src/test/finishing-pricing.test.ts` — pickTier (faixa exata, limites, fallback).
-- `src/test/production-time.test.ts` — quadrado, redondo, personalizado, badges.
-- `src/test/labels-symmetry.test.ts` — âncora 50×50 SRA3 → 42 etiquetas.
-
-### Editados
-- `src/pages/Acabamentos.tsx` — coluna "Faixas" + abre drawer.
-- `src/lib/labels/sheet-pricing.ts` — `useFolhaPricing(size, sheetsQty?)`.
-- `src/lib/labels/hardware.ts` — `bladeSpeedMmPerSec`, `sheetSetupSec` por perfil.
-- `src/components/labels/LabelLayoutCalculator.tsx` — passa `sheetsNeeded` ao hook + monta `<ProductionTimeCard/>`.
-- `src/lib/labels/layout.ts` — comentário formalizando a regra de simetria (sem mudança de lógica).
+**Migração suave:** acabamentos existentes com labels `"1-10"` continuam funcionando — só novas faixas adicionadas pegam o padrão TP{n}.
 
 ---
 
-## 5. Fora do escopo
+## Detalhes técnicos
 
-- Não fundir Preço Impressão + Acabamentos (continuam módulos separados).
-- Não recalcular markup_tiers da impressão.
-- Não criar combos persistidos (impressão+acabamento) — composição é runtime.
-- PPR não considera variações de complexidade interna do desenho personalizado além do fator 1,20 sobre o bbox. Refinamentos baseados em SVG real ficam para uma v2.
+**Arquivos editados:**
+- `src/pages/Acabamentos.tsx` — adiciona botão Clone na coluna Ações + handler que chama duas inserts (`finishings_price_items` + `finishing_price_tiers`).
+- `src/components/acabamentos/FinishingTiersDrawer.tsx` — atualizar `autoLabel`, ajustar `updateTier` para propagar `max → next.min` quando encadeado, atualizar texto de exemplo no info-box pra usar TP1/TP2/TP3.
 
----
+**Sem migração de banco** — só lógica de UI e dois inserts adicionais.
 
-## Resultado prático
-
-- **Atacado**: 5.000 etiquetas → folhas necessárias caem na faixa "51+", recorte vai automaticamente para R$ 1,00/folha.
-- **Promessa de entrega**: cada orçamento mostra "~12 min de plotter, pronta entrega" — sem chute.
-- **Gestão de lâmina**: metragem linear acumulável a partir do PPR de cada serviço (base para um futuro alerta de troca de ponta).
+**Edge cases:**
+- Clonar acabamento sem faixas → só duplica o item base.
+- Clonar com nome duplicado → backend não tem unique constraint em `name`, mas vamos sufixar `(cópia)` por padrão pra evitar confusão visual.
+- Auto-propagação do Mín: só dispara se a próxima faixa estava exatamente em `oldMax + 1` (encadeamento detectável). Não mexe se houver gap intencional.

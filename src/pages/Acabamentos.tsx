@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers } from "lucide-react";
+import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers, Copy } from "lucide-react";
 import { FinishingTiersDrawer } from "@/components/acabamentos/FinishingTiersDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -182,6 +182,49 @@ export default function Acabamentos() {
     }
   };
 
+  const cloneItem = async (item: FinishingItem) => {
+    if (!requireAdmin("clonar acabamento")) return;
+    const { data: inserted, error: insErr } = await (supabase as any)
+      .from("finishings_price_items")
+      .insert({
+        name: `${item.name} (cópia)`,
+        category: item.category,
+        size: item.size,
+        price_per_sheet: item.price_per_sheet,
+        is_active: item.is_active,
+        sort_order: item.sort_order,
+      })
+      .select("id")
+      .single();
+    if (insErr || !inserted) {
+      handleError(insErr ?? new Error("Falha ao clonar"), "clonar acabamento");
+      return;
+    }
+    const { data: tiers } = await (supabase as any)
+      .from("finishing_price_tiers")
+      .select("label, min_qty, max_qty, price_per_sheet, sort_order")
+      .eq("finishing_id", item.id);
+    if (tiers && tiers.length > 0) {
+      const payload = tiers.map((t: any) => ({
+        finishing_id: inserted.id,
+        label: t.label,
+        min_qty: t.min_qty,
+        max_qty: t.max_qty,
+        price_per_sheet: t.price_per_sheet,
+        sort_order: t.sort_order,
+      }));
+      const { error: tErr } = await (supabase as any)
+        .from("finishing_price_tiers")
+        .insert(payload);
+      if (tErr) {
+        handleError(tErr, "clonar faixas");
+        return;
+      }
+    }
+    toast.success("Acabamento clonado — ajuste os preços");
+    reload();
+  };
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       <header className="space-y-1">
@@ -351,7 +394,7 @@ export default function Acabamentos() {
                 <TableHead>Tamanho</TableHead>
                 <TableHead className="text-right">Preço/folha</TableHead>
                 <TableHead className="w-[80px]">Ativo</TableHead>
-                {isAdmin && <TableHead className="w-[120px]">Ações</TableHead>}
+                {isAdmin && <TableHead className="w-[160px]">Ações</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -407,6 +450,15 @@ export default function Acabamentos() {
                             title="Faixas por quantidade"
                           >
                             <Layers className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => cloneItem(item)}
+                            title="Clonar acabamento (mesmas faixas)"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             variant="ghost"

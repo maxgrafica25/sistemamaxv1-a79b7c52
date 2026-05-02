@@ -44,8 +44,8 @@ interface Props {
 const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-const autoLabel = (min: number, max: number | null) =>
-  max == null ? `${min}+` : `${min}-${max}`;
+const autoLabel = (index: number) => `TP${index + 1}`;
+const isAutoLabel = (s: string) => /^TP\d+$/.test(s) || /^\d+(-\d+|\+)$/.test(s);
 
 export function FinishingTiersDrawer({
   open,
@@ -101,7 +101,7 @@ export function FinishingTiersDrawer({
     setTiers([
       ...tiers,
       {
-        label: autoLabel(min, null),
+        label: autoLabel(tiers.length),
         min_qty: min,
         max_qty: null,
         price_per_sheet: basePrice,
@@ -112,16 +112,28 @@ export function FinishingTiersDrawer({
   };
 
   const updateTier = (idx: number, patch: Partial<Tier>) => {
-    const next = tiers.map((t, i) => {
-      if (i !== idx) return t;
-      const merged = { ...t, ...patch };
-      // Auto-atualiza label se min/max mudou e label parecia padrão
-      if ((patch.min_qty != null || patch.max_qty !== undefined) && /^\d+(-\d+|\+)$/.test(t.label)) {
-        merged.label = autoLabel(merged.min_qty, merged.max_qty);
+    setTiers((prev) => {
+      const next = prev.map((t, i) => {
+        if (i !== idx) return t;
+        const merged = { ...t, ...patch };
+        // Auto-atualiza label se min/max mudou e label parecia padrão
+        if ((patch.min_qty != null || patch.max_qty !== undefined) && isAutoLabel(t.label)) {
+          merged.label = autoLabel(idx);
+        }
+        return merged;
+      });
+      // Encadeamento: se o usuário editou o max_qty desta faixa e a próxima
+      // estava colada (min === oldMax+1), atualiza o min da próxima.
+      if (patch.max_qty !== undefined && idx < next.length - 1) {
+        const oldMax = prev[idx].max_qty;
+        const newMax = next[idx].max_qty;
+        const wasChained = oldMax != null && next[idx + 1].min_qty === oldMax + 1;
+        if (newMax != null && wasChained) {
+          next[idx + 1] = { ...next[idx + 1], min_qty: newMax + 1 };
+        }
       }
-      return merged;
+      return next;
     });
-    setTiers(next);
   };
 
   const removeTier = (idx: number) => {
@@ -169,7 +181,7 @@ export function FinishingTiersDrawer({
     if (tiers.length > 0) {
       const payload = tiers.map((t, i) => ({
         finishing_id: finishingId,
-        label: t.label.trim() || autoLabel(t.min_qty, t.max_qty),
+        label: t.label.trim() || autoLabel(i),
         min_qty: t.min_qty,
         max_qty: t.max_qty,
         price_per_sheet: t.price_per_sheet,
@@ -213,16 +225,21 @@ export function FinishingTiersDrawer({
               ({fmt(basePrice)}/folha).
             </p>
             <div className="text-[11px] text-muted-foreground">
-              <div className="font-medium mb-1">Exemplo:</div>
+              <div className="font-medium mb-1">Exemplo (TP = Tabela de Preço):</div>
               <div className="font-mono space-y-0.5">
-                <div>1–10 folhas → R$ 1,80/folha (pequeno volume)</div>
-                <div>11–50 folhas → R$ 1,40/folha (médio)</div>
-                <div>51+ folhas (deixe Máx vazio = ∞) → R$ 1,00/folha (atacado)</div>
+                <div>TP1 · 1–20 folhas → R$ 4,00/folha</div>
+                <div>TP2 · 21–100 folhas → R$ 3,80/folha</div>
+                <div>TP3 · 101–300 folhas → R$ 3,50/folha</div>
+                <div>TP4 · 301+ (Máx vazio = ∞) → R$ 3,30/folha</div>
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              ⚠️ As faixas <strong>não podem se sobrepor</strong>. Encadeie sempre:
-              a próxima Mín deve ser maior que a Máx anterior.
+              💡 Ao preencher o <strong>Máx</strong> de uma faixa, o <strong>Mín</strong> da
+              próxima é ajustado automaticamente. Rótulos TP1, TP2… também são gerados — você
+              pode reescrever se preferir um nome próprio.
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              ⚠️ As faixas <strong>não podem se sobrepor</strong>.
             </p>
           </div>
 
@@ -251,7 +268,7 @@ export function FinishingTiersDrawer({
                     value={t.label}
                     onChange={(e) => updateTier(idx, { label: e.target.value })}
                     className="h-8 text-xs"
-                    placeholder="ex.: 11-50"
+                    placeholder={`TP${idx + 1}`}
                   />
                   <Input
                     type="number"
