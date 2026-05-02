@@ -942,11 +942,11 @@ export function LabelLayoutCalculator({
                 value={[marksOffsetY]}
                 onValueChange={([v]) => setMarksOffsetY(v)}
                 min={0}
-                max={Math.max(0, config.sheetH / 2)}
+                max={Math.max(0, config.marginBottom - CROSS_VERT_LEN_MM / 2)}
                 step={5}
               />
               <p className="text-[10px] text-muted-foreground">
-                Move apenas as marcas inferiores para baixo, do meio da folha até a borda.
+                Move apenas as marcas inferiores para baixo, dentro da margem inferior.
               </p>
             </div>
           )}
