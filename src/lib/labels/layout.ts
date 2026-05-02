@@ -16,7 +16,7 @@
 //   - Tipo de corte muda os defaults de margem e gap.
 // =============================================================================
 
-import { buildCornerMarks, markBoundingBox } from "./marks";
+// (marks são consultadas só pelo preview/PDF — o cálculo de risco é físico/determinístico)
 
 // ---------- Formato da etiqueta ---------------------------------------------
 //
