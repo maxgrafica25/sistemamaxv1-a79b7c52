@@ -11,6 +11,7 @@ import { generateProductionOrderPdf } from "@/lib/erp/production-order-pdf";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useIsFinanceiro } from "@/hooks/useIsFinanceiro";
+import { handleError } from "@/lib/handleError";
 import { ORDER_STATUS_META, type SalesOrderStatus } from "@/lib/erp/status";
 import { formatBRL } from "@/lib/erp/payment-terms";
 import { OrderEditorDialog } from "@/components/pedidos/OrderEditorDialog";
@@ -85,16 +86,16 @@ export default function Pedidos() {
     if (!order) return;
 
     if (newStatus === "aprovado" && !isFinanceiro) {
-      toast.error("Apenas o Financeiro pode aprovar pedidos.");
+      toast.error("Sem permissão", { description: "Apenas o Financeiro pode aprovar pedidos." });
       return;
     }
     if (newStatus === "cancelado" && !isFinanceiro) {
-      toast.error("Apenas o Financeiro pode cancelar pedidos.");
+      toast.error("Sem permissão", { description: "Apenas o Financeiro pode cancelar pedidos." });
       return;
     }
 
     const { error } = await supabase.from("sales_orders").update({ status: newStatus }).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) return handleError(error, "alterar status do pedido");
     toast.success(`Pedido ${order.order_number}: ${ORDER_STATUS_META[newStatus].label}`);
 
     if (newStatus === "aprovado" && isFinanceiro) {

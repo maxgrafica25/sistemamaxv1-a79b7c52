@@ -10,6 +10,7 @@ import { Plus, Printer, Wrench, Package, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { handleError } from "@/lib/handleError";
 
 interface PrinterReading {
   id: string;
@@ -62,7 +63,7 @@ export default function LeituraImpressoras() {
 
   const handleAddReading = async () => {
     if (!selectedPrinter || !counter) { toast.error("Preencha todos os campos obrigatórios"); return; }
-    await supabase.from("printer_readings").insert({
+    const { error } = await supabase.from("printer_readings").insert({
       printer_model: selectedPrinter,
       date: new Date().toISOString().split("T")[0],
       counter: parseInt(counter),
@@ -72,6 +73,7 @@ export default function LeituraImpressoras() {
       type: readingType,
       notes: notes || null,
     });
+    if (error) return handleError(error, "registrar leitura");
     toast.success("Leitura registrada!");
     setSelectedPrinter(""); setCounter(""); setColorPrints(""); setBwPrints("");
     setTotalPrints(""); setNotes(""); setReadingType("daily");
