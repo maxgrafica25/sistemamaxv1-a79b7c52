@@ -33,6 +33,7 @@ import {
   saveConfig,
   addCustomSheet,
   removeCustomSheet,
+  removeLabelPreset,
   type LabelCalcConfig,
   type CustomSheetPreset,
 } from "@/lib/labels/config-storage";
