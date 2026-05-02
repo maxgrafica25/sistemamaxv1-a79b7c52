@@ -93,20 +93,20 @@ function listLabelPositions(input: ProductionPDFInput) {
   const { layout, marginTop, gap } = input;
   const w = layout.best.rotated ? input.labelH : input.labelW;
   const h = layout.best.rotated ? input.labelW : input.labelH;
-  const reserved = new Set(layout.reservedSlots.map((s) => `${s.col},${s.row}`));
+  // Cada linha usa exatamente cellsPerRow[r] elementos a partir de
+  // rowOffsets[r] — mesma lógica do preview SVG. Linhas recuadas não
+  // ocupam mais slots fantasma; ficam visualmente centralizadas.
   const positions: Array<{ x: number; y: number; w: number; h: number; reserved: boolean }> = [];
   for (let r = 0; r < layout.best.rows; r++) {
     const baseX = layout.rowOffsets[r] ?? input.marginLeft;
-    for (let c = 0; c < layout.best.cols; c++) {
-      const isReserved = reserved.has(`${c},${r}`);
-      // Posições reservadas continuam computadas (espaço em branco), mas
-      // marcadas como reserved=true para o renderer pular o desenho.
+    const cellsInRow = layout.cellsPerRow[r] ?? layout.best.cols;
+    for (let c = 0; c < cellsInRow; c++) {
       positions.push({
         x: baseX + c * (w + gap),
         y: marginTop + r * (h + gap),
         w,
         h,
-        reserved: isReserved,
+        reserved: false,
       });
     }
   }
