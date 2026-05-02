@@ -69,8 +69,14 @@ const buildPrintingLabel = (i: Omit<PrintingOption, "label" | "total">) => {
 
 // ---------- Persistência da escolha -----------------------------------------
 
+interface SizeChoice {
+  printingId: string | null;
+  finishingId: string | null;
+  /** Escolhas manuais de acabamento por papel (printingId). */
+  finishingByPrinting?: Record<string, string | null>;
+}
 interface ChoiceMap {
-  [size: string]: { printingId: string | null; finishingId: string | null };
+  [size: string]: SizeChoice;
 }
 
 const loadChoices = (): ChoiceMap => {
@@ -89,12 +95,52 @@ const saveChoice = (size: string, printingId: string | null, finishingId: string
   if (typeof window === "undefined") return;
   try {
     const all = loadChoices();
-    all[size] = { printingId, finishingId };
+    const prev = all[size] ?? {};
+    all[size] = { ...prev, printingId, finishingId };
     window.localStorage.setItem(CHOICE_KEY, JSON.stringify(all));
   } catch {
     /* ignore */
   }
 };
+
+const saveManualFinishingForPrinting = (
+  size: string,
+  printingId: string | null,
+  finishingId: string | null,
+) => {
+  if (typeof window === "undefined" || !printingId) return;
+  try {
+    const all = loadChoices();
+    const prev = all[size] ?? { printingId: null, finishingId: null };
+    const map = { ...(prev.finishingByPrinting ?? {}) };
+    map[printingId] = finishingId;
+    all[size] = { ...prev, finishingByPrinting: map };
+    window.localStorage.setItem(CHOICE_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+};
+
+/**
+ * Heurística: dado um item de impressão, escolhe o acabamento de recorte
+ * correspondente. Casamento por palavra-chave no nome do papel vs. nome do
+ * acabamento (já cadastrado no mesmo `size`).
+ */
+export function pickDefaultFinishing(
+  printing: PrintingOption | null,
+  finishingOptions: FinishingOption[],
+): string | null {
+  if (!printing) return null;
+  const paper = printing.paper_type.toLowerCase();
+  const real = finishingOptions.filter((f) => f.id !== null);
+  if (real.length === 0) return null;
+  const find = (re: RegExp) => real.find((f) => re.test(f.name.toLowerCase()))?.id ?? null;
+  if (/adesiv/.test(paper)) {
+    return find(/adesiv/) ?? find(/especia/) ?? real[0].id;
+  }
+  // qualquer outro papel → "papéis especiais"
+  return find(/especia/) ?? find(/adesiv/) ?? real[0].id;
+}
 
 // ---------- Hook principal --------------------------------------------------
 
