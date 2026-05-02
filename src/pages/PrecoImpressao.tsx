@@ -323,12 +323,17 @@ export default function PrecoImpressao() {
   };
   const saveCategory = async () => {
     if (!catName.trim()) return toast.error("Nome obrigatório");
-    if (editingCategory) await supabase.from("printer_categories").update({ name: catName, description: catDesc || null }).eq("id", editingCategory.id);
-    else await supabase.from("printer_categories").insert({ name: catName, description: catDesc || null, sort_order: categories.length });
+    if (!requireAdmin(editingCategory ? "editar categoria" : "criar categoria")) return;
+    const { error } = editingCategory
+      ? await supabase.from("printer_categories").update({ name: catName, description: catDesc || null }).eq("id", editingCategory.id)
+      : await supabase.from("printer_categories").insert({ name: catName, description: catDesc || null, sort_order: categories.length });
+    if (error) return handleError(error, editingCategory ? "salvar categoria" : "criar categoria");
     setShowCategoryDialog(false); toast.success("Categoria salva!"); fetchAll();
   };
   const deleteCategory = async (id: string) => {
-    await supabase.from("printer_categories").delete().eq("id", id);
+    if (!requireAdmin("excluir categoria")) return;
+    const { error } = await supabase.from("printer_categories").delete().eq("id", id);
+    if (error) return handleError(error, "excluir categoria");
     if (activeCategory === id) setActiveCategory(""); toast.success("Categoria removida!"); fetchAll();
   };
   const requestDeleteCategory = (id: string, name: string) => {
@@ -360,6 +365,7 @@ export default function PrecoImpressao() {
   const saveTier = async () => {
     if (!tierLabel.trim()) return toast.error("Rótulo obrigatório");
     if (!activeGroupId) return toast.error("Nenhum grupo de markup vinculado a esta categoria");
+    if (!requireAdmin(editingTier ? "editar regra de preço" : "criar regra de preço")) return;
     const data = {
       printer_category_id: activeCategory, markup_group_id: activeGroupId, label: tierLabel,
       min_qty: Number(tierMinQty), max_qty: tierMaxQty ? Number(tierMaxQty) : null,
@@ -367,12 +373,17 @@ export default function PrecoImpressao() {
       variable_cost_pct: Number(tierVariablePct),
       margin_pct: Number(tierMarginPct), sort_order: editingTier ? editingTier.sort_order : activeTiers.length,
     };
-    if (editingTier) await supabase.from("markup_tiers").update(data).eq("id", editingTier.id);
-    else await supabase.from("markup_tiers").insert(data);
+    const { error } = editingTier
+      ? await supabase.from("markup_tiers").update(data).eq("id", editingTier.id)
+      : await supabase.from("markup_tiers").insert(data);
+    if (error) return handleError(error, editingTier ? "salvar regra" : "criar regra");
     setShowTierDialog(false); toast.success("Regra salva!"); fetchAll();
   };
   const deleteTier = async (id: string) => {
-    await supabase.from("markup_tiers").delete().eq("id", id); toast.success("Regra removida!"); fetchAll();
+    if (!requireAdmin("excluir regra de preço")) return;
+    const { error } = await supabase.from("markup_tiers").delete().eq("id", id);
+    if (error) return handleError(error, "excluir regra");
+    toast.success("Regra removida!"); fetchAll();
   };
   const requestDeleteTier = (id: string, label: string) => {
     setConfirmItemName(label);
@@ -386,24 +397,31 @@ export default function PrecoImpressao() {
 
   const createMarkupGroup = async () => {
     if (!groupName.trim()) return toast.error("Nome obrigatório");
-    const { data } = await supabase.from("markup_groups").insert({ name: groupName.trim() }).select("id").single();
+    if (!requireAdmin("criar grupo de regras")) return;
+    const { data, error } = await supabase.from("markup_groups").insert({ name: groupName.trim() }).select("id").single();
+    if (error) return handleError(error, "criar grupo de regras");
     if (data) {
       toast.success("Grupo criado!");
       // Auto-assign to current category if it doesn't have one
       if (activeCategoryObj && !activeCategoryObj.default_markup_group_id) {
-        await supabase.from("printer_categories").update({ default_markup_group_id: data.id }).eq("id", activeCategory);
+        const { error: assignError } = await supabase.from("printer_categories").update({ default_markup_group_id: data.id }).eq("id", activeCategory);
+        if (assignError) handleError(assignError, "vincular grupo à categoria");
       }
     }
     setShowGroupDialog(false); setGroupName(""); fetchAll();
   };
 
   const assignGroupToCategory = async (groupId: string) => {
-    await supabase.from("printer_categories").update({ default_markup_group_id: groupId }).eq("id", activeCategory);
+    if (!requireAdmin("vincular grupo à categoria")) return;
+    const { error } = await supabase.from("printer_categories").update({ default_markup_group_id: groupId }).eq("id", activeCategory);
+    if (error) return handleError(error, "vincular grupo");
     toast.success("Grupo vinculado!"); fetchAll();
   };
 
   const assignGroupToItem = async (itemId: string, groupId: string | null) => {
-    await supabase.from("printing_price_items").update({ markup_group_id: groupId }).eq("id", itemId);
+    if (!requireAdmin("alterar grupo do item")) return;
+    const { error } = await supabase.from("printing_price_items").update({ markup_group_id: groupId }).eq("id", itemId);
+    if (error) return handleError(error, "alterar grupo do item");
     toast.success(groupId ? "Grupo personalizado atribuído!" : "Usando grupo padrão da categoria"); fetchAll();
   };
 
