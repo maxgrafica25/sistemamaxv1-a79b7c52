@@ -282,3 +282,61 @@ export const findSignmasterShrinkOpportunity = (
 
   return best;
 };
+
+// ---------- Otimizador de upgrade (entregar etiqueta maior) ----------------
+
+export interface SignmasterGrowSuggestion {
+  newLabelW: number;
+  newLabelH: number;
+  newPerSheet: number;
+  areaIncreasePct: number;
+  samePerSheet: boolean;
+  growW: number;
+  growH: number;
+}
+
+export const findSignmasterGrowOpportunity = (
+  base: SignmasterLayoutInput,
+  originalPerSheet: number,
+): SignmasterGrowSuggestion | null => {
+  if (originalPerSheet <= 0) return null;
+  const candidates = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+  const baseArea = base.labelDiameter * base.labelDiameter;
+
+  let best: SignmasterGrowSuggestion | null = null;
+  for (const d of candidates) {
+    const newDiameter = +(base.labelDiameter + d).toFixed(2);
+    const r = computeSignmasterLayout({
+      sheetW: base.sheetW,
+      sheetH: base.sheetH,
+      labelDiameter: newDiameter,
+    });
+    if (r.total < originalPerSheet) continue;
+
+    const newArea = newDiameter * newDiameter;
+    const areaIncreasePct = baseArea > 0 ? ((newArea - baseArea) / baseArea) * 100 : 0;
+    if (areaIncreasePct <= 0) continue;
+
+    const candidate: SignmasterGrowSuggestion = {
+      newLabelW: newDiameter,
+      newLabelH: newDiameter,
+      newPerSheet: r.total,
+      areaIncreasePct,
+      samePerSheet: r.total === originalPerSheet,
+      growW: d,
+      growH: d,
+    };
+
+    const bestArea = best ? best.newLabelW * best.newLabelH : -Infinity;
+    if (
+      !best ||
+      newArea > bestArea ||
+      (newArea === bestArea && d < best.growW)
+    ) {
+      best = candidate;
+    }
+  }
+
+  return best;
+};
+
