@@ -128,11 +128,13 @@ export function markSegments(mark: RegistrationMark): MarkSegment[] {
     return [{ x1: x - arm, y1: y, x2: x + arm, y2: y }];
   }
   if (kind === "cross") {
+    // "T deitado": traço vertical longo + perna horizontal apontando
+    // SEMPRE para DENTRO da área útil (BL → para a direita; BR → para a esquerda).
     const hh = CROSS_VERT_LEN_MM / 2;
-    const hw = CROSS_HORIZ_LEN_MM / 2;
+    const inward = corner === "br" ? -1 : 1; // BL aponta +x, BR aponta -x
     return [
       { x1: x, y1: y - hh, x2: x, y2: y + hh }, // vertical longa
-      { x1: x - hw, y1: y, x2: x + hw, y2: y }, // horizontal curta
+      { x1: x, y1: y, x2: x + inward * CROSS_HORIZ_LEN_MM, y2: y }, // perna p/ dentro
     ];
   }
   // L: braços apontam SEMPRE para fora da área útil (vértice no canto da
