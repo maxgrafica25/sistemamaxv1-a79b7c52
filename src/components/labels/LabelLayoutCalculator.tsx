@@ -61,7 +61,7 @@ import { toast } from "sonner";
 import { Slider } from "@/components/ui/slider";
 import { LabelCalcSettingsDialog } from "./LabelCalcSettingsDialog";
 import { suggestMarksOffset, buildCornerMarks, markSegments, MARK_ARM_MM, CROSS_VERT_LEN_MM } from "@/lib/labels/marks";
-import { computeSignmasterLayout, computeSignmasterMarks, findSignmasterShrinkOpportunity, SM_REG_MARK_MARGIN, SM_LABEL_SPACING } from "@/lib/labels/signmaster-spec";
+import { computeSignmasterLayout, computeSignmasterMarks, findSignmasterShrinkOpportunity, findSignmasterGrowOpportunity, SM_REG_MARK_MARGIN, SM_LABEL_SPACING } from "@/lib/labels/signmaster-spec";
 import { generateSignmasterPlt, downloadPlt } from "@/lib/labels/plt-export";
 import { generateProductionPDF, downloadPDF } from "@/lib/labels/production-pdf";
 import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
