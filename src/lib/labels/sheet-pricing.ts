@@ -151,10 +151,11 @@ export interface UseFolhaPricingResult {
   selectedFinishing: FinishingOption;
   setPrintingId: (id: string) => void;
   setFinishingId: (id: string | "__none__") => void;
-  total: number; // R$ por folha (já considerando faixa de quantidade)
+  total: number;
   finishingPricePerSheet: number;
   isLoading: boolean;
-  /** "missing-printing" | "missing-finishing" | null */
+  /** true quando o acabamento atual veio da heurística automática (não foi escolhido manualmente). */
+  finishingIsAuto: boolean;
   missing: "missing-printing" | null;
 }
 
@@ -225,23 +226,23 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
   const printingOptions = printingQ.data ?? [];
   const finishingOptions = finishingQ.data ?? [NO_FINISHING];
 
-  // Estado local (id selecionado por size). Inicializa do localStorage; se a
-  // opção salva não existe mais, cai na primeira disponível.
   const [printingId, setPrintingIdState] = useState<string | null>(() => {
     return loadChoices()[size]?.printingId ?? null;
   });
   const [finishingId, setFinishingIdState] = useState<string | null>(() => {
     return loadChoices()[size]?.finishingId ?? null;
   });
+  const [finishingIsAuto, setFinishingIsAuto] = useState(false);
 
   // Quando troca o `size`, recarrega escolha salva
   useEffect(() => {
     const c = loadChoices()[size];
     setPrintingIdState(c?.printingId ?? null);
     setFinishingIdState(c?.finishingId ?? null);
+    setFinishingIsAuto(false);
   }, [size]);
 
-  // Se a opção salva não existir nas opções carregadas, cai na primeira
+  // Se a opção salva não existir, cai na primeira
   useEffect(() => {
     if (printingOptions.length === 0) return;
     if (!printingId || !printingOptions.some((p) => p.id === printingId)) {
@@ -251,7 +252,6 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
 
   useEffect(() => {
     if (finishingOptions.length === 0) return;
-    // null = "Sem acabamento" sempre é válido
     if (finishingId !== null && !finishingOptions.some((f) => f.id === finishingId)) {
       setFinishingIdState(null);
     }
@@ -266,17 +266,38 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
     [finishingOptions, finishingId],
   );
 
+  // Auto-vinculação: ao mudar o papel, aplica escolha manual prévia OU heurística.
+  useEffect(() => {
+    if (!selectedPrinting) return;
+    if (finishingOptions.length <= 1) return; // só "Sem acabamento" disponível
+    const choices = loadChoices();
+    const manualMap = choices[size]?.finishingByPrinting ?? {};
+    if (Object.prototype.hasOwnProperty.call(manualMap, selectedPrinting.id)) {
+      const saved = manualMap[selectedPrinting.id];
+      setFinishingIdState(saved);
+      setFinishingIsAuto(false);
+      saveChoice(size, selectedPrinting.id, saved);
+      return;
+    }
+    const auto = pickDefaultFinishing(selectedPrinting, finishingOptions);
+    setFinishingIdState(auto);
+    setFinishingIsAuto(true);
+    saveChoice(size, selectedPrinting.id, auto);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPrinting?.id, finishingOptions.length, size]);
+
   const setPrintingId = (id: string) => {
     setPrintingIdState(id);
-    saveChoice(size, id, finishingId);
+    // finishing será recalculado pelo effect acima
   };
   const setFinishingId = (id: string | "__none__") => {
     const next = id === "__none__" ? null : id;
     setFinishingIdState(next);
+    setFinishingIsAuto(false);
     saveChoice(size, printingId, next);
+    saveManualFinishingForPrinting(size, printingId, next);
   };
 
-  // Resolve preço/folha do acabamento aplicando faixa por quantidade quando houver
   const finishingPricePerSheet = useMemo(() => {
     if (!selectedFinishing.id) return 0;
     if (!selectedFinishing.tiers.length || sheetsQty == null || sheetsQty <= 0) {
@@ -302,6 +323,7 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
     total,
     finishingPricePerSheet,
     isLoading,
+    finishingIsAuto,
     missing: !selectedPrinting && !isLoading ? "missing-printing" : null,
   };
 }
