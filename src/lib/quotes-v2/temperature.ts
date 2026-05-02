@@ -105,7 +105,16 @@ export function buildStatsMap(
             cur.count++;
             cur.label = label;
             optionCounts.set(id, cur);
-
+          }
+          break;
+        }
+        case "option_deselected":
+          // Trocas entre opções A/B/C — não contam como hesitação por item.
+          break;
+        case "item_selected": {
+          const id = String(meta.item_id ?? meta.option_id ?? "");
+          const label = String(meta.item_label ?? meta.option_label ?? "Item");
+          if (id) {
             const it = itemSelects.get(id) ?? { label, sel: 0, des: 0 };
             it.sel++;
             it.label = label;
@@ -113,9 +122,9 @@ export function buildStatsMap(
           }
           break;
         }
-        case "option_deselected": {
-          const id = String(meta.option_id ?? "");
-          const label = String(meta.option_label ?? "Item");
+        case "item_deselected": {
+          const id = String(meta.item_id ?? meta.option_id ?? "");
+          const label = String(meta.item_label ?? meta.option_label ?? "Item");
           if (id) {
             const it = itemSelects.get(id) ?? { label, sel: 0, des: 0 };
             it.des++;
