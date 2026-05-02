@@ -16,7 +16,7 @@
 //   - Tipo de corte muda os defaults de margem e gap.
 // =============================================================================
 
-import { buildCornerMarks, markBoundingBox } from "./marks";
+// (marks são consultadas só pelo preview/PDF — o cálculo de risco é físico/determinístico)
 
 // ---------- Formato da etiqueta ---------------------------------------------
 //
@@ -119,17 +119,28 @@ export interface LayoutResult {
 }
 
 /**
- * Zona de Segurança ARMS — 10mm.
+ * Zona de Segurança ARMS — análise física do risco real.
  *
- * Verifica os cantos de risco e remove apenas se a distância real até a
- * marca correspondente for < 10mm. Se a etiqueta naturalmente já estiver
- * longe (folga ≥ 10mm), mantém para máximo aproveitamento.
+ * Geometria das marcas (ver marks.ts):
+ *  - Marcas superiores em "L": vértice EXATAMENTE no canto da área útil,
+ *    braços de 5mm apontando para FORA (TL: -x/-y, TR: +x/-y). O L NÃO
+ *    invade a área útil — só toca o canto da etiqueta no vértice.
+ *  - Ticks inferiores: traço horizontal de 10mm centrado no canto da
+ *    área útil, dentro da margem inferior.
  *
- * Cantos verificados:
- * - 1ª linha (col 0 vs L de TL · col cols−1 vs L de TR): sempre.
- * - Última linha (col 0 vs tick BL · col cols−1 vs tick BR):
- *   apenas para cortes NÃO redondos (ticks se encaixam nos vãos entre círculos).
- * - corte_reto: nada é reservado.
+ * Como o L abre para fora, a primeira etiqueta tocando o canto da área
+ * útil em (marginLeft, marginTop) está SEGURA na imensa maioria dos
+ * casos. O risco real para o sensor ARMS só aparece quando:
+ *   (a) a etiqueta é grande o bastante para que sua arte chegue muito
+ *       perto do vértice de leitura — empiricamente, largura > 55mm;
+ *   (b) a margem disponível for menor que o braço do L/tick (< 5mm),
+ *       fazendo a marca cruzar a área da etiqueta.
+ *
+ * Regras (all-or-nothing por linha):
+ *  - corte_reto: nada é reservado.
+ *  - plotter_redondo: avalia APENAS a 1ª linha (os ticks de base se
+ *    encaixam nos vãos entre os círculos → última linha sempre cheia).
+ *  - plotter_quadrado / personalizado: avalia 1ª (vs. L) e última (vs. tick).
  */
 export interface ReservedSlotsInput {
   cutType: CutType;
@@ -149,16 +160,10 @@ export interface ReservedSlotsInput {
 }
 
 export const SAFETY_ZONE_MM = 10;
-
-/** Distância mínima (mm) entre dois retângulos. 0 se sobrepostos. */
-function rectDistance(
-  ax: number, ay: number, aw: number, ah: number,
-  bx: number, by: number, bw: number, bh: number,
-): number {
-  const dx = Math.max(0, Math.max(ax - (bx + bw), bx - (ax + aw)));
-  const dy = Math.max(0, Math.max(ay - (by + bh), by - (ay + ah)));
-  return Math.hypot(dx, dy);
-}
+/** Largura a partir da qual a arte da etiqueta começa a ameaçar o vértice do L. */
+export const SAFE_LABEL_MAX_W_MM = 55;
+/** Margem mínima para o braço da marca (5mm) não cruzar a etiqueta. */
+export const SAFE_SIDE_MARGIN_MM = 5;
 
 export function computeReservedSlots(input: ReservedSlotsInput): ReservedSlot[];
 // Overload de compatibilidade para chamadas antigas (cutType, cols, rows)
@@ -168,39 +173,32 @@ export function computeReservedSlots(
   _b?: number,
   _c?: number,
 ): ReservedSlot[] {
-  // Modo legado (sem geometria): impossível medir distância → vazio.
+  // Modo legado (sem geometria): impossível medir → vazio.
   if (typeof a === "string") {
     return [];
   }
-  const { cutType, cols, rows, labelW, labelH, gap, marginTop, marginBottom, marginLeft, marginRight, sheetW, sheetH } = a;
+  const { cutType, cols, rows, labelW, marginTop, marginBottom, marginLeft, marginRight } = a;
   if (cutType === "corte_reto") return [];
   if (cols <= 0 || rows <= 0) return [];
-
-  const marks = buildCornerMarks(sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight, 0);
-  const byCorner: Record<string, { x: number; y: number; w: number; h: number }> = {};
-  for (const m of marks.marks) byCorner[m.corner] = markBoundingBox(m);
 
   const isRound = cutType === "plotter_redondo";
   const slots: ReservedSlot[] = [];
 
-  /** Retorna true se algum dos cantos da linha está dentro da zona de 10mm. */
-  const rowTriggersSafety = (
-    row: number,
-    leftMark: { x: number; y: number; w: number; h: number } | undefined,
-    rightMark: { x: number; y: number; w: number; h: number } | undefined,
-  ): boolean => {
-    if (cols <= 0) return false;
-    const cellY = marginTop + row * (labelH + gap);
-    const cellLeftX = marginLeft;
-    const cellRightX = marginLeft + (cols - 1) * (labelW + gap);
-    if (leftMark) {
-      const dL = rectDistance(cellLeftX, cellY, labelW, labelH, leftMark.x, leftMark.y, leftMark.w, leftMark.h);
-      if (dL < SAFETY_ZONE_MM) return true;
-    }
-    if (rightMark) {
-      const dR = rectDistance(cellRightX, cellY, labelW, labelH, rightMark.x, rightMark.y, rightMark.w, rightMark.h);
-      if (dR < SAFETY_ZONE_MM) return true;
-    }
+  /** 1ª linha em risco vs. L de TL/TR. */
+  const topRowAtRisk = (): boolean => {
+    if (labelW > SAFE_LABEL_MAX_W_MM) return true;
+    if (marginLeft < SAFE_SIDE_MARGIN_MM) return true;
+    if (marginRight < SAFE_SIDE_MARGIN_MM) return true;
+    if (marginTop < SAFE_SIDE_MARGIN_MM) return true;
+    return false;
+  };
+
+  /** Última linha em risco vs. tick de BL/BR. */
+  const bottomRowAtRisk = (): boolean => {
+    if (labelW > SAFE_LABEL_MAX_W_MM) return true;
+    if (marginLeft < SAFE_SIDE_MARGIN_MM) return true;
+    if (marginRight < SAFE_SIDE_MARGIN_MM) return true;
+    if (marginBottom < SAFE_SIDE_MARGIN_MM) return true;
     return false;
   };
 
@@ -210,13 +208,13 @@ export function computeReservedSlots(
     if (cols >= 2) slots.push({ col: cols - 1, row });
   };
 
-  // 1ª linha — sempre verificada (vs. Ls de TL/TR)
-  if (rowTriggersSafety(0, byCorner.tl, byCorner.tr)) {
+  // 1ª linha — sempre verificada
+  if (topRowAtRisk()) {
     reserveBothEnds(0);
   }
 
-  // Última linha — só para não-redondo (vs. ticks de BL/BR)
-  if (!isRound && rows >= 2 && rowTriggersSafety(rows - 1, byCorner.bl, byCorner.br)) {
+  // Última linha — só para não-redondo
+  if (!isRound && rows >= 2 && bottomRowAtRisk()) {
     reserveBothEnds(rows - 1);
   }
 
