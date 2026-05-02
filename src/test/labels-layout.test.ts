@@ -395,20 +395,15 @@ describe("computeReservedSlots — critério geométrico (folga ≥ 10mm)", () =
     expect(r).toHaveLength(4);
   });
 
-  it("etiqueta enorme (80mm) — pode precisar remover mais de 1 par", () => {
-    // usableW=306, 4 cols×80=320 → não cabe; 3×80+2×0=240, slack=33 ≥10 → 3 ok
-    // se chamar com cols=4 (impossível mas hipotético), reduz para 2
+  it("etiqueta enorme (80mm) redondo — step=1, basta remover 1 (3×80=240, slack=33)", () => {
     const r = computeReservedSlots({
       cutType: "plotter_redondo",
+      shape: "redondo",
       cols: 4, rows: 3,
       labelW: 80, labelH: 80,
       ...baseGeom,
     });
-    // 4×80=320 slack=-7, 2×80=160 slack=73 → remove 2 de cada lado? Não: -2 = 2 cells
-    // half = (4-2)/2 = 1 → remove 1 de cada ponta
-    expect(r).toContainEqual({ col: 0, row: 0 });
-    expect(r).toContainEqual({ col: 3, row: 0 });
-    expect(r).toHaveLength(2);
+    expect(r).toEqual([{ col: 0, row: 0 }]);
   });
 
   it("plotter_redondo NUNCA reserva slots na última linha", () => {
