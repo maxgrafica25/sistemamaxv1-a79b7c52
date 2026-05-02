@@ -4,6 +4,7 @@ import {
   computeSheetPricing,
   buildAnchoringLadder,
   findShrinkOpportunity,
+  findGrowOpportunity,
   CUT_LABELS,
   SHEET_PRESETS,
   SHAPE_LABELS,
@@ -55,12 +56,14 @@ import {
   Save,
   FileDown,
   Crosshair,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Slider } from "@/components/ui/slider";
 import { LabelCalcSettingsDialog } from "./LabelCalcSettingsDialog";
 import { suggestMarksOffset, buildCornerMarks, markSegments, MARK_ARM_MM, CROSS_VERT_LEN_MM } from "@/lib/labels/marks";
-import { computeSignmasterLayout, computeSignmasterMarks, findSignmasterShrinkOpportunity, SM_REG_MARK_MARGIN, SM_LABEL_SPACING } from "@/lib/labels/signmaster-spec";
+import { computeSignmasterLayout, computeSignmasterMarks, findSignmasterShrinkOpportunity, findSignmasterGrowOpportunity, SM_REG_MARK_MARGIN, SM_LABEL_SPACING } from "@/lib/labels/signmaster-spec";
 import { generateSignmasterPlt, downloadPlt } from "@/lib/labels/plt-export";
 import { generateProductionPDF, downloadPDF } from "@/lib/labels/production-pdf";
 import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
@@ -403,6 +406,14 @@ export function LabelLayoutCalculator({
           )
         : findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1))
     : null;
+  const grow = perSheet > 0
+    ? (isParametric
+        ? findSignmasterGrowOpportunity(
+            { sheetW: config.sheetW, sheetH: config.sheetH, labelDiameter: labelW },
+            perSheet,
+          )
+        : findGrowOpportunity(layoutInput, perSheet))
+    : null;
 
   const applyShrink = () => {
     if (!shrink) return;
@@ -410,6 +421,15 @@ export function LabelLayoutCalculator({
     setLabelH(shrink.newLabelH);
     if (shape === "quadrado" || shape === "redondo") {
       if (shrink.newLabelW !== shrink.newLabelH) setShape("personalizado");
+    }
+  };
+
+  const applyGrow = () => {
+    if (!grow) return;
+    setLabelW(grow.newLabelW);
+    setLabelH(grow.newLabelH);
+    if (shape === "quadrado" || shape === "redondo") {
+      if (grow.newLabelW !== grow.newLabelH) setShape("personalizado");
     }
   };
 
@@ -979,52 +999,102 @@ export function LabelLayoutCalculator({
           </Alert>
         )}
 
-        {/* Otimizador */}
-        {shrink && (
-          <Alert className="border-amber-400/50 bg-amber-50 dark:bg-amber-950/20">
-            <Lightbulb className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="text-sm">Dica de aproveitamento</AlertTitle>
-            <AlertDescription className="text-xs space-y-2">
-              {(() => {
-                const isSquareNew = shrink.newLabelW === shrink.newLabelH;
-                const sizeLabel = isSquareNew
-                  ? `${shrink.newLabelW}mm`
-                  : `${shrink.newLabelW}×${shrink.newLabelH}mm`;
-                let deltaText = "";
-                if (shrink.shrinkW > 0 && shrink.shrinkH > 0 && shrink.shrinkW === shrink.shrinkH) {
-                  deltaText = `−${shrink.shrinkW}mm em cada lado`;
-                } else if (shrink.shrinkW > 0 && shrink.shrinkH > 0) {
-                  deltaText = `−${shrink.shrinkW}mm de largura e −${shrink.shrinkH}mm de altura`;
-                } else if (shrink.shrinkW > 0) {
-                  deltaText = `−${shrink.shrinkW}mm de largura`;
-                } else if (shrink.shrinkH > 0) {
-                  deltaText = `−${shrink.shrinkH}mm de altura`;
-                }
-                return (
-                  <>
-                    <p>
-                      Se diminuir a etiqueta para <strong>{sizeLabel}</strong>
-                      {deltaText && <> ({deltaText})</>}, cabem{" "}
-                      <strong>{shrink.delta} etiquetas a mais por folha</strong>{" "}
-                      (de {perSheet} para <strong>{shrink.newPerSheet}</strong>).
-                    </p>
-                    {pricing.sheetsNeeded > 0 && shrink.extraUnitsForSameSheets > 0 && (
-                      <p>
-                        Usando as mesmas {pricing.sheetsNeeded}{" "}
-                        {pricing.sheetsNeeded === 1 ? "folha" : "folhas"} (mesmo custo de produção),
-                        o cliente leva <strong>{shrink.extraUnitsForSameSheets} etiquetas a mais</strong>.
-                      </p>
-                    )}
-                  </>
-                );
-              })()}
-              <Button size="sm" variant="outline" onClick={applyShrink} className="h-7 text-xs">
-                <ArrowRight className="h-3 w-3 mr-1" />
-                Aplicar sugestão
-              </Button>
-            </AlertDescription>
-          </Alert>
+        {/* Otimizadores: caber mais vs entregar maior */}
+        {(shrink || grow) && (
+          <div className="grid gap-3 md:grid-cols-2">
+            {shrink && (
+              <Alert className="border-amber-400/50 bg-amber-50 dark:bg-amber-950/20">
+                <Minimize2 className="h-4 w-4 text-amber-600" />
+                <AlertTitle className="text-sm">Cabem mais por folha</AlertTitle>
+                <AlertDescription className="text-xs space-y-2">
+                  {(() => {
+                    const isSquareNew = shrink.newLabelW === shrink.newLabelH;
+                    const sizeLabel = isSquareNew
+                      ? `${shrink.newLabelW}mm`
+                      : `${shrink.newLabelW}×${shrink.newLabelH}mm`;
+                    let deltaText = "";
+                    if (shrink.shrinkW > 0 && shrink.shrinkH > 0 && shrink.shrinkW === shrink.shrinkH) {
+                      deltaText = `−${shrink.shrinkW}mm em cada lado`;
+                    } else if (shrink.shrinkW > 0 && shrink.shrinkH > 0) {
+                      deltaText = `−${shrink.shrinkW}mm de largura e −${shrink.shrinkH}mm de altura`;
+                    } else if (shrink.shrinkW > 0) {
+                      deltaText = `−${shrink.shrinkW}mm de largura`;
+                    } else if (shrink.shrinkH > 0) {
+                      deltaText = `−${shrink.shrinkH}mm de altura`;
+                    }
+                    return (
+                      <>
+                        <p>
+                          Se diminuir a etiqueta para <strong>{sizeLabel}</strong>
+                          {deltaText && <> ({deltaText})</>}, cabem{" "}
+                          <strong>{shrink.delta} etiquetas a mais por folha</strong>{" "}
+                          (de {perSheet} para <strong>{shrink.newPerSheet}</strong>).
+                        </p>
+                        {pricing.sheetsNeeded > 0 && shrink.extraUnitsForSameSheets > 0 && (
+                          <p>
+                            Usando as mesmas {pricing.sheetsNeeded}{" "}
+                            {pricing.sheetsNeeded === 1 ? "folha" : "folhas"} (mesmo custo de produção),
+                            o cliente leva <strong>{shrink.extraUnitsForSameSheets} etiquetas a mais</strong>.
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
+                  <Button size="sm" variant="outline" onClick={applyShrink} className="h-7 text-xs">
+                    <ArrowRight className="h-3 w-3 mr-1" />
+                    Aplicar sugestão
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {grow && (
+              <Alert className="border-emerald-400/50 bg-emerald-50 dark:bg-emerald-950/20">
+                <Maximize2 className="h-4 w-4 text-emerald-600" />
+                <AlertTitle className="text-sm">Entregue uma etiqueta maior</AlertTitle>
+                <AlertDescription className="text-xs space-y-2">
+                  {(() => {
+                    const isSquareNew = grow.newLabelW === grow.newLabelH;
+                    const sizeLabel = isSquareNew
+                      ? `${grow.newLabelW}mm`
+                      : `${grow.newLabelW}×${grow.newLabelH}mm`;
+                    let deltaText = "";
+                    if (grow.growW > 0 && grow.growH > 0 && grow.growW === grow.growH) {
+                      deltaText = `+${grow.growW}mm em cada lado`;
+                    } else if (grow.growW > 0 && grow.growH > 0) {
+                      deltaText = `+${grow.growW}mm de largura e +${grow.growH}mm de altura`;
+                    } else if (grow.growW > 0) {
+                      deltaText = `+${grow.growW}mm de largura`;
+                    } else if (grow.growH > 0) {
+                      deltaText = `+${grow.growH}mm de altura`;
+                    }
+                    const areaPct = Math.round(grow.areaIncreasePct);
+                    return (
+                      <>
+                        <p>
+                          Você pode aumentar a etiqueta para <strong>{sizeLabel}</strong>
+                          {deltaText && <> ({deltaText})</>}, mantendo as{" "}
+                          <strong>
+                            {grow.newPerSheet} {grow.newPerSheet === 1 ? "etiqueta" : "etiquetas"} por folha
+                          </strong>.
+                        </p>
+                        <p>
+                          Mesma quantidade, mesmo custo de produção, etiqueta{" "}
+                          <strong>+{areaPct}% maior em área</strong>.
+                        </p>
+                      </>
+                    );
+                  })()}
+                  <Button size="sm" variant="outline" onClick={applyGrow} className="h-7 text-xs">
+                    <ArrowRight className="h-3 w-3 mr-1" />
+                    Aplicar sugestão
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
         )}
+
 
         {/* Pricing principal — SEMPRE VISÍVEL */}
         <Card className="p-4 space-y-3 border-primary/40 bg-primary/5">

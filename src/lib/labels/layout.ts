@@ -517,3 +517,80 @@ export const findShrinkOpportunity = (
 
   return best;
 };
+
+// ---------- 5. Otimizador de upgrade (entregar etiqueta maior) -------------
+
+export interface GrowSuggestion {
+  newLabelW: number;
+  newLabelH: number;
+  newPerSheet: number;
+  /** Crescimento percentual de área vs. etiqueta original. */
+  areaIncreasePct: number;
+  /** True quando perSheet é exatamente igual ao original (sem perdas). */
+  samePerSheet: boolean;
+  growW: number;
+  growH: number;
+}
+
+const MAX_GROW_MM = 5; // mm — incremento máximo por lado
+
+/**
+ * Testa pequenos aumentos (+1..+5 mm em W, H ou ambos) e retorna a maior
+ * etiqueta que ainda mantém (ou aumenta) o número de unidades por folha.
+ *
+ * Critério: maior área final. Em empate, menor crescimento total (menor risco
+ * visual de mudar muito a etiqueta).
+ */
+export const findGrowOpportunity = (
+  base: LayoutInput,
+  originalPerSheet: number,
+): GrowSuggestion | null => {
+  if (originalPerSheet <= 0) return null;
+  const isSquare = base.labelW === base.labelH;
+  const increments = [1, 2, 3, 4, 5];
+  const candidates: Array<{ dw: number; dh: number }> = isSquare
+    ? increments.map((d) => ({ dw: d, dh: d }))
+    : increments.flatMap((d) => [
+        { dw: d, dh: 0 },
+        { dw: 0, dh: d },
+        { dw: d, dh: d },
+      ]);
+
+  const baseArea = base.labelW * base.labelH;
+  let best: GrowSuggestion | null = null;
+
+  for (const c of candidates) {
+    if (c.dw > MAX_GROW_MM || c.dh > MAX_GROW_MM) continue;
+    const newW = base.labelW + c.dw;
+    const newH = base.labelH + c.dh;
+    const r = computeLabelLayout({ ...base, labelW: newW, labelH: newH });
+    if (r.best.total < originalPerSheet) continue;
+
+    const newArea = newW * newH;
+    const areaIncreasePct = baseArea > 0 ? ((newArea - baseArea) / baseArea) * 100 : 0;
+    if (areaIncreasePct <= 0) continue;
+
+    const candidate: GrowSuggestion = {
+      newLabelW: newW,
+      newLabelH: newH,
+      newPerSheet: r.best.total,
+      areaIncreasePct,
+      samePerSheet: r.best.total === originalPerSheet,
+      growW: c.dw,
+      growH: c.dh,
+    };
+
+    const candArea = newArea;
+    const bestArea = best ? best.newLabelW * best.newLabelH : -Infinity;
+    if (
+      !best ||
+      candArea > bestArea ||
+      (candArea === bestArea && c.dw + c.dh < best.growW + best.growH)
+    ) {
+      best = candidate;
+    }
+  }
+
+  return best;
+};
+

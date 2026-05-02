@@ -1,33 +1,68 @@
 ## Objetivo
 
-Adicionar um botão **"Restaurar padrões de fábrica"** no diálogo de configurações da Calculadora de Etiquetas, que devolve TODA a configuração ao estado inicial atualmente definido como `DEFAULT_CONFIG` (incluindo seeds de favoritos).
+Mostrar **duas dicas de aproveitamento** lado a lado no simulador, dando ao vendedor dois ângulos comerciais distintos:
 
-## O que será o "padrão de fábrica"
+1. **"Caber mais"** (já existe) — diminuir a etiqueta para render mais unidades por folha.
+2. **"Entregar maior"** (novo) — aumentar a etiqueta sem perder unidades por folha (upgrade percebido sem custo extra).
 
-O snapshot de hoje, já presente em `src/lib/labels/config-storage.ts`:
+## Layout
 
-- **Folha:** SRA3 (320×450 mm)
-- **Hardware:** SignMaster paramétrico, margens travadas
-- **Corte:** plotter redondo
-- **Margens:** 7/7/7/7 mm, gap 3 mm
-- **Preço/folha:** 0
-- **Unidade:** mm
-- **Folhas personalizadas:** vazio (todas removidas)
-- **Favoritos de etiqueta:** os 3 seeds (Lacre 40×40, Validade 20×20, Redonda Ø50)
+Quando ambas existirem, exibir em grid 2 colunas (1 coluna no mobile). Quando só uma existir, ela ocupa a largura toda. Mantém o mesmo estilo de `Alert` âmbar usado hoje, com ícones distintos:
 
-> Observação: o reset zera as folhas personalizadas e devolve os 3 favoritos seed. Vou avisar isso no diálogo de confirmação.
+- **Caber mais:** ícone `Minimize2` + título "Cabem mais por folha"
+- **Entregar maior:** ícone `Maximize2` + título "Entregue uma etiqueta maior"
 
-## Mudanças
+Cada card mantém botão "Aplicar sugestão" próprio.
 
-### 1. `src/lib/labels/config-storage.ts`
-- Exportar `resetConfigToDefaults(): LabelCalcConfig` que escreve `DEFAULT_CONFIG` (cópia profunda dos arrays) no localStorage e retorna.
+```text
+┌──────────────────────┬──────────────────────┐
+│ ↘ Cabem mais/folha   │ ↗ Entregue maior     │
+│ 50→47mm: +6 unid     │ 50→55mm: mesmas 30   │
+│ [Aplicar]            │ [Aplicar]            │
+└──────────────────────┴──────────────────────┘
+```
 
-### 2. `src/components/labels/LabelCalcSettingsDialog.tsx`
-- Adicionar botão **"Restaurar padrões de fábrica"** no rodapé do diálogo (à esquerda, separado dos botões Salvar/Cancelar), com ícone `RotateCcw` e variante `outline` discreta.
-- Ao clicar, abrir um `AlertDialog` de confirmação avisando que:
-  - margens, folha, corte, hardware, preço e unidade voltam aos padrões;
-  - **folhas personalizadas serão apagadas**;
-  - **favoritos de etiqueta voltam aos 3 originais** (favoritos criados pelo usuário serão perdidos).
-- Confirmando: chamar `resetConfigToDefaults()`, atualizar `draft`, mostrar toast `"Configurações restauradas aos padrões de fábrica"` e chamar `onSaved?.(cfg)` para o componente pai re-renderizar com os novos valores.
+## Mudanças técnicas
 
-Nenhuma mudança no backend. Tudo roda no localStorage.
+### 1. `src/lib/labels/layout.ts` — nova função `findGrowOpportunity`
+
+Espelho do `findShrinkOpportunity`, mas:
+
+- Testa incrementos `+1, +2, +3, +4, +5 mm` em W, H ou ambos (respeitando se a etiqueta original é quadrada — só cresce simetricamente).
+- Aceita candidato apenas se `newPerSheet >= originalPerSheet` (não pode perder unidades).
+- Critério de escolha: maior **área final** (W×H). Em empate, menor crescimento (preserva proporções próximas do original).
+- Retorna tipo `GrowSuggestion` análogo a `ShrinkSuggestion`, com campos `newLabelW`, `newLabelH`, `growW`, `growH`, `areaIncreasePct` (ganho percentual de área), `samePerSheet: boolean`.
+
+### 2. `src/lib/labels/signmaster-spec.ts` — `findSignmasterGrowOpportunity`
+
+Versão equivalente para o caminho paramétrico (etiquetas redondas no SignMaster), testando aumentos no diâmetro de +1 a +5mm.
+
+### 3. `src/components/labels/LabelLayoutCalculator.tsx`
+
+- Calcular `grow` em paralelo a `shrink`, usando o mesmo padrão `isParametric ? signmasterGrow : layoutGrow`.
+- Adicionar `applyGrow()` análogo a `applyShrink()`.
+- Substituir o bloco `{shrink && <Alert>…</Alert>}` por um wrapper:
+  ```tsx
+  {(shrink || grow) && (
+    <div className="grid gap-3 md:grid-cols-2">
+      {shrink && <ShrinkSuggestionCard … />}
+      {grow && <GrowSuggestionCard … />}
+    </div>
+  )}
+  ```
+- Extrair os dois cards como pequenos componentes locais para manter o JSX legível.
+- O card "Entregue maior" mostra:
+  > Você pode aumentar a etiqueta para **55×55mm** (+5mm em cada lado) mantendo as **30 etiquetas por folha**. Mesma quantidade, mesmo custo de produção, etiqueta **+21% maior em área**.
+
+### 4. Testes
+
+Em `src/test/labels-layout.test.ts`, adicionar 3 cenários para `findGrowOpportunity`:
+- Caso onde existe folga (deve sugerir crescimento).
+- Caso onde já está apertado (deve retornar `null`).
+- Etiqueta quadrada — sugestão deve manter quadrada.
+
+## Fora do escopo
+
+- Não alterar a lógica do `shrink` atual.
+- Não combinar as duas sugestões num único card.
+- Não mostrar a dica de crescimento no PDF/WhatsApp — só na UI do simulador.
