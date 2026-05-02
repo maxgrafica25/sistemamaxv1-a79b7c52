@@ -14,7 +14,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { StepTypeBadge, STEP_TYPES, type StepType } from "@/components/orcamentos-v2/StepTypeBadge";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
-import AdminOnly from "@/components/AdminOnly";
+import { AdminOnly } from "@/components/AdminOnly";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Step {
