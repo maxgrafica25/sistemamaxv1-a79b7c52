@@ -533,7 +533,7 @@ export function LabelLayoutCalculator({
         shape,
         layout,
         imageDataUrl,
-        marksOffsetY,
+        marksOffsetY: marksOffsetY - (config.sheetH / 2 - config.marginBottom),
         jobName: `Etiqueta ${describeLabel(shape, labelW, labelH)} · ${qty}un`,
       });
       const slug = describeLabel(shape, labelW, labelH).replace(/[^a-z0-9]+/gi, "-").toLowerCase();
