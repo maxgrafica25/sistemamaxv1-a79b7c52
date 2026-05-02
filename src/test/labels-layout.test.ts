@@ -199,8 +199,8 @@ describe("CUT_DEFAULTS", () => {
   });
 });
 
-describe("Regra dos 42 — 50×50 em SRA3/Teneth (margens 7/80, gap 1)", () => {
-  it("etiqueta pequena (≤55mm) e margens ≥5mm → grade 6×7 = 42 cheia, sem zona de segurança", () => {
+describe("Regra geométrica — folga lateral mínima de 10mm vs marca ARMS", () => {
+  it("50×50 em SRA3 (margens 7/7, gap 1) — slack 0.5mm < 10mm → 1ª e última linha = 4 (centralizadas); miolo = 6", () => {
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450,
       marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
@@ -209,9 +209,33 @@ describe("Regra dos 42 — 50×50 em SRA3/Teneth (margens 7/80, gap 1)", () => {
     });
     expect(r.best.cols).toBe(6);
     expect(r.best.rows).toBe(7);
-    expect(r.reservedSlots).toEqual([]);
-    expect(r.cellsPerRow.every((c) => c === 6)).toBe(true);
-    expect(r.effectivePerSheet).toBe(42);
+    expect(r.cellsPerRow[0]).toBe(4);
+    expect(r.cellsPerRow[r.best.rows - 1]).toBe(4);
+    expect(r.cellsPerRow.slice(1, -1).every((c) => c === 6)).toBe(true);
+    expect(r.effectivePerSheet).toBe(4 + 6 * 5 + 4); // 38
+  });
+
+  it("61×51 em SRA3 (margens 7/7, gap 1) — rotaciona p/ 51 horizontal, 5 cols ocupam 259 com slack 23.5 → todas as linhas cheias", () => {
+    const r = computeLabelLayout({
+      sheetW: 320, sheetH: 450,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
+      gap: 1, labelW: 61, labelH: 51,
+      cutType: "plotter_quadrado",
+    });
+    expect(r.best.cols).toBe(5);
+    expect(r.cellsPerRow.every((c) => c === 5)).toBe(true);
+  });
+
+  it("61×51 em SRA3 com margem lateral baixa (3mm) gap 1 — 5 cols ocupam 259, usableW=314 slack=27.5 → cheia; força não-rotação para testar", () => {
+    // Usa labelW=61 forçado: sheetH menor que sheetW para evitar rotação
+    const r = computeLabelLayout({
+      sheetW: 320, sheetH: 200,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
+      gap: 1, labelW: 61, labelH: 51,
+      cutType: "plotter_quadrado",
+    });
+    // Aqui best deve usar 61 horizontal: floor((306+1)/62)=4 cols, slack=(306-247)/2=29.5 ≥10
+    expect(r.cellsPerRow.every((c) => c === r.best.cols)).toBe(true);
   });
 });
 
@@ -320,67 +344,19 @@ import { computeReservedSlots } from "@/lib/labels/layout";
 import { HARDWARE_PROFILES, clampMarginsToHardware, effectiveUsableArea } from "@/lib/labels/hardware";
 import { suggestMarksOffset, buildCornerMarks } from "@/lib/labels/marks";
 
-describe("computeReservedSlots — critério físico (largura > 55mm OU margem < 5mm)", () => {
+describe("computeReservedSlots — critério geométrico (folga ≥ 10mm)", () => {
+  // SRA3 com margens 7/7 → usableW = 306mm
   const baseGeom = {
     sheetW: 320, sheetH: 450, gap: 0,
     marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
   };
 
-  it("etiqueta 50×50mm com margens 7/7/7/7 → NÃO remove nada (L abre para fora, margem ≥ 5)", () => {
+  it("50×50mm gap 0 — 6 cols ocupam 300mm, slack=3mm <10 → remove pontas (1ª linha redondo)", () => {
     const r = computeReservedSlots({
       cutType: "plotter_redondo",
       cols: 6, rows: 5,
       labelW: 50, labelH: 50,
       ...baseGeom,
-    });
-    expect(r).toEqual([]);
-  });
-
-  it("etiqueta 50×50mm em plotter_quadrado com margens 7/7/7/7 → grade cheia", () => {
-    const r = computeReservedSlots({
-      cutType: "plotter_quadrado",
-      cols: 6, rows: 7,
-      labelW: 50, labelH: 50,
-      sheetW: 320, sheetH: 450,
-      gap: 1, marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
-    });
-    expect(r).toEqual([]);
-  });
-
-  it("etiqueta 60×60mm (>55mm) → remove pontas da 1ª linha (redondo)", () => {
-    const r = computeReservedSlots({
-      cutType: "plotter_redondo",
-      cols: 5, rows: 5,
-      labelW: 60, labelH: 60,
-      ...baseGeom,
-    });
-    expect(r).toEqual([
-      { col: 0, row: 0 },
-      { col: 4, row: 0 },
-    ]);
-  });
-
-  it("etiqueta 60×60mm em plotter_quadrado → remove pontas da 1ª E última linha", () => {
-    const r = computeReservedSlots({
-      cutType: "plotter_quadrado",
-      cols: 5, rows: 5,
-      labelW: 60, labelH: 60,
-      sheetW: 320, sheetH: 450,
-      gap: 0, marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
-    });
-    expect(r).toContainEqual({ col: 0, row: 0 });
-    expect(r).toContainEqual({ col: 4, row: 0 });
-    expect(r).toContainEqual({ col: 0, row: 4 });
-    expect(r).toContainEqual({ col: 4, row: 4 });
-  });
-
-  it("margem lateral 3mm (<5mm) com etiqueta pequena → ainda assim aciona remoção", () => {
-    const r = computeReservedSlots({
-      cutType: "plotter_redondo",
-      cols: 6, rows: 5,
-      labelW: 50, labelH: 50,
-      sheetW: 320, sheetH: 450,
-      gap: 0, marginTop: 7, marginBottom: 80, marginLeft: 3, marginRight: 3,
     });
     expect(r).toEqual([
       { col: 0, row: 0 },
@@ -388,19 +364,47 @@ describe("computeReservedSlots — critério físico (largura > 55mm OU margem <
     ]);
   });
 
-  it("margem inferior 2mm em plotter_quadrado → última linha perde pontas", () => {
+  it("40×40mm gap 0 — 7 cols ocupam 280mm, slack=13mm ≥10 → linha cheia", () => {
     const r = computeReservedSlots({
-      cutType: "plotter_quadrado",
-      cols: 4, rows: 3,
-      labelW: 50, labelH: 50,
-      sheetW: 210, sheetH: 170,
-      gap: 0, marginTop: 7, marginBottom: 2, marginLeft: 7, marginRight: 7,
+      cutType: "plotter_redondo",
+      cols: 7, rows: 5,
+      labelW: 40, labelH: 40,
+      ...baseGeom,
     });
-    expect(r).toContainEqual({ col: 0, row: 2 });
-    expect(r).toContainEqual({ col: 3, row: 2 });
+    expect(r).toEqual([]);
   });
 
-  it("plotter_redondo NUNCA reserva slots na última linha (mesmo com etiqueta grande)", () => {
+  it("50×50mm gap 0 plotter_quadrado — 1ª e última linhas perdem pontas (simétrico)", () => {
+    const r = computeReservedSlots({
+      cutType: "plotter_quadrado",
+      cols: 6, rows: 5,
+      labelW: 50, labelH: 50,
+      ...baseGeom,
+    });
+    expect(r).toContainEqual({ col: 0, row: 0 });
+    expect(r).toContainEqual({ col: 5, row: 0 });
+    expect(r).toContainEqual({ col: 0, row: 4 });
+    expect(r).toContainEqual({ col: 5, row: 4 });
+    expect(r).toHaveLength(4);
+  });
+
+  it("etiqueta enorme (80mm) — pode precisar remover mais de 1 par", () => {
+    // usableW=306, 4 cols×80=320 → não cabe; 3×80+2×0=240, slack=33 ≥10 → 3 ok
+    // se chamar com cols=4 (impossível mas hipotético), reduz para 2
+    const r = computeReservedSlots({
+      cutType: "plotter_redondo",
+      cols: 4, rows: 3,
+      labelW: 80, labelH: 80,
+      ...baseGeom,
+    });
+    // 4×80=320 slack=-7, 2×80=160 slack=73 → remove 2 de cada lado? Não: -2 = 2 cells
+    // half = (4-2)/2 = 1 → remove 1 de cada ponta
+    expect(r).toContainEqual({ col: 0, row: 0 });
+    expect(r).toContainEqual({ col: 3, row: 0 });
+    expect(r).toHaveLength(2);
+  });
+
+  it("plotter_redondo NUNCA reserva slots na última linha", () => {
     const r = computeReservedSlots({
       cutType: "plotter_redondo",
       cols: 4, rows: 3,
@@ -438,7 +442,7 @@ describe("computeReservedSlots — critério físico (largura > 55mm OU margem <
 });
 
 describe("computeLabelLayout com cutType — meta de aproveitamento SRA3", () => {
-  it("META: 50×50mm em SRA3/Teneth (top 7, bottom 80, gap 1, plotter_quadrado) → 42 etiquetas cheias", async () => {
+  it("50×50mm em SRA3 (margens 7, gap 1, plotter_quadrado) — slack 0.5mm < 10 → 1ª/última = 4, miolo = 6 → total 38", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450, labelW: 50, labelH: 50,
@@ -447,20 +451,22 @@ describe("computeLabelLayout com cutType — meta de aproveitamento SRA3", () =>
     });
     expect(r.best.cols).toBe(6);
     expect(r.best.rows).toBe(7);
-    expect(r.reservedSlots).toEqual([]);
-    expect(r.effectivePerSheet).toBe(42);
-    expect(r.cellsPerRow.every((c) => c === 6)).toBe(true);
+    expect(r.cellsPerRow[0]).toBe(4);
+    expect(r.cellsPerRow[6]).toBe(4);
+    expect(r.cellsPerRow.slice(1, 6).every((c) => c === 6)).toBe(true);
+    expect(r.effectivePerSheet).toBe(38);
   });
 
-  it("50×50mm em SRA3/Teneth plotter_redondo → 42 etiquetas cheias", async () => {
+  it("50×50mm em SRA3 plotter_redondo — só 1ª linha reduz → total 40", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450, labelW: 50, labelH: 50,
       marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7, gap: 1,
       cutType: "plotter_redondo",
     });
-    expect(r.effectivePerSheet).toBe(42);
-    expect(r.reservedSlots).toEqual([]);
+    expect(r.cellsPerRow[0]).toBe(4);
+    expect(r.cellsPerRow[r.best.rows - 1]).toBe(6); // última cheia (redondo)
+    expect(r.effectivePerSheet).toBe(40);
   });
 
   it("60×60mm em SRA3 plotter_redondo → 1ª linha perde pontas e centraliza (simétrico)", async () => {
