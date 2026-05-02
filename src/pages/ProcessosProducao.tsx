@@ -12,6 +12,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { StepTypeBadge, STEP_TYPES, type StepType } from "@/components/orcamentos-v2/StepTypeBadge";
+import { handleError } from "@/lib/handleError";
+import { usePermissionGuard } from "@/lib/permissions";
+import AdminOnly from "@/components/AdminOnly";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Step {
@@ -112,16 +115,21 @@ function EtapasTab() {
     setIsDialogOpen(true);
   };
 
+  const { requireAdmin } = usePermissionGuard();
+
   const saveStep = async () => {
+    if (!requireAdmin(editingStep ? "editar etapa" : "criar etapa")) return;
     if (!description.trim()) { toast.error("Preencha a descrição da etapa"); return; }
     const time = parseFloat(timeMinutes);
     if (!time || time <= 0) { toast.error("Informe um tempo válido"); return; }
 
     if (editingStep) {
-      await supabase.from("production_steps").update({ description, time_minutes: time, step_type: stepType }).eq("id", editingStep.id);
+      const { error } = await supabase.from("production_steps").update({ description, time_minutes: time, step_type: stepType }).eq("id", editingStep.id);
+      if (error) return handleError(error, "atualizar etapa");
       toast.success("Etapa atualizada!");
     } else {
-      await supabase.from("production_steps").insert({ description, time_minutes: time, step_type: stepType });
+      const { error } = await supabase.from("production_steps").insert({ description, time_minutes: time, step_type: stepType });
+      if (error) return handleError(error, "criar etapa");
       toast.success("Etapa criada!");
     }
     setIsDialogOpen(false);
@@ -130,7 +138,9 @@ function EtapasTab() {
 
   const confirmDelete = async () => {
     if (!deletingId) return;
-    await supabase.from("production_steps").delete().eq("id", deletingId);
+    if (!requireAdmin("excluir etapa")) { setDeletingId(null); return; }
+    const { error } = await supabase.from("production_steps").delete().eq("id", deletingId);
+    if (error) { handleError(error, "excluir etapa"); setDeletingId(null); return; }
     toast.success("Etapa excluída!");
     setDeletingId(null);
     fetchSteps();
@@ -146,7 +156,9 @@ function EtapasTab() {
         <p className="text-sm text-muted-foreground">{steps.length} etapa(s) cadastrada(s)</p>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openCreateDialog} className="gap-2"><Plus className="h-4 w-4" /> Nova Etapa</Button>
+            <AdminOnly mode="disable" action="criar etapa">
+              <Button onClick={openCreateDialog} className="gap-2"><Plus className="h-4 w-4" /> Nova Etapa</Button>
+            </AdminOnly>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{editingStep ? "Editar Etapa" : "Nova Etapa"}</DialogTitle></DialogHeader>
