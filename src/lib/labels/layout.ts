@@ -183,22 +183,41 @@ export function computeReservedSlots(
   const isRound = cutType === "plotter_redondo";
   const slots: ReservedSlot[] = [];
 
-  const checkSlot = (col: number, row: number, mark: { x: number; y: number; w: number; h: number } | undefined) => {
-    if (!mark) return;
-    const cellX = marginLeft + col * (labelW + gap);
+  /** Retorna true se algum dos cantos da linha está dentro da zona de 10mm. */
+  const rowTriggersSafety = (
+    row: number,
+    leftMark: { x: number; y: number; w: number; h: number } | undefined,
+    rightMark: { x: number; y: number; w: number; h: number } | undefined,
+  ): boolean => {
+    if (cols <= 0) return false;
     const cellY = marginTop + row * (labelH + gap);
-    const dist = rectDistance(cellX, cellY, labelW, labelH, mark.x, mark.y, mark.w, mark.h);
-    if (dist < SAFETY_ZONE_MM) slots.push({ col, row });
+    const cellLeftX = marginLeft;
+    const cellRightX = marginLeft + (cols - 1) * (labelW + gap);
+    if (leftMark) {
+      const dL = rectDistance(cellLeftX, cellY, labelW, labelH, leftMark.x, leftMark.y, leftMark.w, leftMark.h);
+      if (dL < SAFETY_ZONE_MM) return true;
+    }
+    if (rightMark) {
+      const dR = rectDistance(cellRightX, cellY, labelW, labelH, rightMark.x, rightMark.y, rightMark.w, rightMark.h);
+      if (dR < SAFETY_ZONE_MM) return true;
+    }
+    return false;
   };
 
-  // 1ª linha — sempre verificada
-  if (cols >= 1) checkSlot(0, 0, byCorner.tl);
-  if (cols >= 2) checkSlot(cols - 1, 0, byCorner.tr);
+  /** Remove SIMETRICAMENTE as duas pontas (regra de produção gráfica). */
+  const reserveBothEnds = (row: number) => {
+    if (cols >= 1) slots.push({ col: 0, row });
+    if (cols >= 2) slots.push({ col: cols - 1, row });
+  };
 
-  // Última linha — só para não-redondo
-  if (!isRound && rows >= 2) {
-    if (cols >= 1) checkSlot(0, rows - 1, byCorner.bl);
-    if (cols >= 2) checkSlot(cols - 1, rows - 1, byCorner.br);
+  // 1ª linha — sempre verificada (vs. Ls de TL/TR)
+  if (rowTriggersSafety(0, byCorner.tl, byCorner.tr)) {
+    reserveBothEnds(0);
+  }
+
+  // Última linha — só para não-redondo (vs. ticks de BL/BR)
+  if (!isRound && rows >= 2 && rowTriggersSafety(rows - 1, byCorner.bl, byCorner.br)) {
+    reserveBothEnds(rows - 1);
   }
 
   return slots;
