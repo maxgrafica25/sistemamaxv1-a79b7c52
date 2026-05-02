@@ -356,6 +356,43 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
 
           <Separator />
 
+          {/* === 1.5 Favoritos de etiqueta === */}
+          <section className="space-y-3">
+            <h3 className="text-sm font-semibold">Favoritos de etiqueta</h3>
+            {draft.labelPresets.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nenhum favorito salvo. Use o botão "Salvar como favorito" no simulador.
+              </p>
+            ) : (
+              <div className="rounded-md border bg-muted/20 p-2 space-y-1 max-h-60 overflow-y-auto">
+                {draft.labelPresets.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between gap-2 text-xs px-1.5 py-1 rounded hover:bg-muted/60"
+                  >
+                    <span className="truncate">
+                      <span className="font-medium">{p.label}</span>
+                      <span className="text-muted-foreground">
+                        {" · "}{SHAPE_LABELS[p.shape]} · {p.width}×{p.height}mm
+                      </span>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-destructive shrink-0"
+                      onClick={() => handleRemoveLabelPreset(p.id)}
+                      title={`Excluir "${p.label}"`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <Separator />
+
           {/* === 2. Tipo de corte === */}
           <section className="space-y-3">
             <h3 className="text-sm font-semibold">Tipo de corte</h3>
