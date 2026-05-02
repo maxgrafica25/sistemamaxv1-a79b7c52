@@ -16,11 +16,12 @@ describe("computeSignmasterLayout — spec do cliente", () => {
     expect(r.positions).toHaveLength(40);
   });
 
-  it("32×45 cm + Ø3 cm → 9 × 13 = 117 etiquetas", () => {
+  it("32×45 cm + Ø3 cm → 116 etiquetas após segurança na 1ª linha", () => {
     const r = computeSignmasterLayout({ sheetW: 320, sheetH: 450, labelDiameter: 30 });
     expect(r.labelsPerRow).toBe(9);
     expect(r.labelsPerColumn).toBe(13);
-    expect(r.total).toBe(117);
+    expect(r.cellsPerRow[0]).toBe(8);
+    expect(r.total).toBe(116);
   });
 
   it("32×45 cm + Ø4 cm → preenche dentro da folha", () => {
