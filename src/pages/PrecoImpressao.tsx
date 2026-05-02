@@ -913,7 +913,9 @@ export default function PrecoImpressao() {
                         </PopoverContent>
                       </Popover>
 
-                      <Button onClick={() => openItemDialog()} size="sm" className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Novo Item</Button>
+                      <AdminOnly mode="disable" action="cadastrar itens de impressão">
+                        <Button onClick={() => openItemDialog()} size="sm" className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Novo Item</Button>
+                      </AdminOnly>
                     </div>
                   </CardHeader>
 
