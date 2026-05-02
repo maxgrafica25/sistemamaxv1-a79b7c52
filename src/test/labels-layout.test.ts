@@ -461,9 +461,42 @@ describe("computeLabelLayout com cutType — zona de segurança aplicada", () =>
     expect(r.rowOffsets.every((o) => o === 5)).toBe(true);
     expect(r.effectivePerSheet).toBe(r.best.total);
   });
-});
 
-describe("clampMarginsToHardware", () => {
+  it("simetria all-or-nothing — nenhuma linha tem só um lado removido", async () => {
+    const { computeLabelLayout, computeReservedSlots } = await import("@/lib/labels/layout");
+    // 56×45mm em SRA3 com plotter quadrado — caso clássico de zona de segurança
+    const r = computeLabelLayout({
+      sheetW: 320, sheetH: 450, labelW: 56, labelH: 45,
+      marginTop: 10, marginBottom: 10, marginLeft: 5, marginRight: 5, gap: 1,
+      cutType: "plotter_quadrado",
+    });
+    // Conta reservas por linha — cada linha afetada deve ter exatamente 0 ou 2
+    const counts = new Map<number, number>();
+    for (const s of r.reservedSlots) counts.set(s.row, (counts.get(s.row) ?? 0) + 1);
+    for (const c of counts.values()) {
+      expect([0, 2]).toContain(c);
+    }
+  });
+
+  it("61×51mm SRA3 plotter quadrado — linha afetada centraliza com fórmula RowStartX", async () => {
+    const { computeLabelLayout } = await import("@/lib/labels/layout");
+    const input = {
+      sheetW: 320, sheetH: 450, labelW: 61, labelH: 51,
+      marginTop: 10, marginBottom: 10, marginLeft: 5, marginRight: 5, gap: 1,
+      cutType: "plotter_quadrado" as const,
+    };
+    const r = computeLabelLayout(input);
+    const labelW = r.best.rotated ? input.labelH : input.labelW;
+    // Para cada linha, o offset deve obedecer exatamente a fórmula
+    for (let row = 0; row < r.best.rows; row++) {
+      const cells = r.cellsPerRow[row];
+      if (cells === 0) continue;
+      const occupied = cells * labelW + (cells - 1) * input.gap;
+      const expected = input.marginLeft + (r.usableW - occupied) / 2;
+      expect(r.rowOffsets[row]).toBeCloseTo(expected, 5);
+    }
+  });
+});
   it("teneth_a3 força base ≥ 80", () => {
     const c = clampMarginsToHardware(
       { marginTop: 5, marginBottom: 10, marginLeft: 5, marginRight: 5 },
