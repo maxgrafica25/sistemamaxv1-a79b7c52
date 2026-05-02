@@ -215,27 +215,35 @@ describe("Regra geométrica — folga lateral mínima de 10mm vs marca ARMS", ()
     expect(r.effectivePerSheet).toBe(4 + 6 * 5 + 4); // 38
   });
 
-  it("61×51 em SRA3 (margens 7/7, gap 1) — rotaciona p/ 51 horizontal, 5 cols ocupam 259 com slack 23.5 → todas as linhas cheias", () => {
+  it("61×51 em SRA3 (margens 7/7, gap 0) — escolhe orientação rotacionada (51 horizontal) → 6×7=42 brutos, 1ª/última = 4 centralizadas, miolo cheio = 38", () => {
+    const r = computeLabelLayout({
+      sheetW: 320, sheetH: 450,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
+      gap: 0, labelW: 61, labelH: 51,
+      cutType: "plotter_quadrado",
+    });
+    // Deve preferir a orientação rotacionada (51 na horizontal cabe 6 colunas)
+    expect(r.best.rotated).toBe(true);
+    expect(r.best.cols).toBe(6);
+    expect(r.best.rows).toBe(7);
+    expect(r.cellsPerRow[0]).toBe(4);
+    expect(r.cellsPerRow[r.best.rows - 1]).toBe(4);
+    expect(r.cellsPerRow.slice(1, -1).every((c) => c === 6)).toBe(true);
+    expect(r.effectivePerSheet).toBe(38);
+  });
+
+  it("escolha de orientação leva em conta as reservas: prefere 5×7 efetivo (35) a 4×8 efetivo (32)", () => {
+    // gap=1, labelW=61, labelH=51, SRA3 7/7
+    // optionA (61H×51V): 4×8 = 32 efetivos (slack das pontas com 4 cols ≥ 10mm)
+    // optionB (51H×61V): 5×7 = 35 efetivos
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450,
       marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
       gap: 1, labelW: 61, labelH: 51,
       cutType: "plotter_quadrado",
     });
-    expect(r.best.cols).toBe(5);
-    expect(r.cellsPerRow.every((c) => c === 5)).toBe(true);
-  });
-
-  it("61×51 em SRA3 com margem lateral baixa (3mm) gap 1 — 5 cols ocupam 259, usableW=314 slack=27.5 → cheia; força não-rotação para testar", () => {
-    // Usa labelW=61 forçado: sheetH menor que sheetW para evitar rotação
-    const r = computeLabelLayout({
-      sheetW: 320, sheetH: 200,
-      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
-      gap: 1, labelW: 61, labelH: 51,
-      cutType: "plotter_quadrado",
-    });
-    // Aqui best deve usar 61 horizontal: floor((306+1)/62)=4 cols, slack=(306-247)/2=29.5 ≥10
-    expect(r.cellsPerRow.every((c) => c === r.best.cols)).toBe(true);
+    expect(r.best.rotated).toBe(true);
+    expect(r.effectivePerSheet).toBe(35);
   });
 });
 
