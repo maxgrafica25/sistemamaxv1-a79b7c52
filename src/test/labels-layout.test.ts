@@ -199,8 +199,8 @@ describe("CUT_DEFAULTS", () => {
   });
 });
 
-describe("Regra dos 42 — 50×50 em SRA3/Teneth (margens 7/80, gap 1)", () => {
-  it("etiqueta pequena (≤55mm) e margens ≥5mm → grade 6×7 = 42 cheia, sem zona de segurança", () => {
+describe("Regra geométrica — folga lateral mínima de 10mm vs marca ARMS", () => {
+  it("50×50 em SRA3 (margens 7/7, gap 1) — slack 0.5mm < 10mm → 1ª e última linha = 4 (centralizadas); miolo = 6", () => {
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450,
       marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
@@ -209,9 +209,23 @@ describe("Regra dos 42 — 50×50 em SRA3/Teneth (margens 7/80, gap 1)", () => {
     });
     expect(r.best.cols).toBe(6);
     expect(r.best.rows).toBe(7);
-    expect(r.reservedSlots).toEqual([]);
-    expect(r.cellsPerRow.every((c) => c === 6)).toBe(true);
-    expect(r.effectivePerSheet).toBe(42);
+    expect(r.cellsPerRow[0]).toBe(4);
+    expect(r.cellsPerRow[r.best.rows - 1]).toBe(4);
+    expect(r.cellsPerRow.slice(1, -1).every((c) => c === 6)).toBe(true);
+    expect(r.effectivePerSheet).toBe(4 + 6 * 5 + 4); // 38
+  });
+
+  it("61×51 em SRA3 (margens 7/7, gap 1) — 5 colunas com slack 0.5 → 1ª/última = 4 centralizadas; miolo = 5", () => {
+    const r = computeLabelLayout({
+      sheetW: 320, sheetH: 450,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
+      gap: 1, labelW: 61, labelH: 51,
+      cutType: "plotter_quadrado",
+    });
+    expect(r.best.cols).toBe(5);
+    expect(r.cellsPerRow[0]).toBe(4);
+    expect(r.cellsPerRow[r.best.rows - 1]).toBe(4);
+    expect(r.cellsPerRow.slice(1, -1).every((c) => c === 5)).toBe(true);
   });
 });
 
