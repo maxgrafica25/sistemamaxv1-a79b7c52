@@ -56,6 +56,8 @@ import {
   Save,
   FileDown,
   Crosshair,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Slider } from "@/components/ui/slider";
