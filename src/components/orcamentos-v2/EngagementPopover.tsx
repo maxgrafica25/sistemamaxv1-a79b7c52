@@ -52,6 +52,9 @@ const relativeTime = (d: Date) => {
   return `há ${days}d`;
 };
 
+const truncate = (s: string, max = 40) =>
+  s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s;
+
 const eventLabel = (e: EngagementEvent): string => {
   const meta = e.metadata as Record<string, unknown>;
   switch (e.event_type) {
@@ -67,8 +70,30 @@ const eventLabel = (e: EngagementEvent): string => {
     case "whatsapp_share": return "Compartilhou via WhatsApp";
     case "link_copied": return "Copiou o link";
     case "scroll_depth": return "Leu a proposta integralmente";
-    case "option_selected": return `Selecionou ${meta.option_label ?? "uma opção"}`;
-    case "option_deselected": return `Desmarcou ${meta.option_label ?? "uma opção"}`;
+    case "option_selected": {
+      const label = meta.option_label ? truncate(String(meta.option_label)) : "uma opção";
+      return `Escolheu opção "${label}"`;
+    }
+    case "option_deselected": {
+      const label = meta.option_label ? truncate(String(meta.option_label)) : "uma opção";
+      return `Trocou de opção (saiu de "${label}")`;
+    }
+    case "item_selected": {
+      const label = meta.item_label
+        ? truncate(String(meta.item_label))
+        : meta.option_label
+          ? truncate(String(meta.option_label))
+          : "um item";
+      return `Marcou item "${label}"`;
+    }
+    case "item_deselected": {
+      const label = meta.item_label
+        ? truncate(String(meta.item_label))
+        : meta.option_label
+          ? truncate(String(meta.option_label))
+          : "um item";
+      return `Desmarcou item "${label}"`;
+    }
   }
 };
 

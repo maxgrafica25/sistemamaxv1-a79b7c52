@@ -7,6 +7,8 @@ export type EngagementEventType =
   | "link_copied"
   | "option_selected"
   | "option_deselected"
+  | "item_selected"
+  | "item_deselected"
   | "scroll_depth";
 
 const VISITOR_KEY = "qv2_visitor";

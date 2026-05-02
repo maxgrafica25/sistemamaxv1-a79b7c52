@@ -268,16 +268,20 @@ export default function ClientViewer() {
         pendingTimersRef.current.delete(itemId);
       }
 
+      // Só rastreia checkbox de itens quando há aprovação parcial real (>=2 itens).
+      // Em orçamento de item único, marcar/desmarcar não tem valor analítico.
+      if (materials.length < 2) return next;
+
       const item = materials.find((m) => m.id === itemId);
       const label = item?.description ?? "Item";
 
       if (willBeChecked) {
-        // Vai disparar selected em 2s se não cancelado
+        // Vai disparar item_selected em 2s se não cancelado
         const t = setTimeout(() => {
           pendingTimersRef.current.delete(itemId);
-          void trackEvent(quote?.id, "option_selected", {
-            option_id: itemId,
-            option_label: label,
+          void trackEvent(quote?.id, "item_selected", {
+            item_id: itemId,
+            item_label: label,
           });
           sentSelectedRef.current.add(itemId);
         }, 2000);
@@ -286,9 +290,9 @@ export default function ClientViewer() {
         // Já tinha registrado selected → agendar deselected (hesitação)
         const t = setTimeout(() => {
           pendingTimersRef.current.delete(itemId);
-          void trackEvent(quote?.id, "option_deselected", {
-            option_id: itemId,
-            option_label: label,
+          void trackEvent(quote?.id, "item_deselected", {
+            item_id: itemId,
+            item_label: label,
           });
           sentSelectedRef.current.delete(itemId);
         }, 2000);

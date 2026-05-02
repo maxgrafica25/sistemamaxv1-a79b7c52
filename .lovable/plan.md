@@ -1,51 +1,48 @@
-## Diagnóstico
+## Problema
 
-A "Dica de aproveitamento" só aparece quando existe matematicamente um tamanho menor que faz caber **mais** etiquetas por folha. Hoje testamos só reduções de **−1, −2, −3 mm**, e em alguns formatos (especialmente 60, 70, 85, 95, 100 mm em SRA3) essa janela é pequena demais — o próximo "salto" de coluna/linha está além de −3 mm, então nada aparece.
+No popover de engajamento aparece **"Selecionou 5 unidades"** em um orçamento que tem **apenas 1 item**. A descrição do item é algo como "… 5 unidades" e está sendo logada como se fosse uma "opção" selecionada pelo cliente.
 
-Confirmei no terminal mapeando todos os tamanhos quadrados de 20 a 100 mm em SRA3:
+## Causa raiz
 
-```
-50mm → sugestão 48mm  (+6)   ✓ já aparece
-55mm → sugestão 51mm  (+13)  ✗ −4mm, não testamos
-60mm → impossível mesmo com −5  (sem dica é correto)
-65mm → sugestão 61mm  (+11)  ✗ −4mm, não testamos
-75mm → sugestão 72mm  (+4)   ✓
-80mm → sugestão 76mm  (+5)   ✗ −4mm, não testamos
-85mm → impossível mesmo com −5  (sem dica é correto)
-90mm → sugestão 87mm  (+3)   ✓
-95mm → impossível mesmo com −5
-```
+Em `src/pages/orcamentos-v2/ClientViewer.tsx` (função `toggleItem`, linhas 257–300), **toda vez que o cliente marca o checkbox de um item de aprovação parcial**, é disparado um evento `option_selected` com `option_label = item.description`.
 
-Conclusão: o range pequeno está deixando passar várias oportunidades reais. Ampliar para **−1 até −5 mm** cobre os casos importantes (55, 65, 80 etc.). Quando geometricamente não há ganho mesmo até −5 mm, a dica fica oculta de propósito (correto — não inventar sugestão sem ganho).
+Dois problemas se somam:
 
-## Mudanças
+1. O evento é disparado mesmo quando o orçamento tem **apenas 1 item** — situação em que a "aprovação parcial" não faz sentido (o componente já oculta a UI parcial via `hasMultipleItems`, mas o `toggleItem` continua exposto e, se chamado, registra mesmo assim).
+2. O texto exibido no timeline (`EngagementPopover.tsx` linha 70) é `"Selecionou {option_label}"`. Quando o `option_label` é a descrição do material (ex.: "Banner 90×120 — 5 unidades"), o texto truncado/contextual fica "Selecionou 5 unidades", confundindo o operador.
 
-### `src/lib/labels/layout.ts` — ampliar candidatos em `findShrinkOpportunity`
+A intenção original do evento `option_selected` era rastrear escolha entre **opções A/B/C** (linha 186, no efeito de `selectedOptionId`), não o checkbox de itens individuais.
 
-Estender a lista de reduções de `[1, 2, 3]` para `[1, 2, 3, 4, 5]` mantendo a regra de "se quadrada, só simétricas":
+## Solução
 
-```ts
-const reductions = [1, 2, 3, 4, 5];
-const candidates = isSquare
-  ? reductions.map(d => ({ dw: d, dh: d }))
-  : reductions.flatMap(d => [{dw:d,dh:0},{dw:0,dh:d},{dw:d,dh:d}]);
-```
+Separar conceitualmente os dois rastreamentos e evitar registros sem sentido:
 
-### `src/lib/labels/signmaster-spec.ts` — mesmo range para o paramétrico
+1. **Novo tipo de evento** `item_selected` / `item_deselected` (em `src/lib/quotes-v2/tracking.ts` no tipo `EngagementEventType`) para o checkbox de itens da aprovação parcial. Mantém `option_selected/deselected` exclusivo para escolha entre opções A/B/C.
 
-Em `findSignmasterShrinkOpportunity`, ampliar candidatos de `[0.5, 1, 1.5, 2, 2.5, 3]` para `[0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]`. Mantém passos de 0,5 mm para granularidade fina das etiquetas redondas.
+2. **Em `ClientViewer.tsx` `toggleItem`**: 
+   - Trocar os `trackEvent(..., "option_selected"/"option_deselected", ...)` por `"item_selected"/"item_deselected"`.
+   - Adicionar guard: só registrar se `materials.length >= 2` (não faz sentido rastrear hesitação em item único).
 
-### Texto do aviso
+3. **Em `src/lib/quotes-v2/temperature.ts`**: tratar os novos tipos no `buildStatsMap` (mesma lógica de hesitação atual, mas separada de "favoriteOption" — que deve permanecer apenas para opções A/B/C reais).
 
-Quando a dica não aparece (matematicamente impossível mesmo com −5 mm), nada muda — continua oculta. **Não vou** adicionar mensagem "Sem sugestão disponível" porque o usuário já tem o card de aproveitamento principal mostrando o número atual; um aviso vazio só polui.
+4. **Em `EngagementPopover.tsx` `eventLabel`**: 
+   - `option_selected` continua: `Escolheu opção "{label}"`.
+   - `item_selected` novo: `Marcou item "{label}"`.
+   - `item_deselected` novo: `Desmarcou item "{label}"`.
+   - Truncar `option_label`/`item_label` longos a ~40 chars com `…` para evitar quebras visuais estranhas.
 
-## Arquivos editados
+5. **Insights ("Opção preferida" / "Dúvida no item")**: ajustar para usar `item_*` na seção "Dúvida no item" e `option_*` na seção "Opção preferida". Hoje ambas usam `option_*`, o que mistura semânticas.
 
-- `src/lib/labels/layout.ts` — ampliar candidatos
-- `src/lib/labels/signmaster-spec.ts` — ampliar candidatos
+6. **Compatibilidade retroativa**: eventos antigos no banco continuam com `event_type='option_selected'` e `option_label` = descrição do item. Para não quebrar a leitura do histórico, manter no `eventLabel` um fallback que detecte se o `option_label` parece ser uma descrição de item (heurística simples: se o orçamento atual não tem opções A/B/C, exibir como "Marcou item …"). Alternativa mais limpa: aceitar que registros antigos seguirão com o texto atual e o ajuste valerá só para novos eventos.
 
-### Validação
+## Arquivos a editar
 
-Adicionar um teste em `src/test/labels-layout.test.ts` para 55×55 mm em SRA3 (margens 7/7/7/7, sem gap) — deve agora retornar sugestão com `delta > 0`.
+- `src/lib/quotes-v2/tracking.ts` — adicionar `item_selected` / `item_deselected` em `EngagementEventType`.
+- `src/pages/orcamentos-v2/ClientViewer.tsx` — trocar tipos de evento em `toggleItem` e adicionar guard `materials.length >= 2`.
+- `src/lib/quotes-v2/temperature.ts` — incluir novos tipos no agregador, separar de `favoriteOption`.
+- `src/components/orcamentos-v2/EngagementPopover.tsx` — novos rótulos no `eventLabel`, truncamento e ajuste dos insights.
 
-Aprova?
+## Fora do escopo
+
+- Migração / reescrita de eventos históricos no banco (registros antigos continuarão como estão).
+- Mudança na lógica de cálculo de temperatura (cold/warm/hot/live).
