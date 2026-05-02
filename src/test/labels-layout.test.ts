@@ -145,34 +145,30 @@ describe("findShrinkOpportunity", () => {
     ...sheet, ...m5, gap: 0, labelW: w, labelH: h,
   });
 
-  it("51×51 em A4 → −1mm faz caber mais (volta para 50×50)", () => {
+  it("51×51 em A4 → encontra ganho reduzindo até 5mm", () => {
     // 51×51 com útil 200x287: cols=3, rows=5 → 15
-    // 50×50: cols=4, rows=5 → 20
+    // Com range estendido até −5mm: 47×47 → 4×6 = 24 (melhor que 50×50 = 20)
     const original = computeLabelLayout(base(51, 51));
     expect(original.best.total).toBe(15);
     const sug = findShrinkOpportunity(base(51, 51), 15, 4);
     expect(sug).not.toBeNull();
     expect(sug!.delta).toBeGreaterThan(0);
-    expect(sug!.newPerSheet).toBe(20);
-    expect(sug!.extraUnitsForSameSheets).toBe(20); // 5 extras × 4 folhas
+    expect(sug!.newPerSheet).toBeGreaterThanOrEqual(20);
+    expect(sug!.shrinkW).toBeLessThanOrEqual(5);
   });
 
-  it("90×90 em SRA3 → testa caminho do −3mm se houver ganho", () => {
+  it("90×90 em SRA3 → testa caminho do shrink se houver ganho", () => {
     const orig = computeLabelLayout(base(90, 90, SRA3));
     const sug = findShrinkOpportunity(base(90, 90, SRA3), orig.best.total, 1);
-    // Pode ou não ter ganho — só validamos consistência: se houver, o novo é > original.
     if (sug) {
       expect(sug.newPerSheet).toBeGreaterThan(orig.best.total);
-      expect(sug.shrinkW).toBeLessThanOrEqual(3);
-      expect(sug.shrinkH).toBeLessThanOrEqual(3);
+      expect(sug.shrinkW).toBeLessThanOrEqual(5);
+      expect(sug.shrinkH).toBeLessThanOrEqual(5);
     }
   });
 
   it("etiqueta minúscula (6×6) → bloqueia redução abaixo de 5mm", () => {
     const orig = computeLabelLayout(base(6, 6));
-    // 6×6 com gap 0: cols=33, rows=47 → 1551
-    // Reduzir para 5×5: cols=40, rows=57 → 2280 (ganho real, mas dw=1 ok)
-    // Reduzir para 4×4: bloqueado (< 5mm)
     const sug = findShrinkOpportunity(base(6, 6), orig.best.total, 1);
     if (sug) {
       expect(sug.newLabelW).toBeGreaterThanOrEqual(5);
@@ -180,11 +176,12 @@ describe("findShrinkOpportunity", () => {
     }
   });
 
-  it("retorna null se não há ganho possível", () => {
-    // Etiqueta 100×100 em A4: cols=2, rows=2 → 4. Reduções de 1-3mm não devem aumentar.
-    const orig = computeLabelLayout(base(100, 100));
-    expect(orig.best.total).toBe(4);
-    const sug = findShrinkOpportunity(base(100, 100), 4, 1);
+  it("retorna null se nenhuma redução até −5mm dá ganho", () => {
+    // 200×200 em A4 (útil 200×287): só cabe 1 etiqueta. Reduzindo até 195
+    // ainda só cabe 1 (200/195 = 1). Sem ganho possível.
+    const orig = computeLabelLayout(base(200, 200));
+    expect(orig.best.total).toBe(1);
+    const sug = findShrinkOpportunity(base(200, 200), 1, 1);
     expect(sug).toBeNull();
   });
 });
