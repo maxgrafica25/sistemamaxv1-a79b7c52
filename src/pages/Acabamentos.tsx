@@ -394,7 +394,7 @@ export default function Acabamentos() {
                 <TableHead>Tamanho</TableHead>
                 <TableHead className="text-right">Preço/folha</TableHead>
                 <TableHead className="w-[80px]">Ativo</TableHead>
-                {isAdmin && <TableHead className="w-[120px]">Ações</TableHead>}
+                {isAdmin && <TableHead className="w-[160px]">Ações</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
