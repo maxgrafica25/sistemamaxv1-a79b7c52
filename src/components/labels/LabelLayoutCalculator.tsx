@@ -320,12 +320,17 @@ export function LabelLayoutCalculator({
   };
 
   // ---- Detecta modo paramétrico SignMaster --------------------------------
-  // Ativo quando: hardware = signmaster_param + corte plotter redondo + W===H
+  // A spec paramétrica (gap fixo de 3mm, sem regra ARMS) só é ativada
+  // quando o usuário NÃO mexeu no gap padrão da spec. Se o usuário definiu
+  // gap diferente de 3mm, caímos no caminho genérico (que respeita o gap
+  // real e aplica a regra de remoção da 1ª linha para maximizar o
+  // aproveitamento — ex.: Ø38mm gap 0 → 87 etiquetas).
   const isParametric =
     config.hardwareProfileId === "signmaster_param" &&
     config.cutType === "plotter_redondo" &&
     shape === "redondo" &&
-    labelW === labelH;
+    labelW === labelH &&
+    config.gap === SM_LABEL_SPACING;
 
   const paramLayout = useMemo(
     () => isParametric
