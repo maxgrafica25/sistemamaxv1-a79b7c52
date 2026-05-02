@@ -165,6 +165,7 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
   };
 
   const handleRemoveCustomSheet = (id: string) => {
+    const sheet = draft.customSheets.find((s) => s.id === id);
     removeCustomSheet(id);
     setDraft((d) => {
       const next = { ...d, customSheets: d.customSheets.filter((s) => s.id !== id) };
@@ -176,6 +177,17 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
       }
       return next;
     });
+    if (sheet) toast.success(`Folha "${sheet.label}" removida`);
+  };
+
+  const handleRemoveLabelPreset = (id: string) => {
+    const preset = draft.labelPresets.find((p) => p.id === id);
+    removeLabelPreset(id);
+    setDraft((d) => ({
+      ...d,
+      labelPresets: d.labelPresets.filter((p) => p.id !== id),
+    }));
+    if (preset) toast.success(`Favorito "${preset.label}" removido`);
   };
 
   const isCustomSheet = draft.sheetPresetId === CUSTOM_SHEET_ID;
