@@ -67,6 +67,8 @@ import { computeSignmasterLayout, computeSignmasterMarks, findSignmasterShrinkOp
 import { generateSignmasterPlt, downloadPlt } from "@/lib/labels/plt-export";
 import { generateProductionPDF, downloadPDF } from "@/lib/labels/production-pdf";
 import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
+import { HARDWARE_PROFILES } from "@/lib/labels/hardware";
+import { ProductionTimeCard } from "./ProductionTimeCard";
 
 const RECTANGULAR_SIGNMASTER_GAP_MM = 0;
 
@@ -282,8 +284,9 @@ export function LabelLayoutCalculator({
     return m?.id ?? "SRA3";
   }, [config.sheetW, config.sheetH]);
 
-  const folhaPricing = useFolhaPricing(sheetSizeKey);
-  const pricePerSheet = folhaPricing.total;
+  // O hook é chamado mais abaixo (após calcular perSheet) para que o preço/folha
+  // do acabamento já considere a quantidade de folhas necessárias (faixas).
+
 
   // ---- Imagem upload -------------------------------------------------------
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -391,6 +394,11 @@ export function LabelLayoutCalculator({
   }, [paramLayout, layoutGeneric, labelW, labelH, config.sheetW, config.sheetH]);
 
   const perSheet = layout.effectivePerSheet;
+  // Estima folhas SEM depender do preço (é puramente geométrico) — alimenta o
+  // hook de pricing para resolver a faixa de quantidade do acabamento.
+  const estimatedSheets = perSheet > 0 ? Math.ceil(qty / perSheet) : 0;
+  const folhaPricing = useFolhaPricing(sheetSizeKey, estimatedSheets);
+  const pricePerSheet = folhaPricing.total;
   const pricing = computeSheetPricing({
     pricePerSheet,
     qtyRequested: qty,
@@ -1097,8 +1105,7 @@ export function LabelLayoutCalculator({
               </Alert>
             )}
           </div>
-        )}
-
+          )}
 
         {/* Pricing principal — SEMPRE VISÍVEL */}
         <Card className="p-4 space-y-3 border-primary/40 bg-primary/5">
@@ -1202,6 +1209,18 @@ export function LabelLayoutCalculator({
                 ? "Informe a quantidade desejada para calcular o total."
                 : "Selecione impressão e acabamento para ver o preço."}
             </p>
+          )}
+
+          {/* PPR — Preditor de Prazo Real */}
+          {perSheet > 0 && pricing.sheetsNeeded > 0 && (
+            <ProductionTimeCard
+              shape={shape === "personalizado" ? "personalizado" : shape === "redondo" ? "redondo" : (labelW === labelH ? "quadrado" : "retangulo")}
+              labelW={labelW}
+              labelH={labelH}
+              totalLabels={pricing.sheetsNeeded * perSheet}
+              sheets={pricing.sheetsNeeded}
+              hardware={HARDWARE_PROFILES[config.hardwareProfileId] ?? HARDWARE_PROFILES.signmaster_param}
+            />
           )}
 
           <div className="grid grid-cols-2 gap-2 pt-1">

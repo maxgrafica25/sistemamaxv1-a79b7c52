@@ -14,6 +14,13 @@ export interface HardwareProfile {
   maxUsableW: number | null;
   maxUsableH: number | null;
   description: string;
+  // ---- Preditor de Prazo Real (PPR) -----------------------------------------
+  /** Velocidade média de corte da lâmina (mm/s). null/undefined = sem PPR. */
+  bladeSpeedMmPerSec?: number;
+  /** Tempo de setup por folha em s (troca + leitura ARMS). */
+  sheetSetupSec?: number;
+  /** Fator de complexidade extra para shape "personalizado" sobre o bbox. */
+  customComplexityFactor?: number;
 }
 
 export const HARDWARE_PROFILES: Record<string, HardwareProfile> = {
@@ -39,6 +46,9 @@ export const HARDWARE_PROFILES: Record<string, HardwareProfile> = {
     maxUsableH: null,
     description:
       "Spec SignMaster: margens 7mm em todos os lados, gap 3mm, marcas L (topo) + T (base). Para folhas soltas alimentadas manualmente, sem tração contínua.",
+    bladeSpeedMmPerSec: 300,
+    sheetSetupSec: 12,
+    customComplexityFactor: 1.2,
   },
   teneth_a3: {
     id: "teneth_a3",
@@ -51,6 +61,9 @@ export const HARDWARE_PROFILES: Record<string, HardwareProfile> = {
     maxUsableH: 363,
     description:
       "Margens reais da Teneth A3 em rolo: 7mm topo/laterais, 80mm base (tração dos roletes). Área útil máx 306×363mm na SRA3.",
+    bladeSpeedMmPerSec: 300,
+    sheetSetupSec: 15,
+    customComplexityFactor: 1.2,
   },
 };
 
