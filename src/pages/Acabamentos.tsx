@@ -385,7 +385,7 @@ export default function Acabamentos() {
             ))}
           </SelectContent>
         </Select>
-        {isAdmin && !editing && (
+        {isAdmin && (
           <Button onClick={startNew} className="ml-auto">
             <Plus className="h-4 w-4 mr-1" /> Novo acabamento
           </Button>
