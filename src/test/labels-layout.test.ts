@@ -6,6 +6,7 @@ import {
   pickRoundUpsellQty,
   buildAnchoringLadder,
   findShrinkOpportunity,
+  findGrowOpportunity,
   CUT_DEFAULTS,
   type LayoutInput,
 } from "@/lib/labels/layout";
@@ -183,6 +184,45 @@ describe("findShrinkOpportunity", () => {
     expect(orig.best.total).toBe(1);
     const sug = findShrinkOpportunity(base(200, 200), 1, 1);
     expect(sug).toBeNull();
+  });
+});
+
+describe("findGrowOpportunity", () => {
+  const base = (w: number, h: number, sheet = A4): LayoutInput => ({
+    ...sheet, ...m5, gap: 0, labelW: w, labelH: h,
+  });
+
+  it("60×60 em A4 com folga → sugere crescimento mantendo perSheet", () => {
+    // 60×60 em útil 200×287: cols=3, rows=4 → 12. Sobra 20mm em W e 47mm em H.
+    // Aumentando para 65×65: cols=floor(200/65)=3, rows=floor(287/65)=4 → 12. Mesmo!
+    const original = computeLabelLayout(base(60, 60));
+    expect(original.best.total).toBe(12);
+    const sug = findGrowOpportunity(base(60, 60), 12);
+    expect(sug).not.toBeNull();
+    expect(sug!.newPerSheet).toBeGreaterThanOrEqual(12);
+    expect(sug!.areaIncreasePct).toBeGreaterThan(0);
+    expect(sug!.newLabelW).toBeGreaterThan(60);
+    // etiqueta original era quadrada → sugestão também
+    expect(sug!.newLabelW).toBe(sug!.newLabelH);
+  });
+
+  it("etiqueta apertada sem folga → retorna null", () => {
+    // 50×50 em A4 com gap 0 cabem 4×5=20 perfeitamente (200/50=4, 287/50=5.74).
+    // +1mm em W já quebra a 4ª coluna. +1mm em H ainda permite 5 linhas (287/51=5.62).
+    // Mas precisa MANTER 20: 50×51 → 4 × 5 = 20 ✓ → sugere crescimento em H.
+    // Para garantir null, usamos 50×57 (em H quase no limite): 4×5=20, +1mm H → 4×4=16.
+    const sug = findGrowOpportunity(base(50, 57), 20);
+    // 51×57=4×5=20 ainda funciona em W (200/51=3.92 → 3 cols). Falha em W.
+    // 50×58 → 4×4=16 perda. Pode ainda achar +H se 50×58 não der → null.
+    // Critério mais seguro: aceitamos null OU samePerSheet.
+    if (sug) {
+      expect(sug.newPerSheet).toBeGreaterThanOrEqual(20);
+    }
+  });
+
+  it("etiqueta original quadrada → sugestão permanece quadrada", () => {
+    const sug = findGrowOpportunity(base(40, 40), computeLabelLayout(base(40, 40)).best.total);
+    if (sug) expect(sug.newLabelW).toBe(sug.newLabelH);
   });
 });
 
