@@ -1,98 +1,91 @@
 ## Objetivo
 
-Garantir que **toda ação bloqueada por permissão** (RLS de admin/financeiro/etc.) mostre uma mensagem clara ao usuário, em vez de falhar silenciosamente ou exibir um falso "salvo com sucesso".
+Refinar a página **Calculadora de Etiquetas** (`/calculadora-etiquetas`) em quatro pontos:
 
-Hoje, ações executadas por Colaboradores em telas restritas a Admin (como Preço de Impressão, Equipamentos, Despesas Fixas, Categorias de Materiais, etc.) retornam erro 403 do Supabase, mas o código React ignora o `error` e mostra `toast.success(...)` mesmo assim. Resultado: o usuário pensa que cadastrou, mas o registro nunca foi salvo.
+1. Mover a faixa de **Configurações** (folha + corte) para o **topo** da página.
+2. Deixar até **6 favoritos sempre visíveis** (a um clique), em vez de escondidos no popover.
+3. Corrigir o **slider de ajuste vertical das marcas**: passo **0,5 cm**, intervalo apenas **do meio da folha até o final**, e movendo **somente as marcas inferiores** (BL/BR).
+4. **Trocar o formato das marcas inferiores** para o padrão real do plotter (anexo CorelDRAW): **cruz lateral** — traço vertical longo (~10mm) cruzado por traço horizontal curto (~5mm) no meio, posicionada **fora da área útil**, na altura do canto inferior.
 
-## O que já existe
+---
 
-O projeto já tem o helper `src/lib/handleError.ts` que traduz a mensagem técnica de RLS para "Você não tem permissão para essa ação. Contate um administrador." Porém, está sendo usado em apenas 4 dos ~38 arquivos com mutações.
+## Mudanças por arquivo
 
-## Estratégia
+### 1. `src/lib/labels/marks.ts`
 
-Em vez de proteger cada operação individualmente em 38 arquivos (alto custo), vou agir em **3 camadas complementares**:
+**Novo tipo de marca para a base ("cruz lateral"):**
 
-### Camada 1 — Aprimorar o helper central (`handleError.ts`)
+- Adicionar `kind: "cross"` ao tipo `MarkKind` (mantendo `"L"` e `"tick"` para compatibilidade).
+- Em `buildCornerMarks`, BL e BR passam a ser `kind: "cross"` com:
+  - `vertexX = marginLeft - GAP` (BL) ou `sheetW - marginRight + GAP` (BR), onde `GAP ≈ 3mm` afasta a marca da área útil (igual ao anexo).
+  - `vertexY = sheetH - marginBottom` (alinhada ao canto inferior da área útil).
+  - `arm` continua sendo o tamanho de referência (5mm).
+- Em `markSegments`, tratar `kind: "cross"`:
+  - Segmento vertical: `(x, y - VERT_HALF)` → `(x, y + VERT_HALF)`, com `VERT_HALF = 5mm` (altura total ~10mm).
+  - Segmento horizontal: `(x - HORIZ_HALF, y)` → `(x + HORIZ_HALF, y)`, com `HORIZ_HALF = 2.5mm` (largura total ~5mm).
+- Em `markBoundingBox`, retornar a bbox correspondente para a cruz.
+- TL e TR continuam como `"L"` (cantoneiras), igual hoje.
 
-- Refinar a mensagem de RLS para incluir o contexto da ação:
-  > "Sem permissão para **cadastrar item de impressão**. Apenas administradores podem fazer essa alteração."
-- Detectar também variantes de mensagens de RLS do PostgREST: `"new row violates row-level security"`, `"permission denied"`, `"policy"`.
-- Não alterar API pública — continua sendo `handleError(error, "salvar item")`.
+**Offset apenas das marcas inferiores:**
 
-### Camada 2 — Helpers de UI preventivos (novo)
+- Adicionar parâmetro `bottomOffsetY` (default 0) em `buildCornerMarks`. Quando informado, soma a `vertexY` apenas das marcas BL/BR. Manter `offsetY` global existente para compatibilidade.
+- Neutralizar `suggestMarksOffset` (retornar 0) — não é mais aplicável ao novo modelo.
 
-Criar `src/lib/permissions.ts` com:
+### 2. `src/components/labels/LabelLayoutCalculator.tsx`
 
-- `useAdminGuard()` — retorna `{ isAdmin, requireAdmin(action: string): boolean }`. Se chamado por não-admin, dispara `toast.error("Apenas administradores podem {action}")` e retorna `false`. Permite bloquear a ação **antes** de chamar o Supabase, melhorando UX.
-- Componente `<AdminOnly fallback?>{children}</AdminOnly>` para esconder/desabilitar botões de ação para Colaboradores, deixando claro visualmente que aquilo é restrito (badge "Admin" ou tooltip "Apenas administradores").
+**Reordenar layout (coluna esquerda):**
 
-### Camada 3 — Aplicar nas páginas/componentes de alta prioridade
+Hoje: `[Tabs folha] → [Card Simulador] → [Faixa Configurações]`
+Novo: **`[Faixa Configurações] → [Tabs folha] → [Card Simulador]`**
 
-Adicionar tratamento de erro nas mutações dos arquivos onde a regra "só admin" se aplica. Identificados pelas RLS do banco que exigem `is_profile_admin`/`has_role('admin')`:
+**Favoritos sempre visíveis:**
 
-**Páginas administrativas** (todas as mutações):
-- `src/pages/PrecoImpressao.tsx` — categorias, regras (tiers), grupos de markup, itens de preço
-- `src/pages/Equipamentos.tsx` — equipamentos, consumíveis, manutenções
-- `src/pages/MateriasPrimas.tsx` — papéis, suprimentos
-- `src/pages/Fornecedores.tsx` / `src/pages/Clientes.tsx` / `src/pages/Cadastros.tsx` (se restritos)
-- `src/pages/DespesasFixas.tsx` — despesas, custos
-- `src/pages/Acabamentos.tsx`, `src/pages/Etapas.tsx`, `src/pages/GruposEtapas.tsx`, `src/pages/GruposMateriais.tsx`, `src/pages/ProcessosProducao.tsx`
-- `src/pages/Usuarios.tsx` — gestão de usuários (já admin-only por natureza)
-- `src/pages/Configuracoes.tsx` — configurações da empresa
-- `src/pages/orcamentos-v2/OrcamentosV2.tsx` — exclusões em massa
+- Remover o `Popover` "Favoritos (N)" no header do Card Simulador.
+- Adicionar bloco "Favoritos" no topo do Card Simulador, com até **6 chips** em grid `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6`.
+- Cada chip: nome + dimensões compactas (ex.: "Mini · 30×20"), com `X` discreto para excluir.
+- Clique → `handleLoadPreset(p.id)`.
+- Mais de 6 favoritos: mostra os 6 primeiros + botão "Ver todos (N)" abrindo popover com lista completa.
+- Sem favoritos: bloco oculto (UI limpa).
+- Popover **"Salvar como favorito"** (ao lado da quantidade) permanece igual.
 
-**Componentes de dialog/edição** com mutações:
-- `src/components/equipamentos/MaintenanceRequestsTab.tsx`, `ProductionLossesTab.tsx`, `PrinterReadingsTab.tsx`, `MaintenanceTab.tsx`
-- `src/components/orcamentos-v2/NewQuoteFormV2.tsx`, `GenerateOrderButton.tsx`, `ClientDetailsPanel.tsx`
-- `src/components/pedidos/OrderEditorDialog.tsx`
-- `src/components/chat/CreateChannelDialog.tsx`, `AddMemberDialog.tsx`, `ChannelDetailsPanel.tsx`
-- `src/components/monitoramento/NovoSiteDialog.tsx`, `GerenciarCategoriasDialog.tsx`
-- `src/components/configuracoes/CompanyTab.tsx`
-- `src/components/CadastroFormDialog.tsx`
+**Slider das marcas (apenas inferiores, 0,5 cm, do meio até o final):**
 
-Para cada um, o padrão de mudança é mecânico:
+- `min = 0`, `max = sheetH / 2` (dinâmico), `step = 5` (mm).
+- Label: "Ajuste vertical das marcas inferiores: **+X,X cm**" (mm → cm na exibição).
+- Helper text: "Move apenas as marcas inferiores para baixo, do meio da folha até a borda."
+- Remover botão "Sugerir Xmm".
+- Trocar a chamada para `buildCornerMarks(sheetW, sheetH, mt, mb, ml, mr, 0, MARK_ARM_MM, marksOffsetY)` (offset como bottom-only).
 
-```ts
-// Antes
-await supabase.from("printing_price_items").insert(records);
-toast.success("Item criado!");
+### 3. `src/lib/labels/production-pdf.ts`
 
-// Depois
-const { error } = await supabase.from("printing_price_items").insert(records);
-if (error) return handleError(error, "cadastrar item de impressão");
-toast.success("Item criado!");
+- Repassar `marksOffsetY` recebido como `bottomOffsetY` em `buildCornerMarks` (substituindo o uso atual como global).
+- A função de desenho do PDF já itera sobre os segmentos retornados por `markSegments`, então a nova marca "cross" é desenhada automaticamente sem mudança extra.
+
+---
+
+## Constantes da nova marca
+
+```text
+CROSS_VERT_LEN_MM   = 10   (traço vertical total)
+CROSS_HORIZ_LEN_MM  = 5    (traço horizontal total)
+CROSS_OUTSIDE_GAP_MM = 3   (afastamento da área útil para fora)
 ```
 
-Sem alterar lógica de negócio nem RLS — apenas adicionar a captura `{ error }` e a chamada `handleError(...)`.
+Estes valores são consistentes com o anexo CorelDRAW (vista a 400% mostra ~10mm vertical × ~5mm horizontal, posicionada fora da margem direita).
 
-### Camada 4 — Esconder/desabilitar botões para Colaboradores (UX preventiva)
+---
 
-Nas telas de gestão restrita, envolver botões "Novo / Editar / Excluir" em `<AdminOnly>` ou desabilitar com tooltip explicativo. Lista de botões a marcar:
+## Fora de escopo
 
-- Preço de Impressão: "Nova Categoria", "Nova Regra", "Novo Item", ícones de editar/excluir nas linhas
-- Equipamentos: "Novo Equipamento", "Editar", "Excluir"
-- Matérias-Primas: "Novo Papel/Suprimento", "Editar", "Excluir"
-- Despesas Fixas: idem
-- Acabamentos / Grupos / Processos: idem
-- Configurações: campos da empresa em modo readonly para não-admins
+- Não mexer no `LabelCalcSettingsDialog`.
+- Não alterar cálculo de aproveitamento, preço, modo paramétrico SignMaster nem export `.plt`.
+- Limite de 6 favoritos é só visual.
 
-Assim, em vez de "tentar e falhar", o Colaborador vê de imediato que aquela área é restrita.
+---
 
-## Fora do escopo
+## Resultado esperado
 
-- **Não vou alterar nenhuma RLS do banco** — a regra "só admin gerencia preços/cadastros" é intencional.
-- **Não vou tocar em lógica de cálculo, formulários, layout** — apenas captura de erro e visibilidade de botões.
-- **Tabelas com RLS pública** (que qualquer usuário autenticado pode escrever — ex.: chat messages do próprio user, cliente próprio) ficam como estão, apenas adicionando `handleError` para qualquer erro técnico.
-
-## Validação
-
-Após as mudanças, vou logar como Colaborador no preview e tentar:
-1. Cadastrar item em Preço de Impressão → deve mostrar mensagem clara de permissão
-2. Editar equipamento → idem
-3. Verificar que botões aparecem desabilitados/escondidos em telas admin-only
-
-## Resumo de arquivos a tocar
-
-- 1 arquivo refinado: `src/lib/handleError.ts`
-- 2 arquivos novos: `src/lib/permissions.ts`, `src/components/AdminOnly.tsx`
-- ~25 páginas/componentes ajustados para chamar `handleError(...)` nas mutações e usar `<AdminOnly>` em botões críticos
+- **Topo:** faixa "Configurações" visível imediatamente.
+- **Favoritos:** até 6 chips a um clique.
+- **Marcas:** TL/TR em "L" (cantoneiras, como hoje) + BL/BR em **cruz lateral** (10mm vertical × 5mm horizontal, fora da área útil), idêntico ao anexo.
+- **Slider:** mexe só nas duas marcas inferiores, em passos de 0,5 cm, descendo do meio da folha até a borda. Preview e PDF de produção sincronizados.
