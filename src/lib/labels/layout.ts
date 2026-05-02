@@ -138,9 +138,10 @@ export interface LayoutResult {
  *
  * Regras (all-or-nothing por linha):
  *  - corte_reto: nada é reservado.
- *  - plotter_redondo: avalia APENAS a 1ª linha (os ticks de base se
+ *  - etiqueta redonda: avalia APENAS a 1ª linha (os ticks de base se
  *    encaixam nos vãos entre os círculos → última linha sempre cheia).
- *  - plotter_quadrado / personalizado: avalia 1ª (vs. L) e última (vs. tick).
+ *  - etiqueta quadrada/personalizada: avalia 1ª (vs. L) e última (vs. tick),
+ *    mesmo quando o tipo de corte selecionado é "plotter_redondo".
  */
 export interface ReservedSlotsInput {
   cutType: CutType;
