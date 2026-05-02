@@ -21,7 +21,7 @@ interface Equipment { id: string; name: string }
 
 const NAV_ITEMS = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
-  { label: "Orçamentos", path: "/orcamentos", icon: ClipboardList },
+  { label: "Orçamentos", path: "/orcamentos-v2", icon: ClipboardList },
   { label: "Clientes/Fornecedores", path: "/cadastros", icon: Users },
   { label: "Matérias-Primas", path: "/materias-primas", icon: Package },
   { label: "Equipamentos", path: "/equipamentos", icon: Cpu },
