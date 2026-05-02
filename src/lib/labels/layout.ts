@@ -277,13 +277,17 @@ export const computeLabelLayout = (input: LayoutInput): LayoutResult => {
 
   // (labelWBest já declarada acima)
 
+  // Cada linha é tratada como container flexível independente.
+  // Fórmula única (mesmo para linhas cheias): garante consistência total
+  // entre preview SVG e PDF de produção.
+  //   RowStartX = marginLeft + (usableW - (cells*labelW + (cells-1)*gap)) / 2
   const cellsPerRow: number[] = [];
   const rowOffsets: number[] = [];
   for (let r = 0; r < best.rows; r++) {
     const removed = counts.get(r) ?? 0;
     const cells = Math.max(0, best.cols - removed);
     cellsPerRow.push(cells);
-    if (removed === 0 || cells === 0) {
+    if (cells === 0) {
       rowOffsets.push(marginLeft);
     } else {
       const occupied = cells * labelWBest + (cells - 1) * gap;

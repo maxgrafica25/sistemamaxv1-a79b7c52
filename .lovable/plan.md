@@ -1,84 +1,35 @@
-## Diagnóstico
+Vou corrigir o layout para que cada linha recuada seja tratada como um container independente, sem depender das colunas originais para desenhar as etiquetas.
 
-Investiguei o código atual e a fórmula de centralização em `computeLabelLayout` **já está matematicamente correta** (`offset = marginLeft + (usableW − occupied)/2`). O SVG preview e o PDF de produção **já consomem `rowOffsets[r]`** corretamente.
+Plano de implementação:
 
-O problema visual real é outro: a regra dinâmica atual remove apenas o canto que está fisicamente perto da marca. Em layouts onde só **um lado** dispara a zona de segurança (ex.: 56×45mm em SRA3 com margens 5/5 → o canto esquerdo toca o L de TL, mas o canto direito fica a 26mm da marca direita), o resultado é **assimétrico**:
+1. Ajustar `computeLabelLayout` em `src/lib/labels/layout.ts`
+   - Manter a regra all-or-nothing: se uma ponta da linha invade a zona de 10mm, as duas pontas da mesma linha são removidas.
+   - Garantir que `cellsPerRow[row]` represente exatamente a quantidade real de etiquetas vendáveis naquela linha.
+   - Recalcular `rowOffsets[row]` sempre pela fórmula informada:
 
-```
-cellsPerRow: [ 4, 5, 5, 5, 5, 5, 5, 5, 5 ]   ← linha 0 perde só 1 etiqueta
-reserved:    [{col:0, row:0}]                 ← só ponta esquerda
-offset[0]:   46.5mm                           ← "centraliza" 4 labels deslocadas pra direita
-```
-
-Isso é "centralização matemática" mas visualmente parece que a etiqueta sumida foi simplesmente arrastada — não bate com o que o operador faz no CorelDRAW (sempre remove um de cada lado, mantendo simetria).
-
-## Correção
-
-Mudar a regra: **se qualquer canto de uma linha disparar a zona de segurança (<10mm), remover SIMETRICAMENTE as duas pontas dessa linha** (col 0 e col cols−1). Resultado: layout simétrico, centralização visual perfeita.
-
-Mantém todas as outras regras intactas:
-- 1ª linha: sempre verificada (vs. Ls de topo).
-- Última linha: verificada apenas para `plotter_quadrado` (redondo nunca mexe na base).
-- `corte_reto`: nada é removido.
-- Folga ≥ 10mm em **ambos** os lados → linha permanece cheia.
-
-## Mudanças
-
-### 1. `src/lib/labels/layout.ts` — `computeReservedSlots`
-
-Substituir o bloco de checagem individual de cada slot por checagem por linha:
-
-```ts
-const isRound = cutType === "plotter_redondo";
-const slots: ReservedSlot[] = [];
-
-// Retorna true se algum dos cantos da linha está dentro da zona de 10mm.
-const rowTriggersSafety = (row, leftMark, rightMark) => {
-  const cellY = marginTop + row * (labelH + gap);
-  const cellLeftX = marginLeft;
-  const cellRightX = marginLeft + (cols - 1) * (labelW + gap);
-  if (leftMark && rectDistance(cellLeftX, cellY, labelW, labelH, ...leftMark) < SAFETY_ZONE_MM) return true;
-  if (rightMark && rectDistance(cellRightX, cellY, labelW, labelH, ...rightMark) < SAFETY_ZONE_MM) return true;
-  return false;
-};
-
-// Remove SIMETRICAMENTE as duas pontas (regra de produção gráfica)
-const reserveBothEnds = (row) => {
-  if (cols >= 1) slots.push({ col: 0, row });
-  if (cols >= 2) slots.push({ col: cols - 1, row });
-};
-
-if (rowTriggersSafety(0, byCorner.tl, byCorner.tr)) reserveBothEnds(0);
-if (!isRound && rows >= 2 && rowTriggersSafety(rows - 1, byCorner.bl, byCorner.br)) {
-  reserveBothEnds(rows - 1);
-}
+```text
+RowStartX = MargemEsquerda + (LarguraUtil - (QtdEtiquetasLinha * LarguraEtiqueta + (QtdEtiquetasLinha - 1) * Gap)) / 2
 ```
 
-A fórmula de centralização em `computeLabelLayout` já cuida do resto.
+   - Aplicar isso para cada linha individualmente, inclusive linhas sem remoção, para evitar divergências entre linhas cheias e linhas recuadas.
 
-### 2. SVG preview e PDF — sem mudança
+2. Corrigir a geração das posições no PDF em `src/lib/labels/production-pdf.ts`
+   - Hoje o PDF ainda itera pelas colunas originais e pula slots reservados. Isso pode deixar a linha visualmente deslocada.
+   - Vou alterar para gerar somente `cellsPerRow[row]` etiquetas por linha, iniciando em `rowOffsets[row]`.
+   - Assim, o PDF seguirá exatamente a mesma lógica visual do preview.
 
-Já estão corretos (consomem `rowOffsets[r]` e `cellsPerRow[r]`, e nenhum slot reservado é desenhado).
+3. Confirmar o preview SVG em `src/components/labels/LabelLayoutCalculator.tsx`
+   - O preview já desenha apenas `cellsPerRow[row]` a partir de `rowOffsets[row]`; vou garantir que ele continue sem hachura/texto nos slots removidos e sem usar `reservedSlots` para posicionar etiquetas.
+   - O resultado esperado para o exemplo 6,1 × 5,1 cm em SRA3 será: a linha afetada mostra 3 etiquetas centralizadas, não 4 deslocadas.
 
-### 3. Atualizar testes
+4. Atualizar testes em `src/test/labels-layout.test.ts`
+   - Adicionar/ajustar testes para validar:
+     - nunca existe remoção unilateral em uma linha;
+     - linhas recuadas usam exatamente o `RowStartX` da fórmula;
+     - exemplo 61×51mm SRA3 com corte de plotter produz 3 etiquetas centralizadas na linha afetada;
+     - o PDF/listagem de posições usa `cellsPerRow + rowOffsets`, e não os slots/colunas originais.
 
-- O teste "plotter_quadrado: reserva pontas da 1ª E última linha" continua válido — agora reserva ambas as pontas em qualquer linha que dispare.
-- O teste "plotter_quadrado com etiqueta colada na base" precisa ajustar: agora a 1ª linha **também** será reservada (já era), e a última terá ambas as pontas.
-- O teste "Regra dos 40 — 50×50 em SRA3 com Teneth" continua: 1ª linha perde 2, última cheia, total 40.
-- O teste do `computeLabelLayout plotter_redondo 50×50 SRA3` continua: 1ª linha perde 2, última cheia.
-- Adicionar teste novo: cenário 56×45 em SRA3 (margens 5/5) → ambas as pontas removidas mesmo com a direita "longe", validando a regra simétrica.
-
-### 4. Memória `mem://features/label-calculator`
-
-Atualizar a nota da Zona de Segurança ARMS:
-> Quando qualquer canto de uma linha (1ª ou última, conforme formato) está a <10mm da marca, **ambas as pontas** dessa linha são removidas (regra simétrica de produção gráfica), e o `rowOffset` é recalculado para centralizar as etiquetas restantes. Se ambas as pontas estão com folga ≥10mm, a linha permanece cheia.
-
-## Resultado esperado
-
-Caso real do usuário (56×45 em SRA3, margens 5/5/10/10, gap 1):
-```
-ANTES:  cellsPerRow=[4,5,5,5,5,5,5,5,5]  offsets=[46.50, 5, 5, ...]   ← assimétrico
-DEPOIS: cellsPerRow=[3,5,5,5,5,5,5,5,5]  offsets=[~62.50, 5, 5, ...]  ← simétrico, centrado
-```
-
-A linha 0 fica visivelmente mais curta e centralizada, exatamente como o operador faz manualmente no CorelDRAW para "defender" as marcas ARMS.
+Resultado esperado:
+- Preview e PDF ficam sincronizados.
+- Linhas recuadas aparecem centralizadas em relação às linhas do meio.
+- Não haverá mais linha com só um lado removido nem linha recuada desenhada como colunas antigas deslocadas.
