@@ -181,7 +181,7 @@ export function FinishingTiersDrawer({
     if (tiers.length > 0) {
       const payload = tiers.map((t, i) => ({
         finishing_id: finishingId,
-        label: t.label.trim() || autoLabel(t.min_qty, t.max_qty),
+        label: t.label.trim() || autoLabel(i),
         min_qty: t.min_qty,
         max_qty: t.max_qty,
         price_per_sheet: t.price_per_sheet,
