@@ -12,6 +12,9 @@ import { Plus, Trash2, Save, DollarSign, Users, Monitor, Calculator, Loader2, In
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { handleError } from "@/lib/handleError";
+import { usePermissionGuard } from "@/lib/permissions";
+import { AdminOnly } from "@/components/AdminOnly";
 
 interface Expense { id?: string; name: string; value: number; }
 interface Salary { id?: string; name: string; salary: number; is_production: boolean; }
@@ -41,6 +44,7 @@ export default function DespesasFixas() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<() => void>(() => {});
   const [confirmItemName, setConfirmItemName] = useState("");
+  const { requireAdmin, isAdmin } = usePermissionGuard();
 
   useEffect(() => {
     const load = async () => {
@@ -96,11 +100,15 @@ export default function DespesasFixas() {
     setEquipment(equipment.map((e, idx) => idx === i ? { ...e, [field]: val } : e));
 
   const handleSave = async () => {
+    if (!requireAdmin("salvar despesas fixas")) return;
     setSaving(true);
     try {
-      await supabase.from("monthly_expenses").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      await supabase.from("salaries").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      await supabase.from("equipment_depreciation").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      const delExp = await supabase.from("monthly_expenses").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      if (delExp.error) throw delExp.error;
+      const delSal = await supabase.from("salaries").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      if (delSal.error) throw delSal.error;
+      const delEq = await supabase.from("equipment_depreciation").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      if (delEq.error) throw delEq.error;
 
       if (expenses.length > 0) {
         const { error } = await supabase.from("monthly_expenses").insert(expenses.map(e => ({ name: e.name, value: e.value })));
@@ -117,13 +125,14 @@ export default function DespesasFixas() {
         if (error) throw error;
       }
       if (capacity.id) {
-        await supabase.from("productive_capacity").update({
+        const { error } = await supabase.from("productive_capacity").update({
           production_employees: productionEmployeeCount, hours_per_month: capacity.hours_per_month,
         }).eq("id", capacity.id);
+        if (error) throw error;
       }
       toast.success("Despesas fixas salvas! Valor hora: " + formatCurrency(hourlyRate));
     } catch (err) {
-      toast.error("Erro ao salvar: " + (err as Error).message);
+      handleError(err, "salvar despesas fixas");
     } finally {
       setSaving(false);
     }
@@ -373,10 +382,12 @@ export default function DespesasFixas() {
 
       {/* Floating save button */}
       <div className="fixed bottom-6 right-6 z-50">
-        <Button size="lg" onClick={handleSave} disabled={saving} className="gap-2 shadow-lg rounded-full px-6">
-          {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-          Salvar Tudo
-        </Button>
+        <AdminOnly mode="disable" action="salvar despesas fixas">
+          <Button size="lg" onClick={handleSave} disabled={saving || !isAdmin} className="gap-2 shadow-lg rounded-full px-6">
+            {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+            Salvar Tudo
+          </Button>
+        </AdminOnly>
       </div>
 
       <ConfirmDialog
