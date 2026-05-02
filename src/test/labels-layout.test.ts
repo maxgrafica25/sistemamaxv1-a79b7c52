@@ -497,6 +497,8 @@ describe("computeLabelLayout com cutType — zona de segurança aplicada", () =>
     }
   });
 });
+
+describe("clampMarginsToHardware", () => {
   it("teneth_a3 força base ≥ 80", () => {
     const c = clampMarginsToHardware(
       { marginTop: 5, marginBottom: 10, marginLeft: 5, marginRight: 5 },
