@@ -471,14 +471,14 @@ describe("computeLabelLayout com cutType — meta de aproveitamento SRA3", () =>
     expect(r.effectivePerSheet).toBe(41);
   });
 
-  it("60×60mm em SRA3 plotter_redondo → 1ª linha perde pontas e centraliza (simétrico)", async () => {
+  it("60×60mm em SRA3 plotter_redondo → 1ª linha perde só 1 (assimétrico) e centraliza", async () => {
     const { computeLabelLayout } = await import("@/lib/labels/layout");
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450, labelW: 60, labelH: 60,
       marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7, gap: 1,
       cutType: "plotter_redondo",
     });
-    expect(r.cellsPerRow[0]).toBe(r.best.cols - 2);
+    expect(r.cellsPerRow[0]).toBe(r.best.cols - 1);
     // Última cheia (redondo)
     expect(r.cellsPerRow[r.best.rows - 1]).toBe(r.best.cols);
     // Centralizada conforme fórmula
