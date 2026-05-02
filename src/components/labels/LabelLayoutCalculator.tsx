@@ -65,6 +65,8 @@ import { generateSignmasterPlt, downloadPlt } from "@/lib/labels/plt-export";
 import { generateProductionPDF, downloadPDF } from "@/lib/labels/production-pdf";
 import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
 
+const RECTANGULAR_SIGNMASTER_GAP_MM = 0;
+
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -333,6 +335,11 @@ export function LabelLayoutCalculator({
   );
 
   // ---- Cálculos ------------------------------------------------------------
+  const effectiveGap =
+    config.hardwareProfileId === "signmaster_param" && shape !== "redondo"
+      ? RECTANGULAR_SIGNMASTER_GAP_MM
+      : config.gap;
+
   const layoutInput: LayoutInput = {
     sheetW: config.sheetW,
     sheetH: config.sheetH,
@@ -342,7 +349,7 @@ export function LabelLayoutCalculator({
     marginBottom: config.marginBottom,
     marginLeft: config.marginLeft,
     marginRight: config.marginRight,
-    gap: config.gap,
+    gap: effectiveGap,
     shape,
     cutType: config.cutType,
   };
@@ -446,8 +453,8 @@ export function LabelLayoutCalculator({
 
   // ---- Sugestão de offset das marcas + geração de PDF --------------------
   const suggestedOffset = useMemo(
-    () => suggestMarksOffset(config.marginTop, layout.best.rotated ? labelW : labelH, config.gap, layout.best.rows),
-    [config.marginTop, config.gap, layout.best.rows, layout.best.rotated, labelW, labelH],
+    () => suggestMarksOffset(config.marginTop, layout.best.rotated ? labelW : labelH, effectiveGap, layout.best.rows),
+    [config.marginTop, effectiveGap, layout.best.rows, layout.best.rotated, labelW, labelH],
   );
 
   const applySuggestedOffset = () => {
@@ -469,7 +476,7 @@ export function LabelLayoutCalculator({
         marginBottom: config.marginBottom,
         marginLeft: config.marginLeft,
         marginRight: config.marginRight,
-        gap: config.gap,
+        gap: effectiveGap,
         labelW,
         labelH,
         shape,
@@ -823,10 +830,10 @@ export function LabelLayoutCalculator({
               title={
                 isParametric
                   ? "Modo paramétrico SignMaster: margens 7/7/7/7 mm, gap 3 mm, marcas L (topo) + T (base). Folhas soltas."
-                  : `Margens forçadas pelo equipamento: topo ${config.marginTop}mm · base ${config.marginBottom}mm (tração) · laterais ${config.marginLeft}/${config.marginRight}mm`
+                  : `Margens ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight}mm · gap efetivo ${effectiveGap}mm`
               }
             >
-              ⚙ {isParametric ? "SignMaster paramétrico · 7/7/7/7 · gap 3" : `${config.hardwareProfileId === "teneth_a3" ? "Teneth A3" : config.hardwareProfileId} · ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight}mm`}
+              ⚙ {isParametric ? "SignMaster paramétrico · 7/7/7/7 · gap 3" : `${config.hardwareProfileId === "signmaster_param" ? "SignMaster" : config.hardwareProfileId === "teneth_a3" ? "Teneth A3" : config.hardwareProfileId} · ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight} · gap ${effectiveGap}`}
             </Badge>
           </div>
 
@@ -837,7 +844,7 @@ export function LabelLayoutCalculator({
             marginBottom={config.marginBottom}
             marginLeft={config.marginLeft}
             marginRight={config.marginRight}
-            gap={config.gap}
+            gap={effectiveGap}
             labelW={layout.best.rotated ? labelH : labelW}
             labelH={layout.best.rotated ? labelW : labelH}
             cols={layout.best.cols}

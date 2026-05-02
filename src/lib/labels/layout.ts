@@ -138,12 +138,15 @@ export interface LayoutResult {
  *
  * Regras (all-or-nothing por linha):
  *  - corte_reto: nada é reservado.
- *  - plotter_redondo: avalia APENAS a 1ª linha (os ticks de base se
+ *  - etiqueta redonda: avalia APENAS a 1ª linha (os ticks de base se
  *    encaixam nos vãos entre os círculos → última linha sempre cheia).
- *  - plotter_quadrado / personalizado: avalia 1ª (vs. L) e última (vs. tick).
+ *  - etiqueta quadrada/personalizada: avalia 1ª (vs. L) e última (vs. tick),
+ *    mesmo quando o tipo de corte selecionado é "plotter_redondo".
  */
 export interface ReservedSlotsInput {
   cutType: CutType;
+  /** Formato real da etiqueta. Define se a última linha também precisa da zona de segurança. */
+  shape?: LabelShape;
   cols: number;
   rows: number;
   /** Largura da etiqueta na orientação escolhida (mm). */
@@ -174,11 +177,11 @@ export function computeReservedSlots(
   if (typeof a === "string") {
     return [];
   }
-  const { cutType, cols, rows, labelW, gap, marginLeft, marginRight, sheetW } = a;
+  const { cutType, shape, cols, rows, labelW, gap, marginLeft, marginRight, sheetW } = a;
   if (cutType === "corte_reto") return [];
   if (cols <= 0 || rows <= 0) return [];
 
-  const isRound = cutType === "plotter_redondo";
+  const isRound = shape ? shape === "redondo" : cutType === "plotter_redondo";
   const usableW = Math.max(0, sheetW - marginLeft - marginRight);
   const slots: ReservedSlot[] = [];
 
@@ -260,6 +263,7 @@ export const computeLabelLayout = (input: LayoutInput): LayoutResult => {
     const reserved = input.cutType && cols > 0 && rows > 0
       ? computeReservedSlots({
           cutType: input.cutType,
+          shape: input.shape,
           cols, rows,
           labelW: lblW, labelH: lblH,
           gap,
