@@ -12,6 +12,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  resolveFinishingPricePerSheet,
+  type FinishingTier,
+} from "./finishing-pricing";
 
 const CHOICE_KEY = "labelCalc:priceChoice:v1";
 
@@ -33,7 +37,10 @@ export interface FinishingOption {
   name: string;
   category: string;
   size: string;
+  /** Preço/folha BASE (fallback). */
   price_per_sheet: number;
+  /** Faixas de quantidade. Vazio = sem volume pricing, usa price_per_sheet. */
+  tiers: FinishingTier[];
   label: string;
 }
 
@@ -43,6 +50,7 @@ const NO_FINISHING: FinishingOption = {
   category: "none",
   size: "*",
   price_per_sheet: 0,
+  tiers: [],
   label: "Sem acabamento (R$ 0,00)",
 };
 
