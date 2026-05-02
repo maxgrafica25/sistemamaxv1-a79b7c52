@@ -67,6 +67,8 @@ import { computeSignmasterLayout, computeSignmasterMarks, findSignmasterShrinkOp
 import { generateSignmasterPlt, downloadPlt } from "@/lib/labels/plt-export";
 import { generateProductionPDF, downloadPDF } from "@/lib/labels/production-pdf";
 import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
+import { HARDWARE_PROFILES } from "@/lib/labels/hardware";
+import { ProductionTimeCard } from "./ProductionTimeCard";
 
 const RECTANGULAR_SIGNMASTER_GAP_MM = 0;
 
@@ -1210,7 +1212,18 @@ export function LabelLayoutCalculator({
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          {/* PPR — Preditor de Prazo Real */}
+          {perSheet > 0 && pricing.sheetsNeeded > 0 && (
+            <ProductionTimeCard
+              shape={shape === "personalizado" ? "personalizado" : shape === "redondo" ? "redondo" : (labelW === labelH ? "quadrado" : "retangulo")}
+              labelW={labelW}
+              labelH={labelH}
+              totalLabels={pricing.sheetsNeeded * perSheet}
+              sheets={pricing.sheetsNeeded}
+              hardware={HARDWARE_PROFILES[config.hardwareProfileId] ?? HARDWARE_PROFILES.signmaster_param}
+            />
+          )}
+
             <Button
               size="sm"
               variant="outline"
