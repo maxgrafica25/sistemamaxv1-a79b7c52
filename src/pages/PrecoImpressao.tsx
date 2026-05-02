@@ -556,7 +556,7 @@ export default function PrecoImpressao() {
   return (
     <>
     <TooltipProvider delayDuration={300}>
-      <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
+      <div className="p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6 max-w-[1400px] mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
@@ -588,7 +588,7 @@ export default function PrecoImpressao() {
         ) : (
           <Tabs value={activeCategory} onValueChange={setActiveCategory}>
             <div className="flex items-start gap-2">
-              <div className="flex-1">
+              <div className="flex-1 min-w-0 overflow-x-auto">
                 <TabsList className="bg-muted/60 h-auto p-1 gap-1 flex flex-wrap">
                   {categories.map(cat => {
                     const isActive = activeCategory === cat.id;
@@ -957,8 +957,8 @@ export default function PrecoImpressao() {
                     {activeItems.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-6">Adicione itens de papel. O custo pode vir do cadastro de papéis ou ser informado manualmente.</p>
                     ) : (
-                      <div>
-                        <Table>
+                      <div className="w-full overflow-x-auto rounded-md border">
+                        <Table className="min-w-max">
                           <TableHeader>
                             <TableRow>
                               {visibleColumns.code && <TableHead className="w-[60px]">Cód.</TableHead>}
