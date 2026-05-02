@@ -930,29 +930,23 @@ export function LabelLayoutCalculator({
             paramLayout={paramLayout}
           />
 
-          {/* Slider de ajuste das marcas ARMS */}
-          {layout.reservedSlots.length > 0 && (
+          {/* Slider de ajuste das marcas inferiores */}
+          {!isParametric && (
             <div className="space-y-1.5 pt-2 border-t">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs flex items-center gap-1.5">
-                  <Crosshair className="h-3.5 w-3.5 text-primary" />
-                  Ajuste vertical das marcas: <strong>{marksOffsetY > 0 ? "+" : ""}{marksOffsetY}mm</strong>
-                </Label>
-                {Math.abs(suggestedOffset) > 0.1 && Math.abs(suggestedOffset - marksOffsetY) > 0.1 && (
-                  <Button size="sm" variant="ghost" className="h-6 text-[11px]" onClick={applySuggestedOffset}>
-                    Sugerir {suggestedOffset > 0 ? "+" : ""}{suggestedOffset}mm
-                  </Button>
-                )}
-              </div>
+              <Label className="text-xs flex items-center gap-1.5">
+                <Crosshair className="h-3.5 w-3.5 text-primary" />
+                Ajuste vertical das marcas inferiores:{" "}
+                <strong>+{(marksOffsetY / 10).toFixed(1)} cm</strong>
+              </Label>
               <Slider
                 value={[marksOffsetY]}
                 onValueChange={([v]) => setMarksOffsetY(v)}
-                min={-10}
-                max={10}
-                step={0.5}
+                min={0}
+                max={Math.max(0, config.sheetH / 2)}
+                step={5}
               />
               <p className="text-[10px] text-muted-foreground">
-                Move o conjunto das marcas pra cima/baixo evitando sobreposição com a arte.
+                Move apenas as marcas inferiores para baixo, do meio da folha até a borda.
               </p>
             </div>
           )}
