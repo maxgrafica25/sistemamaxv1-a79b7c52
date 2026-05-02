@@ -232,6 +232,13 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
     onOpenChange(false);
   };
 
+  const handleResetFactory = () => {
+    const cfg = resetConfigToDefaults();
+    setDraft(cfg);
+    toast.success("Configurações restauradas aos padrões de fábrica");
+    onSaved?.(cfg);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
