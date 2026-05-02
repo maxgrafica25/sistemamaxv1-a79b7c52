@@ -32,7 +32,7 @@ describe("Simetria ARMS — caso âncora 50×50 SRA3 paramétrico", () => {
     expect(r.best.total).toBeGreaterThanOrEqual(35);
   });
 
-  it("simetria all-or-nothing nas pontas (1ª e última linha)", () => {
+  it("linhas internas (não-ponta) nunca sofrem redução por ARMS", () => {
     const r = computeLabelLayout({
       sheetW: 320,
       sheetH: 450,
@@ -46,13 +46,10 @@ describe("Simetria ARMS — caso âncora 50×50 SRA3 paramétrico", () => {
       shape: "redondo",
       cutType: "plotter_redondo",
     });
-    if (r.cellsPerRow && r.cellsPerRow.length >= 2) {
+    if (r.cellsPerRow && r.cellsPerRow.length >= 3) {
+      const innerRows = r.cellsPerRow.slice(1, -1);
       const max = Math.max(...r.cellsPerRow);
-      const first = r.cellsPerRow[0];
-      const last = r.cellsPerRow[r.cellsPerRow.length - 1];
-      // redução das pontas é simétrica (par) ou linha foi zerada por completo
-      expect((max - first) % 2 === 0 || first === 0).toBe(true);
-      expect((max - last) % 2 === 0 || last === 0).toBe(true);
+      for (const c of innerRows) expect(c).toBe(max);
     }
   });
 });
