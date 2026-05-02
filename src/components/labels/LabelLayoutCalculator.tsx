@@ -282,8 +282,9 @@ export function LabelLayoutCalculator({
     return m?.id ?? "SRA3";
   }, [config.sheetW, config.sheetH]);
 
-  const folhaPricing = useFolhaPricing(sheetSizeKey);
-  const pricePerSheet = folhaPricing.total;
+  // O hook é chamado mais abaixo (após calcular perSheet) para que o preço/folha
+  // do acabamento já considere a quantidade de folhas necessárias (faixas).
+
 
   // ---- Imagem upload -------------------------------------------------------
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -391,6 +392,11 @@ export function LabelLayoutCalculator({
   }, [paramLayout, layoutGeneric, labelW, labelH, config.sheetW, config.sheetH]);
 
   const perSheet = layout.effectivePerSheet;
+  // Estima folhas SEM depender do preço (é puramente geométrico) — alimenta o
+  // hook de pricing para resolver a faixa de quantidade do acabamento.
+  const estimatedSheets = perSheet > 0 ? Math.ceil(qty / perSheet) : 0;
+  const folhaPricing = useFolhaPricing(sheetSizeKey, estimatedSheets);
+  const pricePerSheet = folhaPricing.total;
   const pricing = computeSheetPricing({
     pricePerSheet,
     qtyRequested: qty,
