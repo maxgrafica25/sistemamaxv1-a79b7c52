@@ -939,6 +939,29 @@ export function LabelLayoutCalculator({
           )}
         </Card>
 
+        {/* Aviso: quase cabe +1 coluna (ajuste de gap) */}
+        {nearMissColumn && (
+          <Alert className="border-blue-400/50 bg-blue-50 dark:bg-blue-950/20">
+            <Sparkles className="h-4 w-4 text-blue-600" />
+            <AlertTitle className="text-sm">Quase cabe mais uma coluna</AlertTitle>
+            <AlertDescription className="text-xs space-y-2">
+              <p>
+                Sobram <strong>{nearMissColumn.slackMm}mm</strong> nas laterais — faltam só{" "}
+                <strong>{nearMissColumn.missingMm}mm</strong> pra caber{" "}
+                <strong>+1 coluna</strong> ({nearMissColumn.extraPerSheet} etiquetas a mais por folha).
+              </p>
+              <p className="text-muted-foreground">
+                Reduzindo o gap de <strong>{nearMissColumn.currentGap}mm</strong> para{" "}
+                <strong>{nearMissColumn.suggestedGap}mm</strong> a coluna extra entra.
+              </p>
+              <Button size="sm" variant="outline" onClick={applyNearMissGap} className="h-7 text-xs">
+                <ArrowRight className="h-3 w-3 mr-1" />
+                Reduzir gap para {nearMissColumn.suggestedGap}mm
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Otimizador */}
         {shrink && (
           <Alert className="border-amber-400/50 bg-amber-50 dark:bg-amber-950/20">
