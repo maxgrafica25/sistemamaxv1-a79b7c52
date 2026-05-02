@@ -606,13 +606,15 @@ export default function MateriasPrimas() {
                   </SelectContent>
                 </Select>
               )}
-              <Button
-                onClick={() => activeTab === "papel" ? openPaperDialog() : openNewDialog()}
-                className="gap-2 shrink-0"
-              >
-                <Plus className="h-4 w-4" />
-                Novo {activeTab === "papel" ? "Papel" : "Suprimento"}
-              </Button>
+              <AdminOnly mode="disable" action={`cadastrar ${activeTab === "papel" ? "papel" : "suprimento"}`}>
+                <Button
+                  onClick={() => activeTab === "papel" ? openPaperDialog() : openNewDialog()}
+                  className="gap-2 shrink-0"
+                >
+                  <Plus className="h-4 w-4" />
+                  Novo {activeTab === "papel" ? "Papel" : "Suprimento"}
+                </Button>
+              </AdminOnly>
             </div>
           </div>
 
