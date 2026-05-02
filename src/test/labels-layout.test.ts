@@ -359,17 +359,16 @@ describe("computeReservedSlots — critério geométrico (folga ≥ 10mm)", () =
     marginTop: 7, marginBottom: 80, marginLeft: 7, marginRight: 7,
   };
 
-  it("50×50mm gap 0 — 6 cols ocupam 300mm, slack=3mm <10 → remove pontas (1ª linha redondo)", () => {
+  it("50×50mm gap 0 plotter_redondo — 6 cols slack=3mm <10 → remove 1 (assimétrico, redondo)", () => {
     const r = computeReservedSlots({
       cutType: "plotter_redondo",
+      shape: "redondo",
       cols: 6, rows: 5,
       labelW: 50, labelH: 50,
       ...baseGeom,
     });
-    expect(r).toEqual([
-      { col: 0, row: 0 },
-      { col: 5, row: 0 },
-    ]);
+    // step=1 para redondo: remove só 1 (basta 5×50=250, slack=28 ≥10)
+    expect(r).toEqual([{ col: 0, row: 0 }]);
   });
 
   it("40×40mm gap 0 — 7 cols ocupam 280mm, slack=13mm ≥10 → linha cheia", () => {
