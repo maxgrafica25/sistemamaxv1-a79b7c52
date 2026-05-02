@@ -205,11 +205,26 @@ export function FinishingTiersDrawer({
         </SheetHeader>
 
         <div className="mt-4 space-y-3">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Cadastre faixas de preço conforme o número de <strong>folhas</strong> da tiragem.
-            Quanto maior o volume, menor o custo por folha. Sem faixas cadastradas, usa o
-            preço base do acabamento.
-          </p>
+          <div className="rounded-md border border-primary/20 bg-primary/5 p-3 space-y-2">
+            <p className="text-xs leading-relaxed">
+              <strong>Como funciona:</strong> cadastre faixas pelo número de{" "}
+              <strong>folhas</strong> da tiragem. A calculadora escolhe automaticamente
+              a faixa correspondente ao volume calculado. Sem faixas, usa o preço base
+              ({fmt(basePrice)}/folha).
+            </p>
+            <div className="text-[11px] text-muted-foreground">
+              <div className="font-medium mb-1">Exemplo:</div>
+              <div className="font-mono space-y-0.5">
+                <div>1–10 folhas → R$ 1,80/folha (pequeno volume)</div>
+                <div>11–50 folhas → R$ 1,40/folha (médio)</div>
+                <div>51+ folhas (deixe Máx vazio = ∞) → R$ 1,00/folha (atacado)</div>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              ⚠️ As faixas <strong>não podem se sobrepor</strong>. Encadeie sempre:
+              a próxima Mín deve ser maior que a Máx anterior.
+            </p>
+          </div>
 
           <div className="border rounded-md overflow-hidden">
             <div className="grid grid-cols-[1fr_70px_70px_110px_36px] gap-1.5 bg-muted/40 px-2 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
