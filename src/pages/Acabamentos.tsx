@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Scissors, Plus, Trash2, Edit2, Save, X, Search } from "lucide-react";
+import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers } from "lucide-react";
+import { FinishingTiersDrawer } from "@/components/acabamentos/FinishingTiersDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,7 @@ export default function Acabamentos() {
   const [draft, setDraft] = useState<typeof emptyDraft & { id?: string }>(emptyDraft);
   const [editing, setEditing] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [tiersFor, setTiersFor] = useState<FinishingItem | null>(null);
 
   const reload = async () => {
     setLoading(true);
@@ -401,6 +403,15 @@ export default function Acabamentos() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
+                            onClick={() => setTiersFor(item)}
+                            title="Faixas por quantidade"
+                          >
+                            <Layers className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
                             onClick={() => startEdit(item)}
                           >
                             <Edit2 className="h-3.5 w-3.5" />
@@ -431,6 +442,15 @@ export default function Acabamentos() {
         title="Remover acabamento?"
         description="Esta ação não pode ser desfeita. A calculadora deixará de oferecer este item."
         confirmText="Remover"
+      />
+
+      <FinishingTiersDrawer
+        open={!!tiersFor}
+        onOpenChange={(o) => !o && setTiersFor(null)}
+        finishingId={tiersFor?.id ?? null}
+        finishingName={tiersFor?.name ?? ""}
+        basePrice={tiersFor?.price_per_sheet ?? 0}
+        onSaved={reload}
       />
     </div>
   );
