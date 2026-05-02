@@ -215,7 +215,7 @@ describe("Regra geométrica — folga lateral mínima de 10mm vs marca ARMS", ()
     expect(r.effectivePerSheet).toBe(4 + 6 * 5 + 4); // 38
   });
 
-  it("61×51 em SRA3 (margens 7/7, gap 1) — 5 colunas com slack 0.5 → 1ª/última = 4 centralizadas; miolo = 5", () => {
+  it("61×51 em SRA3 (margens 7/7, gap 1) — rotaciona p/ 51 horizontal, 5 cols ocupam 259 com slack 23.5 → todas as linhas cheias", () => {
     const r = computeLabelLayout({
       sheetW: 320, sheetH: 450,
       marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
@@ -223,9 +223,19 @@ describe("Regra geométrica — folga lateral mínima de 10mm vs marca ARMS", ()
       cutType: "plotter_quadrado",
     });
     expect(r.best.cols).toBe(5);
-    expect(r.cellsPerRow[0]).toBe(4);
-    expect(r.cellsPerRow[r.best.rows - 1]).toBe(4);
-    expect(r.cellsPerRow.slice(1, -1).every((c) => c === 5)).toBe(true);
+    expect(r.cellsPerRow.every((c) => c === 5)).toBe(true);
+  });
+
+  it("61×51 em SRA3 com margem lateral baixa (3mm) gap 1 — 5 cols ocupam 259, usableW=314 slack=27.5 → cheia; força não-rotação para testar", () => {
+    // Usa labelW=61 forçado: sheetH menor que sheetW para evitar rotação
+    const r = computeLabelLayout({
+      sheetW: 320, sheetH: 200,
+      marginTop: 7, marginBottom: 7, marginLeft: 7, marginRight: 7,
+      gap: 1, labelW: 61, labelH: 51,
+      cutType: "plotter_quadrado",
+    });
+    // Aqui best deve usar 61 horizontal: floor((306+1)/62)=4 cols, slack=(306-247)/2=29.5 ≥10
+    expect(r.cellsPerRow.every((c) => c === r.best.cols)).toBe(true);
   });
 });
 
