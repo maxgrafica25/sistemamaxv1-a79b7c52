@@ -104,9 +104,10 @@ export function markBoundingBox(mark: RegistrationMark): { x: number; y: number;
     return { x: x - arm, y: y - 0.1, w: arm * 2, h: 0.2 };
   }
   if (kind === "cross") {
-    const hw = CROSS_HORIZ_LEN_MM / 2;
     const hh = CROSS_VERT_LEN_MM / 2;
-    return { x: x - hw, y: y - hh, w: hw * 2, h: hh * 2 };
+    const inward = corner === "br" ? -1 : 1;
+    const xMin = inward > 0 ? x : x - CROSS_HORIZ_LEN_MM;
+    return { x: xMin, y: y - hh, w: CROSS_HORIZ_LEN_MM, h: hh * 2 };
   }
   // L: braços apontam para fora (TL=-x/-y, TR=+x/-y, BL=-x/+y, BR=+x/+y)
   const sx = corner === "tl" || corner === "bl" ? -1 : 1;
