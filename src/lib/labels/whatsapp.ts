@@ -61,7 +61,7 @@ export function formatWhatsAppQuote(input: WhatsAppQuoteInput): string {
     "Olá! Segue orçamento de etiquetas:",
     "",
     `📋 Pedido: ${formatInt(qty)} un · ${desc}`,
-    `💰 Total: ${formatBRL(pricing.totalPrice)} (${formatBRL(pricing.unitPrice)}/un)`,
+    `💰 Total: ${formatBRL(pricing.totalPrice)}`,
   ];
 
   // Demais faixas (ancoragem) — todas exceto a tier solicitada (qty atual).
