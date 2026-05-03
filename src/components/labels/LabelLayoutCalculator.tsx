@@ -746,6 +746,35 @@ export function LabelLayoutCalculator({
           </ToggleGroup>
         </Card>
 
+        {/* 2.1 Tipo de corte — Plotter vs Guilhotina */}
+        <Card className="p-3">
+          <Label className="text-xs text-muted-foreground mb-2 block">Tipo de corte</Label>
+          <ToggleGroup
+            type="single"
+            value={cutMode}
+            onValueChange={(v) => v && setCutMode(v as "plotter" | "guilhotina")}
+            className="grid grid-cols-2 gap-1.5"
+          >
+            <ToggleGroupItem
+              value="plotter"
+              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+            >
+              Plotter (SignMaster)
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="guilhotina"
+              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+            >
+              Guilhotina
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <p className="text-[10px] text-muted-foreground mt-2">
+            {cutMode === "guilhotina"
+              ? `Margens fixas de ${GUILLOTINE_MARGIN_MM}mm e sangria de ${GUILLOTINE_GAP_MM}mm entre peças. Sem marcas de registro.`
+              : "Cálculo paramétrico SignMaster com marcas de registro automáticas."}
+          </p>
+        </Card>
+
         <Card className="p-4 space-y-4">
           <h3 className="text-sm font-semibold">Simulador</h3>
 
