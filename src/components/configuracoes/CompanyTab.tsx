@@ -179,6 +179,21 @@ export default function CompanyTab({ isAdmin }: Props) {
             </div>
           </div>
 
+          <div className="space-y-2 max-w-xs">
+            <Label htmlFor="default_validity">Validade padrão dos orçamentos (dias)</Label>
+            <Input
+              id="default_validity"
+              type="number"
+              min={1}
+              value={form.default_quote_validity_days}
+              onChange={(e) => setForm((f) => ({ ...f, default_quote_validity_days: e.target.value }))}
+              disabled={!isAdmin}
+            />
+            <p className="text-xs text-muted-foreground">
+              Valor sugerido ao criar um novo orçamento. O vendedor pode ajustar caso a caso (ex.: licitação 60 dias).
+            </p>
+          </div>
+
           {isAdmin && (
             <div className="pt-2">
               <Button onClick={handleSave} disabled={saving || loading} className="gap-2">
