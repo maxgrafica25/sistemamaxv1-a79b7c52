@@ -8,6 +8,7 @@ import { Building2, Save, Loader2, Info, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanySettings, sanitizePhone } from "@/hooks/useCompanySettings";
+import FreightTypesCard from "./FreightTypesCard";
 
 const formatPhoneDisplay = (digits: string) => {
   const d = digits.replace(/\D/g, "");
@@ -204,6 +205,8 @@ export default function CompanyTab({ isAdmin }: Props) {
           )}
         </CardContent>
       </Card>
+
+      <FreightTypesCard isAdmin={isAdmin} />
     </div>
   );
 }

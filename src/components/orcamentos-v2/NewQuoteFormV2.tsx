@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   Plus, X, Wrench, Check, User,
   Printer, Loader2, Link2, Lock, AlertTriangle, Megaphone, Layers,
-  History, ChevronDown, ChevronUp,
+  History, ChevronDown, ChevronUp, EyeOff, Tags,
 } from "lucide-react";
 import { CVItemCard, type CVItemState } from "@/components/orcamentos-v2/CVItemCard";
 import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
@@ -34,6 +34,8 @@ import { PrintingItemEditor } from "@/components/orcamentos-v2/PrintingItemEdito
 import { LaborAndSupplySubform, type SubformLabor, type SubformMaterial } from "@/components/orcamentos-v2/LaborAndSupplySubform";
 import { buildDynamicTitle } from "@/lib/quotes-v2/item-title";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { TagInput } from "@/components/ui/TagInput";
+import { FreightSelector } from "@/components/orcamentos-v2/FreightSelector";
 
 interface Props {
   quoteId?: string;
@@ -75,6 +77,12 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [profitMargin, setProfitMargin] = useState("33");
   const [mainQuantity, setMainQuantity] = useState<number | "">("");
   const [notes, setNotes] = useState("");
+  const [attentionTo, setAttentionTo] = useState("");
+  const [hiddenExtras, setHiddenExtras] = useState<number>(0);
+  const [freightValue, setFreightValue] = useState<number>(0);
+  const [freightTypeId, setFreightTypeId] = useState<string | null>(null);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
 
   const [labor, setLabor] = useState<SubformLabor[]>([]);
   const [materials, setMaterials] = useState<SubformMaterial[]>([]);
@@ -270,6 +278,11 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         setProfitMargin(q.profit_margin || "33");
         setMainQuantity(((q as any).main_quantity ?? "") as number | "");
         setNotes((q as any).notes || "");
+        setAttentionTo(((q as any).attention_to as string) || "");
+        setHiddenExtras(Number((q as any).hidden_extras_value) || 0);
+        setFreightValue(Number((q as any).freight_value) || 0);
+        setFreightTypeId(((q as any).freight_type_id as string) || null);
+        setTags(Array.isArray((q as any).tags) ? ((q as any).tags as string[]) : []);
         setDiscountValue(q.discount_value);
         setDiscountType((q.discount_type as DiscountType) || "brl");
         setPaymentMethod(q.payment_method || "");
@@ -343,6 +356,12 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       setValidity(String(defDays));
     }
 
+    // Carrega sugestões de tags já usadas em outros orçamentos
+    const { data: tagsData } = await supabase.from("quotes").select("tags").not("tags", "is", null).limit(500);
+    const allTags = new Set<string>();
+    (tagsData || []).forEach((row: any) => (row.tags || []).forEach((t: string) => t && allTags.add(t)));
+    setTagSuggestions(Array.from(allTags).sort());
+
     setLoadingInit(false);
   }, [quoteId, defaultQuoteValidityDays]);
 
@@ -371,7 +390,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     markupTiers,
     categoryDefaultGroupId: categoryGroups,
     baseQuantity: 1,
-  }), [labor, materials, thirdParty, globalSettings, profitMargin, hourlyRate, markupTiers, categoryGroups]);
+    hiddenExtrasValue: hiddenExtras || 0,
+    freightValue: freightValue || 0,
+  }), [labor, materials, thirdParty, globalSettings, profitMargin, hourlyRate, markupTiers, categoryGroups, hiddenExtras, freightValue]);
 
   const live = useMemo(() => recalculateForQuantity(snapshot, 1), [snapshot]);
 
@@ -485,6 +506,11 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         profit_margin: profitMargin,
         main_quantity: typeof mainQuantity === "number" && mainQuantity > 0 ? mainQuantity : null,
         notes: notes.trim() || null,
+        attention_to: attentionTo.trim() || null,
+        hidden_extras_value: hiddenExtras || 0,
+        freight_value: freightValue || 0,
+        freight_type_id: freightTypeId,
+        tags,
         discount_value: discountValue,
         discount_type: discountValue ? discountType : null,
         payment_method: paymentMethod || null,
@@ -801,10 +827,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             />
           </div>
 
-          {/* Cabeçalho compacto: Nº · Cliente · Validade */}
-          <div className="grid grid-cols-1 md:grid-cols-[160px_1fr_140px] gap-4">
+          {/* Cabeçalho compacto: Nº · Cliente · Aos cuidados de · Validade */}
+          <div className="grid grid-cols-1 md:grid-cols-[140px_1fr_1fr_120px] gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Nº Orçamento</Label>
+              <Label className="text-xs">Nº</Label>
               <Input value={quoteNumber} disabled className="bg-muted h-9" />
             </div>
             <div className="space-y-1.5">
@@ -818,6 +844,15 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                   setShowClientData(false);
                   setShowLastSales(false);
                 }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Aos cuidados de</Label>
+              <Input
+                value={attentionTo}
+                onChange={(e) => setAttentionTo(e.target.value)}
+                placeholder="Nome do contato"
+                className="h-9"
               />
             </div>
             <div className="space-y-1.5">
@@ -1046,6 +1081,53 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             />
           </div>
 
+          {/* Frete + Outros valores */}
+          <Separator className="my-8" />
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Frete & Outros</h2>
+            <FreightSelector
+              freightTypeId={freightTypeId}
+              freightValue={freightValue}
+              onChange={({ freightTypeId: t, freightValue: v }) => {
+                setFreightTypeId(t);
+                setFreightValue(v);
+              }}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Cadastre tipos de frete em <strong>Configurações → Empresa</strong>.
+            </p>
+
+            <div className="space-y-1.5 max-w-sm">
+              <Label className="text-xs flex items-center gap-1.5">
+                <EyeOff className="h-3.5 w-3.5" /> Outros valores (oculto no orçamento)
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={hiddenExtras || ""}
+                onChange={(e) => setHiddenExtras(parseFloat(e.target.value) || 0)}
+                placeholder="0,00"
+                className="h-9"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Acrescido ao total final mas <strong>não aparece</strong> no PDF/visualização do cliente.
+              </p>
+            </div>
+          </div>
+
+          {/* Marcadores */}
+          <Separator className="my-8" />
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Tags className="h-5 w-5 text-primary" /> Marcadores
+            </h2>
+            <p className="text-xs text-muted-foreground -mt-1">
+              Tags para relatórios e pesquisas futuras (ex.: licitação, recorrente, evento).
+            </p>
+            <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} />
+          </div>
+
+          {/* Ancoragem completa — recalculada com extras+frete */}
           <Separator className="my-8" />
           <QuoteOptionsBuilder
             snapshot={snapshot}

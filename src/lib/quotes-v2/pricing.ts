@@ -65,6 +65,10 @@ export interface PricingSnapshot {
   categoryDefaultGroupId: Record<string, string | null>;
   // base quantity the snapshot was originally created at (default 1 per unit)
   baseQuantity: number;
+  // Extras somados ao total final APÓS o markup (não entram na base de cálculo).
+  // Aplicados em todas as opções de ancoragem (inclusive na base) para coerência.
+  hiddenExtrasValue?: number; // some valor "outros" — não aparece ao cliente
+  freightValue?: number;      // valor de frete — aparece ao cliente
 }
 
 export interface PricingResult {
@@ -228,7 +232,8 @@ export const recalculateForQuantity = (
   const collection = valueWithMarkup * (collectionPct / 100);
   const profit = valueWithMarkup * (profitMarginPct / 100);
 
-  const totalToCharge = printingTotal + valueWithMarkup;
+  const extras = (snap.hiddenExtrasValue ?? 0) + (snap.freightValue ?? 0);
+  const totalToCharge = printingTotal + valueWithMarkup + extras;
   const unitPrice = qty > 0 ? totalToCharge / qty : totalToCharge;
 
   const effectiveMarginPct = totalToCharge > 0 ? (profit / totalToCharge) * 100 : 0;
