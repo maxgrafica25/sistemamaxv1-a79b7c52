@@ -429,7 +429,7 @@ export function LabelLayoutCalculator({
   // Estima folhas SEM depender do preço (é puramente geométrico) — alimenta o
   // hook de pricing para resolver a faixa de quantidade do acabamento.
   const estimatedSheets = perSheet > 0 ? Math.ceil(qty / perSheet) : 0;
-  const folhaPricing = useFolhaPricing(pricingSizeKey, estimatedSheets);
+  const folhaPricing = useFolhaPricing(pricingSizeKey, estimatedSheets, sheetSizeKey);
   const pricePerSheet = folhaPricing.total;
   const pricing = computeSheetPricing({
     pricePerSheet,
