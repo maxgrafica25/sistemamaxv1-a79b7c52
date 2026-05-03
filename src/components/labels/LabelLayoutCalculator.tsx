@@ -203,8 +203,7 @@ export function LabelLayoutCalculator({
   const [favPopoverOpen, setFavPopoverOpen] = useState(false);
   const [favName, setFavName] = useState("");
 
-  // ---- Ajuste fino das marcas ARMS (não persiste — por job) ---------------
-  const [marksOffsetY, setMarksOffsetY] = useState(0);
+  // ---- Geração de PDF ----------------------------------------------------
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
   // ---- Tiers customizadas pro card de Sugestões de venda -----------------
