@@ -1454,6 +1454,7 @@ export function LabelLayoutCalculator({
                     height: labelH,
                     ladder,
                     qty,
+                    paperKind: folhaPricing.paperKind,
                     sheetSize: sheetSizeKey,
                     printingLabel: folhaPricing.selectedPrinting?.label ?? null,
                     finishingLabel: folhaPricing.selectedFinishing.id ? folhaPricing.selectedFinishing.label : null,
