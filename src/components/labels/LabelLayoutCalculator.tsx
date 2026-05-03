@@ -1580,6 +1580,8 @@ interface SheetPreviewProps {
   cellsPerRow: number[];
   marksOffsetY: number;
   paramLayout: ReturnType<typeof computeSignmasterLayout> | null;
+  cutMode: "plotter" | "guilhotina";
+  guillotineLayout: GuillotineLayout | null;
 }
 
 function SheetPreview({
