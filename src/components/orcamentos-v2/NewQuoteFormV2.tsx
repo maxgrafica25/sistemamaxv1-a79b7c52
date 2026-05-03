@@ -772,8 +772,37 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                        placeholder:text-primary/30"
           />
 
-          {/* Cabeçalho ultra-compacto: 4 colunas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Quantidade desejada + chips de ancoragem */}
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
+            <div className="flex items-end gap-3 flex-wrap">
+              <div className="space-y-1">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Quantidade desejada
+                </Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={mainQuantity === "" ? "" : mainQuantity}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setMainQuantity(v === "" ? "" : Math.max(0, Math.floor(Number(v) || 0)));
+                  }}
+                  placeholder="Ex: 1000"
+                  className="h-11 w-40 text-xl font-bold text-primary"
+                />
+              </div>
+              <span className="text-sm text-muted-foreground pb-3">unidades</span>
+            </div>
+            <QuoteOptionsBuilder
+              variant="chips"
+              snapshot={snapshot}
+              options={options}
+              onChange={setOptions}
+            />
+          </div>
+
+          {/* Cabeçalho compacto: Nº · Cliente · Validade */}
+          <div className="grid grid-cols-1 md:grid-cols-[160px_1fr_140px] gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs">Nº Orçamento</Label>
               <Input value={quoteNumber} disabled className="bg-muted h-9" />
@@ -793,11 +822,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Validade (dias)</Label>
-              <Input type="number" value={validity} onChange={(e) => setValidity(e.target.value)} className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Margem de lucro (%)</Label>
-              <Input type="number" step="0.01" value={profitMargin} onChange={(e) => setProfitMargin(e.target.value)} className="h-9" />
+              <Input
+                type="number"
+                min={1}
+                value={validity}
+                onChange={(e) => setValidity(e.target.value)}
+                className="h-9"
+              />
             </div>
           </div>
 
