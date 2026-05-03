@@ -788,7 +788,6 @@ export function LabelLayoutCalculator({
           </p>
         </Card>
 
-        </Card>
 
         {/* 2.2 Materiais e acabamento — escolha do papel/adesivo, impressão e acabamento */}
         <Card className="p-4 space-y-3">
