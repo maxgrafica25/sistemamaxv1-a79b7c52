@@ -379,7 +379,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     markupTiers,
     categoryDefaultGroupId: categoryGroups,
     baseQuantity: 1,
-  }), [labor, materials, thirdParty, globalSettings, profitMargin, hourlyRate, markupTiers, categoryGroups]);
+    hiddenExtrasValue: hiddenExtras || 0,
+    freightValue: freightValue || 0,
+  }), [labor, materials, thirdParty, globalSettings, profitMargin, hourlyRate, markupTiers, categoryGroups, hiddenExtras, freightValue]);
 
   const live = useMemo(() => recalculateForQuantity(snapshot, 1), [snapshot]);
 
