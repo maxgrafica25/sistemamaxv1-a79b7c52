@@ -332,6 +332,15 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       const count = (existing || []).filter((q: any) => q.quote_number.startsWith(String(year))).length;
       setQuoteNumber(`${year}-${String(count + 1).padStart(3, "0")}`);
       setProfitMargin(String(settingsRes.data?.default_margin_pct ?? 33));
+
+      // Validade default puxada das configurações da empresa
+      const { data: companyRow } = await supabase
+        .from("company_settings")
+        .select("default_quote_validity_days")
+        .limit(1)
+        .maybeSingle();
+      const defDays = (companyRow as any)?.default_quote_validity_days ?? defaultQuoteValidityDays ?? 15;
+      setValidity(String(defDays));
     }
 
     setLoadingInit(false);
