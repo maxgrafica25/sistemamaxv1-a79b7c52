@@ -309,6 +309,13 @@ export function LabelLayoutCalculator({
     return m?.id ?? "SRA3";
   }, [config.sheetW, config.sheetH]);
 
+  // Mapeia o tamanho de exibição para o tamanho usado nas tabelas de preço.
+  // SRA3 e Formatão são variações do A3 → usam a mesma faixa de preço.
+  const pricingSizeKey = useMemo(() => {
+    if (sheetSizeKey === "SRA3" || sheetSizeKey === "Formatao") return "A3";
+    return sheetSizeKey;
+  }, [sheetSizeKey]);
+
   // O hook é chamado mais abaixo (após calcular perSheet) para que o preço/folha
   // do acabamento já considere a quantidade de folhas necessárias (faixas).
 
@@ -422,7 +429,7 @@ export function LabelLayoutCalculator({
   // Estima folhas SEM depender do preço (é puramente geométrico) — alimenta o
   // hook de pricing para resolver a faixa de quantidade do acabamento.
   const estimatedSheets = perSheet > 0 ? Math.ceil(qty / perSheet) : 0;
-  const folhaPricing = useFolhaPricing(sheetSizeKey, estimatedSheets);
+  const folhaPricing = useFolhaPricing(pricingSizeKey, estimatedSheets);
   const pricePerSheet = folhaPricing.total;
   const pricing = computeSheetPricing({
     pricePerSheet,
