@@ -232,7 +232,8 @@ export const recalculateForQuantity = (
   const collection = valueWithMarkup * (collectionPct / 100);
   const profit = valueWithMarkup * (profitMarginPct / 100);
 
-  const totalToCharge = printingTotal + valueWithMarkup;
+  const extras = (snap.hiddenExtrasValue ?? 0) + (snap.freightValue ?? 0);
+  const totalToCharge = printingTotal + valueWithMarkup + extras;
   const unitPrice = qty > 0 ? totalToCharge / qty : totalToCharge;
 
   const effectiveMarginPct = totalToCharge > 0 ? (profit / totalToCharge) * 100 : 0;
