@@ -429,7 +429,11 @@ export function LabelLayoutCalculator({
     qtyRequested: qty,
     perSheet,
   });
-  const ladder = buildAnchoringLadder(qty, perSheet, pricePerSheet);
+  const extraLadderQtys = useMemo(
+    () => [...defaultExtraQtys(qty), ...customQtys],
+    [qty, customQtys],
+  );
+  const ladder = buildAnchoringLadder(qty, perSheet, pricePerSheet, extraLadderQtys);
   const shrink = perSheet > 0
     ? (isParametric
         ? findSignmasterShrinkOpportunity(
