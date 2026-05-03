@@ -56,6 +56,54 @@ export function QuoteOptionsBuilder({ snapshot, options, onChange, variant = "fu
   // Show delta vs smallest option (same logic the buyer perceives)
   const baseUnit = options[0]?.unit_price ?? 0;
 
+  if (variant === "chips") {
+    return (
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground">
+          Outras quantidades a cotar (ancoragem)
+        </Label>
+        <div className="flex flex-wrap items-center gap-2">
+          {options.map((opt) => (
+            <Badge
+              key={opt.id}
+              variant="outline"
+              className="gap-1.5 py-1 pl-2.5 pr-1 text-xs font-medium"
+            >
+              {opt.quantity.toLocaleString("pt-BR")} un · {formatBRL(opt.unit_price)}
+              <button
+                type="button"
+                onClick={() => removeOption(opt.id)}
+                className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive hover:text-destructive-foreground"
+                aria-label="Remover"
+              >
+                <Trash2 className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          ))}
+          <div className="flex items-center gap-1">
+            <Input
+              type="number"
+              min={1}
+              value={newQty}
+              onChange={(e) => setNewQty(e.target.value)}
+              placeholder="Ex: 500"
+              className="h-8 w-24 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addOption();
+                }
+              }}
+            />
+            <Button type="button" size="sm" variant="ghost" onClick={addOption} className="h-8 gap-1 px-2">
+              <Plus className="h-3.5 w-3.5" /> add
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Card className="border-border/60">
       <CardContent className="p-5 space-y-4">
