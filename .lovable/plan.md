@@ -1,66 +1,111 @@
-## Ajustes no módulo Orçamentos V2 — tabela de itens
+## Objetivo
 
-### 1. Menu "+ adicionar item" simplificado
+Bifurcar a Calculadora de Etiquetas em dois modos de corte: **Plotter (SignMaster)** — comportamento atual — e **Guilhotina** — novo motor com margens fixas de 5 mm, gap de 3 mm e teste automático de orientação. O modo é apenas estado de UI (não persiste em config).
 
-Manter apenas dois tipos no dropdown principal:
-- **Impressão** — abre busca do catálogo de impressão (como hoje).
-- **Acabamento / Processo** — adiciona uma linha de processo de produção.
+**RESPEITAR o layout atual de 2 colunas** (`grid gap-6 lg:grid-cols-2`). Nenhuma alteração estrutural no grid da página. A Coluna da Esquerda (Painel de Controle) recebe o novo Card do `ToggleGroup` de "Tipo de corte"; a Coluna da Direita (Preview + ações) continua intacta — apenas componentes internos recebem a lógica de bifurcação.
 
-Remover do menu: "Material / Insumo" e "Serviço terceirizado" (continuam existindo internamente para edições antigas, mas não são mais ofertados como opção de criação na tabela principal — se necessário, viram um sub-menu "Mais…" recolhido).
+## Arquivos a modificar
 
-### 2. Linha de Acabamento → Processo de Produção
+### 1. `src/lib/labels/guilhotina.ts` (novo)
 
-Quando o usuário clica em **Acabamento**, abre um sub-menu com duas opções:
-- **Etapa individual** — abre popover com busca nas etapas cadastradas em `production_steps` (Processos de Produção → Etapas). Ao selecionar, preenche descrição, tempo (min) e tipo automaticamente.
-- **Grupo de etapas** — abre popover com busca em `step_groups`. Ao selecionar, insere **N linhas** (uma por item do grupo) já preenchidas, marcadas visualmente como pertencentes ao mesmo grupo (badge com nome do grupo).
+Motor puro, independente da config:
 
-A linha continua editável inline (descrição, minutos, tipo). Cálculo: `(min/60) × hourlyRate`, igual ao atual.
+```ts
+export const GUILLOTINE_MARGIN_MM = 5;
+export const GUILLOTINE_GAP_MM = 3;
 
-### 3. Busca avançada contextual
-
-O link **"busca avançada de itens"** passa a ser contextual:
-- Por padrão (sem contexto) abre busca de **Impressão**.
-- Substituir por dois links lado-a-lado: **buscar impressão** e **buscar etapa/grupo**, cada um abrindo o diálogo apropriado.
-
-Diálogo de impressão segue como está (já corrigido o tamanho).
-Novo diálogo de etapas reaproveita o mesmo layout (max-w-3xl, listagem com badge de tipo + tempo).
-
-### 4. Nome padronizado do produto (volta a aparecer)
-
-Hoje o `buildDynamicTitle` (Cartão de Visita, Folder, etc.) só era exposto no antigo `PrintingItemEditor` em modo card. Na tabela nova ele sumiu.
-
-Solução: na linha de **Impressão** da tabela, o campo "Item" deixa de ser um `<Input>` cru de descrição e vira:
-
-```
-[ Tipo de produto ▼ ]  Couchê 210 A4 F — Xerox C70
-   Folder                 (linha 2, texto menor, cinza — título técnico do catálogo)
+export interface GuillotineInput { sheetW: number; sheetH: number; labelW: number; labelH: number; }
+export interface GuillotineLayout {
+  cols: number; rows: number; total: number;
+  labelW: number; labelH: number; rotated: boolean;
+  usableW: number; usableH: number;
+  offsetX: number; offsetY: number;
+  utilizationPct: number;
+  positions: Array<{ x: number; y: number; col: number; row: number }>;
+}
+export function computeGuillotineLayout(input: GuillotineInput): GuillotineLayout;
+export function findGuillotineShrinkOpportunity(...): ShrinkSuggestion | null;
+export function findGuillotineGrowOpportunity(...): GrowSuggestion | null;
 ```
 
-- Pequeno `Select` à esquerda (ou ícone 🏷️ que abre popover) com `PRODUCT_KIND_OPTIONS` (Cartão de Visita, Folder, Panfleto, Adesivo, Outro…).
-- Quando "Outro" é escolhido, mostra um input para nome customizado.
-- O título exibido/salvo passa a ser `buildDynamicTitle({ productKind, customName, paperType, grammage, size, side, finishes: childAcabamentos })`.
-- O texto técnico do catálogo (Couchê 210 A4 F — Xerox C70) vira a segunda linha em `text-xs text-muted-foreground`.
+Algoritmo:
+- `usableW = sheetW − 10`, `usableH = sheetH − 10`.
+- Para cada orientação (W×H e H×W): `cols = floor((usableW + 3) / (lw + 3))`, idem `rows`. `total = cols·rows`.
+- Escolhe orientação com maior total (desempate: maior área usada).
+- Centraliza grade na área útil → `offsetX/offsetY`.
+- `utilizationPct = (total · lw · lh) / (usableW · usableH) · 100`.
 
-### 5. Detalhes técnicos
+### 2. `src/components/labels/LabelLayoutCalculator.tsx`
 
-Arquivos a editar:
-- `src/components/orcamentos-v2/QuoteItemsTable.tsx`
-  - Trocar `DropdownMenu` do "+ adicionar item" para os 2 tipos novos.
-  - Adicionar sub-popover de Etapa/Grupo com fetch de `production_steps` e `step_groups` (carregar via prop ou hook próprio).
-  - Renderer da linha **print**: substituir input de descrição pelo combo `ProductKind + título dinâmico` (linha dupla compacta).
-  - Renderer **labor**: aceitar agora `groupId?: string | null` para badge de grupo.
-- `src/components/orcamentos-v2/NewQuoteFormV2.tsx`
-  - Carregar `production_steps` e `step_groups` no `loadInit` e passar para `QuoteItemsTable`.
-  - Handler `onAddStep(step)` cria 1 `SubformLabor`; `onAddStepGroup(group)` cria N `SubformLabor` com `groupId` comum.
-  - Garantir que ao salvar, o `description` enviado para `quote_materials` seja o `buildDynamicTitle(...)`.
-- `src/components/orcamentos-v2/LaborAndSupplySubform.tsx` (tipo `SubformLabor`)
-  - Adicionar campo opcional `groupId?: string | null` e `groupName?: string | null` (apenas para exibição; não precisa persistir agora).
+**Estado novo (não persiste):**
+```ts
+const [cutMode, setCutMode] = useState<"plotter" | "guilhotina">("plotter");
+```
 
-Sem migração de banco — `production_steps` e `step_groups` já existem.
+**Seletor visual** — adicionar Card com `ToggleGroup` na **Coluna da Esquerda**, imediatamente após o Card de seleção rápida de folha (linhas ~667-694) e antes do Card "Simulador":
 
-### 6. Resultado esperado
+```tsx
+<Card className="p-3">
+  <Label className="text-xs text-muted-foreground mb-2 block">Tipo de corte</Label>
+  <ToggleGroup type="single" value={cutMode} onValueChange={(v) => v && setCutMode(v as any)}
+    className="grid grid-cols-2 gap-1.5">
+    <ToggleGroupItem value="plotter" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs">
+      Plotter (SignMaster)
+    </ToggleGroupItem>
+    <ToggleGroupItem value="guilhotina" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs">
+      Guilhotina
+    </ToggleGroupItem>
+  </ToggleGroup>
+</Card>
+```
 
-- Selecionar "Acabamento" não mostra mais opções de impressão.
-- Busca avançada permite escolher entre impressão e etapa/grupo.
-- "Material/Insumo" sai do menu principal.
-- Cada linha de impressão tem o seletor de "Tipo de produto" que gera o nome padronizado (Folder, Cartão de Visita, etc.) automaticamente.
+**Bifurcação do cálculo:**
+```ts
+const guillotineLayout = useMemo(
+  () => cutMode === "guilhotina"
+    ? computeGuillotineLayout({ sheetW: config.sheetW, sheetH: config.sheetH, labelW, labelH })
+    : null,
+  [cutMode, config.sheetW, config.sheetH, labelW, labelH],
+);
+```
+
+No `useMemo` que monta `layout` (linhas 401-424), priorizar `guillotineLayout` sobre `paramLayout`/`layoutGeneric`, normalizando para o mesmo shape (`best`, `usableW`, `usableH`, `utilizationPct`, `cellsPerRow`, `rowOffsets`, `effectivePerSheet`, `reservedSlots: []`).
+
+Forçar `isParametric = false` quando `cutMode === "guilhotina"` (desativa caminho SignMaster e o botão `.plt`).
+
+**Sugestões shrink/grow** (linhas 442-458): em modo guilhotina, usar `findGuillotineShrinkOpportunity` / `findGuillotineGrowOpportunity` (mesma assinatura de retorno).
+
+**`nearMissColumn`** (linhas 482-517): retornar `null` quando guilhotina (gap fixo).
+
+**Limpeza condicional de UI na Coluna da Direita** (`cutMode === "guilhotina"`):
+- Esconder banner SignMaster (linhas 927-934) → wrap em `{cutMode === "plotter" && (...)}`.
+- Esconder Badge "−N (zona de segurança 10mm)" (linhas 962-967) → adicionar `cutMode === "plotter"` à condição.
+- Texto "área útil … gap …" reflete 5 mm/3 mm em modo guilhotina.
+- Botão "Baixar faca .plt" some automaticamente (já condicionado a `isParametric`).
+
+**Preview SVG (`SheetPreview`):**
+
+Adicionar props `cutMode` e `guillotineLayout`. Quando `cutMode === "guilhotina"`:
+- Não renderizar marcas L/T.
+- Renderizar retângulo da folha + retângulo pontilhado da área útil (offset 5 mm).
+- Renderizar peças em `guillotineLayout.positions` (round → círculo, demais → retângulo).
+- Não renderizar `reservedSlots`.
+
+### 3. Card de orçamento
+
+**Sem mudanças estruturais.** `perSheet` já vem de `layout.effectivePerSheet`, então cálculo de folhas e total funcionam automaticamente.
+
+## Critérios de aceite
+
+- Grid `grid gap-6 lg:grid-cols-2` **preservado**.
+- Toggle "Plotter / Guilhotina" aparece na Coluna da Esquerda, padrão Plotter.
+- Em Plotter: comportamento atual idêntico (testes SignMaster continuam passando).
+- Em Guilhotina: peça 50×30 mm em SRA3 (320×450) → área útil 310×440, testa as duas orientações; preview mostra apenas folha + área útil pontilhada + grid com gap 3 mm.
+- Banner SignMaster, badge de zona de segurança e botão `.plt` somem em modo guilhotina.
+- Card de orçamento recalcula `sheetsNeeded` e total usando o novo `perSheet`.
+
+## Fora de escopo
+
+- Persistir `cutMode` em `LabelCalcConfig`.
+- Geração de PDF/.plt específica para guilhotina.
+- Qualquer alteração no grid da página, paleta ou tipografia.

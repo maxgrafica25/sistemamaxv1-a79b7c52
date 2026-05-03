@@ -64,6 +64,14 @@ import { toast } from "sonner";
 import { LabelCalcSettingsDialog } from "./LabelCalcSettingsDialog";
 import { suggestMarksOffset, buildCornerMarks, markSegments, MARK_ARM_MM, CROSS_VERT_LEN_MM } from "@/lib/labels/marks";
 import { computeSignmasterLayout, computeSignmasterMarks, findSignmasterShrinkOpportunity, findSignmasterGrowOpportunity, SM_REG_MARK_MARGIN, SM_LABEL_SPACING } from "@/lib/labels/signmaster-spec";
+import {
+  computeGuillotineLayout,
+  findGuillotineShrinkOpportunity,
+  findGuillotineGrowOpportunity,
+  GUILLOTINE_MARGIN_MM,
+  GUILLOTINE_GAP_MM,
+  type GuillotineLayout,
+} from "@/lib/labels/guilhotina";
 import { generateSignmasterPlt, downloadPlt } from "@/lib/labels/plt-export";
 import { generateProductionPDF, downloadPDF } from "@/lib/labels/production-pdf";
 import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
@@ -192,6 +200,9 @@ export function LabelLayoutCalculator({
   const [labelW, setLabelW] = useState(defaultLabelW);
   const [labelH, setLabelH] = useState(defaultLabelH);
   const [qty, setQty] = useState(defaultQty);
+
+  // ---- Tipo de corte (não persiste) ---------------------------------------
+  const [cutMode, setCutMode] = useState<"plotter" | "guilhotina">("plotter");
 
   // ---- Imagem opcional (só em memória) ------------------------------------
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
@@ -362,6 +373,7 @@ export function LabelLayoutCalculator({
   // real e aplica a regra de remoção da 1ª linha para maximizar o
   // aproveitamento — ex.: Ø38mm gap 0 → 87 etiquetas).
   const isParametric =
+    cutMode === "plotter" &&
     config.hardwareProfileId === "signmaster_param" &&
     config.cutType === "plotter_redondo" &&
     shape === "redondo" &&
@@ -373,6 +385,14 @@ export function LabelLayoutCalculator({
       ? computeSignmasterLayout({ sheetW: config.sheetW, sheetH: config.sheetH, labelDiameter: labelW })
       : null,
     [isParametric, config.sheetW, config.sheetH, labelW],
+  );
+
+  // ---- Layout em modo Guilhotina ------------------------------------------
+  const guillotineLayout: GuillotineLayout | null = useMemo(
+    () => cutMode === "guilhotina"
+      ? computeGuillotineLayout({ sheetW: config.sheetW, sheetH: config.sheetH, labelW, labelH })
+      : null,
+    [cutMode, config.sheetW, config.sheetH, labelW, labelH],
   );
 
   // ---- Cálculos ------------------------------------------------------------
@@ -399,6 +419,27 @@ export function LabelLayoutCalculator({
   // No modo paramétrico, sobrescrevemos o resultado do layout genérico
   // mantendo a mesma forma de objeto para reuso do código abaixo.
   const layout = useMemo(() => {
+    if (guillotineLayout) {
+      const { cols, rows, total, usableW, usableH, utilizationPct, rotated, labelW: lw, labelH: lh, offsetX, offsetY } = guillotineLayout;
+      const cellsPerRow = Array.from({ length: rows }, () => cols);
+      // rowOffsets em mm a partir da borda esquerda da folha.
+      const rowOffsets = Array.from({ length: rows }, () => offsetX);
+      return {
+        ...layoutGeneric,
+        best: { cols, rows, total, rotated },
+        optionA: { cols, rows, total, rotated: false },
+        optionB: { cols: 0, rows: 0, total: 0, rotated: true },
+        usableW,
+        usableH,
+        utilizationPct,
+        reservedSlots: [],
+        cellsPerRow,
+        rowOffsets,
+        effectivePerSheet: total,
+        // Sobrescreve dimensões efetivas para os consumidores
+        _guillotineEffective: { labelW: lw, labelH: lh, offsetX, offsetY },
+      };
+    }
     if (!paramLayout) return layoutGeneric;
     const cols = paramLayout.labelsPerRow;
     const rows = paramLayout.labelsPerColumn;
@@ -421,7 +462,7 @@ export function LabelLayoutCalculator({
       rowOffsets,
       effectivePerSheet: paramLayout.total,
     };
-  }, [paramLayout, layoutGeneric, labelW, labelH, config.sheetW, config.sheetH]);
+  }, [guillotineLayout, paramLayout, layoutGeneric, labelW, labelH, config.sheetW, config.sheetH]);
 
   const perSheet = layout.effectivePerSheet;
   // Estima folhas SEM depender do preço (é puramente geométrico) — alimenta o
@@ -440,7 +481,13 @@ export function LabelLayoutCalculator({
   );
   const ladder = buildAnchoringLadder(qty, perSheet, folhaPricing.totalForSheets, extraLadderQtys);
   const shrink = perSheet > 0
-    ? (isParametric
+    ? (cutMode === "guilhotina"
+        ? findGuillotineShrinkOpportunity(
+            { sheetW: config.sheetW, sheetH: config.sheetH, labelW, labelH },
+            perSheet,
+            pricing.sheetsNeeded || 1,
+          )
+        : isParametric
         ? findSignmasterShrinkOpportunity(
             { sheetW: config.sheetW, sheetH: config.sheetH, labelDiameter: labelW },
             perSheet,
@@ -449,7 +496,12 @@ export function LabelLayoutCalculator({
         : findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1))
     : null;
   const grow = perSheet > 0
-    ? (isParametric
+    ? (cutMode === "guilhotina"
+        ? findGuillotineGrowOpportunity(
+            { sheetW: config.sheetW, sheetH: config.sheetH, labelW, labelH },
+            perSheet,
+          )
+        : isParametric
         ? findSignmasterGrowOpportunity(
             { sheetW: config.sheetW, sheetH: config.sheetH, labelDiameter: labelW },
             perSheet,
@@ -480,6 +532,7 @@ export function LabelLayoutCalculator({
   // coluna inteira, ajuda o usuário a entender por que reduzir o gap (ou a
   // etiqueta em poucos mm) destrava uma coluna nova.
   const nearMissColumn = useMemo(() => {
+    if (cutMode === "guilhotina") return null;
     const cols = layout.best.cols;
     if (cols <= 0 || perSheet <= 0) return null;
     const lblW = layout.best.rotated ? labelH : labelW;
@@ -514,7 +567,7 @@ export function LabelLayoutCalculator({
       suggestedGap,
       extraPerSheet: extraRows, // +1 coluna × n linhas
     };
-  }, [layout.best.cols, layout.best.rows, layout.best.rotated, layout.usableW, labelW, labelH, effectiveGap, perSheet, isParametric, config.sheetW]);
+  }, [cutMode, layout.best.cols, layout.best.rows, layout.best.rotated, layout.usableW, labelW, labelH, effectiveGap, perSheet, isParametric, config.sheetW]);
 
   const applyNearMissGap = () => {
     if (!nearMissColumn) return;
@@ -691,6 +744,35 @@ export function LabelLayoutCalculator({
               Outro…
             </ToggleGroupItem>
           </ToggleGroup>
+        </Card>
+
+        {/* 2.1 Tipo de corte — Plotter vs Guilhotina */}
+        <Card className="p-3">
+          <Label className="text-xs text-muted-foreground mb-2 block">Tipo de corte</Label>
+          <ToggleGroup
+            type="single"
+            value={cutMode}
+            onValueChange={(v) => v && setCutMode(v as "plotter" | "guilhotina")}
+            className="grid grid-cols-2 gap-1.5"
+          >
+            <ToggleGroupItem
+              value="plotter"
+              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+            >
+              Plotter (SignMaster)
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="guilhotina"
+              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+            >
+              Guilhotina
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <p className="text-[10px] text-muted-foreground mt-2">
+            {cutMode === "guilhotina"
+              ? `Margens fixas de ${GUILLOTINE_MARGIN_MM}mm e sangria de ${GUILLOTINE_GAP_MM}mm entre peças. Sem marcas de registro.`
+              : "Cálculo paramétrico SignMaster com marcas de registro automáticas."}
+          </p>
         </Card>
 
         <Card className="p-4 space-y-4">
@@ -924,14 +1006,26 @@ export function LabelLayoutCalculator({
       {/* ============================== RESULTADOS ============================== */}
       <div className="space-y-4">
         {/* Banner: parametrização SignMaster */}
-        <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-primary flex items-start gap-2">
-          <Settings2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-          <span>
-            Parametrização baseada nas configurações do <strong>SignMaster</strong>{" "}
-            (margens 7&nbsp;mm, gap 3&nbsp;mm, marcas L + T). As marcas de registro
-            são posicionadas automaticamente para não ficarem sobre as etiquetas.
-          </span>
-        </div>
+        {cutMode === "plotter" && (
+          <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-primary flex items-start gap-2">
+            <Settings2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>
+              Parametrização baseada nas configurações do <strong>SignMaster</strong>{" "}
+              (margens 7&nbsp;mm, gap 3&nbsp;mm, marcas L + T). As marcas de registro
+              são posicionadas automaticamente para não ficarem sobre as etiquetas.
+            </span>
+          </div>
+        )}
+        {cutMode === "guilhotina" && (
+          <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-primary flex items-start gap-2">
+            <Settings2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>
+              Modo <strong>Guilhotina</strong> — margens fixas de {GUILLOTINE_MARGIN_MM}&nbsp;mm em todas as bordas
+              e sangria de {GUILLOTINE_GAP_MM}&nbsp;mm entre peças. O simulador testa as duas orientações e usa a
+              de maior aproveitamento.
+            </span>
+          </div>
+        )}
 
         {/* Aproveitamento */}
         <Card className="p-4 space-y-3">
@@ -959,14 +1053,14 @@ export function LabelLayoutCalculator({
               {layout.best.rotated && <RotateCw className="h-3 w-3" />}
               {layout.best.rotated ? "Etiqueta rotacionada 90°" : "Etiqueta em pé"}
             </Badge>
-            {layout.reservedSlots.length > 0 && (
+            {cutMode === "plotter" && layout.reservedSlots.length > 0 && (
               <Badge variant="outline" className="gap-1 text-amber-700 dark:text-amber-400 border-amber-400/60">
                 <Crosshair className="h-3 w-3" />
                 −{layout.reservedSlots.length} (zona de segurança 10mm)
               </Badge>
             )}
             <span className="text-muted-foreground">
-              área útil {layout.usableW}×{layout.usableH}mm · gap {effectiveGap}mm
+              área útil {layout.usableW}×{layout.usableH}mm · gap {cutMode === "guilhotina" ? GUILLOTINE_GAP_MM : effectiveGap}mm
             </span>
           </div>
 
@@ -991,6 +1085,8 @@ export function LabelLayoutCalculator({
             cellsPerRow={layout.cellsPerRow}
             marksOffsetY={marksOffsetY}
             paramLayout={paramLayout}
+            cutMode={cutMode}
+            guillotineLayout={guillotineLayout}
           />
 
           {/* As marcas inferiores são posicionadas automaticamente pelo sistema. */}
@@ -1484,6 +1580,8 @@ interface SheetPreviewProps {
   cellsPerRow: number[];
   marksOffsetY: number;
   paramLayout: ReturnType<typeof computeSignmasterLayout> | null;
+  cutMode: "plotter" | "guilhotina";
+  guillotineLayout: GuillotineLayout | null;
 }
 
 function SheetPreview({
@@ -1491,6 +1589,7 @@ function SheetPreview({
   gap, labelW, labelH, cols, rows,
   shape, imageDataUrl, imageNaturalW, imageNaturalH,
   reservedSlots, rowOffsets, cellsPerRow, marksOffsetY, paramLayout,
+  cutMode, guillotineLayout,
 }: SheetPreviewProps) {
   const MAX = 260;
   const scale = Math.min(MAX / sheetW, MAX / sheetH);
@@ -1507,7 +1606,11 @@ function SheetPreview({
 
   // Posições efetivas (apenas etiquetas vendáveis)
   const labels: Array<{ x: number; y: number }> = [];
-  if (paramLayout) {
+  if (cutMode === "guilhotina" && guillotineLayout) {
+    for (const p of guillotineLayout.positions) {
+      labels.push({ x: p.x * scale, y: p.y * scale });
+    }
+  } else if (paramLayout) {
     for (const p of paramLayout.positions) {
       labels.push({ x: p.x * scale, y: p.y * scale });
     }
@@ -1525,12 +1628,19 @@ function SheetPreview({
     }
   }
 
-  const paramMarks = paramLayout
+  const isGuillotine = cutMode === "guilhotina";
+  const paramMarks = !isGuillotine && paramLayout
     ? computeSignmasterMarks({ sheetW, sheetH, gridBottom: paramLayout.gridBottom })
     : null;
   const bottomOffsetReal = marksOffsetY - (sheetH / 2 - marginBottom);
-  const marks = buildCornerMarks(sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight, 0, MARK_ARM_MM, bottomOffsetReal);
-  const totalSellable = paramLayout ? paramLayout.total : cellsPerRow.reduce((a, b) => a + b, 0);
+  const marks = !isGuillotine
+    ? buildCornerMarks(sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight, 0, MARK_ARM_MM, bottomOffsetReal)
+    : null;
+  const totalSellable = isGuillotine && guillotineLayout
+    ? guillotineLayout.total
+    : paramLayout
+    ? paramLayout.total
+    : cellsPerRow.reduce((a, b) => a + b, 0);
 
   return (
     <div className="flex justify-center bg-muted/30 rounded-md p-3">
@@ -1554,15 +1664,27 @@ function SheetPreview({
         </defs>
 
         <rect x="0" y="0" width={w} height={h} fill="url(#hatch)" />
-        <rect
-          x={marginLeft * scale}
-          y={marginTop * scale}
-          width={(sheetW - marginLeft - marginRight) * scale}
-          height={(sheetH - marginTop - marginBottom) * scale}
-          fill="hsl(var(--background))"
-          stroke="hsl(var(--border))"
-          strokeDasharray="3 3"
-        />
+        {isGuillotine ? (
+          <rect
+            x={5 * scale}
+            y={5 * scale}
+            width={(sheetW - 10) * scale}
+            height={(sheetH - 10) * scale}
+            fill="hsl(var(--background))"
+            stroke="hsl(var(--border))"
+            strokeDasharray="3 3"
+          />
+        ) : (
+          <rect
+            x={marginLeft * scale}
+            y={marginTop * scale}
+            width={(sheetW - marginLeft - marginRight) * scale}
+            height={(sheetH - marginTop - marginBottom) * scale}
+            fill="hsl(var(--background))"
+            stroke="hsl(var(--border))"
+            strokeDasharray="3 3"
+          />
+        )}
 
         {labels.map((l, i) => (
           <g key={i} transform={`translate(${l.x} ${l.y})`}>
@@ -1601,9 +1723,8 @@ function SheetPreview({
           </g>
         ))}
 
-        {/* Marcas de registro */}
-        {paramMarks ? (
-          // Modo paramétrico: L topo + T base, espessura 2 mm conforme spec
+        {/* Marcas de registro — apenas em modo Plotter */}
+        {!isGuillotine && paramMarks ? (
           <g stroke="black" strokeWidth={Math.max(0.6, 2 * scale)} strokeLinecap="butt" fill="none">
             {paramMarks.all.map((s, i) => (
               <line
@@ -1615,8 +1736,7 @@ function SheetPreview({
               />
             ))}
           </g>
-        ) : (
-          // Modo legado: marcas ARMS (L superiores + tick inferior)
+        ) : !isGuillotine && marks ? (
           marks.marks.map((m, i) => {
             const segs = markSegments(m);
             const cap = (m.kind === "tick" || m.kind === "cross") ? "butt" : "round";
@@ -1635,7 +1755,7 @@ function SheetPreview({
               </g>
             );
           })
-        )}
+        ) : null}
       </svg>
     </div>
   );
