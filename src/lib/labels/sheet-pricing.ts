@@ -154,12 +154,19 @@ export function pickDefaultFinishing(
 // ---------- Hook principal --------------------------------------------------
 
 export interface UseFolhaPricingResult {
+  /** Lista filtrada pelo `paperKind` atual. */
   printingOptions: PrintingOption[];
+  /** Lista completa (todos os tipos), útil para diagnóstico. */
+  allPrintingOptions: PrintingOption[];
   finishingOptions: FinishingOption[];
   selectedPrinting: PrintingOption | null;
   selectedFinishing: FinishingOption;
   setPrintingId: (id: string) => void;
   setFinishingId: (id: string | "__none__") => void;
+  paperKind: PaperKind;
+  setPaperKind: (k: PaperKind) => void;
+  /** Quais tipos têm pelo menos um item cadastrado (controla habilitação do toggle). */
+  availableKinds: PaperKind[];
   total: number;
   finishingPricePerSheet: number;
   isLoading: boolean;
@@ -231,9 +238,18 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
     },
   });
 
-  const printingOptions = printingQ.data ?? [];
+  const allPrintingOptions = printingQ.data ?? [];
   const finishingOptions = finishingQ.data ?? [NO_FINISHING];
 
+  const availableKinds: PaperKind[] = useMemo(() => {
+    const set = new Set<PaperKind>();
+    allPrintingOptions.forEach((p) => set.add(paperKindOf(p)));
+    return Array.from(set);
+  }, [allPrintingOptions]);
+
+  const [paperKind, setPaperKindState] = useState<PaperKind>(() => {
+    return loadChoices()[size]?.paperKind ?? "adesivo";
+  });
   const [printingId, setPrintingIdState] = useState<string | null>(() => {
     return loadChoices()[size]?.printingId ?? null;
   });
@@ -247,16 +263,35 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
     const c = loadChoices()[size];
     setPrintingIdState(c?.printingId ?? null);
     setFinishingIdState(c?.finishingId ?? null);
+    setPaperKindState(c?.paperKind ?? "adesivo");
     setFinishingIsAuto(false);
   }, [size]);
 
-  // Se a opção salva não existir, cai na primeira
+  // Garante que paperKind seja um disponível
+  useEffect(() => {
+    if (availableKinds.length === 0) return;
+    if (!availableKinds.includes(paperKind)) {
+      setPaperKindState(availableKinds[0]);
+    }
+  }, [availableKinds, paperKind]);
+
+  const printingOptions = useMemo(
+    () => allPrintingOptions.filter((p) => paperKindOf(p) === paperKind),
+    [allPrintingOptions, paperKind],
+  );
+
+  // Se a opção salva não existir no tipo atual, cai na primeira do tipo
   useEffect(() => {
     if (printingOptions.length === 0) return;
     if (!printingId || !printingOptions.some((p) => p.id === printingId)) {
-      setPrintingIdState(printingOptions[0].id);
+      const choices = loadChoices();
+      const lastForKind = choices[size]?.printingByKind?.[paperKind];
+      const fallback = lastForKind && printingOptions.some((p) => p.id === lastForKind)
+        ? lastForKind
+        : printingOptions[0].id;
+      setPrintingIdState(fallback);
     }
-  }, [printingOptions, printingId]);
+  }, [printingOptions, printingId, paperKind, size]);
 
   useEffect(() => {
     if (finishingOptions.length === 0) return;
@@ -266,8 +301,8 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
   }, [finishingOptions, finishingId]);
 
   const selectedPrinting = useMemo(
-    () => printingOptions.find((p) => p.id === printingId) ?? null,
-    [printingOptions, printingId],
+    () => allPrintingOptions.find((p) => p.id === printingId) ?? null,
+    [allPrintingOptions, printingId],
   );
   const selectedFinishing = useMemo(
     () => finishingOptions.find((f) => f.id === finishingId) ?? NO_FINISHING,
@@ -294,8 +329,34 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPrinting?.id, finishingOptions.length, size]);
 
+  const persistKindAndPrinting = (kind: PaperKind, pid: string | null) => {
+    if (typeof window === "undefined") return;
+    try {
+      const all = loadChoices();
+      const prev = all[size] ?? { printingId: null, finishingId: null };
+      const map = { ...(prev.printingByKind ?? {}) };
+      if (pid) map[kind] = pid;
+      all[size] = { ...prev, paperKind: kind, printingByKind: map };
+      window.localStorage.setItem(CHOICE_KEY, JSON.stringify(all));
+    } catch { /* ignore */ }
+  };
+
+  const setPaperKind = (kind: PaperKind) => {
+    setPaperKindState(kind);
+    const choices = loadChoices();
+    const lastForKind = choices[size]?.printingByKind?.[kind];
+    const candidates = allPrintingOptions.filter((p) => paperKindOf(p) === kind);
+    const next = lastForKind && candidates.some((p) => p.id === lastForKind)
+      ? lastForKind
+      : candidates[0]?.id ?? null;
+    setPrintingIdState(next);
+    persistKindAndPrinting(kind, next);
+  };
+
   const setPrintingId = (id: string) => {
     setPrintingIdState(id);
+    const found = allPrintingOptions.find((p) => p.id === id);
+    if (found) persistKindAndPrinting(paperKindOf(found), id);
     // finishing será recalculado pelo effect acima
   };
   const setFinishingId = (id: string | "__none__") => {
@@ -323,11 +384,15 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
 
   return {
     printingOptions,
+    allPrintingOptions,
     finishingOptions,
     selectedPrinting,
     selectedFinishing,
     setPrintingId,
     setFinishingId,
+    paperKind,
+    setPaperKind,
+    availableKinds,
     total,
     finishingPricePerSheet,
     isLoading,
