@@ -873,29 +873,31 @@ export function LabelLayoutCalculator({
             </div>
           )}
 
-          {/* Formato */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">Formato da etiqueta</Label>
-            <ToggleGroup
-              type="single"
-              value={shape}
-              onValueChange={handleShapeChange}
-              className="grid grid-cols-3 gap-2"
-            >
-              {(Object.keys(SHAPE_LABELS) as LabelShape[]).map((s) => (
-                <ToggleGroupItem
-                  key={s}
-                  value={s}
-                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
-                >
-                  {SHAPE_LABELS[s]}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </div>
+          {/* Formato — apenas para Plotter (Guilhotina é sempre retangular) */}
+          {cutMode === "plotter" && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Formato da etiqueta</Label>
+              <ToggleGroup
+                type="single"
+                value={shape}
+                onValueChange={handleShapeChange}
+                className="grid grid-cols-3 gap-2"
+              >
+                {(Object.keys(SHAPE_LABELS) as LabelShape[]).map((s) => (
+                  <ToggleGroupItem
+                    key={s}
+                    value={s}
+                    className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+                  >
+                    {SHAPE_LABELS[s]}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
+          )}
 
           {/* Tamanho */}
-          {shape === "personalizado" ? (
+          {cutMode === "guilhotina" || shape === "personalizado" ? (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Largura ({config.unit})</Label>
