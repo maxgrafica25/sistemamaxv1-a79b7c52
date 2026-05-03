@@ -1061,7 +1061,9 @@ export function LabelLayoutCalculator({
             </Badge>
             <Badge variant={layout.best.rotated ? "default" : "outline"} className="gap-1">
               {layout.best.rotated && <RotateCw className="h-3 w-3" />}
-              {layout.best.rotated ? "Etiqueta rotacionada 90°" : "Etiqueta em pé"}
+              {layout.best.rotated
+                ? (cutMode === "guilhotina" ? "Impresso rotacionado 90°" : "Etiqueta rotacionada 90°")
+                : (cutMode === "guilhotina" ? "Impresso em pé" : "Etiqueta em pé")}
             </Badge>
             {cutMode === "plotter" && layout.reservedSlots.length > 0 && (
               <Badge variant="outline" className="gap-1 text-amber-700 dark:text-amber-400 border-amber-400/60">
