@@ -78,3 +78,43 @@ export function formatWhatsAppQuote(input: WhatsAppQuoteInput): string {
 
   return lines.join("\n");
 }
+
+export interface LadderWhatsAppInput {
+  shape: LabelShape;
+  width: number;
+  height: number;
+  ladder: AnchoringTier[];
+  sheetSize?: string;
+  printingLabel?: string | null;
+  finishingLabel?: string | null;
+}
+
+/**
+ * Monta uma mensagem com TODAS as faixas (tabela de ancoragem) — útil para
+ * mandar opções ao cliente e deixá-lo escolher.
+ */
+export function formatLadderWhatsApp(input: LadderWhatsAppInput): string {
+  const { shape, width, height, ladder, sheetSize, printingLabel, finishingLabel } = input;
+  if (!ladder.length) return "";
+  const desc = describeLabel(shape, width, height);
+  const lines: string[] = [
+    "Olá! Segue a tabela de preços por quantidade:",
+    "",
+    `📋 Etiqueta: ${desc}${sheetSize ? ` · folha ${sheetSize}` : ""}`,
+  ];
+  if (printingLabel) lines.push(`🖨️ Impressão: ${printingLabel}`);
+  if (finishingLabel) lines.push(`✂️ Acabamento: ${finishingLabel}`);
+  lines.push("");
+
+  ladder.forEach((t) => {
+    const economy = t.unitDeltaPct < -0.5
+      ? ` (${Math.round(Math.abs(t.unitDeltaPct))}% mais barato)`
+      : "";
+    lines.push(
+      `• ${formatInt(t.qty)} un — ${formatBRL(t.total)} (${formatBRL(t.unit)}/un)${economy}`,
+    );
+  });
+
+  lines.push("", "Quanto maior a quantidade, menor o custo unitário 😉");
+  return lines.join("\n");
+}

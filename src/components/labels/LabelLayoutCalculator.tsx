@@ -3,6 +3,7 @@ import {
   computeLabelLayout,
   computeSheetPricing,
   buildAnchoringLadder,
+  defaultExtraQtys,
   findShrinkOpportunity,
   findGrowOpportunity,
   CUT_LABELS,
@@ -20,7 +21,7 @@ import {
   type LabelPreset,
 } from "@/lib/labels/config-storage";
 import { fitContain, aspectMismatch } from "@/lib/labels/image-fit";
-import { formatWhatsAppQuote, describeLabel } from "@/lib/labels/whatsapp";
+import { formatWhatsAppQuote, formatLadderWhatsApp, describeLabel } from "@/lib/labels/whatsapp";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -206,6 +207,30 @@ export function LabelLayoutCalculator({
   // ---- Ajuste fino das marcas ARMS (não persiste — por job) ---------------
   const [marksOffsetY, setMarksOffsetY] = useState(0);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  // ---- Tiers customizadas pro card de Sugestões de venda -----------------
+  const CUSTOM_LADDER_KEY = "labelCalc:customLadderQtys:v1";
+  const [customQtys, setCustomQtys] = useState<number[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem(CUSTOM_LADDER_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr.filter((n) => Number.isFinite(n) && n > 0) : [];
+    } catch { return []; }
+  });
+  const [newLadderQty, setNewLadderQty] = useState("");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.setItem(CUSTOM_LADDER_KEY, JSON.stringify(customQtys)); } catch { /* ignore */ }
+  }, [customQtys]);
+  const addCustomQty = () => {
+    const n = Math.floor(Number(newLadderQty));
+    if (!n || n < 1) { toast.error("Quantidade inválida"); return; }
+    if (customQtys.includes(n)) { toast.error("Quantidade já adicionada"); return; }
+    setCustomQtys([...customQtys, n].sort((a, b) => a - b));
+    setNewLadderQty("");
+  };
+  const removeCustomQty = (n: number) => setCustomQtys(customQtys.filter((q) => q !== n));
 
   // Quando troca de formato, mantém medidas coerentes
   const handleShapeChange = (next: string) => {
@@ -404,7 +429,11 @@ export function LabelLayoutCalculator({
     qtyRequested: qty,
     perSheet,
   });
-  const ladder = buildAnchoringLadder(qty, perSheet, pricePerSheet);
+  const extraLadderQtys = useMemo(
+    () => [...defaultExtraQtys(qty), ...customQtys],
+    [qty, customQtys],
+  );
+  const ladder = buildAnchoringLadder(qty, perSheet, pricePerSheet, extraLadderQtys);
   const shrink = perSheet > 0
     ? (isParametric
         ? findSignmasterShrinkOpportunity(
@@ -1123,6 +1152,31 @@ export function LabelLayoutCalculator({
 
           {/* Composição do preço da folha */}
           <div className="space-y-2 rounded-md border border-border bg-background/60 p-2.5">
+            {/* Toggle Adesivo / Papel */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Tipo</Label>
+              <ToggleGroup
+                type="single"
+                value={folhaPricing.paperKind}
+                onValueChange={(v) => v && folhaPricing.setPaperKind(v as "adesivo" | "papel")}
+                className="grid grid-cols-2 gap-1"
+              >
+                <ToggleGroupItem
+                  value="adesivo"
+                  disabled={!folhaPricing.availableKinds.includes("adesivo")}
+                  className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  Adesivo
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="papel"
+                  disabled={!folhaPricing.availableKinds.includes("papel")}
+                  className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  Papel
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-[11px] text-muted-foreground">Impressão (Tabela de Preços)</Label>
               {folhaPricing.printingOptions.length > 0 ? (
@@ -1308,6 +1362,7 @@ export function LabelLayoutCalculator({
             <div className="space-y-1.5 text-xs">
               {ladder.map((tier) => {
                 const isBase = tier.label === "solicitada";
+                const isCustom = customQtys.includes(tier.qty);
                 const hasPrice = pricePerSheet > 0;
                 return (
                   <div
@@ -1317,12 +1372,20 @@ export function LabelLayoutCalculator({
                       (isBase ? "bg-muted/60" : "")
                     }
                   >
-                    <div className="font-semibold tabular-nums w-16">
+                    <div className="font-semibold tabular-nums w-16 flex items-center gap-1">
                       {tier.qty} un
                     </div>
-                    <div className="text-muted-foreground tabular-nums">
-                      {tier.sheets} {tier.sheets === 1 ? "folha" : "folhas"}
-                      {hasPrice && <> · {formatBRL(tier.unit)}/un</>}
+                    <div className="text-muted-foreground tabular-nums flex items-center gap-1.5 flex-wrap">
+                      <span>
+                        {tier.sheets} {tier.sheets === 1 ? "folha" : "folhas"}
+                        {hasPrice && <> · {formatBRL(tier.unit)}/un</>}
+                      </span>
+                      {tier.label === "extra" && !isCustom && (
+                        <Badge variant="outline" className="text-[9px] uppercase tracking-wide h-4 px-1">extra</Badge>
+                      )}
+                      {isCustom && (
+                        <Badge variant="secondary" className="text-[9px] uppercase tracking-wide h-4 px-1">custom</Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 justify-end">
                       {hasPrice && (
@@ -1336,11 +1399,66 @@ export function LabelLayoutCalculator({
                       {hasPrice && !isBase && tier.unitDeltaPct === 0 && (
                         <Badge variant="outline" className="text-[10px]">0%</Badge>
                       )}
+                      {isCustom && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeCustomQty(tier.qty)}
+                          title="Remover faixa"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* Adicionar faixa customizada */}
+            <div className="flex gap-1.5 pt-1 border-t">
+              <Input
+                type="number"
+                min={1}
+                value={newLadderQty}
+                onChange={(e) => setNewLadderQty(e.target.value)}
+                placeholder="Adicionar quantidade (ex: 1500)"
+                className="h-7 text-xs"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); addCustomQty(); }
+                }}
+              />
+              <Button size="sm" variant="outline" onClick={addCustomQty} className="h-7 px-2">
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            {pricePerSheet > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  const text = formatLadderWhatsApp({
+                    shape,
+                    width: labelW,
+                    height: labelH,
+                    ladder,
+                    sheetSize: sheetSizeKey,
+                    printingLabel: folhaPricing.selectedPrinting?.label ?? null,
+                    finishingLabel: folhaPricing.selectedFinishing.id ? folhaPricing.selectedFinishing.label : null,
+                  });
+                  if (!text) { toast.error("Sem faixas para copiar"); return; }
+                  navigator.clipboard.writeText(text);
+                  toast.success("Tabela copiada para o WhatsApp");
+                }}
+              >
+                <Copy className="h-3.5 w-3.5 mr-1.5" />
+                Copiar tabela WhatsApp
+              </Button>
+            )}
+
             <p className="text-[11px] text-muted-foreground">
               {pricePerSheet > 0
                 ? "Argumento de venda: o custo unitário cai conforme a quantidade aumenta, porque o custo fixo por folha é diluído."
