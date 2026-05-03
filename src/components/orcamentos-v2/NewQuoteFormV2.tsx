@@ -298,6 +298,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         approvedAt: m.approved_at,
         approvedValue: m.approved_value,
         parentItemId: m.parent_item_id || null,
+        productKind: m.product_kind ?? null,
+        customName: m.custom_name ?? null,
+        reference: m.reference ?? null,
+        generatedTitle: m.generated_title ?? null,
+        paperType: m.paper_type ?? null,
+        grammage: m.grammage ?? null,
+        size: m.size ?? null,
+        side: m.side ?? null,
       })));
       setThirdParty((tpRes.data || []).map((t: any) => ({
         id: t.id, description: t.description, supplier: t.supplier, cost: t.cost,
