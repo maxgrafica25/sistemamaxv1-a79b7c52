@@ -266,8 +266,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         setClientId((q as any).client_id ?? null);
         setClientPhone((q as any).client_phone ?? null);
         setProduct(q.product);
-        setValidity(q.validity || "7");
+        setValidity(q.validity || "15");
         setProfitMargin(q.profit_margin || "33");
+        setMainQuantity(((q as any).main_quantity ?? "") as number | "");
         setNotes((q as any).notes || "");
         setDiscountValue(q.discount_value);
         setDiscountType((q.discount_type as DiscountType) || "brl");
