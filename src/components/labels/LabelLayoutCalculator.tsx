@@ -926,42 +926,18 @@ export function LabelLayoutCalculator({
         </Card>
       </div>
 
-      {/* ============================== RESULTADOS ============================== */}
-      <div className="lg:col-span-3 space-y-5 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
+      {/* ============================== COLUNA 2 — PREVIEW & SUGESTÕES ============================== */}
+      <div className="xl:col-span-5 space-y-5">
         {/* Aproveitamento */}
         <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            {/* Donut SVG */}
-            {(() => {
-              const pct = Math.max(0, Math.min(100, layout.utilizationPct));
-              const r = 15.9155;
-              const circ = 2 * Math.PI * r;
-              const dash = (pct / 100) * circ;
-              return (
-                <div className="relative shrink-0" style={{ width: 72, height: 72 }}>
-                  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                    <circle
-                      cx="18" cy="18" r={r}
-                      fill="none"
-                      className="stroke-muted"
-                      strokeWidth="3.5"
-                    />
-                    <circle
-                      cx="18" cy="18" r={r}
-                      fill="none"
-                      className="stroke-primary transition-all"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      strokeDasharray={`${dash} ${circ - dash}`}
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-sm font-bold tabular-nums">{pct.toFixed(0)}%</span>
-                  </div>
-                </div>
-              );
-            })()}
-            <div className="flex-1 text-right">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Aproveitamento</p>
+              <p className="text-2xl font-semibold tabular-nums mt-0.5">
+                {Math.max(0, Math.min(100, layout.utilizationPct)).toFixed(0)}%
+              </p>
+            </div>
+            <div className="text-right">
               <p className="text-4xl font-bold text-primary leading-none tabular-nums">
                 {perSheet}
               </p>
