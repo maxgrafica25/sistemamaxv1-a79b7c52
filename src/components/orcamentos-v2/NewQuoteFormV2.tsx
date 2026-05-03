@@ -42,12 +42,6 @@ interface Props {
 
 interface ThirdParty { id: string; description: string; supplier: string; cost: number; }
 
-const STEPS = [
-  { label: "Informações", icon: User },
-  { label: "Itens do Orçamento", icon: Layers },
-  { label: "Terceirizados", icon: Wrench },
-  { label: "Finalizar", icon: FileText },
-];
 
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
