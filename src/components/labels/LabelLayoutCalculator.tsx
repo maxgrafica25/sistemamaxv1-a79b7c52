@@ -801,7 +801,7 @@ export function LabelLayoutCalculator({
                 <ToggleGroupItem
                   key={s}
                   value={s}
-                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-10 text-xs"
                 >
                   {SHAPE_LABELS[s]}
                 </ToggleGroupItem>
