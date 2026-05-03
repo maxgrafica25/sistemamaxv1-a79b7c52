@@ -853,191 +853,212 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         </div>
 
 
-        {/* ===== Conteúdo único rolável ===== */}
-        <div>
-          {/* Itens de Impressão */}
-          <Separator className="my-8" />
-          <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Printer className="h-5 w-5 text-primary" /> Itens de Impressão
-                {printingItems.length > 0 && <Badge variant="outline">{printingItems.length}</Badge>}
-              </h2>
-            </div>
-            <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} markupTiers={markupTiers} globalSettings={globalSettings} />
-            {printingItems.length > 0 && (
-              <div className="space-y-3">
-                {printingItems.map((m) => {
-                  const childLabor = labor.filter((l) => l.parentItemId === m.id);
-                  const childMats = materials.filter((x) => x.parentItemId === m.id);
-                  return (
-                    <PrintingItemEditor
-                      key={m.id}
-                      item={m}
-                      childLabor={childLabor}
-                      childMaterials={childMats}
-                      hourlyRate={hourlyRate}
-                      onItemChange={(patch) => updateMaterialPatch(m.id, patch)}
-                      onRemove={() => removeMaterial(m.id)}
-                      onChildLaborChange={(next) => setChildLaborFor(m.id, next)}
-                      onChildMaterialChange={(next) => setChildMaterialsFor(m.id, next)}
-                    />
-                  );
-                })}
+        {/* ===== Tabs: Itens · Descrições complementares ===== */}
+        <Tabs defaultValue="items" className="w-full">
+          <TabsList className="bg-transparent border-b w-full justify-start h-auto p-0 rounded-none">
+            <TabsTrigger
+              value="items"
+              className="data-[state=active]:border-primary data-[state=active]:text-primary border-b-2 border-transparent rounded-none px-4 py-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
+              <Package className="h-4 w-4 mr-2" /> Itens de produto ou serviço
+            </TabsTrigger>
+            <TabsTrigger
+              value="notes"
+              className="data-[state=active]:border-primary data-[state=active]:text-primary border-b-2 border-transparent rounded-none px-4 py-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
+              <FileText className="h-4 w-4 mr-2" /> Descrições complementares
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ============== TAB ITENS ============== */}
+          <TabsContent value="items" className="space-y-6 pt-6">
+            {/* Itens de Impressão */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h2 className="text-base font-semibold flex items-center gap-2">
+                  <Printer className="h-4 w-4 text-primary" /> Itens de Impressão
+                  {printingItems.length > 0 && <Badge variant="outline">{printingItems.length}</Badge>}
+                </h2>
               </div>
-            )}
-          </div>
-
-          {/* Comunicação Visual */}
-          <Separator className="my-8" />
-          <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Megaphone className="h-5 w-5 text-primary" /> Comunicação Visual
-                {cvItems.length > 0 && <Badge variant="outline">{cvItems.length} {cvItems.length === 1 ? "item" : "itens"}</Badge>}
-              </h2>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                disabled={cvMaterials.length === 0}
-                onClick={() => setCvItems((p) => [
-                  ...p,
-                  {
-                    id: `cv-${Date.now()}`,
-                    material_id: null,
-                    printer_id: null,
-                    largura_cm: 0,
-                    altura_cm: 0,
-                    quantidade: 1,
-                    acabamentos: [],
-                  },
-                ])}
-              >
-                <Plus className="h-4 w-4" /> Item CV
-              </Button>
-            </div>
-
-            {cvMaterials.length === 0 ? (
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Nenhum cadastro encontrado</AlertTitle>
-                <AlertDescription>
-                  Cadastre materiais, impressoras e acabamentos em <strong>Cadastros &gt; Comunicação Visual</strong> antes de adicionar itens.
-                </AlertDescription>
-              </Alert>
-            ) : cvItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                Nenhum item de comunicação visual adicionado.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {cvItems.map((it, idx) => (
-                  <CVItemCard
-                    key={it.id}
-                    item={it}
-                    index={idx}
-                    materiais={cvMaterials}
-                    impressoras={cvPrinters}
-                    acabamentos={cvFinishes}
-                    onChange={(updated) =>
-                      setCvItems((p) => p.map((x) => (x.id === it.id ? updated : x)))
-                    }
-                    onRemove={() => {
-                      setCvItems((p) => p.filter((x) => x.id !== it.id));
-                      setCvResults((p) => {
-                        const { [it.id]: _, ...rest } = p;
-                        return rest;
-                      });
-                    }}
-                    onResult={(r) =>
-                      setCvResults((p) => (p[it.id]?.preco_total === r.preco_total && p[it.id]?.custo_total === r.custo_total ? p : { ...p, [it.id]: r }))
-                    }
-                  />
-                ))}
-                <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
-                  <span className="text-sm font-medium text-muted-foreground">Subtotal Comunicação Visual</span>
-                  <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
+              <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} markupTiers={markupTiers} globalSettings={globalSettings} />
+              {printingItems.length > 0 && (
+                <div className="space-y-3">
+                  {printingItems.map((m) => {
+                    const childLabor = labor.filter((l) => l.parentItemId === m.id);
+                    const childMats = materials.filter((x) => x.parentItemId === m.id);
+                    return (
+                      <PrintingItemEditor
+                        key={m.id}
+                        item={m}
+                        childLabor={childLabor}
+                        childMaterials={childMats}
+                        hourlyRate={hourlyRate}
+                        onItemChange={(patch) => updateMaterialPatch(m.id, patch)}
+                        onRemove={() => removeMaterial(m.id)}
+                        onChildLaborChange={(next) => setChildLaborFor(m.id, next)}
+                        onChildMaterialChange={(next) => setChildMaterialsFor(m.id, next)}
+                      />
+                    );
+                  })}
                 </div>
-              </div>
-            )}
-          </div>
-
-          {/* Avulsos */}
-          <Separator className="my-8" />
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Layers className="h-5 w-5 text-muted-foreground" /> Avulsos (não vinculados)
-            </h2>
-            <p className="text-xs text-muted-foreground -mt-2">
-              Mão de obra e materiais que não pertencem a um item de impressão específico.
-              Diluídos pela quantidade total do orçamento.
-            </p>
-            <LaborAndSupplySubform
-              parentItemId={null}
-              laborItems={standaloneLabor}
-              materialItems={standaloneManualMaterials}
-              hourlyRate={hourlyRate}
-              onLaborChange={setStandaloneLabor}
-              onMaterialChange={setStandaloneManualMaterials}
-            />
-          </div>
-
-          {/* Terceirizados */}
-          <Separator className="my-8" />
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Wrench className="h-5 w-5 text-primary" /> Terceirizados
-              </h2>
-              <Button variant="outline" size="sm" onClick={() => setThirdParty((p) => [...p, { id: Date.now().toString(), description: "", supplier: "", cost: 0 }])} className="gap-1.5">
-                <Plus className="h-4 w-4" /> Serviço
-              </Button>
+              )}
             </div>
-            {thirdParty.length === 0 && (
-              <p className="text-sm text-muted-foreground py-4 text-center">Nenhum serviço terceirizado adicionado</p>
-            )}
-            {thirdParty.map((t) => (
-              <div key={t.id} className="grid grid-cols-12 gap-2 rounded-lg border bg-card p-3 items-center">
-                <Input value={t.description} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, description: e.target.value } : x))} placeholder="Serviço" className="col-span-5 h-9 text-sm" />
-                <Input value={t.supplier} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, supplier: e.target.value } : x))} placeholder="Fornecedor" className="col-span-4 h-9 text-sm" />
-                <Input type="number" step="0.01" value={t.cost || ""} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, cost: parseFloat(e.target.value) || 0 } : x))} placeholder="R$" className="col-span-2 h-9 text-sm text-center" />
-                <Button variant="ghost" size="icon" className="h-8 w-8 col-span-1" onClick={() => setThirdParty((p) => p.filter((x) => x.id !== t.id))}><X className="h-4 w-4" /></Button>
+
+            {/* Comunicação Visual */}
+            <Separator />
+            <div className="space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h2 className="text-base font-semibold flex items-center gap-2">
+                  <Megaphone className="h-4 w-4 text-primary" /> Comunicação Visual
+                  {cvItems.length > 0 && <Badge variant="outline">{cvItems.length} {cvItems.length === 1 ? "item" : "itens"}</Badge>}
+                </h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={cvMaterials.length === 0}
+                  onClick={() => setCvItems((p) => [
+                    ...p,
+                    {
+                      id: `cv-${Date.now()}`,
+                      material_id: null,
+                      printer_id: null,
+                      largura_cm: 0,
+                      altura_cm: 0,
+                      quantidade: 1,
+                      acabamentos: [],
+                    },
+                  ])}
+                >
+                  <Plus className="h-4 w-4" /> Item CV
+                </Button>
               </div>
-            ))}
-          </div>
 
-          {/* Desconto e Pagamento */}
-          <Separator className="my-8" />
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Desconto e Pagamento</h2>
-            <DiscountPaymentBlock
-              discountValue={discountValue}
-              discountType={discountType}
-              paymentMethod={paymentMethod}
-              onDiscountValueChange={setDiscountValue}
-              onDiscountTypeChange={setDiscountType}
-              onPaymentMethodChange={setPaymentMethod}
-            />
-          </div>
+              {cvMaterials.length === 0 ? (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Nenhum cadastro encontrado</AlertTitle>
+                  <AlertDescription>
+                    Cadastre materiais, impressoras e acabamentos em <strong>Cadastros &gt; Comunicação Visual</strong> antes de adicionar itens.
+                  </AlertDescription>
+                </Alert>
+              ) : cvItems.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">
+                  Nenhum item de comunicação visual adicionado.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {cvItems.map((it, idx) => (
+                    <CVItemCard
+                      key={it.id}
+                      item={it}
+                      index={idx}
+                      materiais={cvMaterials}
+                      impressoras={cvPrinters}
+                      acabamentos={cvFinishes}
+                      onChange={(updated) =>
+                        setCvItems((p) => p.map((x) => (x.id === it.id ? updated : x)))
+                      }
+                      onRemove={() => {
+                        setCvItems((p) => p.filter((x) => x.id !== it.id));
+                        setCvResults((p) => {
+                          const { [it.id]: _, ...rest } = p;
+                          return rest;
+                        });
+                      }}
+                      onResult={(r) =>
+                        setCvResults((p) => (p[it.id]?.preco_total === r.preco_total && p[it.id]?.custo_total === r.custo_total ? p : { ...p, [it.id]: r }))
+                      }
+                    />
+                  ))}
+                  <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
+                    <span className="text-sm font-medium text-muted-foreground">Subtotal Comunicação Visual</span>
+                    <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
-          {/* Frete + Outros valores */}
-          <Separator className="my-8" />
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Frete & Outros</h2>
-            <FreightSelector
-              freightTypeId={freightTypeId}
-              freightValue={freightValue}
-              onChange={({ freightTypeId: t, freightValue: v }) => {
-                setFreightTypeId(t);
-                setFreightValue(v);
-              }}
+            {/* Outros itens ou serviços (avulsos + terceirizados) */}
+            <Separator />
+            <div className="space-y-5">
+              <h2 className="text-base font-semibold flex items-center gap-2">
+                <Layers className="h-4 w-4 text-muted-foreground" /> Outros itens ou serviços
+              </h2>
+
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  <strong>Avulsos</strong> — mão de obra e materiais não vinculados a um item de impressão. Diluídos pela quantidade total.
+                </p>
+                <LaborAndSupplySubform
+                  parentItemId={null}
+                  laborItems={standaloneLabor}
+                  materialItems={standaloneManualMaterials}
+                  hourlyRate={hourlyRate}
+                  onLaborChange={setStandaloneLabor}
+                  onMaterialChange={setStandaloneManualMaterials}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Terceirizados</strong> — serviços de fornecedores externos.
+                  </p>
+                  <Button variant="outline" size="sm" onClick={() => setThirdParty((p) => [...p, { id: Date.now().toString(), description: "", supplier: "", cost: 0 }])} className="gap-1.5">
+                    <Plus className="h-4 w-4" /> Serviço
+                  </Button>
+                </div>
+                {thirdParty.length === 0 && (
+                  <p className="text-xs text-muted-foreground py-2">Nenhum serviço terceirizado adicionado</p>
+                )}
+                {thirdParty.map((t) => (
+                  <div key={t.id} className="grid grid-cols-12 gap-2 rounded-lg border bg-card p-3 items-center">
+                    <Input value={t.description} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, description: e.target.value } : x))} placeholder="Serviço" className="col-span-5 h-9 text-sm" />
+                    <Input value={t.supplier} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, supplier: e.target.value } : x))} placeholder="Fornecedor" className="col-span-4 h-9 text-sm" />
+                    <Input type="number" step="0.01" value={t.cost || ""} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, cost: parseFloat(e.target.value) || 0 } : x))} placeholder="R$" className="col-span-2 h-9 text-sm text-center" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 col-span-1" onClick={() => setThirdParty((p) => p.filter((x) => x.id !== t.id))}><X className="h-4 w-4" /></Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ============== TAB DESCRIÇÕES COMPLEMENTARES ============== */}
+          <TabsContent value="notes" className="space-y-3 pt-6">
+            <Label className="text-xs">Observações</Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Notas internas, contexto da proposta, instruções para a produção…"
+              rows={8}
             />
             <p className="text-[11px] text-muted-foreground">
-              Cadastre tipos de frete em <strong>Configurações → Empresa</strong>.
+              Estas observações ficam disponíveis para a equipe e podem aparecer no PDF do orçamento conforme configuração.
             </p>
+          </TabsContent>
+        </Tabs>
 
-            <div className="space-y-1.5 max-w-sm">
+        {/* ===== Frete & Outros ===== */}
+        <Separator className="my-4" />
+        <div className="space-y-4">
+          <h2 className="text-base font-semibold">Frete & Outros</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <FreightSelector
+                freightTypeId={freightTypeId}
+                freightValue={freightValue}
+                onChange={({ freightTypeId: t, freightValue: v }) => {
+                  setFreightTypeId(t);
+                  setFreightValue(v);
+                }}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                Cadastre tipos de frete em <strong>Configurações → Empresa</strong>.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
               <Label className="text-xs flex items-center gap-1.5">
                 <EyeOff className="h-3.5 w-3.5" /> Outros valores (oculto no orçamento)
               </Label>
@@ -1050,57 +1071,85 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 className="h-9"
               />
               <p className="text-[11px] text-muted-foreground">
-                Acrescido ao total final mas <strong>não aparece</strong> no PDF/visualização do cliente.
+                Acrescido ao total final mas <strong>não aparece</strong> no PDF do cliente.
               </p>
             </div>
           </div>
+        </div>
 
-          {/* Marcadores */}
-          <Separator className="my-8" />
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Tags className="h-5 w-5 text-primary" /> Marcadores
-            </h2>
-            <p className="text-xs text-muted-foreground -mt-1">
-              Tags para relatórios e pesquisas futuras (ex.: licitação, recorrente, evento).
-            </p>
-            <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} />
+        {/* ===== Condições Comerciais ===== */}
+        <Separator className="my-4" />
+        <div className="space-y-4">
+          <h2 className="text-base font-semibold">Condições comerciais</h2>
+          <DiscountPaymentBlock
+            discountValue={discountValue}
+            discountType={discountType}
+            paymentMethod={paymentMethod}
+            onDiscountValueChange={setDiscountValue}
+            onDiscountTypeChange={setDiscountType}
+            onPaymentMethodChange={setPaymentMethod}
+          />
+        </div>
+
+        {/* ===== Marcadores ===== */}
+        <Separator className="my-4" />
+        <div className="space-y-2">
+          <h2 className="text-base font-semibold flex items-center gap-2">
+            <Tags className="h-4 w-4 text-primary" /> Marcadores
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Tags para relatórios e pesquisas futuras (ex.: licitação, recorrente, evento).
+          </p>
+          <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} />
+        </div>
+
+        {/* ===== Comparativo de quantidades (ancoragem) ===== */}
+        <Separator className="my-4" />
+        <div className="space-y-3">
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="space-y-1">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                Quantidade desejada
+              </Label>
+              <Input
+                type="number"
+                min={1}
+                value={mainQuantity === "" ? "" : mainQuantity}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setMainQuantity(v === "" ? "" : Math.max(0, Math.floor(Number(v) || 0)));
+                }}
+                placeholder="Ex: 1000"
+                className="h-10 w-40 text-base font-semibold"
+              />
+            </div>
+            <span className="text-xs text-muted-foreground pb-3">unidades</span>
           </div>
-
-          {/* Ancoragem completa — recalculada com extras+frete */}
-          <Separator className="my-8" />
           <QuoteOptionsBuilder
             snapshot={snapshot}
             options={options}
             onChange={setOptions}
           />
-
-          <Separator className="my-8" />
-          <Card><CardContent className="p-5 sm:p-6 space-y-4">
-            <div className="rounded-xl bg-primary/10 p-5 border border-primary/20 flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">Valor a cobrar (base)</p>
-                <p className="text-2xl font-bold text-primary">{formatBRL(discountedTotal)}</p>
-              </div>
-              <Badge variant="outline" className="text-xs">
-                Margem efetiva: {live.effectiveMarginPct.toFixed(1)}%
-              </Badge>
-            </div>
-
-            <Button className="w-full gap-2 h-11" onClick={handleSave} disabled={isLocked}>
-              <Check className="h-4 w-4" /> {isLocked ? "Orçamento travado" : `${isEditing ? "Atualizar" : "Salvar"} Orçamento`}
-            </Button>
-
-            {savedQuoteId && (
-              <>
-                <Separator />
-                <Button variant="outline" className="w-full gap-2" onClick={copyPublicLink}>
-                  <Link2 className="h-4 w-4" /> Copiar link público para o cliente
-                </Button>
-              </>
-            )}
-          </CardContent></Card>
         </div>
+
+        {/* ===== Total + ações secundárias ===== */}
+        <Separator className="my-4" />
+        <Card><CardContent className="p-5 sm:p-6 space-y-4">
+          <div className="rounded-xl bg-primary/10 p-5 border border-primary/20 flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Valor a cobrar (base)</p>
+              <p className="text-2xl font-bold text-primary">{formatBRL(discountedTotal)}</p>
+            </div>
+            <Badge variant="outline" className="text-xs">
+              Margem efetiva: {live.effectiveMarginPct.toFixed(1)}%
+            </Badge>
+          </div>
+          {savedQuoteId && (
+            <Button variant="outline" className="w-full gap-2" onClick={copyPublicLink}>
+              <Link2 className="h-4 w-4" /> Copiar link público para o cliente
+            </Button>
+          )}
+        </CardContent></Card>
       </div>
 
       {/* Sticky financial sidebar */}
@@ -1112,6 +1161,19 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           profit={discountedTotal - (live.costsBeforeMarkup + live.printingTotal + cvCostTotal)}
         />
       </div>
+
+      {/* ===== Rodapé fixo: Salvar / Cancelar ===== */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 py-3 flex items-center justify-end gap-2">
+        <div className="hidden sm:flex flex-col mr-auto">
+          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Total</span>
+          <span className="text-base font-bold text-primary">{formatBRL(discountedTotal)}</span>
+        </div>
+        <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
+        <Button onClick={handleSave} disabled={isLocked} className="gap-2">
+          <Check className="h-4 w-4" /> {isLocked ? "Travado" : (isEditing ? "Atualizar" : "Salvar")}
+        </Button>
+      </div>
     </div>
   );
 }
+
