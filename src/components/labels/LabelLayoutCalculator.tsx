@@ -1606,7 +1606,11 @@ function SheetPreview({
 
   // Posições efetivas (apenas etiquetas vendáveis)
   const labels: Array<{ x: number; y: number }> = [];
-  if (paramLayout) {
+  if (cutMode === "guilhotina" && guillotineLayout) {
+    for (const p of guillotineLayout.positions) {
+      labels.push({ x: p.x * scale, y: p.y * scale });
+    }
+  } else if (paramLayout) {
     for (const p of paramLayout.positions) {
       labels.push({ x: p.x * scale, y: p.y * scale });
     }
@@ -1624,12 +1628,19 @@ function SheetPreview({
     }
   }
 
-  const paramMarks = paramLayout
+  const isGuillotine = cutMode === "guilhotina";
+  const paramMarks = !isGuillotine && paramLayout
     ? computeSignmasterMarks({ sheetW, sheetH, gridBottom: paramLayout.gridBottom })
     : null;
   const bottomOffsetReal = marksOffsetY - (sheetH / 2 - marginBottom);
-  const marks = buildCornerMarks(sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight, 0, MARK_ARM_MM, bottomOffsetReal);
-  const totalSellable = paramLayout ? paramLayout.total : cellsPerRow.reduce((a, b) => a + b, 0);
+  const marks = !isGuillotine
+    ? buildCornerMarks(sheetW, sheetH, marginTop, marginBottom, marginLeft, marginRight, 0, MARK_ARM_MM, bottomOffsetReal)
+    : null;
+  const totalSellable = isGuillotine && guillotineLayout
+    ? guillotineLayout.total
+    : paramLayout
+    ? paramLayout.total
+    : cellsPerRow.reduce((a, b) => a + b, 0);
 
   return (
     <div className="flex justify-center bg-muted/30 rounded-md p-3">
