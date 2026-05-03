@@ -642,15 +642,15 @@ export function LabelLayoutCalculator({
   const overflowFavs = config.labelPresets.slice(FAV_VISIBLE);
 
   return (
-    <div className="grid gap-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-12">
-      {/* ============================== COLUNA 1 — INPUTS ============================== */}
-      <div className="xl:col-span-4 space-y-5">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
+      {/* ============================== SIMULADOR ============================== */}
+      <div className="space-y-4">
         {/* 1. Faixa-resumo das configurações — TOPO da página */}
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
           aria-label="Alterar configurações de folha e corte"
-          className="w-full text-left rounded-xl border border-border/60 bg-muted/40 hover:bg-muted/70 px-4 py-3 text-xs flex items-center justify-between gap-3 transition-colors shadow-sm"
+          className="w-full text-left rounded-md border border-border bg-card px-3 py-2.5 text-xs flex items-center justify-between gap-3 transition-colors hover:bg-muted/50"
         >
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
             <span>
@@ -669,8 +669,8 @@ export function LabelLayoutCalculator({
         </button>
 
         {/* 2. Seleção rápida de folha — Tabs */}
-        <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-3">
-          <div className="flex items-center gap-2">
+        <Card className="p-3">
+          <div className="flex items-center gap-2 mb-2">
             <Label className="text-xs text-muted-foreground">Folha:</Label>
             <span className="text-xs font-medium">{describeSheet(config)}</span>
           </div>
@@ -684,21 +684,21 @@ export function LabelLayoutCalculator({
               <ToggleGroupItem
                 key={s.id}
                 value={s.id}
-                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-10 text-xs"
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
               >
                 {s.label}
               </ToggleGroupItem>
             ))}
             <ToggleGroupItem
               value="__other__"
-              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-10 text-xs"
+              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
             >
               Outro…
             </ToggleGroupItem>
           </ToggleGroup>
         </Card>
 
-        <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-5">
+        <Card className="p-4 space-y-4">
           <h3 className="text-sm font-semibold">Simulador</h3>
 
           {/* Favoritos sempre visíveis (até 6) */}
@@ -801,7 +801,7 @@ export function LabelLayoutCalculator({
                 <ToggleGroupItem
                   key={s}
                   value={s}
-                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-10 text-xs"
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
                 >
                   {SHAPE_LABELS[s]}
                 </ToggleGroupItem>
@@ -926,64 +926,38 @@ export function LabelLayoutCalculator({
         </Card>
       </div>
 
-      {/* ============================== COLUNA 2 — PREVIEW & SUGESTÕES ============================== */}
-      <div className="xl:col-span-5 space-y-5">
+      {/* ============================== RESULTADOS ============================== */}
+      <div className="space-y-4">
         {/* Aproveitamento */}
-        <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-4">
-          <div className="flex items-end justify-between gap-4">
+        <Card className="p-4 space-y-3">
+          <div className="flex items-baseline justify-between">
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Aproveitamento</p>
-              <p className="text-2xl font-semibold tabular-nums mt-0.5">
-                {Math.max(0, Math.min(100, layout.utilizationPct)).toFixed(0)}%
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-4xl font-bold text-primary leading-none tabular-nums">
+              <p className="text-3xl font-bold text-primary leading-none">
                 {perSheet}
               </p>
-              <p className="text-xs text-muted-foreground mt-1.5">
+              <p className="text-xs text-muted-foreground mt-1">
                 etiquetas por folha
               </p>
             </div>
+            <div className="text-right">
+              <p className="text-lg font-semibold">
+                {layout.utilizationPct.toFixed(1)}%
+              </p>
+              <p className="text-[11px] text-muted-foreground">aproveitamento</p>
+            </div>
           </div>
-
-          <div className="w-full">
-            <SheetPreview
-              sheetW={config.sheetW}
-              sheetH={config.sheetH}
-              marginTop={config.marginTop}
-              marginBottom={config.marginBottom}
-              marginLeft={config.marginLeft}
-              marginRight={config.marginRight}
-              gap={effectiveGap}
-              labelW={layout.best.rotated ? labelH : labelW}
-              labelH={layout.best.rotated ? labelW : labelH}
-              cols={layout.best.cols}
-              rows={layout.best.rows}
-              shape={shape}
-              imageDataUrl={imageDataUrl}
-              imageNaturalW={imageDims?.w ?? null}
-              imageNaturalH={imageDims?.h ?? null}
-              reservedSlots={layout.reservedSlots}
-              rowOffsets={layout.rowOffsets}
-              cellsPerRow={layout.cellsPerRow}
-              marksOffsetY={marksOffsetY}
-              paramLayout={paramLayout}
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5 text-[11px] pt-1 border-t">
-            <Badge variant="secondary" className="text-[11px]">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <Badge variant="secondary">
               {layout.best.cols} × {layout.best.rows}
             </Badge>
-            <Badge variant={layout.best.rotated ? "default" : "outline"} className="gap-1 text-[11px]">
+            <Badge variant={layout.best.rotated ? "default" : "outline"} className="gap-1">
               {layout.best.rotated && <RotateCw className="h-3 w-3" />}
-              {layout.best.rotated ? "Rotacionada 90°" : "Em pé"}
+              {layout.best.rotated ? "Etiqueta rotacionada 90°" : "Etiqueta em pé"}
             </Badge>
             {layout.reservedSlots.length > 0 && (
-              <Badge variant="outline" className="gap-1 text-amber-700 dark:text-amber-400 border-amber-400/60 text-[11px]">
+              <Badge variant="outline" className="gap-1 text-amber-700 dark:text-amber-400 border-amber-400/60">
                 <Crosshair className="h-3 w-3" />
-                −{layout.reservedSlots.length} (zona segura)
+                −{layout.reservedSlots.length} (zona de segurança 10mm)
               </Badge>
             )}
             <span className="text-muted-foreground">
@@ -991,16 +965,39 @@ export function LabelLayoutCalculator({
             </span>
             <Badge
               variant="outline"
-              className="gap-1 border-primary/40 text-primary text-[11px]"
+              className="gap-1 border-primary/40 text-primary"
               title={
                 isParametric
                   ? "Modo paramétrico SignMaster: margens 7/7/7/7 mm, gap 3 mm, marcas L (topo) + T (base). Folhas soltas."
                   : `Margens ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight}mm · gap efetivo ${effectiveGap}mm`
               }
             >
-              ⚙ {isParametric ? "SignMaster · 7/7 · gap 3" : `${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight} · gap ${effectiveGap}`}
+              ⚙ {isParametric ? "SignMaster paramétrico · 7/7/7/7 · gap 3" : `${config.hardwareProfileId === "signmaster_param" ? "SignMaster" : config.hardwareProfileId === "teneth_a3" ? "Teneth A3" : config.hardwareProfileId} · ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight} · gap ${effectiveGap}`}
             </Badge>
           </div>
+
+          <SheetPreview
+            sheetW={config.sheetW}
+            sheetH={config.sheetH}
+            marginTop={config.marginTop}
+            marginBottom={config.marginBottom}
+            marginLeft={config.marginLeft}
+            marginRight={config.marginRight}
+            gap={effectiveGap}
+            labelW={layout.best.rotated ? labelH : labelW}
+            labelH={layout.best.rotated ? labelW : labelH}
+            cols={layout.best.cols}
+            rows={layout.best.rows}
+            shape={shape}
+            imageDataUrl={imageDataUrl}
+            imageNaturalW={imageDims?.w ?? null}
+            imageNaturalH={imageDims?.h ?? null}
+            reservedSlots={layout.reservedSlots}
+            rowOffsets={layout.rowOffsets}
+            cellsPerRow={layout.cellsPerRow}
+            marksOffsetY={marksOffsetY}
+            paramLayout={paramLayout}
+          />
 
           {/* Slider de ajuste das marcas inferiores — começa no meio da folha, desce até a borda */}
           {!isParametric && (() => {
@@ -1147,9 +1144,216 @@ export function LabelLayoutCalculator({
           </div>
           )}
 
-        {/* Sugestões de venda — Coluna 2 */}
+        {/* Pricing principal — SEMPRE VISÍVEL */}
+        <Card className="p-4 space-y-3 border-primary/40 bg-primary/5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Cálculo do orçamento</h3>
+            <a
+              href="/preco-impressao"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
+            >
+              Editar tabelas <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+
+          {/* Composição do preço da folha */}
+          <div className="space-y-2 rounded-md border border-border bg-background/60 p-2.5">
+            {/* Toggle Adesivo / Papel */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Tipo</Label>
+              <ToggleGroup
+                type="single"
+                value={folhaPricing.paperKind}
+                onValueChange={(v) => v && folhaPricing.setPaperKind(v as "adesivo" | "papel")}
+                className="grid grid-cols-2 gap-1"
+              >
+                <ToggleGroupItem
+                  value="adesivo"
+                  disabled={!folhaPricing.availableKinds.includes("adesivo")}
+                  className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  Adesivo
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="papel"
+                  disabled={!folhaPricing.availableKinds.includes("papel")}
+                  className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  Papel
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Impressão (Tabela de Preços)</Label>
+              {folhaPricing.printingOptions.length > 0 ? (
+                <Select
+                  value={folhaPricing.selectedPrinting?.id ?? ""}
+                  onValueChange={folhaPricing.setPrintingId}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Selecione…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {folhaPricing.printingOptions.map((p) => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">
+                        {p.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                  ⚠ Sem item de impressão cadastrado para <strong>{sheetSizeKey}</strong>.{" "}
+                  <a href="/preco-impressao" target="_blank" rel="noopener noreferrer" className="underline">
+                    Cadastrar agora →
+                  </a>
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Label className="text-[11px] text-muted-foreground">Acabamento (Recorte / outros)</Label>
+                {folhaPricing.finishingIsAuto && folhaPricing.selectedFinishing.id && (
+                  <Badge variant="secondary" className="h-4 px-1.5 text-[9px] uppercase tracking-wide">
+                    auto
+                  </Badge>
+                )}
+              </div>
+              <Select
+                value={folhaPricing.selectedFinishing.id ?? "__none__"}
+                onValueChange={(v) => folhaPricing.setFinishingId(v as string)}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {folhaPricing.finishingOptions.map((f) => (
+                    <SelectItem key={f.id ?? "__none__"} value={f.id ?? "__none__"} className="text-xs">
+                      {f.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <a
+                href="/acabamentos"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] text-primary hover:underline"
+              >
+                Editar acabamentos →
+              </a>
+            </div>
+
+            <div className="flex items-center justify-between pt-1.5 border-t text-xs">
+              <span className="text-muted-foreground">Total por folha:</span>
+              <strong className="tabular-nums">{formatBRL(pricePerSheet)}</strong>
+            </div>
+          </div>
+
+          {/* Resultado */}
+          {pricePerSheet > 0 && qty > 0 && perSheet > 0 ? (
+            <>
+              <div className="text-sm">
+                <span className="text-muted-foreground">{qty} un ÷ {perSheet}/folha = </span>
+                <strong>{pricing.sheetsNeeded} {pricing.sheetsNeeded === 1 ? "folha" : "folhas"}</strong>
+                <span className="text-muted-foreground"> × {formatBRL(pricePerSheet)} = </span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <p className="text-2xl font-bold text-primary">
+                  {formatBRL(pricing.totalPrice)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  custo unitário <strong>{formatBRL(pricing.unitPrice)}</strong>
+                </p>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">
+              {perSheet <= 0
+                ? "Nenhuma etiqueta cabe na folha — ajuste medidas/margens."
+                : qty <= 0
+                ? "Informe a quantidade desejada para calcular o total."
+                : "Selecione impressão e acabamento para ver o preço."}
+            </p>
+          )}
+
+          {/* PPR — Preditor de Prazo Real */}
+          {perSheet > 0 && pricing.sheetsNeeded > 0 && (
+            <ProductionTimeCard
+              shape={shape === "personalizado" ? "personalizado" : shape === "redondo" ? "redondo" : (labelW === labelH ? "quadrado" : "retangulo")}
+              labelW={labelW}
+              labelH={labelH}
+              totalLabels={pricing.sheetsNeeded * perSheet}
+              sheets={pricing.sheetsNeeded}
+              hardware={HARDWARE_PROFILES[config.hardwareProfileId] ?? HARDWARE_PROFILES.signmaster_param}
+            />
+          )}
+
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleCopyWhats}
+              disabled={!whatsappText}
+              title={!whatsappText ? "Faltam dados de preço/quantidade" : undefined}
+            >
+              <Copy className="h-3.5 w-3.5 mr-1.5" />
+              Copiar WhatsApp
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleOpenWhats}
+              disabled={!whatsappText}
+              title={!whatsappText ? "Faltam dados de preço/quantidade" : undefined}
+            >
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+              Abrir WhatsApp
+            </Button>
+          </div>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            className="w-full"
+            onClick={handleGeneratePDF}
+            disabled={generatingPdf || perSheet <= 0}
+            title="Gera PDF 1:1 com página de impressão (K100) + página de faca CutContour (M100, 0.25pt)"
+          >
+            <FileDown className="h-3.5 w-3.5 mr-1.5" />
+            {generatingPdf ? "Gerando…" : "Gerar PDF de produção (Impressão + Faca)"}
+          </Button>
+
+          {isParametric && perSheet > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={handleExportPlt}
+              title="Exporta a faca de corte (1016 DPI, polígono 72 segmentos, marcas de registro inclusas)"
+            >
+              <FileDown className="h-3.5 w-3.5 mr-1.5" />
+              Baixar faca .plt (SignMaster)
+            </Button>
+          )}
+
+          {onApply && pricing.sheetsNeeded > 0 && (
+            <Button
+              size="sm"
+              className="w-full"
+              onClick={() => onApply(pricing.sheetsNeeded)}
+            >
+              Usar {pricing.sheetsNeeded} {pricing.sheetsNeeded === 1 ? "folha" : "folhas"} no orçamento
+            </Button>
+          )}
+        </Card>
+
+        {/* Ancoragem */}
         {ladder.length > 0 && (
-          <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-3">
+          <Card className="p-4 space-y-3">
             <div className="flex items-center gap-1.5">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
               <h3 className="text-sm font-semibold">Sugestões de venda</h3>
@@ -1273,216 +1477,6 @@ export function LabelLayoutCalculator({
           </Card>
         )}
       </div>
-
-      {/* ============================== COLUNA 3 — ORÇAMENTO ============================== */}
-      <aside className="xl:col-span-3 space-y-5 xl:sticky xl:top-6 xl:self-start">
-        {/* Pricing principal — SEMPRE VISÍVEL */}
-        <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-4 border-primary/40 bg-primary/5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Cálculo do orçamento</h3>
-            <a
-              href="/preco-impressao"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
-            >
-              Editar tabelas <ExternalLink className="h-3 w-3" />
-            </a>
-          </div>
-
-          {/* Composição do preço da folha */}
-          <div className="space-y-2 rounded-md border border-border bg-background/60 p-2.5">
-            {/* Toggle Adesivo / Papel */}
-            <div className="space-y-1.5">
-              <Label className="text-[11px] text-muted-foreground">Tipo</Label>
-              <ToggleGroup
-                type="single"
-                value={folhaPricing.paperKind}
-                onValueChange={(v) => v && folhaPricing.setPaperKind(v as "adesivo" | "papel")}
-                className="grid grid-cols-2 gap-1"
-              >
-                <ToggleGroupItem
-                  value="adesivo"
-                  disabled={!folhaPricing.availableKinds.includes("adesivo")}
-                  className="h-10 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                >
-                  Adesivo
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="papel"
-                  disabled={!folhaPricing.availableKinds.includes("papel")}
-                  className="h-10 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                >
-                  Papel
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px] text-muted-foreground">Impressão (Tabela de Preços)</Label>
-              {folhaPricing.printingOptions.length > 0 ? (
-                <Select
-                  value={folhaPricing.selectedPrinting?.id ?? ""}
-                  onValueChange={folhaPricing.setPrintingId}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Selecione…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {folhaPricing.printingOptions.map((p) => (
-                      <SelectItem key={p.id} value={p.id} className="text-xs">
-                        {p.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                  ⚠ Sem item de impressão cadastrado para <strong>{sheetSizeKey}</strong>.{" "}
-                  <a href="/preco-impressao" target="_blank" rel="noopener noreferrer" className="underline">
-                    Cadastrar agora →
-                  </a>
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <Label className="text-[11px] text-muted-foreground">Acabamento (Recorte / outros)</Label>
-                {folhaPricing.finishingIsAuto && folhaPricing.selectedFinishing.id && (
-                  <Badge variant="secondary" className="h-4 px-1.5 text-[9px] uppercase tracking-wide">
-                    auto
-                  </Badge>
-                )}
-              </div>
-              <Select
-                value={folhaPricing.selectedFinishing.id ?? "__none__"}
-                onValueChange={(v) => folhaPricing.setFinishingId(v as string)}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {folhaPricing.finishingOptions.map((f) => (
-                    <SelectItem key={f.id ?? "__none__"} value={f.id ?? "__none__"} className="text-xs">
-                      {f.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <a
-                href="/acabamentos"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[10px] text-primary hover:underline"
-              >
-                Editar acabamentos →
-              </a>
-            </div>
-
-            <div className="flex items-center justify-between pt-1.5 border-t text-xs">
-              <span className="text-muted-foreground">Total por folha:</span>
-              <strong className="tabular-nums">{formatBRL(pricePerSheet)}</strong>
-            </div>
-          </div>
-
-          {/* Resultado */}
-          {pricePerSheet > 0 && qty > 0 && perSheet > 0 ? (
-            <>
-              <div className="text-sm">
-                <span className="text-muted-foreground">{qty} un ÷ {perSheet}/folha = </span>
-                <strong>{pricing.sheetsNeeded} {pricing.sheetsNeeded === 1 ? "folha" : "folhas"}</strong>
-                <span className="text-muted-foreground"> × {formatBRL(pricePerSheet)}</span>
-              </div>
-              <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
-                <p className="text-3xl font-bold text-primary tabular-nums leading-none">
-                  {formatBRL(pricing.totalPrice)}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1.5">
-                  unitário <strong>{formatBRL(pricing.unitPrice)}</strong>
-                </p>
-              </div>
-            </>
-          ) : (
-            <p className="text-xs text-muted-foreground italic">
-              {perSheet <= 0
-                ? "Nenhuma etiqueta cabe na folha — ajuste medidas/margens."
-                : qty <= 0
-                ? "Informe a quantidade desejada para calcular o total."
-                : "Selecione impressão e acabamento para ver o preço."}
-            </p>
-          )}
-
-          {/* PPR — Preditor de Prazo Real */}
-          {perSheet > 0 && pricing.sheetsNeeded > 0 && (
-            <ProductionTimeCard
-              shape={shape === "personalizado" ? "personalizado" : shape === "redondo" ? "redondo" : (labelW === labelH ? "quadrado" : "retangulo")}
-              labelW={labelW}
-              labelH={labelH}
-              totalLabels={pricing.sheetsNeeded * perSheet}
-              sheets={pricing.sheetsNeeded}
-              hardware={HARDWARE_PROFILES[config.hardwareProfileId] ?? HARDWARE_PROFILES.signmaster_param}
-            />
-          )}
-
-          <div className="flex flex-col gap-2 pt-3 border-t">
-            <Button
-              size="lg"
-              variant="default"
-              className="w-full"
-              onClick={handleCopyWhats}
-              disabled={!whatsappText}
-              title={!whatsappText ? "Faltam dados de preço/quantidade" : undefined}
-            >
-              <Copy className="h-4 w-4 mr-2" />
-              Copiar WhatsApp
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleOpenWhats}
-              disabled={!whatsappText}
-              title={!whatsappText ? "Faltam dados de preço/quantidade" : undefined}
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Abrir WhatsApp
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleGeneratePDF}
-              disabled={generatingPdf || perSheet <= 0}
-              title="Gera PDF 1:1 com página de impressão (K100) + página de faca CutContour (M100, 0.25pt)"
-            >
-              <FileDown className="h-4 w-4 mr-2" />
-              {generatingPdf ? "Gerando…" : "Gerar PDF de produção"}
-            </Button>
-          </div>
-
-          {isParametric && perSheet > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              onClick={handleExportPlt}
-              title="Exporta a faca de corte (1016 DPI, polígono 72 segmentos, marcas de registro inclusas)"
-            >
-              <FileDown className="h-3.5 w-3.5 mr-1.5" />
-              Baixar faca .plt (SignMaster)
-            </Button>
-          )}
-
-          {onApply && pricing.sheetsNeeded > 0 && (
-            <Button
-              size="sm"
-              className="w-full"
-              onClick={() => onApply(pricing.sheetsNeeded)}
-            >
-              Usar {pricing.sheetsNeeded} {pricing.sheetsNeeded === 1 ? "folha" : "folhas"} no orçamento
-            </Button>
-          )}
-        </Card>
-
-      </aside>
 
       {/* Settings dialog */}
       <LabelCalcSettingsDialog
