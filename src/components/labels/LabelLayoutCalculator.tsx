@@ -567,7 +567,7 @@ export function LabelLayoutCalculator({
       suggestedGap,
       extraPerSheet: extraRows, // +1 coluna × n linhas
     };
-  }, [layout.best.cols, layout.best.rows, layout.best.rotated, layout.usableW, labelW, labelH, effectiveGap, perSheet, isParametric, config.sheetW]);
+  }, [cutMode, layout.best.cols, layout.best.rows, layout.best.rotated, layout.usableW, labelW, labelH, effectiveGap, perSheet, isParametric, config.sheetW]);
 
   const applyNearMissGap = () => {
     if (!nearMissColumn) return;
