@@ -473,6 +473,7 @@ export type Database = {
           address: string | null
           company_name: string
           created_at: string
+          default_quote_validity_days: number
           email: string | null
           id: string
           logo_url: string | null
@@ -484,6 +485,7 @@ export type Database = {
           address?: string | null
           company_name?: string
           created_at?: string
+          default_quote_validity_days?: number
           email?: string | null
           id?: string
           logo_url?: string | null
@@ -495,6 +497,7 @@ export type Database = {
           address?: string | null
           company_name?: string
           created_at?: string
+          default_quote_validity_days?: number
           email?: string | null
           id?: string
           logo_url?: string | null
@@ -2275,6 +2278,7 @@ export type Database = {
           is_locked: boolean
           is_template: boolean
           last_viewed_at: string | null
+          main_quantity: number | null
           notes: string | null
           options: Json | null
           parent_quote_id: string | null
@@ -2302,6 +2306,7 @@ export type Database = {
           is_locked?: boolean
           is_template?: boolean
           last_viewed_at?: string | null
+          main_quantity?: number | null
           notes?: string | null
           options?: Json | null
           parent_quote_id?: string | null
@@ -2329,6 +2334,7 @@ export type Database = {
           is_locked?: boolean
           is_template?: boolean
           last_viewed_at?: string | null
+          main_quantity?: number | null
           notes?: string | null
           options?: Json | null
           parent_quote_id?: string | null

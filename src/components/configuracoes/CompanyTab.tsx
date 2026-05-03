@@ -29,7 +29,7 @@ interface Props {
 }
 
 export default function CompanyTab({ isAdmin }: Props) {
-  const { id, companyName, whatsappNumber, email, address, loading, refresh } =
+  const { id, companyName, whatsappNumber, email, address, defaultQuoteValidityDays, loading, refresh } =
     useCompanySettings();
 
   const [form, setForm] = useState({
@@ -37,6 +37,7 @@ export default function CompanyTab({ isAdmin }: Props) {
     whatsapp_raw: "",
     email: "",
     address: "",
+    default_quote_validity_days: "15",
   });
   const [saving, setSaving] = useState(false);
 
@@ -47,9 +48,10 @@ export default function CompanyTab({ isAdmin }: Props) {
         whatsapp_raw: whatsappNumber,
         email,
         address,
+        default_quote_validity_days: String(defaultQuoteValidityDays ?? 15),
       });
     }
-  }, [loading, companyName, whatsappNumber, email, address]);
+  }, [loading, companyName, whatsappNumber, email, address, defaultQuoteValidityDays]);
 
   const whatsappDigits = sanitizePhone(form.whatsapp_raw);
   const whatsappPretty = formatPhoneDisplay(whatsappDigits);
@@ -62,12 +64,14 @@ export default function CompanyTab({ isAdmin }: Props) {
       return;
     }
     setSaving(true);
+    const validityNum = Math.max(1, Math.floor(Number(form.default_quote_validity_days) || 15));
     const payload = {
       company_name: form.company_name.trim(),
       whatsapp_number: whatsappDigits,
       whatsapp_display: whatsappDigits ? whatsappPretty : null,
       email: form.email.trim() || null,
       address: form.address.trim() || null,
+      default_quote_validity_days: validityNum,
     };
     let error;
     if (id) {
@@ -173,6 +177,21 @@ export default function CompanyTab({ isAdmin }: Props) {
                 disabled={!isAdmin}
               />
             </div>
+          </div>
+
+          <div className="space-y-2 max-w-xs">
+            <Label htmlFor="default_validity">Validade padrão dos orçamentos (dias)</Label>
+            <Input
+              id="default_validity"
+              type="number"
+              min={1}
+              value={form.default_quote_validity_days}
+              onChange={(e) => setForm((f) => ({ ...f, default_quote_validity_days: e.target.value }))}
+              disabled={!isAdmin}
+            />
+            <p className="text-xs text-muted-foreground">
+              Valor sugerido ao criar um novo orçamento. O vendedor pode ajustar caso a caso (ex.: licitação 60 dias).
+            </p>
           </div>
 
           {isAdmin && (

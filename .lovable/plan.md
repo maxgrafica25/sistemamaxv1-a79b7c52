@@ -1,84 +1,66 @@
-## Refactor Novo Orçamento V2 — Layout Master-Detail
+## Refinamento do header — Novo Orçamento V2 (revisado)
 
-Eliminar o padrão de wizard por abas e adotar uma página única vertical e rolável, mantendo intactas a lógica de persistência, cálculos e o `StickyFinancialSidebar`.
+Ajustes de UX no header para refletir o fluxo real do vendedor: a quantidade vem primeiro, validade tem padrão global mas continua editável caso a caso, e o orçamento já abre com 1 impresso pronto.
 
-### Arquivo afetado
-- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` (única alteração estrutural)
+### Arquivos afetados
+- `supabase/migrations/...` — adicionar `company_settings.default_quote_validity_days` e `quotes.main_quantity`
+- `src/hooks/useCompanySettings.tsx` — expor `default_quote_validity_days`
+- `src/components/configuracoes/CompanyTab.tsx` — input para configurar a validade padrão
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` — refatorar header e auto-criar 1 item
+- `src/components/orcamentos-v2/QuoteOptionsBuilder.tsx` — variante "chips" inline para o topo
 
-### 1. Remoção do sistema de Steps
-- Remover constante `STEPS` e estado `const [step, setStep] = useState(0)`.
-- Remover ícones não usados após a refatoração: `ChevronLeft`, `ChevronRight`, `Check` (do step bar), e a navegação inferior "Voltar / Próximo".
-- Remover renderização condicional `{step === N && ...}` — todas as seções passam a renderizar sempre.
+### 1. Margem removida do header
+- O input "Margem (%)" sai do grid. State `profitMargin` continua existindo, populado pelo `default_margin_pct` global e pelos tiers dos produtos. Margem real é dirigida pelos cadastros — sem UI poluindo o topo.
 
-### 2. Título "Notion-style"
-Logo abaixo do header (h1 "Novo Orçamento V2" + ações), substituir o atual campo "Produto / Serviço" por um input seamless no topo da coluna principal:
+### 2. Validade — padrão global, mas editável
+- Nova coluna `company_settings.default_quote_validity_days` (default `15`).
+- Em **Configurações → Empresa**, novo input "Validade padrão dos orçamentos (dias)".
+- No `NewQuoteFormV2`, ao criar um orçamento novo, `validity` é inicializada com esse valor.
+- **O campo Validade permanece visível e editável no formulário** — em vez de ocupar uma coluna gorda do grid, vira um input compacto inline ao lado do Cliente (ex: 90px de largura, label sutil "Validade: __ dias"). Vendedor pode mudar para 60 dias (licitação) ou 3 dias (queima) sem sair da tela. Caso especial não engessa o caso comum.
 
-```tsx
-<input
-  value={product}
-  onChange={(e) => setProduct(e.target.value)}
-  placeholder="Nome do Projeto / Orçamento..."
-  className="w-full bg-transparent border-0 outline-none focus:ring-0
-             text-3xl md:text-4xl font-bold text-primary
-             placeholder:text-primary/30 px-0"
-/>
-```
-
-O `product` continua sendo o mesmo state já persistido em `quotes.product` — sem mudança no schema.
-
-### 3. Cabeçalho ultra-compacto (4 colunas)
-Logo abaixo do título:
-
-```tsx
-<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-  Nº Orçamento (read-only) | Cliente (ClientCombobox) | Validade | Margem (%)
-</div>
-```
-
-- Os botões "Dados do cliente / Últimas vendas" + painéis condicionais ficam logo abaixo do grid (col-span full).
-- "Observações Gerais" passa a `rows={2}` em largura total.
-- Manter o aviso "Comece com um modelo pronto" (apenas em criação) acima do grid, em formato discreto.
-
-### 4. Seções verticais com Separator
-Estrutura final da coluna principal:
+### 3. Quantidade desejada no topo
+Logo abaixo do título "Notion-style", antes do grid Cliente/Validade:
 
 ```text
-[Header com h1 + ações]
-[Alertas: Locked / Approved warnings]
-─────────────────────────
-[Título seamless do projeto]
-[Grid 4 col: Nº | Cliente | Validade | Margem]
-[Painéis cliente expansíveis]
-[Observações (rows=2)]
-<Separator className="my-8" />
-[H2: "Itens de Impressão"  + PrintingItemSearch + cards]
-<Separator className="my-8" />
-[H2: "Comunicação Visual"  + botão + Item CV cards + subtotal]
-<Separator className="my-8" />
-[H2: "Avulsos (não vinculados)" + LaborAndSupplySubform]
-<Separator className="my-8" />
-[H2: "Terceirizados" + lista]
-<Separator className="my-8" />
-[H2: "Desconto e Pagamento" + DiscountPaymentBlock]
-[QuoteOptionsBuilder]
-[Card final: Valor a cobrar + botão Salvar + Copiar link público]
+[Título grande do projeto]
+─────────────────
+Quantidade desejada: [  1000  ] unidades
+Outras quantidades a cotar (ancoragem):  [500 ✕] [2000 ✕] [+ adicionar]
+─────────────────
+[Nº Orçamento]  [Cliente]  [Validade (dias)]
 ```
 
-Títulos de seção minimalistas (`h2 text-lg font-semibold flex items-center gap-2` com ícone Lucide em primary), sem `Card` envolvendo cada bloco — apenas o conteúdo direto, separado por `<Separator className="my-8" />`. Cards continuam sendo usados internamente onde já existem (PrintingItemEditor, CVItemCard).
+- Novo state `mainQuantity` (number) — input numérico grande, label clara.
+- **Não substitui** o campo "Quantidade (folhas)" dentro de cada `PrintingItemEditor` — folhas ≠ unidades quando há montagem múltipla na imposição (ex.: 1000 cartões em 125 folhas A4 = imposição 8-up; ou 1000 cartões em 250 folhas = 4-up). Os dois convivem.
+- Persistido em `quotes.main_quantity` (integer, nullable) — backwards compatible.
 
-### 5. Sticky Financial Sidebar
-O componente `StickyFinancialSidebar` já é fixo no desktop (`sticky top-4` interno). Garantir que o wrapper externo permita o sticky funcionar com a página rolável:
+### 4. Chips de ancoragem no topo
+Reaproveitar `QuoteOptionsBuilder` em variante compacta (prop `variant="chips"`):
+- Renderiza apenas o input + chips das quantidades (sem card grande, sem deltas %).
+- Cada chip mostra `1000 un` com X para remover.
+- Ao adicionar/remover, dispara o mesmo `recalculateForQuantity` (lógica intacta).
+- A versão **completa** do `QuoteOptionsBuilder` (cards de unitário, total, delta %) **continua aparecendo no final do formulário** como visualização/confirmação.
+- Mesmo `options: QuoteOption[]` alimenta os dois — adicionar em qualquer um reflete no outro.
 
-- Container raiz mantém `flex flex-col lg:flex-row gap-6`.
-- A `<aside>` interna do sidebar já tem `sticky top-4` — adicionar no wrapper `lg:self-start` para que o sticky respeite a altura do conteúdo principal mesmo com muitos itens.
-- Sem alterações no componente `StickyFinancialSidebar.tsx`.
+### 5. Auto-abrir 1 item de impressão
+Em `NewQuoteFormV2.tsx`, no `loadInit` quando `!isEditing`:
+- Após carregar catálogo, criar 1 entrada vazia em `materials[]` com `parentItemId=null`, `quantity=0`, `paper_id=null` — para que `PrintingItemEditor` já apareça pronto pra preenchimento.
+- Mantém `PrintingItemSearch` acima da lista (caso raro: capa + miolo) e mantém o botão remover (orçamento só de Comunicação Visual).
+
+### Migração SQL
+```sql
+ALTER TABLE public.company_settings
+  ADD COLUMN IF NOT EXISTS default_quote_validity_days int NOT NULL DEFAULT 15;
+
+ALTER TABLE public.quotes
+  ADD COLUMN IF NOT EXISTS main_quantity int;
+```
 
 ### O que NÃO muda
-- Lógica de `loadInit`, `handleSave`, snapshot/recalculate, opções, CV, terceirizados.
-- Schema de banco (`quotes.product` continua sendo o nome do projeto).
-- Paleta roxa, radius e design tokens.
-- Componente `StickyFinancialSidebar.tsx` permanece intacto.
-- Imports de `STEPS`-related icons que ainda forem usados em outros lugares (Layers, Megaphone, Printer, Wrench, FileText, User).
+- Lógica de pricing, snapshot, recalculate, RLS, schema dos itens.
+- `StickyFinancialSidebar`, separadores, layout master-detail aprovado anteriormente.
+- Campo "Quantidade (folhas)" dentro do `PrintingItemEditor`.
+- O `QuoteOptionsBuilder` completo no rodapé do formulário.
 
 ### Resultado esperado
-Uma página única, com título grande tipo Notion, cabeçalho denso em 4 colunas, e todas as seções (impressão, CV, avulsos, terceirizados, finalização) empilhadas verticalmente com separadores sutis. O painel financeiro acompanha o scroll permanentemente à direita (desktop) e como bottom bar (mobile, comportamento já existente).
+Header sequencial: **Título → Quantidade + ancoragem → Cliente + Validade compacta**. Validade mantém o default global de 15 dias mas continua editável por orçamento, preservando o poder do vendedor em casos especiais (licitação 60 dias, queima 3 dias). Margem some do topo (vem dos cadastros). Formulário já abre com 1 impresso pronto pra editar.

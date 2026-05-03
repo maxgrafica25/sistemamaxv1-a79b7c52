@@ -33,6 +33,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PrintingItemEditor } from "@/components/orcamentos-v2/PrintingItemEditor";
 import { LaborAndSupplySubform, type SubformLabor, type SubformMaterial } from "@/components/orcamentos-v2/LaborAndSupplySubform";
 import { buildDynamicTitle } from "@/lib/quotes-v2/item-title";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 
 interface Props {
   quoteId?: string;
@@ -58,6 +59,7 @@ const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
 
 export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const isEditing = !!quoteId;
+  const { defaultQuoteValidityDays } = useCompanySettings();
   
   const [loadingInit, setLoadingInit] = useState(true);
 
@@ -69,8 +71,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [showClientData, setShowClientData] = useState(false);
   const [showLastSales, setShowLastSales] = useState(false);
   const [product, setProduct] = useState("");
-  const [validity, setValidity] = useState("7");
+  const [validity, setValidity] = useState("15");
   const [profitMargin, setProfitMargin] = useState("33");
+  const [mainQuantity, setMainQuantity] = useState<number | "">("");
   const [notes, setNotes] = useState("");
 
   const [labor, setLabor] = useState<SubformLabor[]>([]);
@@ -263,8 +266,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         setClientId((q as any).client_id ?? null);
         setClientPhone((q as any).client_phone ?? null);
         setProduct(q.product);
-        setValidity(q.validity || "7");
+        setValidity(q.validity || "15");
         setProfitMargin(q.profit_margin || "33");
+        setMainQuantity(((q as any).main_quantity ?? "") as number | "");
         setNotes((q as any).notes || "");
         setDiscountValue(q.discount_value);
         setDiscountType((q.discount_type as DiscountType) || "brl");
@@ -328,10 +332,19 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       const count = (existing || []).filter((q: any) => q.quote_number.startsWith(String(year))).length;
       setQuoteNumber(`${year}-${String(count + 1).padStart(3, "0")}`);
       setProfitMargin(String(settingsRes.data?.default_margin_pct ?? 33));
+
+      // Validade default puxada das configurações da empresa
+      const { data: companyRow } = await supabase
+        .from("company_settings")
+        .select("default_quote_validity_days")
+        .limit(1)
+        .maybeSingle();
+      const defDays = (companyRow as any)?.default_quote_validity_days ?? defaultQuoteValidityDays ?? 15;
+      setValidity(String(defDays));
     }
 
     setLoadingInit(false);
-  }, [quoteId]);
+  }, [quoteId, defaultQuoteValidityDays]);
 
   useEffect(() => {
     loadInit();
@@ -470,6 +483,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         date: new Date().toISOString().split("T")[0],
         validity,
         profit_margin: profitMargin,
+        main_quantity: typeof mainQuantity === "number" && mainQuantity > 0 ? mainQuantity : null,
         notes: notes.trim() || null,
         discount_value: discountValue,
         discount_type: discountValue ? discountType : null,
@@ -758,8 +772,37 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                        placeholder:text-primary/30"
           />
 
-          {/* Cabeçalho ultra-compacto: 4 colunas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Quantidade desejada + chips de ancoragem */}
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
+            <div className="flex items-end gap-3 flex-wrap">
+              <div className="space-y-1">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Quantidade desejada
+                </Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={mainQuantity === "" ? "" : mainQuantity}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setMainQuantity(v === "" ? "" : Math.max(0, Math.floor(Number(v) || 0)));
+                  }}
+                  placeholder="Ex: 1000"
+                  className="h-11 w-40 text-xl font-bold text-primary"
+                />
+              </div>
+              <span className="text-sm text-muted-foreground pb-3">unidades</span>
+            </div>
+            <QuoteOptionsBuilder
+              variant="chips"
+              snapshot={snapshot}
+              options={options}
+              onChange={setOptions}
+            />
+          </div>
+
+          {/* Cabeçalho compacto: Nº · Cliente · Validade */}
+          <div className="grid grid-cols-1 md:grid-cols-[160px_1fr_140px] gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs">Nº Orçamento</Label>
               <Input value={quoteNumber} disabled className="bg-muted h-9" />
@@ -779,11 +822,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Validade (dias)</Label>
-              <Input type="number" value={validity} onChange={(e) => setValidity(e.target.value)} className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Margem de lucro (%)</Label>
-              <Input type="number" step="0.01" value={profitMargin} onChange={(e) => setProfitMargin(e.target.value)} className="h-9" />
+              <Input
+                type="number"
+                min={1}
+                value={validity}
+                onChange={(e) => setValidity(e.target.value)}
+                className="h-9"
+              />
             </div>
           </div>
 
