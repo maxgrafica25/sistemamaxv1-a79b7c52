@@ -44,7 +44,7 @@ export function CompanySettingsProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     const { data: row } = await supabase
       .from("company_settings")
-      .select("id, company_name, whatsapp_number, whatsapp_display, email, address, logo_url")
+      .select("id, company_name, whatsapp_number, whatsapp_display, email, address, logo_url, default_quote_validity_days")
       .limit(1)
       .maybeSingle();
     if (row) {
@@ -56,6 +56,7 @@ export function CompanySettingsProvider({ children }: { children: ReactNode }) {
         email: row.email ?? "",
         address: row.address ?? "",
         logoUrl: row.logo_url ?? "",
+        defaultQuoteValidityDays: (row as any).default_quote_validity_days ?? 15,
       });
     }
     setLoading(false);
