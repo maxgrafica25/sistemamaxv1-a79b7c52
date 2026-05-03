@@ -175,7 +175,12 @@ export interface UseFolhaPricingResult {
   missing: "missing-printing" | null;
 }
 
-export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPricingResult {
+export function useFolhaPricing(
+  size: string,
+  sheetsQty?: number,
+  finishingSize?: string,
+): UseFolhaPricingResult {
+  const finishingSizeKey = finishingSize ?? size;
   const printingQ = useQuery({
     queryKey: ["printing_price_items", size],
     queryFn: async () => {
@@ -204,7 +209,7 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
   });
 
   const finishingQ = useQuery({
-    queryKey: ["finishings_price_items_with_tiers", size],
+    queryKey: ["finishings_price_items_with_tiers", finishingSizeKey],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("finishings_price_items")
@@ -212,7 +217,7 @@ export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPrici
           "id, name, category, size, price_per_sheet, is_active, finishing_price_tiers(id, finishing_id, label, min_qty, max_qty, price_per_sheet, sort_order)",
         )
         .eq("is_active", true)
-        .eq("size", size)
+        .eq("size", finishingSizeKey)
         .order("sort_order");
       if (error) throw error;
       const items: FinishingOption[] = (data ?? []).map((d: any) => {
