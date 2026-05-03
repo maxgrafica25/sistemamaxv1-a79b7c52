@@ -733,183 +733,117 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           </Alert>
         )}
 
-        {/* Steps */}
-        <div className="overflow-x-auto">
-          <div className="inline-flex bg-muted/60 rounded-lg p-1 gap-1">
-            {STEPS.map((s, i) => {
-              const Icon = s.icon;
-              const active = step === i;
-              const completed =
-                (i === 0 && client.trim() && product.trim()) ||
-                (i === 1 && (materials.length > 0 || cvItems.length > 0 || labor.length > 0)) ||
-                (i === 2 && thirdParty.length > 0) ||
-                (i === 3 && !!savedQuoteId);
-              return (
+        {/* ===== Notion-style título do projeto ===== */}
+        <div className="space-y-4">
+          {!isEditing && (
+            <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+              <span>💡 Quer agilizar?</span>
+              <button
+                type="button"
+                className="text-primary hover:underline font-medium"
+                onClick={() => onCancel()}
+              >
+                Comece com um modelo pronto
+              </button>
+              <span>em vez de criar do zero.</span>
+            </div>
+          )}
+
+          <input
+            value={product}
+            onChange={(e) => setProduct(e.target.value)}
+            placeholder="Nome do Projeto / Orçamento..."
+            className="w-full bg-transparent border-0 outline-none focus:ring-0 px-0
+                       text-3xl md:text-4xl font-bold text-primary
+                       placeholder:text-primary/30"
+          />
+
+          {/* Cabeçalho ultra-compacto: 4 colunas */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nº Orçamento</Label>
+              <Input value={quoteNumber} disabled className="bg-muted h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Cliente</Label>
+              <ClientCombobox
+                value={{ id: clientId, nome: client }}
+                onChange={(v) => {
+                  setClientId(v.id);
+                  setClient(v.nome);
+                  setClientPhone(v.telefone ?? null);
+                  setShowClientData(false);
+                  setShowLastSales(false);
+                }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Validade (dias)</Label>
+              <Input type="number" value={validity} onChange={(e) => setValidity(e.target.value)} className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Margem de lucro (%)</Label>
+              <Input type="number" step="0.01" value={profitMargin} onChange={(e) => setProfitMargin(e.target.value)} className="h-9" />
+            </div>
+          </div>
+
+          {clientId && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-4 text-sm flex-wrap">
                 <button
-                  key={i}
-                  onClick={() => setStep(i)}
-                  className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                    active ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:bg-background/50"
-                  }`}
+                  type="button"
+                  onClick={() => setShowClientData((v) => !v)}
+                  className="text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  <Icon className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">{s.label}</span>
-                  {completed && !active && (
-                    <Check className="h-3.5 w-3.5 text-emerald-600" />
-                  )}
+                  <User className="h-3.5 w-3.5" />
+                  {showClientData ? "Ocultar dados do cliente" : "Dados do cliente"}
+                  {showClientData ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                 </button>
-              );
-            })}
+                <button
+                  type="button"
+                  onClick={() => setShowLastSales((v) => !v)}
+                  className="text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  <History className="h-3.5 w-3.5" />
+                  {showLastSales ? "Ocultar últimas vendas" : "Ver últimas vendas"}
+                  {showLastSales ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </button>
+              </div>
+              {showClientData && (
+                <ClientDetailsPanel
+                  clientId={clientId}
+                  onUpdated={(nome, tel) => {
+                    setClient(nome);
+                    setClientPhone(tel);
+                  }}
+                />
+              )}
+              {showLastSales && <ClientLastSalesPanel clientId={clientId} />}
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Observações Gerais</Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Notas internas, contexto da proposta, instruções para a produção…"
+              rows={2}
+            />
           </div>
         </div>
 
-        {/* Step content */}
-        <div className="min-h-[300px]">
-          {/* ===== STEP 0: Informações ===== */}
-          {step === 0 && (
-            <Card><CardContent className="p-5 sm:p-6 space-y-5">
-              <h2 className="text-lg font-semibold">Informações Gerais</h2>
-              {!isEditing && (
-                <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-                  <span>💡 Quer agilizar?</span>
-                  <button
-                    type="button"
-                    className="text-primary hover:underline font-medium"
-                    onClick={() => onCancel()}
-                  >
-                    Comece com um modelo pronto
-                  </button>
-                  <span>em vez de criar do zero.</span>
-                </div>
-              )}
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2"><Label>Nº Orçamento</Label><Input value={quoteNumber} disabled className="bg-muted" /></div>
-                <div className="space-y-2">
-                  <Label>Cliente</Label>
-                  <ClientCombobox
-                    value={{ id: clientId, nome: client }}
-                    onChange={(v) => {
-                      setClientId(v.id);
-                      setClient(v.nome);
-                      setClientPhone(v.telefone ?? null);
-                      setShowClientData(false);
-                      setShowLastSales(false);
-                    }}
-                  />
-                </div>
-                {clientId && (
-                  <div className="md:col-span-2 -mt-2 space-y-2">
-                    <div className="flex items-center gap-4 text-sm flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => setShowClientData((v) => !v)}
-                        className="text-primary hover:underline inline-flex items-center gap-1"
-                      >
-                        <User className="h-3.5 w-3.5" />
-                        {showClientData ? "Ocultar dados do cliente" : "Dados do cliente"}
-                        {showClientData ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowLastSales((v) => !v)}
-                        className="text-primary hover:underline inline-flex items-center gap-1"
-                      >
-                        <History className="h-3.5 w-3.5" />
-                        {showLastSales ? "Ocultar últimas vendas" : "Ver últimas vendas"}
-                        {showLastSales ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                      </button>
-                    </div>
-                    {showClientData && (
-                      <ClientDetailsPanel
-                        clientId={clientId}
-                        onUpdated={(nome, tel) => {
-                          setClient(nome);
-                          setClientPhone(tel);
-                        }}
-                      />
-                    )}
-                    {showLastSales && <ClientLastSalesPanel clientId={clientId} />}
-                  </div>
-                )}
-                <div className="space-y-2 md:col-span-2"><Label>Produto / Serviço</Label><Input value={product} onChange={(e) => setProduct(e.target.value)} placeholder="Ex: Cartões de visita" /></div>
-                <div className="space-y-2"><Label>Validade (dias)</Label><Input type="number" value={validity} onChange={(e) => setValidity(e.target.value)} /></div>
-                <div className="space-y-2"><Label>Margem de lucro (%)</Label><Input type="number" step="0.01" value={profitMargin} onChange={(e) => setProfitMargin(e.target.value)} /></div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Observações Gerais</Label>
-                  <Textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Notas internas, contexto da proposta, instruções para a produção…"
-                    rows={3}
-                  />
-                </div>
-              </div>
-            </CardContent></Card>
-          )}
-
-          {/* ===== STEP 1: Itens do Orçamento (3 blocos) ===== */}
-          {step === 1 && (
-            <div className="space-y-4">
-              {/* Bloco 1: Itens de Impressão */}
-              <Card className="border-l-4 border-l-primary/60"><CardContent className="p-5 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Printer className="h-5 w-5 text-primary" /> Itens de Impressão
-                    {printingItems.length > 0 && <Badge variant="outline">{printingItems.length}</Badge>}
-                  </h2>
-                </div>
-                <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} markupTiers={markupTiers} globalSettings={globalSettings} />
-                {printingItems.length > 0 && (
-                  <div className="space-y-3">
-                    {printingItems.map((m) => {
-                      const childLabor = labor.filter((l) => l.parentItemId === m.id);
-                      const childMats = materials.filter((x) => x.parentItemId === m.id);
-                      return (
-                        <PrintingItemEditor
-                          key={m.id}
-                          item={m}
-                          childLabor={childLabor}
-                          childMaterials={childMats}
-                          hourlyRate={hourlyRate}
-                          onItemChange={(patch) => updateMaterialPatch(m.id, patch)}
-                          onRemove={() => removeMaterial(m.id)}
-                          onChildLaborChange={(next) => setChildLaborFor(m.id, next)}
-                          onChildMaterialChange={(next) => setChildMaterialsFor(m.id, next)}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent></Card>
-
-              {/* Bloco 2: Comunicação Visual */}
-              <Card><CardContent className="p-5 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Megaphone className="h-5 w-5 text-primary" /> Comunicação Visual
-                    {cvItems.length > 0 && <Badge variant="outline">{cvItems.length} {cvItems.length === 1 ? "item" : "itens"}</Badge>}
-                  </h2>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    disabled={cvMaterials.length === 0}
-                    onClick={() => setCvItems((p) => [
-                      ...p,
-                      {
-                        id: `cv-${Date.now()}`,
-                        material_id: null,
-                        printer_id: null,
-                        largura_cm: 0,
-                        altura_cm: 0,
-                        quantidade: 1,
-                        acabamentos: [],
-                      },
-                    ])}
-                  >
-                    <Plus className="h-4 w-4" /> Item CV
-                  </Button>
-                </div>
+        {/* ===== Conteúdo único rolável ===== */}
+        <div>
+          {/* Itens de Impressão */}
+          <Separator className="my-8" />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Printer className="h-5 w-5 text-primary" /> Itens de Impressão
+                {printingItems.length > 0 && <Badge variant="outline">{printingItems.length}</Badge>}
+              </h2>
+            </div>
 
                 {cvMaterials.length === 0 ? (
                   <Alert>
