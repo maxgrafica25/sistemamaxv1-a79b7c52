@@ -1286,14 +1286,14 @@ export function LabelLayoutCalculator({
               <div className="text-sm">
                 <span className="text-muted-foreground">{qty} un ÷ {perSheet}/folha = </span>
                 <strong>{pricing.sheetsNeeded} {pricing.sheetsNeeded === 1 ? "folha" : "folhas"}</strong>
-                <span className="text-muted-foreground"> × {formatBRL(pricePerSheet)} = </span>
+                <span className="text-muted-foreground"> × {formatBRL(pricePerSheet)}</span>
               </div>
-              <div className="flex items-baseline justify-between">
-                <p className="text-2xl font-bold text-primary">
+              <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
+                <p className="text-3xl font-bold text-primary tabular-nums leading-none">
                   {formatBRL(pricing.totalPrice)}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  custo unitário <strong>{formatBRL(pricing.unitPrice)}</strong>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  unitário <strong>{formatBRL(pricing.unitPrice)}</strong>
                 </p>
               </div>
             </>
@@ -1319,40 +1319,39 @@ export function LabelLayoutCalculator({
             />
           )}
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          <div className="flex flex-col gap-2 pt-3 border-t">
             <Button
-              size="sm"
-              variant="outline"
+              size="lg"
+              variant="default"
+              className="w-full"
               onClick={handleCopyWhats}
               disabled={!whatsappText}
               title={!whatsappText ? "Faltam dados de preço/quantidade" : undefined}
             >
-              <Copy className="h-3.5 w-3.5 mr-1.5" />
+              <Copy className="h-4 w-4 mr-2" />
               Copiar WhatsApp
             </Button>
             <Button
-              size="sm"
               variant="outline"
+              className="w-full"
               onClick={handleOpenWhats}
               disabled={!whatsappText}
               title={!whatsappText ? "Faltam dados de preço/quantidade" : undefined}
             >
-              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+              <ExternalLink className="h-4 w-4 mr-2" />
               Abrir WhatsApp
             </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleGeneratePDF}
+              disabled={generatingPdf || perSheet <= 0}
+              title="Gera PDF 1:1 com página de impressão (K100) + página de faca CutContour (M100, 0.25pt)"
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              {generatingPdf ? "Gerando…" : "Gerar PDF de produção"}
+            </Button>
           </div>
-
-          <Button
-            size="sm"
-            variant="secondary"
-            className="w-full"
-            onClick={handleGeneratePDF}
-            disabled={generatingPdf || perSheet <= 0}
-            title="Gera PDF 1:1 com página de impressão (K100) + página de faca CutContour (M100, 0.25pt)"
-          >
-            <FileDown className="h-3.5 w-3.5 mr-1.5" />
-            {generatingPdf ? "Gerando…" : "Gerar PDF de produção (Impressão + Faca)"}
-          </Button>
 
           {isParametric && perSheet > 0 && (
             <Button
