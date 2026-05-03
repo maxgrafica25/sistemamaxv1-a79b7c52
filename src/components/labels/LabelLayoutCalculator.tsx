@@ -419,6 +419,27 @@ export function LabelLayoutCalculator({
   // No modo paramétrico, sobrescrevemos o resultado do layout genérico
   // mantendo a mesma forma de objeto para reuso do código abaixo.
   const layout = useMemo(() => {
+    if (guillotineLayout) {
+      const { cols, rows, total, usableW, usableH, utilizationPct, rotated, labelW: lw, labelH: lh, offsetX, offsetY } = guillotineLayout;
+      const cellsPerRow = Array.from({ length: rows }, () => cols);
+      // rowOffsets em mm a partir da borda esquerda da folha.
+      const rowOffsets = Array.from({ length: rows }, () => offsetX);
+      return {
+        ...layoutGeneric,
+        best: { cols, rows, total, rotated },
+        optionA: { cols, rows, total, rotated: false },
+        optionB: { cols: 0, rows: 0, total: 0, rotated: true },
+        usableW,
+        usableH,
+        utilizationPct,
+        reservedSlots: [],
+        cellsPerRow,
+        rowOffsets,
+        effectivePerSheet: total,
+        // Sobrescreve dimensões efetivas para os consumidores
+        _guillotineEffective: { labelW: lw, labelH: lh, offsetX, offsetY },
+      };
+    }
     if (!paramLayout) return layoutGeneric;
     const cols = paramLayout.labelsPerRow;
     const rows = paramLayout.labelsPerColumn;
@@ -441,7 +462,7 @@ export function LabelLayoutCalculator({
       rowOffsets,
       effectivePerSheet: paramLayout.total,
     };
-  }, [paramLayout, layoutGeneric, labelW, labelH, config.sheetW, config.sheetH]);
+  }, [guillotineLayout, paramLayout, layoutGeneric, labelW, labelH, config.sheetW, config.sheetH]);
 
   const perSheet = layout.effectivePerSheet;
   // Estima folhas SEM depender do preço (é puramente geométrico) — alimenta o
