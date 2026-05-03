@@ -642,9 +642,9 @@ export function LabelLayoutCalculator({
   const overflowFavs = config.labelPresets.slice(FAV_VISIBLE);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-10">
-      {/* ============================== SIMULADOR ============================== */}
-      <div className="lg:col-span-7 space-y-5">
+    <div className="grid gap-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-12">
+      {/* ============================== COLUNA 1 — INPUTS ============================== */}
+      <div className="xl:col-span-4 space-y-5">
         {/* 1. Faixa-resumo das configurações — TOPO da página */}
         <button
           type="button"
@@ -926,42 +926,18 @@ export function LabelLayoutCalculator({
         </Card>
       </div>
 
-      {/* ============================== RESULTADOS ============================== */}
-      <div className="lg:col-span-3 space-y-5 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
+      {/* ============================== COLUNA 2 — PREVIEW & SUGESTÕES ============================== */}
+      <div className="xl:col-span-5 space-y-5">
         {/* Aproveitamento */}
         <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            {/* Donut SVG */}
-            {(() => {
-              const pct = Math.max(0, Math.min(100, layout.utilizationPct));
-              const r = 15.9155;
-              const circ = 2 * Math.PI * r;
-              const dash = (pct / 100) * circ;
-              return (
-                <div className="relative shrink-0" style={{ width: 72, height: 72 }}>
-                  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                    <circle
-                      cx="18" cy="18" r={r}
-                      fill="none"
-                      className="stroke-muted"
-                      strokeWidth="3.5"
-                    />
-                    <circle
-                      cx="18" cy="18" r={r}
-                      fill="none"
-                      className="stroke-primary transition-all"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      strokeDasharray={`${dash} ${circ - dash}`}
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-sm font-bold tabular-nums">{pct.toFixed(0)}%</span>
-                  </div>
-                </div>
-              );
-            })()}
-            <div className="flex-1 text-right">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Aproveitamento</p>
+              <p className="text-2xl font-semibold tabular-nums mt-0.5">
+                {Math.max(0, Math.min(100, layout.utilizationPct)).toFixed(0)}%
+              </p>
+            </div>
+            <div className="text-right">
               <p className="text-4xl font-bold text-primary leading-none tabular-nums">
                 {perSheet}
               </p>
@@ -971,7 +947,7 @@ export function LabelLayoutCalculator({
             </div>
           </div>
 
-          <div className="bg-muted/30 rounded-lg p-3">
+          <div className="w-full">
             <SheetPreview
               sheetW={config.sheetW}
               sheetH={config.sheetH}
@@ -1171,6 +1147,135 @@ export function LabelLayoutCalculator({
           </div>
           )}
 
+        {/* Sugestões de venda — Coluna 2 */}
+        {ladder.length > 0 && (
+          <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-3">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <h3 className="text-sm font-semibold">Sugestões de venda</h3>
+            </div>
+            {pricePerSheet <= 0 && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                Cadastre o preço da folha em{" "}
+                <a href="/preco-impressao" target="_blank" rel="noopener noreferrer" className="underline">
+                  Preço Impressão
+                </a>{" "}
+                para ver os valores.
+              </p>
+            )}
+            <div className="space-y-1.5 text-xs">
+              {ladder.map((tier) => {
+                const isBase = tier.label === "solicitada";
+                const isCustom = customQtys.includes(tier.qty);
+                const hasPrice = pricePerSheet > 0;
+                return (
+                  <div
+                    key={tier.qty}
+                    className={
+                      "grid grid-cols-[auto_1fr_auto] gap-2 items-center px-2 py-1.5 rounded-md " +
+                      (isBase ? "bg-muted/60" : "")
+                    }
+                  >
+                    <div className="font-semibold tabular-nums w-16 flex items-center gap-1">
+                      {tier.qty} un
+                    </div>
+                    <div className="text-muted-foreground tabular-nums flex items-center gap-1.5 flex-wrap">
+                      <span>
+                        {tier.sheets} {tier.sheets === 1 ? "folha" : "folhas"}
+                        {hasPrice && <> · {formatBRL(tier.unit)}/un</>}
+                      </span>
+                      {tier.label === "extra" && !isCustom && (
+                        <Badge variant="outline" className="text-[9px] uppercase tracking-wide h-4 px-1">extra</Badge>
+                      )}
+                      {isCustom && (
+                        <Badge variant="secondary" className="text-[9px] uppercase tracking-wide h-4 px-1">custom</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 justify-end">
+                      {hasPrice && (
+                        <span className="font-semibold tabular-nums">{formatBRL(tier.total)}</span>
+                      )}
+                      {hasPrice && !isBase && tier.unitDeltaPct < 0 && (
+                        <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">
+                          {formatPct(tier.unitDeltaPct, 0)}
+                        </Badge>
+                      )}
+                      {hasPrice && !isBase && tier.unitDeltaPct === 0 && (
+                        <Badge variant="outline" className="text-[10px]">0%</Badge>
+                      )}
+                      {isCustom && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeCustomQty(tier.qty)}
+                          title="Remover faixa"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Adicionar faixa customizada */}
+            <div className="flex gap-1.5 pt-1 border-t">
+              <Input
+                type="number"
+                min={1}
+                value={newLadderQty}
+                onChange={(e) => setNewLadderQty(e.target.value)}
+                placeholder="Adicionar quantidade (ex: 1500)"
+                className="h-7 text-xs"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); addCustomQty(); }
+                }}
+              />
+              <Button size="sm" variant="outline" onClick={addCustomQty} className="h-7 px-2">
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            {pricePerSheet > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  const text = formatLadderWhatsApp({
+                    shape,
+                    width: labelW,
+                    height: labelH,
+                    ladder,
+                    qty,
+                    paperKind: folhaPricing.paperKind,
+                    sheetSize: sheetSizeKey,
+                    printingLabel: folhaPricing.selectedPrinting?.label ?? null,
+                    finishingLabel: folhaPricing.selectedFinishing.id ? folhaPricing.selectedFinishing.label : null,
+                  });
+                  if (!text) { toast.error("Sem faixas para copiar"); return; }
+                  navigator.clipboard.writeText(text);
+                  toast.success("Tabela copiada para o WhatsApp");
+                }}
+              >
+                <Copy className="h-3.5 w-3.5 mr-1.5" />
+                Copiar tabela WhatsApp
+              </Button>
+            )}
+
+            <p className="text-[11px] text-muted-foreground">
+              {pricePerSheet > 0
+                ? "Argumento de venda: o custo unitário cai conforme a quantidade aumenta, porque o custo fixo por folha é diluído."
+                : "Referência de quantidades para upsell. Os valores aparecem assim que o preço da folha for cadastrado."}
+            </p>
+          </Card>
+        )}
+      </div>
+
+      {/* ============================== COLUNA 3 — ORÇAMENTO ============================== */}
+      <aside className="xl:col-span-3 space-y-5 xl:sticky xl:top-6 xl:self-start">
         {/* Pricing principal — SEMPRE VISÍVEL */}
         <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-4 border-primary/40 bg-primary/5">
           <div className="flex items-center justify-between">
@@ -1377,132 +1482,7 @@ export function LabelLayoutCalculator({
           )}
         </Card>
 
-        {/* Ancoragem */}
-        {ladder.length > 0 && (
-          <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-3">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              <h3 className="text-sm font-semibold">Sugestões de venda</h3>
-            </div>
-            {pricePerSheet <= 0 && (
-              <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                Cadastre o preço da folha em{" "}
-                <a href="/preco-impressao" target="_blank" rel="noopener noreferrer" className="underline">
-                  Preço Impressão
-                </a>{" "}
-                para ver os valores.
-              </p>
-            )}
-            <div className="space-y-1.5 text-xs">
-              {ladder.map((tier) => {
-                const isBase = tier.label === "solicitada";
-                const isCustom = customQtys.includes(tier.qty);
-                const hasPrice = pricePerSheet > 0;
-                return (
-                  <div
-                    key={tier.qty}
-                    className={
-                      "grid grid-cols-[auto_1fr_auto] gap-2 items-center px-2 py-1.5 rounded-md " +
-                      (isBase ? "bg-muted/60" : "")
-                    }
-                  >
-                    <div className="font-semibold tabular-nums w-16 flex items-center gap-1">
-                      {tier.qty} un
-                    </div>
-                    <div className="text-muted-foreground tabular-nums flex items-center gap-1.5 flex-wrap">
-                      <span>
-                        {tier.sheets} {tier.sheets === 1 ? "folha" : "folhas"}
-                        {hasPrice && <> · {formatBRL(tier.unit)}/un</>}
-                      </span>
-                      {tier.label === "extra" && !isCustom && (
-                        <Badge variant="outline" className="text-[9px] uppercase tracking-wide h-4 px-1">extra</Badge>
-                      )}
-                      {isCustom && (
-                        <Badge variant="secondary" className="text-[9px] uppercase tracking-wide h-4 px-1">custom</Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 justify-end">
-                      {hasPrice && (
-                        <span className="font-semibold tabular-nums">{formatBRL(tier.total)}</span>
-                      )}
-                      {hasPrice && !isBase && tier.unitDeltaPct < 0 && (
-                        <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">
-                          {formatPct(tier.unitDeltaPct, 0)}
-                        </Badge>
-                      )}
-                      {hasPrice && !isBase && tier.unitDeltaPct === 0 && (
-                        <Badge variant="outline" className="text-[10px]">0%</Badge>
-                      )}
-                      {isCustom && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5 text-muted-foreground hover:text-destructive"
-                          onClick={() => removeCustomQty(tier.qty)}
-                          title="Remover faixa"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Adicionar faixa customizada */}
-            <div className="flex gap-1.5 pt-1 border-t">
-              <Input
-                type="number"
-                min={1}
-                value={newLadderQty}
-                onChange={(e) => setNewLadderQty(e.target.value)}
-                placeholder="Adicionar quantidade (ex: 1500)"
-                className="h-7 text-xs"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") { e.preventDefault(); addCustomQty(); }
-                }}
-              />
-              <Button size="sm" variant="outline" onClick={addCustomQty} className="h-7 px-2">
-                <Plus className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-
-            {pricePerSheet > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  const text = formatLadderWhatsApp({
-                    shape,
-                    width: labelW,
-                    height: labelH,
-                    ladder,
-                    qty,
-                    paperKind: folhaPricing.paperKind,
-                    sheetSize: sheetSizeKey,
-                    printingLabel: folhaPricing.selectedPrinting?.label ?? null,
-                    finishingLabel: folhaPricing.selectedFinishing.id ? folhaPricing.selectedFinishing.label : null,
-                  });
-                  if (!text) { toast.error("Sem faixas para copiar"); return; }
-                  navigator.clipboard.writeText(text);
-                  toast.success("Tabela copiada para o WhatsApp");
-                }}
-              >
-                <Copy className="h-3.5 w-3.5 mr-1.5" />
-                Copiar tabela WhatsApp
-              </Button>
-            )}
-
-            <p className="text-[11px] text-muted-foreground">
-              {pricePerSheet > 0
-                ? "Argumento de venda: o custo unitário cai conforme a quantidade aumenta, porque o custo fixo por folha é diluído."
-                : "Referência de quantidades para upsell. Os valores aparecem assim que o preço da folha for cadastrado."}
-            </p>
-          </Card>
-        )}
-      </div>
+      </aside>
 
       {/* Settings dialog */}
       <LabelCalcSettingsDialog
