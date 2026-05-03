@@ -1181,9 +1181,13 @@ export function LabelLayoutCalculator({
             {grow && (
               <Alert className="border-emerald-400/50 bg-emerald-50 dark:bg-emerald-950/20">
                 <Maximize2 className="h-4 w-4 text-emerald-600" />
-                <AlertTitle className="text-sm">Entregue uma etiqueta maior</AlertTitle>
+                <AlertTitle className="text-sm">
+                  {cutMode === "guilhotina" ? "Entregue um impresso maior" : "Entregue uma etiqueta maior"}
+                </AlertTitle>
                 <AlertDescription className="text-xs space-y-2">
                   {(() => {
+                    const noun = cutMode === "guilhotina" ? "impresso" : "etiqueta";
+                    const nounPl = cutMode === "guilhotina" ? "impressos" : "etiquetas";
                     const isSquareNew = grow.newLabelW === grow.newLabelH;
                     const sizeLabel = isSquareNew
                       ? `${grow.newLabelW}mm`
@@ -1202,14 +1206,14 @@ export function LabelLayoutCalculator({
                     return (
                       <>
                         <p>
-                          Você pode aumentar a etiqueta para <strong>{sizeLabel}</strong>
+                          Você pode aumentar o {noun} para <strong>{sizeLabel}</strong>
                           {deltaText && <> ({deltaText})</>}, mantendo as{" "}
                           <strong>
-                            {grow.newPerSheet} {grow.newPerSheet === 1 ? "etiqueta" : "etiquetas"} por folha
+                            {grow.newPerSheet} {grow.newPerSheet === 1 ? noun : nounPl} por folha
                           </strong>.
                         </p>
                         <p>
-                          Mesma quantidade, mesmo custo de produção, etiqueta{" "}
+                          Mesma quantidade, mesmo custo de produção, {noun}{" "}
                           <strong>+{areaPct}% maior em área</strong>.
                         </p>
                       </>
