@@ -53,7 +53,7 @@ export async function cloneQuote(quoteId: string): Promise<CloneResult> {
 
   const [labor, mats, tp] = await Promise.all([
     supabase.from("quote_labor_steps").select("description, time_minutes, sort_order").eq("quote_id", quoteId),
-    supabase.from("quote_materials").select("description, quantity, unit_price, sort_order").eq("quote_id", quoteId),
+    supabase.from("quote_materials").select("description, quantity, unit_price, sort_order, product_kind, custom_name, reference, generated_title, paper_type, grammage, size, side").eq("quote_id", quoteId),
     supabase.from("quote_third_party").select("description, supplier, cost, sort_order").eq("quote_id", quoteId),
   ]);
 
