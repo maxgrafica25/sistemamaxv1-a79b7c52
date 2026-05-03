@@ -37,6 +37,7 @@ import { buildDynamicTitle } from "@/lib/quotes-v2/item-title";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { TagInput } from "@/components/ui/TagInput";
 import { FreightSelector } from "@/components/orcamentos-v2/FreightSelector";
+import { QuoteItemsTable } from "@/components/orcamentos-v2/QuoteItemsTable";
 
 interface Props {
   quoteId?: string;
