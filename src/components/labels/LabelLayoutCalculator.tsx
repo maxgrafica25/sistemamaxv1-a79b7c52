@@ -642,15 +642,15 @@ export function LabelLayoutCalculator({
   const overflowFavs = config.labelPresets.slice(FAV_VISIBLE);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
+    <div className="grid gap-6 lg:grid-cols-10">
       {/* ============================== SIMULADOR ============================== */}
-      <div className="space-y-4">
+      <div className="lg:col-span-7 space-y-5">
         {/* 1. Faixa-resumo das configurações — TOPO da página */}
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
           aria-label="Alterar configurações de folha e corte"
-          className="w-full text-left rounded-md border border-border bg-card px-3 py-2.5 text-xs flex items-center justify-between gap-3 transition-colors hover:bg-muted/50"
+          className="w-full text-left rounded-xl border border-border/60 bg-muted/40 hover:bg-muted/70 px-4 py-3 text-xs flex items-center justify-between gap-3 transition-colors shadow-sm"
         >
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
             <span>
@@ -669,8 +669,8 @@ export function LabelLayoutCalculator({
         </button>
 
         {/* 2. Seleção rápida de folha — Tabs */}
-        <Card className="p-3">
-          <div className="flex items-center gap-2 mb-2">
+        <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-3">
+          <div className="flex items-center gap-2">
             <Label className="text-xs text-muted-foreground">Folha:</Label>
             <span className="text-xs font-medium">{describeSheet(config)}</span>
           </div>
@@ -684,21 +684,21 @@ export function LabelLayoutCalculator({
               <ToggleGroupItem
                 key={s.id}
                 value={s.id}
-                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-10 text-xs"
               >
                 {s.label}
               </ToggleGroupItem>
             ))}
             <ToggleGroupItem
               value="__other__"
-              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-10 text-xs"
             >
               Outro…
             </ToggleGroupItem>
           </ToggleGroup>
         </Card>
 
-        <Card className="p-4 space-y-4">
+        <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-5">
           <h3 className="text-sm font-semibold">Simulador</h3>
 
           {/* Favoritos sempre visíveis (até 6) */}
@@ -801,7 +801,7 @@ export function LabelLayoutCalculator({
                 <ToggleGroupItem
                   key={s}
                   value={s}
-                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-10 text-xs"
                 >
                   {SHAPE_LABELS[s]}
                 </ToggleGroupItem>
@@ -927,37 +927,87 @@ export function LabelLayoutCalculator({
       </div>
 
       {/* ============================== RESULTADOS ============================== */}
-      <div className="space-y-4">
+      <div className="lg:col-span-3 space-y-5 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
         {/* Aproveitamento */}
-        <Card className="p-4 space-y-3">
-          <div className="flex items-baseline justify-between">
-            <div>
-              <p className="text-3xl font-bold text-primary leading-none">
+        <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            {/* Donut SVG */}
+            {(() => {
+              const pct = Math.max(0, Math.min(100, layout.utilizationPct));
+              const r = 15.9155;
+              const circ = 2 * Math.PI * r;
+              const dash = (pct / 100) * circ;
+              return (
+                <div className="relative shrink-0" style={{ width: 72, height: 72 }}>
+                  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                    <circle
+                      cx="18" cy="18" r={r}
+                      fill="none"
+                      className="stroke-muted"
+                      strokeWidth="3.5"
+                    />
+                    <circle
+                      cx="18" cy="18" r={r}
+                      fill="none"
+                      className="stroke-primary transition-all"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      strokeDasharray={`${dash} ${circ - dash}`}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-sm font-bold tabular-nums">{pct.toFixed(0)}%</span>
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="flex-1 text-right">
+              <p className="text-4xl font-bold text-primary leading-none tabular-nums">
                 {perSheet}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1.5">
                 etiquetas por folha
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-lg font-semibold">
-                {layout.utilizationPct.toFixed(1)}%
-              </p>
-              <p className="text-[11px] text-muted-foreground">aproveitamento</p>
-            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <Badge variant="secondary">
+
+          <div className="bg-muted/30 rounded-lg p-3">
+            <SheetPreview
+              sheetW={config.sheetW}
+              sheetH={config.sheetH}
+              marginTop={config.marginTop}
+              marginBottom={config.marginBottom}
+              marginLeft={config.marginLeft}
+              marginRight={config.marginRight}
+              gap={effectiveGap}
+              labelW={layout.best.rotated ? labelH : labelW}
+              labelH={layout.best.rotated ? labelW : labelH}
+              cols={layout.best.cols}
+              rows={layout.best.rows}
+              shape={shape}
+              imageDataUrl={imageDataUrl}
+              imageNaturalW={imageDims?.w ?? null}
+              imageNaturalH={imageDims?.h ?? null}
+              reservedSlots={layout.reservedSlots}
+              rowOffsets={layout.rowOffsets}
+              cellsPerRow={layout.cellsPerRow}
+              marksOffsetY={marksOffsetY}
+              paramLayout={paramLayout}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px] pt-1 border-t">
+            <Badge variant="secondary" className="text-[11px]">
               {layout.best.cols} × {layout.best.rows}
             </Badge>
-            <Badge variant={layout.best.rotated ? "default" : "outline"} className="gap-1">
+            <Badge variant={layout.best.rotated ? "default" : "outline"} className="gap-1 text-[11px]">
               {layout.best.rotated && <RotateCw className="h-3 w-3" />}
-              {layout.best.rotated ? "Etiqueta rotacionada 90°" : "Etiqueta em pé"}
+              {layout.best.rotated ? "Rotacionada 90°" : "Em pé"}
             </Badge>
             {layout.reservedSlots.length > 0 && (
-              <Badge variant="outline" className="gap-1 text-amber-700 dark:text-amber-400 border-amber-400/60">
+              <Badge variant="outline" className="gap-1 text-amber-700 dark:text-amber-400 border-amber-400/60 text-[11px]">
                 <Crosshair className="h-3 w-3" />
-                −{layout.reservedSlots.length} (zona de segurança 10mm)
+                −{layout.reservedSlots.length} (zona segura)
               </Badge>
             )}
             <span className="text-muted-foreground">
@@ -965,39 +1015,16 @@ export function LabelLayoutCalculator({
             </span>
             <Badge
               variant="outline"
-              className="gap-1 border-primary/40 text-primary"
+              className="gap-1 border-primary/40 text-primary text-[11px]"
               title={
                 isParametric
                   ? "Modo paramétrico SignMaster: margens 7/7/7/7 mm, gap 3 mm, marcas L (topo) + T (base). Folhas soltas."
                   : `Margens ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight}mm · gap efetivo ${effectiveGap}mm`
               }
             >
-              ⚙ {isParametric ? "SignMaster paramétrico · 7/7/7/7 · gap 3" : `${config.hardwareProfileId === "signmaster_param" ? "SignMaster" : config.hardwareProfileId === "teneth_a3" ? "Teneth A3" : config.hardwareProfileId} · ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight} · gap ${effectiveGap}`}
+              ⚙ {isParametric ? "SignMaster · 7/7 · gap 3" : `${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight} · gap ${effectiveGap}`}
             </Badge>
           </div>
-
-          <SheetPreview
-            sheetW={config.sheetW}
-            sheetH={config.sheetH}
-            marginTop={config.marginTop}
-            marginBottom={config.marginBottom}
-            marginLeft={config.marginLeft}
-            marginRight={config.marginRight}
-            gap={effectiveGap}
-            labelW={layout.best.rotated ? labelH : labelW}
-            labelH={layout.best.rotated ? labelW : labelH}
-            cols={layout.best.cols}
-            rows={layout.best.rows}
-            shape={shape}
-            imageDataUrl={imageDataUrl}
-            imageNaturalW={imageDims?.w ?? null}
-            imageNaturalH={imageDims?.h ?? null}
-            reservedSlots={layout.reservedSlots}
-            rowOffsets={layout.rowOffsets}
-            cellsPerRow={layout.cellsPerRow}
-            marksOffsetY={marksOffsetY}
-            paramLayout={paramLayout}
-          />
 
           {/* Slider de ajuste das marcas inferiores — começa no meio da folha, desce até a borda */}
           {!isParametric && (() => {
@@ -1145,7 +1172,7 @@ export function LabelLayoutCalculator({
           )}
 
         {/* Pricing principal — SEMPRE VISÍVEL */}
-        <Card className="p-4 space-y-3 border-primary/40 bg-primary/5">
+        <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-4 border-primary/40 bg-primary/5">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Cálculo do orçamento</h3>
             <a
@@ -1172,14 +1199,14 @@ export function LabelLayoutCalculator({
                 <ToggleGroupItem
                   value="adesivo"
                   disabled={!folhaPricing.availableKinds.includes("adesivo")}
-                  className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  className="h-10 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
                 >
                   Adesivo
                 </ToggleGroupItem>
                 <ToggleGroupItem
                   value="papel"
                   disabled={!folhaPricing.availableKinds.includes("papel")}
-                  className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  className="h-10 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
                 >
                   Papel
                 </ToggleGroupItem>
@@ -1259,14 +1286,14 @@ export function LabelLayoutCalculator({
               <div className="text-sm">
                 <span className="text-muted-foreground">{qty} un ÷ {perSheet}/folha = </span>
                 <strong>{pricing.sheetsNeeded} {pricing.sheetsNeeded === 1 ? "folha" : "folhas"}</strong>
-                <span className="text-muted-foreground"> × {formatBRL(pricePerSheet)} = </span>
+                <span className="text-muted-foreground"> × {formatBRL(pricePerSheet)}</span>
               </div>
-              <div className="flex items-baseline justify-between">
-                <p className="text-2xl font-bold text-primary">
+              <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
+                <p className="text-3xl font-bold text-primary tabular-nums leading-none">
                   {formatBRL(pricing.totalPrice)}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  custo unitário <strong>{formatBRL(pricing.unitPrice)}</strong>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  unitário <strong>{formatBRL(pricing.unitPrice)}</strong>
                 </p>
               </div>
             </>
@@ -1292,40 +1319,39 @@ export function LabelLayoutCalculator({
             />
           )}
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          <div className="flex flex-col gap-2 pt-3 border-t">
             <Button
-              size="sm"
-              variant="outline"
+              size="lg"
+              variant="default"
+              className="w-full"
               onClick={handleCopyWhats}
               disabled={!whatsappText}
               title={!whatsappText ? "Faltam dados de preço/quantidade" : undefined}
             >
-              <Copy className="h-3.5 w-3.5 mr-1.5" />
+              <Copy className="h-4 w-4 mr-2" />
               Copiar WhatsApp
             </Button>
             <Button
-              size="sm"
               variant="outline"
+              className="w-full"
               onClick={handleOpenWhats}
               disabled={!whatsappText}
               title={!whatsappText ? "Faltam dados de preço/quantidade" : undefined}
             >
-              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+              <ExternalLink className="h-4 w-4 mr-2" />
               Abrir WhatsApp
             </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleGeneratePDF}
+              disabled={generatingPdf || perSheet <= 0}
+              title="Gera PDF 1:1 com página de impressão (K100) + página de faca CutContour (M100, 0.25pt)"
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              {generatingPdf ? "Gerando…" : "Gerar PDF de produção"}
+            </Button>
           </div>
-
-          <Button
-            size="sm"
-            variant="secondary"
-            className="w-full"
-            onClick={handleGeneratePDF}
-            disabled={generatingPdf || perSheet <= 0}
-            title="Gera PDF 1:1 com página de impressão (K100) + página de faca CutContour (M100, 0.25pt)"
-          >
-            <FileDown className="h-3.5 w-3.5 mr-1.5" />
-            {generatingPdf ? "Gerando…" : "Gerar PDF de produção (Impressão + Faca)"}
-          </Button>
 
           {isParametric && perSheet > 0 && (
             <Button
@@ -1353,7 +1379,7 @@ export function LabelLayoutCalculator({
 
         {/* Ancoragem */}
         {ladder.length > 0 && (
-          <Card className="p-4 space-y-3">
+          <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-3">
             <div className="flex items-center gap-1.5">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
               <h3 className="text-sm font-semibold">Sugestões de venda</h3>
