@@ -515,7 +515,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         discount_type: discountValue ? discountType : null,
         payment_method: paymentMethod || null,
         options: (options.length > 0 ? options : null) as never,
-      } as Record<string, unknown>;
+      };
 
       let id = savedQuoteId;
       if (isEditing && id) {
