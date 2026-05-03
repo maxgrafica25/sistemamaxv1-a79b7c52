@@ -514,7 +514,10 @@ export default function ClientViewer() {
                         htmlFor={hasMultipleItems ? `item-${m.id}` : undefined}
                         className="flex-1 min-w-0 cursor-pointer"
                       >
-                        <p className="text-foreground">{m.description}</p>
+                        <p className="text-foreground font-medium">{m.generated_title || m.description}</p>
+                        {m.reference && (
+                          <p className="text-xs text-muted-foreground italic">Ref.: {m.reference}</p>
+                        )}
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {formatBRL(itemValue)}
                         </p>
