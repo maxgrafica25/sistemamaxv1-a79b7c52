@@ -1,81 +1,66 @@
+## Ajustes no módulo Orçamentos V2 — tabela de itens
 
-## Objetivo
+### 1. Menu "+ adicionar item" simplificado
 
-Substituir os blocos separados (PrintingItemEditor / CVItemCard / Outros itens) por **uma única tabela inline tipo Tiny ERP**, onde cada linha pode ser **Impressão** ou **Acabamento** (mão de obra + material), escolhido pelo usuário ao adicionar a linha. Sem abas, sem drawer, sem múltiplos cliques: tudo na mesma grade fluida.
+Manter apenas dois tipos no dropdown principal:
+- **Impressão** — abre busca do catálogo de impressão (como hoje).
+- **Acabamento / Processo** — adiciona uma linha de processo de produção.
 
-## Comportamento da nova tabela `QuoteItemsTable`
+Remover do menu: "Material / Insumo" e "Serviço terceirizado" (continuam existindo internamente para edições antigas, mas não são mais ofertados como opção de criação na tabela principal — se necessário, viram um sub-menu "Mais…" recolhido).
 
-Colunas fixas:
+### 2. Linha de Acabamento → Processo de Produção
 
-```text
-Nº | Tipo | Item (busca) | Qtde | UN | Preço un. | Preço total | Ações
+Quando o usuário clica em **Acabamento**, abre um sub-menu com duas opções:
+- **Etapa individual** — abre popover com busca nas etapas cadastradas em `production_steps` (Processos de Produção → Etapas). Ao selecionar, preenche descrição, tempo (min) e tipo automaticamente.
+- **Grupo de etapas** — abre popover com busca em `step_groups`. Ao selecionar, insere **N linhas** (uma por item do grupo) já preenchidas, marcadas visualmente como pertencentes ao mesmo grupo (badge com nome do grupo).
+
+A linha continua editável inline (descrição, minutos, tipo). Cálculo: `(min/60) × hourlyRate`, igual ao atual.
+
+### 3. Busca avançada contextual
+
+O link **"busca avançada de itens"** passa a ser contextual:
+- Por padrão (sem contexto) abre busca de **Impressão**.
+- Substituir por dois links lado-a-lado: **buscar impressão** e **buscar etapa/grupo**, cada um abrindo o diálogo apropriado.
+
+Diálogo de impressão segue como está (já corrigido o tamanho).
+Novo diálogo de etapas reaproveita o mesmo layout (max-w-3xl, listagem com badge de tipo + tempo).
+
+### 4. Nome padronizado do produto (volta a aparecer)
+
+Hoje o `buildDynamicTitle` (Cartão de Visita, Folder, etc.) só era exposto no antigo `PrintingItemEditor` em modo card. Na tabela nova ele sumiu.
+
+Solução: na linha de **Impressão** da tabela, o campo "Item" deixa de ser um `<Input>` cru de descrição e vira:
+
+```
+[ Tipo de produto ▼ ]  Couchê 210 A4 F — Xerox C70
+   Folder                 (linha 2, texto menor, cinza — título técnico do catálogo)
 ```
 
-- **Tipo**: pequeno seletor (chip) na própria linha — `Impressão` | `Acabamento` | `Serviço`. Define o ícone e o comportamento da coluna "Item".
-- **Item**:
-  - Se `Impressão`: usa o `PrintingItemSearch` existente (busca papel/tamanho/impressora, traz `paper_cost + printing_cost` e calcula via tier).
-  - Se `Acabamento`: busca em grupos de etapas/materiais (reaproveita `LoadFromGroupDialog` em modo combobox) ou texto livre + tempo (min) → custo via `hourlyRate`.
-  - Se `Serviço`: descrição livre + preço unit. (terceirizado/avulso).
-- **Qtde / Preço un.**: editáveis inline. Para Impressão, ao mudar quantidade recalcula via `recalculateForQuantity` (multiplicadores A3/SRA3, F/V, faixa de markup). Para Acabamento por tempo, Preço un. = (min/60) × hourlyRate, somado ao material.
-- **Ações por linha**: `⋮` → "Detalhes avançados" (abre popover compacto com campos extras só quando precisa: cobertura, máquina específica, observação interna, vincular acabamento ao item-pai). Padrão: nunca precisa abrir.
-- **Adicionar linha**: dois links abaixo da tabela, idênticos ao Tiny:
-  - `+ adicionar item` → cria linha vazia tipo `Impressão` (default).
-  - `🔍 busca avançada de itens` → abre dialog com `PrintingItemSearch` em tela cheia para buscar e adicionar múltiplos.
-- **Vínculo Impressão ⇄ Acabamento**: linha de Acabamento pode opcionalmente referenciar o `Nº` de uma linha de Impressão (campo no popover de detalhes) — mantém a lógica `parentItemId` já existente em `LaborAndSupplySubform` para travamento quando o pai é aprovado.
+- Pequeno `Select` à esquerda (ou ícone 🏷️ que abre popover) com `PRODUCT_KIND_OPTIONS` (Cartão de Visita, Folder, Panfleto, Adesivo, Outro…).
+- Quando "Outro" é escolhido, mostra um input para nome customizado.
+- O título exibido/salvo passa a ser `buildDynamicTitle({ productKind, customName, paperType, grammage, size, side, finishes: childAcabamentos })`.
+- O texto técnico do catálogo (Couchê 210 A4 F — Xerox C70) vira a segunda linha em `text-xs text-muted-foreground`.
 
-## Mudanças concretas
+### 5. Detalhes técnicos
 
-1. **Novo componente** `src/components/orcamentos-v2/QuoteItemsTable.tsx`
-   - Recebe `items`, `onChange`, `markupTiers`, `globalSettings`, `hourlyRate`, `printingCatalog`.
-   - Modelo unificado:
-     ```ts
-     type RowKind = "print" | "finish" | "service";
-     interface QuoteRow {
-       id: string;
-       kind: RowKind;
-       sku?: string;
-       description: string;
-       quantity: number;
-       unit: string;          // un, folha, h, etc.
-       unitPrice: number;
-       total: number;
-       parentRowId?: string;  // só para finish vinculado
-       // específicos:
-       printSnapshot?: PricingSnapshot;     // quando kind="print"
-       finishMinutes?: number;              // quando kind="finish" por tempo
-       finishMaterial?: { qty: number; unit: number };
-       notes?: string;
-     }
-     ```
-   - Linha em edição usa o mesmo layout da linha pronta (inputs sempre visíveis, sem modo "salvar/editar"), igual ao Tiny.
+Arquivos a editar:
+- `src/components/orcamentos-v2/QuoteItemsTable.tsx`
+  - Trocar `DropdownMenu` do "+ adicionar item" para os 2 tipos novos.
+  - Adicionar sub-popover de Etapa/Grupo com fetch de `production_steps` e `step_groups` (carregar via prop ou hook próprio).
+  - Renderer da linha **print**: substituir input de descrição pelo combo `ProductKind + título dinâmico` (linha dupla compacta).
+  - Renderer **labor**: aceitar agora `groupId?: string | null` para badge de grupo.
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx`
+  - Carregar `production_steps` e `step_groups` no `loadInit` e passar para `QuoteItemsTable`.
+  - Handler `onAddStep(step)` cria 1 `SubformLabor`; `onAddStepGroup(group)` cria N `SubformLabor` com `groupId` comum.
+  - Garantir que ao salvar, o `description` enviado para `quote_materials` seja o `buildDynamicTitle(...)`.
+- `src/components/orcamentos-v2/LaborAndSupplySubform.tsx` (tipo `SubformLabor`)
+  - Adicionar campo opcional `groupId?: string | null` e `groupName?: string | null` (apenas para exibição; não precisa persistir agora).
 
-2. **Refator em `NewQuoteFormV2.tsx`**
-   - Remover as `Tabs` ("Itens de produto" / "Descrições complementares"). Voltar a um fluxo linear.
-   - Remover os blocos `PrintingItemEditor` (cards), `CVItemCard` e o "Outros itens ou serviços" duplicado. Substituir tudo por `<QuoteItemsTable />`.
-   - Manter abaixo da tabela:
-     - Campo único `Observações` (textarea simples — descrições complementares passa a ser só uma seção, não aba).
-     - Bloco `Outros / Frete / Condições / Marcadores` já existentes.
-     - `QuoteOptionsBuilder` (ancoragem por quantidade) no fim.
-   - Adapter: ao salvar, converter `QuoteRow[]` para os shapes que o backend já espera (`printing_items`, `labor_items`, `materials`, `third_parties`) — assim não precisa migrar dados.
+Sem migração de banco — `production_steps` e `step_groups` já existem.
 
-3. **Reuso, sem retrabalho**
-   - `PrintingItemSearch` continua sendo a fonte de busca de impressão.
-   - `recalculateForQuantity` continua calculando preço por faixa.
-   - `LoadFromGroupDialog` é reaproveitado dentro do popover de detalhes de uma linha de Acabamento ("carregar grupo de etapas").
-   - `PrintingItemEditor` permanece em uso como popover "detalhes avançados" (modo enxuto) só quando o usuário clica em `⋮ → Detalhes`.
+### 6. Resultado esperado
 
-4. **Header e rodapé**
-   - Manter o header compacto recém-implementado, movendo `Nº Proposta` para o lado do nome do cliente como pediu.
-   - Footer fixo "Salvar / Cancelar" mantido.
-
-## Trade-offs
-
-- **Sem abas**: tudo em uma página rolável. Mais rápido, menos cliques; em telas pequenas a tabela vira cards empilhados (responsive).
-- **Detalhes avançados em popover** (não drawer): cabe na mesma tela, fecha com Esc, não tira contexto.
-- **Modelo unificado `QuoteRow`** evita três listas separadas no estado, mas exige um adapter no save (mantém compatibilidade com schema atual).
-
-## Arquivos afetados
-
-- `src/components/orcamentos-v2/QuoteItemsTable.tsx` *(novo)*
-- `src/components/orcamentos-v2/QuoteItemRowDetails.tsx` *(novo — popover de detalhes)*
-- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` *(refator: remove tabs e os 3 blocos antigos, integra a tabela única, adapter no save)*
+- Selecionar "Acabamento" não mostra mais opções de impressão.
+- Busca avançada permite escolher entre impressão e etapa/grupo.
+- "Material/Insumo" sai do menu principal.
+- Cada linha de impressão tem o seletor de "Tipo de produto" que gera o nome padronizado (Folder, Cartão de Visita, etc.) automaticamente.
