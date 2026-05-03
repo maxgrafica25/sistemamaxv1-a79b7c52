@@ -1136,6 +1136,8 @@ export function LabelLayoutCalculator({
                 <AlertTitle className="text-sm">Cabem mais por folha</AlertTitle>
                 <AlertDescription className="text-xs space-y-2">
                   {(() => {
+                    const noun = cutMode === "guilhotina" ? "impresso" : "etiqueta";
+                    const nounPl = cutMode === "guilhotina" ? "impressos" : "etiquetas";
                     const isSquareNew = shrink.newLabelW === shrink.newLabelH;
                     const sizeLabel = isSquareNew
                       ? `${shrink.newLabelW}mm`
@@ -1153,16 +1155,16 @@ export function LabelLayoutCalculator({
                     return (
                       <>
                         <p>
-                          Se diminuir a etiqueta para <strong>{sizeLabel}</strong>
+                          Se diminuir o {noun} para <strong>{sizeLabel}</strong>
                           {deltaText && <> ({deltaText})</>}, cabem{" "}
-                          <strong>{shrink.delta} etiquetas a mais por folha</strong>{" "}
+                          <strong>{shrink.delta} {nounPl} a mais por folha</strong>{" "}
                           (de {perSheet} para <strong>{shrink.newPerSheet}</strong>).
                         </p>
                         {pricing.sheetsNeeded > 0 && shrink.extraUnitsForSameSheets > 0 && (
                           <p>
                             Usando as mesmas {pricing.sheetsNeeded}{" "}
                             {pricing.sheetsNeeded === 1 ? "folha" : "folhas"} (mesmo custo de produção),
-                            o cliente leva <strong>{shrink.extraUnitsForSameSheets} etiquetas a mais</strong>.
+                            o cliente leva <strong>{shrink.extraUnitsForSameSheets} {nounPl} a mais</strong>.
                           </p>
                         )}
                       </>
