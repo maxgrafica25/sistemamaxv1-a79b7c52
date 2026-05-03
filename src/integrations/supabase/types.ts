@@ -1023,6 +1023,33 @@ export type Database = {
         }
         Relationships: []
       }
+      freight_types: {
+        Row: {
+          created_at: string
+          default_value: number
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_value?: number
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_value?: number
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       gcal_sync_queue: {
         Row: {
           attempts: number
@@ -2267,6 +2294,7 @@ export type Database = {
       }
       quotes: {
         Row: {
+          attention_to: string | null
           client: string
           client_id: string | null
           client_phone: string | null
@@ -2274,6 +2302,9 @@ export type Database = {
           date: string
           discount_type: string | null
           discount_value: number | null
+          freight_type_id: string | null
+          freight_value: number
+          hidden_extras_value: number
           id: string
           is_locked: boolean
           is_template: boolean
@@ -2288,6 +2319,7 @@ export type Database = {
           quote_number: string
           rejection_reason: string | null
           status: string
+          tags: string[]
           updated_at: string
           validity: string | null
           value: number
@@ -2295,6 +2327,7 @@ export type Database = {
           view_count: number
         }
         Insert: {
+          attention_to?: string | null
           client: string
           client_id?: string | null
           client_phone?: string | null
@@ -2302,6 +2335,9 @@ export type Database = {
           date?: string
           discount_type?: string | null
           discount_value?: number | null
+          freight_type_id?: string | null
+          freight_value?: number
+          hidden_extras_value?: number
           id?: string
           is_locked?: boolean
           is_template?: boolean
@@ -2316,6 +2352,7 @@ export type Database = {
           quote_number: string
           rejection_reason?: string | null
           status?: string
+          tags?: string[]
           updated_at?: string
           validity?: string | null
           value?: number
@@ -2323,6 +2360,7 @@ export type Database = {
           view_count?: number
         }
         Update: {
+          attention_to?: string | null
           client?: string
           client_id?: string | null
           client_phone?: string | null
@@ -2330,6 +2368,9 @@ export type Database = {
           date?: string
           discount_type?: string | null
           discount_value?: number | null
+          freight_type_id?: string | null
+          freight_value?: number
+          hidden_extras_value?: number
           id?: string
           is_locked?: boolean
           is_template?: boolean
@@ -2344,6 +2385,7 @@ export type Database = {
           quote_number?: string
           rejection_reason?: string | null
           status?: string
+          tags?: string[]
           updated_at?: string
           validity?: string | null
           value?: number
