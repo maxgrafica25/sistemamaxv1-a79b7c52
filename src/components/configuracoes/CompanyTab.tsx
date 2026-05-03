@@ -205,6 +205,8 @@ export default function CompanyTab({ isAdmin }: Props) {
           )}
         </CardContent>
       </Card>
+
+      <FreightTypesCard isAdmin={isAdmin} />
     </div>
   );
 }
