@@ -74,13 +74,19 @@ export function formatWhatsAppQuote(input: WhatsAppQuoteInput): string {
 
   lines.push(`💰 Total: ${formatBRL(pricing.totalPrice)} (${formatBRL(pricing.unitPrice)}/un)`);
 
-  const ideal = ladder.find((t) => t.label === "ideal");
-  if (ideal && ideal.unitDeltaPct < 0) {
-    const economyPct = Math.round(Math.abs(ideal.unitDeltaPct));
-    lines.push(
-      "",
-      `✨ Sugestão: ${formatInt(ideal.qty)} un por ${formatBRL(ideal.total)} (${formatBRL(ideal.unit)}/un — ${economyPct}% mais barato)`,
-    );
+  // Demais faixas (ancoragem) — todas exceto a tier solicitada (qty atual).
+  const others = ladder.filter((t) => t.qty !== qty);
+  if (others.length > 0) {
+    lines.push("", "📊 Outras quantidades:");
+    others.forEach((t) => {
+      const economy = t.unitDeltaPct < -0.5
+        ? ` — ${Math.round(Math.abs(t.unitDeltaPct))}% mais barato`
+        : "";
+      lines.push(
+        `• ${formatInt(t.qty)} un — ${formatBRL(t.total)} (${formatBRL(t.unit)}/un)${economy}`,
+      );
+    });
+    lines.push("", "Quanto maior a quantidade, menor o custo unitário 😉");
   }
 
   return lines.join("\n");
