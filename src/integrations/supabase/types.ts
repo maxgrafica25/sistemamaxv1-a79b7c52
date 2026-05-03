@@ -2115,11 +2115,19 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_value: number | null
+          custom_name: string | null
           description: string
+          generated_title: string | null
+          grammage: string | null
           id: string
+          paper_type: string | null
           parent_item_id: string | null
+          product_kind: string | null
           quantity: number
           quote_id: string
+          reference: string | null
+          side: string | null
+          size: string | null
           sort_order: number
           status: string
           unit_price: number
@@ -2127,11 +2135,19 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_value?: number | null
+          custom_name?: string | null
           description: string
+          generated_title?: string | null
+          grammage?: string | null
           id?: string
+          paper_type?: string | null
           parent_item_id?: string | null
+          product_kind?: string | null
           quantity?: number
           quote_id: string
+          reference?: string | null
+          side?: string | null
+          size?: string | null
           sort_order?: number
           status?: string
           unit_price?: number
@@ -2139,11 +2155,19 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_value?: number | null
+          custom_name?: string | null
           description?: string
+          generated_title?: string | null
+          grammage?: string | null
           id?: string
+          paper_type?: string | null
           parent_item_id?: string | null
+          product_kind?: string | null
           quantity?: number
           quote_id?: string
+          reference?: string | null
+          side?: string | null
+          size?: string | null
           sort_order?: number
           status?: string
           unit_price?: number
