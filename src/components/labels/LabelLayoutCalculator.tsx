@@ -1045,7 +1045,7 @@ export function LabelLayoutCalculator({
                 {perSheet}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                etiquetas por folha
+                {cutMode === "guilhotina" ? "impressos por folha" : "etiquetas por folha"}
               </p>
             </div>
             <div className="text-right">
@@ -1061,7 +1061,9 @@ export function LabelLayoutCalculator({
             </Badge>
             <Badge variant={layout.best.rotated ? "default" : "outline"} className="gap-1">
               {layout.best.rotated && <RotateCw className="h-3 w-3" />}
-              {layout.best.rotated ? "Etiqueta rotacionada 90°" : "Etiqueta em pé"}
+              {layout.best.rotated
+                ? (cutMode === "guilhotina" ? "Impresso rotacionado 90°" : "Etiqueta rotacionada 90°")
+                : (cutMode === "guilhotina" ? "Impresso em pé" : "Etiqueta em pé")}
             </Badge>
             {cutMode === "plotter" && layout.reservedSlots.length > 0 && (
               <Badge variant="outline" className="gap-1 text-amber-700 dark:text-amber-400 border-amber-400/60">
@@ -1134,6 +1136,8 @@ export function LabelLayoutCalculator({
                 <AlertTitle className="text-sm">Cabem mais por folha</AlertTitle>
                 <AlertDescription className="text-xs space-y-2">
                   {(() => {
+                    const noun = cutMode === "guilhotina" ? "impresso" : "etiqueta";
+                    const nounPl = cutMode === "guilhotina" ? "impressos" : "etiquetas";
                     const isSquareNew = shrink.newLabelW === shrink.newLabelH;
                     const sizeLabel = isSquareNew
                       ? `${shrink.newLabelW}mm`
@@ -1151,16 +1155,16 @@ export function LabelLayoutCalculator({
                     return (
                       <>
                         <p>
-                          Se diminuir a etiqueta para <strong>{sizeLabel}</strong>
+                          Se diminuir o {noun} para <strong>{sizeLabel}</strong>
                           {deltaText && <> ({deltaText})</>}, cabem{" "}
-                          <strong>{shrink.delta} etiquetas a mais por folha</strong>{" "}
+                          <strong>{shrink.delta} {nounPl} a mais por folha</strong>{" "}
                           (de {perSheet} para <strong>{shrink.newPerSheet}</strong>).
                         </p>
                         {pricing.sheetsNeeded > 0 && shrink.extraUnitsForSameSheets > 0 && (
                           <p>
                             Usando as mesmas {pricing.sheetsNeeded}{" "}
                             {pricing.sheetsNeeded === 1 ? "folha" : "folhas"} (mesmo custo de produção),
-                            o cliente leva <strong>{shrink.extraUnitsForSameSheets} etiquetas a mais</strong>.
+                            o cliente leva <strong>{shrink.extraUnitsForSameSheets} {nounPl} a mais</strong>.
                           </p>
                         )}
                       </>
@@ -1177,9 +1181,13 @@ export function LabelLayoutCalculator({
             {grow && (
               <Alert className="border-emerald-400/50 bg-emerald-50 dark:bg-emerald-950/20">
                 <Maximize2 className="h-4 w-4 text-emerald-600" />
-                <AlertTitle className="text-sm">Entregue uma etiqueta maior</AlertTitle>
+                <AlertTitle className="text-sm">
+                  {cutMode === "guilhotina" ? "Entregue um impresso maior" : "Entregue uma etiqueta maior"}
+                </AlertTitle>
                 <AlertDescription className="text-xs space-y-2">
                   {(() => {
+                    const noun = cutMode === "guilhotina" ? "impresso" : "etiqueta";
+                    const nounPl = cutMode === "guilhotina" ? "impressos" : "etiquetas";
                     const isSquareNew = grow.newLabelW === grow.newLabelH;
                     const sizeLabel = isSquareNew
                       ? `${grow.newLabelW}mm`
@@ -1198,14 +1206,14 @@ export function LabelLayoutCalculator({
                     return (
                       <>
                         <p>
-                          Você pode aumentar a etiqueta para <strong>{sizeLabel}</strong>
+                          Você pode aumentar o {noun} para <strong>{sizeLabel}</strong>
                           {deltaText && <> ({deltaText})</>}, mantendo as{" "}
                           <strong>
-                            {grow.newPerSheet} {grow.newPerSheet === 1 ? "etiqueta" : "etiquetas"} por folha
+                            {grow.newPerSheet} {grow.newPerSheet === 1 ? noun : nounPl} por folha
                           </strong>.
                         </p>
                         <p>
-                          Mesma quantidade, mesmo custo de produção, etiqueta{" "}
+                          Mesma quantidade, mesmo custo de produção, {noun}{" "}
                           <strong>+{areaPct}% maior em área</strong>.
                         </p>
                       </>
