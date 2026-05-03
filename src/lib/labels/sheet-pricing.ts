@@ -169,6 +169,8 @@ export interface UseFolhaPricingResult {
   availableKinds: PaperKind[];
   total: number;
   finishingPricePerSheet: number;
+  /** Resolve o preço/folha (impressão + acabamento) para uma qtde de folhas específica — usado pela escada de ancoragem. */
+  totalForSheets: (sheets: number) => number;
   isLoading: boolean;
   /** true quando o acabamento atual veio da heurística automática (não foi escolhido manualmente). */
   finishingIsAuto: boolean;
