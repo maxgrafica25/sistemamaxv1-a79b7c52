@@ -724,13 +724,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 p-4 sm:p-6 max-w-[1400px] mx-auto pb-24 lg:pb-6">
+    <div className="flex flex-col lg:flex-row gap-6 p-4 sm:p-6 max-w-[1400px] mx-auto pb-32 lg:pb-24">
       {/* Main column */}
-      <div className="flex-1 min-w-0 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="flex-1 min-w-0 space-y-5">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              {isEditing ? "Editar Orçamento V2" : "Novo Orçamento V2"}
+            <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+              Proposta Comercial
               {quoteVersion > 1 && (
                 <Badge variant="secondary" className="text-xs">v{quoteVersion}</Badge>
               )}
@@ -740,14 +740,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 </Badge>
               )}
             </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">{quoteNumber}</p>
           </div>
-          <div className="flex gap-2">
-            {isEditing && savedQuoteId && hasApprovedItems && !isLocked && (
-              <CreateVersionButton quoteId={savedQuoteId} quoteNumber={quoteNumber} />
-            )}
-            <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
-          </div>
+          {isEditing && savedQuoteId && hasApprovedItems && !isLocked && (
+            <CreateVersionButton quoteId={savedQuoteId} quoteNumber={quoteNumber} />
+          )}
         </div>
 
         {isLocked && (
