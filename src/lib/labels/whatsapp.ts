@@ -32,6 +32,11 @@ export function describeLabel(
   return `Personalizada ${mmToCm(width)}×${mmToCm(height)}cm`;
 }
 
+export type LabelPaperKind = "adesivo" | "papel";
+
+const itemNoun = (kind?: LabelPaperKind) =>
+  kind === "papel" ? "impressos" : "etiquetas";
+
 export interface WhatsAppQuoteInput {
   qty: number;
   shape: LabelShape;
@@ -39,6 +44,8 @@ export interface WhatsAppQuoteInput {
   height: number;
   pricing: PricingResult;
   ladder: AnchoringTier[];
+  /** Tipo do material (adesivo vs papel) — define o substantivo na mensagem. */
+  paperKind?: LabelPaperKind;
   /** Etiquetas vendáveis por folha (para mostrar composição). */
   perSheet?: number;
   /** Preço por folha (impressão + acabamento). */
@@ -54,11 +61,12 @@ export interface WhatsAppQuoteInput {
  * efetivamente mais barato (unitDeltaPct < 0).
  */
 export function formatWhatsAppQuote(input: WhatsAppQuoteInput): string {
-  const { qty, shape, width, height, pricing, ladder } = input;
+  const { qty, shape, width, height, pricing, ladder, paperKind } = input;
 
   const desc = describeLabel(shape, width, height);
+  const noun = itemNoun(paperKind);
   const lines: string[] = [
-    "Olá! Segue orçamento de etiquetas:",
+    `Olá! Segue orçamento de ${noun}:`,
     "",
     `📋 Pedido: ${formatInt(qty)} un · ${desc}`,
     `💰 Total: ${formatBRL(pricing.totalPrice)}`,
