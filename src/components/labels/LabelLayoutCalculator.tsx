@@ -545,6 +545,7 @@ export function LabelLayoutCalculator({
       ladder,
       perSheet,
       pricePerSheet,
+      paperKind: folhaPricing.paperKind,
       printingLabel: folhaPricing.selectedPrinting
         ? `${folhaPricing.selectedPrinting.label}`
         : null,
@@ -552,7 +553,7 @@ export function LabelLayoutCalculator({
         ? folhaPricing.selectedFinishing.label
         : null,
     });
-  }, [pricePerSheet, qty, perSheet, shape, labelW, labelH, pricing, ladder, folhaPricing.selectedPrinting, folhaPricing.selectedFinishing]);
+  }, [pricePerSheet, qty, perSheet, shape, labelW, labelH, pricing, ladder, folhaPricing.selectedPrinting, folhaPricing.selectedFinishing, folhaPricing.paperKind]);
 
 
   const handleCopyWhats = async () => {
@@ -1453,6 +1454,7 @@ export function LabelLayoutCalculator({
                     height: labelH,
                     ladder,
                     qty,
+                    paperKind: folhaPricing.paperKind,
                     sheetSize: sheetSizeKey,
                     printingLabel: folhaPricing.selectedPrinting?.label ?? null,
                     finishingLabel: folhaPricing.selectedFinishing.id ? folhaPricing.selectedFinishing.label : null,
