@@ -174,6 +174,16 @@ export function loadConfig(): LabelCalcConfig {
     merged = { ...merged, sheetPresetId: "A4", sheetW: 210, sheetH: 297 };
     writeRaw(merged);
   }
+  // Migração única: força unidade padrão para cm (one-shot)
+  try {
+    if (typeof window !== "undefined" && !window.localStorage.getItem("labelCalc.unitMigratedToCm")) {
+      merged = { ...merged, unit: "cm" };
+      writeRaw(merged);
+      window.localStorage.setItem("labelCalc.unitMigratedToCm", "1");
+    }
+  } catch {
+    // ignore
+  }
   // Aplica restrições do hardware se margens não estiverem destravadas
   if (!merged.marginsUnlocked) {
     const profile = HARDWARE_PROFILES[merged.hardwareProfileId] ?? HARDWARE_PROFILES.generico;
