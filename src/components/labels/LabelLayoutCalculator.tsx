@@ -61,7 +61,6 @@ import {
   Minimize2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Slider } from "@/components/ui/slider";
 import { LabelCalcSettingsDialog } from "./LabelCalcSettingsDialog";
 import { suggestMarksOffset, buildCornerMarks, markSegments, MARK_ARM_MM, CROSS_VERT_LEN_MM } from "@/lib/labels/marks";
 import { computeSignmasterLayout, computeSignmasterMarks, findSignmasterShrinkOpportunity, findSignmasterGrowOpportunity, SM_REG_MARK_MARGIN, SM_LABEL_SPACING } from "@/lib/labels/signmaster-spec";
@@ -204,8 +203,7 @@ export function LabelLayoutCalculator({
   const [favPopoverOpen, setFavPopoverOpen] = useState(false);
   const [favName, setFavName] = useState("");
 
-  // ---- Ajuste fino das marcas ARMS (não persiste — por job) ---------------
-  const [marksOffsetY, setMarksOffsetY] = useState(0);
+  // ---- Geração de PDF ----------------------------------------------------
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
   // ---- Tiers customizadas pro card de Sugestões de venda -----------------
@@ -299,7 +297,7 @@ export function LabelLayoutCalculator({
     if (!s) return;
     const next = saveConfig({ sheetPresetId: s.id, sheetW: s.w, sheetH: s.h });
     setConfig(next);
-    setMarksOffsetY(0);
+    // Marks offset is computed automatically (see suggestedOffset)
     toast.success(`Folha alterada para ${s.label} — cálculo atualizado`);
   };
 
@@ -571,16 +569,13 @@ export function LabelLayoutCalculator({
     window.open(`https://wa.me/?text=${encodeURIComponent(whatsappText)}`, "_blank", "noopener,noreferrer");
   };
 
-  // ---- Sugestão de offset das marcas + geração de PDF --------------------
+  // ---- Offset automático das marcas inferiores --------------------------
+  // O sistema posiciona automaticamente para nunca ficar sobre a etiqueta.
   const suggestedOffset = useMemo(
     () => suggestMarksOffset(config.marginTop, layout.best.rotated ? labelW : labelH, effectiveGap, layout.best.rows),
     [config.marginTop, effectiveGap, layout.best.rows, layout.best.rotated, labelW, labelH],
   );
-
-  const applySuggestedOffset = () => {
-    setMarksOffsetY(suggestedOffset);
-    toast.success(`Offset aplicado: ${suggestedOffset > 0 ? "+" : ""}${suggestedOffset}mm`);
-  };
+  const marksOffsetY = suggestedOffset;
 
   const handleGeneratePDF = async () => {
     if (perSheet <= 0) {
@@ -642,7 +637,7 @@ export function LabelLayoutCalculator({
   const overflowFavs = config.labelPresets.slice(FAV_VISIBLE);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
+    <div className="grid gap-6 lg:grid-cols-2">
       {/* ============================== SIMULADOR ============================== */}
       <div className="space-y-4">
         {/* 1. Faixa-resumo das configurações — TOPO da página */}
@@ -928,6 +923,16 @@ export function LabelLayoutCalculator({
 
       {/* ============================== RESULTADOS ============================== */}
       <div className="space-y-4">
+        {/* Banner: parametrização SignMaster */}
+        <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-primary flex items-start gap-2">
+          <Settings2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <span>
+            Parametrização baseada nas configurações do <strong>SignMaster</strong>{" "}
+            (margens 7&nbsp;mm, gap 3&nbsp;mm, marcas L + T). As marcas de registro
+            são posicionadas automaticamente para não ficarem sobre as etiquetas.
+          </span>
+        </div>
+
         {/* Aproveitamento */}
         <Card className="p-4 space-y-3">
           <div className="flex items-baseline justify-between">
@@ -961,19 +966,8 @@ export function LabelLayoutCalculator({
               </Badge>
             )}
             <span className="text-muted-foreground">
-              área útil {layout.usableW}×{layout.usableH}mm
+              área útil {layout.usableW}×{layout.usableH}mm · gap {effectiveGap}mm
             </span>
-            <Badge
-              variant="outline"
-              className="gap-1 border-primary/40 text-primary"
-              title={
-                isParametric
-                  ? "Modo paramétrico SignMaster: margens 7/7/7/7 mm, gap 3 mm, marcas L (topo) + T (base). Folhas soltas."
-                  : `Margens ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight}mm · gap efetivo ${effectiveGap}mm`
-              }
-            >
-              ⚙ {isParametric ? "SignMaster paramétrico · 7/7/7/7 · gap 3" : `${config.hardwareProfileId === "signmaster_param" ? "SignMaster" : config.hardwareProfileId === "teneth_a3" ? "Teneth A3" : config.hardwareProfileId} · ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight} · gap ${effectiveGap}`}
-            </Badge>
           </div>
 
           <SheetPreview
@@ -999,30 +993,7 @@ export function LabelLayoutCalculator({
             paramLayout={paramLayout}
           />
 
-          {/* Slider de ajuste das marcas inferiores — começa no meio da folha, desce até a borda */}
-          {!isParametric && (() => {
-            const sliderMax = Math.max(0, config.sheetH / 2 - config.marginBottom);
-            const clamped = Math.min(Math.max(marksOffsetY, 0), sliderMax);
-            return (
-              <div className="space-y-1.5 pt-2 border-t">
-                <Label className="text-xs flex items-center gap-1.5">
-                  <Crosshair className="h-3.5 w-3.5 text-primary" />
-                  Ajuste vertical das marcas inferiores:{" "}
-                  <strong>{(clamped / 10).toFixed(2)} cm</strong> do meio
-                </Label>
-                <Slider
-                  value={[clamped]}
-                  onValueChange={([v]) => setMarksOffsetY(v)}
-                  min={0}
-                  max={sliderMax || 1}
-                  step={0.5}
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  Marcas começam no meio da folha. Arraste para descer até o rodapé (passo 0,5 mm).
-                </p>
-              </div>
-            );
-          })()}
+          {/* As marcas inferiores são posicionadas automaticamente pelo sistema. */}
         </Card>
 
         {/* Aviso: quase cabe +1 coluna (ajuste de gap) */}
@@ -1521,7 +1492,7 @@ function SheetPreview({
   shape, imageDataUrl, imageNaturalW, imageNaturalH,
   reservedSlots, rowOffsets, cellsPerRow, marksOffsetY, paramLayout,
 }: SheetPreviewProps) {
-  const MAX = 320;
+  const MAX = 260;
   const scale = Math.min(MAX / sheetW, MAX / sheetH);
   const w = sheetW * scale;
   const h = sheetH * scale;

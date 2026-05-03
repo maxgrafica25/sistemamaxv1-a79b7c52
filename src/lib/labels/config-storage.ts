@@ -174,6 +174,15 @@ export function loadConfig(): LabelCalcConfig {
     merged = { ...merged, sheetPresetId: "A4", sheetW: 210, sheetH: 297 };
     writeRaw(merged);
   }
+  // Migração: sempre força perfil SignMaster (único hardware suportado)
+  if (merged.hardwareProfileId !== "signmaster_param") {
+    merged = {
+      ...merged,
+      hardwareProfileId: "signmaster_param",
+      marginsUnlocked: false,
+    };
+    writeRaw(merged);
+  }
   // Migração única: força unidade padrão para cm (one-shot)
   try {
     if (typeof window !== "undefined" && !window.localStorage.getItem("labelCalc.unitMigratedToCm")) {
