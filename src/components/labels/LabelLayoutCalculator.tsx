@@ -1147,6 +1147,135 @@ export function LabelLayoutCalculator({
           </div>
           )}
 
+        {/* Sugestões de venda — Coluna 2 */}
+        {ladder.length > 0 && (
+          <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-3">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <h3 className="text-sm font-semibold">Sugestões de venda</h3>
+            </div>
+            {pricePerSheet <= 0 && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                Cadastre o preço da folha em{" "}
+                <a href="/preco-impressao" target="_blank" rel="noopener noreferrer" className="underline">
+                  Preço Impressão
+                </a>{" "}
+                para ver os valores.
+              </p>
+            )}
+            <div className="space-y-1.5 text-xs">
+              {ladder.map((tier) => {
+                const isBase = tier.label === "solicitada";
+                const isCustom = customQtys.includes(tier.qty);
+                const hasPrice = pricePerSheet > 0;
+                return (
+                  <div
+                    key={tier.qty}
+                    className={
+                      "grid grid-cols-[auto_1fr_auto] gap-2 items-center px-2 py-1.5 rounded-md " +
+                      (isBase ? "bg-muted/60" : "")
+                    }
+                  >
+                    <div className="font-semibold tabular-nums w-16 flex items-center gap-1">
+                      {tier.qty} un
+                    </div>
+                    <div className="text-muted-foreground tabular-nums flex items-center gap-1.5 flex-wrap">
+                      <span>
+                        {tier.sheets} {tier.sheets === 1 ? "folha" : "folhas"}
+                        {hasPrice && <> · {formatBRL(tier.unit)}/un</>}
+                      </span>
+                      {tier.label === "extra" && !isCustom && (
+                        <Badge variant="outline" className="text-[9px] uppercase tracking-wide h-4 px-1">extra</Badge>
+                      )}
+                      {isCustom && (
+                        <Badge variant="secondary" className="text-[9px] uppercase tracking-wide h-4 px-1">custom</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 justify-end">
+                      {hasPrice && (
+                        <span className="font-semibold tabular-nums">{formatBRL(tier.total)}</span>
+                      )}
+                      {hasPrice && !isBase && tier.unitDeltaPct < 0 && (
+                        <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">
+                          {formatPct(tier.unitDeltaPct, 0)}
+                        </Badge>
+                      )}
+                      {hasPrice && !isBase && tier.unitDeltaPct === 0 && (
+                        <Badge variant="outline" className="text-[10px]">0%</Badge>
+                      )}
+                      {isCustom && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeCustomQty(tier.qty)}
+                          title="Remover faixa"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Adicionar faixa customizada */}
+            <div className="flex gap-1.5 pt-1 border-t">
+              <Input
+                type="number"
+                min={1}
+                value={newLadderQty}
+                onChange={(e) => setNewLadderQty(e.target.value)}
+                placeholder="Adicionar quantidade (ex: 1500)"
+                className="h-7 text-xs"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); addCustomQty(); }
+                }}
+              />
+              <Button size="sm" variant="outline" onClick={addCustomQty} className="h-7 px-2">
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            {pricePerSheet > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  const text = formatLadderWhatsApp({
+                    shape,
+                    width: labelW,
+                    height: labelH,
+                    ladder,
+                    qty,
+                    paperKind: folhaPricing.paperKind,
+                    sheetSize: sheetSizeKey,
+                    printingLabel: folhaPricing.selectedPrinting?.label ?? null,
+                    finishingLabel: folhaPricing.selectedFinishing.id ? folhaPricing.selectedFinishing.label : null,
+                  });
+                  if (!text) { toast.error("Sem faixas para copiar"); return; }
+                  navigator.clipboard.writeText(text);
+                  toast.success("Tabela copiada para o WhatsApp");
+                }}
+              >
+                <Copy className="h-3.5 w-3.5 mr-1.5" />
+                Copiar tabela WhatsApp
+              </Button>
+            )}
+
+            <p className="text-[11px] text-muted-foreground">
+              {pricePerSheet > 0
+                ? "Argumento de venda: o custo unitário cai conforme a quantidade aumenta, porque o custo fixo por folha é diluído."
+                : "Referência de quantidades para upsell. Os valores aparecem assim que o preço da folha for cadastrado."}
+            </p>
+          </Card>
+        )}
+      </div>
+
+      {/* ============================== COLUNA 3 — ORÇAMENTO ============================== */}
+      <aside className="xl:col-span-3 space-y-5 xl:sticky xl:top-6 xl:self-start">
         {/* Pricing principal — SEMPRE VISÍVEL */}
         <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-4 border-primary/40 bg-primary/5">
           <div className="flex items-center justify-between">
