@@ -58,7 +58,7 @@ const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
 
 export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const isEditing = !!quoteId;
-  const [step, setStep] = useState(0);
+  
   const [loadingInit, setLoadingInit] = useState(true);
 
   // form state
