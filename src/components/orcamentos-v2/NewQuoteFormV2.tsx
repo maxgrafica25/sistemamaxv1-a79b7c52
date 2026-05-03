@@ -1127,6 +1127,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} />
           </div>
 
+          {/* Ancoragem completa — recalculada com extras+frete */}
+          <Separator className="my-8" />
+          <QuoteOptionsBuilder
             snapshot={snapshot}
             options={options}
             onChange={setOptions}
