@@ -16,6 +16,7 @@ interface Props {
   snapshot: PricingSnapshot;
   options: QuoteOption[];
   onChange: (opts: QuoteOption[]) => void;
+  variant?: "full" | "chips";
 }
 
 const formatBRL = (n: number) =>
