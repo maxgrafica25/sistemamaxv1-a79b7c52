@@ -107,17 +107,15 @@ export interface LadderWhatsAppInput {
  * mandar opções ao cliente e deixá-lo escolher.
  */
 export function formatLadderWhatsApp(input: LadderWhatsAppInput): string {
-  const { shape, width, height, ladder, sheetSize, printingLabel, finishingLabel } = input;
+  const { shape, width, height, ladder } = input;
   if (!ladder.length) return "";
   const desc = describeLabel(shape, width, height);
   const lines: string[] = [
     "Olá! Segue a tabela de preços por quantidade:",
     "",
-    `📋 Etiqueta: ${desc}${sheetSize ? ` · folha ${sheetSize}` : ""}`,
+    `📋 Etiqueta: ${desc}`,
+    "",
   ];
-  if (printingLabel) lines.push(`🖨️ Impressão: ${printingLabel}`);
-  if (finishingLabel) lines.push(`✂️ Acabamento: ${finishingLabel}`);
-  lines.push("");
 
   ladder.forEach((t) => {
     const economy = t.unitDeltaPct < -0.5
