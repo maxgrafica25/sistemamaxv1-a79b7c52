@@ -34,6 +34,8 @@ import { PrintingItemEditor } from "@/components/orcamentos-v2/PrintingItemEdito
 import { LaborAndSupplySubform, type SubformLabor, type SubformMaterial } from "@/components/orcamentos-v2/LaborAndSupplySubform";
 import { buildDynamicTitle } from "@/lib/quotes-v2/item-title";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { TagInput } from "@/components/ui/TagInput";
+import { FreightSelector } from "@/components/orcamentos-v2/FreightSelector";
 
 interface Props {
   quoteId?: string;
