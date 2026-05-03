@@ -25,6 +25,7 @@ const EMPTY: CompanySettings = {
   email: "",
   address: "",
   logoUrl: "",
+  defaultQuoteValidityDays: 15,
 };
 
 const CompanySettingsContext = createContext<CompanySettingsContextValue>({
