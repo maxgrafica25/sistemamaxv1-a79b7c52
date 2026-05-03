@@ -14,15 +14,22 @@ const formatBRL = (n: number) =>
 
 const formatInt = (n: number) => n.toLocaleString("pt-BR");
 
+/** Formata mm como cm (ex.: 50 → "5", 47 → "4,7"). */
+const mmToCm = (mm: number): string => {
+  const cm = mm / 10;
+  const fixed = cm.toFixed(1);
+  return fixed.endsWith(".0") ? fixed.slice(0, -2) : fixed.replace(".", ",");
+};
+
 /** Descrição compacta da etiqueta para o WhatsApp. */
 export function describeLabel(
   shape: LabelShape,
   width: number,
   height: number,
 ): string {
-  if (shape === "redondo") return `Redonda Ø${width}mm`;
-  if (shape === "quadrado") return `Quadrado ${width}×${height}mm`;
-  return `Personalizada ${width}×${height}mm`;
+  if (shape === "redondo") return `Redonda Ø${mmToCm(width)}cm`;
+  if (shape === "quadrado") return `Quadrado ${mmToCm(width)}×${mmToCm(height)}cm`;
+  return `Personalizada ${mmToCm(width)}×${mmToCm(height)}cm`;
 }
 
 export interface WhatsAppQuoteInput {
