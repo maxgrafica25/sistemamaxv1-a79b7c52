@@ -81,7 +81,7 @@ export const DEFAULT_CONFIG: LabelCalcConfig = {
   marginRight: DEF_PROFILE.marginRight,
   gap: 3, // spec SignMaster
   pricePerSheet: 0,
-  unit: "mm",
+  unit: "cm",
   customSheets: [],
   labelPresets: SEED_LABEL_PRESETS,
 };
