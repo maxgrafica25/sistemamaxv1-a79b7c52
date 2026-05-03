@@ -481,7 +481,13 @@ export function LabelLayoutCalculator({
   );
   const ladder = buildAnchoringLadder(qty, perSheet, folhaPricing.totalForSheets, extraLadderQtys);
   const shrink = perSheet > 0
-    ? (isParametric
+    ? (cutMode === "guilhotina"
+        ? findGuillotineShrinkOpportunity(
+            { sheetW: config.sheetW, sheetH: config.sheetH, labelW, labelH },
+            perSheet,
+            pricing.sheetsNeeded || 1,
+          )
+        : isParametric
         ? findSignmasterShrinkOpportunity(
             { sheetW: config.sheetW, sheetH: config.sheetH, labelDiameter: labelW },
             perSheet,
@@ -490,7 +496,12 @@ export function LabelLayoutCalculator({
         : findShrinkOpportunity(layoutInput, perSheet, pricing.sheetsNeeded || 1))
     : null;
   const grow = perSheet > 0
-    ? (isParametric
+    ? (cutMode === "guilhotina"
+        ? findGuillotineGrowOpportunity(
+            { sheetW: config.sheetW, sheetH: config.sheetH, labelW, labelH },
+            perSheet,
+          )
+        : isParametric
         ? findSignmasterGrowOpportunity(
             { sheetW: config.sheetW, sheetH: config.sheetH, labelDiameter: labelW },
             perSheet,
