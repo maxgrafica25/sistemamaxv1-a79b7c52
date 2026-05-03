@@ -532,6 +532,7 @@ export function LabelLayoutCalculator({
   // coluna inteira, ajuda o usuário a entender por que reduzir o gap (ou a
   // etiqueta em poucos mm) destrava uma coluna nova.
   const nearMissColumn = useMemo(() => {
+    if (cutMode === "guilhotina") return null;
     const cols = layout.best.cols;
     if (cols <= 0 || perSheet <= 0) return null;
     const lblW = layout.best.rotated ? labelH : labelW;
