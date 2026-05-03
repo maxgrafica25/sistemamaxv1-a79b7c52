@@ -301,16 +301,18 @@ export function QuoteItemsTable(props: Props) {
               <Search className="h-4 w-4" /> busca avançada de itens
             </button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-3xl w-[95vw] max-h-[85vh] flex flex-col overflow-visible">
             <DialogHeader>
               <DialogTitle>Buscar item de impressão</DialogTitle>
             </DialogHeader>
-            <PrintingItemSearch
-              items={printingCatalog}
-              markupTiers={markupTiers}
-              globalSettings={globalSettings}
-              onSelect={(it) => { onAddPrinting(it); setSearchOpen(false); }}
-            />
+            <div className="flex-1 min-h-[60vh] overflow-visible">
+              <PrintingItemSearch
+                items={printingCatalog}
+                markupTiers={markupTiers}
+                globalSettings={globalSettings}
+                onSelect={(it) => { onAddPrinting(it); setSearchOpen(false); }}
+              />
+            </div>
           </DialogContent>
         </Dialog>
       </div>
