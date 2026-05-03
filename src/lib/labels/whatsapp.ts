@@ -87,35 +87,63 @@ export interface LadderWhatsAppInput {
   width: number;
   height: number;
   ladder: AnchoringTier[];
+  /** Quantidade solicitada pelo cliente. */
+  qty: number;
   sheetSize?: string;
   printingLabel?: string | null;
   finishingLabel?: string | null;
 }
 
 /**
- * Monta uma mensagem com TODAS as faixas (tabela de ancoragem) — útil para
- * mandar opções ao cliente e deixá-lo escolher.
+ * Monta a mensagem com a quantidade solicitada + 2 sugestões de upgrade
+ * (intermediária e ~dobro da solicitada) para reforçar custo-benefício.
  */
 export function formatLadderWhatsApp(input: LadderWhatsAppInput): string {
-  const { shape, width, height, ladder } = input;
+  const { shape, width, height, ladder, qty } = input;
   if (!ladder.length) return "";
+
+  // Tier solicitado: match exato ou o mais próximo de qty.
+  const requested =
+    ladder.find((t) => t.qty === qty) ??
+    [...ladder].sort((a, b) => Math.abs(a.qty - qty) - Math.abs(b.qty - qty))[0];
+
+  const larger = ladder.filter((t) => t.qty > requested.qty);
+  // Dobro: primeiro tier >= 2x qty (ou o maior disponível).
+  const doubleTier =
+    larger.find((t) => t.qty >= requested.qty * 2) ??
+    larger[larger.length - 1];
+  // Intermediário: entre requested e double (exclusivo).
+  const between = larger.filter((t) => doubleTier && t.qty < doubleTier.qty);
+  const intermediate = between.length
+    ? between[Math.floor(between.length / 2)]
+    : null;
+
+  const picks: AnchoringTier[] = [requested];
+  if (intermediate && intermediate.qty !== requested.qty) picks.push(intermediate);
+  if (doubleTier && !picks.some((p) => p.qty === doubleTier.qty)) picks.push(doubleTier);
+
   const desc = describeLabel(shape, width, height);
   const lines: string[] = [
-    "Olá! Segue a tabela de preços por quantidade:",
+    "Olá! Segue o orçamento solicitado e algumas sugestões com melhor custo-benefício:",
     "",
     `📋 Etiqueta: ${desc}`,
     "",
+    `✅ Quantidade solicitada:`,
+    `• ${formatInt(requested.qty)} un — ${formatBRL(requested.total)}`,
   ];
 
-  ladder.forEach((t) => {
-    const economy = t.unitDeltaPct < -0.5
-      ? ` (${Math.round(Math.abs(t.unitDeltaPct))}% mais barato)`
-      : "";
-    lines.push(
-      `• ${formatInt(t.qty)} un — ${formatBRL(t.total)}${economy}`,
-    );
-  });
+  const upgrades = picks.slice(1);
+  if (upgrades.length) {
+    lines.push("", "💡 Sugestões com melhor custo-benefício:");
+    upgrades.forEach((t) => {
+      const economy = t.unitDeltaPct < -0.5
+        ? ` (${Math.round(Math.abs(t.unitDeltaPct))}% mais barato por unidade)`
+        : "";
+      lines.push(`• ${formatInt(t.qty)} un — ${formatBRL(t.total)}${economy}`);
+    });
+  }
 
   lines.push("", "Quanto maior a quantidade, menor o custo unitário 😉");
   return lines.join("\n");
 }
+
