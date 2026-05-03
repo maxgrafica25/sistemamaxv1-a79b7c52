@@ -1081,8 +1081,52 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             />
           </div>
 
+          {/* Frete + Outros valores */}
           <Separator className="my-8" />
-          <QuoteOptionsBuilder
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Frete & Outros</h2>
+            <FreightSelector
+              freightTypeId={freightTypeId}
+              freightValue={freightValue}
+              onChange={({ freightTypeId: t, freightValue: v }) => {
+                setFreightTypeId(t);
+                setFreightValue(v);
+              }}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Cadastre tipos de frete em <strong>Configurações → Empresa</strong>.
+            </p>
+
+            <div className="space-y-1.5 max-w-sm">
+              <Label className="text-xs flex items-center gap-1.5">
+                <EyeOff className="h-3.5 w-3.5" /> Outros valores (oculto no orçamento)
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={hiddenExtras || ""}
+                onChange={(e) => setHiddenExtras(parseFloat(e.target.value) || 0)}
+                placeholder="0,00"
+                className="h-9"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Acrescido ao total final mas <strong>não aparece</strong> no PDF/visualização do cliente.
+              </p>
+            </div>
+          </div>
+
+          {/* Marcadores */}
+          <Separator className="my-8" />
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Tags className="h-5 w-5 text-primary" /> Marcadores
+            </h2>
+            <p className="text-xs text-muted-foreground -mt-1">
+              Tags para relatórios e pesquisas futuras (ex.: licitação, recorrente, evento).
+            </p>
+            <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} />
+          </div>
+
             snapshot={snapshot}
             options={options}
             onChange={setOptions}
