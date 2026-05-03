@@ -1723,9 +1723,8 @@ function SheetPreview({
           </g>
         ))}
 
-        {/* Marcas de registro */}
-        {paramMarks ? (
-          // Modo paramétrico: L topo + T base, espessura 2 mm conforme spec
+        {/* Marcas de registro — apenas em modo Plotter */}
+        {!isGuillotine && paramMarks ? (
           <g stroke="black" strokeWidth={Math.max(0.6, 2 * scale)} strokeLinecap="butt" fill="none">
             {paramMarks.all.map((s, i) => (
               <line
@@ -1737,8 +1736,7 @@ function SheetPreview({
               />
             ))}
           </g>
-        ) : (
-          // Modo legado: marcas ARMS (L superiores + tick inferior)
+        ) : !isGuillotine && marks ? (
           marks.marks.map((m, i) => {
             const segs = markSegments(m);
             const cap = (m.kind === "tick" || m.kind === "cross") ? "butt" : "round";
@@ -1757,7 +1755,7 @@ function SheetPreview({
               </g>
             );
           })
-        )}
+        ) : null}
       </svg>
     </div>
   );
