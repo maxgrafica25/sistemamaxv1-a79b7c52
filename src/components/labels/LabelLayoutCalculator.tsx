@@ -1006,14 +1006,26 @@ export function LabelLayoutCalculator({
       {/* ============================== RESULTADOS ============================== */}
       <div className="space-y-4">
         {/* Banner: parametrização SignMaster */}
-        <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-primary flex items-start gap-2">
-          <Settings2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-          <span>
-            Parametrização baseada nas configurações do <strong>SignMaster</strong>{" "}
-            (margens 7&nbsp;mm, gap 3&nbsp;mm, marcas L + T). As marcas de registro
-            são posicionadas automaticamente para não ficarem sobre as etiquetas.
-          </span>
-        </div>
+        {cutMode === "plotter" && (
+          <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-primary flex items-start gap-2">
+            <Settings2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>
+              Parametrização baseada nas configurações do <strong>SignMaster</strong>{" "}
+              (margens 7&nbsp;mm, gap 3&nbsp;mm, marcas L + T). As marcas de registro
+              são posicionadas automaticamente para não ficarem sobre as etiquetas.
+            </span>
+          </div>
+        )}
+        {cutMode === "guilhotina" && (
+          <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-primary flex items-start gap-2">
+            <Settings2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>
+              Modo <strong>Guilhotina</strong> — margens fixas de {GUILLOTINE_MARGIN_MM}&nbsp;mm em todas as bordas
+              e sangria de {GUILLOTINE_GAP_MM}&nbsp;mm entre peças. O simulador testa as duas orientações e usa a
+              de maior aproveitamento.
+            </span>
+          </div>
+        )}
 
         {/* Aproveitamento */}
         <Card className="p-4 space-y-3">
@@ -1041,14 +1053,14 @@ export function LabelLayoutCalculator({
               {layout.best.rotated && <RotateCw className="h-3 w-3" />}
               {layout.best.rotated ? "Etiqueta rotacionada 90°" : "Etiqueta em pé"}
             </Badge>
-            {layout.reservedSlots.length > 0 && (
+            {cutMode === "plotter" && layout.reservedSlots.length > 0 && (
               <Badge variant="outline" className="gap-1 text-amber-700 dark:text-amber-400 border-amber-400/60">
                 <Crosshair className="h-3 w-3" />
                 −{layout.reservedSlots.length} (zona de segurança 10mm)
               </Badge>
             )}
             <span className="text-muted-foreground">
-              área útil {layout.usableW}×{layout.usableH}mm · gap {effectiveGap}mm
+              área útil {layout.usableW}×{layout.usableH}mm · gap {cutMode === "guilhotina" ? GUILLOTINE_GAP_MM : effectiveGap}mm
             </span>
           </div>
 
@@ -1073,6 +1085,8 @@ export function LabelLayoutCalculator({
             cellsPerRow={layout.cellsPerRow}
             marksOffsetY={marksOffsetY}
             paramLayout={paramLayout}
+            cutMode={cutMode}
+            guillotineLayout={guillotineLayout}
           />
 
           {/* As marcas inferiores são posicionadas automaticamente pelo sistema. */}
