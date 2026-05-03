@@ -64,12 +64,14 @@ export default function CompanyTab({ isAdmin }: Props) {
       return;
     }
     setSaving(true);
+    const validityNum = Math.max(1, Math.floor(Number(form.default_quote_validity_days) || 15));
     const payload = {
       company_name: form.company_name.trim(),
       whatsapp_number: whatsappDigits,
       whatsapp_display: whatsappDigits ? whatsappPretty : null,
       email: form.email.trim() || null,
       address: form.address.trim() || null,
+      default_quote_validity_days: validityNum,
     };
     let error;
     if (id) {
