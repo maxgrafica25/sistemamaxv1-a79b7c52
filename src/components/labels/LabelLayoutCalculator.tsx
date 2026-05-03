@@ -1172,7 +1172,7 @@ export function LabelLayoutCalculator({
           )}
 
         {/* Pricing principal — SEMPRE VISÍVEL */}
-        <Card className="p-4 space-y-3 border-primary/40 bg-primary/5">
+        <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-4 border-primary/40 bg-primary/5">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Cálculo do orçamento</h3>
             <a
