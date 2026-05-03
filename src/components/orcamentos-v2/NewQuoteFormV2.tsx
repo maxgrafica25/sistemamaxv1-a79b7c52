@@ -853,191 +853,87 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         </div>
 
 
-        {/* ===== Tabs: Itens · Descrições complementares ===== */}
-        <Tabs defaultValue="items" className="w-full">
-          <TabsList className="bg-transparent border-b w-full justify-start h-auto p-0 rounded-none">
-            <TabsTrigger
-              value="items"
-              className="data-[state=active]:border-primary data-[state=active]:text-primary border-b-2 border-transparent rounded-none px-4 py-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-            >
-              <Package className="h-4 w-4 mr-2" /> Itens de produto ou serviço
-            </TabsTrigger>
-            <TabsTrigger
-              value="notes"
-              className="data-[state=active]:border-primary data-[state=active]:text-primary border-b-2 border-transparent rounded-none px-4 py-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-            >
-              <FileText className="h-4 w-4 mr-2" /> Descrições complementares
-            </TabsTrigger>
-          </TabsList>
+        {/* ===== Itens (tabela única estilo Tiny) ===== */}
+        <div className="space-y-3">
+          <h2 className="text-base font-semibold flex items-center gap-2">
+            <Package className="h-4 w-4 text-primary" /> Itens de produto ou serviço
+          </h2>
+          <QuoteItemsTable
+            printingCatalog={printingCatalog}
+            markupTiers={markupTiers}
+            globalSettings={globalSettings}
+            hourlyRate={hourlyRate}
+            printingItems={printingItems}
+            standaloneLabor={standaloneLabor}
+            standaloneManualMaterials={standaloneManualMaterials}
+            thirdParty={thirdParty}
+            onAddPrinting={addPrintingItem}
+            onUpdatePrinting={updateMaterialPatch}
+            onRemovePrinting={removeMaterial}
+            onChangeStandaloneLabor={setStandaloneLabor}
+            onChangeStandaloneMaterials={setStandaloneManualMaterials}
+            onChangeThirdParty={setThirdParty}
+          />
+        </div>
 
-          {/* ============== TAB ITENS ============== */}
-          <TabsContent value="items" className="space-y-6 pt-6">
-            {/* Itens de Impressão */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className="text-base font-semibold flex items-center gap-2">
-                  <Printer className="h-4 w-4 text-primary" /> Itens de Impressão
-                  {printingItems.length > 0 && <Badge variant="outline">{printingItems.length}</Badge>}
-                </h2>
-              </div>
-              <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} markupTiers={markupTiers} globalSettings={globalSettings} />
-              {printingItems.length > 0 && (
-                <div className="space-y-3">
-                  {printingItems.map((m) => {
-                    const childLabor = labor.filter((l) => l.parentItemId === m.id);
-                    const childMats = materials.filter((x) => x.parentItemId === m.id);
-                    return (
-                      <PrintingItemEditor
-                        key={m.id}
-                        item={m}
-                        childLabor={childLabor}
-                        childMaterials={childMats}
-                        hourlyRate={hourlyRate}
-                        onItemChange={(patch) => updateMaterialPatch(m.id, patch)}
-                        onRemove={() => removeMaterial(m.id)}
-                        onChildLaborChange={(next) => setChildLaborFor(m.id, next)}
-                        onChildMaterialChange={(next) => setChildMaterialsFor(m.id, next)}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Comunicação Visual */}
-            <Separator />
-            <div className="space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <h2 className="text-base font-semibold flex items-center gap-2">
-                  <Megaphone className="h-4 w-4 text-primary" /> Comunicação Visual
-                  {cvItems.length > 0 && <Badge variant="outline">{cvItems.length} {cvItems.length === 1 ? "item" : "itens"}</Badge>}
-                </h2>
+        {/* ===== Comunicação Visual (opcional, recolhido) ===== */}
+        {(cvItems.length > 0 || cvMaterials.length > 0) && (
+          <details className="rounded-lg border bg-card group">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-medium flex items-center gap-2 list-none">
+              <Megaphone className="h-4 w-4 text-primary" />
+              Comunicação Visual
+              {cvItems.length > 0 && <Badge variant="outline" className="ml-1">{cvItems.length}</Badge>}
+              <ChevronDown className="h-4 w-4 ml-auto group-open:rotate-180 transition-transform" />
+            </summary>
+            <div className="px-4 pb-4 space-y-3 border-t">
+              <div className="flex justify-end pt-3">
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5"
+                  variant="outline" size="sm" className="gap-1.5"
                   disabled={cvMaterials.length === 0}
-                  onClick={() => setCvItems((p) => [
-                    ...p,
-                    {
-                      id: `cv-${Date.now()}`,
-                      material_id: null,
-                      printer_id: null,
-                      largura_cm: 0,
-                      altura_cm: 0,
-                      quantidade: 1,
-                      acabamentos: [],
-                    },
-                  ])}
+                  onClick={() => setCvItems((p) => [...p, {
+                    id: `cv-${Date.now()}`, material_id: null, printer_id: null,
+                    largura_cm: 0, altura_cm: 0, quantidade: 1, acabamentos: [],
+                  }])}
                 >
                   <Plus className="h-4 w-4" /> Item CV
                 </Button>
               </div>
-
-              {cvMaterials.length === 0 ? (
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Nenhum cadastro encontrado</AlertTitle>
-                  <AlertDescription>
-                    Cadastre materiais, impressoras e acabamentos em <strong>Cadastros &gt; Comunicação Visual</strong> antes de adicionar itens.
-                  </AlertDescription>
-                </Alert>
-              ) : cvItems.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-2">
-                  Nenhum item de comunicação visual adicionado.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {cvItems.map((it, idx) => (
-                    <CVItemCard
-                      key={it.id}
-                      item={it}
-                      index={idx}
-                      materiais={cvMaterials}
-                      impressoras={cvPrinters}
-                      acabamentos={cvFinishes}
-                      onChange={(updated) =>
-                        setCvItems((p) => p.map((x) => (x.id === it.id ? updated : x)))
-                      }
-                      onRemove={() => {
-                        setCvItems((p) => p.filter((x) => x.id !== it.id));
-                        setCvResults((p) => {
-                          const { [it.id]: _, ...rest } = p;
-                          return rest;
-                        });
-                      }}
-                      onResult={(r) =>
-                        setCvResults((p) => (p[it.id]?.preco_total === r.preco_total && p[it.id]?.custo_total === r.custo_total ? p : { ...p, [it.id]: r }))
-                      }
-                    />
-                  ))}
-                  <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
-                    <span className="text-sm font-medium text-muted-foreground">Subtotal Comunicação Visual</span>
-                    <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
-                  </div>
+              {cvItems.map((it, idx) => (
+                <CVItemCard
+                  key={it.id} item={it} index={idx}
+                  materiais={cvMaterials} impressoras={cvPrinters} acabamentos={cvFinishes}
+                  onChange={(updated) => setCvItems((p) => p.map((x) => (x.id === it.id ? updated : x)))}
+                  onRemove={() => {
+                    setCvItems((p) => p.filter((x) => x.id !== it.id));
+                    setCvResults((p) => { const { [it.id]: _, ...rest } = p; return rest; });
+                  }}
+                  onResult={(r) =>
+                    setCvResults((p) => (p[it.id]?.preco_total === r.preco_total && p[it.id]?.custo_total === r.custo_total ? p : { ...p, [it.id]: r }))
+                  }
+                />
+              ))}
+              {cvItems.length > 0 && (
+                <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
+                  <span className="text-sm font-medium text-muted-foreground">Subtotal Comunicação Visual</span>
+                  <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
                 </div>
               )}
             </div>
+          </details>
+        )}
 
-            {/* Outros itens ou serviços (avulsos + terceirizados) */}
-            <Separator />
-            <div className="space-y-5">
-              <h2 className="text-base font-semibold flex items-center gap-2">
-                <Layers className="h-4 w-4 text-muted-foreground" /> Outros itens ou serviços
-              </h2>
-
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">
-                  <strong>Avulsos</strong> — mão de obra e materiais não vinculados a um item de impressão. Diluídos pela quantidade total.
-                </p>
-                <LaborAndSupplySubform
-                  parentItemId={null}
-                  laborItems={standaloneLabor}
-                  materialItems={standaloneManualMaterials}
-                  hourlyRate={hourlyRate}
-                  onLaborChange={setStandaloneLabor}
-                  onMaterialChange={setStandaloneManualMaterials}
-                />
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    <strong>Terceirizados</strong> — serviços de fornecedores externos.
-                  </p>
-                  <Button variant="outline" size="sm" onClick={() => setThirdParty((p) => [...p, { id: Date.now().toString(), description: "", supplier: "", cost: 0 }])} className="gap-1.5">
-                    <Plus className="h-4 w-4" /> Serviço
-                  </Button>
-                </div>
-                {thirdParty.length === 0 && (
-                  <p className="text-xs text-muted-foreground py-2">Nenhum serviço terceirizado adicionado</p>
-                )}
-                {thirdParty.map((t) => (
-                  <div key={t.id} className="grid grid-cols-12 gap-2 rounded-lg border bg-card p-3 items-center">
-                    <Input value={t.description} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, description: e.target.value } : x))} placeholder="Serviço" className="col-span-5 h-9 text-sm" />
-                    <Input value={t.supplier} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, supplier: e.target.value } : x))} placeholder="Fornecedor" className="col-span-4 h-9 text-sm" />
-                    <Input type="number" step="0.01" value={t.cost || ""} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, cost: parseFloat(e.target.value) || 0 } : x))} placeholder="R$" className="col-span-2 h-9 text-sm text-center" />
-                    <Button variant="ghost" size="icon" className="h-8 w-8 col-span-1" onClick={() => setThirdParty((p) => p.filter((x) => x.id !== t.id))}><X className="h-4 w-4" /></Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* ============== TAB DESCRIÇÕES COMPLEMENTARES ============== */}
-          <TabsContent value="notes" className="space-y-3 pt-6">
-            <Label className="text-xs">Observações</Label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Notas internas, contexto da proposta, instruções para a produção…"
-              rows={8}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Estas observações ficam disponíveis para a equipe e podem aparecer no PDF do orçamento conforme configuração.
-            </p>
-          </TabsContent>
-        </Tabs>
+        {/* ===== Descrições complementares ===== */}
+        <div className="space-y-2">
+          <Label className="text-xs flex items-center gap-1.5">
+            <FileText className="h-3.5 w-3.5" /> Descrições complementares / Observações
+          </Label>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Notas internas, contexto da proposta, instruções para a produção…"
+            rows={4}
+          />
+        </div>
 
         {/* ===== Frete & Outros ===== */}
         <Separator className="my-4" />
