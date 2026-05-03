@@ -97,6 +97,7 @@ export interface LadderWhatsAppInput {
   ladder: AnchoringTier[];
   /** Quantidade solicitada pelo cliente. */
   qty: number;
+  paperKind?: LabelPaperKind;
   sheetSize?: string;
   printingLabel?: string | null;
   finishingLabel?: string | null;
@@ -107,7 +108,7 @@ export interface LadderWhatsAppInput {
  * (intermediária e ~dobro da solicitada) para reforçar custo-benefício.
  */
 export function formatLadderWhatsApp(input: LadderWhatsAppInput): string {
-  const { shape, width, height, ladder, qty } = input;
+  const { shape, width, height, ladder, qty, paperKind } = input;
   if (!ladder.length) return "";
 
   // Tier solicitado: match exato ou o mais próximo de qty.
@@ -131,10 +132,11 @@ export function formatLadderWhatsApp(input: LadderWhatsAppInput): string {
   if (doubleTier && !picks.some((p) => p.qty === doubleTier.qty)) picks.push(doubleTier);
 
   const desc = describeLabel(shape, width, height);
+  const headNoun = paperKind === "papel" ? "Impresso" : "Etiqueta";
   const lines: string[] = [
     "Olá! Segue o orçamento solicitado e algumas sugestões com melhor custo-benefício:",
     "",
-    `📋 Etiqueta: ${desc}`,
+    `📋 ${headNoun}: ${desc}`,
     "",
     `✅ Quantidade solicitada:`,
     `• ${formatInt(requested.qty)} un — ${formatBRL(requested.total)}`,
