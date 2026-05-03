@@ -927,37 +927,87 @@ export function LabelLayoutCalculator({
       </div>
 
       {/* ============================== RESULTADOS ============================== */}
-      <div className="space-y-4">
+      <div className="lg:col-span-3 space-y-5 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
         {/* Aproveitamento */}
-        <Card className="p-4 space-y-3">
-          <div className="flex items-baseline justify-between">
-            <div>
-              <p className="text-3xl font-bold text-primary leading-none">
+        <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            {/* Donut SVG */}
+            {(() => {
+              const pct = Math.max(0, Math.min(100, layout.utilizationPct));
+              const r = 15.9155;
+              const circ = 2 * Math.PI * r;
+              const dash = (pct / 100) * circ;
+              return (
+                <div className="relative shrink-0" style={{ width: 72, height: 72 }}>
+                  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                    <circle
+                      cx="18" cy="18" r={r}
+                      fill="none"
+                      className="stroke-muted"
+                      strokeWidth="3.5"
+                    />
+                    <circle
+                      cx="18" cy="18" r={r}
+                      fill="none"
+                      className="stroke-primary transition-all"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      strokeDasharray={`${dash} ${circ - dash}`}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-sm font-bold tabular-nums">{pct.toFixed(0)}%</span>
+                  </div>
+                </div>
+              );
+            })()}
+            <div className="flex-1 text-right">
+              <p className="text-4xl font-bold text-primary leading-none tabular-nums">
                 {perSheet}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1.5">
                 etiquetas por folha
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-lg font-semibold">
-                {layout.utilizationPct.toFixed(1)}%
-              </p>
-              <p className="text-[11px] text-muted-foreground">aproveitamento</p>
-            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <Badge variant="secondary">
+
+          <div className="bg-muted/30 rounded-lg p-3">
+            <SheetPreview
+              sheetW={config.sheetW}
+              sheetH={config.sheetH}
+              marginTop={config.marginTop}
+              marginBottom={config.marginBottom}
+              marginLeft={config.marginLeft}
+              marginRight={config.marginRight}
+              gap={effectiveGap}
+              labelW={layout.best.rotated ? labelH : labelW}
+              labelH={layout.best.rotated ? labelW : labelH}
+              cols={layout.best.cols}
+              rows={layout.best.rows}
+              shape={shape}
+              imageDataUrl={imageDataUrl}
+              imageNaturalW={imageDims?.w ?? null}
+              imageNaturalH={imageDims?.h ?? null}
+              reservedSlots={layout.reservedSlots}
+              rowOffsets={layout.rowOffsets}
+              cellsPerRow={layout.cellsPerRow}
+              marksOffsetY={marksOffsetY}
+              paramLayout={paramLayout}
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px] pt-1 border-t">
+            <Badge variant="secondary" className="text-[11px]">
               {layout.best.cols} × {layout.best.rows}
             </Badge>
-            <Badge variant={layout.best.rotated ? "default" : "outline"} className="gap-1">
+            <Badge variant={layout.best.rotated ? "default" : "outline"} className="gap-1 text-[11px]">
               {layout.best.rotated && <RotateCw className="h-3 w-3" />}
-              {layout.best.rotated ? "Etiqueta rotacionada 90°" : "Etiqueta em pé"}
+              {layout.best.rotated ? "Rotacionada 90°" : "Em pé"}
             </Badge>
             {layout.reservedSlots.length > 0 && (
-              <Badge variant="outline" className="gap-1 text-amber-700 dark:text-amber-400 border-amber-400/60">
+              <Badge variant="outline" className="gap-1 text-amber-700 dark:text-amber-400 border-amber-400/60 text-[11px]">
                 <Crosshair className="h-3 w-3" />
-                −{layout.reservedSlots.length} (zona de segurança 10mm)
+                −{layout.reservedSlots.length} (zona segura)
               </Badge>
             )}
             <span className="text-muted-foreground">
@@ -965,39 +1015,16 @@ export function LabelLayoutCalculator({
             </span>
             <Badge
               variant="outline"
-              className="gap-1 border-primary/40 text-primary"
+              className="gap-1 border-primary/40 text-primary text-[11px]"
               title={
                 isParametric
                   ? "Modo paramétrico SignMaster: margens 7/7/7/7 mm, gap 3 mm, marcas L (topo) + T (base). Folhas soltas."
                   : `Margens ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight}mm · gap efetivo ${effectiveGap}mm`
               }
             >
-              ⚙ {isParametric ? "SignMaster paramétrico · 7/7/7/7 · gap 3" : `${config.hardwareProfileId === "signmaster_param" ? "SignMaster" : config.hardwareProfileId === "teneth_a3" ? "Teneth A3" : config.hardwareProfileId} · ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight} · gap ${effectiveGap}`}
+              ⚙ {isParametric ? "SignMaster · 7/7 · gap 3" : `${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight} · gap ${effectiveGap}`}
             </Badge>
           </div>
-
-          <SheetPreview
-            sheetW={config.sheetW}
-            sheetH={config.sheetH}
-            marginTop={config.marginTop}
-            marginBottom={config.marginBottom}
-            marginLeft={config.marginLeft}
-            marginRight={config.marginRight}
-            gap={effectiveGap}
-            labelW={layout.best.rotated ? labelH : labelW}
-            labelH={layout.best.rotated ? labelW : labelH}
-            cols={layout.best.cols}
-            rows={layout.best.rows}
-            shape={shape}
-            imageDataUrl={imageDataUrl}
-            imageNaturalW={imageDims?.w ?? null}
-            imageNaturalH={imageDims?.h ?? null}
-            reservedSlots={layout.reservedSlots}
-            rowOffsets={layout.rowOffsets}
-            cellsPerRow={layout.cellsPerRow}
-            marksOffsetY={marksOffsetY}
-            paramLayout={paramLayout}
-          />
 
           {/* Slider de ajuste das marcas inferiores — começa no meio da folha, desce até a borda */}
           {!isParametric && (() => {
