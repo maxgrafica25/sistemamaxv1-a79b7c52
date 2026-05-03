@@ -59,6 +59,7 @@ const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
 
 export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const isEditing = !!quoteId;
+  const { defaultQuoteValidityDays } = useCompanySettings();
   
   const [loadingInit, setLoadingInit] = useState(true);
 
@@ -70,8 +71,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [showClientData, setShowClientData] = useState(false);
   const [showLastSales, setShowLastSales] = useState(false);
   const [product, setProduct] = useState("");
-  const [validity, setValidity] = useState("7");
+  const [validity, setValidity] = useState("15");
   const [profitMargin, setProfitMargin] = useState("33");
+  const [mainQuantity, setMainQuantity] = useState<number | "">("");
   const [notes, setNotes] = useState("");
 
   const [labor, setLabor] = useState<SubformLabor[]>([]);
