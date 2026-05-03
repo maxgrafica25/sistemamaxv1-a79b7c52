@@ -569,16 +569,13 @@ export function LabelLayoutCalculator({
     window.open(`https://wa.me/?text=${encodeURIComponent(whatsappText)}`, "_blank", "noopener,noreferrer");
   };
 
-  // ---- Sugestão de offset das marcas + geração de PDF --------------------
+  // ---- Offset automático das marcas inferiores --------------------------
+  // O sistema posiciona automaticamente para nunca ficar sobre a etiqueta.
   const suggestedOffset = useMemo(
     () => suggestMarksOffset(config.marginTop, layout.best.rotated ? labelW : labelH, effectiveGap, layout.best.rows),
     [config.marginTop, effectiveGap, layout.best.rows, layout.best.rotated, labelW, labelH],
   );
-
-  const applySuggestedOffset = () => {
-    setMarksOffsetY(suggestedOffset);
-    toast.success(`Offset aplicado: ${suggestedOffset > 0 ? "+" : ""}${suggestedOffset}mm`);
-  };
+  const marksOffsetY = suggestedOffset;
 
   const handleGeneratePDF = async () => {
     if (perSheet <= 0) {
