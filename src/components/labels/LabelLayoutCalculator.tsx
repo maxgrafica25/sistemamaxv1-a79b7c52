@@ -61,7 +61,6 @@ import {
   Minimize2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Slider } from "@/components/ui/slider";
 import { LabelCalcSettingsDialog } from "./LabelCalcSettingsDialog";
 import { suggestMarksOffset, buildCornerMarks, markSegments, MARK_ARM_MM, CROSS_VERT_LEN_MM } from "@/lib/labels/marks";
 import { computeSignmasterLayout, computeSignmasterMarks, findSignmasterShrinkOpportunity, findSignmasterGrowOpportunity, SM_REG_MARK_MARGIN, SM_LABEL_SPACING } from "@/lib/labels/signmaster-spec";
