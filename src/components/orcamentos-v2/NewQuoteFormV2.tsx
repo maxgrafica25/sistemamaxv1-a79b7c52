@@ -844,167 +844,207 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 {printingItems.length > 0 && <Badge variant="outline">{printingItems.length}</Badge>}
               </h2>
             </div>
-
-                {cvMaterials.length === 0 ? (
-                  <Alert>
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Nenhum cadastro encontrado</AlertTitle>
-                    <AlertDescription>
-                      Cadastre materiais, impressoras e acabamentos em <strong>Cadastros &gt; Comunicação Visual</strong> antes de adicionar itens.
-                    </AlertDescription>
-                  </Alert>
-                ) : cvItems.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    Nenhum item de comunicação visual adicionado.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {cvItems.map((it, idx) => (
-                      <CVItemCard
-                        key={it.id}
-                        item={it}
-                        index={idx}
-                        materiais={cvMaterials}
-                        impressoras={cvPrinters}
-                        acabamentos={cvFinishes}
-                        onChange={(updated) =>
-                          setCvItems((p) => p.map((x) => (x.id === it.id ? updated : x)))
-                        }
-                        onRemove={() => {
-                          setCvItems((p) => p.filter((x) => x.id !== it.id));
-                          setCvResults((p) => {
-                            const { [it.id]: _, ...rest } = p;
-                            return rest;
-                          });
-                        }}
-                        onResult={(r) =>
-                          setCvResults((p) => (p[it.id]?.preco_total === r.preco_total && p[it.id]?.custo_total === r.custo_total ? p : { ...p, [it.id]: r }))
-                        }
-                      />
-                    ))}
-                    <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
-                      <span className="text-sm font-medium text-muted-foreground">Subtotal Comunicação Visual</span>
-                      <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
-                    </div>
-                  </div>
-                )}
-              </CardContent></Card>
-
-              {/* Bloco 3: Avulsos */}
-              <Card><CardContent className="p-5 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Layers className="h-5 w-5 text-muted-foreground" /> Avulsos (não vinculados)
-                  </h2>
-                </div>
-                <p className="text-xs text-muted-foreground -mt-2">
-                  Mão de obra e materiais que não pertencem a um item de impressão específico.
-                  Diluídos pela quantidade total do orçamento.
-                </p>
-                <LaborAndSupplySubform
-                  parentItemId={null}
-                  laborItems={standaloneLabor}
-                  materialItems={standaloneManualMaterials}
-                  hourlyRate={hourlyRate}
-                  onLaborChange={setStandaloneLabor}
-                  onMaterialChange={setStandaloneManualMaterials}
-                />
-              </CardContent></Card>
-            </div>
-          )}
-
-          {/* ===== STEP 2: Terceirizados ===== */}
-          {step === 2 && (
-            <Card><CardContent className="p-5 sm:p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold flex items-center gap-2"><Wrench className="h-5 w-5 text-primary" /> Terceirizados</h2>
-                <Button variant="outline" size="sm" onClick={() => setThirdParty((p) => [...p, { id: Date.now().toString(), description: "", supplier: "", cost: 0 }])} className="gap-1.5">
-                  <Plus className="h-4 w-4" /> Serviço
-                </Button>
+            <PrintingItemSearch items={printingCatalog} onSelect={addPrintingItem} markupTiers={markupTiers} globalSettings={globalSettings} />
+            {printingItems.length > 0 && (
+              <div className="space-y-3">
+                {printingItems.map((m) => {
+                  const childLabor = labor.filter((l) => l.parentItemId === m.id);
+                  const childMats = materials.filter((x) => x.parentItemId === m.id);
+                  return (
+                    <PrintingItemEditor
+                      key={m.id}
+                      item={m}
+                      childLabor={childLabor}
+                      childMaterials={childMats}
+                      hourlyRate={hourlyRate}
+                      onItemChange={(patch) => updateMaterialPatch(m.id, patch)}
+                      onRemove={() => removeMaterial(m.id)}
+                      onChildLaborChange={(next) => setChildLaborFor(m.id, next)}
+                      onChildMaterialChange={(next) => setChildMaterialsFor(m.id, next)}
+                    />
+                  );
+                })}
               </div>
-              {thirdParty.length === 0 && (
-                <p className="text-sm text-muted-foreground py-6 text-center">Nenhum serviço terceirizado adicionado</p>
-              )}
-              {thirdParty.map((t) => (
-                <div key={t.id} className="grid grid-cols-12 gap-2 rounded-lg border bg-card p-3 items-center">
-                  <Input value={t.description} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, description: e.target.value } : x))} placeholder="Serviço" className="col-span-5 h-9 text-sm" />
-                  <Input value={t.supplier} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, supplier: e.target.value } : x))} placeholder="Fornecedor" className="col-span-4 h-9 text-sm" />
-                  <Input type="number" step="0.01" value={t.cost || ""} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, cost: parseFloat(e.target.value) || 0 } : x))} placeholder="R$" className="col-span-2 h-9 text-sm text-center" />
-                  <Button variant="ghost" size="icon" className="h-8 w-8 col-span-1" onClick={() => setThirdParty((p) => p.filter((x) => x.id !== t.id))}><X className="h-4 w-4" /></Button>
-                </div>
-              ))}
-            </CardContent></Card>
-          )}
+            )}
+          </div>
 
-          {/* ===== STEP 3: Finalizar ===== */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <Card><CardContent className="p-5 sm:p-6 space-y-5">
-                <h2 className="text-lg font-semibold">Desconto e Pagamento</h2>
-                <DiscountPaymentBlock
-                  discountValue={discountValue}
-                  discountType={discountType}
-                  paymentMethod={paymentMethod}
-                  onDiscountValueChange={setDiscountValue}
-                  onDiscountTypeChange={setDiscountType}
-                  onPaymentMethodChange={setPaymentMethod}
-                />
-              </CardContent></Card>
-
-              <QuoteOptionsBuilder
-                snapshot={snapshot}
-                options={options}
-                onChange={setOptions}
-              />
-
-              <Card><CardContent className="p-5 sm:p-6 space-y-4">
-                <div className="rounded-xl bg-primary/10 p-5 border border-primary/20 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-muted-foreground">Valor a cobrar (base)</p>
-                    <p className="text-2xl font-bold text-primary">{formatBRL(discountedTotal)}</p>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    Margem efetiva: {live.effectiveMarginPct.toFixed(1)}%
-                  </Badge>
-                </div>
-
-                <Button className="w-full gap-2 h-11" onClick={handleSave} disabled={isLocked}>
-                  <Check className="h-4 w-4" /> {isLocked ? "Orçamento travado" : `${isEditing ? "Atualizar" : "Salvar"} Orçamento`}
-                </Button>
-
-                {savedQuoteId && (
-                  <>
-                    <Separator />
-                    <Button variant="outline" className="w-full gap-2" onClick={copyPublicLink}>
-                      <Link2 className="h-4 w-4" /> Copiar link público para o cliente
-                    </Button>
-                  </>
-                )}
-              </CardContent></Card>
+          {/* Comunicação Visual */}
+          <Separator className="my-8" />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Megaphone className="h-5 w-5 text-primary" /> Comunicação Visual
+                {cvItems.length > 0 && <Badge variant="outline">{cvItems.length} {cvItems.length === 1 ? "item" : "itens"}</Badge>}
+              </h2>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={cvMaterials.length === 0}
+                onClick={() => setCvItems((p) => [
+                  ...p,
+                  {
+                    id: `cv-${Date.now()}`,
+                    material_id: null,
+                    printer_id: null,
+                    largura_cm: 0,
+                    altura_cm: 0,
+                    quantidade: 1,
+                    acabamentos: [],
+                  },
+                ])}
+              >
+                <Plus className="h-4 w-4" /> Item CV
+              </Button>
             </div>
-          )}
-        </div>
 
-        {/* Navigation */}
-        <div className="flex justify-between pt-4 border-t">
-          <Button variant="outline" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0} className="gap-2">
-            <ChevronLeft className="h-4 w-4" /> Voltar
-          </Button>
-          {step < STEPS.length - 1 && (
-            <Button onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))} className="gap-2">
-              Próximo <ChevronRight className="h-4 w-4" />
+            {cvMaterials.length === 0 ? (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Nenhum cadastro encontrado</AlertTitle>
+                <AlertDescription>
+                  Cadastre materiais, impressoras e acabamentos em <strong>Cadastros &gt; Comunicação Visual</strong> antes de adicionar itens.
+                </AlertDescription>
+              </Alert>
+            ) : cvItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Nenhum item de comunicação visual adicionado.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {cvItems.map((it, idx) => (
+                  <CVItemCard
+                    key={it.id}
+                    item={it}
+                    index={idx}
+                    materiais={cvMaterials}
+                    impressoras={cvPrinters}
+                    acabamentos={cvFinishes}
+                    onChange={(updated) =>
+                      setCvItems((p) => p.map((x) => (x.id === it.id ? updated : x)))
+                    }
+                    onRemove={() => {
+                      setCvItems((p) => p.filter((x) => x.id !== it.id));
+                      setCvResults((p) => {
+                        const { [it.id]: _, ...rest } = p;
+                        return rest;
+                      });
+                    }}
+                    onResult={(r) =>
+                      setCvResults((p) => (p[it.id]?.preco_total === r.preco_total && p[it.id]?.custo_total === r.custo_total ? p : { ...p, [it.id]: r }))
+                    }
+                  />
+                ))}
+                <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
+                  <span className="text-sm font-medium text-muted-foreground">Subtotal Comunicação Visual</span>
+                  <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Avulsos */}
+          <Separator className="my-8" />
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Layers className="h-5 w-5 text-muted-foreground" /> Avulsos (não vinculados)
+            </h2>
+            <p className="text-xs text-muted-foreground -mt-2">
+              Mão de obra e materiais que não pertencem a um item de impressão específico.
+              Diluídos pela quantidade total do orçamento.
+            </p>
+            <LaborAndSupplySubform
+              parentItemId={null}
+              laborItems={standaloneLabor}
+              materialItems={standaloneManualMaterials}
+              hourlyRate={hourlyRate}
+              onLaborChange={setStandaloneLabor}
+              onMaterialChange={setStandaloneManualMaterials}
+            />
+          </div>
+
+          {/* Terceirizados */}
+          <Separator className="my-8" />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Wrench className="h-5 w-5 text-primary" /> Terceirizados
+              </h2>
+              <Button variant="outline" size="sm" onClick={() => setThirdParty((p) => [...p, { id: Date.now().toString(), description: "", supplier: "", cost: 0 }])} className="gap-1.5">
+                <Plus className="h-4 w-4" /> Serviço
+              </Button>
+            </div>
+            {thirdParty.length === 0 && (
+              <p className="text-sm text-muted-foreground py-4 text-center">Nenhum serviço terceirizado adicionado</p>
+            )}
+            {thirdParty.map((t) => (
+              <div key={t.id} className="grid grid-cols-12 gap-2 rounded-lg border bg-card p-3 items-center">
+                <Input value={t.description} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, description: e.target.value } : x))} placeholder="Serviço" className="col-span-5 h-9 text-sm" />
+                <Input value={t.supplier} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, supplier: e.target.value } : x))} placeholder="Fornecedor" className="col-span-4 h-9 text-sm" />
+                <Input type="number" step="0.01" value={t.cost || ""} onChange={(e) => setThirdParty((p) => p.map((x) => x.id === t.id ? { ...x, cost: parseFloat(e.target.value) || 0 } : x))} placeholder="R$" className="col-span-2 h-9 text-sm text-center" />
+                <Button variant="ghost" size="icon" className="h-8 w-8 col-span-1" onClick={() => setThirdParty((p) => p.filter((x) => x.id !== t.id))}><X className="h-4 w-4" /></Button>
+              </div>
+            ))}
+          </div>
+
+          {/* Desconto e Pagamento */}
+          <Separator className="my-8" />
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">Desconto e Pagamento</h2>
+            <DiscountPaymentBlock
+              discountValue={discountValue}
+              discountType={discountType}
+              paymentMethod={paymentMethod}
+              onDiscountValueChange={setDiscountValue}
+              onDiscountTypeChange={setDiscountType}
+              onPaymentMethodChange={setPaymentMethod}
+            />
+          </div>
+
+          <Separator className="my-8" />
+          <QuoteOptionsBuilder
+            snapshot={snapshot}
+            options={options}
+            onChange={setOptions}
+          />
+
+          <Separator className="my-8" />
+          <Card><CardContent className="p-5 sm:p-6 space-y-4">
+            <div className="rounded-xl bg-primary/10 p-5 border border-primary/20 flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Valor a cobrar (base)</p>
+                <p className="text-2xl font-bold text-primary">{formatBRL(discountedTotal)}</p>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                Margem efetiva: {live.effectiveMarginPct.toFixed(1)}%
+              </Badge>
+            </div>
+
+            <Button className="w-full gap-2 h-11" onClick={handleSave} disabled={isLocked}>
+              <Check className="h-4 w-4" /> {isLocked ? "Orçamento travado" : `${isEditing ? "Atualizar" : "Salvar"} Orçamento`}
             </Button>
-          )}
+
+            {savedQuoteId && (
+              <>
+                <Separator />
+                <Button variant="outline" className="w-full gap-2" onClick={copyPublicLink}>
+                  <Link2 className="h-4 w-4" /> Copiar link público para o cliente
+                </Button>
+              </>
+            )}
+          </CardContent></Card>
         </div>
       </div>
 
-      {/* Sticky financial sidebar — visible at all steps */}
-      <StickyFinancialSidebar
-        totalCost={live.costsBeforeMarkup + live.printingTotal + cvCostTotal}
-        totalToCharge={discountedTotal}
-        marginPct={discountedTotal > 0 ? ((discountedTotal - (live.costsBeforeMarkup + live.printingTotal + cvCostTotal)) / discountedTotal) * 100 : 0}
-        profit={discountedTotal - (live.costsBeforeMarkup + live.printingTotal + cvCostTotal)}
-      />
+      {/* Sticky financial sidebar */}
+      <div className="lg:self-start lg:sticky lg:top-6">
+        <StickyFinancialSidebar
+          totalCost={live.costsBeforeMarkup + live.printingTotal + cvCostTotal}
+          totalToCharge={discountedTotal}
+          marginPct={discountedTotal > 0 ? ((discountedTotal - (live.costsBeforeMarkup + live.printingTotal + cvCostTotal)) / discountedTotal) * 100 : 0}
+          profit={discountedTotal - (live.costsBeforeMarkup + live.printingTotal + cvCostTotal)}
+        />
+      </div>
     </div>
   );
 }
