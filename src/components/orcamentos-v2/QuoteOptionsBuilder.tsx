@@ -22,7 +22,7 @@ interface Props {
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export function QuoteOptionsBuilder({ snapshot, options, onChange }: Props) {
+export function QuoteOptionsBuilder({ snapshot, options, onChange, variant = "full" }: Props) {
   const [newQty, setNewQty] = useState<string>("");
 
   const addOption = () => {
