@@ -52,6 +52,8 @@ interface MaterialRow {
   status: string;
   approved_at: string | null;
   approved_value: number | null;
+  generated_title?: string | null;
+  reference?: string | null;
 }
 interface LaborRow { id: string; description: string; time_minutes: number; }
 
