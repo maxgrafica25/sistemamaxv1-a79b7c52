@@ -752,7 +752,15 @@ export function LabelLayoutCalculator({
           <ToggleGroup
             type="single"
             value={cutMode}
-            onValueChange={(v) => v && setCutMode(v as "plotter" | "guilhotina")}
+            onValueChange={(v) => {
+              if (!v) return;
+              const next = v as "plotter" | "guilhotina";
+              setCutMode(next);
+              if (next === "guilhotina" && shape !== "personalizado") {
+                setShape("personalizado");
+                if (labelH <= 0) setLabelH(labelW);
+              }
+            }}
             className="grid grid-cols-2 gap-1.5"
           >
             <ToggleGroupItem
