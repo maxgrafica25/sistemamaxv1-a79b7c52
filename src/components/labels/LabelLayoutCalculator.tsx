@@ -297,7 +297,7 @@ export function LabelLayoutCalculator({
     if (!s) return;
     const next = saveConfig({ sheetPresetId: s.id, sheetW: s.w, sheetH: s.h });
     setConfig(next);
-    setMarksOffsetY(0);
+    // Marks offset is computed automatically (see suggestedOffset)
     toast.success(`Folha alterada para ${s.label} — cálculo atualizado`);
   };
 
