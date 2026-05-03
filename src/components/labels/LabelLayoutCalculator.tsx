@@ -373,6 +373,7 @@ export function LabelLayoutCalculator({
   // real e aplica a regra de remoção da 1ª linha para maximizar o
   // aproveitamento — ex.: Ø38mm gap 0 → 87 etiquetas).
   const isParametric =
+    cutMode === "plotter" &&
     config.hardwareProfileId === "signmaster_param" &&
     config.cutType === "plotter_redondo" &&
     shape === "redondo" &&
@@ -384,6 +385,14 @@ export function LabelLayoutCalculator({
       ? computeSignmasterLayout({ sheetW: config.sheetW, sheetH: config.sheetH, labelDiameter: labelW })
       : null,
     [isParametric, config.sheetW, config.sheetH, labelW],
+  );
+
+  // ---- Layout em modo Guilhotina ------------------------------------------
+  const guillotineLayout: GuillotineLayout | null = useMemo(
+    () => cutMode === "guilhotina"
+      ? computeGuillotineLayout({ sheetW: config.sheetW, sheetH: config.sheetH, labelW, labelH })
+      : null,
+    [cutMode, config.sheetW, config.sheetH, labelW, labelH],
   );
 
   // ---- Cálculos ------------------------------------------------------------
