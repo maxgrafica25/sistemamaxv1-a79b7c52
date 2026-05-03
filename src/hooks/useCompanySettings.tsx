@@ -9,6 +9,7 @@ export interface CompanySettings {
   email: string;
   address: string;
   logoUrl: string;
+  defaultQuoteValidityDays: number;
 }
 
 interface CompanySettingsContextValue extends CompanySettings {
