@@ -72,8 +72,26 @@ export function formatWhatsAppQuote(input: WhatsAppQuoteInput): string {
     `💰 Total: ${formatBRL(pricing.totalPrice)}`,
   ];
 
-  // Demais faixas (ancoragem) — todas exceto a tier solicitada (qty atual).
-  const others = ladder.filter((t) => t.qty !== qty);
+  // Apenas 3 sugestões: uma menor, +50% e +100% da quantidade solicitada.
+  const smaller = [...ladder].reverse().find((t) => t.qty < qty) ?? null;
+  const larger = ladder.filter((t) => t.qty > qty);
+  const used = new Set<number>();
+  const pickClosest = (target: number) =>
+    larger
+      .filter((t) => !used.has(t.qty))
+      .slice()
+      .sort((a, b) => Math.abs(a.qty - target) - Math.abs(b.qty - target))[0] ?? null;
+
+  const plus50 = pickClosest(qty * 1.5);
+  if (plus50) used.add(plus50.qty);
+  let plus100 = pickClosest(qty * 2);
+  if (!plus100 && plus50) {
+    plus100 = larger.find((t) => t.qty > plus50.qty) ?? null;
+  }
+
+  const others = [smaller, plus50, plus100].filter(
+    (t): t is AnchoringTier => !!t,
+  );
   if (others.length > 0) {
     lines.push("", "📊 Outras quantidades:");
     others.forEach((t) => {

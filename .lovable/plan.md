@@ -1,60 +1,46 @@
 ## Objetivo
+Na mensagem do WhatsApp, mostrar **apenas 3 sugestões** além da quantidade solicitada:
+1. Uma quantidade **menor** (mais próxima abaixo da solicitada)
+2. **+50%** (mais próxima de `qty * 1.5`)
+3. **+100%** (mais próxima de `qty * 2`)
 
-Reorganizar a página `/calculadora-etiquetas` em um layout mais limpo, com controles à esquerda e visualização compacta + ações à direita, eliminando elementos redundantes que confundem o uso diário (sempre SignMaster).
+## Onde alterar
+`src/lib/labels/whatsapp.ts` — função `formatWhatsAppQuote` (usada pelo botão "Copiar para WhatsApp" em `LabelLayoutCalculator.tsx`).
 
-## Mudanças
+Hoje ela lista **todas** as outras faixas da escala (`ladder.filter(t => t.qty !== qty)`). Vamos restringir a no máximo 3 picks selecionados da `ladder`.
 
-### 1. Layout em 2 colunas com hierarquia clara
-Arquivo: `src/components/labels/LabelLayoutCalculator.tsx`
+## Lógica de seleção
+Dado `ladder` (ordenada crescente por qty) e `qty` solicitado:
 
-Reestruturar o grid principal mantendo `lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]` (proporção mais equilibrada, hoje é 1fr/440px):
+- **smaller**: maior tier com `t.qty < qty` (se existir)
+- **plus50**: tier de `ladder` cuja qty seja a mais próxima de `qty * 1.5` e `> qty`
+- **plus100**: tier cuja qty seja a mais próxima de `qty * 2` e `> qty` e diferente de plus50
 
-- **Coluna esquerda — Painel de controle** (tudo que o usuário ajusta):
-  1. Faixa-resumo de configurações (folha + corte) — clique abre o dialog
-  2. Tabs rápidas de folha (A4 / SRA3 / Formatão / Outro)
-  3. Card "Simulador" (favoritos, formato, tamanho, quantidade, salvar favorito, imagem opcional)
-  4. Card "Cálculo do orçamento" (Tipo Adesivo/Papel, Impressão, Acabamento) — pois é controle/seleção que determina o preço
+Se `plus50 === plus100`, escolhe o próximo tier maior disponível para preencher o slot de +100% (fallback: o maior tier `> plus50.qty`). Se não houver candidatos, simplesmente omite o slot.
 
-- **Coluna direita — Visualização e ações** (output + o que copia/envia):
-  1. Card "Aproveitamento" com preview SVG **menor** (reduzir `MAX` no `SheetPreview` de 320 para ~260 px) e os badges de cols×rows / aproveitamento
-  2. Resultado financeiro (total, custo unitário, "X folhas × R$") — extraído do card de cálculo atual e mostrado como bloco compacto
-  3. Card de Sugestões / Ancoragem (faixas)
-  4. Bloco fixo de ações: **Copiar WhatsApp**, **Abrir WhatsApp**, **Copiar tabela WhatsApp**, **Gerar PDF de produção**, **Baixar faca .plt**
-  5. Otimizadores ("cabem mais por folha" / "entregue maior") aparecem como Alerts compactos abaixo do preview, lado a lado em telas largas
-  6. Aviso "quase cabe +1 coluna" (mantém)
+Renderização mantém o formato atual ("📊 Outras quantidades:" + linhas com economia em %), só que limitado a esses 3 picks (ordenados: smaller, plus50, plus100). A frase final "Quanto maior a quantidade, menor o custo unitário 😉" continua.
 
-Com isso, o usuário vê de um lado o que ele controla; do outro, o resultado e os botões de envio.
+## Não muda
+- `formatLadderWhatsApp` (botão "Copiar tabela WhatsApp" da escala) — continua como está, pois é uma feature distinta.
+- Nenhuma mudança de UI/layout.
+- Testes existentes em `src/test/labels-layout.test.ts` que apenas verificam presença de substrings continuam válidos; se algum quebrar por contagem de linhas, ajusto.
 
-### 2. Remover slider manual de ajuste das marcas inferiores
-Arquivo: `src/components/labels/LabelLayoutCalculator.tsx`
+## Snippet (referência)
+```ts
+const smaller = [...ladder].reverse().find(t => t.qty < qty) ?? null;
+const larger = ladder.filter(t => t.qty > qty);
+const pickClosest = (target: number, exclude: Set<number>) =>
+  larger
+    .filter(t => !exclude.has(t.qty))
+    .sort((a, b) => Math.abs(a.qty - target) - Math.abs(b.qty - target))[0] ?? null;
 
-- Remover o bloco do `<Slider>` (linhas 1003-1025) e o estado `marksOffsetY` + `suggestedOffset` + `applySuggestedOffset`.
-- A função `suggestMarksOffset` em `src/lib/labels/marks.ts` continua sendo usada internamente para posicionar as marcas automaticamente: o `SheetPreview` e `generateProductionPDF` passam a receber **sempre** o offset sugerido (em vez de zero/manual), garantindo que a marca de registro nunca fique sobre etiquetas.
-- Atualizar a chamada de `handleGeneratePDF` para usar o offset calculado automaticamente.
+const used = new Set<number>();
+const plus50 = pickClosest(qty * 1.5, used); if (plus50) used.add(plus50.qty);
+let plus100 = pickClosest(qty * 2, used);
+if (!plus100 && plus50) {
+  // fallback: próximo maior depois de plus50
+  plus100 = larger.find(t => t.qty > plus50.qty) ?? null;
+}
 
-### 3. Remover seletor de "Perfil de hardware"
-Arquivos: `src/components/labels/LabelCalcSettingsDialog.tsx` e `src/lib/labels/config-storage.ts`
-
-- Remover a seção "Perfil de hardware" do dialog de configurações (linhas 438-465).
-- No `loadConfig`, forçar (migração silenciosa, padrão semelhante à migração de unidade já existente) `hardwareProfileId = "signmaster_param"` para todos os usuários.
-- Manter `HARDWARE_PROFILES` no código (necessário para a spec paramétrica e PPR), apenas sem UI.
-
-### 4. Mensagem informativa sobre SignMaster
-Arquivo: `src/components/labels/LabelLayoutCalculator.tsx`
-
-Adicionar um pequeno banner discreto (`Alert` ou texto auxiliar com ícone) próximo ao topo da coluna de visualização:
-
-> "Parametrização baseada nas configurações do SignMaster (margens 7 mm, gap 3 mm, marcas L + T)."
-
-Substitui o badge "SignMaster paramétrico · 7/7/7/7 · gap 3" atual por algo mais legível para humanos.
-
-### 5. Ajustes finos de usabilidade
-- Reduzir tamanho do `SheetPreview` (MAX 320 → 260) para que a visualização não domine a tela.
-- Manter botão "Configurações" sempre visível no topo da coluna esquerda.
-- Agrupar os botões de WhatsApp + PDF + .plt num único bloco "Enviar / Exportar" no final da coluna direita.
-
-## Observações técnicas
-
-- Nenhuma mudança em schema/banco — toda persistência continua em `localStorage`.
-- O comportamento dos cálculos não muda (mesmo motor `computeSignmasterLayout`).
-- Testes existentes (`signmaster-spec.test.ts`, `labels-layout.test.ts`) continuam válidos.
+const picks = [smaller, plus50, plus100].filter(Boolean);
+```
