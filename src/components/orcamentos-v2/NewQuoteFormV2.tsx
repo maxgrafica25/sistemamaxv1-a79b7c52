@@ -769,68 +769,15 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           </Alert>
         )}
 
-        {/* ===== Notion-style título do projeto ===== */}
-        <div className="space-y-4">
-          {!isEditing && (
-            <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-              <span>💡 Quer agilizar?</span>
-              <button
-                type="button"
-                className="text-primary hover:underline font-medium"
-                onClick={() => onCancel()}
-              >
-                Comece com um modelo pronto
-              </button>
-              <span>em vez de criar do zero.</span>
-            </div>
-          )}
-
-          <input
-            value={product}
-            onChange={(e) => setProduct(e.target.value)}
-            placeholder="Nome do Projeto / Orçamento..."
-            className="w-full bg-transparent border-0 outline-none focus:ring-0 px-0
-                       text-3xl md:text-4xl font-bold text-primary
-                       placeholder:text-primary/30"
-          />
-
-          {/* Quantidade desejada + chips de ancoragem */}
-          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
-            <div className="flex items-end gap-3 flex-wrap">
-              <div className="space-y-1">
-                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Quantidade desejada
-                </Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={mainQuantity === "" ? "" : mainQuantity}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setMainQuantity(v === "" ? "" : Math.max(0, Math.floor(Number(v) || 0)));
-                  }}
-                  placeholder="Ex: 1000"
-                  className="h-11 w-40 text-xl font-bold text-primary"
-                />
-              </div>
-              <span className="text-sm text-muted-foreground pb-3">unidades</span>
-            </div>
-            <QuoteOptionsBuilder
-              variant="chips"
-              snapshot={snapshot}
-              options={options}
-              onChange={setOptions}
-            />
-          </div>
-
-          {/* Cabeçalho compacto: Nº · Cliente · Aos cuidados de · Validade */}
-          <div className="grid grid-cols-1 md:grid-cols-[140px_1fr_1fr_120px] gap-3">
+        {/* ===== Header Tiny-style: Nº · Cliente · Aos cuidados · Validade ===== */}
+        <div className="space-y-4 rounded-lg border bg-card p-4">
+          <div className="grid grid-cols-1 md:grid-cols-[120px_1fr_1fr_110px] gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Nº</Label>
+              <Label className="text-xs">Nº Proposta</Label>
               <Input value={quoteNumber} disabled className="bg-muted h-9" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Cliente</Label>
+              <Label className="text-xs">Cliente *</Label>
               <ClientCombobox
                 value={{ id: clientId, nome: client }}
                 onChange={(v) => {
@@ -864,50 +811,46 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           </div>
 
           {clientId && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-4 text-sm flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setShowClientData((v) => !v)}
-                  className="text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  <User className="h-3.5 w-3.5" />
-                  {showClientData ? "Ocultar dados do cliente" : "Dados do cliente"}
-                  {showClientData ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowLastSales((v) => !v)}
-                  className="text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  <History className="h-3.5 w-3.5" />
-                  {showLastSales ? "Ocultar últimas vendas" : "Ver últimas vendas"}
-                  {showLastSales ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                </button>
-              </div>
-              {showClientData && (
-                <ClientDetailsPanel
-                  clientId={clientId}
-                  onUpdated={(nome, tel) => {
-                    setClient(nome);
-                    setClientPhone(tel);
-                  }}
-                />
-              )}
-              {showLastSales && <ClientLastSalesPanel clientId={clientId} />}
+            <div className="flex items-center gap-4 text-xs flex-wrap">
+              <button
+                type="button"
+                onClick={() => setShowClientData((v) => !v)}
+                className="text-primary hover:underline inline-flex items-center gap-1"
+              >
+                <User className="h-3.5 w-3.5" />
+                {showClientData ? "Ocultar dados do cliente" : "Dados do cliente"}
+                {showClientData ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLastSales((v) => !v)}
+                className="text-primary hover:underline inline-flex items-center gap-1"
+              >
+                <History className="h-3.5 w-3.5" />
+                {showLastSales ? "Ocultar últimas vendas" : "Ver últimas vendas"}
+                {showLastSales ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </button>
             </div>
           )}
+          {clientId && showClientData && (
+            <ClientDetailsPanel
+              clientId={clientId}
+              onUpdated={(nome, tel) => { setClient(nome); setClientPhone(tel); }}
+            />
+          )}
+          {clientId && showLastSales && <ClientLastSalesPanel clientId={clientId} />}
 
           <div className="space-y-1.5">
-            <Label className="text-xs">Observações Gerais</Label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Notas internas, contexto da proposta, instruções para a produção…"
-              rows={2}
+            <Label className="text-xs">Assunto / Projeto *</Label>
+            <Input
+              value={product}
+              onChange={(e) => setProduct(e.target.value)}
+              placeholder="Ex.: Cartões de visita corporativos – Acme Ltda."
+              className="h-9"
             />
           </div>
         </div>
+
 
         {/* ===== Conteúdo único rolável ===== */}
         <div>
