@@ -27,8 +27,8 @@
 export type LabelShape = "quadrado" | "redondo" | "personalizado";
 
 export const SHAPE_LABELS: Record<LabelShape, string> = {
-  quadrado: "Quadrado",
   redondo: "Redondo",
+  quadrado: "Quadrado/Retangular",
   personalizado: "Personalizado",
 };
 
