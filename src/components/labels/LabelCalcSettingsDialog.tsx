@@ -435,37 +435,6 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
 
           <Separator />
 
-          {/* === 2.5 Perfil de Hardware === */}
-          <section className="space-y-3">
-            <h3 className="text-sm font-semibold">Perfil de hardware</h3>
-            <Select
-              value={draft.hardwareProfileId}
-              onValueChange={(id) => {
-                const profile = HARDWARE_PROFILES[id];
-                if (!profile) return;
-                const clamped = clampMarginsToHardware(draft, profile);
-                setDraft((d) => ({
-                  ...d,
-                  hardwareProfileId: id,
-                  marginsUnlocked: false,
-                  ...clamped,
-                }));
-              }}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.values(HARDWARE_PROFILES).map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[11px] text-muted-foreground">
-              {HARDWARE_PROFILES[draft.hardwareProfileId]?.description}
-            </p>
-          </section>
-
-          <Separator />
-
           {/* === 3. Margens + gap === */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
