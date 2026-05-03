@@ -1,113 +1,81 @@
+
 ## Objetivo
 
-Reformular **Orçamentos V2** para um layout linear no estilo **Tiny ERP**, com tabela de itens, busca inline, e blocos comerciais bem separados. Substitui o atual visual "Notion" (título gigante + cards expansíveis) por um formulário denso e familiar para quem vem de ERP.
+Substituir os blocos separados (PrintingItemEditor / CVItemCard / Outros itens) por **uma única tabela inline tipo Tiny ERP**, onde cada linha pode ser **Impressão** ou **Acabamento** (mão de obra + material), escolhido pelo usuário ao adicionar a linha. Sem abas, sem drawer, sem múltiplos cliques: tudo na mesma grade fluida.
 
-## Layout final
+## Comportamento da nova tabela `QuoteItemsTable`
+
+Colunas fixas:
 
 ```text
-Proposta Comercial
-─────────────────────────────────────────────────────────────
-[ Nº Proposta ] [ Cliente* (busca) ] [ Aos cuidados de ] [ Validade (dias) ]
-   dados do cliente · ver últimas vendas · pessoas de contato
-
-[ Vendedor ] [ Data ] [ Próximo contato ]
-
-Introdução
-[ textarea curta — opcional ]
-─────────────────────────────────────────────────────────────
-[ Itens de produto ou serviço | Descrições complementares ]
-
-┌──┬──────────────────────────────┬──────┬──────┬──────────┬─────────────┬────┐
-│Nº│ Item (busca catálogo)        │ Qtde │  UN  │ Preço un │ Preço total │ ⋮  │
-├──┼──────────────────────────────┼──────┼──────┼──────────┼─────────────┼────┤
-│ 1│ [combobox vazio + busca]     │      │      │          │             │ ⋮  │
-└──┴──────────────────────────────┴──────┴──────┴──────────┴─────────────┴────┘
-   + adicionar item        🔍 busca avançada de itens
-
-Outros itens ou serviços (avulsos + terceirizados — mesma estrutura tabular)
-
-Observações
-[ textarea ]
-─────────────────────────────────────────────────────────────
-Frete & Outros
-  [ Tipo de frete ▾ ]  [ Valor frete R$ ]
-  [ Outros valores ocultos R$ ]   ← dilui no total, não aparece no PDF
-
-Condições Comerciais
-  Forma de pagamento [ select ]
-  Desconto [ valor / % ]
-
-Marcadores  [ tag1 ][ tag2 ][ + ]
-─────────────────────────────────────────────────────────────
-Comparativo de Quantidades (Ancoragem)
-  Quantidade desejada [ 1000 ]   chips: 500 · 1000 · 2000 · +
-─────────────────────────────────────────────────────────────
-[ Salvar ]   [ Cancelar ]   ← rodapé fixo
+Nº | Tipo | Item (busca) | Qtde | UN | Preço un. | Preço total | Ações
 ```
 
-## Mudanças por bloco
+- **Tipo**: pequeno seletor (chip) na própria linha — `Impressão` | `Acabamento` | `Serviço`. Define o ícone e o comportamento da coluna "Item".
+- **Item**:
+  - Se `Impressão`: usa o `PrintingItemSearch` existente (busca papel/tamanho/impressora, traz `paper_cost + printing_cost` e calcula via tier).
+  - Se `Acabamento`: busca em grupos de etapas/materiais (reaproveita `LoadFromGroupDialog` em modo combobox) ou texto livre + tempo (min) → custo via `hourlyRate`.
+  - Se `Serviço`: descrição livre + preço unit. (terceirizado/avulso).
+- **Qtde / Preço un.**: editáveis inline. Para Impressão, ao mudar quantidade recalcula via `recalculateForQuantity` (multiplicadores A3/SRA3, F/V, faixa de markup). Para Acabamento por tempo, Preço un. = (min/60) × hourlyRate, somado ao material.
+- **Ações por linha**: `⋮` → "Detalhes avançados" (abre popover compacto com campos extras só quando precisa: cobertura, máquina específica, observação interna, vincular acabamento ao item-pai). Padrão: nunca precisa abrir.
+- **Adicionar linha**: dois links abaixo da tabela, idênticos ao Tiny:
+  - `+ adicionar item` → cria linha vazia tipo `Impressão` (default).
+  - `🔍 busca avançada de itens` → abre dialog com `PrintingItemSearch` em tela cheia para buscar e adicionar múltiplos.
+- **Vínculo Impressão ⇄ Acabamento**: linha de Acabamento pode opcionalmente referenciar o `Nº` de uma linha de Impressão (campo no popover de detalhes) — mantém a lógica `parentItemId` já existente em `LaborAndSupplySubform` para travamento quando o pai é aprovado.
 
-### 1. Header (linha única + linha secundária)
-- Linha 1: **Nº Proposta · Cliente · Aos cuidados de · Validade**.
-- Linha 2: **Vendedor · Data · Próximo contato** (campos visuais por enquanto, sem persistir Vendedor/Próximo contato — nova iteração depois).
-- Remove o título grande "Nome do Projeto" do topo. Esse campo (`product`) volta como input discreto dentro de Introdução, label "Assunto do Orçamento".
-- Remove header "Editar/Novo Orçamento V2" + botões Salvar/Cancelar do topo (vão pro rodapé fixo).
+## Mudanças concretas
 
-### 2. Tabs
-`Itens de produto ou serviço` (default) e `Descrições complementares` (textarea grande para "Observações Gerais").
+1. **Novo componente** `src/components/orcamentos-v2/QuoteItemsTable.tsx`
+   - Recebe `items`, `onChange`, `markupTiers`, `globalSettings`, `hourlyRate`, `printingCatalog`.
+   - Modelo unificado:
+     ```ts
+     type RowKind = "print" | "finish" | "service";
+     interface QuoteRow {
+       id: string;
+       kind: RowKind;
+       sku?: string;
+       description: string;
+       quantity: number;
+       unit: string;          // un, folha, h, etc.
+       unitPrice: number;
+       total: number;
+       parentRowId?: string;  // só para finish vinculado
+       // específicos:
+       printSnapshot?: PricingSnapshot;     // quando kind="print"
+       finishMinutes?: number;              // quando kind="finish" por tempo
+       finishMaterial?: { qty: number; unit: number };
+       notes?: string;
+     }
+     ```
+   - Linha em edição usa o mesmo layout da linha pronta (inputs sempre visíveis, sem modo "salvar/editar"), igual ao Tiny.
 
-### 3. Tabela de Itens — `QuoteItemsTable.tsx` (novo)
+2. **Refator em `NewQuoteFormV2.tsx`**
+   - Remover as `Tabs` ("Itens de produto" / "Descrições complementares"). Voltar a um fluxo linear.
+   - Remover os blocos `PrintingItemEditor` (cards), `CVItemCard` e o "Outros itens ou serviços" duplicado. Substituir tudo por `<QuoteItemsTable />`.
+   - Manter abaixo da tabela:
+     - Campo único `Observações` (textarea simples — descrições complementares passa a ser só uma seção, não aba).
+     - Bloco `Outros / Frete / Condições / Marcadores` já existentes.
+     - `QuoteOptionsBuilder` (ancoragem por quantidade) no fim.
+   - Adapter: ao salvar, converter `QuoteRow[]` para os shapes que o backend já espera (`printing_items`, `labor_items`, `materials`, `third_parties`) — assim não precisa migrar dados.
 
-Colunas: `Nº · Item · Qtde · UN · Preço un · Preço total · Ação(⋮)`
+3. **Reuso, sem retrabalho**
+   - `PrintingItemSearch` continua sendo a fonte de busca de impressão.
+   - `recalculateForQuantity` continua calculando preço por faixa.
+   - `LoadFromGroupDialog` é reaproveitado dentro do popover de detalhes de uma linha de Acabamento ("carregar grupo de etapas").
+   - `PrintingItemEditor` permanece em uso como popover "detalhes avançados" (modo enxuto) só quando o usuário clica em `⋮ → Detalhes`.
 
-- Sempre inicia com 1 linha vazia (regra já acordada).
-- **Item**: combobox com busca no catálogo de impressão + CV. Ao escolher:
-  - preenche descrição
-  - puxa preço unitário automaticamente baseado no markup tier ativo
-  - calcula preço total = qtde × preço un
-- **Qtde / Preço un**: inline editáveis (sobrescrever preço quando vendedor quer ajustar).
-- **⋮ "Editar detalhes"**: abre **Drawer lateral** (`Sheet`) com o `PrintingItemEditor` ou `CVItemCard` atual lá dentro — preserva toda a lógica de papel, frente/verso, mão-de-obra filha, materiais filhos, acabamentos.
-- Abaixo da tabela: link `+ adicionar item` e `🔍 busca avançada` (drawer com filtros por papel/gramatura/equipamento).
+4. **Header e rodapé**
+   - Manter o header compacto recém-implementado, movendo `Nº Proposta` para o lado do nome do cliente como pediu.
+   - Footer fixo "Salvar / Cancelar" mantido.
 
-### 4. Outros itens ou serviços
-Tabela compacta única que agrupa **Avulsos** (mão-de-obra/materiais sem item pai) e **Terceirizados** com coluna "Tipo" para diferenciar. Mesmo visual da tabela principal.
+## Trade-offs
 
-### 5. Frete & Outros
-- `FreightSelector` (já existe) — Tipo de frete + Valor.
-- "Outros valores (oculto)" — dilui no total sem aparecer no PDF.
-- Link discreto: "Cadastrar tipos de frete em Configurações → Empresa".
+- **Sem abas**: tudo em uma página rolável. Mais rápido, menos cliques; em telas pequenas a tabela vira cards empilhados (responsive).
+- **Detalhes avançados em popover** (não drawer): cabe na mesma tela, fecha com Esc, não tira contexto.
+- **Modelo unificado `QuoteRow`** evita três listas separadas no estado, mas exige um adapter no save (mantém compatibilidade com schema atual).
 
-### 6. Condições Comerciais
-- Forma de pagamento (já existe via `DiscountPaymentBlock`).
-- Desconto valor/%.
+## Arquivos afetados
 
-### 7. Marcadores
-`TagInput` (já existe) com sugestões dos orçamentos anteriores.
-
-### 8. Ancoragem
-`QuoteOptionsBuilder` movido para o **fim**, dentro de bloco "Comparativo de Quantidades", logo acima do rodapé. Quantidade principal vira o input ao lado dos chips (não duplicar com o cabeçalho).
-
-### 9. Rodapé fixo
-`[Salvar] [Cancelar]` fixo no bottom (mobile-friendly), com badges de versão/travado deslocados para um header secundário simples.
-
-### 10. Sidebar financeira
-Mantida em `lg:` com totais ao vivo; em telas menores vira drawer/colapsável.
-
-## Detalhes técnicos
-
-- **Sem migração** — todos os campos já existem (`attention_to`, `freight_value`, `freight_type_id`, `hidden_extras_value`, `tags`, `main_quantity`).
-- Novo: `src/components/orcamentos-v2/QuoteItemsTable.tsx` (tabela + combobox de busca + cálculo preço un).
-- Novo: `src/components/orcamentos-v2/QuoteItemDetailsDrawer.tsx` (Sheet wrapper que renderiza `PrintingItemEditor` ou `CVItemCard`).
-- Novo: `src/components/orcamentos-v2/OtherItemsTable.tsx` (avulsos + terceirizados unificados).
-- Refatorar `NewQuoteFormV2.tsx`:
-  - Remover bloco grande "Nome do Projeto" e bloco roxo de "Quantidade desejada" do topo.
-  - Header com grid `Nº · Cliente · Aos cuidados · Validade` + linha `Vendedor · Data · Próximo contato`.
-  - Tabs (`@/components/ui/tabs`).
-  - Trocar o map de `PrintingItemEditor` cards pela `QuoteItemsTable`.
-  - Mover `QuoteOptionsBuilder` para o final.
-  - Mover Salvar/Cancelar para `<footer>` fixo.
-
-## Fora de escopo (próximas iterações)
-- Persistir Vendedor (precisa vincular a `user_roles` / membros) e Próximo contato (nova coluna).
-- Endereço de entrega alternativo.
-- Campo "Lista de preço" (precisa modelo de tabelas de preço).
+- `src/components/orcamentos-v2/QuoteItemsTable.tsx` *(novo)*
+- `src/components/orcamentos-v2/QuoteItemRowDetails.tsx` *(novo — popover de detalhes)*
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` *(refator: remove tabs e os 3 blocos antigos, integra a tabela única, adapter no save)*
