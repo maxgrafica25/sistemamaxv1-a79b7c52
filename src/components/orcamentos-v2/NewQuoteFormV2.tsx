@@ -6,10 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Plus, X, Wrench, Check, User,
   Printer, Loader2, Link2, Lock, AlertTriangle, Megaphone, Layers,
-  History, ChevronDown, ChevronUp, EyeOff, Tags,
+  History, ChevronDown, ChevronUp, EyeOff, Tags, FileText, Package,
 } from "lucide-react";
 import { CVItemCard, type CVItemState } from "@/components/orcamentos-v2/CVItemCard";
 import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
