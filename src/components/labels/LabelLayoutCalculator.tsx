@@ -947,7 +947,7 @@ export function LabelLayoutCalculator({
             </div>
           </div>
 
-          <div className="bg-muted/30 rounded-lg p-3">
+          <div className="w-full">
             <SheetPreview
               sheetW={config.sheetW}
               sheetH={config.sheetH}
