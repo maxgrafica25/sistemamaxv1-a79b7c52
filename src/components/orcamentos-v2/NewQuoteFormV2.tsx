@@ -406,6 +406,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       printerCategoryId: item.printer_category_id,
       markupGroupId: item.markup_group_id,
       parentItemId: null,
+      paperType: item.paper_type ?? null,
+      grammage: item.grammage ?? null,
+      size: item.size ?? null,
+      side: item.side ?? null,
+      productKind: null,
+      customName: null,
+      reference: null,
+      generatedTitle: null,
     }]);
     toast.success("Item de impressão adicionado!");
   };
