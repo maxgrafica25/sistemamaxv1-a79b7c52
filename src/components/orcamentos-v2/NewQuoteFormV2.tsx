@@ -344,7 +344,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     }
 
     setLoadingInit(false);
-  }, [quoteId]);
+  }, [quoteId, defaultQuoteValidityDays]);
 
   useEffect(() => {
     loadInit();
