@@ -1379,7 +1379,7 @@ export function LabelLayoutCalculator({
 
         {/* Ancoragem */}
         {ladder.length > 0 && (
-          <Card className="p-4 space-y-3">
+          <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-3">
             <div className="flex items-center gap-1.5">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
               <h3 className="text-sm font-semibold">Sugestões de venda</h3>
