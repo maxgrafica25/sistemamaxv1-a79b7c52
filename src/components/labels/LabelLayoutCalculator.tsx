@@ -637,7 +637,7 @@ export function LabelLayoutCalculator({
   const overflowFavs = config.labelPresets.slice(FAV_VISIBLE);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
+    <div className="grid gap-6 lg:grid-cols-2">
       {/* ============================== SIMULADOR ============================== */}
       <div className="space-y-4">
         {/* 1. Faixa-resumo das configurações — TOPO da página */}
