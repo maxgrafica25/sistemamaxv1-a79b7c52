@@ -356,6 +356,12 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       setValidity(String(defDays));
     }
 
+    // Carrega sugestões de tags já usadas em outros orçamentos
+    const { data: tagsData } = await supabase.from("quotes").select("tags").not("tags", "is", null).limit(500);
+    const allTags = new Set<string>();
+    (tagsData || []).forEach((row: any) => (row.tags || []).forEach((t: string) => t && allTags.add(t)));
+    setTagSuggestions(Array.from(allTags).sort());
+
     setLoadingInit(false);
   }, [quoteId, defaultQuoteValidityDays]);
 
