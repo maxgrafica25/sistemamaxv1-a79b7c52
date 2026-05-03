@@ -208,6 +208,30 @@ export function LabelLayoutCalculator({
   const [marksOffsetY, setMarksOffsetY] = useState(0);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
+  // ---- Tiers customizadas pro card de Sugestões de venda -----------------
+  const CUSTOM_LADDER_KEY = "labelCalc:customLadderQtys:v1";
+  const [customQtys, setCustomQtys] = useState<number[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem(CUSTOM_LADDER_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr.filter((n) => Number.isFinite(n) && n > 0) : [];
+    } catch { return []; }
+  });
+  const [newLadderQty, setNewLadderQty] = useState("");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.setItem(CUSTOM_LADDER_KEY, JSON.stringify(customQtys)); } catch { /* ignore */ }
+  }, [customQtys]);
+  const addCustomQty = () => {
+    const n = Math.floor(Number(newLadderQty));
+    if (!n || n < 1) { toast.error("Quantidade inválida"); return; }
+    if (customQtys.includes(n)) { toast.error("Quantidade já adicionada"); return; }
+    setCustomQtys([...customQtys, n].sort((a, b) => a - b));
+    setNewLadderQty("");
+  };
+  const removeCustomQty = (n: number) => setCustomQtys(customQtys.filter((q) => q !== n));
+
   // Quando troca de formato, mantém medidas coerentes
   const handleShapeChange = (next: string) => {
     if (!next) return;
