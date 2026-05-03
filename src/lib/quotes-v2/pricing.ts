@@ -27,6 +27,15 @@ export interface PricingMaterial {
   approvedAt?: string | null;
   approvedValue?: number | null;
   parentItemId?: string | null; // se preenchido, é filho de um item de impressão
+  // Nomenclatura dinâmica (atributos estruturados do catálogo + dados do vendedor)
+  productKind?: string | null;
+  customName?: string | null;
+  reference?: string | null;
+  generatedTitle?: string | null;
+  paperType?: string | null;
+  grammage?: string | null;
+  size?: string | null;
+  side?: string | null;
 }
 
 export interface PricingLaborStep {

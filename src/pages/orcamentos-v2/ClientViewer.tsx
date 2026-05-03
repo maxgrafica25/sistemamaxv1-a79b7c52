@@ -52,6 +52,8 @@ interface MaterialRow {
   status: string;
   approved_at: string | null;
   approved_value: number | null;
+  generated_title?: string | null;
+  reference?: string | null;
 }
 interface LaborRow { id: string; description: string; time_minutes: number; }
 
@@ -117,7 +119,7 @@ export default function ClientViewer() {
     const [m, l] = await Promise.all([
       supabase
         .from("quote_materials")
-        .select("id, description, quantity, unit_price, sort_order, status, approved_at, approved_value, parent_item_id")
+        .select("id, description, quantity, unit_price, sort_order, status, approved_at, approved_value, parent_item_id, generated_title, reference")
         .eq("quote_id", quoteRow.id)
         .is("parent_item_id", null)
         .order("sort_order"),
@@ -441,7 +443,10 @@ export default function ClientViewer() {
                   >
                     <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-600 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-foreground">{m.description}</p>
+                      <p className="text-foreground font-medium">{m.generated_title || m.description}</p>
+                      {m.reference && (
+                        <p className="text-xs text-muted-foreground italic">Ref.: {m.reference}</p>
+                      )}
                       <p className="text-xs text-muted-foreground mt-0.5">
                         Aprovado em {m.approved_at ? formatDate(m.approved_at) : "—"}
                       </p>
@@ -509,7 +514,10 @@ export default function ClientViewer() {
                         htmlFor={hasMultipleItems ? `item-${m.id}` : undefined}
                         className="flex-1 min-w-0 cursor-pointer"
                       >
-                        <p className="text-foreground">{m.description}</p>
+                        <p className="text-foreground font-medium">{m.generated_title || m.description}</p>
+                        {m.reference && (
+                          <p className="text-xs text-muted-foreground italic">Ref.: {m.reference}</p>
+                        )}
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {formatBRL(itemValue)}
                         </p>

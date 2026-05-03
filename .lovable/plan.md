@@ -1,46 +1,80 @@
+# Nomenclatura Dinâmica — Itens de Impressão (Orçamentos V2) — v2
+
 ## Objetivo
-Na mensagem do WhatsApp, mostrar **apenas 3 sugestões** além da quantidade solicitada:
-1. Uma quantidade **menor** (mais próxima abaixo da solicitada)
-2. **+50%** (mais próxima de `qty * 1.5`)
-3. **+100%** (mais próxima de `qty * 2`)
+Padronizar o título técnico de cada item de impressão (lista do orçamento, PDF, OP) através de um título gerado a partir do produto escolhido + atributos estruturados vindos do catálogo + acabamentos vinculados. Sem regex, sem parsing de strings.
 
-## Onde alterar
-`src/lib/labels/whatsapp.ts` — função `formatWhatsAppQuote` (usada pelo botão "Copiar para WhatsApp" em `LabelLayoutCalculator.tsx`).
+## Onde aplica
+Card do `src/components/orcamentos-v2/PrintingItemEditor.tsx`. Não altera lógica de cálculo, busca de catálogo, CV ou ClientViewer.
 
-Hoje ela lista **todas** as outras faixas da escala (`ladder.filter(t => t.qty !== qty)`). Vamos restringir a no máximo 3 picks selecionados da `ladder`.
+## 1) Seletor de Produto Híbrido (topo do card)
+- `Select` "Tipo de Produto": Cartão de Visita, Panfleto / Flyer, Folder, Cartaz, Receituário, Tag, Adesivo, Impresso, **Outro (Especificar)**.
+- Se `productKind === "outro"`: `Input` ao lado para `customName`.
 
-## Lógica de seleção
-Dado `ladder` (ordenada crescente por qty) e `qty` solicitado:
+## 2) Título Dinâmico — só atributos estruturados (sem regex)
+Fonte dos dados: as propriedades do `PrintingCatalogItem` que **já existem** quando o item é adicionado via `PrintingItemSearch` (`paper_type`, `grammage`, `size`, `side`, `equipment_name`).
 
-- **smaller**: maior tier com `t.qty < qty` (se existir)
-- **plus50**: tier de `ladder` cuja qty seja a mais próxima de `qty * 1.5` e `> qty`
-- **plus100**: tier cuja qty seja a mais próxima de `qty * 2` e `> qty` e diferente de plus50
+Hoje esses campos só sobrevivem concatenados em `item.description`. A correção:
+- Estender `PricingMaterial` com campos estruturados opcionais: `paperType`, `grammage`, `size`, `side`, `productKind`, `customName`, `reference`, `generatedTitle`.
+- Em `addPrintingItem` (NewQuoteFormV2), preencher esses campos com os valores brutos do `PrintingCatalogItem` (sem montar string).
+- `description` continua sendo gravada como fallback técnico, mas **não** é fonte do título.
 
-Se `plus50 === plus100`, escolhe o próximo tier maior disponível para preencher o slot de +100% (fallback: o maior tier `> plus50.qty`). Se não houver candidatos, simplesmente omite o slot.
-
-Renderização mantém o formato atual ("📊 Outras quantidades:" + linhas com economia em %), só que limitado a esses 3 picks (ordenados: smaller, plus50, plus100). A frase final "Quanto maior a quantidade, menor o custo unitário 😉" continua.
-
-## Não muda
-- `formatLadderWhatsApp` (botão "Copiar tabela WhatsApp" da escala) — continua como está, pois é uma feature distinta.
-- Nenhuma mudança de UI/layout.
-- Testes existentes em `src/test/labels-layout.test.ts` que apenas verificam presença de substrings continuam válidos; se algum quebrar por contagem de linhas, ajusto.
-
-## Snippet (referência)
+Helper puro `src/lib/quotes-v2/item-title.ts`:
 ```ts
-const smaller = [...ladder].reverse().find(t => t.qty < qty) ?? null;
-const larger = ladder.filter(t => t.qty > qty);
-const pickClosest = (target: number, exclude: Set<number>) =>
-  larger
-    .filter(t => !exclude.has(t.qty))
-    .sort((a, b) => Math.abs(a.qty - target) - Math.abs(b.qty - target))[0] ?? null;
-
-const used = new Set<number>();
-const plus50 = pickClosest(qty * 1.5, used); if (plus50) used.add(plus50.qty);
-let plus100 = pickClosest(qty * 2, used);
-if (!plus100 && plus50) {
-  // fallback: próximo maior depois de plus50
-  plus100 = larger.find(t => t.qty > plus50.qty) ?? null;
-}
-
-const picks = [smaller, plus50, plus100].filter(Boolean);
+buildDynamicTitle({
+  productLabel,          // do productKind / customName
+  size,                  // ex.: "A4"
+  paperType, grammage,   // ex.: "Couchê", "150g"
+  side,                  // "F/V" → "4x4" | "Simples" → "4x0" | outro → undefined
+  finishes,              // string[] dos description dos child materials
+}): string
 ```
+- Junta apenas os pedaços truthy com `" - "`. Cores derivam de um map fixo `{ "F/V": "4x4", "Simples": "4x0" }` — se `side` não bater, omite o pedaço.
+- Acabamentos: junta com `" + "`; se vazio, omite.
+- Garante zero hífens sobrando.
+
+Exemplo: `Folder - A4 - Couchê 150g - 4x4 - 1 Dobra Central + Verniz`.
+
+## 3) UX no card
+- Banner read-only no topo (antes do header):
+  `text-lg font-bold text-primary bg-primary/5 p-3 rounded-lg border border-primary/10`
+- Conteúdo do banner = `generatedTitle` recomputado em tempo real (memo) sempre que `productKind`, `customName`, atributos do item ou `childMaterials` mudarem.
+- `item.description` (texto técnico do catálogo) vira sub-texto pequeno (`text-xs text-muted-foreground`) **abaixo** do banner — apenas referência interna, não editável.
+
+## 4) Campo "Referência / Campanha"
+- `Input` opcional, label "Referência / Campanha", placeholder "Ex.: Promoção Dia das Mães".
+- Salvo em `reference`. Vai para PDF/OP, não afeta cálculo.
+
+## 5) Persistência — tabela correta
+Confirmado via inspeção do schema: a tabela é **`public.quote_materials`** (não existe `quote_items`). Itens-pai de impressão e filhos (acabamentos vinculados) vivem nela com `parent_item_id`.
+
+Migration adicionando colunas (todas nullable, sem default que altere existentes):
+- `product_kind text`
+- `custom_name text`
+- `reference text`
+- `generated_title text`
+- `paper_type text`
+- `grammage text`
+- `size text`
+- `side text`
+
+Atualizar:
+- `src/lib/quotes-v2/pricing.ts`: estender `PricingMaterial` com os campos acima.
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx`:
+  - `addPrintingItem`: gravar atributos estruturados a partir do `PrintingCatalogItem`.
+  - Insert/update de `quote_materials`: incluir as novas colunas.
+  - Mapper de carga (`dbRow → PricingMaterial`): hidratar os novos campos. Para itens antigos sem esses dados, manter fallback exibindo `description` no banner.
+  - Recalcular `generated_title` no save (server-of-truth) chamando `buildDynamicTitle` antes do upsert.
+- `src/components/orcamentos-v2/PrintingItemEditor.tsx`: nova UI + propagação via `onItemChange`.
+- `src/lib/erp/production-order-pdf.ts` e gerador de PDF do orçamento: usar `generated_title` quando presente (fallback `description`); imprimir `Ref.: {reference}` abaixo quando houver.
+
+## 6) Fora de escopo
+- Sem mudanças em `LaborAndSupplySubform`, motor de preço, catálogo, CV.
+- Sem novos dropdowns de Formato/Papel/Cores no card — tudo vem dos atributos estruturados do item de catálogo já escolhido.
+
+## Arquivos afetados
+- Migration nova em `quote_materials`.
+- `src/lib/quotes-v2/item-title.ts` (novo helper).
+- `src/lib/quotes-v2/pricing.ts` (tipo).
+- `src/components/orcamentos-v2/PrintingItemEditor.tsx` (UI).
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` (add/load/save).
+- `src/lib/erp/production-order-pdf.ts` + PDF do orçamento (consumo).

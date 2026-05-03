@@ -68,7 +68,9 @@ export async function generateProductionOrderPdf(source: OPSource): Promise<void
       reference: `Orçamento ${q.quote_number ?? ""}`,
     };
     items = (matsRes.data ?? []).map((m: any) => ({
-      description: m.description,
+      description: [m.generated_title || m.description, m.reference ? `Ref.: ${m.reference}` : null]
+        .filter(Boolean)
+        .join("\n"),
       quantity: Number(m.quantity),
     }));
     if ((laborRes.data ?? []).length > 0) {

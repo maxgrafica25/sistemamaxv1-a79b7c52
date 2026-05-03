@@ -32,6 +32,7 @@ import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionBut
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PrintingItemEditor } from "@/components/orcamentos-v2/PrintingItemEditor";
 import { LaborAndSupplySubform, type SubformLabor, type SubformMaterial } from "@/components/orcamentos-v2/LaborAndSupplySubform";
+import { buildDynamicTitle } from "@/lib/quotes-v2/item-title";
 
 interface Props {
   quoteId?: string;
@@ -297,6 +298,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         approvedAt: m.approved_at,
         approvedValue: m.approved_value,
         parentItemId: m.parent_item_id || null,
+        productKind: m.product_kind ?? null,
+        customName: m.custom_name ?? null,
+        reference: m.reference ?? null,
+        generatedTitle: m.generated_title ?? null,
+        paperType: m.paper_type ?? null,
+        grammage: m.grammage ?? null,
+        size: m.size ?? null,
+        side: m.side ?? null,
       })));
       setThirdParty((tpRes.data || []).map((t: any) => ({
         id: t.id, description: t.description, supplier: t.supplier, cost: t.cost,
@@ -397,6 +406,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       printerCategoryId: item.printer_category_id,
       markupGroupId: item.markup_group_id,
       parentItemId: null,
+      paperType: item.paper_type ?? null,
+      grammage: item.grammage ?? null,
+      size: item.size ?? null,
+      side: item.side ?? null,
+      productKind: null,
+      customName: null,
+      reference: null,
+      generatedTitle: null,
     }]);
     toast.success("Item de impressão adicionado!");
   };
@@ -504,6 +521,22 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           .map((m, i) => ({ ...m, sortOrder: i }))
           .filter((m) => !m.parentItemId);
 
+        // Helper para computar título dinâmico de um pai com base em seus filhos materiais
+        const titleForRoot = (rootId: string, rootMat: PricingMaterial) => {
+          const childDesc = materials
+            .filter((x) => x.parentItemId === rootId)
+            .map((x) => x.description);
+          return buildDynamicTitle({
+            productKind: rootMat.productKind,
+            customName: rootMat.customName,
+            paperType: rootMat.paperType,
+            grammage: rootMat.grammage,
+            size: rootMat.size,
+            side: rootMat.side,
+            finishes: childDesc,
+          });
+        };
+
         const rootToInsert = rootMaterials.filter((m) => m.status !== "aprovado");
         if (rootToInsert.length > 0) {
           const { data: insertedRoots, error: errRoot } = await supabase
@@ -517,11 +550,18 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 sort_order: m.sortOrder,
                 status: "pendente",
                 parent_item_id: null,
+                product_kind: m.productKind ?? null,
+                custom_name: m.customName ?? null,
+                reference: m.reference ?? null,
+                generated_title: titleForRoot(m.id, m) || null,
+                paper_type: m.paperType ?? null,
+                grammage: m.grammage ?? null,
+                size: m.size ?? null,
+                side: m.side ?? null,
               })),
             )
             .select("id");
           if (errRoot) throw errRoot;
-          // Casa pela ordem (insert preserva ordem dos rows enviados)
           (insertedRoots || []).forEach((row, idx) => {
             const original = rootToInsert[idx];
             tempToReal.set(original.id, row.id);
@@ -533,9 +573,22 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           .filter((m) => m.status === "aprovado")
           .forEach((m) => tempToReal.set(m.id, m.id));
 
-        // Atualiza sort_order dos aprovados
+        // Atualiza sort_order + nomenclatura dos aprovados
         for (const m of rootMaterials.filter((x) => x.status === "aprovado")) {
-          await supabase.from("quote_materials").update({ sort_order: m.sortOrder }).eq("id", m.id);
+          await supabase
+            .from("quote_materials")
+            .update({
+              sort_order: m.sortOrder,
+              product_kind: m.productKind ?? null,
+              custom_name: m.customName ?? null,
+              reference: m.reference ?? null,
+              generated_title: titleForRoot(m.id, m) || null,
+              paper_type: m.paperType ?? null,
+              grammage: m.grammage ?? null,
+              size: m.size ?? null,
+              side: m.side ?? null,
+            })
+            .eq("id", m.id);
         }
 
         // ---- FASE 2: Inserir FILHOS (materials e labor com parentItemId) ----
