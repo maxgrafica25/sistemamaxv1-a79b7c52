@@ -642,9 +642,9 @@ export function LabelLayoutCalculator({
   const overflowFavs = config.labelPresets.slice(FAV_VISIBLE);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-10">
-      {/* ============================== SIMULADOR ============================== */}
-      <div className="lg:col-span-7 space-y-5">
+    <div className="grid gap-6 grid-cols-1 lg:grid-cols-2 xl:grid-cols-12">
+      {/* ============================== COLUNA 1 — INPUTS ============================== */}
+      <div className="xl:col-span-4 space-y-5">
         {/* 1. Faixa-resumo das configurações — TOPO da página */}
         <button
           type="button"
