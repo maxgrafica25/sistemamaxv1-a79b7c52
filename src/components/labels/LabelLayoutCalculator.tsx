@@ -186,7 +186,7 @@ export function LabelLayoutCalculator({
 
   // ---- Simulador (não persiste) -------------------------------------------
   const inferShape = (w: number, h: number): LabelShape =>
-    w === h ? "quadrado" : "personalizado";
+    w === h ? "redondo" : "personalizado";
   const [shape, setShape] = useState<LabelShape>(() =>
     inferShape(defaultLabelW, defaultLabelH),
   );
