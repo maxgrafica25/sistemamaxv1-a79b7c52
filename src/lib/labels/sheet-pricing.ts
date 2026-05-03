@@ -177,12 +177,13 @@ export interface UseFolhaPricingResult {
 
 export function useFolhaPricing(size: string, sheetsQty?: number): UseFolhaPricingResult {
   const printingQ = useQuery({
-    queryKey: ["printing_price_items", "all"],
+    queryKey: ["printing_price_items", size],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("printing_price_items")
         .select("id, paper_type, grammage, size, side, equipment_mode, paper_cost, printing_cost, is_active")
         .eq("is_active", true)
+        .eq("size", size)
         .order("paper_type");
       if (error) throw error;
       return (data ?? []).map<PrintingOption>((d) => {
