@@ -966,19 +966,8 @@ export function LabelLayoutCalculator({
               </Badge>
             )}
             <span className="text-muted-foreground">
-              área útil {layout.usableW}×{layout.usableH}mm
+              área útil {layout.usableW}×{layout.usableH}mm · gap {effectiveGap}mm
             </span>
-            <Badge
-              variant="outline"
-              className="gap-1 border-primary/40 text-primary"
-              title={
-                isParametric
-                  ? "Modo paramétrico SignMaster: margens 7/7/7/7 mm, gap 3 mm, marcas L (topo) + T (base). Folhas soltas."
-                  : `Margens ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight}mm · gap efetivo ${effectiveGap}mm`
-              }
-            >
-              ⚙ {isParametric ? "SignMaster paramétrico · 7/7/7/7 · gap 3" : `${config.hardwareProfileId === "signmaster_param" ? "SignMaster" : config.hardwareProfileId === "teneth_a3" ? "Teneth A3" : config.hardwareProfileId} · ${config.marginTop}/${config.marginBottom}/${config.marginLeft}/${config.marginRight} · gap ${effectiveGap}`}
-            </Badge>
           </div>
 
           <SheetPreview
