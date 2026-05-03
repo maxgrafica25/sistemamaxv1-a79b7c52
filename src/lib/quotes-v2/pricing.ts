@@ -65,6 +65,10 @@ export interface PricingSnapshot {
   categoryDefaultGroupId: Record<string, string | null>;
   // base quantity the snapshot was originally created at (default 1 per unit)
   baseQuantity: number;
+  // Extras somados ao total final APÓS o markup (não entram na base de cálculo).
+  // Aplicados em todas as opções de ancoragem (inclusive na base) para coerência.
+  hiddenExtrasValue?: number; // some valor "outros" — não aparece ao cliente
+  freightValue?: number;      // valor de frete — aparece ao cliente
 }
 
 export interface PricingResult {
