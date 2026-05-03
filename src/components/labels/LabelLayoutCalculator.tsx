@@ -1664,15 +1664,27 @@ function SheetPreview({
         </defs>
 
         <rect x="0" y="0" width={w} height={h} fill="url(#hatch)" />
-        <rect
-          x={marginLeft * scale}
-          y={marginTop * scale}
-          width={(sheetW - marginLeft - marginRight) * scale}
-          height={(sheetH - marginTop - marginBottom) * scale}
-          fill="hsl(var(--background))"
-          stroke="hsl(var(--border))"
-          strokeDasharray="3 3"
-        />
+        {isGuillotine ? (
+          <rect
+            x={5 * scale}
+            y={5 * scale}
+            width={(sheetW - 10) * scale}
+            height={(sheetH - 10) * scale}
+            fill="hsl(var(--background))"
+            stroke="hsl(var(--border))"
+            strokeDasharray="3 3"
+          />
+        ) : (
+          <rect
+            x={marginLeft * scale}
+            y={marginTop * scale}
+            width={(sheetW - marginLeft - marginRight) * scale}
+            height={(sheetH - marginTop - marginBottom) * scale}
+            fill="hsl(var(--background))"
+            stroke="hsl(var(--border))"
+            strokeDasharray="3 3"
+          />
+        )}
 
         {labels.map((l, i) => (
           <g key={i} transform={`translate(${l.x} ${l.y})`}>
