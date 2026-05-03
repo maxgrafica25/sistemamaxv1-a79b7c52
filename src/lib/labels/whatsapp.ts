@@ -61,7 +61,7 @@ export function formatWhatsAppQuote(input: WhatsAppQuoteInput): string {
     "Olá! Segue orçamento de etiquetas:",
     "",
     `📋 Pedido: ${formatInt(qty)} un · ${desc}`,
-    `💰 Total: ${formatBRL(pricing.totalPrice)} (${formatBRL(pricing.unitPrice)}/un)`,
+    `💰 Total: ${formatBRL(pricing.totalPrice)}`,
   ];
 
   // Demais faixas (ancoragem) — todas exceto a tier solicitada (qty atual).
@@ -73,7 +73,7 @@ export function formatWhatsAppQuote(input: WhatsAppQuoteInput): string {
         ? ` — ${Math.round(Math.abs(t.unitDeltaPct))}% mais barato`
         : "";
       lines.push(
-        `• ${formatInt(t.qty)} un — ${formatBRL(t.total)} (${formatBRL(t.unit)}/un)${economy}`,
+        `• ${formatInt(t.qty)} un — ${formatBRL(t.total)}${economy}`,
       );
     });
     lines.push("", "Quanto maior a quantidade, menor o custo unitário 😉");
@@ -112,7 +112,7 @@ export function formatLadderWhatsApp(input: LadderWhatsAppInput): string {
       ? ` (${Math.round(Math.abs(t.unitDeltaPct))}% mais barato)`
       : "";
     lines.push(
-      `• ${formatInt(t.qty)} un — ${formatBRL(t.total)} (${formatBRL(t.unit)}/un)${economy}`,
+      `• ${formatInt(t.qty)} un — ${formatBRL(t.total)}${economy}`,
     );
   });
 
