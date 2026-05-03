@@ -400,17 +400,28 @@ export interface AnchoringTier {
   unit: number;
   /** Variação % do custo unitário vs. tier 1 (negativo = mais barato). */
   unitDeltaPct: number;
-  label: "solicitada" | "dobro" | "ideal";
+  label: "solicitada" | "dobro" | "ideal" | "extra";
 }
 
+/** Sugestões automáticas adicionais para reforçar a ancoragem. */
+export const defaultExtraQtys = (qty: number): number[] => {
+  if (qty <= 0) return [];
+  const half = Math.max(1, Math.round(qty / 2));
+  const x5 = qty * 5;
+  const x10 = qty * 10;
+  return [half, x5, x10];
+};
+
 /**
- * Constrói a escada de ancoragem: qty solicitada, dobro, e quantidade redonda.
- * Remove duplicatas mantendo ordem crescente; garante tier3 > tier2.
+ * Constrói a escada de ancoragem: qty solicitada, dobro, quantidade redonda
+ * e — opcionalmente — quantidades extras (sugeridas pelo sistema ou pelo
+ * usuário). Remove duplicatas mantendo ordem crescente.
  */
 export const buildAnchoringLadder = (
   qty: number,
   perSheet: number,
   pricePerSheet: number,
+  extraQtys: number[] = [],
 ): AnchoringTier[] => {
   if (qty <= 0 || perSheet <= 0) return [];
 
@@ -421,15 +432,13 @@ export const buildAnchoringLadder = (
     tier3 = pickRoundUpsellQty(tier3 + 1);
   }
 
-  const labels: AnchoringTier["label"][] = ["solicitada", "dobro", "ideal"];
-  const raw = [tier1, tier2, tier3];
-
   const baseUnit = computeSheetPricing({ pricePerSheet, qtyRequested: tier1, perSheet }).unitPrice;
 
   const seen = new Set<number>();
   const ladder: AnchoringTier[] = [];
-  raw.forEach((q, idx) => {
-    if (seen.has(q)) return;
+
+  const push = (q: number, label: AnchoringTier["label"]) => {
+    if (q <= 0 || seen.has(q)) return;
     seen.add(q);
     const p = computeSheetPricing({ pricePerSheet, qtyRequested: q, perSheet });
     const unitDeltaPct = baseUnit > 0 ? ((p.unitPrice - baseUnit) / baseUnit) * 100 : 0;
@@ -439,10 +448,16 @@ export const buildAnchoringLadder = (
       total: p.totalPrice,
       unit: p.unitPrice,
       unitDeltaPct,
-      label: labels[idx],
+      label,
     });
-  });
+  };
 
+  push(tier1, "solicitada");
+  push(tier2, "dobro");
+  push(tier3, "ideal");
+  extraQtys.forEach((q) => push(Math.floor(q), "extra"));
+
+  ladder.sort((a, b) => a.qty - b.qty);
   return ladder;
 };
 
