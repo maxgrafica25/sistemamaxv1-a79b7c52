@@ -420,10 +420,13 @@ export const defaultExtraQtys = (qty: number): number[] => {
 export const buildAnchoringLadder = (
   qty: number,
   perSheet: number,
-  pricePerSheet: number,
+  pricePerSheet: number | ((sheets: number) => number),
   extraQtys: number[] = [],
 ): AnchoringTier[] => {
   if (qty <= 0 || perSheet <= 0) return [];
+
+  const resolvePrice = (sheets: number) =>
+    typeof pricePerSheet === "function" ? pricePerSheet(sheets) : pricePerSheet;
 
   const tier1 = qty;
   const tier2 = qty * 2;
@@ -432,7 +435,12 @@ export const buildAnchoringLadder = (
     tier3 = pickRoundUpsellQty(tier3 + 1);
   }
 
-  const baseUnit = computeSheetPricing({ pricePerSheet, qtyRequested: tier1, perSheet }).unitPrice;
+  const baseSheets = sheetsNeeded(tier1, perSheet);
+  const baseUnit = computeSheetPricing({
+    pricePerSheet: resolvePrice(baseSheets),
+    qtyRequested: tier1,
+    perSheet,
+  }).unitPrice;
 
   const seen = new Set<number>();
   const ladder: AnchoringTier[] = [];
@@ -440,7 +448,12 @@ export const buildAnchoringLadder = (
   const push = (q: number, label: AnchoringTier["label"]) => {
     if (q <= 0 || seen.has(q)) return;
     seen.add(q);
-    const p = computeSheetPricing({ pricePerSheet, qtyRequested: q, perSheet });
+    const sheets = sheetsNeeded(q, perSheet);
+    const p = computeSheetPricing({
+      pricePerSheet: resolvePrice(sheets),
+      qtyRequested: q,
+      perSheet,
+    });
     const unitDeltaPct = baseUnit > 0 ? ((p.unitPrice - baseUnit) / baseUnit) * 100 : 0;
     ladder.push({
       qty: q,

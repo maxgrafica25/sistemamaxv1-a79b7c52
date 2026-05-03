@@ -169,6 +169,8 @@ export interface UseFolhaPricingResult {
   availableKinds: PaperKind[];
   total: number;
   finishingPricePerSheet: number;
+  /** Resolve o preço/folha (impressão + acabamento) para uma qtde de folhas específica — usado pela escada de ancoragem. */
+  totalForSheets: (sheets: number) => number;
   isLoading: boolean;
   /** true quando o acabamento atual veio da heurística automática (não foi escolhido manualmente). */
   finishingIsAuto: boolean;
@@ -388,6 +390,17 @@ export function useFolhaPricing(
   const total = (selectedPrinting?.total ?? 0) + finishingPricePerSheet;
   const isLoading = printingQ.isLoading || finishingQ.isLoading;
 
+  const totalForSheets = useMemo(() => {
+    return (sheets: number) => {
+      const printing = selectedPrinting?.total ?? 0;
+      if (!selectedFinishing.id) return printing;
+      const finish = selectedFinishing.tiers.length && sheets > 0
+        ? resolveFinishingPricePerSheet(selectedFinishing.price_per_sheet, selectedFinishing.tiers, sheets)
+        : selectedFinishing.price_per_sheet;
+      return printing + finish;
+    };
+  }, [selectedPrinting, selectedFinishing]);
+
   return {
     printingOptions,
     allPrintingOptions,
@@ -401,6 +414,7 @@ export function useFolhaPricing(
     availableKinds,
     total,
     finishingPricePerSheet,
+    totalForSheets,
     isLoading,
     finishingIsAuto,
     missing: !selectedPrinting && !isLoading ? "missing-printing" : null,

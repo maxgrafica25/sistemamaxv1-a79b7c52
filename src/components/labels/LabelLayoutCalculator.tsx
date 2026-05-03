@@ -440,7 +440,7 @@ export function LabelLayoutCalculator({
     () => [...defaultExtraQtys(qty), ...customQtys],
     [qty, customQtys],
   );
-  const ladder = buildAnchoringLadder(qty, perSheet, pricePerSheet, extraLadderQtys);
+  const ladder = buildAnchoringLadder(qty, perSheet, folhaPricing.totalForSheets, extraLadderQtys);
   const shrink = perSheet > 0
     ? (isParametric
         ? findSignmasterShrinkOpportunity(
