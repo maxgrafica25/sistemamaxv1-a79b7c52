@@ -827,10 +827,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             />
           </div>
 
-          {/* Cabeçalho compacto: Nº · Cliente · Validade */}
-          <div className="grid grid-cols-1 md:grid-cols-[160px_1fr_140px] gap-4">
+          {/* Cabeçalho compacto: Nº · Cliente · Aos cuidados de · Validade */}
+          <div className="grid grid-cols-1 md:grid-cols-[140px_1fr_1fr_120px] gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Nº Orçamento</Label>
+              <Label className="text-xs">Nº</Label>
               <Input value={quoteNumber} disabled className="bg-muted h-9" />
             </div>
             <div className="space-y-1.5">
@@ -844,6 +844,15 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                   setShowClientData(false);
                   setShowLastSales(false);
                 }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Aos cuidados de</Label>
+              <Input
+                value={attentionTo}
+                onChange={(e) => setAttentionTo(e.target.value)}
+                placeholder="Nome do contato"
+                className="h-9"
               />
             </div>
             <div className="space-y-1.5">
