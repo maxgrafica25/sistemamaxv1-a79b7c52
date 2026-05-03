@@ -69,12 +69,21 @@ const buildPrintingLabel = (i: Omit<PrintingOption, "label" | "total">) => {
 
 // ---------- Persistência da escolha -----------------------------------------
 
+export type PaperKind = "adesivo" | "papel";
+
 interface SizeChoice {
   printingId: string | null;
   finishingId: string | null;
   /** Escolhas manuais de acabamento por papel (printingId). */
   finishingByPrinting?: Record<string, string | null>;
+  /** Último printingId selecionado por tipo de papel. */
+  printingByKind?: Partial<Record<PaperKind, string>>;
+  /** Último tipo de papel selecionado. */
+  paperKind?: PaperKind;
 }
+
+export const paperKindOf = (p: Pick<PrintingOption, "paper_type">): PaperKind =>
+  /adesiv/i.test(p.paper_type) ? "adesivo" : "papel";
 interface ChoiceMap {
   [size: string]: SizeChoice;
 }
