@@ -1045,7 +1045,7 @@ export function LabelLayoutCalculator({
                 {perSheet}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                etiquetas por folha
+                {cutMode === "guilhotina" ? "impressos por folha" : "etiquetas por folha"}
               </p>
             </div>
             <div className="text-right">
