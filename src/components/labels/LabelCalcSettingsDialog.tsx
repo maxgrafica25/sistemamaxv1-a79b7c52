@@ -564,7 +564,7 @@ export const LabelCalcSettingsDialog = forwardRef<HTMLDivElement, Props>(functio
                     <ul className="list-disc pl-5 space-y-1 text-xs">
                       <li>Folha SRA3, corte plotter redondo, hardware SignMaster</li>
                       <li>Margens 7/7/7/7 mm e gap 3 mm</li>
-                      <li>Unidade em milímetros</li>
+                      <li>Unidade em centímetros</li>
                       <li><strong>Folhas personalizadas serão apagadas</strong></li>
                       <li><strong>Favoritos de etiqueta voltarão aos 3 originais</strong> (favoritos seus serão perdidos)</li>
                     </ul>
