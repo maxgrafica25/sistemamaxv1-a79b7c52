@@ -443,7 +443,10 @@ export default function ClientViewer() {
                   >
                     <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-600 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-foreground">{m.description}</p>
+                      <p className="text-foreground font-medium">{m.generated_title || m.description}</p>
+                      {m.reference && (
+                        <p className="text-xs text-muted-foreground italic">Ref.: {m.reference}</p>
+                      )}
                       <p className="text-xs text-muted-foreground mt-0.5">
                         Aprovado em {m.approved_at ? formatDate(m.approved_at) : "—"}
                       </p>
