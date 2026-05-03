@@ -73,7 +73,7 @@ export function formatWhatsAppQuote(input: WhatsAppQuoteInput): string {
         ? ` — ${Math.round(Math.abs(t.unitDeltaPct))}% mais barato`
         : "";
       lines.push(
-        `• ${formatInt(t.qty)} un — ${formatBRL(t.total)} (${formatBRL(t.unit)}/un)${economy}`,
+        `• ${formatInt(t.qty)} un — ${formatBRL(t.total)}${economy}`,
       );
     });
     lines.push("", "Quanto maior a quantidade, menor o custo unitário 😉");
