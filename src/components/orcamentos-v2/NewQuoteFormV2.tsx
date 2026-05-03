@@ -506,11 +506,16 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         profit_margin: profitMargin,
         main_quantity: typeof mainQuantity === "number" && mainQuantity > 0 ? mainQuantity : null,
         notes: notes.trim() || null,
+        attention_to: attentionTo.trim() || null,
+        hidden_extras_value: hiddenExtras || 0,
+        freight_value: freightValue || 0,
+        freight_type_id: freightTypeId,
+        tags,
         discount_value: discountValue,
         discount_type: discountValue ? discountType : null,
         payment_method: paymentMethod || null,
         options: (options.length > 0 ? options : null) as never,
-      };
+      } as never;
 
       let id = savedQuoteId;
       if (isEditing && id) {
