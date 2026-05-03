@@ -669,8 +669,8 @@ export function LabelLayoutCalculator({
         </button>
 
         {/* 2. Seleção rápida de folha — Tabs */}
-        <Card className="p-3">
-          <div className="flex items-center gap-2 mb-2">
+        <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-3">
+          <div className="flex items-center gap-2">
             <Label className="text-xs text-muted-foreground">Folha:</Label>
             <span className="text-xs font-medium">{describeSheet(config)}</span>
           </div>
@@ -684,21 +684,21 @@ export function LabelLayoutCalculator({
               <ToggleGroupItem
                 key={s.id}
                 value={s.id}
-                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-10 text-xs"
               >
                 {s.label}
               </ToggleGroupItem>
             ))}
             <ToggleGroupItem
               value="__other__"
-              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-9 text-xs"
+              className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground border h-10 text-xs"
             >
               Outro…
             </ToggleGroupItem>
           </ToggleGroup>
         </Card>
 
-        <Card className="p-4 space-y-4">
+        <Card className="rounded-xl border-border/60 shadow-sm bg-card p-5 md:p-6 space-y-5">
           <h3 className="text-sm font-semibold">Simulador</h3>
 
           {/* Favoritos sempre visíveis (até 6) */}
