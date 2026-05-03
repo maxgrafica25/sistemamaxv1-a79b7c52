@@ -27,7 +27,7 @@ export function describeLabel(
   width: number,
   height: number,
 ): string {
-  if (shape === "redondo") return `Redonda Ø${mmToCm(width)}cm`;
+  if (shape === "redondo") return `Redonda ${mmToCm(width)}cm`;
   if (shape === "quadrado") return `Quadrado ${mmToCm(width)}×${mmToCm(height)}cm`;
   return `Personalizada ${mmToCm(width)}×${mmToCm(height)}cm`;
 }
