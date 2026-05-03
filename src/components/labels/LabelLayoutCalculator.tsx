@@ -1493,7 +1493,7 @@ function SheetPreview({
   shape, imageDataUrl, imageNaturalW, imageNaturalH,
   reservedSlots, rowOffsets, cellsPerRow, marksOffsetY, paramLayout,
 }: SheetPreviewProps) {
-  const MAX = 320;
+  const MAX = 260;
   const scale = Math.min(MAX / sheetW, MAX / sheetH);
   const w = sheetW * scale;
   const h = sheetH * scale;
