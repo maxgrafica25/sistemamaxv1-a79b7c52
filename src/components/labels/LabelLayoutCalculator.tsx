@@ -1199,14 +1199,14 @@ export function LabelLayoutCalculator({
                 <ToggleGroupItem
                   value="adesivo"
                   disabled={!folhaPricing.availableKinds.includes("adesivo")}
-                  className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  className="h-10 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
                 >
                   Adesivo
                 </ToggleGroupItem>
                 <ToggleGroupItem
                   value="papel"
                   disabled={!folhaPricing.availableKinds.includes("papel")}
-                  className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  className="h-10 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
                 >
                   Papel
                 </ToggleGroupItem>
