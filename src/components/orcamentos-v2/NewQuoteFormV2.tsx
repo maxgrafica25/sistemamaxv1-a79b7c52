@@ -278,6 +278,11 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         setProfitMargin(q.profit_margin || "33");
         setMainQuantity(((q as any).main_quantity ?? "") as number | "");
         setNotes((q as any).notes || "");
+        setAttentionTo(((q as any).attention_to as string) || "");
+        setHiddenExtras(Number((q as any).hidden_extras_value) || 0);
+        setFreightValue(Number((q as any).freight_value) || 0);
+        setFreightTypeId(((q as any).freight_type_id as string) || null);
+        setTags(Array.isArray((q as any).tags) ? ((q as any).tags as string[]) : []);
         setDiscountValue(q.discount_value);
         setDiscountType((q.discount_type as DiscountType) || "brl");
         setPaymentMethod(q.payment_method || "");
