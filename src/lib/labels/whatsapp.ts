@@ -112,7 +112,7 @@ export function formatLadderWhatsApp(input: LadderWhatsAppInput): string {
       ? ` (${Math.round(Math.abs(t.unitDeltaPct))}% mais barato)`
       : "";
     lines.push(
-      `• ${formatInt(t.qty)} un — ${formatBRL(t.total)} (${formatBRL(t.unit)}/un)${economy}`,
+      `• ${formatInt(t.qty)} un — ${formatBRL(t.total)}${economy}`,
     );
   });
 
