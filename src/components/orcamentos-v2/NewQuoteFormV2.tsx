@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   Plus, X, Wrench, Check, User,
   Printer, Loader2, Link2, Lock, AlertTriangle, Megaphone, Layers,
-  History, ChevronDown, ChevronUp,
+  History, ChevronDown, ChevronUp, EyeOff, Tags,
 } from "lucide-react";
 import { CVItemCard, type CVItemState } from "@/components/orcamentos-v2/CVItemCard";
 import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
