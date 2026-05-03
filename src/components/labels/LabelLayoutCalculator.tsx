@@ -3,6 +3,7 @@ import {
   computeLabelLayout,
   computeSheetPricing,
   buildAnchoringLadder,
+  defaultExtraQtys,
   findShrinkOpportunity,
   findGrowOpportunity,
   CUT_LABELS,
@@ -20,7 +21,7 @@ import {
   type LabelPreset,
 } from "@/lib/labels/config-storage";
 import { fitContain, aspectMismatch } from "@/lib/labels/image-fit";
-import { formatWhatsAppQuote, describeLabel } from "@/lib/labels/whatsapp";
+import { formatWhatsAppQuote, formatLadderWhatsApp, describeLabel } from "@/lib/labels/whatsapp";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
