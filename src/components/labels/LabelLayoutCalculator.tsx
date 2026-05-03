@@ -201,6 +201,9 @@ export function LabelLayoutCalculator({
   const [labelH, setLabelH] = useState(defaultLabelH);
   const [qty, setQty] = useState(defaultQty);
 
+  // ---- Tipo de corte (não persiste) ---------------------------------------
+  const [cutMode, setCutMode] = useState<"plotter" | "guilhotina">("plotter");
+
   // ---- Imagem opcional (só em memória) ------------------------------------
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [imageName, setImageName] = useState<string | null>(null);
