@@ -1152,6 +1152,31 @@ export function LabelLayoutCalculator({
 
           {/* Composição do preço da folha */}
           <div className="space-y-2 rounded-md border border-border bg-background/60 p-2.5">
+            {/* Toggle Adesivo / Papel */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Tipo</Label>
+              <ToggleGroup
+                type="single"
+                value={folhaPricing.paperKind}
+                onValueChange={(v) => v && folhaPricing.setPaperKind(v as "adesivo" | "papel")}
+                className="grid grid-cols-2 gap-1"
+              >
+                <ToggleGroupItem
+                  value="adesivo"
+                  disabled={!folhaPricing.availableKinds.includes("adesivo")}
+                  className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  Adesivo
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="papel"
+                  disabled={!folhaPricing.availableKinds.includes("papel")}
+                  className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  Papel
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-[11px] text-muted-foreground">Impressão (Tabela de Preços)</Label>
               {folhaPricing.printingOptions.length > 0 ? (
