@@ -923,6 +923,16 @@ export function LabelLayoutCalculator({
 
       {/* ============================== RESULTADOS ============================== */}
       <div className="space-y-4">
+        {/* Banner: parametrização SignMaster */}
+        <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-primary flex items-start gap-2">
+          <Settings2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <span>
+            Parametrização baseada nas configurações do <strong>SignMaster</strong>{" "}
+            (margens 7&nbsp;mm, gap 3&nbsp;mm, marcas L + T). As marcas de registro
+            são posicionadas automaticamente para não ficarem sobre as etiquetas.
+          </span>
+        </div>
+
         {/* Aproveitamento */}
         <Card className="p-4 space-y-3">
           <div className="flex items-baseline justify-between">
