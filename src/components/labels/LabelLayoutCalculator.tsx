@@ -756,9 +756,14 @@ export function LabelLayoutCalculator({
               if (!v) return;
               const next = v as "plotter" | "guilhotina";
               setCutMode(next);
-              if (next === "guilhotina" && shape !== "personalizado") {
-                setShape("personalizado");
-                if (labelH <= 0) setLabelH(labelW);
+              if (next === "guilhotina") {
+                if (shape !== "personalizado") {
+                  setShape("personalizado");
+                  if (labelH <= 0) setLabelH(labelW);
+                }
+                if (folhaPricing.paperKind === "adesivo" && folhaPricing.availableKinds.includes("papel")) {
+                  folhaPricing.setPaperKind("papel");
+                }
               }
             }}
             className="grid grid-cols-2 gap-1.5"
