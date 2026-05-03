@@ -650,7 +650,7 @@ export function LabelLayoutCalculator({
           type="button"
           onClick={() => setSettingsOpen(true)}
           aria-label="Alterar configurações de folha e corte"
-          className="w-full text-left rounded-md border border-border bg-card px-3 py-2.5 text-xs flex items-center justify-between gap-3 transition-colors hover:bg-muted/50"
+          className="w-full text-left rounded-xl border border-border/60 bg-muted/40 hover:bg-muted/70 px-4 py-3 text-xs flex items-center justify-between gap-3 transition-colors shadow-sm"
         >
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
             <span>
