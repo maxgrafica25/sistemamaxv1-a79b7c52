@@ -756,9 +756,14 @@ export function LabelLayoutCalculator({
               if (!v) return;
               const next = v as "plotter" | "guilhotina";
               setCutMode(next);
-              if (next === "guilhotina" && shape !== "personalizado") {
-                setShape("personalizado");
-                if (labelH <= 0) setLabelH(labelW);
+              if (next === "guilhotina") {
+                if (shape !== "personalizado") {
+                  setShape("personalizado");
+                  if (labelH <= 0) setLabelH(labelW);
+                }
+                if (folhaPricing.paperKind === "adesivo" && folhaPricing.availableKinds.includes("papel")) {
+                  folhaPricing.setPaperKind("papel");
+                }
               }
             }}
             className="grid grid-cols-2 gap-1.5"
@@ -781,6 +786,106 @@ export function LabelLayoutCalculator({
               ? `Margens fixas de ${GUILLOTINE_MARGIN_MM}mm e sangria de ${GUILLOTINE_GAP_MM}mm entre peças. Sem marcas de registro.`
               : "Cálculo paramétrico SignMaster com marcas de registro automáticas."}
           </p>
+        </Card>
+
+
+        {/* 2.2 Materiais e acabamento — escolha do papel/adesivo, impressão e acabamento */}
+        <Card className="p-4 space-y-3">
+          <h3 className="text-sm font-semibold">Materiais e acabamento</h3>
+
+          {cutMode === "plotter" && (
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Tipo</Label>
+              <ToggleGroup
+                type="single"
+                value={folhaPricing.paperKind}
+                onValueChange={(v) => v && folhaPricing.setPaperKind(v as "adesivo" | "papel")}
+                className="grid grid-cols-2 gap-1"
+              >
+                <ToggleGroupItem
+                  value="adesivo"
+                  disabled={!folhaPricing.availableKinds.includes("adesivo")}
+                  className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  Adesivo
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="papel"
+                  disabled={!folhaPricing.availableKinds.includes("papel")}
+                  className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  Papel
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label className="text-[11px] text-muted-foreground">Impressão (Tabela de Preços)</Label>
+            {folhaPricing.printingOptions.length > 0 ? (
+              <Select
+                value={folhaPricing.selectedPrinting?.id ?? ""}
+                onValueChange={folhaPricing.setPrintingId}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Selecione…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {folhaPricing.printingOptions.map((p) => (
+                    <SelectItem key={p.id} value={p.id} className="text-xs">
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                ⚠ Sem item de impressão cadastrado para <strong>{sheetSizeKey}</strong>.{" "}
+                <a href="/preco-impressao" target="_blank" rel="noopener noreferrer" className="underline">
+                  Cadastrar agora →
+                </a>
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <Label className="text-[11px] text-muted-foreground">Acabamento (Recorte / outros)</Label>
+              {folhaPricing.finishingIsAuto && folhaPricing.selectedFinishing.id && (
+                <Badge variant="secondary" className="h-4 px-1.5 text-[9px] uppercase tracking-wide">
+                  auto
+                </Badge>
+              )}
+            </div>
+            <Select
+              value={folhaPricing.selectedFinishing.id ?? "__none__"}
+              onValueChange={(v) => folhaPricing.setFinishingId(v as string)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {folhaPricing.finishingOptions.map((f) => (
+                  <SelectItem key={f.id ?? "__none__"} value={f.id ?? "__none__"} className="text-xs">
+                    {f.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <a
+              href="/acabamentos"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-primary hover:underline"
+            >
+              Editar acabamentos →
+            </a>
+          </div>
+
+          <div className="flex items-center justify-between pt-1.5 border-t text-xs">
+            <span className="text-muted-foreground">Total por folha:</span>
+            <strong className="tabular-nums">{formatBRL(pricePerSheet)}</strong>
+          </div>
         </Card>
 
         <Card className="p-4 space-y-4">
@@ -1241,101 +1346,6 @@ export function LabelLayoutCalculator({
             >
               Editar tabelas <ExternalLink className="h-3 w-3" />
             </a>
-          </div>
-
-          {/* Composição do preço da folha */}
-          <div className="space-y-2 rounded-md border border-border bg-background/60 p-2.5">
-            {/* Toggle Adesivo / Papel */}
-            <div className="space-y-1.5">
-              <Label className="text-[11px] text-muted-foreground">Tipo</Label>
-              <ToggleGroup
-                type="single"
-                value={folhaPricing.paperKind}
-                onValueChange={(v) => v && folhaPricing.setPaperKind(v as "adesivo" | "papel")}
-                className="grid grid-cols-2 gap-1"
-              >
-                <ToggleGroupItem
-                  value="adesivo"
-                  disabled={!folhaPricing.availableKinds.includes("adesivo")}
-                  className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                >
-                  Adesivo
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="papel"
-                  disabled={!folhaPricing.availableKinds.includes("papel")}
-                  className="h-8 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                >
-                  Papel
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px] text-muted-foreground">Impressão (Tabela de Preços)</Label>
-              {folhaPricing.printingOptions.length > 0 ? (
-                <Select
-                  value={folhaPricing.selectedPrinting?.id ?? ""}
-                  onValueChange={folhaPricing.setPrintingId}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Selecione…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {folhaPricing.printingOptions.map((p) => (
-                      <SelectItem key={p.id} value={p.id} className="text-xs">
-                        {p.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                  ⚠ Sem item de impressão cadastrado para <strong>{sheetSizeKey}</strong>.{" "}
-                  <a href="/preco-impressao" target="_blank" rel="noopener noreferrer" className="underline">
-                    Cadastrar agora →
-                  </a>
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <Label className="text-[11px] text-muted-foreground">Acabamento (Recorte / outros)</Label>
-                {folhaPricing.finishingIsAuto && folhaPricing.selectedFinishing.id && (
-                  <Badge variant="secondary" className="h-4 px-1.5 text-[9px] uppercase tracking-wide">
-                    auto
-                  </Badge>
-                )}
-              </div>
-              <Select
-                value={folhaPricing.selectedFinishing.id ?? "__none__"}
-                onValueChange={(v) => folhaPricing.setFinishingId(v as string)}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {folhaPricing.finishingOptions.map((f) => (
-                    <SelectItem key={f.id ?? "__none__"} value={f.id ?? "__none__"} className="text-xs">
-                      {f.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <a
-                href="/acabamentos"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[10px] text-primary hover:underline"
-              >
-                Editar acabamentos →
-              </a>
-            </div>
-
-            <div className="flex items-center justify-between pt-1.5 border-t text-xs">
-              <span className="text-muted-foreground">Total por folha:</span>
-              <strong className="tabular-nums">{formatBRL(pricePerSheet)}</strong>
-            </div>
           </div>
 
           {/* Resultado */}
