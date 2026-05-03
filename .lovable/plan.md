@@ -1,80 +1,84 @@
-# Nomenclatura Dinâmica — Itens de Impressão (Orçamentos V2) — v2
+## Refactor Novo Orçamento V2 — Layout Master-Detail
 
-## Objetivo
-Padronizar o título técnico de cada item de impressão (lista do orçamento, PDF, OP) através de um título gerado a partir do produto escolhido + atributos estruturados vindos do catálogo + acabamentos vinculados. Sem regex, sem parsing de strings.
+Eliminar o padrão de wizard por abas e adotar uma página única vertical e rolável, mantendo intactas a lógica de persistência, cálculos e o `StickyFinancialSidebar`.
 
-## Onde aplica
-Card do `src/components/orcamentos-v2/PrintingItemEditor.tsx`. Não altera lógica de cálculo, busca de catálogo, CV ou ClientViewer.
+### Arquivo afetado
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` (única alteração estrutural)
 
-## 1) Seletor de Produto Híbrido (topo do card)
-- `Select` "Tipo de Produto": Cartão de Visita, Panfleto / Flyer, Folder, Cartaz, Receituário, Tag, Adesivo, Impresso, **Outro (Especificar)**.
-- Se `productKind === "outro"`: `Input` ao lado para `customName`.
+### 1. Remoção do sistema de Steps
+- Remover constante `STEPS` e estado `const [step, setStep] = useState(0)`.
+- Remover ícones não usados após a refatoração: `ChevronLeft`, `ChevronRight`, `Check` (do step bar), e a navegação inferior "Voltar / Próximo".
+- Remover renderização condicional `{step === N && ...}` — todas as seções passam a renderizar sempre.
 
-## 2) Título Dinâmico — só atributos estruturados (sem regex)
-Fonte dos dados: as propriedades do `PrintingCatalogItem` que **já existem** quando o item é adicionado via `PrintingItemSearch` (`paper_type`, `grammage`, `size`, `side`, `equipment_name`).
+### 2. Título "Notion-style"
+Logo abaixo do header (h1 "Novo Orçamento V2" + ações), substituir o atual campo "Produto / Serviço" por um input seamless no topo da coluna principal:
 
-Hoje esses campos só sobrevivem concatenados em `item.description`. A correção:
-- Estender `PricingMaterial` com campos estruturados opcionais: `paperType`, `grammage`, `size`, `side`, `productKind`, `customName`, `reference`, `generatedTitle`.
-- Em `addPrintingItem` (NewQuoteFormV2), preencher esses campos com os valores brutos do `PrintingCatalogItem` (sem montar string).
-- `description` continua sendo gravada como fallback técnico, mas **não** é fonte do título.
-
-Helper puro `src/lib/quotes-v2/item-title.ts`:
-```ts
-buildDynamicTitle({
-  productLabel,          // do productKind / customName
-  size,                  // ex.: "A4"
-  paperType, grammage,   // ex.: "Couchê", "150g"
-  side,                  // "F/V" → "4x4" | "Simples" → "4x0" | outro → undefined
-  finishes,              // string[] dos description dos child materials
-}): string
+```tsx
+<input
+  value={product}
+  onChange={(e) => setProduct(e.target.value)}
+  placeholder="Nome do Projeto / Orçamento..."
+  className="w-full bg-transparent border-0 outline-none focus:ring-0
+             text-3xl md:text-4xl font-bold text-primary
+             placeholder:text-primary/30 px-0"
+/>
 ```
-- Junta apenas os pedaços truthy com `" - "`. Cores derivam de um map fixo `{ "F/V": "4x4", "Simples": "4x0" }` — se `side` não bater, omite o pedaço.
-- Acabamentos: junta com `" + "`; se vazio, omite.
-- Garante zero hífens sobrando.
 
-Exemplo: `Folder - A4 - Couchê 150g - 4x4 - 1 Dobra Central + Verniz`.
+O `product` continua sendo o mesmo state já persistido em `quotes.product` — sem mudança no schema.
 
-## 3) UX no card
-- Banner read-only no topo (antes do header):
-  `text-lg font-bold text-primary bg-primary/5 p-3 rounded-lg border border-primary/10`
-- Conteúdo do banner = `generatedTitle` recomputado em tempo real (memo) sempre que `productKind`, `customName`, atributos do item ou `childMaterials` mudarem.
-- `item.description` (texto técnico do catálogo) vira sub-texto pequeno (`text-xs text-muted-foreground`) **abaixo** do banner — apenas referência interna, não editável.
+### 3. Cabeçalho ultra-compacto (4 colunas)
+Logo abaixo do título:
 
-## 4) Campo "Referência / Campanha"
-- `Input` opcional, label "Referência / Campanha", placeholder "Ex.: Promoção Dia das Mães".
-- Salvo em `reference`. Vai para PDF/OP, não afeta cálculo.
+```tsx
+<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+  Nº Orçamento (read-only) | Cliente (ClientCombobox) | Validade | Margem (%)
+</div>
+```
 
-## 5) Persistência — tabela correta
-Confirmado via inspeção do schema: a tabela é **`public.quote_materials`** (não existe `quote_items`). Itens-pai de impressão e filhos (acabamentos vinculados) vivem nela com `parent_item_id`.
+- Os botões "Dados do cliente / Últimas vendas" + painéis condicionais ficam logo abaixo do grid (col-span full).
+- "Observações Gerais" passa a `rows={2}` em largura total.
+- Manter o aviso "Comece com um modelo pronto" (apenas em criação) acima do grid, em formato discreto.
 
-Migration adicionando colunas (todas nullable, sem default que altere existentes):
-- `product_kind text`
-- `custom_name text`
-- `reference text`
-- `generated_title text`
-- `paper_type text`
-- `grammage text`
-- `size text`
-- `side text`
+### 4. Seções verticais com Separator
+Estrutura final da coluna principal:
 
-Atualizar:
-- `src/lib/quotes-v2/pricing.ts`: estender `PricingMaterial` com os campos acima.
-- `src/components/orcamentos-v2/NewQuoteFormV2.tsx`:
-  - `addPrintingItem`: gravar atributos estruturados a partir do `PrintingCatalogItem`.
-  - Insert/update de `quote_materials`: incluir as novas colunas.
-  - Mapper de carga (`dbRow → PricingMaterial`): hidratar os novos campos. Para itens antigos sem esses dados, manter fallback exibindo `description` no banner.
-  - Recalcular `generated_title` no save (server-of-truth) chamando `buildDynamicTitle` antes do upsert.
-- `src/components/orcamentos-v2/PrintingItemEditor.tsx`: nova UI + propagação via `onItemChange`.
-- `src/lib/erp/production-order-pdf.ts` e gerador de PDF do orçamento: usar `generated_title` quando presente (fallback `description`); imprimir `Ref.: {reference}` abaixo quando houver.
+```text
+[Header com h1 + ações]
+[Alertas: Locked / Approved warnings]
+─────────────────────────
+[Título seamless do projeto]
+[Grid 4 col: Nº | Cliente | Validade | Margem]
+[Painéis cliente expansíveis]
+[Observações (rows=2)]
+<Separator className="my-8" />
+[H2: "Itens de Impressão"  + PrintingItemSearch + cards]
+<Separator className="my-8" />
+[H2: "Comunicação Visual"  + botão + Item CV cards + subtotal]
+<Separator className="my-8" />
+[H2: "Avulsos (não vinculados)" + LaborAndSupplySubform]
+<Separator className="my-8" />
+[H2: "Terceirizados" + lista]
+<Separator className="my-8" />
+[H2: "Desconto e Pagamento" + DiscountPaymentBlock]
+[QuoteOptionsBuilder]
+[Card final: Valor a cobrar + botão Salvar + Copiar link público]
+```
 
-## 6) Fora de escopo
-- Sem mudanças em `LaborAndSupplySubform`, motor de preço, catálogo, CV.
-- Sem novos dropdowns de Formato/Papel/Cores no card — tudo vem dos atributos estruturados do item de catálogo já escolhido.
+Títulos de seção minimalistas (`h2 text-lg font-semibold flex items-center gap-2` com ícone Lucide em primary), sem `Card` envolvendo cada bloco — apenas o conteúdo direto, separado por `<Separator className="my-8" />`. Cards continuam sendo usados internamente onde já existem (PrintingItemEditor, CVItemCard).
 
-## Arquivos afetados
-- Migration nova em `quote_materials`.
-- `src/lib/quotes-v2/item-title.ts` (novo helper).
-- `src/lib/quotes-v2/pricing.ts` (tipo).
-- `src/components/orcamentos-v2/PrintingItemEditor.tsx` (UI).
-- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` (add/load/save).
-- `src/lib/erp/production-order-pdf.ts` + PDF do orçamento (consumo).
+### 5. Sticky Financial Sidebar
+O componente `StickyFinancialSidebar` já é fixo no desktop (`sticky top-4` interno). Garantir que o wrapper externo permita o sticky funcionar com a página rolável:
+
+- Container raiz mantém `flex flex-col lg:flex-row gap-6`.
+- A `<aside>` interna do sidebar já tem `sticky top-4` — adicionar no wrapper `lg:self-start` para que o sticky respeite a altura do conteúdo principal mesmo com muitos itens.
+- Sem alterações no componente `StickyFinancialSidebar.tsx`.
+
+### O que NÃO muda
+- Lógica de `loadInit`, `handleSave`, snapshot/recalculate, opções, CV, terceirizados.
+- Schema de banco (`quotes.product` continua sendo o nome do projeto).
+- Paleta roxa, radius e design tokens.
+- Componente `StickyFinancialSidebar.tsx` permanece intacto.
+- Imports de `STEPS`-related icons que ainda forem usados em outros lugares (Layers, Megaphone, Printer, Wrench, FileText, User).
+
+### Resultado esperado
+Uma página única, com título grande tipo Notion, cabeçalho denso em 4 colunas, e todas as seções (impressão, CV, avulsos, terceirizados, finalização) empilhadas verticalmente com separadores sutis. O painel financeiro acompanha o scroll permanentemente à direita (desktop) e como bottom bar (mobile, comportamento já existente).
