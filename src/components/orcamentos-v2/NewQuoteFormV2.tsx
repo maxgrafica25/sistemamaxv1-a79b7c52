@@ -483,18 +483,38 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     toast.success("Item de impressão adicionado!");
   };
 
-  const addFinishingItem = (parentId: string, fin: { id: string; name: string; price_per_sheet: number }) => {
-    setMaterials((prev) => [...prev, {
-      id: `fin-${Date.now()}-${fin.id}`,
-      description: fin.name,
-      quantity: 1,
-      unitPrice: fin.price_per_sheet,
+  const addProcessStep = (parentId: string | null, step: ProcessStep) => {
+    setLabor((prev) => [...prev, {
+      id: `lbr-${Date.now()}-${step.id}`,
+      description: step.description,
+      timeMinutes: step.time_minutes || 0,
+      stepType: step.step_type || "outro",
       parentItemId: parentId,
-      catalogSource: "finishing",
-      catalogItemId: fin.id,
     }]);
-    toast.success("Acabamento vinculado!");
+    toast.success(parentId ? "Processo vinculado!" : "Processo adicionado!");
   };
+
+  const expandStepGroup = (parentId: string | null, group: ProcessGroup) => {
+    if (!group.items.length) {
+      toast.error("Grupo sem etapas cadastradas.");
+      return;
+    }
+    const ts = Date.now();
+    setLabor((prev) => [
+      ...prev,
+      ...group.items.map((it, i) => ({
+        id: `lbr-${ts}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+        description: it.description,
+        timeMinutes: it.time_minutes || 0,
+        stepType: it.step_type || "outro",
+        parentItemId: parentId,
+      })),
+    ]);
+    toast.success(`Grupo "${group.name}" expandido em ${group.items.length} etapas`);
+  };
+
+  const removeLaborStep = (id: string) =>
+    setLabor((prev) => prev.filter((l) => l.id !== id));
 
   const updateMaterialPatch = (id: string, patch: Partial<PricingMaterial>) =>
     setMaterials((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
