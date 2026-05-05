@@ -55,7 +55,7 @@ interface MaterialRow {
   generated_title?: string | null;
   reference?: string | null;
 }
-interface LaborRow { id: string; description: string; time_minutes: number; }
+interface LaborRow { id: string; description: string; time_minutes: number; parent_item_id: string | null; }
 
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -125,7 +125,7 @@ export default function ClientViewer() {
         .order("sort_order"),
       supabase
         .from("quote_labor_steps")
-        .select("id, description, time_minutes, sort_order")
+        .select("id, description, time_minutes, sort_order, parent_item_id")
         .eq("quote_id", quoteRow.id)
         .order("sort_order"),
     ]);
@@ -162,6 +162,18 @@ export default function ClientViewer() {
     () => (quote ? parseOptions(quote.options) : []),
     [quote],
   );
+
+  // Agrupa etapas de mão de obra (acabamentos/processos) por item de impressão pai
+  const laborByParent = useMemo(() => {
+    const map = new Map<string, LaborRow[]>();
+    for (const l of labor) {
+      if (!l.parent_item_id) continue;
+      const arr = map.get(l.parent_item_id) ?? [];
+      arr.push(l);
+      map.set(l.parent_item_id, arr);
+    }
+    return map;
+  }, [labor]);
 
   useEffect(() => {
     if (options.length >= 2 && !selectedOptionId) {
@@ -444,6 +456,11 @@ export default function ClientViewer() {
                     <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-600 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-foreground font-medium">{m.generated_title || m.description}</p>
+                      {(laborByParent.get(m.id)?.length ?? 0) > 0 && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          + {laborByParent.get(m.id)!.map((l) => l.description).join(", ")}
+                        </p>
+                      )}
                       {m.reference && (
                         <p className="text-xs text-muted-foreground italic">Ref.: {m.reference}</p>
                       )}
@@ -515,6 +532,11 @@ export default function ClientViewer() {
                         className="flex-1 min-w-0 cursor-pointer"
                       >
                         <p className="text-foreground font-medium">{m.generated_title || m.description}</p>
+                        {(laborByParent.get(m.id)?.length ?? 0) > 0 && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            + {laborByParent.get(m.id)!.map((l) => l.description).join(", ")}
+                          </p>
+                        )}
                         {m.reference && (
                           <p className="text-xs text-muted-foreground italic">Ref.: {m.reference}</p>
                         )}
@@ -545,13 +567,6 @@ export default function ClientViewer() {
                   );
                 })}
               </ul>
-              {labor.length > 0 && (
-                <p className="text-xs text-muted-foreground pt-2 border-t border-border/50 flex items-center gap-2">
-                  <Package className="h-4 w-4 text-primary" />
-                  Inclui mão de obra especializada ({labor.length}{" "}
-                  {labor.length === 1 ? "etapa" : "etapas"})
-                </p>
-              )}
               {hasMultipleItems && (
                 <p className="text-xs text-muted-foreground pt-1">
                   💡 Marque os itens que deseja aprovar agora. Use{" "}
