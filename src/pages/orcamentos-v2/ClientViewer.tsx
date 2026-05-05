@@ -125,7 +125,7 @@ export default function ClientViewer() {
         .order("sort_order"),
       supabase
         .from("quote_labor_steps")
-        .select("id, description, time_minutes, sort_order")
+        .select("id, description, time_minutes, sort_order, parent_item_id")
         .eq("quote_id", quoteRow.id)
         .order("sort_order"),
     ]);
