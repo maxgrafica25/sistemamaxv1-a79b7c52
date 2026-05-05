@@ -36,6 +36,9 @@ export interface PricingMaterial {
   grammage?: string | null;
   size?: string | null;
   side?: string | null;
+  // Catálogo (nomenclatura travada)
+  catalogSource?: "printing" | "finishing" | null;
+  catalogItemId?: string | null;
 }
 
 export interface PricingLaborStep {

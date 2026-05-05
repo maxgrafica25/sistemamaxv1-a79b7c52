@@ -104,6 +104,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
   // catalog
   const [printingCatalog, setPrintingCatalog] = useState<PrintingCatalogItem[]>([]);
+  const [finishingCatalog, setFinishingCatalog] = useState<{ id: string; name: string; category: string; size: string; price_per_sheet: number }[]>([]);
   const [markupTiers, setMarkupTiers] = useState<MarkupTier[]>([]);
   const [categoryGroups, setCategoryGroups] = useState<Record<string, string | null>>({});
   const [hourlyRate, setHourlyRate] = useState(80);
@@ -124,6 +125,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   // ---------- Splits derivados ----------
   const printingItems = useMemo(
     () => materials.filter((m) => m.baseCost && !m.parentItemId),
+    [materials],
+  );
+  const childMaterials = useMemo(
+    () => materials.filter((m) => !!m.parentItemId),
     [materials],
   );
   const standaloneManualMaterials = useMemo(
@@ -248,6 +253,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     });
     setPrintingCatalog(catalog);
 
+    // Catálogo de acabamentos (nomenclatura travada)
+    const { data: finData } = await supabase
+      .from("finishings_price_items")
+      .select("id, name, category, size, price_per_sheet")
+      .eq("is_active", true)
+      .order("sort_order");
+    setFinishingCatalog((finData || []) as any);
+
     // hourly rate
     const totalExp = (expRes.data || []).reduce((s: number, e: any) => s + e.value, 0);
     const totalSal = (salRes.data || []).reduce((s: number, e: any) => s + e.salary, 0) * 1.45;
@@ -319,6 +332,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         grammage: m.grammage ?? null,
         size: m.size ?? null,
         side: m.side ?? null,
+        catalogSource: (m.catalog_source as "printing" | "finishing" | null) ?? null,
+        catalogItemId: m.catalog_item_id ?? null,
       })));
       setThirdParty((tpRes.data || []).map((t: any) => ({
         id: t.id, description: t.description, supplier: t.supplier, cost: t.cost,
@@ -444,8 +459,23 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       customName: null,
       reference: null,
       generatedTitle: null,
+      catalogSource: "printing",
+      catalogItemId: item.id,
     }]);
     toast.success("Item de impressão adicionado!");
+  };
+
+  const addFinishingItem = (parentId: string, fin: { id: string; name: string; price_per_sheet: number }) => {
+    setMaterials((prev) => [...prev, {
+      id: `fin-${Date.now()}-${fin.id}`,
+      description: fin.name,
+      quantity: 1,
+      unitPrice: fin.price_per_sheet,
+      parentItemId: parentId,
+      catalogSource: "finishing",
+      catalogItemId: fin.id,
+    }]);
+    toast.success("Acabamento vinculado!");
   };
 
   const updateMaterialPatch = (id: string, patch: Partial<PricingMaterial>) =>
@@ -594,6 +624,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 grammage: m.grammage ?? null,
                 size: m.size ?? null,
                 side: m.side ?? null,
+                catalog_source: m.catalogSource ?? null,
+                catalog_item_id: m.catalogItemId ?? null,
               })),
             )
             .select("id");
@@ -641,6 +673,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               sort_order: m.sortOrder,
               status: "pendente",
               parent_item_id: tempToReal.get(m.parentItemId!) ?? null,
+              catalog_source: m.catalogSource ?? null,
+              catalog_item_id: m.catalogItemId ?? null,
             })),
           );
         }
@@ -861,16 +895,21 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           </h2>
           <QuoteItemsTable
             printingCatalog={printingCatalog}
+            finishingCatalog={finishingCatalog}
             markupTiers={markupTiers}
             globalSettings={globalSettings}
             hourlyRate={hourlyRate}
             printingItems={printingItems}
+            childMaterials={childMaterials}
             standaloneLabor={standaloneLabor}
             standaloneManualMaterials={standaloneManualMaterials}
             thirdParty={thirdParty}
             onAddPrinting={addPrintingItem}
+            onAddFinishing={addFinishingItem}
             onUpdatePrinting={updateMaterialPatch}
+            onUpdateChildMaterial={updateMaterialPatch}
             onRemovePrinting={removeMaterial}
+            onRemoveChildMaterial={removeMaterial}
             onChangeStandaloneLabor={setStandaloneLabor}
             onChangeStandaloneMaterials={setStandaloneManualMaterials}
             onChangeThirdParty={setThirdParty}

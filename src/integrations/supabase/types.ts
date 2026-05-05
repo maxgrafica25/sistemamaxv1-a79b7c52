@@ -2145,6 +2145,8 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_value: number | null
+          catalog_item_id: string | null
+          catalog_source: string | null
           custom_name: string | null
           description: string
           generated_title: string | null
@@ -2165,6 +2167,8 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_value?: number | null
+          catalog_item_id?: string | null
+          catalog_source?: string | null
           custom_name?: string | null
           description: string
           generated_title?: string | null
@@ -2185,6 +2189,8 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_value?: number | null
+          catalog_item_id?: string | null
+          catalog_source?: string | null
           custom_name?: string | null
           description?: string
           generated_title?: string | null
