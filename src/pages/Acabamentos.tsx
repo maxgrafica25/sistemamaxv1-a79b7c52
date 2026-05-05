@@ -237,13 +237,18 @@ export default function Acabamentos() {
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Scissors className="h-6 w-6 text-primary" />
-          Acabamentos
+          Acabamentos (Etiquetas)
         </h1>
         <p className="text-sm text-muted-foreground">
           Cadastre serviços extras cobrados por folha (recorte, laminação, verniz). Estes valores
           são somados ao preço da folha impressa na <strong>Calculadora de Etiquetas</strong>.
         </p>
       </header>
+
+      <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+        <strong>Atenção:</strong> Este cadastro é de uso exclusivo da Calculadora de Etiquetas.
+        Para itens de orçamento geral, utilize o cadastro de <strong>Processos de Produção</strong>.
+      </div>
 
       {/* Form modal */}
       {isAdmin && (

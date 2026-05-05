@@ -37,7 +37,7 @@ import { buildDynamicTitle } from "@/lib/quotes-v2/item-title";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { TagInput } from "@/components/ui/TagInput";
 import { FreightSelector } from "@/components/orcamentos-v2/FreightSelector";
-import { QuoteItemsTable } from "@/components/orcamentos-v2/QuoteItemsTable";
+import { QuoteItemsTable, type ProcessStep, type ProcessGroup } from "@/components/orcamentos-v2/QuoteItemsTable";
 
 interface Props {
   quoteId?: string;
@@ -104,7 +104,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
   // catalog
   const [printingCatalog, setPrintingCatalog] = useState<PrintingCatalogItem[]>([]);
-  const [finishingCatalog, setFinishingCatalog] = useState<{ id: string; name: string; category: string; size: string; price_per_sheet: number }[]>([]);
+  const [processSteps, setProcessSteps] = useState<ProcessStep[]>([]);
+  const [processGroups, setProcessGroups] = useState<ProcessGroup[]>([]);
   const [markupTiers, setMarkupTiers] = useState<MarkupTier[]>([]);
   const [categoryGroups, setCategoryGroups] = useState<Record<string, string | null>>({});
   const [hourlyRate, setHourlyRate] = useState(80);
@@ -253,13 +254,30 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     });
     setPrintingCatalog(catalog);
 
-    // Catálogo de acabamentos (nomenclatura travada)
-    const { data: finData } = await supabase
-      .from("finishings_price_items")
-      .select("id, name, category, size, price_per_sheet")
-      .eq("is_active", true)
-      .order("sort_order");
-    setFinishingCatalog((finData || []) as any);
+    // Catálogos: processos individuais e grupos de processos (substitui acabamentos)
+    const [stepsRes, groupsRes, groupItemsRes] = await Promise.all([
+      supabase.from("production_steps").select("id, description, time_minutes, step_type").order("description"),
+      supabase.from("step_groups").select("id, name").order("name"),
+      supabase.from("step_group_items").select("step_group_id, description, time_minutes, step_type").order("sort_order"),
+    ]);
+    setProcessSteps((stepsRes.data || []).map((s: any) => ({
+      id: s.id,
+      description: s.description,
+      time_minutes: Number(s.time_minutes) || 0,
+      step_type: s.step_type || "outro",
+    })));
+    const itemsByGroup: Record<string, ProcessGroup["items"]> = {};
+    (groupItemsRes.data || []).forEach((it: any) => {
+      const gid = it.step_group_id;
+      (itemsByGroup[gid] ||= []).push({
+        description: it.description,
+        time_minutes: Number(it.time_minutes) || 0,
+        step_type: it.step_type || "outro",
+      });
+    });
+    setProcessGroups((groupsRes.data || []).map((g: any) => ({
+      id: g.id, name: g.name, items: itemsByGroup[g.id] || [],
+    })));
 
     // hourly rate
     const totalExp = (expRes.data || []).reduce((s: number, e: any) => s + e.value, 0);
@@ -465,18 +483,38 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     toast.success("Item de impressão adicionado!");
   };
 
-  const addFinishingItem = (parentId: string, fin: { id: string; name: string; price_per_sheet: number }) => {
-    setMaterials((prev) => [...prev, {
-      id: `fin-${Date.now()}-${fin.id}`,
-      description: fin.name,
-      quantity: 1,
-      unitPrice: fin.price_per_sheet,
+  const addProcessStep = (parentId: string | null, step: ProcessStep) => {
+    setLabor((prev) => [...prev, {
+      id: `lbr-${Date.now()}-${step.id}`,
+      description: step.description,
+      timeMinutes: step.time_minutes || 0,
+      stepType: step.step_type || "outro",
       parentItemId: parentId,
-      catalogSource: "finishing",
-      catalogItemId: fin.id,
     }]);
-    toast.success("Acabamento vinculado!");
+    toast.success(parentId ? "Processo vinculado!" : "Processo adicionado!");
   };
+
+  const expandStepGroup = (parentId: string | null, group: ProcessGroup) => {
+    if (!group.items.length) {
+      toast.error("Grupo sem etapas cadastradas.");
+      return;
+    }
+    const ts = Date.now();
+    setLabor((prev) => [
+      ...prev,
+      ...group.items.map((it, i) => ({
+        id: `lbr-${ts}-${i}-${Math.random().toString(36).slice(2, 6)}`,
+        description: it.description,
+        timeMinutes: it.time_minutes || 0,
+        stepType: it.step_type || "outro",
+        parentItemId: parentId,
+      })),
+    ]);
+    toast.success(`Grupo "${group.name}" expandido em ${group.items.length} etapas`);
+  };
+
+  const removeLaborStep = (id: string) =>
+    setLabor((prev) => prev.filter((l) => l.id !== id));
 
   const updateMaterialPatch = (id: string, patch: Partial<PricingMaterial>) =>
     setMaterials((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
@@ -895,21 +933,25 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           </h2>
           <QuoteItemsTable
             printingCatalog={printingCatalog}
-            finishingCatalog={finishingCatalog}
+            processSteps={processSteps}
+            processGroups={processGroups}
             markupTiers={markupTiers}
             globalSettings={globalSettings}
             hourlyRate={hourlyRate}
             printingItems={printingItems}
             childMaterials={childMaterials}
+            childLabor={labor.filter((l) => !!l.parentItemId)}
             standaloneLabor={standaloneLabor}
             standaloneManualMaterials={standaloneManualMaterials}
             thirdParty={thirdParty}
             onAddPrinting={addPrintingItem}
-            onAddFinishing={addFinishingItem}
+            onAddProcess={addProcessStep}
+            onExpandStepGroup={expandStepGroup}
             onUpdatePrinting={updateMaterialPatch}
             onUpdateChildMaterial={updateMaterialPatch}
             onRemovePrinting={removeMaterial}
             onRemoveChildMaterial={removeMaterial}
+            onRemoveLabor={removeLaborStep}
             onChangeStandaloneLabor={setStandaloneLabor}
             onChangeStandaloneMaterials={setStandaloneManualMaterials}
             onChangeThirdParty={setThirdParty}

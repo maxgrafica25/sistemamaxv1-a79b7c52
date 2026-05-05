@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Plus, X, Printer, Wrench, Tag, Search, Check,
+  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers,
 } from "lucide-react";
 import {
   Popover, PopoverContent, PopoverTrigger,
@@ -13,7 +13,6 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import {
   PRODUCT_KIND_OPTIONS, productKindLabel, buildDynamicTitle,
 } from "@/lib/quotes-v2/item-title";
@@ -21,9 +20,11 @@ import type { PricingMaterial } from "@/lib/quotes-v2/pricing";
 import type { SubformLabor, SubformMaterial } from "./LaborAndSupplySubform";
 
 type ThirdParty = { id: string; description: string; supplier: string; cost: number };
-type FinishingItem = { id: string; name: string; category: string; size: string; price_per_sheet: number };
+export type ProcessStep = { id: string; description: string; time_minutes: number; step_type: string };
+export type ProcessGroupItem = { description: string; time_minutes: number; step_type: string };
+export type ProcessGroup = { id: string; name: string; items: ProcessGroupItem[] };
 
-type DraftMode = "" | "impressao" | "acabamento" | "impressao_acabamento";
+type DraftMode = "" | "impressao" | "processo" | "impressao_processo";
 interface DraftRow {
   id: string;
   mode: DraftMode;
@@ -31,23 +32,27 @@ interface DraftRow {
 
 interface Props {
   printingCatalog: PrintingCatalogItem[];
-  finishingCatalog: FinishingItem[];
+  processSteps: ProcessStep[];
+  processGroups: ProcessGroup[];
   markupTiers: MarkupTier[];
   globalSettings: { invoice_pct: number; collection_pct: number; waste_pct: number; default_margin_pct: number };
   hourlyRate: number;
 
   printingItems: PricingMaterial[];
-  childMaterials: PricingMaterial[]; // acabamentos vinculados
+  childMaterials: PricingMaterial[];
+  childLabor: SubformLabor[];
   standaloneLabor: SubformLabor[];
   standaloneManualMaterials: SubformMaterial[];
   thirdParty: ThirdParty[];
 
-  onAddPrinting: (item: PrintingCatalogItem, opts?: { draftId?: string }) => void;
-  onAddFinishing: (parentId: string, fin: FinishingItem) => void;
+  onAddPrinting: (item: PrintingCatalogItem) => void;
+  onAddProcess: (parentId: string | null, step: ProcessStep) => void;
+  onExpandStepGroup: (parentId: string | null, group: ProcessGroup) => void;
   onUpdatePrinting: (id: string, patch: Partial<PricingMaterial>) => void;
   onUpdateChildMaterial: (id: string, patch: Partial<PricingMaterial>) => void;
   onRemovePrinting: (id: string) => void;
   onRemoveChildMaterial: (id: string) => void;
+  onRemoveLabor: (id: string) => void;
 
   onChangeStandaloneLabor: (next: SubformLabor[]) => void;
   onChangeStandaloneMaterials: (next: SubformMaterial[]) => void;
@@ -61,10 +66,12 @@ const GRID = "grid grid-cols-[32px_140px_1fr_90px_60px_110px_110px_36px] items-c
 
 export function QuoteItemsTable(props: Props) {
   const {
-    printingCatalog, finishingCatalog, printingItems, childMaterials,
+    printingCatalog, processSteps, processGroups, hourlyRate,
+    printingItems, childMaterials, childLabor,
     standaloneLabor, standaloneManualMaterials, thirdParty,
-    onAddPrinting, onAddFinishing, onUpdatePrinting, onUpdateChildMaterial,
-    onRemovePrinting, onRemoveChildMaterial,
+    onAddPrinting, onAddProcess, onExpandStepGroup,
+    onUpdatePrinting, onUpdateChildMaterial,
+    onRemovePrinting, onRemoveChildMaterial, onRemoveLabor,
     onChangeStandaloneLabor, onChangeStandaloneMaterials, onChangeThirdParty,
   } = props;
 
@@ -77,17 +84,6 @@ export function QuoteItemsTable(props: Props) {
   const setDraftMode = (id: string, mode: DraftMode) =>
     setDrafts((p) => p.map((d) => (d.id === id ? { ...d, mode } : d)));
 
-  const handleDraftSelectPrinting = (draftId: string, item: PrintingCatalogItem, mode: DraftMode) => {
-    onAddPrinting(item);
-    if (mode !== "impressao_acabamento") removeDraft(draftId);
-    else {
-      // Mantém draft com o pai recém-criado para escolher acabamentos
-      // O pai recém-criado é o último de printingItems após o re-render — mas o
-      // popover de acabamentos abre direto na linha do pai já criada.
-      removeDraft(draftId);
-    }
-  };
-
   // ---------- Renderers ----------
   const renderPrint = (m: PricingMaterial, idx: number) => {
     const total = (m.quantity || 0) * (m.unitPrice || 0);
@@ -99,7 +95,8 @@ export function QuoteItemsTable(props: Props) {
       size: m.size,
       side: m.side,
     });
-    const finishesForThis = childMaterials.filter((c) => c.parentItemId === m.id);
+    const childMatsForThis = childMaterials.filter((c) => c.parentItemId === m.id);
+    const childLaborForThis = childLabor.filter((l) => l.parentItemId === m.id);
     return (
       <div key={m.id}>
         <div className={`${GRID} px-2 py-1.5 border-b text-sm hover:bg-muted/30`}>
@@ -113,10 +110,11 @@ export function QuoteItemsTable(props: Props) {
               </div>
               <div className="text-[11px] text-muted-foreground truncate">{m.description}</div>
             </div>
-            <FinishingPicker
-              catalog={finishingCatalog}
-              alreadyAdded={finishesForThis.map((c) => c.catalogItemId).filter(Boolean) as string[]}
-              onPick={(fin) => onAddFinishing(m.id, fin)}
+            <ProcessPicker
+              steps={processSteps}
+              groups={processGroups}
+              onPickStep={(s) => onAddProcess(m.id, s)}
+              onPickGroup={(g) => onExpandStepGroup(m.id, g)}
             />
           </div>
           <Input
@@ -137,7 +135,7 @@ export function QuoteItemsTable(props: Props) {
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
-        {finishesForThis.map((c) => (
+        {childMatsForThis.map((c) => (
           <div key={c.id} className={`${GRID} px-2 py-1.5 border-b text-sm bg-muted/10`}>
             <span></span>
             <KindBadge kind="finish" />
@@ -164,6 +162,29 @@ export function QuoteItemsTable(props: Props) {
             </Button>
           </div>
         ))}
+        {childLaborForThis.map((l) => renderLaborRow(l, true))}
+      </div>
+    );
+  };
+
+  const renderLaborRow = (l: SubformLabor, isChild: boolean) => {
+    const cost = ((l.timeMinutes || 0) / 60) * (hourlyRate || 0);
+    return (
+      <div key={l.id} className={`${GRID} px-2 py-1.5 border-b text-sm ${isChild ? "bg-muted/10" : "hover:bg-muted/30"}`}>
+        <span></span>
+        <KindBadge kind="labor" />
+        <div className={`min-w-0 ${isChild ? "pl-4" : ""} flex items-center gap-1.5 text-muted-foreground`}>
+          {isChild && <span className="text-xs">↳</span>}
+          <span className="truncate">{l.description}</span>
+          <span className="text-[10px] inline-flex items-center gap-0.5 text-muted-foreground">
+            <Clock className="h-3 w-3" /> {l.timeMinutes} min
+          </span>
+        </div>
+        <span></span><span></span><span></span>
+        <span className="text-right tabular-nums text-muted-foreground text-xs">~{fmt(cost)}</span>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRemoveLabor(l.id)}>
+          <X className="h-3.5 w-3.5" />
+        </Button>
       </div>
     );
   };
@@ -203,18 +224,10 @@ export function QuoteItemsTable(props: Props) {
     </div>
   );
 
-  const renderLegacyLabor = (l: SubformLabor, idx: number) => (
-    <div key={l.id} className={`${GRID} px-2 py-1.5 border-b text-sm hover:bg-muted/30`}>
-      <span className="text-xs text-muted-foreground tabular-nums">{idx + 1}</span>
-      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">Legado</span>
-      <span className="text-sm text-muted-foreground truncate">{l.description} ({l.timeMinutes} min)</span>
-      <span></span><span></span><span></span><span></span>
-      <Button variant="ghost" size="icon" className="h-7 w-7"
-        onClick={() => onChangeStandaloneLabor(standaloneLabor.filter((x) => x.id !== l.id))}>
-        <X className="h-3.5 w-3.5" />
-      </Button>
-    </div>
-  );
+  const isEmpty =
+    printingItems.length === 0 && drafts.length === 0 &&
+    standaloneLabor.length === 0 && standaloneManualMaterials.length === 0 &&
+    thirdParty.length === 0;
 
   return (
     <div className="rounded-lg border bg-card">
@@ -229,16 +242,16 @@ export function QuoteItemsTable(props: Props) {
         <span></span>
       </div>
 
-      {printingItems.length === 0 && drafts.length === 0 && standaloneLabor.length === 0 && standaloneManualMaterials.length === 0 && thirdParty.length === 0 && (
+      {isEmpty && (
         <div className="px-4 py-6 text-center text-sm text-muted-foreground italic">
           Nenhum item adicionado. Clique em <strong>+ adicionar item</strong> abaixo.
         </div>
       )}
 
       {printingItems.map((m, idx) => renderPrint(m, idx))}
+      {standaloneLabor.map((l) => renderLaborRow(l, false))}
       {standaloneManualMaterials.map((m, idx) => renderLegacyMaterial(m, printingItems.length + idx))}
-      {standaloneLabor.map((l, idx) => renderLegacyLabor(l, printingItems.length + standaloneManualMaterials.length + idx))}
-      {thirdParty.map((t, idx) => renderLegacyService(t, printingItems.length + standaloneManualMaterials.length + standaloneLabor.length + idx))}
+      {thirdParty.map((t, idx) => renderLegacyService(t, printingItems.length + standaloneManualMaterials.length + idx))}
 
       {/* Drafts */}
       {drafts.map((d, idx) => (
@@ -247,19 +260,22 @@ export function QuoteItemsTable(props: Props) {
           row={d}
           rowNumber={printingItems.length + standaloneManualMaterials.length + standaloneLabor.length + thirdParty.length + idx + 1}
           printingCatalog={printingCatalog}
-          finishingCatalog={finishingCatalog}
+          processSteps={processSteps}
+          processGroups={processGroups}
           onSetMode={(m) => setDraftMode(d.id, m)}
-          onPickPrinting={(it) => handleDraftSelectPrinting(d.id, it, d.mode)}
-          onPickFinishingStandalone={(fin) => {
-            // Acabamento avulso: precisa de pai. Se não há nenhum item de impressão, avisamos.
-            if (printingItems.length === 0) return;
-            // Vincula ao último item de impressão
-            const lastPrint = printingItems[printingItems.length - 1];
-            onAddFinishing(lastPrint.id, fin);
+          onPickPrinting={(it) => {
+            onAddPrinting(it);
+            removeDraft(d.id);
+          }}
+          onPickProcessStep={(s) => {
+            onAddProcess(null, s);
+            removeDraft(d.id);
+          }}
+          onPickProcessGroup={(g) => {
+            onExpandStepGroup(null, g);
             removeDraft(d.id);
           }}
           onCancel={() => removeDraft(d.id)}
-          hasPrintingForFinishing={printingItems.length > 0}
         />
       ))}
 
@@ -352,19 +368,19 @@ function ProductKindButton({
 }
 
 function DraftRowEditor({
-  row, rowNumber, printingCatalog, finishingCatalog,
-  onSetMode, onPickPrinting, onPickFinishingStandalone, onCancel,
-  hasPrintingForFinishing,
+  row, rowNumber, printingCatalog, processSteps, processGroups,
+  onSetMode, onPickPrinting, onPickProcessStep, onPickProcessGroup, onCancel,
 }: {
   row: DraftRow;
   rowNumber: number;
   printingCatalog: PrintingCatalogItem[];
-  finishingCatalog: FinishingItem[];
+  processSteps: ProcessStep[];
+  processGroups: ProcessGroup[];
   onSetMode: (m: DraftMode) => void;
   onPickPrinting: (it: PrintingCatalogItem) => void;
-  onPickFinishingStandalone: (fin: FinishingItem) => void;
+  onPickProcessStep: (s: ProcessStep) => void;
+  onPickProcessGroup: (g: ProcessGroup) => void;
   onCancel: () => void;
-  hasPrintingForFinishing: boolean;
 }) {
   return (
     <div className={`${GRID} px-2 py-1.5 border-b text-sm bg-primary/5`}>
@@ -373,44 +389,53 @@ function DraftRowEditor({
         <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Tipo…" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="impressao">Impressão</SelectItem>
-          <SelectItem value="acabamento">Acabamento</SelectItem>
-          <SelectItem value="impressao_acabamento">Impressão + Acabamento</SelectItem>
+          <SelectItem value="processo">Acabamento / Processo</SelectItem>
+          <SelectItem value="impressao_processo">Impressão + Processo</SelectItem>
         </SelectContent>
       </Select>
       <div className="min-w-0">
         {row.mode === "" && (
           <span className="text-xs text-muted-foreground italic">Escolha o tipo →</span>
         )}
-        {(row.mode === "impressao" || row.mode === "impressao_acabamento") && (
+        {(row.mode === "impressao" || row.mode === "impressao_processo") && (
           <InlineCatalogCombobox
             placeholder="Buscar impressão no catálogo…"
-            items={printingCatalog.map((p) => ({
-              id: p.id,
-              label: `${p.paper_type}${p.grammage ? ` ${p.grammage}` : ""} — ${p.size} ${p.side}`,
-              hint: p.equipment_name || p.category_name,
-              raw: p,
-            }))}
-            onPick={(opt) => onPickPrinting(opt.raw as PrintingCatalogItem)}
+            sections={[{
+              heading: "Impressões",
+              options: printingCatalog.map((p) => ({
+                id: p.id,
+                label: `${p.paper_type}${p.grammage ? ` ${p.grammage}` : ""} — ${p.size} ${p.side}`,
+                hint: p.equipment_name || p.category_name,
+                onPick: () => onPickPrinting(p),
+              })),
+            }]}
           />
         )}
-        {row.mode === "acabamento" && (
-          <div className="space-y-1">
-            <InlineCatalogCombobox
-              placeholder="Buscar acabamento no catálogo…"
-              items={finishingCatalog.map((f) => ({
-                id: f.id,
-                label: f.name,
-                hint: `${f.category} · ${f.size}`,
-                raw: f,
-              }))}
-              onPick={(opt) => onPickFinishingStandalone(opt.raw as FinishingItem)}
-            />
-            {!hasPrintingForFinishing && (
-              <p className="text-[10px] text-amber-600">
-                Acabamento precisa estar vinculado a uma impressão. Adicione uma impressão primeiro.
-              </p>
-            )}
-          </div>
+        {row.mode === "processo" && (
+          <InlineCatalogCombobox
+            placeholder="Buscar processo ou grupo…"
+            sections={[
+              {
+                heading: "Processos individuais",
+                options: processSteps.map((s) => ({
+                  id: `s-${s.id}`,
+                  label: s.description,
+                  hint: `${s.time_minutes} min`,
+                  onPick: () => onPickProcessStep(s),
+                })),
+              },
+              {
+                heading: "Grupos de processos",
+                options: processGroups.map((g) => ({
+                  id: `g-${g.id}`,
+                  label: g.name,
+                  hint: `${g.items.length} etapa${g.items.length === 1 ? "" : "s"}`,
+                  icon: <Layers className="h-3 w-3" />,
+                  onPick: () => onPickProcessGroup(g),
+                })),
+              },
+            ]}
+          />
         )}
       </div>
       <span></span><span></span><span></span><span></span>
@@ -421,21 +446,35 @@ function DraftRowEditor({
   );
 }
 
-interface ComboOption { id: string; label: string; hint?: string; raw: unknown }
+interface ComboOption {
+  id: string;
+  label: string;
+  hint?: string;
+  icon?: React.ReactNode;
+  onPick: () => void;
+}
+interface ComboSection { heading: string; options: ComboOption[] }
 
 function InlineCatalogCombobox({
-  placeholder, items, onPick,
+  placeholder, sections,
 }: {
   placeholder: string;
-  items: ComboOption[];
-  onPick: (opt: ComboOption) => void;
+  sections: ComboSection[];
 }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
-  const filtered = useMemo(() => {
+  const filteredSections = useMemo(() => {
     const s = q.toLowerCase();
-    return items.filter((i) => i.label.toLowerCase().includes(s) || (i.hint || "").toLowerCase().includes(s)).slice(0, 30);
-  }, [q, items]);
+    return sections
+      .map((sec) => ({
+        ...sec,
+        options: sec.options
+          .filter((o) => o.label.toLowerCase().includes(s) || (o.hint || "").toLowerCase().includes(s))
+          .slice(0, 30),
+      }))
+      .filter((sec) => sec.options.length > 0);
+  }, [q, sections]);
+  const totalCount = filteredSections.reduce((n, s) => n + s.options.length, 0);
   return (
     <div className="relative">
       <div className="relative">
@@ -450,22 +489,29 @@ function InlineCatalogCombobox({
           className="h-8 pl-7 text-sm"
         />
       </div>
-      {open && filtered.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-md border bg-popover shadow-lg">
-          {filtered.map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); onPick(opt); }}
-              className="w-full px-3 py-2 text-left hover:bg-accent text-sm flex items-center justify-between gap-2"
-            >
-              <span className="truncate">{opt.label}</span>
-              {opt.hint && <span className="text-[10px] text-muted-foreground shrink-0">{opt.hint}</span>}
-            </button>
+      {open && totalCount > 0 && (
+        <div className="absolute z-50 mt-1 w-full max-h-72 overflow-auto rounded-md border bg-popover shadow-lg">
+          {filteredSections.map((sec) => (
+            <div key={sec.heading}>
+              <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/30">
+                {sec.heading}
+              </div>
+              {sec.options.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); opt.onPick(); }}
+                  className="w-full px-3 py-2 text-left hover:bg-accent text-sm flex items-center justify-between gap-2"
+                >
+                  <span className="truncate inline-flex items-center gap-1.5">{opt.icon}{opt.label}</span>
+                  {opt.hint && <span className="text-[10px] text-muted-foreground shrink-0">{opt.hint}</span>}
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       )}
-      {open && q && filtered.length === 0 && (
+      {open && q && totalCount === 0 && (
         <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg p-3 text-xs text-muted-foreground">
           Nenhum item encontrado no catálogo.
         </div>
@@ -474,59 +520,83 @@ function InlineCatalogCombobox({
   );
 }
 
-function FinishingPicker({
-  catalog, alreadyAdded, onPick,
+function ProcessPicker({
+  steps, groups, onPickStep, onPickGroup,
 }: {
-  catalog: FinishingItem[];
-  alreadyAdded: string[];
-  onPick: (fin: FinishingItem) => void;
+  steps: ProcessStep[];
+  groups: ProcessGroup[];
+  onPickStep: (s: ProcessStep) => void;
+  onPickGroup: (g: ProcessGroup) => void;
 }) {
   const [q, setQ] = useState("");
-  const filtered = useMemo(() => {
+  const [open, setOpen] = useState(false);
+  const fSteps = useMemo(() => {
     const s = q.toLowerCase();
-    return catalog.filter((f) => f.name.toLowerCase().includes(s)).slice(0, 50);
-  }, [q, catalog]);
+    return steps.filter((x) => x.description.toLowerCase().includes(s)).slice(0, 30);
+  }, [q, steps]);
+  const fGroups = useMemo(() => {
+    const s = q.toLowerCase();
+    return groups.filter((x) => x.name.toLowerCase().includes(s)).slice(0, 30);
+  }, [q, groups]);
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
           className="inline-flex items-center gap-1 px-2 py-1 rounded border border-dashed text-[11px] text-muted-foreground hover:text-foreground hover:border-foreground shrink-0"
-          title="Adicionar acabamento vinculado"
+          title="Adicionar processo vinculado"
         >
-          <Plus className="h-3 w-3" /> acabamento
+          <Plus className="h-3 w-3" /> processo
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-2">
+      <PopoverContent align="start" className="w-80 p-2">
         <Input
           autoFocus
-          placeholder="Buscar acabamento…"
+          placeholder="Buscar processo ou grupo…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           className="h-8 text-sm mb-2"
         />
         <div className="max-h-64 overflow-auto">
-          {filtered.length === 0 ? (
-            <p className="text-xs text-muted-foreground p-2">Nenhum acabamento.</p>
+          {fSteps.length === 0 && fGroups.length === 0 ? (
+            <p className="text-xs text-muted-foreground p-2">Nenhum item.</p>
           ) : (
-            filtered.map((f) => {
-              const added = alreadyAdded.includes(f.id);
-              return (
-                <button
-                  key={f.id}
-                  type="button"
-                  disabled={added}
-                  onClick={() => onPick(f)}
-                  className="w-full px-2 py-1.5 text-left hover:bg-accent text-sm flex items-center justify-between gap-2 rounded disabled:opacity-50"
-                >
-                  <span className="truncate">{f.name}</span>
-                  <span className="text-[10px] text-muted-foreground shrink-0 inline-flex items-center gap-1">
-                    {added && <Check className="h-3 w-3" />}
-                    <Badge variant="outline" className="text-[9px] h-4 px-1">{f.category}</Badge>
-                  </span>
-                </button>
-              );
-            })
+            <>
+              {fSteps.length > 0 && (
+                <>
+                  <div className="px-2 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Processos individuais</div>
+                  {fSteps.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => { onPickStep(s); setOpen(false); }}
+                      className="w-full px-2 py-1.5 text-left hover:bg-accent text-sm flex items-center justify-between gap-2 rounded"
+                    >
+                      <span className="truncate">{s.description}</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0 inline-flex items-center gap-0.5">
+                        <Clock className="h-3 w-3" />{s.time_minutes} min
+                      </span>
+                    </button>
+                  ))}
+                </>
+              )}
+              {fGroups.length > 0 && (
+                <>
+                  <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Grupos de processos</div>
+                  {fGroups.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => { onPickGroup(g); setOpen(false); }}
+                      className="w-full px-2 py-1.5 text-left hover:bg-accent text-sm flex items-center justify-between gap-2 rounded"
+                    >
+                      <span className="truncate inline-flex items-center gap-1.5"><Layers className="h-3 w-3" />{g.name}</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{g.items.length} etapas</span>
+                    </button>
+                  ))}
+                </>
+              )}
+            </>
           )}
         </div>
       </PopoverContent>
