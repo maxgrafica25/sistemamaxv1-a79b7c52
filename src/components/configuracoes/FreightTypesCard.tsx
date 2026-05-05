@@ -22,13 +22,17 @@ export default function FreightTypesCard({ isAdmin }: Props) {
   const [name, setName] = useState("");
   const [val, setVal] = useState("");
 
+  const originals = useRef<Record<string, Row>>({});
+
   const load = async () => {
     setLoading(true);
     const { data } = await supabase
       .from("freight_types")
       .select("id, name, default_value")
       .order("sort_order");
-    setRows((data || []) as Row[]);
+    const list = (data || []) as Row[];
+    originals.current = Object.fromEntries(list.map((r) => [r.id, { ...r }]));
+    setRows(list);
     setLoading(false);
   };
 
