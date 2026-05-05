@@ -55,7 +55,7 @@ interface MaterialRow {
   generated_title?: string | null;
   reference?: string | null;
 }
-interface LaborRow { id: string; description: string; time_minutes: number; }
+interface LaborRow { id: string; description: string; time_minutes: number; parent_item_id: string | null; }
 
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
