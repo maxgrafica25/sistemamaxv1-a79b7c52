@@ -1141,7 +1141,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       </div>
 
       {/* ===== Rodapé fixo: Salvar / Cancelar ===== */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 py-3 flex items-center justify-end gap-2">
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 py-3 pr-20 sm:pr-24 flex items-center justify-end gap-2">
         <div className="hidden sm:flex flex-col mr-auto">
           <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Total</span>
           <span className="text-base font-bold text-primary">{formatBRL(discountedTotal)}</span>
