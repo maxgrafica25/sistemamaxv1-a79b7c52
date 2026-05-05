@@ -249,6 +249,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     });
     setPrintingCatalog(catalog);
 
+    // Catálogo de acabamentos (nomenclatura travada)
+    const { data: finData } = await supabase
+      .from("finishings_price_items")
+      .select("id, name, category, size, price_per_sheet")
+      .eq("is_active", true)
+      .order("sort_order");
+    setFinishingCatalog((finData || []) as any);
+
     // hourly rate
     const totalExp = (expRes.data || []).reduce((s: number, e: any) => s + e.value, 0);
     const totalSal = (salRes.data || []).reduce((s: number, e: any) => s + e.salary, 0) * 1.45;
