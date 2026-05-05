@@ -127,6 +127,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     () => materials.filter((m) => m.baseCost && !m.parentItemId),
     [materials],
   );
+  const childMaterials = useMemo(
+    () => materials.filter((m) => !!m.parentItemId),
+    [materials],
+  );
   const standaloneManualMaterials = useMemo(
     () => materials.filter((m) => !m.baseCost && !m.parentItemId),
     [materials],
