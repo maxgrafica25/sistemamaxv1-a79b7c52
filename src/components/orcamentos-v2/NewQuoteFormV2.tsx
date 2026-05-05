@@ -328,6 +328,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         grammage: m.grammage ?? null,
         size: m.size ?? null,
         side: m.side ?? null,
+        catalogSource: (m.catalog_source as "printing" | "finishing" | null) ?? null,
+        catalogItemId: m.catalog_item_id ?? null,
       })));
       setThirdParty((tpRes.data || []).map((t: any) => ({
         id: t.id, description: t.description, supplier: t.supplier, cost: t.cost,
