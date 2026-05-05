@@ -933,21 +933,25 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           </h2>
           <QuoteItemsTable
             printingCatalog={printingCatalog}
-            finishingCatalog={finishingCatalog}
+            processSteps={processSteps}
+            processGroups={processGroups}
             markupTiers={markupTiers}
             globalSettings={globalSettings}
             hourlyRate={hourlyRate}
             printingItems={printingItems}
             childMaterials={childMaterials}
+            childLabor={labor.filter((l) => !!l.parentItemId)}
             standaloneLabor={standaloneLabor}
             standaloneManualMaterials={standaloneManualMaterials}
             thirdParty={thirdParty}
             onAddPrinting={addPrintingItem}
-            onAddFinishing={addFinishingItem}
+            onAddProcess={addProcessStep}
+            onExpandStepGroup={expandStepGroup}
             onUpdatePrinting={updateMaterialPatch}
             onUpdateChildMaterial={updateMaterialPatch}
             onRemovePrinting={removeMaterial}
             onRemoveChildMaterial={removeMaterial}
+            onRemoveLabor={removeLaborStep}
             onChangeStandaloneLabor={setStandaloneLabor}
             onChangeStandaloneMaterials={setStandaloneManualMaterials}
             onChangeThirdParty={setThirdParty}
