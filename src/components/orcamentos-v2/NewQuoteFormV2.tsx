@@ -453,8 +453,23 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       customName: null,
       reference: null,
       generatedTitle: null,
+      catalogSource: "printing",
+      catalogItemId: item.id,
     }]);
     toast.success("Item de impressão adicionado!");
+  };
+
+  const addFinishingItem = (parentId: string, fin: { id: string; name: string; price_per_sheet: number }) => {
+    setMaterials((prev) => [...prev, {
+      id: `fin-${Date.now()}-${fin.id}`,
+      description: fin.name,
+      quantity: 1,
+      unitPrice: fin.price_per_sheet,
+      parentItemId: parentId,
+      catalogSource: "finishing",
+      catalogItemId: fin.id,
+    }]);
+    toast.success("Acabamento vinculado!");
   };
 
   const updateMaterialPatch = (id: string, patch: Partial<PricingMaterial>) =>
