@@ -254,13 +254,30 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     });
     setPrintingCatalog(catalog);
 
-    // Catálogo de acabamentos (nomenclatura travada)
-    const { data: finData } = await supabase
-      .from("finishings_price_items")
-      .select("id, name, category, size, price_per_sheet")
-      .eq("is_active", true)
-      .order("sort_order");
-    setFinishingCatalog((finData || []) as any);
+    // Catálogos: processos individuais e grupos de processos (substitui acabamentos)
+    const [stepsRes, groupsRes, groupItemsRes] = await Promise.all([
+      supabase.from("production_steps").select("id, description, time_minutes, step_type").order("description"),
+      supabase.from("step_groups").select("id, name").order("name"),
+      supabase.from("step_group_items").select("step_group_id, description, time_minutes, step_type").order("sort_order"),
+    ]);
+    setProcessSteps((stepsRes.data || []).map((s: any) => ({
+      id: s.id,
+      description: s.description,
+      time_minutes: Number(s.time_minutes) || 0,
+      step_type: s.step_type || "outro",
+    })));
+    const itemsByGroup: Record<string, ProcessGroup["items"]> = {};
+    (groupItemsRes.data || []).forEach((it: any) => {
+      const gid = it.step_group_id;
+      (itemsByGroup[gid] ||= []).push({
+        description: it.description,
+        time_minutes: Number(it.time_minutes) || 0,
+        step_type: it.step_type || "outro",
+      });
+    });
+    setProcessGroups((groupsRes.data || []).map((g: any) => ({
+      id: g.id, name: g.name, items: itemsByGroup[g.id] || [],
+    })));
 
     // hourly rate
     const totalExp = (expRes.data || []).reduce((s: number, e: any) => s + e.value, 0);
