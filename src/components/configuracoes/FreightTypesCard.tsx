@@ -105,7 +105,10 @@ export default function FreightTypesCard({ isAdmin }: Props) {
               >
                 <Input
                   value={r.name}
-                  onBlur={(e) => e.target.value !== r.name && update(r.id, { name: e.target.value })}
+                  onBlur={(e) => {
+                    const v = e.target.value;
+                    if (v !== originals.current[r.id]?.name) update(r.id, { name: v });
+                  }}
                   onChange={(e) => setRows((p) => p.map((x) => (x.id === r.id ? { ...x, name: e.target.value } : x)))}
                   disabled={!isAdmin}
                   className="h-9"
@@ -116,7 +119,7 @@ export default function FreightTypesCard({ isAdmin }: Props) {
                   value={r.default_value || ""}
                   onBlur={(e) => {
                     const v = parseFloat(e.target.value) || 0;
-                    if (v !== r.default_value) update(r.id, { default_value: v });
+                    if (v !== originals.current[r.id]?.default_value) update(r.id, { default_value: v });
                   }}
                   onChange={(e) => setRows((p) => p.map((x) => (x.id === r.id ? { ...x, default_value: parseFloat(e.target.value) || 0 } : x)))}
                   disabled={!isAdmin}
