@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,13 +22,17 @@ export default function FreightTypesCard({ isAdmin }: Props) {
   const [name, setName] = useState("");
   const [val, setVal] = useState("");
 
+  const originals = useRef<Record<string, Row>>({});
+
   const load = async () => {
     setLoading(true);
     const { data } = await supabase
       .from("freight_types")
       .select("id, name, default_value")
       .order("sort_order");
-    setRows((data || []) as Row[]);
+    const list = (data || []) as Row[];
+    originals.current = Object.fromEntries(list.map((r) => [r.id, { ...r }]));
+    setRows(list);
     setLoading(false);
   };
 
@@ -61,6 +65,9 @@ export default function FreightTypesCard({ isAdmin }: Props) {
     setSavingId(null);
     if (error) return toast.error(error.message);
     setRows((p) => p.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    if (originals.current[id]) {
+      originals.current[id] = { ...originals.current[id], ...patch };
+    }
     toast.success("Alteração salva");
   };
 
@@ -98,7 +105,10 @@ export default function FreightTypesCard({ isAdmin }: Props) {
               >
                 <Input
                   value={r.name}
-                  onBlur={(e) => e.target.value !== r.name && update(r.id, { name: e.target.value })}
+                  onBlur={(e) => {
+                    const v = e.target.value;
+                    if (v !== originals.current[r.id]?.name) update(r.id, { name: v });
+                  }}
                   onChange={(e) => setRows((p) => p.map((x) => (x.id === r.id ? { ...x, name: e.target.value } : x)))}
                   disabled={!isAdmin}
                   className="h-9"
@@ -109,7 +119,7 @@ export default function FreightTypesCard({ isAdmin }: Props) {
                   value={r.default_value || ""}
                   onBlur={(e) => {
                     const v = parseFloat(e.target.value) || 0;
-                    if (v !== r.default_value) update(r.id, { default_value: v });
+                    if (v !== originals.current[r.id]?.default_value) update(r.id, { default_value: v });
                   }}
                   onChange={(e) => setRows((p) => p.map((x) => (x.id === r.id ? { ...x, default_value: parseFloat(e.target.value) || 0 } : x)))}
                   disabled={!isAdmin}
