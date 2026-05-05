@@ -53,10 +53,15 @@ export default function FreightTypesCard({ isAdmin }: Props) {
     load();
   };
 
+  const [savingId, setSavingId] = useState<string | null>(null);
+
   const update = async (id: string, patch: Partial<Row>) => {
+    setSavingId(id);
     const { error } = await supabase.from("freight_types").update(patch).eq("id", id);
+    setSavingId(null);
     if (error) return toast.error(error.message);
     setRows((p) => p.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    toast.success("Alteração salva");
   };
 
   const remove = async (id: string) => {
