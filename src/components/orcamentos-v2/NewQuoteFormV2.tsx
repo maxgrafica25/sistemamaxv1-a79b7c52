@@ -37,7 +37,7 @@ import { buildDynamicTitle } from "@/lib/quotes-v2/item-title";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { TagInput } from "@/components/ui/TagInput";
 import { FreightSelector } from "@/components/orcamentos-v2/FreightSelector";
-import { QuoteItemsTable } from "@/components/orcamentos-v2/QuoteItemsTable";
+import { QuoteItemsTable, type ProcessStep, type ProcessGroup } from "@/components/orcamentos-v2/QuoteItemsTable";
 
 interface Props {
   quoteId?: string;
@@ -104,7 +104,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
   // catalog
   const [printingCatalog, setPrintingCatalog] = useState<PrintingCatalogItem[]>([]);
-  const [finishingCatalog, setFinishingCatalog] = useState<{ id: string; name: string; category: string; size: string; price_per_sheet: number }[]>([]);
+  const [processSteps, setProcessSteps] = useState<ProcessStep[]>([]);
+  const [processGroups, setProcessGroups] = useState<ProcessGroup[]>([]);
   const [markupTiers, setMarkupTiers] = useState<MarkupTier[]>([]);
   const [categoryGroups, setCategoryGroups] = useState<Record<string, string | null>>({});
   const [hourlyRate, setHourlyRate] = useState(80);
