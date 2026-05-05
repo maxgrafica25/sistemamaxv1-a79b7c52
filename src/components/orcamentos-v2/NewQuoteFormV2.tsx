@@ -895,16 +895,21 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           </h2>
           <QuoteItemsTable
             printingCatalog={printingCatalog}
+            finishingCatalog={finishingCatalog}
             markupTiers={markupTiers}
             globalSettings={globalSettings}
             hourlyRate={hourlyRate}
             printingItems={printingItems}
+            childMaterials={childMaterials}
             standaloneLabor={standaloneLabor}
             standaloneManualMaterials={standaloneManualMaterials}
             thirdParty={thirdParty}
             onAddPrinting={addPrintingItem}
+            onAddFinishing={addFinishingItem}
             onUpdatePrinting={updateMaterialPatch}
+            onUpdateChildMaterial={updateMaterialPatch}
             onRemovePrinting={removeMaterial}
+            onRemoveChildMaterial={removeMaterial}
             onChangeStandaloneLabor={setStandaloneLabor}
             onChangeStandaloneMaterials={setStandaloneManualMaterials}
             onChangeThirdParty={setThirdParty}
