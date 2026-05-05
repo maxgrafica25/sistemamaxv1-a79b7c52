@@ -567,13 +567,6 @@ export default function ClientViewer() {
                   );
                 })}
               </ul>
-              {labor.length > 0 && (
-                <p className="text-xs text-muted-foreground pt-2 border-t border-border/50 flex items-center gap-2">
-                  <Package className="h-4 w-4 text-primary" />
-                  Inclui mão de obra especializada ({labor.length}{" "}
-                  {labor.length === 1 ? "etapa" : "etapas"})
-                </p>
-              )}
               {hasMultipleItems && (
                 <p className="text-xs text-muted-foreground pt-1">
                   💡 Marque os itens que deseja aprovar agora. Use{" "}
