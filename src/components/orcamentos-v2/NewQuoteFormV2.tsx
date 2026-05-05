@@ -104,6 +104,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
   // catalog
   const [printingCatalog, setPrintingCatalog] = useState<PrintingCatalogItem[]>([]);
+  const [finishingCatalog, setFinishingCatalog] = useState<{ id: string; name: string; category: string; size: string; price_per_sheet: number }[]>([]);
   const [markupTiers, setMarkupTiers] = useState<MarkupTier[]>([]);
   const [categoryGroups, setCategoryGroups] = useState<Record<string, string | null>>({});
   const [hourlyRate, setHourlyRate] = useState(80);
