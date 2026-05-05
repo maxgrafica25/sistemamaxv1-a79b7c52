@@ -618,6 +618,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 grammage: m.grammage ?? null,
                 size: m.size ?? null,
                 side: m.side ?? null,
+                catalog_source: m.catalogSource ?? null,
+                catalog_item_id: m.catalogItemId ?? null,
               })),
             )
             .select("id");
