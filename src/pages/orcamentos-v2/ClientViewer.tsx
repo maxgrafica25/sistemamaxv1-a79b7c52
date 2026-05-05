@@ -163,6 +163,18 @@ export default function ClientViewer() {
     [quote],
   );
 
+  // Agrupa etapas de mão de obra (acabamentos/processos) por item de impressão pai
+  const laborByParent = useMemo(() => {
+    const map = new Map<string, LaborRow[]>();
+    for (const l of labor) {
+      if (!l.parent_item_id) continue;
+      const arr = map.get(l.parent_item_id) ?? [];
+      arr.push(l);
+      map.set(l.parent_item_id, arr);
+    }
+    return map;
+  }, [labor]);
+
   useEffect(() => {
     if (options.length >= 2 && !selectedOptionId) {
       setSelectedOptionId(options[0].id);
