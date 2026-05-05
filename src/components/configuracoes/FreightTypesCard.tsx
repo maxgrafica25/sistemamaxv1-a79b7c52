@@ -80,6 +80,22 @@ export default function FreightTypesCard({ isAdmin }: Props) {
         <p className="text-sm text-muted-foreground mt-1">
           Cadastre os modais usados pelos vendedores nos orçamentos (Moto, Correios, Transportadora…).
         </p>
+        <p className="text-xs text-muted-foreground mt-1 italic">
+          As alterações em itens existentes são salvas automaticamente ao sair do campo.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        ) : (
+          <div className="space-y-2">
+            {rows.map((r) => (
+              <div
+                key={r.id}
+                className={`grid grid-cols-[1fr_140px_40px] gap-2 items-center transition-opacity ${
+                  savingId === r.id ? "opacity-60" : ""
+                }`}
+              >
       </CardHeader>
       <CardContent className="space-y-3">
         {loading ? (
