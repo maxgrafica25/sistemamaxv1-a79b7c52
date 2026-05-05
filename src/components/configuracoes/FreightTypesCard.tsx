@@ -65,6 +65,9 @@ export default function FreightTypesCard({ isAdmin }: Props) {
     setSavingId(null);
     if (error) return toast.error(error.message);
     setRows((p) => p.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    if (originals.current[id]) {
+      originals.current[id] = { ...originals.current[id], ...patch };
+    }
     toast.success("Alteração salva");
   };
 
