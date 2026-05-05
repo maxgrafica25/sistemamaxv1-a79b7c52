@@ -667,6 +667,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               sort_order: m.sortOrder,
               status: "pendente",
               parent_item_id: tempToReal.get(m.parentItemId!) ?? null,
+              catalog_source: m.catalogSource ?? null,
+              catalog_item_id: m.catalogItemId ?? null,
             })),
           );
         }
