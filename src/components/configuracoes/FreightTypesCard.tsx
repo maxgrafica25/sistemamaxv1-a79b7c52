@@ -96,14 +96,6 @@ export default function FreightTypesCard({ isAdmin }: Props) {
                   savingId === r.id ? "opacity-60" : ""
                 }`}
               >
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        ) : (
-          <div className="space-y-2">
-            {rows.map((r) => (
-              <div key={r.id} className="grid grid-cols-[1fr_140px_40px] gap-2 items-center">
                 <Input
                   value={r.name}
                   onBlur={(e) => e.target.value !== r.name && update(r.id, { name: e.target.value })}
