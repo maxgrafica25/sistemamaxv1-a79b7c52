@@ -532,6 +532,11 @@ export default function ClientViewer() {
                         className="flex-1 min-w-0 cursor-pointer"
                       >
                         <p className="text-foreground font-medium">{m.generated_title || m.description}</p>
+                        {(laborByParent.get(m.id)?.length ?? 0) > 0 && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            + {laborByParent.get(m.id)!.map((l) => l.description).join(", ")}
+                          </p>
+                        )}
                         {m.reference && (
                           <p className="text-xs text-muted-foreground italic">Ref.: {m.reference}</p>
                         )}
