@@ -89,6 +89,7 @@ export default function ClientViewer() {
   const [quote, setQuote] = useState<QuoteRow | null>(null);
   const [materials, setMaterials] = useState<MaterialRow[]>([]);
   const [labor, setLabor] = useState<LaborRow[]>([]);
+  const [cvItems, setCvItems] = useState<CvItemRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
