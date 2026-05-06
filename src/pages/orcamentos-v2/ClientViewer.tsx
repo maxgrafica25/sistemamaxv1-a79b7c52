@@ -661,7 +661,7 @@ export default function ClientViewer() {
         )}
 
         {/* Sem itens nem opções — exibe valor único */}
-        {!hasMultipleOptions && materials.length === 0 && (
+        {!hasMultipleOptions && materials.length === 0 && cvItems.length === 0 && (
           <Card className="border-primary/30 bg-primary/5 shadow-sm">
             <CardContent className="p-5 sm:p-6">
               <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
