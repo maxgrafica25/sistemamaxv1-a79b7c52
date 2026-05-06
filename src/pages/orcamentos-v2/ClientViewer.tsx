@@ -56,6 +56,7 @@ interface MaterialRow {
   reference?: string | null;
 }
 interface LaborRow { id: string; description: string; time_minutes: number; parent_item_id: string | null; }
+interface CvFinishEntry { finish_id: string; quantidade_unidades?: number; custom?: { nome: string; valor: number } }
 interface CvItemRow {
   id: string;
   material_nome: string | null;
@@ -66,6 +67,7 @@ interface CvItemRow {
   preco_total: number;
   tem_emenda: boolean;
   aplicou_minimo: boolean;
+  finishes_json: CvFinishEntry[] | null;
 }
 
 const formatBRL = (n: number) =>
