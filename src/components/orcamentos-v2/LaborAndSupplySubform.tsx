@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, Clock, Package } from "lucide-react";
+import { Plus, X, Clock, Package, Scissors } from "lucide-react";
 import { LoadFromGroupDialog } from "./LoadFromGroupDialog";
 import { STEP_TYPES } from "./StepTypeBadge";
 import type { PricingMaterial, PricingLaborStep } from "@/lib/quotes-v2/pricing";
@@ -55,12 +55,12 @@ export function LaborAndSupplySubform({
     ]);
   };
 
-  const addMaterial = () => {
+  const addMaterial = (descriptionPrefix = "") => {
     onMaterialChange([
       ...materialItems,
       {
         id: `mat-${Date.now()}`,
-        description: "",
+        description: descriptionPrefix,
         quantity: 1,
         unitPrice: 0,
         parentItemId,
@@ -86,9 +86,19 @@ export function LaborAndSupplySubform({
         <Button variant="outline" size="sm" onClick={addLabor} className="gap-1.5 h-8">
           <Clock className="h-3.5 w-3.5" /> Mão de obra
         </Button>
-        <Button variant="outline" size="sm" onClick={addMaterial} className="gap-1.5 h-8">
+        <Button variant="outline" size="sm" onClick={() => addMaterial()} className="gap-1.5 h-8">
           <Package className="h-3.5 w-3.5" /> Material
         </Button>
+        {compact && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => addMaterial("Acabamento avulso: ")}
+            className="gap-1.5 h-8"
+          >
+            <Scissors className="h-3.5 w-3.5" /> Acabamento avulso
+          </Button>
+        )}
         <LoadFromGroupDialog
           kind="labor"
           triggerLabel="Grupo (M.Obra)"

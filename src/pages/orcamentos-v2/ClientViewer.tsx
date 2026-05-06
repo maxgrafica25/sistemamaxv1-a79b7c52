@@ -56,6 +56,7 @@ interface MaterialRow {
   reference?: string | null;
 }
 interface LaborRow { id: string; description: string; time_minutes: number; parent_item_id: string | null; }
+interface CvFinishEntry { finish_id: string; quantidade_unidades?: number; custom?: { nome: string; valor: number } }
 interface CvItemRow {
   id: string;
   material_nome: string | null;
@@ -66,6 +67,7 @@ interface CvItemRow {
   preco_total: number;
   tem_emenda: boolean;
   aplicou_minimo: boolean;
+  finishes_json: CvFinishEntry[] | null;
 }
 
 const formatBRL = (n: number) =>
@@ -142,7 +144,7 @@ export default function ClientViewer() {
         .order("sort_order"),
       supabase
         .from("cv_quote_items")
-        .select("id, material_nome, printer_nome, largura_cm, altura_cm, quantidade, preco_total, tem_emenda, aplicou_minimo, sort_order")
+        .select("id, material_nome, printer_nome, largura_cm, altura_cm, quantidade, preco_total, tem_emenda, aplicou_minimo, sort_order, finishes_json")
         .eq("quote_id", quoteRow.id)
         .order("sort_order"),
     ]);
@@ -150,7 +152,7 @@ export default function ClientViewer() {
     setQuote(quoteRow);
     setMaterials((m.data || []) as MaterialRow[]);
     setLabor((l.data || []) as LaborRow[]);
-    setCvItems((cv.data || []) as CvItemRow[]);
+    setCvItems((cv.data || []) as unknown as CvItemRow[]);
   };
 
   useEffect(() => {
@@ -630,6 +632,19 @@ export default function ClientViewer() {
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0">Mínimo aplicado</Badge>
                             )}
                           </div>
+                        )}
+                        {Array.isArray(cv.finishes_json) && cv.finishes_json.length > 0 && (
+                          <ul className="mt-1.5 space-y-0.5">
+                            {cv.finishes_json.map((fj, idx) => {
+                              const nome = fj.custom?.nome || (fj as any).nome || null;
+                              if (!nome) return null;
+                              return (
+                                <li key={idx} className="text-xs text-muted-foreground">
+                                  • {nome}
+                                </li>
+                              );
+                            })}
+                          </ul>
                         )}
                       </div>
                       <span className="text-sm font-semibold text-foreground shrink-0">

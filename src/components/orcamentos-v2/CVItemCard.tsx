@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertTriangle, Trash2, Plus, X, ChevronDown, Megaphone, Lock } from "lucide-react";
+import { AlertTriangle, Trash2, Plus, X, ChevronDown, Megaphone, Lock, Wand2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   calcularItemCV,
@@ -27,7 +27,12 @@ export interface CVItemState {
   largura_cm: number;
   altura_cm: number;
   quantidade: number;
-  acabamentos: Array<{ finish_id: string; quantidade_unidades: number }>;
+  acabamentos: Array<{
+    finish_id: string;
+    quantidade_unidades: number;
+    /** Quando presente, é um acabamento avulso (não cadastrado), válido só neste orçamento. */
+    custom?: { nome: string; valor: number };
+  }>;
 }
 
 interface Props {
@@ -87,6 +92,7 @@ export function CVItemCard({
     setLocal((prev) => ({
       ...prev,
       acabamentos: prev.acabamentos.filter((a) => {
+        if (a.custom) return true; // avulso é sempre compatível
         const f = acabamentos.find((x) => x.id === a.finish_id);
         return f && f.categoria_compativel.includes(material.categoria);
       }),
@@ -98,12 +104,23 @@ export function CVItemCard({
   const appliedFinishes: CVAppliedFinish[] = useMemo(() => {
     return debounced.acabamentos
       .map((a) => {
+        if (a.custom) {
+          const synth: CVFinish = {
+            id: a.finish_id,
+            nome: a.custom.nome || "Acabamento avulso",
+            tipo_calculo: "fixo",
+            custo: Number(a.custom.valor) || 0,
+            margem_pct: 0,
+            categoria_compativel: material ? [material.categoria] : [],
+          };
+          return { finish: synth, quantidade_unidades: 1 };
+        }
         const f = acabamentos.find((x) => x.id === a.finish_id);
         if (!f) return null;
         return { finish: f, quantidade_unidades: a.quantidade_unidades };
       })
       .filter(Boolean) as CVAppliedFinish[];
-  }, [debounced.acabamentos, acabamentos]);
+  }, [debounced.acabamentos, acabamentos, material]);
 
   // Compute (memoised, pure)
   const result = useMemo(
@@ -143,7 +160,22 @@ export function CVItemCard({
       acabamentos: prev.acabamentos.map((a) => (a.finish_id === finishId ? { ...a, quantidade_unidades: qty } : a)),
     }));
 
+  const addCustomAcabamento = (nome: string, valor: number) => {
+    const id = `custom-${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
+    setLocal((prev) => ({
+      ...prev,
+      acabamentos: [
+        ...prev.acabamentos,
+        { finish_id: id, quantidade_unidades: 1, custom: { nome, valor } },
+      ],
+    }));
+  };
+
   const [finishPickerOpen, setFinishPickerOpen] = useState(false);
+  const [customMode, setCustomMode] = useState(false);
+  const [customNome, setCustomNome] = useState("");
+  const [customValor, setCustomValor] = useState("");
+  const resetCustom = () => { setCustomMode(false); setCustomNome(""); setCustomValor(""); };
 
   return (
     <Card className="border-border/60">
@@ -254,34 +286,88 @@ export function CVItemCard({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-xs">Acabamentos</Label>
-            <Popover open={finishPickerOpen} onOpenChange={setFinishPickerOpen}>
+            <Popover
+              open={finishPickerOpen}
+              onOpenChange={(o) => { setFinishPickerOpen(o); if (!o) resetCustom(); }}
+            >
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" disabled={!material}>
                   <Plus className="h-3 w-3" /> Adicionar
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-64 p-1" align="end">
-                {compatFinishes.length === 0 ? (
-                  <div className="px-3 py-4 text-xs text-muted-foreground text-center">
-                    Nenhum acabamento compatível com {material?.categoria || "este material"}.
+              <PopoverContent className="w-72 p-1" align="end">
+                {customMode ? (
+                  <div className="p-2 space-y-2">
+                    <div className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                      <Wand2 className="h-3.5 w-3.5 text-primary" /> Acabamento avulso
+                    </div>
+                    <Input
+                      autoFocus
+                      placeholder="Nome (ex: Ilhós dourado)"
+                      value={customNome}
+                      onChange={(e) => setCustomNome(e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                    <Input
+                      type="number" inputMode="decimal" step="0.01" min="0"
+                      placeholder="Valor total (R$)"
+                      value={customValor}
+                      onChange={(e) => setCustomValor(e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Válido apenas neste orçamento. Não será salvo no cadastro.
+                    </p>
+                    <div className="flex justify-end gap-1.5 pt-1">
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={resetCustom}>
+                        Cancelar
+                      </Button>
+                      <Button
+                        size="sm" className="h-7 text-xs"
+                        disabled={!customNome.trim() || !(parseFloat(customValor) > 0)}
+                        onClick={() => {
+                          addCustomAcabamento(customNome.trim(), parseFloat(customValor) || 0);
+                          resetCustom();
+                          setFinishPickerOpen(false);
+                        }}
+                      >
+                        Adicionar
+                      </Button>
+                    </div>
                   </div>
                 ) : (
-                  compatFinishes
-                    .filter((f) => !local.acabamentos.some((a) => a.finish_id === f.id))
-                    .map((f) => (
-                      <button
-                        key={f.id}
-                        onClick={() => { addAcabamento(f); setFinishPickerOpen(false); }}
-                        className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
-                      >
-                        <span>{f.nome}</span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {f.tipo_calculo === "unidade" ? "un" :
-                           f.tipo_calculo === "mt2" ? "m²" :
-                           f.tipo_calculo === "perimetro_metro" ? "perím." : "fixo"}
-                        </span>
-                      </button>
-                    ))
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setCustomMode(true)}
+                      className="flex w-full items-center gap-2 rounded-sm border border-dashed border-primary/40 bg-primary/5 px-2 py-1.5 text-left text-sm text-primary hover:bg-primary/10 mb-1"
+                    >
+                      <Wand2 className="h-3.5 w-3.5" />
+                      <span className="font-medium">Adicionar acabamento avulso</span>
+                    </button>
+                    {compatFinishes.length === 0 ? (
+                      <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+                        Nenhum acabamento cadastrado compatível com {material?.categoria || "este material"}.
+                      </div>
+                    ) : (
+                      compatFinishes
+                        .filter((f) => !local.acabamentos.some((a) => a.finish_id === f.id))
+                        .map((f) => (
+                          <button
+                            key={f.id}
+                            onClick={() => { addAcabamento(f); setFinishPickerOpen(false); }}
+                            className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+                          >
+                            <span>{f.nome}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {f.tipo_calculo === "unidade" ? "un" :
+                               f.tipo_calculo === "mt2" ? "m²" :
+                               f.tipo_calculo === "perimetro_metro" ? "perím." : "fixo"}
+                            </span>
+                          </button>
+                        ))
+                    )}
+                  </>
                 )}
               </PopoverContent>
             </Popover>
@@ -291,13 +377,21 @@ export function CVItemCard({
           ) : (
             <div className="space-y-1.5">
               {local.acabamentos.map((a) => {
-                const f = acabamentos.find((x) => x.id === a.finish_id);
-                if (!f) return null;
-                const finishResult = result.finishes.find((r) => r.finish_id === f.id);
+                const isCustom = !!a.custom;
+                const f = isCustom ? null : acabamentos.find((x) => x.id === a.finish_id);
+                if (!isCustom && !f) return null;
+                const finishResult = result.finishes.find((r) => r.finish_id === a.finish_id);
+                const nome = isCustom ? (a.custom!.nome || "Acabamento avulso") : f!.nome;
+                const tipo = isCustom ? "fixo" : f!.tipo_calculo;
                 return (
                   <div key={a.finish_id} className="flex items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
-                    <span className="flex-1 text-sm font-medium truncate">{f.nome}</span>
-                    {f.tipo_calculo === "unidade" && (
+                    <span className="flex-1 text-sm font-medium truncate flex items-center gap-1.5">
+                      {nome}
+                      {isCustom && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">avulso</Badge>
+                      )}
+                    </span>
+                    {tipo === "unidade" && (
                       <Input
                         type="number" min="1" step="1"
                         value={a.quantidade_unidades || 1}
