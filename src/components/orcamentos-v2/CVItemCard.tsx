@@ -92,6 +92,7 @@ export function CVItemCard({
     setLocal((prev) => ({
       ...prev,
       acabamentos: prev.acabamentos.filter((a) => {
+        if (a.custom) return true; // avulso é sempre compatível
         const f = acabamentos.find((x) => x.id === a.finish_id);
         return f && f.categoria_compativel.includes(material.categoria);
       }),
