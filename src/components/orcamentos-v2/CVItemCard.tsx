@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertTriangle, Trash2, Plus, X, ChevronDown, Megaphone, Lock } from "lucide-react";
+import { AlertTriangle, Trash2, Plus, X, ChevronDown, Megaphone, Lock, Wand2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   calcularItemCV,
