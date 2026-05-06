@@ -55,12 +55,12 @@ export function LaborAndSupplySubform({
     ]);
   };
 
-  const addMaterial = () => {
+  const addMaterial = (descriptionPrefix = "") => {
     onMaterialChange([
       ...materialItems,
       {
         id: `mat-${Date.now()}`,
-        description: "",
+        description: descriptionPrefix,
         quantity: 1,
         unitPrice: 0,
         parentItemId,
