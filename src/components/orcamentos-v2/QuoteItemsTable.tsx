@@ -375,7 +375,7 @@ function ProductKindButton({
 
 function DraftRowEditor({
   row, rowNumber, printingCatalog, processSteps, processGroups,
-  onSetMode, onPickPrinting, onPickProcessStep, onPickProcessGroup, onCancel,
+  onSetMode, onPickPrinting, onPickProcessStep, onPickProcessGroup, onPickCustomFinish, onCancel,
 }: {
   row: DraftRow;
   rowNumber: number;
@@ -386,6 +386,7 @@ function DraftRowEditor({
   onPickPrinting: (it: PrintingCatalogItem) => void;
   onPickProcessStep: (s: ProcessStep) => void;
   onPickProcessGroup: (g: ProcessGroup) => void;
+  onPickCustomFinish: (name: string, price: number) => void;
   onCancel: () => void;
 }) {
   return (
