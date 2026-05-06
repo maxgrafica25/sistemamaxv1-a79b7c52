@@ -523,15 +523,20 @@ function InlineCatalogCombobox({
 }
 
 function ProcessPicker({
-  steps, groups, onPickStep, onPickGroup,
+  steps, groups, onPickStep, onPickGroup, onPickCustom,
 }: {
   steps: ProcessStep[];
   groups: ProcessGroup[];
   onPickStep: (s: ProcessStep) => void;
   onPickGroup: (g: ProcessGroup) => void;
+  onPickCustom: (name: string, price: number) => void;
 }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [customMode, setCustomMode] = useState(false);
+  const [cName, setCName] = useState("");
+  const [cPrice, setCPrice] = useState("");
+  const reset = () => { setCustomMode(false); setCName(""); setCPrice(""); setQ(""); };
   const fSteps = useMemo(() => {
     const s = q.toLowerCase();
     return steps.filter((x) => x.description.toLowerCase().includes(s)).slice(0, 30);
@@ -541,7 +546,7 @@ function ProcessPicker({
     return groups.filter((x) => x.name.toLowerCase().includes(s)).slice(0, 30);
   }, [q, groups]);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -552,55 +557,77 @@ function ProcessPicker({
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-2">
-        <Input
-          autoFocus
-          placeholder="Buscar processo ou grupo…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="h-8 text-sm mb-2"
-        />
-        <div className="max-h-64 overflow-auto">
-          {fSteps.length === 0 && fGroups.length === 0 ? (
-            <p className="text-xs text-muted-foreground p-2">Nenhum item.</p>
-          ) : (
-            <>
-              {fSteps.length > 0 && (
+        {customMode ? (
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-foreground flex items-center gap-1.5">
+              <Wand2 className="h-3.5 w-3.5 text-primary" /> Acabamento avulso
+            </div>
+            <Input autoFocus placeholder="Nome (ex: Corte especial)" value={cName} onChange={(e) => setCName(e.target.value)} className="h-8 text-sm" />
+            <Input type="number" inputMode="decimal" step="0.01" min="0" placeholder="Valor total (R$)" value={cPrice} onChange={(e) => setCPrice(e.target.value)} className="h-8 text-sm" />
+            <p className="text-[10px] text-muted-foreground">Válido apenas neste orçamento. Não será salvo no cadastro.</p>
+            <div className="flex justify-end gap-1.5">
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={reset}>Cancelar</Button>
+              <Button size="sm" className="h-7 text-xs"
+                disabled={!cName.trim() || !(parseFloat(cPrice) > 0)}
+                onClick={() => { onPickCustom(cName.trim(), parseFloat(cPrice) || 0); setOpen(false); reset(); }}
+              >Adicionar</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Input
+              autoFocus
+              placeholder="Buscar processo ou grupo…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="h-8 text-sm mb-2"
+            />
+            <button
+              type="button"
+              onClick={() => setCustomMode(true)}
+              className="flex w-full items-center gap-2 rounded-sm border border-dashed border-primary/40 bg-primary/5 px-2 py-1.5 text-left text-sm text-primary hover:bg-primary/10 mb-2"
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              <span className="font-medium">Adicionar acabamento avulso</span>
+            </button>
+            <div className="max-h-64 overflow-auto">
+              {fSteps.length === 0 && fGroups.length === 0 ? (
+                <p className="text-xs text-muted-foreground p-2">Nenhum processo cadastrado encontrado. Use "Acabamento avulso" acima.</p>
+              ) : (
                 <>
-                  <div className="px-2 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Processos individuais</div>
-                  {fSteps.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => { onPickStep(s); setOpen(false); }}
-                      className="w-full px-2 py-1.5 text-left hover:bg-accent text-sm flex items-center justify-between gap-2 rounded"
-                    >
-                      <span className="truncate">{s.description}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0 inline-flex items-center gap-0.5">
-                        <Clock className="h-3 w-3" />{s.time_minutes} min
-                      </span>
-                    </button>
-                  ))}
+                  {fSteps.length > 0 && (
+                    <>
+                      <div className="px-2 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Processos individuais</div>
+                      {fSteps.map((s) => (
+                        <button key={s.id} type="button"
+                          onClick={() => { onPickStep(s); setOpen(false); reset(); }}
+                          className="w-full px-2 py-1.5 text-left hover:bg-accent text-sm flex items-center justify-between gap-2 rounded">
+                          <span className="truncate">{s.description}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0 inline-flex items-center gap-0.5">
+                            <Clock className="h-3 w-3" />{s.time_minutes} min
+                          </span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {fGroups.length > 0 && (
+                    <>
+                      <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Grupos de processos</div>
+                      {fGroups.map((g) => (
+                        <button key={g.id} type="button"
+                          onClick={() => { onPickGroup(g); setOpen(false); reset(); }}
+                          className="w-full px-2 py-1.5 text-left hover:bg-accent text-sm flex items-center justify-between gap-2 rounded">
+                          <span className="truncate inline-flex items-center gap-1.5"><Layers className="h-3 w-3" />{g.name}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0">{g.items.length} etapas</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
                 </>
               )}
-              {fGroups.length > 0 && (
-                <>
-                  <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Grupos de processos</div>
-                  {fGroups.map((g) => (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => { onPickGroup(g); setOpen(false); }}
-                      className="w-full px-2 py-1.5 text-left hover:bg-accent text-sm flex items-center justify-between gap-2 rounded"
-                    >
-                      <span className="truncate inline-flex items-center gap-1.5"><Layers className="h-3 w-3" />{g.name}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0">{g.items.length} etapas</span>
-                    </button>
-                  ))}
-                </>
-              )}
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </PopoverContent>
     </Popover>
   );
