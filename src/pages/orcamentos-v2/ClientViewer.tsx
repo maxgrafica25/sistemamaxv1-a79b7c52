@@ -56,6 +56,17 @@ interface MaterialRow {
   reference?: string | null;
 }
 interface LaborRow { id: string; description: string; time_minutes: number; parent_item_id: string | null; }
+interface CvItemRow {
+  id: string;
+  material_nome: string | null;
+  printer_nome: string | null;
+  largura_cm: number;
+  altura_cm: number;
+  quantidade: number;
+  preco_total: number;
+  tem_emenda: boolean;
+  aplicou_minimo: boolean;
+}
 
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
