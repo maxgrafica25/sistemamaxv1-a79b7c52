@@ -396,6 +396,9 @@ export default function OrcamentosV2() {
                           )}
                         </div>
                       </td>
+                      <td className="py-4 text-sm text-muted-foreground whitespace-nowrap">
+                        {q.date ? new Date(q.date).toLocaleDateString("pt-BR") : "—"}
+                      </td>
                       <td className="py-4 text-sm">{q.client}</td>
                       <td className="py-4 text-sm">
                         {q.product}
