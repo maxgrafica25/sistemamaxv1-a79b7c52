@@ -86,9 +86,19 @@ export function LaborAndSupplySubform({
         <Button variant="outline" size="sm" onClick={addLabor} className="gap-1.5 h-8">
           <Clock className="h-3.5 w-3.5" /> Mão de obra
         </Button>
-        <Button variant="outline" size="sm" onClick={addMaterial} className="gap-1.5 h-8">
+        <Button variant="outline" size="sm" onClick={() => addMaterial()} className="gap-1.5 h-8">
           <Package className="h-3.5 w-3.5" /> Material
         </Button>
+        {compact && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => addMaterial("Acabamento avulso: ")}
+            className="gap-1.5 h-8"
+          >
+            <Scissors className="h-3.5 w-3.5" /> Acabamento avulso
+          </Button>
+        )}
         <LoadFromGroupDialog
           kind="labor"
           triggerLabel="Grupo (M.Obra)"
