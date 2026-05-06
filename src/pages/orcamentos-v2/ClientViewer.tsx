@@ -152,7 +152,7 @@ export default function ClientViewer() {
     setQuote(quoteRow);
     setMaterials((m.data || []) as MaterialRow[]);
     setLabor((l.data || []) as LaborRow[]);
-    setCvItems((cv.data || []) as CvItemRow[]);
+    setCvItems((cv.data || []) as unknown as CvItemRow[]);
   };
 
   useEffect(() => {
