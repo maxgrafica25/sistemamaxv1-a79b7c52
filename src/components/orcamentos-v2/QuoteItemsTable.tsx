@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers,
+  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers, Wand2,
 } from "lucide-react";
 import {
   Popover, PopoverContent, PopoverTrigger,
@@ -48,6 +48,7 @@ interface Props {
   onAddPrinting: (item: PrintingCatalogItem) => void;
   onAddProcess: (parentId: string | null, step: ProcessStep) => void;
   onExpandStepGroup: (parentId: string | null, group: ProcessGroup) => void;
+  onAddCustomFinish: (parentId: string | null, name: string, price: number) => void;
   onUpdatePrinting: (id: string, patch: Partial<PricingMaterial>) => void;
   onUpdateChildMaterial: (id: string, patch: Partial<PricingMaterial>) => void;
   onRemovePrinting: (id: string) => void;
@@ -69,7 +70,7 @@ export function QuoteItemsTable(props: Props) {
     printingCatalog, processSteps, processGroups, hourlyRate,
     printingItems, childMaterials, childLabor,
     standaloneLabor, standaloneManualMaterials, thirdParty,
-    onAddPrinting, onAddProcess, onExpandStepGroup,
+    onAddPrinting, onAddProcess, onExpandStepGroup, onAddCustomFinish,
     onUpdatePrinting, onUpdateChildMaterial,
     onRemovePrinting, onRemoveChildMaterial, onRemoveLabor,
     onChangeStandaloneLabor, onChangeStandaloneMaterials, onChangeThirdParty,
@@ -115,6 +116,7 @@ export function QuoteItemsTable(props: Props) {
               groups={processGroups}
               onPickStep={(s) => onAddProcess(m.id, s)}
               onPickGroup={(g) => onExpandStepGroup(m.id, g)}
+              onPickCustom={(name, price) => onAddCustomFinish(m.id, name, price)}
             />
           </div>
           <Input
@@ -275,6 +277,10 @@ export function QuoteItemsTable(props: Props) {
             onExpandStepGroup(null, g);
             removeDraft(d.id);
           }}
+          onPickCustomFinish={(name, price) => {
+            onAddCustomFinish(null, name, price);
+            removeDraft(d.id);
+          }}
           onCancel={() => removeDraft(d.id)}
         />
       ))}
@@ -369,7 +375,7 @@ function ProductKindButton({
 
 function DraftRowEditor({
   row, rowNumber, printingCatalog, processSteps, processGroups,
-  onSetMode, onPickPrinting, onPickProcessStep, onPickProcessGroup, onCancel,
+  onSetMode, onPickPrinting, onPickProcessStep, onPickProcessGroup, onPickCustomFinish, onCancel,
 }: {
   row: DraftRow;
   rowNumber: number;
@@ -380,6 +386,7 @@ function DraftRowEditor({
   onPickPrinting: (it: PrintingCatalogItem) => void;
   onPickProcessStep: (s: ProcessStep) => void;
   onPickProcessGroup: (g: ProcessGroup) => void;
+  onPickCustomFinish: (name: string, price: number) => void;
   onCancel: () => void;
 }) {
   return (
@@ -414,6 +421,16 @@ function DraftRowEditor({
         {row.mode === "processo" && (
           <InlineCatalogCombobox
             placeholder="Buscar processo ou grupo…"
+            extraTop={{
+              label: "Adicionar acabamento avulso",
+              icon: <Wand2 className="h-3.5 w-3.5" />,
+              renderForm: (close) => (
+                <CustomFinishForm
+                  onSubmit={(name, price) => { onPickCustomFinish(name, price); close(); }}
+                  onCancel={close}
+                />
+              ),
+            }}
             sections={[
               {
                 heading: "Processos individuais",
@@ -455,14 +472,22 @@ interface ComboOption {
 }
 interface ComboSection { heading: string; options: ComboOption[] }
 
+interface ExtraTopAction {
+  label: string;
+  icon?: React.ReactNode;
+  renderForm: (close: () => void) => React.ReactNode;
+}
+
 function InlineCatalogCombobox({
-  placeholder, sections,
+  placeholder, sections, extraTop,
 }: {
   placeholder: string;
   sections: ComboSection[];
+  extraTop?: ExtraTopAction;
 }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const filteredSections = useMemo(() => {
     const s = q.toLowerCase();
     return sections
@@ -475,6 +500,7 @@ function InlineCatalogCombobox({
       .filter((sec) => sec.options.length > 0);
   }, [q, sections]);
   const totalCount = filteredSections.reduce((n, s) => n + s.options.length, 0);
+  const showDropdown = open && (totalCount > 0 || extraTop || (q && totalCount === 0));
   return (
     <div className="relative">
       <div className="relative">
@@ -484,14 +510,29 @@ function InlineCatalogCombobox({
           value={q}
           onFocus={() => setOpen(true)}
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onBlur={() => { if (!showForm) setTimeout(() => setOpen(false), 150); }}
           placeholder={placeholder}
           className="h-8 pl-7 text-sm"
         />
       </div>
-      {open && totalCount > 0 && (
-        <div className="absolute z-50 mt-1 w-full max-h-72 overflow-auto rounded-md border bg-popover shadow-lg">
-          {filteredSections.map((sec) => (
+      {showDropdown && (
+        <div className="absolute z-50 mt-1 w-full max-h-80 overflow-auto rounded-md border bg-popover shadow-lg p-1">
+          {extraTop && !showForm && (
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); setShowForm(true); }}
+              className="flex w-full items-center gap-2 rounded-sm border border-dashed border-primary/40 bg-primary/5 px-2 py-1.5 text-left text-sm text-primary hover:bg-primary/10 mb-1"
+            >
+              {extraTop.icon}
+              <span className="font-medium">{extraTop.label}</span>
+            </button>
+          )}
+          {extraTop && showForm && (
+            <div onMouseDown={(e) => e.stopPropagation()} className="p-2">
+              {extraTop.renderForm(() => { setShowForm(false); setOpen(false); })}
+            </div>
+          )}
+          {!showForm && filteredSections.map((sec) => (
             <div key={sec.heading}>
               <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/30">
                 {sec.heading}
@@ -509,27 +550,58 @@ function InlineCatalogCombobox({
               ))}
             </div>
           ))}
-        </div>
-      )}
-      {open && q && totalCount === 0 && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg p-3 text-xs text-muted-foreground">
-          Nenhum item encontrado no catálogo.
+          {!showForm && q && totalCount === 0 && (
+            <p className="px-3 py-2 text-xs text-muted-foreground">Nenhum item no catálogo. Use o botão acima para acabamento avulso.</p>
+          )}
         </div>
       )}
     </div>
   );
 }
 
+function CustomFinishForm({
+  onSubmit, onCancel,
+}: {
+  onSubmit: (name: string, price: number) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const valid = name.trim() && parseFloat(price) > 0;
+  return (
+    <div className="space-y-2">
+      <div className="text-xs font-medium text-foreground flex items-center gap-1.5">
+        <Wand2 className="h-3.5 w-3.5 text-primary" /> Acabamento avulso
+      </div>
+      <Input autoFocus placeholder="Nome (ex: Corte especial)" value={name} onChange={(e) => setName(e.target.value)} className="h-8 text-sm" />
+      <Input type="number" inputMode="decimal" step="0.01" min="0" placeholder="Valor total (R$)" value={price} onChange={(e) => setPrice(e.target.value)} className="h-8 text-sm" />
+      <p className="text-[10px] text-muted-foreground">Válido apenas neste orçamento. Não será salvo no cadastro.</p>
+      <div className="flex justify-end gap-1.5">
+        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>Cancelar</Button>
+        <Button size="sm" className="h-7 text-xs" disabled={!valid}
+          onClick={() => onSubmit(name.trim(), parseFloat(price) || 0)}>
+          Adicionar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ProcessPicker({
-  steps, groups, onPickStep, onPickGroup,
+  steps, groups, onPickStep, onPickGroup, onPickCustom,
 }: {
   steps: ProcessStep[];
   groups: ProcessGroup[];
   onPickStep: (s: ProcessStep) => void;
   onPickGroup: (g: ProcessGroup) => void;
+  onPickCustom: (name: string, price: number) => void;
 }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [customMode, setCustomMode] = useState(false);
+  const [cName, setCName] = useState("");
+  const [cPrice, setCPrice] = useState("");
+  const reset = () => { setCustomMode(false); setCName(""); setCPrice(""); setQ(""); };
   const fSteps = useMemo(() => {
     const s = q.toLowerCase();
     return steps.filter((x) => x.description.toLowerCase().includes(s)).slice(0, 30);
@@ -539,7 +611,7 @@ function ProcessPicker({
     return groups.filter((x) => x.name.toLowerCase().includes(s)).slice(0, 30);
   }, [q, groups]);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -550,55 +622,77 @@ function ProcessPicker({
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-2">
-        <Input
-          autoFocus
-          placeholder="Buscar processo ou grupo…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="h-8 text-sm mb-2"
-        />
-        <div className="max-h-64 overflow-auto">
-          {fSteps.length === 0 && fGroups.length === 0 ? (
-            <p className="text-xs text-muted-foreground p-2">Nenhum item.</p>
-          ) : (
-            <>
-              {fSteps.length > 0 && (
+        {customMode ? (
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-foreground flex items-center gap-1.5">
+              <Wand2 className="h-3.5 w-3.5 text-primary" /> Acabamento avulso
+            </div>
+            <Input autoFocus placeholder="Nome (ex: Corte especial)" value={cName} onChange={(e) => setCName(e.target.value)} className="h-8 text-sm" />
+            <Input type="number" inputMode="decimal" step="0.01" min="0" placeholder="Valor total (R$)" value={cPrice} onChange={(e) => setCPrice(e.target.value)} className="h-8 text-sm" />
+            <p className="text-[10px] text-muted-foreground">Válido apenas neste orçamento. Não será salvo no cadastro.</p>
+            <div className="flex justify-end gap-1.5">
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={reset}>Cancelar</Button>
+              <Button size="sm" className="h-7 text-xs"
+                disabled={!cName.trim() || !(parseFloat(cPrice) > 0)}
+                onClick={() => { onPickCustom(cName.trim(), parseFloat(cPrice) || 0); setOpen(false); reset(); }}
+              >Adicionar</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Input
+              autoFocus
+              placeholder="Buscar processo ou grupo…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="h-8 text-sm mb-2"
+            />
+            <button
+              type="button"
+              onClick={() => setCustomMode(true)}
+              className="flex w-full items-center gap-2 rounded-sm border border-dashed border-primary/40 bg-primary/5 px-2 py-1.5 text-left text-sm text-primary hover:bg-primary/10 mb-2"
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              <span className="font-medium">Adicionar acabamento avulso</span>
+            </button>
+            <div className="max-h-64 overflow-auto">
+              {fSteps.length === 0 && fGroups.length === 0 ? (
+                <p className="text-xs text-muted-foreground p-2">Nenhum processo cadastrado encontrado. Use "Acabamento avulso" acima.</p>
+              ) : (
                 <>
-                  <div className="px-2 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Processos individuais</div>
-                  {fSteps.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => { onPickStep(s); setOpen(false); }}
-                      className="w-full px-2 py-1.5 text-left hover:bg-accent text-sm flex items-center justify-between gap-2 rounded"
-                    >
-                      <span className="truncate">{s.description}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0 inline-flex items-center gap-0.5">
-                        <Clock className="h-3 w-3" />{s.time_minutes} min
-                      </span>
-                    </button>
-                  ))}
+                  {fSteps.length > 0 && (
+                    <>
+                      <div className="px-2 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Processos individuais</div>
+                      {fSteps.map((s) => (
+                        <button key={s.id} type="button"
+                          onClick={() => { onPickStep(s); setOpen(false); reset(); }}
+                          className="w-full px-2 py-1.5 text-left hover:bg-accent text-sm flex items-center justify-between gap-2 rounded">
+                          <span className="truncate">{s.description}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0 inline-flex items-center gap-0.5">
+                            <Clock className="h-3 w-3" />{s.time_minutes} min
+                          </span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {fGroups.length > 0 && (
+                    <>
+                      <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Grupos de processos</div>
+                      {fGroups.map((g) => (
+                        <button key={g.id} type="button"
+                          onClick={() => { onPickGroup(g); setOpen(false); reset(); }}
+                          className="w-full px-2 py-1.5 text-left hover:bg-accent text-sm flex items-center justify-between gap-2 rounded">
+                          <span className="truncate inline-flex items-center gap-1.5"><Layers className="h-3 w-3" />{g.name}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0">{g.items.length} etapas</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
                 </>
               )}
-              {fGroups.length > 0 && (
-                <>
-                  <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Grupos de processos</div>
-                  {fGroups.map((g) => (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => { onPickGroup(g); setOpen(false); }}
-                      className="w-full px-2 py-1.5 text-left hover:bg-accent text-sm flex items-center justify-between gap-2 rounded"
-                    >
-                      <span className="truncate inline-flex items-center gap-1.5"><Layers className="h-3 w-3" />{g.name}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0">{g.items.length} etapas</span>
-                    </button>
-                  ))}
-                </>
-              )}
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </PopoverContent>
     </Popover>
   );
