@@ -56,6 +56,17 @@ interface MaterialRow {
   reference?: string | null;
 }
 interface LaborRow { id: string; description: string; time_minutes: number; parent_item_id: string | null; }
+interface CvItemRow {
+  id: string;
+  material_nome: string | null;
+  printer_nome: string | null;
+  largura_cm: number;
+  altura_cm: number;
+  quantidade: number;
+  preco_total: number;
+  tem_emenda: boolean;
+  aplicou_minimo: boolean;
+}
 
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -78,6 +89,7 @@ export default function ClientViewer() {
   const [quote, setQuote] = useState<QuoteRow | null>(null);
   const [materials, setMaterials] = useState<MaterialRow[]>([]);
   const [labor, setLabor] = useState<LaborRow[]>([]);
+  const [cvItems, setCvItems] = useState<CvItemRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
@@ -116,7 +128,7 @@ export default function ClientViewer() {
       return;
     }
 
-    const [m, l] = await Promise.all([
+    const [m, l, cv] = await Promise.all([
       supabase
         .from("quote_materials")
         .select("id, description, quantity, unit_price, sort_order, status, approved_at, approved_value, parent_item_id, generated_title, reference")
@@ -128,11 +140,17 @@ export default function ClientViewer() {
         .select("id, description, time_minutes, sort_order, parent_item_id")
         .eq("quote_id", quoteRow.id)
         .order("sort_order"),
+      supabase
+        .from("cv_quote_items")
+        .select("id, material_nome, printer_nome, largura_cm, altura_cm, quantidade, preco_total, tem_emenda, aplicou_minimo, sort_order")
+        .eq("quote_id", quoteRow.id)
+        .order("sort_order"),
     ]);
 
     setQuote(quoteRow);
     setMaterials((m.data || []) as MaterialRow[]);
     setLabor((l.data || []) as LaborRow[]);
+    setCvItems((cv.data || []) as CvItemRow[]);
   };
 
   useEffect(() => {
@@ -577,7 +595,53 @@ export default function ClientViewer() {
           </Card>
         )}
 
-        {/* Modo legado: opções de quantidade (orçamentos antigos sem materials) */}
+        {/* Comunicação Visual — itens informativos */}
+        {cvItems.length > 0 && (
+          <Card className="border-border/60 shadow-sm">
+            <CardContent className="p-5 sm:p-6 space-y-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                {hasAnyPending || hasAnyApproved ? "Comunicação Visual" : "O que está incluso"}
+              </h2>
+              <ul className="space-y-2 text-sm">
+                {cvItems.map((cv) => {
+                  const dimL = Number(cv.largura_cm) / 100;
+                  const dimA = Number(cv.altura_cm) / 100;
+                  const dim = `${dimL.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}m × ${dimA.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}m`;
+                  return (
+                    <li
+                      key={cv.id}
+                      className="flex items-start gap-3 rounded-md border border-border bg-card p-3"
+                    >
+                      <Package className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-foreground font-medium">
+                          {cv.material_nome || "Material de comunicação visual"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {dim} · {cv.quantidade} un
+                          {cv.printer_nome ? ` · ${cv.printer_nome}` : ""}
+                        </p>
+                        {(cv.tem_emenda || cv.aplicou_minimo) && (
+                          <div className="flex gap-1.5 mt-1">
+                            {cv.tem_emenda && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">Com emenda</Badge>
+                            )}
+                            {cv.aplicou_minimo && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">Mínimo aplicado</Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-sm font-semibold text-foreground shrink-0">
+                        {formatBRL(Number(cv.preco_total))}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
         {showOptionsMode && (
           <section className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground px-1">
@@ -597,7 +661,7 @@ export default function ClientViewer() {
         )}
 
         {/* Sem itens nem opções — exibe valor único */}
-        {!hasMultipleOptions && materials.length === 0 && (
+        {!hasMultipleOptions && materials.length === 0 && cvItems.length === 0 && (
           <Card className="border-primary/30 bg-primary/5 shadow-sm">
             <CardContent className="p-5 sm:p-6">
               <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">

@@ -559,8 +559,20 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       toast.error("Este orçamento está travado. Crie uma nova versão para alterá-lo.");
       return;
     }
-    if (!client.trim() || !product.trim()) {
-      toast.error("Preencha o cliente e o produto");
+    if (!clientId || !client.trim()) {
+      toast.error("Selecione um cliente para continuar.");
+      return;
+    }
+    if (materials.length === 0 && cvItems.length === 0) {
+      toast.error("Adicione pelo menos 1 item ao orçamento (gráfico ou comunicação visual).");
+      return;
+    }
+    if (!paymentMethod) {
+      toast.error("Selecione a forma de pagamento.");
+      return;
+    }
+    if (!product.trim()) {
+      toast.error("Preencha a descrição do produto/serviço.");
       return;
     }
     try {
