@@ -160,7 +160,22 @@ export function CVItemCard({
       acabamentos: prev.acabamentos.map((a) => (a.finish_id === finishId ? { ...a, quantidade_unidades: qty } : a)),
     }));
 
+  const addCustomAcabamento = (nome: string, valor: number) => {
+    const id = `custom-${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
+    setLocal((prev) => ({
+      ...prev,
+      acabamentos: [
+        ...prev.acabamentos,
+        { finish_id: id, quantidade_unidades: 1, custom: { nome, valor } },
+      ],
+    }));
+  };
+
   const [finishPickerOpen, setFinishPickerOpen] = useState(false);
+  const [customMode, setCustomMode] = useState(false);
+  const [customNome, setCustomNome] = useState("");
+  const [customValor, setCustomValor] = useState("");
+  const resetCustom = () => { setCustomMode(false); setCustomNome(""); setCustomValor(""); };
 
   return (
     <Card className="border-border/60">
