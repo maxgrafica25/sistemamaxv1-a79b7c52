@@ -472,14 +472,22 @@ interface ComboOption {
 }
 interface ComboSection { heading: string; options: ComboOption[] }
 
+interface ExtraTopAction {
+  label: string;
+  icon?: React.ReactNode;
+  renderForm: (close: () => void) => React.ReactNode;
+}
+
 function InlineCatalogCombobox({
-  placeholder, sections,
+  placeholder, sections, extraTop,
 }: {
   placeholder: string;
   sections: ComboSection[];
+  extraTop?: ExtraTopAction;
 }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const filteredSections = useMemo(() => {
     const s = q.toLowerCase();
     return sections
@@ -492,6 +500,7 @@ function InlineCatalogCombobox({
       .filter((sec) => sec.options.length > 0);
   }, [q, sections]);
   const totalCount = filteredSections.reduce((n, s) => n + s.options.length, 0);
+  const showDropdown = open && (totalCount > 0 || extraTop || (q && totalCount === 0));
   return (
     <div className="relative">
       <div className="relative">
@@ -501,14 +510,29 @@ function InlineCatalogCombobox({
           value={q}
           onFocus={() => setOpen(true)}
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onBlur={() => { if (!showForm) setTimeout(() => setOpen(false), 150); }}
           placeholder={placeholder}
           className="h-8 pl-7 text-sm"
         />
       </div>
-      {open && totalCount > 0 && (
-        <div className="absolute z-50 mt-1 w-full max-h-72 overflow-auto rounded-md border bg-popover shadow-lg">
-          {filteredSections.map((sec) => (
+      {showDropdown && (
+        <div className="absolute z-50 mt-1 w-full max-h-80 overflow-auto rounded-md border bg-popover shadow-lg p-1">
+          {extraTop && !showForm && (
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); setShowForm(true); }}
+              className="flex w-full items-center gap-2 rounded-sm border border-dashed border-primary/40 bg-primary/5 px-2 py-1.5 text-left text-sm text-primary hover:bg-primary/10 mb-1"
+            >
+              {extraTop.icon}
+              <span className="font-medium">{extraTop.label}</span>
+            </button>
+          )}
+          {extraTop && showForm && (
+            <div onMouseDown={(e) => e.stopPropagation()} className="p-2">
+              {extraTop.renderForm(() => { setShowForm(false); setOpen(false); })}
+            </div>
+          )}
+          {!showForm && filteredSections.map((sec) => (
             <div key={sec.heading}>
               <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/30">
                 {sec.heading}
@@ -526,13 +550,39 @@ function InlineCatalogCombobox({
               ))}
             </div>
           ))}
+          {!showForm && q && totalCount === 0 && (
+            <p className="px-3 py-2 text-xs text-muted-foreground">Nenhum item no catálogo. Use o botão acima para acabamento avulso.</p>
+          )}
         </div>
       )}
-      {open && q && totalCount === 0 && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg p-3 text-xs text-muted-foreground">
-          Nenhum item encontrado no catálogo.
-        </div>
-      )}
+    </div>
+  );
+}
+
+function CustomFinishForm({
+  onSubmit, onCancel,
+}: {
+  onSubmit: (name: string, price: number) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const valid = name.trim() && parseFloat(price) > 0;
+  return (
+    <div className="space-y-2">
+      <div className="text-xs font-medium text-foreground flex items-center gap-1.5">
+        <Wand2 className="h-3.5 w-3.5 text-primary" /> Acabamento avulso
+      </div>
+      <Input autoFocus placeholder="Nome (ex: Corte especial)" value={name} onChange={(e) => setName(e.target.value)} className="h-8 text-sm" />
+      <Input type="number" inputMode="decimal" step="0.01" min="0" placeholder="Valor total (R$)" value={price} onChange={(e) => setPrice(e.target.value)} className="h-8 text-sm" />
+      <p className="text-[10px] text-muted-foreground">Válido apenas neste orçamento. Não será salvo no cadastro.</p>
+      <div className="flex justify-end gap-1.5">
+        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>Cancelar</Button>
+        <Button size="sm" className="h-7 text-xs" disabled={!valid}
+          onClick={() => onSubmit(name.trim(), parseFloat(price) || 0)}>
+          Adicionar
+        </Button>
+      </div>
     </div>
   );
 }
