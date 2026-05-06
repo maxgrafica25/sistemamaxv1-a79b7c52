@@ -27,7 +27,12 @@ export interface CVItemState {
   largura_cm: number;
   altura_cm: number;
   quantidade: number;
-  acabamentos: Array<{ finish_id: string; quantidade_unidades: number }>;
+  acabamentos: Array<{
+    finish_id: string;
+    quantidade_unidades: number;
+    /** Quando presente, é um acabamento avulso (não cadastrado), válido só neste orçamento. */
+    custom?: { nome: string; valor: number };
+  }>;
 }
 
 interface Props {
