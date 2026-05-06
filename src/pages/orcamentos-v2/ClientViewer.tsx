@@ -144,7 +144,7 @@ export default function ClientViewer() {
         .order("sort_order"),
       supabase
         .from("cv_quote_items")
-        .select("id, material_nome, printer_nome, largura_cm, altura_cm, quantidade, preco_total, tem_emenda, aplicou_minimo, sort_order")
+        .select("id, material_nome, printer_nome, largura_cm, altura_cm, quantidade, preco_total, tem_emenda, aplicou_minimo, sort_order, finishes_json")
         .eq("quote_id", quoteRow.id)
         .order("sort_order"),
     ]);
