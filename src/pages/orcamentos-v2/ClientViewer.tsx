@@ -633,6 +633,19 @@ export default function ClientViewer() {
                             )}
                           </div>
                         )}
+                        {Array.isArray(cv.finishes_json) && cv.finishes_json.length > 0 && (
+                          <ul className="mt-1.5 space-y-0.5">
+                            {cv.finishes_json.map((fj, idx) => {
+                              const nome = fj.custom?.nome || (fj as any).nome || null;
+                              if (!nome) return null;
+                              return (
+                                <li key={idx} className="text-xs text-muted-foreground">
+                                  • {nome}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
                       </div>
                       <span className="text-sm font-semibold text-foreground shrink-0">
                         {formatBRL(Number(cv.preco_total))}
