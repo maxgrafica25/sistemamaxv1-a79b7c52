@@ -421,6 +421,16 @@ function DraftRowEditor({
         {row.mode === "processo" && (
           <InlineCatalogCombobox
             placeholder="Buscar processo ou grupo…"
+            extraTop={{
+              label: "Adicionar acabamento avulso",
+              icon: <Wand2 className="h-3.5 w-3.5" />,
+              renderForm: (close) => (
+                <CustomFinishForm
+                  onSubmit={(name, price) => { onPickCustomFinish(name, price); close(); }}
+                  onCancel={close}
+                />
+              ),
+            }}
             sections={[
               {
                 heading: "Processos individuais",
