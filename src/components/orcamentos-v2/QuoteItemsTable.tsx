@@ -70,7 +70,7 @@ export function QuoteItemsTable(props: Props) {
     printingCatalog, processSteps, processGroups, hourlyRate,
     printingItems, childMaterials, childLabor,
     standaloneLabor, standaloneManualMaterials, thirdParty,
-    onAddPrinting, onAddProcess, onExpandStepGroup,
+    onAddPrinting, onAddProcess, onExpandStepGroup, onAddCustomFinish,
     onUpdatePrinting, onUpdateChildMaterial,
     onRemovePrinting, onRemoveChildMaterial, onRemoveLabor,
     onChangeStandaloneLabor, onChangeStandaloneMaterials, onChangeThirdParty,
