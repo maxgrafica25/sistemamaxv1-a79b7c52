@@ -377,13 +377,21 @@ export function CVItemCard({
           ) : (
             <div className="space-y-1.5">
               {local.acabamentos.map((a) => {
-                const f = acabamentos.find((x) => x.id === a.finish_id);
-                if (!f) return null;
-                const finishResult = result.finishes.find((r) => r.finish_id === f.id);
+                const isCustom = !!a.custom;
+                const f = isCustom ? null : acabamentos.find((x) => x.id === a.finish_id);
+                if (!isCustom && !f) return null;
+                const finishResult = result.finishes.find((r) => r.finish_id === a.finish_id);
+                const nome = isCustom ? (a.custom!.nome || "Acabamento avulso") : f!.nome;
+                const tipo = isCustom ? "fixo" : f!.tipo_calculo;
                 return (
                   <div key={a.finish_id} className="flex items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
-                    <span className="flex-1 text-sm font-medium truncate">{f.nome}</span>
-                    {f.tipo_calculo === "unidade" && (
+                    <span className="flex-1 text-sm font-medium truncate flex items-center gap-1.5">
+                      {nome}
+                      {isCustom && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">avulso</Badge>
+                      )}
+                    </span>
+                    {tipo === "unidade" && (
                       <Input
                         type="number" min="1" step="1"
                         value={a.quantidade_unidades || 1}
