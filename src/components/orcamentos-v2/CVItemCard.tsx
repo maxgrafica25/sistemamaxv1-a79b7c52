@@ -104,12 +104,23 @@ export function CVItemCard({
   const appliedFinishes: CVAppliedFinish[] = useMemo(() => {
     return debounced.acabamentos
       .map((a) => {
+        if (a.custom) {
+          const synth: CVFinish = {
+            id: a.finish_id,
+            nome: a.custom.nome || "Acabamento avulso",
+            tipo_calculo: "fixo",
+            custo: Number(a.custom.valor) || 0,
+            margem_pct: 0,
+            categoria_compativel: material ? [material.categoria] : [],
+          };
+          return { finish: synth, quantidade_unidades: 1 };
+        }
         const f = acabamentos.find((x) => x.id === a.finish_id);
         if (!f) return null;
         return { finish: f, quantidade_unidades: a.quantidade_unidades };
       })
       .filter(Boolean) as CVAppliedFinish[];
-  }, [debounced.acabamentos, acabamentos]);
+  }, [debounced.acabamentos, acabamentos, material]);
 
   // Compute (memoised, pure)
   const result = useMemo(
