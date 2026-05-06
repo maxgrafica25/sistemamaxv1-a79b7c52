@@ -116,6 +116,7 @@ export function QuoteItemsTable(props: Props) {
               groups={processGroups}
               onPickStep={(s) => onAddProcess(m.id, s)}
               onPickGroup={(g) => onExpandStepGroup(m.id, g)}
+              onPickCustom={(name, price) => onAddCustomFinish(m.id, name, price)}
             />
           </div>
           <Input
