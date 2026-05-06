@@ -1,35 +1,53 @@
-## Problema
-Na página pública do orçamento (`ClientViewer.tsx`), os processos de produção (acabamentos vinculados via `parent_item_id`) são exibidos apenas como uma mensagem genérica no rodapé: "Inclui mão de obra especializada (X etapas)". O cliente final não vê quais acabamentos foram aplicados a cada item de impressão.
+## Ajustes no Orçamento V2
 
-## Solução
-Listar os nomes dos processos filhos diretamente abaixo do título de cada item de impressão, dentro do mesmo card, em fonte menor e cor secundária.
+### 1. Exibir itens de Comunicação Visual na página pública
 
-### Alterações em `src/pages/orcamentos-v2/ClientViewer.tsx`
+**Arquivo:** `src/pages/orcamentos-v2/ClientViewer.tsx`
 
-1. **Buscar `parent_item_id` nas etapas de mão de obra** (query em `loadData`):
-   - Atualizar o `select` da tabela `quote_labor_steps` para incluir `parent_item_id`.
-   - Atualizar o tipo `LaborRow` correspondente.
+- Criar interface `CvItemRow` com os campos: `id, material_nome, printer_nome, largura_cm, altura_cm, quantidade, preco_total, tem_emenda, aplicou_minimo`.
+- Adicionar state `cvItems` e buscar em `loadData()` (junto com materials/labor):
+  ```ts
+  supabase.from("cv_quote_items")
+    .select("id, material_nome, printer_nome, largura_cm, altura_cm, quantidade, preco_total, tem_emenda, aplicou_minimo, sort_order")
+    .eq("quote_id", quoteRow.id)
+    .order("sort_order")
+  ```
+- Renderizar dentro do mesmo card "O QUE ESTÁ INCLUSO" (bloco pendentes), logo abaixo da lista atual de `pendingItems`, ou — caso não existam materials gráficos — exibir o card mesmo assim.
+- Ajustar a condição que mostra o card de "valor único" (linha 600) para também considerar `cvItems.length === 0`, evitando duplicidade.
+- Cada linha CV exibe:
+  - **Título:** `{material_nome}` (ex: "Lona Front 440g")
+  - **Subtítulo (muted, xs):** `{largura}m × {altura}m · {quantidade} un · {printer_nome}` + tags ("Com emenda" / "Mínimo aplicado") se aplicável.
+  - **Valor à direita:** `formatBRL(preco_total)`.
+- Sem checkbox de aprovação parcial nesta primeira versão (CV entra como item informativo, somando ao subtotal global do quote). Manter ícone `Package` como visual.
 
-2. **Agrupar labor por parent**:
-   - Criar um `useMemo` que monta um `Map<string, LaborRow[]>` agrupando etapas por `parent_item_id` (ignorando as órfãs/sem parent — essas continuarão fora da listagem por item).
+### 2. Validações obrigatórias antes de salvar
 
-3. **Renderizar dentro do card de cada item de impressão** (loop dos `materials`, ~linha 517):
-   - Logo abaixo do `<p>{m.generated_title || m.description}</p>`, se houver labor children para `m.id`, renderizar uma lista compacta:
-     ```tsx
-     {childLabor.length > 0 && (
-       <p className="text-xs text-muted-foreground mt-1">
-         + {childLabor.map(l => l.description).join(", ")}
-       </p>
-     )}
-     ```
-   - Mantém estilo discreto (cinza, fonte pequena), formato: `+ Laminação Fosca, Corte e Vinco, Furo`.
+**Arquivo:** `src/components/orcamentos-v2/NewQuoteFormV2.tsx` — função `handleSave` (linha 557).
 
-4. **Remover o bloco genérico** (linhas 548–554):
-   - Excluir o `{labor.length > 0 && (...)}` com "Inclui mão de obra especializada".
+Substituir o bloco atual de validação pelas três travas exigidas, **antes** de montar o payload:
 
-### Comportamento
-- Etapas órfãs (sem `parent_item_id`) — se existirem em orçamentos antigos — deixam de aparecer na visualização pública. Como o custo dessas etapas já está incluído no `unit_price` dos itens via cálculo do orçamento, isso não afeta valores exibidos.
-- Itens sem processos filhos continuam exibidos sem nenhuma linha extra.
+```ts
+// 1. Cliente obrigatório (ID vinculado, não apenas texto livre)
+if (!clientId || !client.trim()) {
+  toast.error("Selecione um cliente para continuar.");
+  return;
+}
 
-### Arquivo único alterado
-- `src/pages/orcamentos-v2/ClientViewer.tsx`
+// 2. Pelo menos 1 item (gráfico OU comunicação visual)
+if (materials.length === 0 && cvItems.length === 0) {
+  toast.error("Adicione pelo menos 1 item ao orçamento (gráfico ou comunicação visual).");
+  return;
+}
+
+// 3. Forma de pagamento obrigatória
+if (!paymentMethod) {
+  toast.error("Selecione a forma de pagamento.");
+  return;
+}
+```
+
+Manter a checagem existente de `isLocked` no topo. Remover/substituir a validação antiga de `product.trim()` (o produto pode ser derivado dos itens; se necessário manter, transformar em fallback automático em vez de bloquear).
+
+### Notas técnicas
+- Tabela `cv_quote_items` já existe com RLS de leitura para autenticados — a página pública é acessada sem auth via `/p/:quoteNumber`. Verificar se a policy SELECT permite anon; caso negativo, ajustar policy em migration separada para liberar leitura pública (mesmo padrão de `quote_materials`). Confirmar antes de implementar; se SELECT for restrito, incluir migration que adiciona `CREATE POLICY "Public can read cv_quote_items" ON cv_quote_items FOR SELECT USING (true);`.
+- Não alterar lógica de salvamento de CV items — apenas leitura na página pública e validação no save.
