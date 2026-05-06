@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, Clock, Package } from "lucide-react";
+import { Plus, X, Clock, Package, Scissors } from "lucide-react";
 import { LoadFromGroupDialog } from "./LoadFromGroupDialog";
 import { STEP_TYPES } from "./StepTypeBadge";
 import type { PricingMaterial, PricingLaborStep } from "@/lib/quotes-v2/pricing";
