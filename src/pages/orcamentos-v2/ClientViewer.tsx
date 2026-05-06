@@ -128,7 +128,7 @@ export default function ClientViewer() {
       return;
     }
 
-    const [m, l] = await Promise.all([
+    const [m, l, cv] = await Promise.all([
       supabase
         .from("quote_materials")
         .select("id, description, quantity, unit_price, sort_order, status, approved_at, approved_value, parent_item_id, generated_title, reference")
@@ -140,11 +140,17 @@ export default function ClientViewer() {
         .select("id, description, time_minutes, sort_order, parent_item_id")
         .eq("quote_id", quoteRow.id)
         .order("sort_order"),
+      supabase
+        .from("cv_quote_items")
+        .select("id, material_nome, printer_nome, largura_cm, altura_cm, quantidade, preco_total, tem_emenda, aplicou_minimo, sort_order")
+        .eq("quote_id", quoteRow.id)
+        .order("sort_order"),
     ]);
 
     setQuote(quoteRow);
     setMaterials((m.data || []) as MaterialRow[]);
     setLabor((l.data || []) as LaborRow[]);
+    setCvItems((cv.data || []) as CvItemRow[]);
   };
 
   useEffect(() => {
