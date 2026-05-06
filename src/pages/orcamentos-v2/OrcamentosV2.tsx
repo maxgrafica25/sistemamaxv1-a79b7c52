@@ -347,6 +347,7 @@ export default function OrcamentosV2() {
                     />
                   </th>
                   <th className="pb-3">Nº</th>
+                  <th className="pb-3">Data</th>
                   <th className="pb-3">Cliente</th>
                   <th className="pb-3">Produto/Serviço</th>
                   <th className="pb-3">Valor</th>
