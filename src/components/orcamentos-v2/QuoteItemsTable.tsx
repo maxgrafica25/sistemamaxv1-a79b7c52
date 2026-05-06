@@ -277,6 +277,10 @@ export function QuoteItemsTable(props: Props) {
             onExpandStepGroup(null, g);
             removeDraft(d.id);
           }}
+          onPickCustomFinish={(name, price) => {
+            onAddCustomFinish(null, name, price);
+            removeDraft(d.id);
+          }}
           onCancel={() => removeDraft(d.id)}
         />
       ))}
