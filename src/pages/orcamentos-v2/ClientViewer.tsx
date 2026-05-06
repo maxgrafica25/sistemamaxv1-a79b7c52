@@ -595,7 +595,53 @@ export default function ClientViewer() {
           </Card>
         )}
 
-        {/* Modo legado: opções de quantidade (orçamentos antigos sem materials) */}
+        {/* Comunicação Visual — itens informativos */}
+        {cvItems.length > 0 && (
+          <Card className="border-border/60 shadow-sm">
+            <CardContent className="p-5 sm:p-6 space-y-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                {hasAnyPending || hasAnyApproved ? "Comunicação Visual" : "O que está incluso"}
+              </h2>
+              <ul className="space-y-2 text-sm">
+                {cvItems.map((cv) => {
+                  const dimL = Number(cv.largura_cm) / 100;
+                  const dimA = Number(cv.altura_cm) / 100;
+                  const dim = `${dimL.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}m × ${dimA.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}m`;
+                  return (
+                    <li
+                      key={cv.id}
+                      className="flex items-start gap-3 rounded-md border border-border bg-card p-3"
+                    >
+                      <Package className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-foreground font-medium">
+                          {cv.material_nome || "Material de comunicação visual"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {dim} · {cv.quantidade} un
+                          {cv.printer_nome ? ` · ${cv.printer_nome}` : ""}
+                        </p>
+                        {(cv.tem_emenda || cv.aplicou_minimo) && (
+                          <div className="flex gap-1.5 mt-1">
+                            {cv.tem_emenda && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">Com emenda</Badge>
+                            )}
+                            {cv.aplicou_minimo && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">Mínimo aplicado</Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-sm font-semibold text-foreground shrink-0">
+                        {formatBRL(Number(cv.preco_total))}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
         {showOptionsMode && (
           <section className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground px-1">
