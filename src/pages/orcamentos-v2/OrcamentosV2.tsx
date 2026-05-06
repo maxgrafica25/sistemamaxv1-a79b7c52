@@ -347,6 +347,7 @@ export default function OrcamentosV2() {
                     />
                   </th>
                   <th className="pb-3">Nº</th>
+                  <th className="pb-3">Data</th>
                   <th className="pb-3">Cliente</th>
                   <th className="pb-3">Produto/Serviço</th>
                   <th className="pb-3">Valor</th>
@@ -394,6 +395,9 @@ export default function OrcamentosV2() {
                             </Badge>
                           )}
                         </div>
+                      </td>
+                      <td className="py-4 text-sm text-muted-foreground whitespace-nowrap">
+                        {q.date ? new Date(q.date).toLocaleDateString("pt-BR") : "—"}
                       </td>
                       <td className="py-4 text-sm">{q.client}</td>
                       <td className="py-4 text-sm">
