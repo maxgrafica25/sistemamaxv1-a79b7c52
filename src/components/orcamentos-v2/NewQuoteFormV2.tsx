@@ -367,6 +367,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           ? (it.finishes_json as any[]).map((a) => ({
               finish_id: a.finish_id,
               quantidade_unidades: a.quantidade_unidades ?? 1,
+              ...(a.custom ? { custom: { nome: String(a.custom.nome ?? ""), valor: Number(a.custom.valor) || 0 } } : {}),
             }))
           : [],
       })));
