@@ -864,6 +864,18 @@ export default function ClientViewer() {
           if (quote?.id) void trackEvent(quote.id, "whatsapp_share");
         }}
       />
+
+      <ApprovalConfirmDialog
+        open={approvalDialog.open}
+        onOpenChange={(o) => !submitting && setApprovalDialog((s) => ({ ...s, open: o }))}
+        quoteNumber={quote.quote_number}
+        items={approvalDialog.items}
+        total={approvalDialog.total}
+        termsText={buildApprovalTermsText(quote.quote_number)}
+        defaultName={quote.client}
+        submitting={submitting}
+        onConfirm={confirmApproval}
+      />
     </div>
   );
 }
