@@ -778,6 +778,7 @@ export default function ClientViewer() {
           clientName={quote.client}
           mode={showOptionsMode ? "option" : "items"}
           selectedItemCount={selectedItemIds.size}
+          totalItemCount={pendingItems.length}
           onApproveItems={handlePartialApproval}
           submitting={submitting}
         />
