@@ -453,13 +453,30 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     [cvResults],
   );
 
+  const subtotalBeforeDiscount = useMemo(
+    () => live.totalToCharge + cvTotal,
+    [live.totalToCharge, cvTotal],
+  );
+
   const discountedTotal = useMemo(() => {
-    const baseTotal = live.totalToCharge + cvTotal;
+    const baseTotal = subtotalBeforeDiscount;
     if (!discountValue || discountValue <= 0) return baseTotal;
     return discountType === "percent"
       ? baseTotal * (1 - discountValue / 100)
       : Math.max(0, baseTotal - discountValue);
-  }, [live.totalToCharge, cvTotal, discountValue, discountType]);
+  }, [subtotalBeforeDiscount, discountValue, discountType]);
+
+  // Reaplica clamp se subtotal/tipo mudar e desconto vigente exceder o limite
+  useEffect(() => {
+    if (!discountValue || discountValue <= 0) return;
+    if (discountType === "percent" && discountValue > MAX_DISCOUNT_PERCENT) {
+      setDiscountValue(MAX_DISCOUNT_PERCENT);
+    } else if (discountType === "brl") {
+      const max = subtotalBeforeDiscount * MAX_DISCOUNT_PERCENT / 100;
+      if (max > 0 && discountValue > max) setDiscountValue(Number(max.toFixed(2)));
+    }
+  }, [discountType, subtotalBeforeDiscount, discountValue]);
+
 
   // ---------- Handlers ----------
   const addPrintingItem = (item: PrintingCatalogItem) => {
