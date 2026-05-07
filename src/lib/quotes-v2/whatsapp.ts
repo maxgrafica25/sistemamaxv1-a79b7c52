@@ -11,6 +11,13 @@ export const buildWaUrl = (message: string, phone: string): string => {
   return `https://wa.me/${clean}?text=${encodeURIComponent(message)}`;
 };
 
+/** Link direto para WhatsApp Web (desktop). Não passa pelo prompt "abrir app". */
+export const buildWaWebUrl = (message: string, phone: string): string => {
+  const clean = sanitize(phone);
+  if (!clean) return "";
+  return `https://web.whatsapp.com/send?phone=${clean}&text=${encodeURIComponent(message)}`;
+};
+
 export const buildApprovalMessage = (params: {
   quoteNumber: string;
   optionLabel?: string;
