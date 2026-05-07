@@ -67,7 +67,7 @@ interface Props {
 const fmt = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-const GRID = "grid grid-cols-[32px_140px_1fr_90px_60px_110px_110px_36px] items-center gap-2";
+const GRID = "grid grid-cols-[32px_140px_1fr_90px_60px_110px_110px_72px] items-center gap-2";
 
 export function QuoteItemsTable(props: Props) {
   const {
