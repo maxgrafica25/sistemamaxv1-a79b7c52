@@ -80,7 +80,7 @@ export default function OrcamentosV2() {
     const [quotesRes, eventsRes] = await Promise.all([
       supabase
         .from("quotes")
-        .select("id, quote_number, client, client_phone, product, value, status, date, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id")
+        .select("id, quote_number, client, client_phone, product, value, status, date, created_at, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id")
         .order("created_at", { ascending: false }),
       supabase
         .from("quote_engagement_events")
