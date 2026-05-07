@@ -55,6 +55,24 @@ const formatBRL = (n: number) =>
 const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
 const roundUp5 = (v: number) => Math.ceil(v * 20 - 1e-9) / 20;
 
+// Pré-preenche dimensões em mm a partir de tamanhos padrão do catálogo.
+const STANDARD_SIZE_MM: Record<string, [number, number]> = {
+  A4: [210, 297],
+  A3: [297, 420],
+  SRA3: [320, 450],
+  A5: [148, 210],
+  A6: [105, 148],
+  CARTA: [216, 279],
+};
+const guessWidthMmFromSize = (size?: string | null): number | null => {
+  const k = (size || "").toUpperCase().trim();
+  return STANDARD_SIZE_MM[k]?.[0] ?? null;
+};
+const guessHeightMmFromSize = (size?: string | null): number | null => {
+  const k = (size || "").toUpperCase().trim();
+  return STANDARD_SIZE_MM[k]?.[1] ?? null;
+};
+
 const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
   const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
   const divisor = 1 - soma;
@@ -362,6 +380,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         grammage: m.grammage ?? null,
         size: m.size ?? null,
         side: m.side ?? null,
+        widthMm: m.width_mm != null ? Number(m.width_mm) : null,
+        heightMm: m.height_mm != null ? Number(m.height_mm) : null,
+        printColors: m.print_colors ?? null,
         catalogSource: (m.catalog_source as "printing" | "finishing" | null) ?? null,
         catalogItemId: m.catalog_item_id ?? null,
       })));
@@ -503,6 +524,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       grammage: item.grammage ?? null,
       size: item.size ?? null,
       side: item.side ?? null,
+      widthMm: guessWidthMmFromSize(item.size),
+      heightMm: guessHeightMmFromSize(item.size),
+      printColors: item.side === "F/V" ? "4x4" : item.side === "Simples" ? "4x0" : null,
       productKind: null,
       customName: null,
       reference: null,
@@ -701,6 +725,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             grammage: rootMat.grammage,
             size: rootMat.size,
             side: rootMat.side,
+            widthMm: rootMat.widthMm,
+            heightMm: rootMat.heightMm,
+            printColors: rootMat.printColors,
             finishes: childDesc,
           });
         };
@@ -726,6 +753,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 grammage: m.grammage ?? null,
                 size: m.size ?? null,
                 side: m.side ?? null,
+                width_mm: m.widthMm ?? null,
+                height_mm: m.heightMm ?? null,
+                print_colors: m.printColors ?? null,
                 catalog_source: m.catalogSource ?? null,
                 catalog_item_id: m.catalogItemId ?? null,
               })),
@@ -757,6 +787,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               grammage: m.grammage ?? null,
               size: m.size ?? null,
               side: m.side ?? null,
+              width_mm: m.widthMm ?? null,
+              height_mm: m.heightMm ?? null,
+              print_colors: m.printColors ?? null,
             })
             .eq("id", m.id);
         }

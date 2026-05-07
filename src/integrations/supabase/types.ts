@@ -2232,9 +2232,11 @@ export type Database = {
           description: string
           generated_title: string | null
           grammage: string | null
+          height_mm: number | null
           id: string
           paper_type: string | null
           parent_item_id: string | null
+          print_colors: string | null
           product_kind: string | null
           quantity: number
           quote_id: string
@@ -2244,6 +2246,7 @@ export type Database = {
           sort_order: number
           status: string
           unit_price: number
+          width_mm: number | null
         }
         Insert: {
           approved_at?: string | null
@@ -2254,9 +2257,11 @@ export type Database = {
           description: string
           generated_title?: string | null
           grammage?: string | null
+          height_mm?: number | null
           id?: string
           paper_type?: string | null
           parent_item_id?: string | null
+          print_colors?: string | null
           product_kind?: string | null
           quantity?: number
           quote_id: string
@@ -2266,6 +2271,7 @@ export type Database = {
           sort_order?: number
           status?: string
           unit_price?: number
+          width_mm?: number | null
         }
         Update: {
           approved_at?: string | null
@@ -2276,9 +2282,11 @@ export type Database = {
           description?: string
           generated_title?: string | null
           grammage?: string | null
+          height_mm?: number | null
           id?: string
           paper_type?: string | null
           parent_item_id?: string | null
+          print_colors?: string | null
           product_kind?: string | null
           quantity?: number
           quote_id?: string
@@ -2288,6 +2296,7 @@ export type Database = {
           sort_order?: number
           status?: string
           unit_price?: number
+          width_mm?: number | null
         }
         Relationships: [
           {

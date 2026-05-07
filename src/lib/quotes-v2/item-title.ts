@@ -2,31 +2,56 @@
 // Pure function — no regex, no string parsing of free-text descriptions.
 // Sources are the structured catalog attributes already attached to the item.
 
-export const PRODUCT_KIND_OPTIONS = [
-  { value: "cartao_visita", label: "Cartão de Visita" },
-  { value: "panfleto", label: "Panfleto / Flyer" },
-  { value: "folder", label: "Folder" },
-  { value: "cartaz", label: "Cartaz" },
-  { value: "receituario", label: "Receituário" },
-  { value: "tag", label: "Tag" },
-  { value: "adesivo", label: "Adesivo" },
-  { value: "impresso", label: "Impresso" },
-  { value: "outro", label: "Outro (Especificar)" },
+// Sugestões de "Tipo de Material" para o autocomplete. O usuário pode escolher
+// uma sugestão padronizada ou digitar o seu próprio nome — o campo é livre.
+export const PRODUCT_KIND_SUGGESTIONS = [
+  "Panfleto",
+  "Cartão de Visita",
+  "Tag",
+  "Apostila",
+  "Cartaz",
+  "Folder",
+  "Receituário",
+  "Adesivo",
+  "Convite",
+  "Bloco",
+  "Etiqueta",
+  "Impresso",
 ] as const;
 
-export type ProductKind = (typeof PRODUCT_KIND_OPTIONS)[number]["value"];
+// Mantido por compatibilidade com código legado (usado por imports antigos).
+// Cada sugestão vira uma opção {value, label} idêntica ao texto.
+export const PRODUCT_KIND_OPTIONS = PRODUCT_KIND_SUGGESTIONS.map((s) => ({
+  value: s,
+  label: s,
+}));
+
+export type ProductKind = string;
 
 export const productKindLabel = (kind?: string | null): string | undefined => {
   if (!kind) return undefined;
-  const o = PRODUCT_KIND_OPTIONS.find((x) => x.value === kind);
-  return o?.label;
+  return kind.trim() || undefined;
 };
+
+export const PRINT_COLOR_OPTIONS = ["4x4", "4x0", "1x1", "1x0"] as const;
+export type PrintColors = (typeof PRINT_COLOR_OPTIONS)[number];
 
 export const colorsFromSide = (side?: string | null): string | undefined => {
   if (!side) return undefined;
   const s = side.trim().toUpperCase();
   if (s === "F/V" || s === "FV" || s === "FRENTE/VERSO") return "4x4";
   if (s === "SIMPLES" || s === "F" || s === "FRENTE") return "4x0";
+  return undefined;
+};
+
+// Frente/verso ou simples derivado da cor de impressão (usado para multiplicadores de preço).
+export const sideFromPrintColors = (
+  pc?: string | null,
+): "F/V" | "Simples" | undefined => {
+  if (!pc) return undefined;
+  const s = pc.trim().toLowerCase();
+  if (s === "4x4" || s === "1x1") return "F/V";
+  if (s === "4x0" || s === "1x0") return "Simples";
   return undefined;
 };
 
@@ -37,7 +62,10 @@ export interface DynamicTitleParts {
   grammage?: string | null;
   size?: string | null;
   side?: string | null;
-  finishes?: string[];
+  widthMm?: number | null;
+  heightMm?: number | null;
+  printColors?: string | null;
+  finishes?: string[]; // mantido por compatibilidade — ignorado na descrição padronizada
 }
 
 const cleanPart = (s?: string | null): string | undefined => {
@@ -46,24 +74,52 @@ const cleanPart = (s?: string | null): string | undefined => {
   return t ? t : undefined;
 };
 
+// Converte mm → cm com até 2 decimais, vírgula como separador, sem zeros à direita.
+const mmToCmLabel = (mm?: number | null): string | undefined => {
+  if (mm == null || !isFinite(mm) || mm <= 0) return undefined;
+  const cm = mm / 10;
+  const rounded = Math.round(cm * 100) / 100;
+  // Remove zeros à direita
+  let s = rounded.toFixed(2);
+  s = s.replace(/0+$/, "").replace(/\.$/, "");
+  return s.replace(".", ",");
+};
+
+/**
+ * Gera a descrição padronizada que vai para o cliente.
+ *
+ * Formato: "<Tipo> <L>x<H>cm. Impressão <Cor>, <Papel> <Gramatura>"
+ * Exemplo: "Panfleto 10x15cm. Impressão 4x4, Couchê 210g"
+ *
+ * Acabamentos NÃO entram nesta string — eles continuam sendo listados
+ * separadamente abaixo do título no viewer do cliente.
+ */
 export function buildDynamicTitle(parts: DynamicTitleParts): string {
   const productLabel =
-    parts.productKind === "outro"
-      ? cleanPart(parts.customName)
-      : cleanPart(productKindLabel(parts.productKind));
+    cleanPart(parts.productKind) || cleanPart(parts.customName);
 
-  const size = cleanPart(parts.size);
+  const wLabel = mmToCmLabel(parts.widthMm ?? null);
+  const hLabel = mmToCmLabel(parts.heightMm ?? null);
+  const sizeLabel =
+    wLabel && hLabel ? `${wLabel}x${hLabel}cm` : cleanPart(parts.size);
+
+  const colors =
+    cleanPart(parts.printColors) || cleanPart(colorsFromSide(parts.side));
 
   const paperType = cleanPart(parts.paperType);
   const grammage = cleanPart(parts.grammage);
-  const paper = paperType && grammage ? `${paperType} ${grammage}` : paperType || grammage;
+  const paper =
+    paperType && grammage ? `${paperType} ${grammage}` : paperType || grammage;
 
-  const colors = cleanPart(colorsFromSide(parts.side));
+  // Monta "<Tipo> <Tamanho>"
+  const head = [productLabel, sizeLabel].filter(Boolean).join(" ");
 
-  const finishes = (parts.finishes || []).map(cleanPart).filter(Boolean) as string[];
-  const finishesPart = finishes.length ? finishes.join(" + ") : undefined;
+  // Monta "Impressão <Cor>, <Papel>"
+  const tailParts: string[] = [];
+  if (colors) tailParts.push(`Impressão ${colors}`);
+  if (paper) tailParts.push(paper);
+  const tail = tailParts.join(", ");
 
-  return [productLabel, size, paper, colors, finishesPart]
-    .filter((p): p is string => Boolean(p))
-    .join(" - ");
+  if (head && tail) return `${head}. ${tail}`;
+  return head || tail;
 }
