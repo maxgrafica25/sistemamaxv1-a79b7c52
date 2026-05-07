@@ -28,7 +28,7 @@ import {
   type PricingMaterial,
   type PricingSnapshot,
 } from "@/lib/quotes-v2/pricing";
-import type { QuoteOption } from "@/lib/quotes-v2/options";
+
 import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionButton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PrintingItemEditor } from "@/components/orcamentos-v2/PrintingItemEditor";
