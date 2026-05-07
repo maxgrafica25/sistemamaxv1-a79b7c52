@@ -260,7 +260,7 @@ export function QuoteItemsTable(props: Props) {
           printingCatalog={printingCatalog}
           processSteps={processSteps}
           processGroups={processGroups}
-          onSetMode={(m) => setDraftMode(d.id, m)}
+          hourlyRate={hourlyRate}
           onPickPrinting={(it) => {
             onAddPrinting(it);
             removeDraft(d.id);
@@ -273,8 +273,8 @@ export function QuoteItemsTable(props: Props) {
             onExpandStepGroup(null, g);
             removeDraft(d.id);
           }}
-          onPickCustomFinish={(name, price) => {
-            onAddCustomFinish(null, name, price);
+          onPickCustomFinish={(name, minutes) => {
+            onAddCustomFinish(null, name, minutes);
             removeDraft(d.id);
           }}
           onCancel={() => removeDraft(d.id)}
