@@ -37,6 +37,7 @@ export function StickyApprovalBar({
   selectedItemCount = 0,
   totalItemCount = 0,
   onApproveItems,
+  onRequestAdjust,
   submitting = false,
 }: Props) {
   const handleWaShare = () => {
