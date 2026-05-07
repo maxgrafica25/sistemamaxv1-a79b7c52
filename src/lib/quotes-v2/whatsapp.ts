@@ -52,16 +52,35 @@ export const buildPartialApprovalMessage = (params: {
   companyName?: string;
   /** Quando true, gera mensagem de aprovação integral (todos os itens pendentes). */
   isFullApproval?: boolean;
+  /** Nome digitado no termo de aceite (assinatura eletrônica). */
+  approverName?: string;
+  /** Data/hora do registro do aceite (ISO ou Date). */
+  approvedAt?: string | Date;
+  /** ID do comprovante para referência. */
+  receiptId?: string;
 }) => {
   const greeting = params.companyName ? `Olá ${params.companyName}!` : "Olá!";
   const who = params.clientName ? ` Aqui é ${params.clientName}.` : "";
+
+  const receiptFooter = (() => {
+    if (!params.approverName && !params.approvedAt) return "";
+    const when = params.approvedAt
+      ? new Date(params.approvedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
+      : "";
+    const lines = ["", "—", "✅ *Aceite registrado no sistema*"];
+    if (params.approverName) lines.push(`Por: ${params.approverName}`);
+    if (when) lines.push(`Em: ${when}`);
+    if (params.receiptId) lines.push(`Comprovante: ${params.receiptId.slice(0, 8)}`);
+    return lines.join("\n");
+  })();
+
   if (params.isFullApproval) {
-    return `${greeting}${who} Analisei o Orçamento ${params.quoteNumber} e APROVO a produção na íntegra, conforme os detalhes enviados.\n\n*Total aprovado: ${formatBRL(params.total)}*\n\nPodem dar andamento.`;
+    return `${greeting}${who} Analisei o Orçamento ${params.quoteNumber} e APROVO a produção na íntegra, conforme os detalhes enviados.\n\n*Total aprovado: ${formatBRL(params.total)}*\n\nPodem dar andamento.${receiptFooter}`;
   }
   const itemsList = params.items
     .map((it, i) => `${i + 1}. ${it.description} — ${formatBRL(it.value)}`)
     .join("\n");
-  return `${greeting}${who} Aprovo os seguintes itens do Orçamento ${params.quoteNumber}:\n\n${itemsList}\n\n*Total aprovado: ${formatBRL(params.total)}*\n\nPodem dar andamento à produção destes itens.`;
+  return `${greeting}${who} Aprovo os seguintes itens do Orçamento ${params.quoteNumber}:\n\n${itemsList}\n\n*Total aprovado: ${formatBRL(params.total)}*\n\nPodem dar andamento à produção destes itens.${receiptFooter}`;
 };
 
 export const buildAdjustMessage = (params: {
