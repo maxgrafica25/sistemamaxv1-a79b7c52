@@ -1,55 +1,91 @@
-## Problema
+## Evolução do Resumo Financeiro → DRE Simplificado + Simulador de Negociação
 
-Ao criar nova versão do orçamento `2026-010`, os itens de acabamento (mão de obra) aparecem **soltos no topo da lista**, desvinculados dos itens de impressão pai.
+Transformar o card lateral `StickyFinancialSidebar` em um painel de inteligência financeira reativo, com cascata de DRE, distinção entre proposta total vs. aprovado, e custo de cobrança dinâmico amarrado à forma de pagamento.
 
-Comparando os dados:
+### 1. Banco de dados (migration)
 
-**Versão original (v1):**
-- Materiais: 2 itens com `catalog_source='printing'`, `catalog_item_id`, `paper_type`, `grammage`, etc.
-- Labor steps: 4 etapas vinculadas via `parent_item_id` aos itens de impressão.
+Adicionar em `company_settings`:
+- `default_tax_rate` numeric default 6 (imposto %)
+- `default_loss_margin` numeric default 3 (perdas %)
 
-**Versão nova (v2) gerada pela RPC:**
-- Materiais perderam `catalog_source`, `catalog_item_id`, `paper_type`, `grammage`, `size`, `side`, `product_kind`, `custom_name`, `reference`, `generated_title`.
-- Labor steps perderam `parent_item_id` e `step_type` → ficam órfãos e renderizam como avulsos no topo.
+Criar tabela `payment_method_fees`:
+- `id` uuid pk
+- `method` text unique (ex: "Pix", "Cartão 3x")
+- `fee_pct` numeric default 0
+- `sort_order` int
+- RLS: read autenticado, write admin
 
-## Causa
-
-A função `public.create_quote_version` copia apenas um subset mínimo de colunas:
-
-```sql
-INSERT INTO quote_materials (quote_id, description, quantity, unit_price, sort_order, status, approved_at, approved_value)
-INSERT INTO quote_labor_steps (quote_id, description, time_minutes, sort_order)
+Seed inicial baseado nos métodos atuais de `DiscountPaymentBlock.tsx`:
+```
+Pix=0, Dinheiro=0, Boleto=2, Transferência bancária=0,
+Cartão à vista=3.5, Cartão 2x=4, Cartão 3x=5, Cartão 4x=5.5,
+Cartão 5x=6, Cartão 6x=6.5
 ```
 
-Faltam todos os metadados de catálogo, hierarquia (parent_item_id) e tipo de etapa.
+### 2. Hook / lógica em `NewQuoteFormV2.tsx`
 
-## Plano
+- Carregar `payment_method_fees` no `loadInit` e expor mapa `feeByMethod`.
+- Carregar `default_tax_rate` e `default_loss_margin` em `companySettings` (estender hook `useCompanySettings`).
+- Calcular dois cenários:
+  - **Receita Proposta** = `live.totalToCharge + cvTotal` (com desconto aplicado)
+  - **Receita Aprovada** = soma somente dos `materials` (e cv items) com `status === 'aprovado'`
+  - **Receita Base do DRE** = aprovada se houver ≥1 aprovado, senão proposta
+- **Custo de produção** = `live.costsBeforeMarkup + live.printingTotal + cvCostTotal` (escalar proporcionalmente quando estiver no modo "aprovado": custo dos itens aprovados / custo total × custo total).
+- **Deduções** sobre Receita Base:
+  - Imposto = receita × `default_tax_rate%`
+  - Custo de Cobrança = receita × `feeByMethod[paymentMethod] ?? 0`
+  - Perdas = receita × `default_loss_margin%`
+- **Lucro Líquido** = receita − produção − imposto − cobrança − perdas
+- **Margem Líquida %** = lucro / receita
 
-Atualizar a função `create_quote_version` via migration para:
+### 3. UI: novo `StickyFinancialSidebar`
 
-1. **Materiais**: copiar também `parent_item_id`, `product_kind`, `custom_name`, `reference`, `generated_title`, `paper_type`, `grammage`, `size`, `side`, `catalog_source`, `catalog_item_id`.
-2. **Mapear IDs antigos → novos**: usar CTE com `RETURNING` + tabela temporária `(old_id, new_id)` para remapear `parent_item_id` corretamente nos materiais filhos.
-3. **Labor steps**: copiar também `parent_item_id` (remapeado pelo mapping acima) e `step_type`.
-4. Manter ordem de inserção: primeiro pais (parent_item_id IS NULL), depois filhos remapeados.
-5. Backfill da v2 já existente (`4217b83e-...`): atualizar metadados e re-vincular labor_steps com base nos descrições/sort_order da v1.
+Substituir conteúdo do card por:
 
-### Detalhe técnico
+```
+RESUMO FINANCEIRO
 
-```sql
--- mapping table temporária
-CREATE TEMP TABLE _map(old_id uuid, new_id uuid) ON COMMIT DROP;
+Valor da Proposta            R$ X.XXX,XX
+Valor Aprovado (verde)       R$ X.XXX,XX   ← só se houver aprovados
 
--- 1) inserir materiais raiz, capturar mapping
-WITH ins AS (
-  INSERT INTO quote_materials (quote_id, ..., catalog_source, catalog_item_id, ...)
-  SELECT v_new_id, ..., catalog_source, catalog_item_id, ...
-  FROM quote_materials WHERE quote_id = p_quote_id AND parent_item_id IS NULL
-  RETURNING id, sort_order
-)
-INSERT INTO _map ...
+▼ Ver detalhamento de custos e lucro   (Accordion shadcn)
+   Receita base                R$ ...
+   (-) Custo de produção       R$ ...
+   (-) Impostos        (6%)    R$ ...
+   (-) Cobrança · Pix  (0%)    R$ ...   ← reativo ao select
+   (-) Perdas          (3%)    R$ ...
+   ─────────────────────────────────
+   = Lucro Líquido    (XX,X%)  R$ ...   verde/vermelho + AlertTriangle se <10%
 
--- 2) inserir filhos usando mapping
--- 3) inserir labor_steps com parent_item_id remapeado
+VALOR A COBRAR              R$ X.XXX,XX  (destaque primário, valor da receita base = o que o cliente paga)
 ```
 
-Sem mudanças no frontend.
+- Cor do lucro: `text-emerald-600` positivo, `text-destructive` negativo.
+- Ícone `AlertTriangle` amarelo ao lado quando margem líquida < 10% e > 0.
+- Reescrever também a versão mobile (bottom bar) — mostrar margem líquida em vez da bruta atual.
+
+### 4. Props do componente
+
+`StickyFinancialSidebar` recebe agora:
+```
+proposalTotal, approvedTotal, hasApproved,
+productionCost, taxPct, taxValue,
+billingPct, billingMethod, billingValue,
+lossPct, lossValue,
+netProfit, netMarginPct
+```
+
+### 5. Fora de escopo
+
+- PDF/visualização cliente: inalterada (só o operador vê o DRE).
+- Cálculo de markup/preço de venda dos itens: inalterado.
+- Não alterar `DiscountPaymentBlock` (apenas consumir o método selecionado).
+
+### Detalhes técnicos
+
+- Arquivo principal a editar: `src/components/orcamentos-v2/StickyFinancialSidebar.tsx` (reescrita) e `src/components/orcamentos-v2/NewQuoteFormV2.tsx` (preparar dados).
+- Estender `src/hooks/useCompanySettings.tsx` para expor `defaultTaxRate` e `defaultLossMargin`.
+- Status aprovado já existe em `PricingMaterial.status` ('aprovado') — usar para filtrar.
+- Migration única + seed dos `payment_method_fees`.
+
+Aprovado para implementar?
