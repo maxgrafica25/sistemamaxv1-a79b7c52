@@ -48,7 +48,9 @@ export function StickyApprovalBar({
   const isAdmin = profile?.role === "admin";
 
   const hasPhone = !!whatsappNumber;
-  const buttonsReady = ctaEnabled && hasPhone && !loading && !submitting;
+  // No modo "items" (aprovação por item), não exigimos WhatsApp configurado:
+  // o aceite é registrado no sistema; o WhatsApp é só notificação opcional.
+  const buttonsReady = ctaEnabled && !loading && !submitting && (mode === "items" || hasPhone);
   const isAllSelected = mode === "items" && totalItemCount > 0 && selectedItemCount === totalItemCount;
   const isPartial = mode === "items" && selectedItemCount > 0 && selectedItemCount < totalItemCount;
 
