@@ -71,20 +71,90 @@ const GRID = "grid grid-cols-[32px_140px_1fr_90px_60px_110px_110px_36px] items-c
 export function QuoteItemsTable(props: Props) {
   const {
     printingCatalog, processSteps, processGroups, hourlyRate,
+    markupTiers, categoryDefaultGroupId,
     printingItems, childMaterials, childLabor,
     standaloneLabor, standaloneManualMaterials, thirdParty,
-    onAddPrinting, onAddProcess, onExpandStepGroup, onAddCustomFinish,
+    onAddPrinting, onSwapPrinting, onAddProcess, onExpandStepGroup, onAddCustomFinish,
     onUpdatePrinting, onUpdateChildMaterial,
     onRemovePrinting, onRemoveChildMaterial, onRemoveLabor,
     onChangeStandaloneLabor, onChangeStandaloneMaterials, onChangeThirdParty,
   } = props;
 
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerFlash = (id: string) => {
+    setFlashId(id);
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => setFlashId(null), 700);
+  };
 
   const addEmptyDraft = () =>
     setDrafts((p) => [...p, { id: `draft-${Date.now()}` }]);
   const removeDraft = (id: string) =>
     setDrafts((p) => p.filter((d) => d.id !== id));
+
+  // Auto-open one empty draft when the table is completely empty on mount.
+  const autoDraftedRef = useRef(false);
+  useEffect(() => {
+    if (autoDraftedRef.current) return;
+    const isEmpty =
+      printingItems.length === 0 &&
+      standaloneLabor.length === 0 &&
+      standaloneManualMaterials.length === 0 &&
+      thirdParty.length === 0 &&
+      drafts.length === 0;
+    if (isEmpty) {
+      autoDraftedRef.current = true;
+      addEmptyDraft();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [printingItems.length, standaloneLabor.length, standaloneManualMaterials.length, thirdParty.length]);
+
+  // Tier-aware unit price helper (mirrors pricing engine).
+  const computeTierUnitPrice = (m: PricingMaterial, qty: number): number => {
+    if (!m.baseCost || !m.printerCategoryId) return m.unitPrice || 0;
+    const groupId = m.markupGroupId || categoryDefaultGroupId[m.printerCategoryId] || null;
+    const groupTiers = groupId
+      ? markupTiers.filter((t) => t.markup_group_id === groupId)
+      : markupTiers.filter((t) => t.printer_category_id === m.printerCategoryId);
+    const tier =
+      groupTiers.find((t) => qty >= t.min_qty && (t.max_qty === null || qty <= t.max_qty)) ||
+      groupTiers[0] ||
+      null;
+    if (!tier) return m.baseCost;
+    // Embed child costs (labor + materials) per unit, like recalculateForQuantity.
+    const childMatTotal = childMaterials
+      .filter((c) => c.parentItemId === m.id)
+      .reduce((s, c) => s + (c.quantity || 0) * (c.unitPrice || 0), 0);
+    const childLaborTotal = childLabor
+      .filter((l) => l.parentItemId === m.id)
+      .reduce((s, l) => s + ((l.timeMinutes || 0) / 60) * (hourlyRate || 0), 0);
+    const childPerUnit = qty > 0 ? (childMatTotal + childLaborTotal) / qty : 0;
+    const baseEffective = (m.baseCost || 0) + childPerUnit;
+    const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
+    const divisor = 1 - soma;
+    if (divisor <= 0) return 0;
+    return Math.round((baseEffective / divisor) * 10) / 10;
+  };
+
+  // Reactively re-sync each printing item's unit price with its current tier.
+  useEffect(() => {
+    for (const m of printingItems) {
+      const fresh = computeTierUnitPrice(m, m.quantity || 1);
+      if (fresh > 0 && Math.abs(fresh - (m.unitPrice || 0)) > 0.001) {
+        onUpdatePrinting(m.id, { unitPrice: fresh });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    JSON.stringify(printingItems.map((m) => [m.id, m.quantity, m.baseCost, m.printerCategoryId, m.markupGroupId])),
+    JSON.stringify(childMaterials.map((c) => [c.id, c.parentItemId, c.quantity, c.unitPrice])),
+    JSON.stringify(childLabor.map((l) => [l.id, l.parentItemId, l.timeMinutes])),
+    JSON.stringify(markupTiers.map((t) => t.id)),
+    hourlyRate,
+  ]);
 
   // ---------- Renderers ----------
   const renderPrint = (m: PricingMaterial, idx: number) => {
