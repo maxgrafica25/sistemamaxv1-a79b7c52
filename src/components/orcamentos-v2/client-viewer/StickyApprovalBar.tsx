@@ -18,6 +18,8 @@ interface Props {
   selectedItemCount?: number;
   totalItemCount?: number;
   onApproveItems?: () => void | Promise<void>;
+  /** Quando definido, intercepta o botão "Solicitar Alteração" (abre dialog próprio). */
+  onRequestAdjust?: () => void;
   submitting?: boolean;
 }
 
