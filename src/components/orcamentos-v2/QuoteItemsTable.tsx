@@ -354,6 +354,17 @@ export function QuoteItemsTable(props: Props) {
     standaloneManualMaterials.filter((m) => m.status === "aprovado").length;
   const totalCount = printingItems.length + standaloneManualMaterials.length;
 
+  // Reordenação visual: aprovados (travados) ficam no topo, editáveis embaixo
+  // próximos ao botão "+ adicionar item". Não persiste no banco.
+  const sortByApproved = <T extends { status?: string | null }>(arr: T[]): T[] =>
+    [...arr].sort((a, b) => {
+      const ap = a.status === "aprovado" ? 0 : 1;
+      const bp = b.status === "aprovado" ? 0 : 1;
+      return ap - bp;
+    });
+  const printingOrdered = sortByApproved(printingItems);
+  const manualOrdered = sortByApproved(standaloneManualMaterials);
+
   return (
     <div className="rounded-lg border bg-card">
       {approvedCount > 0 && (
