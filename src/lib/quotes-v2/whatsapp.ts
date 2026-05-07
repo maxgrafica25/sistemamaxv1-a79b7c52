@@ -5,15 +5,26 @@
 
 const sanitize = (n: string) => (n || "").replace(/\D/g, "");
 
+/**
+ * Garante DDI no número. BR: 10 (fixo) ou 11 (celular) dígitos => prefixa "55".
+ * Se já vier com 12+ dígitos, assume que já tem DDI.
+ */
+const withCountryCode = (n: string): string => {
+  const clean = sanitize(n);
+  if (!clean) return "";
+  if (clean.length === 10 || clean.length === 11) return `55${clean}`;
+  return clean;
+};
+
 export const buildWaUrl = (message: string, phone: string): string => {
-  const clean = sanitize(phone);
+  const clean = withCountryCode(phone);
   if (!clean) return "";
   return `https://wa.me/${clean}?text=${encodeURIComponent(message)}`;
 };
 
 /** Link direto para WhatsApp Web (desktop). Não passa pelo prompt "abrir app". */
 export const buildWaWebUrl = (message: string, phone: string): string => {
-  const clean = sanitize(phone);
+  const clean = withCountryCode(phone);
   if (!clean) return "";
   return `https://web.whatsapp.com/send?phone=${clean}&text=${encodeURIComponent(message)}`;
 };
