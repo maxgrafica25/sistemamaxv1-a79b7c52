@@ -1168,6 +1168,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             discountValue={discountValue}
             discountType={discountType}
             paymentMethod={paymentMethod}
+            subtotal={subtotalBeforeDiscount}
             onDiscountValueChange={setDiscountValue}
             onDiscountTypeChange={setDiscountType}
             onPaymentMethodChange={setPaymentMethod}
