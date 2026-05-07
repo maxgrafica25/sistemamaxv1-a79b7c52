@@ -473,7 +473,9 @@ export type Database = {
           address: string | null
           company_name: string
           created_at: string
+          default_loss_margin: number
           default_quote_validity_days: number
+          default_tax_rate: number
           email: string | null
           id: string
           logo_url: string | null
@@ -485,7 +487,9 @@ export type Database = {
           address?: string | null
           company_name?: string
           created_at?: string
+          default_loss_margin?: number
           default_quote_validity_days?: number
+          default_tax_rate?: number
           email?: string | null
           id?: string
           logo_url?: string | null
@@ -497,7 +501,9 @@ export type Database = {
           address?: string | null
           company_name?: string
           created_at?: string
+          default_loss_margin?: number
           default_quote_validity_days?: number
+          default_tax_rate?: number
           email?: string | null
           id?: string
           logo_url?: string | null
@@ -1668,6 +1674,33 @@ export type Database = {
           sheet_qty?: number
           sort_order?: number
           supplier?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      payment_method_fees: {
+        Row: {
+          created_at: string
+          fee_pct: number
+          id: string
+          method: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fee_pct?: number
+          id?: string
+          method: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fee_pct?: number
+          id?: string
+          method?: string
+          sort_order?: number
           updated_at?: string
         }
         Relationships: []
