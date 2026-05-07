@@ -19,6 +19,7 @@ import { ViewerHeader } from "@/components/orcamentos-v2/client-viewer/ViewerHea
 import { OptionCard } from "@/components/orcamentos-v2/client-viewer/OptionCard";
 import { StickyApprovalBar } from "@/components/orcamentos-v2/client-viewer/StickyApprovalBar";
 import { WhatsAppShareDialog } from "@/components/orcamentos-v2/client-viewer/WhatsAppShareDialog";
+import { ApprovalConfirmDialog } from "@/components/orcamentos-v2/client-viewer/ApprovalConfirmDialog";
 import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { trackEvent } from "@/lib/quotes-v2/tracking";
@@ -28,6 +29,7 @@ import {
   buildItemAdjustMessage,
   buildPartialApprovalMessage,
 } from "@/lib/quotes-v2/whatsapp";
+import { APPROVAL_TERMS_VERSION, buildApprovalTermsText } from "@/lib/quotes-v2/approval-terms";
 
 interface QuoteRow {
   id: string;
@@ -105,6 +107,12 @@ export default function ClientViewer() {
     title: string;
     helper?: string;
   }>({ open: false, message: "", title: "" });
+  const [approvalDialog, setApprovalDialog] = useState<{
+    open: boolean;
+    items: { id: string; description: string; value: number }[];
+    total: number;
+    isFullApproval: boolean;
+  }>({ open: false, items: [], total: 0, isFullApproval: false });
 
   const openShare = (
     message: string,
@@ -370,52 +378,86 @@ export default function ClientViewer() {
     });
   };
 
-  const handlePartialApproval = async () => {
+  // Etapa 1: cliente clica em "Aprovar" → abre o termo de aceite (não aprova ainda).
+  const handlePartialApproval = () => {
     if (selectedItemIds.size === 0) return;
-    if (!whatsappNumber) {
-      toast.error("WhatsApp da empresa não configurado.");
-      return;
-    }
+    const itemsForApproval = pendingItems
+      .filter((m) => selectedItemIds.has(m.id))
+      .map((m) => ({
+        id: m.id,
+        description: m.generated_title || m.description,
+        value: m.quantity * m.unit_price,
+      }));
+    const total = itemsForApproval.reduce((s, i) => s + i.value, 0);
+    setApprovalDialog({
+      open: true,
+      items: itemsForApproval,
+      total,
+      isFullApproval: selectedItemIds.size === pendingItems.length,
+    });
+  };
+
+  // Etapa 2: cliente preencheu nome + concordou → grava comprovante e aprova.
+  const confirmApproval = async (approverName: string) => {
+    if (!quote) return;
     setSubmitting(true);
     try {
-      const itemIds = Array.from(selectedItemIds);
-      const { error } = await supabase.rpc("approve_quote_items", {
+      const { items, total, isFullApproval } = approvalDialog;
+      const termsText = buildApprovalTermsText(quote.quote_number);
+
+      // 1) Grava o comprovante de aceite (prova legal).
+      const { data: receipt, error: receiptError } = await supabase
+        .from("quote_approval_receipts")
+        .insert({
+          quote_id: quote.id,
+          quote_number: quote.quote_number,
+          quote_version: quote.version,
+          approver_name: approverName,
+          user_agent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 500) : null,
+          items_snapshot: items,
+          total_approved: total,
+          terms_version: APPROVAL_TERMS_VERSION,
+          terms_text: termsText,
+        })
+        .select("id, approved_at")
+        .single();
+      if (receiptError) throw receiptError;
+
+      // 2) Aprova os itens via RPC.
+      const itemIds = items.map((i) => i.id);
+      const { error: rpcError } = await supabase.rpc("approve_quote_items", {
         p_quote_id: quote.id,
         p_item_ids: itemIds,
       });
-      if (error) throw error;
+      if (rpcError) throw rpcError;
 
-      // Snapshot antes do reload (para a mensagem)
-      const itemsForMessage = pendingItems
-        .filter((m) => selectedItemIds.has(m.id))
-        .map((m) => ({
-          description: m.description,
-          value: m.quantity * m.unit_price,
-        }));
-      const totalForMessage = itemsForMessage.reduce((s, i) => s + i.value, 0);
-
-      const isFullApproval = selectedItemIds.size === pendingItems.length;
+      // 3) Monta a mensagem com referência ao comprovante.
       const message = buildPartialApprovalMessage({
         quoteNumber: quote.quote_number,
-        items: itemsForMessage,
-        total: totalForMessage,
+        items,
+        total,
         clientName: quote.client,
         companyName,
         isFullApproval,
+        approverName,
+        approvedAt: receipt?.approved_at,
+        receiptId: receipt?.id,
       });
 
-      // Recarrega dados para refletir o novo status
       await loadData();
       setSelectedItemIds(new Set());
       didPreselectRef.current = false;
-      toast.success("Itens aprovados! Escolha como enviar a confirmação.");
-      openShare(
-        message,
-        isFullApproval ? "Confirme a aprovação no WhatsApp" : "Confirme os itens aprovados",
-        "Sua aprovação já foi registrada. Esta etapa apenas avisa a gráfica.",
-      );
+      setApprovalDialog((s) => ({ ...s, open: false }));
+      toast.success("Aprovação registrada! Avise a gráfica pelo WhatsApp (opcional).");
+      if (whatsappNumber) {
+        openShare(
+          message,
+          isFullApproval ? "Avisar a gráfica no WhatsApp" : "Avisar a gráfica sobre os itens aprovados",
+          "Sua aprovação já está registrada no sistema com data, hora e seu nome. Esta etapa é apenas para avisar a gráfica.",
+        );
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro ao aprovar itens.";
+      const msg = err instanceof Error ? err.message : "Erro ao registrar aprovação.";
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -821,6 +863,18 @@ export default function ClientViewer() {
         onShared={() => {
           if (quote?.id) void trackEvent(quote.id, "whatsapp_share");
         }}
+      />
+
+      <ApprovalConfirmDialog
+        open={approvalDialog.open}
+        onOpenChange={(o) => !submitting && setApprovalDialog((s) => ({ ...s, open: o }))}
+        quoteNumber={quote.quote_number}
+        items={approvalDialog.items}
+        total={approvalDialog.total}
+        termsText={buildApprovalTermsText(quote.quote_number)}
+        defaultName={quote.client}
+        submitting={submitting}
+        onConfirm={confirmApproval}
       />
     </div>
   );

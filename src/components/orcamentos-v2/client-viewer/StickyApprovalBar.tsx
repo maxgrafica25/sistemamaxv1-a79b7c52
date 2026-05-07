@@ -48,7 +48,9 @@ export function StickyApprovalBar({
   const isAdmin = profile?.role === "admin";
 
   const hasPhone = !!whatsappNumber;
-  const buttonsReady = ctaEnabled && hasPhone && !loading && !submitting;
+  // No modo "items" (aprovação por item), não exigimos WhatsApp configurado:
+  // o aceite é registrado no sistema; o WhatsApp é só notificação opcional.
+  const buttonsReady = ctaEnabled && !loading && !submitting && (mode === "items" || hasPhone);
   const isAllSelected = mode === "items" && totalItemCount > 0 && selectedItemCount === totalItemCount;
   const isPartial = mode === "items" && selectedItemCount > 0 && selectedItemCount < totalItemCount;
 
@@ -105,21 +107,17 @@ export function StickyApprovalBar({
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" /> Aprovando…
                 </>
-              ) : !hasPhone ? (
-                <>
-                  <CheckCircle2 className="h-5 w-5" /> WhatsApp não configurado
-                </>
               ) : selectedItemCount === 0 ? (
                 <>
                   <CheckCircle2 className="h-5 w-5" /> Selecione ao menos 1 item
                 </>
               ) : isAllSelected ? (
                 <>
-                  <CheckCircle2 className="h-5 w-5" /> Aprovar orçamento via WhatsApp
+                  <CheckCircle2 className="h-5 w-5" /> Aprovar orçamento
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="h-5 w-5" /> Aprovar {selectedItemCount} {selectedItemCount === 1 ? "item" : "itens"} via WhatsApp
+                  <CheckCircle2 className="h-5 w-5" /> Aprovar {selectedItemCount} {selectedItemCount === 1 ? "item" : "itens"}
                 </>
               )}
             </Button>

@@ -2058,6 +2058,54 @@ export type Database = {
         }
         Relationships: []
       }
+      quote_approval_receipts: {
+        Row: {
+          approved_at: string
+          approver_ip: string | null
+          approver_name: string
+          created_at: string
+          id: string
+          items_snapshot: Json
+          quote_id: string
+          quote_number: string
+          quote_version: number
+          terms_text: string
+          terms_version: string
+          total_approved: number
+          user_agent: string | null
+        }
+        Insert: {
+          approved_at?: string
+          approver_ip?: string | null
+          approver_name: string
+          created_at?: string
+          id?: string
+          items_snapshot?: Json
+          quote_id: string
+          quote_number: string
+          quote_version?: number
+          terms_text: string
+          terms_version?: string
+          total_approved?: number
+          user_agent?: string | null
+        }
+        Update: {
+          approved_at?: string
+          approver_ip?: string | null
+          approver_name?: string
+          created_at?: string
+          id?: string
+          items_snapshot?: Json
+          quote_id?: string
+          quote_number?: string
+          quote_version?: number
+          terms_text?: string
+          terms_version?: string
+          total_approved?: number
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       quote_engagement_events: {
         Row: {
           created_at: string
