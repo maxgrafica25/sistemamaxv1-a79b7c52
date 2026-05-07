@@ -100,7 +100,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [discountValue, setDiscountValue] = useState<number | null>(null);
   const [discountType, setDiscountType] = useState<DiscountType>("brl");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
-  const [options, setOptions] = useState<QuoteOption[]>([]);
+  
 
   // catalog
   const [printingCatalog, setPrintingCatalog] = useState<PrintingCatalogItem[]>([]);
