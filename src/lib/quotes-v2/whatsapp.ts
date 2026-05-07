@@ -32,9 +32,14 @@ export const buildPartialApprovalMessage = (params: {
   total: number;
   clientName?: string;
   companyName?: string;
+  /** Quando true, gera mensagem de aprovação integral (todos os itens pendentes). */
+  isFullApproval?: boolean;
 }) => {
   const greeting = params.companyName ? `Olá ${params.companyName}!` : "Olá!";
   const who = params.clientName ? ` Aqui é ${params.clientName}.` : "";
+  if (params.isFullApproval) {
+    return `${greeting}${who} Analisei o Orçamento ${params.quoteNumber} e APROVO a produção na íntegra, conforme os detalhes enviados.\n\n*Total aprovado: ${formatBRL(params.total)}*\n\nPodem dar andamento.`;
+  }
   const itemsList = params.items
     .map((it, i) => `${i + 1}. ${it.description} — ${formatBRL(it.value)}`)
     .join("\n");
