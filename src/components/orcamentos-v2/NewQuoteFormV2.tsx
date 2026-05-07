@@ -526,7 +526,27 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     setLabor((prev) => prev.filter((l) => l.parentItemId !== id));
   };
 
-  const setChildLaborFor = (parentId: string, next: SubformLabor[]) => {
+  const duplicateItemDeep = (id: string) => {
+    const parent = materials.find((m) => m.id === id && !m.parentItemId);
+    if (!parent) return;
+    const newParentId = crypto.randomUUID();
+    const clonedParent: SubformMaterial = {
+      ...parent,
+      id: newParentId,
+      status: "pendente" as any,
+      approvedAt: null as any,
+      approvedValue: null as any,
+    };
+    const childMats = materials
+      .filter((m) => m.parentItemId === id)
+      .map((c) => ({ ...c, id: crypto.randomUUID(), parentItemId: newParentId }));
+    const childLab = labor
+      .filter((l) => l.parentItemId === id)
+      .map((l) => ({ ...l, id: `lbr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, parentItemId: newParentId }));
+    setMaterials((prev) => [...prev, clonedParent, ...childMats]);
+    setLabor((prev) => [...prev, ...childLab]);
+    toast.success("Item duplicado com sucesso! Altere a quantidade ou acabamento na nova linha.");
+  };
     setLabor((prev) => {
       const others = prev.filter((l) => l.parentItemId !== parentId);
       return [...others, ...next];
