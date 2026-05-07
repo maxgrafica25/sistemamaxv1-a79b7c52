@@ -33,6 +33,7 @@ export function StickyApprovalBar({
   clientName,
   mode = "option",
   selectedItemCount = 0,
+  totalItemCount = 0,
   onApproveItems,
   submitting = false,
 }: Props) {
@@ -45,6 +46,8 @@ export function StickyApprovalBar({
 
   const hasPhone = !!whatsappNumber;
   const buttonsReady = ctaEnabled && hasPhone && !loading && !submitting;
+  const isAllSelected = mode === "items" && totalItemCount > 0 && selectedItemCount === totalItemCount;
+  const isPartial = mode === "items" && selectedItemCount > 0 && selectedItemCount < totalItemCount;
 
   // Modo "option" mantém o link wa.me direto. Modo "items" usa callback (RPC + WA)
   const approveUrl =
@@ -60,9 +63,11 @@ export function StickyApprovalBar({
 
   const totalLabel =
     mode === "items"
-      ? selectedItemCount > 0
-        ? `Selecionados (${selectedItemCount} ${selectedItemCount === 1 ? "item" : "itens"})`
-        : "Selecione os itens para aprovar"
+      ? isAllSelected
+        ? "Total do orçamento"
+        : isPartial
+          ? `Selecionados (${selectedItemCount} de ${totalItemCount} itens)`
+          : "Selecione os itens para aprovar"
       : "Total da opção selecionada";
 
   return (
