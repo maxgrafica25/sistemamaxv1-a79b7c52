@@ -98,7 +98,26 @@ export default function ClientViewer() {
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
-  const { whatsappNumber, companyName } = useCompanySettings();
+  const { whatsappNumber, whatsappDisplay, companyName } = useCompanySettings();
+  const [shareDialog, setShareDialog] = useState<{
+    open: boolean;
+    message: string;
+    title: string;
+    helper?: string;
+  }>({ open: false, message: "", title: "" });
+
+  const openShare = (
+    message: string,
+    title: string,
+    helper?: string,
+  ) => {
+    if (!whatsappNumber) {
+      toast.error("WhatsApp da empresa não configurado.");
+      return;
+    }
+    setShareDialog({ open: true, message, title, helper });
+  };
+
 
   const loadData = async () => {
     let quoteRow: QuoteRow | null = null;
