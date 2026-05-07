@@ -1025,6 +1025,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             onUpdatePrinting={updateMaterialPatch}
             onUpdateChildMaterial={updateMaterialPatch}
             onRemovePrinting={removeMaterial}
+            onDuplicateItem={duplicateItemDeep}
             onRemoveChildMaterial={removeMaterial}
             onRemoveLabor={removeLaborStep}
             onChangeStandaloneLabor={setStandaloneLabor}
