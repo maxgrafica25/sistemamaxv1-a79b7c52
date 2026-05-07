@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers, Wand2, RefreshCw, Copy,
+  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers, Wand2, RefreshCw, Copy, CheckCircle2, Lock,
 } from "lucide-react";
 import {
   Popover, PopoverContent, PopoverTrigger,
@@ -160,6 +160,7 @@ export function QuoteItemsTable(props: Props) {
   // ---------- Renderers ----------
   const renderPrint = (m: PricingMaterial, idx: number) => {
     const total = (m.quantity || 0) * (m.unitPrice || 0);
+    const isApproved = m.status === "aprovado";
     const dynamicTitle = buildDynamicTitle({
       productKind: m.productKind,
       customName: m.customName,
@@ -170,38 +171,51 @@ export function QuoteItemsTable(props: Props) {
     });
     const childMatsForThis = childMaterials.filter((c) => c.parentItemId === m.id);
     const childLaborForThis = childLabor.filter((l) => l.parentItemId === m.id);
+    const rowBg = isApproved
+      ? "bg-green-50/60 dark:bg-green-950/20"
+      : flashId === m.id
+        ? "bg-primary/15"
+        : "hover:bg-muted/30";
     return (
       <div key={m.id}>
-        <div className={`${GRID} px-2 py-1.5 border-b text-sm transition-colors ${flashId === m.id ? "bg-primary/15" : "hover:bg-muted/30"}`}>
+        <div className={`${GRID} px-2 py-1.5 border-b text-sm transition-colors ${rowBg}`}>
           <span className="text-xs text-muted-foreground tabular-nums">{idx + 1}</span>
-          <KindBadge kind="print" />
+          <div className="flex items-center gap-1 flex-wrap">
+            <KindBadge kind="print" />
+            {isApproved && <ApprovedBadge approvedAt={m.approvedAt} approvedValue={m.approvedValue} />}
+          </div>
           <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-            <ProductKindButton item={m} onChange={(p) => onUpdatePrinting(m.id, p)} />
-            <SwapPrintingButton
-              catalog={printingCatalog}
-              onPick={(it) => {
-                onSwapPrinting(m.id, it);
-                triggerFlash(m.id);
-              }}
-            />
+            {!isApproved && <ProductKindButton item={m} onChange={(p) => onUpdatePrinting(m.id, p)} />}
+            {!isApproved && (
+              <SwapPrintingButton
+                catalog={printingCatalog}
+                onPick={(it) => {
+                  onSwapPrinting(m.id, it);
+                  triggerFlash(m.id);
+                }}
+              />
+            )}
             <div className="min-w-0 flex-1">
               <div className="font-medium truncate">
                 {dynamicTitle || <span className="text-muted-foreground italic">Defina o tipo de produto…</span>}
               </div>
               <div className="text-[11px] text-muted-foreground truncate">{m.description}</div>
             </div>
-            <ProcessPicker
-              steps={processSteps}
-              groups={processGroups}
-              hourlyRate={hourlyRate}
-              onPickStep={(s) => onAddProcess(m.id, s)}
-              onPickGroup={(g) => onExpandStepGroup(m.id, g)}
-              onPickCustom={(name, minutes) => onAddCustomFinish(m.id, name, minutes)}
-            />
+            {!isApproved && (
+              <ProcessPicker
+                steps={processSteps}
+                groups={processGroups}
+                hourlyRate={hourlyRate}
+                onPickStep={(s) => onAddProcess(m.id, s)}
+                onPickGroup={(g) => onExpandStepGroup(m.id, g)}
+                onPickCustom={(name, minutes) => onAddCustomFinish(m.id, name, minutes)}
+              />
+            )}
           </div>
           <Input
             type="number" min={1}
             value={m.quantity || ""}
+            disabled={isApproved}
             onChange={(e) => onUpdatePrinting(m.id, { quantity: parseFloat(e.target.value) || 0 })}
             className="h-8 text-sm text-right tabular-nums"
           />
@@ -209,6 +223,7 @@ export function QuoteItemsTable(props: Props) {
           <Input
             type="number" step="0.01"
             value={m.unitPrice || ""}
+            disabled={isApproved}
             onChange={(e) => onUpdatePrinting(m.id, { unitPrice: parseFloat(e.target.value) || 0 })}
             className="h-8 text-sm text-right tabular-nums"
           />
@@ -226,9 +241,11 @@ export function QuoteItemsTable(props: Props) {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRemovePrinting(m.id)}>
-              <X className="h-3.5 w-3.5" />
-            </Button>
+            {!isApproved && (
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRemovePrinting(m.id)}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
         </div>
         {childMatsForThis.map((c) => (
@@ -287,19 +304,26 @@ export function QuoteItemsTable(props: Props) {
 
   const renderLegacyMaterial = (m: SubformMaterial, idx: number) => {
     const total = (m.quantity || 0) * (m.unitPrice || 0);
+    const isApproved = m.status === "aprovado";
+    const rowBg = isApproved ? "bg-green-50/60 dark:bg-green-950/20" : "hover:bg-muted/30";
     return (
-      <div key={m.id} className={`${GRID} px-2 py-1.5 border-b text-sm hover:bg-muted/30`}>
+      <div key={m.id} className={`${GRID} px-2 py-1.5 border-b text-sm ${rowBg}`}>
         <span className="text-xs text-muted-foreground tabular-nums">{idx + 1}</span>
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">Legado</span>
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">Legado</span>
+          {isApproved && <ApprovedBadge approvedAt={m.approvedAt} approvedValue={m.approvedValue} />}
+        </div>
         <span className="text-sm text-muted-foreground truncate" title={m.description}>{m.description}</span>
         <Input type="number" value={m.quantity || ""} disabled className="h-8 text-sm text-right tabular-nums" />
         <span className="text-xs text-muted-foreground text-center">un</span>
         <Input type="number" step="0.01" value={m.unitPrice || ""} disabled className="h-8 text-sm text-right tabular-nums" />
         <span className="text-right tabular-nums font-medium">{fmt(total)}</span>
-        <Button variant="ghost" size="icon" className="h-7 w-7"
-          onClick={() => onChangeStandaloneMaterials(standaloneManualMaterials.filter((x) => x.id !== m.id))}>
-          <X className="h-3.5 w-3.5" />
-        </Button>
+        {!isApproved ? (
+          <Button variant="ghost" size="icon" className="h-7 w-7"
+            onClick={() => onChangeStandaloneMaterials(standaloneManualMaterials.filter((x) => x.id !== m.id))}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        ) : <span />}
       </div>
     );
   };
@@ -325,8 +349,21 @@ export function QuoteItemsTable(props: Props) {
     standaloneLabor.length === 0 && standaloneManualMaterials.length === 0 &&
     thirdParty.length === 0;
 
+  const approvedCount =
+    printingItems.filter((m) => m.status === "aprovado").length +
+    standaloneManualMaterials.filter((m) => m.status === "aprovado").length;
+  const totalCount = printingItems.length + standaloneManualMaterials.length;
+
   return (
     <div className="rounded-lg border bg-card">
+      {approvedCount > 0 && (
+        <div className="px-3 py-2 border-b bg-green-50/50 dark:bg-green-950/20 text-xs flex items-center gap-2 text-green-800 dark:text-green-300">
+          <Lock className="h-3.5 w-3.5" />
+          <span>
+            <strong>{approvedCount} de {totalCount}</strong> {approvedCount === 1 ? "item aprovado" : "itens aprovados"} pelo cliente — travados nesta versão. Crie uma <strong>Nova versão</strong> para alterar.
+          </span>
+        </div>
+      )}
       <div className={`${GRID} px-2 py-2 border-b bg-muted/40 text-[11px] font-medium uppercase tracking-wide text-muted-foreground`}>
         <span>Nº</span>
         <span>Tipo</span>
@@ -408,6 +445,28 @@ function KindBadge({ kind }: { kind: "print" | "finish" | "labor" }) {
     <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${cls}`}>
       <Icon className="h-3 w-3" /> {label}
     </span>
+  );
+}
+
+function ApprovedBadge({ approvedAt, approvedValue }: { approvedAt?: string | null; approvedValue?: number | null }) {
+  const when = approvedAt ? new Date(approvedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : null;
+  const val = approvedValue != null ? fmt(Number(approvedValue)) : null;
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30">
+            <CheckCircle2 className="h-3 w-3" /> Aprovado <Lock className="h-2.5 w-2.5" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs max-w-[260px]">
+          <div className="font-medium">Item aprovado pelo cliente</div>
+          {when && <div>Em: {when}</div>}
+          {val && <div>Valor aprovado: {val}</div>}
+          <div className="mt-1 text-muted-foreground">Travado nesta versão. Crie uma nova versão para alterar.</div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
