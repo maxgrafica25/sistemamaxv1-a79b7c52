@@ -322,9 +322,6 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         setQuoteVersion(q.version ?? 1);
         setIsLocked(q.is_locked ?? false);
         setParentQuoteId(q.parent_quote_id ?? null);
-        if (Array.isArray(q.options)) {
-          setOptions(q.options as unknown as QuoteOption[]);
-        }
       }
       setLabor((lRes.data || []).map((s: any) => ({
         id: s.id,
