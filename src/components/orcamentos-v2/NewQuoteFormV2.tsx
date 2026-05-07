@@ -1154,34 +1154,6 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} />
         </div>
 
-        {/* ===== Comparativo de quantidades (ancoragem) ===== */}
-        <Separator className="my-4" />
-        <div className="space-y-3">
-          <div className="flex items-end gap-3 flex-wrap">
-            <div className="space-y-1">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                Quantidade desejada
-              </Label>
-              <Input
-                type="number"
-                min={1}
-                value={mainQuantity === "" ? "" : mainQuantity}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setMainQuantity(v === "" ? "" : Math.max(0, Math.floor(Number(v) || 0)));
-                }}
-                placeholder="Ex: 1000"
-                className="h-10 w-40 text-base font-semibold"
-              />
-            </div>
-            <span className="text-xs text-muted-foreground pb-3">unidades</span>
-          </div>
-          <QuoteOptionsBuilder
-            snapshot={snapshot}
-            options={options}
-            onChange={setOptions}
-          />
-        </div>
 
         {/* ===== Total + ações secundárias ===== */}
         <Separator className="my-4" />
