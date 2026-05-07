@@ -1,12 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers, Wand2,
+  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers, Wand2, RefreshCw,
 } from "lucide-react";
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   type PrintingCatalogItem, type MarkupTier,
 } from "@/components/orcamentos/PrintingItemSearch";
