@@ -3,9 +3,35 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Printer, X, Lock, ChevronDown, ChevronRight, Ruler } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Printer, X, Lock, ChevronDown, ChevronRight, Ruler, Layers, AlertTriangle,
+} from "lucide-react";
 import { LabelLayoutDialog } from "@/components/labels/LabelLayoutDialog";
 import {
   LaborAndSupplySubform,
@@ -14,9 +40,13 @@ import {
 } from "./LaborAndSupplySubform";
 import type { PricingMaterial } from "@/lib/quotes-v2/pricing";
 import {
-  PRODUCT_KIND_OPTIONS,
+  PRODUCT_KIND_SUGGESTIONS,
+  PRINT_COLOR_OPTIONS,
   buildDynamicTitle,
+  sideFromPrintColors,
 } from "@/lib/quotes-v2/item-title";
+import { calcSheetYield, PRODUCTION_SHEET } from "@/lib/quotes-v2/sheet-yield";
+import { cn } from "@/lib/utils";
 
 interface Props {
   item: PricingMaterial;
@@ -46,6 +76,7 @@ export function PrintingItemEditor({
   const childCount = childLabor.length + childMaterials.length;
   const [expanded, setExpanded] = useState(childCount > 0);
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
+  const [kindOpen, setKindOpen] = useState(false);
 
   // Título dinâmico — derivado dos atributos estruturados, recomputado em tempo real.
   const dynamicTitle = useMemo(
@@ -57,7 +88,9 @@ export function PrintingItemEditor({
         grammage: item.grammage,
         size: item.size,
         side: item.side,
-        finishes: childMaterials.map((m) => m.description),
+        widthMm: item.widthMm,
+        heightMm: item.heightMm,
+        printColors: item.printColors,
       }),
     [
       item.productKind,
@@ -66,7 +99,9 @@ export function PrintingItemEditor({
       item.grammage,
       item.size,
       item.side,
-      childMaterials,
+      item.widthMm,
+      item.heightMm,
+      item.printColors,
     ],
   );
 
@@ -79,7 +114,34 @@ export function PrintingItemEditor({
     return undefined;
   };
 
-  const showCustomName = item.productKind === "outro";
+  // Atualiza largura/altura e reflete em `size` (compatibilidade legada).
+  const handleDimensionChange = (patch: { widthMm?: number; heightMm?: number }) => {
+    const nextW = patch.widthMm ?? item.widthMm ?? null;
+    const nextH = patch.heightMm ?? item.heightMm ?? null;
+    const nextSize =
+      nextW && nextH ? `${nextW}x${nextH}mm` : item.size ?? null;
+    onItemChange({ ...patch, size: nextSize });
+  };
+
+  // Quando muda a cor de impressão, atualiza também `side` (multiplicadores).
+  const handlePrintColorsChange = (pc: string) => {
+    const side = sideFromPrintColors(pc) ?? item.side ?? null;
+    onItemChange({ printColors: pc, side });
+  };
+
+  // Cálculo de aproveitamento por folha (visão interna).
+  const yieldInfo = useMemo(
+    () => calcSheetYield(item.widthMm || 0, item.heightMm || 0, item.quantity || 0),
+    [item.widthMm, item.heightMm, item.quantity],
+  );
+  const hasDimensions = !!(item.widthMm && item.heightMm);
+  const exceedsSheet = hasDimensions && (!yieldInfo || yieldInfo.perSheet <= 0);
+
+  const filteredKinds = (() => {
+    const q = (item.productKind || "").toLowerCase().trim();
+    if (!q) return PRODUCT_KIND_SUGGESTIONS;
+    return PRODUCT_KIND_SUGGESTIONS.filter((s) => s.toLowerCase().includes(q));
+  })();
 
   return (
     <div
@@ -92,7 +154,7 @@ export function PrintingItemEditor({
         <div className="text-lg font-bold text-primary bg-primary/5 p-3 rounded-lg border border-primary/10 break-words">
           {dynamicTitle || (
             <span className="text-muted-foreground font-normal text-sm">
-              Selecione o tipo de produto para gerar o título técnico do item.
+              Preencha tipo de material, dimensões, cor e papel para gerar a descrição.
             </span>
           )}
         </div>
@@ -103,52 +165,117 @@ export function PrintingItemEditor({
         )}
       </div>
 
-      {/* Bloco: Tipo de Produto + Customizado + Referência */}
+      {/* Bloco: Tipo (autocomplete) + Largura + Altura + Cor + Referência */}
       {!locked && (
         <div className="px-3 pb-3 grid grid-cols-1 sm:grid-cols-12 gap-3">
-          <div className={`space-y-1.5 ${showCustomName ? "sm:col-span-4" : "sm:col-span-6"}`}>
-            <Label className="text-xs">Tipo de Produto</Label>
-            <Select
-              value={item.productKind || ""}
-              onValueChange={(v) =>
-                onItemChange({
-                  productKind: v || null,
-                  // limpa customName se sair de "outro"
-                  ...(v !== "outro" ? { customName: null } : {}),
+          {/* Tipo de Material — autocomplete livre */}
+          <div className="sm:col-span-4 space-y-1.5">
+            <Label className="text-xs">Tipo de Material</Label>
+            <Popover open={kindOpen} onOpenChange={setKindOpen}>
+              <PopoverTrigger asChild>
+                <Input
+                  value={item.productKind || ""}
+                  onChange={(e) => {
+                    onItemChange({ productKind: e.target.value });
+                    setKindOpen(true);
+                  }}
+                  onFocus={() => setKindOpen(true)}
+                  placeholder="Ex.: Panfleto, Cartão de Visita..."
+                  className="h-9 text-sm"
+                />
+              </PopoverTrigger>
+              <PopoverContent
+                className="p-0 w-[var(--radix-popover-trigger-width)]"
+                align="start"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+              >
+                <Command shouldFilter={false}>
+                  <CommandList>
+                    {filteredKinds.length === 0 ? (
+                      <CommandEmpty>Use o nome digitado</CommandEmpty>
+                    ) : (
+                      <CommandGroup heading="Sugestões">
+                        {filteredKinds.map((s) => (
+                          <CommandItem
+                            key={s}
+                            value={s}
+                            onSelect={() => {
+                              onItemChange({ productKind: s });
+                              setKindOpen(false);
+                            }}
+                          >
+                            {s}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Largura */}
+          <div className="sm:col-span-2 space-y-1.5">
+            <Label className="text-xs">Largura (mm)</Label>
+            <Input
+              type="number"
+              inputMode="decimal"
+              value={item.widthMm ?? ""}
+              onChange={(e) =>
+                handleDimensionChange({
+                  widthMm: e.target.value ? parseFloat(e.target.value) : undefined,
                 })
               }
+              placeholder="100"
+              className="h-9 text-sm"
+            />
+          </div>
+
+          {/* Altura */}
+          <div className="sm:col-span-2 space-y-1.5">
+            <Label className="text-xs">Altura (mm)</Label>
+            <Input
+              type="number"
+              inputMode="decimal"
+              value={item.heightMm ?? ""}
+              onChange={(e) =>
+                handleDimensionChange({
+                  heightMm: e.target.value ? parseFloat(e.target.value) : undefined,
+                })
+              }
+              placeholder="150"
+              className="h-9 text-sm"
+            />
+          </div>
+
+          {/* Cor da Impressão */}
+          <div className="sm:col-span-2 space-y-1.5">
+            <Label className="text-xs">Cor da Impressão</Label>
+            <Select
+              value={item.printColors || ""}
+              onValueChange={handlePrintColorsChange}
             >
               <SelectTrigger className="h-9">
-                <SelectValue placeholder="Selecione o tipo" />
+                <SelectValue placeholder="4x4" />
               </SelectTrigger>
               <SelectContent>
-                {PRODUCT_KIND_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
+                {PRINT_COLOR_OPTIONS.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {showCustomName && (
-            <div className="sm:col-span-4 space-y-1.5">
-              <Label className="text-xs">Nome customizado</Label>
-              <Input
-                value={item.customName || ""}
-                onChange={(e) => onItemChange({ customName: e.target.value })}
-                placeholder="Ex.: Convite, Bloco, Etiqueta..."
-                className="h-9 text-sm"
-              />
-            </div>
-          )}
-
-          <div className={`space-y-1.5 ${showCustomName ? "sm:col-span-4" : "sm:col-span-6"}`}>
-            <Label className="text-xs">Referência / Campanha (opcional)</Label>
+          {/* Referência (opcional) */}
+          <div className="sm:col-span-2 space-y-1.5">
+            <Label className="text-xs">Referência</Label>
             <Input
               value={item.reference || ""}
               onChange={(e) => onItemChange({ reference: e.target.value })}
-              placeholder="Ex.: Promoção Dia das Mães"
+              placeholder="Campanha"
               className="h-9 text-sm"
             />
           </div>
@@ -213,6 +340,52 @@ export function PrintingItemEditor({
           </Button>
         )}
       </div>
+
+      {/* Bloco interno: aproveitamento por folha (visível só ao orçamentista) */}
+      {hasDimensions && (
+        <div className="px-3 pb-3">
+          {exceedsSheet ? (
+            <div
+              className={cn(
+                "flex items-start gap-2 rounded-md border px-3 py-2 text-xs",
+                "border-destructive/40 bg-destructive/10 text-destructive",
+              )}
+            >
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span className="font-medium">
+                Atenção: Material excede o tamanho da folha de produção
+                <span className="font-normal opacity-80">
+                  {" "}
+                  ({PRODUCTION_SHEET.widthMm}×{PRODUCTION_SHEET.heightMm} mm)
+                </span>
+              </span>
+            </div>
+          ) : (
+            yieldInfo && (
+              <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+                <Layers className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Rendimento:{" "}
+                  <span className="font-semibold text-foreground">
+                    {yieldInfo.perSheet} un/folha
+                  </span>{" "}
+                  ({yieldInfo.orientation})
+                  {yieldInfo.sheetsNeeded > 0 && (
+                    <>
+                      {" · "}Total:{" "}
+                      <span className="font-semibold text-foreground">
+                        {yieldInfo.sheetsNeeded} folha
+                        {yieldInfo.sheetsNeeded > 1 ? "s" : ""}
+                      </span>{" "}
+                      ({PRODUCTION_SHEET.widthMm}×{PRODUCTION_SHEET.heightMm} mm)
+                    </>
+                  )}
+                </span>
+              </div>
+            )
+          )}
+        </div>
+      )}
 
       <LabelLayoutDialog
         open={labelDialogOpen}
