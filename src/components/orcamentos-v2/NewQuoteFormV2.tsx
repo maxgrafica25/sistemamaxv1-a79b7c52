@@ -606,7 +606,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         date: new Date().toISOString().split("T")[0],
         validity,
         profit_margin: profitMargin,
-        main_quantity: typeof mainQuantity === "number" && mainQuantity > 0 ? mainQuantity : null,
+        
         notes: notes.trim() || null,
         attention_to: attentionTo.trim() || null,
         hidden_extras_value: hiddenExtras || 0,
