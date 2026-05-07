@@ -160,6 +160,7 @@ export function QuoteItemsTable(props: Props) {
   // ---------- Renderers ----------
   const renderPrint = (m: PricingMaterial, idx: number) => {
     const total = (m.quantity || 0) * (m.unitPrice || 0);
+    const isApproved = m.status === "aprovado";
     const dynamicTitle = buildDynamicTitle({
       productKind: m.productKind,
       customName: m.customName,
@@ -170,38 +171,51 @@ export function QuoteItemsTable(props: Props) {
     });
     const childMatsForThis = childMaterials.filter((c) => c.parentItemId === m.id);
     const childLaborForThis = childLabor.filter((l) => l.parentItemId === m.id);
+    const rowBg = isApproved
+      ? "bg-green-50/60 dark:bg-green-950/20"
+      : flashId === m.id
+        ? "bg-primary/15"
+        : "hover:bg-muted/30";
     return (
       <div key={m.id}>
-        <div className={`${GRID} px-2 py-1.5 border-b text-sm transition-colors ${flashId === m.id ? "bg-primary/15" : "hover:bg-muted/30"}`}>
+        <div className={`${GRID} px-2 py-1.5 border-b text-sm transition-colors ${rowBg}`}>
           <span className="text-xs text-muted-foreground tabular-nums">{idx + 1}</span>
-          <KindBadge kind="print" />
+          <div className="flex items-center gap-1 flex-wrap">
+            <KindBadge kind="print" />
+            {isApproved && <ApprovedBadge approvedAt={m.approvedAt} approvedValue={m.approvedValue} />}
+          </div>
           <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-            <ProductKindButton item={m} onChange={(p) => onUpdatePrinting(m.id, p)} />
-            <SwapPrintingButton
-              catalog={printingCatalog}
-              onPick={(it) => {
-                onSwapPrinting(m.id, it);
-                triggerFlash(m.id);
-              }}
-            />
+            {!isApproved && <ProductKindButton item={m} onChange={(p) => onUpdatePrinting(m.id, p)} />}
+            {!isApproved && (
+              <SwapPrintingButton
+                catalog={printingCatalog}
+                onPick={(it) => {
+                  onSwapPrinting(m.id, it);
+                  triggerFlash(m.id);
+                }}
+              />
+            )}
             <div className="min-w-0 flex-1">
               <div className="font-medium truncate">
                 {dynamicTitle || <span className="text-muted-foreground italic">Defina o tipo de produto…</span>}
               </div>
               <div className="text-[11px] text-muted-foreground truncate">{m.description}</div>
             </div>
-            <ProcessPicker
-              steps={processSteps}
-              groups={processGroups}
-              hourlyRate={hourlyRate}
-              onPickStep={(s) => onAddProcess(m.id, s)}
-              onPickGroup={(g) => onExpandStepGroup(m.id, g)}
-              onPickCustom={(name, minutes) => onAddCustomFinish(m.id, name, minutes)}
-            />
+            {!isApproved && (
+              <ProcessPicker
+                steps={processSteps}
+                groups={processGroups}
+                hourlyRate={hourlyRate}
+                onPickStep={(s) => onAddProcess(m.id, s)}
+                onPickGroup={(g) => onExpandStepGroup(m.id, g)}
+                onPickCustom={(name, minutes) => onAddCustomFinish(m.id, name, minutes)}
+              />
+            )}
           </div>
           <Input
             type="number" min={1}
             value={m.quantity || ""}
+            disabled={isApproved}
             onChange={(e) => onUpdatePrinting(m.id, { quantity: parseFloat(e.target.value) || 0 })}
             className="h-8 text-sm text-right tabular-nums"
           />
@@ -209,6 +223,7 @@ export function QuoteItemsTable(props: Props) {
           <Input
             type="number" step="0.01"
             value={m.unitPrice || ""}
+            disabled={isApproved}
             onChange={(e) => onUpdatePrinting(m.id, { unitPrice: parseFloat(e.target.value) || 0 })}
             className="h-8 text-sm text-right tabular-nums"
           />
@@ -226,9 +241,11 @@ export function QuoteItemsTable(props: Props) {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRemovePrinting(m.id)}>
-              <X className="h-3.5 w-3.5" />
-            </Button>
+            {!isApproved && (
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRemovePrinting(m.id)}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
         </div>
         {childMatsForThis.map((c) => (
