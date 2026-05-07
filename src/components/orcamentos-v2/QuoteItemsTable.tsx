@@ -1,12 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers, Wand2,
+  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers, Wand2, RefreshCw,
 } from "lucide-react";
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   type PrintingCatalogItem, type MarkupTier,
 } from "@/components/orcamentos/PrintingItemSearch";
@@ -33,6 +36,7 @@ interface Props {
   processSteps: ProcessStep[];
   processGroups: ProcessGroup[];
   markupTiers: MarkupTier[];
+  categoryDefaultGroupId: Record<string, string | null>;
   globalSettings: { invoice_pct: number; collection_pct: number; waste_pct: number; default_margin_pct: number };
   hourlyRate: number;
 
@@ -44,6 +48,7 @@ interface Props {
   thirdParty: ThirdParty[];
 
   onAddPrinting: (item: PrintingCatalogItem) => void;
+  onSwapPrinting: (id: string, item: PrintingCatalogItem) => void;
   onAddProcess: (parentId: string | null, step: ProcessStep) => void;
   onExpandStepGroup: (parentId: string | null, group: ProcessGroup) => void;
   onAddCustomFinish: (parentId: string | null, name: string, minutes: number) => void;
@@ -66,20 +71,90 @@ const GRID = "grid grid-cols-[32px_140px_1fr_90px_60px_110px_110px_36px] items-c
 export function QuoteItemsTable(props: Props) {
   const {
     printingCatalog, processSteps, processGroups, hourlyRate,
+    markupTiers, categoryDefaultGroupId,
     printingItems, childMaterials, childLabor,
     standaloneLabor, standaloneManualMaterials, thirdParty,
-    onAddPrinting, onAddProcess, onExpandStepGroup, onAddCustomFinish,
+    onAddPrinting, onSwapPrinting, onAddProcess, onExpandStepGroup, onAddCustomFinish,
     onUpdatePrinting, onUpdateChildMaterial,
     onRemovePrinting, onRemoveChildMaterial, onRemoveLabor,
     onChangeStandaloneLabor, onChangeStandaloneMaterials, onChangeThirdParty,
   } = props;
 
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerFlash = (id: string) => {
+    setFlashId(id);
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => setFlashId(null), 700);
+  };
 
   const addEmptyDraft = () =>
     setDrafts((p) => [...p, { id: `draft-${Date.now()}` }]);
   const removeDraft = (id: string) =>
     setDrafts((p) => p.filter((d) => d.id !== id));
+
+  // Auto-open one empty draft when the table is completely empty on mount.
+  const autoDraftedRef = useRef(false);
+  useEffect(() => {
+    if (autoDraftedRef.current) return;
+    const isEmpty =
+      printingItems.length === 0 &&
+      standaloneLabor.length === 0 &&
+      standaloneManualMaterials.length === 0 &&
+      thirdParty.length === 0 &&
+      drafts.length === 0;
+    if (isEmpty) {
+      autoDraftedRef.current = true;
+      addEmptyDraft();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [printingItems.length, standaloneLabor.length, standaloneManualMaterials.length, thirdParty.length]);
+
+  // Tier-aware unit price helper (mirrors pricing engine).
+  const computeTierUnitPrice = (m: PricingMaterial, qty: number): number => {
+    if (!m.baseCost || !m.printerCategoryId) return m.unitPrice || 0;
+    const groupId = m.markupGroupId || categoryDefaultGroupId[m.printerCategoryId] || null;
+    const groupTiers = groupId
+      ? markupTiers.filter((t) => t.markup_group_id === groupId)
+      : markupTiers.filter((t) => t.printer_category_id === m.printerCategoryId);
+    const tier =
+      groupTiers.find((t) => qty >= t.min_qty && (t.max_qty === null || qty <= t.max_qty)) ||
+      groupTiers[0] ||
+      null;
+    if (!tier) return m.baseCost;
+    // Embed child costs (labor + materials) per unit, like recalculateForQuantity.
+    const childMatTotal = childMaterials
+      .filter((c) => c.parentItemId === m.id)
+      .reduce((s, c) => s + (c.quantity || 0) * (c.unitPrice || 0), 0);
+    const childLaborTotal = childLabor
+      .filter((l) => l.parentItemId === m.id)
+      .reduce((s, l) => s + ((l.timeMinutes || 0) / 60) * (hourlyRate || 0), 0);
+    const childPerUnit = qty > 0 ? (childMatTotal + childLaborTotal) / qty : 0;
+    const baseEffective = (m.baseCost || 0) + childPerUnit;
+    const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
+    const divisor = 1 - soma;
+    if (divisor <= 0) return 0;
+    return Math.round((baseEffective / divisor) * 10) / 10;
+  };
+
+  // Reactively re-sync each printing item's unit price with its current tier.
+  useEffect(() => {
+    for (const m of printingItems) {
+      const fresh = computeTierUnitPrice(m, m.quantity || 1);
+      if (fresh > 0 && Math.abs(fresh - (m.unitPrice || 0)) > 0.001) {
+        onUpdatePrinting(m.id, { unitPrice: fresh });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    JSON.stringify(printingItems.map((m) => [m.id, m.quantity, m.baseCost, m.printerCategoryId, m.markupGroupId])),
+    JSON.stringify(childMaterials.map((c) => [c.id, c.parentItemId, c.quantity, c.unitPrice])),
+    JSON.stringify(childLabor.map((l) => [l.id, l.parentItemId, l.timeMinutes])),
+    JSON.stringify(markupTiers.map((t) => t.id)),
+    hourlyRate,
+  ]);
 
   // ---------- Renderers ----------
   const renderPrint = (m: PricingMaterial, idx: number) => {
@@ -96,11 +171,18 @@ export function QuoteItemsTable(props: Props) {
     const childLaborForThis = childLabor.filter((l) => l.parentItemId === m.id);
     return (
       <div key={m.id}>
-        <div className={`${GRID} px-2 py-1.5 border-b text-sm hover:bg-muted/30`}>
+        <div className={`${GRID} px-2 py-1.5 border-b text-sm transition-colors ${flashId === m.id ? "bg-primary/15" : "hover:bg-muted/30"}`}>
           <span className="text-xs text-muted-foreground tabular-nums">{idx + 1}</span>
           <KindBadge kind="print" />
           <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
             <ProductKindButton item={m} onChange={(p) => onUpdatePrinting(m.id, p)} />
+            <SwapPrintingButton
+              catalog={printingCatalog}
+              onPick={(it) => {
+                onSwapPrinting(m.id, it);
+                triggerFlash(m.id);
+              }}
+            />
             <div className="min-w-0 flex-1">
               <div className="font-medium truncate">
                 {dynamicTitle || <span className="text-muted-foreground italic">Defina o tipo de produto…</span>}
@@ -650,6 +732,77 @@ function ProcessPicker({
             </div>
           </>
         )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function SwapPrintingButton({
+  catalog, onPick,
+}: {
+  catalog: PrintingCatalogItem[];
+  onPick: (it: PrintingCatalogItem) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const filtered = useMemo(() => {
+    const s = q.toLowerCase();
+    return catalog
+      .filter((p) =>
+        `${p.paper_type} ${p.grammage ?? ""} ${p.size} ${p.side} ${p.equipment_name ?? ""} ${p.category_name}`
+          .toLowerCase()
+          .includes(s),
+      )
+      .slice(0, 30);
+  }, [q, catalog]);
+
+  return (
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQ(""); }}>
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center h-6 w-6 rounded border border-dashed text-muted-foreground hover:text-foreground hover:border-foreground shrink-0"
+                aria-label="Trocar material"
+              >
+                <RefreshCw className="h-3 w-3" />
+              </button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">Trocar material</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <PopoverContent align="start" className="w-80 p-2">
+        <Input
+          autoFocus
+          placeholder="Buscar nova impressão…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="h-8 text-sm mb-2"
+        />
+        <div className="max-h-64 overflow-auto">
+          {filtered.length === 0 ? (
+            <p className="text-xs text-muted-foreground p-2">Nenhuma impressão encontrada.</p>
+          ) : (
+            filtered.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => { onPick(p); setOpen(false); setQ(""); }}
+                className="w-full px-2 py-1.5 text-left hover:bg-accent text-sm rounded flex items-center justify-between gap-2"
+              >
+                <span className="truncate">
+                  {p.paper_type}{p.grammage ? ` ${p.grammage}` : ""} — {p.size} {p.side}
+                </span>
+                <span className="text-[10px] text-muted-foreground shrink-0">
+                  {p.equipment_name || p.category_name}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );

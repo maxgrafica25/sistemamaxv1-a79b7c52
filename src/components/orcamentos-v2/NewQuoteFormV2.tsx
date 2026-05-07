@@ -949,6 +949,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             processSteps={processSteps}
             processGroups={processGroups}
             markupTiers={markupTiers}
+            categoryDefaultGroupId={categoryGroups}
             globalSettings={globalSettings}
             hourlyRate={hourlyRate}
             printingItems={printingItems}
@@ -958,6 +959,32 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             standaloneManualMaterials={standaloneManualMaterials}
             thirdParty={thirdParty}
             onAddPrinting={addPrintingItem}
+            onSwapPrinting={(id, item) => {
+              const sizeMult = isLargerThanA4(item.size) ? 2 : 1;
+              const sideMult = item.side === "F/V" ? 2 : 1;
+              const printCost = roundUp5(item.printing_cost * sizeMult * sideMult);
+              const baseCost = item.paper_cost + printCost;
+              setMaterials((prev) =>
+                prev.map((m) =>
+                  m.id === id
+                    ? {
+                        ...m,
+                        description: `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}` : ""}`,
+                        baseCost,
+                        printerCategoryId: item.printer_category_id,
+                        markupGroupId: item.markup_group_id,
+                        paperType: item.paper_type ?? null,
+                        grammage: item.grammage ?? null,
+                        size: item.size ?? null,
+                        side: item.side ?? null,
+                        catalogSource: "printing",
+                        catalogItemId: item.id,
+                      }
+                    : m,
+                ),
+              );
+              toast.success("Material trocado — confira se os acabamentos seguem compatíveis.");
+            }}
             onAddProcess={addProcessStep}
             onExpandStepGroup={expandStepGroup}
             onAddCustomFinish={(parentId, name, minutes) => {
