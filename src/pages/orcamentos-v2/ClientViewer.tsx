@@ -388,6 +388,7 @@ export default function ClientViewer() {
       // Recarrega dados para refletir o novo status
       await loadData();
       setSelectedItemIds(new Set());
+      didPreselectRef.current = false;
       void trackEvent(quote.id, "whatsapp_share");
       window.open(url, "_blank", "noopener,noreferrer");
       toast.success("Itens aprovados! Continue no WhatsApp para confirmar.");
