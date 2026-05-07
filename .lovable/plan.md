@@ -1,40 +1,55 @@
 ## Problema
-O orçamento `2026-010` (id `b23e4d0f...`) ficou com `is_locked = true` após a versão filha ter sido criada e depois excluída. Sem destravar, o sistema não permite editar nem gerar nova versão.
 
-## Correção pontual
-Rodar UPDATE destravando este orçamento específico:
+Ao criar nova versão do orçamento `2026-010`, os itens de acabamento (mão de obra) aparecem **soltos no topo da lista**, desvinculados dos itens de impressão pai.
+
+Comparando os dados:
+
+**Versão original (v1):**
+- Materiais: 2 itens com `catalog_source='printing'`, `catalog_item_id`, `paper_type`, `grammage`, etc.
+- Labor steps: 4 etapas vinculadas via `parent_item_id` aos itens de impressão.
+
+**Versão nova (v2) gerada pela RPC:**
+- Materiais perderam `catalog_source`, `catalog_item_id`, `paper_type`, `grammage`, `size`, `side`, `product_kind`, `custom_name`, `reference`, `generated_title`.
+- Labor steps perderam `parent_item_id` e `step_type` → ficam órfãos e renderizam como avulsos no topo.
+
+## Causa
+
+A função `public.create_quote_version` copia apenas um subset mínimo de colunas:
 
 ```sql
-UPDATE public.quotes
-   SET is_locked = false, updated_at = now()
- WHERE id = 'b23e4d0f-19b7-4840-978c-5e988fe6744a';
+INSERT INTO quote_materials (quote_id, description, quantity, unit_price, sort_order, status, approved_at, approved_value)
+INSERT INTO quote_labor_steps (quote_id, description, time_minutes, sort_order)
 ```
 
-## Correção estrutural (para não acontecer de novo)
-Adicionar trigger em `public.quotes`: quando uma versão filha for DELETADA, destravar automaticamente o `parent_quote_id` se ele não tiver mais nenhuma versão filha existente.
+Faltam todos os metadados de catálogo, hierarquia (parent_item_id) e tipo de etapa.
+
+## Plano
+
+Atualizar a função `create_quote_version` via migration para:
+
+1. **Materiais**: copiar também `parent_item_id`, `product_kind`, `custom_name`, `reference`, `generated_title`, `paper_type`, `grammage`, `size`, `side`, `catalog_source`, `catalog_item_id`.
+2. **Mapear IDs antigos → novos**: usar CTE com `RETURNING` + tabela temporária `(old_id, new_id)` para remapear `parent_item_id` corretamente nos materiais filhos.
+3. **Labor steps**: copiar também `parent_item_id` (remapeado pelo mapping acima) e `step_type`.
+4. Manter ordem de inserção: primeiro pais (parent_item_id IS NULL), depois filhos remapeados.
+5. Backfill da v2 já existente (`4217b83e-...`): atualizar metadados e re-vincular labor_steps com base nos descrições/sort_order da v1.
+
+### Detalhe técnico
 
 ```sql
-CREATE OR REPLACE FUNCTION public.unlock_parent_on_version_delete()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-  IF OLD.parent_quote_id IS NOT NULL THEN
-    IF NOT EXISTS (
-      SELECT 1 FROM public.quotes
-       WHERE parent_quote_id = OLD.parent_quote_id AND id <> OLD.id
-    ) THEN
-      UPDATE public.quotes
-         SET is_locked = false, updated_at = now()
-       WHERE id = OLD.parent_quote_id;
-    END IF;
-  END IF;
-  RETURN OLD;
-END;
-$$;
+-- mapping table temporária
+CREATE TEMP TABLE _map(old_id uuid, new_id uuid) ON COMMIT DROP;
 
-DROP TRIGGER IF EXISTS trg_unlock_parent_on_version_delete ON public.quotes;
-CREATE TRIGGER trg_unlock_parent_on_version_delete
-AFTER DELETE ON public.quotes
-FOR EACH ROW EXECUTE FUNCTION public.unlock_parent_on_version_delete();
+-- 1) inserir materiais raiz, capturar mapping
+WITH ins AS (
+  INSERT INTO quote_materials (quote_id, ..., catalog_source, catalog_item_id, ...)
+  SELECT v_new_id, ..., catalog_source, catalog_item_id, ...
+  FROM quote_materials WHERE quote_id = p_quote_id AND parent_item_id IS NULL
+  RETURNING id, sort_order
+)
+INSERT INTO _map ...
+
+-- 2) inserir filhos usando mapping
+-- 3) inserir labor_steps com parent_item_id remapeado
 ```
 
-Sem alterações de código frontend.
+Sem mudanças no frontend.
