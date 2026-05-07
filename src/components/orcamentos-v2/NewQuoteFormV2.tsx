@@ -22,13 +22,13 @@ import { supabase } from "@/integrations/supabase/client";
 import PrintingItemSearch, { type PrintingCatalogItem, type MarkupTier } from "@/components/orcamentos/PrintingItemSearch";
 import { StickyFinancialSidebar } from "@/components/orcamentos-v2/StickyFinancialSidebar";
 import { DiscountPaymentBlock, type DiscountType } from "@/components/orcamentos-v2/DiscountPaymentBlock";
-import { QuoteOptionsBuilder } from "@/components/orcamentos-v2/QuoteOptionsBuilder";
+
 import {
   recalculateForQuantity,
   type PricingMaterial,
   type PricingSnapshot,
 } from "@/lib/quotes-v2/pricing";
-import type { QuoteOption } from "@/lib/quotes-v2/options";
+
 import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionButton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PrintingItemEditor } from "@/components/orcamentos-v2/PrintingItemEditor";
@@ -77,7 +77,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [product, setProduct] = useState("");
   const [validity, setValidity] = useState("15");
   const [profitMargin, setProfitMargin] = useState("33");
-  const [mainQuantity, setMainQuantity] = useState<number | "">("");
+  
   const [notes, setNotes] = useState("");
   const [attentionTo, setAttentionTo] = useState("");
   const [hiddenExtras, setHiddenExtras] = useState<number>(0);
@@ -100,7 +100,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [discountValue, setDiscountValue] = useState<number | null>(null);
   const [discountType, setDiscountType] = useState<DiscountType>("brl");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
-  const [options, setOptions] = useState<QuoteOption[]>([]);
+  
 
   // catalog
   const [printingCatalog, setPrintingCatalog] = useState<PrintingCatalogItem[]>([]);
@@ -309,7 +309,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         setProduct(q.product);
         setValidity(q.validity || "15");
         setProfitMargin(q.profit_margin || "33");
-        setMainQuantity(((q as any).main_quantity ?? "") as number | "");
+        
         setNotes((q as any).notes || "");
         setAttentionTo(((q as any).attention_to as string) || "");
         setHiddenExtras(Number((q as any).hidden_extras_value) || 0);
@@ -322,9 +322,6 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         setQuoteVersion(q.version ?? 1);
         setIsLocked(q.is_locked ?? false);
         setParentQuoteId(q.parent_quote_id ?? null);
-        if (Array.isArray(q.options)) {
-          setOptions(q.options as unknown as QuoteOption[]);
-        }
       }
       setLabor((lRes.data || []).map((s: any) => ({
         id: s.id,
@@ -526,6 +523,28 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     setLabor((prev) => prev.filter((l) => l.parentItemId !== id));
   };
 
+  const duplicateItemDeep = (id: string) => {
+    const parent = materials.find((m) => m.id === id && !m.parentItemId);
+    if (!parent) return;
+    const newParentId = crypto.randomUUID();
+    const clonedParent: SubformMaterial = {
+      ...parent,
+      id: newParentId,
+      status: "pendente" as any,
+      approvedAt: null as any,
+      approvedValue: null as any,
+    };
+    const childMats = materials
+      .filter((m) => m.parentItemId === id)
+      .map((c) => ({ ...c, id: crypto.randomUUID(), parentItemId: newParentId }));
+    const childLab = labor
+      .filter((l) => l.parentItemId === id)
+      .map((l) => ({ ...l, id: `lbr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, parentItemId: newParentId }));
+    setMaterials((prev) => [...prev, clonedParent, ...childMats]);
+    setLabor((prev) => [...prev, ...childLab]);
+    toast.success("Item duplicado com sucesso! Altere a quantidade ou acabamento na nova linha.");
+  };
+
   const setChildLaborFor = (parentId: string, next: SubformLabor[]) => {
     setLabor((prev) => {
       const others = prev.filter((l) => l.parentItemId !== parentId);
@@ -587,7 +606,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         date: new Date().toISOString().split("T")[0],
         validity,
         profit_margin: profitMargin,
-        main_quantity: typeof mainQuantity === "number" && mainQuantity > 0 ? mainQuantity : null,
+        
         notes: notes.trim() || null,
         attention_to: attentionTo.trim() || null,
         hidden_extras_value: hiddenExtras || 0,
@@ -597,7 +616,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         discount_value: discountValue,
         discount_type: discountValue ? discountType : null,
         payment_method: paymentMethod || null,
-        options: (options.length > 0 ? options : null) as never,
+        
       };
 
       let id = savedQuoteId;
@@ -1003,6 +1022,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             onUpdatePrinting={updateMaterialPatch}
             onUpdateChildMaterial={updateMaterialPatch}
             onRemovePrinting={removeMaterial}
+            onDuplicateItem={duplicateItemDeep}
             onRemoveChildMaterial={removeMaterial}
             onRemoveLabor={removeLaborStep}
             onChangeStandaloneLabor={setStandaloneLabor}
@@ -1134,34 +1154,6 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} />
         </div>
 
-        {/* ===== Comparativo de quantidades (ancoragem) ===== */}
-        <Separator className="my-4" />
-        <div className="space-y-3">
-          <div className="flex items-end gap-3 flex-wrap">
-            <div className="space-y-1">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                Quantidade desejada
-              </Label>
-              <Input
-                type="number"
-                min={1}
-                value={mainQuantity === "" ? "" : mainQuantity}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setMainQuantity(v === "" ? "" : Math.max(0, Math.floor(Number(v) || 0)));
-                }}
-                placeholder="Ex: 1000"
-                className="h-10 w-40 text-base font-semibold"
-              />
-            </div>
-            <span className="text-xs text-muted-foreground pb-3">unidades</span>
-          </div>
-          <QuoteOptionsBuilder
-            snapshot={snapshot}
-            options={options}
-            onChange={setOptions}
-          />
-        </div>
 
         {/* ===== Total + ações secundárias ===== */}
         <Separator className="my-4" />

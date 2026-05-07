@@ -1,55 +1,50 @@
-# Três correções no Novo Orçamento (V2)
+# Deep Clone + Remoção da Ancoragem Global
 
-## 1. Linha em branco já aberta ao entrar
+## Parte 1 — Duplicar Item Completo (aprovado)
 
-**Onde:** `src/components/orcamentos-v2/QuoteItemsTable.tsx`
+### `QuoteItemsTable.tsx`
+- Em `renderPrint`, ao lado do `X` (excluir), adicionar botão `Copy` (lucide), `variant="ghost" size="icon" h-7 w-7`, com `Tooltip` shadcn: **"Duplicar Item Completo (Ideal para opções de qtde/variação)"**.
+- `onClick` → `onDuplicateItem(m.id)`.
+- Última coluna do `GRID` muda de `36px` → `72px` para caber dois ícones.
+- Adicionar `onDuplicateItem: (id: string) => void` em `Props`.
 
-Hoje o `useState<DraftRow[]>([])` começa vazio e o usuário precisa clicar em "+ adicionar item". Vou:
+### `NewQuoteFormV2.tsx`
+Novo handler `duplicateItemDeep`:
 
-- Adicionar um `useEffect` que, quando a tabela monta **vazia** (sem `printingItems`, sem `standaloneLabor`, etc.), cria automaticamente **uma** linha draft.
-- Após o usuário escolher uma impressão, **não** abrir nova draft automaticamente — ele clica "+ adicionar item" se quiser outra. Isso evita confusão.
-
-## 2. Tier de markup ignorando a quantidade
-
-**Sintoma:** o sistema usa sempre a primeira faixa, mesmo quando o usuário aumenta a quantidade.
-
-**Causa-raiz:** em `NewQuoteFormV2.tsx > addPrintingItem`, o `unitPrice` do material é calculado com `qty=1` e fica congelado. A `QuoteItemsTable` mostra `total = quantity × unitPrice` — ou seja, o preço unitário da linha nunca consulta o tier de novo quando a quantidade muda. O motor `recalculateForQuantity` (em `pricing.ts`) **já faz** isso corretamente para o total geral (sidebar), mas o **preço unitário visível na linha** continua o do tier inicial.
-
-**Correção em `QuoteItemsTable.tsx > renderPrint`:**
-
-- Receber `markupTiers` e `categoryDefaultGroupId` do pai (markupTiers já é prop; `categoryGroups` ainda não — adicionar).
-- Para itens com `baseCost` + `printerCategoryId`, recalcular o `unitPrice` exibido com base no `quantity` atual da linha (mesma fórmula `findTier` + `calcSellingPrice` do engine).
-- Quando o usuário altera o campo "Qtde", chamar `onUpdatePrinting(id, { quantity, unitPrice: novoPrecoCalculado })` — assim o valor recalculado é persistido no estado e o total da linha reflete a faixa correta.
-- Considerar também os custos dos **filhos vinculados** (mão-de-obra + materiais com `parentItemId === m.id`) somados ao `baseCost` antes de aplicar o tier — espelhando `recalculateForQuantity` para que o preço da linha bata com o total do orçamento.
-
-## 3. Trocar a impressão sem perder os acabamentos
-
-**Sintoma:** se o papel está errado, o usuário precisa apagar o item e seus acabamentos vinculados, depois recadastrar tudo.
-
-**Solução:** botão **"Trocar material"** (ícone `RefreshCw`, ghost discreto) ao lado do `ProductKindButton` em cada linha de impressão, em `QuoteItemsTable.tsx > renderPrint`.
-
-- **Tooltip** "Trocar material" no hover (componente `Tooltip` do shadcn — já disponível) — mantém o ícone limpo e a função clara.
-- Ao clicar, abre o mesmo `InlineCatalogCombobox` de impressões (popover).
-- Ao escolher a nova impressão:
-  - Recalcula `baseCost`, `paperType`, `grammage`, `size`, `side`, `printerCategoryId`, `markupGroupId`, `catalogItemId`, `description` do item — **mantendo o mesmo `id`**.
-  - Como o `id` permanece, todos os `childMaterials` e `childLabor` que têm `parentItemId === m.id` continuam vinculados automaticamente.
-  - Recalcula `unitPrice` com o tier vigente para o `quantity` atual.
-- **Feedback visual:**
-  - `toast.success("Material trocado — confira se os acabamentos seguem compatíveis.")` — texto curto que já reforça a conferência operacional.
-  - **Flash** rápido na linha trocada: aplicar uma classe CSS por ~600ms (ex: `bg-primary/10 transition-colors`) controlada por estado local `flashId` no `QuoteItemsTable`, que é setado no `onSwapPrinting` e limpo via `setTimeout`. A linha do `renderPrint` recebe a classe condicionalmente.
-- Implementação: novo callback `onSwapPrinting(id: string, newItem: PrintingCatalogItem)` no QuoteItemsTable; em `NewQuoteFormV2` é um `setMaterials(prev => prev.map(...))` que substitui os campos do item raiz preservando `id`, `quantity`, `productKind`, `customName`, `reference`, e qualquer status.
-
-UI sugerida na linha:
-
-```text
-[Tipo▾] [↻ tooltip:"Trocar material"]  título do item …  [+ acabamento]
+```ts
+const duplicateItemDeep = (id: string) => {
+  const parent = materials.find((m) => m.id === id && !m.parentItemId);
+  if (!parent) return;
+  const newParentId = crypto.randomUUID();
+  const clonedParent = { ...parent, id: newParentId, status: "pendente", approvedAt: null, approvedValue: null };
+  const childMats = materials
+    .filter((m) => m.parentItemId === id)
+    .map((c) => ({ ...c, id: crypto.randomUUID(), parentItemId: newParentId }));
+  const childLab = labor
+    .filter((l) => l.parentItemId === id)
+    .map((l) => ({ ...l, id: `lbr-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, parentItemId: newParentId }));
+  setMaterials((prev) => [...prev, clonedParent, ...childMats]);
+  setLabor((prev) => [...prev, ...childLab]);
+  toast.success("Item duplicado com sucesso! Altere a quantidade ou acabamento na nova linha.");
+};
 ```
 
-**Atenção operacional (não vai pro código, é orientação de uso):** o sistema **não bloqueia** combinações inválidas (ex.: troca para uma folha menor que não comporta o formato configurado em laminação/refile). Isso é proposital — agiliza o fluxo. Cabe ao operador conferir visualmente se os acabamentos abaixo continuam fazendo sentido com a nova folha. O toast pós-troca já carrega esse lembrete.
+Passar `onDuplicateItem={duplicateItemDeep}` ao `<QuoteItemsTable>`. O recálculo por tier (effect já existente) cuida do `unitPrice` automaticamente.
+
+## Parte 2 — Remover "Opções de quantidade (ancoragem)"
+
+### `NewQuoteFormV2.tsx`
+- **Remover JSX (linhas ~1137–1164):** todo o bloco com `Quantidade desejada`, input de `mainQuantity`, e `<QuoteOptionsBuilder ...>`. Manter o `<Separator>` posterior do bloco de Total intacto.
+- **Remover estado e imports:**
+  - `const [mainQuantity, setMainQuantity] = useState(...)` (linha 80).
+  - `const [options, setOptions] = useState<QuoteOption[]>([])` (linha 103).
+  - `import { QuoteOptionsBuilder }` (linha 25).
+  - `import type { QuoteOption }` (linha 31).
+- **Remover hidratação no edit (linhas ~312, 325–326):** `setMainQuantity(...)` e o `if (Array.isArray(q.options)) setOptions(...)`.
+- **Remover do payload de save (linhas ~590, 600):** os campos `main_quantity` e `options` do objeto enviado ao Supabase. (Colunas no DB permanecem, apenas paramos de gravar — sem migração.)
+
+### Arquivo `QuoteOptionsBuilder.tsx`
+- Não excluir agora (segurança contra import órfão); apenas deixa de ser referenciado. Pode ser removido em limpeza futura.
 
 ## Fora de escopo
-
-- Sem mudanças no schema, RLS, persistência, ou no `ClientViewer`.
-- Sem mexer no fluxo de Comunicação Visual (`CVItemCard`).
-- Sem alterar a lógica de pricing engine — apenas consumi-la corretamente na UI da tabela.
-- Sem validação automática de compatibilidade impressão↔acabamento (decisão consciente para preservar agilidade).
+- Sem mudanças de schema/RLS, pricing engine ou persistência adicional. Toda variação de quantidade passa a ser feita exclusivamente via clonagem de linhas na tabela.

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers, Wand2, RefreshCw,
+  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers, Wand2, RefreshCw, Copy,
 } from "lucide-react";
 import {
   Popover, PopoverContent, PopoverTrigger,
@@ -55,6 +55,7 @@ interface Props {
   onUpdatePrinting: (id: string, patch: Partial<PricingMaterial>) => void;
   onUpdateChildMaterial: (id: string, patch: Partial<PricingMaterial>) => void;
   onRemovePrinting: (id: string) => void;
+  onDuplicateItem: (id: string) => void;
   onRemoveChildMaterial: (id: string) => void;
   onRemoveLabor: (id: string) => void;
 
@@ -66,7 +67,7 @@ interface Props {
 const fmt = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-const GRID = "grid grid-cols-[32px_140px_1fr_90px_60px_110px_110px_36px] items-center gap-2";
+const GRID = "grid grid-cols-[32px_140px_1fr_90px_60px_110px_110px_72px] items-center gap-2";
 
 export function QuoteItemsTable(props: Props) {
   const {
@@ -76,7 +77,7 @@ export function QuoteItemsTable(props: Props) {
     standaloneLabor, standaloneManualMaterials, thirdParty,
     onAddPrinting, onSwapPrinting, onAddProcess, onExpandStepGroup, onAddCustomFinish,
     onUpdatePrinting, onUpdateChildMaterial,
-    onRemovePrinting, onRemoveChildMaterial, onRemoveLabor,
+    onRemovePrinting, onRemoveChildMaterial, onRemoveLabor, onDuplicateItem,
     onChangeStandaloneLabor, onChangeStandaloneMaterials, onChangeThirdParty,
   } = props;
 
@@ -212,9 +213,23 @@ export function QuoteItemsTable(props: Props) {
             className="h-8 text-sm text-right tabular-nums"
           />
           <span className="text-right tabular-nums font-medium">{fmt(total)}</span>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRemovePrinting(m.id)}>
-            <X className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center justify-end gap-0.5">
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDuplicateItem(m.id)}>
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[220px]">
+                  Duplicar Item Completo (Ideal para opções de qtde/variação)
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRemovePrinting(m.id)}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
         {childMatsForThis.map((c) => (
           <div key={c.id} className={`${GRID} px-2 py-1.5 border-b text-sm bg-muted/10`}>
