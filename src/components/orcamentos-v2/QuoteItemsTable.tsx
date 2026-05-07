@@ -521,26 +521,32 @@ function InlineCatalogCombobox({
 }
 
 function CustomFinishForm({
-  onSubmit, onCancel,
+  hourlyRate, onSubmit, onCancel,
 }: {
-  onSubmit: (name: string, price: number) => void;
+  hourlyRate: number;
+  onSubmit: (name: string, minutes: number) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
-  const valid = name.trim() && parseFloat(price) > 0;
+  const [minutes, setMinutes] = useState("");
+  const mins = parseFloat(minutes) || 0;
+  const valid = name.trim() && mins > 0;
+  const cost = (mins / 60) * (hourlyRate || 0);
   return (
     <div className="space-y-2">
       <div className="text-xs font-medium text-foreground flex items-center gap-1.5">
         <Wand2 className="h-3.5 w-3.5 text-primary" /> Acabamento avulso
       </div>
       <Input autoFocus placeholder="Nome (ex: Corte especial)" value={name} onChange={(e) => setName(e.target.value)} className="h-8 text-sm" />
-      <Input type="number" inputMode="decimal" step="0.01" min="0" placeholder="Valor total (R$)" value={price} onChange={(e) => setPrice(e.target.value)} className="h-8 text-sm" />
+      <Input type="number" inputMode="decimal" step="1" min="0" placeholder="Tempo (min)" value={minutes} onChange={(e) => setMinutes(e.target.value)} className="h-8 text-sm" />
+      <p className="text-[10px] text-muted-foreground">
+        ≈ {fmt(cost)} <span className="opacity-70">(custo/hora {fmt(hourlyRate || 0)}/h)</span>
+      </p>
       <p className="text-[10px] text-muted-foreground">Válido apenas neste orçamento. Não será salvo no cadastro.</p>
       <div className="flex justify-end gap-1.5">
         <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>Cancelar</Button>
         <Button size="sm" className="h-7 text-xs" disabled={!valid}
-          onClick={() => onSubmit(name.trim(), parseFloat(price) || 0)}>
+          onClick={() => onSubmit(name.trim(), mins)}>
           Adicionar
         </Button>
       </div>
@@ -549,20 +555,20 @@ function CustomFinishForm({
 }
 
 function ProcessPicker({
-  steps, groups, onPickStep, onPickGroup, onPickCustom,
+  steps, groups, hourlyRate, onPickStep, onPickGroup, onPickCustom, label = "processo",
 }: {
   steps: ProcessStep[];
   groups: ProcessGroup[];
+  hourlyRate: number;
   onPickStep: (s: ProcessStep) => void;
   onPickGroup: (g: ProcessGroup) => void;
-  onPickCustom: (name: string, price: number) => void;
+  onPickCustom: (name: string, minutes: number) => void;
+  label?: string;
 }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [customMode, setCustomMode] = useState(false);
-  const [cName, setCName] = useState("");
-  const [cPrice, setCPrice] = useState("");
-  const reset = () => { setCustomMode(false); setCName(""); setCPrice(""); setQ(""); };
+  const reset = () => { setCustomMode(false); setQ(""); };
   const fSteps = useMemo(() => {
     const s = q.toLowerCase();
     return steps.filter((x) => x.description.toLowerCase().includes(s)).slice(0, 30);
@@ -577,28 +583,18 @@ function ProcessPicker({
         <button
           type="button"
           className="inline-flex items-center gap-1 px-2 py-1 rounded border border-dashed text-[11px] text-muted-foreground hover:text-foreground hover:border-foreground shrink-0"
-          title="Adicionar processo vinculado"
+          title="Adicionar acabamento / processo"
         >
-          <Plus className="h-3 w-3" /> processo
+          <Plus className="h-3 w-3" /> {label}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-2">
         {customMode ? (
-          <div className="space-y-2">
-            <div className="text-xs font-medium text-foreground flex items-center gap-1.5">
-              <Wand2 className="h-3.5 w-3.5 text-primary" /> Acabamento avulso
-            </div>
-            <Input autoFocus placeholder="Nome (ex: Corte especial)" value={cName} onChange={(e) => setCName(e.target.value)} className="h-8 text-sm" />
-            <Input type="number" inputMode="decimal" step="0.01" min="0" placeholder="Valor total (R$)" value={cPrice} onChange={(e) => setCPrice(e.target.value)} className="h-8 text-sm" />
-            <p className="text-[10px] text-muted-foreground">Válido apenas neste orçamento. Não será salvo no cadastro.</p>
-            <div className="flex justify-end gap-1.5">
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={reset}>Cancelar</Button>
-              <Button size="sm" className="h-7 text-xs"
-                disabled={!cName.trim() || !(parseFloat(cPrice) > 0)}
-                onClick={() => { onPickCustom(cName.trim(), parseFloat(cPrice) || 0); setOpen(false); reset(); }}
-              >Adicionar</Button>
-            </div>
-          </div>
+          <CustomFinishForm
+            hourlyRate={hourlyRate}
+            onSubmit={(name, minutes) => { onPickCustom(name, minutes); setOpen(false); reset(); }}
+            onCancel={reset}
+          />
         ) : (
           <>
             <Input
