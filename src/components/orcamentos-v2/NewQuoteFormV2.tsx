@@ -22,7 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import PrintingItemSearch, { type PrintingCatalogItem, type MarkupTier } from "@/components/orcamentos/PrintingItemSearch";
 import { StickyFinancialSidebar } from "@/components/orcamentos-v2/StickyFinancialSidebar";
 import { DiscountPaymentBlock, type DiscountType } from "@/components/orcamentos-v2/DiscountPaymentBlock";
-import { QuoteOptionsBuilder } from "@/components/orcamentos-v2/QuoteOptionsBuilder";
+
 import {
   recalculateForQuantity,
   type PricingMaterial,
