@@ -374,6 +374,7 @@ export default function ClientViewer() {
         }));
       const totalForMessage = itemsForMessage.reduce((s, i) => s + i.value, 0);
 
+      const isFullApproval = selectedItemIds.size === pendingItems.length;
       const url = buildWaUrl(
         buildPartialApprovalMessage({
           quoteNumber: quote.quote_number,
@@ -381,6 +382,7 @@ export default function ClientViewer() {
           total: totalForMessage,
           clientName: quote.client,
           companyName,
+          isFullApproval,
         }),
         whatsappNumber,
       );
