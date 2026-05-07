@@ -526,9 +526,36 @@ export default function ClientViewer() {
         {hasAnyPending && !quote.is_locked && (
           <Card className="border-border/60 shadow-sm">
             <CardContent className="p-5 sm:p-6 space-y-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                {hasAnyApproved ? "Aguardando sua decisão" : "O que está incluso"}
-              </h2>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  {hasAnyApproved ? "Aguardando sua decisão" : "O que está incluso"}
+                </h2>
+                {hasMultipleItems && (
+                  <div className="flex items-center gap-2">
+                    {selectedItemIds.size === pendingItems.length && (
+                      <Badge className="bg-green-600 hover:bg-green-600 gap-1 text-[10px]">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Todos selecionados
+                      </Badge>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        if (selectedItemIds.size === pendingItems.length) {
+                          setSelectedItemIds(new Set());
+                        } else {
+                          setSelectedItemIds(new Set(pendingItems.map((m) => m.id)));
+                        }
+                      }}
+                    >
+                      {selectedItemIds.size === pendingItems.length ? "Limpar seleção" : "Selecionar todos"}
+                    </Button>
+                  </div>
+                )}
+              </div>
               <ul className="space-y-2 text-sm">
                 {pendingItems.map((m) => {
                   const itemValue = m.quantity * m.unit_price;
