@@ -105,6 +105,22 @@ export default function OrcamentosV2() {
     fetchQuotes();
   }, [fetchQuotes]);
 
+  // Realtime: refresh the list whenever a quote is inserted/updated/deleted,
+  // so a newly saved quote appears without requiring an F5.
+  useEffect(() => {
+    const channel = supabase
+      .channel("quotes-list-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "quotes" },
+        () => fetchQuotes(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchQuotes]);
+
   const handleApprove = async (id: string) => {
     await supabase.from("quotes").update({ status: "approved" }).eq("id", id);
     toast.success("Orçamento aprovado!");
