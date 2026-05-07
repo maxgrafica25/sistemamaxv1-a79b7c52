@@ -362,6 +362,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         grammage: m.grammage ?? null,
         size: m.size ?? null,
         side: m.side ?? null,
+        widthMm: m.width_mm != null ? Number(m.width_mm) : null,
+        heightMm: m.height_mm != null ? Number(m.height_mm) : null,
+        printColors: m.print_colors ?? null,
         catalogSource: (m.catalog_source as "printing" | "finishing" | null) ?? null,
         catalogItemId: m.catalog_item_id ?? null,
       })));
