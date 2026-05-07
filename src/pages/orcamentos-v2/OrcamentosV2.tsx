@@ -40,6 +40,7 @@ interface QuoteRow {
   value: number;
   status: string;
   date: string;
+  created_at: string;
   view_count: number | null;
   last_viewed_at: string | null;
   is_template: boolean | null;
