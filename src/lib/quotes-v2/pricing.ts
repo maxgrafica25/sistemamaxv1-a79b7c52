@@ -36,6 +36,10 @@ export interface PricingMaterial {
   grammage?: string | null;
   size?: string | null;
   side?: string | null;
+  // Dimensões estruturadas em mm (V2.1) — usadas para descrição e cálculo de aproveitamento
+  widthMm?: number | null;
+  heightMm?: number | null;
+  printColors?: string | null; // "4x4" | "4x0" | "1x1" | "1x0"
   // Catálogo (nomenclatura travada)
   catalogSource?: "printing" | "finishing" | null;
   catalogItemId?: string | null;
