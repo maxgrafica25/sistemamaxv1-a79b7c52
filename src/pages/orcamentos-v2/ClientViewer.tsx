@@ -18,14 +18,15 @@ import {
 import { ViewerHeader } from "@/components/orcamentos-v2/client-viewer/ViewerHeader";
 import { OptionCard } from "@/components/orcamentos-v2/client-viewer/OptionCard";
 import { StickyApprovalBar } from "@/components/orcamentos-v2/client-viewer/StickyApprovalBar";
+import { WhatsAppShareDialog } from "@/components/orcamentos-v2/client-viewer/WhatsAppShareDialog";
 import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { trackEvent } from "@/lib/quotes-v2/tracking";
 import { useScrollDepthTracking } from "@/lib/quotes-v2/useScrollDepthTracking";
 import {
+  buildAdjustMessage,
   buildItemAdjustMessage,
   buildPartialApprovalMessage,
-  buildWaUrl,
 } from "@/lib/quotes-v2/whatsapp";
 
 interface QuoteRow {
@@ -97,7 +98,26 @@ export default function ClientViewer() {
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
-  const { whatsappNumber, companyName } = useCompanySettings();
+  const { whatsappNumber, whatsappDisplay, companyName } = useCompanySettings();
+  const [shareDialog, setShareDialog] = useState<{
+    open: boolean;
+    message: string;
+    title: string;
+    helper?: string;
+  }>({ open: false, message: "", title: "" });
+
+  const openShare = (
+    message: string,
+    title: string,
+    helper?: string,
+  ) => {
+    if (!whatsappNumber) {
+      toast.error("WhatsApp da empresa não configurado.");
+      return;
+    }
+    setShareDialog({ open: true, message, title, helper });
+  };
+
 
   const loadData = async () => {
     let quoteRow: QuoteRow | null = null;
@@ -375,25 +395,25 @@ export default function ClientViewer() {
       const totalForMessage = itemsForMessage.reduce((s, i) => s + i.value, 0);
 
       const isFullApproval = selectedItemIds.size === pendingItems.length;
-      const url = buildWaUrl(
-        buildPartialApprovalMessage({
-          quoteNumber: quote.quote_number,
-          items: itemsForMessage,
-          total: totalForMessage,
-          clientName: quote.client,
-          companyName,
-          isFullApproval,
-        }),
-        whatsappNumber,
-      );
+      const message = buildPartialApprovalMessage({
+        quoteNumber: quote.quote_number,
+        items: itemsForMessage,
+        total: totalForMessage,
+        clientName: quote.client,
+        companyName,
+        isFullApproval,
+      });
 
       // Recarrega dados para refletir o novo status
       await loadData();
       setSelectedItemIds(new Set());
       didPreselectRef.current = false;
-      void trackEvent(quote.id, "whatsapp_share");
-      window.open(url, "_blank", "noopener,noreferrer");
-      toast.success("Itens aprovados! Continue no WhatsApp para confirmar.");
+      toast.success("Itens aprovados! Escolha como enviar a confirmação.");
+      openShare(
+        message,
+        isFullApproval ? "Confirme a aprovação no WhatsApp" : "Confirme os itens aprovados",
+        "Sua aprovação já foi registrada. Esta etapa apenas avisa a gráfica.",
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro ao aprovar itens.";
       toast.error(msg);
@@ -560,17 +580,18 @@ export default function ClientViewer() {
                 {pendingItems.map((m) => {
                   const itemValue = m.quantity * m.unit_price;
                   const checked = selectedItemIds.has(m.id);
-                  const itemAdjustUrl = whatsappNumber
-                    ? buildWaUrl(
-                        buildItemAdjustMessage({
-                          quoteNumber: quote.quote_number,
-                          itemDescription: m.description,
-                          clientName: quote.client,
-                          companyName,
-                        }),
-                        whatsappNumber,
-                      )
-                    : "";
+                  const handleItemAdjust = () => {
+                    openShare(
+                      buildItemAdjustMessage({
+                        quoteNumber: quote.quote_number,
+                        itemDescription: m.description,
+                        clientName: quote.client,
+                        companyName,
+                      }),
+                      "Solicitar alteração no item",
+                      "Envie a mensagem para a gráfica avaliar a alteração.",
+                    );
+                  };
                   return (
                     <li
                       key={m.id}
@@ -607,23 +628,17 @@ export default function ClientViewer() {
                           {formatBRL(itemValue)}
                         </p>
                       </label>
-                      {itemAdjustUrl && (
+                      {whatsappNumber && (
                         <Button
-                          asChild
+                          type="button"
                           variant="ghost"
                           size="sm"
                           className="h-7 px-2 text-xs text-muted-foreground hover:text-green-600 shrink-0"
                           title="Solicitar alteração neste item"
+                          onClick={handleItemAdjust}
                         >
-                          <a
-                            href={itemAdjustUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={() => void trackEvent(quote.id, "whatsapp_share")}
-                          >
-                            <MessageCircle className="h-3.5 w-3.5 sm:mr-1" />
-                            <span className="hidden sm:inline">Alterar</span>
-                          </a>
+                          <MessageCircle className="h-3.5 w-3.5 sm:mr-1" />
+                          <span className="hidden sm:inline">Alterar</span>
                         </Button>
                       )}
                     </li>
@@ -781,8 +796,32 @@ export default function ClientViewer() {
           totalItemCount={pendingItems.length}
           onApproveItems={handlePartialApproval}
           submitting={submitting}
+          onRequestAdjust={() =>
+            openShare(
+              buildAdjustMessage({
+                quoteNumber: quote.quote_number,
+                clientName: quote.client,
+                companyName,
+              }),
+              "Solicitar alteração no orçamento",
+              "Envie a mensagem para a gráfica avaliar a alteração.",
+            )
+          }
         />
       )}
+
+      <WhatsAppShareDialog
+        open={shareDialog.open}
+        onOpenChange={(o) => setShareDialog((s) => ({ ...s, open: o }))}
+        message={shareDialog.message}
+        phone={whatsappNumber}
+        phoneDisplay={whatsappDisplay}
+        title={shareDialog.title}
+        helper={shareDialog.helper}
+        onShared={() => {
+          if (quote?.id) void trackEvent(quote.id, "whatsapp_share");
+        }}
+      />
     </div>
   );
 }

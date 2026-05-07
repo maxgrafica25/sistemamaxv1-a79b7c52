@@ -1,56 +1,52 @@
 ## Problema
 
-No viewer público (`/p/:quoteNumber`), quando o orçamento tem múltiplos itens, o cliente precisa marcar manualmente cada checkbox antes de o botão "Aprovar" habilitar. Isso gera duas dores:
+Quando o cliente clica em "Aprovar X itens via WhatsApp", o sistema abre `https://wa.me/...` que redireciona para `api.whatsapp.com`. No desktop sem o app instalado, isso mostra o diálogo "Abrir WhatsApp?" — confuso para clientes leigos, especialmente os que não usam o app.
 
-1. Atrito desnecessário quando o cliente quer aprovar tudo.
-2. Clientes com baixa familiaridade não entendem que precisam clicar nos itens primeiro.
+A aprovação **já foi gravada no banco** nesse ponto (RPC executado antes do `window.open`), então o ato de "abrir o WhatsApp" é só para enviar a mensagem de confirmação. Mas hoje só existe um caminho e ele falha em desktop sem app.
 
-Mas se o botão for liberado "puro" (sem checkboxes), perdemos o registro de **quais itens** foram efetivamente aprovados — necessário para faturamento e para a aprovação parcial.
+## Solução
 
-## Solução proposta
+Após a aprovação ser gravada com sucesso, **em vez de abrir o WhatsApp direto**, exibir um diálogo (`Dialog` do shadcn) "Aprovação registrada! Como deseja enviar a confirmação?" com 3 opções claras:
 
-Inverter o padrão: **todos os itens vêm pré-marcados** ao abrir o orçamento, e adicionar um CTA primário "Aprovar TUDO" claro, mantendo a opção de desmarcar para aprovação parcial.
+1. **WhatsApp Web** (botão verde, ideal para desktop)
+   - Abre `https://web.whatsapp.com/send?phone=...&text=...` em nova aba.
+2. **WhatsApp no celular** (botão verde outline)
+   - Abre `https://wa.me/<phone>?text=...` (comportamento atual, ideal para mobile).
+3. **Copiar mensagem** (botão outline)
+   - Copia mensagem + número da gráfica para a área de transferência. Toast: "Mensagem copiada. Cole no seu WhatsApp."
 
-Assim resolvemos os dois problemas:
-- **Q1 (rastreio):** sempre sabemos quais itens foram aprovados — o estado dos checkboxes é a fonte da verdade. Se o cliente clicar em "Aprovar" sem mexer, todos vão como aprovados; se desmarcar alguns, só os marcados vão.
-- **Q2 (cognição):** o cliente leigo não precisa entender o conceito de "selecionar". Ele chega, vê o valor total já calculado e um botão verde grande "Aprovar orçamento (R$ XXX)". Funciona no modo "ler e aceitar".
+O diálogo também exibirá:
+- Pré-visualização da mensagem (read-only `<pre>` com a mensagem que será enviada).
+- O número da gráfica formatado (ex: "(11) 98765-4321"), para o caso de o cliente preferir digitar.
+- Aviso "Sua aprovação já foi registrada. Esta etapa apenas confirma para a gráfica."
 
-### Mudanças no `ClientViewer.tsx`
+Detecção de mobile (`/Android|iPhone|iPad/i.test(navigator.userAgent)`) será usada apenas para **destacar** o botão recomendado (badge "Recomendado") — sem forçar caminho.
 
-1. **Pré-seleção de todos os itens pendentes**
-   No `useEffect` que dispara após carregar `materials`, popular `selectedItemIds` com todos os IDs de `pendingItems`. Só executa uma vez, na carga inicial — não sobrescreve mudanças manuais do usuário depois.
-2. **Texto auxiliar ajustado** (linha ~590-595)
-   Trocar o aviso atual ("Marque os itens que deseja aprovar agora") por algo como:
-   *"Todos os itens estão selecionados para aprovação. Desmarque algum se quiser aprovar parcialmente, ou use Alterar para pedir ajustes."*
-3. **Indicador visual de "tudo selecionado"** no card de pendentes
-   Quando `selectedItemIds.size === pendingItems.length`, mostrar um pequeno badge verde no topo do card: "✓ Todos selecionados". Ajuda a reforçar o estado padrão.
-4. **Botão "Selecionar todos / Limpar seleção"** discreto no header do bloco "Aguardando sua decisão" (só aparece se houver 2+ itens). Útil pra quem desmarcou vários e quer voltar.
+## O que muda
 
-### Mudanças no `StickyApprovalBar.tsx`
+### Arquivo novo: `src/components/orcamentos-v2/client-viewer/WhatsAppShareDialog.tsx`
+Componente controlado (`open`, `onOpenChange`) recebendo `message`, `phone`, `phoneDisplay`. Implementa os 3 botões + preview.
 
-5. **Rótulos do CTA mais claros** (linhas 60-65 e 103-110):
-   - Quando todos selecionados → botão diz **"Aprovar orçamento (R$ XXX)"** (sem "selecionados", parece que está aprovando tudo).
-   - Quando parcialmente selecionado → **"Aprovar X itens selecionados (R$ XXX)"**.
-   - Quando zero selecionado → mantém estado desabilitado com texto **"Selecione ao menos 1 item"**.
-6. **Rótulo do total** (linha 60-65) acompanha:
-   - Todos: "Total do orçamento"
-   - Parcial: "Selecionados (X de Y itens)"
-   - Zero: "Selecione os itens para aprovar"
+Helpers de URL (em `src/lib/quotes-v2/whatsapp.ts`):
+- `buildWaWebUrl(message, phone)` → `https://web.whatsapp.com/send?phone=...&text=...`
+- (mantém `buildWaUrl` para mobile/app)
 
-### Mensagem de WhatsApp
+### `src/pages/orcamentos-v2/ClientViewer.tsx`
+- Remover o `window.open(url, ...)` no fluxo de aprovação parcial/integral (linha ~395).
+- Após `loadData()` e `trackEvent`, guardar a mensagem em estado (`pendingShareMessage`) e abrir `WhatsAppShareDialog`.
+- Idem no fluxo de "Solicitar alteração de item" (linha ~564) — substituir abertura direta por mesmo diálogo.
 
-7. Ajustar `buildPartialApprovalMessage` em `src/lib/quotes-v2/whatsapp.ts` para detectar quando **todos** os itens pendentes foram aprovados e usar uma mensagem de "aprovação total" ao invés de "aprovação parcial". Algo como:
-   - Total: *"Olá! Aprovo o orçamento Nº XXXX na íntegra. Podem prosseguir."*
-   - Parcial: mantém a mensagem atual listando itens.
+### `src/components/orcamentos-v2/client-viewer/StickyApprovalBar.tsx`
+- Botão "Solicitar Alteração" (modo `items`) hoje usa `<a href={adjustUrl}>`. Trocar por `onClick` que dispara o mesmo diálogo via callback `onShareMessage(message)` exposto pelo pai.
+- Modo `option` (legado) idem para o botão "Aprovar Orçamento".
 
-### Fora de escopo
+## Detalhes técnicos
 
-- Não mexer no fluxo de `showOptionsMode` (legado de opções de quantidade, raramente usado).
-- Não mexer no RPC `approve_quote_items` no backend — ele já recebe a lista de IDs e funciona perfeitamente para "todos" ou "alguns".
-- Não alterar o comportamento de orçamentos com 1 único item (já não tem checkbox).
+- `web.whatsapp.com/send` funciona em desktop sem confirmação de "abrir app" e não exige login adicional se a sessão já estiver ativa; se não estiver, mostra QR code — o que é OK e familiar.
+- Copiar usa `navigator.clipboard.writeText(`${message}\n\nWhatsApp: ${phoneDisplay}`)` com fallback para `document.execCommand('copy')`.
+- Tracking: chamar `trackEvent(quoteId, "whatsapp_share")` somente quando o cliente efetivamente clicar em uma das 3 opções (não na abertura do diálogo), incluindo um sub-tipo (`web` | `app` | `copy`) se quisermos métrica futura — por ora apenas mantém o evento atual.
 
-## Resultado esperado
+## Fora de escopo
 
-- Cliente apressado / leigo: abre → clica no botão verde → manda WhatsApp → pronto. Zero atrito.
-- Cliente que quer parcial: desmarca o que não quer agora → botão se ajusta dinamicamente → aprova só o resto.
-- Você no admin: continua sabendo exatamente quais itens foram aprovados em cada caso, porque o estado dos checkboxes (mesmo pré-marcados) sempre define o payload enviado.
+- Não alteramos `EngagementPopover.tsx` nem `LabelLayoutCalculator.tsx` (são usados pela equipe interna, não por clientes finais).
+- Não alteramos o fluxo de `mode="option"` legado de WhatsApp share fora do ClientViewer.
