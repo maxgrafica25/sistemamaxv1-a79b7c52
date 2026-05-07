@@ -580,17 +580,18 @@ export default function ClientViewer() {
                 {pendingItems.map((m) => {
                   const itemValue = m.quantity * m.unit_price;
                   const checked = selectedItemIds.has(m.id);
-                  const itemAdjustUrl = whatsappNumber
-                    ? buildWaUrl(
-                        buildItemAdjustMessage({
-                          quoteNumber: quote.quote_number,
-                          itemDescription: m.description,
-                          clientName: quote.client,
-                          companyName,
-                        }),
-                        whatsappNumber,
-                      )
-                    : "";
+                  const handleItemAdjust = () => {
+                    openShare(
+                      buildItemAdjustMessage({
+                        quoteNumber: quote.quote_number,
+                        itemDescription: m.description,
+                        clientName: quote.client,
+                        companyName,
+                      }),
+                      "Solicitar alteração no item",
+                      "Envie a mensagem para a gráfica avaliar a alteração.",
+                    );
+                  };
                   return (
                     <li
                       key={m.id}
@@ -627,23 +628,17 @@ export default function ClientViewer() {
                           {formatBRL(itemValue)}
                         </p>
                       </label>
-                      {itemAdjustUrl && (
+                      {whatsappNumber && (
                         <Button
-                          asChild
+                          type="button"
                           variant="ghost"
                           size="sm"
                           className="h-7 px-2 text-xs text-muted-foreground hover:text-green-600 shrink-0"
                           title="Solicitar alteração neste item"
+                          onClick={handleItemAdjust}
                         >
-                          <a
-                            href={itemAdjustUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={() => void trackEvent(quote.id, "whatsapp_share")}
-                          >
-                            <MessageCircle className="h-3.5 w-3.5 sm:mr-1" />
-                            <span className="hidden sm:inline">Alterar</span>
-                          </a>
+                          <MessageCircle className="h-3.5 w-3.5 sm:mr-1" />
+                          <span className="hidden sm:inline">Alterar</span>
                         </Button>
                       )}
                     </li>
