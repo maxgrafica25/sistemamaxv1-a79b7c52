@@ -796,8 +796,32 @@ export default function ClientViewer() {
           totalItemCount={pendingItems.length}
           onApproveItems={handlePartialApproval}
           submitting={submitting}
+          onRequestAdjust={() =>
+            openShare(
+              buildAdjustMessage({
+                quoteNumber: quote.quote_number,
+                clientName: quote.client,
+                companyName,
+              }),
+              "Solicitar alteração no orçamento",
+              "Envie a mensagem para a gráfica avaliar a alteração.",
+            )
+          }
         />
       )}
+
+      <WhatsAppShareDialog
+        open={shareDialog.open}
+        onOpenChange={(o) => setShareDialog((s) => ({ ...s, open: o }))}
+        message={shareDialog.message}
+        phone={whatsappNumber}
+        phoneDisplay={whatsappDisplay}
+        title={shareDialog.title}
+        helper={shareDialog.helper}
+        onShared={() => {
+          if (quote?.id) void trackEvent(quote.id, "whatsapp_share");
+        }}
+      />
     </div>
   );
 }
