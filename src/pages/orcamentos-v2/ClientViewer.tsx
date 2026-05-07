@@ -107,6 +107,12 @@ export default function ClientViewer() {
     title: string;
     helper?: string;
   }>({ open: false, message: "", title: "" });
+  const [approvalDialog, setApprovalDialog] = useState<{
+    open: boolean;
+    items: { id: string; description: string; value: number }[];
+    total: number;
+    isFullApproval: boolean;
+  }>({ open: false, items: [], total: 0, isFullApproval: false });
 
   const openShare = (
     message: string,
