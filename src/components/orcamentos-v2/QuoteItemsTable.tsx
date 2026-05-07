@@ -392,10 +392,10 @@ export function QuoteItemsTable(props: Props) {
         </div>
       )}
 
-      {printingItems.map((m, idx) => renderPrint(m, idx))}
+      {printingOrdered.map((m, idx) => renderPrint(m, idx))}
       {standaloneLabor.map((l) => renderLaborRow(l, false))}
-      {standaloneManualMaterials.map((m, idx) => renderLegacyMaterial(m, printingItems.length + idx))}
-      {thirdParty.map((t, idx) => renderLegacyService(t, printingItems.length + standaloneManualMaterials.length + idx))}
+      {manualOrdered.map((m, idx) => renderLegacyMaterial(m, printingOrdered.length + idx))}
+      {thirdParty.map((t, idx) => renderLegacyService(t, printingOrdered.length + manualOrdered.length + idx))}
 
       {/* Drafts */}
       {drafts.map((d, idx) => (
