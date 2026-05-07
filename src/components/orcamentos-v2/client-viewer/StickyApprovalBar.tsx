@@ -107,21 +107,17 @@ export function StickyApprovalBar({
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" /> Aprovando…
                 </>
-              ) : !hasPhone ? (
-                <>
-                  <CheckCircle2 className="h-5 w-5" /> WhatsApp não configurado
-                </>
               ) : selectedItemCount === 0 ? (
                 <>
                   <CheckCircle2 className="h-5 w-5" /> Selecione ao menos 1 item
                 </>
               ) : isAllSelected ? (
                 <>
-                  <CheckCircle2 className="h-5 w-5" /> Aprovar orçamento via WhatsApp
+                  <CheckCircle2 className="h-5 w-5" /> Aprovar orçamento
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="h-5 w-5" /> Aprovar {selectedItemCount} {selectedItemCount === 1 ? "item" : "itens"} via WhatsApp
+                  <CheckCircle2 className="h-5 w-5" /> Aprovar {selectedItemCount} {selectedItemCount === 1 ? "item" : "itens"}
                 </>
               )}
             </Button>
