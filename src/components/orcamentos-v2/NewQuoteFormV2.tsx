@@ -707,6 +707,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             grammage: rootMat.grammage,
             size: rootMat.size,
             side: rootMat.side,
+            widthMm: rootMat.widthMm,
+            heightMm: rootMat.heightMm,
+            printColors: rootMat.printColors,
             finishes: childDesc,
           });
         };
@@ -732,6 +735,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 grammage: m.grammage ?? null,
                 size: m.size ?? null,
                 side: m.side ?? null,
+                width_mm: m.widthMm ?? null,
+                height_mm: m.heightMm ?? null,
+                print_colors: m.printColors ?? null,
                 catalog_source: m.catalogSource ?? null,
                 catalog_item_id: m.catalogItemId ?? null,
               })),
@@ -763,6 +769,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               grammage: m.grammage ?? null,
               size: m.size ?? null,
               side: m.side ?? null,
+              width_mm: m.widthMm ?? null,
+              height_mm: m.heightMm ?? null,
+              print_colors: m.printColors ?? null,
             })
             .eq("id", m.id);
         }
