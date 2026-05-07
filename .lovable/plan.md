@@ -1,91 +1,40 @@
-## Evolução do Resumo Financeiro → DRE Simplificado + Simulador de Negociação
+## Restrições de visibilidade e desconto máximo
 
-Transformar o card lateral `StickyFinancialSidebar` em um painel de inteligência financeira reativo, com cascata de DRE, distinção entre proposta total vs. aprovado, e custo de cobrança dinâmico amarrado à forma de pagamento.
+### 1. Sidebar financeiro visível apenas para admin
 
-### 1. Banco de dados (migration)
+Em `NewQuoteFormV2.tsx`, envolver a renderização do `<StickyFinancialSidebar />` (desktop e mobile) em `useIsAdmin()`. Não-admins não veem o card lateral nem a barra inferior do DRE — economiza espaço e protege margens/custos.
 
-Adicionar em `company_settings`:
-- `default_tax_rate` numeric default 6 (imposto %)
-- `default_loss_margin` numeric default 3 (perdas %)
-
-Criar tabela `payment_method_fees`:
-- `id` uuid pk
-- `method` text unique (ex: "Pix", "Cartão 3x")
-- `fee_pct` numeric default 0
-- `sort_order` int
-- RLS: read autenticado, write admin
-
-Seed inicial baseado nos métodos atuais de `DiscountPaymentBlock.tsx`:
-```
-Pix=0, Dinheiro=0, Boleto=2, Transferência bancária=0,
-Cartão à vista=3.5, Cartão 2x=4, Cartão 3x=5, Cartão 4x=5.5,
-Cartão 5x=6, Cartão 6x=6.5
+```tsx
+const isAdmin = useIsAdmin();
+...
+{isAdmin && <StickyFinancialSidebar {...sidebarProps} />}
 ```
 
-### 2. Hook / lógica em `NewQuoteFormV2.tsx`
+Ajustar o layout para que, quando o sidebar não renderizar, o conteúdo principal ocupe a largura total (remover `lg:flex` gap reservado, ou usar `isAdmin ? "lg:w-[calc(100%-316px)]" : "w-full"` no wrapper).
 
-- Carregar `payment_method_fees` no `loadInit` e expor mapa `feeByMethod`.
-- Carregar `default_tax_rate` e `default_loss_margin` em `companySettings` (estender hook `useCompanySettings`).
-- Calcular dois cenários:
-  - **Receita Proposta** = `live.totalToCharge + cvTotal` (com desconto aplicado)
-  - **Receita Aprovada** = soma somente dos `materials` (e cv items) com `status === 'aprovado'`
-  - **Receita Base do DRE** = aprovada se houver ≥1 aprovado, senão proposta
-- **Custo de produção** = `live.costsBeforeMarkup + live.printingTotal + cvCostTotal` (escalar proporcionalmente quando estiver no modo "aprovado": custo dos itens aprovados / custo total × custo total).
-- **Deduções** sobre Receita Base:
-  - Imposto = receita × `default_tax_rate%`
-  - Custo de Cobrança = receita × `feeByMethod[paymentMethod] ?? 0`
-  - Perdas = receita × `default_loss_margin%`
-- **Lucro Líquido** = receita − produção − imposto − cobrança − perdas
-- **Margem Líquida %** = lucro / receita
+### 2. Desconto máximo de 7% sobre o valor total
 
-### 3. UI: novo `StickyFinancialSidebar`
+#### `DiscountPaymentBlock.tsx`
+- Adicionar prop `maxDiscount?: number` (valor absoluto em R$, calculado pelo pai como 7% do total).
+- Adicionar prop `subtotal?: number` para exibir o limite ao usuário.
+- Validação no `onChange` do input:
+  - Se `discountType === "percent"` e valor > 7 → clamp para 7 + toast "Desconto máximo permitido: 7%".
+  - Se `discountType === "brl"` e valor > `maxDiscount` → clamp para `maxDiscount` + toast "Desconto máximo: R$ X,XX (7% do total)".
+- Adicionar texto auxiliar abaixo do input: `Máx. 7% (R$ X,XX)`.
 
-Substituir conteúdo do card por:
+#### `NewQuoteFormV2.tsx`
+- Calcular `maxDiscountBRL = subtotalBeforeDiscount * 0.07` e passar para o bloco.
+- No `handleSubmit`/save, revalidar como guard de segurança: se desconto excede 7%, abortar com toast.
+- Quando o tipo de desconto muda (BRL ↔ %) ou o subtotal muda (item adicionado/removido), reaplicar clamp para que um desconto previamente válido não fique acima do novo limite.
 
-```
-RESUMO FINANCEIRO
+### Observações
 
-Valor da Proposta            R$ X.XXX,XX
-Valor Aprovado (verde)       R$ X.XXX,XX   ← só se houver aprovados
+- O cap de 7% é fixo (hard-coded). Se no futuro virar configurável por admin, vira campo em `company_settings` — fora de escopo agora.
+- A trava é client-side apenas (sem migration). Como a tela de edição já é restrita a usuários autenticados internos, é suficiente para o caso de uso.
 
-▼ Ver detalhamento de custos e lucro   (Accordion shadcn)
-   Receita base                R$ ...
-   (-) Custo de produção       R$ ...
-   (-) Impostos        (6%)    R$ ...
-   (-) Cobrança · Pix  (0%)    R$ ...   ← reativo ao select
-   (-) Perdas          (3%)    R$ ...
-   ─────────────────────────────────
-   = Lucro Líquido    (XX,X%)  R$ ...   verde/vermelho + AlertTriangle se <10%
+### Arquivos editados
 
-VALOR A COBRAR              R$ X.XXX,XX  (destaque primário, valor da receita base = o que o cliente paga)
-```
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx`
+- `src/components/orcamentos-v2/DiscountPaymentBlock.tsx`
 
-- Cor do lucro: `text-emerald-600` positivo, `text-destructive` negativo.
-- Ícone `AlertTriangle` amarelo ao lado quando margem líquida < 10% e > 0.
-- Reescrever também a versão mobile (bottom bar) — mostrar margem líquida em vez da bruta atual.
-
-### 4. Props do componente
-
-`StickyFinancialSidebar` recebe agora:
-```
-proposalTotal, approvedTotal, hasApproved,
-productionCost, taxPct, taxValue,
-billingPct, billingMethod, billingValue,
-lossPct, lossValue,
-netProfit, netMarginPct
-```
-
-### 5. Fora de escopo
-
-- PDF/visualização cliente: inalterada (só o operador vê o DRE).
-- Cálculo de markup/preço de venda dos itens: inalterado.
-- Não alterar `DiscountPaymentBlock` (apenas consumir o método selecionado).
-
-### Detalhes técnicos
-
-- Arquivo principal a editar: `src/components/orcamentos-v2/StickyFinancialSidebar.tsx` (reescrita) e `src/components/orcamentos-v2/NewQuoteFormV2.tsx` (preparar dados).
-- Estender `src/hooks/useCompanySettings.tsx` para expor `defaultTaxRate` e `defaultLossMargin`.
-- Status aprovado já existe em `PricingMaterial.status` ('aprovado') — usar para filtrar.
-- Migration única + seed dos `payment_method_fees`.
-
-Aprovado para implementar?
+Aprova?

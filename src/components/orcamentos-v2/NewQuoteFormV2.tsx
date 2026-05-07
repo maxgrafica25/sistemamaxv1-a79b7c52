@@ -21,7 +21,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import PrintingItemSearch, { type PrintingCatalogItem, type MarkupTier } from "@/components/orcamentos/PrintingItemSearch";
 import { StickyFinancialSidebar } from "@/components/orcamentos-v2/StickyFinancialSidebar";
-import { DiscountPaymentBlock, type DiscountType } from "@/components/orcamentos-v2/DiscountPaymentBlock";
+import { DiscountPaymentBlock, type DiscountType, MAX_DISCOUNT_PERCENT } from "@/components/orcamentos-v2/DiscountPaymentBlock";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 import {
   recalculateForQuantity,
@@ -113,6 +114,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [discountValue, setDiscountValue] = useState<number | null>(null);
   const [discountType, setDiscountType] = useState<DiscountType>("brl");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const isAdmin = useIsAdmin();
   
 
   // catalog
@@ -451,13 +453,30 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     [cvResults],
   );
 
+  const subtotalBeforeDiscount = useMemo(
+    () => live.totalToCharge + cvTotal,
+    [live.totalToCharge, cvTotal],
+  );
+
   const discountedTotal = useMemo(() => {
-    const baseTotal = live.totalToCharge + cvTotal;
+    const baseTotal = subtotalBeforeDiscount;
     if (!discountValue || discountValue <= 0) return baseTotal;
     return discountType === "percent"
       ? baseTotal * (1 - discountValue / 100)
       : Math.max(0, baseTotal - discountValue);
-  }, [live.totalToCharge, cvTotal, discountValue, discountType]);
+  }, [subtotalBeforeDiscount, discountValue, discountType]);
+
+  // Reaplica clamp se subtotal/tipo mudar e desconto vigente exceder o limite
+  useEffect(() => {
+    if (!discountValue || discountValue <= 0) return;
+    if (discountType === "percent" && discountValue > MAX_DISCOUNT_PERCENT) {
+      setDiscountValue(MAX_DISCOUNT_PERCENT);
+    } else if (discountType === "brl") {
+      const max = subtotalBeforeDiscount * MAX_DISCOUNT_PERCENT / 100;
+      if (max > 0 && discountValue > max) setDiscountValue(Number(max.toFixed(2)));
+    }
+  }, [discountType, subtotalBeforeDiscount, discountValue]);
+
 
   // ---------- Handlers ----------
   const addPrintingItem = (item: PrintingCatalogItem) => {
@@ -1149,6 +1168,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             discountValue={discountValue}
             discountType={discountType}
             paymentMethod={paymentMethod}
+            subtotal={subtotalBeforeDiscount}
             onDiscountValueChange={setDiscountValue}
             onDiscountTypeChange={setDiscountType}
             onPaymentMethodChange={setPaymentMethod}
@@ -1188,7 +1208,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         </CardContent></Card>
       </div>
 
-      {/* Sticky financial sidebar — DRE */}
+      {/* Sticky financial sidebar — DRE (apenas admin) */}
+      {isAdmin && (
       <div className="lg:self-start lg:sticky lg:top-6">
         {(() => {
           const proposalTotal = discountedTotal;
@@ -1238,6 +1259,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           );
         })()}
       </div>
+      )}
 
       {/* ===== Rodapé fixo: Salvar / Cancelar ===== */}
       <div className="fixed bottom-0 left-0 right-0 z-30 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 py-3 pr-20 sm:pr-24 flex items-center justify-end gap-2">
