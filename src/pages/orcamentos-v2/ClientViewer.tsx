@@ -201,6 +201,19 @@ export default function ClientViewer() {
     }
   }, [options, selectedOptionId]);
 
+  // Pré-seleciona todos os itens pendentes na carga inicial — assim o cliente
+  // pode aprovar tudo com 1 clique (e ainda pode desmarcar para aprovação parcial).
+  const didPreselectRef = useRef(false);
+  useEffect(() => {
+    if (didPreselectRef.current) return;
+    if (!materials.length) return;
+    const pendingIds = materials.filter((m) => m.status === "pendente").map((m) => m.id);
+    if (pendingIds.length > 0) {
+      setSelectedItemIds(new Set(pendingIds));
+      didPreselectRef.current = true;
+    }
+  }, [materials]);
+
   // option_selected com debounce de 2s — só registra se permanecer na opção.
   // Se o cliente já tinha confirmado outra opção e mudou, registramos `option_deselected`
   // para a anterior (rastreio de hesitação entre opções).
