@@ -370,39 +370,28 @@ function ProductKindButton({
 }
 
 function DraftRowEditor({
-  row, rowNumber, printingCatalog, processSteps, processGroups,
-  onSetMode, onPickPrinting, onPickProcessStep, onPickProcessGroup, onPickCustomFinish, onCancel,
+  row, rowNumber, printingCatalog, processSteps, processGroups, hourlyRate,
+  onPickPrinting, onPickProcessStep, onPickProcessGroup, onPickCustomFinish, onCancel,
 }: {
   row: DraftRow;
   rowNumber: number;
   printingCatalog: PrintingCatalogItem[];
   processSteps: ProcessStep[];
   processGroups: ProcessGroup[];
-  onSetMode: (m: DraftMode) => void;
+  hourlyRate: number;
   onPickPrinting: (it: PrintingCatalogItem) => void;
   onPickProcessStep: (s: ProcessStep) => void;
   onPickProcessGroup: (g: ProcessGroup) => void;
-  onPickCustomFinish: (name: string, price: number) => void;
+  onPickCustomFinish: (name: string, minutes: number) => void;
   onCancel: () => void;
 }) {
   return (
-    <div className={`${GRID} px-2 py-1.5 border-b text-sm bg-primary/5`}>
-      <span className="text-xs text-muted-foreground tabular-nums">{rowNumber}</span>
-      <Select value={row.mode} onValueChange={(v) => onSetMode(v as DraftMode)}>
-        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Tipo…" /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="impressao">Impressão</SelectItem>
-          <SelectItem value="processo">Acabamento / Processo</SelectItem>
-          <SelectItem value="impressao_processo">Impressão + Processo</SelectItem>
-        </SelectContent>
-      </Select>
-      <div className="min-w-0">
-        {row.mode === "" && (
-          <span className="text-xs text-muted-foreground italic">Escolha o tipo →</span>
-        )}
-        {(row.mode === "impressao" || row.mode === "impressao_processo") && (
+    <div className="px-2 py-2 border-b text-sm bg-primary/5">
+      <div className="flex items-start gap-2">
+        <span className="text-xs text-muted-foreground tabular-nums w-6 pt-2 shrink-0">{rowNumber}</span>
+        <div className="flex-1 min-w-0">
           <InlineCatalogCombobox
-            placeholder="Buscar impressão no catálogo…"
+            placeholder="Busque a impressão pelo nome (papel, gramatura, formato)…"
             sections={[{
               heading: "Impressões",
               options: printingCatalog.map((p) => ({
@@ -413,48 +402,23 @@ function DraftRowEditor({
               })),
             }]}
           />
-        )}
-        {row.mode === "processo" && (
-          <InlineCatalogCombobox
-            placeholder="Buscar processo ou grupo…"
-            extraTop={{
-              label: "Adicionar acabamento avulso",
-              icon: <Wand2 className="h-3.5 w-3.5" />,
-              renderForm: (close) => (
-                <CustomFinishForm
-                  onSubmit={(name, price) => { onPickCustomFinish(name, price); close(); }}
-                  onCancel={close}
-                />
-              ),
-            }}
-            sections={[
-              {
-                heading: "Processos individuais",
-                options: processSteps.map((s) => ({
-                  id: `s-${s.id}`,
-                  label: s.description,
-                  hint: `${s.time_minutes} min`,
-                  onPick: () => onPickProcessStep(s),
-                })),
-              },
-              {
-                heading: "Grupos de processos",
-                options: processGroups.map((g) => ({
-                  id: `g-${g.id}`,
-                  label: g.name,
-                  hint: `${g.items.length} etapa${g.items.length === 1 ? "" : "s"}`,
-                  icon: <Layers className="h-3 w-3" />,
-                  onPick: () => onPickProcessGroup(g),
-                })),
-              },
-            ]}
-          />
-        )}
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Defina primeiro a impressão. Acabamentos podem ser adicionados depois →
+          </p>
+        </div>
+        <ProcessPicker
+          steps={processSteps}
+          groups={processGroups}
+          hourlyRate={hourlyRate}
+          onPickStep={onPickProcessStep}
+          onPickGroup={onPickProcessGroup}
+          onPickCustom={onPickCustomFinish}
+          label="acabamento"
+        />
+        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onCancel}>
+          <X className="h-3.5 w-3.5" />
+        </Button>
       </div>
-      <span></span><span></span><span></span><span></span>
-      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onCancel}>
-        <X className="h-3.5 w-3.5" />
-      </Button>
     </div>
   );
 }
