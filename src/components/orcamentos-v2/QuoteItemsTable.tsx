@@ -110,9 +110,10 @@ export function QuoteItemsTable(props: Props) {
             <ProcessPicker
               steps={processSteps}
               groups={processGroups}
+              hourlyRate={hourlyRate}
               onPickStep={(s) => onAddProcess(m.id, s)}
               onPickGroup={(g) => onExpandStepGroup(m.id, g)}
-              onPickCustom={(name, price) => onAddCustomFinish(m.id, name, price)}
+              onPickCustom={(name, minutes) => onAddCustomFinish(m.id, name, minutes)}
             />
           </div>
           <Input
