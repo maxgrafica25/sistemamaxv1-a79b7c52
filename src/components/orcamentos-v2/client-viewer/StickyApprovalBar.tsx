@@ -16,6 +16,7 @@ interface Props {
   /** "option" = legado por opção de quantidade; "items" = aprovação parcial por item */
   mode?: "option" | "items";
   selectedItemCount?: number;
+  totalItemCount?: number;
   onApproveItems?: () => void | Promise<void>;
   submitting?: boolean;
 }
