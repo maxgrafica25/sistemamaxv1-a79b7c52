@@ -547,6 +547,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     setLabor((prev) => [...prev, ...childLab]);
     toast.success("Item duplicado com sucesso! Altere a quantidade ou acabamento na nova linha.");
   };
+
+  const setChildLaborFor = (parentId: string, next: SubformLabor[]) => {
     setLabor((prev) => {
       const others = prev.filter((l) => l.parentItemId !== parentId);
       return [...others, ...next];
