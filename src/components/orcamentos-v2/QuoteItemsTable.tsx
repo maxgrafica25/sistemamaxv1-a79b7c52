@@ -55,6 +55,7 @@ interface Props {
   onUpdatePrinting: (id: string, patch: Partial<PricingMaterial>) => void;
   onUpdateChildMaterial: (id: string, patch: Partial<PricingMaterial>) => void;
   onRemovePrinting: (id: string) => void;
+  onDuplicateItem: (id: string) => void;
   onRemoveChildMaterial: (id: string) => void;
   onRemoveLabor: (id: string) => void;
 
