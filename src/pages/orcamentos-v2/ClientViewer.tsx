@@ -18,14 +18,15 @@ import {
 import { ViewerHeader } from "@/components/orcamentos-v2/client-viewer/ViewerHeader";
 import { OptionCard } from "@/components/orcamentos-v2/client-viewer/OptionCard";
 import { StickyApprovalBar } from "@/components/orcamentos-v2/client-viewer/StickyApprovalBar";
+import { WhatsAppShareDialog } from "@/components/orcamentos-v2/client-viewer/WhatsAppShareDialog";
 import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { trackEvent } from "@/lib/quotes-v2/tracking";
 import { useScrollDepthTracking } from "@/lib/quotes-v2/useScrollDepthTracking";
 import {
+  buildAdjustMessage,
   buildItemAdjustMessage,
   buildPartialApprovalMessage,
-  buildWaUrl,
 } from "@/lib/quotes-v2/whatsapp";
 
 interface QuoteRow {
