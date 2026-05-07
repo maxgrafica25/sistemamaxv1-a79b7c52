@@ -1212,20 +1212,33 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       {isAdmin && (
       <div className="lg:self-start lg:sticky lg:top-6">
         {(() => {
-          const proposalTotal = discountedTotal;
+          // Soma direta dos itens raiz exibidos na tabela (não usar live.totalToCharge,
+          // que reprecifica via engine com qty=1 e infla com markup de faixa baixa)
+          const itemsRevenueGross = materials
+            .filter((m) => !m.parentItemId)
+            .reduce((s, m) => s + (m.unitPrice * m.quantity), 0)
+            + cvTotal
+            + (hiddenExtras || 0)
+            + (freightValue || 0);
+
+          // Aplica desconto sobre a soma real dos itens
+          const proposalTotal = (() => {
+            if (!discountValue || discountValue <= 0) return itemsRevenueGross;
+            return discountType === "percent"
+              ? itemsRevenueGross * (1 - discountValue / 100)
+              : Math.max(0, itemsRevenueGross - discountValue);
+          })();
+
           const totalProductionCost = live.costsBeforeMarkup + live.printingTotal + cvCostTotal;
 
-          // Approved revenue: soma unitPrice * quantity dos materiais raiz aprovados (+ aprovados CV se houver)
           const approvedRevenue = materials
             .filter((m) => !m.parentItemId && m.status === "aprovado")
             .reduce((s, m) => s + (m.approvedValue ?? (m.unitPrice * m.quantity)), 0);
           const hasApproved = approvedRevenue > 0;
 
-          // Proporção entre receita aprovada e proposta para escalar custo de produção
-          const baseRevenueGross = live.totalToCharge + cvTotal;
           const revenueBase = hasApproved ? approvedRevenue : proposalTotal;
-          const productionCost = hasApproved && baseRevenueGross > 0
-            ? totalProductionCost * (approvedRevenue / baseRevenueGross)
+          const productionCost = hasApproved && itemsRevenueGross > 0
+            ? totalProductionCost * (approvedRevenue / itemsRevenueGross)
             : totalProductionCost;
 
           const taxPct = defaultTaxRate;
