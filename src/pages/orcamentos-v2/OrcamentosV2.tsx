@@ -40,6 +40,7 @@ interface QuoteRow {
   value: number;
   status: string;
   date: string;
+  created_at: string;
   view_count: number | null;
   last_viewed_at: string | null;
   is_template: boolean | null;
@@ -80,7 +81,7 @@ export default function OrcamentosV2() {
     const [quotesRes, eventsRes] = await Promise.all([
       supabase
         .from("quotes")
-        .select("id, quote_number, client, client_phone, product, value, status, date, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id")
+        .select("id, quote_number, client, client_phone, product, value, status, date, created_at, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id")
         .order("created_at", { ascending: false }),
       supabase
         .from("quote_engagement_events")
@@ -413,7 +414,7 @@ export default function OrcamentosV2() {
                         </div>
                       </td>
                       <td className="py-4 text-sm text-muted-foreground whitespace-nowrap">
-                        {q.date ? new Date(q.date).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                        {q.created_at ? new Date(q.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
                       </td>
                       <td className="py-4 text-sm">{q.client}</td>
                       <td className="py-4 text-sm">
