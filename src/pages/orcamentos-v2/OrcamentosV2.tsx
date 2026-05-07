@@ -157,7 +157,7 @@ export default function OrcamentosV2() {
       <body><h1>Orçamento Nº ${q.quote_number}</h1>
       <p><strong>Cliente:</strong> ${q.client}</p>
       <p><strong>Produto:</strong> ${q.product}</p>
-      <p><strong>Data:</strong> ${new Date(q.date).toLocaleDateString("pt-BR")}</p>
+      <p><strong>Data:</strong> ${new Date(q.date).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
       <div class="total">VALOR: ${formatBRL(q.value)}</div></body></html>`;
     const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); w.print(); }
@@ -413,7 +413,7 @@ export default function OrcamentosV2() {
                         </div>
                       </td>
                       <td className="py-4 text-sm text-muted-foreground whitespace-nowrap">
-                        {q.date ? new Date(q.date).toLocaleDateString("pt-BR") : "—"}
+                        {q.date ? new Date(q.date).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
                       </td>
                       <td className="py-4 text-sm">{q.client}</td>
                       <td className="py-4 text-sm">
