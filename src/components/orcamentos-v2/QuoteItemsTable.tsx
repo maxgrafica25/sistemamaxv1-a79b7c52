@@ -77,7 +77,7 @@ export function QuoteItemsTable(props: Props) {
     standaloneLabor, standaloneManualMaterials, thirdParty,
     onAddPrinting, onSwapPrinting, onAddProcess, onExpandStepGroup, onAddCustomFinish,
     onUpdatePrinting, onUpdateChildMaterial,
-    onRemovePrinting, onRemoveChildMaterial, onRemoveLabor,
+    onRemovePrinting, onRemoveChildMaterial, onRemoveLabor, onDuplicateItem,
     onChangeStandaloneLabor, onChangeStandaloneMaterials, onChangeThirdParty,
   } = props;
 
