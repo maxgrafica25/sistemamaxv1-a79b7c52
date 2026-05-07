@@ -632,8 +632,9 @@ export default function ClientViewer() {
               </ul>
               {hasMultipleItems && (
                 <p className="text-xs text-muted-foreground pt-1">
-                  💡 Marque os itens que deseja aprovar agora. Use{" "}
-                  <strong>Alterar</strong> para pedir ajustes em algum item.
+                  💡 Todos os itens já estão selecionados para aprovação. Desmarque
+                  algum se quiser aprovar parcialmente, ou use <strong>Alterar</strong>{" "}
+                  para pedir ajustes em algum item.
                 </p>
               )}
             </CardContent>
