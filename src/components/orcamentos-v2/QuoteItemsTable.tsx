@@ -24,10 +24,8 @@ export type ProcessStep = { id: string; description: string; time_minutes: numbe
 export type ProcessGroupItem = { description: string; time_minutes: number; step_type: string };
 export type ProcessGroup = { id: string; name: string; items: ProcessGroupItem[] };
 
-type DraftMode = "" | "impressao" | "processo" | "impressao_processo";
 interface DraftRow {
   id: string;
-  mode: DraftMode;
 }
 
 interface Props {
