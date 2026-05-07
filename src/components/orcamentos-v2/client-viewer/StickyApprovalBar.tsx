@@ -155,25 +155,39 @@ export function StickyApprovalBar({
             </Button>
           )}
 
-          <Button
-            asChild={hasPhone && !loading}
-            variant="outline"
-            size="lg"
-            disabled={!hasPhone || loading}
-            className="h-12 gap-2"
-          >
-            {hasPhone && !loading ? (
-              <a href={adjustUrl} target="_blank" rel="noopener noreferrer" onClick={handleWaShare}>
-                <MessageCircle className="h-4 w-4" />
-                Solicitar Alteração
-              </a>
-            ) : (
-              <span className="flex items-center justify-center gap-2">
-                <MessageCircle className="h-4 w-4" />
-                Solicitar Alteração
-              </span>
-            )}
-          </Button>
+          {onRequestAdjust ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              disabled={!hasPhone || loading}
+              onClick={onRequestAdjust}
+              className="h-12 gap-2"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Solicitar Alteração
+            </Button>
+          ) : (
+            <Button
+              asChild={hasPhone && !loading}
+              variant="outline"
+              size="lg"
+              disabled={!hasPhone || loading}
+              className="h-12 gap-2"
+            >
+              {hasPhone && !loading ? (
+                <a href={adjustUrl} target="_blank" rel="noopener noreferrer" onClick={handleWaShare}>
+                  <MessageCircle className="h-4 w-4" />
+                  Solicitar Alteração
+                </a>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <MessageCircle className="h-4 w-4" />
+                  Solicitar Alteração
+                </span>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </div>
