@@ -171,11 +171,18 @@ export function QuoteItemsTable(props: Props) {
     const childLaborForThis = childLabor.filter((l) => l.parentItemId === m.id);
     return (
       <div key={m.id}>
-        <div className={`${GRID} px-2 py-1.5 border-b text-sm hover:bg-muted/30`}>
+        <div className={`${GRID} px-2 py-1.5 border-b text-sm transition-colors ${flashId === m.id ? "bg-primary/15" : "hover:bg-muted/30"}`}>
           <span className="text-xs text-muted-foreground tabular-nums">{idx + 1}</span>
           <KindBadge kind="print" />
           <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
             <ProductKindButton item={m} onChange={(p) => onUpdatePrinting(m.id, p)} />
+            <SwapPrintingButton
+              catalog={printingCatalog}
+              onPick={(it) => {
+                onSwapPrinting(m.id, it);
+                triggerFlash(m.id);
+              }}
+            />
             <div className="min-w-0 flex-1">
               <div className="font-medium truncate">
                 {dynamicTitle || <span className="text-muted-foreground italic">Defina o tipo de produto…</span>}
