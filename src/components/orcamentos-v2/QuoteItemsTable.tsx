@@ -736,3 +736,74 @@ function ProcessPicker({
     </Popover>
   );
 }
+
+function SwapPrintingButton({
+  catalog, onPick,
+}: {
+  catalog: PrintingCatalogItem[];
+  onPick: (it: PrintingCatalogItem) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const filtered = useMemo(() => {
+    const s = q.toLowerCase();
+    return catalog
+      .filter((p) =>
+        `${p.paper_type} ${p.grammage ?? ""} ${p.size} ${p.side} ${p.equipment_name ?? ""} ${p.category_name}`
+          .toLowerCase()
+          .includes(s),
+      )
+      .slice(0, 30);
+  }, [q, catalog]);
+
+  return (
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQ(""); }}>
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center h-6 w-6 rounded border border-dashed text-muted-foreground hover:text-foreground hover:border-foreground shrink-0"
+                aria-label="Trocar material"
+              >
+                <RefreshCw className="h-3 w-3" />
+              </button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">Trocar material</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <PopoverContent align="start" className="w-80 p-2">
+        <Input
+          autoFocus
+          placeholder="Buscar nova impressão…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="h-8 text-sm mb-2"
+        />
+        <div className="max-h-64 overflow-auto">
+          {filtered.length === 0 ? (
+            <p className="text-xs text-muted-foreground p-2">Nenhuma impressão encontrada.</p>
+          ) : (
+            filtered.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => { onPick(p); setOpen(false); setQ(""); }}
+                className="w-full px-2 py-1.5 text-left hover:bg-accent text-sm rounded flex items-center justify-between gap-2"
+              >
+                <span className="truncate">
+                  {p.paper_type}{p.grammage ? ` ${p.grammage}` : ""} — {p.size} {p.side}
+                </span>
+                <span className="text-[10px] text-muted-foreground shrink-0">
+                  {p.equipment_name || p.category_name}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
