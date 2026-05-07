@@ -19,6 +19,7 @@ import { ViewerHeader } from "@/components/orcamentos-v2/client-viewer/ViewerHea
 import { OptionCard } from "@/components/orcamentos-v2/client-viewer/OptionCard";
 import { StickyApprovalBar } from "@/components/orcamentos-v2/client-viewer/StickyApprovalBar";
 import { WhatsAppShareDialog } from "@/components/orcamentos-v2/client-viewer/WhatsAppShareDialog";
+import { ApprovalConfirmDialog } from "@/components/orcamentos-v2/client-viewer/ApprovalConfirmDialog";
 import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { trackEvent } from "@/lib/quotes-v2/tracking";
@@ -28,6 +29,7 @@ import {
   buildItemAdjustMessage,
   buildPartialApprovalMessage,
 } from "@/lib/quotes-v2/whatsapp";
+import { APPROVAL_TERMS_VERSION, buildApprovalTermsText } from "@/lib/quotes-v2/approval-terms";
 
 interface QuoteRow {
   id: string;
