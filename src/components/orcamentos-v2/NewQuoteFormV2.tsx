@@ -309,7 +309,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         setProduct(q.product);
         setValidity(q.validity || "15");
         setProfitMargin(q.profit_margin || "33");
-        setMainQuantity(((q as any).main_quantity ?? "") as number | "");
+        
         setNotes((q as any).notes || "");
         setAttentionTo(((q as any).attention_to as string) || "");
         setHiddenExtras(Number((q as any).hidden_extras_value) || 0);
