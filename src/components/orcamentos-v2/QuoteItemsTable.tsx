@@ -349,8 +349,21 @@ export function QuoteItemsTable(props: Props) {
     standaloneLabor.length === 0 && standaloneManualMaterials.length === 0 &&
     thirdParty.length === 0;
 
+  const approvedCount =
+    printingItems.filter((m) => m.status === "aprovado").length +
+    standaloneManualMaterials.filter((m) => m.status === "aprovado").length;
+  const totalCount = printingItems.length + standaloneManualMaterials.length;
+
   return (
     <div className="rounded-lg border bg-card">
+      {approvedCount > 0 && (
+        <div className="px-3 py-2 border-b bg-green-50/50 dark:bg-green-950/20 text-xs flex items-center gap-2 text-green-800 dark:text-green-300">
+          <Lock className="h-3.5 w-3.5" />
+          <span>
+            <strong>{approvedCount} de {totalCount}</strong> {approvedCount === 1 ? "item aprovado" : "itens aprovados"} pelo cliente — travados nesta versão. Crie uma <strong>Nova versão</strong> para alterar.
+          </span>
+        </div>
+      )}
       <div className={`${GRID} px-2 py-2 border-b bg-muted/40 text-[11px] font-medium uppercase tracking-wide text-muted-foreground`}>
         <span>Nº</span>
         <span>Tipo</span>
