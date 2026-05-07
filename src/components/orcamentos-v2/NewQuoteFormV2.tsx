@@ -1208,7 +1208,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         </CardContent></Card>
       </div>
 
-      {/* Sticky financial sidebar — DRE */}
+      {/* Sticky financial sidebar — DRE (apenas admin) */}
+      {isAdmin && (
       <div className="lg:self-start lg:sticky lg:top-6">
         {(() => {
           const proposalTotal = discountedTotal;
