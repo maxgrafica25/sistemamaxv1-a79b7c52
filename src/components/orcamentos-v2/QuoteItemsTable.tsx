@@ -36,6 +36,7 @@ interface Props {
   processSteps: ProcessStep[];
   processGroups: ProcessGroup[];
   markupTiers: MarkupTier[];
+  categoryDefaultGroupId: Record<string, string | null>;
   globalSettings: { invoice_pct: number; collection_pct: number; waste_pct: number; default_margin_pct: number };
   hourlyRate: number;
 
@@ -47,6 +48,7 @@ interface Props {
   thirdParty: ThirdParty[];
 
   onAddPrinting: (item: PrintingCatalogItem) => void;
+  onSwapPrinting: (id: string, item: PrintingCatalogItem) => void;
   onAddProcess: (parentId: string | null, step: ProcessStep) => void;
   onExpandStepGroup: (parentId: string | null, group: ProcessGroup) => void;
   onAddCustomFinish: (parentId: string | null, name: string, minutes: number) => void;
