@@ -428,6 +428,28 @@ function KindBadge({ kind }: { kind: "print" | "finish" | "labor" }) {
   );
 }
 
+function ApprovedBadge({ approvedAt, approvedValue }: { approvedAt?: string | null; approvedValue?: number | null }) {
+  const when = approvedAt ? new Date(approvedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : null;
+  const val = approvedValue != null ? fmt(Number(approvedValue)) : null;
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30">
+            <CheckCircle2 className="h-3 w-3" /> Aprovado <Lock className="h-2.5 w-2.5" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs max-w-[260px]">
+          <div className="font-medium">Item aprovado pelo cliente</div>
+          {when && <div>Em: {when}</div>}
+          {val && <div>Valor aprovado: {val}</div>}
+          <div className="mt-1 text-muted-foreground">Travado nesta versão. Crie uma nova versão para alterar.</div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 function ProductKindButton({
   item, onChange,
 }: {
