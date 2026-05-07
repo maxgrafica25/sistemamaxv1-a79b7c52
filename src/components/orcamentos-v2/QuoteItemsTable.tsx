@@ -213,9 +213,23 @@ export function QuoteItemsTable(props: Props) {
             className="h-8 text-sm text-right tabular-nums"
           />
           <span className="text-right tabular-nums font-medium">{fmt(total)}</span>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRemovePrinting(m.id)}>
-            <X className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center justify-end gap-0.5">
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDuplicateItem(m.id)}>
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[220px]">
+                  Duplicar Item Completo (Ideal para opções de qtde/variação)
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRemovePrinting(m.id)}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
         {childMatsForThis.map((c) => (
           <div key={c.id} className={`${GRID} px-2 py-1.5 border-b text-sm bg-muted/10`}>
