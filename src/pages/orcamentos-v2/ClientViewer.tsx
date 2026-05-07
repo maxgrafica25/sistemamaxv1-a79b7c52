@@ -395,25 +395,25 @@ export default function ClientViewer() {
       const totalForMessage = itemsForMessage.reduce((s, i) => s + i.value, 0);
 
       const isFullApproval = selectedItemIds.size === pendingItems.length;
-      const url = buildWaUrl(
-        buildPartialApprovalMessage({
-          quoteNumber: quote.quote_number,
-          items: itemsForMessage,
-          total: totalForMessage,
-          clientName: quote.client,
-          companyName,
-          isFullApproval,
-        }),
-        whatsappNumber,
-      );
+      const message = buildPartialApprovalMessage({
+        quoteNumber: quote.quote_number,
+        items: itemsForMessage,
+        total: totalForMessage,
+        clientName: quote.client,
+        companyName,
+        isFullApproval,
+      });
 
       // Recarrega dados para refletir o novo status
       await loadData();
       setSelectedItemIds(new Set());
       didPreselectRef.current = false;
-      void trackEvent(quote.id, "whatsapp_share");
-      window.open(url, "_blank", "noopener,noreferrer");
-      toast.success("Itens aprovados! Continue no WhatsApp para confirmar.");
+      toast.success("Itens aprovados! Escolha como enviar a confirmação.");
+      openShare(
+        message,
+        isFullApproval ? "Confirme a aprovação no WhatsApp" : "Confirme os itens aprovados",
+        "Sua aprovação já foi registrada. Esta etapa apenas avisa a gráfica.",
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro ao aprovar itens.";
       toast.error(msg);
