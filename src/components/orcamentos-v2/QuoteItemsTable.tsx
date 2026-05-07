@@ -77,11 +77,9 @@ export function QuoteItemsTable(props: Props) {
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
 
   const addEmptyDraft = () =>
-    setDrafts((p) => [...p, { id: `draft-${Date.now()}`, mode: "" }]);
+    setDrafts((p) => [...p, { id: `draft-${Date.now()}` }]);
   const removeDraft = (id: string) =>
     setDrafts((p) => p.filter((d) => d.id !== id));
-  const setDraftMode = (id: string, mode: DraftMode) =>
-    setDrafts((p) => p.map((d) => (d.id === id ? { ...d, mode } : d)));
 
   // ---------- Renderers ----------
   const renderPrint = (m: PricingMaterial, idx: number) => {
