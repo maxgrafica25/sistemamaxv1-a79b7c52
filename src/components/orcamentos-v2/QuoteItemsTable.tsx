@@ -354,6 +354,17 @@ export function QuoteItemsTable(props: Props) {
     standaloneManualMaterials.filter((m) => m.status === "aprovado").length;
   const totalCount = printingItems.length + standaloneManualMaterials.length;
 
+  // Reordenação visual: aprovados (travados) ficam no topo, editáveis embaixo
+  // próximos ao botão "+ adicionar item". Não persiste no banco.
+  const sortByApproved = <T extends { status?: string | null }>(arr: T[]): T[] =>
+    [...arr].sort((a, b) => {
+      const ap = a.status === "aprovado" ? 0 : 1;
+      const bp = b.status === "aprovado" ? 0 : 1;
+      return ap - bp;
+    });
+  const printingOrdered = sortByApproved(printingItems);
+  const manualOrdered = sortByApproved(standaloneManualMaterials);
+
   return (
     <div className="rounded-lg border bg-card">
       {approvedCount > 0 && (
@@ -381,10 +392,10 @@ export function QuoteItemsTable(props: Props) {
         </div>
       )}
 
-      {printingItems.map((m, idx) => renderPrint(m, idx))}
+      {printingOrdered.map((m, idx) => renderPrint(m, idx))}
       {standaloneLabor.map((l) => renderLaborRow(l, false))}
-      {standaloneManualMaterials.map((m, idx) => renderLegacyMaterial(m, printingItems.length + idx))}
-      {thirdParty.map((t, idx) => renderLegacyService(t, printingItems.length + standaloneManualMaterials.length + idx))}
+      {manualOrdered.map((m, idx) => renderLegacyMaterial(m, printingOrdered.length + idx))}
+      {thirdParty.map((t, idx) => renderLegacyService(t, printingOrdered.length + manualOrdered.length + idx))}
 
       {/* Drafts */}
       {drafts.map((d, idx) => (

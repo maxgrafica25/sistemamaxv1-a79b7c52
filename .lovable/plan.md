@@ -1,27 +1,40 @@
 ## Problema
 
-Ao abrir um orçamento parcialmente aprovado em `Editar`, o banner "Itens aprovados estão travados" aparece, mas a tabela de itens (`QuoteItemsTable`) não mostra **qual** linha está aprovada — todas parecem iguais. Os dados já existem (`status`, `approved_at` em `PricingMaterial`/`SubformMaterial`), só faltam ser exibidos.
+Ao criar nova versão, os itens aprovados são copiados mantendo o `sort_order` original. Quando há um item aprovado no meio (ex.: posição 2) e itens editáveis acima/abaixo, fica difícil entender o que ainda pode ser ajustado. O usuário quer que **os aprovados (travados) fiquem no topo** e os **editáveis fiquem na parte de baixo**, próximos ao botão `+ adicionar item`.
 
 ## Solução
 
-Adicionar um indicador visual por linha na tabela de itens da tela de edição:
+Reordenação **somente visual** na tabela de itens (`QuoteItemsTable`), sem mexer em `sort_order` no banco nem na RPC `create_quote_version`. A numeração das linhas (Nº 1, 2, 3) continua sequencial conforme a nova ordem exibida.
 
-1. **Badge "Aprovado" ao lado do badge de tipo (Legado/Print)** — verde, com ícone `CheckCircle2`, exibido quando `m.status === "aprovado"`.
-2. **Tooltip no badge** mostrando data do aceite (`m.approvedAt`) e valor aprovado (`m.approvedValue`), quando disponíveis.
-3. **Fundo sutil verde** na linha aprovada (`bg-green-50/40 dark:bg-green-950/20`) para destaque imediato.
-4. **Inputs desabilitados** na linha aprovada (qtde, preço, ações de remover/duplicar) — hoje só o save respeita isso; visualmente o usuário pensa que pode editar. Botão `X` (remover) escondido em itens aprovados; botão `Copy` (duplicar) mantido (útil para criar variação).
-5. **Contador no topo da tabela**: quando houver aprovados, mostrar acima do header "X de Y itens aprovados — travados nesta versão" com link para "Nova versão".
+### Regra de ordenação
 
-## Arquivos afetados
+Para cada lista renderizada (`printingItems` e `standaloneManualMaterials`):
+1. Itens com `status === "aprovado"` primeiro, na ordem original (`sortOrder`).
+2. Demais itens (pendentes/editáveis) depois, também na ordem original.
+
+Itens "Print" filhos (processos/acabamentos vinculados a um item Print) continuam logo abaixo do pai — a ordenação acontece no nível do pai, não quebra os agrupamentos.
+
+`standaloneLabor` e `thirdParty` (não têm status de aprovação) continuam após esses dois grupos, como hoje.
+
+## Arquivo afetado
 
 - `src/components/orcamentos-v2/QuoteItemsTable.tsx`
-  - `renderPrint`: adicionar badge "Aprovado" e classe condicional no wrapper; desabilitar inputs e ocultar X quando `m.status === "aprovado"`.
-  - `renderLegacyMaterial`: idem (já recebe `SubformMaterial` que herda `status`).
-  - Header: novo bloco contador de aprovados quando houver.
-- Nenhuma mudança de schema, RPC ou backend.
+  - Antes do `return`, criar versões ordenadas:
+    ```ts
+    const sortByApproved = <T extends { status?: string | null }>(arr: T[]) =>
+      [...arr].sort((a, b) => {
+        const ap = a.status === "aprovado" ? 0 : 1;
+        const bp = b.status === "aprovado" ? 0 : 1;
+        return ap - bp;
+      });
+    const printingOrdered = sortByApproved(printingItems);
+    const manualOrdered = sortByApproved(standaloneManualMaterials);
+    ```
+  - Substituir os `.map` de render por `printingOrdered` e `manualOrdered`.
+  - Ajustar os offsets de `rowNumber` para usar os tamanhos dessas listas (já são iguais).
 
 ## Fora de escopo
 
-- Editar item aprovado (continua bloqueado por design — a versão é o caminho).
-- Mostrar status nos filhos (acabamentos vinculados) — herdam do pai, ficam visualmente "embaixo" da linha verde.
-- Indicação de itens recusados (`status === "recusado"`) — pode ser acrescentado em outra interação se houver demanda.
+- Persistir nova ordem no banco (`sort_order`).
+- Mudar a RPC `create_quote_version`.
+- Reordenar filhos (processos) — eles seguem o pai automaticamente.
