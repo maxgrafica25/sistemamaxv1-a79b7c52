@@ -46,7 +46,7 @@ interface Props {
   onAddPrinting: (item: PrintingCatalogItem) => void;
   onAddProcess: (parentId: string | null, step: ProcessStep) => void;
   onExpandStepGroup: (parentId: string | null, group: ProcessGroup) => void;
-  onAddCustomFinish: (parentId: string | null, name: string, price: number) => void;
+  onAddCustomFinish: (parentId: string | null, name: string, minutes: number) => void;
   onUpdatePrinting: (id: string, patch: Partial<PricingMaterial>) => void;
   onUpdateChildMaterial: (id: string, patch: Partial<PricingMaterial>) => void;
   onRemovePrinting: (id: string) => void;
