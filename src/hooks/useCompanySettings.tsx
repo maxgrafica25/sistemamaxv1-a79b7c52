@@ -10,6 +10,8 @@ export interface CompanySettings {
   address: string;
   logoUrl: string;
   defaultQuoteValidityDays: number;
+  defaultTaxRate: number;
+  defaultLossMargin: number;
 }
 
 interface CompanySettingsContextValue extends CompanySettings {
@@ -26,6 +28,8 @@ const EMPTY: CompanySettings = {
   address: "",
   logoUrl: "",
   defaultQuoteValidityDays: 15,
+  defaultTaxRate: 6,
+  defaultLossMargin: 3,
 };
 
 const CompanySettingsContext = createContext<CompanySettingsContextValue>({
@@ -44,7 +48,7 @@ export function CompanySettingsProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     const { data: row } = await supabase
       .from("company_settings")
-      .select("id, company_name, whatsapp_number, whatsapp_display, email, address, logo_url, default_quote_validity_days")
+      .select("id, company_name, whatsapp_number, whatsapp_display, email, address, logo_url, default_quote_validity_days, default_tax_rate, default_loss_margin")
       .limit(1)
       .maybeSingle();
     if (row) {
@@ -57,6 +61,8 @@ export function CompanySettingsProvider({ children }: { children: ReactNode }) {
         address: row.address ?? "",
         logoUrl: row.logo_url ?? "",
         defaultQuoteValidityDays: (row as any).default_quote_validity_days ?? 15,
+        defaultTaxRate: Number((row as any).default_tax_rate ?? 6),
+        defaultLossMargin: Number((row as any).default_loss_margin ?? 3),
       });
     }
     setLoading(false);
