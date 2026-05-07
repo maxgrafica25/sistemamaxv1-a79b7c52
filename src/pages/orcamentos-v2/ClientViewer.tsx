@@ -201,6 +201,19 @@ export default function ClientViewer() {
     }
   }, [options, selectedOptionId]);
 
+  // Pré-seleciona todos os itens pendentes na carga inicial — assim o cliente
+  // pode aprovar tudo com 1 clique (e ainda pode desmarcar para aprovação parcial).
+  const didPreselectRef = useRef(false);
+  useEffect(() => {
+    if (didPreselectRef.current) return;
+    if (!materials.length) return;
+    const pendingIds = materials.filter((m) => m.status === "pendente").map((m) => m.id);
+    if (pendingIds.length > 0) {
+      setSelectedItemIds(new Set(pendingIds));
+      didPreselectRef.current = true;
+    }
+  }, [materials]);
+
   // option_selected com debounce de 2s — só registra se permanecer na opção.
   // Se o cliente já tinha confirmado outra opção e mudou, registramos `option_deselected`
   // para a anterior (rastreio de hesitação entre opções).
@@ -361,6 +374,7 @@ export default function ClientViewer() {
         }));
       const totalForMessage = itemsForMessage.reduce((s, i) => s + i.value, 0);
 
+      const isFullApproval = selectedItemIds.size === pendingItems.length;
       const url = buildWaUrl(
         buildPartialApprovalMessage({
           quoteNumber: quote.quote_number,
@@ -368,6 +382,7 @@ export default function ClientViewer() {
           total: totalForMessage,
           clientName: quote.client,
           companyName,
+          isFullApproval,
         }),
         whatsappNumber,
       );
@@ -375,6 +390,7 @@ export default function ClientViewer() {
       // Recarrega dados para refletir o novo status
       await loadData();
       setSelectedItemIds(new Set());
+      didPreselectRef.current = false;
       void trackEvent(quote.id, "whatsapp_share");
       window.open(url, "_blank", "noopener,noreferrer");
       toast.success("Itens aprovados! Continue no WhatsApp para confirmar.");
@@ -510,9 +526,36 @@ export default function ClientViewer() {
         {hasAnyPending && !quote.is_locked && (
           <Card className="border-border/60 shadow-sm">
             <CardContent className="p-5 sm:p-6 space-y-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                {hasAnyApproved ? "Aguardando sua decisão" : "O que está incluso"}
-              </h2>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  {hasAnyApproved ? "Aguardando sua decisão" : "O que está incluso"}
+                </h2>
+                {hasMultipleItems && (
+                  <div className="flex items-center gap-2">
+                    {selectedItemIds.size === pendingItems.length && (
+                      <Badge className="bg-green-600 hover:bg-green-600 gap-1 text-[10px]">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Todos selecionados
+                      </Badge>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        if (selectedItemIds.size === pendingItems.length) {
+                          setSelectedItemIds(new Set());
+                        } else {
+                          setSelectedItemIds(new Set(pendingItems.map((m) => m.id)));
+                        }
+                      }}
+                    >
+                      {selectedItemIds.size === pendingItems.length ? "Limpar seleção" : "Selecionar todos"}
+                    </Button>
+                  </div>
+                )}
+              </div>
               <ul className="space-y-2 text-sm">
                 {pendingItems.map((m) => {
                   const itemValue = m.quantity * m.unit_price;
@@ -589,8 +632,9 @@ export default function ClientViewer() {
               </ul>
               {hasMultipleItems && (
                 <p className="text-xs text-muted-foreground pt-1">
-                  💡 Marque os itens que deseja aprovar agora. Use{" "}
-                  <strong>Alterar</strong> para pedir ajustes em algum item.
+                  💡 Todos os itens já estão selecionados para aprovação. Desmarque
+                  algum se quiser aprovar parcialmente, ou use <strong>Alterar</strong>{" "}
+                  para pedir ajustes em algum item.
                 </p>
               )}
             </CardContent>
@@ -734,6 +778,7 @@ export default function ClientViewer() {
           clientName={quote.client}
           mode={showOptionsMode ? "option" : "items"}
           selectedItemCount={selectedItemIds.size}
+          totalItemCount={pendingItems.length}
           onApproveItems={handlePartialApproval}
           submitting={submitting}
         />

@@ -16,6 +16,7 @@ interface Props {
   /** "option" = legado por opção de quantidade; "items" = aprovação parcial por item */
   mode?: "option" | "items";
   selectedItemCount?: number;
+  totalItemCount?: number;
   onApproveItems?: () => void | Promise<void>;
   submitting?: boolean;
 }
@@ -32,6 +33,7 @@ export function StickyApprovalBar({
   clientName,
   mode = "option",
   selectedItemCount = 0,
+  totalItemCount = 0,
   onApproveItems,
   submitting = false,
 }: Props) {
@@ -44,6 +46,8 @@ export function StickyApprovalBar({
 
   const hasPhone = !!whatsappNumber;
   const buttonsReady = ctaEnabled && hasPhone && !loading && !submitting;
+  const isAllSelected = mode === "items" && totalItemCount > 0 && selectedItemCount === totalItemCount;
+  const isPartial = mode === "items" && selectedItemCount > 0 && selectedItemCount < totalItemCount;
 
   // Modo "option" mantém o link wa.me direto. Modo "items" usa callback (RPC + WA)
   const approveUrl =
@@ -59,9 +63,11 @@ export function StickyApprovalBar({
 
   const totalLabel =
     mode === "items"
-      ? selectedItemCount > 0
-        ? `Selecionados (${selectedItemCount} ${selectedItemCount === 1 ? "item" : "itens"})`
-        : "Selecione os itens para aprovar"
+      ? isAllSelected
+        ? "Total do orçamento"
+        : isPartial
+          ? `Selecionados (${selectedItemCount} de ${totalItemCount} itens)`
+          : "Selecione os itens para aprovar"
       : "Total da opção selecionada";
 
   return (
@@ -102,11 +108,15 @@ export function StickyApprovalBar({
                 </>
               ) : selectedItemCount === 0 ? (
                 <>
-                  <CheckCircle2 className="h-5 w-5" /> Selecione um ou mais itens
+                  <CheckCircle2 className="h-5 w-5" /> Selecione ao menos 1 item
+                </>
+              ) : isAllSelected ? (
+                <>
+                  <CheckCircle2 className="h-5 w-5" /> Aprovar orçamento via WhatsApp
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="h-5 w-5" /> Aprovar selecionados via WhatsApp
+                  <CheckCircle2 className="h-5 w-5" /> Aprovar {selectedItemCount} {selectedItemCount === 1 ? "item" : "itens"} via WhatsApp
                 </>
               )}
             </Button>

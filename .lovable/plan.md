@@ -1,50 +1,56 @@
-# Deep Clone + Remoção da Ancoragem Global
+## Problema
 
-## Parte 1 — Duplicar Item Completo (aprovado)
+No viewer público (`/p/:quoteNumber`), quando o orçamento tem múltiplos itens, o cliente precisa marcar manualmente cada checkbox antes de o botão "Aprovar" habilitar. Isso gera duas dores:
 
-### `QuoteItemsTable.tsx`
-- Em `renderPrint`, ao lado do `X` (excluir), adicionar botão `Copy` (lucide), `variant="ghost" size="icon" h-7 w-7`, com `Tooltip` shadcn: **"Duplicar Item Completo (Ideal para opções de qtde/variação)"**.
-- `onClick` → `onDuplicateItem(m.id)`.
-- Última coluna do `GRID` muda de `36px` → `72px` para caber dois ícones.
-- Adicionar `onDuplicateItem: (id: string) => void` em `Props`.
+1. Atrito desnecessário quando o cliente quer aprovar tudo.
+2. Clientes com baixa familiaridade não entendem que precisam clicar nos itens primeiro.
 
-### `NewQuoteFormV2.tsx`
-Novo handler `duplicateItemDeep`:
+Mas se o botão for liberado "puro" (sem checkboxes), perdemos o registro de **quais itens** foram efetivamente aprovados — necessário para faturamento e para a aprovação parcial.
 
-```ts
-const duplicateItemDeep = (id: string) => {
-  const parent = materials.find((m) => m.id === id && !m.parentItemId);
-  if (!parent) return;
-  const newParentId = crypto.randomUUID();
-  const clonedParent = { ...parent, id: newParentId, status: "pendente", approvedAt: null, approvedValue: null };
-  const childMats = materials
-    .filter((m) => m.parentItemId === id)
-    .map((c) => ({ ...c, id: crypto.randomUUID(), parentItemId: newParentId }));
-  const childLab = labor
-    .filter((l) => l.parentItemId === id)
-    .map((l) => ({ ...l, id: `lbr-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, parentItemId: newParentId }));
-  setMaterials((prev) => [...prev, clonedParent, ...childMats]);
-  setLabor((prev) => [...prev, ...childLab]);
-  toast.success("Item duplicado com sucesso! Altere a quantidade ou acabamento na nova linha.");
-};
-```
+## Solução proposta
 
-Passar `onDuplicateItem={duplicateItemDeep}` ao `<QuoteItemsTable>`. O recálculo por tier (effect já existente) cuida do `unitPrice` automaticamente.
+Inverter o padrão: **todos os itens vêm pré-marcados** ao abrir o orçamento, e adicionar um CTA primário "Aprovar TUDO" claro, mantendo a opção de desmarcar para aprovação parcial.
 
-## Parte 2 — Remover "Opções de quantidade (ancoragem)"
+Assim resolvemos os dois problemas:
+- **Q1 (rastreio):** sempre sabemos quais itens foram aprovados — o estado dos checkboxes é a fonte da verdade. Se o cliente clicar em "Aprovar" sem mexer, todos vão como aprovados; se desmarcar alguns, só os marcados vão.
+- **Q2 (cognição):** o cliente leigo não precisa entender o conceito de "selecionar". Ele chega, vê o valor total já calculado e um botão verde grande "Aprovar orçamento (R$ XXX)". Funciona no modo "ler e aceitar".
 
-### `NewQuoteFormV2.tsx`
-- **Remover JSX (linhas ~1137–1164):** todo o bloco com `Quantidade desejada`, input de `mainQuantity`, e `<QuoteOptionsBuilder ...>`. Manter o `<Separator>` posterior do bloco de Total intacto.
-- **Remover estado e imports:**
-  - `const [mainQuantity, setMainQuantity] = useState(...)` (linha 80).
-  - `const [options, setOptions] = useState<QuoteOption[]>([])` (linha 103).
-  - `import { QuoteOptionsBuilder }` (linha 25).
-  - `import type { QuoteOption }` (linha 31).
-- **Remover hidratação no edit (linhas ~312, 325–326):** `setMainQuantity(...)` e o `if (Array.isArray(q.options)) setOptions(...)`.
-- **Remover do payload de save (linhas ~590, 600):** os campos `main_quantity` e `options` do objeto enviado ao Supabase. (Colunas no DB permanecem, apenas paramos de gravar — sem migração.)
+### Mudanças no `ClientViewer.tsx`
 
-### Arquivo `QuoteOptionsBuilder.tsx`
-- Não excluir agora (segurança contra import órfão); apenas deixa de ser referenciado. Pode ser removido em limpeza futura.
+1. **Pré-seleção de todos os itens pendentes**
+   No `useEffect` que dispara após carregar `materials`, popular `selectedItemIds` com todos os IDs de `pendingItems`. Só executa uma vez, na carga inicial — não sobrescreve mudanças manuais do usuário depois.
+2. **Texto auxiliar ajustado** (linha ~590-595)
+   Trocar o aviso atual ("Marque os itens que deseja aprovar agora") por algo como:
+   *"Todos os itens estão selecionados para aprovação. Desmarque algum se quiser aprovar parcialmente, ou use Alterar para pedir ajustes."*
+3. **Indicador visual de "tudo selecionado"** no card de pendentes
+   Quando `selectedItemIds.size === pendingItems.length`, mostrar um pequeno badge verde no topo do card: "✓ Todos selecionados". Ajuda a reforçar o estado padrão.
+4. **Botão "Selecionar todos / Limpar seleção"** discreto no header do bloco "Aguardando sua decisão" (só aparece se houver 2+ itens). Útil pra quem desmarcou vários e quer voltar.
 
-## Fora de escopo
-- Sem mudanças de schema/RLS, pricing engine ou persistência adicional. Toda variação de quantidade passa a ser feita exclusivamente via clonagem de linhas na tabela.
+### Mudanças no `StickyApprovalBar.tsx`
+
+5. **Rótulos do CTA mais claros** (linhas 60-65 e 103-110):
+   - Quando todos selecionados → botão diz **"Aprovar orçamento (R$ XXX)"** (sem "selecionados", parece que está aprovando tudo).
+   - Quando parcialmente selecionado → **"Aprovar X itens selecionados (R$ XXX)"**.
+   - Quando zero selecionado → mantém estado desabilitado com texto **"Selecione ao menos 1 item"**.
+6. **Rótulo do total** (linha 60-65) acompanha:
+   - Todos: "Total do orçamento"
+   - Parcial: "Selecionados (X de Y itens)"
+   - Zero: "Selecione os itens para aprovar"
+
+### Mensagem de WhatsApp
+
+7. Ajustar `buildPartialApprovalMessage` em `src/lib/quotes-v2/whatsapp.ts` para detectar quando **todos** os itens pendentes foram aprovados e usar uma mensagem de "aprovação total" ao invés de "aprovação parcial". Algo como:
+   - Total: *"Olá! Aprovo o orçamento Nº XXXX na íntegra. Podem prosseguir."*
+   - Parcial: mantém a mensagem atual listando itens.
+
+### Fora de escopo
+
+- Não mexer no fluxo de `showOptionsMode` (legado de opções de quantidade, raramente usado).
+- Não mexer no RPC `approve_quote_items` no backend — ele já recebe a lista de IDs e funciona perfeitamente para "todos" ou "alguns".
+- Não alterar o comportamento de orçamentos com 1 único item (já não tem checkbox).
+
+## Resultado esperado
+
+- Cliente apressado / leigo: abre → clica no botão verde → manda WhatsApp → pronto. Zero atrito.
+- Cliente que quer parcial: desmarca o que não quer agora → botão se ajusta dinamicamente → aprova só o resto.
+- Você no admin: continua sabendo exatamente quais itens foram aprovados em cada caso, porque o estado dos checkboxes (mesmo pré-marcados) sempre define o payload enviado.
