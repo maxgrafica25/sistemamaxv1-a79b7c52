@@ -1,75 +1,94 @@
 ## Objetivo
 
-Permitir cadastrar acabamentos avulsos (não cadastrados no sistema) diretamente dentro do orçamento, em **dois pontos**:
+Duas melhorias na tabela de itens do novo orçamento (`QuoteItemsTable.tsx`):
 
-1. **Itens de Comunicação Visual** — popover "Adicionar acabamento" do `CVItemCard.tsx`.
-2. **Itens gráficos** — bloco "Acabamentos vinculados" dentro de cada item de impressão (`LaborAndSupplySubform` em modo `compact`).
-
-O acabamento avulso é **válido apenas para o orçamento atual** — nunca grava em `cv_finishes` nem em `finishings_price_items`. Mantém o cadastro principal limpo e padronizado.
+1. **Acabamento avulso por TEMPO** — em vez de digitar um valor em R$, o usuário digita o **tempo em minutos** e o sistema calcula automaticamente usando o **custo/hora** do orçamento (`valor = minutos/60 × hourlyRate`).
+2. **Linha de "adicionar item" simplificada** — eliminar o dropdown "Tipo (Impressão / Acabamento / Impressão+Processo)". Ao clicar **+ adicionar item**, abrir uma única linha já em modo busca de **impressão**, com texto-guia e, ao lado, um botão discreto **"+ acabamento"** (mesmo padrão visual do que já existe ao lado de itens de impressão já adicionados).
 
 ---
 
-## UX
+## UX detalhada
 
-### Comunicação Visual (`CVItemCard.tsx`)
+### Linha de novo item (sem dropdown)
 
-No popover atual de "Adicionar":
-- Acima da lista de acabamentos compatíveis, adicionar uma linha em destaque: **`+ Adicionar acabamento avulso`**.
-- Ao clicar, abre um mini-form inline (ou um pequeno Dialog) com 2 campos:
-  - **Nome** (texto)
-  - **Valor (R$)** — preço fixo total para esse acabamento neste item
-- Após "Adicionar", o item entra na lista do card como um acabamento normal, marcado com um badge discreto **"avulso"**, com botão de remover.
-- Para simplicidade, todo acabamento avulso usa `tipo_calculo = "fixo"` (valor fixo total). Sem quantidade, sem m².
+```
+[ nº ] [ 🔍 Busque a impressão pelo nome (papel, gramatura, formato)…        ]  [+ acabamento]   [✕]
+       ↳ Defina primeiro a impressão. Acabamentos podem ser adicionados depois.
+```
 
-### Itens gráficos (`LaborAndSupplySubform` compact)
+- A coluna "Tipo" deixa de existir no draft — a linha ocupa o espaço com o input de busca.
+- O botão **"+ acabamento"** abre o mesmo popover do `ProcessPicker` atual (busca processos cadastrados + opção "Adicionar acabamento avulso"), mas com `parentId = null` (acabamento solto, não vinculado a uma impressão).
+- Ao escolher uma impressão, o draft vira uma linha de impressão padrão e uma nova linha vazia **NÃO** é aberta automaticamente (o usuário clica "+ adicionar item" de novo se quiser outra).
+- Ao escolher um acabamento (avulso ou processo), o draft é consumido e cria a entrada correspondente.
 
-O subform já permite adicionar Mão de obra e Material livremente. Para deixar a opção explícita e alinhada com a UX da CV, adicionar um terceiro botão na action bar do modo `compact`:
+### Acabamento avulso (forms inline)
 
-- **`+ Acabamento avulso`** (ícone `Scissors`)
-- Cria internamente uma linha de **Material** (já é a forma como o engine de pricing soma valores extras a um item gráfico) com `description` prefixado por "Acabamento: " e `quantity = 1`. O usuário preenche nome e valor.
-- Visualmente igual às outras linhas — sem novo schema.
+Trocar o input "Valor total (R$)" por:
+- **Nome** (texto) — ex.: "Corte especial"
+- **Tempo (min)** (número) — ex.: 15
+- Linha de preview discreta: *"≈ R$ 20,00 (custo/hora R$ 80/h)"* — recalcula em tempo real.
 
-> Observação: nos itens gráficos não criamos um novo conceito de "acabamento" no estado/banco; reaproveitamos a linha de Material já existente, que vai ao banco como `quote_materials` normal. Isso mantém zero impacto em schema.
+Aplicar nos dois pontos:
+- `CustomFinishForm` (usado no `InlineCatalogCombobox` da linha draft).
+- Bloco `customMode` do `ProcessPicker` (usado nos itens de impressão já existentes).
+- Mini-form do `CVItemCard` (Comunicação Visual).
 
 ---
 
 ## Mudanças técnicas
 
-### 1. `src/components/orcamentos-v2/CVItemCard.tsx`
+### `src/components/orcamentos-v2/QuoteItemsTable.tsx`
 
-- Estender o tipo do array `acabamentos` no `CVItemState` para aceitar avulsos:
+**Draft simplificado**:
+- Remover o tipo `DraftMode` e o `<Select>` de tipo na `DraftRowEditor`.
+- A linha draft passa a sempre renderizar, lado a lado:
+  - `<InlineCatalogCombobox>` para impressões (sem `extraTop`).
+  - Botão "+ acabamento" idêntico ao `ProcessPicker` atual (já com a opção de avulso por tempo).
+- Remover modos "processo" e "impressao_processo" (a busca de processo agora vem via botão "+ acabamento" ao lado).
+- Atualizar o `GRID` se necessário para acomodar o input largo + botão.
+
+**Acabamento por tempo**:
+- Mudar a assinatura do callback `onAddCustomFinish`:
   ```ts
-  acabamentos: Array<{
-    finish_id: string;              // pode ser "custom-<uuid>" para avulsos
-    quantidade_unidades: number;
-    custom?: { nome: string; valor: number }; // presente => avulso
-  }>
+  onAddCustomFinish: (parentId: string | null, name: string, minutes: number) => void
   ```
-- No popover, adicionar entrada `+ Adicionar acabamento avulso` que abre um pequeno form inline (2 inputs + botão Salvar).
-- No mapeamento `appliedFinishes`, quando o item tiver `custom`, sintetizar um `CVFinish` em memória (`tipo_calculo: "fixo"`, `custo: valor`, `margem_pct: 0`, `categoria_compativel: [<categoria atual>]`) e passar para `calcularItemCV`.
-- Renderização da lista: mesma linha, com badge "avulso" e nome digitado pelo usuário.
+- `CustomFinishForm` e `customMode` no `ProcessPicker`:
+  - Trocar input "Valor total" por "Tempo (min)".
+  - Mostrar preview `≈ R$ X,XX` calculado a partir do `hourlyRate` (já recebido por prop).
 
-### 2. `src/lib/cv-pricing/engine.ts` (verificar)
+### `src/components/orcamentos-v2/NewQuoteFormV2.tsx`
 
-- Confirmar que `tipo_calculo === "fixo"` já é tratado como "valor único somado ao acabamento" (provavelmente sim). Se não, adicionar branch.
+Atualizar a implementação de `onAddCustomFinish`: em vez de criar um `material`, criar uma entrada de **mão de obra** (mesmo padrão de `addProcessStep`). O engine `recalculateForQuantity` já dilui automaticamente pelo `hourlyRate`.
 
-### 3. Persistência (`NewQuoteFormV2.tsx` → `cv_quote_items`)
+```ts
+onAddCustomFinish={(parentId, name, minutes) => {
+  setLabor((prev) => [...prev, {
+    id: `lbr-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,
+    description: name,
+    timeMinutes: minutes,
+    stepType: "outro",
+    parentItemId: parentId,
+  }]);
+  toast.success(parentId ? "Acabamento avulso vinculado!" : "Acabamento avulso adicionado!");
+}}
+```
 
-- Hoje os acabamentos vão para a coluna `finishes_json` (jsonb). Apenas estender o objeto serializado para incluir `custom` quando presente. Nada de schema novo.
-- Na reidratação do orçamento (loadData/edit), ler de volta `custom` e reconstituir.
+### `src/components/orcamentos-v2/CVItemCard.tsx`
 
-### 4. `src/pages/orcamentos-v2/ClientViewer.tsx`
+- Adicionar prop `hourlyRate: number` (passada pelo `NewQuoteFormV2`).
+- Mudar o estado `acabamentos[].custom` de `{ nome, valor }` → `{ nome, minutos }`.
+- No `appliedFinishes`, sintetizar o `CVFinish` com `custo = (minutos/60) × hourlyRate`.
+- Mini-form: input "Tempo (min)" + preview de R$.
+- Compatibilidade: se um orçamento antigo tiver `custom.valor`, usar como fallback quando `minutos` ausente.
 
-- Ao listar acabamentos do item de CV na visualização pública, se `custom` existir, exibir `custom.nome` em vez de procurar em `cv_finishes`. Sem ele, hoje aparece vazio para acabamentos não encontrados.
+### `src/components/orcamentos-v2/LaborAndSupplySubform.tsx`
 
-### 5. `src/components/orcamentos-v2/LaborAndSupplySubform.tsx`
-
-- Em modo `compact`, adicionar botão **`+ Acabamento avulso`** que chama `addMaterial()` com `description: "Acabamento: "` pré-preenchido (foca o input). Sem mudanças de modelo de dados.
+- Remover o botão "Acabamento avulso" do modo `compact` (não faz mais sentido com o novo fluxo via tabela). O subform fica limpo, só Mão de obra + Material + Grupos.
 
 ---
 
 ## Fora de escopo
 
-- Não cria/edita registros em `cv_finishes` ou `finishings_price_items`.
-- Não muda RLS nem schema de banco.
-- Não toca em compatibilidade de categorias (avulso é sempre permitido para o material atual).
+- Sem mudanças de schema (`finishes_json` continua jsonb; `quote_labor_steps` já existe).
+- Sem mudanças em `ClientViewer`, RLS ou permissões.
+- Não muda persistência dos itens já salvos (orçamentos antigos continuam abrindo).

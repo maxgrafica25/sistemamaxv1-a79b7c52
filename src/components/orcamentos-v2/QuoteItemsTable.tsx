@@ -24,10 +24,8 @@ export type ProcessStep = { id: string; description: string; time_minutes: numbe
 export type ProcessGroupItem = { description: string; time_minutes: number; step_type: string };
 export type ProcessGroup = { id: string; name: string; items: ProcessGroupItem[] };
 
-type DraftMode = "" | "impressao" | "processo" | "impressao_processo";
 interface DraftRow {
   id: string;
-  mode: DraftMode;
 }
 
 interface Props {
@@ -48,7 +46,7 @@ interface Props {
   onAddPrinting: (item: PrintingCatalogItem) => void;
   onAddProcess: (parentId: string | null, step: ProcessStep) => void;
   onExpandStepGroup: (parentId: string | null, group: ProcessGroup) => void;
-  onAddCustomFinish: (parentId: string | null, name: string, price: number) => void;
+  onAddCustomFinish: (parentId: string | null, name: string, minutes: number) => void;
   onUpdatePrinting: (id: string, patch: Partial<PricingMaterial>) => void;
   onUpdateChildMaterial: (id: string, patch: Partial<PricingMaterial>) => void;
   onRemovePrinting: (id: string) => void;
@@ -79,11 +77,9 @@ export function QuoteItemsTable(props: Props) {
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
 
   const addEmptyDraft = () =>
-    setDrafts((p) => [...p, { id: `draft-${Date.now()}`, mode: "" }]);
+    setDrafts((p) => [...p, { id: `draft-${Date.now()}` }]);
   const removeDraft = (id: string) =>
     setDrafts((p) => p.filter((d) => d.id !== id));
-  const setDraftMode = (id: string, mode: DraftMode) =>
-    setDrafts((p) => p.map((d) => (d.id === id ? { ...d, mode } : d)));
 
   // ---------- Renderers ----------
   const renderPrint = (m: PricingMaterial, idx: number) => {
@@ -114,9 +110,10 @@ export function QuoteItemsTable(props: Props) {
             <ProcessPicker
               steps={processSteps}
               groups={processGroups}
+              hourlyRate={hourlyRate}
               onPickStep={(s) => onAddProcess(m.id, s)}
               onPickGroup={(g) => onExpandStepGroup(m.id, g)}
-              onPickCustom={(name, price) => onAddCustomFinish(m.id, name, price)}
+              onPickCustom={(name, minutes) => onAddCustomFinish(m.id, name, minutes)}
             />
           </div>
           <Input
@@ -264,7 +261,7 @@ export function QuoteItemsTable(props: Props) {
           printingCatalog={printingCatalog}
           processSteps={processSteps}
           processGroups={processGroups}
-          onSetMode={(m) => setDraftMode(d.id, m)}
+          hourlyRate={hourlyRate}
           onPickPrinting={(it) => {
             onAddPrinting(it);
             removeDraft(d.id);
@@ -277,8 +274,8 @@ export function QuoteItemsTable(props: Props) {
             onExpandStepGroup(null, g);
             removeDraft(d.id);
           }}
-          onPickCustomFinish={(name, price) => {
-            onAddCustomFinish(null, name, price);
+          onPickCustomFinish={(name, minutes) => {
+            onAddCustomFinish(null, name, minutes);
             removeDraft(d.id);
           }}
           onCancel={() => removeDraft(d.id)}
@@ -374,39 +371,28 @@ function ProductKindButton({
 }
 
 function DraftRowEditor({
-  row, rowNumber, printingCatalog, processSteps, processGroups,
-  onSetMode, onPickPrinting, onPickProcessStep, onPickProcessGroup, onPickCustomFinish, onCancel,
+  row, rowNumber, printingCatalog, processSteps, processGroups, hourlyRate,
+  onPickPrinting, onPickProcessStep, onPickProcessGroup, onPickCustomFinish, onCancel,
 }: {
   row: DraftRow;
   rowNumber: number;
   printingCatalog: PrintingCatalogItem[];
   processSteps: ProcessStep[];
   processGroups: ProcessGroup[];
-  onSetMode: (m: DraftMode) => void;
+  hourlyRate: number;
   onPickPrinting: (it: PrintingCatalogItem) => void;
   onPickProcessStep: (s: ProcessStep) => void;
   onPickProcessGroup: (g: ProcessGroup) => void;
-  onPickCustomFinish: (name: string, price: number) => void;
+  onPickCustomFinish: (name: string, minutes: number) => void;
   onCancel: () => void;
 }) {
   return (
-    <div className={`${GRID} px-2 py-1.5 border-b text-sm bg-primary/5`}>
-      <span className="text-xs text-muted-foreground tabular-nums">{rowNumber}</span>
-      <Select value={row.mode} onValueChange={(v) => onSetMode(v as DraftMode)}>
-        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Tipo…" /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="impressao">Impressão</SelectItem>
-          <SelectItem value="processo">Acabamento / Processo</SelectItem>
-          <SelectItem value="impressao_processo">Impressão + Processo</SelectItem>
-        </SelectContent>
-      </Select>
-      <div className="min-w-0">
-        {row.mode === "" && (
-          <span className="text-xs text-muted-foreground italic">Escolha o tipo →</span>
-        )}
-        {(row.mode === "impressao" || row.mode === "impressao_processo") && (
+    <div className="px-2 py-2 border-b text-sm bg-primary/5">
+      <div className="flex items-start gap-2">
+        <span className="text-xs text-muted-foreground tabular-nums w-6 pt-2 shrink-0">{rowNumber}</span>
+        <div className="flex-1 min-w-0">
           <InlineCatalogCombobox
-            placeholder="Buscar impressão no catálogo…"
+            placeholder="Busque a impressão pelo nome (papel, gramatura, formato)…"
             sections={[{
               heading: "Impressões",
               options: printingCatalog.map((p) => ({
@@ -417,48 +403,23 @@ function DraftRowEditor({
               })),
             }]}
           />
-        )}
-        {row.mode === "processo" && (
-          <InlineCatalogCombobox
-            placeholder="Buscar processo ou grupo…"
-            extraTop={{
-              label: "Adicionar acabamento avulso",
-              icon: <Wand2 className="h-3.5 w-3.5" />,
-              renderForm: (close) => (
-                <CustomFinishForm
-                  onSubmit={(name, price) => { onPickCustomFinish(name, price); close(); }}
-                  onCancel={close}
-                />
-              ),
-            }}
-            sections={[
-              {
-                heading: "Processos individuais",
-                options: processSteps.map((s) => ({
-                  id: `s-${s.id}`,
-                  label: s.description,
-                  hint: `${s.time_minutes} min`,
-                  onPick: () => onPickProcessStep(s),
-                })),
-              },
-              {
-                heading: "Grupos de processos",
-                options: processGroups.map((g) => ({
-                  id: `g-${g.id}`,
-                  label: g.name,
-                  hint: `${g.items.length} etapa${g.items.length === 1 ? "" : "s"}`,
-                  icon: <Layers className="h-3 w-3" />,
-                  onPick: () => onPickProcessGroup(g),
-                })),
-              },
-            ]}
-          />
-        )}
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Defina primeiro a impressão. Acabamentos podem ser adicionados depois →
+          </p>
+        </div>
+        <ProcessPicker
+          steps={processSteps}
+          groups={processGroups}
+          hourlyRate={hourlyRate}
+          onPickStep={onPickProcessStep}
+          onPickGroup={onPickProcessGroup}
+          onPickCustom={onPickCustomFinish}
+          label="acabamento"
+        />
+        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onCancel}>
+          <X className="h-3.5 w-3.5" />
+        </Button>
       </div>
-      <span></span><span></span><span></span><span></span>
-      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onCancel}>
-        <X className="h-3.5 w-3.5" />
-      </Button>
     </div>
   );
 }
@@ -560,26 +521,32 @@ function InlineCatalogCombobox({
 }
 
 function CustomFinishForm({
-  onSubmit, onCancel,
+  hourlyRate, onSubmit, onCancel,
 }: {
-  onSubmit: (name: string, price: number) => void;
+  hourlyRate: number;
+  onSubmit: (name: string, minutes: number) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
-  const valid = name.trim() && parseFloat(price) > 0;
+  const [minutes, setMinutes] = useState("");
+  const mins = parseFloat(minutes) || 0;
+  const valid = name.trim() && mins > 0;
+  const cost = (mins / 60) * (hourlyRate || 0);
   return (
     <div className="space-y-2">
       <div className="text-xs font-medium text-foreground flex items-center gap-1.5">
         <Wand2 className="h-3.5 w-3.5 text-primary" /> Acabamento avulso
       </div>
       <Input autoFocus placeholder="Nome (ex: Corte especial)" value={name} onChange={(e) => setName(e.target.value)} className="h-8 text-sm" />
-      <Input type="number" inputMode="decimal" step="0.01" min="0" placeholder="Valor total (R$)" value={price} onChange={(e) => setPrice(e.target.value)} className="h-8 text-sm" />
+      <Input type="number" inputMode="decimal" step="1" min="0" placeholder="Tempo (min)" value={minutes} onChange={(e) => setMinutes(e.target.value)} className="h-8 text-sm" />
+      <p className="text-[10px] text-muted-foreground">
+        ≈ {fmt(cost)} <span className="opacity-70">(custo/hora {fmt(hourlyRate || 0)}/h)</span>
+      </p>
       <p className="text-[10px] text-muted-foreground">Válido apenas neste orçamento. Não será salvo no cadastro.</p>
       <div className="flex justify-end gap-1.5">
         <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>Cancelar</Button>
         <Button size="sm" className="h-7 text-xs" disabled={!valid}
-          onClick={() => onSubmit(name.trim(), parseFloat(price) || 0)}>
+          onClick={() => onSubmit(name.trim(), mins)}>
           Adicionar
         </Button>
       </div>
@@ -588,20 +555,20 @@ function CustomFinishForm({
 }
 
 function ProcessPicker({
-  steps, groups, onPickStep, onPickGroup, onPickCustom,
+  steps, groups, hourlyRate, onPickStep, onPickGroup, onPickCustom, label = "processo",
 }: {
   steps: ProcessStep[];
   groups: ProcessGroup[];
+  hourlyRate: number;
   onPickStep: (s: ProcessStep) => void;
   onPickGroup: (g: ProcessGroup) => void;
-  onPickCustom: (name: string, price: number) => void;
+  onPickCustom: (name: string, minutes: number) => void;
+  label?: string;
 }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [customMode, setCustomMode] = useState(false);
-  const [cName, setCName] = useState("");
-  const [cPrice, setCPrice] = useState("");
-  const reset = () => { setCustomMode(false); setCName(""); setCPrice(""); setQ(""); };
+  const reset = () => { setCustomMode(false); setQ(""); };
   const fSteps = useMemo(() => {
     const s = q.toLowerCase();
     return steps.filter((x) => x.description.toLowerCase().includes(s)).slice(0, 30);
@@ -616,28 +583,18 @@ function ProcessPicker({
         <button
           type="button"
           className="inline-flex items-center gap-1 px-2 py-1 rounded border border-dashed text-[11px] text-muted-foreground hover:text-foreground hover:border-foreground shrink-0"
-          title="Adicionar processo vinculado"
+          title="Adicionar acabamento / processo"
         >
-          <Plus className="h-3 w-3" /> processo
+          <Plus className="h-3 w-3" /> {label}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-2">
         {customMode ? (
-          <div className="space-y-2">
-            <div className="text-xs font-medium text-foreground flex items-center gap-1.5">
-              <Wand2 className="h-3.5 w-3.5 text-primary" /> Acabamento avulso
-            </div>
-            <Input autoFocus placeholder="Nome (ex: Corte especial)" value={cName} onChange={(e) => setCName(e.target.value)} className="h-8 text-sm" />
-            <Input type="number" inputMode="decimal" step="0.01" min="0" placeholder="Valor total (R$)" value={cPrice} onChange={(e) => setCPrice(e.target.value)} className="h-8 text-sm" />
-            <p className="text-[10px] text-muted-foreground">Válido apenas neste orçamento. Não será salvo no cadastro.</p>
-            <div className="flex justify-end gap-1.5">
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={reset}>Cancelar</Button>
-              <Button size="sm" className="h-7 text-xs"
-                disabled={!cName.trim() || !(parseFloat(cPrice) > 0)}
-                onClick={() => { onPickCustom(cName.trim(), parseFloat(cPrice) || 0); setOpen(false); reset(); }}
-              >Adicionar</Button>
-            </div>
-          </div>
+          <CustomFinishForm
+            hourlyRate={hourlyRate}
+            onSubmit={(name, minutes) => { onPickCustom(name, minutes); setOpen(false); reset(); }}
+            onCancel={reset}
+          />
         ) : (
           <>
             <Input

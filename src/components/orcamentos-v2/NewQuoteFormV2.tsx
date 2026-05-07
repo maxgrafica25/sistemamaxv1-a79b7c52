@@ -960,16 +960,16 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             onAddPrinting={addPrintingItem}
             onAddProcess={addProcessStep}
             onExpandStepGroup={expandStepGroup}
-            onAddCustomFinish={(parentId, name, price) => {
-              setMaterials((prev) => [
+            onAddCustomFinish={(parentId, name, minutes) => {
+              setLabor((prev) => [
                 ...prev,
                 {
-                  id: `mat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                  id: `lbr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
                   description: name,
-                  quantity: 1,
-                  unitPrice: price,
+                  timeMinutes: minutes,
+                  stepType: "outro",
                   parentItemId: parentId,
-                } as PricingMaterial,
+                },
               ]);
               toast.success(parentId ? "Acabamento avulso vinculado!" : "Acabamento avulso adicionado!");
             }}
