@@ -304,19 +304,26 @@ export function QuoteItemsTable(props: Props) {
 
   const renderLegacyMaterial = (m: SubformMaterial, idx: number) => {
     const total = (m.quantity || 0) * (m.unitPrice || 0);
+    const isApproved = m.status === "aprovado";
+    const rowBg = isApproved ? "bg-green-50/60 dark:bg-green-950/20" : "hover:bg-muted/30";
     return (
-      <div key={m.id} className={`${GRID} px-2 py-1.5 border-b text-sm hover:bg-muted/30`}>
+      <div key={m.id} className={`${GRID} px-2 py-1.5 border-b text-sm ${rowBg}`}>
         <span className="text-xs text-muted-foreground tabular-nums">{idx + 1}</span>
-        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">Legado</span>
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">Legado</span>
+          {isApproved && <ApprovedBadge approvedAt={m.approvedAt} approvedValue={m.approvedValue} />}
+        </div>
         <span className="text-sm text-muted-foreground truncate" title={m.description}>{m.description}</span>
         <Input type="number" value={m.quantity || ""} disabled className="h-8 text-sm text-right tabular-nums" />
         <span className="text-xs text-muted-foreground text-center">un</span>
         <Input type="number" step="0.01" value={m.unitPrice || ""} disabled className="h-8 text-sm text-right tabular-nums" />
         <span className="text-right tabular-nums font-medium">{fmt(total)}</span>
-        <Button variant="ghost" size="icon" className="h-7 w-7"
-          onClick={() => onChangeStandaloneMaterials(standaloneManualMaterials.filter((x) => x.id !== m.id))}>
-          <X className="h-3.5 w-3.5" />
-        </Button>
+        {!isApproved ? (
+          <Button variant="ghost" size="icon" className="h-7 w-7"
+            onClick={() => onChangeStandaloneMaterials(standaloneManualMaterials.filter((x) => x.id !== m.id))}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        ) : <span />}
       </div>
     );
   };
