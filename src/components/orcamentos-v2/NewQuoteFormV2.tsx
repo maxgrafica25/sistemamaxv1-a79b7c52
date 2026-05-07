@@ -63,7 +63,20 @@ const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
 
 export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const isEditing = !!quoteId;
-  const { defaultQuoteValidityDays } = useCompanySettings();
+  const { defaultQuoteValidityDays, defaultTaxRate, defaultLossMargin } = useCompanySettings();
+  const [paymentFees, setPaymentFees] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    supabase
+      .from("payment_method_fees")
+      .select("method, fee_pct")
+      .then(({ data }) => {
+        if (!data) return;
+        const map: Record<string, number> = {};
+        data.forEach((r: any) => { map[r.method] = Number(r.fee_pct) || 0; });
+        setPaymentFees(map);
+      });
+  }, []);
   
   const [loadingInit, setLoadingInit] = useState(true);
 
@@ -1175,14 +1188,55 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         </CardContent></Card>
       </div>
 
-      {/* Sticky financial sidebar */}
+      {/* Sticky financial sidebar — DRE */}
       <div className="lg:self-start lg:sticky lg:top-6">
-        <StickyFinancialSidebar
-          totalCost={live.costsBeforeMarkup + live.printingTotal + cvCostTotal}
-          totalToCharge={discountedTotal}
-          marginPct={discountedTotal > 0 ? ((discountedTotal - (live.costsBeforeMarkup + live.printingTotal + cvCostTotal)) / discountedTotal) * 100 : 0}
-          profit={discountedTotal - (live.costsBeforeMarkup + live.printingTotal + cvCostTotal)}
-        />
+        {(() => {
+          const proposalTotal = discountedTotal;
+          const totalProductionCost = live.costsBeforeMarkup + live.printingTotal + cvCostTotal;
+
+          // Approved revenue: soma unitPrice * quantity dos materiais raiz aprovados (+ aprovados CV se houver)
+          const approvedRevenue = materials
+            .filter((m) => !m.parentItemId && m.status === "aprovado")
+            .reduce((s, m) => s + (m.approvedValue ?? (m.unitPrice * m.quantity)), 0);
+          const hasApproved = approvedRevenue > 0;
+
+          // Proporção entre receita aprovada e proposta para escalar custo de produção
+          const baseRevenueGross = live.totalToCharge + cvTotal;
+          const revenueBase = hasApproved ? approvedRevenue : proposalTotal;
+          const productionCost = hasApproved && baseRevenueGross > 0
+            ? totalProductionCost * (approvedRevenue / baseRevenueGross)
+            : totalProductionCost;
+
+          const taxPct = defaultTaxRate;
+          const lossPct = defaultLossMargin;
+          const billingPct = paymentMethod ? (paymentFees[paymentMethod] ?? 0) : 0;
+
+          const taxValue = revenueBase * taxPct / 100;
+          const lossValue = revenueBase * lossPct / 100;
+          const billingValue = revenueBase * billingPct / 100;
+
+          const netProfit = revenueBase - productionCost - taxValue - lossValue - billingValue;
+          const netMarginPct = revenueBase > 0 ? (netProfit / revenueBase) * 100 : 0;
+
+          return (
+            <StickyFinancialSidebar
+              proposalTotal={proposalTotal}
+              approvedTotal={approvedRevenue}
+              hasApproved={hasApproved}
+              productionCost={productionCost}
+              taxPct={taxPct}
+              taxValue={taxValue}
+              billingPct={billingPct}
+              billingMethod={paymentMethod}
+              billingValue={billingValue}
+              lossPct={lossPct}
+              lossValue={lossValue}
+              netProfit={netProfit}
+              netMarginPct={netMarginPct}
+              revenueBase={revenueBase}
+            />
+          );
+        })()}
       </div>
 
       {/* ===== Rodapé fixo: Salvar / Cancelar ===== */}
