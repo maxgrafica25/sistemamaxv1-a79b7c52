@@ -375,16 +375,20 @@ export function QuoteItemsTable(props: Props) {
       ))}
 
       {/* Add row trigger */}
-      <div className="flex items-center gap-3 px-3 py-2.5 text-sm">
+      <div className="flex items-center gap-3 px-3 py-2.5 text-sm flex-wrap">
         <button
-          onClick={addEmptyDraft}
+          onClick={() => onAddEmptyPrinting()}
           className="text-primary hover:underline inline-flex items-center gap-1.5 font-medium"
         >
-          <Plus className="h-4 w-4" /> adicionar item
+          <Plus className="h-4 w-4" /> adicionar impressão
         </button>
-        <span className="text-xs text-muted-foreground">
-          Escolha o tipo e busque pelo nome — todos os itens vêm de catálogos cadastrados.
-        </span>
+        <span className="text-muted-foreground">·</span>
+        <button
+          onClick={addEmptyDraft}
+          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
+        >
+          <Plus className="h-3.5 w-3.5" /> processo / acabamento avulso
+        </button>
       </div>
     </div>
   );
