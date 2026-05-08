@@ -320,16 +320,18 @@ export function QuoteItemsTable(props: Props) {
           </span>
         </div>
       )}
-      <div className={`${GRID} px-2 py-2 border-b bg-muted/40 text-[11px] font-medium uppercase tracking-wide text-muted-foreground`}>
-        <span>Nº</span>
-        <span>Tipo</span>
-        <span>Item</span>
-        <span className="text-right">Qtde</span>
-        <span className="text-center">UN</span>
-        <span className="text-right">Preço un.</span>
-        <span className="text-right">Total</span>
-        <span></span>
-      </div>
+      {(standaloneLabor.length > 0 || manualOrdered.length > 0 || thirdParty.length > 0) && (
+        <div className={`${GRID} px-2 py-2 border-b bg-muted/40 text-[11px] font-medium uppercase tracking-wide text-muted-foreground`}>
+          <span>Nº</span>
+          <span>Tipo</span>
+          <span>Item</span>
+          <span className="text-right">Qtde</span>
+          <span className="text-center">UN</span>
+          <span className="text-right">Preço un.</span>
+          <span className="text-right">Total</span>
+          <span></span>
+        </div>
+      )}
 
       {isEmpty && (
         <div className="px-4 py-6 text-center text-sm text-muted-foreground italic">
