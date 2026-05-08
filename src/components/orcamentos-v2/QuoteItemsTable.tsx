@@ -21,6 +21,7 @@ import {
 } from "@/lib/quotes-v2/item-title";
 import type { PricingMaterial } from "@/lib/quotes-v2/pricing";
 import type { SubformLabor, SubformMaterial } from "./LaborAndSupplySubform";
+import { PrintingItemEditor } from "./PrintingItemEditor";
 
 type ThirdParty = { id: string; description: string; supplier: string; cost: number };
 export type ProcessStep = { id: string; description: string; time_minutes: number; step_type: string };
