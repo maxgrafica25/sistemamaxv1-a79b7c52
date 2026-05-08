@@ -1153,6 +1153,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               ]);
               toast.success(parentId ? "Acabamento avulso vinculado!" : "Acabamento avulso adicionado!");
             }}
+            onAddEmptyPrinting={addEmptyPrintingItem}
+            onPickPaperForPrinting={pickPaperForPrintingItem}
+            onSetChildLaborForItem={setChildLaborFor}
+            onSetChildMaterialsForItem={setChildMaterialsFor}
             onUpdatePrinting={updateMaterialPatch}
             onUpdateChildMaterial={updateMaterialPatch}
             onRemovePrinting={removeMaterial}
