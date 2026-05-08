@@ -21,6 +21,7 @@ import {
 } from "@/lib/quotes-v2/item-title";
 import type { PricingMaterial } from "@/lib/quotes-v2/pricing";
 import type { SubformLabor, SubformMaterial } from "./LaborAndSupplySubform";
+import { PrintingItemEditor } from "./PrintingItemEditor";
 
 type ThirdParty = { id: string; description: string; supplier: string; cost: number };
 export type ProcessStep = { id: string; description: string; time_minutes: number; step_type: string };
@@ -48,12 +49,16 @@ interface Props {
   thirdParty: ThirdParty[];
 
   onAddPrinting: (item: PrintingCatalogItem) => void;
+  onAddEmptyPrinting: () => void;
+  onPickPaperForPrinting: (id: string, item: PrintingCatalogItem) => void;
   onSwapPrinting: (id: string, item: PrintingCatalogItem) => void;
   onAddProcess: (parentId: string | null, step: ProcessStep) => void;
   onExpandStepGroup: (parentId: string | null, group: ProcessGroup) => void;
   onAddCustomFinish: (parentId: string | null, name: string, minutes: number) => void;
   onUpdatePrinting: (id: string, patch: Partial<PricingMaterial>) => void;
   onUpdateChildMaterial: (id: string, patch: Partial<PricingMaterial>) => void;
+  onSetChildLaborForItem: (parentId: string, next: SubformLabor[]) => void;
+  onSetChildMaterialsForItem: (parentId: string, next: SubformMaterial[]) => void;
   onRemovePrinting: (id: string) => void;
   onDuplicateItem: (id: string) => void;
   onRemoveChildMaterial: (id: string) => void;
@@ -75,8 +80,10 @@ export function QuoteItemsTable(props: Props) {
     markupTiers, categoryDefaultGroupId,
     printingItems, childMaterials, childLabor,
     standaloneLabor, standaloneManualMaterials, thirdParty,
-    onAddPrinting, onSwapPrinting, onAddProcess, onExpandStepGroup, onAddCustomFinish,
+    onAddPrinting, onAddEmptyPrinting, onPickPaperForPrinting,
+    onSwapPrinting, onAddProcess, onExpandStepGroup, onAddCustomFinish,
     onUpdatePrinting, onUpdateChildMaterial,
+    onSetChildLaborForItem, onSetChildMaterialsForItem,
     onRemovePrinting, onRemoveChildMaterial, onRemoveLabor, onDuplicateItem,
     onChangeStandaloneLabor, onChangeStandaloneMaterials, onChangeThirdParty,
   } = props;
@@ -161,121 +168,59 @@ export function QuoteItemsTable(props: Props) {
   const renderPrint = (m: PricingMaterial, idx: number) => {
     const total = (m.quantity || 0) * (m.unitPrice || 0);
     const isApproved = m.status === "aprovado";
-    const dynamicTitle = buildDynamicTitle({
-      productKind: m.productKind,
-      customName: m.customName,
-      paperType: m.paperType,
-      grammage: m.grammage,
-      size: m.size,
-      side: m.side,
-    });
     const childMatsForThis = childMaterials.filter((c) => c.parentItemId === m.id);
     const childLaborForThis = childLabor.filter((l) => l.parentItemId === m.id);
-    const rowBg = isApproved
-      ? "bg-green-50/60 dark:bg-green-950/20"
+    const ringCls = isApproved
+      ? ""
       : flashId === m.id
-        ? "bg-primary/15"
-        : "hover:bg-muted/30";
+        ? "ring-2 ring-primary/40"
+        : "";
     return (
-      <div key={m.id}>
-        <div className={`${GRID} px-2 py-1.5 border-b text-sm transition-colors ${rowBg}`}>
-          <span className="text-xs text-muted-foreground tabular-nums">{idx + 1}</span>
-          <div className="flex items-center gap-1 flex-wrap">
-            <KindBadge kind="print" />
-            {isApproved && <ApprovedBadge approvedAt={m.approvedAt} approvedValue={m.approvedValue} />}
-          </div>
-          <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-            {!isApproved && <ProductKindButton item={m} onChange={(p) => onUpdatePrinting(m.id, p)} />}
-            {!isApproved && (
-              <SwapPrintingButton
-                catalog={printingCatalog}
-                onPick={(it) => {
-                  onSwapPrinting(m.id, it);
-                  triggerFlash(m.id);
-                }}
-              />
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="font-medium truncate">
-                {dynamicTitle || <span className="text-muted-foreground italic">Defina o tipo de produto…</span>}
-              </div>
-              <div className="text-[11px] text-muted-foreground truncate">{m.description}</div>
-            </div>
-            {!isApproved && (
-              <ProcessPicker
-                steps={processSteps}
-                groups={processGroups}
-                hourlyRate={hourlyRate}
-                onPickStep={(s) => onAddProcess(m.id, s)}
-                onPickGroup={(g) => onExpandStepGroup(m.id, g)}
-                onPickCustom={(name, minutes) => onAddCustomFinish(m.id, name, minutes)}
-              />
-            )}
-          </div>
-          <Input
-            type="number" min={1}
-            value={m.quantity || ""}
-            disabled={isApproved}
-            onChange={(e) => onUpdatePrinting(m.id, { quantity: parseFloat(e.target.value) || 0 })}
-            className="h-8 text-sm text-right tabular-nums"
-          />
-          <span className="text-xs text-muted-foreground text-center">un</span>
-          <Input
-            type="number" step="0.01"
-            value={m.unitPrice || ""}
-            disabled={isApproved}
-            onChange={(e) => onUpdatePrinting(m.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-            className="h-8 text-sm text-right tabular-nums"
-          />
-          <span className="text-right tabular-nums font-medium">{fmt(total)}</span>
-          <div className="flex items-center justify-end gap-0.5">
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDuplicateItem(m.id)}>
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs max-w-[220px]">
-                  Duplicar Item Completo (Ideal para opções de qtde/variação)
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            {!isApproved && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRemovePrinting(m.id)}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
+      <div key={m.id} className={`px-2 py-2 border-b ${ringCls}`}>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs text-muted-foreground tabular-nums w-6 shrink-0">{idx + 1}</span>
+          <KindBadge kind="print" />
+          {isApproved && <ApprovedBadge approvedAt={m.approvedAt} approvedValue={m.approvedValue} />}
+          <span className="ml-auto text-sm font-semibold text-primary">{fmt(total)}</span>
+          {!isApproved && (
+            <ProcessPicker
+              steps={processSteps}
+              groups={processGroups}
+              hourlyRate={hourlyRate}
+              onPickStep={(s) => onAddProcess(m.id, s)}
+              onPickGroup={(g) => onExpandStepGroup(m.id, g)}
+              onPickCustom={(name, minutes) => onAddCustomFinish(m.id, name, minutes)}
+            />
+          )}
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDuplicateItem(m.id)}>
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs max-w-[220px]">
+                Duplicar Item Completo
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
-        {childMatsForThis.map((c) => (
-          <div key={c.id} className={`${GRID} px-2 py-1.5 border-b text-sm bg-muted/10`}>
-            <span></span>
-            <KindBadge kind="finish" />
-            <div className="min-w-0 pl-4 flex items-center gap-1.5 text-muted-foreground">
-              <span className="text-xs">↳</span>
-              <span className="truncate">{c.description}</span>
-            </div>
-            <Input
-              type="number" min={1}
-              value={c.quantity || ""}
-              onChange={(e) => onUpdateChildMaterial(c.id, { quantity: parseFloat(e.target.value) || 0 })}
-              className="h-8 text-sm text-right tabular-nums"
-            />
-            <span className="text-xs text-muted-foreground text-center">un</span>
-            <Input
-              type="number" step="0.01"
-              value={c.unitPrice || ""}
-              onChange={(e) => onUpdateChildMaterial(c.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-              className="h-8 text-sm text-right tabular-nums"
-            />
-            <span className="text-right tabular-nums">{fmt((c.quantity || 0) * (c.unitPrice || 0))}</span>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRemoveChildMaterial(c.id)}>
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        ))}
-        {childLaborForThis.map((l) => renderLaborRow(l, true))}
+
+        <PrintingItemEditor
+          item={m}
+          childLabor={childLaborForThis}
+          childMaterials={childMatsForThis}
+          hourlyRate={hourlyRate}
+          printingCatalog={printingCatalog}
+          onItemChange={(patch) => onUpdatePrinting(m.id, patch)}
+          onRemove={() => onRemovePrinting(m.id)}
+          onChildLaborChange={(next) => onSetChildLaborForItem(m.id, next)}
+          onChildMaterialChange={(next) => onSetChildMaterialsForItem(m.id, next)}
+          onPickPaper={(it) => {
+            onPickPaperForPrinting(m.id, it);
+            triggerFlash(m.id);
+          }}
+        />
       </div>
     );
   };
@@ -375,16 +320,18 @@ export function QuoteItemsTable(props: Props) {
           </span>
         </div>
       )}
-      <div className={`${GRID} px-2 py-2 border-b bg-muted/40 text-[11px] font-medium uppercase tracking-wide text-muted-foreground`}>
-        <span>Nº</span>
-        <span>Tipo</span>
-        <span>Item</span>
-        <span className="text-right">Qtde</span>
-        <span className="text-center">UN</span>
-        <span className="text-right">Preço un.</span>
-        <span className="text-right">Total</span>
-        <span></span>
-      </div>
+      {(standaloneLabor.length > 0 || manualOrdered.length > 0 || thirdParty.length > 0) && (
+        <div className={`${GRID} px-2 py-2 border-b bg-muted/40 text-[11px] font-medium uppercase tracking-wide text-muted-foreground`}>
+          <span>Nº</span>
+          <span>Tipo</span>
+          <span>Item</span>
+          <span className="text-right">Qtde</span>
+          <span className="text-center">UN</span>
+          <span className="text-right">Preço un.</span>
+          <span className="text-right">Total</span>
+          <span></span>
+        </div>
+      )}
 
       {isEmpty && (
         <div className="px-4 py-6 text-center text-sm text-muted-foreground italic">
@@ -428,16 +375,20 @@ export function QuoteItemsTable(props: Props) {
       ))}
 
       {/* Add row trigger */}
-      <div className="flex items-center gap-3 px-3 py-2.5 text-sm">
+      <div className="flex items-center gap-3 px-3 py-2.5 text-sm flex-wrap">
         <button
-          onClick={addEmptyDraft}
+          onClick={() => onAddEmptyPrinting()}
           className="text-primary hover:underline inline-flex items-center gap-1.5 font-medium"
         >
-          <Plus className="h-4 w-4" /> adicionar item
+          <Plus className="h-4 w-4" /> adicionar impressão
         </button>
-        <span className="text-xs text-muted-foreground">
-          Escolha o tipo e busque pelo nome — todos os itens vêm de catálogos cadastrados.
-        </span>
+        <span className="text-muted-foreground">·</span>
+        <button
+          onClick={addEmptyDraft}
+          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
+        >
+          <Plus className="h-3.5 w-3.5" /> processo / acabamento avulso
+        </button>
       </div>
     </div>
   );

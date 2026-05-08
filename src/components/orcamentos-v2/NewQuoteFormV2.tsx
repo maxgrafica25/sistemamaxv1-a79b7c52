@@ -537,6 +537,75 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     toast.success("Item de impressão adicionado!");
   };
 
+  const addEmptyPrintingItem = () => {
+    setMaterials((prev) => [
+      ...prev,
+      {
+        id: `print-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        description: "",
+        quantity: 1,
+        unitPrice: 0,
+        baseCost: 0,
+        printerCategoryId: null,
+        markupGroupId: null,
+        parentItemId: null,
+        paperType: null,
+        grammage: null,
+        size: null,
+        side: null,
+        widthMm: null,
+        heightMm: null,
+        printColors: null,
+        productKind: null,
+        customName: null,
+        reference: null,
+        generatedTitle: null,
+        catalogSource: "printing",
+        catalogItemId: null,
+      } as any,
+    ]);
+  };
+
+  const pickPaperForPrintingItem = (id: string, item: PrintingCatalogItem) => {
+    const sizeMult = isLargerThanA4(item.size) ? 2 : 1;
+    const sideMult = item.side === "F/V" ? 2 : 1;
+    const printCost = roundUp5(item.printing_cost * sizeMult * sideMult);
+    const baseCost = item.paper_cost + printCost;
+    const groupId = item.markup_group_id || categoryGroups[item.printer_category_id] || null;
+    const groupTiers = groupId
+      ? markupTiers.filter((t) => t.markup_group_id === groupId)
+      : markupTiers.filter((t) => t.printer_category_id === item.printer_category_id);
+    setMaterials((prev) =>
+      prev.map((m) => {
+        if (m.id !== id) return m;
+        const qty = m.quantity || 1;
+        const tier =
+          groupTiers.find((t) => qty >= t.min_qty && (t.max_qty === null || qty <= t.max_qty)) ||
+          groupTiers[0] ||
+          null;
+        const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
+        return {
+          ...m,
+          description: `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}` : ""}`,
+          baseCost,
+          unitPrice: sellingPrice,
+          printerCategoryId: item.printer_category_id,
+          markupGroupId: item.markup_group_id,
+          paperType: item.paper_type ?? null,
+          grammage: item.grammage ?? null,
+          size: item.size ?? null,
+          side: item.side ?? null,
+          widthMm: m.widthMm ?? guessWidthMmFromSize(item.size),
+          heightMm: m.heightMm ?? guessHeightMmFromSize(item.size),
+          printColors: m.printColors ?? (item.side === "F/V" ? "4x4" : item.side === "Simples" ? "4x0" : null),
+          catalogSource: "printing",
+          catalogItemId: item.id,
+        };
+      }),
+    );
+  };
+
+
   const addProcessStep = (parentId: string | null, step: ProcessStep) => {
     setLabor((prev) => [...prev, {
       id: `lbr-${Date.now()}-${step.id}`,
@@ -1084,6 +1153,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               ]);
               toast.success(parentId ? "Acabamento avulso vinculado!" : "Acabamento avulso adicionado!");
             }}
+            onAddEmptyPrinting={addEmptyPrintingItem}
+            onPickPaperForPrinting={pickPaperForPrintingItem}
+            onSetChildLaborForItem={setChildLaborFor}
+            onSetChildMaterialsForItem={setChildMaterialsFor}
             onUpdatePrinting={updateMaterialPatch}
             onUpdateChildMaterial={updateMaterialPatch}
             onRemovePrinting={removeMaterial}
