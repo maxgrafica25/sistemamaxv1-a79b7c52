@@ -1,51 +1,36 @@
-# Correção urgente: fazer o card estruturado aparecer no lugar do “Legado”
+## Ajustes de UX no `PrintingItemEditor.tsx`
 
-## Diagnóstico confirmado
-O `QuoteItemsTable.tsx` já contém a tag `<PrintingItemEditor />` dentro de `renderPrint`. O problema real não é a ausência do componente no render; é a forma como `NewQuoteFormV2.tsx` separa os materiais:
+Dois ajustes pontuais, isolados ao componente `src/components/orcamentos-v2/PrintingItemEditor.tsx`. Sem alterações no banco, no `calcSheetYield`, nem no fluxo de salvamento.
 
-- `printingItems` hoje usa `materials.filter((m) => m.baseCost && !m.parentItemId)`
-- `standaloneManualMaterials` usa `materials.filter((m) => !m.baseCost && !m.parentItemId)`
+### 1. Tipo de Material — autocomplete realmente livre
 
-Como `addEmptyPrintingItem()` cria o novo item com `baseCost: 0`, ele cai automaticamente em `standaloneManualMaterials`, que é justamente a lista renderizada como linha compacta com badge `Legado`.
+Hoje o `Input` está envolto por `<PopoverTrigger asChild>`, o que faz o Radix interceptar eventos de teclado/clique e travar a digitação contínua (o popover "rouba" o foco e o usuário não consegue digitar texto livre fora das sugestões).
 
-Resultado visual no preview: aparece a linha “Legado” vazia, mesmo com `renderPrint` já pronto.
+Mudança:
+- Tirar o `Input` de dentro do `PopoverTrigger asChild`.
+- Renderizar o `Input` normalmente e usar um `PopoverTrigger` invisível/âncora (ou controlar `open` manualmente sem `asChild`), mantendo o popover ancorado no input via `ref`.
+- Garantir que `onChange` do input continue chamando `onItemChange({ productKind: e.target.value })` — qualquer texto livre é aceito ("Encarte Especial 3 Dobras" etc.).
+- A lista de `PRODUCT_KIND_SUGGESTIONS` filtrada continua aparecendo como sugestão; clicar em uma sugestão preenche o campo, mas não é obrigatório.
+- `CommandEmpty` mostra "Usar '<texto digitado>'" para reforçar que o valor livre será aceito.
 
-## O que vou alterar
+### 2. Largura/Altura em centímetros (cm) na UI, milímetros (mm) no estado
 
-### 1. `NewQuoteFormV2.tsx` — corrigir o critério de separação dos itens
-Vou mudar a lógica de split para que um item novo de impressão vazio continue sendo tratado como impressão estruturada, mesmo antes de ter papel selecionado e `baseCost` calculado.
+A interface passa a operar em **cm**, mas o estado (`item.widthMm`, `item.heightMm`) e os cálculos (`calcSheetYield`, `PRODUCTION_SHEET` 328×478 mm) continuam em **mm**.
 
-A separação passará a usar os sinais estruturais do fluxo novo, por exemplo:
-- `catalogSource === "printing"`, ou
-- presença de campos estruturados do item de impressão
+Mudanças nos dois inputs (largura e altura):
+- Label: `Largura (cm)` e `Altura (cm)`.
+- Placeholder: `10`, `15` (em vez de `100`, `150`).
+- `value`: `item.widthMm != null ? item.widthMm / 10 : ""` (idem para altura).
+- `onChange`: ao parsear o número digitado, **multiplicar por 10** antes de chamar `handleDimensionChange({ widthMm: cm * 10 })`. Suportar decimais (ex.: `15.5` → `155 mm`). Aceitar vírgula trocando por ponto antes do `parseFloat`.
+- `step="0.1"` no input para facilitar decimais.
 
-Com isso:
-- o item criado por `addEmptyPrintingItem()` entra em `printingItems`
-- ele deixa de cair em `standaloneManualMaterials`
-- o `QuoteItemsTable` passa a renderizar esse item via `renderPrint` com o `<PrintingItemEditor />`
+Nada muda em `handleDimensionChange`, `calcSheetYield`, no badge de rendimento, nem no `buildDynamicTitle` — todos continuam recebendo mm como hoje. O alerta vermelho de "excede folha de produção (328×478 mm)" continua funcionando inalterado, pois é calculado sobre os mm já convertidos.
 
-### 2. `QuoteItemsTable.tsx` — manter o `renderPrint` usando o card novo
-Vou validar e, se necessário, simplificar o bloco de `renderPrint` para garantir que cada item de `printingItems` continue renderizando o componente:
+### Fora de escopo
 
-```tsx
-<PrintingItemEditor ... />
-```
+- `NewQuoteFormV2.tsx`, `QuoteItemsTable.tsx`, schema do banco, `calcSheetYield`, `buildDynamicTitle`.
+- Conversão de itens já salvos (já estão em mm; a UI apenas divide por 10 para exibir).
 
-Sem a linha compacta antiga no fluxo de impressão.
+### Arquivos alterados
 
-### 3. Verificação visual obrigatória
-Depois da correção, vou validar no preview em `/orcamentos-v2/novo` que:
-- a linha com badge `Legado` não aparece ao criar um item novo de impressão
-- o card estruturado aparece imediatamente
-- os campos `Tipo`, `Largura`, `Altura`, `Cor da Impressão` e `Papel` ficam visíveis
-- o botão `+ adicionar impressão` cria novos cards estruturados
-- o fluxo `processo / acabamento avulso` continua legado, separado
-
-## Fora do escopo
-- Sem mexer no banco
-- Sem refatorar o `PrintingItemEditor` além do necessário para compatibilidade
-- Sem alterar o fluxo legado de acabamento avulso, exceto se ele interferir diretamente nessa renderização
-
-## Arquivos previstos
-- `src/components/orcamentos-v2/NewQuoteFormV2.tsx`
-- `src/components/orcamentos-v2/QuoteItemsTable.tsx`
+- `src/components/orcamentos-v2/PrintingItemEditor.tsx` (único arquivo).
