@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
@@ -179,18 +180,19 @@ export function PrintingItemEditor({
           <div className="sm:col-span-4 space-y-1.5">
             <Label className="text-xs">Tipo de Material</Label>
             <Popover open={kindOpen} onOpenChange={setKindOpen}>
-              <PopoverTrigger asChild>
+              <PopoverAnchor asChild>
                 <Input
                   value={item.productKind || ""}
                   onChange={(e) => {
                     onItemChange({ productKind: e.target.value });
-                    setKindOpen(true);
+                    if (!kindOpen) setKindOpen(true);
                   }}
                   onFocus={() => setKindOpen(true)}
+                  onBlur={() => setTimeout(() => setKindOpen(false), 150)}
                   placeholder="Ex.: Panfleto, Cartão de Visita..."
                   className="h-9 text-sm"
                 />
-              </PopoverTrigger>
+              </PopoverAnchor>
               <PopoverContent
                 className="p-0 w-[var(--radix-popover-trigger-width)]"
                 align="start"
@@ -199,7 +201,11 @@ export function PrintingItemEditor({
                 <Command shouldFilter={false}>
                   <CommandList>
                     {filteredKinds.length === 0 ? (
-                      <CommandEmpty>Use o nome digitado</CommandEmpty>
+                      <CommandEmpty>
+                        {item.productKind
+                          ? `Usar "${item.productKind}"`
+                          : "Digite um tipo de material"}
+                      </CommandEmpty>
                     ) : (
                       <CommandGroup heading="Sugestões">
                         {filteredKinds.map((s) => (
@@ -222,36 +228,42 @@ export function PrintingItemEditor({
             </Popover>
           </div>
 
-          {/* Largura */}
+          {/* Largura (cm) */}
           <div className="sm:col-span-2 space-y-1.5">
-            <Label className="text-xs">Largura (mm)</Label>
+            <Label className="text-xs">Largura (cm)</Label>
             <Input
               type="number"
               inputMode="decimal"
-              value={item.widthMm ?? ""}
-              onChange={(e) =>
+              step="0.1"
+              value={item.widthMm != null ? item.widthMm / 10 : ""}
+              onChange={(e) => {
+                const raw = e.target.value.replace(",", ".");
+                const cm = raw ? parseFloat(raw) : NaN;
                 handleDimensionChange({
-                  widthMm: e.target.value ? parseFloat(e.target.value) : undefined,
-                })
-              }
-              placeholder="100"
+                  widthMm: Number.isFinite(cm) ? cm * 10 : undefined,
+                });
+              }}
+              placeholder="10"
               className="h-9 text-sm"
             />
           </div>
 
-          {/* Altura */}
+          {/* Altura (cm) */}
           <div className="sm:col-span-2 space-y-1.5">
-            <Label className="text-xs">Altura (mm)</Label>
+            <Label className="text-xs">Altura (cm)</Label>
             <Input
               type="number"
               inputMode="decimal"
-              value={item.heightMm ?? ""}
-              onChange={(e) =>
+              step="0.1"
+              value={item.heightMm != null ? item.heightMm / 10 : ""}
+              onChange={(e) => {
+                const raw = e.target.value.replace(",", ".");
+                const cm = raw ? parseFloat(raw) : NaN;
                 handleDimensionChange({
-                  heightMm: e.target.value ? parseFloat(e.target.value) : undefined,
-                })
-              }
-              placeholder="150"
+                  heightMm: Number.isFinite(cm) ? cm * 10 : undefined,
+                });
+              }}
+              placeholder="15"
               className="h-9 text-sm"
             />
           </div>
