@@ -70,16 +70,20 @@ export function PrintingItemEditor({
   childLabor,
   childMaterials,
   hourlyRate,
+  printingCatalog = [],
   onItemChange,
   onRemove,
   onChildLaborChange,
   onChildMaterialChange,
+  onPickPaper,
 }: Props) {
   const locked = item.status === "aprovado";
   const childCount = childLabor.length + childMaterials.length;
   const [expanded, setExpanded] = useState(childCount > 0);
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
   const [kindOpen, setKindOpen] = useState(false);
+  const [paperOpen, setPaperOpen] = useState(false);
+  const [paperQuery, setPaperQuery] = useState("");
 
   // Título dinâmico — derivado dos atributos estruturados, recomputado em tempo real.
   const dynamicTitle = useMemo(
