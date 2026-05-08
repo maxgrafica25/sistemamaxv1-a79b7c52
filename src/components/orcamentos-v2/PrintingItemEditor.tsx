@@ -286,6 +286,82 @@ export function PrintingItemEditor({
               className="h-9 text-sm"
             />
           </div>
+
+          {/* Papel — combobox do catálogo */}
+          <div className="sm:col-span-12 space-y-1.5">
+            <Label className="text-xs">Papel</Label>
+            <Popover open={paperOpen} onOpenChange={(o) => { setPaperOpen(o); if (!o) setPaperQuery(""); }}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "h-9 w-full rounded-md border bg-background px-3 text-sm text-left flex items-center justify-between gap-2",
+                    "hover:border-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    !item.paperType && "text-muted-foreground",
+                  )}
+                >
+                  <span className="truncate">
+                    {item.paperType
+                      ? `${item.paperType}${item.grammage ? ` ${item.grammage}` : ""}${item.size ? ` — ${item.size}` : ""}${item.side ? ` ${item.side}` : ""}`
+                      : "Selecione o papel do catálogo…"}
+                  </span>
+                  <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="p-0 w-[var(--radix-popover-trigger-width)]"
+                align="start"
+              >
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    placeholder="Buscar papel, gramatura, formato…"
+                    value={paperQuery}
+                    onValueChange={setPaperQuery}
+                  />
+                  <CommandList>
+                    {(() => {
+                      const q = paperQuery.toLowerCase().trim();
+                      const filtered = printingCatalog
+                        .filter((p) =>
+                          !q ||
+                          `${p.paper_type} ${p.grammage ?? ""} ${p.size} ${p.side} ${p.equipment_name ?? ""} ${p.category_name}`
+                            .toLowerCase()
+                            .includes(q),
+                        )
+                        .slice(0, 50);
+                      if (filtered.length === 0) {
+                        return <CommandEmpty>Nenhum papel encontrado.</CommandEmpty>;
+                      }
+                      return (
+                        <CommandGroup heading="Catálogo de impressão">
+                          {filtered.map((p) => (
+                            <CommandItem
+                              key={p.id}
+                              value={p.id}
+                              onSelect={() => {
+                                onPickPaper?.(p);
+                                setPaperOpen(false);
+                                setPaperQuery("");
+                              }}
+                            >
+                              <div className="flex w-full items-center justify-between gap-2">
+                                <span className="truncate">
+                                  {p.paper_type}{p.grammage ? ` ${p.grammage}` : ""} — {p.size} {p.side}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground shrink-0">
+                                  {p.equipment_name || p.category_name}
+                                </span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      );
+                    })()}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       )}
 
