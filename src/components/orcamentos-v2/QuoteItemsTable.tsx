@@ -80,8 +80,10 @@ export function QuoteItemsTable(props: Props) {
     markupTiers, categoryDefaultGroupId,
     printingItems, childMaterials, childLabor,
     standaloneLabor, standaloneManualMaterials, thirdParty,
-    onAddPrinting, onSwapPrinting, onAddProcess, onExpandStepGroup, onAddCustomFinish,
+    onAddPrinting, onAddEmptyPrinting, onPickPaperForPrinting,
+    onSwapPrinting, onAddProcess, onExpandStepGroup, onAddCustomFinish,
     onUpdatePrinting, onUpdateChildMaterial,
+    onSetChildLaborForItem, onSetChildMaterialsForItem,
     onRemovePrinting, onRemoveChildMaterial, onRemoveLabor, onDuplicateItem,
     onChangeStandaloneLabor, onChangeStandaloneMaterials, onChangeThirdParty,
   } = props;
