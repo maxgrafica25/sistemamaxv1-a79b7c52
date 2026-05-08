@@ -49,12 +49,16 @@ interface Props {
   thirdParty: ThirdParty[];
 
   onAddPrinting: (item: PrintingCatalogItem) => void;
+  onAddEmptyPrinting: () => void;
+  onPickPaperForPrinting: (id: string, item: PrintingCatalogItem) => void;
   onSwapPrinting: (id: string, item: PrintingCatalogItem) => void;
   onAddProcess: (parentId: string | null, step: ProcessStep) => void;
   onExpandStepGroup: (parentId: string | null, group: ProcessGroup) => void;
   onAddCustomFinish: (parentId: string | null, name: string, minutes: number) => void;
   onUpdatePrinting: (id: string, patch: Partial<PricingMaterial>) => void;
   onUpdateChildMaterial: (id: string, patch: Partial<PricingMaterial>) => void;
+  onSetChildLaborForItem: (parentId: string, next: SubformLabor[]) => void;
+  onSetChildMaterialsForItem: (parentId: string, next: SubformMaterial[]) => void;
   onRemovePrinting: (id: string) => void;
   onDuplicateItem: (id: string) => void;
   onRemoveChildMaterial: (id: string) => void;
