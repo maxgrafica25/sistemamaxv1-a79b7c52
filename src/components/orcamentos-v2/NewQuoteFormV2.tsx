@@ -605,19 +605,6 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     );
   };
 
-  const setChildLaborForItem = (parentId: string, next: SubformLabor[]) => {
-    setLabor((prev) => [
-      ...prev.filter((l) => l.parentItemId !== parentId),
-      ...next.map((n) => ({ ...n, parentItemId: parentId })),
-    ]);
-  };
-
-  const setChildMaterialsForItem = (parentId: string, next: SubformMaterial[]) => {
-    setMaterials((prev) => [
-      ...prev.filter((m) => m.parentItemId !== parentId),
-      ...next.map((n) => ({ ...n, parentItemId: parentId })),
-    ]);
-  };
 
   const addProcessStep = (parentId: string | null, step: ProcessStep) => {
     setLabor((prev) => [...prev, {
