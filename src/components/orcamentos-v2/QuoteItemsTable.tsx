@@ -115,7 +115,7 @@ export function QuoteItemsTable(props: Props) {
       drafts.length === 0;
     if (isEmpty) {
       autoDraftedRef.current = true;
-      addEmptyDraft();
+      onAddEmptyPrinting();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [printingItems.length, standaloneLabor.length, standaloneManualMaterials.length, thirdParty.length]);
