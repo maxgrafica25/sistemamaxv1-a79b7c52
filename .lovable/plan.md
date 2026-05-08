@@ -1,142 +1,47 @@
-## Objetivo
+# Correção: exibir o PrintingItemEditor de fato no formulário
 
-Padronizar o cadastro de itens de impressão no orçamento (V2) com campos estruturados (Tipo de Material autocomplete, Largura/Altura em mm, Cor da Impressão), gerar automaticamente a descrição padronizada para o cliente e exibir, na visão interna, o cálculo de aproveitamento por folha de produção (328×478 mm).
+## Diagnóstico
 
----
+O componente `PrintingItemEditor.tsx` já foi reescrito com tudo o que o plano original pedia (autocomplete de Tipo, largura/altura em mm, cor 4x4/4x0/1x1/1x0, badge cinza de rendimento e alerta vermelho). **Porém ele nunca é renderizado.**
 
-## 1. Banco de dados (migration)
+O `NewQuoteFormV2` desenha os itens de impressão através do `QuoteItemsTable.renderPrint` (linhas 161-250), que monta uma **linha de tabela compacta** com o `ProductKindButton` legado (Select fixo) e nenhum campo estruturado. O fluxo de criação ainda é o `DraftRowEditor` com a barra `"Busque a impressão pelo nome…"`.
 
-Adicionar à tabela `quote_materials`:
+Resultado: o usuário vê só a busca antiga e, após escolher o papel, recebe uma linha de tabela — nunca o card novo.
 
-- `width_mm numeric` — largura do material em milímetros
-- `height_mm numeric` — altura do material em milímetros
-- `print_colors text` — uma de `4x4 | 4x0 | 1x1 | 1x0`
+## O que vou alterar
 
-Sem default, nullable (compatível com itens existentes).
-A tipagem `src/integrations/supabase/types.ts` é regenerada automaticamente.
+### 1. `QuoteItemsTable.tsx` — renderizar o card novo
+- Em `renderPrint`, substituir todo o `<div className={GRID}>` (linhas ~180-250) por `<PrintingItemEditor item={m} … />`, passando `childLabor`/`childMaterials` filtrados, `hourlyRate`, e os callbacks já existentes (`onUpdatePrinting`, `onRemovePrinting`, `onUpdateChildMaterial` adaptado para `onChildMaterialChange`, etc.).
+- Manter o `ProcessPicker` e o botão de duplicar acima/ao lado do card (header de ações), porque o `PrintingItemEditor` não os expõe hoje. Solução: envolver o `PrintingItemEditor` num wrapper que adiciona uma barra superior com `KindBadge`, número da linha, `ProcessPicker` (acabamentos vinculados) e botão `Copy`. Remover do editor a duplicação de funcionalidades já existentes (qty input continua dentro do editor).
+- Apagar do `renderPrint` o uso do `ProductKindButton`, `SwapPrintingButton` (a troca de papel passa a viver no combobox de papel dentro do editor) e os `Inputs` legados de qty/preço.
+- Os filhos (`childMatsForThis`, `childLaborForThis`) deixam de ser renderizados como linhas separadas — passam a viver dentro do editor (que já tem `LaborAndSupplySubform` no toggle "Acabamentos vinculados"). Isso elimina a duplicação atual.
 
----
+### 2. `PrintingItemEditor.tsx` — adicionar combobox de Papel
+- Adicionar uma 5ª coluna no grid de cabeçalho: **Papel** (Popover + Command com busca, listando `printingCatalog`). Reduzir para grid de `12` colunas: Tipo (4) · Largura (2) · Altura (2) · Cor (2) · Papel (4) · Referência (4) — quebra em 2 linhas no responsive.
+- Receber novas props: `printingCatalog: PrintingCatalogItem[]` e `onPickPaper: (item: PrintingCatalogItem) => void`.
+- Ao escolher papel, chamar `onPickPaper` (que reaproveita a lógica de `addPrintingItem`/`onSwapPrinting` para recalcular `paperType`, `grammage`, `printerCategoryId`, `markupGroupId`, `baseCost`, `unitPrice`, mantendo `widthMm`/`heightMm`/`productKind`/`printColors` já preenchidos).
+- O label do botão mostra `"<paperType> <grammage>"` ou placeholder "Selecione o papel".
 
-## 2. Catálogo de Tipos de Material (autocomplete)
+### 3. Fluxo de criação (`DraftRowEditor` em `QuoteItemsTable`)
+- Substituir o `InlineCatalogCombobox` ("Busque a impressão pelo nome…") por um botão direto **"Adicionar item de impressão"** que cria um `PricingMaterial` vazio via novo callback `onAddEmptyPrinting()` — sem exigir escolha de papel para começar. O usuário preenche Tipo, dimensões, cor e depois escolhe o papel dentro do próprio editor.
+- Manter o caminho via `ProcessPicker` para acabamento avulso (sem mudança).
 
-Em `src/lib/quotes-v2/item-title.ts`:
+### 4. `NewQuoteFormV2.tsx` — novos handlers
+- Adicionar `addEmptyPrintingItem()` que faz `setMaterials(prev => [...prev, { id, quantity: 1, unitPrice: 0, baseCost: 0, ...todos os campos null }])`.
+- Adicionar `pickPaperForItem(id, catalogItem)` reutilizando exatamente a lógica de cálculo já presente em `addPrintingItem` (sizeMult/sideMult/tier/sellingPrice), mas fazendo `patch` no item existente em vez de criar novo. Preserva `productKind`, `widthMm`, `heightMm`, `printColors`, `reference`, `customName`.
+- Passar `printingCatalog` e os dois novos handlers para `QuoteItemsTable` → `PrintingItemEditor`.
+- Confirmar que o `useEffect` que regrava `generated_title` (já existente) continua funcionando: `buildDynamicTitle` já produz o formato `"<Tipo> <L>x<H>cm. Impressão <Cor>, <Papel> <Gramatura>"`. Sem mudanças no banco — só garantir que o save grava `generated_title` com o resultado dessa função.
 
-- Substituir o `Select` fixo de `PRODUCT_KIND_OPTIONS` por uma lista de **sugestões** usadas em autocomplete livre. O usuário pode escolher uma sugestão padronizada **ou** digitar a sua. Sugestões iniciais: Panfleto, Cartão de Visita, Tag, Apostila, Cartaz, Folder, Receituário, Adesivo, Convite, Bloco, Etiqueta, Impresso.
-- Tratar `productKind` como string livre. Eliminar o caso especial "outro / customName" da UI (campo `customName` permanece no schema por compatibilidade mas não é mais usado pela interface).
+### 5. Limpeza
+- Remover do `QuoteItemsTable` o `ProductKindButton`, o `SwapPrintingButton` e o uso de `PRODUCT_KIND_OPTIONS`/`buildDynamicTitle` no nível da tabela (passam a ser responsabilidade do editor).
+- `PRODUCT_KIND_OPTIONS` continua exportado em `item-title.ts` por compatibilidade.
 
----
+## Fora do escopo
+- Sem mudanças no schema do banco (já feito na migração anterior).
+- Sem mudanças em `pricing.ts`, `sheet-yield.ts` (já corretos).
+- Sem mexer no `ClientViewer` — ele já consome `generated_title`.
 
-## 3. Componente: PrintingItemEditor
-
-Reorganizar o cabeçalho de atributos do item na ordem:
-
-1. **Tipo de Material** (autocomplete, popover com sugestões filtradas — usando `Command`/`Popover` do shadcn, padrão já usado em `ClientCombobox`).
-2. **Tamanho**: dois inputs numéricos (Largura, Altura) com sufixo "mm" e helper "Use milímetros". O campo legado `size` continua salvo como `${w}x${h}mm` para compatibilidade com filtros.
-3. **Cor da Impressão**: `Select` com opções `4x4`, `4x0`, `1x1`, `1x0`. Esse valor grava em `print_colors`. O campo `side` continua sendo derivado (4x4/1x1 → "F/V"; 4x0/1x0 → "Simples") para manter os multiplicadores de preço atuais.
-4. **Papel** continua vindo do seletor de catálogo (sem mudança).
-
-Adicionar, abaixo do header de quantidade, um **bloco interno discreto** (badge cinza, ícone `Layers`):
-
-```
-Rendimento: X un/folha (orientação Y) · Total: Z folhas (328×478 mm)
-```
-
-Mostrado somente quando há largura, altura e quantidade > 0. Esse bloco **não** aparece em nenhum lugar visível ao cliente.
-
-**Regra de segurança (não cabe na folha):**
-
-- Se `calcSheetYield` retornar `null` **ou** `perSheet <= 0` (exemplo: material de 400×500 mm, maior que a folha útil 318×468 mm), o bloco de rendimento é substituído por um **alerta vermelho** (ícone `AlertTriangle` ou `AlertCircle`, texto vermelho escuro, fundo vermelho claro):
-
-  > "Atenção: Material excede o tamanho da folha de produção"
-
-- Esse aviso permanece visível enquanto o material não caber, garantindo que o orçamentista corrija os valores antes de prosseguir.
-
----
-
-## 4. Função utilitária de aproveitamento
-
-Novo arquivo `src/lib/quotes-v2/sheet-yield.ts`:
-
-```ts
-export const PRODUCTION_SHEET = { widthMm: 328, heightMm: 478 };
-export const SAFETY_MARGIN_MM = 5;   // por lado
-export const GUTTER_MM = 3;          // sangria/espaço entre unidades
-
-export interface YieldResult {
-  perSheet: number;
-  orientation: "retrato" | "paisagem";
-  sheetsNeeded: number;
-  usableWidthMm: number;  // 318
-  usableHeightMm: number; // 468
-}
-
-export function calcSheetYield(
-  itemWidthMm: number,
-  itemHeightMm: number,
-  totalQty: number,
-): YieldResult | null
-```
-
-Lógica:
-
-- `usableW = 328 − 2·5 = 318`, `usableH = 478 − 2·5 = 468`.
-- Para cada orientação (retrato `(w,h)` e paisagem `(h,w)`):
-  - `cols = Math.floor((usableW + 3) / (sideW + 3))`
-  - `rows = Math.floor((usableH + 3) / (sideH + 3))`
-  - `per = cols * rows`
-- Escolhe a orientação com maior `per`.
-- `sheetsNeeded = Math.ceil(totalQty / per)` (retorna `null` se `per <= 0`).
-
-Cobertura por testes unitários em `src/test/sheet-yield.test.ts` (panfleto 100×150 mm, cartão 90×50 mm, item maior que folha útil).
-
----
-
-## 5. Descrição padronizada (visão do cliente)
-
-Em `buildDynamicTitle` (`item-title.ts`), reescrever para o formato exato:
-
-```
-"<Tipo> <L>x<H>cm. Impressão <Cor>, <Papel> <Gramatura>"
-```
-
-Exemplo: `Panfleto 10x15cm. Impressão 4x4, Couchê 210g`.
-
-Regras:
-
-- Largura/altura convertidas de mm → cm com até 2 decimais, sem zeros à direita (`100 mm → "10"`, `105 mm → "10,5"`).
-- Se `print_colors` ausente, derivar de `side` (F/V → 4x4, Simples → 4x0).
-- Se papel ou gramatura faltarem, omitir a parte correspondente sem quebrar o restante.
-- Acabamentos **não entram** mais nessa string — eles continuam sendo listados separadamente abaixo, exatamente como hoje (a UI do `ClientViewer` em `OptionCard`/lista já mostra `+ acabamentos` em linha separada).
-
----
-
-## 6. Integração no NewQuoteFormV2
-
-- Carregar `width_mm`, `height_mm`, `print_colors` do banco em `PricingMaterial` (estender o tipo em `src/lib/quotes-v2/pricing.ts`).
-- No salvamento (`upsert quote_materials`), incluir os três novos campos e regravar `generated_title` usando o novo `buildDynamicTitle`.
-- Quando o usuário escolhe um item do catálogo de impressão, **pré-preencher** `width_mm/height_mm` se o `size` do catálogo for um formato conhecido (ex: A4 → 210×297). Caso contrário, deixar em branco para o usuário preencher.
-- Sem mudança em pricing/markup/desconto — apenas metadados e descrição.
-
----
-
-## 7. Visão do cliente (ClientViewer)
-
-Já usa `m.generated_title || m.description` em duas posições. Como o `generated_title` será regravado no novo formato no momento do save, o cliente passa automaticamente a ver a descrição padronizada. Os acabamentos continuam exibidos no `+ ...` logo abaixo. Nenhuma alteração de markup necessária aqui.
-
----
-
-## Fora de escopo
-
-- Recalcular `generated_title` para orçamentos antigos (vão continuar com a descrição que já tinham até serem reabertos e salvos).
-- Usar a quantidade de folhas calculada para alimentar custo de papel — nesta entrega o cálculo é apenas informativo na visão interna.
-- Permitir trocar o tamanho da folha de produção (328×478 fica fixo nesta versão).
-
-## Arquivos afetados
-
-- nova migration em `supabase/migrations/`
-- `src/lib/quotes-v2/pricing.ts` (novos campos no tipo)
-- `src/lib/quotes-v2/item-title.ts` (novo formato + lista de sugestões)
-- `src/lib/quotes-v2/sheet-yield.ts` (novo)
-- `src/test/sheet-yield.test.ts` (novo)
-- `src/components/orcamentos-v2/PrintingItemEditor.tsx` (autocomplete + L/A + cor + bloco interno de rendimento + alerta vermelho)
-- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` (load/save dos novos campos, regravar generated_title)
+## Arquivos a editar
+- `src/components/orcamentos-v2/PrintingItemEditor.tsx` (adicionar combobox de Papel + props)
+- `src/components/orcamentos-v2/QuoteItemsTable.tsx` (renderizar editor; trocar entry por botão; remover linhas legadas)
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` (novos handlers `addEmptyPrintingItem` e `pickPaperForItem`; passar catálogo)
