@@ -39,6 +39,7 @@ import {
   type SubformMaterial,
 } from "./LaborAndSupplySubform";
 import type { PricingMaterial } from "@/lib/quotes-v2/pricing";
+import type { PrintingCatalogItem } from "@/components/orcamentos/PrintingItemSearch";
 import {
   PRODUCT_KIND_SUGGESTIONS,
   PRINT_COLOR_OPTIONS,
@@ -53,10 +54,12 @@ interface Props {
   childLabor: SubformLabor[];
   childMaterials: SubformMaterial[];
   hourlyRate: number;
+  printingCatalog?: PrintingCatalogItem[];
   onItemChange: (patch: Partial<PricingMaterial>) => void;
   onRemove: () => void;
   onChildLaborChange: (next: SubformLabor[]) => void;
   onChildMaterialChange: (next: SubformMaterial[]) => void;
+  onPickPaper?: (catalogItem: PrintingCatalogItem) => void;
 }
 
 const formatBRL = (n: number) =>
