@@ -157,8 +157,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   );
 
   // ---------- Splits derivados ----------
+  // Um item é "de impressão" (card estruturado novo) se já tem baseCost
+  // OU se foi criado pelo fluxo novo (catalogSource === "printing"), mesmo
+  // que ainda esteja vazio aguardando o usuário escolher o papel.
+  const isPrintingRoot = (m: SubformMaterial) =>
+    !m.parentItemId && (!!m.baseCost || (m as any).catalogSource === "printing");
   const printingItems = useMemo(
-    () => materials.filter((m) => m.baseCost && !m.parentItemId),
+    () => materials.filter(isPrintingRoot),
     [materials],
   );
   const childMaterials = useMemo(
@@ -166,7 +171,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     [materials],
   );
   const standaloneManualMaterials = useMemo(
-    () => materials.filter((m) => !m.baseCost && !m.parentItemId),
+    () => materials.filter((m) => !m.parentItemId && !isPrintingRoot(m)),
     [materials],
   );
   const standaloneLabor = useMemo(

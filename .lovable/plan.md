@@ -1,28 +1,51 @@
-# Correção: fazer o card novo aparecer de cara
+# Correção urgente: fazer o card estruturado aparecer no lugar do “Legado”
 
-## Diagnóstico real
+## Diagnóstico confirmado
+O `QuoteItemsTable.tsx` já contém a tag `<PrintingItemEditor />` dentro de `renderPrint`. O problema real não é a ausência do componente no render; é a forma como `NewQuoteFormV2.tsx` separa os materiais:
 
-O `QuoteItemsTable` **já renderiza** o `PrintingItemEditor` corretamente em `renderPrint` (linhas 168-226) e o botão **"+ adicionar impressão"** (linha 380) já chama `onAddEmptyPrinting()`. O componente novo não está órfão.
+- `printingItems` hoje usa `materials.filter((m) => m.baseCost && !m.parentItemId)`
+- `standaloneManualMaterials` usa `materials.filter((m) => !m.baseCost && !m.parentItemId)`
 
-O que o usuário vê na tela é o **DraftRowEditor legado**, que ainda contém a barra `"Busque a impressão pelo nome (papel, gramatura, formato)…"` (linha 513). Ele aparece porque, ao entrar em um orçamento vazio, o `useEffect` de auto-draft (linhas 107-121) chama `addEmptyDraft()` automaticamente, abrindo o editor antigo.
+Como `addEmptyPrintingItem()` cria o novo item com `baseCost: 0`, ele cai automaticamente em `standaloneManualMaterials`, que é justamente a lista renderizada como linha compacta com badge `Legado`.
 
-Resultado: o usuário nunca clica no "+ adicionar impressão" — o draft antigo já aparece sozinho e ocupa a tela.
+Resultado visual no preview: aparece a linha “Legado” vazia, mesmo com `renderPrint` já pronto.
 
 ## O que vou alterar
 
-### 1. `QuoteItemsTable.tsx` — trocar o auto-draft pelo card novo
-- No `useEffect` das linhas 107-121, substituir `addEmptyDraft()` por `onAddEmptyPrinting()`. Assim, ao abrir um orçamento em branco, já aparece um `PrintingItemEditor` vazio (Tipo / L / A / Cor / Papel) pronto para preencher — sem passar pela busca legada.
-- Manter o `DraftRowEditor` disponível **apenas** pelo botão secundário "+ processo / acabamento avulso" (linha 386), que continua sendo o caminho legado para acabamentos soltos.
+### 1. `NewQuoteFormV2.tsx` — corrigir o critério de separação dos itens
+Vou mudar a lógica de split para que um item novo de impressão vazio continue sendo tratado como impressão estruturada, mesmo antes de ter papel selecionado e `baseCost` calculado.
 
-### 2. Verificação visual
-- Após a edição, abrir `/orcamentos-v2/novo` no preview e confirmar que:
-  - A barra "Busque a impressão pelo nome…" **não aparece** mais ao entrar.
-  - Em seu lugar, aparece imediatamente o card do `PrintingItemEditor` com os campos estruturados (Tipo, Largura, Altura, Cor, Papel) e o badge cinza de rendimento.
-  - O botão "+ adicionar impressão" continua adicionando novos cards.
+A separação passará a usar os sinais estruturais do fluxo novo, por exemplo:
+- `catalogSource === "printing"`, ou
+- presença de campos estruturados do item de impressão
+
+Com isso:
+- o item criado por `addEmptyPrintingItem()` entra em `printingItems`
+- ele deixa de cair em `standaloneManualMaterials`
+- o `QuoteItemsTable` passa a renderizar esse item via `renderPrint` com o `<PrintingItemEditor />`
+
+### 2. `QuoteItemsTable.tsx` — manter o `renderPrint` usando o card novo
+Vou validar e, se necessário, simplificar o bloco de `renderPrint` para garantir que cada item de `printingItems` continue renderizando o componente:
+
+```tsx
+<PrintingItemEditor ... />
+```
+
+Sem a linha compacta antiga no fluxo de impressão.
+
+### 3. Verificação visual obrigatória
+Depois da correção, vou validar no preview em `/orcamentos-v2/novo` que:
+- a linha com badge `Legado` não aparece ao criar um item novo de impressão
+- o card estruturado aparece imediatamente
+- os campos `Tipo`, `Largura`, `Altura`, `Cor da Impressão` e `Papel` ficam visíveis
+- o botão `+ adicionar impressão` cria novos cards estruturados
+- o fluxo `processo / acabamento avulso` continua legado, separado
 
 ## Fora do escopo
-- Não vou remover `DraftRowEditor` nem `InlineCatalogCombobox` agora — eles ainda servem ao fluxo de "processo / acabamento avulso".
-- Sem mudanças em `PrintingItemEditor.tsx`, `NewQuoteFormV2.tsx`, `pricing.ts`, `sheet-yield.ts` ou banco.
+- Sem mexer no banco
+- Sem refatorar o `PrintingItemEditor` além do necessário para compatibilidade
+- Sem alterar o fluxo legado de acabamento avulso, exceto se ele interferir diretamente nessa renderização
 
-## Arquivos a editar
-- `src/components/orcamentos-v2/QuoteItemsTable.tsx` (1 alteração no `useEffect` de auto-draft)
+## Arquivos previstos
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx`
+- `src/components/orcamentos-v2/QuoteItemsTable.tsx`
