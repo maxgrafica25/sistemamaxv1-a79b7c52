@@ -227,7 +227,7 @@ export function PrintingItemEditor({
                 <Input
                   value={item.productKind || ""}
                   onChange={(e) => {
-                    onItemChange({ productKind: e.target.value });
+                    handleProductKindChange(e.target.value);
                     if (!kindOpen) setKindOpen(true);
                   }}
                   onFocus={() => setKindOpen(true)}
