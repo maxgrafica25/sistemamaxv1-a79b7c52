@@ -380,7 +380,16 @@ export function PrintingItemEditor({
                   <CommandList>
                     {(() => {
                       const q = paperQuery.toLowerCase().trim();
-                      const filtered = printingCatalog
+                      const base = isLabel
+                        ? printingCatalog.filter((p) => {
+                            const isAdh = (p.paper_type || "")
+                              .toLowerCase()
+                              .includes("adesivo");
+                            const sz = (p.size || "").toUpperCase();
+                            return isAdh && (sz === "A3" || sz === "A4");
+                          })
+                        : printingCatalog;
+                      const filtered = base
                         .filter((p) =>
                           !q ||
                           `${p.paper_type} ${p.grammage ?? ""} ${p.size} ${p.side} ${p.equipment_name ?? ""} ${p.category_name}`
