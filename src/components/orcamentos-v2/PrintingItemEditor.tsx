@@ -162,6 +162,38 @@ export function PrintingItemEditor({
     return PRODUCT_KIND_SUGGESTIONS.filter((s) => s.toLowerCase().includes(q));
   })();
 
+  // Identifica se é etiqueta/adesivo (singular ou plural, qualquer caso).
+  const isLabelKind = (kind?: string | null): boolean => {
+    const k = (kind || "").trim().toLowerCase();
+    return k.startsWith("etiqueta") || k.startsWith("adesivo");
+  };
+  const isLabel = isLabelKind(item.productKind);
+
+  // Atualiza productKind aplicando regras automáticas para etiquetas/adesivos.
+  const handleProductKindChange = (kind: string) => {
+    const patch: Partial<PricingMaterial> = { productKind: kind };
+    if (isLabelKind(kind)) {
+      patch.printColors = "4x0";
+      patch.side = "Simples";
+    }
+    onItemChange(patch);
+
+    // Pré-seleciona Adesivo A3 (ou A4 como fallback) quando entra em etiqueta
+    // e o papel atual não é adesivo.
+    if (isLabelKind(kind) && onPickPaper) {
+      const currentIsAdhesive = (item.paperType || "").toLowerCase().includes("adesivo");
+      if (!currentIsAdhesive) {
+        const adhesives = printingCatalog.filter((p) =>
+          (p.paper_type || "").toLowerCase().includes("adesivo"),
+        );
+        const a3 = adhesives.find((p) => (p.size || "").toUpperCase() === "A3");
+        const a4 = adhesives.find((p) => (p.size || "").toUpperCase() === "A4");
+        const pick = a3 || a4;
+        if (pick) onPickPaper(pick);
+      }
+    }
+  };
+
   return (
     <div
       className={`rounded-lg border ${
@@ -195,7 +227,7 @@ export function PrintingItemEditor({
                 <Input
                   value={item.productKind || ""}
                   onChange={(e) => {
-                    onItemChange({ productKind: e.target.value });
+                    handleProductKindChange(e.target.value);
                     if (!kindOpen) setKindOpen(true);
                   }}
                   onFocus={() => setKindOpen(true)}
@@ -224,7 +256,7 @@ export function PrintingItemEditor({
                             key={s}
                             value={s}
                             onSelect={() => {
-                              onItemChange({ productKind: s });
+                              handleProductKindChange(s);
                               setKindOpen(false);
                             }}
                           >
@@ -285,18 +317,22 @@ export function PrintingItemEditor({
             <Select
               value={item.printColors || ""}
               onValueChange={handlePrintColorsChange}
+              disabled={isLabel}
             >
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="4x4" />
               </SelectTrigger>
               <SelectContent>
-                {PRINT_COLOR_OPTIONS.map((c) => (
+                {(isLabel ? (["4x0"] as const) : PRINT_COLOR_OPTIONS).map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {isLabel && (
+              <p className="text-[10px] text-muted-foreground">Adesivo não tem verso</p>
+            )}
           </div>
 
           {/* Referência (opcional) */}
@@ -344,7 +380,16 @@ export function PrintingItemEditor({
                   <CommandList>
                     {(() => {
                       const q = paperQuery.toLowerCase().trim();
-                      const filtered = printingCatalog
+                      const base = isLabel
+                        ? printingCatalog.filter((p) => {
+                            const isAdh = (p.paper_type || "")
+                              .toLowerCase()
+                              .includes("adesivo");
+                            const sz = (p.size || "").toUpperCase();
+                            return isAdh && (sz === "A3" || sz === "A4");
+                          })
+                        : printingCatalog;
+                      const filtered = base
                         .filter((p) =>
                           !q ||
                           `${p.paper_type} ${p.grammage ?? ""} ${p.size} ${p.side} ${p.equipment_name ?? ""} ${p.category_name}`
