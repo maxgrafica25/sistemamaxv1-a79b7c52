@@ -43,6 +43,18 @@ const ch = supabase.channel('leak_test')
 // Se NÃO imprimir, o Realtime já filtra por RLS → 03 vira opcional/defensivo.
 ```
 
+## Suíte de testes RLS
+
+| Teste | Arquivo | Cobertura |
+|-------|---------|-----------|
+| 1 | `profiles_escalation.test.ts` | colab não promove a si; admin promove outros |
+| 2 | `accounts_receivable.test.ts` | só financeiro lê/grava AR |
+| 3 | `audit_logs.test.ts` | escrita só via RPC; leitura só admin |
+| 4 | `storage_buckets.test.ts` | buckets privados; delete só do dono |
+| 5 | `last_admin_lockout.test.ts` | trigger `prevent_last_admin_lockout`: bloqueia rebaixar/desativar o último admin ativo (cenários A/B com 1 admin, C com 2 admins, D RLS de colab) |
+
+> **Pré-requisito staging para teste 5:** o usuário JWT `admin` deve ser o **único** admin ativo (cenários A/B só rodam nessa condição; senão são pulados com warning). O cenário C promove temporariamente o `colab` a admin e restaura no `finally`.
+
 ## Rollback
 
 Cada migration tem um arquivo `_rollback.sql`. Aplicar na ordem inversa (04 → 03 → 02 → 01).
