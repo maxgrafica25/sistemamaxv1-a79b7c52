@@ -201,6 +201,11 @@ export function QuoteItemsTable(props: Props) {
           childMaterials={childMatsForThis}
           hourlyRate={hourlyRate}
           printingCatalog={printingCatalog}
+          processSteps={processSteps}
+          processGroups={processGroups}
+          onAddProcess={(s) => onAddProcess(m.id, s)}
+          onExpandStepGroup={(g) => onExpandStepGroup(m.id, g)}
+          onAddCustomFinish={(name, minutes) => onAddCustomFinish(m.id, name, minutes)}
           onItemChange={(patch) => onUpdatePrinting(m.id, patch)}
           onRemove={() => onRemovePrinting(m.id)}
           onChildLaborChange={(next) => onSetChildLaborForItem(m.id, next)}
