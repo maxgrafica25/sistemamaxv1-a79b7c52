@@ -162,6 +162,38 @@ export function PrintingItemEditor({
     return PRODUCT_KIND_SUGGESTIONS.filter((s) => s.toLowerCase().includes(q));
   })();
 
+  // Identifica se é etiqueta/adesivo (singular ou plural, qualquer caso).
+  const isLabelKind = (kind?: string | null): boolean => {
+    const k = (kind || "").trim().toLowerCase();
+    return k.startsWith("etiqueta") || k.startsWith("adesivo");
+  };
+  const isLabel = isLabelKind(item.productKind);
+
+  // Atualiza productKind aplicando regras automáticas para etiquetas/adesivos.
+  const handleProductKindChange = (kind: string) => {
+    const patch: Partial<PricingMaterial> = { productKind: kind };
+    if (isLabelKind(kind)) {
+      patch.printColors = "4x0";
+      patch.side = "Simples";
+    }
+    onItemChange(patch);
+
+    // Pré-seleciona Adesivo A3 (ou A4 como fallback) quando entra em etiqueta
+    // e o papel atual não é adesivo.
+    if (isLabelKind(kind) && onPickPaper) {
+      const currentIsAdhesive = (item.paperType || "").toLowerCase().includes("adesivo");
+      if (!currentIsAdhesive) {
+        const adhesives = printingCatalog.filter((p) =>
+          (p.paper_type || "").toLowerCase().includes("adesivo"),
+        );
+        const a3 = adhesives.find((p) => (p.size || "").toUpperCase() === "A3");
+        const a4 = adhesives.find((p) => (p.size || "").toUpperCase() === "A4");
+        const pick = a3 || a4;
+        if (pick) onPickPaper(pick);
+      }
+    }
+  };
+
   return (
     <div
       className={`rounded-lg border ${
