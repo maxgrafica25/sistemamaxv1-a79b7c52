@@ -388,63 +388,94 @@ export function PrintingItemEditor({
         </div>
       )}
 
-      {/* Header — qty + total + ações */}
-      <div className="flex items-center gap-3 px-3 pb-3 border-t border-border/60 pt-3">
-        {locked ? (
-          <Lock className="h-4 w-4 text-green-600 shrink-0" />
-        ) : (
-          <Printer className="h-4 w-4 text-primary/60 shrink-0" />
+      {/* Header — peças desejadas + folhas + total + ações */}
+      <div className="px-3 pb-3 border-t border-border/60 pt-3 space-y-2">
+        {!locked && yieldInfo && yieldInfo.perSheet > 1 && (
+          <div className="flex items-center gap-3">
+            <Layers className="h-4 w-4 text-primary/60 shrink-0" />
+            <div className="flex-1 min-w-0 text-xs text-muted-foreground">
+              <span>Peças desejadas</span>
+              <span className="ml-2 opacity-70">
+                ({yieldInfo.perSheet} un/folha — ajusta folhas automaticamente)
+              </span>
+            </div>
+            <Input
+              type="number"
+              min={0}
+              value={(item.quantity || 0) * yieldInfo.perSheet || ""}
+              onChange={(e) => {
+                const pieces = parseFloat(e.target.value) || 0;
+                const folhas = pieces > 0 ? Math.ceil(pieces / yieldInfo.perSheet) : 0;
+                onItemChange({ quantity: folhas });
+              }}
+              className="w-24 h-8 text-sm text-center"
+              placeholder="100"
+            />
+            <span className="text-sm font-semibold text-muted-foreground/70 w-28 text-right tabular-nums">
+              {(item.quantity || 0) * yieldInfo.perSheet} un
+            </span>
+            <span className="w-8 shrink-0" />
+            <span className="w-8 shrink-0" />
+          </div>
         )}
-        <div className="flex-1 min-w-0 text-xs text-muted-foreground flex items-center gap-2">
-          <span>Quantidade (folhas)</span>
-          {locked && (
-            <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">
-              Aprovado
-            </Badge>
+
+        <div className="flex items-center gap-3">
+          {locked ? (
+            <Lock className="h-4 w-4 text-green-600 shrink-0" />
+          ) : (
+            <Printer className="h-4 w-4 text-primary/60 shrink-0" />
+          )}
+          <div className="flex-1 min-w-0 text-xs text-muted-foreground flex items-center gap-2">
+            <span>Quantidade (folhas)</span>
+            {locked && (
+              <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">
+                Aprovado
+              </Badge>
+            )}
+          </div>
+          <Input
+            type="number"
+            value={item.quantity || ""}
+            disabled={locked}
+            onChange={(e) =>
+              onItemChange({ quantity: parseFloat(e.target.value) || 0 })
+            }
+            className="w-24 h-8 text-sm text-center disabled:opacity-70"
+          />
+          <span className="text-sm font-semibold text-primary w-28 text-right">
+            {formatBRL(item.quantity * item.unitPrice)}
+          </span>
+          {!locked && (
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-primary"
+                    onClick={() => setLabelDialogOpen(true)}
+                    type="button"
+                  >
+                    <Ruler className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Calcular etiquetas por folha
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {!locked && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onRemove}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           )}
         </div>
-        <Input
-          type="number"
-          value={item.quantity || ""}
-          disabled={locked}
-          onChange={(e) =>
-            onItemChange({ quantity: parseFloat(e.target.value) || 0 })
-          }
-          className="w-20 h-8 text-sm text-center disabled:opacity-70"
-        />
-        <span className="text-sm font-semibold text-primary w-28 text-right">
-          {formatBRL(item.quantity * item.unitPrice)}
-        </span>
-        {!locked && (
-          <TooltipProvider delayDuration={150}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-primary"
-                  onClick={() => setLabelDialogOpen(true)}
-                  type="button"
-                >
-                  <Ruler className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-xs">
-                Calcular etiquetas por folha
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-        {!locked && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={onRemove}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
       </div>
 
       {/* Bloco interno: aproveitamento por folha (visível só ao orçamentista) */}
