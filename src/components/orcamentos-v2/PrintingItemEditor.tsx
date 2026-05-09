@@ -323,7 +323,7 @@ export function PrintingItemEditor({
                 <SelectValue placeholder="4x4" />
               </SelectTrigger>
               <SelectContent>
-                {(isLabel ? (["4x0"] as const) : PRINT_COLOR_OPTIONS).map((c) => (
+                {(isLabel ? (["4x0", "1x0"] as const) : PRINT_COLOR_OPTIONS).map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
                   </SelectItem>
