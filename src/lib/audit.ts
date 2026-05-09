@@ -27,13 +27,19 @@ function isRpcMissing(err: { code?: string; message?: string } | null): boolean 
 
 export async function logAudit(entry: AuditEntry) {
   try {
-    const { error } = await supabase.rpc("log_audit_event", {
-      p_action: entry.action,
-      p_entity_type: entry.entity_type,
-      p_entity_id: entry.entity_id ?? null,
-      p_entity_name: entry.entity_name ?? null,
-      p_details: entry.details ?? null,
-    });
+    // RPC ainda não está nos types gerados (migration pendente). Cast até gerar.
+    const { error } = await (supabase.rpc as unknown as (
+      name: string, args: Record<string, unknown>,
+    ) => Promise<{ error: { code?: string; message?: string } | null }>)(
+      "log_audit_event",
+      {
+        p_action: entry.action,
+        p_entity_type: entry.entity_type,
+        p_entity_id: entry.entity_id ?? null,
+        p_entity_name: entry.entity_name ?? null,
+        p_details: entry.details ?? null,
+      },
+    );
     if (!error) return;
 
     if (isRpcMissing(error)) {
