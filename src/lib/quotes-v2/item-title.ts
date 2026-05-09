@@ -5,18 +5,18 @@
 // Sugestões de "Tipo de Material" para o autocomplete. O usuário pode escolher
 // uma sugestão padronizada ou digitar o seu próprio nome — o campo é livre.
 export const PRODUCT_KIND_SUGGESTIONS = [
-  "Panfleto",
-  "Cartão de Visita",
-  "Tag",
-  "Apostila",
-  "Cartaz",
-  "Folder",
-  "Receituário",
-  "Adesivo",
-  "Convite",
-  "Bloco",
-  "Etiqueta",
-  "Impresso",
+  "Panfletos",
+  "Cartões de Visita",
+  "Tags",
+  "Apostilas",
+  "Cartazes",
+  "Folders",
+  "Receituários",
+  "Adesivos",
+  "Convites",
+  "Blocos",
+  "Etiquetas",
+  "Impressos",
 ] as const;
 
 // Mantido por compatibilidade com código legado (usado por imports antigos).
