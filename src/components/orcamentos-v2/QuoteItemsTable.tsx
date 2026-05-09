@@ -22,11 +22,10 @@ import {
 import type { PricingMaterial } from "@/lib/quotes-v2/pricing";
 import type { SubformLabor, SubformMaterial } from "./LaborAndSupplySubform";
 import { PrintingItemEditor } from "./PrintingItemEditor";
+import { ProcessPicker, type ProcessStep, type ProcessGroup, type ProcessGroupItem } from "./ProcessPicker";
 
 type ThirdParty = { id: string; description: string; supplier: string; cost: number };
-export type ProcessStep = { id: string; description: string; time_minutes: number; step_type: string };
-export type ProcessGroupItem = { description: string; time_minutes: number; step_type: string };
-export type ProcessGroup = { id: string; name: string; items: ProcessGroupItem[] };
+export type { ProcessStep, ProcessGroup, ProcessGroupItem };
 
 interface DraftRow {
   id: string;
