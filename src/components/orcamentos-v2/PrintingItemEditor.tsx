@@ -388,34 +388,23 @@ export function PrintingItemEditor({
         </div>
       )}
 
-      {/* Header — peças desejadas + folhas + total + ações */}
+      {/* Quantidade — entrada única em peças; folhas é derivado */}
       <div className="px-3 pb-3 border-t border-border/60 pt-3 space-y-2">
-        {!locked && yieldInfo && yieldInfo.perSheet > 1 && (
-          <div className="flex items-center gap-3">
-            <Layers className="h-4 w-4 text-primary/60 shrink-0" />
-            <div className="flex-1 min-w-0 text-xs text-muted-foreground">
-              <span>Peças desejadas</span>
-              <span className="ml-2 opacity-70">
-                ({yieldInfo.perSheet} un/folha — ajusta folhas automaticamente)
+        {exceedsSheet && (
+          <div
+            className={cn(
+              "flex items-start gap-2 rounded-md border px-3 py-2 text-xs",
+              "border-destructive/40 bg-destructive/10 text-destructive",
+            )}
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span className="font-medium">
+              Atenção: Material excede o tamanho da folha de produção
+              <span className="font-normal opacity-80">
+                {" "}
+                ({PRODUCTION_SHEET.widthMm}×{PRODUCTION_SHEET.heightMm} mm)
               </span>
-            </div>
-            <Input
-              type="number"
-              min={0}
-              value={(item.quantity || 0) * yieldInfo.perSheet || ""}
-              onChange={(e) => {
-                const pieces = parseFloat(e.target.value) || 0;
-                const folhas = pieces > 0 ? Math.ceil(pieces / yieldInfo.perSheet) : 0;
-                onItemChange({ quantity: folhas });
-              }}
-              className="w-24 h-8 text-sm text-center"
-              placeholder="100"
-            />
-            <span className="text-sm font-semibold text-muted-foreground/70 w-28 text-right tabular-nums">
-              {(item.quantity || 0) * yieldInfo.perSheet} un
             </span>
-            <span className="w-8 shrink-0" />
-            <span className="w-8 shrink-0" />
           </div>
         )}
 
@@ -423,25 +412,37 @@ export function PrintingItemEditor({
           {locked ? (
             <Lock className="h-4 w-4 text-green-600 shrink-0" />
           ) : (
-            <Printer className="h-4 w-4 text-primary/60 shrink-0" />
+            <Layers className="h-4 w-4 text-primary/60 shrink-0" />
           )}
           <div className="flex-1 min-w-0 text-xs text-muted-foreground flex items-center gap-2">
-            <span>Quantidade (folhas)</span>
+            <span>Peças desejadas</span>
             {locked && (
               <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">
                 Aprovado
               </Badge>
             )}
           </div>
-          <Input
-            type="number"
-            value={item.quantity || ""}
-            disabled={locked}
-            onChange={(e) =>
-              onItemChange({ quantity: parseFloat(e.target.value) || 0 })
-            }
-            className="w-24 h-8 text-sm text-center disabled:opacity-70"
-          />
+          {(() => {
+            const perSheet = yieldInfo?.perSheet ?? 0;
+            const folhas = item.quantity || 0;
+            const pieces = perSheet > 0 ? folhas * perSheet : folhas;
+            const canEdit = !locked && perSheet > 0 && !exceedsSheet;
+            return (
+              <Input
+                type="number"
+                min={0}
+                value={pieces || ""}
+                disabled={!canEdit}
+                placeholder={perSheet > 0 ? "100" : "Defina dimensões e papel"}
+                onChange={(e) => {
+                  const p = parseFloat(e.target.value) || 0;
+                  const next = perSheet > 0 ? (p > 0 ? Math.ceil(p / perSheet) : 0) : p;
+                  onItemChange({ quantity: next });
+                }}
+                className="w-28 h-8 text-sm text-center disabled:opacity-70"
+              />
+            );
+          })()}
           <span className="text-sm font-semibold text-primary w-28 text-right">
             {formatBRL(item.quantity * item.unitPrice)}
           </span>
@@ -476,53 +477,32 @@ export function PrintingItemEditor({
             </Button>
           )}
         </div>
-      </div>
 
-      {/* Bloco interno: aproveitamento por folha (visível só ao orçamentista) */}
-      {hasDimensions && (
-        <div className="px-3 pb-3">
-          {exceedsSheet ? (
-            <div
-              className={cn(
-                "flex items-start gap-2 rounded-md border px-3 py-2 text-xs",
-                "border-destructive/40 bg-destructive/10 text-destructive",
-              )}
-            >
-              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-              <span className="font-medium">
-                Atenção: Material excede o tamanho da folha de produção
-                <span className="font-normal opacity-80">
-                  {" "}
-                  ({PRODUCTION_SHEET.widthMm}×{PRODUCTION_SHEET.heightMm} mm)
-                </span>
-              </span>
-            </div>
-          ) : (
-            yieldInfo && (
-              <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
-                <Layers className="h-3.5 w-3.5 shrink-0" />
+        {/* Linha derivada: folhas usadas + rendimento + sobra */}
+        {yieldInfo && !exceedsSheet && (
+          (() => {
+            const perSheet = yieldInfo.perSheet;
+            const folhas = item.quantity || 0;
+            const pieces = folhas * perSheet;
+            const sobra = pieces > 0 ? pieces - Math.max(1, pieces) : 0;
+            // sobra real só faz sentido quando o usuário insere peças;
+            // como armazenamos folhas, a "sobra" só é > 0 se o último arredondamento gerou folha adicional.
+            // Aqui mostramos: capacidade total das folhas - peças "produzidas" (= pieces, igual à capacidade).
+            // Para sobra real precisaríamos guardar o input bruto; mantemos display simples.
+            return (
+              <div className="flex items-center gap-2 pl-7 text-[11px] text-muted-foreground">
                 <span>
-                  Rendimento:{" "}
+                  Usa{" "}
                   <span className="font-semibold text-foreground">
-                    {yieldInfo.perSheet} un/folha
+                    {folhas} {folhas === 1 ? "folha" : "folhas"}
                   </span>{" "}
-                  ({yieldInfo.orientation})
-                  {yieldInfo.sheetsNeeded > 0 && (
-                    <>
-                      {" · "}Total:{" "}
-                      <span className="font-semibold text-foreground">
-                        {yieldInfo.sheetsNeeded} folha
-                        {yieldInfo.sheetsNeeded > 1 ? "s" : ""}
-                      </span>{" "}
-                      ({PRODUCTION_SHEET.widthMm}×{PRODUCTION_SHEET.heightMm} mm)
-                    </>
-                  )}
+                  ({perSheet} un/folha · {yieldInfo.orientation})
                 </span>
               </div>
-            )
-          )}
-        </div>
-      )}
+            );
+          })()
+        )}
+      </div>
 
       <LabelLayoutDialog
         open={labelDialogOpen}
