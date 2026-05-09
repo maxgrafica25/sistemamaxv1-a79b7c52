@@ -181,16 +181,6 @@ export function QuoteItemsTable(props: Props) {
           <KindBadge kind="print" />
           {isApproved && <ApprovedBadge approvedAt={m.approvedAt} approvedValue={m.approvedValue} />}
           <span className="ml-auto text-sm font-semibold text-primary">{fmt(total)}</span>
-          {!isApproved && (
-            <ProcessPicker
-              steps={processSteps}
-              groups={processGroups}
-              hourlyRate={hourlyRate}
-              onPickStep={(s) => onAddProcess(m.id, s)}
-              onPickGroup={(g) => onExpandStepGroup(m.id, g)}
-              onPickCustom={(name, minutes) => onAddCustomFinish(m.id, name, minutes)}
-            />
-          )}
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
