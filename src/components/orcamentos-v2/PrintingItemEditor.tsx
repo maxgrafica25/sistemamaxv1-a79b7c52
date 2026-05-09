@@ -48,6 +48,7 @@ import {
   sideFromPrintColors,
 } from "@/lib/quotes-v2/item-title";
 import { calcSheetYield, PRODUCTION_SHEET } from "@/lib/quotes-v2/sheet-yield";
+import { ProcessPicker, type ProcessStep, type ProcessGroup } from "./ProcessPicker";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -56,11 +57,16 @@ interface Props {
   childMaterials: SubformMaterial[];
   hourlyRate: number;
   printingCatalog?: PrintingCatalogItem[];
+  processSteps?: ProcessStep[];
+  processGroups?: ProcessGroup[];
   onItemChange: (patch: Partial<PricingMaterial>) => void;
   onRemove: () => void;
   onChildLaborChange: (next: SubformLabor[]) => void;
   onChildMaterialChange: (next: SubformMaterial[]) => void;
   onPickPaper?: (catalogItem: PrintingCatalogItem) => void;
+  onAddProcess?: (step: ProcessStep) => void;
+  onExpandStepGroup?: (group: ProcessGroup) => void;
+  onAddCustomFinish?: (name: string, minutes: number) => void;
 }
 
 const formatBRL = (n: number) =>
