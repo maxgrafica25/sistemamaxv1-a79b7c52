@@ -317,18 +317,22 @@ export function PrintingItemEditor({
             <Select
               value={item.printColors || ""}
               onValueChange={handlePrintColorsChange}
+              disabled={isLabel}
             >
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="4x4" />
               </SelectTrigger>
               <SelectContent>
-                {PRINT_COLOR_OPTIONS.map((c) => (
+                {(isLabel ? (["4x0"] as const) : PRINT_COLOR_OPTIONS).map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {isLabel && (
+              <p className="text-[10px] text-muted-foreground">Adesivo não tem verso</p>
+            )}
           </div>
 
           {/* Referência (opcional) */}
