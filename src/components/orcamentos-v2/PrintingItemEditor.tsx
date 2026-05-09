@@ -78,11 +78,16 @@ export function PrintingItemEditor({
   childMaterials,
   hourlyRate,
   printingCatalog = [],
+  processSteps = [],
+  processGroups = [],
   onItemChange,
   onRemove,
   onChildLaborChange,
   onChildMaterialChange,
   onPickPaper,
+  onAddProcess,
+  onExpandStepGroup,
+  onAddCustomFinish,
 }: Props) {
   const locked = item.status === "aprovado";
   const childCount = childLabor.length + childMaterials.length;
