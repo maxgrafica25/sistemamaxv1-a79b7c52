@@ -1,39 +1,24 @@
-# Simplificar entrada: só "Peças desejadas"
+## Objetivo
+Tornar o campo "Peças desejadas" totalmente livre para digitação, sem bloqueios nem sugestões automáticas que travem o usuário.
 
-## Mudança
-No card de impressão (`PrintingItemEditor.tsx`), substituir os dois inputs (peças e folhas) por **um único input** de **Peças desejadas**. As folhas viram **somente leitura**, exibidas como informação derivada — sem campo editável.
+## Mudanças em `PrintingItemEditor.tsx`
 
-## Como fica
+1. **Remover travas do input "Peças desejadas"**
+   - Tirar o `disabled` quando `exceedsSheet` ou `perSheet === 0`.
+   - O campo aceita qualquer número que o usuário digitar, mesmo sem papel/dimensões definidos.
+   - Manter `min={1}` apenas como validação básica.
 
-```
-┌─ Quantidade
-│  Peças desejadas     [ 100 ]    R$ 21,00    [📐] [✕]
-│  └─ Usa 3 folhas (48 un/folha · sobra 44 un)
-```
+2. **Cálculo de folhas**
+   - Quando `perSheet > 0`: continua calculando `Math.ceil(pecas / perSheet)` e atualizando `item.quantity` (folhas) — mantém o motor de preço intacto.
+   - Quando `perSheet === 0` (sem rendimento ainda): assume `quantity = pecas` (1 peça = 1 folha) como fallback, sem bloquear a digitação.
 
-- Input único, label claro: **"Peças desejadas"**.
-- Abaixo, linha auxiliar pequena mostrando: `Usa N folhas` + `(X un/folha · sobra Y un)`.
-- Total e botões (régua + remover) na mesma linha do input.
+3. **Linha auxiliar informativa (não bloqueante)**
+   - Se `yieldInfo` existir: mostrar `Usa N folhas (X un/folha · orientação)` como hoje.
+   - Se não existir: ocultar a linha (sem mensagem de erro nem placeholder restritivo).
+   - O placeholder do input volta a ser fixo `100`, sem variar conforme estado.
 
-## Comportamento
-
-- Usuário digita peças → sistema calcula `folhas = ceil(peças / un_por_folha)` e salva em `item.quantity` (que internamente continua representando folhas, mantendo o motor de preço intacto).
-- Se ainda não há dimensões/papel definidos (sem rendimento calculável), o input mostra "Defina dimensões e papel para informar a quantidade" e fica desabilitado.
-- Botão da régua 📐 (calculadora de etiquetas) continua disponível para casos avançados — ele já grava direto em folhas, então quando aplicado, recalculamos o display de peças = `folhas × un_por_folha`.
-- Itens aprovados (locked): exibe peças e folhas como texto puro, sem input.
-
-## Detalhes técnicos
-
-- Arquivo único: `src/components/orcamentos-v2/PrintingItemEditor.tsx`.
-- Remover a "Linha 2" (Quantidade folhas) com input editável criada na rodada anterior.
-- Manter `item.quantity` em folhas no estado/banco — nada muda no motor de pricing nem no PDF.
-- Linha auxiliar de "sobra" usa `folhas × un_por_folha − peças` (só mostra se > 0).
-- O bloco "Rendimento" abaixo (que mostra `9 un/folha · Total: 6 folhas`) fica redundante após essa mudança — proponho **removê-lo** para não duplicar informação. (Confirmar abaixo.)
-
-## Pontos a confirmar
-- **Bloco "Rendimento" atual** (`Layers · Rendimento: X un/folha (orientação) · Total: Y folhas`): manter ou remover, já que a mesma info passa a viver direto sob o input?
-- **Aviso "excede a folha de produção"**: mantém como está (continua útil quando dimensões > folha).
+4. **Aviso de excesso (`exceedsSheet`)**
+   - Mantém o banner `AlertTriangle` como aviso visual, mas **não desabilita** o input — o usuário decide se prossegue.
 
 ## Fora de escopo
-- Lógica de preço, multiplicadores A3/SRA3 e rendimento por folha (sem mudança).
-- Outros itens que não são impressão (mão de obra avulsa, materiais legados).
+- Lógica de preço, multiplicadores A3/SRA3, botão régua, itens não-impressão, estado `locked` (continua somente leitura quando aprovado).
