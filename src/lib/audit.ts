@@ -84,11 +84,12 @@ export async function logAuthEvent(
   });
 
   try {
-    const { error } = await supabase.rpc("log_auth_event", {
-      p_action: action,
-      p_entity_name: entityName,
-      p_details: details,
-    });
+    const { error } = await (supabase.rpc as unknown as (
+      name: string, args: Record<string, unknown>,
+    ) => Promise<{ error: { code?: string; message?: string } | null }>)(
+      "log_auth_event",
+      { p_action: action, p_entity_name: entityName, p_details: details },
+    );
     if (!error) return;
 
     if (isRpcMissing(error)) {
