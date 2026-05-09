@@ -426,14 +426,13 @@ export function PrintingItemEditor({
             const perSheet = yieldInfo?.perSheet ?? 0;
             const folhas = item.quantity || 0;
             const pieces = perSheet > 0 ? folhas * perSheet : folhas;
-            const canEdit = !locked && perSheet > 0 && !exceedsSheet;
             return (
               <Input
                 type="number"
-                min={0}
+                min={1}
                 value={pieces || ""}
-                disabled={!canEdit}
-                placeholder={perSheet > 0 ? "100" : "Defina dimensões e papel"}
+                disabled={locked}
+                placeholder="100"
                 onChange={(e) => {
                   const p = parseFloat(e.target.value) || 0;
                   const next = perSheet > 0 ? (p > 0 ? Math.ceil(p / perSheet) : 0) : p;
