@@ -501,25 +501,41 @@ export function PrintingItemEditor({
         onApply={(folhas) => onItemChange({ quantity: folhas })}
       />
 
-      {/* Toggle de acabamentos vinculados */}
+      {/* Toggle de acabamentos vinculados + ação centralizada */}
       <div className="border-t border-border/60 px-3 py-2">
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {expanded ? (
-            <ChevronDown className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronRight className="h-3.5 w-3.5" />
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {expanded ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5" />
+            )}
+            Acabamentos vinculados
+            {childCount > 0 && (
+              <Badge variant="secondary" className="text-[10px] h-4 px-1.5 ml-1">
+                {childCount}
+              </Badge>
+            )}
+          </button>
+
+          {!locked && onAddProcess && onExpandStepGroup && onAddCustomFinish && (
+            <ProcessPicker
+              steps={processSteps}
+              groups={processGroups}
+              hourlyRate={hourlyRate}
+              variant="outline"
+              label="Adicionar Processo"
+              onOpen={() => setExpanded(true)}
+              onPickStep={(s) => { setExpanded(true); onAddProcess(s); }}
+              onPickGroup={(g) => { setExpanded(true); onExpandStepGroup(g); }}
+              onPickCustom={(name, minutes) => { setExpanded(true); onAddCustomFinish(name, minutes); }}
+            />
           )}
-          Acabamentos vinculados
-          {childCount > 0 && (
-            <Badge variant="secondary" className="text-[10px] h-4 px-1.5 ml-1">
-              {childCount}
-            </Badge>
-          )}
-        </button>
+        </div>
 
         {expanded && (
           <div className="mt-3">
