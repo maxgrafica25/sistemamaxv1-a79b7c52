@@ -1,6 +1,7 @@
 # Fase 1 — Endurecimento de Segurança (Top 5)
 
 > **Status:** drafts prontos. **NÃO aplicar em produção** sem antes:
+> 0. Seguir [`STAGING_SETUP.md`](./STAGING_SETUP.md) para criar o projeto Supabase de staging, restaurar dump e rodar `bun run seed:staging`.
 > 1. Restaurar dump da prod em projeto Supabase de staging.
 > 2. Rodar `bun run test:rls` (suite em `src/test/rls/`) e validar que passa **antes** das migrations.
 > 3. Aplicar migrations 01→04 em ordem em staging.
