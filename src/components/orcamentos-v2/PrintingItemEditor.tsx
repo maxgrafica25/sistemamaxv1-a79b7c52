@@ -256,7 +256,7 @@ export function PrintingItemEditor({
                             key={s}
                             value={s}
                             onSelect={() => {
-                              onItemChange({ productKind: s });
+                              handleProductKindChange(s);
                               setKindOpen(false);
                             }}
                           >
