@@ -474,22 +474,26 @@ export function PrintingItemEditor({
           {(() => {
             const perSheet = yieldInfo?.perSheet ?? 0;
             const folhas = item.quantity || 0;
-            const pieces = perSheet > 0 ? folhas * perSheet : folhas;
+            // Fallback de exibição quando o usuário ainda não digitou nada nesta sessão:
+            // mostra a capacidade total das folhas atuais (compatível com itens carregados do banco).
+            const fallbackPieces = perSheet > 0 ? folhas * perSheet : folhas;
+            const displayValue = piecesInput ?? (fallbackPieces || "");
             return (
               <Input
                 type="number"
                 min={1}
-                value={piecesInput ?? (pieces || "")}
+                value={displayValue}
                 disabled={locked}
                 placeholder="100"
                 onChange={(e) => {
                   const raw = e.target.value;
+                  // Mantém EXATAMENTE o que o usuário digitou no campo,
+                  // sem "snap" para múltiplos da folha.
                   onPiecesInputChange?.(raw);
                   const p = parseFloat(raw) || 0;
                   const next = perSheet > 0 ? (p > 0 ? Math.ceil(p / perSheet) : 0) : p;
                   onItemChange({ quantity: next });
                 }}
-                onBlur={() => onPiecesInputChange?.(null)}
                 className="w-28 h-8 text-sm text-center disabled:opacity-70"
               />
             );
