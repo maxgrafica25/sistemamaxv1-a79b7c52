@@ -96,6 +96,7 @@ export function PrintingItemEditor({
   const [kindOpen, setKindOpen] = useState(false);
   const [paperOpen, setPaperOpen] = useState(false);
   const [paperQuery, setPaperQuery] = useState("");
+  const [piecesInput, setPiecesInput] = useState<string | null>(null);
 
   // Título dinâmico — derivado dos atributos estruturados, recomputado em tempo real.
   const dynamicTitle = useMemo(
@@ -475,14 +476,17 @@ export function PrintingItemEditor({
               <Input
                 type="number"
                 min={1}
-                value={pieces || ""}
+                value={piecesInput ?? (pieces || "")}
                 disabled={locked}
                 placeholder="100"
                 onChange={(e) => {
-                  const p = parseFloat(e.target.value) || 0;
+                  const raw = e.target.value;
+                  setPiecesInput(raw);
+                  const p = parseFloat(raw) || 0;
                   const next = perSheet > 0 ? (p > 0 ? Math.ceil(p / perSheet) : 0) : p;
                   onItemChange({ quantity: next });
                 }}
+                onBlur={() => setPiecesInput(null)}
                 className="w-28 h-8 text-sm text-center disabled:opacity-70"
               />
             );
