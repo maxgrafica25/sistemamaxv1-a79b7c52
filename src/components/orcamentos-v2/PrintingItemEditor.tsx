@@ -476,14 +476,17 @@ export function PrintingItemEditor({
               <Input
                 type="number"
                 min={1}
-                value={pieces || ""}
+                value={piecesInput ?? (pieces || "")}
                 disabled={locked}
                 placeholder="100"
                 onChange={(e) => {
-                  const p = parseFloat(e.target.value) || 0;
+                  const raw = e.target.value;
+                  setPiecesInput(raw);
+                  const p = parseFloat(raw) || 0;
                   const next = perSheet > 0 ? (p > 0 ? Math.ceil(p / perSheet) : 0) : p;
                   onItemChange({ quantity: next });
                 }}
+                onBlur={() => setPiecesInput(null)}
                 className="w-28 h-8 text-sm text-center disabled:opacity-70"
               />
             );
