@@ -59,6 +59,8 @@ interface Props {
   printingCatalog?: PrintingCatalogItem[];
   processSteps?: ProcessStep[];
   processGroups?: ProcessGroup[];
+  piecesInput?: string | null;
+  onPiecesInputChange?: (value: string | null) => void;
   onItemChange: (patch: Partial<PricingMaterial>) => void;
   onRemove: () => void;
   onChildLaborChange: (next: SubformLabor[]) => void;
@@ -77,6 +79,8 @@ export function PrintingItemEditor({
   childLabor,
   childMaterials,
   hourlyRate,
+  piecesInput,
+  onPiecesInputChange,
   printingCatalog = [],
   processSteps = [],
   processGroups = [],
@@ -96,7 +100,6 @@ export function PrintingItemEditor({
   const [kindOpen, setKindOpen] = useState(false);
   const [paperOpen, setPaperOpen] = useState(false);
   const [paperQuery, setPaperQuery] = useState("");
-  const [piecesInput, setPiecesInput] = useState<string | null>(null);
 
   // Título dinâmico — derivado dos atributos estruturados, recomputado em tempo real.
   const dynamicTitle = useMemo(
@@ -481,12 +484,12 @@ export function PrintingItemEditor({
                 placeholder="100"
                 onChange={(e) => {
                   const raw = e.target.value;
-                  setPiecesInput(raw);
+                  onPiecesInputChange?.(raw);
                   const p = parseFloat(raw) || 0;
                   const next = perSheet > 0 ? (p > 0 ? Math.ceil(p / perSheet) : 0) : p;
                   onItemChange({ quantity: next });
                 }}
-                onBlur={() => setPiecesInput(null)}
+                onBlur={() => onPiecesInputChange?.(null)}
                 className="w-28 h-8 text-sm text-center disabled:opacity-70"
               />
             );
