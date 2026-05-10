@@ -472,27 +472,21 @@ export function PrintingItemEditor({
             )}
           </div>
           {(() => {
-            const perSheet = yieldInfo?.perSheet ?? 0;
-            const folhas = item.quantity || 0;
-            // Fallback de exibição quando o usuário ainda não digitou nada nesta sessão:
-            // mostra a capacidade total das folhas atuais (compatível com itens carregados do banco).
-            const fallbackPieces = perSheet > 0 ? folhas * perSheet : folhas;
-            const displayValue = piecesInput ?? (fallbackPieces || "");
+            const displayValue = piecesInput ?? (item.quantity || "");
             return (
               <Input
-                type="number"
-                min={1}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={displayValue}
                 disabled={locked}
                 placeholder="100"
                 onChange={(e) => {
-                  const raw = e.target.value;
+                  const raw = e.target.value.replace(/\D/g, "");
                   // Mantém EXATAMENTE o que o usuário digitou no campo,
                   // sem "snap" para múltiplos da folha.
                   onPiecesInputChange?.(raw);
-                  const p = parseFloat(raw) || 0;
-                  const next = perSheet > 0 ? (p > 0 ? Math.ceil(p / perSheet) : 0) : p;
-                  onItemChange({ quantity: next });
+                  onItemChange({ quantity: raw ? Number(raw) : 0 });
                 }}
                 className="w-28 h-8 text-sm text-center disabled:opacity-70"
               />
@@ -537,13 +531,9 @@ export function PrintingItemEditor({
         {yieldInfo && !exceedsSheet && (
           (() => {
             const perSheet = yieldInfo.perSheet;
-            const folhas = item.quantity || 0;
-            const pieces = folhas * perSheet;
-            const sobra = pieces > 0 ? pieces - Math.max(1, pieces) : 0;
-            // sobra real só faz sentido quando o usuário insere peças;
-            // como armazenamos folhas, a "sobra" só é > 0 se o último arredondamento gerou folha adicional.
-            // Aqui mostramos: capacidade total das folhas - peças "produzidas" (= pieces, igual à capacidade).
-            // Para sobra real precisaríamos guardar o input bruto; mantemos display simples.
+            const pieces = item.quantity || 0;
+            const folhas = pieces > 0 ? Math.ceil(pieces / perSheet) : 0;
+            const sobra = folhas > 0 ? folhas * perSheet - pieces : 0;
             return (
               <div className="flex items-center gap-2 pl-7 text-[11px] text-muted-foreground">
                 <span>
@@ -552,6 +542,7 @@ export function PrintingItemEditor({
                     {folhas} {folhas === 1 ? "folha" : "folhas"}
                   </span>{" "}
                   ({perSheet} un/folha · {yieldInfo.orientation})
+                  {sobra > 0 ? ` · sobra ${sobra} un` : ""}
                 </span>
               </div>
             );
@@ -564,7 +555,12 @@ export function PrintingItemEditor({
         onOpenChange={setLabelDialogOpen}
         defaultSheet={guessSheet()}
         defaultQty={item.quantity || 100}
-        onApply={(folhas) => onItemChange({ quantity: folhas })}
+        onApply={(folhas) => {
+          const perSheet = yieldInfo?.perSheet ?? 1;
+          const pieces = folhas * perSheet;
+          onPiecesInputChange?.(String(pieces));
+          onItemChange({ quantity: pieces });
+        }}
       />
 
       {/* Toggle de acabamentos vinculados + ação centralizada */}
