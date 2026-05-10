@@ -1,31 +1,23 @@
-## Problema
+Ajustar o campo **Peças desejadas** para ele guardar e exibir a quantidade real digitada pelo usuário, sem arredondar o próprio campo para a capacidade da folha.
 
-No campo "Peças desejadas", o usuário digita qualquer número (ex.: 1, 5, 7) e o sistema sempre mostra 9 (ou múltiplo do rendimento da folha).
+Plano:
+1. **Separar quantidade de peças e folhas**
+   - Tratar `quantity` como a quantidade desejada de peças/unidades.
+   - Calcular internamente as folhas necessárias com `Math.ceil(quantity / unPorFolha)` apenas para exibição e precificação operacional.
 
-## Causa
+2. **Campo livre durante e depois da digitação**
+   - O input continuará mostrando exatamente `100` quando você digitar `100`.
+   - Não vai mais trocar para `99`, `900`, ou para múltiplos de aproveitamento.
+   - Remover a lógica de “voltar para capacidade total” no blur.
 
-O `quantity` é armazenado em **folhas**, mas o campo exibe **peças** calculadas como `folhas × perSheet`. Quando o usuário digita 1 peça e `perSheet = 9`:
-- `next = Math.ceil(1 / 9) = 1` folha
-- Display recalcula: `1 × 9 = 9` peças
+3. **Atualizar a linha informativa abaixo**
+   - Exibir algo como: `Usa 12 folhas (9 un/folha · retrato)` quando forem 100 peças e couberem 9 por folha.
+   - A quantidade desejada permanece 100; as folhas são apenas cálculo derivado.
 
-Ou seja, o input sempre "salta" para a capacidade total das folhas usadas, ignorando o número real digitado.
+4. **Preservar preço e tiers por quantidade real**
+   - A precificação continuará usando a quantidade desejada informada.
+   - Se necessário, ajustar somente os pontos que estavam assumindo que `quantity` era número de folhas.
 
-## Solução
-
-Guardar o valor bruto de peças digitado pelo usuário em estado local do componente e exibi-lo enquanto o campo está sendo editado, mantendo `quantity` (folhas) como fonte de verdade para o pricing.
-
-### Mudanças em `src/components/orcamentos-v2/PrintingItemEditor.tsx`
-
-1. Adicionar estado local `piecesInput: string | null` (null = não está editando, usa valor derivado).
-2. No `onChange` do input de peças:
-   - Atualizar `piecesInput` com o texto digitado.
-   - Calcular folhas (`Math.ceil(p / perSheet)`) e chamar `onItemChange({ quantity })`.
-3. No `onBlur`: limpar `piecesInput` (volta a exibir valor derivado de folhas × perSheet, que reflete a capacidade real após arredondamento).
-4. `value` do input: `piecesInput ?? (folhas * perSheet || "")`.
-
-Assim, durante a digitação o usuário vê exatamente o que digitou; ao sair do campo, vê a capacidade real (que pode ser maior, pois folhas são arredondadas pra cima) — comportamento esperado e transparente.
-
-### Fora de escopo
-
-- Lógica de pricing, multiplicadores, rendimento por folha.
-- Outros campos do editor.
+Arquivos previstos:
+- `src/components/orcamentos-v2/PrintingItemEditor.tsx`
+- Possivelmente `src/components/orcamentos-v2/QuoteItemsTable.tsx`, apenas se necessário para remover o estado temporário criado para contornar o problema anterior.
