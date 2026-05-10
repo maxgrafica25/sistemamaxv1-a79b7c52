@@ -96,6 +96,7 @@ export function PrintingItemEditor({
   const [kindOpen, setKindOpen] = useState(false);
   const [paperOpen, setPaperOpen] = useState(false);
   const [paperQuery, setPaperQuery] = useState("");
+  const [piecesInput, setPiecesInput] = useState<string | null>(null);
 
   // Título dinâmico — derivado dos atributos estruturados, recomputado em tempo real.
   const dynamicTitle = useMemo(
