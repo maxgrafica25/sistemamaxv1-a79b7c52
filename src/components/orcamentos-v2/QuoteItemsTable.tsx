@@ -89,7 +89,18 @@ export function QuoteItemsTable(props: Props) {
 
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [flashId, setFlashId] = useState<string | null>(null);
+  const [piecesInputs, setPiecesInputs] = useState<Record<string, string>>({});
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const setPiecesInputFor = (id: string, value: string | null) => {
+    setPiecesInputs((prev) => {
+      if (value === null) {
+        const { [id]: _removed, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [id]: value };
+    });
+  };
 
   const triggerFlash = (id: string) => {
     setFlashId(id);
@@ -200,6 +211,8 @@ export function QuoteItemsTable(props: Props) {
           childLabor={childLaborForThis}
           childMaterials={childMatsForThis}
           hourlyRate={hourlyRate}
+          piecesInput={piecesInputs[m.id] ?? null}
+          onPiecesInputChange={(value) => setPiecesInputFor(m.id, value)}
           printingCatalog={printingCatalog}
           processSteps={processSteps}
           processGroups={processGroups}
