@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Search, ClipboardList, Loader2, FileDown, CheckCircle2, XCircle,
-  Bookmark, Link2, BookmarkCheck, ChevronDown, FileText,
+  Bookmark, Link2, BookmarkCheck, ChevronDown, FileText, MessageCircle,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
@@ -30,6 +30,8 @@ import { Lock } from "lucide-react";
 import { parseOptions } from "@/lib/quotes-v2/options";
 import { buildStatsMap, computeTemperature, type EngagementStats, type Temperature } from "@/lib/quotes-v2/temperature";
 import type { EngagementEventType } from "@/lib/quotes-v2/tracking";
+import { buildTeamFollowUpMessage, buildWaUrl } from "@/lib/quotes-v2/whatsapp";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 
 interface QuoteRow {
   id: string;
@@ -65,6 +67,7 @@ export default function OrcamentosV2() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin";
+  const { companyName } = useCompanySettings();
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
   const [statsMap, setStatsMap] = useState<Map<string, EngagementStats>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -189,6 +192,22 @@ export default function OrcamentosV2() {
     await supabase.from("quotes").update({ is_template: newVal }).eq("id", q.id);
     toast.success(newVal ? "Salvo como modelo pronto" : "Removido dos modelos prontos");
     fetchQuotes();
+  };
+
+  const handleWhatsAppClient = (q: QuoteRow) => {
+    if (!q.client_phone) return;
+    const message = buildTeamFollowUpMessage({
+      quoteNumber: q.quote_number,
+      status: q.status,
+      clientName: q.client,
+      companyName,
+    });
+    const url = buildWaUrl(message, q.client_phone);
+    if (!url) {
+      toast.error("Telefone do cliente inválido.");
+      return;
+    }
+    window.open(url, "_blank");
   };
 
   const handleCopyPublicLink = (quoteNumber: string) => {
@@ -483,6 +502,16 @@ export default function OrcamentosV2() {
                       </td>
                       <td className="py-4 pr-4">
                         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          {q.client_phone && (
+                            <Button
+                              variant="ghost" size="icon"
+                              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              title="Contatar cliente no WhatsApp"
+                              onClick={() => handleWhatsAppClient(q)}
+                            >
+                              <MessageCircle className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost" size="icon" className="h-8 w-8"
                             title="Copiar link público"

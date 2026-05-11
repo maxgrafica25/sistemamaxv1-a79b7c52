@@ -27,7 +27,6 @@ import { useScrollDepthTracking } from "@/lib/quotes-v2/useScrollDepthTracking";
 import {
   buildAdjustMessage,
   buildItemAdjustMessage,
-  buildPartialApprovalMessage,
 } from "@/lib/quotes-v2/whatsapp";
 import { APPROVAL_TERMS_VERSION, buildApprovalTermsText } from "@/lib/quotes-v2/approval-terms";
 
@@ -431,31 +430,11 @@ export default function ClientViewer() {
       });
       if (rpcError) throw rpcError;
 
-      // 3) Monta a mensagem com referência ao comprovante.
-      const message = buildPartialApprovalMessage({
-        quoteNumber: quote.quote_number,
-        items,
-        total,
-        clientName: quote.client,
-        companyName,
-        isFullApproval,
-        approverName,
-        approvedAt: receipt?.approved_at,
-        receiptId: receipt?.id,
-      });
-
       await loadData();
       setSelectedItemIds(new Set());
       didPreselectRef.current = false;
       setApprovalDialog((s) => ({ ...s, open: false }));
-      toast.success("Aprovação registrada! Avise a gráfica pelo WhatsApp (opcional).");
-      if (whatsappNumber) {
-        openShare(
-          message,
-          isFullApproval ? "Avisar a gráfica no WhatsApp" : "Avisar a gráfica sobre os itens aprovados",
-          "Sua aprovação já está registrada no sistema com data, hora e seu nome. Esta etapa é apenas para avisar a gráfica.",
-        );
-      }
+      toast.success("Aprovação registrada! A gráfica já foi notificada.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro ao registrar aprovação.";
       toast.error(msg);
