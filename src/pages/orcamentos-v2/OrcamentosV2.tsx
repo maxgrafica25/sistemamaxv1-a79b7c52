@@ -502,6 +502,16 @@ export default function OrcamentosV2() {
                       </td>
                       <td className="py-4 pr-4">
                         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          {q.client_phone && (
+                            <Button
+                              variant="ghost" size="icon"
+                              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              title="Contatar cliente no WhatsApp"
+                              onClick={() => handleWhatsAppClient(q)}
+                            >
+                              <MessageCircle className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost" size="icon" className="h-8 w-8"
                             title="Copiar link público"
