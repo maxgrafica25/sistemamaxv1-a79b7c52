@@ -6,12 +6,32 @@ interface Props {
   option: QuoteOption;
   selected: boolean;
   onSelect: () => void;
+  readOnly?: boolean;
 }
 
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export function OptionCard({ option, selected, onSelect }: Props) {
+export function OptionCard({ option, selected, onSelect, readOnly = false }: Props) {
+  if (readOnly) {
+    return (
+      <div
+        className={cn(
+          "relative text-left rounded-xl border-2 bg-card p-4",
+          "border-border",
+        )}
+      >
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">Quantidade</p>
+        <p className="text-lg font-bold text-foreground mt-0.5">{option.label}</p>
+        <div className="mt-3 flex items-baseline gap-2">
+          <p className="text-2xl font-bold text-primary">{formatBRL(option.total)}</p>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          {formatBRL(option.unit_price)} / un
+        </p>
+      </div>
+    );
+  }
   return (
     <button
       type="button"
