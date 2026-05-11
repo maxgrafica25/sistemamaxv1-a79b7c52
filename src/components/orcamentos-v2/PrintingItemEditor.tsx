@@ -607,6 +607,110 @@ export function PrintingItemEditor({
         </div>
       )}
 
+      {/* Apostila — bloco dedicado de configuração (folhas × apostilas + impressão) */}
+      {isApostila && (
+        <div className="px-3 pb-3 border-t border-border/60 pt-3 space-y-3">
+          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+            Configuração da Apostila
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Folhas por apostila</Label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                step="1"
+                value={bookletPages ?? ""}
+                disabled={locked}
+                placeholder="Ex.: 50"
+                onChange={(e) => {
+                  const sheets = parseInt(e.target.value) || 0;
+                  const pieces = Math.max(0, sheets * (bookletUnits ?? 0));
+                  const folhas = perSheetForSync > 0
+                    ? (pieces > 0 ? Math.ceil(pieces / perSheetForSync) : 0)
+                    : pieces;
+                  onPiecesInputChange?.(String(pieces));
+                  onItemChange({ bookletPages: sheets, pieces, quantity: folhas });
+                }}
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Quantidade de apostilas</Label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                step="1"
+                value={bookletUnits ?? ""}
+                disabled={locked}
+                placeholder="Ex.: 10"
+                onChange={(e) => {
+                  const uns = parseInt(e.target.value) || 0;
+                  const pieces = Math.max(0, (bookletPages ?? 0) * uns);
+                  const folhas = perSheetForSync > 0
+                    ? (pieces > 0 ? Math.ceil(pieces / perSheetForSync) : 0)
+                    : pieces;
+                  onPiecesInputChange?.(String(pieces));
+                  onItemChange({ bookletUnits: uns, pieces, quantity: folhas });
+                }}
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Impressão</Label>
+            <div className="inline-flex rounded-md border border-border overflow-hidden">
+              {[
+                { key: false, label: "Frente" },
+                { key: true, label: "Frente e Verso" },
+              ].map((opt) => {
+                const active = bookletDuplex === opt.key;
+                return (
+                  <button
+                    key={String(opt.key)}
+                    type="button"
+                    disabled={locked}
+                    onClick={() => {
+                      if (bookletDuplex === opt.key) return;
+                      onItemChange({
+                        bookletDuplex: opt.key,
+                        side: opt.key ? "F/V" : "Simples",
+                      });
+                    }}
+                    className={cn(
+                      "px-3 h-8 text-xs font-medium transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:bg-muted",
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {(bookletPages ?? 0) > 0 && (bookletUnits ?? 0) > 0 && (
+            <div className="text-[11px] text-muted-foreground bg-muted/40 rounded-md px-2.5 py-1.5">
+              Resumo:{" "}
+              <span className="text-foreground font-medium">
+                {bookletPages} folhas × {bookletUnits} apostilas
+              </span>{" "}
+              · {bookletDuplex ? "F/V" : "Frente"} →{" "}
+              <span className="text-foreground font-medium">
+                {(bookletPages ?? 0) * (bookletUnits ?? 0)} folhas físicas
+              </span>{" "}
+              ·{" "}
+              <span className="text-foreground font-medium">
+                {(bookletPages ?? 0) * (bookletUnits ?? 0) * (bookletDuplex ? 2 : 1)} impressões
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Quantidade — entrada única em peças; folhas é derivado */}
       <div className="px-3 pb-3 border-t border-border/60 pt-3 space-y-2">
         {exceedsSheet && (
