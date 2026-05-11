@@ -153,12 +153,29 @@ export function PrintingItemEditor({
   };
 
   // Cálculo de aproveitamento por folha (visão interna).
+  // Usa as PEÇAS DESEJADAS para sugerir folhas necessárias. Quantity é "folhas cobradas".
+  const piecesValue = (item.pieces ?? item.quantity ?? 0) || 0;
   const yieldInfo = useMemo(
-    () => calcSheetYield(item.widthMm || 0, item.heightMm || 0, item.quantity || 0),
-    [item.widthMm, item.heightMm, item.quantity],
+    () => calcSheetYield(item.widthMm || 0, item.heightMm || 0, piecesValue),
+    [item.widthMm, item.heightMm, piecesValue],
   );
   const hasDimensions = !!(item.widthMm && item.heightMm);
   const exceedsSheet = hasDimensions && (!yieldInfo || yieldInfo.perSheet <= 0);
+
+  // Mantém quantity (folhas cobradas) sincronizado com pieces e perSheet.
+  const perSheetForSync = yieldInfo?.perSheet ?? 0;
+  const expectedQuantity = perSheetForSync > 0
+    ? (piecesValue > 0 ? Math.ceil(piecesValue / perSheetForSync) : 0)
+    : piecesValue;
+  if (
+    !locked &&
+    item.pieces != null &&
+    expectedQuantity > 0 &&
+    expectedQuantity !== item.quantity
+  ) {
+    // Ajusta na próxima tick para evitar setState durante render.
+    queueMicrotask(() => onItemChange({ quantity: expectedQuantity }));
+  }
 
   const filteredKinds = (() => {
     const q = (item.productKind || "").toLowerCase().trim();
