@@ -1,24 +1,48 @@
-## Problema
+## Objetivo
 
-No cabeçalho da Proposta Comercial, o campo **Cliente** fica visualmente "afundado" em relação aos campos vizinhos (Nº Proposta, Aos cuidados de, Validade). Os inputs vizinhos têm altura `h-9` (~36px), mas o "chip" do cliente selecionado renderiza em duas linhas (nome + empresa/telefone) com `py-2`, ficando ~60px de altura. Como o grid usa alinhamento padrão (`stretch`), o chip empurra a linha inteira e cria uma sensação de desalinhamento.
+Sugerir automaticamente o conteúdo do campo **Assunto / Projeto** com base nos itens já lançados na proposta, sem nunca sobrescrever texto digitado pelo vendedor.
 
-## Solução (apenas frontend / visual)
+Formato escolhido: **só produto(s)**.
+Comportamento escolhido: **sugestão visível + botão "Usar sugestão"** (nunca preenche silenciosamente).
 
-Compactar o chip de cliente selecionado em `ClientCombobox.tsx` para a mesma altura dos demais inputs do header (`h-9`), mantendo todas as informações acessíveis sem perda de funcionalidade.
+## Comportamento detalhado
 
-### Mudanças
+1. Enquanto o campo `product` (Assunto / Projeto) estiver **vazio**:
+   - Mostrar a sugestão como `placeholder` dinâmico em tempo real, conforme o vendedor adiciona/edita itens.
+   - Se houver pelo menos 1 item com `productKind` preenchido, exibir um chip discreto à direita do label: `Usar sugestão: "Cartão de visita + Panfleto"` que, ao clicar (ou pressionar `Tab` no input vazio), preenche o campo.
+2. Se o campo já tiver qualquer texto digitado:
+   - Não sobrescrever, não mostrar mais o chip de sugestão automaticamente.
+   - Mostrar um pequeno ícone `↻` (RefreshCw) ao lado do label, com tooltip "Regenerar a partir dos itens", para o usuário voltar ao automático manualmente.
+3. Placeholder padrão (quando ainda não há itens): manter o atual `Ex.: Cartões de visita corporativos – Acme Ltda.`.
 
-1. **`src/components/orcamentos-v2/ClientCombobox.tsx`** (bloco "Selected chip view", linhas ~94–111):
-   - Reduzir o container para `h-9` com `py-0` e linha única.
-   - Mostrar apenas o **nome do cliente** em destaque (truncado).
-   - Mover empresa/telefone para um `title` (tooltip nativo) no container — a informação completa já aparece logo abaixo no bloco "Dados do cliente" expansível, então não há perda real de visibilidade.
-   - Manter o ícone `User`, o badge de tipo (`cliente`/`fornecedor`) e o botão `Trocar`, todos com tamanho compatível (`size="sm"`, ícones `h-3.5 w-3.5`).
-   - Resultado: chip alinhado pixel-a-pixel com `Nº Proposta`, `Aos cuidados de` e `Validade`.
+## Fórmula da sugestão (formato "só produto(s)")
 
-2. **`src/components/orcamentos-v2/NewQuoteFormV2.tsx`** (linha 1030):
-   - Adicionar `items-end` ao grid do header para garantir alinhamento consistente das bases dos campos mesmo se algum label quebrar em duas linhas em telas estreitas.
+A partir do array `materials` (root items, `parent_material_id == null`):
 
-### Fora de escopo
+- Coletar `productKind` de cada item raiz; ignorar nulos/vazios; remover duplicatas mantendo ordem.
+- 1 tipo único → `Cartão de visita`
+- 2 tipos → `Cartão de visita + Panfleto`
+- 3+ tipos → `Cartão de visita + Panfleto + 2 outros` (junta os 2 primeiros e resume o resto)
+- Se nenhum item tiver `productKind`: não há sugestão (chip e placeholder dinâmico não aparecem; placeholder padrão segue exibido).
+- Truncar em 80 caracteres com `…`.
 
-- Nenhuma mudança em lógica de negócio, persistência, ou no comportamento de busca/seleção do cliente.
-- O bloco "Dados do cliente" abaixo do header continua exibindo empresa, telefone, e-mail, etc., quando expandido.
+## Arquivos a alterar
+
+1. **Novo** `src/lib/quotes-v2/subject-suggestion.ts`
+   - Função pura `buildSubjectSuggestion(materials: PricingMaterial[]): string` implementando a fórmula acima.
+   - Função `pickProductKinds(materials)` auxiliar (filtra root items, remove duplicatas, preserva ordem).
+
+2. **Editar** `src/components/orcamentos-v2/NewQuoteFormV2.tsx`
+   - Importar `buildSubjectSuggestion`.
+   - Calcular `subjectSuggestion = useMemo(() => buildSubjectSuggestion(materials), [materials])`.
+   - No bloco do label "Assunto / Projeto *" (linhas ~1099–1107):
+     - Renderizar chip `Usar sugestão: "..."` ao lado do label quando `!product.trim() && subjectSuggestion`.
+     - Renderizar ícone `↻` quando `product.trim() && subjectSuggestion && product !== subjectSuggestion`.
+     - No `<Input>`: trocar `placeholder` por `subjectSuggestion || "Ex.: Cartões de visita corporativos – Acme Ltda."`.
+     - Adicionar `onKeyDown` capturando `Tab` quando o campo está vazio e há sugestão → preencher e deixar o foco seguir o Tab natural.
+
+## Fora de escopo
+
+- Nenhuma mudança em pricing, persistência ou schema. O valor final salvo continua sendo exatamente o que está em `product` no momento do `Salvar`.
+- Não alterar regra de campo obrigatório — o `*` permanece e a validação atual segue valendo.
+- Sem mudanças no `generated_title` por item (esse é outro título, intra-item).
