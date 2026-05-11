@@ -615,6 +615,9 @@ export function PrintingItemEditor({
               );
             })()
           )}
+          <span className="text-sm font-semibold text-primary w-28 text-right">
+            {formatBRL((item.quantity || 0) * (item.unitPrice || 0))}
+          </span>
           {!locked && (
             <TooltipProvider delayDuration={150}>
               <Tooltip>
