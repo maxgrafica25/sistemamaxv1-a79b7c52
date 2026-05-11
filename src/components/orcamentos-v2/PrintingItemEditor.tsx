@@ -108,6 +108,11 @@ export function PrintingItemEditor({
   const [paperOpen, setPaperOpen] = useState(false);
   const [paperQuery, setPaperQuery] = useState("");
 
+  const isApostila = isApostilaKind(item.productKind);
+  const bookletPages = item.bookletPages ?? null;
+  const bookletUnits = item.bookletUnits ?? null;
+  const bookletDuplex = item.bookletDuplex ?? true;
+
   // Título dinâmico — derivado dos atributos estruturados, recomputado em tempo real.
   const dynamicTitle = useMemo(
     () =>
@@ -121,6 +126,8 @@ export function PrintingItemEditor({
         widthMm: item.widthMm,
         heightMm: item.heightMm,
         printColors: item.printColors,
+        bookletPages: item.bookletPages,
+        bookletUnits: item.bookletUnits,
       }),
     [
       item.productKind,
@@ -132,6 +139,8 @@ export function PrintingItemEditor({
       item.widthMm,
       item.heightMm,
       item.printColors,
+      item.bookletPages,
+      item.bookletUnits,
     ],
   );
 
