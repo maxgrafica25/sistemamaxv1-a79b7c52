@@ -819,6 +819,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 description: m.description,
                 quantity: m.quantity,
                 unit_price: m.unitPrice,
+                pieces_count: m.pieces ?? null,
                 sort_order: m.sortOrder,
                 status: "pendente",
                 parent_item_id: null,
