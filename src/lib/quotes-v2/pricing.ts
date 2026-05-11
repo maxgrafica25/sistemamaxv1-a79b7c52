@@ -18,8 +18,9 @@ import type { MarkupTier } from "@/components/orcamentos/PrintingItemSearch";
 export interface PricingMaterial {
   id: string;
   description: string;
-  quantity: number;       // qty per unit of final product (kept proportional on rescale)
+  quantity: number;       // CHARGEABLE quantity (sheets para itens de impressão com dimensões)
   unitPrice: number;      // current unit price stored in quote (used for non-printing fallback)
+  pieces?: number | null; // peças desejadas pelo cliente (apenas exibição/persistência; pricing usa quantity)
   baseCost?: number;      // printing items: paper + printing cost (already accounting for size/side)
   printerCategoryId?: string;
   markupGroupId?: string | null;
