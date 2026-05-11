@@ -367,6 +367,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         timeMinutes: s.time_minutes,
         stepType: s.step_type || "outro",
         parentItemId: s.parent_item_id || null,
+        isOptional: !!s.is_optional,
       })));
       setMaterials((mRes.data || []).map((m: any) => ({
         id: m.id,
@@ -391,6 +392,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         printColors: m.print_colors ?? null,
         catalogSource: (m.catalog_source as "printing" | "finishing" | null) ?? null,
         catalogItemId: m.catalog_item_id ?? null,
+        isOptional: !!m.is_optional,
+        quantityVariations: Array.isArray(m.quantity_variations) ? m.quantity_variations : [],
       })));
       setThirdParty((tpRes.data || []).map((t: any) => ({
         id: t.id, description: t.description, supplier: t.supplier, cost: t.cost,
