@@ -341,45 +341,109 @@ export function PrintingItemEditor({
             </Popover>
           </div>
 
-          {/* Largura (cm) */}
-          <div className="sm:col-span-2 space-y-1.5">
-            <Label className="text-xs">Largura (cm)</Label>
-            <Input
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              value={item.widthMm != null ? item.widthMm / 10 : ""}
-              onChange={(e) => {
-                const raw = e.target.value.replace(",", ".");
-                const cm = raw ? parseFloat(raw) : NaN;
-                handleDimensionChange({
-                  widthMm: Number.isFinite(cm) ? cm * 10 : undefined,
-                });
-              }}
-              placeholder="10"
-              className="h-9 text-sm"
-            />
-          </div>
+          {isApostila ? (
+            <>
+              {/* Formato (apostila) */}
+              <div className="sm:col-span-4 space-y-1.5">
+                <Label className="text-xs">Formato</Label>
+                <Select
+                  value={apostilaPreset}
+                  onValueChange={(v) => handleApostilaPresetChange(v as "a4" | "a5" | "custom")}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="a4">A4 (21 × 29,7 cm)</SelectItem>
+                    <SelectItem value="a5">A5 (14,8 × 21 cm)</SelectItem>
+                    <SelectItem value="custom">Personalizado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {apostilaPreset === "custom" && (
+                <>
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <Label className="text-xs">Largura (cm)</Label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      value={item.widthMm != null ? item.widthMm / 10 : ""}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(",", ".");
+                        const cm = raw ? parseFloat(raw) : NaN;
+                        handleDimensionChange({
+                          widthMm: Number.isFinite(cm) ? cm * 10 : undefined,
+                        });
+                      }}
+                      placeholder="21"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <Label className="text-xs">Altura (cm)</Label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      value={item.heightMm != null ? item.heightMm / 10 : ""}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(",", ".");
+                        const cm = raw ? parseFloat(raw) : NaN;
+                        handleDimensionChange({
+                          heightMm: Number.isFinite(cm) ? cm * 10 : undefined,
+                        });
+                      }}
+                      placeholder="29.7"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Largura (cm) */}
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label className="text-xs">Largura (cm)</Label>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  value={item.widthMm != null ? item.widthMm / 10 : ""}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(",", ".");
+                    const cm = raw ? parseFloat(raw) : NaN;
+                    handleDimensionChange({
+                      widthMm: Number.isFinite(cm) ? cm * 10 : undefined,
+                    });
+                  }}
+                  placeholder="10"
+                  className="h-9 text-sm"
+                />
+              </div>
 
-          {/* Altura (cm) */}
-          <div className="sm:col-span-2 space-y-1.5">
-            <Label className="text-xs">Altura (cm)</Label>
-            <Input
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              value={item.heightMm != null ? item.heightMm / 10 : ""}
-              onChange={(e) => {
-                const raw = e.target.value.replace(",", ".");
-                const cm = raw ? parseFloat(raw) : NaN;
-                handleDimensionChange({
-                  heightMm: Number.isFinite(cm) ? cm * 10 : undefined,
-                });
-              }}
-              placeholder="15"
-              className="h-9 text-sm"
-            />
-          </div>
+              {/* Altura (cm) */}
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label className="text-xs">Altura (cm)</Label>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  value={item.heightMm != null ? item.heightMm / 10 : ""}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(",", ".");
+                    const cm = raw ? parseFloat(raw) : NaN;
+                    handleDimensionChange({
+                      heightMm: Number.isFinite(cm) ? cm * 10 : undefined,
+                    });
+                  }}
+                  placeholder="15"
+                  className="h-9 text-sm"
+                />
+              </div>
+            </>
+          )}
 
           {/* Cor da Impressão */}
           <div className="sm:col-span-2 space-y-1.5">
