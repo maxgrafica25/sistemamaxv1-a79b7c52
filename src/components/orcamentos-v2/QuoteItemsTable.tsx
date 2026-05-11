@@ -231,6 +231,8 @@ export function QuoteItemsTable(props: Props) {
             onPickPaperForPrinting(m.id, it);
             triggerFlash(m.id);
           }}
+          onPickCoverPaper={onPickCoverPaper ? (kind, it) => onPickCoverPaper(m.id, kind, it) : undefined}
+          onClearCoverPaper={onClearCoverPaper ? (kind) => onClearCoverPaper(m.id, kind) : undefined}
         />
       </div>
     );
