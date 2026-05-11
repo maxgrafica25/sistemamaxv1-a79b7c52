@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -167,15 +167,13 @@ export function PrintingItemEditor({
   const expectedQuantity = perSheetForSync > 0
     ? (piecesValue > 0 ? Math.ceil(piecesValue / perSheetForSync) : 0)
     : piecesValue;
-  if (
-    !locked &&
-    item.pieces != null &&
-    expectedQuantity > 0 &&
-    expectedQuantity !== item.quantity
-  ) {
-    // Ajusta na próxima tick para evitar setState durante render.
-    queueMicrotask(() => onItemChange({ quantity: expectedQuantity }));
-  }
+  useEffect(() => {
+    if (locked) return;
+    if (item.pieces == null) return;
+    if (expectedQuantity > 0 && expectedQuantity !== item.quantity) {
+      onItemChange({ quantity: expectedQuantity });
+    }
+  }, [expectedQuantity, item.pieces, item.quantity, locked]);
 
   const filteredKinds = (() => {
     const q = (item.productKind || "").toLowerCase().trim();
