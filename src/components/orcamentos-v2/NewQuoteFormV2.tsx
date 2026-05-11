@@ -839,6 +839,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 print_colors: m.printColors ?? null,
                 catalog_source: m.catalogSource ?? null,
                 catalog_item_id: m.catalogItemId ?? null,
+                is_optional: !!(m as any).isOptional,
+                quantity_variations: (m as any).quantityVariations ?? [],
               })),
             )
             .select("id");
@@ -891,6 +893,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               parent_item_id: tempToReal.get(m.parentItemId!) ?? null,
               catalog_source: m.catalogSource ?? null,
               catalog_item_id: m.catalogItemId ?? null,
+              is_optional: !!(m as any).isOptional,
             })),
           );
         }
@@ -907,6 +910,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               parent_item_id: s.parentItemId
                 ? tempToReal.get(s.parentItemId) ?? null
                 : null,
+              is_optional: !!(s as any).isOptional,
             })),
           );
         }
