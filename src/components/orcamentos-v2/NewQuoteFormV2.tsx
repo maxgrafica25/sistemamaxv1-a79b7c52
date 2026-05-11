@@ -658,7 +658,80 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     setLabor((prev) => prev.filter((l) => l.id !== id));
 
   const updateMaterialPatch = (id: string, patch: Partial<PricingMaterial>) =>
-    setMaterials((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+    setMaterials((prev) => {
+      const next = prev.map((m) => (m.id === id ? { ...m, ...patch } : m));
+      // Sincroniza quantidade dos filhos Capa/Contracapa com bookletUnits do pai
+      if ("bookletUnits" in patch) {
+        const units = (patch as any).bookletUnits ?? 0;
+        return next.map((m) =>
+          m.parentItemId === id && (m.productKind === "Capa" || m.productKind === "Contracapa")
+            ? { ...m, quantity: units }
+            : m,
+        );
+      }
+      return next;
+    });
+
+  const pickCoverPaperFor = (
+    parentId: string,
+    kind: "Capa" | "Contracapa",
+    item: PrintingCatalogItem,
+  ) => {
+    const sizeMult = isLargerThanA4(item.size) ? 2 : 1;
+    const sideMult = item.side === "F/V" ? 2 : 1;
+    const printCost = roundUp5(item.printing_cost * sizeMult * sideMult);
+    const baseCost = item.paper_cost + printCost;
+    const groupId = item.markup_group_id || categoryGroups[item.printer_category_id] || null;
+    const groupTiers = groupId
+      ? markupTiers.filter((t) => t.markup_group_id === groupId)
+      : markupTiers.filter((t) => t.printer_category_id === item.printer_category_id);
+    const parent = materials.find((m) => m.id === parentId);
+    const units = Math.max(1, parent?.bookletUnits ?? 1);
+    const tier =
+      groupTiers.find((t) => units >= t.min_qty && (t.max_qty === null || units <= t.max_qty)) ||
+      groupTiers[0] ||
+      null;
+    const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
+    const description = `${kind} — ${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}`;
+    setMaterials((prev) => {
+      const existing = prev.find(
+        (m) => m.parentItemId === parentId && m.productKind === kind,
+      );
+      const patch: Partial<SubformMaterial> = {
+        description,
+        baseCost,
+        unitPrice: sellingPrice,
+        quantity: units,
+        paperType: item.paper_type ?? null,
+        grammage: item.grammage ?? null,
+        size: item.size ?? null,
+        side: item.side ?? null,
+        printerCategoryId: item.printer_category_id,
+        markupGroupId: item.markup_group_id,
+        catalogSource: "printing" as any,
+        catalogItemId: item.id,
+      };
+      if (existing) {
+        return prev.map((m) => (m.id === existing.id ? { ...m, ...patch } : m));
+      }
+      return [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          parentItemId: parentId,
+          productKind: kind,
+          ...patch,
+        } as any,
+      ];
+    });
+    toast.success(`${kind} vinculada ao item.`);
+  };
+
+  const clearCoverPaperFor = (parentId: string, kind: "Capa" | "Contracapa") => {
+    setMaterials((prev) =>
+      prev.filter((m) => !(m.parentItemId === parentId && m.productKind === kind)),
+    );
+  };
 
   const removeMaterial = (id: string) => {
     // Remover pai cascateia: também remove filhos vinculados (UI e save).
