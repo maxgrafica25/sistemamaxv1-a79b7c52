@@ -215,14 +215,15 @@ export const recalculateForQuantity = (
       const sellingPriceOld = tier ? calcSellingPrice(m.baseCost!, tier) : m.baseCost!;
       printingTotal -= sellingPriceOld * qty;
 
-      // Custo total dos filhos deste pai
+      // Custo total dos filhos deste pai (excluindo opcionais — upsell)
       const childMats = childMaterialsByParent.get(m.id) ?? [];
       const childLab = childLaborByParent.get(m.id) ?? [];
-      const childMatTotal = childMats.reduce((s, cm) => s + cm.quantity * cm.unitPrice, 0);
-      const childLabTotal = childLab.reduce(
-        (s, cl) => s + (cl.timeMinutes / 60) * snap.settings.hourlyRate,
-        0,
-      );
+      const childMatTotal = childMats
+        .filter((cm) => !cm.isOptional)
+        .reduce((s, cm) => s + cm.quantity * cm.unitPrice, 0);
+      const childLabTotal = childLab
+        .filter((cl) => !cl.isOptional)
+        .reduce((s, cl) => s + (cl.timeMinutes / 60) * snap.settings.hourlyRate, 0);
       const childTotalAbs = childMatTotal + childLabTotal;
 
       // Diluição: custo dos filhos por unidade do item pai
