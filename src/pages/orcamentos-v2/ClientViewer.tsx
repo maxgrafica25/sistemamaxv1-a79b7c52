@@ -78,15 +78,7 @@ const formatBRL = (n: number) =>
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 
-const statusBadge = (status: string) => {
-  if (status === "approved")
-    return <Badge className="bg-green-600 hover:bg-green-600">Aprovado</Badge>;
-  if (status === "partial")
-    return <Badge className="bg-blue-600 hover:bg-blue-600">Aprovação parcial</Badge>;
-  if (status === "rejected")
-    return <Badge className="bg-red-600 hover:bg-red-600">Recusado</Badge>;
-  return <Badge className="bg-yellow-500 hover:bg-yellow-500">Aguardando aprovação</Badge>;
-};
+// Status badge agora vem do componente compartilhado QuoteStatusBadge.
 
 export default function ClientViewer() {
   const { id: routeId, quoteNumber: routeQuoteNumber } = useParams<{ id?: string; quoteNumber?: string }>();
