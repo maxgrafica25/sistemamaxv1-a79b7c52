@@ -16,6 +16,7 @@ import {
   Lock,
 } from "lucide-react";
 import { ViewerHeader } from "@/components/orcamentos-v2/client-viewer/ViewerHeader";
+import { QuoteStatusBadge } from "@/components/orcamentos-v2/QuoteStatusBadge";
 import { OptionCard } from "@/components/orcamentos-v2/client-viewer/OptionCard";
 import { StickyApprovalBar } from "@/components/orcamentos-v2/client-viewer/StickyApprovalBar";
 import { WhatsAppShareDialog } from "@/components/orcamentos-v2/client-viewer/WhatsAppShareDialog";
