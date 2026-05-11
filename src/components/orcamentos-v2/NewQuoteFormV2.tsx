@@ -1027,7 +1027,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
         {/* ===== Header Tiny-style: Nº · Cliente · Aos cuidados · Validade ===== */}
         <div className="space-y-4 rounded-lg border bg-card p-4">
-          <div className="grid grid-cols-1 md:grid-cols-[120px_1fr_1fr_110px] gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-[120px_1fr_1fr_110px] gap-3 items-end">
             <div className="space-y-1.5">
               <Label className="text-xs">Nº Proposta</Label>
               <Input value={quoteNumber} disabled className="bg-muted h-9" />
