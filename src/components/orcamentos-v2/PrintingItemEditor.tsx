@@ -613,6 +613,7 @@ export function PrintingItemEditor({
             <CoverPaperPicker
               kind="Capa"
               printingCatalog={printingCatalog}
+              printColors={item.printColors}
               current={childMaterials.find((c) => c.productKind === "Capa") || null}
               onPick={(it) => onPickCoverPaper?.("Capa", it)}
               onClear={() => onClearCoverPaper?.("Capa")}
@@ -620,6 +621,7 @@ export function PrintingItemEditor({
             <CoverPaperPicker
               kind="Contracapa"
               printingCatalog={printingCatalog}
+              printColors={item.printColors}
               current={childMaterials.find((c) => c.productKind === "Contracapa") || null}
               onPick={(it) => onPickCoverPaper?.("Contracapa", it)}
               onClear={() => onClearCoverPaper?.("Contracapa")}
