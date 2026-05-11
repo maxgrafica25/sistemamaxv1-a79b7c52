@@ -93,18 +93,27 @@ export function ClientCombobox({ value, onChange }: Props) {
 
   // Selected chip view
   if (selected && selected.id === value.id) {
+    const meta = [selected.empresa, selected.telefone].filter(Boolean).join(" · ");
     return (
-      <div className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2">
-        <User className="h-4 w-4 text-primary shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium truncate">{selected.nome}</div>
-          <div className="text-xs text-muted-foreground truncate">
-            {[selected.empresa, selected.telefone].filter(Boolean).join(" · ") || "—"}
-          </div>
-        </div>
-        {selected.tipo && <Badge variant="secondary" className="text-xs">{selected.tipo}</Badge>}
-        <Button type="button" variant="ghost" size="sm" onClick={handleClear}>
-          <X className="h-4 w-4" /> Trocar
+      <div
+        className="flex h-9 items-center gap-2 rounded-md border border-input bg-background px-2"
+        title={meta || undefined}
+      >
+        <User className="h-3.5 w-3.5 text-primary shrink-0" />
+        <span className="flex-1 min-w-0 text-sm font-medium truncate">{selected.nome}</span>
+        {selected.tipo && (
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+            {selected.tipo}
+          </Badge>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleClear}
+          className="h-7 px-2 text-xs"
+        >
+          <X className="h-3.5 w-3.5 mr-1" /> Trocar
         </Button>
       </div>
     );
