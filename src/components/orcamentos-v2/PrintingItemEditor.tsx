@@ -71,6 +71,9 @@ interface Props {
   onAddProcess?: (step: ProcessStep) => void;
   onExpandStepGroup?: (group: ProcessGroup) => void;
   onAddCustomFinish?: (name: string, minutes: number) => void;
+  /** Apostila — definir/limpar papel de capa ou contracapa (cria/remove material filho). */
+  onPickCoverPaper?: (kind: "Capa" | "Contracapa", catalogItem: PrintingCatalogItem) => void;
+  onClearCoverPaper?: (kind: "Capa" | "Contracapa") => void;
 }
 
 const formatBRL = (n: number) =>
@@ -94,6 +97,8 @@ export function PrintingItemEditor({
   onAddProcess,
   onExpandStepGroup,
   onAddCustomFinish,
+  onPickCoverPaper,
+  onClearCoverPaper,
 }: Props) {
   const locked = item.status === "aprovado";
   const childCount = childLabor.length + childMaterials.length;
