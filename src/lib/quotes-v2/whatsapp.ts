@@ -104,6 +104,26 @@ export const buildItemAdjustMessage = (params: {
   return `${greeting}${who} Sobre o item "${params.itemDescription}" do Orçamento ${params.quoteNumber}, gostaria de solicitar uma alteração. Podemos falar?`;
 };
 
+/** Mensagem de follow-up disparada pela equipe a partir da lista de orçamentos. */
+export const buildTeamFollowUpMessage = (params: {
+  quoteNumber: string;
+  status: string;
+  clientName?: string;
+  companyName?: string;
+}) => {
+  const firstName = (params.clientName || "").trim().split(/\s+/)[0] || "";
+  const greeting = firstName ? `Olá ${firstName}!` : "Olá!";
+  const who = params.companyName ? ` Aqui é da ${params.companyName}.` : "";
+  switch (params.status) {
+    case "approved":
+      return `${greeting}${who} Tudo certo com a aprovação do Orçamento ${params.quoteNumber} — qualquer dúvida sobre a produção, é só chamar.`;
+    case "rejected":
+      return `${greeting}${who} Vi que o Orçamento ${params.quoteNumber} não seguiu adiante. Posso ajustar algo para fechar com a gente?`;
+    default:
+      return `${greeting}${who} Estou passando para saber se conseguiu analisar a proposta ${params.quoteNumber} que enviamos. Posso ajudar com algo?`;
+  }
+};
+
 // ─── Comunicação Visual ────────────────────────────────
 export interface CVProposalItem {
   description: string;   // Ex: "Lona Brilho 440g (90×120cm) c/ Ilhós ×4"
