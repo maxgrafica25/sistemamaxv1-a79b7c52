@@ -115,6 +115,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [profitMargin, setProfitMargin] = useState("33");
   
   const [notes, setNotes] = useState("");
+  const [quoteOptions, setQuoteOptions] = useState<QuoteOption[]>([]);
   const [attentionTo, setAttentionTo] = useState("");
   const [hiddenExtras, setHiddenExtras] = useState<number>(0);
   const [freightValue, setFreightValue] = useState<number>(0);
