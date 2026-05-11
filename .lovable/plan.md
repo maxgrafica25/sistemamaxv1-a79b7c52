@@ -1,48 +1,61 @@
-## Problema
+## Objetivo
 
-Hoje, quando o cliente aprova itens pelo viewer público, o sistema:
-- Atualiza o status do orçamento (`pending` → `partial` → `approved`).
-- **NÃO dispara nenhuma notificação interna.**
+Tornar o status "Parcial" mais informativo, sem poluir a interface:
 
-Resultado: a primeira aprovação parcial deixa o status como "Parcial". Se 3 dias depois o cliente aprovar mais um item, o status continua "Parcial" e ninguém é avisado — a equipe só descobre se entrar no orçamento.
+1. **Badge mostra progresso em fração** — `Parcial (2/5)` em vez de só `Parcial`.
+2. **Dot de notificação** (bolinha sólida, sem animação) no canto do badge quando houver aprovação parcial nova ainda não vista pela equipe. Some assim que alguém da equipe abrir o orçamento.
 
-A função `notifications` (sininho do header) já existe e já é usada pelo monitor de preços. Falta apenas conectar o fluxo de aprovação a ela.
+Aplica em **dois lugares**:
+- Lista `/orcamentos-v2` (tabela)
+- Header do `ClientViewer` (apenas a fração — sem dot, pois o dot só faz sentido para a equipe interna)
 
-## O que muda
+---
 
-### 1. Notificação a cada nova aprovação (parcial ou total)
+## Como funciona o "novo / não visto"
 
-Estender a função `approve_quote_items` para, ao final, criar uma `notifications` por usuário ativo — **toda vez** que itens forem aprovados, não só na primeira.
+Adicionar coluna `last_partial_seen_at TIMESTAMPTZ` na tabela `quotes`.
 
-Conteúdo da notificação:
-- **Título:** `Novo aceite — Orçamento Nº {numero}` (parcial) ou `Orçamento Nº {numero} aprovado integralmente` (quando passa para `approved`).
-- **Mensagem:** `{Cliente} aprovou {N} item(ns): {títulos resumidos}. Total acumulado aprovado: R$ X.XXX,XX ({M de T itens}).`
-- **Tipo:** `success` quando vira `approved`; `info` quando é parcial subsequente.
-- **source_type:** `quote_approval`; **source_id:** id do orçamento (clicar no sininho leva para `/orcamentos-v2?focus={id}` — ver item 3).
+- Quando o RPC `approve_quote_items` registra novas aprovações, **não toca** nessa coluna (mantém o "novo").
+- Quando um usuário **autenticado** (equipe) abre o orçamento na rota interna `/orcamentos-v2/:id` (EditQuoteV2), atualiza `last_partial_seen_at = now()`.
+- Dot aparece quando: `status IN ('partial','approved')` **E** existe algum `cv_quote_items.approved_at > coalesce(last_partial_seen_at, '-infinity')`.
 
-A função recebe os itens recém-aprovados, então conseguimos listar exatamente o que foi aceito nessa rodada — exatamente o que faltou no caso do 2026-011.
+A fração `aprovados/total` é calculada a partir dos `cv_quote_items` já carregados (`status = 'approved'` vs total de itens raiz).
 
-### 2. Realtime já cobre a UI
+---
 
-A tabela `notifications` já está no `supabase_realtime`. O sininho (`NotificationBell`) já escuta inserts. Nenhuma mudança de frontend é necessária para o aviso aparecer em tempo real para todos os usuários logados.
+## Mudanças técnicas
 
-### 3. (Opcional) Destaque na lista de orçamentos
+### Migration
+- `ALTER TABLE quotes ADD COLUMN last_partial_seen_at TIMESTAMPTZ;`
+- Sem alteração no `approve_quote_items` (já entrega a notificação no inbox).
 
-Em `OrcamentosV2.tsx`, ao clicar na notificação, abrir a página com `?focus={quoteId}` e dar um highlight temporário (ring + scrollIntoView) na linha. Isso ajuda o operador a achar o orçamento entre dezenas. Se preferir simplificar, podemos pular esse item agora.
+### `OrcamentosV2.tsx` (lista)
+- No `loadQuotes`, trazer também o agregado de itens por orçamento: contagem total e aprovados, e `max(approved_at)`. Solução simples: um segundo `select` em `cv_quote_items` filtrado pelos IDs da página, agrupando em memória (já é o padrão do projeto).
+- Substituir `statusBadge(status)` por `statusBadge(status, { approved, total, hasUnseen })`.
+- Renderização do badge `Parcial`:
+  ```
+  [● Parcial (2/5)]
+  ```
+  onde `●` é um `<span>` 8px arredondado vermelho (`bg-destructive`), só renderiza se `hasUnseen`.
+- Mesma melhoria para `Aprovado` quando 100% dos itens estão aprovados → mostra `Aprovado (5/5)` (sem dot se já foi visto).
 
-## Arquivos afetados
+### `ClientViewer.tsx` (visualizador público)
+- Já tem todos os `cv_quote_items` carregados — calcular fração inline e passar para o `Badge`.
+- **Nunca** mostra o dot (visualizador é do cliente).
 
-- **Nova migration:** redefine `public.approve_quote_items(p_quote_id uuid, p_item_ids uuid[])` para também inserir em `public.notifications` ao final, iterando sobre `profiles.user_id`. Usa o `quote_number`, `client` (de `quotes`) e os `description` dos itens efetivamente aprovados nessa chamada (filtrando por `id = ANY(p_item_ids) AND status = 'aprovado'` após o UPDATE). Calcula contagem total aprovada vs total de itens raiz.
-- **Sem mudança no frontend de aprovação** (`ClientViewer.tsx`) — a RPC continua sendo chamada igual.
-- **(Opcional)** `src/components/NotificationBell.tsx` + `src/pages/orcamentos-v2/OrcamentosV2.tsx`: navegação com `?focus=` e highlight de linha.
+### Marcar como visto
+- Em `EditQuoteV2.tsx`, no `useEffect` de carregamento do orçamento, após o fetch principal:
+  ```ts
+  await supabase
+    .from("quotes")
+    .update({ last_partial_seen_at: new Date().toISOString() })
+    .eq("id", quoteId);
+  ```
+- Realtime já existente em `quotes` propaga o sumiço do dot para outras abas abertas.
 
-## Detalhes técnicos
-
-- Mantém `SECURITY DEFINER` e `search_path = public` (a RPC é chamada por usuário **anônimo** via viewer público — por isso o INSERT em `notifications` precisa rodar como definer; o trigger de `handle_tier_price_change` já segue esse padrão).
-- O array de descrições é truncado se passar de ~3 itens (`"Cartão de visita, Folder e mais 2"`) para caber bem no toast/sininho.
-- Não cria notificações se `v_count = 0` (nenhum item foi efetivamente aprovado, ex.: clique duplicado).
+---
 
 ## Fora de escopo
-
-- E-mail/WhatsApp para a equipe (apenas inbox + sininho).
-- Re-notificar quando cliente apenas visualiza/recusa.
+- Tracking de "visto por usuário X" individual (single timestamp serve para a equipe inteira).
+- Animação ou cor diferente no badge — mantém estética minimalista.
+- Mudança no badge `Pendente` / `Recusado`.
