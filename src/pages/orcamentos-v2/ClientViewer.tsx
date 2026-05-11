@@ -16,6 +16,7 @@ import {
   Lock,
 } from "lucide-react";
 import { ViewerHeader } from "@/components/orcamentos-v2/client-viewer/ViewerHeader";
+import { QuoteStatusBadge } from "@/components/orcamentos-v2/QuoteStatusBadge";
 import { OptionCard } from "@/components/orcamentos-v2/client-viewer/OptionCard";
 import { StickyApprovalBar } from "@/components/orcamentos-v2/client-viewer/StickyApprovalBar";
 import { WhatsAppShareDialog } from "@/components/orcamentos-v2/client-viewer/WhatsAppShareDialog";
@@ -78,15 +79,7 @@ const formatBRL = (n: number) =>
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 
-const statusBadge = (status: string) => {
-  if (status === "approved")
-    return <Badge className="bg-green-600 hover:bg-green-600">Aprovado</Badge>;
-  if (status === "partial")
-    return <Badge className="bg-blue-600 hover:bg-blue-600">Aprovação parcial</Badge>;
-  if (status === "rejected")
-    return <Badge className="bg-red-600 hover:bg-red-600">Recusado</Badge>;
-  return <Badge className="bg-yellow-500 hover:bg-yellow-500">Aguardando aprovação</Badge>;
-};
+// Status badge agora vem do componente compartilhado QuoteStatusBadge.
 
 export default function ClientViewer() {
   const { id: routeId, quoteNumber: routeQuoteNumber } = useParams<{ id?: string; quoteNumber?: string }>();
@@ -468,7 +461,18 @@ export default function ClientViewer() {
             ? `${quote.quote_number} · v${quote.version}`
             : quote.quote_number
         }
-        status={statusBadge(quote.status)}
+        status={(() => {
+          const rootMaterials = materials;
+          const total = rootMaterials.length;
+          const approved = rootMaterials.filter((m) => m.status === "approved").length;
+          return (
+            <QuoteStatusBadge
+              status={quote.status}
+              approved={total > 0 ? approved : undefined}
+              total={total > 0 ? total : undefined}
+            />
+          );
+        })()}
       />
 
       <main className="mx-auto max-w-2xl px-4 sm:px-6 py-6 space-y-5">

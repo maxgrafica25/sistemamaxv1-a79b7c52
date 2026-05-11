@@ -1,0 +1,1 @@
+ALTER TABLE public.quotes ADD COLUMN IF NOT EXISTS last_partial_seen_at TIMESTAMPTZ;

@@ -32,6 +32,7 @@ import { buildStatsMap, computeTemperature, type EngagementStats, type Temperatu
 import type { EngagementEventType } from "@/lib/quotes-v2/tracking";
 import { buildTeamFollowUpMessage, buildWaUrl } from "@/lib/quotes-v2/whatsapp";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { QuoteStatusBadge } from "@/components/orcamentos-v2/QuoteStatusBadge";
 
 interface QuoteRow {
   id: string;
@@ -50,14 +51,31 @@ interface QuoteRow {
   version: number | null;
   is_locked: boolean | null;
   parent_quote_id: string | null;
+  last_partial_seen_at: string | null;
 }
 
-const statusBadge = (status: string) => {
-  if (status === "approved") return <Badge className="bg-green-500 hover:bg-green-600">Aprovado</Badge>;
-  if (status === "partial") return <Badge className="bg-blue-500 hover:bg-blue-600">Parcial</Badge>;
-  if (status === "rejected") return <Badge className="bg-red-500 hover:bg-red-600">Recusado</Badge>;
-  if (status === "pending") return <Badge className="bg-yellow-500 hover:bg-yellow-600">Pendente</Badge>;
-  return <Badge variant="outline">{status}</Badge>;
+interface ItemAgg {
+  approved: number;
+  total: number;
+  lastApprovedAt: string | null;
+}
+
+const statusBadge = (
+  status: string,
+  agg?: ItemAgg,
+  lastSeenAt?: string | null,
+) => {
+  const hasUnseen =
+    !!agg?.lastApprovedAt &&
+    (!lastSeenAt || new Date(agg.lastApprovedAt) > new Date(lastSeenAt));
+  return (
+    <QuoteStatusBadge
+      status={status}
+      approved={agg?.approved}
+      total={agg?.total}
+      hasUnseen={hasUnseen && (status === "partial" || status === "approved")}
+    />
+  );
 };
 
 const formatBRL = (n: number) =>
@@ -70,6 +88,7 @@ export default function OrcamentosV2() {
   const { companyName } = useCompanySettings();
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
   const [statsMap, setStatsMap] = useState<Map<string, EngagementStats>>(new Map());
+  const [aggMap, setAggMap] = useState<Map<string, ItemAgg>>(new Map());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
@@ -96,18 +115,39 @@ export default function OrcamentosV2() {
     setStatsMap(map);
   }, []);
 
+  const refreshAggregates = useCallback(async () => {
+    const { data } = await supabase
+      .from("quote_materials")
+      .select("quote_id, status, approved_at")
+      .is("parent_item_id", null);
+    const map = new Map<string, ItemAgg>();
+    for (const row of data ?? []) {
+      const cur = map.get(row.quote_id) ?? { approved: 0, total: 0, lastApprovedAt: null };
+      cur.total++;
+      if (row.status === "approved") {
+        cur.approved++;
+        if (row.approved_at && (!cur.lastApprovedAt || row.approved_at > cur.lastApprovedAt)) {
+          cur.lastApprovedAt = row.approved_at;
+        }
+      }
+      map.set(row.quote_id, cur);
+    }
+    setAggMap(map);
+  }, []);
+
   const fetchQuotes = useCallback(async () => {
     setLoading(true);
     const [quotesRes] = await Promise.all([
       supabase
         .from("quotes")
-        .select("id, quote_number, client, client_phone, product, value, status, date, created_at, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id")
+        .select("id, quote_number, client, client_phone, product, value, status, date, created_at, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id, last_partial_seen_at")
         .order("created_at", { ascending: false }),
       refreshStats(),
+      refreshAggregates(),
     ]);
     setQuotes((quotesRes.data as QuoteRow[]) || []);
     setLoading(false);
-  }, [refreshStats]);
+  }, [refreshStats, refreshAggregates]);
 
   useEffect(() => {
     fetchQuotes();
@@ -162,13 +202,18 @@ export default function OrcamentosV2() {
         { event: "INSERT", schema: "public", table: "quote_engagement_events" },
         () => scheduleStats(),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "quote_materials" },
+        () => refreshAggregates(),
+      )
       .subscribe();
 
     return () => {
       if (statsTimer) clearTimeout(statsTimer);
       supabase.removeChannel(channel);
     };
-  }, [fetchQuotes, refreshStats]);
+  }, [fetchQuotes, refreshStats, refreshAggregates]);
 
   const handleApprove = async (id: string) => {
     await supabase.from("quotes").update({ status: "approved" }).eq("id", id);
@@ -490,7 +535,7 @@ export default function OrcamentosV2() {
                         )}
                       </td>
                       <td className="py-4 text-sm font-medium">{formatBRL(q.value)}</td>
-                      <td className="py-4">{statusBadge(q.status)}</td>
+                      <td className="py-4">{statusBadge(q.status, aggMap.get(q.id), q.last_partial_seen_at)}</td>
                       <td className="py-4 text-sm" onClick={(e) => e.stopPropagation()}>
                         <EngagementPopover
                           quoteId={q.id}

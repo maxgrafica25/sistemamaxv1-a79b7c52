@@ -2407,6 +2407,7 @@ export type Database = {
           id: string
           is_locked: boolean
           is_template: boolean
+          last_partial_seen_at: string | null
           last_viewed_at: string | null
           main_quantity: number | null
           notes: string | null
@@ -2440,6 +2441,7 @@ export type Database = {
           id?: string
           is_locked?: boolean
           is_template?: boolean
+          last_partial_seen_at?: string | null
           last_viewed_at?: string | null
           main_quantity?: number | null
           notes?: string | null
@@ -2473,6 +2475,7 @@ export type Database = {
           id?: string
           is_locked?: boolean
           is_template?: boolean
+          last_partial_seen_at?: string | null
           last_viewed_at?: string | null
           main_quantity?: number | null
           notes?: string | null
