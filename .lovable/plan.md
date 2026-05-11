@@ -1,48 +1,45 @@
-# Filtrar papéis pela Cor da Impressão
+# Bug: "4x4" da Cor da Impressão é só placeholder
 
-## Por que aparece "Sulfite 75g — A4 F" mesmo com 4x4 selecionado
+## Diagnóstico
 
-O dropdown "Papel" lista o catálogo inteiro sem cruzar com a `printColors` escolhida no topo. Como o catálogo tem o mesmo papel cadastrado em duas variantes (F = só frente / F/V = frente e verso, com custos diferentes), as duas aparecem na busca. Hoje só o texto digitado filtra a lista — o `side` é ignorado.
+A imagem mostra `Cor da Impressão: 4x4` mas na verdade `item.printColors` está **vazio**. O texto "4x4" exibido é apenas o `placeholder` do `SelectValue` (linha 466 de `PrintingItemEditor.tsx`):
 
-Isso é perigoso: se o vendedor escolheu `4x4` (F/V) e clica numa linha "Sulfite 75g — A4 F", o item fica com custo de impressão simples mas vai imprimir frente e verso → preço errado.
+```tsx
+<SelectValue placeholder="4x4" />
+```
 
-## Solução
+Como nada foi efetivamente selecionado, `sideFromPrintColors(undefined)` retorna `undefined` → o filtro de papel cai no caminho "sem restrição" → as entradas `F` continuam aparecendo junto com a `F/V`.
 
-Filtrar `printingCatalog` pelo `side` derivado de `item.printColors` (mesma regra já usada para `bookletDuplex`):
+Resumo: o filtro funciona quando o usuário **clica** no select e escolhe 4x4. Quando ele só vê o placeholder e não interage, o estado real é nulo.
 
-| printColors | mostra papéis com side |
-|-------------|-----------------------|
-| `4x4`, `1x1` | apenas `F/V` |
-| `4x0`, `1x0` | apenas `F` (Simples) |
-| vazio | mostra todos (comportamento atual) |
+## Correção
 
-Mesma regra aplicada no `CoverPaperPicker` (Capa/Contracapa de apostila), que sofre do mesmo problema.
+Definir `printColors` com **default real** = `"4x4"` (e `side = "F/V"`) ao criar um novo item de impressão, tornando o placeholder igual ao valor armazenado. Isso:
+
+- Faz o filtro de papel funcionar de imediato.
+- Sincroniza `bookletDuplex` corretamente (já derivado de `printColors`).
+- Não muda comportamento para usuários que sempre escolhiam 4x4 manualmente.
+
+Para etiquetas (`isLabel`), o default deve ser `"4x0"` (já que adesivo não tem verso, regra existente na UI).
 
 ## Mudanças
 
-Arquivo único: `src/components/orcamentos-v2/PrintingItemEditor.tsx`
+Arquivo único: `src/components/orcamentos-v2/NewQuoteFormV2.tsx` (onde novos itens de impressão são criados).
 
-1. **Helper já existe** (`sideFromPrintColors` em `@/lib/quotes-v2/item-title`). Importar se ainda não estiver.
-
-2. **No bloco do dropdown de Papel** (linhas 536–554), depois do filtro `isLabel`, adicionar:
+1. Localizar a função/handler que cria novo item de impressão (procurar por `addPrintingItem`, `newItem`, ou onde `printColors` é definido na criação).
+2. Garantir que o objeto inicial tenha:
    ```ts
-   const wantedSide = sideFromPrintColors(item.printColors); // "F/V" | "Simples" | undefined
-   const matchesSide = (p) => {
-     if (!wantedSide) return true;
-     const s = (p.side || "").toUpperCase();
-     if (wantedSide === "F/V") return s === "F/V" || s === "FV";
-     return s === "F" || s === "FRENTE" || s === "SIMPLES";
-   };
-   const base2 = base.filter(matchesSide);
+   printColors: isLabel ? "4x0" : "4x4",
+   side: isLabel ? "Simples" : "F/V",
    ```
-   Usar `base2` em vez de `base` no `.filter(q)` seguinte.
+3. **Itens legados sem `printColors`**: no `PrintingItemEditor.tsx`, ao montar o filtro de papel, tratar empty como `"4x4"` (ou o que o placeholder sugerir) só para o cálculo de `wantedSide`. Assim itens antigos também ficam consistentes com o que o usuário visualmente vê.
 
-3. **Estado vazio**: se após o filtro de `side` a lista ficar vazia, mostrar mensagem específica:
-   > "Nenhum papel cadastrado para impressão {printColors}. Verifique a Cor da Impressão ou cadastre essa variante."
-
-4. **`CoverPaperPicker`**: aplicar o mesmo filtro lendo `printColors` do item pai (passar como prop nova `printColors` para o componente, ou derivar do `item.printColors` no editor antes de passar a lista filtrada).
+   Alternativa mais segura (escolhida): no `useEffect` inicial do editor, se `item.printColors` estiver vazio e o item não for label, dispara `onItemChange({ printColors: "4x4", side: "F/V" })` uma vez. Isso normaliza o estado.
 
 ## Out of scope
-- Mudar a estrutura do catálogo no banco.
-- Auto-corrigir itens já salvos com side incoerente.
-- Filtrar por outros critérios (gramatura, formato).
+- Mudar o componente Select para mostrar o default selecionado de outra forma.
+- Migração no banco de itens já salvos com `printColors` nulo.
+
+## Arquivos editados
+- `src/components/orcamentos-v2/PrintingItemEditor.tsx` — normalização inicial de `printColors`.
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` — default na criação de novo item (se necessário, dependendo do que já é setado lá).
