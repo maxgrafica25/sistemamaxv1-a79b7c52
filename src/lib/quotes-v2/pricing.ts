@@ -169,11 +169,10 @@ export const recalculateForQuantity = (
     }
   }
 
-  // ---- Avulsos (somas absolutas no divisor geral) ----
-  const laborTotal = standaloneLabor.reduce(
-    (s, step) => s + (step.timeMinutes / 60) * snap.settings.hourlyRate,
-    0,
-  );
+  // ---- Avulsos (somas absolutas no divisor geral) — opcionais excluídos ----
+  const laborTotal = standaloneLabor
+    .filter((step) => !step.isOptional)
+    .reduce((s, step) => s + (step.timeMinutes / 60) * snap.settings.hourlyRate, 0);
   const thirdPartyTotal = snap.thirdParty.reduce((s, t) => s + t.cost, 0);
 
   let printingTotal = 0;
@@ -187,7 +186,7 @@ export const recalculateForQuantity = (
       const tier = findTier(snap, m.printerCategoryId!, qty, m.markupGroupId);
       const sellingPrice = tier ? calcSellingPrice(m.baseCost!, tier) : m.baseCost!;
       printingTotal += sellingPrice * qty;
-    } else {
+    } else if (!m.isOptional) {
       nonPrintingMaterialsTotal += m.quantity * m.unitPrice;
     }
   }
