@@ -544,7 +544,15 @@ export function PrintingItemEditor({
                             return isAdh && (sz === "A3" || sz === "A4");
                           })
                         : printingCatalog;
-                      const filtered = base
+                      const wantedSide = sideFromPrintColors(item.printColors);
+                      const matchesSide = (p: PrintingCatalogItem) => {
+                        if (!wantedSide) return true;
+                        const s = (p.side || "").toUpperCase();
+                        if (wantedSide === "F/V") return s === "F/V" || s === "FV";
+                        return s === "F" || s === "FRENTE" || s === "SIMPLES";
+                      };
+                      const baseBySide = base.filter(matchesSide);
+                      const filtered = baseBySide
                         .filter((p) =>
                           !q ||
                           `${p.paper_type} ${p.grammage ?? ""} ${p.size} ${p.side} ${p.equipment_name ?? ""} ${p.category_name}`
@@ -553,6 +561,13 @@ export function PrintingItemEditor({
                         )
                         .slice(0, 50);
                       if (filtered.length === 0) {
+                        if (wantedSide && baseBySide.length === 0) {
+                          return (
+                            <CommandEmpty>
+                              Nenhum papel cadastrado para impressão {item.printColors}. Verifique a Cor da Impressão ou cadastre essa variante.
+                            </CommandEmpty>
+                          );
+                        }
                         return <CommandEmpty>Nenhum papel encontrado.</CommandEmpty>;
                       }
                       return (
@@ -598,6 +613,7 @@ export function PrintingItemEditor({
             <CoverPaperPicker
               kind="Capa"
               printingCatalog={printingCatalog}
+              printColors={item.printColors}
               current={childMaterials.find((c) => c.productKind === "Capa") || null}
               onPick={(it) => onPickCoverPaper?.("Capa", it)}
               onClear={() => onClearCoverPaper?.("Capa")}
@@ -605,6 +621,7 @@ export function PrintingItemEditor({
             <CoverPaperPicker
               kind="Contracapa"
               printingCatalog={printingCatalog}
+              printColors={item.printColors}
               current={childMaterials.find((c) => c.productKind === "Contracapa") || null}
               onPick={(it) => onPickCoverPaper?.("Contracapa", it)}
               onClear={() => onClearCoverPaper?.("Contracapa")}
@@ -936,13 +953,14 @@ function QuantityVariationsRow({
 interface CoverPaperPickerProps {
   kind: "Capa" | "Contracapa";
   printingCatalog: PrintingCatalogItem[];
+  printColors?: string | null;
   current: PricingMaterial | null;
   onPick: (item: PrintingCatalogItem) => void;
   onClear: () => void;
 }
 
 function CoverPaperPicker({
-  kind, printingCatalog, current, onPick, onClear,
+  kind, printingCatalog, printColors, current, onPick, onClear,
 }: CoverPaperPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -986,7 +1004,15 @@ function CoverPaperPicker({
             <CommandList>
               {(() => {
                 const q = query.toLowerCase().trim();
-                const filtered = printingCatalog
+                const wantedSide = sideFromPrintColors(printColors);
+                const matchesSide = (p: PrintingCatalogItem) => {
+                  if (!wantedSide) return true;
+                  const s = (p.side || "").toUpperCase();
+                  if (wantedSide === "F/V") return s === "F/V" || s === "FV";
+                  return s === "F" || s === "FRENTE" || s === "SIMPLES";
+                };
+                const baseBySide = printingCatalog.filter(matchesSide);
+                const filtered = baseBySide
                   .filter((p) =>
                     !q ||
                     `${p.paper_type} ${p.grammage ?? ""} ${p.size} ${p.side} ${p.equipment_name ?? ""} ${p.category_name}`
@@ -995,6 +1021,13 @@ function CoverPaperPicker({
                   )
                   .slice(0, 50);
                 if (filtered.length === 0) {
+                  if (wantedSide && baseBySide.length === 0) {
+                    return (
+                      <CommandEmpty>
+                        Nenhum papel cadastrado para impressão {printColors}. Verifique a Cor da Impressão ou cadastre essa variante.
+                      </CommandEmpty>
+                    );
+                  }
                   return <CommandEmpty>Nenhum papel encontrado.</CommandEmpty>;
                 }
                 return (

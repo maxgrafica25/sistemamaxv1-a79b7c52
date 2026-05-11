@@ -1,53 +1,48 @@
-# Derivar bookletDuplex da Cor da Impressão
+# Filtrar papéis pela Cor da Impressão
 
-## Problema
-Hoje o usuário define F/V em três lugares (Cor da Impressão `4x4`/`1x1`, nome do papel e toggle do bloco apostila). O toggle é redundante e propenso a erro: se ele escolhe `4x4` e esquece o toggle, o cálculo de impressões fica errado.
+## Por que aparece "Sulfite 75g — A4 F" mesmo com 4x4 selecionado
+
+O dropdown "Papel" lista o catálogo inteiro sem cruzar com a `printColors` escolhida no topo. Como o catálogo tem o mesmo papel cadastrado em duas variantes (F = só frente / F/V = frente e verso, com custos diferentes), as duas aparecem na busca. Hoje só o texto digitado filtra a lista — o `side` é ignorado.
+
+Isso é perigoso: se o vendedor escolheu `4x4` (F/V) e clica numa linha "Sulfite 75g — A4 F", o item fica com custo de impressão simples mas vai imprimir frente e verso → preço errado.
 
 ## Solução
-Eliminar o toggle. `bookletDuplex` passa a ser **derivado em tempo real** da `printColors`:
 
-| printColors | bookletDuplex |
-|-------------|---------------|
-| `4x4`, `1x1` | `true` (F/V) |
-| `4x0`, `1x0` | `false` (Frente) |
-| vazio/desconhecido | fallback `true` (mantém comportamento atual) |
+Filtrar `printingCatalog` pelo `side` derivado de `item.printColors` (mesma regra já usada para `bookletDuplex`):
 
-A fonte da verdade é `item.printColors` (campo já existente no topo do editor). O toggle é apagado.
+| printColors | mostra papéis com side |
+|-------------|-----------------------|
+| `4x4`, `1x1` | apenas `F/V` |
+| `4x0`, `1x0` | apenas `F` (Simples) |
+| vazio | mostra todos (comportamento atual) |
 
-## Mudanças em `PrintingItemEditor.tsx`
+Mesma regra aplicada no `CoverPaperPicker` (Capa/Contracapa de apostila), que sofre do mesmo problema.
 
-1. **Helper local** logo após o cálculo de `isApostila`:
+## Mudanças
+
+Arquivo único: `src/components/orcamentos-v2/PrintingItemEditor.tsx`
+
+1. **Helper já existe** (`sideFromPrintColors` em `@/lib/quotes-v2/item-title`). Importar se ainda não estiver.
+
+2. **No bloco do dropdown de Papel** (linhas 536–554), depois do filtro `isLabel`, adicionar:
    ```ts
-   const duplexFromPrintColors = (pc?: string | null) => {
-     if (pc === "4x4" || pc === "1x1") return true;
-     if (pc === "4x0" || pc === "1x0") return false;
-     return null;
+   const wantedSide = sideFromPrintColors(item.printColors); // "F/V" | "Simples" | undefined
+   const matchesSide = (p) => {
+     if (!wantedSide) return true;
+     const s = (p.side || "").toUpperCase();
+     if (wantedSide === "F/V") return s === "F/V" || s === "FV";
+     return s === "F" || s === "FRENTE" || s === "SIMPLES";
    };
-   const bookletDuplex =
-     duplexFromPrintColors(item.printColors) ?? item.bookletDuplex ?? true;
+   const base2 = base.filter(matchesSide);
    ```
-   Substitui a linha 114 atual (`const bookletDuplex = item.bookletDuplex ?? true;`).
+   Usar `base2` em vez de `base` no `.filter(q)` seguinte.
 
-2. **Remover o bloco do toggle** (linhas ~662–694): apaga a `<Label>Impressão</Label>` e os botões "Frente / Frente e Verso".
+3. **Estado vazio**: se após o filtro de `side` a lista ficar vazia, mostrar mensagem específica:
+   > "Nenhum papel cadastrado para impressão {printColors}. Verifique a Cor da Impressão ou cadastre essa variante."
 
-3. **Resumo continua igual** (linhas ~695–710) — já lê `bookletDuplex`, que agora vem derivado de `printColors`. Sem mudança de texto.
-
-4. **Sincronização ao trocar Cor da Impressão**: ajustar `handlePrintColorsChange` (linha 173) para, quando o item for apostila, recalcular `pieces`/`quantity` (a contagem de folhas físicas não muda, mas mantém `bookletDuplex` persistido coerente para casos legados):
-   ```ts
-   const handlePrintColorsChange = (pc: string) => {
-     const side = sideFromPrintColors(pc) ?? item.side ?? null;
-     const patch: Partial<Item> = { printColors: pc, side };
-     const dup = duplexFromPrintColors(pc);
-     if (isApostila && dup !== null) patch.bookletDuplex = dup;
-     onItemChange(patch);
-   };
-   ```
-
-5. **Handlers de folhas/apostilas** (linhas 627–657) permanecem iguais — já não dependem de `bookletDuplex` para o cálculo de `pieces` (folhas físicas).
+4. **`CoverPaperPicker`**: aplicar o mesmo filtro lendo `printColors` do item pai (passar como prop nova `printColors` para o componente, ou derivar do `item.printColors` no editor antes de passar a lista filtrada).
 
 ## Out of scope
-- `pricing.ts`, `sheet-yield.ts`, schema, persistência de `booklet_duplex` (campo continua no banco como espelho).
-- Outros editores/uso de `bookletDuplex` fora do `PrintingItemEditor.tsx`.
-
-## Arquivo único editado
-- `src/components/orcamentos-v2/PrintingItemEditor.tsx`
+- Mudar a estrutura do catálogo no banco.
+- Auto-corrigir itens já salvos com side incoerente.
+- Filtrar por outros critérios (gramatura, formato).
