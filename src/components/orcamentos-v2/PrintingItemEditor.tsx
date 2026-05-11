@@ -668,39 +668,6 @@ export function PrintingItemEditor({
               />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Impressão</Label>
-            <div className="inline-flex rounded-md border border-border overflow-hidden">
-              {[
-                { key: false, label: "Frente" },
-                { key: true, label: "Frente e Verso" },
-              ].map((opt) => {
-                const active = bookletDuplex === opt.key;
-                return (
-                  <button
-                    key={String(opt.key)}
-                    type="button"
-                    disabled={locked}
-                    onClick={() => {
-                      if (bookletDuplex === opt.key) return;
-                      onItemChange({
-                        bookletDuplex: opt.key,
-                        side: opt.key ? "F/V" : "Simples",
-                      });
-                    }}
-                    className={cn(
-                      "px-3 h-8 text-xs font-medium transition-colors",
-                      active
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background text-muted-foreground hover:bg-muted",
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
           {(bookletPages ?? 0) > 0 && (bookletUnits ?? 0) > 0 && (
             <div className="text-[11px] text-muted-foreground bg-muted/40 rounded-md px-2.5 py-1.5">
               Resumo:{" "}
