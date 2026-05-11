@@ -32,6 +32,7 @@ import { buildStatsMap, computeTemperature, type EngagementStats, type Temperatu
 import type { EngagementEventType } from "@/lib/quotes-v2/tracking";
 import { buildTeamFollowUpMessage, buildWaUrl } from "@/lib/quotes-v2/whatsapp";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { QuoteStatusBadge } from "@/components/orcamentos-v2/QuoteStatusBadge";
 
 interface QuoteRow {
   id: string;
@@ -50,14 +51,31 @@ interface QuoteRow {
   version: number | null;
   is_locked: boolean | null;
   parent_quote_id: string | null;
+  last_partial_seen_at: string | null;
 }
 
-const statusBadge = (status: string) => {
-  if (status === "approved") return <Badge className="bg-green-500 hover:bg-green-600">Aprovado</Badge>;
-  if (status === "partial") return <Badge className="bg-blue-500 hover:bg-blue-600">Parcial</Badge>;
-  if (status === "rejected") return <Badge className="bg-red-500 hover:bg-red-600">Recusado</Badge>;
-  if (status === "pending") return <Badge className="bg-yellow-500 hover:bg-yellow-600">Pendente</Badge>;
-  return <Badge variant="outline">{status}</Badge>;
+interface ItemAgg {
+  approved: number;
+  total: number;
+  lastApprovedAt: string | null;
+}
+
+const statusBadge = (
+  status: string,
+  agg?: ItemAgg,
+  lastSeenAt?: string | null,
+) => {
+  const hasUnseen =
+    !!agg?.lastApprovedAt &&
+    (!lastSeenAt || new Date(agg.lastApprovedAt) > new Date(lastSeenAt));
+  return (
+    <QuoteStatusBadge
+      status={status}
+      approved={agg?.approved}
+      total={agg?.total}
+      hasUnseen={hasUnseen && (status === "partial" || status === "approved")}
+    />
+  );
 };
 
 const formatBRL = (n: number) =>
