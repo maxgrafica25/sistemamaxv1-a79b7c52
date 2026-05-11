@@ -30,6 +30,8 @@ import { Lock } from "lucide-react";
 import { parseOptions } from "@/lib/quotes-v2/options";
 import { buildStatsMap, computeTemperature, type EngagementStats, type Temperature } from "@/lib/quotes-v2/temperature";
 import type { EngagementEventType } from "@/lib/quotes-v2/tracking";
+import { buildTeamFollowUpMessage, buildWaUrl } from "@/lib/quotes-v2/whatsapp";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 
 interface QuoteRow {
   id: string;
