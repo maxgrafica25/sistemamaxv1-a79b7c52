@@ -486,10 +486,19 @@ export default function OrcamentosV2() {
                 {filtered.map((q) => {
                   const opts = parseOptions(q.options);
                   const qStats = statsMap.get(q.id);
+                  const agg = aggMap.get(q.id);
+                  const hasUnseen =
+                    (q.status === "partial" || q.status === "approved") &&
+                    !!agg?.lastApprovedAt &&
+                    (!q.last_partial_seen_at ||
+                      new Date(agg.lastApprovedAt) > new Date(q.last_partial_seen_at));
                   return (
                     <tr
                       key={q.id}
-                      className="border-b border-border last:border-0 transition-colors hover:bg-muted/50 cursor-pointer"
+                      aria-label={hasUnseen ? "Orçamento com nova aprovação não vista" : undefined}
+                      className={`border-b border-border last:border-0 transition-colors hover:bg-muted/50 cursor-pointer ${
+                        hasUnseen ? "bg-primary/5 border-l-2 border-l-primary" : ""
+                      }`}
                       onClick={() => navigate(`/orcamentos-v2/${q.id}`)}
                     >
                       <td className="py-4 pl-4 w-10" onClick={(e) => e.stopPropagation()}>
