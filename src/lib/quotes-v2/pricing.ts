@@ -44,11 +44,17 @@ export interface PricingMaterial {
   // Catálogo (nomenclatura travada)
   catalogSource?: "printing" | "finishing" | null;
   catalogItemId?: string | null;
+  /** Acabamento opcional (upsell) — não compõe o preço base do item pai. */
+  isOptional?: boolean;
+  /** Variações de tiragem para ancoragem de preço (ex: 100/500/1000). */
+  quantityVariations?: Array<{ pieces: number; unit_price: number }>;
 }
 
 export interface PricingLaborStep {
   timeMinutes: number;
   parentItemId?: string | null; // se preenchido, é filho de um item de impressão
+  /** Mão-de-obra opcional (upsell) — não compõe o preço base do item pai. */
+  isOptional?: boolean;
 }
 
 export interface PricingThirdParty {
