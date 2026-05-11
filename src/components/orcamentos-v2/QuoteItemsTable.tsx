@@ -67,6 +67,8 @@ interface Props {
   onChangeStandaloneLabor: (next: SubformLabor[]) => void;
   onChangeStandaloneMaterials: (next: SubformMaterial[]) => void;
   onChangeThirdParty: (next: ThirdParty[]) => void;
+  onPickCoverPaper?: (parentId: string, kind: "Capa" | "Contracapa", item: PrintingCatalogItem) => void;
+  onClearCoverPaper?: (parentId: string, kind: "Capa" | "Contracapa") => void;
 }
 
 const fmt = (n: number) =>
@@ -86,6 +88,7 @@ export function QuoteItemsTable(props: Props) {
     onSetChildLaborForItem, onSetChildMaterialsForItem,
     onRemovePrinting, onRemoveChildMaterial, onRemoveLabor, onDuplicateItem,
     onChangeStandaloneLabor, onChangeStandaloneMaterials, onChangeThirdParty,
+    onPickCoverPaper, onClearCoverPaper,
   } = props;
 
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
@@ -228,6 +231,8 @@ export function QuoteItemsTable(props: Props) {
             onPickPaperForPrinting(m.id, it);
             triggerFlash(m.id);
           }}
+          onPickCoverPaper={onPickCoverPaper ? (kind, it) => onPickCoverPaper(m.id, kind, it) : undefined}
+          onClearCoverPaper={onClearCoverPaper ? (kind) => onClearCoverPaper(m.id, kind) : undefined}
         />
       </div>
     );
