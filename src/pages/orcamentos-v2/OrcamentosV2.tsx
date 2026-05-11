@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Search, ClipboardList, Loader2, FileDown, CheckCircle2, XCircle,
-  Bookmark, Link2, BookmarkCheck, ChevronDown, FileText,
+  Bookmark, Link2, BookmarkCheck, ChevronDown, FileText, MessageCircle,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
