@@ -76,22 +76,14 @@ export default function OrcamentosV2() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchQuotes = useCallback(async () => {
-    setLoading(true);
-    const [quotesRes, eventsRes] = await Promise.all([
-      supabase
-        .from("quotes")
-        .select("id, quote_number, client, client_phone, product, value, status, date, created_at, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("quote_engagement_events")
-        .select("quote_id, event_type, metadata, created_at")
-        .order("created_at", { ascending: false })
-        .limit(2000),
-    ]);
-    setQuotes((quotesRes.data as QuoteRow[]) || []);
+  const refreshStats = useCallback(async () => {
+    const { data } = await supabase
+      .from("quote_engagement_events")
+      .select("quote_id, event_type, metadata, created_at")
+      .order("created_at", { ascending: false })
+      .limit(2000);
     const map = buildStatsMap(
-      (eventsRes.data ?? []).map((r) => ({
+      (data ?? []).map((r) => ({
         quote_id: r.quote_id,
         event_type: r.event_type as EngagementEventType,
         metadata: (r.metadata as Record<string, unknown>) ?? {},
@@ -99,28 +91,81 @@ export default function OrcamentosV2() {
       })),
     );
     setStatsMap(map);
-    setLoading(false);
   }, []);
+
+  const fetchQuotes = useCallback(async () => {
+    setLoading(true);
+    const [quotesRes] = await Promise.all([
+      supabase
+        .from("quotes")
+        .select("id, quote_number, client, client_phone, product, value, status, date, created_at, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id")
+        .order("created_at", { ascending: false }),
+      refreshStats(),
+    ]);
+    setQuotes((quotesRes.data as QuoteRow[]) || []);
+    setLoading(false);
+  }, [refreshStats]);
 
   useEffect(() => {
     fetchQuotes();
   }, [fetchQuotes]);
 
-  // Realtime: refresh the list whenever a quote is inserted/updated/deleted,
-  // so a newly saved quote appears without requiring an F5.
+  // Realtime: keep list and engagement in sync without F5.
+  // - quotes INSERT/DELETE => full refetch (new row appears / disappears)
+  // - quotes UPDATE => patch row in place (cheap, keeps last_viewed_at live)
+  // - quote_engagement_events INSERT => debounced stats refresh
   useEffect(() => {
+    let statsTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleStats = () => {
+      if (statsTimer) clearTimeout(statsTimer);
+      statsTimer = setTimeout(() => {
+        refreshStats();
+      }, 1500);
+    };
+
     const channel = supabase
       .channel("quotes-list-realtime")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "quotes" },
+        { event: "INSERT", schema: "public", table: "quotes" },
         () => fetchQuotes(),
       )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "quotes" },
+        () => fetchQuotes(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "quotes" },
+        (payload) => {
+          const row = payload.new as Partial<QuoteRow> & { id?: string };
+          if (!row?.id) return;
+          setQuotes((prev) => {
+            const idx = prev.findIndex((q) => q.id === row.id);
+            if (idx === -1) {
+              // Row not in current list (e.g. just changed to match filters) — full refetch
+              fetchQuotes();
+              return prev;
+            }
+            const next = [...prev];
+            next[idx] = { ...next[idx], ...(row as QuoteRow) };
+            return next;
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "quote_engagement_events" },
+        () => scheduleStats(),
+      )
       .subscribe();
+
     return () => {
+      if (statsTimer) clearTimeout(statsTimer);
       supabase.removeChannel(channel);
     };
-  }, [fetchQuotes]);
+  }, [fetchQuotes, refreshStats]);
 
   const handleApprove = async (id: string) => {
     await supabase.from("quotes").update({ status: "approved" }).eq("id", id);
