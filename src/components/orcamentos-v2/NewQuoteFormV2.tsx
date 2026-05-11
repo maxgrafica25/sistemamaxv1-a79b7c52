@@ -883,6 +883,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               width_mm: m.widthMm ?? null,
               height_mm: m.heightMm ?? null,
               print_colors: m.printColors ?? null,
+              booklet_pages: (m as any).bookletPages ?? null,
+              booklet_units: (m as any).bookletUnits ?? null,
+              booklet_duplex: (m as any).bookletDuplex ?? null,
             })
             .eq("id", m.id);
         }
