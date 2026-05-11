@@ -509,41 +509,112 @@ export function PrintingItemEditor({
             <Layers className="h-4 w-4 text-primary/60 shrink-0" />
           )}
           <div className="flex-1 min-w-0 text-xs text-muted-foreground flex items-center gap-2">
-            <span>Peças desejadas</span>
+            <span>{isApostila ? "Páginas × apostilas" : "Peças desejadas"}</span>
             {locked && (
               <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">
                 Aprovado
               </Badge>
             )}
           </div>
-          {(() => {
-            const displayValue = piecesInput ?? (piecesValue || "");
-            return (
+          {isApostila ? (
+            <div className="flex items-center gap-1.5">
               <Input
-                type="text"
+                type="number"
                 inputMode="numeric"
-                pattern="[0-9]*"
-                value={displayValue}
+                min="1"
+                step="1"
+                value={bookletPages ?? ""}
                 disabled={locked}
-                placeholder="100"
+                placeholder="págs"
                 onChange={(e) => {
-                  const raw = e.target.value.replace(/\D/g, "");
-                  // Mantém EXATAMENTE o que o usuário digitou no campo (peças desejadas).
-                  onPiecesInputChange?.(raw);
-                  const pieces = raw ? Number(raw) : 0;
-                  // Se já temos perSheet, calcula folhas; senão, qty = pieces.
+                  const pgs = parseInt(e.target.value) || 0;
+                  const folhasPorAp = Math.ceil(pgs / (bookletDuplex ? 2 : 1));
+                  const pieces = Math.max(0, folhasPorAp * (bookletUnits ?? 0));
                   const folhas = perSheetForSync > 0
                     ? (pieces > 0 ? Math.ceil(pieces / perSheetForSync) : 0)
                     : pieces;
-                  onItemChange({ pieces, quantity: folhas });
+                  onPiecesInputChange?.(String(pieces));
+                  onItemChange({ bookletPages: pgs, pieces, quantity: folhas });
                 }}
-                className="w-28 h-8 text-sm text-center disabled:opacity-70"
+                className="w-16 h-8 text-sm text-center"
+                title="Nº de páginas por apostila"
               />
-            );
-          })()}
-          <span className="text-sm font-semibold text-primary w-28 text-right">
-            {formatBRL((item.quantity || 0) * (item.unitPrice || 0))}
-          </span>
+              <span className="text-muted-foreground text-xs">×</span>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                step="1"
+                value={bookletUnits ?? ""}
+                disabled={locked}
+                placeholder="apost."
+                onChange={(e) => {
+                  const uns = parseInt(e.target.value) || 0;
+                  const folhasPorAp = Math.ceil((bookletPages ?? 0) / (bookletDuplex ? 2 : 1));
+                  const pieces = Math.max(0, folhasPorAp * uns);
+                  const folhas = perSheetForSync > 0
+                    ? (pieces > 0 ? Math.ceil(pieces / perSheetForSync) : 0)
+                    : pieces;
+                  onPiecesInputChange?.(String(pieces));
+                  onItemChange({ bookletUnits: uns, pieces, quantity: folhas });
+                }}
+                className="w-16 h-8 text-sm text-center"
+                title="Nº de apostilas"
+              />
+              <button
+                type="button"
+                disabled={locked}
+                onClick={() => {
+                  const next = !bookletDuplex;
+                  const folhasPorAp = Math.ceil((bookletPages ?? 0) / (next ? 2 : 1));
+                  const pieces = Math.max(0, folhasPorAp * (bookletUnits ?? 0));
+                  const folhas = perSheetForSync > 0
+                    ? (pieces > 0 ? Math.ceil(pieces / perSheetForSync) : 0)
+                    : pieces;
+                  onPiecesInputChange?.(String(pieces));
+                  onItemChange({
+                    bookletDuplex: next,
+                    pieces,
+                    quantity: folhas,
+                    side: next ? "F/V" : "Simples",
+                  });
+                }}
+                className={cn(
+                  "h-8 px-2 rounded-md border text-[10px] font-medium uppercase tracking-wide",
+                  bookletDuplex
+                    ? "bg-primary/10 border-primary/40 text-primary"
+                    : "bg-muted border-border text-muted-foreground",
+                )}
+                title="Frente e verso (clique para alternar)"
+              >
+                {bookletDuplex ? "F/V" : "Simples"}
+              </button>
+            </div>
+          ) : (
+            (() => {
+              const displayValue = piecesInput ?? (piecesValue || "");
+              return (
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={displayValue}
+                  disabled={locked}
+                  placeholder="100"
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, "");
+                    onPiecesInputChange?.(raw);
+                    const pieces = raw ? Number(raw) : 0;
+                    const folhas = perSheetForSync > 0
+                      ? (pieces > 0 ? Math.ceil(pieces / perSheetForSync) : 0)
+                      : pieces;
+                    onItemChange({ pieces, quantity: folhas });
+                  }}
+                  className="w-28 h-8 text-sm text-center disabled:opacity-70"
+                />
+              );
+            })()
+          )}
           {!locked && (
             <TooltipProvider delayDuration={150}>
               <Tooltip>
