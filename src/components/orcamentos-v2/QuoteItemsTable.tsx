@@ -29,6 +29,7 @@ export type { ProcessStep, ProcessGroup, ProcessGroupItem };
 
 interface DraftRow {
   id: string;
+  kind: "printing" | "finish";
 }
 
 interface Props {
@@ -108,8 +109,8 @@ export function QuoteItemsTable(props: Props) {
     flashTimerRef.current = setTimeout(() => setFlashId(null), 700);
   };
 
-  const addEmptyDraft = () =>
-    setDrafts((p) => [...p, { id: `draft-${Date.now()}` }]);
+  const addEmptyDraft = (kind: "printing" | "finish" = "finish") =>
+    setDrafts((p) => [...p, { id: `draft-${Date.now()}`, kind }]);
   const removeDraft = (id: string) =>
     setDrafts((p) => p.filter((d) => d.id !== id));
 
@@ -391,7 +392,7 @@ export function QuoteItemsTable(props: Props) {
         </button>
         <span className="text-muted-foreground">·</span>
         <button
-          onClick={addEmptyDraft}
+          onClick={() => addEmptyDraft("finish")}
           className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
         >
           <Plus className="h-3.5 w-3.5" /> processo / acabamento avulso
@@ -516,31 +517,38 @@ function DraftRowEditor({
       <div className="flex items-start gap-2">
         <span className="text-xs text-muted-foreground tabular-nums w-6 pt-2 shrink-0">{rowNumber}</span>
         <div className="flex-1 min-w-0">
-          <InlineCatalogCombobox
-            placeholder="Busque a impressão pelo nome (papel, gramatura, formato)…"
-            sections={[{
-              heading: "Impressões",
-              options: printingCatalog.map((p) => ({
-                id: p.id,
-                label: `${p.paper_type}${p.grammage ? ` ${p.grammage}` : ""} — ${p.size} ${p.side}`,
-                hint: p.equipment_name || p.category_name,
-                onPick: () => onPickPrinting(p),
-              })),
-            }]}
-          />
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Defina primeiro a impressão. Acabamentos podem ser adicionados depois →
-          </p>
+          {row.kind === "printing" ? (
+            <>
+              <InlineCatalogCombobox
+                placeholder="Busque a impressão pelo nome (papel, gramatura, formato)…"
+                sections={[{
+                  heading: "Impressões",
+                  options: printingCatalog.map((p) => ({
+                    id: p.id,
+                    label: `${p.paper_type}${p.grammage ? ` ${p.grammage}` : ""} — ${p.size} ${p.side}`,
+                    hint: p.equipment_name || p.category_name,
+                    onPick: () => onPickPrinting(p),
+                  })),
+                }]}
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Defina primeiro a impressão. Acabamentos podem ser adicionados depois →
+              </p>
+            </>
+          ) : (
+            <ProcessPicker
+              steps={processSteps}
+              groups={processGroups}
+              hourlyRate={hourlyRate}
+              onPickStep={onPickProcessStep}
+              onPickGroup={onPickProcessGroup}
+              onPickCustom={onPickCustomFinish}
+              label="acabamento"
+              autoOpen
+              triggerVariant="inline"
+            />
+          )}
         </div>
-        <ProcessPicker
-          steps={processSteps}
-          groups={processGroups}
-          hourlyRate={hourlyRate}
-          onPickStep={onPickProcessStep}
-          onPickGroup={onPickProcessGroup}
-          onPickCustom={onPickCustomFinish}
-          label="acabamento"
-        />
         <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onCancel}>
           <X className="h-3.5 w-3.5" />
         </Button>
