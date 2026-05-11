@@ -24,14 +24,16 @@ interface Props {
   variant?: "dashed" | "outline";
   /** Called right after the popover is opened (before user picks anything). Useful to expand a parent accordion. */
   onOpen?: () => void;
+  /** Open the popover by default on mount (e.g. when row is added specifically to pick a finish). */
+  defaultOpen?: boolean;
 }
 
 export function ProcessPicker({
   steps, groups, hourlyRate, onPickStep, onPickGroup, onPickCustom,
-  label = "processo", variant = "dashed", onOpen,
+  label = "processo", variant = "dashed", onOpen, defaultOpen = false,
 }: Props) {
   const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [customMode, setCustomMode] = useState(false);
   const reset = () => { setCustomMode(false); setQ(""); };
   const fSteps = useMemo(() => {
