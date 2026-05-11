@@ -367,37 +367,49 @@ export function PrintingItemEditor({
             />
           </div>
 
-          {/* Papel — combobox do catálogo */}
+          {/* Papel — autocomplete (input + lista filtrada) */}
           <div className="sm:col-span-12 space-y-1.5">
             <Label className="text-xs">Papel</Label>
-            <Popover open={paperOpen} onOpenChange={(o) => { setPaperOpen(o); if (!o) setPaperQuery(""); }}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    "h-9 w-full rounded-md border bg-background px-3 text-sm text-left flex items-center justify-between gap-2",
-                    "hover:border-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    !item.paperType && "text-muted-foreground",
+            <Popover open={paperOpen} onOpenChange={setPaperOpen}>
+              <PopoverAnchor asChild>
+                <div className="relative">
+                  <Input
+                    value={
+                      paperOpen
+                        ? paperQuery
+                        : item.paperType
+                          ? `${item.paperType}${item.grammage ? ` ${item.grammage}` : ""}${item.size ? ` — ${item.size}` : ""}${item.side ? ` ${item.side}` : ""}`
+                          : ""
+                    }
+                    placeholder="Buscar papel, gramatura, formato…"
+                    onFocus={() => { setPaperOpen(true); setPaperQuery(""); }}
+                    onChange={(e) => { setPaperQuery(e.target.value); setPaperOpen(true); }}
+                    onBlur={() => setTimeout(() => setPaperOpen(false), 150)}
+                    className="h-9 text-sm pr-8"
+                  />
+                  {item.paperType && !paperOpen && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onItemChange({
+                          paperType: null, grammage: null, size: null, side: null,
+                          baseCost: 0, printerCategoryId: null, markupGroupId: null,
+                          catalogItemId: null,
+                        } as any);
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   )}
-                >
-                  <span className="truncate">
-                    {item.paperType
-                      ? `${item.paperType}${item.grammage ? ` ${item.grammage}` : ""}${item.size ? ` — ${item.size}` : ""}${item.side ? ` ${item.side}` : ""}`
-                      : "Selecione o papel do catálogo…"}
-                  </span>
-                  <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
-                </button>
-              </PopoverTrigger>
+                </div>
+              </PopoverAnchor>
               <PopoverContent
                 className="p-0 w-[var(--radix-popover-trigger-width)]"
                 align="start"
+                onOpenAutoFocus={(e) => e.preventDefault()}
               >
                 <Command shouldFilter={false}>
-                  <CommandInput
-                    placeholder="Buscar papel, gramatura, formato…"
-                    value={paperQuery}
-                    onValueChange={setPaperQuery}
-                  />
                   <CommandList>
                     {(() => {
                       const q = paperQuery.toLowerCase().trim();
