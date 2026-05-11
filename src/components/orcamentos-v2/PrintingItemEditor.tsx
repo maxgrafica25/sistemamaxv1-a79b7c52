@@ -183,6 +183,39 @@ export function PrintingItemEditor({
     [item.widthMm, item.heightMm, piecesValue],
   );
   const hasDimensions = !!(item.widthMm && item.heightMm);
+
+  // Modo Apostila: preset de formato (A4 / A5 / Personalizado).
+  const APOSTILA_PRESETS = { a4: { w: 210, h: 297 }, a5: { w: 148, h: 210 } } as const;
+  const detectApostilaPreset = (): "a4" | "a5" | "custom" => {
+    const w = item.widthMm, h = item.heightMm;
+    if (!w || !h) return "a4";
+    const eq = (a: number, b: number) => Math.abs(a - b) < 0.5;
+    if ((eq(w, 210) && eq(h, 297)) || (eq(w, 297) && eq(h, 210))) return "a4";
+    if ((eq(w, 148) && eq(h, 210)) || (eq(w, 210) && eq(h, 148))) return "a5";
+    return "custom";
+  };
+  const [apostilaPreset, setApostilaPreset] = useState<"a4" | "a5" | "custom">(detectApostilaPreset);
+  // Resync preset quando o item muda externamente (ex.: reabrir orçamento).
+  useEffect(() => {
+    if (!isApostila) return;
+    setApostilaPreset(detectApostilaPreset());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isApostila, item.widthMm, item.heightMm]);
+  // Quando vira apostila sem dimensões, semeia A4.
+  useEffect(() => {
+    if (locked) return;
+    if (!isApostila) return;
+    if (!item.widthMm || !item.heightMm) {
+      handleDimensionChange({ widthMm: APOSTILA_PRESETS.a4.w, heightMm: APOSTILA_PRESETS.a4.h });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isApostila]);
+  const handleApostilaPresetChange = (val: "a4" | "a5" | "custom") => {
+    setApostilaPreset(val);
+    if (val === "custom") return;
+    const p = APOSTILA_PRESETS[val];
+    handleDimensionChange({ widthMm: p.w, heightMm: p.h });
+  };
   const exceedsSheet = hasDimensions && (!yieldInfo || yieldInfo.perSheet <= 0);
 
   // Mantém quantity (folhas cobradas) sincronizado com pieces e perSheet.
