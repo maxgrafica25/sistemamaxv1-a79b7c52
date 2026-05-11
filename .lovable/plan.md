@@ -1,34 +1,64 @@
-## UX: Formato preset no Modo Apostila
+# Refinamento do bloco de Apostila
 
-Reduzir poluição visual no `PrintingItemEditor` quando `productKind` for "Apostila(s)" usando revelação progressiva dos campos de dimensão.
+## Mudança semântica
 
-### Comportamento
+O input passa a representar **folhas físicas por apostila** (não "páginas"). F/V apenas dobra as **impressões**, não muda o número de folhas. O termo "página" é removido por completo desta interface para evitar confusão com a contagem de páginas do PDF do cliente.
 
-Quando `isApostilaKind(productKind)` for verdadeiro:
+### Exemplo (50 folhas × 10 apostilas, F/V)
+- Folhas físicas totais: 50 × 10 = **500 folhas**
+- Impressões totais: 500 × 2 (F/V) = **1.000 impressões**
+- Folhas SRA3 cobradas (A4 = 2 un/folha SRA3): `ceil(500 / 2) = 250 folhas SRA3`
 
-1. **Ocultar** os inputs `Largura (cm)` e `Altura (cm)`.
-2. Exibir, no mesmo slot, um `<Select>` rotulado **"Formato"** com 3 opções:
-   - `A4` → 210 × 297 mm (default)
-   - `A5` → 148 × 210 mm
-   - `Personalizado` → revela os inputs manuais de Largura/Altura
-3. Ao trocar a opção (exceto `Personalizado`), gravar imediatamente `widthMm` e `heightMm` do preset no item via `onItemChange`. Isso alimenta `calcSheetYield` normalmente — sem mudanças no engine.
-4. Quando `Personalizado` for selecionado, mostrar os inputs de Largura/Altura abaixo do select, editáveis livremente (mesmo comportamento atual em cm, convertendo para mm internamente).
+## Item 1 — Corrigir cálculo (`PrintingItemEditor.tsx`)
 
-### Detecção do formato atual ao abrir
+Substituir a fórmula nos 3 handlers (folhas, apostilas, toggle F/V):
 
-Ao montar/atualizar o editor, derivar o valor inicial do select a partir de `widthMm/heightMm`:
-- 210×297 ou 297×210 → `A4`
-- 148×210 ou 210×148 → `A5`
-- Qualquer outro (ou ausente) → `Personalizado`
+**Antes:**
+```ts
+const folhasPorAp = Math.ceil(pgs / (bookletDuplex ? 2 : 1));
+const pieces = folhasPorAp * units;
+```
 
-Isso garante que orçamentos salvos com A5 reabram já no preset correto, sem mostrar os inputs.
+**Depois:**
+```ts
+// 'sheets' = folhas físicas por apostila (input direto do usuário)
+const pieces = sheets * units;
+const impressoes = pieces * (bookletDuplex ? 2 : 1); // só para exibição
+```
 
-### Fora do escopo
+`pieces` continua alimentando `calcSheetYield`. O campo persistido `bookletPages` mantém o nome no schema (sem migração), mas a interpretação no front muda para "folhas por apostila".
 
-- Tipos de produto não-apostila (mantêm os campos de dimensão visíveis como hoje).
-- `calcSheetYield`, `pricing.ts`, schema do banco — nenhuma mudança.
-- Catálogo de papéis continua sem filtro (A4/A3/SRA3 todos disponíveis).
+## Item 2 — Layout do bloco (`PrintingItemEditor.tsx`)
 
-### Arquivo afetado
+Bloco dedicado próprio, abaixo de "Capa & Contracapa" e acima da linha de cadeado/peças. Sem o termo "página" em nenhum rótulo.
 
-- `src/components/orcamentos-v2/PrintingItemEditor.tsx` — único arquivo editado. Adiciona estado local `formatoPreset` ('a4' | 'a5' | 'custom'), bloco condicional substituindo os dois inputs de dimensão quando `isApostilaKind`, e handler que sincroniza `widthMm/heightMm` ao trocar preset.
+```text
+┌─ Configuração da Apostila ─────────────────────────────┐
+│  Folhas por apostila      Quantidade de apostilas      │
+│  [    50    ]              [    10   ]                 │
+│                                                        │
+│  Impressão:  ( Frente )  [● Frente e Verso ]           │
+│                                                        │
+│  Resumo: 50 folhas × 10 apostilas · F/V                │
+│         → 500 folhas físicas · 1.000 impressões        │
+└────────────────────────────────────────────────────────┘
+```
+
+Detalhes:
+- 2 inputs com `<Label>` completos acima ("Folhas por apostila" / "Quantidade de apostilas").
+- Toggle F/V em par de botões segmentados destacados ("Frente" / "Frente e Verso") com label "Impressão".
+- Linha de resumo em texto pequeno mostrando folhas físicas e impressões totais em tempo real.
+
+Na linha "Peças desejadas / Aprovado":
+- Em modo apostila, **remover** os 3 inputs inline.
+- Manter apenas: ícone de status + label "Folhas a imprimir" + valor calculado (read-only) + preço total + ações (régua/remover).
+
+## Item 3 — Linha derivada "Usa N folhas"
+Mantida como está (alimentada por `pieces` → `calcSheetYield`). Bate com a nova semântica.
+
+## Out of scope
+- `pricing.ts`, schema, `calcSheetYield`, capa/contracapa.
+- Persistência: campo `booklet_pages` mantém o nome no banco; só muda o significado/UI.
+
+## Arquivo único editado
+- `src/components/orcamentos-v2/PrintingItemEditor.tsx`

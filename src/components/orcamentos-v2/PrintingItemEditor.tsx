@@ -607,6 +607,110 @@ export function PrintingItemEditor({
         </div>
       )}
 
+      {/* Apostila — bloco dedicado de configuração (folhas × apostilas + impressão) */}
+      {isApostila && (
+        <div className="px-3 pb-3 border-t border-border/60 pt-3 space-y-3">
+          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+            Configuração da Apostila
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Folhas por apostila</Label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                step="1"
+                value={bookletPages ?? ""}
+                disabled={locked}
+                placeholder="Ex.: 50"
+                onChange={(e) => {
+                  const sheets = parseInt(e.target.value) || 0;
+                  const pieces = Math.max(0, sheets * (bookletUnits ?? 0));
+                  const folhas = perSheetForSync > 0
+                    ? (pieces > 0 ? Math.ceil(pieces / perSheetForSync) : 0)
+                    : pieces;
+                  onPiecesInputChange?.(String(pieces));
+                  onItemChange({ bookletPages: sheets, pieces, quantity: folhas });
+                }}
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Quantidade de apostilas</Label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                step="1"
+                value={bookletUnits ?? ""}
+                disabled={locked}
+                placeholder="Ex.: 10"
+                onChange={(e) => {
+                  const uns = parseInt(e.target.value) || 0;
+                  const pieces = Math.max(0, (bookletPages ?? 0) * uns);
+                  const folhas = perSheetForSync > 0
+                    ? (pieces > 0 ? Math.ceil(pieces / perSheetForSync) : 0)
+                    : pieces;
+                  onPiecesInputChange?.(String(pieces));
+                  onItemChange({ bookletUnits: uns, pieces, quantity: folhas });
+                }}
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Impressão</Label>
+            <div className="inline-flex rounded-md border border-border overflow-hidden">
+              {[
+                { key: false, label: "Frente" },
+                { key: true, label: "Frente e Verso" },
+              ].map((opt) => {
+                const active = bookletDuplex === opt.key;
+                return (
+                  <button
+                    key={String(opt.key)}
+                    type="button"
+                    disabled={locked}
+                    onClick={() => {
+                      if (bookletDuplex === opt.key) return;
+                      onItemChange({
+                        bookletDuplex: opt.key,
+                        side: opt.key ? "F/V" : "Simples",
+                      });
+                    }}
+                    className={cn(
+                      "px-3 h-8 text-xs font-medium transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:bg-muted",
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {(bookletPages ?? 0) > 0 && (bookletUnits ?? 0) > 0 && (
+            <div className="text-[11px] text-muted-foreground bg-muted/40 rounded-md px-2.5 py-1.5">
+              Resumo:{" "}
+              <span className="text-foreground font-medium">
+                {bookletPages} folhas × {bookletUnits} apostilas
+              </span>{" "}
+              · {bookletDuplex ? "F/V" : "Frente"} →{" "}
+              <span className="text-foreground font-medium">
+                {(bookletPages ?? 0) * (bookletUnits ?? 0)} folhas físicas
+              </span>{" "}
+              ·{" "}
+              <span className="text-foreground font-medium">
+                {(bookletPages ?? 0) * (bookletUnits ?? 0) * (bookletDuplex ? 2 : 1)} impressões
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Quantidade — entrada única em peças; folhas é derivado */}
       <div className="px-3 pb-3 border-t border-border/60 pt-3 space-y-2">
         {exceedsSheet && (
@@ -634,7 +738,7 @@ export function PrintingItemEditor({
             <Layers className="h-4 w-4 text-primary/60 shrink-0" />
           )}
           <div className="flex-1 min-w-0 text-xs text-muted-foreground flex items-center gap-2">
-            <span>{isApostila ? "Páginas × apostilas" : "Peças desejadas"}</span>
+            <span>{isApostila ? "Folhas a imprimir" : "Peças desejadas"}</span>
             {locked && (
               <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-500/30 text-[10px]">
                 Aprovado
@@ -642,78 +746,8 @@ export function PrintingItemEditor({
             )}
           </div>
           {isApostila ? (
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="number"
-                inputMode="numeric"
-                min="1"
-                step="1"
-                value={bookletPages ?? ""}
-                disabled={locked}
-                placeholder="págs"
-                onChange={(e) => {
-                  const pgs = parseInt(e.target.value) || 0;
-                  const folhasPorAp = Math.ceil(pgs / (bookletDuplex ? 2 : 1));
-                  const pieces = Math.max(0, folhasPorAp * (bookletUnits ?? 0));
-                  const folhas = perSheetForSync > 0
-                    ? (pieces > 0 ? Math.ceil(pieces / perSheetForSync) : 0)
-                    : pieces;
-                  onPiecesInputChange?.(String(pieces));
-                  onItemChange({ bookletPages: pgs, pieces, quantity: folhas });
-                }}
-                className="w-16 h-8 text-sm text-center"
-                title="Nº de páginas por apostila"
-              />
-              <span className="text-muted-foreground text-xs">×</span>
-              <Input
-                type="number"
-                inputMode="numeric"
-                min="1"
-                step="1"
-                value={bookletUnits ?? ""}
-                disabled={locked}
-                placeholder="apost."
-                onChange={(e) => {
-                  const uns = parseInt(e.target.value) || 0;
-                  const folhasPorAp = Math.ceil((bookletPages ?? 0) / (bookletDuplex ? 2 : 1));
-                  const pieces = Math.max(0, folhasPorAp * uns);
-                  const folhas = perSheetForSync > 0
-                    ? (pieces > 0 ? Math.ceil(pieces / perSheetForSync) : 0)
-                    : pieces;
-                  onPiecesInputChange?.(String(pieces));
-                  onItemChange({ bookletUnits: uns, pieces, quantity: folhas });
-                }}
-                className="w-16 h-8 text-sm text-center"
-                title="Nº de apostilas"
-              />
-              <button
-                type="button"
-                disabled={locked}
-                onClick={() => {
-                  const next = !bookletDuplex;
-                  const folhasPorAp = Math.ceil((bookletPages ?? 0) / (next ? 2 : 1));
-                  const pieces = Math.max(0, folhasPorAp * (bookletUnits ?? 0));
-                  const folhas = perSheetForSync > 0
-                    ? (pieces > 0 ? Math.ceil(pieces / perSheetForSync) : 0)
-                    : pieces;
-                  onPiecesInputChange?.(String(pieces));
-                  onItemChange({
-                    bookletDuplex: next,
-                    pieces,
-                    quantity: folhas,
-                    side: next ? "F/V" : "Simples",
-                  });
-                }}
-                className={cn(
-                  "h-8 px-2 rounded-md border text-[10px] font-medium uppercase tracking-wide",
-                  bookletDuplex
-                    ? "bg-primary/10 border-primary/40 text-primary"
-                    : "bg-muted border-border text-muted-foreground",
-                )}
-                title="Frente e verso (clique para alternar)"
-              >
-                {bookletDuplex ? "F/V" : "Simples"}
-              </button>
+            <div className="w-28 h-8 flex items-center justify-center text-sm font-medium tabular-nums rounded-md border border-border/60 bg-muted/40 text-foreground">
+              {(item.pieces ?? 0).toLocaleString("pt-BR")}
             </div>
           ) : (
             (() => {
