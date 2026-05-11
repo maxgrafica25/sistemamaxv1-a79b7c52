@@ -825,3 +825,100 @@ function QuantityVariationsRow({
     </div>
   );
 }
+
+interface CoverPaperPickerProps {
+  kind: "Capa" | "Contracapa";
+  printingCatalog: PrintingCatalogItem[];
+  current: PricingMaterial | null;
+  onPick: (item: PrintingCatalogItem) => void;
+  onClear: () => void;
+}
+
+function CoverPaperPicker({
+  kind, printingCatalog, current, onPick, onClear,
+}: CoverPaperPickerProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const label =
+    current?.paperType
+      ? `${current.paperType}${current.grammage ? ` ${current.grammage}` : ""}${current.size ? ` — ${current.size}` : ""}${current.side ? ` ${current.side}` : ""}`
+      : "";
+
+  return (
+    <div className="space-y-1">
+      <Label className="text-[11px] text-muted-foreground">{kind}</Label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverAnchor asChild>
+          <div className="relative">
+            <Input
+              value={open ? query : label}
+              placeholder={`Selecionar papel para ${kind.toLowerCase()}…`}
+              onFocus={() => { setOpen(true); setQuery(""); }}
+              onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+              onBlur={() => setTimeout(() => setOpen(false), 150)}
+              className="h-9 text-sm pr-8"
+            />
+            {current && !open && (
+              <button
+                type="button"
+                onClick={onClear}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-destructive"
+                title={`Remover ${kind}`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </PopoverAnchor>
+        <PopoverContent
+          className="p-0 w-[var(--radix-popover-trigger-width)]"
+          align="start"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <Command shouldFilter={false}>
+            <CommandList>
+              {(() => {
+                const q = query.toLowerCase().trim();
+                const filtered = printingCatalog
+                  .filter((p) =>
+                    !q ||
+                    `${p.paper_type} ${p.grammage ?? ""} ${p.size} ${p.side} ${p.equipment_name ?? ""} ${p.category_name}`
+                      .toLowerCase()
+                      .includes(q),
+                  )
+                  .slice(0, 50);
+                if (filtered.length === 0) {
+                  return <CommandEmpty>Nenhum papel encontrado.</CommandEmpty>;
+                }
+                return (
+                  <CommandGroup heading={`Papel para ${kind}`}>
+                    {filtered.map((p) => (
+                      <CommandItem
+                        key={p.id}
+                        value={p.id}
+                        onSelect={() => {
+                          onPick(p);
+                          setOpen(false);
+                          setQuery("");
+                        }}
+                      >
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span className="truncate">
+                            {p.paper_type}{p.grammage ? ` ${p.grammage}` : ""} — {p.size} {p.side}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            {p.equipment_name || p.category_name}
+                          </span>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                );
+              })()}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
