@@ -32,6 +32,11 @@ export default function EditQuoteV2() {
           value: Number(data.value ?? 0),
         });
       }
+      // Marca aprovações parciais como vistas pela equipe
+      await supabase
+        .from("quotes")
+        .update({ last_partial_seen_at: new Date().toISOString() })
+        .eq("id", id);
     })();
   }, [id]);
 
