@@ -66,7 +66,14 @@ export interface DynamicTitleParts {
   heightMm?: number | null;
   printColors?: string | null;
   finishes?: string[]; // mantido por compatibilidade — ignorado na descrição padronizada
+  bookletPages?: number | null;
+  bookletUnits?: number | null;
 }
+
+export const isApostilaKind = (kind?: string | null): boolean => {
+  const k = (kind || "").trim().toLowerCase();
+  return k.startsWith("apostila");
+};
 
 const cleanPart = (s?: string | null): string | undefined => {
   if (s == null) return undefined;
@@ -120,6 +127,16 @@ export function buildDynamicTitle(parts: DynamicTitleParts): string {
   if (paper) tailParts.push(paper);
   const tail = tailParts.join(", ");
 
-  if (head && tail) return `${head}. ${tail}`;
-  return head || tail;
+  let result = head && tail ? `${head}. ${tail}` : head || tail;
+
+  // Sufixo específico de apostila: "· N págs × M un"
+  if (isApostilaKind(parts.productKind)) {
+    const pgs = parts.bookletPages && parts.bookletPages > 0 ? parts.bookletPages : null;
+    const uns = parts.bookletUnits && parts.bookletUnits > 0 ? parts.bookletUnits : null;
+    if (pgs && uns) {
+      result = result ? `${result} · ${pgs} págs × ${uns} un` : `${pgs} págs × ${uns} un`;
+    }
+  }
+
+  return result;
 }
