@@ -543,9 +543,9 @@ function DraftRowEditor({
               onPickStep={onPickProcessStep}
               onPickGroup={onPickProcessGroup}
               onPickCustom={onPickCustomFinish}
-              label="acabamento"
-              autoOpen
-              triggerVariant="inline"
+              label="adicionar acabamento avulso"
+              variant="outline"
+              defaultOpen
             />
           )}
         </div>
