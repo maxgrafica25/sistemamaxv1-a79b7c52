@@ -226,20 +226,15 @@ export function PrintingItemEditor({
         locked ? "border-green-500/40 bg-green-500/5" : "bg-card"
       }`}
     >
-      {/* Banner do título dinâmico (read-only) */}
+      {/* Banner do título dinâmico (read-only, minimalista) */}
       <div className="p-3">
-        <div className="text-lg font-bold text-primary bg-primary/5 p-3 rounded-lg border border-primary/10 break-words">
+        <div className="text-base font-semibold text-foreground bg-muted/30 px-3 py-2 rounded-md border border-border/40 break-words">
           {dynamicTitle || (
-            <span className="text-muted-foreground font-normal text-sm">
-              Preencha tipo de material, dimensões, cor e papel para gerar a descrição.
+            <span className="text-muted-foreground font-normal text-xs">
+              Título gerado automaticamente
             </span>
           )}
         </div>
-        {item.description && (
-          <p className="mt-1.5 text-xs text-muted-foreground truncate">
-            <span className="font-medium">Catálogo:</span> {item.description}
-          </p>
-        )}
       </div>
 
       {/* Bloco: Tipo (autocomplete) + Largura + Altura + Cor + Referência */}
