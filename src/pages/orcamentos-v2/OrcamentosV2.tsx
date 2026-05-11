@@ -486,10 +486,19 @@ export default function OrcamentosV2() {
                 {filtered.map((q) => {
                   const opts = parseOptions(q.options);
                   const qStats = statsMap.get(q.id);
+                  const agg = aggMap.get(q.id);
+                  const hasUnseen =
+                    (q.status === "partial" || q.status === "approved") &&
+                    !!agg?.lastApprovedAt &&
+                    (!q.last_partial_seen_at ||
+                      new Date(agg.lastApprovedAt) > new Date(q.last_partial_seen_at));
                   return (
                     <tr
                       key={q.id}
-                      className="border-b border-border last:border-0 transition-colors hover:bg-muted/50 cursor-pointer"
+                      aria-label={hasUnseen ? "Orçamento com nova aprovação não vista" : undefined}
+                      className={`border-b border-border last:border-0 transition-colors hover:bg-muted/50 cursor-pointer ${
+                        hasUnseen ? "bg-primary/5 border-l-2 border-l-primary" : ""
+                      }`}
                       onClick={() => navigate(`/orcamentos-v2/${q.id}`)}
                     >
                       <td className="py-4 pl-4 w-10" onClick={(e) => e.stopPropagation()}>
@@ -500,7 +509,7 @@ export default function OrcamentosV2() {
                           aria-label={`Selecionar ${q.quote_number}`}
                         />
                       </td>
-                      <td className="py-4 text-sm font-medium text-primary">
+                      <td className={`py-4 text-sm text-primary ${hasUnseen ? "font-bold" : "font-medium"}`}>
                         <div className="flex items-center gap-2 flex-wrap">
                           {q.quote_number}
                           {(q.version ?? 1) > 1 && (
@@ -525,7 +534,7 @@ export default function OrcamentosV2() {
                       <td className="py-4 text-sm text-muted-foreground whitespace-nowrap">
                         {q.created_at ? new Date(q.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
                       </td>
-                      <td className="py-4 text-sm">{q.client}</td>
+                      <td className={`py-4 text-sm ${hasUnseen ? "font-semibold" : ""}`}>{q.client}</td>
                       <td className="py-4 text-sm">
                         {q.product}
                         {opts.length >= 2 && (
