@@ -41,6 +41,8 @@ import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { TagInput } from "@/components/ui/TagInput";
 import { FreightSelector } from "@/components/orcamentos-v2/FreightSelector";
 import { QuoteItemsTable, type ProcessStep, type ProcessGroup } from "@/components/orcamentos-v2/QuoteItemsTable";
+import { QuoteOptionsBuilder } from "@/components/orcamentos-v2/QuoteOptionsBuilder";
+import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
 
 interface Props {
   quoteId?: string;
@@ -113,6 +115,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [profitMargin, setProfitMargin] = useState("33");
   
   const [notes, setNotes] = useState("");
+  const [quoteOptions, setQuoteOptions] = useState<QuoteOption[]>([]);
   const [attentionTo, setAttentionTo] = useState("");
   const [hiddenExtras, setHiddenExtras] = useState<number>(0);
   const [freightValue, setFreightValue] = useState<number>(0);
@@ -364,6 +367,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         setQuoteVersion(q.version ?? 1);
         setIsLocked(q.is_locked ?? false);
         setParentQuoteId(q.parent_quote_id ?? null);
+        setQuoteOptions(parseOptions((q as any).options));
       }
       setLabor((lRes.data || []).map((s: any) => ({
         id: s.id,
@@ -832,6 +836,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         discount_value: discountValue,
         discount_type: discountValue ? discountType : null,
         payment_method: paymentMethod || null,
+        options: quoteOptions as any,
         
       };
 
@@ -1457,6 +1462,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             </Button>
           )}
         </CardContent></Card>
+
+        {/* ===== Opções de quantidade (ancoragem comparativa para o cliente) ===== */}
+        <Separator className="my-4" />
+        <QuoteOptionsBuilder
+          snapshot={snapshot}
+          options={quoteOptions}
+          onChange={setQuoteOptions}
+        />
       </div>
 
       {/* Sticky financial sidebar — DRE (apenas admin) */}
