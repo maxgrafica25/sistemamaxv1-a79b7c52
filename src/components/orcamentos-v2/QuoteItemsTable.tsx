@@ -67,6 +67,8 @@ interface Props {
   onChangeStandaloneLabor: (next: SubformLabor[]) => void;
   onChangeStandaloneMaterials: (next: SubformMaterial[]) => void;
   onChangeThirdParty: (next: ThirdParty[]) => void;
+  onPickCoverPaper?: (parentId: string, kind: "Capa" | "Contracapa", item: PrintingCatalogItem) => void;
+  onClearCoverPaper?: (parentId: string, kind: "Capa" | "Contracapa") => void;
 }
 
 const fmt = (n: number) =>
