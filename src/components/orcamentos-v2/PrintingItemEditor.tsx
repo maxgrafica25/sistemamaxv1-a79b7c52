@@ -550,7 +550,7 @@ export function PrintingItemEditor({
         {yieldInfo && !exceedsSheet && (
           (() => {
             const perSheet = yieldInfo.perSheet;
-            const pieces = item.quantity || 0;
+            const pieces = piecesValue;
             const folhas = pieces > 0 ? Math.ceil(pieces / perSheet) : 0;
             const sobra = folhas > 0 ? folhas * perSheet - pieces : 0;
             return (
@@ -573,12 +573,12 @@ export function PrintingItemEditor({
         open={labelDialogOpen}
         onOpenChange={setLabelDialogOpen}
         defaultSheet={guessSheet()}
-        defaultQty={item.quantity || 100}
+        defaultQty={piecesValue || 100}
         onApply={(folhas) => {
           const perSheet = yieldInfo?.perSheet ?? 1;
           const pieces = folhas * perSheet;
           onPiecesInputChange?.(String(pieces));
-          onItemChange({ quantity: pieces });
+          onItemChange({ pieces, quantity: folhas });
         }}
       />
 
