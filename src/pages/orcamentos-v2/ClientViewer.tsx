@@ -461,7 +461,18 @@ export default function ClientViewer() {
             ? `${quote.quote_number} · v${quote.version}`
             : quote.quote_number
         }
-        status={statusBadge(quote.status)}
+        status={(() => {
+          const rootMaterials = materials;
+          const total = rootMaterials.length;
+          const approved = rootMaterials.filter((m) => m.status === "approved").length;
+          return (
+            <QuoteStatusBadge
+              status={quote.status}
+              approved={total > 0 ? approved : undefined}
+              total={total > 0 ? total : undefined}
+            />
+          );
+        })()}
       />
 
       <main className="mx-auto max-w-2xl px-4 sm:px-6 py-6 space-y-5">
