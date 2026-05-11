@@ -581,6 +581,15 @@ export function PrintingItemEditor({
             );
           })()
         )}
+
+        {/* Variações de tiragem (ancoragem de preço) */}
+        {!locked && (
+          <QuantityVariationsRow
+            unitPrice={item.unitPrice || 0}
+            variations={item.quantityVariations || []}
+            onChange={(next) => onItemChange({ quantityVariations: next })}
+          />
+        )}
       </div>
 
       <LabelLayoutDialog
@@ -596,9 +605,9 @@ export function PrintingItemEditor({
         }}
       />
 
-      {/* Toggle de acabamentos vinculados + ação centralizada */}
-      <div className="border-t border-border/60 px-3 py-2">
-        <div className="flex items-center justify-between gap-2">
+      {/* Acabamentos inteligentes (chips + omnibox) */}
+      <div className="border-t border-border/60 px-3 py-3">
+        <div className="flex items-center justify-between gap-2 mb-2">
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
@@ -609,43 +618,91 @@ export function PrintingItemEditor({
             ) : (
               <ChevronRight className="h-3.5 w-3.5" />
             )}
-            Acabamentos vinculados
+            Acabamentos
             {childCount > 0 && (
               <Badge variant="secondary" className="text-[10px] h-4 px-1.5 ml-1">
                 {childCount}
               </Badge>
             )}
           </button>
-
-          {!locked && onAddProcess && onExpandStepGroup && onAddCustomFinish && (
-            <ProcessPicker
-              steps={processSteps}
-              groups={processGroups}
-              hourlyRate={hourlyRate}
-              variant="outline"
-              label="Adicionar Processo"
-              onOpen={() => setExpanded(true)}
-              onPickStep={(s) => { setExpanded(true); onAddProcess(s); }}
-              onPickGroup={(g) => { setExpanded(true); onExpandStepGroup(g); }}
-              onPickCustom={(name, minutes) => { setExpanded(true); onAddCustomFinish(name, minutes); }}
-            />
-          )}
         </div>
 
         {expanded && (
-          <div className="mt-3">
-            <LaborAndSupplySubform
-              parentItemId={item.id}
-              laborItems={childLabor}
-              materialItems={childMaterials}
-              hourlyRate={hourlyRate}
-              onLaborChange={onChildLaborChange}
-              onMaterialChange={onChildMaterialChange}
-              compact
-            />
-          </div>
+          <SmartFinishingBlock
+            parentItemId={item.id}
+            productKind={item.productKind}
+            processSteps={processSteps}
+            hourlyRate={hourlyRate}
+            childLabor={childLabor}
+            childMaterials={childMaterials}
+            onChildLaborChange={onChildLaborChange}
+            onChildMaterialChange={onChildMaterialChange}
+            disabled={locked}
+          />
         )}
       </div>
+    </div>
+  );
+}
+
+function QuantityVariationsRow({
+  unitPrice, variations, onChange,
+}: {
+  unitPrice: number;
+  variations: Array<{ pieces: number; unit_price: number }>;
+  onChange: (next: Array<{ pieces: number; unit_price: number }>) => void;
+}) {
+  const addVariation = () =>
+    onChange([...variations, { pieces: 0, unit_price: unitPrice }]);
+  const updateVariation = (i: number, patch: Partial<{ pieces: number; unit_price: number }>) =>
+    onChange(variations.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
+  const removeVariation = (i: number) =>
+    onChange(variations.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="pl-7 space-y-1.5">
+      {variations.map((v, i) => (
+        <div key={i} className="flex items-center gap-2 text-xs">
+          <span className="text-muted-foreground w-20">Variação {i + 1}</span>
+          <Input
+            type="number"
+            min={0}
+            value={v.pieces || ""}
+            onChange={(e) => updateVariation(i, { pieces: parseInt(e.target.value) || 0 })}
+            placeholder="peças"
+            className="w-24 h-7 text-xs text-center"
+          />
+          <Input
+            type="number"
+            step="0.01"
+            min={0}
+            value={v.unit_price || ""}
+            onChange={(e) => updateVariation(i, { unit_price: parseFloat(e.target.value) || 0 })}
+            placeholder="R$ unit."
+            className="w-28 h-7 text-xs text-center"
+          />
+          <span className="text-muted-foreground tabular-nums">
+            = {formatBRL((v.pieces || 0) * (v.unit_price || 0))}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 ml-auto"
+            onClick={() => removeVariation(i)}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={addVariation}
+        className="h-6 px-2 text-[11px] text-muted-foreground hover:text-primary gap-1"
+      >
+        <span className="text-base leading-none">+</span> Adicionar variação
+      </Button>
     </div>
   );
 }
