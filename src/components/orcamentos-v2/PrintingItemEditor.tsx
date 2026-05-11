@@ -139,6 +139,13 @@ export function PrintingItemEditor({
 
   // Atualiza largura/altura e reflete em `size` (compatibilidade legada).
   const handleDimensionChange = (patch: { widthMm?: number; heightMm?: number }) => {
+    // Se já há papel do catálogo selecionado, NUNCA sobrescreve `size`
+    // (que guarda o tamanho da FOLHA — A3/A4/SRA3). Dimensões da peça
+    // ficam só em widthMm/heightMm.
+    if (item.paperType) {
+      onItemChange(patch);
+      return;
+    }
     const nextW = patch.widthMm ?? item.widthMm ?? null;
     const nextH = patch.heightMm ?? item.heightMm ?? null;
     const nextSize =
