@@ -535,7 +535,7 @@ export default function OrcamentosV2() {
                         )}
                       </td>
                       <td className="py-4 text-sm font-medium">{formatBRL(q.value)}</td>
-                      <td className="py-4">{statusBadge(q.status)}</td>
+                      <td className="py-4">{statusBadge(q.status, aggMap.get(q.id), q.last_partial_seen_at)}</td>
                       <td className="py-4 text-sm" onClick={(e) => e.stopPropagation()}>
                         <EngagementPopover
                           quoteId={q.id}
