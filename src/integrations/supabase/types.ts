@@ -2181,6 +2181,7 @@ export type Database = {
         Row: {
           description: string
           id: string
+          is_optional: boolean
           parent_item_id: string | null
           quote_id: string
           sort_order: number
@@ -2190,6 +2191,7 @@ export type Database = {
         Insert: {
           description: string
           id?: string
+          is_optional?: boolean
           parent_item_id?: string | null
           quote_id: string
           sort_order?: number
@@ -2199,6 +2201,7 @@ export type Database = {
         Update: {
           description?: string
           id?: string
+          is_optional?: boolean
           parent_item_id?: string | null
           quote_id?: string
           sort_order?: number
@@ -2234,12 +2237,14 @@ export type Database = {
           grammage: string | null
           height_mm: number | null
           id: string
+          is_optional: boolean
           paper_type: string | null
           parent_item_id: string | null
           pieces_count: number | null
           print_colors: string | null
           product_kind: string | null
           quantity: number
+          quantity_variations: Json
           quote_id: string
           reference: string | null
           side: string | null
@@ -2260,12 +2265,14 @@ export type Database = {
           grammage?: string | null
           height_mm?: number | null
           id?: string
+          is_optional?: boolean
           paper_type?: string | null
           parent_item_id?: string | null
           pieces_count?: number | null
           print_colors?: string | null
           product_kind?: string | null
           quantity?: number
+          quantity_variations?: Json
           quote_id: string
           reference?: string | null
           side?: string | null
@@ -2286,12 +2293,14 @@ export type Database = {
           grammage?: string | null
           height_mm?: number | null
           id?: string
+          is_optional?: boolean
           paper_type?: string | null
           parent_item_id?: string | null
           pieces_count?: number | null
           print_colors?: string | null
           product_kind?: string | null
           quantity?: number
+          quantity_variations?: Json
           quote_id?: string
           reference?: string | null
           side?: string | null

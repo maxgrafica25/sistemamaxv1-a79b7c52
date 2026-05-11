@@ -12,6 +12,8 @@ export interface SubformLabor {
   timeMinutes: number;
   stepType: string;
   parentItemId?: string | null;
+  /** Acabamento opcional (upsell) — não compõe o preço base do item. */
+  isOptional?: boolean;
 }
 
 export interface SubformMaterial extends PricingMaterial {

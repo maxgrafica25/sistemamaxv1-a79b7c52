@@ -44,11 +44,17 @@ export interface PricingMaterial {
   // Catálogo (nomenclatura travada)
   catalogSource?: "printing" | "finishing" | null;
   catalogItemId?: string | null;
+  /** Acabamento opcional (upsell) — não compõe o preço base do item pai. */
+  isOptional?: boolean;
+  /** Variações de tiragem para ancoragem de preço (ex: 100/500/1000). */
+  quantityVariations?: Array<{ pieces: number; unit_price: number }>;
 }
 
 export interface PricingLaborStep {
   timeMinutes: number;
   parentItemId?: string | null; // se preenchido, é filho de um item de impressão
+  /** Mão-de-obra opcional (upsell) — não compõe o preço base do item pai. */
+  isOptional?: boolean;
 }
 
 export interface PricingThirdParty {
@@ -163,11 +169,10 @@ export const recalculateForQuantity = (
     }
   }
 
-  // ---- Avulsos (somas absolutas no divisor geral) ----
-  const laborTotal = standaloneLabor.reduce(
-    (s, step) => s + (step.timeMinutes / 60) * snap.settings.hourlyRate,
-    0,
-  );
+  // ---- Avulsos (somas absolutas no divisor geral) — opcionais excluídos ----
+  const laborTotal = standaloneLabor
+    .filter((step) => !step.isOptional)
+    .reduce((s, step) => s + (step.timeMinutes / 60) * snap.settings.hourlyRate, 0);
   const thirdPartyTotal = snap.thirdParty.reduce((s, t) => s + t.cost, 0);
 
   let printingTotal = 0;
@@ -181,7 +186,7 @@ export const recalculateForQuantity = (
       const tier = findTier(snap, m.printerCategoryId!, qty, m.markupGroupId);
       const sellingPrice = tier ? calcSellingPrice(m.baseCost!, tier) : m.baseCost!;
       printingTotal += sellingPrice * qty;
-    } else {
+    } else if (!m.isOptional) {
       nonPrintingMaterialsTotal += m.quantity * m.unitPrice;
     }
   }
@@ -209,14 +214,15 @@ export const recalculateForQuantity = (
       const sellingPriceOld = tier ? calcSellingPrice(m.baseCost!, tier) : m.baseCost!;
       printingTotal -= sellingPriceOld * qty;
 
-      // Custo total dos filhos deste pai
+      // Custo total dos filhos deste pai (excluindo opcionais — upsell)
       const childMats = childMaterialsByParent.get(m.id) ?? [];
       const childLab = childLaborByParent.get(m.id) ?? [];
-      const childMatTotal = childMats.reduce((s, cm) => s + cm.quantity * cm.unitPrice, 0);
-      const childLabTotal = childLab.reduce(
-        (s, cl) => s + (cl.timeMinutes / 60) * snap.settings.hourlyRate,
-        0,
-      );
+      const childMatTotal = childMats
+        .filter((cm) => !cm.isOptional)
+        .reduce((s, cm) => s + cm.quantity * cm.unitPrice, 0);
+      const childLabTotal = childLab
+        .filter((cl) => !cl.isOptional)
+        .reduce((s, cl) => s + (cl.timeMinutes / 60) * snap.settings.hourlyRate, 0);
       const childTotalAbs = childMatTotal + childLabTotal;
 
       // Diluição: custo dos filhos por unidade do item pai

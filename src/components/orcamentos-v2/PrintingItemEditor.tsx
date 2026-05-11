@@ -49,6 +49,7 @@ import {
 } from "@/lib/quotes-v2/item-title";
 import { calcSheetYield, PRODUCTION_SHEET } from "@/lib/quotes-v2/sheet-yield";
 import { ProcessPicker, type ProcessStep, type ProcessGroup } from "./ProcessPicker";
+import { SmartFinishingBlock } from "./SmartFinishingBlock";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -226,20 +227,15 @@ export function PrintingItemEditor({
         locked ? "border-green-500/40 bg-green-500/5" : "bg-card"
       }`}
     >
-      {/* Banner do título dinâmico (read-only) */}
+      {/* Banner do título dinâmico (read-only, minimalista) */}
       <div className="p-3">
-        <div className="text-lg font-bold text-primary bg-primary/5 p-3 rounded-lg border border-primary/10 break-words">
+        <div className="text-base font-semibold text-foreground bg-muted/30 px-3 py-2 rounded-md border border-border/40 break-words">
           {dynamicTitle || (
-            <span className="text-muted-foreground font-normal text-sm">
-              Preencha tipo de material, dimensões, cor e papel para gerar a descrição.
+            <span className="text-muted-foreground font-normal text-xs">
+              Título gerado automaticamente
             </span>
           )}
         </div>
-        {item.description && (
-          <p className="mt-1.5 text-xs text-muted-foreground truncate">
-            <span className="font-medium">Catálogo:</span> {item.description}
-          </p>
-        )}
       </div>
 
       {/* Bloco: Tipo (autocomplete) + Largura + Altura + Cor + Referência */}
@@ -372,37 +368,49 @@ export function PrintingItemEditor({
             />
           </div>
 
-          {/* Papel — combobox do catálogo */}
+          {/* Papel — autocomplete (input + lista filtrada) */}
           <div className="sm:col-span-12 space-y-1.5">
             <Label className="text-xs">Papel</Label>
-            <Popover open={paperOpen} onOpenChange={(o) => { setPaperOpen(o); if (!o) setPaperQuery(""); }}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    "h-9 w-full rounded-md border bg-background px-3 text-sm text-left flex items-center justify-between gap-2",
-                    "hover:border-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    !item.paperType && "text-muted-foreground",
+            <Popover open={paperOpen} onOpenChange={setPaperOpen}>
+              <PopoverAnchor asChild>
+                <div className="relative">
+                  <Input
+                    value={
+                      paperOpen
+                        ? paperQuery
+                        : item.paperType
+                          ? `${item.paperType}${item.grammage ? ` ${item.grammage}` : ""}${item.size ? ` — ${item.size}` : ""}${item.side ? ` ${item.side}` : ""}`
+                          : ""
+                    }
+                    placeholder="Buscar papel, gramatura, formato…"
+                    onFocus={() => { setPaperOpen(true); setPaperQuery(""); }}
+                    onChange={(e) => { setPaperQuery(e.target.value); setPaperOpen(true); }}
+                    onBlur={() => setTimeout(() => setPaperOpen(false), 150)}
+                    className="h-9 text-sm pr-8"
+                  />
+                  {item.paperType && !paperOpen && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onItemChange({
+                          paperType: null, grammage: null, size: null, side: null,
+                          baseCost: 0, printerCategoryId: null, markupGroupId: null,
+                          catalogItemId: null,
+                        } as any);
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   )}
-                >
-                  <span className="truncate">
-                    {item.paperType
-                      ? `${item.paperType}${item.grammage ? ` ${item.grammage}` : ""}${item.size ? ` — ${item.size}` : ""}${item.side ? ` ${item.side}` : ""}`
-                      : "Selecione o papel do catálogo…"}
-                  </span>
-                  <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
-                </button>
-              </PopoverTrigger>
+                </div>
+              </PopoverAnchor>
               <PopoverContent
                 className="p-0 w-[var(--radix-popover-trigger-width)]"
                 align="start"
+                onOpenAutoFocus={(e) => e.preventDefault()}
               >
                 <Command shouldFilter={false}>
-                  <CommandInput
-                    placeholder="Buscar papel, gramatura, formato…"
-                    value={paperQuery}
-                    onValueChange={setPaperQuery}
-                  />
                   <CommandList>
                     {(() => {
                       const q = paperQuery.toLowerCase().trim();
@@ -574,6 +582,15 @@ export function PrintingItemEditor({
             );
           })()
         )}
+
+        {/* Variações de tiragem (ancoragem de preço) */}
+        {!locked && (
+          <QuantityVariationsRow
+            unitPrice={item.unitPrice || 0}
+            variations={item.quantityVariations || []}
+            onChange={(next) => onItemChange({ quantityVariations: next })}
+          />
+        )}
       </div>
 
       <LabelLayoutDialog
@@ -589,9 +606,9 @@ export function PrintingItemEditor({
         }}
       />
 
-      {/* Toggle de acabamentos vinculados + ação centralizada */}
-      <div className="border-t border-border/60 px-3 py-2">
-        <div className="flex items-center justify-between gap-2">
+      {/* Acabamentos inteligentes (chips + omnibox) */}
+      <div className="border-t border-border/60 px-3 py-3">
+        <div className="flex items-center justify-between gap-2 mb-2">
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
@@ -602,43 +619,91 @@ export function PrintingItemEditor({
             ) : (
               <ChevronRight className="h-3.5 w-3.5" />
             )}
-            Acabamentos vinculados
+            Acabamentos
             {childCount > 0 && (
               <Badge variant="secondary" className="text-[10px] h-4 px-1.5 ml-1">
                 {childCount}
               </Badge>
             )}
           </button>
-
-          {!locked && onAddProcess && onExpandStepGroup && onAddCustomFinish && (
-            <ProcessPicker
-              steps={processSteps}
-              groups={processGroups}
-              hourlyRate={hourlyRate}
-              variant="outline"
-              label="Adicionar Processo"
-              onOpen={() => setExpanded(true)}
-              onPickStep={(s) => { setExpanded(true); onAddProcess(s); }}
-              onPickGroup={(g) => { setExpanded(true); onExpandStepGroup(g); }}
-              onPickCustom={(name, minutes) => { setExpanded(true); onAddCustomFinish(name, minutes); }}
-            />
-          )}
         </div>
 
         {expanded && (
-          <div className="mt-3">
-            <LaborAndSupplySubform
-              parentItemId={item.id}
-              laborItems={childLabor}
-              materialItems={childMaterials}
-              hourlyRate={hourlyRate}
-              onLaborChange={onChildLaborChange}
-              onMaterialChange={onChildMaterialChange}
-              compact
-            />
-          </div>
+          <SmartFinishingBlock
+            parentItemId={item.id}
+            productKind={item.productKind}
+            processSteps={processSteps}
+            hourlyRate={hourlyRate}
+            childLabor={childLabor}
+            childMaterials={childMaterials}
+            onChildLaborChange={onChildLaborChange}
+            onChildMaterialChange={onChildMaterialChange}
+            disabled={locked}
+          />
         )}
       </div>
+    </div>
+  );
+}
+
+function QuantityVariationsRow({
+  unitPrice, variations, onChange,
+}: {
+  unitPrice: number;
+  variations: Array<{ pieces: number; unit_price: number }>;
+  onChange: (next: Array<{ pieces: number; unit_price: number }>) => void;
+}) {
+  const addVariation = () =>
+    onChange([...variations, { pieces: 0, unit_price: unitPrice }]);
+  const updateVariation = (i: number, patch: Partial<{ pieces: number; unit_price: number }>) =>
+    onChange(variations.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
+  const removeVariation = (i: number) =>
+    onChange(variations.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="pl-7 space-y-1.5">
+      {variations.map((v, i) => (
+        <div key={i} className="flex items-center gap-2 text-xs">
+          <span className="text-muted-foreground w-20">Variação {i + 1}</span>
+          <Input
+            type="number"
+            min={0}
+            value={v.pieces || ""}
+            onChange={(e) => updateVariation(i, { pieces: parseInt(e.target.value) || 0 })}
+            placeholder="peças"
+            className="w-24 h-7 text-xs text-center"
+          />
+          <Input
+            type="number"
+            step="0.01"
+            min={0}
+            value={v.unit_price || ""}
+            onChange={(e) => updateVariation(i, { unit_price: parseFloat(e.target.value) || 0 })}
+            placeholder="R$ unit."
+            className="w-28 h-7 text-xs text-center"
+          />
+          <span className="text-muted-foreground tabular-nums">
+            = {formatBRL((v.pieces || 0) * (v.unit_price || 0))}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 ml-auto"
+            onClick={() => removeVariation(i)}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={addVariation}
+        className="h-6 px-2 text-[11px] text-muted-foreground hover:text-primary gap-1"
+      >
+        <span className="text-base leading-none">+</span> Adicionar variação
+      </Button>
     </div>
   );
 }
