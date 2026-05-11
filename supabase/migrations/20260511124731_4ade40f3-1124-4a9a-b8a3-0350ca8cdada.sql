@@ -1,0 +1,1 @@
+ALTER TABLE public.quote_materials ADD COLUMN IF NOT EXISTS pieces_count integer NULL;

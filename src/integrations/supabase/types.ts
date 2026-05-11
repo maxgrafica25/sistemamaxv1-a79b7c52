@@ -2236,6 +2236,7 @@ export type Database = {
           id: string
           paper_type: string | null
           parent_item_id: string | null
+          pieces_count: number | null
           print_colors: string | null
           product_kind: string | null
           quantity: number
@@ -2261,6 +2262,7 @@ export type Database = {
           id?: string
           paper_type?: string | null
           parent_item_id?: string | null
+          pieces_count?: number | null
           print_colors?: string | null
           product_kind?: string | null
           quantity?: number
@@ -2286,6 +2288,7 @@ export type Database = {
           id?: string
           paper_type?: string | null
           parent_item_id?: string | null
+          pieces_count?: number | null
           print_colors?: string | null
           product_kind?: string | null
           quantity?: number
