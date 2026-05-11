@@ -398,6 +398,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         catalogItemId: m.catalog_item_id ?? null,
         isOptional: !!m.is_optional,
         quantityVariations: Array.isArray(m.quantity_variations) ? m.quantity_variations : [],
+        bookletPages: m.booklet_pages != null ? Number(m.booklet_pages) : null,
+        bookletUnits: m.booklet_units != null ? Number(m.booklet_units) : null,
+        bookletDuplex: m.booklet_duplex ?? null,
       })));
       setThirdParty((tpRes.data || []).map((t: any) => ({
         id: t.id, description: t.description, supplier: t.supplier, cost: t.cost,
@@ -845,6 +848,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 catalog_item_id: m.catalogItemId ?? null,
                 is_optional: !!(m as any).isOptional,
                 quantity_variations: (m as any).quantityVariations ?? [],
+                booklet_pages: (m as any).bookletPages ?? null,
+                booklet_units: (m as any).bookletUnits ?? null,
+                booklet_duplex: (m as any).bookletDuplex ?? null,
               })),
             )
             .select("id");
@@ -877,6 +883,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               width_mm: m.widthMm ?? null,
               height_mm: m.heightMm ?? null,
               print_colors: m.printColors ?? null,
+              booklet_pages: (m as any).bookletPages ?? null,
+              booklet_units: (m as any).bookletUnits ?? null,
+              booklet_duplex: (m as any).bookletDuplex ?? null,
             })
             .eq("id", m.id);
         }

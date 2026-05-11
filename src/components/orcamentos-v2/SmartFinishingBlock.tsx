@@ -25,6 +25,8 @@ interface Props {
   onChildLaborChange: (next: SubformLabor[]) => void;
   onChildMaterialChange: (next: SubformMaterial[]) => void;
   disabled?: boolean;
+  /** Quando definido (apostila), multiplica o tempo do passo de encadernação por este valor. */
+  bookletUnits?: number | null;
 }
 
 const fmt = (n: number) =>
@@ -33,7 +35,7 @@ const fmt = (n: number) =>
 export function SmartFinishingBlock({
   parentItemId, productKind, processSteps, hourlyRate,
   childLabor, childMaterials, onChildLaborChange, onChildMaterialChange,
-  disabled,
+  disabled, bookletUnits,
 }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -63,12 +65,18 @@ export function SmartFinishingBlock({
 
   const addLaborFromStep = (step: ProcessStep) => {
     const id = `lbr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    // Apostila + encadernação: tempo cadastrado é por unidade — multiplica pelo nº de apostilas.
+    const isBookletBinding =
+      bookletUnits && bookletUnits > 0 && /encaderna|espiral/i.test(step.description);
+    const minutes = (step.time_minutes || 0) * (isBookletBinding ? bookletUnits! : 1);
     onChildLaborChange([
       ...childLabor,
       {
         id,
-        description: step.description,
-        timeMinutes: step.time_minutes || 0,
+        description: isBookletBinding
+          ? `${step.description} (×${bookletUnits} apostilas)`
+          : step.description,
+        timeMinutes: minutes,
         stepType: step.step_type || "outro",
         parentItemId,
         isOptional: false,

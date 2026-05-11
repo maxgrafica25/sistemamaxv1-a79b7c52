@@ -48,6 +48,12 @@ export interface PricingMaterial {
   isOptional?: boolean;
   /** Variações de tiragem para ancoragem de preço (ex: 100/500/1000). */
   quantityVariations?: Array<{ pieces: number; unit_price: number }>;
+  /** Apostila: nº de páginas por apostila (entrada do usuário). */
+  bookletPages?: number | null;
+  /** Apostila: nº de apostilas (entrada do usuário). */
+  bookletUnits?: number | null;
+  /** Apostila: imprime frente e verso. */
+  bookletDuplex?: boolean | null;
 }
 
 export interface PricingLaborStep {
