@@ -552,6 +552,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         description: "",
         quantity: 1,
         unitPrice: 0,
+        pieces: 1,
         baseCost: 0,
         printerCategoryId: null,
         markupGroupId: null,
