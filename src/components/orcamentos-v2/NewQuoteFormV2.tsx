@@ -1462,6 +1462,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             </Button>
           )}
         </CardContent></Card>
+
+        {/* ===== Opções de quantidade (ancoragem comparativa para o cliente) ===== */}
+        <Separator className="my-4" />
+        <QuoteOptionsBuilder
+          snapshot={snapshot}
+          options={quoteOptions}
+          onChange={setQuoteOptions}
+        />
       </div>
 
       {/* Sticky financial sidebar — DRE (apenas admin) */}
