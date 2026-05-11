@@ -1,61 +1,52 @@
-## Objetivo
+## Diagnóstico
 
-Tornar visualmente óbvio quando um orçamento "Parcial/Aprovado" recebeu uma nova aprovação de item ainda não vista — usando o padrão "email não lido" + barra de progresso segmentada no badge.
+O dropdown de papel para adesivos **já está filtrando corretamente** — só mostra adesivos A4/A3 quando o `productKind` começa com "adesivo"/"etiqueta" (filtro em `PrintingItemEditor.tsx` linha 402–409), e **já pré-seleciona A3** automaticamente (linhas 200–213). No banco só existem 2 entradas: `Adesivo Brilho A3 F` e `Adesivo Brilho A4 F`.
 
-## Estado atual (reaproveitar)
+**O bug real é outro**: no print, o campo "Papel" mostra `Adesivo Brilho — 50x50mm F` em vez de `Adesivo Brilho — A3 F`. Isso acontece porque a função `handleDimensionChange` (linha 141–147 de `PrintingItemEditor.tsx`) **sobrescreve** `item.size` (que guarda o tamanho da FOLHA — A3/A4) com o tamanho da PEÇA (`5x5mm`) toda vez que o usuário digita Largura/Altura:
 
-- O conceito de "não lido" **já existe**: `quotes.last_partial_seen_at` vs `quote_materials.approved_at` mais recente. O `OrcamentosV2` já calcula `hasUnseen` por linha (em `statusBadge`, linha 68–70) e o `EditQuoteV2` já marca como visto ao abrir (`update last_partial_seen_at = now()`).
-- Hoje esse `hasUnseen` só vira uma bolinha vermelha dentro do `QuoteStatusBadge`.
-- O agregado `aggMap` já tem `{ approved, total, lastApprovedAt }` por orçamento.
+```ts
+const nextSize = nextW && nextH ? `${nextW}x${nextH}mm` : item.size ?? null;
+onItemChange({ ...patch, size: nextSize });
+```
 
-Ou seja: **nenhuma mudança de schema, nenhuma migration, nenhuma alteração no gatilho de "marcar como lido"** — tudo já está no lugar.
+Ou seja: o usuário escolhe `Adesivo Brilho A3` → `item.size = "A3"` ✓. Em seguida digita Largura=5 / Altura=5 → `item.size` vira `"50x50mm"` e a folha se "perde" visualmente. Tamanho de peça já é guardado em `widthMm`/`heightMm` separadamente, então sobrescrever `size` é redundante e quebra a exibição.
 
-## Mudanças (frontend apenas)
+Efeitos colaterais:
+- O label do papel selecionado fica errado (o que o usuário viu).
+- Recálculo de custo pode usar branch errado em `getLivePaperCost` (`size === "A4"` → preço A4, senão SRA3) — para `"50x50mm"` cai no SRA3, possivelmente alterando o custo.
+- O `dynamicTitle` também consome `size` e pode ficar com texto estranho.
 
-### 1. `src/components/orcamentos-v2/QuoteStatusBadge.tsx`
+## Correção
 
-- Remover a bolinha vermelha (`hasUnseen` dot) de dentro do badge.
-- Adicionar **barra segmentada** logo abaixo do texto quando `status === "partial" || status === "approved"` e `total > 0`:
-  - `total` segmentos finos (≈ 4px de altura, gap de 2px), largura total = largura do badge.
-  - Segmentos `0..approved-1` preenchidos com `bg-green-600` (cor de sucesso já usada no badge "Aprovado").
-  - Segmentos restantes com `bg-muted`.
-  - Se `total > 12`, cair para uma única `Progress` bar contínua para não ficar "serrilhado".
-- Texto continua mostrando `Parcial (2/3)` / `Aprovado (3/3)`.
-- Manter prop `hasUnseen` (será usada pela linha, não pelo badge), ou removê-la do badge — a lista passa a usar `hasUnseen` direto na `<tr>`.
+Editar **`src/components/orcamentos-v2/PrintingItemEditor.tsx`**, função `handleDimensionChange` (linha 141–147):
 
-### 2. `src/pages/orcamentos-v2/OrcamentosV2.tsx`
+- **Não sobrescrever `item.size` quando já houver papel do catálogo selecionado** (i.e., quando `item.paperType` está definido). O tamanho da folha (A3/A4/SRA3) vem do catálogo e deve ser preservado.
+- Manter o fallback de derivar `size` a partir de dimensões **apenas** quando `item.paperType` for `null` (item ainda sem papel do catálogo) — preserva compatibilidade com fluxos legados.
 
-- Calcular `hasUnseen` por linha (mesma fórmula que já existe em `statusBadge`):
-  ```ts
-  const agg = aggMap.get(q.id);
-  const hasUnseen =
-    (q.status === "partial" || q.status === "approved") &&
-    !!agg?.lastApprovedAt &&
-    (!q.last_partial_seen_at ||
-      new Date(agg.lastApprovedAt) > new Date(q.last_partial_seen_at));
-  ```
-- Aplicar na `<tr>`:
-  - Background sutil quando `hasUnseen`: `bg-primary/5` (tom bem claro do roxo da marca, segue paleta) + manter `hover:bg-muted/50`.
-  - Borda esquerda de 2px `border-l-2 border-l-primary` como reforço visual (igual ao padrão "email não lido").
-- Aplicar nas células "Nº" e "Cliente":
-  - Quando `hasUnseen` → `font-bold` (Nº) e `font-semibold` (cliente).
-  - Caso contrário → manter pesos atuais (`font-medium` / normal).
-- O clique na linha já navega para `/orcamentos-v2/:id`, que abre `EditQuoteV2`, que **já** dispara o update de `last_partial_seen_at`. O realtime de `quotes UPDATE` já está escutando e vai atualizar a linha em tempo real → background e bold somem automaticamente.
+```ts
+const handleDimensionChange = (patch: { widthMm?: number; heightMm?: number }) => {
+  const nextW = patch.widthMm ?? item.widthMm ?? null;
+  const nextH = patch.heightMm ?? item.heightMm ?? null;
+  // Se já há papel do catálogo, NUNCA sobrescreve size (que é o tamanho da folha).
+  // Caso contrário, mantém comportamento legado de derivar size das dimensões.
+  if (item.paperType) {
+    onItemChange(patch);
+    return;
+  }
+  const nextSize = nextW && nextH ? `${nextW}x${nextH}mm` : item.size ?? null;
+  onItemChange({ ...patch, size: nextSize });
+};
+```
 
-### 3. Sem mudanças
+Sem mudanças no filtro do dropdown nem na lógica de pré-seleção de A3 — ambos já estão corretos.
 
-- `EditQuoteV2.tsx`: já marca como lido.
-- `ClientViewer.tsx`: badge no header do cliente público continua só com fração (cliente nunca vê "não lido").
-- Banco: nenhuma migration.
+## Validação esperada
 
-## Detalhes técnicos
-
-- Cores via design tokens: `bg-primary/5`, `border-l-primary`, `bg-green-600` (já em uso no badge), `bg-muted`. Sem cores hardcoded fora da paleta.
-- Barra segmentada: `<div class="flex gap-0.5 mt-1 h-1">` com N divs `flex-1 rounded-sm`.
-- Acessibilidade: adicionar `aria-label` na `<tr>` quando `hasUnseen` ("Orçamento com nova aprovação não vista").
-- Sem animação no destaque (conforme regra anterior — "sem animação").
+- Abrir um adesivo novo → A3 já vem pré-selecionado (`Adesivo Brilho — A3 F`).
+- Digitar Largura/Altura da peça → o campo "Papel" continua mostrando `Adesivo Brilho — A3 F` (não muda mais para `50x50mm`).
+- Trocar manualmente para A4 pelo dropdown continua funcionando.
+- Custos passam a ser calculados consistentemente com a folha real (A3 → preço SRA3; A4 → preço A4).
 
 ## Arquivos tocados
 
-- `src/components/orcamentos-v2/QuoteStatusBadge.tsx` (substitui dot por barra segmentada)
-- `src/pages/orcamentos-v2/OrcamentosV2.tsx` (destaque de linha + bold condicional)
+- `src/components/orcamentos-v2/PrintingItemEditor.tsx` (apenas a função `handleDimensionChange`)
