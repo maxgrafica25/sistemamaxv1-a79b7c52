@@ -1309,6 +1309,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             onChangeStandaloneLabor={setStandaloneLabor}
             onChangeStandaloneMaterials={setStandaloneManualMaterials}
             onChangeThirdParty={setThirdParty}
+            onPickCoverPaper={pickCoverPaperFor}
+            onClearCoverPaper={clearCoverPaperFor}
           />
         </div>
 
