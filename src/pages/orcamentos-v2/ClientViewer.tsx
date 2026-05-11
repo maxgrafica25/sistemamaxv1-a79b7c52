@@ -464,7 +464,7 @@ export default function ClientViewer() {
         status={(() => {
           const rootMaterials = materials;
           const total = rootMaterials.length;
-          const approved = rootMaterials.filter((m) => m.status === "approved").length;
+          const approved = rootMaterials.filter((m) => m.status === "aprovado").length;
           return (
             <QuoteStatusBadge
               status={quote.status}

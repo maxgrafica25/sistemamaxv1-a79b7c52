@@ -124,7 +124,7 @@ export default function OrcamentosV2() {
     for (const row of data ?? []) {
       const cur = map.get(row.quote_id) ?? { approved: 0, total: 0, lastApprovedAt: null };
       cur.total++;
-      if (row.status === "approved") {
+      if (row.status === "aprovado") {
         cur.approved++;
         if (row.approved_at && (!cur.lastApprovedAt || row.approved_at > cur.lastApprovedAt)) {
           cur.lastApprovedAt = row.approved_at;
