@@ -202,13 +202,18 @@ export default function OrcamentosV2() {
         { event: "INSERT", schema: "public", table: "quote_engagement_events" },
         () => scheduleStats(),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "quote_materials" },
+        () => refreshAggregates(),
+      )
       .subscribe();
 
     return () => {
       if (statsTimer) clearTimeout(statsTimer);
       supabase.removeChannel(channel);
     };
-  }, [fetchQuotes, refreshStats]);
+  }, [fetchQuotes, refreshStats, refreshAggregates]);
 
   const handleApprove = async (id: string) => {
     await supabase.from("quotes").update({ status: "approved" }).eq("id", id);
