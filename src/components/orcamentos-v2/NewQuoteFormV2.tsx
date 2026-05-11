@@ -181,6 +181,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     [labor],
   );
 
+  const subjectSuggestion = useMemo(() => buildSubjectSuggestion(materials), [materials]);
+
   // ---------- Load catalog & quote ----------
   const loadInit = useCallback(async () => {
     setLoadingInit(true);
