@@ -1,44 +1,43 @@
-## Problema
+## Mudança
 
-Você tem um orçamento aberto, mas a lista continua mostrando "Frio" e os contadores de engajamento não atualizam sozinhos. Há dois motivos distintos:
+Remover o popup "Avisar a gráfica sobre os itens aprovados" que aparece para o cliente logo após a aprovação no viewer público, e em troca disponibilizar para a equipe, na lista de orçamentos, um botão de **contato via WhatsApp** que copia/abre uma mensagem pronta para enviar ao cliente quando necessário.
 
-### 1. Eventos da equipe interna são descartados (por design)
-A função `register_quote_event` no banco tem esta regra:
-```
-IF v_uid IS NOT NULL THEN RETURN; END IF;
-```
-Ou seja, se quem abre a proposta está **logado no sistema** (você, Marcelle, etc.), nenhum evento é registrado — para não poluir as estatísticas reais dos clientes. Por isso, quando **você mesmo** abre `/p/2026-012`, o badge continua "Frio".
+## O que muda
 
-Isso é intencional e correto. Sugestão: validar abrindo a proposta numa **aba anônima** (sem login) ou em outro dispositivo — aí você verá o engajamento aparecer.
+### 1. Viewer público (`/p/<numero>`) — remover o WhatsApp pós-aprovação
+Em `src/pages/orcamentos-v2/ClientViewer.tsx`, após o `submitApproval()` registrar o aceite com sucesso, o código hoje:
 
-### 2. A lista NÃO atualiza engajamento em tempo real (bug real)
-Em `src/pages/orcamentos-v2/OrcamentosV2.tsx` o `useEffect` de realtime escuta apenas a tabela `quotes`:
+- Mostra o toast "Aprovação registrada! Avise a gráfica pelo WhatsApp (opcional)."
+- Abre automaticamente o `WhatsAppShareDialog` com a mensagem da aprovação.
 
-```ts
-.on("postgres_changes", { event: "*", schema: "public", table: "quotes" }, () => fetchQuotes())
-```
+Será alterado para:
+- Toast de sucesso mais limpo: "Aprovação registrada! A gráfica já foi notificada."
+- **Não abre mais** o `WhatsAppShareDialog`.
+- O fluxo "Solicitar alteração" (`onRequestAdjust`) **permanece igual** — esse caso ainda precisa de WhatsApp porque é uma conversa, não uma confirmação registrada.
 
-Quando um cliente real visualiza/baixa PDF/compartilha, a tabela `quote_engagement_events` recebe INSERTs, mas a página não recarrega o `statsMap` — então o badge "Frio/Quente/Online agora", contadores de views, "lida integralmente", etc. só atualizam ao dar F5. O `RealtimeRadar` mostra o toast 🔥, mas os badges da lista permanecem estáticos.
+O componente `WhatsAppShareDialog` continua existindo (usado no fluxo de alteração).
 
-### 3. Eventos `item_selected`/`item_deselected` são rejeitados pelo banco
-A whitelist da função aceita só:
-`viewed, printed, whatsapp_share, link_copied, option_selected, option_deselected, scroll_depth`
+### 2. Lista de orçamentos — botão "Contatar no WhatsApp"
+Em `src/pages/orcamentos-v2/OrcamentosV2.tsx`, na coluna **Ações** de cada linha, adicionar um botão com ícone do WhatsApp (verde) que:
 
-Mas o app dispara também `item_selected` e `item_deselected` (usados no cálculo de "hesitação"). Esses eventos hoje retornam erro e nunca são gravados — o insight "Dúvida no item" nunca aparece.
+- Aparece somente quando `client_phone` está preenchido.
+- Ao clicar, abre `https://wa.me/<numero>?text=<mensagem>` em nova aba.
+- A mensagem é contextual ao status do orçamento:
+  - **Pendente / Parcial:** "Olá {primeiro nome}! Aqui é da {empresa}. Estou passando para saber se conseguiu analisar a proposta {Nº} que enviamos. Posso ajudar com algo?"
+  - **Aprovado:** "Olá {primeiro nome}! Aqui é da {empresa}. Tudo certo com a aprovação do Orçamento {Nº} — qualquer dúvida sobre a produção, é só chamar."
+  - **Recusado:** "Olá {primeiro nome}! Aqui é da {empresa}. Vi que o Orçamento {Nº} não seguiu adiante. Posso ajustar algo para fechar com a gente?"
 
-## Plano de correção
+Posicionamento: junto dos ícones de copiar link / favorito / PDF que já existem, antes de "Gerar OP".
 
-1. **Realtime do engajamento na lista** — em `OrcamentosV2.tsx`, adicionar subscription a `quote_engagement_events` (INSERT). Para evitar refetch pesado a cada evento, fazer um refetch debounced (~1,5 s) que recarrega só os eventos (não os quotes), e atualiza `statsMap`.
+Tooltip: "Contatar cliente no WhatsApp".
 
-2. **Atualizar `last_viewed_at` em tempo real** — o canal atual de `quotes` UPDATE já cobre isso, mas o `fetchQuotes()` completo é caro. Trocar por um patch local: ao receber UPDATE, mesclar campos do `payload.new` no estado em vez de refetch total.
-
-3. **Liberar `item_selected` / `item_deselected` no RPC** — migration adicionando os dois tipos à whitelist da função `register_quote_event`, para que a hesitação por item passe a ser computada.
-
-4. **Mensagem de UX** — não muda código, mas vou deixar registrado: para validar engajamento real, abrir a proposta deslogado (aba anônima). Sessões da equipe interna continuam sendo intencionalmente ignoradas.
+### 3. Sem mudança no banco
+Apenas frontend. Sem migration, sem alteração de RLS, sem alteração nas funções de tracking (o evento `whatsapp_share` continua disparado quando cliente compartilha pelo viewer; aqui é equipe interna, não geramos evento).
 
 ## Arquivos afetados
 
-- `src/pages/orcamentos-v2/OrcamentosV2.tsx` — nova subscription em `quote_engagement_events` + patch local no UPDATE de `quotes`.
-- `supabase/migrations/<novo>.sql` — atualizar whitelist do `register_quote_event` para incluir `item_selected` e `item_deselected`.
+- `src/pages/orcamentos-v2/ClientViewer.tsx` — remover `openShare(...)` do branch de aprovação; ajustar toast.
+- `src/pages/orcamentos-v2/OrcamentosV2.tsx` — adicionar o botão WhatsApp na coluna Ações com a função de mensagem contextual.
+- (Opcional) `src/lib/quotes-v2/whatsapp.ts` — adicionar helper `buildTeamFollowUpMessage(status, ...)` para manter as 3 mensagens centralizadas.
 
-Sem alterações em `RealtimeRadar`, `EngagementPopover`, `temperature.ts` ou pricing.
+Sem alterações em `WhatsAppShareDialog`, `StickyApprovalBar`, `EngagementPopover` ou `useCompanySettings`.
