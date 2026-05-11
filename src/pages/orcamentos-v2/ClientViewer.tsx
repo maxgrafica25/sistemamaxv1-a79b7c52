@@ -741,11 +741,16 @@ export default function ClientViewer() {
             </CardContent>
           </Card>
         )}
-        {showOptionsMode && (
+        {hasMultipleOptions && (
           <section className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground px-1">
-              Escolha a quantidade
+              {showOptionsMode ? "Escolha a quantidade" : "Outras quantidades para comparar"}
             </h2>
+            {!showOptionsMode && (
+              <p className="text-xs text-muted-foreground px-1 -mt-2">
+                Valores de referência para volumes diferentes. Para alterar a quantidade do orçamento, use <strong>Solicitar alteração</strong>.
+              </p>
+            )}
             <div className="grid gap-3 sm:grid-cols-2">
               {options.map((opt) => (
                 <OptionCard
@@ -753,6 +758,7 @@ export default function ClientViewer() {
                   option={opt}
                   selected={opt.id === selectedOptionId}
                   onSelect={() => setSelectedOptionId(opt.id)}
+                  readOnly={!showOptionsMode}
                 />
               ))}
             </div>

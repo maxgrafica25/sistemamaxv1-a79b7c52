@@ -1,45 +1,42 @@
-# Bug: "4x4" da Cor da Impressão é só placeholder
 
-## Diagnóstico
+## Problema
 
-A imagem mostra `Cor da Impressão: 4x4` mas na verdade `item.printColors` está **vazio**. O texto "4x4" exibido é apenas o `placeholder` do `SelectValue` (linha 466 de `PrintingItemEditor.tsx`):
+Hoje o viewer do cliente (`src/pages/orcamentos-v2/ClientViewer.tsx`) só renderiza o bloco "Escolha a quantidade" quando o orçamento **não tem nenhum item individual** (`materials.length === 0`). A condição atual é:
 
-```tsx
-<SelectValue placeholder="4x4" />
+```ts
+const showOptionsMode = hasMultipleOptions && materials.length === 0;
 ```
 
-Como nada foi efetivamente selecionado, `sideFromPrintColors(undefined)` retorna `undefined` → o filtro de papel cai no caminho "sem restrição" → as entradas `F` continuam aparecendo junto com a `F/V`.
+Como o orçamento de Apostilas tem 1 item de impressão cadastrado, as opções de quantidade salvas (ex: 100, 250, 500 un) nunca aparecem para o cliente — nem na tela, nem no PDF gerado a partir dela. Por isso o cliente vê apenas o valor único de R$ 2.550,00.
 
-Resumo: o filtro funciona quando o usuário **clica** no select e escolhe 4x4. Quando ele só vê o placeholder e não interage, o estado real é nulo.
+## O que vai mudar
 
-## Correção
+Tornar o bloco de **opções de quantidade** sempre visível quando o orçamento tiver 2+ opções salvas, independentemente de existirem itens individuais. As opções funcionam como **ancoragem comparativa** (mesma lógica do `QuoteOptionsBuilder`), não substituem o fluxo de aprovação por item.
 
-Definir `printColors` com **default real** = `"4x4"` (e `side = "F/V"`) ao criar um novo item de impressão, tornando o placeholder igual ao valor armazenado. Isso:
+### 1. ClientViewer.tsx — exibição
 
-- Faz o filtro de papel funcionar de imediato.
-- Sincroniza `bookletDuplex` corretamente (já derivado de `printColors`).
-- Não muda comportamento para usuários que sempre escolhiam 4x4 manualmente.
+- Remover a restrição `materials.length === 0` da renderização do bloco de opções. Renderizar a seção `{options.length >= 2 && (...)}` sempre que houver opções.
+- Renomear o título conforme o contexto:
+  - Sem itens individuais → "Escolha a quantidade" (continua como CTA principal).
+  - Com itens individuais → "Outras quantidades para comparar" (rótulo informativo, ancoragem).
+- Quando houver itens individuais, os `OptionCard` ficam **somente informativos** (sem seleção/borda primária, sem `onSelect` ativo) — o fluxo de aprovação continua sendo por checkbox de item. Adicionar prop `readOnly?: boolean` no `OptionCard` para suprimir o estado "selecionado" e o cursor de botão.
 
-Para etiquetas (`isLabel`), o default deve ser `"4x0"` (já que adesivo não tem verso, regra existente na UI).
+### 2. Lógica de modo / sticky bar
 
-## Mudanças
+- A constante `showOptionsMode` continua valendo apenas para o caso "sem itens" (mantém o sticky bar atual, que aprova pela opção escolhida).
+- Quando há itens + opções, o sticky bar permanece em `mode="items"` (aprovação por checkbox). As opções são apenas comparativas.
 
-Arquivo único: `src/components/orcamentos-v2/NewQuoteFormV2.tsx` (onde novos itens de impressão são criados).
+### 3. PDF / impressão
 
-1. Localizar a função/handler que cria novo item de impressão (procurar por `addPrintingItem`, `newItem`, ou onde `printColors` é definido na criação).
-2. Garantir que o objeto inicial tenha:
-   ```ts
-   printColors: isLabel ? "4x0" : "4x4",
-   side: isLabel ? "Simples" : "F/V",
-   ```
-3. **Itens legados sem `printColors`**: no `PrintingItemEditor.tsx`, ao montar o filtro de papel, tratar empty como `"4x4"` (ou o que o placeholder sugerir) só para o cálculo de `wantedSide`. Assim itens antigos também ficam consistentes com o que o usuário visualmente vê.
+O viewer do cliente é a fonte do PDF (gerado via `Baixar PDF` que imprime a tela). Como o bloco passa a renderizar sempre, o PDF também passará a mostrar as variações automaticamente — sem mudança extra.
 
-   Alternativa mais segura (escolhida): no `useEffect` inicial do editor, se `item.printColors` estiver vazio e o item não for label, dispara `onItemChange({ printColors: "4x4", side: "F/V" })` uma vez. Isso normaliza o estado.
+## Fora de escopo
 
-## Out of scope
-- Mudar o componente Select para mostrar o default selecionado de outra forma.
-- Migração no banco de itens já salvos com `printColors` nulo.
+- Não vou agrupar variantes do mesmo item (4x4 vs 1x1, 75g vs 90g) — isso foi descartado na pergunta.
+- Não vou alterar o `QuoteOptionsBuilder` (editor) nem o cálculo de preços por quantidade.
+- Não vou mexer em pedidos/contas a receber.
 
-## Arquivos editados
-- `src/components/orcamentos-v2/PrintingItemEditor.tsx` — normalização inicial de `printColors`.
-- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` — default na criação de novo item (se necessário, dependendo do que já é setado lá).
+## Arquivos afetados
+
+- `src/pages/orcamentos-v2/ClientViewer.tsx` — relaxar `showOptionsMode`, renderizar bloco de opções em ambos os casos com título contextual.
+- `src/components/orcamentos-v2/client-viewer/OptionCard.tsx` — adicionar prop opcional `readOnly` (oculta check, remove anel/borda primária, usa `<div>` em vez de `<button>`).
