@@ -41,6 +41,8 @@ import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { TagInput } from "@/components/ui/TagInput";
 import { FreightSelector } from "@/components/orcamentos-v2/FreightSelector";
 import { QuoteItemsTable, type ProcessStep, type ProcessGroup } from "@/components/orcamentos-v2/QuoteItemsTable";
+import { QuoteOptionsBuilder } from "@/components/orcamentos-v2/QuoteOptionsBuilder";
+import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
 
 interface Props {
   quoteId?: string;
