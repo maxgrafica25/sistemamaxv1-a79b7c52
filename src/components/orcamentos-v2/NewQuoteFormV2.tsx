@@ -11,6 +11,7 @@ import {
   Plus, X, Wrench, Check, User,
   Printer, Loader2, Link2, Lock, AlertTriangle, Megaphone, Layers,
   History, ChevronDown, ChevronUp, EyeOff, Tags, FileText, Package,
+  Sparkles, RefreshCw,
 } from "lucide-react";
 import { CVItemCard, type CVItemState } from "@/components/orcamentos-v2/CVItemCard";
 import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
@@ -35,6 +36,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PrintingItemEditor } from "@/components/orcamentos-v2/PrintingItemEditor";
 import { LaborAndSupplySubform, type SubformLabor, type SubformMaterial } from "@/components/orcamentos-v2/LaborAndSupplySubform";
 import { buildDynamicTitle } from "@/lib/quotes-v2/item-title";
+import { buildSubjectSuggestion } from "@/lib/quotes-v2/subject-suggestion";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { TagInput } from "@/components/ui/TagInput";
 import { FreightSelector } from "@/components/orcamentos-v2/FreightSelector";
@@ -178,6 +180,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     () => labor.filter((l) => !l.parentItemId),
     [labor],
   );
+
+  const subjectSuggestion = useMemo(() => buildSubjectSuggestion(materials), [materials]);
 
   // ---------- Load catalog & quote ----------
   const loadInit = useCallback(async () => {
@@ -1097,11 +1101,52 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           {clientId && showLastSales && <ClientLastSalesPanel clientId={clientId} />}
 
           <div className="space-y-1.5">
-            <Label className="text-xs">Assunto / Projeto *</Label>
+            <div className="flex items-center justify-between gap-2 min-h-[20px]">
+              <Label className="text-xs">Assunto / Projeto *</Label>
+              {subjectSuggestion && !product.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setProduct(subjectSuggestion)}
+                  className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                  title="Preencher com sugestão (ou pressione Tab no campo vazio)"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Usar sugestão: <span className="font-medium truncate max-w-[280px]">{subjectSuggestion}</span>
+                </button>
+              )}
+              {subjectSuggestion && product.trim() && product.trim() !== subjectSuggestion && (
+                <button
+                  type="button"
+                  onClick={() => setProduct(subjectSuggestion)}
+                  className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary"
+                  title={`Regenerar a partir dos itens: "${subjectSuggestion}"`}
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Regenerar
+                </button>
+              )}
+            </div>
             <Input
               value={product}
               onChange={(e) => setProduct(e.target.value)}
-              placeholder="Ex.: Cartões de visita corporativos – Acme Ltda."
+              onKeyDown={(e) => {
+                if (e.key === "Tab" && !product.trim() && subjectSuggestion) {
+                  e.preventDefault();
+                  setProduct(subjectSuggestion);
+                  // Após preencher, mover foco manualmente para o próximo elemento focável
+                  const form = e.currentTarget.form;
+                  if (form) {
+                    const focusables = Array.from(
+                      form.querySelectorAll<HTMLElement>(
+                        'input,select,textarea,button,[tabindex]:not([tabindex="-1"])'
+                      )
+                    ).filter((el) => !el.hasAttribute("disabled"));
+                    const idx = focusables.indexOf(e.currentTarget);
+                    if (idx >= 0 && focusables[idx + 1]) focusables[idx + 1].focus();
+                  }
+                }
+              }}
+              placeholder={subjectSuggestion || "Ex.: Cartões de visita corporativos – Acme Ltda."}
               className="h-9"
             />
           </div>
