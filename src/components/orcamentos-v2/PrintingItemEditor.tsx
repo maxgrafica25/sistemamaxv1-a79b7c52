@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -153,12 +153,27 @@ export function PrintingItemEditor({
   };
 
   // Cálculo de aproveitamento por folha (visão interna).
+  // Usa as PEÇAS DESEJADAS para sugerir folhas necessárias. Quantity é "folhas cobradas".
+  const piecesValue = (item.pieces ?? item.quantity ?? 0) || 0;
   const yieldInfo = useMemo(
-    () => calcSheetYield(item.widthMm || 0, item.heightMm || 0, item.quantity || 0),
-    [item.widthMm, item.heightMm, item.quantity],
+    () => calcSheetYield(item.widthMm || 0, item.heightMm || 0, piecesValue),
+    [item.widthMm, item.heightMm, piecesValue],
   );
   const hasDimensions = !!(item.widthMm && item.heightMm);
   const exceedsSheet = hasDimensions && (!yieldInfo || yieldInfo.perSheet <= 0);
+
+  // Mantém quantity (folhas cobradas) sincronizado com pieces e perSheet.
+  const perSheetForSync = yieldInfo?.perSheet ?? 0;
+  const expectedQuantity = perSheetForSync > 0
+    ? (piecesValue > 0 ? Math.ceil(piecesValue / perSheetForSync) : 0)
+    : piecesValue;
+  useEffect(() => {
+    if (locked) return;
+    if (item.pieces == null) return;
+    if (expectedQuantity > 0 && expectedQuantity !== item.quantity) {
+      onItemChange({ quantity: expectedQuantity });
+    }
+  }, [expectedQuantity, item.pieces, item.quantity, locked]);
 
   const filteredKinds = (() => {
     const q = (item.productKind || "").toLowerCase().trim();
@@ -472,7 +487,7 @@ export function PrintingItemEditor({
             )}
           </div>
           {(() => {
-            const displayValue = piecesInput ?? (item.quantity || "");
+            const displayValue = piecesInput ?? (piecesValue || "");
             return (
               <Input
                 type="text"
@@ -483,17 +498,21 @@ export function PrintingItemEditor({
                 placeholder="100"
                 onChange={(e) => {
                   const raw = e.target.value.replace(/\D/g, "");
-                  // Mantém EXATAMENTE o que o usuário digitou no campo,
-                  // sem "snap" para múltiplos da folha.
+                  // Mantém EXATAMENTE o que o usuário digitou no campo (peças desejadas).
                   onPiecesInputChange?.(raw);
-                  onItemChange({ quantity: raw ? Number(raw) : 0 });
+                  const pieces = raw ? Number(raw) : 0;
+                  // Se já temos perSheet, calcula folhas; senão, qty = pieces.
+                  const folhas = perSheetForSync > 0
+                    ? (pieces > 0 ? Math.ceil(pieces / perSheetForSync) : 0)
+                    : pieces;
+                  onItemChange({ pieces, quantity: folhas });
                 }}
                 className="w-28 h-8 text-sm text-center disabled:opacity-70"
               />
             );
           })()}
           <span className="text-sm font-semibold text-primary w-28 text-right">
-            {formatBRL(item.quantity * item.unitPrice)}
+            {formatBRL((item.quantity || 0) * (item.unitPrice || 0))}
           </span>
           {!locked && (
             <TooltipProvider delayDuration={150}>
@@ -531,7 +550,7 @@ export function PrintingItemEditor({
         {yieldInfo && !exceedsSheet && (
           (() => {
             const perSheet = yieldInfo.perSheet;
-            const pieces = item.quantity || 0;
+            const pieces = piecesValue;
             const folhas = pieces > 0 ? Math.ceil(pieces / perSheet) : 0;
             const sobra = folhas > 0 ? folhas * perSheet - pieces : 0;
             return (
@@ -554,12 +573,12 @@ export function PrintingItemEditor({
         open={labelDialogOpen}
         onOpenChange={setLabelDialogOpen}
         defaultSheet={guessSheet()}
-        defaultQty={item.quantity || 100}
+        defaultQty={piecesValue || 100}
         onApply={(folhas) => {
           const perSheet = yieldInfo?.perSheet ?? 1;
           const pieces = folhas * perSheet;
           onPiecesInputChange?.(String(pieces));
-          onItemChange({ quantity: pieces });
+          onItemChange({ pieces, quantity: folhas });
         }}
       />
 
