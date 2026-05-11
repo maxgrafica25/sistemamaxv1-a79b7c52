@@ -373,6 +373,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         description: m.description,
         quantity: m.quantity,
         unitPrice: m.unit_price,
+        pieces: m.pieces_count != null ? Number(m.pieces_count) : (m.quantity ?? null),
         status: m.status as "pendente" | "aprovado" | "recusado",
         approvedAt: m.approved_at,
         approvedValue: m.approved_value,
