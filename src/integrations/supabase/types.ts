@@ -2229,6 +2229,9 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_value: number | null
+          booklet_duplex: boolean | null
+          booklet_pages: number | null
+          booklet_units: number | null
           catalog_item_id: string | null
           catalog_source: string | null
           custom_name: string | null
@@ -2257,6 +2260,9 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_value?: number | null
+          booklet_duplex?: boolean | null
+          booklet_pages?: number | null
+          booklet_units?: number | null
           catalog_item_id?: string | null
           catalog_source?: string | null
           custom_name?: string | null
@@ -2285,6 +2291,9 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_value?: number | null
+          booklet_duplex?: boolean | null
+          booklet_pages?: number | null
+          booklet_units?: number | null
           catalog_item_id?: string | null
           catalog_source?: string | null
           custom_name?: string | null
