@@ -111,7 +111,13 @@ export function PrintingItemEditor({
   const isApostila = isApostilaKind(item.productKind);
   const bookletPages = item.bookletPages ?? null;
   const bookletUnits = item.bookletUnits ?? null;
-  const bookletDuplex = item.bookletDuplex ?? true;
+  const duplexFromPrintColors = (pc?: string | null): boolean | null => {
+    if (pc === "4x4" || pc === "1x1") return true;
+    if (pc === "4x0" || pc === "1x0") return false;
+    return null;
+  };
+  const bookletDuplex =
+    duplexFromPrintColors(item.printColors) ?? item.bookletDuplex ?? true;
 
   // Título dinâmico — derivado dos atributos estruturados, recomputado em tempo real.
   const dynamicTitle = useMemo(
@@ -172,7 +178,10 @@ export function PrintingItemEditor({
   // Quando muda a cor de impressão, atualiza também `side` (multiplicadores).
   const handlePrintColorsChange = (pc: string) => {
     const side = sideFromPrintColors(pc) ?? item.side ?? null;
-    onItemChange({ printColors: pc, side });
+    const dup = duplexFromPrintColors(pc);
+    const patch: Record<string, unknown> = { printColors: pc, side };
+    if (isApostila && dup !== null) patch.bookletDuplex = dup;
+    onItemChange(patch as Parameters<typeof onItemChange>[0]);
   };
 
   // Cálculo de aproveitamento por folha (visão interna).
@@ -657,39 +666,6 @@ export function PrintingItemEditor({
                 }}
                 className="h-9 text-sm"
               />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Impressão</Label>
-            <div className="inline-flex rounded-md border border-border overflow-hidden">
-              {[
-                { key: false, label: "Frente" },
-                { key: true, label: "Frente e Verso" },
-              ].map((opt) => {
-                const active = bookletDuplex === opt.key;
-                return (
-                  <button
-                    key={String(opt.key)}
-                    type="button"
-                    disabled={locked}
-                    onClick={() => {
-                      if (bookletDuplex === opt.key) return;
-                      onItemChange({
-                        bookletDuplex: opt.key,
-                        side: opt.key ? "F/V" : "Simples",
-                      });
-                    }}
-                    className={cn(
-                      "px-3 h-8 text-xs font-medium transition-colors",
-                      active
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background text-muted-foreground hover:bg-muted",
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
             </div>
           </div>
           {(bookletPages ?? 0) > 0 && (bookletUnits ?? 0) > 0 && (
