@@ -27,7 +27,6 @@ import { useScrollDepthTracking } from "@/lib/quotes-v2/useScrollDepthTracking";
 import {
   buildAdjustMessage,
   buildItemAdjustMessage,
-  buildPartialApprovalMessage,
 } from "@/lib/quotes-v2/whatsapp";
 import { APPROVAL_TERMS_VERSION, buildApprovalTermsText } from "@/lib/quotes-v2/approval-terms";
 
