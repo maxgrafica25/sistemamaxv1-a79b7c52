@@ -194,6 +194,22 @@ export default function OrcamentosV2() {
     fetchQuotes();
   };
 
+  const handleWhatsAppClient = (q: QuoteRow) => {
+    if (!q.client_phone) return;
+    const message = buildTeamFollowUpMessage({
+      quoteNumber: q.quote_number,
+      status: q.status,
+      clientName: q.client,
+      companyName,
+    });
+    const url = buildWaUrl(message, q.client_phone);
+    if (!url) {
+      toast.error("Telefone do cliente inválido.");
+      return;
+    }
+    window.open(url, "_blank");
+  };
+
   const handleCopyPublicLink = (quoteNumber: string) => {
     const url = `${window.location.origin}/p/${quoteNumber}`;
     navigator.clipboard.writeText(url);
