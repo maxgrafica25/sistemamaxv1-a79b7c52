@@ -487,7 +487,7 @@ export function PrintingItemEditor({
             )}
           </div>
           {(() => {
-            const displayValue = piecesInput ?? (item.quantity || "");
+            const displayValue = piecesInput ?? (piecesValue || "");
             return (
               <Input
                 type="text"
@@ -498,17 +498,21 @@ export function PrintingItemEditor({
                 placeholder="100"
                 onChange={(e) => {
                   const raw = e.target.value.replace(/\D/g, "");
-                  // Mantém EXATAMENTE o que o usuário digitou no campo,
-                  // sem "snap" para múltiplos da folha.
+                  // Mantém EXATAMENTE o que o usuário digitou no campo (peças desejadas).
                   onPiecesInputChange?.(raw);
-                  onItemChange({ quantity: raw ? Number(raw) : 0 });
+                  const pieces = raw ? Number(raw) : 0;
+                  // Se já temos perSheet, calcula folhas; senão, qty = pieces.
+                  const folhas = perSheetForSync > 0
+                    ? (pieces > 0 ? Math.ceil(pieces / perSheetForSync) : 0)
+                    : pieces;
+                  onItemChange({ pieces, quantity: folhas });
                 }}
                 className="w-28 h-8 text-sm text-center disabled:opacity-70"
               />
             );
           })()}
           <span className="text-sm font-semibold text-primary w-28 text-right">
-            {formatBRL(item.quantity * item.unitPrice)}
+            {formatBRL((item.quantity || 0) * (item.unitPrice || 0))}
           </span>
           {!locked && (
             <TooltipProvider delayDuration={150}>
