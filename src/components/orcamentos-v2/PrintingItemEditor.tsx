@@ -253,6 +253,20 @@ export function PrintingItemEditor({
   };
   const isLabel = isLabelKind(item.productKind);
 
+  // Normaliza printColors quando o item ainda não tem valor definido.
+  // Sem isso, o usuário vê "4x4" no Select (placeholder) mas o estado real é
+  // null — o filtro de papel por F/V deixa de funcionar.
+  useEffect(() => {
+    if (item.printColors) return;
+    if (locked) return;
+    if (isLabel) {
+      onItemChange({ printColors: "4x0", side: "Simples" } as Parameters<typeof onItemChange>[0]);
+    } else {
+      onItemChange({ printColors: "4x4", side: "F/V" } as Parameters<typeof onItemChange>[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.printColors, isLabel, locked]);
+
   // Atualiza productKind aplicando regras automáticas para etiquetas/adesivos.
   const handleProductKindChange = (kind: string) => {
     const patch: Partial<PricingMaterial> = { productKind: kind };
