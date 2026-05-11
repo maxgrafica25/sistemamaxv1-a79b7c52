@@ -88,6 +88,7 @@ export function QuoteItemsTable(props: Props) {
     onSetChildLaborForItem, onSetChildMaterialsForItem,
     onRemovePrinting, onRemoveChildMaterial, onRemoveLabor, onDuplicateItem,
     onChangeStandaloneLabor, onChangeStandaloneMaterials, onChangeThirdParty,
+    onPickCoverPaper, onClearCoverPaper,
   } = props;
 
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
