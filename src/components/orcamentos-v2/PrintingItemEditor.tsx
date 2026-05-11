@@ -178,7 +178,10 @@ export function PrintingItemEditor({
   // Quando muda a cor de impressão, atualiza também `side` (multiplicadores).
   const handlePrintColorsChange = (pc: string) => {
     const side = sideFromPrintColors(pc) ?? item.side ?? null;
-    onItemChange({ printColors: pc, side });
+    const dup = duplexFromPrintColors(pc);
+    const patch: Record<string, unknown> = { printColors: pc, side };
+    if (isApostila && dup !== null) patch.bookletDuplex = dup;
+    onItemChange(patch as Parameters<typeof onItemChange>[0]);
   };
 
   // Cálculo de aproveitamento por folha (visão interna).
