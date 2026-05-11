@@ -111,7 +111,13 @@ export function PrintingItemEditor({
   const isApostila = isApostilaKind(item.productKind);
   const bookletPages = item.bookletPages ?? null;
   const bookletUnits = item.bookletUnits ?? null;
-  const bookletDuplex = item.bookletDuplex ?? true;
+  const duplexFromPrintColors = (pc?: string | null): boolean | null => {
+    if (pc === "4x4" || pc === "1x1") return true;
+    if (pc === "4x0" || pc === "1x0") return false;
+    return null;
+  };
+  const bookletDuplex =
+    duplexFromPrintColors(item.printColors) ?? item.bookletDuplex ?? true;
 
   // Título dinâmico — derivado dos atributos estruturados, recomputado em tempo real.
   const dynamicTitle = useMemo(
