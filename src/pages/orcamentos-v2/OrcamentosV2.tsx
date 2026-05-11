@@ -509,7 +509,7 @@ export default function OrcamentosV2() {
                           aria-label={`Selecionar ${q.quote_number}`}
                         />
                       </td>
-                      <td className="py-4 text-sm font-medium text-primary">
+                      <td className={`py-4 text-sm text-primary ${hasUnseen ? "font-bold" : "font-medium"}`}>
                         <div className="flex items-center gap-2 flex-wrap">
                           {q.quote_number}
                           {(q.version ?? 1) > 1 && (
