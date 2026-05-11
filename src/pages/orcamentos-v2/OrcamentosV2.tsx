@@ -67,6 +67,7 @@ export default function OrcamentosV2() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin";
+  const { companyName } = useCompanySettings();
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
   const [statsMap, setStatsMap] = useState<Map<string, EngagementStats>>(new Map());
   const [loading, setLoading] = useState(true);
