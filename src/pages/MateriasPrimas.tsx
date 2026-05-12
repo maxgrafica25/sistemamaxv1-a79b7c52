@@ -380,12 +380,13 @@ export default function MateriasPrimas() {
   };
 
   // ── Suprimento logic (DB-backed) ──
-  const resetForm = () => { setProduto(""); setFinalidade(""); setQuantidade(""); setUnidade("un"); setValor(""); setFornecedor(""); setData(""); setContato(""); };
+  const resetForm = () => { setProduto(""); setFinalidade(""); setQuantidade(""); setUnidade("un"); setValor(""); setFornecedor(""); setData(""); setContato(""); setMargemPct("0"); };
   const openNewDialog = () => { setEditingMaterial(null); resetForm(); setIsDialogOpen(true); };
   const openEditDialog = (m: Material) => {
     setEditingMaterial(m); setProduto(m.produto); setFinalidade(m.finalidade);
     setQuantidade(m.quantidade.toString()); setUnidade(m.unidade || "un"); setValor(m.valor.toString());
-    setFornecedor(m.fornecedor); setData(m.data); setContato(m.contato); setIsDialogOpen(true);
+    setFornecedor(m.fornecedor); setData(m.data); setContato(m.contato);
+    setMargemPct(String(m.margemPct ?? 0)); setIsDialogOpen(true);
   };
   const duplicateMaterial = (m: Material) => {
     setEditingMaterial(null);
@@ -396,6 +397,7 @@ export default function MateriasPrimas() {
     setValor(m.valor.toString());
     setFornecedor(m.fornecedor);
     setContato(m.contato);
+    setMargemPct(String(m.margemPct ?? 0));
     setData(new Date().toISOString().split("T")[0]);
     setIsDialogOpen(true);
   };
@@ -419,6 +421,7 @@ export default function MateriasPrimas() {
     const qtd = parseFloat(quantidade); const val = parseFloat(valor);
     const unitario = qtd > 0 ? val / qtd : 0;
     const dt = data || new Date().toISOString().split("T")[0];
+    const margemNum = Math.max(0, Math.min(500, parseFloat(margemPct) || 0));
     const saveData = {
       produto,
       finalidade,
@@ -429,6 +432,7 @@ export default function MateriasPrimas() {
       fornecedor,
       contato,
       data: dt,
+      margem_pct: margemNum,
     };
     if (editingMaterial) {
       const { error: updErr } = await supabase.from("supplies").update(saveData).eq("id", editingMaterial.id);
