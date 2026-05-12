@@ -1364,6 +1364,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             markupTiers={markupTiers}
             categoryDefaultGroupId={categoryGroups}
             globalSettings={globalSettings}
+            profitMarginPct={parseFloat(profitMargin || "0")}
             hourlyRate={hourlyRate}
             printingItems={printingItems}
             childMaterials={childMaterials}
