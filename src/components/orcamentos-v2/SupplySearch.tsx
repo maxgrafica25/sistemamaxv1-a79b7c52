@@ -26,7 +26,7 @@ export default function SupplySearch({ onSelect, placeholder = "Buscar supriment
   useEffect(() => {
     supabase
       .from("supplies")
-      .select("id, produto, fornecedor, valor_unitario")
+      .select("id, produto, fornecedor, valor_unitario, margem_pct")
       .order("produto")
       .then(({ data }) => setSupplies((data as SupplyOption[]) || []));
   }, []);
