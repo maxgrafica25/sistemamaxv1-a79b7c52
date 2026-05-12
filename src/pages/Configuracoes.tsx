@@ -50,7 +50,7 @@ export default function Configuracoes() {
   const [collectionCostPercentage, setCollectionCostPercentage] = useState("7");
   const [defaultProfitMargin, setDefaultProfitMargin] = useState("33");
   const [taxPct, setTaxPct] = useState("10");
-  const [collectionFeePct, setCollectionFeePct] = useState("5");
+  const [collectionFeePct, setCollectionFeePct] = useState("7");
 
   // Backup state
   const [backupRuns, setBackupRuns] = useState<BackupRun[]>([]);
@@ -101,13 +101,14 @@ export default function Configuracoes() {
 
   const handleSave = async () => {
     setSaving(true);
+    const cardFee = parseFloat(collectionFeePct) || 0;
     const data: any = {
       invoice_pct: parseFloat(invoicePercentage) || 0,
-      collection_pct: composedVariable,
+      collection_pct: cardFee,
       waste_pct: parseFloat(wastePercentage) || 0,
       default_margin_pct: parseFloat(defaultProfitMargin) || 0,
       tax_pct: parseFloat(taxPct) || 0,
-      collection_fee_pct: parseFloat(collectionFeePct) || 0,
+      collection_fee_pct: cardFee,
     };
     if (settingsId) {
       await supabase.from("global_settings").update(data).eq("id", settingsId);
@@ -115,7 +116,7 @@ export default function Configuracoes() {
       const { data: newRow } = await supabase.from("global_settings").insert(data).select("id").single();
       if (newRow) setSettingsId(newRow.id);
     }
-    setCollectionCostPercentage(String(composedVariable));
+    setCollectionCostPercentage(String(cardFee));
     setSaving(false);
     toast.success("Configurações salvas com sucesso!");
   };
