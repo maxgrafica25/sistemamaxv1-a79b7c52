@@ -28,6 +28,7 @@ interface Props {
   productKind?: string | null;
   processSteps: ProcessStep[];
   hourlyRate: number;
+  displayPcts: LaborDisplayPcts;
   childLabor: SubformLabor[];
   childMaterials: SubformMaterial[];
   onChildLaborChange: (next: SubformLabor[]) => void;
