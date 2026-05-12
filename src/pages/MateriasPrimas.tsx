@@ -162,6 +162,11 @@ export default function MateriasPrimas() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkMargem, setBulkMargem] = useState("0");
 
+  // Tiers drawer
+  const [tiersOpen, setTiersOpen] = useState(false);
+  const [tiersSupply, setTiersSupply] = useState<Material | null>(null);
+  const [tierCounts, setTierCounts] = useState<Record<string, number>>({});
+
   // Paper form
   const [paperName, setPaperName] = useState("");
   const [paperGrammage, setPaperGrammage] = useState("");
