@@ -103,6 +103,7 @@ export function QuoteItemsTable(props: Props) {
     onChangeStandaloneLabor, onChangeStandaloneMaterials, onChangeThirdParty,
     onPickCoverPaper, onClearCoverPaper,
     itemSellingTotals,
+    itemDisplayInfo,
   } = props;
 
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
