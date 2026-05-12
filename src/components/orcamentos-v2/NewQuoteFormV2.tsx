@@ -1627,6 +1627,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               netProfit={netProfit}
               netMarginPct={netMarginPct}
               revenueBase={revenueBase}
+              composition={composition}
             />
           );
         })()}
