@@ -195,6 +195,9 @@ export function QuoteItemsTable(props: Props) {
   // Reactively re-sync each printing item's unit price with its current tier.
   useEffect(() => {
     for (const m of printingItems) {
+      // Apostilas (direct_sum) usam o preço da tabela "Preço Impressão"
+      // como-está — não reaplicar tier nem arredondar p/ R$ 0,10.
+      if (isDirectSumItem(m)) continue;
       const fresh = computeTierUnitPrice(m, m.quantity || 1);
       if (fresh > 0 && Math.abs(fresh - (m.unitPrice || 0)) > 0.001) {
         onUpdatePrinting(m.id, { unitPrice: fresh });
