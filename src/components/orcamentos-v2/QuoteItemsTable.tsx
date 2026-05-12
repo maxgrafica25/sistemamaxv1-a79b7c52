@@ -329,7 +329,7 @@ export function QuoteItemsTable(props: Props) {
   };
 
   const renderLaborRow = (l: SubformLabor, isChild: boolean) => {
-    const cost = ((l.timeMinutes || 0) / 60) * (hourlyRate || 0);
+    const sellingUnit = computeLaborSellingPrice(l.timeMinutes, hourlyRate, displayPcts);
     return (
       <div key={l.id} className={`${GRID} px-2 py-1.5 border-b text-sm ${isChild ? "bg-muted/10" : "hover:bg-muted/30"}`}>
         <span></span>
@@ -342,7 +342,16 @@ export function QuoteItemsTable(props: Props) {
           </span>
         </div>
         <span></span><span></span><span></span>
-        <span className="text-right tabular-nums text-muted-foreground text-xs">~{fmt(cost)}</span>
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-right tabular-nums text-muted-foreground text-xs cursor-help">
+                {fmt(sellingUnit)}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{LABOR_SELLING_TOOLTIP}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRemoveLabor(l.id)}>
           <X className="h-3.5 w-3.5" />
         </Button>
