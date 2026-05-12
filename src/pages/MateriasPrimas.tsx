@@ -844,6 +844,17 @@ export default function MateriasPrimas() {
                             </Tooltip>
                           </div>
                         </TableHead>
+                        <TableHead className="font-semibold text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            Faixas
+                            <Tooltip>
+                              <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p>Faixas manuais de preço por quantidade. O valor cadastrado é o <strong>preço final ao cliente</strong> (impostos e cartão já embutidos) e <strong>substitui a margem</strong> em apostilas.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableHead>
                         <TableHead className="font-semibold">Fornecedor</TableHead>
                         <TableHead className="font-semibold text-center">Variação</TableHead>
                         <TableHead className="font-semibold text-right">Ações</TableHead>
