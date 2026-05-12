@@ -12,6 +12,11 @@ import {
 } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { format, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -43,6 +48,7 @@ interface Material {
   unidade: string;
   data: string;
   contato: string;
+  margemPct: number;
 }
 
 const UNIDADES_MEDIDA = [
@@ -148,6 +154,12 @@ export default function MateriasPrimas() {
   const [fornecedor, setFornecedor] = useState("");
   const [data, setData] = useState("");
   const [contato, setContato] = useState("");
+  const [margemPct, setMargemPct] = useState("0");
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkMargem, setBulkMargem] = useState("0");
 
   // Paper form
   const [paperName, setPaperName] = useState("");
@@ -190,6 +202,7 @@ export default function MateriasPrimas() {
         unidade: s.unidade || "un",
         data: s.data,
         contato: s.contato,
+        margemPct: Number(s.margem_pct ?? 0),
       })));
     }
     if (histRes.data) {
@@ -367,12 +380,13 @@ export default function MateriasPrimas() {
   };
 
   // ── Suprimento logic (DB-backed) ──
-  const resetForm = () => { setProduto(""); setFinalidade(""); setQuantidade(""); setUnidade("un"); setValor(""); setFornecedor(""); setData(""); setContato(""); };
+  const resetForm = () => { setProduto(""); setFinalidade(""); setQuantidade(""); setUnidade("un"); setValor(""); setFornecedor(""); setData(""); setContato(""); setMargemPct("0"); };
   const openNewDialog = () => { setEditingMaterial(null); resetForm(); setIsDialogOpen(true); };
   const openEditDialog = (m: Material) => {
     setEditingMaterial(m); setProduto(m.produto); setFinalidade(m.finalidade);
     setQuantidade(m.quantidade.toString()); setUnidade(m.unidade || "un"); setValor(m.valor.toString());
-    setFornecedor(m.fornecedor); setData(m.data); setContato(m.contato); setIsDialogOpen(true);
+    setFornecedor(m.fornecedor); setData(m.data); setContato(m.contato);
+    setMargemPct(String(m.margemPct ?? 0)); setIsDialogOpen(true);
   };
   const duplicateMaterial = (m: Material) => {
     setEditingMaterial(null);
@@ -383,6 +397,7 @@ export default function MateriasPrimas() {
     setValor(m.valor.toString());
     setFornecedor(m.fornecedor);
     setContato(m.contato);
+    setMargemPct(String(m.margemPct ?? 0));
     setData(new Date().toISOString().split("T")[0]);
     setIsDialogOpen(true);
   };
@@ -406,6 +421,7 @@ export default function MateriasPrimas() {
     const qtd = parseFloat(quantidade); const val = parseFloat(valor);
     const unitario = qtd > 0 ? val / qtd : 0;
     const dt = data || new Date().toISOString().split("T")[0];
+    const margemNum = Math.max(0, Math.min(500, parseFloat(margemPct) || 0));
     const saveData = {
       produto,
       finalidade,
@@ -416,6 +432,7 @@ export default function MateriasPrimas() {
       fornecedor,
       contato,
       data: dt,
+      margem_pct: margemNum,
     };
     if (editingMaterial) {
       const { error: updErr } = await supabase.from("supplies").update(saveData).eq("id", editingMaterial.id);
@@ -467,6 +484,27 @@ export default function MateriasPrimas() {
     setConfirmItemName(name);
     setConfirmAction(() => () => deleteMaterial(id));
     setConfirmOpen(true);
+  };
+
+  const applyBulkMargin = async () => {
+    if (!requireAdmin("atualizar margem em massa")) return;
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const m = Math.max(0, Math.min(500, parseFloat(bulkMargem) || 0));
+    const { error } = await supabase.from("supplies").update({ margem_pct: m }).in("id", ids);
+    if (error) return handleError(error, "atualizar margem");
+    toast.success(`Margem ${m}% aplicada em ${ids.length} item(ns).`);
+    setSelectedIds(new Set());
+    setBulkOpen(false);
+    fetchSupplies();
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
 
   const getVariation = (materialId: string) => {
@@ -741,15 +779,57 @@ export default function MateriasPrimas() {
               </Card>
             ) : (
               <Card className="shadow-card mt-4 overflow-hidden">
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center justify-between gap-3 px-4 py-2 bg-primary/5 border-b border-border">
+                    <span className="text-sm font-medium">
+                      {selectedIds.size} item(ns) selecionado(s)
+                    </span>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                        Limpar seleção
+                      </Button>
+                      <AdminOnly mode="disable" action="atualizar margem em massa">
+                        <Button size="sm" onClick={() => setBulkOpen(true)} className="gap-2">
+                          <DollarSign className="h-4 w-4" />
+                          Aplicar margem em massa
+                        </Button>
+                      </AdminOnly>
+                    </div>
+                  </div>
+                )}
                 <CardContent className="p-0">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/40 hover:bg-muted/40">
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={
+                              filteredMaterials.length > 0 &&
+                              filteredMaterials.every(m => selectedIds.has(m.id))
+                            }
+                            onCheckedChange={(v) => {
+                              if (v) setSelectedIds(new Set(filteredMaterials.map(m => m.id)));
+                              else setSelectedIds(new Set());
+                            }}
+                            aria-label="Selecionar todos"
+                          />
+                        </TableHead>
                         <TableHead className="font-semibold">Produto</TableHead>
                         <TableHead className="font-semibold">Finalidade</TableHead>
                         <TableHead className="font-semibold text-right">Qtd</TableHead>
                         <TableHead className="font-semibold text-right">Valor</TableHead>
                         <TableHead className="font-semibold text-right">Unit.</TableHead>
+                        <TableHead className="font-semibold text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            Margem
+                            <Tooltip>
+                              <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p>Aplicada apenas em itens de apostila (capa, mola, acabamento). Itens em modo "tier" (banner, cartão) ignoram esta margem.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableHead>
                         <TableHead className="font-semibold">Fornecedor</TableHead>
                         <TableHead className="font-semibold text-center">Variação</TableHead>
                         <TableHead className="font-semibold text-right">Ações</TableHead>
@@ -758,13 +838,33 @@ export default function MateriasPrimas() {
                     <TableBody>
                       {filteredMaterials.map(material => {
                         const variation = getVariation(material.id);
+                        const vendaUnit = material.valorUnitario * (1 + (material.margemPct ?? 0) / 100);
                         return (
-                          <TableRow key={material.id} className="group">
+                          <TableRow key={material.id} className="group" data-state={selectedIds.has(material.id) ? "selected" : undefined}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedIds.has(material.id)}
+                                onCheckedChange={() => toggleSelected(material.id)}
+                                aria-label={`Selecionar ${material.produto}`}
+                              />
+                            </TableCell>
                             <TableCell className="font-medium max-w-[250px] truncate">{material.produto}</TableCell>
                             <TableCell><Badge variant="secondary" className="text-xs font-normal">{material.finalidade || "—"}</Badge></TableCell>
                             <TableCell className="text-right tabular-nums">{material.quantidade} <span className="text-xs text-muted-foreground">{material.unidade || "un"}</span></TableCell>
                             <TableCell className="text-right tabular-nums">{formatCurrency(material.valor)}</TableCell>
                             <TableCell className="text-right tabular-nums font-medium">{formatCurrency(material.valorUnitario)} <span className="text-xs text-muted-foreground font-normal">/ {material.unidade || "un"}</span></TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              <div className="flex flex-col items-end leading-tight">
+                                <span className={cn("font-medium", (material.margemPct ?? 0) === 0 && "text-muted-foreground")}>
+                                  {(material.margemPct ?? 0).toFixed(0)}%
+                                </span>
+                                {(material.margemPct ?? 0) > 0 && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    = {formatCurrency(vendaUnit)}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell className="text-muted-foreground">{material.fornecedor || "—"}</TableCell>
                             <TableCell className="text-center"><VariationBadge variation={variation} /></TableCell>
                             <TableCell className="text-right">
@@ -952,6 +1052,36 @@ export default function MateriasPrimas() {
                   <span className="text-sm text-muted-foreground"> / {unidade}</span>
                 </div>
               )}
+              <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-medium">Margem de Lucro (%)</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Margem aplicada quando o item é usado em <strong>apostilas (modo soma direta)</strong>. Em itens com markup tier (banner, cartão), a margem da tabela de tiers é usada.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Input
+                  type="number"
+                  min="0"
+                  max="500"
+                  step="1"
+                  placeholder="Ex: 50"
+                  value={margemPct}
+                  onChange={(e) => setMargemPct(e.target.value)}
+                />
+                {quantidade && valor && parseFloat(quantidade) > 0 && parseFloat(margemPct) > 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    Custo {formatCurrency(parseFloat(valor) / parseFloat(quantidade))} + {parseFloat(margemPct).toFixed(0)}% ={" "}
+                    <span className="font-semibold text-foreground">
+                      {formatCurrency((parseFloat(valor) / parseFloat(quantidade)) * (1 + parseFloat(margemPct) / 100))}
+                    </span>{" "}
+                    / {unidade}
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-4 items-end">
                 <div className="space-y-2"><Label>Data Cotação</Label><DatePickerField value={data} onChange={setData} /></div>
                 <div className="space-y-2"><Label>Contato</Label><Input placeholder="Nome" value={contato} onChange={(e) => setContato(e.target.value)} /></div>
@@ -1002,6 +1132,36 @@ export default function MateriasPrimas() {
         description={`Deseja realmente excluir "${confirmItemName}"? Esta ação não pode ser desfeita.`}
         onConfirm={() => { confirmAction(); setConfirmOpen(false); }}
       />
+
+      <AlertDialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Aplicar margem em massa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta margem será aplicada a <strong>{selectedIds.size} suprimento(s)</strong> selecionado(s).
+              Lembre-se: a margem só vale em itens usados em apostilas (modo soma direta).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>Margem (%)</Label>
+            <Input
+              type="number"
+              min="0"
+              max="500"
+              step="1"
+              value={bulkMargem}
+              onChange={(e) => setBulkMargem(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={applyBulkMargin}>
+              Aplicar a {selectedIds.size} item(ns)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
