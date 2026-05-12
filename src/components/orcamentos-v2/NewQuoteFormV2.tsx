@@ -1340,6 +1340,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             <Package className="h-4 w-4 text-primary" /> Itens de produto ou serviço
           </h2>
           <QuoteItemsTable
+            itemSellingTotals={Object.fromEntries(composition.items.map((it) => [it.id, it.sellingTotal]))}
             printingCatalog={printingCatalog}
             processSteps={processSteps}
             processGroups={processGroups}
