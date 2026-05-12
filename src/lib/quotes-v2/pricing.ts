@@ -1,34 +1,27 @@
-// Pure pricing engine — mirrors the V1 NewQuoteForm calculation so the
-// anchoring options builder can correctly reprice for any quantity.
+// Pure pricing engine — supports two modes per printing item:
+//   1. "tier"       — classic markup tiers + global divisor (cards, flyers, etc).
+//   2. "direct_sum" — printingCostUnit already includes profit; we only sum
+//                     parcels and add sales costs (taxes + collection).
 //
-// Key rule (printing industry): increasing quantity must NOT just multiply
-// the unit_price. The selling price per unit drops because (a) the markup
-// tier changes, and (b) fixed costs (labor, third-party, manual materials)
-// dilute over more units.
-//
-// V2 reestruturado: cada item de impressão pode ter "filhos vinculados"
-// (mão de obra e materiais manuais marcados com parentItemId = id do pai).
-// Esses custos vinculados são embutidos no baseCost do pai antes de aplicar
-// o tier de markup — ou seja, são tratados como acabamentos que escalam com
-// a quantidade do item de impressão. Custos avulsos (parentItemId == null)
-// continuam sendo somas absolutas diluídas pela quantidade total.
+// Mode is decided per parent item via isDirectSumItem(): apostilas detected by
+// productKind === "apostila" or bookletUnits > 0. Standalone (non-printing)
+// materials/labor still flow through the classic global divisor.
 
 import type { MarkupTier } from "@/components/orcamentos/PrintingItemSearch";
 
 export interface PricingMaterial {
   id: string;
   description: string;
-  quantity: number;       // CHARGEABLE quantity (sheets para itens de impressão com dimensões)
-  unitPrice: number;      // current unit price stored in quote (used for non-printing fallback)
-  pieces?: number | null; // peças desejadas pelo cliente (apenas exibição/persistência; pricing usa quantity)
-  baseCost?: number;      // printing items: paper + printing cost (already accounting for size/side)
+  quantity: number;
+  unitPrice: number;
+  pieces?: number | null;
+  baseCost?: number;
   printerCategoryId?: string;
   markupGroupId?: string | null;
   status?: "pendente" | "aprovado" | "recusado";
   approvedAt?: string | null;
   approvedValue?: number | null;
-  parentItemId?: string | null; // se preenchido, é filho de um item de impressão
-  // Nomenclatura dinâmica (atributos estruturados do catálogo + dados do vendedor)
+  parentItemId?: string | null;
   productKind?: string | null;
   customName?: string | null;
   reference?: string | null;
@@ -37,33 +30,23 @@ export interface PricingMaterial {
   grammage?: string | null;
   size?: string | null;
   side?: string | null;
-  // Dimensões estruturadas em mm (V2.1) — usadas para descrição e cálculo de aproveitamento
   widthMm?: number | null;
   heightMm?: number | null;
-  printColors?: string | null; // "4x4" | "4x0" | "1x1" | "1x0"
-  // Catálogo (nomenclatura travada)
+  printColors?: string | null;
   catalogSource?: "printing" | "finishing" | null;
   catalogItemId?: string | null;
-  /** Acabamento opcional (upsell) — não compõe o preço base do item pai. */
   isOptional?: boolean;
-  /** Variações de tiragem para ancoragem de preço (ex: 100/500/1000). */
   quantityVariations?: Array<{ pieces: number; unit_price: number }>;
-  /** Apostila: nº de páginas por apostila (entrada do usuário). */
   bookletPages?: number | null;
-  /** Apostila: nº de apostilas (entrada do usuário). */
   bookletUnits?: number | null;
-  /** Apostila: imprime frente e verso. */
   bookletDuplex?: boolean | null;
-  /** Custo do papel por unidade (separado de baseCost para detalhamento). */
   paperCost?: number | null;
-  /** Custo de impressão por unidade JÁ multiplicado (size/side). */
   printingCostUnit?: number | null;
 }
 
 export interface PricingLaborStep {
   timeMinutes: number;
-  parentItemId?: string | null; // se preenchido, é filho de um item de impressão
-  /** Mão-de-obra opcional (upsell) — não compõe o preço base do item pai. */
+  parentItemId?: string | null;
   isOptional?: boolean;
 }
 
@@ -84,15 +67,11 @@ export interface PricingSnapshot {
   materials: PricingMaterial[];
   thirdParty: PricingThirdParty[];
   settings: PricingSettings;
-  // tiers indexed once, used to re-find selling price per quantity
   markupTiers: MarkupTier[];
   categoryDefaultGroupId: Record<string, string | null>;
-  // base quantity the snapshot was originally created at (default 1 per unit)
   baseQuantity: number;
-  // Extras somados ao total final APÓS o markup (não entram na base de cálculo).
-  // Aplicados em todas as opções de ancoragem (inclusive na base) para coerência.
-  hiddenExtrasValue?: number; // some valor "outros" — não aparece ao cliente
-  freightValue?: number;      // valor de frete — aparece ao cliente
+  hiddenExtrasValue?: number;
+  freightValue?: number;
 }
 
 export interface PricingResult {
@@ -110,6 +89,14 @@ export interface PricingResult {
   unitPrice: number;
   effectiveMarginPct: number;
 }
+
+/** Apostila / produtos que vendem clique com lucro embutido. */
+export const isDirectSumItem = (m: PricingMaterial): boolean => {
+  const kind = (m.productKind || "").toLowerCase();
+  if (kind === "apostila" || kind.includes("apostila")) return true;
+  if ((m.bookletUnits ?? 0) > 0) return true;
+  return false;
+};
 
 const findTier = (
   snap: PricingSnapshot,
@@ -135,26 +122,35 @@ const calcSellingPrice = (baseCost: number, tier: MarkupTier): number => {
   return Math.round((baseCost / divisor) * 10) / 10;
 };
 
-/**
- * Recalculate the full quote totals for a target final quantity.
- *
- * Behaviour (V2 reestruturado):
- * - Para cada item de impressão pai:
- *     baseCostEfetivo = baseCost(papel+impressão) + custosFilhosUnitarios
- *     onde custosFilhosUnitarios = (Σ mão de obra filha + Σ materiais filhos) / qty
- *     O sellingPrice é calculado sobre baseCostEfetivo aplicando o tier do qty.
- *     printingTotal += sellingPrice * qty
- * - Mão de obra e materiais AVULSOS (parentItemId == null): mantém comportamento
- *   anterior — somas absolutas que entram no divisor de markup geral.
- * - Terceirizados: sempre absolutos, no divisor geral.
- */
+interface ChildAggregates {
+  matTotal: number;
+  labTotal: number;
+  total: number;
+}
+
+const aggregateChildren = (
+  parentId: string,
+  childMaterialsByParent: Map<string, PricingMaterial[]>,
+  childLaborByParent: Map<string, PricingLaborStep[]>,
+  hourlyRate: number,
+): ChildAggregates => {
+  const mats = childMaterialsByParent.get(parentId) ?? [];
+  const labs = childLaborByParent.get(parentId) ?? [];
+  const matTotal = mats
+    .filter((cm) => !cm.isOptional)
+    .reduce((s, cm) => s + cm.quantity * cm.unitPrice, 0);
+  const labTotal = labs
+    .filter((cl) => !cl.isOptional)
+    .reduce((s, cl) => s + (cl.timeMinutes / 60) * hourlyRate, 0);
+  return { matTotal, labTotal, total: matTotal + labTotal };
+};
+
 export const recalculateForQuantity = (
   snap: PricingSnapshot,
   newQuantity: number,
 ): PricingResult => {
   const qty = Math.max(1, Math.floor(newQuantity));
 
-  // ---- Separa filhos x avulsos ----
   const childMaterialsByParent = new Map<string, PricingMaterial[]>();
   const childLaborByParent = new Map<string, PricingLaborStep[]>();
   const standaloneMaterials: PricingMaterial[] = [];
@@ -179,7 +175,6 @@ export const recalculateForQuantity = (
     }
   }
 
-  // ---- Avulsos (somas absolutas no divisor geral) — opcionais excluídos ----
   const laborTotal = standaloneLabor
     .filter((step) => !step.isOptional)
     .reduce((s, step) => s + (step.timeMinutes / 60) * snap.settings.hourlyRate, 0);
@@ -188,65 +183,40 @@ export const recalculateForQuantity = (
   let printingTotal = 0;
   let nonPrintingMaterialsTotal = 0;
 
-  // Materiais avulsos não-impressão (sem baseCost)
+  const { invoicePct, wastePct, collectionPct, profitMarginPct, hourlyRate } = snap.settings;
+  const directSumDivisor = 1 - (invoicePct + collectionPct) / 100;
+
   for (const m of standaloneMaterials) {
     const isPrinting = !!m.baseCost && !!m.printerCategoryId;
-    if (isPrinting) {
-      // Item de impressão raiz (sem filhos)
-      const tier = findTier(snap, m.printerCategoryId!, qty, m.markupGroupId);
-      const sellingPrice = tier ? calcSellingPrice(m.baseCost!, tier) : m.baseCost!;
-      printingTotal += sellingPrice * qty;
-    } else if (!m.isOptional) {
-      nonPrintingMaterialsTotal += m.quantity * m.unitPrice;
+    if (!isPrinting) {
+      if (!m.isOptional) nonPrintingMaterialsTotal += m.quantity * m.unitPrice;
+      continue;
     }
-  }
 
-  // ---- Itens de impressão COM filhos vinculados ----
-  // Qualquer material com baseCost que aparece como pai precisa ser reprocessado
-  // sobrescrevendo o cálculo "raiz" acima. Para simplificar, processamos aqui
-  // todos os pais (materials que são chave em childMaterialsByParent OU childLaborByParent).
-  const parentIds = new Set<string>([
-    ...childMaterialsByParent.keys(),
-    ...childLaborByParent.keys(),
-  ]);
+    const itemQty = Math.max(0, m.quantity || 0);
+    const aggCh = aggregateChildren(m.id, childMaterialsByParent, childLaborByParent, hourlyRate);
 
-  if (parentIds.size > 0) {
-    // Reseta: re-soma só os pais "puros" (sem filhos) já contabilizados acima.
-    // Como o loop anterior já somou pais sem filhos, precisamos descontar os pais
-    // que TÊM filhos (pois vamos recomputá-los) — mas o loop anterior só processou
-    // standaloneMaterials. Pais com filhos também são standaloneMaterials (pais nunca
-    // têm parentItemId). Então precisamos descontar a contribuição deles e refazer.
-    for (const m of standaloneMaterials) {
-      if (!parentIds.has(m.id)) continue;
-      const isPrinting = !!m.baseCost && !!m.printerCategoryId;
-      if (!isPrinting) continue;
+    if (isDirectSumItem(m)) {
+      // Soma direta: printingCostUnit já é venda c/ lucro embutido.
+      const printingUnit = m.printingCostUnit ?? m.baseCost ?? 0;
+      const childPerUnit = itemQty > 0 ? aggCh.total / itemQty : 0;
+      const subtotalUn = printingUnit + childPerUnit;
+      const sellingUn =
+        directSumDivisor > 0 ? subtotalUn / directSumDivisor : subtotalUn;
+      printingTotal += sellingUn * itemQty;
+    } else {
+      // Tier clássico
       const tier = findTier(snap, m.printerCategoryId!, qty, m.markupGroupId);
-      const sellingPriceOld = tier ? calcSellingPrice(m.baseCost!, tier) : m.baseCost!;
-      printingTotal -= sellingPriceOld * qty;
-
-      // Custo total dos filhos deste pai (excluindo opcionais — upsell)
-      const childMats = childMaterialsByParent.get(m.id) ?? [];
-      const childLab = childLaborByParent.get(m.id) ?? [];
-      const childMatTotal = childMats
-        .filter((cm) => !cm.isOptional)
-        .reduce((s, cm) => s + cm.quantity * cm.unitPrice, 0);
-      const childLabTotal = childLab
-        .filter((cl) => !cl.isOptional)
-        .reduce((s, cl) => s + (cl.timeMinutes / 60) * snap.settings.hourlyRate, 0);
-      const childTotalAbs = childMatTotal + childLabTotal;
-
-      // Diluição: custo dos filhos por unidade do item pai
-      const childPerUnit = qty > 0 ? childTotalAbs / qty : 0;
+      const childPerUnit = itemQty > 0 ? aggCh.total / itemQty : 0;
       const baseCostEfetivo = (m.baseCost ?? 0) + childPerUnit;
-      const sellingPriceNew = tier
+      const sellingPrice = tier
         ? calcSellingPrice(baseCostEfetivo, tier)
         : baseCostEfetivo;
-      printingTotal += sellingPriceNew * qty;
+      printingTotal += sellingPrice * qty;
     }
   }
 
   const costsBeforeMarkup = laborTotal + nonPrintingMaterialsTotal + thirdPartyTotal;
-  const { invoicePct, wastePct, collectionPct, profitMarginPct } = snap.settings;
   const totalPct = (invoicePct + wastePct + collectionPct + profitMarginPct) / 100;
   const divisor = 1 - totalPct;
   const valueWithMarkup = divisor > 0 ? costsBeforeMarkup / divisor : 0;
@@ -280,16 +250,23 @@ export const recalculateForQuantity = (
 };
 
 // ============================================================
-// Breakdown — exposes every cost component of the quote so the
-// UI can render a transparent "where does this price come from?"
-// panel. Mirrors recalculateForQuantity() but keeps each parcel
-// addressable instead of folding them into a single total.
+// Breakdown — exposes every cost component so the UI can render
+// the "Composição do preço" panel. Per-item mode aware.
 // ============================================================
 
-export interface PricingBreakdownItem {
+export type BreakdownMode = "tier" | "direct_sum";
+
+export interface PricingBreakdownItemBase {
   id: string;
   description: string;
   quantity: number;
+  mode: BreakdownMode;
+  sellingPriceUnit: number;
+  sellingTotal: number;
+}
+
+export interface PricingBreakdownItemTier extends PricingBreakdownItemBase {
+  mode: "tier";
   paperCostUnit: number;
   printingCostUnit: number;
   paperTotal: number;
@@ -303,12 +280,39 @@ export interface PricingBreakdownItem {
   tierVariablePct: number;
   tierMarginPct: number;
   tierTotalPct: number;
-  sellingPriceUnit: number;
-  sellingTotal: number;
 }
+
+export interface PricingBreakdownItemDirectSum extends PricingBreakdownItemBase {
+  mode: "direct_sum";
+  /** R$ por unidade (apostila) — vem do clique de venda. */
+  printingPerUnit: number;
+  /** Filhos categorizados (R$ totais somando todas as unidades). */
+  coversTotal: number;
+  finishingTotal: number;
+  laborTotal: number;
+  /** Por unidade (= total / qty). */
+  coversPerUnit: number;
+  finishingPerUnit: number;
+  laborPerUnit: number;
+  /** Soma das parcelas antes dos custos de venda. */
+  subtotalPerUnit: number;
+  subtotalTotal: number;
+  /** Custos de venda (impostos + cartão). */
+  salesCostPct: number;
+  salesCostPerUnit: number;
+  salesCostTotal: number;
+  /** Detalhe das linhas para o "Resumo por unidade". */
+  printingLabel: string;
+}
+
+export type PricingBreakdownItem =
+  | PricingBreakdownItemTier
+  | PricingBreakdownItemDirectSum;
 
 export interface PricingBreakdown {
   items: PricingBreakdownItem[];
+  hasDirectSumItems: boolean;
+  hasTierItems: boolean;
   printingTotal: number;
   laborTotal: number;
   nonPrintingMaterialsTotal: number;
@@ -326,6 +330,12 @@ export interface PricingBreakdown {
   freight: number;
   totalToCharge: number;
 }
+
+const classifyChildMaterial = (cm: PricingMaterial): "covers" | "finishing" => {
+  const txt = `${cm.productKind ?? ""} ${cm.description ?? ""}`.toLowerCase();
+  if (txt.includes("capa") || txt.includes("contracapa")) return "covers";
+  return "finishing";
+};
 
 export const breakdownForQuantity = (
   snap: PricingSnapshot,
@@ -357,13 +367,19 @@ export const breakdownForQuantity = (
     }
   }
 
+  const { invoicePct, wastePct, collectionPct, profitMarginPct, hourlyRate } = snap.settings;
+  const salesCostPct = invoicePct + collectionPct;
+  const directSumDivisor = 1 - salesCostPct / 100;
+
   const laborTotal = standaloneLabor
     .filter((s) => !s.isOptional)
-    .reduce((s, step) => s + (step.timeMinutes / 60) * snap.settings.hourlyRate, 0);
+    .reduce((s, step) => s + (step.timeMinutes / 60) * hourlyRate, 0);
   const thirdPartyTotal = snap.thirdParty.reduce((s, t) => s + t.cost, 0);
 
   let nonPrintingMaterialsTotal = 0;
   let printingTotal = 0;
+  let hasDirectSumItems = false;
+  let hasTierItems = false;
   const items: PricingBreakdownItem[] = [];
 
   for (const m of standaloneMaterials) {
@@ -373,15 +389,79 @@ export const breakdownForQuantity = (
       continue;
     }
     const itemQty = Math.max(0, m.quantity || 0);
-    const tier = findTier(snap, m.printerCategoryId!, itemQty || 1, m.markupGroupId);
+    const safeQty = itemQty || 1;
+
     const childMats = childMaterialsByParent.get(m.id) ?? [];
     const childLab = childLaborByParent.get(m.id) ?? [];
+
+    if (isDirectSumItem(m)) {
+      hasDirectSumItems = true;
+
+      const printingUnit = m.printingCostUnit ?? m.baseCost ?? 0;
+      let coversTotalAbs = 0;
+      let finishingTotalAbs = 0;
+      for (const cm of childMats) {
+        if (cm.isOptional) continue;
+        const v = cm.quantity * cm.unitPrice;
+        if (classifyChildMaterial(cm) === "covers") coversTotalAbs += v;
+        else finishingTotalAbs += v;
+      }
+      const laborTotalAbs = childLab
+        .filter((cl) => !cl.isOptional)
+        .reduce((s, cl) => s + (cl.timeMinutes / 60) * hourlyRate, 0);
+
+      const coversPerUnit = coversTotalAbs / safeQty;
+      const finishingPerUnit = finishingTotalAbs / safeQty;
+      const laborPerUnit = laborTotalAbs / safeQty;
+      const subtotalPerUnit =
+        printingUnit + coversPerUnit + finishingPerUnit + laborPerUnit;
+      const sellingPriceUnit =
+        directSumDivisor > 0 ? subtotalPerUnit / directSumDivisor : subtotalPerUnit;
+      const salesCostPerUnit = sellingPriceUnit - subtotalPerUnit;
+
+      const sellingTotal = sellingPriceUnit * itemQty;
+      const subtotalTotal = subtotalPerUnit * itemQty;
+      const salesCostTotal = salesCostPerUnit * itemQty;
+      printingTotal += sellingTotal;
+
+      const pages = m.bookletPages ?? null;
+      const printingLabel = pages
+        ? `Impressão (${pages} folhas)`
+        : "Impressão";
+
+      items.push({
+        id: m.id,
+        description: m.generatedTitle || m.description || "Item",
+        quantity: itemQty,
+        mode: "direct_sum",
+        sellingPriceUnit,
+        sellingTotal,
+        printingPerUnit: printingUnit,
+        coversTotal: coversTotalAbs,
+        finishingTotal: finishingTotalAbs,
+        laborTotal: laborTotalAbs,
+        coversPerUnit,
+        finishingPerUnit,
+        laborPerUnit,
+        subtotalPerUnit,
+        subtotalTotal,
+        salesCostPct,
+        salesCostPerUnit,
+        salesCostTotal,
+        printingLabel,
+      });
+      continue;
+    }
+
+    // ---- Caminho clássico tier ----
+    hasTierItems = true;
+    const tier = findTier(snap, m.printerCategoryId!, itemQty || 1, m.markupGroupId);
     const childMatTotal = childMats
       .filter((cm) => !cm.isOptional)
       .reduce((s, cm) => s + cm.quantity * cm.unitPrice, 0);
     const childLabTotal = childLab
       .filter((cl) => !cl.isOptional)
-      .reduce((s, cl) => s + (cl.timeMinutes / 60) * snap.settings.hourlyRate, 0);
+      .reduce((s, cl) => s + (cl.timeMinutes / 60) * hourlyRate, 0);
     const childTotalAbs = childMatTotal + childLabTotal;
     const childPerUnit = itemQty > 0 ? childTotalAbs / itemQty : 0;
     const baseCostUnit = (m.baseCost ?? 0) + childPerUnit;
@@ -402,6 +482,7 @@ export const breakdownForQuantity = (
       id: m.id,
       description: m.generatedTitle || m.description || "Item",
       quantity: itemQty,
+      mode: "tier",
       paperCostUnit,
       printingCostUnit,
       paperTotal: paperCostUnit * itemQty,
@@ -421,7 +502,6 @@ export const breakdownForQuantity = (
   }
 
   const costsBeforeMarkup = laborTotal + nonPrintingMaterialsTotal + thirdPartyTotal;
-  const { invoicePct, wastePct, collectionPct, profitMarginPct } = snap.settings;
   const totalPct = (invoicePct + wastePct + collectionPct + profitMarginPct) / 100;
   const divisor = 1 - totalPct;
   const valueWithMarkup = divisor > 0 ? costsBeforeMarkup / divisor : 0;
@@ -437,6 +517,8 @@ export const breakdownForQuantity = (
 
   return {
     items,
+    hasDirectSumItems,
+    hasTierItems,
     printingTotal,
     laborTotal,
     nonPrintingMaterialsTotal,
