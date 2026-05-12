@@ -278,3 +278,180 @@ export const recalculateForQuantity = (
     effectiveMarginPct,
   };
 };
+
+// ============================================================
+// Breakdown — exposes every cost component of the quote so the
+// UI can render a transparent "where does this price come from?"
+// panel. Mirrors recalculateForQuantity() but keeps each parcel
+// addressable instead of folding them into a single total.
+// ============================================================
+
+export interface PricingBreakdownItem {
+  id: string;
+  description: string;
+  quantity: number;
+  paperCostUnit: number;
+  printingCostUnit: number;
+  paperTotal: number;
+  printingTotal: number;
+  childMaterialsTotal: number;
+  childLaborTotal: number;
+  baseCostUnit: number;
+  baseCostTotal: number;
+  tierLabel: string | null;
+  tierFixedPct: number;
+  tierVariablePct: number;
+  tierMarginPct: number;
+  tierTotalPct: number;
+  sellingPriceUnit: number;
+  sellingTotal: number;
+}
+
+export interface PricingBreakdown {
+  items: PricingBreakdownItem[];
+  printingTotal: number;
+  laborTotal: number;
+  nonPrintingMaterialsTotal: number;
+  thirdPartyTotal: number;
+  costsBeforeMarkup: number;
+  invoicePct: number;
+  wastePct: number;
+  collectionPct: number;
+  profitMarginPct: number;
+  taxes: number;
+  losses: number;
+  collection: number;
+  profit: number;
+  hiddenExtras: number;
+  freight: number;
+  totalToCharge: number;
+}
+
+export const breakdownForQuantity = (
+  snap: PricingSnapshot,
+  newQuantity = 1,
+): PricingBreakdown => {
+  const qty = Math.max(1, Math.floor(newQuantity));
+
+  const childMaterialsByParent = new Map<string, PricingMaterial[]>();
+  const childLaborByParent = new Map<string, PricingLaborStep[]>();
+  const standaloneMaterials: PricingMaterial[] = [];
+  const standaloneLabor: PricingLaborStep[] = [];
+
+  for (const m of snap.materials) {
+    if (m.parentItemId) {
+      const arr = childMaterialsByParent.get(m.parentItemId) ?? [];
+      arr.push(m);
+      childMaterialsByParent.set(m.parentItemId, arr);
+    } else {
+      standaloneMaterials.push(m);
+    }
+  }
+  for (const l of snap.laborSteps) {
+    if (l.parentItemId) {
+      const arr = childLaborByParent.get(l.parentItemId) ?? [];
+      arr.push(l);
+      childLaborByParent.set(l.parentItemId, arr);
+    } else {
+      standaloneLabor.push(l);
+    }
+  }
+
+  const laborTotal = standaloneLabor
+    .filter((s) => !s.isOptional)
+    .reduce((s, step) => s + (step.timeMinutes / 60) * snap.settings.hourlyRate, 0);
+  const thirdPartyTotal = snap.thirdParty.reduce((s, t) => s + t.cost, 0);
+
+  let nonPrintingMaterialsTotal = 0;
+  let printingTotal = 0;
+  const items: PricingBreakdownItem[] = [];
+
+  for (const m of standaloneMaterials) {
+    const isPrinting = !!m.baseCost && !!m.printerCategoryId;
+    if (!isPrinting) {
+      if (!m.isOptional) nonPrintingMaterialsTotal += m.quantity * m.unitPrice;
+      continue;
+    }
+    const itemQty = Math.max(0, m.quantity || 0);
+    const tier = findTier(snap, m.printerCategoryId!, itemQty || 1, m.markupGroupId);
+    const childMats = childMaterialsByParent.get(m.id) ?? [];
+    const childLab = childLaborByParent.get(m.id) ?? [];
+    const childMatTotal = childMats
+      .filter((cm) => !cm.isOptional)
+      .reduce((s, cm) => s + cm.quantity * cm.unitPrice, 0);
+    const childLabTotal = childLab
+      .filter((cl) => !cl.isOptional)
+      .reduce((s, cl) => s + (cl.timeMinutes / 60) * snap.settings.hourlyRate, 0);
+    const childTotalAbs = childMatTotal + childLabTotal;
+    const childPerUnit = itemQty > 0 ? childTotalAbs / itemQty : 0;
+    const baseCostUnit = (m.baseCost ?? 0) + childPerUnit;
+
+    const sellingPriceUnit = tier ? calcSellingPrice(baseCostUnit, tier) : baseCostUnit;
+    const sellingTotal = sellingPriceUnit * itemQty;
+    printingTotal += sellingTotal;
+
+    const paperCostUnit = m.paperCost ?? 0;
+    const printingCostUnit = m.printingCostUnit ?? Math.max(0, (m.baseCost ?? 0) - paperCostUnit);
+
+    const tierFixedPct = tier?.fixed_cost_pct ?? 0;
+    const tierVariablePct = tier?.variable_cost_pct ?? 0;
+    const tierMarginPct = tier?.margin_pct ?? 0;
+    const tierTotalPct = tierFixedPct + tierVariablePct + tierMarginPct;
+
+    items.push({
+      id: m.id,
+      description: m.generatedTitle || m.description || "Item",
+      quantity: itemQty,
+      paperCostUnit,
+      printingCostUnit,
+      paperTotal: paperCostUnit * itemQty,
+      printingTotal: printingCostUnit * itemQty,
+      childMaterialsTotal: childMatTotal,
+      childLaborTotal: childLabTotal,
+      baseCostUnit,
+      baseCostTotal: baseCostUnit * itemQty,
+      tierLabel: tier?.label ?? null,
+      tierFixedPct,
+      tierVariablePct,
+      tierMarginPct,
+      tierTotalPct,
+      sellingPriceUnit,
+      sellingTotal,
+    });
+  }
+
+  const costsBeforeMarkup = laborTotal + nonPrintingMaterialsTotal + thirdPartyTotal;
+  const { invoicePct, wastePct, collectionPct, profitMarginPct } = snap.settings;
+  const totalPct = (invoicePct + wastePct + collectionPct + profitMarginPct) / 100;
+  const divisor = 1 - totalPct;
+  const valueWithMarkup = divisor > 0 ? costsBeforeMarkup / divisor : 0;
+
+  const taxes = valueWithMarkup * (invoicePct / 100);
+  const losses = valueWithMarkup * (wastePct / 100);
+  const collection = valueWithMarkup * (collectionPct / 100);
+  const profit = valueWithMarkup * (profitMarginPct / 100);
+
+  const hiddenExtras = snap.hiddenExtrasValue ?? 0;
+  const freight = snap.freightValue ?? 0;
+  const totalToCharge = printingTotal + valueWithMarkup + hiddenExtras + freight;
+
+  return {
+    items,
+    printingTotal,
+    laborTotal,
+    nonPrintingMaterialsTotal,
+    thirdPartyTotal,
+    costsBeforeMarkup,
+    invoicePct,
+    wastePct,
+    collectionPct,
+    profitMarginPct,
+    taxes,
+    losses,
+    collection,
+    profit,
+    hiddenExtras,
+    freight,
+    totalToCharge,
+  };
+};
