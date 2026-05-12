@@ -28,10 +28,11 @@ export function calcSheetYield(
   itemHeightMm: number,
   totalQty: number,
   sheet: { widthMm: number; heightMm: number } = PRODUCTION_SHEET,
+  safetyMarginMm: number = SAFETY_MARGIN_MM,
 ): YieldResult | null {
   if (!itemWidthMm || !itemHeightMm || itemWidthMm <= 0 || itemHeightMm <= 0) return null;
-  const usableW = sheet.widthMm - 2 * SAFETY_MARGIN_MM;
-  const usableH = sheet.heightMm - 2 * SAFETY_MARGIN_MM;
+  const usableW = sheet.widthMm - 2 * safetyMarginMm;
+  const usableH = sheet.heightMm - 2 * safetyMarginMm;
 
   const portrait = fits(itemWidthMm, itemHeightMm, usableW, usableH);
   const landscape = fits(itemHeightMm, itemWidthMm, usableW, usableH);
