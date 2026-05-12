@@ -11,6 +11,11 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  computeLaborSellingPrice,
+  LABOR_SELLING_TOOLTIP,
+  type LaborDisplayPcts,
+} from "@/lib/quotes-v2/labor-display";
+import {
   type PrintingCatalogItem, type MarkupTier,
 } from "@/components/orcamentos/PrintingItemSearch";
 import {
