@@ -1113,6 +1113,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       }
 
       toast.success(isEditing ? "Orçamento atualizado!" : "Orçamento salvo!");
+      clearDraft(draftKey);
       onDone();
     } catch (e) {
       toast.error("Erro ao salvar: " + (e as Error).message);
