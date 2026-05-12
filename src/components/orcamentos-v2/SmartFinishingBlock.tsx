@@ -14,6 +14,14 @@ import {
 import type { ProcessStep } from "./ProcessPicker";
 import type { SubformLabor, SubformMaterial } from "./LaborAndSupplySubform";
 import { getFinishingSuggestions } from "@/lib/quotes-v2/finishing-suggestions";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  computeLaborSellingPrice,
+  LABOR_SELLING_TOOLTIP,
+  type LaborDisplayPcts,
+} from "@/lib/quotes-v2/labor-display";
 
 interface Props {
   parentItemId: string;
