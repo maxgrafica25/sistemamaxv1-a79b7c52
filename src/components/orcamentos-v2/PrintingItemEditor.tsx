@@ -58,6 +58,8 @@ interface Props {
   childLabor: SubformLabor[];
   childMaterials: SubformMaterial[];
   hourlyRate: number;
+  /** Pcts globais para exibir preço de venda dos processos. */
+  displayPcts: import("@/lib/quotes-v2/labor-display").LaborDisplayPcts;
   printingCatalog?: PrintingCatalogItem[];
   processSteps?: ProcessStep[];
   processGroups?: ProcessGroup[];
