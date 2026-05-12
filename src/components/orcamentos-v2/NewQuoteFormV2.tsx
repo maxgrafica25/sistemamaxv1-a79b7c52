@@ -605,6 +605,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       unitPrice: sellingPrice,
       pieces: 1,
       baseCost,
+      paperCost: item.paper_cost,
+      printingCostUnit: printCost,
       printerCategoryId: item.printer_category_id,
       markupGroupId: item.markup_group_id,
       parentItemId: null,
