@@ -4,6 +4,8 @@ import { Separator } from "@/components/ui/separator";
 import { AlertTriangle, ChevronUp, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { PriceBreakdownGlobal } from "@/components/orcamentos-v2/PriceBreakdown";
+import type { PricingBreakdown } from "@/lib/quotes-v2/pricing";
 
 interface Props {
   proposalTotal: number;
@@ -20,6 +22,7 @@ interface Props {
   netProfit: number;
   netMarginPct: number;
   revenueBase: number;
+  composition?: PricingBreakdown | null;
 }
 
 const formatBRL = (n: number) =>
