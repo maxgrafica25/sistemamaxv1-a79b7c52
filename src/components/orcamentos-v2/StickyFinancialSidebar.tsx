@@ -63,6 +63,11 @@ export function StickyFinancialSidebar(props: Props) {
         />
       )}
 
+      {(() => {
+        const onlyDirectSum =
+          composition?.hasDirectSumItems && !composition?.hasTierItems;
+        if (onlyDirectSum) return null;
+        return (
       <Accordion type="single" collapsible className="w-full">
         <AccordionItem value="dre" className="border-t border-border">
           <AccordionTrigger className="py-2 text-xs uppercase tracking-wide text-muted-foreground hover:no-underline">
