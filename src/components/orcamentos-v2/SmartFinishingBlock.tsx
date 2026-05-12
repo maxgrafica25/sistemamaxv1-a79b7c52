@@ -42,7 +42,7 @@ const fmt = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function SmartFinishingBlock({
-  parentItemId, productKind, processSteps, hourlyRate,
+  parentItemId, productKind, processSteps, hourlyRate, displayPcts,
   childLabor, childMaterials, onChildLaborChange, onChildMaterialChange,
   disabled, bookletUnits,
 }: Props) {
