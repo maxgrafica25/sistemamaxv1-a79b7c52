@@ -3,6 +3,8 @@
 // entre cada unidade do material. Testa as duas orientações e devolve a melhor.
 
 export const PRODUCTION_SHEET = { widthMm: 328, heightMm: 478 } as const;
+// Folha A4 — usada para apostilas (nunca impressas em A3).
+export const A4_SHEET = { widthMm: 210, heightMm: 297 } as const;
 export const SAFETY_MARGIN_MM = 5;
 export const GUTTER_MM = 3;
 
@@ -25,10 +27,11 @@ export function calcSheetYield(
   itemWidthMm: number,
   itemHeightMm: number,
   totalQty: number,
+  sheet: { widthMm: number; heightMm: number } = PRODUCTION_SHEET,
 ): YieldResult | null {
   if (!itemWidthMm || !itemHeightMm || itemWidthMm <= 0 || itemHeightMm <= 0) return null;
-  const usableW = PRODUCTION_SHEET.widthMm - 2 * SAFETY_MARGIN_MM; // 318
-  const usableH = PRODUCTION_SHEET.heightMm - 2 * SAFETY_MARGIN_MM; // 468
+  const usableW = sheet.widthMm - 2 * SAFETY_MARGIN_MM;
+  const usableH = sheet.heightMm - 2 * SAFETY_MARGIN_MM;
 
   const portrait = fits(itemWidthMm, itemHeightMm, usableW, usableH);
   const landscape = fits(itemHeightMm, itemWidthMm, usableW, usableH);
