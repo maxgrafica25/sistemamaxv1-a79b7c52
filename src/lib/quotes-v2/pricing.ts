@@ -196,18 +196,31 @@ export const recalculateForQuantity = (
     }
 
     const itemQty = Math.max(0, m.quantity || 0);
-    const aggCh = aggregateChildren(m.id, childMaterialsByParent, childLaborByParent, hourlyRate);
 
     if (isDirectSumItem(m)) {
       // Soma direta: printingCostUnit já é venda c/ lucro embutido.
+      // Filhos materiais APLICAM margem_pct (custo + lucro do insumo).
+      const childMats = childMaterialsByParent.get(m.id) ?? [];
+      const childLab = childLaborByParent.get(m.id) ?? [];
+      const childMatTotal = childMats
+        .filter((cm) => !cm.isOptional)
+        .reduce((s, cm) => {
+          const venda = cm.unitPrice * (1 + (cm.margemPct ?? 0) / 100);
+          return s + cm.quantity * venda;
+        }, 0);
+      const childLabTotal = childLab
+        .filter((cl) => !cl.isOptional)
+        .reduce((s, cl) => s + (cl.timeMinutes / 60) * hourlyRate, 0);
+
       const printingUnit = m.printingCostUnit ?? m.baseCost ?? 0;
-      const childPerUnit = itemQty > 0 ? aggCh.total / itemQty : 0;
+      const childPerUnit = itemQty > 0 ? (childMatTotal + childLabTotal) / itemQty : 0;
       const subtotalUn = printingUnit + childPerUnit;
       const sellingUn =
         directSumDivisor > 0 ? subtotalUn / directSumDivisor : subtotalUn;
       printingTotal += sellingUn * itemQty;
     } else {
-      // Tier clássico
+      // Tier clássico — sem margem do insumo (markup do tier cobre).
+      const aggCh = aggregateChildren(m.id, childMaterialsByParent, childLaborByParent, hourlyRate);
       const tier = findTier(snap, m.printerCategoryId!, qty, m.markupGroupId);
       const childPerUnit = itemQty > 0 ? aggCh.total / itemQty : 0;
       const baseCostEfetivo = (m.baseCost ?? 0) + childPerUnit;
