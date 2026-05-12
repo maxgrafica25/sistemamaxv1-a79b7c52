@@ -552,6 +552,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   }), [labor, materials, thirdParty, globalSettings, profitMargin, hourlyRate, markupTiers, categoryGroups, hiddenExtras, freightValue]);
 
   const live = useMemo(() => recalculateForQuantity(snapshot, 1), [snapshot]);
+  const composition = useMemo(() => breakdownForQuantity(snapshot, 1), [snapshot]);
 
   const cvTotal = useMemo(
     () => Object.values(cvResults).reduce((s, r) => s + (r?.preco_total || 0), 0),
