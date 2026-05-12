@@ -196,6 +196,7 @@ export default function MateriasPrimas() {
         unidade: s.unidade || "un",
         data: s.data,
         contato: s.contato,
+        margemPct: Number(s.margem_pct ?? 0),
       })));
     }
     if (histRes.data) {
