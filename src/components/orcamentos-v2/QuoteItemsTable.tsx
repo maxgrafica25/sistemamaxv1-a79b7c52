@@ -183,7 +183,10 @@ export function QuoteItemsTable(props: Props) {
 
   // ---------- Renderers ----------
   const renderPrint = (m: PricingMaterial, idx: number) => {
-    const total = (m.quantity || 0) * (m.unitPrice || 0);
+    const printingTotal = (m.quantity || 0) * (m.unitPrice || 0);
+    const sellingTotal = itemSellingTotals?.[m.id];
+    const total = sellingTotal != null ? sellingTotal : printingTotal;
+    const hasFinishes = sellingTotal != null && Math.abs(sellingTotal - printingTotal) > 0.005;
     const isApproved = m.status === "aprovado";
     const childMatsForThis = childMaterials.filter((c) => c.parentItemId === m.id);
     const childLaborForThis = childLabor.filter((l) => l.parentItemId === m.id);
@@ -198,7 +201,20 @@ export function QuoteItemsTable(props: Props) {
           <span className="text-xs text-muted-foreground tabular-nums w-6 shrink-0">{idx + 1}</span>
           <KindBadge kind="print" />
           {isApproved && <ApprovedBadge approvedAt={m.approvedAt} approvedValue={m.approvedValue} />}
-          <span className="ml-auto text-sm font-semibold text-primary">{fmt(total)}</span>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-auto text-sm font-semibold text-primary tabular-nums cursor-help">
+                  {fmt(total)}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs max-w-[260px]">
+                {hasFinishes
+                  ? <>Inclui impressão, acabamentos e impostos.<br/>Impressão: {fmt(printingTotal)}</>
+                  : "Inclui impressão e impostos."}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
