@@ -486,7 +486,27 @@ export default function MateriasPrimas() {
     setConfirmOpen(true);
   };
 
-  const getVariation = (materialId: string) => {
+  const applyBulkMargin = async () => {
+    if (!requireAdmin("atualizar margem em massa")) return;
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const m = Math.max(0, Math.min(500, parseFloat(bulkMargem) || 0));
+    const { error } = await supabase.from("supplies").update({ margem_pct: m }).in("id", ids);
+    if (error) return handleError(error, "atualizar margem");
+    toast.success(`Margem ${m}% aplicada em ${ids.length} item(ns).`);
+    setSelectedIds(new Set());
+    setBulkOpen(false);
+    fetchSupplies();
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
     const h = purchaseHistory.filter(x => x.materialId === materialId).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
     if (h.length < 2) return null;
     return ((h[0].valorUnitario - h[1].valorUnitario) / h[1].valorUnitario) * 100;
