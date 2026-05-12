@@ -42,6 +42,8 @@ export interface PricingMaterial {
   bookletDuplex?: boolean | null;
   paperCost?: number | null;
   printingCostUnit?: number | null;
+  /** Margem (%) aplicada APENAS quando o item é filho de um pai direct_sum (apostila). */
+  margemPct?: number | null;
 }
 
 export interface PricingLaborStep {
