@@ -28,6 +28,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
   recalculateForQuantity,
   breakdownForQuantity,
+  isDirectSumItem,
   type PricingMaterial,
   type PricingSnapshot,
 } from "@/lib/quotes-v2/pricing";
@@ -678,13 +679,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           groupTiers[0] ||
           null;
         const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
+        const unitPrice = isDirectSumItem(m) ? printCost : sellingPrice;
         return {
           ...m,
           description: `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}` : ""}`,
           baseCost,
           paperCost: item.paper_cost,
           printingCostUnit: printCost,
-          unitPrice: sellingPrice,
+          unitPrice,
           printerCategoryId: item.printer_category_id,
           markupGroupId: item.markup_group_id,
           paperType: item.paper_type ?? null,
@@ -737,7 +739,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
   const updateMaterialPatch = (id: string, patch: Partial<PricingMaterial>) =>
     setMaterials((prev) => {
-      const next = prev.map((m) => (m.id === id ? { ...m, ...patch } : m));
+      const next = prev.map((m) => {
+        if (m.id !== id) return m;
+        const merged = { ...m, ...patch };
+        return isDirectSumItem(merged) && merged.printingCostUnit != null
+          ? { ...merged, unitPrice: merged.printingCostUnit }
+          : merged;
+      });
       // Sincroniza quantidade dos filhos Capa/Contracapa com bookletUnits do pai
       if ("bookletUnits" in patch) {
         const units = (patch as any).bookletUnits ?? 0;
@@ -1381,12 +1389,15 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               setMaterials((prev) =>
                 prev.map((m) =>
                   m.id === id
-                    ? {
+                    ? (() => {
+                      const unitPrice = isDirectSumItem(m) ? printCost : (m.unitPrice || 0);
+                      return {
                         ...m,
                         description: `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}` : ""}`,
                         baseCost,
                         paperCost: item.paper_cost,
                         printingCostUnit: printCost,
+                        unitPrice,
                         printerCategoryId: item.printer_category_id,
                         markupGroupId: item.markup_group_id,
                         paperType: item.paper_type ?? null,
@@ -1395,7 +1406,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                         side: item.side ?? null,
                         catalogSource: "printing",
                         catalogItemId: item.id,
-                      }
+                      };
+                    })()
                     : m,
                 ),
               );

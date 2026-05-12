@@ -227,9 +227,9 @@ export const recalculateForQuantity = (
         .filter((cl) => !cl.isOptional)
         .reduce((s, cl) => s + (cl.timeMinutes / 60) * hourlyRate, 0);
 
-      // Impressão: usar unitPrice (preço de venda/folha já com tier de markup
-      // embutido). Não reaplicar divisor aqui — só sobre os filhos.
-      const printingSellingUnit = m.unitPrice ?? m.printingCostUnit ?? m.baseCost ?? 0;
+      // Apostila/direct_sum: a tabela "Preço Impressão" já traz o preço final
+      // do clique/folha. Nunca reaplicar tier/arredondamento sobre unitPrice.
+      const printingSellingUnit = m.printingCostUnit ?? m.unitPrice ?? m.baseCost ?? 0;
       const childSubtotalUn = itemQty > 0 ? (childMatTotal + childLabTotal) / itemQty : 0;
       const childSellingUn =
         directSumDivisor > 0 ? childSubtotalUn / directSumDivisor : childSubtotalUn;
@@ -462,9 +462,9 @@ export const breakdownForQuantity = (
     if (isDirectSumItem(m)) {
       hasDirectSumItems = true;
 
-      // Preço de venda por folha (já com tier markup); fallback ao custo
-      // se não houver unitPrice (cenário legado).
-      const printingUnit = m.unitPrice ?? m.printingCostUnit ?? m.baseCost ?? 0;
+      // Apostila/direct_sum: usar o preço da tabela "Preço Impressão" como
+      // fonte da verdade, sem recalcular por tier nem arredondar a unidade.
+      const printingUnit = m.printingCostUnit ?? m.unitPrice ?? m.baseCost ?? 0;
       let coversTotalAbs = 0;
       let finishingTotalAbs = 0;
       const childRows: DirectSumChildRow[] = [];

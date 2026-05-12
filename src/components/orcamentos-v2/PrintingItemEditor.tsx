@@ -112,6 +112,9 @@ export function PrintingItemEditor({
   const [paperQuery, setPaperQuery] = useState("");
 
   const isApostila = isApostilaKind(item.productKind);
+  const effectiveUnitPrice = isApostila
+    ? (item.printingCostUnit ?? item.unitPrice ?? 0)
+    : (item.unitPrice || 0);
   const bookletPages = item.bookletPages ?? null;
   const bookletUnits = item.bookletUnits ?? null;
   const duplexFromPrintColors = (pc?: string | null): boolean | null => {
@@ -792,7 +795,7 @@ export function PrintingItemEditor({
             })()
           )}
           <span className="text-sm font-semibold text-primary w-28 text-right">
-            {formatBRL((item.quantity || 0) * (item.unitPrice || 0))}
+            {formatBRL((item.quantity || 0) * effectiveUnitPrice)}
           </span>
           {!locked && (
             <TooltipProvider delayDuration={150}>
@@ -851,7 +854,7 @@ export function PrintingItemEditor({
         {/* Variações de tiragem (ancoragem de preço) */}
         {!locked && (
           <QuantityVariationsRow
-            unitPrice={item.unitPrice || 0}
+            unitPrice={effectiveUnitPrice}
             variations={item.quantityVariations || []}
             onChange={(next) => onItemChange({ quantityVariations: next })}
           />
