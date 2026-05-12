@@ -194,6 +194,7 @@ export function PrintingItemEditor({
         item.heightMm || 0,
         piecesValue,
         isApostila ? A4_SHEET : PRODUCTION_SHEET,
+        isApostila ? 0 : undefined,
       ),
     [item.widthMm, item.heightMm, piecesValue, isApostila],
   );
