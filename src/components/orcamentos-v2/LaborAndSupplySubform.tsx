@@ -34,6 +34,8 @@ interface Props {
   laborItems: SubformLabor[];
   materialItems: SubformMaterial[];
   hourlyRate: number;
+  /** Pcts globais para calcular o preço de venda exibido por processo. */
+  displayPcts: LaborDisplayPcts;
   onLaborChange: (next: SubformLabor[]) => void;
   onMaterialChange: (next: SubformMaterial[]) => void;
   /** Compacto: usado dentro do PrintingItemEditor (acabamentos vinculados). */
