@@ -141,6 +141,64 @@ export function StickyFinancialSidebar(props: Props) {
         </p>
         <p className="text-2xl font-bold text-primary">{formatBRL(revenueBase)}</p>
       </div>
+
+      {isAdmin && (
+        <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center justify-between gap-2 cursor-help">
+                  <span className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                    {profitPositive ? (
+                      <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                    ) : (
+                      <TrendingDown className="h-3.5 w-3.5 text-destructive" />
+                    )}
+                    Lucro Líquido Estimado
+                  </span>
+                  <span
+                    className={cn(
+                      "text-base font-bold tabular-nums",
+                      profitPositive ? "text-emerald-600" : "text-destructive",
+                    )}
+                  >
+                    {formatBRL(netProfit)}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-[280px] text-xs">
+                <div className="space-y-1">
+                  <DRETooltipLine label="Faturamento Bruto" value={revenueBase} />
+                  <DRETooltipLine label="(−) Encargos (Impostos + Cartão)" value={-encargosTotal} muted />
+                  <div className="pl-3 text-[10px] text-muted-foreground space-y-0.5">
+                    <DRETooltipLine label={`Impostos (${fmtPctRaw(taxPct)})`} value={-taxValue} tiny />
+                    <DRETooltipLine
+                      label={`Taxa de cartão${billingMethod ? ` · ${billingMethod}` : ""}`}
+                      value={-billingValue}
+                      tiny
+                    />
+                  </div>
+                  <DRETooltipLine
+                    label="(−) Custos de Produção"
+                    value={-(productionCost + lossValue)}
+                    muted
+                  />
+                  <Separator className="my-1" />
+                  <DRETooltipLine
+                    label="(=) Lucro Real"
+                    value={netProfit}
+                    bold
+                    color={profitPositive ? "emerald" : "destructive"}
+                  />
+                  <p className="text-[10px] text-muted-foreground italic pt-1">
+                    Visível apenas para administradores.
+                  </p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      )}
     </div>
   );
 
