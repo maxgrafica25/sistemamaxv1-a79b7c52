@@ -107,6 +107,19 @@ export function StickyFinancialSidebar(props: Props) {
         </AccordionItem>
       </Accordion>
 
+      {composition && (
+        <Accordion type="single" collapsible className="w-full" defaultValue="composition">
+          <AccordionItem value="composition" className="border-t border-border">
+            <AccordionTrigger className="py-2 text-xs uppercase tracking-wide text-muted-foreground hover:no-underline">
+              Composição do preço
+            </AccordionTrigger>
+            <AccordionContent className="pb-2">
+              <PriceBreakdownGlobal data={composition} />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      )}
+
       <div className="pt-2 border-t border-border">
         <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
           Valor a cobrar
