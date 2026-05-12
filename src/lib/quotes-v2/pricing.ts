@@ -42,6 +42,8 @@ export interface PricingMaterial {
   bookletDuplex?: boolean | null;
   paperCost?: number | null;
   printingCostUnit?: number | null;
+  /** Margem (%) aplicada APENAS quando o item é filho de um pai direct_sum (apostila). */
+  margemPct?: number | null;
 }
 
 export interface PricingLaborStep {
@@ -194,18 +196,31 @@ export const recalculateForQuantity = (
     }
 
     const itemQty = Math.max(0, m.quantity || 0);
-    const aggCh = aggregateChildren(m.id, childMaterialsByParent, childLaborByParent, hourlyRate);
 
     if (isDirectSumItem(m)) {
       // Soma direta: printingCostUnit já é venda c/ lucro embutido.
+      // Filhos materiais APLICAM margem_pct (custo + lucro do insumo).
+      const childMats = childMaterialsByParent.get(m.id) ?? [];
+      const childLab = childLaborByParent.get(m.id) ?? [];
+      const childMatTotal = childMats
+        .filter((cm) => !cm.isOptional)
+        .reduce((s, cm) => {
+          const venda = cm.unitPrice * (1 + (cm.margemPct ?? 0) / 100);
+          return s + cm.quantity * venda;
+        }, 0);
+      const childLabTotal = childLab
+        .filter((cl) => !cl.isOptional)
+        .reduce((s, cl) => s + (cl.timeMinutes / 60) * hourlyRate, 0);
+
       const printingUnit = m.printingCostUnit ?? m.baseCost ?? 0;
-      const childPerUnit = itemQty > 0 ? aggCh.total / itemQty : 0;
+      const childPerUnit = itemQty > 0 ? (childMatTotal + childLabTotal) / itemQty : 0;
       const subtotalUn = printingUnit + childPerUnit;
       const sellingUn =
         directSumDivisor > 0 ? subtotalUn / directSumDivisor : subtotalUn;
       printingTotal += sellingUn * itemQty;
     } else {
-      // Tier clássico
+      // Tier clássico — sem margem do insumo (markup do tier cobre).
+      const aggCh = aggregateChildren(m.id, childMaterialsByParent, childLaborByParent, hourlyRate);
       const tier = findTier(snap, m.printerCategoryId!, qty, m.markupGroupId);
       const childPerUnit = itemQty > 0 ? aggCh.total / itemQty : 0;
       const baseCostEfetivo = (m.baseCost ?? 0) + childPerUnit;
@@ -282,11 +297,22 @@ export interface PricingBreakdownItemTier extends PricingBreakdownItemBase {
   tierTotalPct: number;
 }
 
+export interface DirectSumChildRow {
+  id: string;
+  description: string;
+  category: "covers" | "finishing";
+  quantity: number;
+  custoUnit: number;
+  margemPct: number;
+  vendaUnit: number;
+  vendaTotal: number;
+}
+
 export interface PricingBreakdownItemDirectSum extends PricingBreakdownItemBase {
   mode: "direct_sum";
   /** R$ por unidade (apostila) — vem do clique de venda. */
   printingPerUnit: number;
-  /** Filhos categorizados (R$ totais somando todas as unidades). */
+  /** Filhos categorizados (R$ totais — já com margem aplicada). */
   coversTotal: number;
   finishingTotal: number;
   laborTotal: number;
@@ -294,6 +320,8 @@ export interface PricingBreakdownItemDirectSum extends PricingBreakdownItemBase 
   coversPerUnit: number;
   finishingPerUnit: number;
   laborPerUnit: number;
+  /** Linhas detalhadas (custo + margem + venda) para tooltip. */
+  childRows: DirectSumChildRow[];
   /** Soma das parcelas antes dos custos de venda. */
   subtotalPerUnit: number;
   subtotalTotal: number;
@@ -400,11 +428,25 @@ export const breakdownForQuantity = (
       const printingUnit = m.printingCostUnit ?? m.baseCost ?? 0;
       let coversTotalAbs = 0;
       let finishingTotalAbs = 0;
+      const childRows: DirectSumChildRow[] = [];
       for (const cm of childMats) {
         if (cm.isOptional) continue;
-        const v = cm.quantity * cm.unitPrice;
-        if (classifyChildMaterial(cm) === "covers") coversTotalAbs += v;
-        else finishingTotalAbs += v;
+        const margemPct = cm.margemPct ?? 0;
+        const vendaUnit = cm.unitPrice * (1 + margemPct / 100);
+        const vendaTotal = cm.quantity * vendaUnit;
+        const cat = classifyChildMaterial(cm);
+        if (cat === "covers") coversTotalAbs += vendaTotal;
+        else finishingTotalAbs += vendaTotal;
+        childRows.push({
+          id: cm.id,
+          description: cm.description || "Insumo",
+          category: cat,
+          quantity: cm.quantity,
+          custoUnit: cm.unitPrice,
+          margemPct,
+          vendaUnit,
+          vendaTotal,
+        });
       }
       const laborTotalAbs = childLab
         .filter((cl) => !cl.isOptional)
@@ -443,6 +485,7 @@ export const breakdownForQuantity = (
         coversPerUnit,
         finishingPerUnit,
         laborPerUnit,
+        childRows,
         subtotalPerUnit,
         subtotalTotal,
         salesCostPct,

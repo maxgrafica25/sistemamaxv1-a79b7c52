@@ -1,97 +1,85 @@
+## Objetivo
 
-## Resumo
+Adicionar margem de lucro por insumo em **Suprimentos**, aplicada **apenas** no modo `direct_sum` (apostilas), para evitar markup-sobre-markup nos itens tier.
 
-Aplicar a nova regra de "soma direta" **apenas para Apostilas** (detectadas por `productKind === "apostila"` ou `bookletUnits != null`). Demais produtos continuam usando `findTier` + `calcSellingPrice` + DRE com perda/margem global.
+---
 
-## Detecção do modo
+## 1. Banco de Dados
 
-Função utilitária em `pricing.ts`:
+Migração única em `supplies`:
 
-```ts
-const isDirectSumItem = (m: PricingMaterial): boolean =>
-  m.productKind === "apostila" || (m.bookletUnits ?? 0) > 0;
+```sql
+ALTER TABLE public.supplies
+  ADD COLUMN margem_pct numeric NOT NULL DEFAULT 0
+  CHECK (margem_pct >= 0 AND margem_pct <= 500);
 ```
 
-Cada item de impressão pai (root) é classificado individualmente. Um orçamento pode ter itens dos dois tipos no mesmo cálculo.
+Sem mudança em RLS (herda as policies existentes). O `CHECK` de 0–500% é trava contra erro de digitação.
 
-## Fórmulas
+---
 
-### Itens "direct sum" (Apostila)
-```text
-Subtotal_un = printingCostUnit + Σ(custos filhos diluídos por qty)
-SalesCost%  = invoicePct + collectionPct
-PreçoVenda_un = Subtotal_un / (1 − SalesCost%/100)
-LineTotal     = PreçoVenda_un × qty
-```
-Sem tier, sem perda, sem margem.
+## 2. UI — Cadastro de Suprimentos (`src/pages/MateriasPrimas.tsx`)
 
-### Itens "tier" (clássico — cartão, flyer, etc)
-Mantém `findTier` + `calcSellingPrice` exatamente como hoje (incluindo diluição de filhos no `baseCostEfetivo`).
+- Novo campo **"Margem (%)"** no formulário de criar/editar suprimento, ao lado de `valor_unitario`.
+- Nova coluna **"Margem"** na tabela, exibindo o valor + o "Preço de venda calculado" entre parênteses (ex.: `50% → R$ 0,29`) — elimina conta mental no balcão.
+- **Ação em massa:**
+  - Cada linha da tabela ganha um **`<Checkbox>`** do Shadcn/Radix (já usado no projeto: `src/components/ui/checkbox.tsx`).
+  - Checkbox no header para "selecionar todos" (com estado `indeterminate` quando seleção parcial).
+  - Quando ≥1 item selecionado, aparece uma toolbar/`BulkActionBar` no topo com: contador de selecionados, input de "Nova margem (%)" e botão "Aplicar".
+  - Clicar em "Aplicar" abre um **`<AlertDialog>`** de confirmação com texto explícito:
+    > "Atualizar margem para **X%** em **N suprimentos**? Esta ação afeta o preço de venda em apostilas imediatamente."
+  - Só após o "Confirmar" o `UPDATE` no Supabase é disparado (1 query com `.in('id', ids)`).
+- Tooltip no header da coluna: *"Margem aplicada apenas em apostilas (modo soma direta). Não afeta cartão/banner/etc."*
 
-### Avulsos (mão de obra/material/terceirizado sem `parentItemId`)
-Continuam no divisor global clássico (`invoicePct + wastePct + collectionPct + profitMarginPct`). Esse bloco existe independentemente de ter ou não apostila.
+---
 
-## Arquivos a editar
+## 3. Motor de Preço (`src/lib/quotes-v2/pricing.ts`)
 
-### 1. `src/lib/quotes-v2/pricing.ts`
+- Adicionar `margemPct?: number | null` em `PricingMaterial`.
+- No ramo `isDirectSumItem`, ao iterar `childMats` para `coversTotalAbs` e `finishingTotalAbs`:
 
-- Adicionar helper `isDirectSumItem(m)`.
-- `recalculateForQuantity`: dentro do loop de pais, ramificar:
-  - Se `isDirectSumItem(parent)` → calcula `subtotalUn` (soma direta) e aplica divisor `1 − (invoice+collection)/100`. Soma resultado a `printingTotal`.
-  - Senão → caminho atual (tier).
-- Manter avulsos + divisor global como hoje.
-- `breakdownForQuantity`: novos campos por item:
-  - `mode: "direct_sum" | "tier"`.
-  - Para `direct_sum`: `printingPerUnit`, `coversPerUnit`, `finishingPerUnit`, `laborPerUnit`, `subtotalPerUnit`, `salesCostPerUnit`, `salesCostPct`, `sellingPricePerUnit`, `lineTotal`.
-  - Para `tier`: campos atuais (`tierLabel`, `tier*Pct`, `baseCostUnit`, `sellingPriceUnit`, etc) — sem mudança.
-- `PricingBreakdown` global ganha `hasDirectSumItems: boolean` e `hasTierItems: boolean` para a sidebar decidir o que mostrar.
+  ```ts
+  const venda = cm.unitPrice * (1 + (cm.margemPct ?? 0) / 100);
+  const v = cm.quantity * venda;
+  ```
 
-**Classificação dos filhos (apenas para o resumo visual de apostilas):**
-- `productKind` ou `description` contendo "capa"/"contracapa" → bucket **Capas**.
-- `catalogSource === "finishing"` ou contendo "mola"/"furação"/"wire-o"/"espiral" → bucket **Acabamento**.
-- Mão de obra filha → bucket **Montagem / Mão de obra**.
-- Resto → bucket **Acabamento** (fallback).
+- No ramo tier: **nada muda** (segue usando `unitPrice` puro). Garantia de que banners/cartões continuam competitivos.
+- `breakdownForQuantity` propaga o valor já com margem; sem alteração estrutural.
 
-### 2. `src/components/orcamentos-v2/PriceBreakdown.tsx`
+---
 
-- `PriceBreakdownItemPanel`: switch por `item.mode`.
-  - `direct_sum` → layout novo "Resumo por unidade":
-    ```
-    Impressão (X folhas) ...... R$ ..
-    Capas ..................... R$ ..
-    Acabamento (Mola+Furação) . R$ ..
-    Montagem / Mão de obra .... R$ ..
-    Custos de venda (Imp+Cartão) R$ ..
-    ─────────────
-    Por unidade ............... R$ ..
-    Total (qty unidades) ...... R$ ..
-    ```
-  - `tier` → layout atual (papel + impressão + tier + divisor) intacto.
-- `PriceBreakdownGlobal`:
-  - Renderiza um bloco por item (compartilhando o switch de modo).
-  - Quando há mistura: cabeçalhos visuais distintos — apostilas com badge "Soma direta" e demais com badge "Markup tier" — para deixar claro o método.
+## 4. Snapshot do Orçamento (`SupplySearch.tsx` + `NewQuoteFormV2.tsx`)
 
-### 3. `src/components/orcamentos-v2/StickyFinancialSidebar.tsx`
+- `SupplySearch` passa a retornar `margem_pct` junto com `valor_unitario`.
+- Ao adicionar suprimento como filho, gravar `margem_pct` no item local e incluir no snapshot que vai pro `pricing.ts`.
+- Ao salvar em `quote_materials`: **não** persistir a margem (o `unit_price` salvo continua sendo o custo). A margem é resolvida em runtime via lookup. Evita orçamentos antigos quebrarem se a margem mudar; e a rota direct_sum recalcula tudo.
 
-- Mantém os dois accordions: "Detalhamento de custos e lucro" (DRE) e "Composição do preço".
-- O DRE é ocultado apenas se `composition.hasTierItems === false && composition.hasDirectSumItems === true` (orçamento 100% apostilas). Caso contrário (misto ou só tier), DRE continua visível.
+---
 
-### 4. `src/components/orcamentos-v2/NewQuoteFormV2.tsx`
+## 5. Visualização (`src/components/orcamentos-v2/PriceBreakdown.tsx`)
 
-- Sem mudança estrutural — o `useMemo` de `composition` já chama `breakdownForQuantity`. Apenas garantir que `productKind`/`bookletUnits` estão sendo populados no snapshot ao adicionar item de apostila (verificar `handleAddItem`/`handleSwapItem`).
+No painel "Resumo por unidade" (modo direct_sum), em cada linha de Capa/Acabamento adicionar tooltip:
 
-### 5. Testes
+> Custo R$ 0,19 + 50% margem = **R$ 0,29**
 
-- Criar `src/test/pricing-apostila.test.ts`: 1 apostila 100 fls Sulfite 75g 4x4, `printingCostUnit = 5,00`, qty 100 → subtotal 500; com 10% imp + 5% cartão → 500 / 0,85 = R$ 588,24.
-- Manter testes existentes do tier (não devem regredir).
+Sem alteração visual nos itens tier.
 
-## Fora de escopo
+---
 
-- Não criar coluna nova no banco — a detecção usa `productKind`/`bookletUnits` que já existem em `PricingMaterial`.
-- Não alterar catálogo, `markup_tiers`, `global_settings`.
-- Não alterar `cv-pricing/engine.ts`.
+## Detalhes técnicos
 
-## Risco / pontos de atenção
+- Sem migração de dados: `DEFAULT 0` mantém comportamento atual até o usuário ajustar.
+- Margem resolvida em runtime → orçamentos **rascunho** recalculam ao reabrir, **aprovados** ficam intactos (status `aprovado` congela `approved_value`).
+- Categoria de suprimento fica para v2.
 
-- `options.ts` (anchoring/variações de tiragem) chama `recalculateForQuantity` repetidamente — a ramificação por item garante que apostilas continuem certas em qualquer qty, sem mexer no engine de opções.
-- Itens "direct sum" ignoram `markupGroupId`/`printerCategoryId` no cálculo, mas os campos continuam preenchidos para compatibilidade com persistência e relatórios.
+---
+
+## Arquivos alterados
+
+- migration nova
+- `src/pages/MateriasPrimas.tsx`
+- `src/components/orcamentos-v2/SupplySearch.tsx`
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` (+ `LaborAndSupplySubform.tsx` se for onde o suprimento entra como filho)
+- `src/lib/quotes-v2/pricing.ts`
+- `src/components/orcamentos-v2/PriceBreakdown.tsx`
+- atualizar `mem://features/inventory` com a nova regra
