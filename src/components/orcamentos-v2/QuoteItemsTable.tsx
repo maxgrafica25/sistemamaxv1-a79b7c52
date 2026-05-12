@@ -304,6 +304,7 @@ export function QuoteItemsTable(props: Props) {
           childLabor={childLaborForThis}
           childMaterials={childMatsForThis}
           hourlyRate={hourlyRate}
+          displayPcts={displayPcts}
           piecesInput={piecesInputs[m.id] ?? null}
           onPiecesInputChange={(value) => setPiecesInputFor(m.id, value)}
           printingCatalog={printingCatalog}
