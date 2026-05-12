@@ -346,6 +346,7 @@ function Line({
   bold?: boolean;
   highlight?: boolean;
   muted?: boolean;
+  className?: string;
 }) {
   return (
     <div className="flex justify-between items-start gap-3">
@@ -355,6 +356,7 @@ function Line({
             "leading-tight",
             bold && "font-semibold",
             muted ? "text-muted-foreground" : "text-foreground",
+            arguments[0]?.className,
           )}
         >
           {label}
@@ -367,6 +369,7 @@ function Line({
           bold && "font-semibold",
           highlight && "text-primary",
           muted && !bold && "text-muted-foreground",
+          arguments[0]?.className,
         )}
       >
         {formatBRL(value)}
