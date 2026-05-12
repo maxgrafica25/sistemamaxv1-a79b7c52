@@ -1591,22 +1591,12 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       {isAdmin && (
       <div className="lg:self-start lg:sticky lg:top-6">
         {(() => {
-          // Soma direta dos itens raiz exibidos na tabela (não usar live.totalToCharge,
-          // que reprecifica via engine com qty=1 e infla com markup de faixa baixa)
-          const itemsRevenueGross = materials
-            .filter((m) => !m.parentItemId)
-            .reduce((s, m) => s + (m.unitPrice * m.quantity), 0)
-            + cvTotal
-            + (hiddenExtras || 0)
-            + (freightValue || 0);
-
-          // Aplica desconto sobre a soma real dos itens
-          const proposalTotal = (() => {
-            if (!discountValue || discountValue <= 0) return itemsRevenueGross;
-            return discountType === "percent"
-              ? itemsRevenueGross * (1 - discountValue / 100)
-              : Math.max(0, itemsRevenueGross - discountValue);
-          })();
+          // Fonte única da verdade: o motor (live.totalToCharge) já agrega
+          // impressão (com markup proporcional dos filhos), labor, materiais
+          // avulsos, hiddenExtras e frete. Somamos só o cvTotal por estar
+          // fora do snapshot do engine.
+          const itemsRevenueGross = subtotalBeforeDiscount;
+          const proposalTotal = discountedTotal;
 
           const totalProductionCost = live.costsBeforeMarkup + live.printingTotal + cvCostTotal;
 
