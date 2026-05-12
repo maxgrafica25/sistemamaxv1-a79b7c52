@@ -273,3 +273,31 @@ function DRELine({ label, value, badge }: { label: string; value: number; badge?
     </div>
   );
 }
+
+function DRETooltipLine({
+  label, value, muted, bold, tiny, color,
+}: {
+  label: string;
+  value: number;
+  muted?: boolean;
+  bold?: boolean;
+  tiny?: boolean;
+  color?: "emerald" | "destructive";
+}) {
+  const colorCls =
+    color === "emerald"
+      ? "text-emerald-600"
+      : color === "destructive"
+        ? "text-destructive"
+        : muted
+          ? "text-muted-foreground"
+          : "text-foreground";
+  return (
+    <div className={cn("flex justify-between items-center gap-3", tiny && "text-[10px]")}>
+      <span className={cn("truncate", muted && "text-muted-foreground")}>{label}</span>
+      <span className={cn("tabular-nums", bold && "font-bold", colorCls)}>
+        {formatBRL(value)}
+      </span>
+    </div>
+  );
+}
