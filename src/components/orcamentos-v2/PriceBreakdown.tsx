@@ -243,6 +243,8 @@ export function PriceBreakdownGlobal({ data }: { data: PricingBreakdown }) {
 
 function DirectSumBlock({ item }: { item: PricingBreakdownItemDirectSum }) {
   const qty = Math.max(1, item.quantity);
+  const coversRows = item.childRows.filter(r => r.category === "covers");
+  const finishingRows = item.childRows.filter(r => r.category === "finishing");
   return (
     <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2 space-y-1">
       <div className="flex items-center justify-between gap-2">
@@ -254,8 +256,16 @@ function DirectSumBlock({ item }: { item: PricingBreakdownItemDirectSum }) {
         </div>
       </div>
       <Line label={item.printingLabel} value={item.printingPerUnit} />
-      {item.coversPerUnit > 0 && <Line label="Capas" value={item.coversPerUnit} />}
-      {item.finishingPerUnit > 0 && <Line label="Acabamento" value={item.finishingPerUnit} />}
+      {item.coversPerUnit > 0 && (
+        <ChildMarginTooltip rows={coversRows}>
+          <Line label="Capas" value={item.coversPerUnit} />
+        </ChildMarginTooltip>
+      )}
+      {item.finishingPerUnit > 0 && (
+        <ChildMarginTooltip rows={finishingRows}>
+          <Line label="Acabamento" value={item.finishingPerUnit} />
+        </ChildMarginTooltip>
+      )}
       {item.laborPerUnit > 0 && <Line label="Montagem / Mão de obra" value={item.laborPerUnit} />}
       <Line
         label={`Custos de venda (${fmtPct(item.salesCostPct)})`}
