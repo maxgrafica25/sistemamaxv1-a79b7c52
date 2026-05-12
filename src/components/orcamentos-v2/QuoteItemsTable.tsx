@@ -71,6 +71,17 @@ interface Props {
   onClearCoverPaper?: (parentId: string, kind: "Capa" | "Contracapa") => void;
   /** Total de venda por item (impressão + acabamentos + impostos), vindo do motor de pricing. */
   itemSellingTotals?: Record<string, number>;
+  /** Info de exibição "por apostila" para itens direct_sum. */
+  itemDisplayInfo?: Record<string, {
+    displayUnits: number;
+    displayUnitLabel: string;
+    sellingPriceDisplayUnit: number;
+    printingPerDisplayUnit: number;
+    coversPerDisplayUnit: number;
+    finishingPerDisplayUnit: number;
+    laborPerDisplayUnit: number;
+    salesCostPerDisplayUnit: number;
+  }>;
 }
 
 const fmt = (n: number) =>
