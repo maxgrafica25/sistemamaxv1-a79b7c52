@@ -46,7 +46,9 @@ export function PriceBreakdownItemPanel({ item, defaultOpen = false }: ItemProps
         </span>
         <span className="flex items-center gap-2">
           <span className="text-muted-foreground">
-            {formatBRL(item.sellingPriceUnit)} / un
+            {isDirect
+              ? `${formatBRL((item as PricingBreakdownItemDirectSum).sellingPriceDisplayUnit)} / ${(item as PricingBreakdownItemDirectSum).displayUnitLabel}`
+              : `${formatBRL(item.sellingPriceUnit)} / un`}
           </span>
           <ChevronDown
             className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")}
@@ -111,39 +113,40 @@ function ChildMarginTooltip({ rows, children }: { rows: DirectSumChildRow[]; chi
 }
 
 function DirectSumBody({ item }: { item: PricingBreakdownItemDirectSum }) {
-  const qty = Math.max(1, item.quantity);
   const coversRows = item.childRows.filter(r => r.category === "covers");
   const finishingRows = item.childRows.filter(r => r.category === "finishing");
+  const unit = item.displayUnitLabel;
+  const units = Math.max(1, item.displayUnits);
   return (
     <>
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground pt-1">
-        Por 1 unidade
+        Por 1 {unit}
       </div>
-      <Line label={item.printingLabel} value={item.printingPerUnit} />
-      {item.coversPerUnit > 0 && (
+      <Line label={item.printingLabel} value={item.printingPerDisplayUnit} />
+      {item.coversPerDisplayUnit > 0 && (
         <ChildMarginTooltip rows={coversRows}>
-          <Line label="Capas" value={item.coversPerUnit} />
+          <Line label="Capas" value={item.coversPerDisplayUnit} />
         </ChildMarginTooltip>
       )}
-      {item.finishingPerUnit > 0 && (
+      {item.finishingPerDisplayUnit > 0 && (
         <ChildMarginTooltip rows={finishingRows}>
-          <Line label="Acabamento (Mola, furação, etc)" value={item.finishingPerUnit} />
+          <Line label="Acabamento (Mola, furação, etc)" value={item.finishingPerDisplayUnit} />
         </ChildMarginTooltip>
       )}
-      {item.laborPerUnit > 0 && (
-        <Line label="Montagem / Mão de obra" value={item.laborPerUnit} />
+      {item.laborPerDisplayUnit > 0 && (
+        <Line label="Montagem / Mão de obra" value={item.laborPerDisplayUnit} />
       )}
       <div className="border-t border-border/60 my-1" />
-      <Line label="Subtotal por unidade" value={item.subtotalPerUnit} bold />
+      <Line label={`Subtotal por ${unit}`} value={item.subtotalPerDisplayUnit} bold />
       <Line
         label={`Custos de venda (Imposto + Cartão · ${fmtPct(item.salesCostPct)})`}
-        value={item.salesCostPerUnit}
+        value={item.salesCostPerDisplayUnit}
         muted
       />
-      <Line label="Preço por unidade" value={item.sellingPriceUnit} bold highlight />
+      <Line label={`Preço por ${unit}`} value={item.sellingPriceDisplayUnit} bold highlight />
       <div className="border-t border-border/60 my-1" />
       <Line
-        label={`Total (${qty.toLocaleString("pt-BR")} un)`}
+        label={`Total (${units.toLocaleString("pt-BR")} ${unit}${units > 1 ? "s" : ""})`}
         value={item.sellingTotal}
         bold
       />
@@ -231,17 +234,20 @@ export function PriceBreakdownGlobal({ data }: { data: PricingBreakdown }) {
           {data.costsBeforeMarkup > 0 && (
             <>
               <div className="border-t border-border/60 my-1" />
-              <Line label={`(+) Impostos ${fmtPct(data.invoicePct)}`} value={data.taxes} muted />
-              <Line label={`(+) Perda ${fmtPct(data.wastePct)}`} value={data.losses} muted />
+              <div className="text-[10px] text-muted-foreground italic pb-0.5">
+                Acréscimos sobre os custos avulsos (não passam pelos preços de cada item)
+              </div>
+              <Line label={`(+) Impostos ${fmtPct(data.invoicePct)}`} value={data.taxes} className="text-amber-600 dark:text-amber-400" />
+              <Line label={`(+) Perda ${fmtPct(data.wastePct)}`} value={data.losses} className="text-amber-600 dark:text-amber-400" />
               <Line
                 label={`(+) Cobrança ${fmtPct(data.collectionPct)}`}
                 value={data.collection}
-                muted
+                className="text-amber-600 dark:text-amber-400"
               />
               <Line
                 label={`(+) Margem ${fmtPct(data.profitMarginPct)}`}
                 value={data.profit}
-                muted
+                className="text-amber-600 dark:text-amber-400"
               />
             </>
           )}
@@ -255,40 +261,43 @@ export function PriceBreakdownGlobal({ data }: { data: PricingBreakdown }) {
 }
 
 function DirectSumBlock({ item }: { item: PricingBreakdownItemDirectSum }) {
-  const qty = Math.max(1, item.quantity);
   const coversRows = item.childRows.filter(r => r.category === "covers");
   const finishingRows = item.childRows.filter(r => r.category === "finishing");
+  const unit = item.displayUnitLabel;
+  const units = Math.max(1, item.displayUnits);
   return (
     <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2 space-y-1">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400 font-medium">
-            Resumo por unidade · Soma direta
+            Resumo por {unit} · Soma direta
           </div>
           <div className="text-[11px] font-medium truncate">{item.description}</div>
         </div>
       </div>
-      <Line label={item.printingLabel} value={item.printingPerUnit} />
-      {item.coversPerUnit > 0 && (
+      <Line label={item.printingLabel} value={item.printingPerDisplayUnit} />
+      {item.coversPerDisplayUnit > 0 && (
         <ChildMarginTooltip rows={coversRows}>
-          <Line label="Capas" value={item.coversPerUnit} />
+          <Line label="Capas" value={item.coversPerDisplayUnit} />
         </ChildMarginTooltip>
       )}
-      {item.finishingPerUnit > 0 && (
+      {item.finishingPerDisplayUnit > 0 && (
         <ChildMarginTooltip rows={finishingRows}>
-          <Line label="Acabamento" value={item.finishingPerUnit} />
+          <Line label="Acabamento" value={item.finishingPerDisplayUnit} />
         </ChildMarginTooltip>
       )}
-      {item.laborPerUnit > 0 && <Line label="Montagem / Mão de obra" value={item.laborPerUnit} />}
+      {item.laborPerDisplayUnit > 0 && (
+        <Line label="Montagem / Mão de obra" value={item.laborPerDisplayUnit} />
+      )}
       <Line
         label={`Custos de venda (${fmtPct(item.salesCostPct)})`}
-        value={item.salesCostPerUnit}
+        value={item.salesCostPerDisplayUnit}
         muted
       />
       <div className="border-t border-emerald-500/20 my-1" />
-      <Line label="Preço por unidade" value={item.sellingPriceUnit} bold highlight />
+      <Line label={`Preço por ${unit}`} value={item.sellingPriceDisplayUnit} bold highlight />
       <Line
-        label={`Total do pedido (${qty.toLocaleString("pt-BR")} un)`}
+        label={`Total do pedido (${units.toLocaleString("pt-BR")} ${unit}${units > 1 ? "s" : ""})`}
         value={item.sellingTotal}
         bold
       />
@@ -330,6 +339,7 @@ function Line({
   bold,
   highlight,
   muted,
+  className,
 }: {
   label: string;
   sub?: string;
@@ -337,6 +347,7 @@ function Line({
   bold?: boolean;
   highlight?: boolean;
   muted?: boolean;
+  className?: string;
 }) {
   return (
     <div className="flex justify-between items-start gap-3">
@@ -346,6 +357,7 @@ function Line({
             "leading-tight",
             bold && "font-semibold",
             muted ? "text-muted-foreground" : "text-foreground",
+            className,
           )}
         >
           {label}
@@ -358,6 +370,7 @@ function Line({
           bold && "font-semibold",
           highlight && "text-primary",
           muted && !bold && "text-muted-foreground",
+          className,
         )}
       >
         {formatBRL(value)}

@@ -1341,6 +1341,23 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           </h2>
           <QuoteItemsTable
             itemSellingTotals={Object.fromEntries(composition.items.map((it) => [it.id, it.sellingTotal]))}
+            itemDisplayInfo={Object.fromEntries(
+              composition.items
+                .filter((it) => it.mode === "direct_sum")
+                .map((it: any) => [
+                  it.id,
+                  {
+                    displayUnits: it.displayUnits,
+                    displayUnitLabel: it.displayUnitLabel,
+                    sellingPriceDisplayUnit: it.sellingPriceDisplayUnit,
+                    printingPerDisplayUnit: it.printingPerDisplayUnit,
+                    coversPerDisplayUnit: it.coversPerDisplayUnit,
+                    finishingPerDisplayUnit: it.finishingPerDisplayUnit,
+                    laborPerDisplayUnit: it.laborPerDisplayUnit,
+                    salesCostPerDisplayUnit: it.salesCostPerDisplayUnit,
+                  },
+                ]),
+            )}
             printingCatalog={printingCatalog}
             processSteps={processSteps}
             processGroups={processGroups}
