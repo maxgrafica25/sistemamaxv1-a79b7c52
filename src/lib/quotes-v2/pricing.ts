@@ -440,8 +440,17 @@ export const breakdownForQuantity = (
   }
 
   const { invoicePct, wastePct, collectionPct, profitMarginPct, hourlyRate } = snap.settings;
-  const salesCostPct = invoicePct + collectionPct;
-  const directSumDivisor = 1 - salesCostPct / 100;
+  // Apostila/direct_sum: dois divisores distintos para os filhos.
+  //  • supplyDivisor — capa/mola (margem própria via margemPct):
+  //      cobre imposto + cartão + perda
+  //  • laborDivisor — furo/montagem:
+  //      cobre imposto + cartão + perda + margem global do orçamento
+  const supplyDivisor = 1 - (invoicePct + collectionPct + wastePct) / 100;
+  const laborDivisor =
+    1 - (invoicePct + collectionPct + wastePct + profitMarginPct) / 100;
+  // Exibição: cobertura mínima (suprimentos) — labor inclui margem global a mais.
+  const salesCostPct = invoicePct + collectionPct + wastePct;
+  const directSumDivisor = supplyDivisor;
 
   const laborTotal = standaloneLabor
     .filter((s) => !s.isOptional)
