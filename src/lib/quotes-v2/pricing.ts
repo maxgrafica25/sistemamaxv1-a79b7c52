@@ -452,8 +452,26 @@ export const breakdownForQuantity = (
       const childRows: DirectSumChildRow[] = [];
       for (const cm of childMats) {
         if (cm.isOptional) continue;
-        const margemPct = cm.margemPct ?? 0;
-        const vendaUnit = cm.unitPrice * (1 + margemPct / 100);
+        const tier = pickSupplyTier(cm.pricingTiers, cm.quantity);
+        let vendaUnit: number;
+        let margemPct = 0;
+        let priceSource: "manual_tier" | "margin" = "margin";
+        let tierLabel: string | null = null;
+        let finalUnitLocked: number | null = null;
+        if (tier) {
+          // Engenharia reversa: o pricing engine reaplica o divisor no
+          // total — para o cliente ver tier.manual_price exato, somamos
+          // (manual_price * divisor) no subtotal pré-divisor.
+          vendaUnit = tier.manual_price * directSumDivisor;
+          priceSource = "manual_tier";
+          finalUnitLocked = tier.manual_price;
+          const maxLabel =
+            tier.max_qty == null ? `${tier.min_qty}+ un` : `${tier.min_qty}–${tier.max_qty} un`;
+          tierLabel = `${tier.label} · ${maxLabel}`;
+        } else {
+          margemPct = cm.margemPct ?? 0;
+          vendaUnit = cm.unitPrice * (1 + margemPct / 100);
+        }
         const vendaTotal = cm.quantity * vendaUnit;
         const cat = classifyChildMaterial(cm);
         if (cat === "covers") coversTotalAbs += vendaTotal;
@@ -467,6 +485,9 @@ export const breakdownForQuantity = (
           margemPct,
           vendaUnit,
           vendaTotal,
+          priceSource,
+          tierLabel,
+          finalUnitLocked,
         });
       }
       const laborTotalAbs = childLab
