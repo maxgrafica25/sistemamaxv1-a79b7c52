@@ -66,17 +66,56 @@ export function PriceBreakdownItemPanel({ item, defaultOpen = false }: ItemProps
   );
 }
 
+function ChildMarginTooltip({ rows, children }: { rows: DirectSumChildRow[]; children: React.ReactNode }) {
+  if (rows.length === 0) return <>{children}</>;
+  const hasMargin = rows.some(r => r.margemPct > 0);
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className={cn("cursor-help", hasMargin && "underline decoration-dotted decoration-muted-foreground/40 underline-offset-2")}>
+            {children}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <div className="space-y-1 text-xs">
+            {rows.map(r => (
+              <div key={r.id} className="flex items-center justify-between gap-3">
+                <span className="truncate">{r.description}</span>
+                <span className="tabular-nums shrink-0">
+                  {formatBRL(r.custoUnit)}
+                  {r.margemPct > 0 && (
+                    <> + {r.margemPct.toFixed(0)}% = <strong>{formatBRL(r.vendaUnit)}</strong></>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 function DirectSumBody({ item }: { item: PricingBreakdownItemDirectSum }) {
   const qty = Math.max(1, item.quantity);
+  const coversRows = item.childRows.filter(r => r.category === "covers");
+  const finishingRows = item.childRows.filter(r => r.category === "finishing");
   return (
     <>
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground pt-1">
         Por 1 unidade
       </div>
       <Line label={item.printingLabel} value={item.printingPerUnit} />
-      {item.coversPerUnit > 0 && <Line label="Capas" value={item.coversPerUnit} />}
+      {item.coversPerUnit > 0 && (
+        <ChildMarginTooltip rows={coversRows}>
+          <Line label="Capas" value={item.coversPerUnit} />
+        </ChildMarginTooltip>
+      )}
       {item.finishingPerUnit > 0 && (
-        <Line label="Acabamento (Mola, furação, etc)" value={item.finishingPerUnit} />
+        <ChildMarginTooltip rows={finishingRows}>
+          <Line label="Acabamento (Mola, furação, etc)" value={item.finishingPerUnit} />
+        </ChildMarginTooltip>
       )}
       {item.laborPerUnit > 0 && (
         <Line label="Montagem / Mão de obra" value={item.laborPerUnit} />
