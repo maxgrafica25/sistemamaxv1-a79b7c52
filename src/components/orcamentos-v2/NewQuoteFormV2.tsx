@@ -43,6 +43,10 @@ import { FreightSelector } from "@/components/orcamentos-v2/FreightSelector";
 import { QuoteItemsTable, type ProcessStep, type ProcessGroup } from "@/components/orcamentos-v2/QuoteItemsTable";
 import { QuoteOptionsBuilder } from "@/components/orcamentos-v2/QuoteOptionsBuilder";
 import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
+import { useLocalDraft, hasDraft, loadDraft, clearDraft } from "@/hooks/useLocalDraft";
+
+const QUOTE_DRAFT_VERSION = 1;
+const QUOTE_DRAFT_TTL_DAYS = 7;
 
 interface Props {
   quoteId?: string;
