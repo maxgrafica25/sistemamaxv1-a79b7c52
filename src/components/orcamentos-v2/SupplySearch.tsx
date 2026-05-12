@@ -8,6 +8,7 @@ export interface SupplyOption {
   produto: string;
   fornecedor: string;
   valor_unitario: number;
+  margem_pct?: number;
 }
 
 interface Props {
