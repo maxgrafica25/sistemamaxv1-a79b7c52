@@ -565,10 +565,14 @@ export const breakdownForQuantity = (
       const coversPerDisplayUnit = displayUnits > 0 ? coversTotalAbs / displayUnits : coversPerUnit;
       const finishingPerDisplayUnit = displayUnits > 0 ? finishingTotalAbs / displayUnits : finishingPerUnit;
       const laborPerDisplayUnit = displayUnits > 0 ? laborTotalAbs / displayUnits : laborPerUnit;
-      const childrenPerDisplayUnit =
-        coversPerDisplayUnit + finishingPerDisplayUnit + laborPerDisplayUnit;
+      const matChildrenPerDisplayUnit = coversPerDisplayUnit + finishingPerDisplayUnit;
+      const childrenPerDisplayUnit = matChildrenPerDisplayUnit + laborPerDisplayUnit;
+      const matChildrenSellingPerDisplayUnit =
+        supplyDivisor > 0 ? matChildrenPerDisplayUnit / supplyDivisor : matChildrenPerDisplayUnit;
+      const laborChildrenSellingPerDisplayUnit =
+        laborDivisor > 0 ? laborPerDisplayUnit / laborDivisor : laborPerDisplayUnit;
       const childrenSellingPerDisplayUnit =
-        directSumDivisor > 0 ? childrenPerDisplayUnit / directSumDivisor : childrenPerDisplayUnit;
+        matChildrenSellingPerDisplayUnit + laborChildrenSellingPerDisplayUnit;
       const subtotalPerDisplayUnit = printingPerDisplayUnit + childrenPerDisplayUnit;
       const sellingPriceDisplayUnit = printingPerDisplayUnit + childrenSellingPerDisplayUnit;
       const salesCostPerDisplayUnit = sellingPriceDisplayUnit - subtotalPerDisplayUnit;
