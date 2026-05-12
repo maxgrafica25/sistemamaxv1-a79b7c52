@@ -69,6 +69,8 @@ interface Props {
   onChangeThirdParty: (next: ThirdParty[]) => void;
   onPickCoverPaper?: (parentId: string, kind: "Capa" | "Contracapa", item: PrintingCatalogItem) => void;
   onClearCoverPaper?: (parentId: string, kind: "Capa" | "Contracapa") => void;
+  /** Total de venda por item (impressão + acabamentos + impostos), vindo do motor de pricing. */
+  itemSellingTotals?: Record<string, number>;
 }
 
 const fmt = (n: number) =>
