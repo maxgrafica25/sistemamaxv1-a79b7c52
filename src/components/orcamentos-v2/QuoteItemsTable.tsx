@@ -44,6 +44,8 @@ interface Props {
   markupTiers: MarkupTier[];
   categoryDefaultGroupId: Record<string, string | null>;
   globalSettings: { invoice_pct: number; collection_pct: number; waste_pct: number; default_margin_pct: number };
+  /** Margem de lucro (%) atual do orçamento (string parseável). */
+  profitMarginPct: number;
   hourlyRate: number;
 
   printingItems: PricingMaterial[];
