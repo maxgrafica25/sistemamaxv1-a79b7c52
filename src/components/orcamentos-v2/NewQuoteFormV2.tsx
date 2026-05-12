@@ -43,6 +43,10 @@ import { FreightSelector } from "@/components/orcamentos-v2/FreightSelector";
 import { QuoteItemsTable, type ProcessStep, type ProcessGroup } from "@/components/orcamentos-v2/QuoteItemsTable";
 import { QuoteOptionsBuilder } from "@/components/orcamentos-v2/QuoteOptionsBuilder";
 import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
+import { useLocalDraft, hasDraft, loadDraft, clearDraft } from "@/hooks/useLocalDraft";
+
+const QUOTE_DRAFT_VERSION = 1;
+const QUOTE_DRAFT_TTL_DAYS = 7;
 
 interface Props {
   quoteId?: string;
@@ -155,6 +159,16 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [quoteVersion, setQuoteVersion] = useState<number>(1);
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [parentQuoteId, setParentQuoteId] = useState<string | null>(null);
+
+  // ---------- Local draft (auto-save no navegador) ----------
+  const draftKey = quoteId ? `quote-draft:edit:${quoteId}` : "quote-draft:new";
+  const [draftAvailable, setDraftAvailable] = useState<{ savedAt: string } | null>(null);
+
+  useEffect(() => {
+    if (loadingInit) return;
+    const existing = loadDraft<any>(draftKey, QUOTE_DRAFT_VERSION, QUOTE_DRAFT_TTL_DAYS);
+    setDraftAvailable(existing ? { savedAt: existing.savedAt } : null);
+  }, [loadingInit, draftKey]);
 
   const hasApprovedItems = useMemo(
     () => materials.some((m) => m.status === "aprovado"),
@@ -457,6 +471,59 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   useEffect(() => {
     loadInit();
   }, [loadInit]);
+
+  // ---------- Auto-save de rascunho local ----------
+  const draftState = useMemo(() => ({
+    client, clientId, clientPhone, product, validity, profitMargin, notes,
+    quoteOptions, attentionTo, hiddenExtras, freightValue, freightTypeId, tags,
+    labor, materials, thirdParty, cvItems,
+    discountValue, discountType, paymentMethod,
+  }), [
+    client, clientId, clientPhone, product, validity, profitMargin, notes,
+    quoteOptions, attentionTo, hiddenExtras, freightValue, freightTypeId, tags,
+    labor, materials, thirdParty, cvItems,
+    discountValue, discountType, paymentMethod,
+  ]);
+
+  const { savedAt: draftSavedAt, error: draftError } = useLocalDraft(draftKey, draftState, {
+    version: QUOTE_DRAFT_VERSION,
+    debounceMs: 3000,
+    ttlDays: QUOTE_DRAFT_TTL_DAYS,
+    enabled: !loadingInit && !isLocked,
+  });
+
+  const restoreDraft = () => {
+    const existing = loadDraft<any>(draftKey, QUOTE_DRAFT_VERSION, QUOTE_DRAFT_TTL_DAYS);
+    if (!existing) { setDraftAvailable(null); return; }
+    const d = existing.data || {};
+    if (d.client !== undefined) setClient(d.client);
+    if (d.clientId !== undefined) setClientId(d.clientId);
+    if (d.clientPhone !== undefined) setClientPhone(d.clientPhone);
+    if (d.product !== undefined) setProduct(d.product);
+    if (d.validity !== undefined) setValidity(d.validity);
+    if (d.profitMargin !== undefined) setProfitMargin(d.profitMargin);
+    if (d.notes !== undefined) setNotes(d.notes);
+    if (d.quoteOptions !== undefined) setQuoteOptions(d.quoteOptions);
+    if (d.attentionTo !== undefined) setAttentionTo(d.attentionTo);
+    if (d.hiddenExtras !== undefined) setHiddenExtras(d.hiddenExtras);
+    if (d.freightValue !== undefined) setFreightValue(d.freightValue);
+    if (d.freightTypeId !== undefined) setFreightTypeId(d.freightTypeId);
+    if (d.tags !== undefined) setTags(d.tags);
+    if (d.labor !== undefined) setLabor(d.labor);
+    if (d.materials !== undefined) setMaterials(d.materials);
+    if (d.thirdParty !== undefined) setThirdParty(d.thirdParty);
+    if (d.cvItems !== undefined) setCvItems(d.cvItems);
+    if (d.discountValue !== undefined) setDiscountValue(d.discountValue);
+    if (d.discountType !== undefined) setDiscountType(d.discountType);
+    if (d.paymentMethod !== undefined) setPaymentMethod(d.paymentMethod);
+    setDraftAvailable(null);
+    toast.success("Rascunho restaurado");
+  };
+
+  const discardDraft = () => {
+    clearDraft(draftKey);
+    setDraftAvailable(null);
+  };
 
   // ---------- Pricing snapshot + live result ----------
   const snapshot: PricingSnapshot = useMemo(() => ({
@@ -1046,6 +1113,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       }
 
       toast.success(isEditing ? "Orçamento atualizado!" : "Orçamento salvo!");
+      clearDraft(draftKey);
       onDone();
     } catch (e) {
       toast.error("Erro ao salvar: " + (e as Error).message);
@@ -1092,6 +1160,23 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             <CreateVersionButton quoteId={savedQuoteId} quoteNumber={quoteNumber} />
           )}
         </div>
+
+        {draftAvailable && !isLocked && (
+          <Alert>
+            <RefreshCw className="h-4 w-4" />
+            <AlertTitle>Rascunho não salvo encontrado</AlertTitle>
+            <AlertDescription className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <span className="flex-1">
+                Encontramos alterações deste orçamento salvas automaticamente em{" "}
+                {new Date(draftAvailable.savedAt).toLocaleString("pt-BR")}.
+              </span>
+              <div className="flex gap-2 shrink-0">
+                <Button size="sm" onClick={restoreDraft}>Restaurar</Button>
+                <Button size="sm" variant="ghost" onClick={discardDraft}>Descartar</Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {isLocked && (
           <Alert variant="destructive">
@@ -1544,6 +1629,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Total</span>
           <span className="text-base font-bold text-primary">{formatBRL(discountedTotal)}</span>
         </div>
+        <span className="hidden sm:inline text-[11px] text-muted-foreground mr-2">
+          {draftError
+            ? "Não foi possível salvar rascunho local"
+            : draftSavedAt
+              ? `Rascunho salvo ${new Date(draftSavedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+              : "Rascunho salvo automaticamente"}
+        </span>
         <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
         <Button onClick={handleSave} disabled={isLocked} className="gap-2">
           <Check className="h-4 w-4" /> {isLocked ? "Travado" : (isEditing ? "Atualizar" : "Salvar")}
