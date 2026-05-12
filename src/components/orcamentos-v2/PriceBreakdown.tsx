@@ -68,26 +68,39 @@ export function PriceBreakdownItemPanel({ item, defaultOpen = false }: ItemProps
 
 function ChildMarginTooltip({ rows, children }: { rows: DirectSumChildRow[]; children: React.ReactNode }) {
   if (rows.length === 0) return <>{children}</>;
-  const hasMargin = rows.some(r => r.margemPct > 0);
+  const hasDetail = rows.some(r => r.margemPct > 0 || r.priceSource === "manual_tier");
   return (
     <TooltipProvider delayDuration={150}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className={cn("cursor-help", hasMargin && "underline decoration-dotted decoration-muted-foreground/40 underline-offset-2")}>
+          <div className={cn("cursor-help", hasDetail && "underline decoration-dotted decoration-muted-foreground/40 underline-offset-2")}>
             {children}
           </div>
         </TooltipTrigger>
         <TooltipContent className="max-w-xs">
-          <div className="space-y-1 text-xs">
+          <div className="space-y-1.5 text-xs">
             {rows.map(r => (
-              <div key={r.id} className="flex items-center justify-between gap-3">
-                <span className="truncate">{r.description}</span>
-                <span className="tabular-nums shrink-0">
-                  {formatBRL(r.custoUnit)}
-                  {r.margemPct > 0 && (
-                    <> + {r.margemPct.toFixed(0)}% = <strong>{formatBRL(r.vendaUnit)}</strong></>
-                  )}
-                </span>
+              <div key={r.id} className="space-y-0.5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="truncate">{r.description}</span>
+                  <span className="tabular-nums shrink-0">
+                    {r.priceSource === "manual_tier" && r.finalUnitLocked != null ? (
+                      <strong>{formatBRL(r.finalUnitLocked)}</strong>
+                    ) : (
+                      <>
+                        {formatBRL(r.custoUnit)}
+                        {r.margemPct > 0 && (
+                          <> + {r.margemPct.toFixed(0)}% = <strong>{formatBRL(r.vendaUnit)}</strong></>
+                        )}
+                      </>
+                    )}
+                  </span>
+                </div>
+                {r.priceSource === "manual_tier" && (
+                  <div className="text-[10px] text-muted-foreground">
+                    Faixa {r.tierLabel} · imposto e cartão já incluso · custo {formatBRL(r.custoUnit)}
+                  </div>
+                )}
               </div>
             ))}
           </div>
