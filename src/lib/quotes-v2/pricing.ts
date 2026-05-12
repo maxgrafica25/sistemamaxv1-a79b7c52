@@ -527,6 +527,25 @@ export const breakdownForQuantity = (
         ? `Impressão (${pages} folhas)`
         : "Impressão";
 
+      // Base de exibição: 1 apostila (não 1 folha) quando bookletUnits > 0.
+      const bookletUnits = Math.max(0, Math.floor(m.bookletUnits ?? 0));
+      const isApostila = bookletUnits > 0;
+      const displayUnits = isApostila ? bookletUnits : itemQty;
+      const displayUnitLabel = isApostila ? "apostila" : "un";
+      const pagesPerDisplayUnit = isApostila && displayUnits > 0
+        ? itemQty / displayUnits
+        : 1;
+
+      const printingPerDisplayUnit = printingUnit * pagesPerDisplayUnit;
+      const coversPerDisplayUnit = displayUnits > 0 ? coversTotalAbs / displayUnits : coversPerUnit;
+      const finishingPerDisplayUnit = displayUnits > 0 ? finishingTotalAbs / displayUnits : finishingPerUnit;
+      const laborPerDisplayUnit = displayUnits > 0 ? laborTotalAbs / displayUnits : laborPerUnit;
+      const subtotalPerDisplayUnit =
+        printingPerDisplayUnit + coversPerDisplayUnit + finishingPerDisplayUnit + laborPerDisplayUnit;
+      const sellingPriceDisplayUnit =
+        directSumDivisor > 0 ? subtotalPerDisplayUnit / directSumDivisor : subtotalPerDisplayUnit;
+      const salesCostPerDisplayUnit = sellingPriceDisplayUnit - subtotalPerDisplayUnit;
+
       items.push({
         id: m.id,
         description: m.generatedTitle || m.description || "Item",
@@ -548,6 +567,16 @@ export const breakdownForQuantity = (
         salesCostPerUnit,
         salesCostTotal,
         printingLabel,
+        displayUnits,
+        displayUnitLabel,
+        pagesPerDisplayUnit,
+        printingPerDisplayUnit,
+        coversPerDisplayUnit,
+        finishingPerDisplayUnit,
+        laborPerDisplayUnit,
+        subtotalPerDisplayUnit,
+        salesCostPerDisplayUnit,
+        sellingPriceDisplayUnit,
       });
       continue;
     }
