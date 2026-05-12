@@ -227,11 +227,13 @@ export const recalculateForQuantity = (
         .filter((cl) => !cl.isOptional)
         .reduce((s, cl) => s + (cl.timeMinutes / 60) * hourlyRate, 0);
 
-      const printingUnit = m.printingCostUnit ?? m.baseCost ?? 0;
-      const childPerUnit = itemQty > 0 ? (childMatTotal + childLabTotal) / itemQty : 0;
-      const subtotalUn = printingUnit + childPerUnit;
-      const sellingUn =
-        directSumDivisor > 0 ? subtotalUn / directSumDivisor : subtotalUn;
+      // Impressão: usar unitPrice (preço de venda/folha já com tier de markup
+      // embutido). Não reaplicar divisor aqui — só sobre os filhos.
+      const printingSellingUnit = m.unitPrice ?? m.printingCostUnit ?? m.baseCost ?? 0;
+      const childSubtotalUn = itemQty > 0 ? (childMatTotal + childLabTotal) / itemQty : 0;
+      const childSellingUn =
+        directSumDivisor > 0 ? childSubtotalUn / directSumDivisor : childSubtotalUn;
+      const sellingUn = printingSellingUnit + childSellingUn;
       printingTotal += sellingUn * itemQty;
     } else {
       // Tier clássico — sem margem do insumo (markup do tier cobre).
