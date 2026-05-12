@@ -193,7 +193,11 @@ export const recalculateForQuantity = (
   let nonPrintingMaterialsTotal = 0;
 
   const { invoicePct, wastePct, collectionPct, profitMarginPct, hourlyRate } = snap.settings;
-  const directSumDivisor = 1 - (invoicePct + collectionPct) / 100;
+  // Apostila/direct_sum tem dois divisores:
+  //   • supplyDivisor — capa/mola: imposto + cartão + perda (margem do insumo já vem em margemPct)
+  //   • laborDivisor  — furo/montagem: imposto + cartão + perda + margem global
+  const supplyDivisor = 1 - (invoicePct + collectionPct + wastePct) / 100;
+  const laborDivisor = 1 - (invoicePct + collectionPct + wastePct + profitMarginPct) / 100;
 
   for (const m of standaloneMaterials) {
     const isPrinting = !!m.baseCost && !!m.printerCategoryId;
@@ -214,10 +218,10 @@ export const recalculateForQuantity = (
         .reduce((s, cm) => {
           const tier = pickSupplyTier(cm.pricingTiers, cm.quantity);
           if (tier) {
-            // manual_price É o preço final ao cliente. Removemos o custo de
-            // venda (1 - imp - cartão) para que, ao reaplicar o divisor no
-            // final, o cliente veja exatamente o valor cadastrado.
-            const preDivUnit = tier.manual_price * directSumDivisor;
+            // manual_price É o preço final ao cliente. Pré-divide pelo
+            // supplyDivisor para que ao reaplicar /supplyDivisor o cliente
+            // veja exatamente o valor cadastrado.
+            const preDivUnit = tier.manual_price * supplyDivisor;
             return s + cm.quantity * preDivUnit;
           }
           const venda = cm.unitPrice * (1 + (cm.margemPct ?? 0) / 100);
@@ -230,10 +234,13 @@ export const recalculateForQuantity = (
       // Apostila/direct_sum: a tabela "Preço Impressão" já traz o preço final
       // do clique/folha. Nunca reaplicar tier/arredondamento sobre unitPrice.
       const printingSellingUnit = m.printingCostUnit ?? m.unitPrice ?? m.baseCost ?? 0;
-      const childSubtotalUn = itemQty > 0 ? (childMatTotal + childLabTotal) / itemQty : 0;
-      const childSellingUn =
-        directSumDivisor > 0 ? childSubtotalUn / directSumDivisor : childSubtotalUn;
-      const sellingUn = printingSellingUnit + childSellingUn;
+      const childMatPerUn = itemQty > 0 ? childMatTotal / itemQty : 0;
+      const childLabPerUn = itemQty > 0 ? childLabTotal / itemQty : 0;
+      const childMatSellingUn =
+        supplyDivisor > 0 ? childMatPerUn / supplyDivisor : childMatPerUn;
+      const childLabSellingUn =
+        laborDivisor > 0 ? childLabPerUn / laborDivisor : childLabPerUn;
+      const sellingUn = printingSellingUnit + childMatSellingUn + childLabSellingUn;
       printingTotal += sellingUn * itemQty;
     } else {
       // Tier clássico — sem margem do insumo (markup do tier cobre).
@@ -433,8 +440,17 @@ export const breakdownForQuantity = (
   }
 
   const { invoicePct, wastePct, collectionPct, profitMarginPct, hourlyRate } = snap.settings;
-  const salesCostPct = invoicePct + collectionPct;
-  const directSumDivisor = 1 - salesCostPct / 100;
+  // Apostila/direct_sum: dois divisores distintos para os filhos.
+  //  • supplyDivisor — capa/mola (margem própria via margemPct):
+  //      cobre imposto + cartão + perda
+  //  • laborDivisor — furo/montagem:
+  //      cobre imposto + cartão + perda + margem global do orçamento
+  const supplyDivisor = 1 - (invoicePct + collectionPct + wastePct) / 100;
+  const laborDivisor =
+    1 - (invoicePct + collectionPct + wastePct + profitMarginPct) / 100;
+  // Exibição: cobertura mínima (suprimentos) — labor inclui margem global a mais.
+  const salesCostPct = invoicePct + collectionPct + wastePct;
+  const directSumDivisor = supplyDivisor;
 
   const laborTotal = standaloneLabor
     .filter((s) => !s.isOptional)
@@ -515,9 +531,13 @@ export const breakdownForQuantity = (
       const coversPerUnit = coversTotalAbs / safeQty;
       const finishingPerUnit = finishingTotalAbs / safeQty;
       const laborPerUnit = laborTotalAbs / safeQty;
-      const childrenPerUnit = coversPerUnit + finishingPerUnit + laborPerUnit;
-      const childrenSellingPerUnit =
-        directSumDivisor > 0 ? childrenPerUnit / directSumDivisor : childrenPerUnit;
+      const matChildrenPerUnit = coversPerUnit + finishingPerUnit;
+      const matChildrenSellingPerUnit =
+        supplyDivisor > 0 ? matChildrenPerUnit / supplyDivisor : matChildrenPerUnit;
+      const laborChildrenSellingPerUnit =
+        laborDivisor > 0 ? laborPerUnit / laborDivisor : laborPerUnit;
+      const childrenSellingPerUnit = matChildrenSellingPerUnit + laborChildrenSellingPerUnit;
+      const childrenPerUnit = matChildrenPerUnit + laborPerUnit;
       const subtotalPerUnit = printingUnit + childrenPerUnit;
       const sellingPriceUnit = printingUnit + childrenSellingPerUnit;
       const salesCostPerUnit = sellingPriceUnit - subtotalPerUnit;
@@ -545,10 +565,14 @@ export const breakdownForQuantity = (
       const coversPerDisplayUnit = displayUnits > 0 ? coversTotalAbs / displayUnits : coversPerUnit;
       const finishingPerDisplayUnit = displayUnits > 0 ? finishingTotalAbs / displayUnits : finishingPerUnit;
       const laborPerDisplayUnit = displayUnits > 0 ? laborTotalAbs / displayUnits : laborPerUnit;
-      const childrenPerDisplayUnit =
-        coversPerDisplayUnit + finishingPerDisplayUnit + laborPerDisplayUnit;
+      const matChildrenPerDisplayUnit = coversPerDisplayUnit + finishingPerDisplayUnit;
+      const childrenPerDisplayUnit = matChildrenPerDisplayUnit + laborPerDisplayUnit;
+      const matChildrenSellingPerDisplayUnit =
+        supplyDivisor > 0 ? matChildrenPerDisplayUnit / supplyDivisor : matChildrenPerDisplayUnit;
+      const laborChildrenSellingPerDisplayUnit =
+        laborDivisor > 0 ? laborPerDisplayUnit / laborDivisor : laborPerDisplayUnit;
       const childrenSellingPerDisplayUnit =
-        directSumDivisor > 0 ? childrenPerDisplayUnit / directSumDivisor : childrenPerDisplayUnit;
+        matChildrenSellingPerDisplayUnit + laborChildrenSellingPerDisplayUnit;
       const subtotalPerDisplayUnit = printingPerDisplayUnit + childrenPerDisplayUnit;
       const sellingPriceDisplayUnit = printingPerDisplayUnit + childrenSellingPerDisplayUnit;
       const salesCostPerDisplayUnit = sellingPriceDisplayUnit - subtotalPerDisplayUnit;
