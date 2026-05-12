@@ -779,15 +779,57 @@ export default function MateriasPrimas() {
               </Card>
             ) : (
               <Card className="shadow-card mt-4 overflow-hidden">
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center justify-between gap-3 px-4 py-2 bg-primary/5 border-b border-border">
+                    <span className="text-sm font-medium">
+                      {selectedIds.size} item(ns) selecionado(s)
+                    </span>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                        Limpar seleção
+                      </Button>
+                      <AdminOnly mode="disable" action="atualizar margem em massa">
+                        <Button size="sm" onClick={() => setBulkOpen(true)} className="gap-2">
+                          <DollarSign className="h-4 w-4" />
+                          Aplicar margem em massa
+                        </Button>
+                      </AdminOnly>
+                    </div>
+                  </div>
+                )}
                 <CardContent className="p-0">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/40 hover:bg-muted/40">
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={
+                              filteredMaterials.length > 0 &&
+                              filteredMaterials.every(m => selectedIds.has(m.id))
+                            }
+                            onCheckedChange={(v) => {
+                              if (v) setSelectedIds(new Set(filteredMaterials.map(m => m.id)));
+                              else setSelectedIds(new Set());
+                            }}
+                            aria-label="Selecionar todos"
+                          />
+                        </TableHead>
                         <TableHead className="font-semibold">Produto</TableHead>
                         <TableHead className="font-semibold">Finalidade</TableHead>
                         <TableHead className="font-semibold text-right">Qtd</TableHead>
                         <TableHead className="font-semibold text-right">Valor</TableHead>
                         <TableHead className="font-semibold text-right">Unit.</TableHead>
+                        <TableHead className="font-semibold text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            Margem
+                            <Tooltip>
+                              <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p>Aplicada apenas em itens de apostila (capa, mola, acabamento). Itens em modo "tier" (banner, cartão) ignoram esta margem.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableHead>
                         <TableHead className="font-semibold">Fornecedor</TableHead>
                         <TableHead className="font-semibold text-center">Variação</TableHead>
                         <TableHead className="font-semibold text-right">Ações</TableHead>
@@ -796,13 +838,33 @@ export default function MateriasPrimas() {
                     <TableBody>
                       {filteredMaterials.map(material => {
                         const variation = getVariation(material.id);
+                        const vendaUnit = material.valorUnitario * (1 + (material.margemPct ?? 0) / 100);
                         return (
-                          <TableRow key={material.id} className="group">
+                          <TableRow key={material.id} className="group" data-state={selectedIds.has(material.id) ? "selected" : undefined}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedIds.has(material.id)}
+                                onCheckedChange={() => toggleSelected(material.id)}
+                                aria-label={`Selecionar ${material.produto}`}
+                              />
+                            </TableCell>
                             <TableCell className="font-medium max-w-[250px] truncate">{material.produto}</TableCell>
                             <TableCell><Badge variant="secondary" className="text-xs font-normal">{material.finalidade || "—"}</Badge></TableCell>
                             <TableCell className="text-right tabular-nums">{material.quantidade} <span className="text-xs text-muted-foreground">{material.unidade || "un"}</span></TableCell>
                             <TableCell className="text-right tabular-nums">{formatCurrency(material.valor)}</TableCell>
                             <TableCell className="text-right tabular-nums font-medium">{formatCurrency(material.valorUnitario)} <span className="text-xs text-muted-foreground font-normal">/ {material.unidade || "un"}</span></TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              <div className="flex flex-col items-end leading-tight">
+                                <span className={cn("font-medium", (material.margemPct ?? 0) === 0 && "text-muted-foreground")}>
+                                  {(material.margemPct ?? 0).toFixed(0)}%
+                                </span>
+                                {(material.margemPct ?? 0) > 0 && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    = {formatCurrency(vendaUnit)}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell className="text-muted-foreground">{material.fornecedor || "—"}</TableCell>
                             <TableCell className="text-center"><VariationBadge variation={variation} /></TableCell>
                             <TableCell className="text-right">
