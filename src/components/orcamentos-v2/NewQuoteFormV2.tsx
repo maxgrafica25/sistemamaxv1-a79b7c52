@@ -1178,6 +1178,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           </Alert>
         )}
 
+        {isLocked && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Orçamento travado</AlertTitle>
