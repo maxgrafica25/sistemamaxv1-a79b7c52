@@ -352,6 +352,20 @@ export interface PricingBreakdownItemDirectSum extends PricingBreakdownItemBase 
   salesCostTotal: number;
   /** Detalhe das linhas para o "Resumo por unidade". */
   printingLabel: string;
+  /**
+   * Base de exibição amigável: para apostilas, "1 apostila" (não "1 folha").
+   * Para itens normais, espelha os campos *PerUnit.
+   */
+  displayUnits: number;
+  displayUnitLabel: string; // ex: "apostila" | "un"
+  pagesPerDisplayUnit: number; // multiplicador (folhas por apostila)
+  printingPerDisplayUnit: number;
+  coversPerDisplayUnit: number;
+  finishingPerDisplayUnit: number;
+  laborPerDisplayUnit: number;
+  subtotalPerDisplayUnit: number;
+  salesCostPerDisplayUnit: number;
+  sellingPriceDisplayUnit: number;
 }
 
 export type PricingBreakdownItem =
