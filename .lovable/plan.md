@@ -1,41 +1,42 @@
-## Causa
+## Diagnóstico
 
-Há **duas fontes da verdade** para o "Valor a cobrar":
+A linha "Folhas a imprimir" mostra R$ 5,10 quando a tabela de "Preço Impressão" cadastra R$ 5,00 porque, embora o `pricing.ts` já use `m.unitPrice` como-está para itens `isDirectSumItem` (sem arredondamento extra), existe um efeito reativo em `src/components/orcamentos-v2/QuoteItemsTable.tsx` (linhas 195-210) que **sobrescreve** `unitPrice` de TODOS os itens de impressão — inclusive apostilas — usando `computeTierUnitPrice`:
 
-| Onde | Fórmula | Resultado |
-|---|---|---|
-| Card "Valor a cobrar (base)" + rodapé "Salvar" + cabeçalho | `discountedTotal` = `live.totalToCharge + cvTotal` (engine) | **R$ 2.555,42** ✅ |
-| `StickyFinancialSidebar` (DRE) | `itemsRevenueGross = Σ (m.unitPrice × m.quantity) + cvTotal + extras + frete` | **R$ 2.550,00** ❌ |
+```ts
+// linha 192
+return Math.round((baseEffective / divisor) * 10) / 10;
+```
 
-A sidebar foi escrita com um comentário antigo: *"não usar live.totalToCharge, que reprecifica via engine com qty=1 e infla com markup de faixa baixa"*. Esse risco era do mundo só-tier; agora o motor (após o fix de apostilas) é a fonte correta — `Σ unitPrice × quantity` ignora a marcação proporcional aplicada aos filhos via divisor (capa/contracapa/acabamentos), gerando os ~R$ 5,42 a menos.
+Para uma apostila com baseCost = 5,00 e divisor de tier = 0,98, isso devolve 5,10 e o valor é gravado de volta no estado, contaminando o motor a cada render.
 
-## Correção (frontend, em `NewQuoteFormV2.tsx`)
+Itens `isDirectSumItem` (apostila/booklet) NÃO devem passar por tier nem por arredondamento — o `printing_cost` da tabela já é preço de venda final.
 
-Substituir o cálculo local da sidebar por `subtotalBeforeDiscount` / `discountedTotal` que já alimentam o card e o rodapé.
+## Correção
 
-**No bloco `{isAdmin && (...)} `** (linhas ~1591-1655):
+### 1. `src/components/orcamentos-v2/QuoteItemsTable.tsx`
 
-- `itemsRevenueGross`  →  `subtotalBeforeDiscount` (= `live.totalToCharge + cvTotal`, já inclui hiddenExtras + freight via engine)
-- `proposalTotal`      →  `discountedTotal` (mesma fórmula de desconto já aplicada)
-- Manter `approvedRevenue` como está (soma de itens com `status === "aprovado"` usando `unitPrice × quantity` ou `approvedValue`).
-- Para `productionCost`, manter `live.costsBeforeMarkup + live.printingTotal + cvCostTotal` — só remover do printingTotal a parcela de venda que não é custo (já é assim hoje, ok).
-- Recalcular `revenueBase = hasApproved ? approvedRevenue : proposalTotal` — sem mudança estrutural, só a base nova.
-- Remover o comentário obsoleto sobre "qty=1 / faixa baixa".
+Importar `isDirectSumItem` de `@/lib/quotes-v2/pricing` e, no loop do `useEffect` de re-sync (linhas 196-210), pular materiais direct_sum:
 
-Resultado: sidebar passa a exibir R$ 2.555,42, idêntico ao card e ao rodapé "Salvar".
+```ts
+for (const m of printingItems) {
+  if (isDirectSumItem(m)) continue; // apostila usa preço da tabela como-está
+  const fresh = computeTierUnitPrice(m, m.quantity || 1);
+  if (fresh > 0 && Math.abs(fresh - (m.unitPrice || 0)) > 0.001) {
+    onUpdatePrinting(m.id, { unitPrice: fresh });
+  }
+}
+```
 
-## Arredondamento
+### 2. `src/lib/quotes-v2/pricing.ts` — verificação
 
-Não há `Math.round` forçando para baixo no caminho de exibição — o "R$ 2.550,00" vinha da fonte errada, não de truncamento. Após a unificação, a única arredondamento aplicada é o `roundUp5` do preço-base de impressão (já documentado), que continua produzindo R$ 5,10 por folha. Nenhum outro round-down é necessário.
+Confirmar (já está assim) que nas três funções o `printingSellingUnit` para direct_sum é apenas `m.unitPrice ?? m.printingCostUnit ?? m.baseCost ?? 0`, sem `Math.round`/`Math.ceil`/`roundUp5`. Nenhuma alteração necessária; apenas validar.
 
-## Validação
+### 3. Sem mudança no total final
 
-1. Apostila da imagem (500 folhas × R$ 5,10 + acabamentos): card, rodapé "Salvar", cabeçalho do orçamento e sidebar passam a exibir **R$ 2.555,42**.
-2. Item tier clássico (panfleto 1.000 un): valor segue inalterado (engine já é coerente nesse caminho).
-3. Aplicar desconto 10%: todos os locais devem mostrar o mesmo `discountedTotal` com desconto.
-4. Item aprovado parcial: "Valor Aprovado" continua com a soma `approvedValue`/`unitPrice × quantity` (não mistura com proposalTotal).
+O arredondamento para R$ 0,10 que existe em `calcSellingPrice` (linhas 89/131) continua válido apenas para o caminho **tier** (cartões, flyers, etc.). Apostilas seguem soma direta sem arredondamento por folha; o "Total do pedido" exibido permanece igual à multiplicação direta `unitPrice × quantidade + filhos`.
 
-## Escopo
+## Resultado esperado
 
-- Único arquivo: `src/components/orcamentos-v2/NewQuoteFormV2.tsx`, dentro do `isAdmin && (...)`.
-- Sem mudanças em `pricing.ts`, sem mudanças no componente `StickyFinancialSidebar` em si.
+- "Folhas a imprimir" para apostila com 500 folhas a R$ 5,00 → R$ 2.500,00 (não R$ 2.550,00).
+- Cabeçalho roxo do item, composição do PriceBreakdown e "Valor a cobrar" da sidebar permanecem sincronizados.
+- Itens não-apostila (cartões, flyers) seguem inalterados.
