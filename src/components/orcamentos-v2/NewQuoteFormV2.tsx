@@ -679,13 +679,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           groupTiers[0] ||
           null;
         const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
+        const unitPrice = isDirectSumItem(m) ? printCost : sellingPrice;
         return {
           ...m,
           description: `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}` : ""}`,
           baseCost,
           paperCost: item.paper_cost,
           printingCostUnit: printCost,
-          unitPrice: sellingPrice,
+          unitPrice,
           printerCategoryId: item.printer_category_id,
           markupGroupId: item.markup_group_id,
           paperType: item.paper_type ?? null,
@@ -1388,12 +1389,15 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               setMaterials((prev) =>
                 prev.map((m) =>
                   m.id === id
-                    ? {
+                    ? (() => {
+                      const unitPrice = isDirectSumItem(m) ? printCost : (m.unitPrice || 0);
+                      return {
                         ...m,
                         description: `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}` : ""}`,
                         baseCost,
                         paperCost: item.paper_cost,
                         printingCostUnit: printCost,
+                        unitPrice,
                         printerCategoryId: item.printer_category_id,
                         markupGroupId: item.markup_group_id,
                         paperType: item.paper_type ?? null,
@@ -1402,7 +1406,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                         side: item.side ?? null,
                         catalogSource: "printing",
                         catalogItemId: item.id,
-                      }
+                      };
+                    })()
                     : m,
                 ),
               );
