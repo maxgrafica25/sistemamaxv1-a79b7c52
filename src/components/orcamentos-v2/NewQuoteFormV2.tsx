@@ -27,6 +27,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 import {
   recalculateForQuantity,
+  breakdownForQuantity,
   type PricingMaterial,
   type PricingSnapshot,
 } from "@/lib/quotes-v2/pricing";
@@ -551,6 +552,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   }), [labor, materials, thirdParty, globalSettings, profitMargin, hourlyRate, markupTiers, categoryGroups, hiddenExtras, freightValue]);
 
   const live = useMemo(() => recalculateForQuantity(snapshot, 1), [snapshot]);
+  const composition = useMemo(() => breakdownForQuantity(snapshot, 1), [snapshot]);
 
   const cvTotal = useMemo(
     () => Object.values(cvResults).reduce((s, r) => s + (r?.preco_total || 0), 0),
@@ -605,6 +607,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       unitPrice: sellingPrice,
       pieces: 1,
       baseCost,
+      paperCost: item.paper_cost,
+      printingCostUnit: printCost,
       printerCategoryId: item.printer_category_id,
       markupGroupId: item.markup_group_id,
       parentItemId: null,
@@ -677,6 +681,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           ...m,
           description: `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}` : ""}`,
           baseCost,
+          paperCost: item.paper_cost,
+          printingCostUnit: printCost,
           unitPrice: sellingPrice,
           printerCategoryId: item.printer_category_id,
           markupGroupId: item.markup_group_id,
@@ -771,6 +777,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       const patch: Partial<SubformMaterial> = {
         description,
         baseCost,
+        paperCost: item.paper_cost,
+        printingCostUnit: printCost,
         unitPrice: sellingPrice,
         quantity: units,
         paperType: item.paper_type ?? null,
@@ -1357,6 +1365,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                         ...m,
                         description: `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}` : ""}`,
                         baseCost,
+                        paperCost: item.paper_cost,
+                        printingCostUnit: printCost,
                         printerCategoryId: item.printer_category_id,
                         markupGroupId: item.markup_group_id,
                         paperType: item.paper_type ?? null,
@@ -1617,6 +1627,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               netProfit={netProfit}
               netMarginPct={netMarginPct}
               revenueBase={revenueBase}
+              composition={composition}
             />
           );
         })()}
