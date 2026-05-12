@@ -54,6 +54,10 @@ export interface PricingMaterial {
   bookletUnits?: number | null;
   /** Apostila: imprime frente e verso. */
   bookletDuplex?: boolean | null;
+  /** Custo do papel por unidade (separado de baseCost para detalhamento). */
+  paperCost?: number | null;
+  /** Custo de impressão por unidade JÁ multiplicado (size/side). */
+  printingCostUnit?: number | null;
 }
 
 export interface PricingLaborStep {
