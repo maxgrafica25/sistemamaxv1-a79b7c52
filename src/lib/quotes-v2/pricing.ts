@@ -545,10 +545,12 @@ export const breakdownForQuantity = (
       const coversPerDisplayUnit = displayUnits > 0 ? coversTotalAbs / displayUnits : coversPerUnit;
       const finishingPerDisplayUnit = displayUnits > 0 ? finishingTotalAbs / displayUnits : finishingPerUnit;
       const laborPerDisplayUnit = displayUnits > 0 ? laborTotalAbs / displayUnits : laborPerUnit;
-      const subtotalPerDisplayUnit =
-        printingPerDisplayUnit + coversPerDisplayUnit + finishingPerDisplayUnit + laborPerDisplayUnit;
-      const sellingPriceDisplayUnit =
-        directSumDivisor > 0 ? subtotalPerDisplayUnit / directSumDivisor : subtotalPerDisplayUnit;
+      const childrenPerDisplayUnit =
+        coversPerDisplayUnit + finishingPerDisplayUnit + laborPerDisplayUnit;
+      const childrenSellingPerDisplayUnit =
+        directSumDivisor > 0 ? childrenPerDisplayUnit / directSumDivisor : childrenPerDisplayUnit;
+      const subtotalPerDisplayUnit = printingPerDisplayUnit + childrenPerDisplayUnit;
+      const sellingPriceDisplayUnit = printingPerDisplayUnit + childrenSellingPerDisplayUnit;
       const salesCostPerDisplayUnit = sellingPriceDisplayUnit - subtotalPerDisplayUnit;
 
       items.push({
