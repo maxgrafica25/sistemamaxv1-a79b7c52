@@ -462,7 +462,9 @@ export const breakdownForQuantity = (
     if (isDirectSumItem(m)) {
       hasDirectSumItems = true;
 
-      const printingUnit = m.printingCostUnit ?? m.baseCost ?? 0;
+      // Preço de venda por folha (já com tier markup); fallback ao custo
+      // se não houver unitPrice (cenário legado).
+      const printingUnit = m.unitPrice ?? m.printingCostUnit ?? m.baseCost ?? 0;
       let coversTotalAbs = 0;
       let finishingTotalAbs = 0;
       const childRows: DirectSumChildRow[] = [];
