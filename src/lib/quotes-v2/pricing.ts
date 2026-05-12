@@ -428,11 +428,25 @@ export const breakdownForQuantity = (
       const printingUnit = m.printingCostUnit ?? m.baseCost ?? 0;
       let coversTotalAbs = 0;
       let finishingTotalAbs = 0;
+      const childRows: DirectSumChildRow[] = [];
       for (const cm of childMats) {
         if (cm.isOptional) continue;
-        const v = cm.quantity * cm.unitPrice;
-        if (classifyChildMaterial(cm) === "covers") coversTotalAbs += v;
-        else finishingTotalAbs += v;
+        const margemPct = cm.margemPct ?? 0;
+        const vendaUnit = cm.unitPrice * (1 + margemPct / 100);
+        const vendaTotal = cm.quantity * vendaUnit;
+        const cat = classifyChildMaterial(cm);
+        if (cat === "covers") coversTotalAbs += vendaTotal;
+        else finishingTotalAbs += vendaTotal;
+        childRows.push({
+          id: cm.id,
+          description: cm.description || "Insumo",
+          category: cat,
+          quantity: cm.quantity,
+          custoUnit: cm.unitPrice,
+          margemPct,
+          vendaUnit,
+          vendaTotal,
+        });
       }
       const laborTotalAbs = childLab
         .filter((cl) => !cl.isOptional)
@@ -471,6 +485,7 @@ export const breakdownForQuantity = (
         coversPerUnit,
         finishingPerUnit,
         laborPerUnit,
+        childRows,
         subtotalPerUnit,
         subtotalTotal,
         salesCostPct,
