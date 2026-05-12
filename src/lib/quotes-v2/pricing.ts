@@ -531,9 +531,13 @@ export const breakdownForQuantity = (
       const coversPerUnit = coversTotalAbs / safeQty;
       const finishingPerUnit = finishingTotalAbs / safeQty;
       const laborPerUnit = laborTotalAbs / safeQty;
-      const childrenPerUnit = coversPerUnit + finishingPerUnit + laborPerUnit;
-      const childrenSellingPerUnit =
-        directSumDivisor > 0 ? childrenPerUnit / directSumDivisor : childrenPerUnit;
+      const matChildrenPerUnit = coversPerUnit + finishingPerUnit;
+      const matChildrenSellingPerUnit =
+        supplyDivisor > 0 ? matChildrenPerUnit / supplyDivisor : matChildrenPerUnit;
+      const laborChildrenSellingPerUnit =
+        laborDivisor > 0 ? laborPerUnit / laborDivisor : laborPerUnit;
+      const childrenSellingPerUnit = matChildrenSellingPerUnit + laborChildrenSellingPerUnit;
+      const childrenPerUnit = matChildrenPerUnit + laborPerUnit;
       const subtotalPerUnit = printingUnit + childrenPerUnit;
       const sellingPriceUnit = printingUnit + childrenSellingPerUnit;
       const salesCostPerUnit = sellingPriceUnit - subtotalPerUnit;
