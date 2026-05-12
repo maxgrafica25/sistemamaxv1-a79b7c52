@@ -45,6 +45,12 @@ export interface PricingMaterial {
   printingCostUnit?: number | null;
   /** Margem (%) aplicada APENAS quando o item é filho de um pai direct_sum (apostila). */
   margemPct?: number | null;
+  /** ID do suprimento de origem (para resolver tiers manuais em runtime). */
+  supplyId?: string | null;
+  /** Faixas manuais de preço por quantidade. Quando presente e a faixa
+   *  bater na quantidade do filho, o preço manual é o **final ao cliente**
+   *  (impostos e cartão já embutidos). Substitui margemPct. */
+  pricingTiers?: SupplyTier[] | null;
 }
 
 export interface PricingLaborStep {
