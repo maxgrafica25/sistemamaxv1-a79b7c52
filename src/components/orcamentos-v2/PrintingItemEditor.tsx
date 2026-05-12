@@ -86,6 +86,7 @@ export function PrintingItemEditor({
   childLabor,
   childMaterials,
   hourlyRate,
+  displayPcts,
   piecesInput,
   onPiecesInputChange,
   printingCatalog = [],
