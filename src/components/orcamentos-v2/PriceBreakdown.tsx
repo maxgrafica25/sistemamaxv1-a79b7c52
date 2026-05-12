@@ -1,11 +1,13 @@
 import { ChevronDown, Sigma } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type {
   PricingBreakdown,
   PricingBreakdownItem,
   PricingBreakdownItemDirectSum,
   PricingBreakdownItemTier,
+  DirectSumChildRow,
 } from "@/lib/quotes-v2/pricing";
 
 const formatBRL = (n: number) =>
