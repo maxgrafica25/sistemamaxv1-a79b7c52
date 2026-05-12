@@ -507,6 +507,7 @@ export default function MateriasPrimas() {
     });
   };
 
+  const getVariation = (materialId: string) => {
     const h = purchaseHistory.filter(x => x.materialId === materialId).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
     if (h.length < 2) return null;
     return ((h[0].valorUnitario - h[1].valorUnitario) / h[1].valorUnitario) * 100;
