@@ -206,12 +206,20 @@ export const recalculateForQuantity = (
 
     if (isDirectSumItem(m)) {
       // Soma direta: printingCostUnit já é venda c/ lucro embutido.
-      // Filhos materiais APLICAM margem_pct (custo + lucro do insumo).
+      // Filhos materiais: tier manual (preço final) > margem_pct > custo.
       const childMats = childMaterialsByParent.get(m.id) ?? [];
       const childLab = childLaborByParent.get(m.id) ?? [];
       const childMatTotal = childMats
         .filter((cm) => !cm.isOptional)
         .reduce((s, cm) => {
+          const tier = pickSupplyTier(cm.pricingTiers, cm.quantity);
+          if (tier) {
+            // manual_price É o preço final ao cliente. Removemos o custo de
+            // venda (1 - imp - cartão) para que, ao reaplicar o divisor no
+            // final, o cliente veja exatamente o valor cadastrado.
+            const preDivUnit = tier.manual_price * directSumDivisor;
+            return s + cm.quantity * preDivUnit;
+          }
           const venda = cm.unitPrice * (1 + (cm.margemPct ?? 0) / 100);
           return s + cm.quantity * venda;
         }, 0);
