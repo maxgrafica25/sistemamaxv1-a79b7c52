@@ -3,12 +3,15 @@ import { Input } from "@/components/ui/input";
 import { Search, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
+import type { SupplyTier } from "@/lib/quotes-v2/supply-pricing";
+
 export interface SupplyOption {
   id: string;
   produto: string;
   fornecedor: string;
   valor_unitario: number;
   margem_pct?: number;
+  pricing_tiers?: SupplyTier[];
 }
 
 interface Props {
@@ -24,11 +27,19 @@ export default function SupplySearch({ onSelect, placeholder = "Buscar supriment
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    supabase
-      .from("supplies")
-      .select("id, produto, fornecedor, valor_unitario, margem_pct")
-      .order("produto")
-      .then(({ data }) => setSupplies((data as SupplyOption[]) || []));
+    (async () => {
+      const [{ data: sups }, { data: tiers }] = await Promise.all([
+        supabase.from("supplies").select("id, produto, fornecedor, valor_unitario, margem_pct").order("produto"),
+        (supabase as any).from("supply_pricing_tiers").select("*").order("min_qty"),
+      ]);
+      const tierMap = new Map<string, SupplyTier[]>();
+      for (const t of (tiers || []) as any[]) {
+        const arr = tierMap.get(t.supply_id) || [];
+        arr.push(t as SupplyTier);
+        tierMap.set(t.supply_id, arr);
+      }
+      setSupplies(((sups || []) as SupplyOption[]).map((s) => ({ ...s, pricing_tiers: tierMap.get(s.id) || [] })));
+    })();
   }, []);
 
   useEffect(() => {
