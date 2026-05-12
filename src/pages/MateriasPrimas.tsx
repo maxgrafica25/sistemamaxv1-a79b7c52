@@ -32,6 +32,7 @@ import SupplierCombobox from "@/components/SupplierCombobox";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
+import { SupplyTiersDrawer } from "@/components/materias-primas/SupplyTiersDrawer";
 
 // ─── Types ───────────────────────────────────────────────────────────
 type ActiveTab = "suprimento" | "papel";
