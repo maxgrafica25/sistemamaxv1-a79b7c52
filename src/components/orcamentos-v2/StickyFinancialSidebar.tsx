@@ -1,11 +1,15 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
-import { AlertTriangle, ChevronUp, ChevronDown } from "lucide-react";
+import { AlertTriangle, ChevronUp, ChevronDown, TrendingUp, TrendingDown } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { PriceBreakdownGlobal } from "@/components/orcamentos-v2/PriceBreakdown";
 import type { PricingBreakdown } from "@/lib/quotes-v2/pricing";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 interface Props {
   proposalTotal: number;
