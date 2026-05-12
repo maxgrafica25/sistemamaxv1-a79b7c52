@@ -1132,6 +1132,36 @@ export default function MateriasPrimas() {
         description={`Deseja realmente excluir "${confirmItemName}"? Esta ação não pode ser desfeita.`}
         onConfirm={() => { confirmAction(); setConfirmOpen(false); }}
       />
+
+      <AlertDialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Aplicar margem em massa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta margem será aplicada a <strong>{selectedIds.size} suprimento(s)</strong> selecionado(s).
+              Lembre-se: a margem só vale em itens usados em apostilas (modo soma direta).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>Margem (%)</Label>
+            <Input
+              type="number"
+              min="0"
+              max="500"
+              step="1"
+              value={bulkMargem}
+              onChange={(e) => setBulkMargem(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={applyBulkMargin}>
+              Aplicar a {selectedIds.size} item(ns)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
