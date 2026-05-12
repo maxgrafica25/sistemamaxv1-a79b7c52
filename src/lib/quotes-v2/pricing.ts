@@ -8,6 +8,7 @@
 // materials/labor still flow through the classic global divisor.
 
 import type { MarkupTier } from "@/components/orcamentos/PrintingItemSearch";
+import { pickSupplyTier, type SupplyTier } from "./supply-pricing";
 
 export interface PricingMaterial {
   id: string;
@@ -44,6 +45,12 @@ export interface PricingMaterial {
   printingCostUnit?: number | null;
   /** Margem (%) aplicada APENAS quando o item é filho de um pai direct_sum (apostila). */
   margemPct?: number | null;
+  /** ID do suprimento de origem (para resolver tiers manuais em runtime). */
+  supplyId?: string | null;
+  /** Faixas manuais de preço por quantidade. Quando presente e a faixa
+   *  bater na quantidade do filho, o preço manual é o **final ao cliente**
+   *  (impostos e cartão já embutidos). Substitui margemPct. */
+  pricingTiers?: SupplyTier[] | null;
 }
 
 export interface PricingLaborStep {
@@ -199,12 +206,20 @@ export const recalculateForQuantity = (
 
     if (isDirectSumItem(m)) {
       // Soma direta: printingCostUnit já é venda c/ lucro embutido.
-      // Filhos materiais APLICAM margem_pct (custo + lucro do insumo).
+      // Filhos materiais: tier manual (preço final) > margem_pct > custo.
       const childMats = childMaterialsByParent.get(m.id) ?? [];
       const childLab = childLaborByParent.get(m.id) ?? [];
       const childMatTotal = childMats
         .filter((cm) => !cm.isOptional)
         .reduce((s, cm) => {
+          const tier = pickSupplyTier(cm.pricingTiers, cm.quantity);
+          if (tier) {
+            // manual_price É o preço final ao cliente. Removemos o custo de
+            // venda (1 - imp - cartão) para que, ao reaplicar o divisor no
+            // final, o cliente veja exatamente o valor cadastrado.
+            const preDivUnit = tier.manual_price * directSumDivisor;
+            return s + cm.quantity * preDivUnit;
+          }
           const venda = cm.unitPrice * (1 + (cm.margemPct ?? 0) / 100);
           return s + cm.quantity * venda;
         }, 0);
@@ -306,6 +321,12 @@ export interface DirectSumChildRow {
   margemPct: number;
   vendaUnit: number;
   vendaTotal: number;
+  /** "manual_tier" = preço final manual (impostos embutidos); "margin" = custo + margem%. */
+  priceSource: "manual_tier" | "margin";
+  /** Rótulo da faixa (ex: "TP2 · 6–20 un") quando priceSource === "manual_tier". */
+  tierLabel?: string | null;
+  /** Preço final ao cliente travado pela faixa (apenas em "manual_tier"). */
+  finalUnitLocked?: number | null;
 }
 
 export interface PricingBreakdownItemDirectSum extends PricingBreakdownItemBase {
@@ -431,8 +452,26 @@ export const breakdownForQuantity = (
       const childRows: DirectSumChildRow[] = [];
       for (const cm of childMats) {
         if (cm.isOptional) continue;
-        const margemPct = cm.margemPct ?? 0;
-        const vendaUnit = cm.unitPrice * (1 + margemPct / 100);
+        const tier = pickSupplyTier(cm.pricingTiers, cm.quantity);
+        let vendaUnit: number;
+        let margemPct = 0;
+        let priceSource: "manual_tier" | "margin" = "margin";
+        let tierLabel: string | null = null;
+        let finalUnitLocked: number | null = null;
+        if (tier) {
+          // Engenharia reversa: o pricing engine reaplica o divisor no
+          // total — para o cliente ver tier.manual_price exato, somamos
+          // (manual_price * divisor) no subtotal pré-divisor.
+          vendaUnit = tier.manual_price * directSumDivisor;
+          priceSource = "manual_tier";
+          finalUnitLocked = tier.manual_price;
+          const maxLabel =
+            tier.max_qty == null ? `${tier.min_qty}+ un` : `${tier.min_qty}–${tier.max_qty} un`;
+          tierLabel = `${tier.label} · ${maxLabel}`;
+        } else {
+          margemPct = cm.margemPct ?? 0;
+          vendaUnit = cm.unitPrice * (1 + margemPct / 100);
+        }
         const vendaTotal = cm.quantity * vendaUnit;
         const cat = classifyChildMaterial(cm);
         if (cat === "covers") coversTotalAbs += vendaTotal;
@@ -446,6 +485,9 @@ export const breakdownForQuantity = (
           margemPct,
           vendaUnit,
           vendaTotal,
+          priceSource,
+          tierLabel,
+          finalUnitLocked,
         });
       }
       const laborTotalAbs = childLab

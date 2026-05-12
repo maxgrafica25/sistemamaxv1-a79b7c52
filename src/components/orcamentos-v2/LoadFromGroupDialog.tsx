@@ -97,16 +97,33 @@ export function LoadFromGroupDialog(props: Props) {
           new Set(rows.map((r: any) => r.supply_id).filter(Boolean)),
         ) as string[];
 
-        let liveMap = new Map<string, { price: number; margem: number }>();
+        let liveMap = new Map<string, { price: number; margem: number; tiers: any[] }>();
         if (supplyIds.length > 0) {
-          const { data: sup } = await supabase
-            .from("supplies")
-            .select("id, valor_unitario, margem_pct")
-            .in("id", supplyIds);
+          const [{ data: sup }, { data: tiers }] = await Promise.all([
+            supabase
+              .from("supplies")
+              .select("id, valor_unitario, margem_pct")
+              .in("id", supplyIds),
+            (supabase as any)
+              .from("supply_pricing_tiers")
+              .select("*")
+              .in("supply_id", supplyIds)
+              .order("min_qty"),
+          ]);
+          const tiersBySupply = new Map<string, any[]>();
+          for (const t of (tiers || []) as any[]) {
+            const arr = tiersBySupply.get(t.supply_id) || [];
+            arr.push(t);
+            tiersBySupply.set(t.supply_id, arr);
+          }
           liveMap = new Map(
             (sup || []).map((s: any) => [
               s.id,
-              { price: Number(s.valor_unitario) || 0, margem: Number(s.margem_pct) || 0 },
+              {
+                price: Number(s.valor_unitario) || 0,
+                margem: Number(s.margem_pct) || 0,
+                tiers: tiersBySupply.get(s.id) || [],
+              },
             ]),
           );
         }
@@ -120,6 +137,8 @@ export function LoadFromGroupDialog(props: Props) {
               quantity: Number(r.quantity) || 1,
               unitPrice: live ? live.price : Number(r.unit_price) || 0,
               margemPct: live ? live.margem : 0,
+              supplyId: r.supply_id ?? null,
+              pricingTiers: live ? live.tiers : [],
             } as any;
           }),
         );

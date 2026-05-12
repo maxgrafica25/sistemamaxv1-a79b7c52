@@ -117,11 +117,14 @@ export function LaborAndSupplySubform({
           onLoad={(items) =>
             onMaterialChange([
               ...materialItems,
-              ...items.map((it) => ({
+              ...items.map((it: any) => ({
                 id: it.id,
                 description: it.description,
                 quantity: it.quantity,
                 unitPrice: it.unitPrice,
+                margemPct: it.margemPct,
+                supplyId: it.supplyId,
+                pricingTiers: it.pricingTiers,
                 parentItemId,
               })),
             ])

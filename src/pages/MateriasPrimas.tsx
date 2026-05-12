@@ -32,6 +32,7 @@ import SupplierCombobox from "@/components/SupplierCombobox";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
+import { SupplyTiersDrawer } from "@/components/materias-primas/SupplyTiersDrawer";
 
 // ─── Types ───────────────────────────────────────────────────────────
 type ActiveTab = "suprimento" | "papel";
@@ -161,6 +162,11 @@ export default function MateriasPrimas() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkMargem, setBulkMargem] = useState("0");
 
+  // Tiers drawer
+  const [tiersOpen, setTiersOpen] = useState(false);
+  const [tiersSupply, setTiersSupply] = useState<Material | null>(null);
+  const [tierCounts, setTierCounts] = useState<Record<string, number>>({});
+
   // Paper form
   const [paperName, setPaperName] = useState("");
   const [paperGrammage, setPaperGrammage] = useState("");
@@ -185,10 +191,18 @@ export default function MateriasPrimas() {
   // ── Fetch supplies ──
   const fetchSupplies = useCallback(async () => {
     setLoadingSupplies(true);
-    const [supRes, histRes] = await Promise.all([
+    const [supRes, histRes, tiersRes] = await Promise.all([
       supabase.from("supplies").select("*").order("created_at", { ascending: false }),
       supabase.from("supply_purchase_history").select("*").order("created_at", { ascending: false }),
+      (supabase as any).from("supply_pricing_tiers").select("supply_id"),
     ]);
+    if (tiersRes?.data) {
+      const counts: Record<string, number> = {};
+      for (const t of tiersRes.data as any[]) {
+        counts[t.supply_id] = (counts[t.supply_id] || 0) + 1;
+      }
+      setTierCounts(counts);
+    }
     if (supRes.data) {
       setMaterials(supRes.data.map((s: any) => ({
         id: s.id,
@@ -830,6 +844,17 @@ export default function MateriasPrimas() {
                             </Tooltip>
                           </div>
                         </TableHead>
+                        <TableHead className="font-semibold text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            Faixas
+                            <Tooltip>
+                              <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p>Faixas manuais de preço por quantidade. O valor cadastrado é o <strong>preço final ao cliente</strong> (impostos e cartão já embutidos) e <strong>substitui a margem</strong> em apostilas.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableHead>
                         <TableHead className="font-semibold">Fornecedor</TableHead>
                         <TableHead className="font-semibold text-center">Variação</TableHead>
                         <TableHead className="font-semibold text-right">Ações</TableHead>
@@ -864,6 +889,20 @@ export default function MateriasPrimas() {
                                   </span>
                                 )}
                               </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                variant={tierCounts[material.id] ? "secondary" : "outline"}
+                                size="sm"
+                                className="h-7 gap-1.5 text-xs"
+                                onClick={() => { setTiersSupply(material); setTiersOpen(true); }}
+                                title="Gerenciar faixas"
+                              >
+                                <Layers className="h-3 w-3" />
+                                {tierCounts[material.id]
+                                  ? `${tierCounts[material.id]} faixa${tierCounts[material.id] > 1 ? "s" : ""}`
+                                  : "Adicionar"}
+                              </Button>
                             </TableCell>
                             <TableCell className="text-muted-foreground">{material.fornecedor || "—"}</TableCell>
                             <TableCell className="text-center"><VariationBadge variation={variation} /></TableCell>
@@ -1162,6 +1201,16 @@ export default function MateriasPrimas() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SupplyTiersDrawer
+        open={tiersOpen}
+        onOpenChange={(o) => { setTiersOpen(o); if (!o) setTiersSupply(null); }}
+        supplyId={tiersSupply?.id ?? null}
+        supplyName={tiersSupply?.produto ?? ""}
+        baseUnitPrice={tiersSupply?.valorUnitario ?? 0}
+        marginPct={tiersSupply?.margemPct ?? 0}
+        onSaved={() => fetchSupplies()}
+      />
     </>
   );
 }

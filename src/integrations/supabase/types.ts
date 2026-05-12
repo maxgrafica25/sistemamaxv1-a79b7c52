@@ -3074,6 +3074,50 @@ export type Database = {
         }
         Relationships: []
       }
+      supply_pricing_tiers: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          manual_price: number
+          max_qty: number | null
+          min_qty: number
+          sort_order: number
+          supply_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          manual_price: number
+          max_qty?: number | null
+          min_qty: number
+          sort_order?: number
+          supply_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          manual_price?: number
+          max_qty?: number | null
+          min_qty?: number
+          sort_order?: number
+          supply_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supply_pricing_tiers_supply_id_fkey"
+            columns: ["supply_id"]
+            isOneToOne: false
+            referencedRelation: "supplies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supply_purchase_history: {
         Row: {
           contato: string
