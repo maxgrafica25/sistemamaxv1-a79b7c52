@@ -1,63 +1,41 @@
-## Diagnóstico
+## Causa
 
-Há **duas contas diferentes** rodando para apostilas (direct_sum):
+Há **duas fontes da verdade** para o "Valor a cobrar":
 
 | Onde | Fórmula | Resultado |
 |---|---|---|
-| Editor "Folhas a imprimir" (linha 795 do `PrintingItemEditor`) e Sidebar "Valor a cobrar" | `m.unitPrice × m.quantity` (preço de venda/folha já com tier de markup × 500 folhas) | **R$ 2.550,00** |
-| Cabeçalho roxo do item + "Composição do preço" (`pricing.ts → breakdownForQuantity`, ramo `isDirectSumItem`) | `printingUnit = m.printingCostUnit` (só o **custo** do clique, ~R$ 1,80) / `directSumDivisor` (1 − impostos − cartão) × 500 | **R$ 1.920,32** |
+| Card "Valor a cobrar (base)" + rodapé "Salvar" + cabeçalho | `discountedTotal` = `live.totalToCharge + cvTotal` (engine) | **R$ 2.555,42** ✅ |
+| `StickyFinancialSidebar` (DRE) | `itemsRevenueGross = Σ (m.unitPrice × m.quantity) + cvTotal + extras + frete` | **R$ 2.550,00** ❌ |
 
-O motor `pricing.ts`, no caminho direct_sum, ignora a marcação de tier que produziu `unitPrice` e usa só `printingCostUnit` (custo). Daí "Impressão (50 folhas) = R$ 90,00" (50 × R$ 1,80) em vez de R$ 255,00 (50 × R$ 5,10), e o item totaliza R$ 1.920 em vez de R$ 2.550.
+A sidebar foi escrita com um comentário antigo: *"não usar live.totalToCharge, que reprecifica via engine com qty=1 e infla com markup de faixa baixa"*. Esse risco era do mundo só-tier; agora o motor (após o fix de apostilas) é a fonte correta — `Σ unitPrice × quantity` ignora a marcação proporcional aplicada aos filhos via divisor (capa/contracapa/acabamentos), gerando os ~R$ 5,42 a menos.
 
-A sidebar mostra "Impressão R$ 0,00" porque `live.printingTotal` (vindo do mesmo motor) também está sub-calculado e a sidebar exibe outro recorte.
+## Correção (frontend, em `NewQuoteFormV2.tsx`)
 
-## Correção (somente em `src/lib/quotes-v2/pricing.ts`)
+Substituir o cálculo local da sidebar por `subtotalBeforeDiscount` / `discountedTotal` que já alimentam o card e o rodapé.
 
-Para itens `isDirectSumItem`, usar `m.unitPrice` (preço de venda por folha — já tem o markup do tier embutido) como parcela de impressão e **não** reaplicar o `directSumDivisor` sobre ela. Continuar aplicando o divisor apenas sobre os filhos (capa/contracapa/acabamentos/mão de obra) para que o preço final de capa cadastrado em `manual_tier` continue exato.
+**No bloco `{isAdmin && (...)} `** (linhas ~1591-1655):
 
-Mudança em `recalculateForQuantity`:
+- `itemsRevenueGross`  →  `subtotalBeforeDiscount` (= `live.totalToCharge + cvTotal`, já inclui hiddenExtras + freight via engine)
+- `proposalTotal`      →  `discountedTotal` (mesma fórmula de desconto já aplicada)
+- Manter `approvedRevenue` como está (soma de itens com `status === "aprovado"` usando `unitPrice × quantity` ou `approvedValue`).
+- Para `productionCost`, manter `live.costsBeforeMarkup + live.printingTotal + cvCostTotal` — só remover do printingTotal a parcela de venda que não é custo (já é assim hoje, ok).
+- Recalcular `revenueBase = hasApproved ? approvedRevenue : proposalTotal` — sem mudança estrutural, só a base nova.
+- Remover o comentário obsoleto sobre "qty=1 / faixa baixa".
 
-```text
-printingSellingUnit = m.unitPrice ?? m.printingCostUnit ?? 0
-childSubtotalUn     = (childMatTotal + childLabTotal) / itemQty
-childSellingUn      = childSubtotalUn / directSumDivisor
-sellingUn           = printingSellingUnit + childSellingUn
-printingTotal      += sellingUn * itemQty
-```
+Resultado: sidebar passa a exibir R$ 2.555,42, idêntico ao card e ao rodapé "Salvar".
 
-Espelhar em `breakdownForQuantity`:
+## Arredondamento
 
-- `printingPerUnit`            = `printingSellingUnit` (não mais o custo)
-- `printingPerDisplayUnit`     = `printingSellingUnit × pagesPerDisplayUnit`
-- `subtotalPerUnit`            = `printingSellingUnit + coversPerUnit + finishingPerUnit + laborPerUnit` (filhos ainda em pré-divisor)
-- `sellingPriceUnit`           = `printingSellingUnit + (coversPerUnit + finishingPerUnit + laborPerUnit) / directSumDivisor`
-- `salesCostPerUnit`           = `sellingPriceUnit − subtotalPerUnit` (= apenas o markup dos filhos)
-- mesma lógica replicada nos campos `*PerDisplayUnit`
-
-Resultado para o caso da imagem (500 folhas × R$ 5,10):
-- "Impressão (50 folhas)" passa de R$ 90,00 → **R$ 255,00**
-- "Preço por apostila" passa de R$ 192,03 → **R$ 255,00 + acabamentos/divisor**
-- Total do item passa de R$ 1.920,32 → **R$ 2.550,00 + acabamentos**, batendo com o "Valor a cobrar".
-
-## Garantias / efeitos colaterais
-
-- Itens **tier clássicos** (panfleto, cartão, etc.): caminho intacto — segue usando `findTier` + `calcSellingPrice`.
-- Insumos filhos com `pricingTiers` manuais (ex.: capa cadastrada por faixa): preservados — ainda multiplicamos `manual_price × directSumDivisor` no subtotal e o reaplicar do divisor só nos filhos garante que o cliente veja exatamente o valor cadastrado.
-- Mão de obra dos processos (display via `labor-display.ts`) não muda — continua dividindo pelo divisor cheio (com margem), pois o preço de venda do processo segue a regra anterior.
-- `effectiveMarginPct`, `profit`, `netProfit` da sidebar: como `printingTotal` aumenta para o valor real, a margem efetiva fica coerente com o que o cliente paga.
+Não há `Math.round` forçando para baixo no caminho de exibição — o "R$ 2.550,00" vinha da fonte errada, não de truncamento. Após a unificação, a única arredondamento aplicada é o `roundUp5` do preço-base de impressão (já documentado), que continua produzindo R$ 5,10 por folha. Nenhum outro round-down é necessário.
 
 ## Validação
 
-1. Reabrir o orçamento da imagem (apostila A4, Sulfite 75, 50 folhas × 10 apostilas, 4×4):
-   - "Folhas a imprimir" = R$ 2.550,00
-   - Cabeçalho do item ≈ R$ 2.550,00 (+ eventuais acabamentos / divisor)
-   - "Composição": "Impressão (50 folhas) R$ 255,00", "Preço por apostila R$ 255,00", "Total (10 apostilas) R$ 2.550,00"
-   - "Valor a cobrar" segue R$ 2.550,00 — sem divergência.
-2. Testar apostila com capa + contracapa cadastradas em faixa manual (ex.: TP2 R$ 7,50): valor unitário da capa permanece exatamente R$ 7,50.
-3. Testar item tier clássico (panfleto 1.000 un): nenhuma alteração no total.
-4. Lucro Líquido Estimado: continua coerente, agora alinhado ao printingTotal real.
+1. Apostila da imagem (500 folhas × R$ 5,10 + acabamentos): card, rodapé "Salvar", cabeçalho do orçamento e sidebar passam a exibir **R$ 2.555,42**.
+2. Item tier clássico (panfleto 1.000 un): valor segue inalterado (engine já é coerente nesse caminho).
+3. Aplicar desconto 10%: todos os locais devem mostrar o mesmo `discountedTotal` com desconto.
+4. Item aprovado parcial: "Valor Aprovado" continua com a soma `approvedValue`/`unitPrice × quantity` (não mistura com proposalTotal).
 
 ## Escopo
 
-- Único arquivo alterado: `src/lib/quotes-v2/pricing.ts` (funções `recalculateForQuantity` e `breakdownForQuantity`).
-- Nenhuma mudança em UI, banco, edge functions ou outros componentes.
+- Único arquivo: `src/components/orcamentos-v2/NewQuoteFormV2.tsx`, dentro do `isAdmin && (...)`.
+- Sem mudanças em `pricing.ts`, sem mudanças no componente `StickyFinancialSidebar` em si.
