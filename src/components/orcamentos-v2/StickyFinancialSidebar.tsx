@@ -40,7 +40,7 @@ export function StickyFinancialSidebar(props: Props) {
   const {
     proposalTotal, approvedTotal, hasApproved,
     productionCost, taxPct, taxValue, billingPct, billingMethod, billingValue,
-    lossPct, lossValue, netProfit, netMarginPct, revenueBase,
+    lossPct, lossValue, netProfit, netMarginPct, revenueBase, composition,
   } = props;
 
   const [open, setOpen] = useState(false);
