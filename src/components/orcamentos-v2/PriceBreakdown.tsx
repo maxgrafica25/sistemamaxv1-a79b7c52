@@ -46,7 +46,9 @@ export function PriceBreakdownItemPanel({ item, defaultOpen = false }: ItemProps
         </span>
         <span className="flex items-center gap-2">
           <span className="text-muted-foreground">
-            {formatBRL(item.sellingPriceUnit)} / un
+            {isDirect
+              ? `${formatBRL((item as PricingBreakdownItemDirectSum).sellingPriceDisplayUnit)} / ${(item as PricingBreakdownItemDirectSum).displayUnitLabel}`
+              : `${formatBRL(item.sellingPriceUnit)} / un`}
           </span>
           <ChevronDown
             className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")}
