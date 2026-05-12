@@ -198,9 +198,16 @@ export function LaborAndSupplySubform({
               placeholder="min"
               disabled={locked}
             />
-            <span className="w-20 text-right tabular-nums text-muted-foreground">
-              {formatBRL((l.timeMinutes / 60) * hourlyRate)}
-            </span>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="w-20 text-right tabular-nums text-muted-foreground cursor-help">
+                    {formatBRL(computeLaborSellingPrice(l.timeMinutes, hourlyRate, displayPcts))}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{LABOR_SELLING_TOOLTIP}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <Button
               variant="ghost"
               size="icon"
