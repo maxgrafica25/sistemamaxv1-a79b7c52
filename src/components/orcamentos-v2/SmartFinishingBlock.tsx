@@ -284,9 +284,16 @@ export function SmartFinishingBlock({
                   className="w-16 h-7 text-xs text-center"
                   placeholder="min"
                 />
-                <span className="w-20 text-right tabular-nums text-muted-foreground">
-                  {fmt(cost)}
-                </span>
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="w-20 text-right tabular-nums text-muted-foreground cursor-help">
+                        {fmt(cost)}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>{LABOR_SELLING_TOOLTIP}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground select-none cursor-pointer">
                   <Switch
                     checked={optional}
