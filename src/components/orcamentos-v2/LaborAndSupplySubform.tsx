@@ -5,6 +5,14 @@ import { Plus, X, Clock, Package, Scissors } from "lucide-react";
 import { LoadFromGroupDialog } from "./LoadFromGroupDialog";
 import { STEP_TYPES } from "./StepTypeBadge";
 import type { PricingMaterial, PricingLaborStep } from "@/lib/quotes-v2/pricing";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  computeLaborSellingPrice,
+  LABOR_SELLING_TOOLTIP,
+  type LaborDisplayPcts,
+} from "@/lib/quotes-v2/labor-display";
 
 export interface SubformLabor {
   id: string;
