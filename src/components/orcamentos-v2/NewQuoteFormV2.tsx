@@ -472,6 +472,59 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     loadInit();
   }, [loadInit]);
 
+  // ---------- Auto-save de rascunho local ----------
+  const draftState = useMemo(() => ({
+    client, clientId, clientPhone, product, validity, profitMargin, notes,
+    quoteOptions, attentionTo, hiddenExtras, freightValue, freightTypeId, tags,
+    labor, materials, thirdParty, cvItems,
+    discountValue, discountType, paymentMethod,
+  }), [
+    client, clientId, clientPhone, product, validity, profitMargin, notes,
+    quoteOptions, attentionTo, hiddenExtras, freightValue, freightTypeId, tags,
+    labor, materials, thirdParty, cvItems,
+    discountValue, discountType, paymentMethod,
+  ]);
+
+  const { savedAt: draftSavedAt, error: draftError } = useLocalDraft(draftKey, draftState, {
+    version: QUOTE_DRAFT_VERSION,
+    debounceMs: 3000,
+    ttlDays: QUOTE_DRAFT_TTL_DAYS,
+    enabled: !loadingInit && !isLocked,
+  });
+
+  const restoreDraft = () => {
+    const existing = loadDraft<any>(draftKey, QUOTE_DRAFT_VERSION, QUOTE_DRAFT_TTL_DAYS);
+    if (!existing) { setDraftAvailable(null); return; }
+    const d = existing.data || {};
+    if (d.client !== undefined) setClient(d.client);
+    if (d.clientId !== undefined) setClientId(d.clientId);
+    if (d.clientPhone !== undefined) setClientPhone(d.clientPhone);
+    if (d.product !== undefined) setProduct(d.product);
+    if (d.validity !== undefined) setValidity(d.validity);
+    if (d.profitMargin !== undefined) setProfitMargin(d.profitMargin);
+    if (d.notes !== undefined) setNotes(d.notes);
+    if (d.quoteOptions !== undefined) setQuoteOptions(d.quoteOptions);
+    if (d.attentionTo !== undefined) setAttentionTo(d.attentionTo);
+    if (d.hiddenExtras !== undefined) setHiddenExtras(d.hiddenExtras);
+    if (d.freightValue !== undefined) setFreightValue(d.freightValue);
+    if (d.freightTypeId !== undefined) setFreightTypeId(d.freightTypeId);
+    if (d.tags !== undefined) setTags(d.tags);
+    if (d.labor !== undefined) setLabor(d.labor);
+    if (d.materials !== undefined) setMaterials(d.materials);
+    if (d.thirdParty !== undefined) setThirdParty(d.thirdParty);
+    if (d.cvItems !== undefined) setCvItems(d.cvItems);
+    if (d.discountValue !== undefined) setDiscountValue(d.discountValue);
+    if (d.discountType !== undefined) setDiscountType(d.discountType);
+    if (d.paymentMethod !== undefined) setPaymentMethod(d.paymentMethod);
+    setDraftAvailable(null);
+    toast.success("Rascunho restaurado");
+  };
+
+  const discardDraft = () => {
+    clearDraft(draftKey);
+    setDraftAvailable(null);
+  };
+
   // ---------- Pricing snapshot + live result ----------
   const snapshot: PricingSnapshot = useMemo(() => ({
     laborSteps: labor.map((l) => ({
