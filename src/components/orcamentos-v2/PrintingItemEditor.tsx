@@ -899,6 +899,7 @@ export function PrintingItemEditor({
             productKind={item.productKind}
             processSteps={processSteps}
             hourlyRate={hourlyRate}
+            displayPcts={displayPcts}
             childLabor={childLabor}
             childMaterials={childMaterials}
             onChildLaborChange={onChildLaborChange}
