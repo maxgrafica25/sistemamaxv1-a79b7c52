@@ -28,6 +28,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
   recalculateForQuantity,
   breakdownForQuantity,
+  isDirectSumItem,
   type PricingMaterial,
   type PricingSnapshot,
 } from "@/lib/quotes-v2/pricing";
@@ -737,7 +738,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
 
   const updateMaterialPatch = (id: string, patch: Partial<PricingMaterial>) =>
     setMaterials((prev) => {
-      const next = prev.map((m) => (m.id === id ? { ...m, ...patch } : m));
+      const next = prev.map((m) => {
+        if (m.id !== id) return m;
+        const merged = { ...m, ...patch };
+        return isDirectSumItem(merged) && merged.printingCostUnit != null
+          ? { ...merged, unitPrice: merged.printingCostUnit }
+          : merged;
+      });
       // Sincroniza quantidade dos filhos Capa/Contracapa com bookletUnits do pai
       if ("bookletUnits" in patch) {
         const units = (patch as any).bookletUnits ?? 0;
