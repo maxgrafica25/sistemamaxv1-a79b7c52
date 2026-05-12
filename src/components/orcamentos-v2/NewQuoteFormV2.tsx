@@ -679,6 +679,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           ...m,
           description: `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}` : ""}`,
           baseCost,
+          paperCost: item.paper_cost,
+          printingCostUnit: printCost,
           unitPrice: sellingPrice,
           printerCategoryId: item.printer_category_id,
           markupGroupId: item.markup_group_id,
