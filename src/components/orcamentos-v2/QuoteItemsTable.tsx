@@ -24,7 +24,7 @@ import {
 import {
   PRODUCT_KIND_OPTIONS, productKindLabel, buildDynamicTitle,
 } from "@/lib/quotes-v2/item-title";
-import type { PricingMaterial } from "@/lib/quotes-v2/pricing";
+import { isDirectSumItem, type PricingMaterial } from "@/lib/quotes-v2/pricing";
 import type { SubformLabor, SubformMaterial } from "./LaborAndSupplySubform";
 import { PrintingItemEditor } from "./PrintingItemEditor";
 import { ProcessPicker, type ProcessStep, type ProcessGroup, type ProcessGroupItem } from "./ProcessPicker";
