@@ -5,6 +5,14 @@ import { Plus, X, Clock, Package, Scissors } from "lucide-react";
 import { LoadFromGroupDialog } from "./LoadFromGroupDialog";
 import { STEP_TYPES } from "./StepTypeBadge";
 import type { PricingMaterial, PricingLaborStep } from "@/lib/quotes-v2/pricing";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  computeLaborSellingPrice,
+  LABOR_SELLING_TOOLTIP,
+  type LaborDisplayPcts,
+} from "@/lib/quotes-v2/labor-display";
 
 export interface SubformLabor {
   id: string;
@@ -26,6 +34,8 @@ interface Props {
   laborItems: SubformLabor[];
   materialItems: SubformMaterial[];
   hourlyRate: number;
+  /** Pcts globais para calcular o preço de venda exibido por processo. */
+  displayPcts: LaborDisplayPcts;
   onLaborChange: (next: SubformLabor[]) => void;
   onMaterialChange: (next: SubformMaterial[]) => void;
   /** Compacto: usado dentro do PrintingItemEditor (acabamentos vinculados). */
@@ -40,6 +50,7 @@ export function LaborAndSupplySubform({
   laborItems,
   materialItems,
   hourlyRate,
+  displayPcts,
   onLaborChange,
   onMaterialChange,
   compact = false,
@@ -187,9 +198,16 @@ export function LaborAndSupplySubform({
               placeholder="min"
               disabled={locked}
             />
-            <span className="w-20 text-right tabular-nums text-muted-foreground">
-              {formatBRL((l.timeMinutes / 60) * hourlyRate)}
-            </span>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="w-20 text-right tabular-nums text-muted-foreground cursor-help">
+                    {formatBRL(computeLaborSellingPrice(l.timeMinutes, hourlyRate, displayPcts))}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{LABOR_SELLING_TOOLTIP}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <Button
               variant="ghost"
               size="icon"

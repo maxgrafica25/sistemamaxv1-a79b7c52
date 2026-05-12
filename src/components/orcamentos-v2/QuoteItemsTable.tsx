@@ -11,6 +11,11 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  computeLaborSellingPrice,
+  LABOR_SELLING_TOOLTIP,
+  type LaborDisplayPcts,
+} from "@/lib/quotes-v2/labor-display";
+import {
   type PrintingCatalogItem, type MarkupTier,
 } from "@/components/orcamentos/PrintingItemSearch";
 import {
@@ -39,6 +44,8 @@ interface Props {
   markupTiers: MarkupTier[];
   categoryDefaultGroupId: Record<string, string | null>;
   globalSettings: { invoice_pct: number; collection_pct: number; waste_pct: number; default_margin_pct: number };
+  /** Margem de lucro (%) atual do orçamento (string parseável). */
+  profitMarginPct: number;
   hourlyRate: number;
 
   printingItems: PricingMaterial[];
@@ -92,6 +99,7 @@ const GRID = "grid grid-cols-[32px_140px_1fr_90px_60px_110px_110px_72px] items-c
 export function QuoteItemsTable(props: Props) {
   const {
     printingCatalog, processSteps, processGroups, hourlyRate,
+    globalSettings, profitMarginPct,
     markupTiers, categoryDefaultGroupId,
     printingItems, childMaterials, childLabor,
     standaloneLabor, standaloneManualMaterials, thirdParty,
@@ -105,6 +113,14 @@ export function QuoteItemsTable(props: Props) {
     itemSellingTotals,
     itemDisplayInfo,
   } = props;
+
+  const displayPcts: LaborDisplayPcts = {
+    invoicePct: globalSettings.invoice_pct,
+    collectionPct: globalSettings.collection_pct,
+    profitMarginPct,
+    wastePct: globalSettings.waste_pct,
+  };
+
 
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [flashId, setFlashId] = useState<string | null>(null);
@@ -288,6 +304,7 @@ export function QuoteItemsTable(props: Props) {
           childLabor={childLaborForThis}
           childMaterials={childMatsForThis}
           hourlyRate={hourlyRate}
+          displayPcts={displayPcts}
           piecesInput={piecesInputs[m.id] ?? null}
           onPiecesInputChange={(value) => setPiecesInputFor(m.id, value)}
           printingCatalog={printingCatalog}
@@ -312,7 +329,7 @@ export function QuoteItemsTable(props: Props) {
   };
 
   const renderLaborRow = (l: SubformLabor, isChild: boolean) => {
-    const cost = ((l.timeMinutes || 0) / 60) * (hourlyRate || 0);
+    const sellingUnit = computeLaborSellingPrice(l.timeMinutes, hourlyRate, displayPcts);
     return (
       <div key={l.id} className={`${GRID} px-2 py-1.5 border-b text-sm ${isChild ? "bg-muted/10" : "hover:bg-muted/30"}`}>
         <span></span>
@@ -325,7 +342,16 @@ export function QuoteItemsTable(props: Props) {
           </span>
         </div>
         <span></span><span></span><span></span>
-        <span className="text-right tabular-nums text-muted-foreground text-xs">~{fmt(cost)}</span>
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-right tabular-nums text-muted-foreground text-xs cursor-help">
+                {fmt(sellingUnit)}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{LABOR_SELLING_TOOLTIP}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRemoveLabor(l.id)}>
           <X className="h-3.5 w-3.5" />
         </Button>

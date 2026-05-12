@@ -14,12 +14,21 @@ import {
 import type { ProcessStep } from "./ProcessPicker";
 import type { SubformLabor, SubformMaterial } from "./LaborAndSupplySubform";
 import { getFinishingSuggestions } from "@/lib/quotes-v2/finishing-suggestions";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  computeLaborSellingPrice,
+  LABOR_SELLING_TOOLTIP,
+  type LaborDisplayPcts,
+} from "@/lib/quotes-v2/labor-display";
 
 interface Props {
   parentItemId: string;
   productKind?: string | null;
   processSteps: ProcessStep[];
   hourlyRate: number;
+  displayPcts: LaborDisplayPcts;
   childLabor: SubformLabor[];
   childMaterials: SubformMaterial[];
   onChildLaborChange: (next: SubformLabor[]) => void;
@@ -33,7 +42,7 @@ const fmt = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function SmartFinishingBlock({
-  parentItemId, productKind, processSteps, hourlyRate,
+  parentItemId, productKind, processSteps, hourlyRate, displayPcts,
   childLabor, childMaterials, onChildLaborChange, onChildMaterialChange,
   disabled, bookletUnits,
 }: Props) {
@@ -238,7 +247,7 @@ export function SmartFinishingBlock({
       {(childLabor.length > 0 || childMaterials.length > 0) && (
         <div className="space-y-1.5">
           {childLabor.map((l) => {
-            const cost = ((l.timeMinutes || 0) / 60) * (hourlyRate || 0);
+            const cost = computeLaborSellingPrice(l.timeMinutes, hourlyRate, displayPcts);
             const optional = !!l.isOptional;
             return (
               <div
@@ -275,9 +284,16 @@ export function SmartFinishingBlock({
                   className="w-16 h-7 text-xs text-center"
                   placeholder="min"
                 />
-                <span className="w-20 text-right tabular-nums text-muted-foreground">
-                  {fmt(cost)}
-                </span>
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="w-20 text-right tabular-nums text-muted-foreground cursor-help">
+                        {fmt(cost)}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>{LABOR_SELLING_TOOLTIP}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground select-none cursor-pointer">
                   <Switch
                     checked={optional}

@@ -58,6 +58,8 @@ interface Props {
   childLabor: SubformLabor[];
   childMaterials: SubformMaterial[];
   hourlyRate: number;
+  /** Pcts globais para exibir preço de venda dos processos. */
+  displayPcts: import("@/lib/quotes-v2/labor-display").LaborDisplayPcts;
   printingCatalog?: PrintingCatalogItem[];
   processSteps?: ProcessStep[];
   processGroups?: ProcessGroup[];
@@ -84,6 +86,7 @@ export function PrintingItemEditor({
   childLabor,
   childMaterials,
   hourlyRate,
+  displayPcts,
   piecesInput,
   onPiecesInputChange,
   printingCatalog = [],
@@ -896,6 +899,7 @@ export function PrintingItemEditor({
             productKind={item.productKind}
             processSteps={processSteps}
             hourlyRate={hourlyRate}
+            displayPcts={displayPcts}
             childLabor={childLabor}
             childMaterials={childMaterials}
             onChildLaborChange={onChildLaborChange}
