@@ -111,39 +111,40 @@ function ChildMarginTooltip({ rows, children }: { rows: DirectSumChildRow[]; chi
 }
 
 function DirectSumBody({ item }: { item: PricingBreakdownItemDirectSum }) {
-  const qty = Math.max(1, item.quantity);
   const coversRows = item.childRows.filter(r => r.category === "covers");
   const finishingRows = item.childRows.filter(r => r.category === "finishing");
+  const unit = item.displayUnitLabel;
+  const units = Math.max(1, item.displayUnits);
   return (
     <>
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground pt-1">
-        Por 1 unidade
+        Por 1 {unit}
       </div>
-      <Line label={item.printingLabel} value={item.printingPerUnit} />
-      {item.coversPerUnit > 0 && (
+      <Line label={item.printingLabel} value={item.printingPerDisplayUnit} />
+      {item.coversPerDisplayUnit > 0 && (
         <ChildMarginTooltip rows={coversRows}>
-          <Line label="Capas" value={item.coversPerUnit} />
+          <Line label="Capas" value={item.coversPerDisplayUnit} />
         </ChildMarginTooltip>
       )}
-      {item.finishingPerUnit > 0 && (
+      {item.finishingPerDisplayUnit > 0 && (
         <ChildMarginTooltip rows={finishingRows}>
-          <Line label="Acabamento (Mola, furação, etc)" value={item.finishingPerUnit} />
+          <Line label="Acabamento (Mola, furação, etc)" value={item.finishingPerDisplayUnit} />
         </ChildMarginTooltip>
       )}
-      {item.laborPerUnit > 0 && (
-        <Line label="Montagem / Mão de obra" value={item.laborPerUnit} />
+      {item.laborPerDisplayUnit > 0 && (
+        <Line label="Montagem / Mão de obra" value={item.laborPerDisplayUnit} />
       )}
       <div className="border-t border-border/60 my-1" />
-      <Line label="Subtotal por unidade" value={item.subtotalPerUnit} bold />
+      <Line label={`Subtotal por ${unit}`} value={item.subtotalPerDisplayUnit} bold />
       <Line
         label={`Custos de venda (Imposto + Cartão · ${fmtPct(item.salesCostPct)})`}
-        value={item.salesCostPerUnit}
+        value={item.salesCostPerDisplayUnit}
         muted
       />
-      <Line label="Preço por unidade" value={item.sellingPriceUnit} bold highlight />
+      <Line label={`Preço por ${unit}`} value={item.sellingPriceDisplayUnit} bold highlight />
       <div className="border-t border-border/60 my-1" />
       <Line
-        label={`Total (${qty.toLocaleString("pt-BR")} un)`}
+        label={`Total (${units.toLocaleString("pt-BR")} ${unit}${units > 1 ? "s" : ""})`}
         value={item.sellingTotal}
         bold
       />
