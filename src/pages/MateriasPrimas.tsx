@@ -191,10 +191,18 @@ export default function MateriasPrimas() {
   // ── Fetch supplies ──
   const fetchSupplies = useCallback(async () => {
     setLoadingSupplies(true);
-    const [supRes, histRes] = await Promise.all([
+    const [supRes, histRes, tiersRes] = await Promise.all([
       supabase.from("supplies").select("*").order("created_at", { ascending: false }),
       supabase.from("supply_purchase_history").select("*").order("created_at", { ascending: false }),
+      (supabase as any).from("supply_pricing_tiers").select("supply_id"),
     ]);
+    if (tiersRes?.data) {
+      const counts: Record<string, number> = {};
+      for (const t of tiersRes.data as any[]) {
+        counts[t.supply_id] = (counts[t.supply_id] || 0) + 1;
+      }
+      setTierCounts(counts);
+    }
     if (supRes.data) {
       setMaterials(supRes.data.map((s: any) => ({
         id: s.id,
