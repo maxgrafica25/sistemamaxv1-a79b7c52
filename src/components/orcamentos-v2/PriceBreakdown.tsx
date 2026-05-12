@@ -234,17 +234,20 @@ export function PriceBreakdownGlobal({ data }: { data: PricingBreakdown }) {
           {data.costsBeforeMarkup > 0 && (
             <>
               <div className="border-t border-border/60 my-1" />
-              <Line label={`(+) Impostos ${fmtPct(data.invoicePct)}`} value={data.taxes} muted />
-              <Line label={`(+) Perda ${fmtPct(data.wastePct)}`} value={data.losses} muted />
+              <div className="text-[10px] text-muted-foreground italic pb-0.5">
+                Acréscimos sobre os custos avulsos (não passam pelos preços de cada item)
+              </div>
+              <Line label={`(+) Impostos ${fmtPct(data.invoicePct)}`} value={data.taxes} className="text-amber-600 dark:text-amber-400" />
+              <Line label={`(+) Perda ${fmtPct(data.wastePct)}`} value={data.losses} className="text-amber-600 dark:text-amber-400" />
               <Line
                 label={`(+) Cobrança ${fmtPct(data.collectionPct)}`}
                 value={data.collection}
-                muted
+                className="text-amber-600 dark:text-amber-400"
               />
               <Line
                 label={`(+) Margem ${fmtPct(data.profitMarginPct)}`}
                 value={data.profit}
-                muted
+                className="text-amber-600 dark:text-amber-400"
               />
             </>
           )}
