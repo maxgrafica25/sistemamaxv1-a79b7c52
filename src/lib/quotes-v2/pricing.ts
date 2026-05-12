@@ -227,11 +227,13 @@ export const recalculateForQuantity = (
         .filter((cl) => !cl.isOptional)
         .reduce((s, cl) => s + (cl.timeMinutes / 60) * hourlyRate, 0);
 
-      const printingUnit = m.printingCostUnit ?? m.baseCost ?? 0;
-      const childPerUnit = itemQty > 0 ? (childMatTotal + childLabTotal) / itemQty : 0;
-      const subtotalUn = printingUnit + childPerUnit;
-      const sellingUn =
-        directSumDivisor > 0 ? subtotalUn / directSumDivisor : subtotalUn;
+      // Impressão: usar unitPrice (preço de venda/folha já com tier de markup
+      // embutido). Não reaplicar divisor aqui — só sobre os filhos.
+      const printingSellingUnit = m.unitPrice ?? m.printingCostUnit ?? m.baseCost ?? 0;
+      const childSubtotalUn = itemQty > 0 ? (childMatTotal + childLabTotal) / itemQty : 0;
+      const childSellingUn =
+        directSumDivisor > 0 ? childSubtotalUn / directSumDivisor : childSubtotalUn;
+      const sellingUn = printingSellingUnit + childSellingUn;
       printingTotal += sellingUn * itemQty;
     } else {
       // Tier clássico — sem margem do insumo (markup do tier cobre).
@@ -460,7 +462,9 @@ export const breakdownForQuantity = (
     if (isDirectSumItem(m)) {
       hasDirectSumItems = true;
 
-      const printingUnit = m.printingCostUnit ?? m.baseCost ?? 0;
+      // Preço de venda por folha (já com tier markup); fallback ao custo
+      // se não houver unitPrice (cenário legado).
+      const printingUnit = m.unitPrice ?? m.printingCostUnit ?? m.baseCost ?? 0;
       let coversTotalAbs = 0;
       let finishingTotalAbs = 0;
       const childRows: DirectSumChildRow[] = [];
@@ -511,10 +515,11 @@ export const breakdownForQuantity = (
       const coversPerUnit = coversTotalAbs / safeQty;
       const finishingPerUnit = finishingTotalAbs / safeQty;
       const laborPerUnit = laborTotalAbs / safeQty;
-      const subtotalPerUnit =
-        printingUnit + coversPerUnit + finishingPerUnit + laborPerUnit;
-      const sellingPriceUnit =
-        directSumDivisor > 0 ? subtotalPerUnit / directSumDivisor : subtotalPerUnit;
+      const childrenPerUnit = coversPerUnit + finishingPerUnit + laborPerUnit;
+      const childrenSellingPerUnit =
+        directSumDivisor > 0 ? childrenPerUnit / directSumDivisor : childrenPerUnit;
+      const subtotalPerUnit = printingUnit + childrenPerUnit;
+      const sellingPriceUnit = printingUnit + childrenSellingPerUnit;
       const salesCostPerUnit = sellingPriceUnit - subtotalPerUnit;
 
       const sellingTotal = sellingPriceUnit * itemQty;
@@ -540,10 +545,12 @@ export const breakdownForQuantity = (
       const coversPerDisplayUnit = displayUnits > 0 ? coversTotalAbs / displayUnits : coversPerUnit;
       const finishingPerDisplayUnit = displayUnits > 0 ? finishingTotalAbs / displayUnits : finishingPerUnit;
       const laborPerDisplayUnit = displayUnits > 0 ? laborTotalAbs / displayUnits : laborPerUnit;
-      const subtotalPerDisplayUnit =
-        printingPerDisplayUnit + coversPerDisplayUnit + finishingPerDisplayUnit + laborPerDisplayUnit;
-      const sellingPriceDisplayUnit =
-        directSumDivisor > 0 ? subtotalPerDisplayUnit / directSumDivisor : subtotalPerDisplayUnit;
+      const childrenPerDisplayUnit =
+        coversPerDisplayUnit + finishingPerDisplayUnit + laborPerDisplayUnit;
+      const childrenSellingPerDisplayUnit =
+        directSumDivisor > 0 ? childrenPerDisplayUnit / directSumDivisor : childrenPerDisplayUnit;
+      const subtotalPerDisplayUnit = printingPerDisplayUnit + childrenPerDisplayUnit;
+      const sellingPriceDisplayUnit = printingPerDisplayUnit + childrenSellingPerDisplayUnit;
       const salesCostPerDisplayUnit = sellingPriceDisplayUnit - subtotalPerDisplayUnit;
 
       items.push({
