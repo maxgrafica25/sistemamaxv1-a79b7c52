@@ -50,7 +50,7 @@ export default function Configuracoes() {
   const [collectionCostPercentage, setCollectionCostPercentage] = useState("7");
   const [defaultProfitMargin, setDefaultProfitMargin] = useState("33");
   const [taxPct, setTaxPct] = useState("10");
-  const [collectionFeePct, setCollectionFeePct] = useState("5");
+  const [collectionFeePct, setCollectionFeePct] = useState("7");
 
   // Backup state
   const [backupRuns, setBackupRuns] = useState<BackupRun[]>([]);
