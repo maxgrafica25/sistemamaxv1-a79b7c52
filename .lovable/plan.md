@@ -1,142 +1,73 @@
 ## Objetivo
 
-Tiers Manuais por Suprimento, com **preço final ao cliente** travado: o `manual_price` cadastrado é exatamente o que o cliente vê (espelha a tabela do Tiny ERP). Demais regras (`margem_pct`, modo tier clássico) permanecem inalteradas.
+Refinar a apresentação do orçamento de apostilas para que (1) "preço por unidade" se refira à **apostila pronta** (não à página), (2) a sidebar deixe explícita a origem do "gap" entre a soma dos itens e o valor a cobrar, e (3) o rótulo do item siga mostrando o `sellingTotal`. Os pontos 3 e 4 do pedido (Tiers Manuais + precedência) já estão implementados — apenas validar nos testes manuais.
 
 ---
 
-## 1. Banco de Dados
+## 1. Motor (`src/lib/quotes-v2/pricing.ts`) — base "por apostila"
 
-Nova tabela `supply_pricing_tiers`:
+No ramo `isDirectSumItem` (apostilas), hoje `itemQty = m.quantity` representa **folhas cobradas**. Vamos derivar uma **base de exibição por apostila** sem mudar a matemática do cálculo:
 
-```sql
-CREATE TABLE public.supply_pricing_tiers (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  supply_id uuid NOT NULL REFERENCES public.supplies(id) ON DELETE CASCADE,
-  label text NOT NULL,
-  min_qty integer NOT NULL CHECK (min_qty >= 1),
-  max_qty integer CHECK (max_qty IS NULL OR max_qty >= min_qty),
-  manual_price numeric NOT NULL CHECK (manual_price >= 0),
-  sort_order integer NOT NULL DEFAULT 0,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX ON public.supply_pricing_tiers (supply_id, min_qty);
-ALTER TABLE public.supply_pricing_tiers ENABLE ROW LEVEL SECURITY;
-```
+- Detectar `bookletUnits` (qtd de apostilas) e `bookletPages` (folhas por apostila).
+- Quando `bookletUnits > 0`, calcular um **fator de exibição** `pagesPerBooklet = m.quantity / bookletUnits` (ou `bookletPages` quando disponível).
+- No objeto `PricingBreakdownItemDirectSum`, adicionar campos novos (sem remover os atuais — outras telas dependem deles):
+  - `displayUnits: number` → `bookletUnits ?? itemQty`
+  - `displayUnitLabel: "apostila" | "un"`
+  - `pagesPerDisplayUnit: number` → fator multiplicador
+  - `printingPerDisplayUnit`, `coversPerDisplayUnit`, `finishingPerDisplayUnit`, `laborPerDisplayUnit`, `salesCostPerDisplayUnit`, `subtotalPerDisplayUnit`, `sellingPriceDisplayUnit` → cada um igual ao valor "por página" multiplicado por `pagesPerDisplayUnit` (exceto labor, que fica `laborTotalAbs / displayUnits`).
+- `sellingTotal` permanece igual (preço total do item).
+- Para itens não-apostila (`bookletUnits` ausente), `displayUnits = itemQty`, `pagesPerDisplayUnit = 1` e os campos `*PerDisplayUnit` espelham os atuais `*PerUnit`.
 
-RLS: read `authenticated`, write admin (mesmo padrão de `finishing_price_tiers`). Trigger anti-sobreposição entre faixas do mesmo `supply_id`.
+Sem alteração no cálculo do total final — apenas novos campos derivados para a UI.
 
----
+## 2. Breakdown (`src/components/orcamentos-v2/PriceBreakdown.tsx`)
 
-## 2. Helper (`src/lib/quotes-v2/supply-pricing.ts`)
+`DirectSumBlock` e `DirectSumBody`:
 
-```ts
-export interface SupplyTier { id; supply_id; min_qty; max_qty; manual_price; label; }
-export function pickSupplyTier(tiers, qty): SupplyTier | null
-```
+- Trocar todos os `*PerUnit` exibidos por `*PerDisplayUnit`.
+- Substituir o cabeçalho por `Resumo por ${displayUnitLabel}` (ex: "por apostila").
+- Linha "Preço por unidade" → `Preço por ${displayUnitLabel}` usando `sellingPriceDisplayUnit`.
+- Linha do total: `Total (${displayUnits} ${displayUnitLabel})`.
+- No subtítulo da impressão (apostila), exibir `Impressão (${bookletPages} folhas × ${pagesPerDisplayUnit === bookletPages ? 'por apostila' : ''})` para reforçar o multiplicador.
 
----
+## 3. Sidebar (`StickyFinancialSidebar.tsx`) — clareza do gap
 
-## 3. Snapshot
+O gap (~R$ 917) vem de: custos avulsos (labor/materials/terceiros/frete/extras) passando pelo divisor global de markup. Hoje a UI mostra acréscimos com prefixo `(-)` no DRE, o que confunde porque o valor final só sobe.
 
-- `PricingMaterial` ganha `pricingTiers?: SupplyTier[] | null`.
-- `SupplySearch.tsx` e `LoadFromGroupDialog.tsx` carregam `supply_pricing_tiers` junto com o suprimento.
-- `NewQuoteFormV2.tsx` propaga no snapshot. Tiers resolvidas em runtime; orçamentos aprovados continuam congelados via `approved_value`.
+- Renomear `DRELine` para usar prefixo correto:
+  - "(-) Custo de produção" permanece subtração.
+  - Trocar "(-) Impostos / Cobrança / Margem de perdas" por **"(+) Impostos / Cobrança / Perdas / Margem"** quando o valor for positivo no contexto de markup global. Ajustar o sinal numérico para positivo nessas linhas.
+- Adicionar uma linha **"Soma dos itens"** mostrando `printingTotal` agregado (já vem do composition) e logo abaixo **"Acréscimos sobre custos avulsos"** = diferença até `revenueBase`, com um tooltip detalhando frete + extras + labor avulsa + impostos.
+- No bloco `PriceBreakdownGlobal` (`PriceBreakdown.tsx` linhas 213–249), corrigir os labels `(+) Impostos / Perda / Cobrança / Margem` (estão certos), mas **destacar visualmente** com cor de "acréscimo" (texto em `text-amber-600` ou similar) e adicionar linha de cabeçalho explicativa: *"Acréscimos aplicados sobre os custos avulsos (não passam pelos preços de cada item)"*.
+- Remover o accordion DRE quando `onlyDirectSum && noStandaloneCosts` (caso atual em que o DRE só confunde).
 
----
+## 4. Rótulo do item (`QuoteItemsTable.tsx`)
 
-## 4. Motor de Preço — **Tier manual = preço final ao cliente**
+Já mostra `sellingTotal` (mudança recente). Apenas:
 
-No ramo `isDirectSumItem`:
+- Refinar o tooltip para sempre listar "Impressão / Acabamentos / Impostos" como linhas separadas quando `hasFinishes`.
+- Sob o valor, mostrar microcopy `≡ R$ X / apostila` quando `bookletUnits > 0`, usando `sellingPriceDisplayUnit`.
 
-```ts
-const tier = cm.pricingTiers ? pickSupplyTier(cm.pricingTiers, cm.quantity) : null;
+## 5. Validação dos itens já implementados (3, 4 do pedido)
 
-if (tier) {
-  // manual_price JÁ é o preço final (impostos + cartão embutidos).
-  // Engenharia reversa: removemos o custo de venda para somar com os
-  // demais filhos no subtotal pré-divisor.
-  const finalUnit   = tier.manual_price;
-  const preDivUnit  = finalUnit * salesCostDivisor; // divisor < 1
-  rows.push({
-    ...,
-    priceSource: "manual_tier",
-    tierLabel: tier.label,
-    vendaUnit: preDivUnit,           // entra no subtotal pré-divisor
-    finalUnitLocked: finalUnit,      // referência exibida na UI
-  });
-} else {
-  const vendaUnit = cm.unitPrice * (1 + (cm.margemPct ?? 0) / 100);
-  rows.push({ ..., priceSource: "margin", vendaUnit });
-}
-```
+Apenas conferir manualmente:
 
-Onde `salesCostDivisor = 1 - (impostos% + cartão%) / 100` (já existe nas configurações).
+- Cadastrar uma faixa em Matérias-Primas → "Gerenciar Faixas" e validar tooltip do filho mostrando "Preço final R$ X (TPn · a–b un)".
+- Conferir precedência: tier manual aparece como "manual_tier"; sem tier ativa "margin"; sem nenhum dos dois cai em custo puro.
 
-Resultado: ao multiplicar de volta pelo divisor no final do cálculo do item, o componente do filho com tier volta a `tier.manual_price` exato. Ou seja, o cliente vê **R$ 7,50** quando cadastrei R$ 7,50, independentemente das alíquotas.
+## 6. Memória
 
-Aplicar em `recalculateForQuantity` e `breakdownForQuantity`. `DirectSumChildRow` ganha `priceSource`, `tierLabel`, `finalUnitLocked` para o tooltip.
+Atualizar `mem://features/pricing` com:
 
-Modo tier clássico (cartões/banners): inalterado. Precedência: **tier manual > margem_pct > custo puro**.
-
----
-
-## 5. UI — `MateriasPrimas.tsx`
-
-- Coluna "Faixas" com botão **Gerenciar Faixas** (ícone `Layers`) por linha.
-- Badge "X faixas" quando há tiers cadastradas.
-- Tooltip do header: *"Faixas substituem margem em apostilas. O valor cadastrado é o preço final ao cliente (impostos e cartão embutidos)."*
-
----
-
-## 6. Drawer `SupplyTiersDrawer.tsx` (novo)
-
-Espelho de `FinishingTiersDrawer.tsx`:
-
-- Sheet lateral.
-- Linhas: Rótulo / Mín / Máx / **R$ final ao cliente** / lixeira.
-- Auto-rótulo `TP1`, `TP2`… e auto-encadeamento min/max.
-- Validação: min ≥ 1, max ≥ min ou ∞, sem sobreposição.
-- Save: delete + reinsert (3–5 tiers por suprimento).
-- Header: *"Preço final ao cliente por quantidade. Impostos e taxa de cartão já estão embutidos — substitui margem em apostilas."*
-
----
-
-## 7. `PriceBreakdown.tsx`
-
-Tooltip dos filhos por origem:
-
-- **Margem:** `Custo R$ 0,19 + 50% margem = R$ 0,29` (entra no subtotal e recebe divisor).
-- **Tier manual:** `Preço final R$ 7,50 (TP2 · 6–20 un)` + linha auxiliar *"Custo: R$ 4,00 · imposto/cartão já incluso"*.
-
----
-
-## 8. Rótulo do item no orçamento
-
-`QuoteItemsTable.tsx`: linha principal de apostila exibe `sellingTotal` (impressão + acabamentos + custos de venda) em vez de só `printingTotal`. Tooltip: *"Inclui impressão, acabamentos e impostos."*
-
----
-
-## 9. Memória
-
-Atualizar `mem://features/inventory` e `mem://features/pricing` com:
-
-- Tier manual = preço final ao cliente (impostos + cartão embutidos).
-- Engenharia reversa via divisor para somar coerentemente no subtotal.
-- Precedência: tier manual > margem_pct > custo puro.
+- Apostilas: a base de exibição é a **apostila pronta**, não a folha. UI usa campos `*PerDisplayUnit` e `displayUnits = bookletUnits`.
+- DRE/sidebar: acréscimos de markup global usam prefixo `(+)`; subtrações reais usam `(-)`.
 
 ---
 
 ## Arquivos alterados
 
-- migration nova
-- `src/lib/quotes-v2/supply-pricing.ts` (novo)
-- `src/lib/quotes-v2/pricing.ts`
-- `src/components/orcamentos-v2/SupplySearch.tsx`
-- `src/components/orcamentos-v2/LoadFromGroupDialog.tsx`
-- `src/components/orcamentos-v2/NewQuoteFormV2.tsx`
-- `src/components/orcamentos-v2/PriceBreakdown.tsx`
-- `src/components/orcamentos-v2/QuoteItemsTable.tsx`
-- `src/pages/MateriasPrimas.tsx`
-- `src/components/materias-primas/SupplyTiersDrawer.tsx` (novo)
-- atualização de `mem://features/inventory` e `mem://features/pricing`
+- `src/lib/quotes-v2/pricing.ts` (novos campos `*PerDisplayUnit` em `PricingBreakdownItemDirectSum`)
+- `src/components/orcamentos-v2/PriceBreakdown.tsx` (consumir novos campos, melhorar labels de acréscimo)
+- `src/components/orcamentos-v2/StickyFinancialSidebar.tsx` (corrigir sinais, esconder DRE redundante, microcopy)
+- `src/components/orcamentos-v2/QuoteItemsTable.tsx` (tooltip detalhado + microcopy "/ apostila")
+- atualização de `mem://features/pricing`
