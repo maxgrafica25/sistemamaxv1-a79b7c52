@@ -890,6 +890,20 @@ export default function MateriasPrimas() {
                                 )}
                               </div>
                             </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                variant={tierCounts[material.id] ? "secondary" : "outline"}
+                                size="sm"
+                                className="h-7 gap-1.5 text-xs"
+                                onClick={() => { setTiersSupply(material); setTiersOpen(true); }}
+                                title="Gerenciar faixas"
+                              >
+                                <Layers className="h-3 w-3" />
+                                {tierCounts[material.id]
+                                  ? `${tierCounts[material.id]} faixa${tierCounts[material.id] > 1 ? "s" : ""}`
+                                  : "Adicionar"}
+                              </Button>
+                            </TableCell>
                             <TableCell className="text-muted-foreground">{material.fornecedor || "—"}</TableCell>
                             <TableCell className="text-center"><VariationBadge variation={variation} /></TableCell>
                             <TableCell className="text-right">
