@@ -247,7 +247,7 @@ export function SmartFinishingBlock({
       {(childLabor.length > 0 || childMaterials.length > 0) && (
         <div className="space-y-1.5">
           {childLabor.map((l) => {
-            const cost = ((l.timeMinutes || 0) / 60) * (hourlyRate || 0);
+            const cost = computeLaborSellingPrice(l.timeMinutes, hourlyRate, displayPcts);
             const optional = !!l.isOptional;
             return (
               <div
