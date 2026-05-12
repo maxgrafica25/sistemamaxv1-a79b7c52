@@ -202,6 +202,8 @@ export function QuoteItemsTable(props: Props) {
     const isApproved = m.status === "aprovado";
     const childMatsForThis = childMaterials.filter((c) => c.parentItemId === m.id);
     const childLaborForThis = childLabor.filter((l) => l.parentItemId === m.id);
+    const display = itemDisplayInfo?.[m.id];
+    const showPerUnit = display && display.displayUnits > 1 && display.displayUnitLabel !== "un";
     const ringCls = isApproved
       ? ""
       : flashId === m.id
@@ -216,14 +218,54 @@ export function QuoteItemsTable(props: Props) {
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="ml-auto text-sm font-semibold text-primary tabular-nums cursor-help">
-                  {fmt(total)}
-                </span>
+                <div className="ml-auto flex flex-col items-end cursor-help">
+                  <span className="text-sm font-semibold text-primary tabular-nums">
+                    {fmt(total)}
+                  </span>
+                  {showPerUnit && (
+                    <span className="text-[10px] text-muted-foreground tabular-nums">
+                      ≡ {fmt(display!.sellingPriceDisplayUnit)} / {display!.displayUnitLabel}
+                    </span>
+                  )}
+                </div>
               </TooltipTrigger>
-              <TooltipContent side="top" className="text-xs max-w-[260px]">
-                {hasFinishes
-                  ? <>Inclui impressão, acabamentos e impostos.<br/>Impressão: {fmt(printingTotal)}</>
-                  : "Inclui impressão e impostos."}
+              <TooltipContent side="top" className="text-xs max-w-[280px]">
+                {display ? (
+                  <div className="space-y-0.5 tabular-nums">
+                    <div className="font-medium pb-1 border-b border-border/40 mb-1">
+                      Composição por {display.displayUnitLabel}
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span>Impressão</span><span>{fmt(display.printingPerDisplayUnit)}</span>
+                    </div>
+                    {display.coversPerDisplayUnit > 0 && (
+                      <div className="flex justify-between gap-3">
+                        <span>Capas</span><span>{fmt(display.coversPerDisplayUnit)}</span>
+                      </div>
+                    )}
+                    {display.finishingPerDisplayUnit > 0 && (
+                      <div className="flex justify-between gap-3">
+                        <span>Acabamentos</span><span>{fmt(display.finishingPerDisplayUnit)}</span>
+                      </div>
+                    )}
+                    {display.laborPerDisplayUnit > 0 && (
+                      <div className="flex justify-between gap-3">
+                        <span>Montagem</span><span>{fmt(display.laborPerDisplayUnit)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between gap-3 text-muted-foreground">
+                      <span>Impostos + cartão</span><span>{fmt(display.salesCostPerDisplayUnit)}</span>
+                    </div>
+                    <div className="flex justify-between gap-3 font-semibold pt-1 border-t border-border/40 mt-1">
+                      <span>Preço / {display.displayUnitLabel}</span>
+                      <span>{fmt(display.sellingPriceDisplayUnit)}</span>
+                    </div>
+                  </div>
+                ) : hasFinishes ? (
+                  <>Inclui impressão, acabamentos e impostos.<br/>Impressão: {fmt(printingTotal)}</>
+                ) : (
+                  "Inclui impressão e impostos."
+                )}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
