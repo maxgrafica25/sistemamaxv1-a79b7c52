@@ -1,70 +1,78 @@
-# Recuperação de orçamentos perdidos (rascunho local)
 
-Resolve o problema de perder o orçamento em andamento por queda de luz, fechamento acidental do navegador ou refresh involuntário. Etapa 1: rascunho local automático no navegador. Etapa 2 (depois): rascunho no banco.
+## Diagnóstico do "preço errado"
 
-## Como funciona pro usuário
+Antes de qualquer mudança na fórmula, você mesmo pediu: **"mostra o detalhamento primeiro pra eu analisar"**. Faz sentido — abrindo a caixa-preta você consegue identificar exatamente onde o número está fugindo.
 
-1. Enquanto você preenche um orçamento (novo ou editando), o sistema salva automaticamente uma cópia no próprio navegador a cada poucos segundos.
-2. Se o navegador fechar, faltar luz, ou você der refresh sem querer, ao reabrir a tela aparece um aviso no topo: **"Encontramos um rascunho não salvo de [data/hora]. Deseja restaurar?"** com botões **Restaurar** e **Descartar**.
-3. Quando você salva o orçamento normalmente (botão Salvar), o rascunho local é apagado automaticamente — não fica lixo acumulado.
-4. O rascunho fica preso ao navegador/computador onde foi feito (limitação conhecida desta etapa). A etapa 2 vai resolver isso salvando no banco.
+Pelo seu exemplo (TP4 = R$ 5,00 por folha), o sistema chegou a R$ 5,10 por folha, ou seja, está só ~2% acima do esperado. Provavelmente uma combinação de:
+- arredondamento `roundUp5` (sobe pra próxima R$ 0,10)
+- divisor de markup acumulando percentuais globais (impostos + perda + cobrança + margem) **em cima** do tier do printer
 
-## Escopo (etapa 1 — agora)
+Como você ainda não confirmou se TP4 = R$ 5,00 já é o preço final de venda **ou** o custo antes do markup global, eu não vou tocar na fórmula nesse loop. Em vez disso, vou expor cada componente para você comparar com o esperado e me dizer o que ajustar depois.
 
-Apenas o formulário `NewQuoteFormV2` em `/orcamentos-v2/novo` e `/orcamentos-v2/:id/editar`.
+## O que vai ser construído
 
-### Comportamento
+### 1. Painel "Composição do preço" no item de impressão
 
-- **Auto-save**: a cada ~3 segundos de inatividade (debounce), serializa o estado em JSON e grava no `localStorage`.
-- **Chave**: `quote-draft:new` para novo; `quote-draft:edit:<quoteId>` para edição.
-- **TTL**: rascunhos com mais de 7 dias são ignorados/limpos automaticamente.
-- **Banner de recuperação**: aparece no topo do formulário só se houver rascunho válido. Mostra data/hora ("há 2 horas") + botões Restaurar / Descartar.
-- **Limpeza**: rascunho é removido após Salvar com sucesso, após Descartar, ou após Restaurar+Salvar.
-- **Indicador discreto**: pequeno texto "Rascunho salvo automaticamente" perto do botão Salvar (atualiza com o último auto-save). Se o auto-save falhar (quota cheia), troca para um aviso sutil "Não foi possível salvar rascunho local".
+Logo abaixo do bloco de cada item de impressão (e dos acabamentos), uma seção colapsável com:
 
-### Fora do escopo desta etapa
+```text
+COMPOSIÇÃO — Apostilas A4 4x4 Sulfite 75g (1.100 folhas)
+  Papel ............... 1.100 fls × R$ 0,06    R$    63,58
+  Impressão ........... 2.200 cliques × R$ 0,80  R$ 1.752,52
+    └ multiplicador F/V (×2) aplicado
+  Custo bruto/folha ............. R$ 1,66    Total: R$ 1.816,10
+  Markup tier ........ TP4 (qty 1.000+)        R$ 3.793,90
+    └ fixo 40% + variável 13% + margem 33% = 86%
+    └ divisor 1−0,86 = 0,14
+  Subtotal item ..................            R$ 5.610,00
+```
 
-- Auto-save no banco (etapa 2).
-- Outros formulários (clientes, pedidos, equipamentos etc.).
-- Sincronização entre navegadores/dispositivos.
+Quando houver capa/contracapa, molinha, furação, mão de obra → cada um aparece como linha própria, somando ao subtotal do item. Atualiza em tempo real a cada mudança (papel, cor, quantidade, multiplicador).
+
+### 2. Detalhamento global na barra lateral (abaixo de "VALOR A COBRAR")
+
+Substituir/expandir o accordion atual da `StickyFinancialSidebar` para mostrar a composição agregada do orçamento inteiro:
+
+```text
+VALOR A COBRAR ............................. R$ 5.610,00
+
+▼ Composição
+  Impressão (1 item) ..................... R$ 5.610,00
+  Capa & Contracapa ...................... R$     0,00
+  Acabamentos / Encadernação ............. R$     0,00
+  Mão de obra avulsa ..................... R$     0,00
+  Terceirizados .......................... R$     0,00
+  Frete .................................. R$     0,00
+  ─────────────────────────────
+  Custo bruto de produção ................ R$ 1.816,10
+  (+) Impostos (10%) ..................... R$   561,00
+  (+) Perda (5%) ......................... R$   280,50
+  (+) Cobrança (7%) ...................... R$   392,70
+  (+) Margem alvo (33%) .................. R$ 1.851,30
+  (+) Markup tier do printer ............. R$   708,40
+  ─────────────────────────────
+  Total .................................. R$ 5.610,00
+```
+
+Os valores vêm dos hooks/cálculos que já existem (`PricingResult`, `computeTierUnitPrice`, `global_settings`) — só preciso expor cada parcela em vez de jogar tudo num divisor único.
+
+### 3. Reatividade
+
+Tudo é puro derivado de `useMemo` em cima do estado já existente (`materials`, `printingItems`, `globalSettings`, `markupTiers`). Não há leitura nova do banco — os custos unitários já estão no objeto `PricingMaterial` (`baseCost`, `paper_cost`, `printing_cost`, `printerCategoryId`, `markupGroupId`). Mudou qualquer parâmetro → recalcula sozinho.
 
 ## Detalhes técnicos
 
-### Hook genérico — `src/hooks/useLocalDraft.ts`
+**Arquivos editados:**
+- `src/components/orcamentos-v2/QuoteItemsTable.tsx` — adicionar `<PriceBreakdown>` colapsável dentro de `renderPrint()`.
+- `src/components/orcamentos-v2/StickyFinancialSidebar.tsx` — nova prop `composition` com as parcelas; renderizar dentro do accordion.
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` — montar e passar o objeto `composition` via `useMemo`.
+- `src/lib/quotes-v2/pricing.ts` — expor função auxiliar `breakdownForQuantity(snap, qty)` que retorna `{ paperCost, printCost, finishingsCost, laborCost, thirdPartyCost, taxes, losses, collection, profit, tierMarkup }` por item e total.
 
-- API: `useLocalDraft<T>(key, state, { debounceMs, ttlDays, version, enabled })` → retorna `{ savedAt, error }`.
-- Utilitários: `loadDraft(key, expectedVersion)`, `clearDraft(key)`, `hasDraft(key, expectedVersion)`.
+**Componente novo:** `src/components/orcamentos-v2/PriceBreakdown.tsx` (apresentacional puro, recebe um objeto com as linhas e renderiza).
 
-**Formato salvo no localStorage:**
+**O que NÃO está no escopo deste loop:**
+- Mexer na fórmula de cálculo (sideMult, divisor, tier).
+- Trocar a estratégia de tier (folhas vs. apostilas).
+- Mudar o cadastro do catálogo.
 
-```json
-{
-  "version": 1,
-  "savedAt": "2026-05-12T12:00:00.000Z",
-  "data": { ... estado do formulário ... }
-}
-```
-
-**Versionamento (`version: 1`):**
-- Toda gravação inclui `version` no envelope.
-- `loadDraft` / `hasDraft` comparam `parsed.version === expectedVersion`. Se não bater, o rascunho é tratado como inexistente e removido silenciosamente do localStorage (banner não aparece, nada quebra).
-- Quando os campos do formulário mudarem de forma incompatível no futuro, basta incrementar a constante `QUOTE_DRAFT_VERSION` no componente — rascunhos antigos são automaticamente ignorados.
-
-**Tratamento de erro de quota / acesso:**
-- Tudo que toca `localStorage` (`getItem`, `setItem`, `removeItem`, `JSON.parse`) fica dentro de `try/catch`.
-- Falha em `setItem` (QuotaExceededError, modo privado do Safari, storage desabilitado): o hook não trava, apenas guarda `error: 'quota' | 'unavailable'` no estado retornado e não tenta salvar de novo até o próximo debounce.
-- Falha em `getItem` / `JSON.parse`: trata como "sem rascunho" e tenta limpar a chave (também em try/catch).
-- O componente usa esse `error` para alternar o microtexto perto do botão Salvar para o aviso sutil.
-
-### Integração em `src/components/orcamentos-v2/NewQuoteFormV2.tsx`
-
-- Constante local `const QUOTE_DRAFT_VERSION = 1;`
-- Montar `draftState` apenas com campos editáveis: `client`, `clientId`, `clientPhone`, `product`, `validity`, `profitMargin`, `notes`, `quoteOptions`, `attentionTo`, `hiddenExtras`, `freightValue`, `freightTypeId`, `tags`, `labor`, `materials`, `thirdParty`, `cvItems`, `discountValue`, `discountType`, `paymentMethod`.
-- `useLocalDraft(draftKey, draftState, { version: QUOTE_DRAFT_VERSION, debounceMs: 3000, ttlDays: 7, enabled: !loadingInit && !isLocked })`.
-- Após `loadingInit` virar false, checar `hasDraft(draftKey, QUOTE_DRAFT_VERSION)`; se houver, mostrar banner (`Alert` shadcn) acima do formulário.
-- **Restaurar**: aplica `data` aos respectivos `setState`s e fecha o banner.
-- **Descartar**: chama `clearDraft` e fecha o banner.
-- Após salvar com sucesso (handler atual de Salvar), chamar `clearDraft(draftKey)`.
-- Catálogos pesados (`printingCatalog`, `processSteps`, `markupTiers` etc.) **não** entram no rascunho — são recarregados do banco normalmente.
-
-Não exigirá nenhuma migração de banco.
+Depois que você ver o detalhamento ao vivo e me disser onde está o desvio (ex: "o markup tier não devia somar com a margem de 33% global"), aí sim faço a correção da fórmula em um próximo loop, com base em dado concreto.
