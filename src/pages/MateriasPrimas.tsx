@@ -1052,6 +1052,36 @@ export default function MateriasPrimas() {
                   <span className="text-sm text-muted-foreground"> / {unidade}</span>
                 </div>
               )}
+              <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-medium">Margem de Lucro (%)</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Margem aplicada quando o item é usado em <strong>apostilas (modo soma direta)</strong>. Em itens com markup tier (banner, cartão), a margem da tabela de tiers é usada.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Input
+                  type="number"
+                  min="0"
+                  max="500"
+                  step="1"
+                  placeholder="Ex: 50"
+                  value={margemPct}
+                  onChange={(e) => setMargemPct(e.target.value)}
+                />
+                {quantidade && valor && parseFloat(quantidade) > 0 && parseFloat(margemPct) > 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    Custo {formatCurrency(parseFloat(valor) / parseFloat(quantidade))} + {parseFloat(margemPct).toFixed(0)}% ={" "}
+                    <span className="font-semibold text-foreground">
+                      {formatCurrency((parseFloat(valor) / parseFloat(quantidade)) * (1 + parseFloat(margemPct) / 100))}
+                    </span>{" "}
+                    / {unidade}
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-4 items-end">
                 <div className="space-y-2"><Label>Data Cotação</Label><DatePickerField value={data} onChange={setData} /></div>
                 <div className="space-y-2"><Label>Contato</Label><Input placeholder="Nome" value={contato} onChange={(e) => setContato(e.target.value)} /></div>
