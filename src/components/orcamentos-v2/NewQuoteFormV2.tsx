@@ -775,6 +775,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       const patch: Partial<SubformMaterial> = {
         description,
         baseCost,
+        paperCost: item.paper_cost,
+        printingCostUnit: printCost,
         unitPrice: sellingPrice,
         quantity: units,
         paperType: item.paper_type ?? null,
