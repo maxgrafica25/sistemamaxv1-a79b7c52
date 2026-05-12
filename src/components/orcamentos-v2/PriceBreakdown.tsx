@@ -339,6 +339,7 @@ function Line({
   bold,
   highlight,
   muted,
+  className,
 }: {
   label: string;
   sub?: string;
@@ -356,7 +357,7 @@ function Line({
             "leading-tight",
             bold && "font-semibold",
             muted ? "text-muted-foreground" : "text-foreground",
-            arguments[0]?.className,
+            className,
           )}
         >
           {label}
@@ -369,7 +370,7 @@ function Line({
           bold && "font-semibold",
           highlight && "text-primary",
           muted && !bold && "text-muted-foreground",
-          arguments[0]?.className,
+          className,
         )}
       >
         {formatBRL(value)}
