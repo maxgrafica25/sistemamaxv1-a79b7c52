@@ -188,8 +188,14 @@ export function PrintingItemEditor({
   // Usa as PEÇAS DESEJADAS para sugerir folhas necessárias. Quantity é "folhas cobradas".
   const piecesValue = (item.pieces ?? item.quantity ?? 0) || 0;
   const yieldInfo = useMemo(
-    () => calcSheetYield(item.widthMm || 0, item.heightMm || 0, piecesValue),
-    [item.widthMm, item.heightMm, piecesValue],
+    () =>
+      calcSheetYield(
+        item.widthMm || 0,
+        item.heightMm || 0,
+        piecesValue,
+        isApostila ? A4_SHEET : PRODUCTION_SHEET,
+      ),
+    [item.widthMm, item.heightMm, piecesValue, isApostila],
   );
   const hasDimensions = !!(item.widthMm && item.heightMm);
 
