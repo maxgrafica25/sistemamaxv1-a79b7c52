@@ -531,6 +531,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     laborSteps: labor.map((l) => ({
       timeMinutes: l.timeMinutes,
       parentItemId: l.parentItemId ?? null,
+      isOptional: !!l.isOptional,
     })),
     materials: materials.map((m) => ({
       ...m,
