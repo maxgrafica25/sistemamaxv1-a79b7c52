@@ -48,6 +48,9 @@ export function StickyFinancialSidebar(props: Props) {
   } = props;
 
   const [open, setOpen] = useState(false);
+  const isAdmin = useIsAdmin();
+  const encargosTotal = taxValue + billingValue;
+  const profitPositive = netProfit >= 0;
 
   const profitColor =
     netProfit < 0 ? "text-destructive" :
