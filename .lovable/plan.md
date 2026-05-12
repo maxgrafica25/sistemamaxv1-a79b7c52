@@ -1,28 +1,30 @@
-## Diagnóstico
+## Problema
 
-A seção "Outras quantidades para comparar" já está implementada no `ClientViewer.tsx` (a alteração anterior funcionou). O motivo de não aparecer é outro: **nenhum orçamento tem opções salvas no banco**. Verifiquei os 5 últimos orçamentos e todos têm `quotes.options = NULL`.
-
-A causa: o componente `QuoteOptionsBuilder` (que permite adicionar quantidades comparativas como 100/250/500 un) **existe mas não está montado em lugar nenhum** do projeto. O usuário nunca teve UI para criar essas opções.
+Para itens do tipo **apostila**, o cálculo de aproveitamento usa a folha de produção padrão (SRA3 — 328×478 mm) e mostra "Usa 500 folhas (2 un/folha · paisagem)" para uma apostila A4. Apostilas, porém, são impressas sempre em A4 (ou menor) — nunca em A3. O resultado correto seria 1 apostila por folha A4.
 
 ## O que vai mudar
 
-### 1. `NewQuoteFormV2.tsx` — montar o builder no formulário
+### 1. `src/lib/quotes-v2/sheet-yield.ts`
+Aceitar uma folha customizada opcional:
+```ts
+calcSheetYield(itemWidthMm, itemHeightMm, totalQty, sheet?: { widthMm; heightMm })
+```
+Se `sheet` for passado, usa essas dimensões (com a mesma margem de segurança e gutter atuais) em vez de `PRODUCTION_SHEET`. Comportamento padrão inalterado.
 
-- Adicionar estado `const [quoteOptions, setQuoteOptions] = useState<QuoteOption[]>([])`.
-- Hidratar a partir de `quote.options` ao carregar (usando `parseOptions` do `lib/quotes-v2/options.ts`) no `useEffect` de edição.
-- Renderizar `<QuoteOptionsBuilder snapshot={snapshot} options={quoteOptions} onChange={setQuoteOptions} />` em uma nova seção logo após o card "Valor a cobrar (base)" (linha ~1459), com um `<Separator />` e um título da seção. Local escolhido porque depende do `snapshot` (já calculado) e é informação comercial complementar ao total.
-- Incluir `options: quoteOptions` no `payload` do save (linhas 818-836) para persistir no banco.
+Exportar também uma constante `A4_SHEET = { widthMm: 210, heightMm: 297 }`.
 
-### 2. Comportamento no viewer (já funciona)
+### 2. `src/components/orcamentos-v2/PrintingItemEditor.tsx` (linhas 190-193)
+Quando `isApostila` for true, passar `A4_SHEET` para `calcSheetYield`. Para apostila A4 → 1 un/folha; para apostila A5 → 2 un/folha em A4 (correto).
 
-Assim que existirem 2+ opções salvas, o bloco renderiza automaticamente — sem novas mudanças no `ClientViewer.tsx` ou `OptionCard.tsx`.
+A linha de resumo "Usa N folhas (X un/folha · orientação)" continua a mesma — só os números mudam.
 
 ## Fora de escopo
 
-- Não vou mudar o `QuoteOptionsBuilder.tsx` (já recalcula corretamente via `recalculateForQuantity`).
-- Não vou mexer em pricing, pedidos ou contas a receber.
-- Não vou criar variantes por item (4x4 vs 1x1) — descartado anteriormente.
+- Não mexer em pricing, multiplicadores A3/SRA3, nem no `LabelLayoutDialog`.
+- Não alterar a folha de produção padrão para itens não-apostila.
+- Sem mudanças no viewer do cliente nem no `QuoteOptionsBuilder`.
 
-## Arquivo afetado
+## Arquivos afetados
 
-- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` — adicionar estado, hidratação, renderização do builder e persistência no payload.
+- `src/lib/quotes-v2/sheet-yield.ts` — adicionar parâmetro opcional `sheet` e constante `A4_SHEET`.
+- `src/components/orcamentos-v2/PrintingItemEditor.tsx` — passar `A4_SHEET` no cálculo quando `isApostila`.
