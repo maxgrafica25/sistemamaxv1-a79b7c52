@@ -1201,6 +1201,16 @@ export default function MateriasPrimas() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SupplyTiersDrawer
+        open={tiersOpen}
+        onOpenChange={(o) => { setTiersOpen(o); if (!o) setTiersSupply(null); }}
+        supplyId={tiersSupply?.id ?? null}
+        supplyName={tiersSupply?.produto ?? ""}
+        baseUnitPrice={tiersSupply?.valorUnitario ?? 0}
+        marginPct={tiersSupply?.margemPct ?? 0}
+        onSaved={() => fetchSupplies()}
+      />
     </>
   );
 }
