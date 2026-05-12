@@ -111,6 +111,9 @@ export function StickyFinancialSidebar(props: Props) {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+        );
+      })()}
+
 
       {composition && (
         <Accordion type="single" collapsible className="w-full" defaultValue="composition">
