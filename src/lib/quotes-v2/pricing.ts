@@ -297,11 +297,22 @@ export interface PricingBreakdownItemTier extends PricingBreakdownItemBase {
   tierTotalPct: number;
 }
 
+export interface DirectSumChildRow {
+  id: string;
+  description: string;
+  category: "covers" | "finishing";
+  quantity: number;
+  custoUnit: number;
+  margemPct: number;
+  vendaUnit: number;
+  vendaTotal: number;
+}
+
 export interface PricingBreakdownItemDirectSum extends PricingBreakdownItemBase {
   mode: "direct_sum";
   /** R$ por unidade (apostila) — vem do clique de venda. */
   printingPerUnit: number;
-  /** Filhos categorizados (R$ totais somando todas as unidades). */
+  /** Filhos categorizados (R$ totais — já com margem aplicada). */
   coversTotal: number;
   finishingTotal: number;
   laborTotal: number;
@@ -309,6 +320,8 @@ export interface PricingBreakdownItemDirectSum extends PricingBreakdownItemBase 
   coversPerUnit: number;
   finishingPerUnit: number;
   laborPerUnit: number;
+  /** Linhas detalhadas (custo + margem + venda) para tooltip. */
+  childRows: DirectSumChildRow[];
   /** Soma das parcelas antes dos custos de venda. */
   subtotalPerUnit: number;
   subtotalTotal: number;
