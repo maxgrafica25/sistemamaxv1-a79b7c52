@@ -1161,7 +1161,23 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           )}
         </div>
 
-        {isLocked && (
+        {draftAvailable && !isLocked && (
+          <Alert>
+            <RefreshCw className="h-4 w-4" />
+            <AlertTitle>Rascunho não salvo encontrado</AlertTitle>
+            <AlertDescription className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <span className="flex-1">
+                Encontramos alterações deste orçamento salvas automaticamente em{" "}
+                {new Date(draftAvailable.savedAt).toLocaleString("pt-BR")}.
+              </span>
+              <div className="flex gap-2 shrink-0">
+                <Button size="sm" onClick={restoreDraft}>Restaurar</Button>
+                <Button size="sm" variant="ghost" onClick={discardDraft}>Descartar</Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Orçamento travado</AlertTitle>
