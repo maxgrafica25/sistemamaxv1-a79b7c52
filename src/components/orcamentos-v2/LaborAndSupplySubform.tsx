@@ -50,6 +50,7 @@ export function LaborAndSupplySubform({
   laborItems,
   materialItems,
   hourlyRate,
+  displayPcts,
   onLaborChange,
   onMaterialChange,
   compact = false,
