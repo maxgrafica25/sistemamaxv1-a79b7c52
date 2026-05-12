@@ -321,6 +321,12 @@ export interface DirectSumChildRow {
   margemPct: number;
   vendaUnit: number;
   vendaTotal: number;
+  /** "manual_tier" = preço final manual (impostos embutidos); "margin" = custo + margem%. */
+  priceSource: "manual_tier" | "margin";
+  /** Rótulo da faixa (ex: "TP2 · 6–20 un") quando priceSource === "manual_tier". */
+  tierLabel?: string | null;
+  /** Preço final ao cliente travado pela faixa (apenas em "manual_tier"). */
+  finalUnitLocked?: number | null;
 }
 
 export interface PricingBreakdownItemDirectSum extends PricingBreakdownItemBase {
