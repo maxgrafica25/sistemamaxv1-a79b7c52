@@ -1629,6 +1629,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Total</span>
           <span className="text-base font-bold text-primary">{formatBRL(discountedTotal)}</span>
         </div>
+        <span className="hidden sm:inline text-[11px] text-muted-foreground mr-2">
+          {draftError
+            ? "Não foi possível salvar rascunho local"
+            : draftSavedAt
+              ? `Rascunho salvo ${new Date(draftSavedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+              : "Rascunho salvo automaticamente"}
+        </span>
         <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
         <Button onClick={handleSave} disabled={isLocked} className="gap-2">
           <Check className="h-4 w-4" /> {isLocked ? "Travado" : (isEditing ? "Atualizar" : "Salvar")}
