@@ -99,6 +99,7 @@ const GRID = "grid grid-cols-[32px_140px_1fr_90px_60px_110px_110px_72px] items-c
 export function QuoteItemsTable(props: Props) {
   const {
     printingCatalog, processSteps, processGroups, hourlyRate,
+    globalSettings, profitMarginPct,
     markupTiers, categoryDefaultGroupId,
     printingItems, childMaterials, childLabor,
     standaloneLabor, standaloneManualMaterials, thirdParty,
@@ -112,6 +113,14 @@ export function QuoteItemsTable(props: Props) {
     itemSellingTotals,
     itemDisplayInfo,
   } = props;
+
+  const displayPcts: LaborDisplayPcts = {
+    invoicePct: globalSettings.invoice_pct,
+    collectionPct: globalSettings.collection_pct,
+    profitMarginPct,
+    wastePct: globalSettings.waste_pct,
+  };
+
 
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [flashId, setFlashId] = useState<string | null>(null);
