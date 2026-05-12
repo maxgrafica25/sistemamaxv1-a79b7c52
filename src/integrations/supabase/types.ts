@@ -3034,6 +3034,7 @@ export type Database = {
           finalidade: string
           fornecedor: string
           id: string
+          margem_pct: number
           produto: string
           quantidade: number
           unidade: string
@@ -3048,6 +3049,7 @@ export type Database = {
           finalidade?: string
           fornecedor?: string
           id?: string
+          margem_pct?: number
           produto: string
           quantidade?: number
           unidade?: string
@@ -3062,6 +3064,7 @@ export type Database = {
           finalidade?: string
           fornecedor?: string
           id?: string
+          margem_pct?: number
           produto?: string
           quantidade?: number
           unidade?: string
