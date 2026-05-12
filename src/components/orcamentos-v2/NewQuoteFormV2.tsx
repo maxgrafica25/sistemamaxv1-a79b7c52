@@ -160,6 +160,16 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [parentQuoteId, setParentQuoteId] = useState<string | null>(null);
 
+  // ---------- Local draft (auto-save no navegador) ----------
+  const draftKey = quoteId ? `quote-draft:edit:${quoteId}` : "quote-draft:new";
+  const [draftAvailable, setDraftAvailable] = useState<{ savedAt: string } | null>(null);
+
+  useEffect(() => {
+    if (loadingInit) return;
+    const existing = loadDraft<any>(draftKey, QUOTE_DRAFT_VERSION, QUOTE_DRAFT_TTL_DAYS);
+    setDraftAvailable(existing ? { savedAt: existing.savedAt } : null);
+  }, [loadingInit, draftKey]);
+
   const hasApprovedItems = useMemo(
     () => materials.some((m) => m.status === "aprovado"),
     [materials],
