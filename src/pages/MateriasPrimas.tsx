@@ -480,9 +480,25 @@ export default function MateriasPrimas() {
           data: dt,
         });
         if (histErr) return handleError(histErr, "registrar histórico de compra");
+
+        if (duplicatingFromId) {
+          const { data: srcTiers, error: tiersErr } = await (supabase as any)
+            .from("supply_pricing_tiers")
+            .select("label, min_qty, max_qty, manual_price, sort_order")
+            .eq("supply_id", duplicatingFromId);
+          if (tiersErr) {
+            toast.warning("Suprimento criado, mas falhou ao copiar faixas de preço");
+          } else if (srcTiers && srcTiers.length > 0) {
+            const payload = srcTiers.map((t: any) => ({ ...t, supply_id: inserted.id }));
+            const { error: copyErr } = await (supabase as any).from("supply_pricing_tiers").insert(payload);
+            if (copyErr) toast.warning("Suprimento criado, mas falhou ao copiar faixas de preço");
+            else toast.success(`${srcTiers.length} faixa(s) de preço copiada(s)`);
+          }
+        }
       }
       toast.success("Item cadastrado!");
     }
+    setDuplicatingFromId(null);
     setIsDialogOpen(false);
     fetchSupplies();
   };
