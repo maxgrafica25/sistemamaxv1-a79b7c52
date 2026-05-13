@@ -1,5 +1,6 @@
 // Edge Function: assistente-virtual
-// Recebe { pergunta, historico } e chama Lovable AI Gateway com:
+// Recebe { pergunta, historico } e chama a API oficial do Google Gemini
+// (endpoint OpenAI-compatível) com:
 //  - System prompt em 3 camadas (comportamento + base de conhecimento + dados ao vivo)
 //  - Histórico recente (últimas 10 mensagens)
 // JWT é validado em código via getClaims() (verify_jwt = true por padrão).
