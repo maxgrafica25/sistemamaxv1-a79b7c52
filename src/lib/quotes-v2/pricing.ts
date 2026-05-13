@@ -193,11 +193,22 @@ export const recalculateForQuantity = (
   let nonPrintingMaterialsTotal = 0;
 
   const { invoicePct, wastePct, collectionPct, profitMarginPct, hourlyRate } = snap.settings;
-  // Apostila/direct_sum tem dois divisores:
-  //   • supplyDivisor — capa/mola: imposto + cartão + perda (margem do insumo já vem em margemPct)
-  //   • laborDivisor  — furo/montagem: imposto + cartão + perda + margem global
-  const supplyDivisor = 1 - (invoicePct + collectionPct + wastePct) / 100;
-  const laborDivisor = 1 - (invoicePct + collectionPct + wastePct + profitMarginPct) / 100;
+  // Apostila/direct_sum:
+  //   • Suprimentos filhos (Capa/Mola/etc): divisor HÍBRIDO por item.
+  //       baseSalesPct = imposto + cartão + perda
+  //       profitPct    = cm.margemPct (se > 0) OU profitMarginPct global
+  //       divisor      = 1 − (baseSalesPct + profitPct) / 100
+  //   • Mão de obra filha (Furo/Montagem/Encadernação):
+  //       laborDivisor = 1 − (imposto + cartão + perda + lucro global) / 100
+  const baseSalesPct = invoicePct + collectionPct + wastePct;
+  const laborDivisor = 1 - (baseSalesPct + profitMarginPct) / 100;
+  const supplySellingUnit = (cm: PricingMaterial): number => {
+    const ownMargin = cm.margemPct ?? 0;
+    const profitPct = ownMargin > 0 ? ownMargin : profitMarginPct;
+    const divisor = 1 - (baseSalesPct + profitPct) / 100;
+    if (divisor <= 0) return cm.unitPrice;
+    return cm.unitPrice / divisor;
+  };
 
   for (const m of standaloneMaterials) {
     const isPrinting = !!m.baseCost && !!m.printerCategoryId;
@@ -209,42 +220,25 @@ export const recalculateForQuantity = (
     const itemQty = Math.max(0, m.quantity || 0);
 
     if (isDirectSumItem(m)) {
-      // Soma direta: printingCostUnit já é venda c/ lucro embutido.
-      // Filhos materiais: tier manual (preço final) > margem_pct > custo.
+      // Apostila: impressão NÃO recebe markup (já vem da tabela Preço Impressão).
+      // Filhos (suprimentos + MO) recebem o markup completo (impostos + cartão + perda + lucro).
       const childMats = childMaterialsByParent.get(m.id) ?? [];
       const childLab = childLaborByParent.get(m.id) ?? [];
-      const childMatTotal = childMats
+      const childMatSellingTotal = childMats
         .filter((cm) => !cm.isOptional)
-        .reduce((s, cm) => {
-          const tier = pickSupplyTier(cm.pricingTiers, cm.quantity);
-          if (tier) {
-            // manual_price É o preço final ao cliente. Pré-divide pelo
-            // supplyDivisor para que ao reaplicar /supplyDivisor o cliente
-            // veja exatamente o valor cadastrado.
-            const preDivUnit = tier.manual_price * supplyDivisor;
-            return s + cm.quantity * preDivUnit;
-          }
-          const venda = cm.unitPrice * (1 + (cm.margemPct ?? 0) / 100);
-          return s + cm.quantity * venda;
-        }, 0);
-      const childLabTotal = childLab
+        .reduce((s, cm) => s + cm.quantity * supplySellingUnit(cm), 0);
+      const childLabCostTotal = childLab
         .filter((cl) => !cl.isOptional)
         .reduce((s, cl) => s + (cl.timeMinutes / 60) * hourlyRate, 0);
+      const childLabSellingTotal =
+        laborDivisor > 0 ? childLabCostTotal / laborDivisor : childLabCostTotal;
 
-      // Apostila/direct_sum: unitPrice já é o preço final da folha vindo
-      // da tabela de faixas. Não reaplicar markup sobre papel + impressão.
       const baseCostPerSheet = (m.paperCost ?? 0) + (m.printingCostUnit ?? 0);
       const printingSellingUnit = (m.unitPrice ?? 0) > 0
         ? m.unitPrice
         : baseCostPerSheet;
-      const childMatPerUn = itemQty > 0 ? childMatTotal / itemQty : 0;
-      const childLabPerUn = itemQty > 0 ? childLabTotal / itemQty : 0;
-      const childMatSellingUn =
-        supplyDivisor > 0 ? childMatPerUn / supplyDivisor : childMatPerUn;
-      const childLabSellingUn =
-        laborDivisor > 0 ? childLabPerUn / laborDivisor : childLabPerUn;
-      const sellingUn = printingSellingUnit + childMatSellingUn + childLabSellingUn;
-      printingTotal += sellingUn * itemQty;
+      const printingSellingTotal = printingSellingUnit * itemQty;
+      printingTotal += printingSellingTotal + childMatSellingTotal + childLabSellingTotal;
     } else {
       // Tier clássico — sem margem do insumo (markup do tier cobre).
       const aggCh = aggregateChildren(m.id, childMaterialsByParent, childLaborByParent, hourlyRate);
