@@ -129,6 +129,7 @@ export default function MateriasPrimas() {
   // Dialogs
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
+  const [duplicatingFromId, setDuplicatingFromId] = useState<string | null>(null);
   const [isPaperDialogOpen, setIsPaperDialogOpen] = useState(false);
   const [editingPaper, setEditingPaper] = useState<Paper | null>(null);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
