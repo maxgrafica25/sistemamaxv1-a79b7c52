@@ -74,15 +74,17 @@ export function SmartFinishingBlock({
 
   const addLaborFromStep = (step: ProcessStep) => {
     const id = `lbr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    // Apostila + encadernação: tempo cadastrado é por unidade — multiplica pelo nº de apostilas.
-    const isBookletBinding =
-      bookletUnits && bookletUnits > 0 && /encaderna|espiral/i.test(step.description);
-    const minutes = (step.time_minutes || 0) * (isBookletBinding ? bookletUnits! : 1);
+    // Apostila: tempo cadastrado é POR APOSTILA — multiplica pelo nº de apostilas.
+    // Exceções (processos de LOTE — somam 1x): Refile, Corte, Setup, Arquivo.
+    const isBatchStep = /\b(refile|corte|setup|arquivo)\b/i.test(step.description);
+    const isApostila = !!bookletUnits && bookletUnits > 0;
+    const multiply = isApostila && !isBatchStep;
+    const minutes = (step.time_minutes || 0) * (multiply ? bookletUnits! : 1);
     onChildLaborChange([
       ...childLabor,
       {
         id,
-        description: isBookletBinding
+        description: multiply
           ? `${step.description} (×${bookletUnits} apostilas)`
           : step.description,
         timeMinutes: minutes,
