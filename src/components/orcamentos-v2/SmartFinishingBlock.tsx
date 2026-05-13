@@ -45,6 +45,9 @@ interface Props {
   bookletUnits?: number | null;
   /** Nº de folhas da apostila — usado para escolher o diâmetro da espiral no kit. */
   bookletPages?: number | null;
+  /** Apostila: botão para revelar capa/contracapa impressa (projeto especial). */
+  showCoverPaper?: boolean;
+  onShowCoverPaper?: () => void;
 }
 
 interface SupplyRow {
@@ -61,7 +64,7 @@ const fmt = (n: number) =>
 export function SmartFinishingBlock({
   parentItemId, productKind, processSteps, hourlyRate, displayPcts,
   childLabor, childMaterials, onChildLaborChange, onChildMaterialChange,
-  disabled, bookletUnits, bookletPages,
+  disabled, bookletUnits, bookletPages, showCoverPaper, onShowCoverPaper,
 }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -326,26 +329,38 @@ export function SmartFinishingBlock({
 
   return (
     <div className="space-y-3">
-      {/* Kit Automático — apenas em apostilas */}
+      {/* Kit Automático + Capa Impressa — lado a lado em apostilas */}
       {isApostila && !disabled && (
-        <button
-          type="button"
-          onClick={handleSuggestKit}
-          className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
-          title={
-            (bookletPages ?? 0) > 0
-              ? `Adiciona Capa, Contracapa, Espiral ${getIdealSpiral(bookletPages!)} e mão de obra (Furação + Encadernação)`
-              : "Defina o nº de folhas para escolher a espiral ideal"
-          }
-        >
-          <Wand2 className="h-3.5 w-3.5" />
-          Sugerir Kit Encadernação
-          {(bookletPages ?? 0) > 0 && (
-            <span className="text-[10px] text-primary/70 font-normal">
-              · espiral {getIdealSpiral(bookletPages!)}
-            </span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSuggestKit}
+            className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+            title={
+              (bookletPages ?? 0) > 0
+                ? `Adiciona Capa, Contracapa, Espiral ${getIdealSpiral(bookletPages!)} e mão de obra (Furação + Encadernação)`
+                : "Defina o nº de folhas para escolher a espiral ideal"
+            }
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            Sugerir Kit Encadernação
+            {(bookletPages ?? 0) > 0 && (
+              <span className="text-[10px] text-primary/70 font-normal">
+                · espiral {getIdealSpiral(bookletPages!)}
+              </span>
+            )}
+          </button>
+          {onShowCoverPaper && !showCoverPaper && (
+            <button
+              type="button"
+              onClick={onShowCoverPaper}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+              title="Adicionar capa/contracapa em papel impresso (projeto especial)"
+            >
+              <span className="text-base leading-none">+</span> Capa Impressa
+            </button>
           )}
-        </button>
+        </div>
       )}
 
       {/* Camada 1 — chips contextuais */}
