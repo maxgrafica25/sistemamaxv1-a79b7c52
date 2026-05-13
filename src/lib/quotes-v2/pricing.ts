@@ -484,18 +484,14 @@ export const breakdownForQuantity = (
     if (isDirectSumItem(m)) {
       hasDirectSumItems = true;
 
-      // Apostila/direct_sum: preço por folha = paper + print com tier por
-      // quantidade (mesma fórmula do recalculate, sem arredondar).
+      // Apostila/direct_sum: preço por folha = mesmo valor da tabela
+      // "Preço Impressão" — calcSellingPrice arredonda igual à tabela.
       const baseCostPerSheet = (m.paperCost ?? 0) + (m.printingCostUnit ?? 0);
       const printTier = m.printerCategoryId
         ? findTier(snap, m.printerCategoryId, itemQty, m.markupGroupId)
         : null;
-      const printSomaPct = printTier
-        ? (printTier.fixed_cost_pct + printTier.variable_cost_pct + printTier.margin_pct) / 100
-        : 0;
-      const printDivisor = 1 - printSomaPct;
-      const printingUnit = printTier && printDivisor > 0
-        ? baseCostPerSheet / printDivisor
+      const printingUnit = printTier
+        ? calcSellingPrice(baseCostPerSheet, printTier)
         : (baseCostPerSheet || m.unitPrice || 0);
       let coversTotalAbs = 0;
       let finishingTotalAbs = 0;
