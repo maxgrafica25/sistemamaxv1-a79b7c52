@@ -234,8 +234,11 @@ export const recalculateForQuantity = (
       // Apostila/direct_sum: preço por folha = mesmo valor da tabela
       // "Preço Impressão" — calcSellingPrice arredonda igual à tabela.
       const baseCostPerSheet = (m.paperCost ?? 0) + (m.printingCostUnit ?? 0);
+      // Apostila: faixa de preço escolhida pela QUANTIDADE DE APOSTILAS
+      // (bookletUnits), não pelo total de folhas. Fallback p/ itemQty.
+      const tierQty = (m.bookletUnits ?? 0) > 0 ? (m.bookletUnits as number) : itemQty;
       const printTier = m.printerCategoryId
-        ? findTier(snap, m.printerCategoryId, itemQty, m.markupGroupId)
+        ? findTier(snap, m.printerCategoryId, tierQty, m.markupGroupId)
         : null;
       const printingSellingUnit = printTier
         ? calcSellingPrice(baseCostPerSheet, printTier)
@@ -487,8 +490,10 @@ export const breakdownForQuantity = (
       // Apostila/direct_sum: preço por folha = mesmo valor da tabela
       // "Preço Impressão" — calcSellingPrice arredonda igual à tabela.
       const baseCostPerSheet = (m.paperCost ?? 0) + (m.printingCostUnit ?? 0);
+      // Apostila: faixa pelo nº de apostilas (não pelo total de folhas).
+      const tierQty = (m.bookletUnits ?? 0) > 0 ? (m.bookletUnits as number) : itemQty;
       const printTier = m.printerCategoryId
-        ? findTier(snap, m.printerCategoryId, itemQty, m.markupGroupId)
+        ? findTier(snap, m.printerCategoryId, tierQty, m.markupGroupId)
         : null;
       const printingUnit = printTier
         ? calcSellingPrice(baseCostPerSheet, printTier)
