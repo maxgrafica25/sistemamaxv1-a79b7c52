@@ -396,15 +396,16 @@ export default function MateriasPrimas() {
 
   // ── Suprimento logic (DB-backed) ──
   const resetForm = () => { setProduto(""); setFinalidade(""); setQuantidade(""); setUnidade("un"); setValor(""); setFornecedor(""); setData(""); setContato(""); setMargemPct("0"); };
-  const openNewDialog = () => { setEditingMaterial(null); resetForm(); setIsDialogOpen(true); };
+  const openNewDialog = () => { setEditingMaterial(null); setDuplicatingFromId(null); resetForm(); setIsDialogOpen(true); };
   const openEditDialog = (m: Material) => {
-    setEditingMaterial(m); setProduto(m.produto); setFinalidade(m.finalidade);
+    setEditingMaterial(m); setDuplicatingFromId(null); setProduto(m.produto); setFinalidade(m.finalidade);
     setQuantidade(m.quantidade.toString()); setUnidade(m.unidade || "un"); setValor(m.valor.toString());
     setFornecedor(m.fornecedor); setData(m.data); setContato(m.contato);
     setMargemPct(String(m.margemPct ?? 0)); setIsDialogOpen(true);
   };
   const duplicateMaterial = (m: Material) => {
     setEditingMaterial(null);
+    setDuplicatingFromId(m.id);
     setProduto(`${m.produto} (cópia)`);
     setFinalidade(m.finalidade);
     setQuantidade(m.quantidade.toString());
