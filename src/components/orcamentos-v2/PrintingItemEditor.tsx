@@ -917,6 +917,16 @@ export function PrintingItemEditor({
               </Badge>
             )}
           </button>
+          {isApostila && !locked && !showCoverPaper && (
+            <button
+              type="button"
+              onClick={() => setShowCoverPaper(true)}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+              title="Adicionar capa/contracapa em papel impresso (projeto especial)"
+            >
+              <span className="text-base leading-none">+</span> Capa Impressa
+            </button>
+          )}
         </div>
 
         {expanded && (
