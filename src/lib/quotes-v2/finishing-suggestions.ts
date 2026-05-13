@@ -5,7 +5,7 @@
 import type { ProcessStep } from "@/components/orcamentos-v2/ProcessPicker";
 
 const RULES: Array<{ match: RegExp; suggest: string[] }> = [
-  { match: /apostila/i,                         suggest: ["Encadernação espiral", "Encadernação", "Refile"] },
+  { match: /apostila/i,                         suggest: ["Furação", "Montagem", "Encadernação espiral", "Refile"] },
   { match: /panfleto|folder|flyer/i,            suggest: ["Refile", "Vinco", "Dobra"] },
   { match: /cart[aã]o|cart[oõ]es/i,             suggest: ["Refile", "Lamina", "Cantos arredondados"] },
   { match: /adesivo|etiqueta/i,                 suggest: ["Refile", "Recorte"] },

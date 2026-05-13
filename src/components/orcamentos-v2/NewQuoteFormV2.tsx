@@ -789,11 +789,17 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           null;
         return { ...merged, unitPrice: tier ? calcSellingPrice(merged.baseCost ?? 0, tier) : (merged.baseCost ?? merged.unitPrice ?? 0) };
       });
-      // Sincroniza quantidade dos filhos Capa/Contracapa com bookletUnits do pai
+      // Sincroniza quantidade dos filhos por-unidade (Capa/Contracapa/Mola/etc) com bookletUnits do pai
       if ("bookletUnits" in patch) {
         const units = (patch as any).bookletUnits ?? 0;
+        const isPerBookletChild = (m: SubformMaterial) => {
+          const kind = (m.productKind || "").toLowerCase();
+          const desc = (m.description || "").toLowerCase();
+          if (kind === "capa" || kind === "contracapa") return true;
+          return /mola|espiral|wire-?o|wireo/.test(`${kind} ${desc}`);
+        };
         return next.map((m) =>
-          m.parentItemId === id && (m.productKind === "Capa" || m.productKind === "Contracapa")
+          m.parentItemId === id && isPerBookletChild(m)
             ? { ...m, quantity: units }
             : m,
         );
