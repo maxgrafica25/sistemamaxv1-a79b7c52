@@ -71,6 +71,7 @@ export function StickyFinancialSidebar(props: Props) {
       )}
 
       {(() => {
+        if (!isAdmin) return null;
         const onlyDirectSum =
           composition?.hasDirectSumItems && !composition?.hasTierItems;
         if (onlyDirectSum) return null;
@@ -82,31 +83,32 @@ export function StickyFinancialSidebar(props: Props) {
           </AccordionTrigger>
           <AccordionContent className="pb-2">
             <div className="space-y-1.5 text-xs">
-              <DRELine label="Receita base" value={revenueBase} />
-              <DRELine label="(-) Custo de produção" value={-productionCost} />
+              <DRELine label="Valor Total da Venda" value={revenueBase} />
               <DRELine
                 label="(-) Impostos"
                 badge={fmtPctRaw(taxPct)}
                 value={-taxValue}
               />
               <DRELine
-                label={`(-) Cobrança${billingMethod ? ` · ${billingMethod}` : ""}`}
+                label={`(-) Taxas de Venda/Cartão${billingMethod ? ` · ${billingMethod}` : ""}`}
                 badge={fmtPctRaw(billingPct)}
                 value={-billingValue}
               />
               <DRELine
-                label="(-) Margem de perdas"
+                label="(-) Margem de Perda"
                 badge={fmtPctRaw(lossPct)}
                 value={-lossValue}
               />
               <Separator className="my-2" />
+              <DRELine label="(=) Custo Bruto de Produção" value={-productionCost} />
+              <Separator className="my-2" />
               <div className="flex items-center justify-between">
                 <span className={cn("font-semibold flex items-center gap-1.5", profitColor)}>
-                  = Lucro Líquido
+                  (=) Lucro Líquido
                   {lowMargin && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className={cn("text-[10px]", profitColor)}>
                     {formatPct(netMarginPct)}
                   </span>
                   <span className={cn("font-bold", profitColor)}>
@@ -162,7 +164,10 @@ export function StickyFinancialSidebar(props: Props) {
                       profitPositive ? "text-emerald-600" : "text-destructive",
                     )}
                   >
-                    {formatBRL(netProfit)}
+                    {formatBRL(netProfit)}{" "}
+                    <span className="text-xs font-semibold">
+                      ({formatPct(netMarginPct)})
+                    </span>
                   </span>
                 </div>
               </TooltipTrigger>
