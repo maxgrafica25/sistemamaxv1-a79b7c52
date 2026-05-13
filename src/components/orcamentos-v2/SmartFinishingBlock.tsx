@@ -365,8 +365,10 @@ export function SmartFinishingBlock({
         </div>
       )}
 
-      {/* Camada 1 — chips contextuais */}
-      {visibleSuggestions.length > 0 && !disabled && (
+      {coverPaperSlot}
+
+      {/* Camada 1 — chips contextuais (oculto em apostilas: só Kit Encadernação) */}
+      {!isApostila && visibleSuggestions.length > 0 && !disabled && (
         <div className="flex flex-wrap items-center gap-1.5">
           <Sparkles className="h-3 w-3 text-primary/60" />
           <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-1">
