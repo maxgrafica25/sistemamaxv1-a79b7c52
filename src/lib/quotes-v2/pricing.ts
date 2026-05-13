@@ -231,18 +231,12 @@ export const recalculateForQuantity = (
         .filter((cl) => !cl.isOptional)
         .reduce((s, cl) => s + (cl.timeMinutes / 60) * hourlyRate, 0);
 
-      // Apostila/direct_sum: preço por folha = mesmo valor da tabela
-      // "Preço Impressão" — calcSellingPrice arredonda igual à tabela.
+      // Apostila/direct_sum: unitPrice já é o preço final da folha vindo
+      // da tabela de faixas. Não reaplicar markup sobre papel + impressão.
       const baseCostPerSheet = (m.paperCost ?? 0) + (m.printingCostUnit ?? 0);
-      // Apostila: faixa de preço escolhida pela QUANTIDADE DE APOSTILAS
-      // (bookletUnits), não pelo total de folhas. Fallback p/ itemQty.
-      const tierQty = (m.bookletUnits ?? 0) > 0 ? (m.bookletUnits as number) : itemQty;
-      const printTier = m.printerCategoryId
-        ? findTier(snap, m.printerCategoryId, tierQty, m.markupGroupId)
-        : null;
-      const printingSellingUnit = printTier
-        ? calcSellingPrice(baseCostPerSheet, printTier)
-        : (baseCostPerSheet || m.unitPrice || 0);
+      const printingSellingUnit = (m.unitPrice ?? 0) > 0
+        ? m.unitPrice
+        : baseCostPerSheet;
       const childMatPerUn = itemQty > 0 ? childMatTotal / itemQty : 0;
       const childLabPerUn = itemQty > 0 ? childLabTotal / itemQty : 0;
       const childMatSellingUn =
@@ -487,17 +481,12 @@ export const breakdownForQuantity = (
     if (isDirectSumItem(m)) {
       hasDirectSumItems = true;
 
-      // Apostila/direct_sum: preço por folha = mesmo valor da tabela
-      // "Preço Impressão" — calcSellingPrice arredonda igual à tabela.
+      // Apostila/direct_sum: unitPrice já é o preço final da folha vindo
+      // da tabela de faixas. Não reaplicar markup sobre papel + impressão.
       const baseCostPerSheet = (m.paperCost ?? 0) + (m.printingCostUnit ?? 0);
-      // Apostila: faixa pelo nº de apostilas (não pelo total de folhas).
-      const tierQty = (m.bookletUnits ?? 0) > 0 ? (m.bookletUnits as number) : itemQty;
-      const printTier = m.printerCategoryId
-        ? findTier(snap, m.printerCategoryId, tierQty, m.markupGroupId)
-        : null;
-      const printingUnit = printTier
-        ? calcSellingPrice(baseCostPerSheet, printTier)
-        : (baseCostPerSheet || m.unitPrice || 0);
+      const printingUnit = (m.unitPrice ?? 0) > 0
+        ? m.unitPrice
+        : baseCostPerSheet;
       let coversTotalAbs = 0;
       let finishingTotalAbs = 0;
       const childRows: DirectSumChildRow[] = [];
