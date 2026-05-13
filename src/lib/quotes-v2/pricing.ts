@@ -437,17 +437,21 @@ export const breakdownForQuantity = (
   }
 
   const { invoicePct, wastePct, collectionPct, profitMarginPct, hourlyRate } = snap.settings;
-  // Apostila/direct_sum: dois divisores distintos para os filhos.
-  //  • supplyDivisor — capa/mola (margem própria via margemPct):
-  //      cobre imposto + cartão + perda
-  //  • laborDivisor — furo/montagem:
-  //      cobre imposto + cartão + perda + margem global do orçamento
-  const supplyDivisor = 1 - (invoicePct + collectionPct + wastePct) / 100;
-  const laborDivisor =
-    1 - (invoicePct + collectionPct + wastePct + profitMarginPct) / 100;
-  // Exibição: cobertura mínima (suprimentos) — labor inclui margem global a mais.
-  const salesCostPct = invoicePct + collectionPct + wastePct;
-  const directSumDivisor = supplyDivisor;
+  // Apostila/direct_sum:
+  //   • Suprimentos filhos: divisor HÍBRIDO por item.
+  //       baseSalesPct = imposto + cartão + perda
+  //       profitPct    = cm.margemPct (se > 0) OU profitMarginPct global
+  //   • Mão de obra filha: laborDivisor (imposto + cartão + perda + lucro global)
+  const baseSalesPct = invoicePct + collectionPct + wastePct;
+  const laborDivisor = 1 - (baseSalesPct + profitMarginPct) / 100;
+  // Exibição: cobertura mínima (sem lucro) — para o badge "salesCostPct".
+  const salesCostPct = baseSalesPct;
+  const supplyProfitPct = (cm: PricingMaterial): number => {
+    const own = cm.margemPct ?? 0;
+    return own > 0 ? own : profitMarginPct;
+  };
+  const supplyDivisorFor = (cm: PricingMaterial): number =>
+    1 - (baseSalesPct + supplyProfitPct(cm)) / 100;
 
   const laborTotal = standaloneLabor
     .filter((s) => !s.isOptional)
@@ -475,71 +479,63 @@ export const breakdownForQuantity = (
     if (isDirectSumItem(m)) {
       hasDirectSumItems = true;
 
-      // Apostila/direct_sum: unitPrice já é o preço final da folha vindo
-      // da tabela de faixas. Não reaplicar markup sobre papel + impressão.
+      // Apostila: impressão é a venda final da tabela (sem markup).
+      // Filhos sempre passam por divisor (custo bruto → venda).
       const baseCostPerSheet = (m.paperCost ?? 0) + (m.printingCostUnit ?? 0);
       const printingUnit = (m.unitPrice ?? 0) > 0
         ? m.unitPrice
         : baseCostPerSheet;
-      let coversTotalAbs = 0;
-      let finishingTotalAbs = 0;
+
+      // Acumuladores: BRUTO (custo) e VENDA (com markup).
+      let coversCostAbs = 0;
+      let coversSellingAbs = 0;
+      let finishingCostAbs = 0;
+      let finishingSellingAbs = 0;
       const childRows: DirectSumChildRow[] = [];
       for (const cm of childMats) {
         if (cm.isOptional) continue;
-        const tier = pickSupplyTier(cm.pricingTiers, cm.quantity);
-        let vendaUnit: number;
-        let margemPct = 0;
-        let priceSource: "manual_tier" | "margin" = "margin";
-        let tierLabel: string | null = null;
-        let finalUnitLocked: number | null = null;
-        if (tier) {
-          // Engenharia reversa: o pricing engine reaplica o divisor no
-          // total — para o cliente ver tier.manual_price exato, somamos
-          // (manual_price * divisor) no subtotal pré-divisor.
-          vendaUnit = tier.manual_price * directSumDivisor;
-          priceSource = "manual_tier";
-          finalUnitLocked = tier.manual_price;
-          const maxLabel =
-            tier.max_qty == null ? `${tier.min_qty}+ un` : `${tier.min_qty}–${tier.max_qty} un`;
-          tierLabel = `${tier.label} · ${maxLabel}`;
-        } else {
-          margemPct = cm.margemPct ?? 0;
-          vendaUnit = cm.unitPrice * (1 + margemPct / 100);
-        }
+        const profitPct = supplyProfitPct(cm);
+        const divisor = supplyDivisorFor(cm);
+        const vendaUnit = divisor > 0 ? cm.unitPrice / divisor : cm.unitPrice;
         const vendaTotal = cm.quantity * vendaUnit;
+        const custoTotal = cm.quantity * cm.unitPrice;
         const cat = classifyChildMaterial(cm);
-        if (cat === "covers") coversTotalAbs += vendaTotal;
-        else finishingTotalAbs += vendaTotal;
+        if (cat === "covers") {
+          coversCostAbs += custoTotal;
+          coversSellingAbs += vendaTotal;
+        } else {
+          finishingCostAbs += custoTotal;
+          finishingSellingAbs += vendaTotal;
+        }
         childRows.push({
           id: cm.id,
           description: cm.description || "Insumo",
           category: cat,
           quantity: cm.quantity,
           custoUnit: cm.unitPrice,
-          margemPct,
+          margemPct: profitPct,
           vendaUnit,
           vendaTotal,
-          priceSource,
-          tierLabel,
-          finalUnitLocked,
+          priceSource: "margin",
+          tierLabel: null,
+          finalUnitLocked: null,
         });
       }
-      const laborTotalAbs = childLab
+      const laborCostAbs = childLab
         .filter((cl) => !cl.isOptional)
         .reduce((s, cl) => s + (cl.timeMinutes / 60) * hourlyRate, 0);
+      const laborSellingAbs =
+        laborDivisor > 0 ? laborCostAbs / laborDivisor : laborCostAbs;
 
-      const coversPerUnit = coversTotalAbs / safeQty;
-      const finishingPerUnit = finishingTotalAbs / safeQty;
-      const laborPerUnit = laborTotalAbs / safeQty;
-      const matChildrenPerUnit = coversPerUnit + finishingPerUnit;
-      const matChildrenSellingPerUnit =
-        supplyDivisor > 0 ? matChildrenPerUnit / supplyDivisor : matChildrenPerUnit;
-      const laborChildrenSellingPerUnit =
-        laborDivisor > 0 ? laborPerUnit / laborDivisor : laborPerUnit;
-      const childrenSellingPerUnit = matChildrenSellingPerUnit + laborChildrenSellingPerUnit;
-      const childrenPerUnit = matChildrenPerUnit + laborPerUnit;
-      const subtotalPerUnit = printingUnit + childrenPerUnit;
-      const sellingPriceUnit = printingUnit + childrenSellingPerUnit;
+      // Por unidade (folha) — usado pelo motor recalculate.
+      const coversPerUnit = coversSellingAbs / safeQty;
+      const finishingPerUnit = finishingSellingAbs / safeQty;
+      const laborPerUnit = laborSellingAbs / safeQty;
+      // Custo bruto (sem markup) por unidade.
+      const childMatCostPerUnit = (coversCostAbs + finishingCostAbs) / safeQty;
+      const childLabCostPerUnit = laborCostAbs / safeQty;
+      const subtotalPerUnit = printingUnit + childMatCostPerUnit + childLabCostPerUnit;
+      const sellingPriceUnit = printingUnit + coversPerUnit + finishingPerUnit + laborPerUnit;
       const salesCostPerUnit = sellingPriceUnit - subtotalPerUnit;
 
       const sellingTotal = sellingPriceUnit * itemQty;
@@ -562,19 +558,22 @@ export const breakdownForQuantity = (
         : 1;
 
       const printingPerDisplayUnit = printingUnit * pagesPerDisplayUnit;
-      const coversPerDisplayUnit = displayUnits > 0 ? coversTotalAbs / displayUnits : coversPerUnit;
-      const finishingPerDisplayUnit = displayUnits > 0 ? finishingTotalAbs / displayUnits : finishingPerUnit;
-      const laborPerDisplayUnit = displayUnits > 0 ? laborTotalAbs / displayUnits : laborPerUnit;
-      const matChildrenPerDisplayUnit = coversPerDisplayUnit + finishingPerDisplayUnit;
-      const childrenPerDisplayUnit = matChildrenPerDisplayUnit + laborPerDisplayUnit;
-      const matChildrenSellingPerDisplayUnit =
-        supplyDivisor > 0 ? matChildrenPerDisplayUnit / supplyDivisor : matChildrenPerDisplayUnit;
-      const laborChildrenSellingPerDisplayUnit =
-        laborDivisor > 0 ? laborPerDisplayUnit / laborDivisor : laborPerDisplayUnit;
-      const childrenSellingPerDisplayUnit =
-        matChildrenSellingPerDisplayUnit + laborChildrenSellingPerDisplayUnit;
-      const subtotalPerDisplayUnit = printingPerDisplayUnit + childrenPerDisplayUnit;
-      const sellingPriceDisplayUnit = printingPerDisplayUnit + childrenSellingPerDisplayUnit;
+      const coversPerDisplayUnit =
+        displayUnits > 0 ? coversSellingAbs / displayUnits : coversPerUnit;
+      const finishingPerDisplayUnit =
+        displayUnits > 0 ? finishingSellingAbs / displayUnits : finishingPerUnit;
+      const laborPerDisplayUnit =
+        displayUnits > 0 ? laborSellingAbs / displayUnits : laborPerUnit;
+      const sellingPriceDisplayUnit =
+        printingPerDisplayUnit +
+        coversPerDisplayUnit +
+        finishingPerDisplayUnit +
+        laborPerDisplayUnit;
+      const childCostPerDisplayUnit =
+        displayUnits > 0
+          ? (coversCostAbs + finishingCostAbs + laborCostAbs) / displayUnits
+          : childMatCostPerUnit + childLabCostPerUnit;
+      const subtotalPerDisplayUnit = printingPerDisplayUnit + childCostPerDisplayUnit;
       const salesCostPerDisplayUnit = sellingPriceDisplayUnit - subtotalPerDisplayUnit;
 
       items.push({
@@ -585,9 +584,9 @@ export const breakdownForQuantity = (
         sellingPriceUnit,
         sellingTotal,
         printingPerUnit: printingUnit,
-        coversTotal: coversTotalAbs,
-        finishingTotal: finishingTotalAbs,
-        laborTotal: laborTotalAbs,
+        coversTotal: coversSellingAbs,
+        finishingTotal: finishingSellingAbs,
+        laborTotal: laborSellingAbs,
         coversPerUnit,
         finishingPerUnit,
         laborPerUnit,
