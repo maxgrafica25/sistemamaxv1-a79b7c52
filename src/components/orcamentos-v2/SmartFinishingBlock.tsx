@@ -316,6 +316,28 @@ export function SmartFinishingBlock({
 
   return (
     <div className="space-y-3">
+      {/* Kit Automático — apenas em apostilas */}
+      {isApostila && !disabled && (
+        <button
+          type="button"
+          onClick={handleSuggestKit}
+          className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+          title={
+            (bookletPages ?? 0) > 0
+              ? `Adiciona Capa, Contracapa, Espiral ${getIdealSpiral(bookletPages!)} e mão de obra (Furação + Encadernação)`
+              : "Defina o nº de folhas para escolher a espiral ideal"
+          }
+        >
+          <Wand2 className="h-3.5 w-3.5" />
+          Sugerir Kit Encadernação
+          {(bookletPages ?? 0) > 0 && (
+            <span className="text-[10px] text-primary/70 font-normal">
+              · espiral {getIdealSpiral(bookletPages!)}
+            </span>
+          )}
+        </button>
+      )}
+
       {/* Camada 1 — chips contextuais */}
       {visibleSuggestions.length > 0 && !disabled && (
         <div className="flex flex-wrap items-center gap-1.5">
