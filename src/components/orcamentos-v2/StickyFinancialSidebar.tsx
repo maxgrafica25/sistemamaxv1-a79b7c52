@@ -164,7 +164,10 @@ export function StickyFinancialSidebar(props: Props) {
                       profitPositive ? "text-emerald-600" : "text-destructive",
                     )}
                   >
-                    {formatBRL(netProfit)}
+                    {formatBRL(netProfit)}{" "}
+                    <span className="text-xs font-semibold">
+                      ({formatPct(netMarginPct)})
+                    </span>
                   </span>
                 </div>
               </TooltipTrigger>
