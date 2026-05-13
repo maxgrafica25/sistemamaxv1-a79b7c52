@@ -112,9 +112,10 @@ export function PrintingItemEditor({
   const [paperQuery, setPaperQuery] = useState("");
 
   const isApostila = isApostilaKind(item.productKind);
-  const effectiveUnitPrice = isApostila
-    ? (item.printingCostUnit ?? item.unitPrice ?? 0)
-    : (item.unitPrice || 0);
+  // Para apostila: unitPrice é o preço FINAL da impressão por folha (vindo
+  // direto da faixa de markup da tabela "Preço Impressão"). Não usar
+  // printingCostUnit — esse é o custo bruto, não o preço de venda.
+  const effectiveUnitPrice = item.unitPrice || 0;
   const bookletPages = item.bookletPages ?? null;
   const bookletUnits = item.bookletUnits ?? null;
   const duplexFromPrintColors = (pc?: string | null): boolean | null => {
