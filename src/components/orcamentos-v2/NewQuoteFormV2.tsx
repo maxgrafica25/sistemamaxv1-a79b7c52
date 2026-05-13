@@ -747,7 +747,24 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       const next = prev.map((m) => {
         if (m.id !== id) return m;
         const merged = { ...m, ...patch };
-        return merged;
+        if (!isDirectSumItem(merged) || !merged.printerCategoryId || (merged.baseCost ?? 0) <= 0) {
+          return merged;
+        }
+        const groupId = merged.markupGroupId || categoryGroups[merged.printerCategoryId] || null;
+        const groupTiers = groupId
+          ? markupTiers.filter((t) => t.markup_group_id === groupId)
+          : markupTiers.filter((t) => t.printer_category_id === merged.printerCategoryId);
+        const totalImpressions = Math.max(
+          1,
+          (merged.bookletUnits ?? 0) > 0 && (merged.bookletPages ?? 0) > 0
+            ? (merged.bookletUnits as number) * (merged.bookletPages as number)
+            : merged.quantity || 1,
+        );
+        const tier =
+          groupTiers.find((t) => totalImpressions >= t.min_qty && (t.max_qty === null || totalImpressions <= t.max_qty)) ||
+          groupTiers[0] ||
+          null;
+        return { ...merged, unitPrice: tier ? calcSellingPrice(merged.baseCost ?? 0, tier) : (merged.baseCost ?? merged.unitPrice ?? 0) };
       });
       // Sincroniza quantidade dos filhos Capa/Contracapa com bookletUnits do pai
       if ("bookletUnits" in patch) {
