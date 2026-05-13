@@ -910,6 +910,7 @@ export function PrintingItemEditor({
             onChildMaterialChange={onChildMaterialChange}
             disabled={locked}
             bookletUnits={isApostila ? item.bookletUnits ?? null : null}
+            bookletPages={isApostila ? item.bookletPages ?? null : null}
           />
         )}
       </div>
