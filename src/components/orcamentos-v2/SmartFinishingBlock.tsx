@@ -66,7 +66,7 @@ const fmt = (n: number) =>
 export function SmartFinishingBlock({
   parentItemId, productKind, processSteps, hourlyRate, displayPcts,
   childLabor, childMaterials, onChildLaborChange, onChildMaterialChange,
-  disabled, bookletUnits, bookletPages, showCoverPaper, onShowCoverPaper,
+  disabled, bookletUnits, bookletPages, showCoverPaper, onShowCoverPaper, coverPaperSlot,
 }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
