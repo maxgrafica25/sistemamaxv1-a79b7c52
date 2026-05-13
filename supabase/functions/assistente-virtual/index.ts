@@ -1420,18 +1420,18 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
     ];
 
     let resposta = "";
-    // Helper: chama o gateway com retry/backoff em 5xx (ex.: Cloudflare 1102 → 503)
-    async function callGateway(forceNoTools = false): Promise<Response> {
+    // Helper: chama a API do Gemini (endpoint OpenAI-compat) com retry/backoff em 5xx
+    async function callGemini(forceNoTools = false): Promise<Response> {
       const maxAttempts = 3;
       let lastResp: Response | null = null;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const requestBody: Record<string, unknown> = forceNoTools
-          ? { model: "google/gemini-2.5-flash-lite", messages, tool_choice: "none" }
-          : { model: "google/gemini-2.5-flash-lite", messages, tools, tool_choice: "auto" };
-        const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          ? { model: GEMINI_MODEL, messages, tool_choice: "none" }
+          : { model: GEMINI_MODEL, messages, tools, tool_choice: "auto" };
+        const resp = await fetch(GEMINI_URL, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            Authorization: `Bearer ${GOOGLE_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(requestBody),
@@ -1442,7 +1442,7 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
         }
         lastResp = resp;
         const errorText = await resp.clone().text().catch(() => "");
-        console.warn(`[assistente-virtual] gateway transient ${resp.status} (attempt ${attempt}/${maxAttempts}): ${errorText.slice(0, 200)}`);
+        console.warn(`[assistente-virtual] gemini transient ${resp.status} (attempt ${attempt}/${maxAttempts}): ${errorText.slice(0, 200)}`);
         if (attempt < maxAttempts) {
           // backoff: 600ms, 1500ms
           await new Promise((r) => setTimeout(r, attempt === 1 ? 300 : 800));
