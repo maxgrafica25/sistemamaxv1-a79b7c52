@@ -284,11 +284,6 @@ function DirectSumBlock({ item }: { item: PricingBreakdownItemDirectSum }) {
       {item.laborPerDisplayUnit > 0 && (
         <Line label="Montagem / Mão de obra" value={item.laborPerDisplayUnit} />
       )}
-      <Line
-        label={`Custos de venda (${fmtPct(item.salesCostPct)})`}
-        value={item.salesCostPerDisplayUnit}
-        muted
-      />
       <div className="border-t border-emerald-500/20 my-1" />
       <Line label={`Preço por ${unit}`} value={item.sellingPriceDisplayUnit} bold highlight />
       <Line
