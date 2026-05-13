@@ -679,14 +679,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           groupTiers[0] ||
           null;
         const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
-        // Apostila: unitPrice = preço da tabela (paper+print com tier), sem arredondar.
-        let apostilaUnit = baseCost;
-        if (tier) {
-          const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
-          const div = 1 - soma;
-          if (div > 0) apostilaUnit = baseCost / div;
-        }
-        const unitPrice = isDirectSumItem(m) ? apostilaUnit : sellingPrice;
+        const unitPrice = sellingPrice;
         return {
           ...m,
           description: `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}` : ""}`,
