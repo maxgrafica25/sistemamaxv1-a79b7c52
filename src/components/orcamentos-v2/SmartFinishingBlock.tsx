@@ -61,11 +61,41 @@ const fmt = (n: number) =>
 export function SmartFinishingBlock({
   parentItemId, productKind, processSteps, hourlyRate, displayPcts,
   childLabor, childMaterials, onChildLaborChange, onChildMaterialChange,
-  disabled, bookletUnits,
+  disabled, bookletUnits, bookletPages,
 }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const focusIdRef = useRef<string | null>(null);
+  const [supplies, setSupplies] = useState<SupplyRow[] | null>(null);
+
+  const isApostila = !!bookletUnits && bookletUnits > 0;
+
+  // Carrega suprimentos + faixas só quando o item é apostila (pre-load para o Kit).
+  useEffect(() => {
+    if (!isApostila || supplies !== null) return;
+    let cancelled = false;
+    (async () => {
+      const [{ data: sups }, { data: tiers }] = await Promise.all([
+        supabase.from("supplies").select("id, produto, valor_unitario, margem_pct"),
+        (supabase as any).from("supply_pricing_tiers").select("*").order("min_qty"),
+      ]);
+      if (cancelled) return;
+      const tierMap = new Map<string, SupplyTier[]>();
+      for (const t of (tiers || []) as any[]) {
+        const arr = tierMap.get(t.supply_id) || [];
+        arr.push(t as SupplyTier);
+        tierMap.set(t.supply_id, arr);
+      }
+      setSupplies(((sups || []) as any[]).map((s) => ({
+        id: s.id,
+        produto: s.produto,
+        valor_unitario: Number(s.valor_unitario) || 0,
+        margem_pct: s.margem_pct == null ? null : Number(s.margem_pct),
+        pricing_tiers: tierMap.get(s.id) || [],
+      })));
+    })();
+    return () => { cancelled = true; };
+  }, [isApostila, supplies]);
 
   const suggestions = useMemo(
     () => getFinishingSuggestions(productKind, processSteps),
