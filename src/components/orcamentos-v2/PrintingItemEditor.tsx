@@ -112,6 +112,17 @@ export function PrintingItemEditor({
   const [paperQuery, setPaperQuery] = useState("");
 
   const isApostila = isApostilaKind(item.productKind);
+
+  // Capa/Contracapa impressa: tratada como componente sob demanda (projeto especial).
+  // Auto-revela se já houver papel impresso vinculado em sessão anterior.
+  const hasCoverWithPaper = childMaterials.some(
+    (c) => (c.productKind === "Capa" || c.productKind === "Contracapa") &&
+      !!(c as any).paperType,
+  );
+  const [showCoverPaper, setShowCoverPaper] = useState(hasCoverWithPaper);
+  useEffect(() => {
+    if (hasCoverWithPaper) setShowCoverPaper(true);
+  }, [hasCoverWithPaper]);
   // Para apostila: unitPrice é o preço FINAL da impressão por folha (vindo
   // direto da faixa de markup da tabela "Preço Impressão"). Não usar
   // printingCostUnit — esse é o custo bruto, não o preço de venda.
