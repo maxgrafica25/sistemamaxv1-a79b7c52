@@ -138,11 +138,6 @@ function DirectSumBody({ item }: { item: PricingBreakdownItemDirectSum }) {
       )}
       <div className="border-t border-border/60 my-1" />
       <Line label={`Subtotal por ${unit}`} value={item.subtotalPerDisplayUnit} bold />
-      <Line
-        label={`Custos de venda (Imposto + Cartão · ${fmtPct(item.salesCostPct)})`}
-        value={item.salesCostPerDisplayUnit}
-        muted
-      />
       <Line label={`Preço por ${unit}`} value={item.sellingPriceDisplayUnit} bold highlight />
       <div className="border-t border-border/60 my-1" />
       <Line
