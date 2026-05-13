@@ -673,9 +673,14 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     setMaterials((prev) =>
       prev.map((m) => {
         if (m.id !== id) return m;
-        const qty = m.quantity || 1;
+        const totalImpressions = Math.max(
+          1,
+          (m.bookletUnits ?? 0) > 0 && (m.bookletPages ?? 0) > 0
+            ? (m.bookletUnits as number) * (m.bookletPages as number)
+            : m.quantity || 1,
+        );
         const tier =
-          groupTiers.find((t) => qty >= t.min_qty && (t.max_qty === null || qty <= t.max_qty)) ||
+          groupTiers.find((t) => totalImpressions >= t.min_qty && (t.max_qty === null || totalImpressions <= t.max_qty)) ||
           groupTiers[0] ||
           null;
         const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
@@ -742,9 +747,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       const next = prev.map((m) => {
         if (m.id !== id) return m;
         const merged = { ...m, ...patch };
-        return isDirectSumItem(merged) && merged.printingCostUnit != null
-          ? { ...merged, unitPrice: merged.printingCostUnit }
-          : merged;
+        return merged;
       });
       // Sincroniza quantidade dos filhos Capa/Contracapa com bookletUnits do pai
       if ("bookletUnits" in patch) {
