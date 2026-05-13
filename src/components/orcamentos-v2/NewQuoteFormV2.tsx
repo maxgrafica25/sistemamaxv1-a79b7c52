@@ -311,8 +311,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     const catalog: PrintingCatalogItem[] = (printRes.data || []).map((item: any) => {
       const cat = categoriesList.find((c) => c.id === item.printer_category_id);
       const eq = equipmentsList.find((e) => e.id === item.equipment_id);
+      // Mantém o custo A4 BRUTO (sem roundUp5) — exatamente como PrecoImpressao.
+      // O arredondamento acontece apenas uma vez, depois de aplicar sizeMult/sideMult.
       const printingCost = item.equipment_id
-        ? roundUp5(getEquipCostPerPage(item.equipment_id, item.equipment_mode || "color"))
+        ? getEquipCostPerPage(item.equipment_id, item.equipment_mode || "color")
         : item.printing_cost;
       const livePaperCost = getLivePaperCost(item.paper_type, item.grammage, item.size);
       const paperCost = livePaperCost !== null ? Number(livePaperCost.toFixed(4)) : item.paper_cost;
