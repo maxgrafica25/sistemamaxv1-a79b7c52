@@ -174,6 +174,122 @@ export function SmartFinishingBlock({
     setOpen(false);
   };
 
+  // ---- Kit Automático de Encadernação ----------------------------------------
+  const findSupply = (rx: RegExp): SupplyRow | null =>
+    (supplies || []).find((s) => rx.test(s.produto)) || null;
+
+  const pickTierPrice = (s: SupplyRow, qty: number): number => {
+    const tiers = s.pricing_tiers || [];
+    if (tiers.length === 0) return s.valor_unitario;
+    const sorted = [...tiers].sort((a, b) => a.min_qty - b.min_qty);
+    const hit = sorted.find((t) => qty >= t.min_qty && (t.max_qty == null || qty <= t.max_qty));
+    return hit ? Number(hit.manual_price) : s.valor_unitario;
+  };
+
+  const hasChildKind = (kind: string) =>
+    childMaterials.some(
+      (m) => m.parentItemId === parentItemId &&
+        (m.productKind || "").toLowerCase() === kind.toLowerCase(),
+    );
+
+  const addKitSupply = (
+    out: SubformMaterial[],
+    productKindLabel: "Capa" | "Contracapa" | "Mola",
+    rx: RegExp,
+    fallbackName: string,
+    units: number,
+  ): { added: boolean; fallback: boolean; label: string } => {
+    if (hasChildKind(productKindLabel)) return { added: false, fallback: false, label: productKindLabel };
+    const sup = findSupply(rx);
+    const id = `mat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${productKindLabel}`;
+    if (sup) {
+      const unitPrice = pickTierPrice(sup, units);
+      out.push({
+        id,
+        description: sup.produto,
+        quantity: units,
+        unitPrice,
+        parentItemId,
+        productKind: productKindLabel,
+        supplyId: sup.id,
+        margemPct: sup.margem_pct ?? null,
+        pricingTiers: sup.pricing_tiers,
+      } as SubformMaterial);
+      return { added: true, fallback: false, label: sup.produto };
+    }
+    out.push({
+      id,
+      description: `${fallbackName} — preencher`,
+      quantity: units,
+      unitPrice: 0,
+      parentItemId,
+      productKind: productKindLabel,
+    } as SubformMaterial);
+    return { added: true, fallback: true, label: fallbackName };
+  };
+
+  const handleSuggestKit = () => {
+    if (!isApostila) return;
+    if (supplies === null) {
+      toast.info("Carregando suprimentos…");
+      return;
+    }
+    const units = bookletUnits!;
+    const sheets = bookletPages ?? 0;
+    const diameter = sheets > 0 ? getIdealSpiral(sheets) : null;
+
+    const newMats: SubformMaterial[] = [];
+    const fallbacks: string[] = [];
+    const rCapa = addKitSupply(newMats, "Capa", FRONT_COVER_REGEX, "Capa PP Line A4 Incolor", units);
+    const rContra = addKitSupply(newMats, "Contracapa", BACK_COVER_REGEX, "Capa PP Camurça A4 Preta", units);
+    let rMola: ReturnType<typeof addKitSupply> = { added: false, fallback: false, label: "Mola" };
+    if (diameter) {
+      rMola = addKitSupply(newMats, "Mola", spiralRegex(diameter), `Espiral ${diameter}`, units);
+    }
+    [rCapa, rContra, rMola].forEach((r) => { if (r.added && r.fallback) fallbacks.push(r.label); });
+    if (newMats.length > 0) onChildMaterialChange([...childMaterials, ...newMats]);
+
+    const newLabs: SubformLabor[] = [];
+    for (const { key, rx } of BINDING_LABOR_PATTERNS) {
+      const exists = childLabor.some(
+        (l) => l.parentItemId === parentItemId && rx.test(l.description),
+      );
+      if (exists) continue;
+      const step = processSteps.find((s) => rx.test(s.description));
+      const id = `lbr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${key}`;
+      if (step) {
+        newLabs.push({
+          id,
+          description: `${step.description} (×${units} apostilas)`,
+          timeMinutes: (step.time_minutes || 0) * units,
+          stepType: step.step_type || "outro",
+          parentItemId,
+          isOptional: false,
+        });
+      } else {
+        newLabs.push({
+          id,
+          description: `${key} — preencher`,
+          timeMinutes: 0,
+          stepType: "outro",
+          parentItemId,
+          isOptional: false,
+        });
+        fallbacks.push(key);
+      }
+    }
+    if (newLabs.length > 0) onChildLaborChange([...childLabor, ...newLabs]);
+
+    const total = newMats.length + newLabs.length;
+    if (total === 0) {
+      toast.info("Kit já está completo neste item.");
+    } else if (fallbacks.length > 0) {
+      toast.warning(`Kit aplicado (${total} itens). Preencher manualmente: ${fallbacks.join(", ")}`);
+    } else {
+      toast.success(`Kit de encadernação aplicado (${total} itens).`);
+    }
+  };
+
   const updateLabor = (id: string, patch: Partial<SubformLabor>) =>
     onChildLaborChange(childLabor.map((l) => (l.id === id ? { ...l, ...patch } : l)));
   const removeLabor = (id: string) =>
