@@ -8,7 +8,7 @@
 // materials/labor still flow through the classic global divisor.
 
 import type { MarkupTier } from "@/components/orcamentos/PrintingItemSearch";
-import { pickSupplyTier, type SupplyTier } from "./supply-pricing";
+import type { SupplyTier } from "./supply-pricing";
 
 export interface PricingMaterial {
   id: string;
