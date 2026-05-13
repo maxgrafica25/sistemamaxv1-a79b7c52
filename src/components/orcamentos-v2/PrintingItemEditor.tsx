@@ -642,11 +642,22 @@ export function PrintingItemEditor({
         </div>
       )}
 
-      {/* Apostila — Capa e Contracapa (sub-itens automáticos) */}
-      {isApostila && !locked && (
+      {/* Apostila — Capa e Contracapa impressas (projeto especial, sob demanda) */}
+      {isApostila && !locked && showCoverPaper && (
         <div className="px-3 pb-3 border-t border-border/60 pt-3 space-y-2">
-          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-            Capa & Contracapa
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+              Capa & Contracapa impressas
+            </div>
+            {!hasCoverWithPaper && (
+              <button
+                type="button"
+                onClick={() => setShowCoverPaper(false)}
+                className="text-[10px] text-muted-foreground hover:text-foreground"
+              >
+                Ocultar
+              </button>
+            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <CoverPaperPicker
@@ -667,7 +678,7 @@ export function PrintingItemEditor({
             />
           </div>
           <p className="text-[10px] text-muted-foreground">
-            A quantidade segue automaticamente o nº de apostilas.
+            Use somente quando a capa for impressa em papel especial. Para apostilas comuns, use o Kit Encadernação abaixo.
           </p>
         </div>
       )}
