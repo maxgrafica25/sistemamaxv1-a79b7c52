@@ -22,6 +22,8 @@ export interface SubformLabor {
   parentItemId?: string | null;
   /** Acabamento opcional (upsell) — não compõe o preço base do item. */
   isOptional?: boolean;
+  /** Tempo bruto por apostila gravado pelo Kit Encadernação (para sincronia dinâmica com bookletUnits). */
+  perBookletMinutes?: number | null;
 }
 
 export interface SubformMaterial extends PricingMaterial {

@@ -1,40 +1,31 @@
-## Refino de Tokens de Cor — Light & Dark Mode
+## Correção do Kit Encadernação — Mão de obra como total do lote + sincronia dinâmica
 
-Edição pontual em `src/index.css` nas variáveis HSL do tema. Sem mudanças em componentes, lógica ou design system de marca (roxo permanece como `--primary`).
+### Contexto rápido
+A inserção da Mão de obra do Kit Encadernação está gravando o tempo bruto por apostila (`step.time_minutes`), mas a arquitetura `direct_sum` das apostilas exige que as linhas filhas representem o **total absoluto do lote**. Além disso, alterar `bookletUnits` depois de aplicar o Kit não recalcula o tempo (só os suprimentos).
 
-### 1. Light Mode (`:root`)
+### Mudanças
 
-| Token | Antes | Depois | Motivo |
-|---|---|---|---|
-| `--background` | `0 0% 100%` (branco puro) | `210 40% 98%` (slate-50, gelo) | Fundo respirável, separa blocos por cor |
-| `--card` | `0 0% 100%` | `0 0% 100%` (mantém branco puro) | Bloco "flutua" sobre o fundo gelo |
-| `--popover` | `0 0% 100%` | `0 0% 100%` (mantém) | Idem |
-| `--border` | `270 20% 88%` (tingido roxo) | `214 32% 91%` (slate-200, neutro) | Limite sutil sem peso |
-| `--input` | `270 20% 88%` | `214 32% 91%` | Coerência com border |
-| `--muted` | `270 20% 92%` | `210 40% 94%` | Neutralizar fundo de áreas mudas |
-| `--secondary` | `270 20% 96%` | `210 40% 96%` | Neutralizar |
+**1) `src/components/orcamentos-v2/SmartFinishingBlock.tsx` — `handleSuggestKit`**
+- Voltar a multiplicar pelo número de apostilas ao criar cada `SubformLabor`:
+  - `timeMinutes: (step.time_minutes || 0) * units`
+- Anexar metadado `perBookletMinutes: step.time_minutes || 0` no objeto inserido (campo novo, opcional, usado pelo observer para recalcular proporcionalmente).
+- Atualizar a descrição para incluir o sufixo `(×N apostilas)` (consistente com o helper `addLaborStep` já existente no mesmo arquivo).
+- Remover o comentário antigo que justificava a não-multiplicação (linhas ~272-275).
 
-Foreground, primary (roxo), accent (laranja), success/warning/danger e sidebar permanecem inalterados.
+**2) `src/components/orcamentos-v2/LaborAndSupplySubform.tsx`**
+- Estender a interface `SubformLabor` com:
+  - `perBookletMinutes?: number | null` — tempo bruto por apostila gravado no momento da inserção pelo Kit. Permanece opcional; itens manuais não usam.
 
-### 2. Dark Mode (`.dark`)
+**3) `src/components/orcamentos-v2/NewQuoteFormV2.tsx` — observer de `bookletUnits`**
+No bloco que já sincroniza suprimentos quando `"bookletUnits" in patch` (≈ linhas 792-806), adicionar passo análogo para a mão de obra:
+- Localizar o `setLabor`/equivalente (mesmo escopo do `setMaterials`).
+- Para cada entrada com `parentItemId === id` e `perBookletMinutes != null`, atualizar `timeMinutes = perBookletMinutes * units`.
+- Não tocar em entradas sem `perBookletMinutes` (mão de obra inserida manualmente preserva o valor digitado pelo usuário).
 
-Substituir o "tinte roxo" do fundo por preto/cinza chumbo neutro. Roxo continua só como acento (`--primary`, ring, sidebar-primary).
+### Resultado esperado
+- 10 apostilas × furação de 5 min → input preenchido com **50 min**.
+- Trocar 10 → 20 apostilas → o campo passa para **100 min** automaticamente, junto com Capa/Contracapa/Mola que já reagem.
+- Edição manual posterior do operador no input continua funcionando (o observer só recalcula quando `bookletUnits` muda).
 
-| Token | Antes | Depois |
-|---|---|---|
-| `--background` | `270 40% 10%` | `0 0% 7%` (quase preto neutro) |
-| `--card` | `270 40% 13%` | `0 0% 10%` (cinza chumbo, destaca do fundo) |
-| `--popover` | `270 40% 13%` | `0 0% 10%` |
-| `--secondary` | `270 30% 18%` | `0 0% 14%` |
-| `--muted` | `270 30% 20%` | `0 0% 16%` |
-| `--muted-foreground` | `270 10% 60%` | `0 0% 65%` |
-| `--border` | `270 30% 22%` | `0 0% 18%` |
-| `--input` | `270 30% 22%` | `0 0% 18%` |
-
-Mantidos no dark: `--primary` (roxo 270 70% 60%), `--ring`, `--accent` (laranja), success/warning/danger, sidebar (que já tem identidade própria slate + roxo).
-
-### Arquivo afetado
-
-- `src/index.css` — apenas tokens HSL nas duas blocos `:root` e `.dark`.
-
-Sem alterações em Tailwind config, componentes, banco ou edge functions. Todos os componentes que já consomem `bg-background`, `bg-card`, `border`, etc. herdam automaticamente.
+### Fora de escopo
+Engine de pricing, persistência no banco, RLS, edge functions, tipos gerados.

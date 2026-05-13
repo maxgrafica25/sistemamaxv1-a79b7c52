@@ -765,7 +765,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const removeLaborStep = (id: string) =>
     setLabor((prev) => prev.filter((l) => l.id !== id));
 
-  const updateMaterialPatch = (id: string, patch: Partial<PricingMaterial>) =>
+  const updateMaterialPatch = (id: string, patch: Partial<PricingMaterial>) => {
     setMaterials((prev) => {
       const next = prev.map((m) => {
         if (m.id !== id) return m;
@@ -806,7 +806,25 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       }
       return next;
     });
-
+    // Sincroniza tempo da mão de obra do Kit Encadernação com bookletUnits do pai
+    if ("bookletUnits" in patch) {
+      const units = Math.max(0, (patch as any).bookletUnits ?? 0);
+      setLabor((prev) =>
+        prev.map((l) =>
+          l.parentItemId === id && l.perBookletMinutes != null
+            ? {
+                ...l,
+                timeMinutes: (l.perBookletMinutes || 0) * units,
+                description: l.description.replace(
+                  /\(×\d+\s*apostilas?\)/,
+                  `(×${units} apostilas)`,
+                ),
+              }
+            : l,
+        ),
+      );
+    }
+  };
   const pickCoverPaperFor = (
     parentId: string,
     kind: "Capa" | "Contracapa",

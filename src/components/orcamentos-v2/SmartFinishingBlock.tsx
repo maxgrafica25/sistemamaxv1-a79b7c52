@@ -269,17 +269,19 @@ export function SmartFinishingBlock({
       const step = processSteps.find((s) => rx.test(s.description));
       const id = `lbr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${key}`;
       if (step) {
-        // IMPORTANTE: timeMinutes é o tempo BRUTO da etapa (por apostila).
-        // Não multiplicar por units aqui — o motor de pricing já amortiza
-        // o custo total sobre o nº de apostilas no display. Multiplicar
-        // novamente causaria dupla contagem.
+        // Apostilas usam direct_sum: as linhas filhas devem representar o
+        // TOTAL absoluto do lote. Multiplicamos pelo nº de apostilas e
+        // guardamos o tempo por unidade em perBookletMinutes para que o
+        // observer de bookletUnits possa recalcular proporcionalmente.
+        const perUnit = step.time_minutes || 0;
         newLabs.push({
           id,
-          description: step.description,
-          timeMinutes: step.time_minutes || 0,
+          description: `${step.description} (×${units} apostilas)`,
+          timeMinutes: perUnit * units,
           stepType: step.step_type || "outro",
           parentItemId,
           isOptional: false,
+          perBookletMinutes: perUnit,
         });
       } else {
         newLabs.push({
