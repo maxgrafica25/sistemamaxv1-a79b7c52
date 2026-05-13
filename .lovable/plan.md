@@ -1,42 +1,40 @@
-## Ajustes de UX — Bloco de Acabamentos da Apostila
+## Refino de Tokens de Cor — Light & Dark Mode
 
-Duas correções de interface, sem mudanças em lógica de negócio, banco ou cálculo.
+Edição pontual em `src/index.css` nas variáveis HSL do tema. Sem mudanças em componentes, lógica ou design system de marca (roxo permanece como `--primary`).
 
-### 1. Capa Impressa renderiza no local da ação (`PrintingItemEditor.tsx` + `SmartFinishingBlock.tsx`)
+### 1. Light Mode (`:root`)
 
-Hoje o bloco "Capa & Contracapa impressas" (linhas 645–684 de `PrintingItemEditor.tsx`) é renderizado **acima** da seção "Configuração da Apostila", longe do botão `+ Capa Impressa` que vive dentro do `SmartFinishingBlock`. Ao clicar, o usuário não vê reação visual.
+| Token | Antes | Depois | Motivo |
+|---|---|---|---|
+| `--background` | `0 0% 100%` (branco puro) | `210 40% 98%` (slate-50, gelo) | Fundo respirável, separa blocos por cor |
+| `--card` | `0 0% 100%` | `0 0% 100%` (mantém branco puro) | Bloco "flutua" sobre o fundo gelo |
+| `--popover` | `0 0% 100%` | `0 0% 100%` (mantém) | Idem |
+| `--border` | `270 20% 88%` (tingido roxo) | `214 32% 91%` (slate-200, neutro) | Limite sutil sem peso |
+| `--input` | `270 20% 88%` | `214 32% 91%` | Coerência com border |
+| `--muted` | `270 20% 92%` | `210 40% 94%` | Neutralizar fundo de áreas mudas |
+| `--secondary` | `270 20% 96%` | `210 40% 96%` | Neutralizar |
 
-Solução — render-prop slot:
+Foreground, primary (roxo), accent (laranja), success/warning/danger e sidebar permanecem inalterados.
 
-- Em `PrintingItemEditor.tsx`:
-  - Remover o JSX do bloco "Capa & Contracapa impressas" da posição atual (linhas 645–684).
-  - Extrair esse mesmo JSX para uma variável local `coverPaperSlot` (ReactNode) construída no escopo do componente, mantendo as referências a `childMaterials`, `onPickCoverPaper`, `onClearCoverPaper`, `printingCatalog`, `setShowCoverPaper`, `hasCoverWithPaper`. Só é definida quando `isApostila && !locked && showCoverPaper`.
-  - Passar `coverPaperSlot` como nova prop opcional para `<SmartFinishingBlock />` (junto das props já existentes `showCoverPaper` / `onShowCoverPaper`).
+### 2. Dark Mode (`.dark`)
 
-- Em `SmartFinishingBlock.tsx`:
-  - Adicionar `coverPaperSlot?: React.ReactNode` à interface de props e ao destructure.
-  - Renderizar `{coverPaperSlot}` **imediatamente abaixo** do flex container dos botões (logo após o bloco das linhas 333–364), antes da camada de chips "Sugeridos".
-  - Manter o estilo visual atual do bloco (borda superior, padding, título "CAPA & CONTRACAPA IMPRESSAS", botão "Ocultar").
+Substituir o "tinte roxo" do fundo por preto/cinza chumbo neutro. Roxo continua só como acento (`--primary`, ring, sidebar-primary).
 
-Resultado: o clique em `+ Capa Impressa` faz os campos expandirem exatamente abaixo dos botões, no foco visual do operador.
+| Token | Antes | Depois |
+|---|---|---|
+| `--background` | `270 40% 10%` | `0 0% 7%` (quase preto neutro) |
+| `--card` | `270 40% 13%` | `0 0% 10%` (cinza chumbo, destaca do fundo) |
+| `--popover` | `270 40% 13%` | `0 0% 10%` |
+| `--secondary` | `270 30% 18%` | `0 0% 14%` |
+| `--muted` | `270 30% 20%` | `0 0% 16%` |
+| `--muted-foreground` | `270 10% 60%` | `0 0% 65%` |
+| `--border` | `270 30% 22%` | `0 0% 18%` |
+| `--input` | `270 30% 22%` | `0 0% 18%` |
 
-### 2. Esconder linha "Sugeridos" inteira em apostilas (`SmartFinishingBlock.tsx`)
+Mantidos no dark: `--primary` (roxo 270 70% 60%), `--ring`, `--accent` (laranja), success/warning/danger, sidebar (que já tem identidade própria slate + roxo).
 
-Hoje o filtro `KIT_COVERED_REGEX` (linha 115) remove Furação/Montagem/Encadernação, mas "Refile" sobra sozinho poluindo a UI.
+### Arquivo afetado
 
-Solução:
+- `src/index.css` — apenas tokens HSL nas duas blocos `:root` e `.dark`.
 
-- Na condição de render da camada de chips (linha 367), adicionar `!isApostila`:
-  ```tsx
-  {!isApostila && visibleSuggestions.length > 0 && !disabled && ( ... )}
-  ```
-- O `KIT_COVERED_REGEX` pode permanecer (defensivo), mas a linha inteira de chips deixa de aparecer para apostilas. Para apostilas, o único call-to-action de sugestão é o botão primário "🪄 Sugerir Kit Encadernação".
-
-Comportamento para outros produtos (cartão/flyer/etiqueta/livro) permanece intacto.
-
-### Arquivos afetados
-
-- `src/components/orcamentos-v2/PrintingItemEditor.tsx`
-- `src/components/orcamentos-v2/SmartFinishingBlock.tsx`
-
-Sem alterações em DB, RLS, edge functions, motor de preço ou tipos gerados.
+Sem alterações em Tailwind config, componentes, banco ou edge functions. Todos os componentes que já consomem `bg-background`, `bg-card`, `border`, etc. herdam automaticamente.
