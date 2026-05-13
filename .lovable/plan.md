@@ -1,30 +1,46 @@
 ## Diagnóstico
 
-O valor R$ 357,00 aparece porque o motor está escolhendo a faixa da tabela usando `itemQty = 700` folhas/impressões totais. Para essa faixa, o preço calculado fica R$ 5,10 por folha, então 70 folhas por apostila viram R$ 357,00.
+O acréscimo de 2% não vem de uma taxa oculta aplicada no resumo lateral. O problema está antes, no momento em que o `unitPrice` da apostila é calculado.
 
-Para apostilas, a faixa correta da tabela deve ser escolhida pela quantidade de apostilas (`bookletUnits = 10`), não pela quantidade total de folhas (`quantity = 700`). Assim a tabela usa a faixa de 10 unidades, cujo valor é R$ 5,00 por folha, resultando em:
+Hoje, para apostila, o código ainda calcula `unitPrice` com `calcSellingPrice(baseCost, tier)`. No caso do Sulfite 75g A4 F/V, a faixa de 700 impressões resulta em `R$ 5,10` por impressão porque o cálculo usa o custo base + percentuais da faixa e arredonda para R$ 0,10. Depois o motor usa esse `unitPrice` como final, então `70 × 5,10 = R$ 357,00`.
+
+Também encontrei um erro de exibição no editor: para apostila, ele mostra `printingCostUnit` como preço unitário efetivo em alguns pontos, em vez do `unitPrice` final da faixa.
+
+## Correção proposta
+
+1. **Criar uma função específica para preço final de apostila** em `NewQuoteFormV2.tsx`:
+   - Buscar a faixa pela quantidade total de impressões: `bookletPages × bookletUnits`.
+   - Calcular o preço da tabela exatamente como a página **Preço Impressão** exibe.
+   - Para apostilas, tratar esse valor como final e imutável: nenhuma taxa global, margem, perda, ISS, cartão ou arredondamento adicional depois disso.
+
+2. **Garantir que o motor de cálculo respeite o preço travado** em `pricing.ts`:
+   - `recalculateForQuantity`: impressão de apostila = `unitPrice × quantity`.
+   - `breakdownForQuantity`: composição lateral = `unitPrice × folhas por apostila`.
+   - Não aplicar `supplyDivisor`, `laborDivisor`, `salesCostPct` ou `calcSellingPrice` sobre a parcela de impressão da apostila.
+   - Manter os divisores apenas para acabamentos/filhos, como capa, mola, furo e montagem.
+
+3. **Corrigir a visualização no editor** em `PrintingItemEditor.tsx`:
+   - Para apostilas, exibir `unitPrice` como preço da impressão, não `printingCostUnit`.
+   - Assim, a linha de impressão e o tooltip ficam coerentes com a composição lateral.
+
+4. **Preservar o fluxo clássico**:
+   - Cartões, flyers, etiquetas, adesivos e demais itens continuam usando markup/tier clássico.
+   - Sem alterações em banco de dados, RLS ou tabelas.
+
+## Validação esperada
+
+Com 10 apostilas de 70 folhas:
 
 ```text
 70 folhas × R$ 5,00 = R$ 350,00 por apostila
-10 apostilas × R$ 350,00 = R$ 3.500,00 de impressão
+10 apostilas × R$ 350,00 = R$ 3.500,00 total de impressão
 ```
 
-## Plano de implementação
+Na composição lateral deve aparecer algo como:
 
-1. Ajustar `src/lib/quotes-v2/pricing.ts` para que itens `direct_sum`/apostila busquem a faixa de impressão com uma quantidade de referência própria:
-   - usar `bookletUnits` quando existir e for maior que zero;
-   - senão manter `itemQty` como fallback para não afetar outros itens.
+```text
+Impressão (70 folhas)     R$ 350,00
+Total (10 apostilas)      R$ 3.500,00
+```
 
-2. Aplicar o mesmo critério nos dois pontos do motor:
-   - cálculo principal (`recalculateForQuantity`);
-   - composição/tooltip (`breakdownForQuantity`).
-
-3. Manter intactos:
-   - cálculo de cartão/flyer e demais itens tier clássicos;
-   - cálculo de filhos da apostila (capa, mola, furo, montagem);
-   - banco de dados, RLS e configurações globais.
-
-4. Conferir com o caso do print:
-   - 10 apostilas × 70 folhas, Sulfite 75g A4 F/V Xerox C70;
-   - impressão por apostila deve aparecer R$ 350,00;
-   - total de impressão deve ser R$ 3.500,00 antes dos demais filhos/acabamentos.
+sem somar 2%, imposto, cartão, perda ou margem sobre esse subtotal de impressão.
