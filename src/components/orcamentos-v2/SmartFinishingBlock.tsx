@@ -258,10 +258,14 @@ export function SmartFinishingBlock({
       const step = processSteps.find((s) => rx.test(s.description));
       const id = `lbr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${key}`;
       if (step) {
+        // IMPORTANTE: timeMinutes é o tempo BRUTO da etapa (por apostila).
+        // Não multiplicar por units aqui — o motor de pricing já amortiza
+        // o custo total sobre o nº de apostilas no display. Multiplicar
+        // novamente causaria dupla contagem.
         newLabs.push({
           id,
-          description: `${step.description} (×${units} apostilas)`,
-          timeMinutes: (step.time_minutes || 0) * units,
+          description: step.description,
+          timeMinutes: step.time_minutes || 0,
           stepType: step.step_type || "outro",
           parentItemId,
           isOptional: false,
