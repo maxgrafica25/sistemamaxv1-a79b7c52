@@ -45,6 +45,9 @@ interface Props {
   bookletUnits?: number | null;
   /** Nº de folhas da apostila — usado para escolher o diâmetro da espiral no kit. */
   bookletPages?: number | null;
+  /** Apostila: botão para revelar capa/contracapa impressa (projeto especial). */
+  showCoverPaper?: boolean;
+  onShowCoverPaper?: () => void;
 }
 
 interface SupplyRow {
@@ -61,7 +64,7 @@ const fmt = (n: number) =>
 export function SmartFinishingBlock({
   parentItemId, productKind, processSteps, hourlyRate, displayPcts,
   childLabor, childMaterials, onChildLaborChange, onChildMaterialChange,
-  disabled, bookletUnits, bookletPages,
+  disabled, bookletUnits, bookletPages, showCoverPaper, onShowCoverPaper,
 }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
