@@ -90,6 +90,26 @@ const calcSellingPrice = (baseCost: number, tier: MarkupTier) => {
   return Math.round((baseCost / divisor) * 10) / 10;
 };
 
+const pickTierForVolume = (tiers: MarkupTier[], volume: number) =>
+  tiers.find((t) => volume >= t.min_qty && (t.max_qty === null || volume <= t.max_qty)) ||
+  tiers[0] ||
+  null;
+
+const getDirectTierUnitPrice = (tier: MarkupTier | null): number | null => {
+  if (!tier) return null;
+  const raw =
+    (tier as any).unit_price ??
+    (tier as any).unitPrice ??
+    (tier as any).manual_price ??
+    (tier as any).manualPrice ??
+    (tier as any).price_per_sheet ??
+    (tier as any).pricePerSheet ??
+    (tier as any).price ??
+    (tier as any).valor_unitario;
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : null;
+};
+
 export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const isEditing = !!quoteId;
   const { defaultQuoteValidityDays, defaultTaxRate, defaultLossMargin } = useCompanySettings();
@@ -291,12 +311,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     const catalog: PrintingCatalogItem[] = (printRes.data || []).map((item: any) => {
       const cat = categoriesList.find((c) => c.id === item.printer_category_id);
       const eq = equipmentsList.find((e) => e.id === item.equipment_id);
-      // Custo bruto A4 da impressão — NÃO arredondamos aqui. O arredondamento
-      // (R$ 0,05) acontece uma única vez no consumidor, depois de aplicar os
-      // multiplicadores de tamanho/face. Pré-arredondar aqui causava drift
-      // (ex.: 2% de diferença vs. a página "Preço Impressão").
       const printingCost = item.equipment_id
-        ? getEquipCostPerPage(item.equipment_id, item.equipment_mode || "color")
+        ? roundUp5(getEquipCostPerPage(item.equipment_id, item.equipment_mode || "color"))
         : item.printing_cost;
       const livePaperCost = getLivePaperCost(item.paper_type, item.grammage, item.size);
       const paperCost = livePaperCost !== null ? Number(livePaperCost.toFixed(4)) : item.paper_cost;
