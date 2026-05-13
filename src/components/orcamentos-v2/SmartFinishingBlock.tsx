@@ -43,6 +43,16 @@ interface Props {
   disabled?: boolean;
   /** Quando definido (apostila), multiplica o tempo do passo de encadernação por este valor. */
   bookletUnits?: number | null;
+  /** Nº de folhas da apostila — usado para escolher o diâmetro da espiral no kit. */
+  bookletPages?: number | null;
+}
+
+interface SupplyRow {
+  id: string;
+  produto: string;
+  valor_unitario: number;
+  margem_pct: number | null;
+  pricing_tiers: SupplyTier[];
 }
 
 const fmt = (n: number) =>
