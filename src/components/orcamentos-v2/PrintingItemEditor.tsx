@@ -642,47 +642,6 @@ export function PrintingItemEditor({
         </div>
       )}
 
-      {/* Apostila — Capa e Contracapa impressas (projeto especial, sob demanda) */}
-      {isApostila && !locked && showCoverPaper && (
-        <div className="px-3 pb-3 border-t border-border/60 pt-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-              Capa & Contracapa impressas
-            </div>
-            {!hasCoverWithPaper && (
-              <button
-                type="button"
-                onClick={() => setShowCoverPaper(false)}
-                className="text-[10px] text-muted-foreground hover:text-foreground"
-              >
-                Ocultar
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <CoverPaperPicker
-              kind="Capa"
-              printingCatalog={printingCatalog}
-              printColors={item.printColors}
-              current={childMaterials.find((c) => c.productKind === "Capa") || null}
-              onPick={(it) => onPickCoverPaper?.("Capa", it)}
-              onClear={() => onClearCoverPaper?.("Capa")}
-            />
-            <CoverPaperPicker
-              kind="Contracapa"
-              printingCatalog={printingCatalog}
-              printColors={item.printColors}
-              current={childMaterials.find((c) => c.productKind === "Contracapa") || null}
-              onPick={(it) => onPickCoverPaper?.("Contracapa", it)}
-              onClear={() => onClearCoverPaper?.("Contracapa")}
-            />
-          </div>
-          <p className="text-[10px] text-muted-foreground">
-            Use somente quando a capa for impressa em papel especial. Para apostilas comuns, use o Kit Encadernação abaixo.
-          </p>
-        </div>
-      )}
-
       {/* Apostila — bloco dedicado de configuração (folhas × apostilas + impressão) */}
       {isApostila && (
         <div className="px-3 pb-3 border-t border-border/60 pt-3 space-y-3">
