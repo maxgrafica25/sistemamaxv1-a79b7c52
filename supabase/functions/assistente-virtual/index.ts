@@ -16,7 +16,9 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const GOOGLE_API_KEY = Deno.env.get("GOOGLE_API_KEY")!;
+const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
 // Cobertura de referência do fabricante (yield_pages cadastrado no banco) vs cobertura real da gráfica
 const COVERAGE_REFERENCE = 5;    // % — valor de fábrica cadastrado em yield_pages
