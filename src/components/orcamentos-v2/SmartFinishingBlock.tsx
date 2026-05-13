@@ -48,6 +48,8 @@ interface Props {
   /** Apostila: botão para revelar capa/contracapa impressa (projeto especial). */
   showCoverPaper?: boolean;
   onShowCoverPaper?: () => void;
+  /** Slot renderizado abaixo dos botões de ação (apostila). */
+  coverPaperSlot?: React.ReactNode;
 }
 
 interface SupplyRow {
