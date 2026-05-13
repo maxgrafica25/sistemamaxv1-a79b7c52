@@ -48,6 +48,8 @@ interface Props {
   /** Apostila: botão para revelar capa/contracapa impressa (projeto especial). */
   showCoverPaper?: boolean;
   onShowCoverPaper?: () => void;
+  /** Slot renderizado abaixo dos botões de ação (apostila). */
+  coverPaperSlot?: React.ReactNode;
 }
 
 interface SupplyRow {
@@ -64,7 +66,7 @@ const fmt = (n: number) =>
 export function SmartFinishingBlock({
   parentItemId, productKind, processSteps, hourlyRate, displayPcts,
   childLabor, childMaterials, onChildLaborChange, onChildMaterialChange,
-  disabled, bookletUnits, bookletPages, showCoverPaper, onShowCoverPaper,
+  disabled, bookletUnits, bookletPages, showCoverPaper, onShowCoverPaper, coverPaperSlot,
 }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -363,8 +365,10 @@ export function SmartFinishingBlock({
         </div>
       )}
 
-      {/* Camada 1 — chips contextuais */}
-      {visibleSuggestions.length > 0 && !disabled && (
+      {coverPaperSlot}
+
+      {/* Camada 1 — chips contextuais (oculto em apostilas: só Kit Encadernação) */}
+      {!isApostila && visibleSuggestions.length > 0 && !disabled && (
         <div className="flex flex-wrap items-center gap-1.5">
           <Sparkles className="h-3 w-3 text-primary/60" />
           <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-1">
