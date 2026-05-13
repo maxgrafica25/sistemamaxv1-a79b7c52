@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, X, Sparkles, Search, Clock } from "lucide-react";
+import { Plus, X, Sparkles, Search, Clock, Wand2 } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  getIdealSpiral, spiralRegex,
+  FRONT_COVER_REGEX, BACK_COVER_REGEX, BINDING_LABOR_PATTERNS,
+} from "@/lib/quotes-v2/spiral-selector";
+import type { SupplyTier } from "@/lib/quotes-v2/supply-pricing";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
