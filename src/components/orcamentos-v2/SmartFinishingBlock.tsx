@@ -107,9 +107,15 @@ export function SmartFinishingBlock({
     () => new Set(childLabor.map((l) => l.description.trim().toLowerCase())),
     [childLabor],
   );
-  const visibleSuggestions = suggestions.filter(
-    (s) => !addedDescriptions.has((s.step?.description ?? s.customName ?? s.label).toLowerCase()),
-  );
+  // Em apostila, o Kit Encadernação cobre Furação/Montagem/Encadernação —
+  // remover esses chips redundantes da camada de sugestões.
+  const KIT_COVERED_REGEX = /(fura[cç][aã]o|montagem|encaderna)/i;
+  const visibleSuggestions = suggestions.filter((s) => {
+    const text = (s.step?.description ?? s.customName ?? s.label).toLowerCase();
+    if (addedDescriptions.has(text)) return false;
+    if (isApostila && KIT_COVERED_REGEX.test(s.label)) return false;
+    return true;
+  });
 
   const filteredSteps = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -258,10 +264,14 @@ export function SmartFinishingBlock({
       const step = processSteps.find((s) => rx.test(s.description));
       const id = `lbr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${key}`;
       if (step) {
+        // IMPORTANTE: timeMinutes é o tempo BRUTO da etapa (por apostila).
+        // Não multiplicar por units aqui — o motor de pricing já amortiza
+        // o custo total sobre o nº de apostilas no display. Multiplicar
+        // novamente causaria dupla contagem.
         newLabs.push({
           id,
-          description: `${step.description} (×${units} apostilas)`,
-          timeMinutes: (step.time_minutes || 0) * units,
+          description: step.description,
+          timeMinutes: step.time_minutes || 0,
           stepType: step.step_type || "outro",
           parentItemId,
           isOptional: false,
