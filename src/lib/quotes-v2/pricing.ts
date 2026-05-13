@@ -231,9 +231,20 @@ export const recalculateForQuantity = (
         .filter((cl) => !cl.isOptional)
         .reduce((s, cl) => s + (cl.timeMinutes / 60) * hourlyRate, 0);
 
-      // Apostila/direct_sum: a tabela "Preço Impressão" já traz o preço final
-      // do clique/folha. Nunca reaplicar tier/arredondamento sobre unitPrice.
-      const printingSellingUnit = m.printingCostUnit ?? m.unitPrice ?? m.baseCost ?? 0;
+      // Apostila/direct_sum: preço por folha = mesmo valor da tabela
+      // "Preço Impressão" para a quantidade (paper + print, com tier).
+      // Sem arredondamento extra — a tabela já é arredondada.
+      const baseCostPerSheet = (m.paperCost ?? 0) + (m.printingCostUnit ?? 0);
+      const printTier = m.printerCategoryId
+        ? findTier(snap, m.printerCategoryId, itemQty, m.markupGroupId)
+        : null;
+      const printSomaPct = printTier
+        ? (printTier.fixed_cost_pct + printTier.variable_cost_pct + printTier.margin_pct) / 100
+        : 0;
+      const printDivisor = 1 - printSomaPct;
+      const printingSellingUnit = printTier && printDivisor > 0
+        ? baseCostPerSheet / printDivisor
+        : (baseCostPerSheet || m.unitPrice || 0);
       const childMatPerUn = itemQty > 0 ? childMatTotal / itemQty : 0;
       const childLabPerUn = itemQty > 0 ? childLabTotal / itemQty : 0;
       const childMatSellingUn =
