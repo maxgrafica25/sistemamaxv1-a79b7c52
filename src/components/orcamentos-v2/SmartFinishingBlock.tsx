@@ -107,9 +107,15 @@ export function SmartFinishingBlock({
     () => new Set(childLabor.map((l) => l.description.trim().toLowerCase())),
     [childLabor],
   );
-  const visibleSuggestions = suggestions.filter(
-    (s) => !addedDescriptions.has((s.step?.description ?? s.customName ?? s.label).toLowerCase()),
-  );
+  // Em apostila, o Kit Encadernação cobre Furação/Montagem/Encadernação —
+  // remover esses chips redundantes da camada de sugestões.
+  const KIT_COVERED_REGEX = /(fura[cç][aã]o|montagem|encaderna)/i;
+  const visibleSuggestions = suggestions.filter((s) => {
+    const text = (s.step?.description ?? s.customName ?? s.label).toLowerCase();
+    if (addedDescriptions.has(text)) return false;
+    if (isApostila && KIT_COVERED_REGEX.test(s.label)) return false;
+    return true;
+  });
 
   const filteredSteps = useMemo(() => {
     const q = query.trim().toLowerCase();
