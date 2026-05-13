@@ -1,5 +1,6 @@
 // Edge Function: assistente-virtual
-// Recebe { pergunta, historico } e chama Lovable AI Gateway com:
+// Recebe { pergunta, historico } e chama a API oficial do Google Gemini
+// (endpoint OpenAI-compatível) com:
 //  - System prompt em 3 camadas (comportamento + base de conhecimento + dados ao vivo)
 //  - Histórico recente (últimas 10 mensagens)
 // JWT é validado em código via getClaims() (verify_jwt = true por padrão).
@@ -15,7 +16,9 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const GOOGLE_API_KEY = Deno.env.get("GOOGLE_API_KEY")!;
+const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
 // Cobertura de referência do fabricante (yield_pages cadastrado no banco) vs cobertura real da gráfica
 const COVERAGE_REFERENCE = 5;    // % — valor de fábrica cadastrado em yield_pages
@@ -1417,18 +1420,18 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
     ];
 
     let resposta = "";
-    // Helper: chama o gateway com retry/backoff em 5xx (ex.: Cloudflare 1102 → 503)
-    async function callGateway(forceNoTools = false): Promise<Response> {
+    // Helper: chama a API do Gemini (endpoint OpenAI-compat) com retry/backoff em 5xx
+    async function callGemini(forceNoTools = false): Promise<Response> {
       const maxAttempts = 3;
       let lastResp: Response | null = null;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const requestBody: Record<string, unknown> = forceNoTools
-          ? { model: "google/gemini-2.5-flash-lite", messages, tool_choice: "none" }
-          : { model: "google/gemini-2.5-flash-lite", messages, tools, tool_choice: "auto" };
-        const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          ? { model: GEMINI_MODEL, messages, tool_choice: "none" }
+          : { model: GEMINI_MODEL, messages, tools, tool_choice: "auto" };
+        const resp = await fetch(GEMINI_URL, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            Authorization: `Bearer ${GOOGLE_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(requestBody),
@@ -1439,7 +1442,7 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
         }
         lastResp = resp;
         const errorText = await resp.clone().text().catch(() => "");
-        console.warn(`[assistente-virtual] gateway transient ${resp.status} (attempt ${attempt}/${maxAttempts}): ${errorText.slice(0, 200)}`);
+        console.warn(`[assistente-virtual] gemini transient ${resp.status} (attempt ${attempt}/${maxAttempts}): ${errorText.slice(0, 200)}`);
         if (attempt < maxAttempts) {
           // backoff: 600ms, 1500ms
           await new Promise((r) => setTimeout(r, attempt === 1 ? 300 : 800));
@@ -1449,27 +1452,19 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
     }
 
     for (let iter = 0; iter < 4; iter++) {
-      const aiResp = await callGateway();
+      const aiResp = await callGemini();
 
       if (aiResp.status === 429) {
         return new Response(
           JSON.stringify({
-            error: "Muitas perguntas em pouco tempo. Aguarde alguns segundos e tente novamente.",
+            error: "Muitas perguntas em pouco tempo (ou cota do Gemini atingida). Aguarde alguns segundos e tente novamente.",
           }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
-      if (aiResp.status === 402) {
-        return new Response(
-          JSON.stringify({
-            error: "Créditos do assistente esgotados. Adicione créditos em Settings > Workspace > Usage.",
-          }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
       if (!aiResp.ok) {
         const text = await aiResp.text();
-        console.error("[assistente-virtual] AI gateway error:", aiResp.status, text);
+        console.error("[assistente-virtual] Gemini API error:", aiResp.status, text);
         const transient = aiResp.status === 503 || aiResp.status >= 500;
         return new Response(
           JSON.stringify({
@@ -1755,7 +1750,7 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
     // Se não conseguimos resposta textual mas houve operações, força 1 chamada extra sem tools.
     if (!resposta && opResults.length > 0) {
       try {
-        const forcedResp = await callGateway(true);
+        const forcedResp = await callGemini(true);
         if (forcedResp.ok) {
           const forcedJson = await forcedResp.json();
           const forcedMsg = forcedJson?.choices?.[0]?.message?.content;
