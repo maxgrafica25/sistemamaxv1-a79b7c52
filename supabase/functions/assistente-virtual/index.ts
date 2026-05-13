@@ -1750,7 +1750,7 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
     // Se não conseguimos resposta textual mas houve operações, força 1 chamada extra sem tools.
     if (!resposta && opResults.length > 0) {
       try {
-        const forcedResp = await callGateway(true);
+        const forcedResp = await callGemini(true);
         if (forcedResp.ok) {
           const forcedJson = await forcedResp.json();
           const forcedMsg = forcedJson?.choices?.[0]?.message?.content;
