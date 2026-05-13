@@ -129,6 +129,7 @@ export default function MateriasPrimas() {
   // Dialogs
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
+  const [duplicatingFromId, setDuplicatingFromId] = useState<string | null>(null);
   const [isPaperDialogOpen, setIsPaperDialogOpen] = useState(false);
   const [editingPaper, setEditingPaper] = useState<Paper | null>(null);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
@@ -395,15 +396,16 @@ export default function MateriasPrimas() {
 
   // ── Suprimento logic (DB-backed) ──
   const resetForm = () => { setProduto(""); setFinalidade(""); setQuantidade(""); setUnidade("un"); setValor(""); setFornecedor(""); setData(""); setContato(""); setMargemPct("0"); };
-  const openNewDialog = () => { setEditingMaterial(null); resetForm(); setIsDialogOpen(true); };
+  const openNewDialog = () => { setEditingMaterial(null); setDuplicatingFromId(null); resetForm(); setIsDialogOpen(true); };
   const openEditDialog = (m: Material) => {
-    setEditingMaterial(m); setProduto(m.produto); setFinalidade(m.finalidade);
+    setEditingMaterial(m); setDuplicatingFromId(null); setProduto(m.produto); setFinalidade(m.finalidade);
     setQuantidade(m.quantidade.toString()); setUnidade(m.unidade || "un"); setValor(m.valor.toString());
     setFornecedor(m.fornecedor); setData(m.data); setContato(m.contato);
     setMargemPct(String(m.margemPct ?? 0)); setIsDialogOpen(true);
   };
   const duplicateMaterial = (m: Material) => {
     setEditingMaterial(null);
+    setDuplicatingFromId(m.id);
     setProduto(`${m.produto} (cópia)`);
     setFinalidade(m.finalidade);
     setQuantidade(m.quantidade.toString());
@@ -478,9 +480,25 @@ export default function MateriasPrimas() {
           data: dt,
         });
         if (histErr) return handleError(histErr, "registrar histórico de compra");
+
+        if (duplicatingFromId) {
+          const { data: srcTiers, error: tiersErr } = await (supabase as any)
+            .from("supply_pricing_tiers")
+            .select("label, min_qty, max_qty, manual_price, sort_order")
+            .eq("supply_id", duplicatingFromId);
+          if (tiersErr) {
+            toast.warning("Suprimento criado, mas falhou ao copiar faixas de preço");
+          } else if (srcTiers && srcTiers.length > 0) {
+            const payload = srcTiers.map((t: any) => ({ ...t, supply_id: inserted.id }));
+            const { error: copyErr } = await (supabase as any).from("supply_pricing_tiers").insert(payload);
+            if (copyErr) toast.warning("Suprimento criado, mas falhou ao copiar faixas de preço");
+            else toast.success(`${srcTiers.length} faixa(s) de preço copiada(s)`);
+          }
+        }
       }
       toast.success("Item cadastrado!");
     }
+    setDuplicatingFromId(null);
     setIsDialogOpen(false);
     fetchSupplies();
   };
