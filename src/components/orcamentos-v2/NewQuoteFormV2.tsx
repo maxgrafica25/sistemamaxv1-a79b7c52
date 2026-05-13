@@ -1389,11 +1389,27 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               const sideMult = item.side === "F/V" ? 2 : 1;
               const printCost = roundUp5(item.printing_cost * sizeMult * sideMult);
               const baseCost = item.paper_cost + printCost;
+              const groupId = item.markup_group_id || categoryGroups[item.printer_category_id] || null;
+              const groupTiers = groupId
+                ? markupTiers.filter((t) => t.markup_group_id === groupId)
+                : markupTiers.filter((t) => t.printer_category_id === item.printer_category_id);
               setMaterials((prev) =>
                 prev.map((m) =>
                   m.id === id
                     ? (() => {
-                      const unitPrice = isDirectSumItem(m) ? printCost : (m.unitPrice || 0);
+                      const totalImpressions = Math.max(
+                        1,
+                        (m.bookletUnits ?? 0) > 0 && (m.bookletPages ?? 0) > 0
+                          ? (m.bookletUnits as number) * (m.bookletPages as number)
+                          : m.quantity || 1,
+                      );
+                      const tier =
+                        groupTiers.find((t) => totalImpressions >= t.min_qty && (t.max_qty === null || totalImpressions <= t.max_qty)) ||
+                        groupTiers[0] ||
+                        null;
+                      const unitPrice = isDirectSumItem(m)
+                        ? (tier ? calcSellingPrice(baseCost, tier) : baseCost)
+                        : (m.unitPrice || 0);
                       return {
                         ...m,
                         description: `${item.paper_type}${item.grammage ? ` ${item.grammage}` : ""} ${item.size} ${item.side}${item.equipment_name ? ` — ${item.equipment_name}` : ""}`,
