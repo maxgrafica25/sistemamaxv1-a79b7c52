@@ -1,71 +1,43 @@
-## Problema
+## Diagnóstico
 
-Para apostilas (modo `direct_sum` em `src/lib/quotes-v2/pricing.ts`), o motor usa como preço de venda da impressão **apenas o `printingCostUnit`**, que é:
+A tabela "Preço Impressão" exibe valores arredondados pra R$ 0,10 via `calcSellingPrice` (`Math.round((baseCost/divisor) × 10) / 10`). Para Sulfite 75g A4 F/V (Xerox C70), na faixa de 700 cópias, o `baseCost / divisor` real dá ~R$ 5,1351/folha, e a tabela mostra **R$ 5,00** (arredondado).
 
-- somente o **custo** da impressão (toner/clique × multiplicadores de F/V e A3),
-- **sem o papel**,
-- **sem a margem do tier** da tabela "Preço Impressão" para a quantidade.
+Na correção anterior eu removi o arredondamento no motor de apostila (`recalculateForQuantity` e `breakdownForQuantity`), então o sistema usa R$ 5,1351 × 70 = **R$ 359,46** em vez de R$ 5,00 × 70 = **R$ 350,00**.
 
-Resultado: o valor cobrado por folha não bate com o que aparece na tabela "Preço Impressão" (que é o preço final de venda, com tier embutido).
+## Correção
 
-**Exemplo do usuário**: 10 apostilas × 70 folhas F/V sulfite 75g = 700 folhas. Na faixa de 700 cópias, a tabela mostra **R$ 5,00/folha** → orçamento deveria mostrar R$ 3.500,00 de impressão.
+Re-aplicar o **mesmo arredondamento** que a tabela usa (`Math.round(... × 10) / 10`), pra apostila ficar idêntica à "Preço Impressão".
 
-## Decisão
+### `src/lib/quotes-v2/pricing.ts`
 
-Para itens `direct_sum` (apostila), o preço de venda da impressão por folha deve ser o **mesmo valor da tabela "Preço Impressão"** para a quantidade de folhas do orçamento — `calcSellingPrice(paperCost + printingCostUnit, tier)` usando o tier que casa com `m.quantity` (folhas).
-
-Regra confirmada antes: *"Sobre o valor da tabela de impressões não precisa colocar nenhum percentual a mais, pois já está com tudo embutido"*. Filhos (capa, mola, furo, montagem) continuam com os dois divisores atuais.
-
-**Sem arredondamento extra**: a tabela "Preço Impressão" já vem arredondada; o motor de apostila deve usar o valor calculado direto, sem aplicar `Math.ceil(... × 10) / 10` adicional.
-
-## Mudanças
-
-### 1. `src/lib/quotes-v2/pricing.ts`
-
-**`recalculateForQuantity`** (bloco `isDirectSumItem`, ~linha 234–244):
-
-Substituir:
-```ts
-const printingSellingUnit = m.printingCostUnit ?? m.unitPrice ?? m.baseCost ?? 0;
-```
-
-por: calcular o tier para `itemQty` (folhas) via `findTier(snap, m.printerCategoryId!, itemQty, m.markupGroupId)` e então:
+Em `recalculateForQuantity` (bloco `isDirectSumItem`) — substituir a divisão crua por `calcSellingPrice(baseCostPerSheet, printTier)` (que já arredonda igual à tabela):
 
 ```ts
 const baseCostPerSheet = (m.paperCost ?? 0) + (m.printingCostUnit ?? 0);
-const soma = tier ? (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100 : 0;
-const divisor = 1 - soma;
-const printingSellingUnit = tier && divisor > 0
-  ? baseCostPerSheet / divisor   // sem arredondar — tabela já é arredondada
-  : baseCostPerSheet;
+const printTier = m.printerCategoryId
+  ? findTier(snap, m.printerCategoryId, itemQty, m.markupGroupId)
+  : null;
+const printingSellingUnit = printTier
+  ? calcSellingPrice(baseCostPerSheet, printTier)
+  : (baseCostPerSheet || m.unitPrice || 0);
 ```
 
-(Não usar `calcSellingPrice` direto porque ele aplica `Math.round(... × 10) / 10`. Inline a fórmula sem o arredondamento.)
+Mesma troca em `breakdownForQuantity` para o `printingUnit`.
 
-**`breakdownForQuantity`** (bloco `isDirectSumItem`, ~linha 480–495):
+### `src/components/orcamentos-v2/NewQuoteFormV2.tsx`
 
-Substituir `printingUnit` pela mesma fórmula, para o tooltip "Composição do preço" mostrar o valor correto.
+Em `pickPaperForPrintingItem`: o `apostilaUnit` que adicionei sem arredondamento volta a ser igual ao `sellingPrice` (que já é `calcSellingPrice(baseCost, tier)`). Simplifica:
 
-### 2. `src/components/orcamentos-v2/NewQuoteFormV2.tsx`
-
-Em `pickPaperForPrintingItem` (~linha 682) o `unitPrice` da apostila hoje é `printCost`. Atualizar para refletir o novo selling unit (paper + print, com tier de `m.quantity`, **sem arredondar**) — mantém tabela e sidebar consistentes ao trocar papel. Mesma lógica em `addPrintingItem` (~linha 609) para o caso raro de criar item já como apostila.
-
-### 3. Sem mudanças
-
-- Banco, RLS, `supabase/`.
-- Tabela "Preço Impressão" (continua sendo a fonte da verdade — e quem detém o arredondamento).
-- Itens **não-apostila** (cartão, flyer): `calcSellingPrice` segue com arredondamento como hoje.
-- Cálculo dos filhos: mantém os dois divisores `supplyDivisor`/`laborDivisor`.
-- Multiplicadores A3/F/V continuam aplicados no `printCost` antes do tier.
+```ts
+const sellingPrice = tier ? calcSellingPrice(baseCost, tier) : baseCost;
+const unitPrice = sellingPrice; // mesmo cálculo p/ apostila e tier clássico
+```
 
 ## Validação
 
-1. **Caso do usuário**: 10 apostilas × 70 folhas F/V, sulfite 75g, sem capa/mola/labor → printing total = **R$ 3.500,00** exato.
-2. Apostila com capa (R$ 2,00 / margem 30%), mola (R$ 1,00 / margem 20%), furo 5min, montagem 4min, hourly R$ 60, margem global 25%: printing reflete tabela; filhos via divisores atuais.
-3. Item tier clássico (cartão 1.000 un): valor não muda.
+10 apostilas × 70 folhas F/V Sulfite 75g →
+- Impressão por folha: **R$ 5,00** (= tabela)
+- Impressão por apostila: **R$ 350,00**
+- Com Montagem ~R$ 2,55 e custos de venda dos filhos → "Preço por apostila" cai pra ~R$ 361,67 e Total ~R$ 3.616,70 (em vez de R$ 3.710,48).
 
-## Notas técnicas
-
-- `findTier` já existe em `pricing.ts`; reaproveitado no caminho `direct_sum`.
-- Se `printerCategoryId` ou tier ausentes (item legacy), fallback `baseCostPerSheet` — defensivo.
-- `m.quantity` no pai apostila já é `folhas` (calculado em `PrintingItemEditor` como `pieces / perSheetForSync`), eixo correto da tabela "Preço Impressão".
+Sem mudanças em DB, RLS, tabela "Preço Impressão", divisores dos filhos, ou itens tier clássico.
