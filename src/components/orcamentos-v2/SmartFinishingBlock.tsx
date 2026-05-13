@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, X, Sparkles, Search, Clock } from "lucide-react";
+import { Plus, X, Sparkles, Search, Clock, Wand2 } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  getIdealSpiral, spiralRegex,
+  FRONT_COVER_REGEX, BACK_COVER_REGEX, BINDING_LABOR_PATTERNS,
+} from "@/lib/quotes-v2/spiral-selector";
+import type { SupplyTier } from "@/lib/quotes-v2/supply-pricing";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -36,6 +43,16 @@ interface Props {
   disabled?: boolean;
   /** Quando definido (apostila), multiplica o tempo do passo de encadernação por este valor. */
   bookletUnits?: number | null;
+  /** Nº de folhas da apostila — usado para escolher o diâmetro da espiral no kit. */
+  bookletPages?: number | null;
+}
+
+interface SupplyRow {
+  id: string;
+  produto: string;
+  valor_unitario: number;
+  margem_pct: number | null;
+  pricing_tiers: SupplyTier[];
 }
 
 const fmt = (n: number) =>
@@ -44,11 +61,41 @@ const fmt = (n: number) =>
 export function SmartFinishingBlock({
   parentItemId, productKind, processSteps, hourlyRate, displayPcts,
   childLabor, childMaterials, onChildLaborChange, onChildMaterialChange,
-  disabled, bookletUnits,
+  disabled, bookletUnits, bookletPages,
 }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const focusIdRef = useRef<string | null>(null);
+  const [supplies, setSupplies] = useState<SupplyRow[] | null>(null);
+
+  const isApostila = !!bookletUnits && bookletUnits > 0;
+
+  // Carrega suprimentos + faixas só quando o item é apostila (pre-load para o Kit).
+  useEffect(() => {
+    if (!isApostila || supplies !== null) return;
+    let cancelled = false;
+    (async () => {
+      const [{ data: sups }, { data: tiers }] = await Promise.all([
+        supabase.from("supplies").select("id, produto, valor_unitario, margem_pct"),
+        (supabase as any).from("supply_pricing_tiers").select("*").order("min_qty"),
+      ]);
+      if (cancelled) return;
+      const tierMap = new Map<string, SupplyTier[]>();
+      for (const t of (tiers || []) as any[]) {
+        const arr = tierMap.get(t.supply_id) || [];
+        arr.push(t as SupplyTier);
+        tierMap.set(t.supply_id, arr);
+      }
+      setSupplies(((sups || []) as any[]).map((s) => ({
+        id: s.id,
+        produto: s.produto,
+        valor_unitario: Number(s.valor_unitario) || 0,
+        margem_pct: s.margem_pct == null ? null : Number(s.margem_pct),
+        pricing_tiers: tierMap.get(s.id) || [],
+      })));
+    })();
+    return () => { cancelled = true; };
+  }, [isApostila, supplies]);
 
   const suggestions = useMemo(
     () => getFinishingSuggestions(productKind, processSteps),
@@ -127,6 +174,122 @@ export function SmartFinishingBlock({
     setOpen(false);
   };
 
+  // ---- Kit Automático de Encadernação ----------------------------------------
+  const findSupply = (rx: RegExp): SupplyRow | null =>
+    (supplies || []).find((s) => rx.test(s.produto)) || null;
+
+  const pickTierPrice = (s: SupplyRow, qty: number): number => {
+    const tiers = s.pricing_tiers || [];
+    if (tiers.length === 0) return s.valor_unitario;
+    const sorted = [...tiers].sort((a, b) => a.min_qty - b.min_qty);
+    const hit = sorted.find((t) => qty >= t.min_qty && (t.max_qty == null || qty <= t.max_qty));
+    return hit ? Number(hit.manual_price) : s.valor_unitario;
+  };
+
+  const hasChildKind = (kind: string) =>
+    childMaterials.some(
+      (m) => m.parentItemId === parentItemId &&
+        (m.productKind || "").toLowerCase() === kind.toLowerCase(),
+    );
+
+  const addKitSupply = (
+    out: SubformMaterial[],
+    productKindLabel: "Capa" | "Contracapa" | "Mola",
+    rx: RegExp,
+    fallbackName: string,
+    units: number,
+  ): { added: boolean; fallback: boolean; label: string } => {
+    if (hasChildKind(productKindLabel)) return { added: false, fallback: false, label: productKindLabel };
+    const sup = findSupply(rx);
+    const id = `mat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${productKindLabel}`;
+    if (sup) {
+      const unitPrice = pickTierPrice(sup, units);
+      out.push({
+        id,
+        description: sup.produto,
+        quantity: units,
+        unitPrice,
+        parentItemId,
+        productKind: productKindLabel,
+        supplyId: sup.id,
+        margemPct: sup.margem_pct ?? null,
+        pricingTiers: sup.pricing_tiers,
+      } as SubformMaterial);
+      return { added: true, fallback: false, label: sup.produto };
+    }
+    out.push({
+      id,
+      description: `${fallbackName} — preencher`,
+      quantity: units,
+      unitPrice: 0,
+      parentItemId,
+      productKind: productKindLabel,
+    } as SubformMaterial);
+    return { added: true, fallback: true, label: fallbackName };
+  };
+
+  const handleSuggestKit = () => {
+    if (!isApostila) return;
+    if (supplies === null) {
+      toast.info("Carregando suprimentos…");
+      return;
+    }
+    const units = bookletUnits!;
+    const sheets = bookletPages ?? 0;
+    const diameter = sheets > 0 ? getIdealSpiral(sheets) : null;
+
+    const newMats: SubformMaterial[] = [];
+    const fallbacks: string[] = [];
+    const rCapa = addKitSupply(newMats, "Capa", FRONT_COVER_REGEX, "Capa PP Line A4 Incolor", units);
+    const rContra = addKitSupply(newMats, "Contracapa", BACK_COVER_REGEX, "Capa PP Camurça A4 Preta", units);
+    let rMola: ReturnType<typeof addKitSupply> = { added: false, fallback: false, label: "Mola" };
+    if (diameter) {
+      rMola = addKitSupply(newMats, "Mola", spiralRegex(diameter), `Espiral ${diameter}`, units);
+    }
+    [rCapa, rContra, rMola].forEach((r) => { if (r.added && r.fallback) fallbacks.push(r.label); });
+    if (newMats.length > 0) onChildMaterialChange([...childMaterials, ...newMats]);
+
+    const newLabs: SubformLabor[] = [];
+    for (const { key, rx } of BINDING_LABOR_PATTERNS) {
+      const exists = childLabor.some(
+        (l) => l.parentItemId === parentItemId && rx.test(l.description),
+      );
+      if (exists) continue;
+      const step = processSteps.find((s) => rx.test(s.description));
+      const id = `lbr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${key}`;
+      if (step) {
+        newLabs.push({
+          id,
+          description: `${step.description} (×${units} apostilas)`,
+          timeMinutes: (step.time_minutes || 0) * units,
+          stepType: step.step_type || "outro",
+          parentItemId,
+          isOptional: false,
+        });
+      } else {
+        newLabs.push({
+          id,
+          description: `${key} — preencher`,
+          timeMinutes: 0,
+          stepType: "outro",
+          parentItemId,
+          isOptional: false,
+        });
+        fallbacks.push(key);
+      }
+    }
+    if (newLabs.length > 0) onChildLaborChange([...childLabor, ...newLabs]);
+
+    const total = newMats.length + newLabs.length;
+    if (total === 0) {
+      toast.info("Kit já está completo neste item.");
+    } else if (fallbacks.length > 0) {
+      toast.warning(`Kit aplicado (${total} itens). Preencher manualmente: ${fallbacks.join(", ")}`);
+    } else {
+      toast.success(`Kit de encadernação aplicado (${total} itens).`);
+    }
+  };
+
   const updateLabor = (id: string, patch: Partial<SubformLabor>) =>
     onChildLaborChange(childLabor.map((l) => (l.id === id ? { ...l, ...patch } : l)));
   const removeLabor = (id: string) =>
@@ -153,6 +316,28 @@ export function SmartFinishingBlock({
 
   return (
     <div className="space-y-3">
+      {/* Kit Automático — apenas em apostilas */}
+      {isApostila && !disabled && (
+        <button
+          type="button"
+          onClick={handleSuggestKit}
+          className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+          title={
+            (bookletPages ?? 0) > 0
+              ? `Adiciona Capa, Contracapa, Espiral ${getIdealSpiral(bookletPages!)} e mão de obra (Furação + Encadernação)`
+              : "Defina o nº de folhas para escolher a espiral ideal"
+          }
+        >
+          <Wand2 className="h-3.5 w-3.5" />
+          Sugerir Kit Encadernação
+          {(bookletPages ?? 0) > 0 && (
+            <span className="text-[10px] text-primary/70 font-normal">
+              · espiral {getIdealSpiral(bookletPages!)}
+            </span>
+          )}
+        </button>
+      )}
+
       {/* Camada 1 — chips contextuais */}
       {visibleSuggestions.length > 0 && !disabled && (
         <div className="flex flex-wrap items-center gap-1.5">
