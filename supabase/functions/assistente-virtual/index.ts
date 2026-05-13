@@ -1452,27 +1452,19 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
     }
 
     for (let iter = 0; iter < 4; iter++) {
-      const aiResp = await callGateway();
+      const aiResp = await callGemini();
 
       if (aiResp.status === 429) {
         return new Response(
           JSON.stringify({
-            error: "Muitas perguntas em pouco tempo. Aguarde alguns segundos e tente novamente.",
+            error: "Muitas perguntas em pouco tempo (ou cota do Gemini atingida). Aguarde alguns segundos e tente novamente.",
           }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
-      if (aiResp.status === 402) {
-        return new Response(
-          JSON.stringify({
-            error: "Créditos do assistente esgotados. Adicione créditos em Settings > Workspace > Usage.",
-          }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
       if (!aiResp.ok) {
         const text = await aiResp.text();
-        console.error("[assistente-virtual] AI gateway error:", aiResp.status, text);
+        console.error("[assistente-virtual] Gemini API error:", aiResp.status, text);
         const transient = aiResp.status === 503 || aiResp.status >= 500;
         return new Response(
           JSON.stringify({
