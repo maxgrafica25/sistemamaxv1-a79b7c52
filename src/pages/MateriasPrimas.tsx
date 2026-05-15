@@ -181,6 +181,9 @@ export default function MateriasPrimas() {
   const [paperSupplier, setPaperSupplier] = useState("");
   const [paperContact, setPaperContact] = useState("");
   const [paperDate, setPaperDate] = useState("");
+  const [paperIsCutSize, setPaperIsCutSize] = useState(false);
+  const [paperPurchaseSheetW, setPaperPurchaseSheetW] = useState("");
+  const [paperPurchaseSheetH, setPaperPurchaseSheetH] = useState("");
   const [selectedExistingPaper, setSelectedExistingPaper] = useState<Paper | null>(null);
 
   // Computed freight per sheet (66x96)
