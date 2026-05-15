@@ -185,6 +185,21 @@ export default function MateriasPrimas() {
   const [paperPurchaseSheetW, setPaperPurchaseSheetW] = useState("");
   const [paperPurchaseSheetH, setPaperPurchaseSheetH] = useState("");
   const [selectedExistingPaper, setSelectedExistingPaper] = useState<Paper | null>(null);
+  // ── Modo embalagem (UI helper p/ papel cortado) ──
+  const [pkgMode, setPkgMode] = useState(false);
+  const [pkgBoxes, setPkgBoxes] = useState("1");
+  const [pkgPacks, setPkgPacks] = useState("1");
+  const [pkgSheetsPerPack, setPkgSheetsPerPack] = useState("500");
+
+  // Quando em modo embalagem, sincroniza Qtd. Folhas = caixas × pacotes × folhas/pct
+  useEffect(() => {
+    if (!pkgMode) return;
+    const b = Number(pkgBoxes) || 0;
+    const p = Number(pkgPacks) || 0;
+    const s = Number(pkgSheetsPerPack) || 0;
+    const total = b * p * s;
+    setPaperSheetQty(total > 0 ? String(total) : "");
+  }, [pkgMode, pkgBoxes, pkgPacks, pkgSheetsPerPack]);
 
   // Computed freight per sheet (66x96)
   const computedFreightPerSheet = useMemo(() => {
