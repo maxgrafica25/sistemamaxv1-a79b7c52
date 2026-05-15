@@ -30,6 +30,9 @@ export interface PrintingCatalogItem {
   printer_category_id: string;
   markup_group_id: string | null;
   totalCostA4: number;
+  is_cut_size?: boolean | null;
+  purchase_sheet_width_mm?: number | null;
+  purchase_sheet_height_mm?: number | null;
 }
 
 interface PrintingItemSearchProps {
