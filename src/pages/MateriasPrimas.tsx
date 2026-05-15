@@ -1010,6 +1010,59 @@ export default function MateriasPrimas() {
                 </div>
               </div>
 
+              {/* Formato de compra — papel já cortado / folhão custom */}
+              <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="paper-is-cut-size"
+                    checked={paperIsCutSize}
+                    onCheckedChange={(v) => setPaperIsCutSize(v === true)}
+                    className="mt-0.5"
+                  />
+                  <div className="space-y-0.5 flex-1">
+                    <Label htmlFor="paper-is-cut-size" className="text-sm cursor-pointer">
+                      Comprado já cortado no formato final
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Marque se a resma já vem no tamanho final (ex.: Sulfite A4). O motor de
+                      preço vai considerar <strong>1 folha = 1 peça</strong> e ignorar o
+                      cálculo de aproveitamento do folhão.
+                    </p>
+                  </div>
+                </div>
+                {!paperIsCutSize && (
+                  <div className="space-y-2 pt-1 border-t">
+                    <p className="text-xs text-muted-foreground">
+                      <strong>Folha de produção customizada (opcional)</strong> — deixe vazio
+                      para usar o folhão padrão (SRA3 ~ 328×478&nbsp;mm). Preencha se você
+                      compra outro formato (ex.: 660×960).
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Largura (mm)</Label>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="328"
+                          value={paperPurchaseSheetW}
+                          onChange={(e) => setPaperPurchaseSheetW(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Altura (mm)</Label>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="478"
+                          value={paperPurchaseSheetH}
+                          onChange={(e) => setPaperPurchaseSheetH(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Pricing fields - always visible */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
