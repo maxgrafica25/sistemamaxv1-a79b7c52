@@ -48,7 +48,7 @@ import {
   sideFromPrintColors,
   isApostilaKind,
 } from "@/lib/quotes-v2/item-title";
-import { calcSheetYield, PRODUCTION_SHEET, A4_SHEET } from "@/lib/quotes-v2/sheet-yield";
+import { calcSheetYield, PRODUCTION_SHEET, A4_SHEET, resolvePaperSheet } from "@/lib/quotes-v2/sheet-yield";
 import { ProcessPicker, type ProcessStep, type ProcessGroup } from "./ProcessPicker";
 import { SmartFinishingBlock } from "./SmartFinishingBlock";
 import { cn } from "@/lib/utils";
@@ -205,17 +205,42 @@ export function PrintingItemEditor({
   // Cálculo de aproveitamento por folha (visão interna).
   // Usa as PEÇAS DESEJADAS para sugerir folhas necessárias. Quantity é "folhas cobradas".
   const piecesValue = (item.pieces ?? item.quantity ?? 0) || 0;
-  const yieldInfo = useMemo(
-    () =>
-      calcSheetYield(
-        item.widthMm || 0,
-        item.heightMm || 0,
-        piecesValue,
-        isApostila ? A4_SHEET : PRODUCTION_SHEET,
-        isApostila ? 0 : undefined,
-      ),
-    [item.widthMm, item.heightMm, piecesValue, isApostila],
+
+  // Resolve "folha de produção" do papel: cut-size, folhão custom ou padrão SRA3.
+  // Caso o item tenha catalogItemId, prioriza a flag vinda do catálogo (cobre
+  // orçamentos carregados do banco que não trazem isCutSize no PricingMaterial).
+  const catalogPaper = useMemo(
+    () => (item.catalogItemId ? printingCatalog.find((p) => p.id === item.catalogItemId) : undefined),
+    [item.catalogItemId, printingCatalog],
   );
+  const paperSheetSrc = useMemo(() => ({
+    isCutSize: item.isCutSize ?? catalogPaper?.is_cut_size ?? false,
+    size: item.size ?? catalogPaper?.size ?? null,
+    purchaseSheetWidthMm: item.purchaseSheetWidthMm ?? catalogPaper?.purchase_sheet_width_mm ?? null,
+    purchaseSheetHeightMm: item.purchaseSheetHeightMm ?? catalogPaper?.purchase_sheet_height_mm ?? null,
+  }), [item.isCutSize, item.size, item.purchaseSheetWidthMm, item.purchaseSheetHeightMm, catalogPaper]);
+
+  const yieldInfo = useMemo(() => {
+    const resolved = resolvePaperSheet(paperSheetSrc);
+    if (resolved.forcePerSheetOne) {
+      // Papel já cortado no formato final → 1 peça por folha.
+      return {
+        perSheet: 1,
+        orientation: "retrato" as const,
+        sheetsNeeded: piecesValue > 0 ? piecesValue : 0,
+        usableWidthMm: 0,
+        usableHeightMm: 0,
+      };
+    }
+    const sheet = isApostila ? A4_SHEET : resolved.sheet;
+    return calcSheetYield(
+      item.widthMm || 0,
+      item.heightMm || 0,
+      piecesValue,
+      sheet,
+      isApostila ? 0 : undefined,
+    );
+  }, [item.widthMm, item.heightMm, piecesValue, isApostila, paperSheetSrc]);
   const hasDimensions = !!(item.widthMm && item.heightMm);
 
   // Modo Apostila: preset de formato (A4 / A5 / Personalizado).

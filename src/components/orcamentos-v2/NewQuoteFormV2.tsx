@@ -334,6 +334,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         printer_category_id: item.printer_category_id,
         markup_group_id: item.markup_group_id || null,
         totalCostA4: paperCost + roundUp5(printingCost),
+        is_cut_size: item.is_cut_size ?? false,
+        purchase_sheet_width_mm: item.purchase_sheet_width_mm ?? null,
+        purchase_sheet_height_mm: item.purchase_sheet_height_mm ?? null,
       };
     });
     setPrintingCatalog(catalog);
@@ -650,6 +653,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       generatedTitle: null,
       catalogSource: "printing",
       catalogItemId: item.id,
+      isCutSize: item.is_cut_size ?? false,
+      purchaseSheetWidthMm: item.purchase_sheet_width_mm ?? null,
+      purchaseSheetHeightMm: item.purchase_sheet_height_mm ?? null,
     }]);
     toast.success("Item de impressão adicionado!");
   };
@@ -726,6 +732,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           printColors: m.printColors ?? (item.side === "F/V" ? "4x4" : item.side === "Simples" ? "4x0" : null),
           catalogSource: "printing",
           catalogItemId: item.id,
+          isCutSize: item.is_cut_size ?? false,
+          purchaseSheetWidthMm: item.purchase_sheet_width_mm ?? null,
+          purchaseSheetHeightMm: item.purchase_sheet_height_mm ?? null,
         };
       }),
     );
@@ -865,6 +874,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         markupGroupId: item.markup_group_id,
         catalogSource: "printing" as any,
         catalogItemId: item.id,
+        isCutSize: item.is_cut_size ?? false,
+        purchaseSheetWidthMm: item.purchase_sheet_width_mm ?? null,
+        purchaseSheetHeightMm: item.purchase_sheet_height_mm ?? null,
       };
       if (existing) {
         return prev.map((m) => (m.id === existing.id ? { ...m, ...patch } : m));
@@ -1489,6 +1501,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                         side: item.side ?? null,
                         catalogSource: "printing",
                         catalogItemId: item.id,
+                        isCutSize: item.is_cut_size ?? false,
+                        purchaseSheetWidthMm: item.purchase_sheet_width_mm ?? null,
+                        purchaseSheetHeightMm: item.purchase_sheet_height_mm ?? null,
                       };
                     })()
                     : m,

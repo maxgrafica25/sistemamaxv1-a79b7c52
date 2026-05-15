@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -57,6 +58,9 @@ interface PrintingPriceItem {
   paper_cost: number; printing_cost: number; is_active: boolean;
   sort_order: number; equipment_id: string | null; equipment_mode: string;
   markup_group_id: string | null;
+  is_cut_size?: boolean | null;
+  purchase_sheet_width_mm?: number | null;
+  purchase_sheet_height_mm?: number | null;
 }
 interface Equipment { id: string; name: string; printer_type: string; }
 interface EquipmentConsumable { equipment_id: string; price: number; yield_pages: number; mode: string; }
@@ -153,6 +157,9 @@ export default function PrecoImpressao() {
   const [itemEquipmentMode, setItemEquipmentMode] = useState<string>("color");
   const [itemPaperSource, setItemPaperSource] = useState<string>("manual");
   const [itemMarkupGroupId, setItemMarkupGroupId] = useState<string>("__default__");
+  const [itemIsCutSize, setItemIsCutSize] = useState(false);
+  const [itemPurchaseSheetW, setItemPurchaseSheetW] = useState("");
+  const [itemPurchaseSheetH, setItemPurchaseSheetH] = useState("");
   // Batch creation: multiple sizes/sides
   const [batchSizes, setBatchSizes] = useState<string[]>(["A4"]);
   const [batchSides, setBatchSides] = useState<string[]>(["F"]);
@@ -434,12 +441,18 @@ export default function PrecoImpressao() {
       setItemEquipmentId(item.equipment_id || ""); setItemEquipmentMode(item.equipment_mode || "color"); setItemPaperSource("manual");
       setBatchSizes([item.size]); setBatchSides([item.side]);
       setItemMarkupGroupId(item.markup_group_id || "__default__");
+      setItemIsCutSize(!!item.is_cut_size);
+      setItemPurchaseSheetW(item.purchase_sheet_width_mm != null ? String(item.purchase_sheet_width_mm) : "");
+      setItemPurchaseSheetH(item.purchase_sheet_height_mm != null ? String(item.purchase_sheet_height_mm) : "");
     } else {
       setEditingItem(null); setItemCode(""); setItemPaperType(""); setItemGrammage("");
       setItemSize("A4"); setItemSide("F"); setItemPaperCost("0"); setItemPrintingCost("0");
       setItemEquipmentId(""); setItemEquipmentMode("color"); setItemPaperSource("manual");
       setBatchSizes(["A4"]); setBatchSides(["F"]);
       setItemMarkupGroupId("__default__");
+      setItemIsCutSize(false);
+      setItemPurchaseSheetW("");
+      setItemPurchaseSheetH("");
     }
     setShowItemDialog(true);
   };
@@ -492,6 +505,9 @@ export default function PrecoImpressao() {
         paper_cost: Number(itemPaperCost), printing_cost: effectivePrintingCost,
         equipment_id: itemEquipmentId || null, equipment_mode: itemEquipmentMode,
         sort_order: editingItem.sort_order, markup_group_id: resolvedGroupId,
+        is_cut_size: itemIsCutSize,
+        purchase_sheet_width_mm: itemIsCutSize ? null : (itemPurchaseSheetW.trim() ? Number(itemPurchaseSheetW) : null),
+        purchase_sheet_height_mm: itemIsCutSize ? null : (itemPurchaseSheetH.trim() ? Number(itemPurchaseSheetH) : null),
       };
       const { error } = await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
       if (error) return handleError(error, "salvar item de impressão");
@@ -513,6 +529,9 @@ export default function PrecoImpressao() {
             paper_cost: Number(paperCost.toFixed(4)), printing_cost: effectivePrintingCost,
             equipment_id: itemEquipmentId || null, equipment_mode: itemEquipmentMode,
             sort_order: sortBase++, markup_group_id: resolvedGroupId,
+            is_cut_size: itemIsCutSize,
+            purchase_sheet_width_mm: itemIsCutSize ? null : (itemPurchaseSheetW.trim() ? Number(itemPurchaseSheetW) : null),
+            purchase_sheet_height_mm: itemIsCutSize ? null : (itemPurchaseSheetH.trim() ? Number(itemPurchaseSheetH) : null),
           });
         }
       }
@@ -1499,6 +1518,64 @@ export default function PrecoImpressao() {
                     <Input type="number" step="0.0001" value={itemPrintingCost} onChange={e => setItemPrintingCost(e.target.value)} placeholder="Ex: 0.0350" />
                     <p className="text-xs text-muted-foreground flex items-center gap-1"><Info className="h-3 w-3" />Cadastre equipamentos para calcular automaticamente</p>
                   </div>
+                )}
+              </div>
+
+              {/* Folha de produção — cut-size / folhão custom */}
+              <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="is-cut-size" className="text-sm">
+                      Comprado já cortado no formato final
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Marque se a resma já vem no tamanho final (ex.: Sulfite A4). O sistema
+                      considera <strong>1 folha = 1 peça</strong> e ignora o aproveitamento do folhão.
+                    </p>
+                  </div>
+                  <Switch
+                    id="is-cut-size"
+                    checked={itemIsCutSize}
+                    onCheckedChange={setItemIsCutSize}
+                  />
+                </div>
+                {!itemIsCutSize && (
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                        <ChevronDown className="h-3 w-3" />
+                        Folha de produção customizada (opcional)
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Deixe vazio para usar o folhão padrão (SRA3 ~ 328×478 mm). Preencha
+                        para encaixar as peças num folhão diferente.
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Largura (mm)</Label>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            placeholder="328"
+                            value={itemPurchaseSheetW}
+                            onChange={(e) => setItemPurchaseSheetW(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Altura (mm)</Label>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            placeholder="478"
+                            value={itemPurchaseSheetH}
+                            onChange={(e) => setItemPurchaseSheetH(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 )}
               </div>
 

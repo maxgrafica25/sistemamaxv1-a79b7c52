@@ -52,3 +52,53 @@ export function calcSheetYield(
     usableHeightMm: usableH,
   };
 }
+
+/** Mapeia tamanho nominal de papel (A4/A3/SRA3/Carta…) para mm. */
+export function sizeToMm(size?: string | null): { widthMm: number; heightMm: number } | null {
+  if (!size) return null;
+  const s = size.trim().toUpperCase();
+  switch (s) {
+    case "A4": return { widthMm: 210, heightMm: 297 };
+    case "A3": return { widthMm: 297, heightMm: 420 };
+    case "SRA3": return { widthMm: 320, heightMm: 450 };
+    case "A5": return { widthMm: 148, heightMm: 210 };
+    case "A2": return { widthMm: 420, heightMm: 594 };
+    case "CARTA": return { widthMm: 216, heightMm: 279 };
+    case "33X48": return { widthMm: 330, heightMm: 480 };
+    default: {
+      // tenta "WxH" ou "WxHmm"
+      const m = s.match(/^(\d+(?:\.\d+)?)\s*X\s*(\d+(?:\.\d+)?)/);
+      if (m) return { widthMm: Number(m[1]), heightMm: Number(m[2]) };
+      return null;
+    }
+  }
+}
+
+export interface PaperSheetSource {
+  isCutSize?: boolean | null;
+  size?: string | null;
+  purchaseSheetWidthMm?: number | null;
+  purchaseSheetHeightMm?: number | null;
+}
+
+/**
+ * Resolve a "folha de produção" a usar para um item de papel:
+ * 1. is_cut_size → 1 peça por folha (ignora aproveitamento)
+ * 2. purchase_sheet_*_mm preenchido → usa esse folhão custom
+ * 3. fallback → PRODUCTION_SHEET global (SRA3)
+ */
+export function resolvePaperSheet(src: PaperSheetSource): {
+  sheet: { widthMm: number; heightMm: number };
+  forcePerSheetOne: boolean;
+} {
+  if (src.isCutSize) {
+    const mm = sizeToMm(src.size) ?? PRODUCTION_SHEET;
+    return { sheet: mm, forcePerSheetOne: true };
+  }
+  const w = Number(src.purchaseSheetWidthMm) || 0;
+  const h = Number(src.purchaseSheetHeightMm) || 0;
+  if (w > 0 && h > 0) {
+    return { sheet: { widthMm: w, heightMm: h }, forcePerSheetOne: false };
+  }
+  return { sheet: PRODUCTION_SHEET, forcePerSheetOne: false };
+}
