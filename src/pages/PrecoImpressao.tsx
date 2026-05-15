@@ -1521,6 +1521,64 @@ export default function PrecoImpressao() {
                 )}
               </div>
 
+              {/* Folha de produção — cut-size / folhão custom */}
+              <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="is-cut-size" className="text-sm">
+                      Comprado já cortado no formato final
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Marque se a resma já vem no tamanho final (ex.: Sulfite A4). O sistema
+                      considera <strong>1 folha = 1 peça</strong> e ignora o aproveitamento do folhão.
+                    </p>
+                  </div>
+                  <Switch
+                    id="is-cut-size"
+                    checked={itemIsCutSize}
+                    onCheckedChange={setItemIsCutSize}
+                  />
+                </div>
+                {!itemIsCutSize && (
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                        <ChevronDown className="h-3 w-3" />
+                        Folha de produção customizada (opcional)
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Deixe vazio para usar o folhão padrão (SRA3 ~ 328×478 mm). Preencha
+                        para encaixar as peças num folhão diferente.
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Largura (mm)</Label>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            placeholder="328"
+                            value={itemPurchaseSheetW}
+                            onChange={(e) => setItemPurchaseSheetW(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Altura (mm)</Label>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            placeholder="478"
+                            value={itemPurchaseSheetH}
+                            onChange={(e) => setItemPurchaseSheetH(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+              </div>
+
               {/* Markup Group selector */}
               {markupGroups.length > 0 && (
                 <div className="space-y-2">
