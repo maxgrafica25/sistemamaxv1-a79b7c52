@@ -156,6 +156,9 @@ export default function PrecoImpressao() {
   const [itemEquipmentMode, setItemEquipmentMode] = useState<string>("color");
   const [itemPaperSource, setItemPaperSource] = useState<string>("manual");
   const [itemMarkupGroupId, setItemMarkupGroupId] = useState<string>("__default__");
+  const [itemIsCutSize, setItemIsCutSize] = useState(false);
+  const [itemPurchaseSheetW, setItemPurchaseSheetW] = useState("");
+  const [itemPurchaseSheetH, setItemPurchaseSheetH] = useState("");
   // Batch creation: multiple sizes/sides
   const [batchSizes, setBatchSizes] = useState<string[]>(["A4"]);
   const [batchSides, setBatchSides] = useState<string[]>(["F"]);
