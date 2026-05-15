@@ -135,7 +135,7 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
                       {item.paper_type} {item.grammage && `${item.grammage}`} — {item.size} {item.side}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-muted-foreground">{item.category_name}</span>
+                      <span className="text-xs text-muted-foreground group-hover:text-white/80">{item.category_name}</span>
                       {item.equipment_name && (
                         <Badge variant="outline" className="text-[10px] h-4 px-1.5">
                           {item.equipment_name}{item.equipment_mode === "pb" ? " (PB)" : ""}
