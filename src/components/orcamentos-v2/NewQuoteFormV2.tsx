@@ -732,6 +732,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           printColors: m.printColors ?? (item.side === "F/V" ? "4x4" : item.side === "Simples" ? "4x0" : null),
           catalogSource: "printing",
           catalogItemId: item.id,
+          isCutSize: item.is_cut_size ?? false,
+          purchaseSheetWidthMm: item.purchase_sheet_width_mm ?? null,
+          purchaseSheetHeightMm: item.purchase_sheet_height_mm ?? null,
         };
       }),
     );
