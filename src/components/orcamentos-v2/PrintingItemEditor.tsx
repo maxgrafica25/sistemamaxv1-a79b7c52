@@ -682,7 +682,7 @@ export function PrintingItemEditor({
               </PopoverContent>
             </Popover>
             {(() => {
-              const cid = (item as any).catalogItemId as string | null | undefined;
+              const cid = item.catalogItemId;
               if (!cid || !item.paperType) return null;
               const cat = printingCatalog?.find((p) => p.id === cid);
               if (!cat) return null;
