@@ -326,6 +326,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         ? getEquipCostPerPage(item.equipment_id, item.equipment_mode || "color")
         : item.printing_cost;
       const paperCost = Number(item.paper_cost) || 0;
+      const paperRec = findPaperRecord(item.paper_type, item.grammage);
       return {
         id: item.id,
         paper_type: item.paper_type,
@@ -340,9 +341,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         printer_category_id: item.printer_category_id,
         markup_group_id: item.markup_group_id || null,
         totalCostA4: paperCost + roundUp5(printingCost),
-        is_cut_size: item.is_cut_size ?? false,
-        purchase_sheet_width_mm: item.purchase_sheet_width_mm ?? null,
-        purchase_sheet_height_mm: item.purchase_sheet_height_mm ?? null,
+        is_cut_size: paperRec?.is_cut_size ?? false,
+        purchase_sheet_width_mm: paperRec?.purchase_sheet_width_mm ?? null,
+        purchase_sheet_height_mm: paperRec?.purchase_sheet_height_mm ?? null,
       };
     });
     setPrintingCatalog(catalog);
