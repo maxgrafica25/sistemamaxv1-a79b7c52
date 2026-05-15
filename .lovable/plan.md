@@ -1,45 +1,66 @@
+# Lançamento inteligente de compras tipo "Caixa com N pacotes de M folhas"
+
 ## Problema
 
-No diálogo "Novo Papel" (Matérias-Primas), quando você marca **"Comprado já cortado no formato final"** (ex.: Sulfite A4), o restante do formulário continua exibindo rótulos `(66×96)` hard-coded:
+Hoje, quando você marca **"Comprado já cortado"** (ex.: Sulfite A4) e compra uma caixa Suzano (10 pacotes × 500 folhas = 5.000 folhas, R$ 2.237,17), você precisa fazer a conta de cabeça antes de digitar:
 
-- "Qtd. Folhas (66×96) *"
-- "Frete por folha (66×96)"
-- "Preço por folha (66×96)" + preview "Preço A4 (÷9)" / "Preço A3+ (÷4)"
+- Qtd. Folhas na resma = **5.000**
+- Preço do Pacote = **2.237,17**
 
-Para uma resma de Sulfite A4, esses rótulos não fazem sentido — a folha **já é** A4, e o preview de divisão por 9/4 está conceitualmente errado (1 folha = 1 peça).
+Isso é fonte de erro (esqueceu um zero, contou pacotes errado) e não deixa rastro de **como** o custo unitário foi formado.
 
-## Solução (somente UI, sem mudanças de motor/banco)
+## Solução proposta — apenas UI no diálogo de cadastro de papel
 
-Tornar os rótulos e o preview **reativos a `paperIsCutSize`** no diálogo de cadastro/edição de papel em `src/pages/MateriasPrimas.tsx`.
+Adicionar um bloco opcional **"Modo embalagem"** que aparece somente quando `paperIsCutSize` está marcado, logo acima dos campos `Qtd. Folhas` / `Preço do Pacote`.
 
-### Mudanças
+### Novo bloco "Como você comprou?"
 
-1. **Reordenar** o bloco "Comprado já cortado" para aparecer **antes** ou imediatamente acima dos campos Qtd./Preço, deixando claro que ele muda o significado dos campos abaixo. (Já está acima — manter.)
+Toggle (Switch) com 2 modos:
 
-2. **Rótulo de quantidade** (linha 1069):
-   - Se `paperIsCutSize`: `"Qtd. Folhas na resma *"` + helper "Ex.: 500 folhas em uma resma de Sulfite A4"
-   - Senão: manter `"Qtd. Folhas (66×96) *"`
+**1. Simples (atual)** — campos `Qtd. Folhas na resma` + `Preço do Pacote` editáveis manualmente. Comportamento idêntico ao de hoje.
 
-3. **Rótulos de frete** (linhas 1107):
-   - Se `paperIsCutSize`: `"Frete por folha"` (sem "(66×96)")
-   - Senão: manter como está
+**2. Embalagem** — exibe 3 campos lado a lado:
 
-4. **Bloco de preview** (linhas 1115-1130) — quando `paperIsCutSize`:
-   - Mostrar apenas **uma linha**: `"Custo por folha"` = `pack_price / sheet_qty + frete`
-   - **Esconder** as linhas de divisão "÷9" e "÷4" (não se aplicam — folha já é a peça final)
-   - Quando não marcado: manter o preview atual (preço folha 66×96 + ÷9 A4 + ÷4 A3/SRA3)
+```text
+┌──────────────┬──────────────┬─────────────────────┐
+│ Caixas       │ Pacotes/cx   │ Folhas/pacote       │
+│   1          │   10         │   500               │
+└──────────────┴──────────────┴─────────────────────┘
+┌──────────────────────────────────────────────────┐
+│ Preço total da compra (R$)   2.237,17            │
+└──────────────────────────────────────────────────┘
+```
 
-5. **Texto do bloco "cut size"** (linhas 1026-1030): pequeno ajuste — explicitar que o campo "Qtd. Folhas" abaixo passa a representar a quantidade de folhas da resma já cortada.
+Mais um preview compacto:
+
+```text
+1 cx × 10 pct × 500 fl  =  5.000 folhas
+Custo por folha (sem frete): R$ 0,4474
+```
+
+Ao mudar qualquer um dos 4 campos, o componente preenche automaticamente os campos existentes:
+- `paperSheetQty`  ← `caixas × pacotes × folhasPorPacote`
+- `paperPackPrice` ← `precoTotalCompra`
+
+Os campos antigos continuam visíveis (read-only no modo Embalagem) para o usuário ver o resultado e ainda poder voltar para o modo Simples.
+
+### Defaults inteligentes
+- Caixas = 1, Pacotes = 1, Folhas/pacote = 500 (resma típica de sulfite).
+- Foco automático em "Preço total" — quase sempre o único valor que muda compra a compra.
+
+### Por que só no modo "cortado"?
+O modo folhão (66×96 / SRA3) já tem semântica diferente (Qtd. de folhões grandes), e raramente é vendido em caixas-de-pacotes. Mantemos esse fluxo intacto.
 
 ## Fora de escopo
 
-- Alterar a tabela/listagem (colunas "66×96" continuam fazendo sentido para papéis de folhão)
-- Mudar lógica de cálculo de custo (`paper_cost_per_sheet` continua sendo `pack/qty + frete`; o motor já trata `is_cut_size` corretamente via `resolvePaperSheet`)
-- Mudar o cadastro de Suprimentos
+- Não persiste `caixas/pacotes/folhasPorPacote` no banco (pure UI helper). Se mais tarde quisermos histórico de embalagem, adicionamos colunas opcionais.
+- Não mexe no cálculo de preço de impressão, no frete, nem no listing.
+- Não mexe em Suprimentos.
 
-## Resultado esperado
+## Detalhes técnicos
 
-Ao marcar "Comprado já cortado" para um Sulfite A4:
-- Campo passa a se chamar "Qtd. Folhas na resma" (sem "66×96")
-- Preview mostra apenas "Custo por folha: R$ 0,4300" — sem divisões artificiais
-- Usuário entende que está informando 500 folhas A4, e o sistema usará 1:1.
+- Arquivo único: `src/pages/MateriasPrimas.tsx`.
+- 3 estados locais novos: `pkgBoxes`, `pkgPacks`, `pkgSheetsPerPack` + 1 toggle `pkgMode: "simple" | "package"`.
+- Reset dos estados ao abrir/fechar o diálogo (junto com os resets já existentes).
+- `useEffect` que, em `pkgMode === "package"`, recomputa `paperSheetQty` quando os 3 fatores mudam.
+- O campo "Preço total da compra" reusa o mesmo state `paperPackPrice` (renomeamos só o label visualmente quando em modo embalagem para "Preço total da compra (R$)").
