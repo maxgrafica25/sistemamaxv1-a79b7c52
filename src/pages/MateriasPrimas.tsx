@@ -1024,9 +1024,10 @@ export default function MateriasPrimas() {
                       Comprado já cortado no formato final
                     </Label>
                     <p className="text-xs text-muted-foreground">
-                      Marque se a resma já vem no tamanho final (ex.: Sulfite A4). O motor de
-                      preço vai considerar <strong>1 folha = 1 peça</strong> e ignorar o
-                      cálculo de aproveitamento do folhão.
+                      Marque se a resma já vem no tamanho final (ex.: Sulfite A4). O campo
+                      <strong> Qtd. Folhas</strong> abaixo passa a representar quantas folhas
+                      vêm na resma, e o motor de preço considera <strong>1 folha = 1 peça</strong>
+                      (sem cálculo de aproveitamento de folhão).
                     </p>
                   </div>
                 </div>
