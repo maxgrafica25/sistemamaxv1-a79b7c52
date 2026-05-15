@@ -145,6 +145,22 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
                         <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{tierLabel}</Badge>
                       )}
                     </div>
+                    {item.linkedPaper ? (
+                      <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground truncate">
+                        <Link2 className="h-2.5 w-2.5 shrink-0" />
+                        <span className="truncate">
+                          vinculado a: {item.linkedPaper.name}
+                          {item.linkedPaper.grammage ? ` ${item.linkedPaper.grammage}` : ""}
+                          {" · "}{item.linkedPaper.packaging_label}
+                          {" · "}R$ {item.linkedPaper.unit_cost.toFixed(4)}/fl
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-500 truncate">
+                        <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                        sem papel vinculado em Matérias-Primas
+                      </p>
+                    )}
                   </div>
                   <div className="text-right shrink-0">
                     <span className="text-sm font-semibold text-primary">
