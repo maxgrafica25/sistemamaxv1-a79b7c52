@@ -323,6 +323,9 @@ export default function MateriasPrimas() {
     setPaperPackPrice("");
     setPaperFreightTotal("0");
     setPaperFreightDivideBy("1");
+    setPaperIsCutSize(!!paper.is_cut_size);
+    setPaperPurchaseSheetW(paper.purchase_sheet_width_mm != null ? String(paper.purchase_sheet_width_mm) : "");
+    setPaperPurchaseSheetH(paper.purchase_sheet_height_mm != null ? String(paper.purchase_sheet_height_mm) : "");
   };
 
   // When user clears the paper name / types a new name
