@@ -1116,17 +1116,21 @@ export default function MateriasPrimas() {
               {paperSheetQty && paperPackPrice && Number(paperSheetQty) > 0 && (
                 <div className="rounded-lg bg-muted p-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Preço por folha (66×96)</span>
+                    <span className="text-muted-foreground">{paperIsCutSize ? "Custo por folha" : "Preço por folha (66×96)"}</span>
                     <span className="font-semibold">{fmt4(Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet)}</span>
                   </div>
-                  <div className="border-t border-border pt-2 flex justify-between text-sm">
-                    <span className="text-muted-foreground">Preço A4 <span className="text-xs">(÷ 9)</span></span>
-                    <span className="font-bold text-primary">{fmt4((Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet) / 9)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Preço A3+ / SRA3 <span className="text-xs">(÷ 4)</span></span>
-                    <span className="font-bold text-primary">{fmt4((Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet) / 4)}</span>
-                  </div>
+                  {!paperIsCutSize && (
+                    <>
+                      <div className="border-t border-border pt-2 flex justify-between text-sm">
+                        <span className="text-muted-foreground">Preço A4 <span className="text-xs">(÷ 9)</span></span>
+                        <span className="font-bold text-primary">{fmt4((Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet) / 9)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Preço A3+ / SRA3 <span className="text-xs">(÷ 4)</span></span>
+                        <span className="font-bold text-primary">{fmt4((Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet) / 4)}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
