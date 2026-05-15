@@ -146,20 +146,23 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
                       )}
                     </div>
                     {item.linkedPaper ? (
-                      <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground truncate">
-                        <Link2 className="h-2.5 w-2.5 shrink-0" />
+                      <div className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground/80 truncate">
+                        <Link2 className="h-3 w-3 shrink-0 text-primary" />
                         <span className="truncate">
-                          vinculado a: {item.linkedPaper.name}
-                          {item.linkedPaper.grammage ? ` ${item.linkedPaper.grammage}` : ""}
-                          {" · "}{item.linkedPaper.packaging_label}
-                          {" · "}R$ {item.linkedPaper.unit_cost.toFixed(4)}/fl
+                          <span className="text-muted-foreground">vinculado a:</span>{" "}
+                          <span className="font-medium">
+                            {item.linkedPaper.name}
+                            {item.linkedPaper.grammage ? ` ${item.linkedPaper.grammage}` : ""}
+                          </span>
+                          <span className="text-muted-foreground"> · {item.linkedPaper.packaging_label} · </span>
+                          <span className="font-medium">R$ {item.linkedPaper.unit_cost.toFixed(4)}/fl</span>
                         </span>
-                      </p>
+                      </div>
                     ) : (
-                      <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-500 truncate">
-                        <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                      <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 truncate">
+                        <AlertTriangle className="h-3 w-3 shrink-0" />
                         sem papel vinculado em Matérias-Primas
-                      </p>
+                      </div>
                     )}
                   </div>
                   <div className="text-right shrink-0">
