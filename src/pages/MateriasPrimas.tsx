@@ -298,6 +298,10 @@ export default function MateriasPrimas() {
     setPaperPurchaseSheetW("");
     setPaperPurchaseSheetH("");
     setSelectedExistingPaper(null);
+    setPkgMode(false);
+    setPkgBoxes("1");
+    setPkgPacks("1");
+    setPkgSheetsPerPack("500");
   };
 
   const openPaperDialog = (paper?: Paper) => {
