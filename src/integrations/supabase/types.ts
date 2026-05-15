@@ -1860,11 +1860,14 @@ export type Database = {
           grammage: string | null
           id: string
           is_active: boolean
+          is_cut_size: boolean
           markup_group_id: string | null
           paper_cost: number
           paper_type: string
           printer_category_id: string
           printing_cost: number
+          purchase_sheet_height_mm: number | null
+          purchase_sheet_width_mm: number | null
           side: string
           size: string
           sort_order: number
@@ -1878,11 +1881,14 @@ export type Database = {
           grammage?: string | null
           id?: string
           is_active?: boolean
+          is_cut_size?: boolean
           markup_group_id?: string | null
           paper_cost?: number
           paper_type: string
           printer_category_id: string
           printing_cost?: number
+          purchase_sheet_height_mm?: number | null
+          purchase_sheet_width_mm?: number | null
           side?: string
           size?: string
           sort_order?: number
@@ -1896,11 +1902,14 @@ export type Database = {
           grammage?: string | null
           id?: string
           is_active?: boolean
+          is_cut_size?: boolean
           markup_group_id?: string | null
           paper_cost?: number
           paper_type?: string
           printer_category_id?: string
           printing_cost?: number
+          purchase_sheet_height_mm?: number | null
+          purchase_sheet_width_mm?: number | null
           side?: string
           size?: string
           sort_order?: number

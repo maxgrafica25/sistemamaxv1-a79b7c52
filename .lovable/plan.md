@@ -1,49 +1,67 @@
-## Objetivo
-Trocar o provedor de IA da edge function `assistente-virtual` do Lovable AI Gateway para a API oficial do Google Gemini, mantendo 100% da lógica de negócio, auth, ferramentas e acesso ao banco.
+# Papel já cortado — ignorar aproveitamento do folhão
 
-## Estratégia: usar o endpoint OpenAI-compatível do Gemini
+## Contexto
 
-O código atual depende fortemente do formato OpenAI (`messages` com `role: "tool"`, `tool_calls`, `tool_choice: "auto"`, etc.) — refatorar para o formato nativo do Gemini (`contents`/`functionCall`/`functionResponse`) seria invasivo e arriscado.
+Hoje toda peça é encaixada na **folha de produção padrão** (SRA3 ~ 328×478 mm) via `calcSheetYield`. O custo do papel cadastrado em `printing_price_items.paper_cost` é tratado como "custo de 1 folha SRA3", e a quantidade de folhas cobradas é `ceil(peças / perSheet)`.
 
-Felizmente o Google oferece um endpoint **OpenAI-compatible** que aceita exatamente o mesmo payload já usado hoje:
+Isso quebra para papéis que compramos já cortados em resma (Sulfite A4, A3, SRA3 já guilhotinado etc.): o custo cadastrado **já é** o custo da folha final, e não deve ser dividido pelo aproveitamento de um SRA3 imaginário.
 
-```
-POST https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
-Authorization: Bearer ${GOOGLE_API_KEY}
-```
+## Decisão de arquitetura
 
-Isso permite uma troca cirúrgica de ~10 linhas, sem mexer em system prompt, tools, executeTool, guards, etc.
+Em vez de só um boolean cego, vamos cadastrar **o tamanho real da folha comprada** por item. Isso resolve o caso atual e prepara o sistema pra qualquer empresa que compre formatos diferentes (A2, BB, 64×88 etc.).
 
-## Mudanças no código (`supabase/functions/assistente-virtual/index.ts`)
+**Modelo final em `printing_price_items`:**
 
-### 1. Secret
-- Trocar `const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;` (linha 18) por `const GOOGLE_API_KEY = Deno.env.get("GOOGLE_API_KEY")!;`.
-- Pré-requisito: você adicionar `GOOGLE_API_KEY` nas secrets do projeto (vou disparar o tool de adicionar secret depois que o plano for aprovado, ou você já pode adicionar via UI).
+- `is_cut_size boolean NOT NULL DEFAULT false` — atalho de UX ("já vem cortado no formato final")
+- `purchase_sheet_width_mm numeric NULL` — largura da folha comprada (opcional)
+- `purchase_sheet_height_mm numeric NULL` — altura da folha comprada (opcional)
 
-### 2. Função `callGateway` (linhas ~1420-1449)
-- URL: `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`
-- Header: `Authorization: Bearer ${GOOGLE_API_KEY}`
-- Modelo: trocar `"google/gemini-2.5-flash-lite"` por `"gemini-2.5-flash"` (nome puro, sem prefixo `google/`, que é convenção do gateway).
-- Renomear a função para `callGemini` e atualizar log/mensagens (`AI gateway error` → `Gemini API error`) para clareza, mantendo a mesma assinatura e semântica de retry.
+**Regra de resolução da "folha de produção" para um item:**
 
-### 3. Tratamento de erros (linhas ~1454-1484)
-- Mantém os mapeamentos de status (429 → "muitas perguntas", 5xx → "instável"). Remove o caso `402` (créditos esgotados é específico do Lovable Gateway; a Google retorna 429/quota). Substituir por uma mensagem de quota genérica caso volte 429 com corpo indicando quota.
+1. Se `is_cut_size = true` → usa o próprio `size` do item (A4/A3/SRA3/Carta) traduzido em mm. `perSheet = 1`. Custo cadastrado = custo final da folha.
+2. Senão, se `purchase_sheet_width_mm/height_mm` estiverem preenchidos → usa esses valores como folha-base no `calcSheetYield`.
+3. Senão (default) → mantém comportamento atual com `PRODUCTION_SHEET` global (328×478).
 
-### 4. Comentários de cabeçalho
-- Atualizar o comentário do topo (linhas 1-5): `chama Lovable AI Gateway` → `chama API oficial do Google Gemini (endpoint OpenAI-compatível)`.
+A escada `is_cut_size → purchase_sheet → global` é o que torna o modelo "inteligente": o usuário comum só marca o checkbox; o usuário avançado pode definir um folhão customizado.
 
-## O que NÃO muda
-- System prompt em 3 camadas
-- Validação JWT, Zod, CORS
-- Todas as tools (`create_reminder`, `list_reminders`, `delete_reminder`, `check_reminder_conflict`, `list_cancelled_reminders`)
-- `executeTool`, opResults, guards anti-alucinação
-- Fetch de dados (papers, equipments, consumables, readings, printing_price_items, etc.)
-- Cálculo de impressões por toner
-- Estrutura `messages`/`tool_calls`/`role:"tool"` — Gemini OpenAI-compat aceita tudo isso
+## Mudanças
 
-## Pré-requisito (você)
-Adicionar a secret `GOOGLE_API_KEY` nas secrets do projeto. Posso disparar o fluxo `add_secret` após você aprovar o plano, ou você pode colar pela UI antes — qualquer um funciona.
+### 1. Banco (`supabase--migration`)
+- `ALTER TABLE printing_price_items ADD COLUMN is_cut_size boolean NOT NULL DEFAULT false`
+- `ADD COLUMN purchase_sheet_width_mm numeric NULL`
+- `ADD COLUMN purchase_sheet_height_mm numeric NULL`
 
-## Risco / observação
-- O endpoint OpenAI-compat do Gemini é estável e suporta tool calling, mas em casos raros pode haver pequenas diferenças no `arguments` JSON de `tool_calls`. O código já tem `try/catch` em `JSON.parse(tc.function.arguments)` (linhas 1503-1508), então um payload malformado não derruba a função.
-- Se quiser testar antes de derrubar o caminho atual, posso manter `LOVABLE_API_KEY` como fallback opcional via flag — me diga se prefere assim. Por padrão farei substituição limpa.
+### 2. `src/lib/quotes-v2/sheet-yield.ts`
+- Helper novo `sizeToMm(size: string)` mapeando A4/A3/SRA3/Carta → `{widthMm, heightMm}`.
+- `calcSheetYield` continua igual; quem decide a folha é o caller.
+- Helper novo `resolvePaperSheet(item)` que devolve `{sheet, perSheetOverride?: 1}` segundo as 3 regras acima.
+
+### 3. `src/components/orcamentos-v2/PrintingItemEditor.tsx`
+- No `useMemo` do `yieldInfo` (linhas 208-218): se `item.isCutSize` (vindo do papel selecionado), retorna `{ perSheet: 1, sheetsNeeded: piecesValue, orientation: 'retrato', usable*: 0 }` sem chamar `calcSheetYield` — assume 1 peça por folha (folha = peça final).
+- Ajustar UI do bloco de aproveitamento pra mostrar "Papel já cortado — 1 peça/folha" ao invés do desenho da folha SRA3.
+- Quando `purchase_sheet_*_mm` preenchidos, passa esses valores como `sheet` para `calcSheetYield`.
+
+### 4. `src/pages/PrecoImpressao.tsx` (cadastro)
+- Adicionar Switch **"Comprado já cortado no formato final"** logo abaixo do tamanho. Tooltip: "Marque se você compra a resma já no tamanho final (ex.: Sulfite A4). O sistema vai considerar 1 folha = 1 peça e ignorar o cálculo de aproveitamento."
+- Bloco avançado opcional (collapsible "Folha de produção customizada"): inputs `largura_mm` × `altura_mm`. Desabilitado quando `is_cut_size` está marcado.
+- Tipo local `PriceItem` ganha os 3 campos.
+- Persistir no insert/update existente.
+
+### 5. Tipo do item de orçamento
+- `PrintingItemSearch` (e onde o item de papel é resolvido) já retorna o registro completo de `printing_price_items`. Garantir que `isCutSize`, `purchaseSheetWidthMm/HeightMm` sejam propagados para o `item` que chega no `PrintingItemEditor`.
+
+### 6. Edge function `assistente-virtual` (somente leitura)
+- Sem alteração funcional. Apenas observar que ela faz `select *` no catálogo — os novos campos ficam disponíveis automaticamente.
+
+## Fora de escopo
+
+- Migrar dados existentes: todos os papéis ficam `is_cut_size = false`, comportamento idêntico ao de hoje. O Juliano marca manualmente os Sulfites/etc.
+- Mexer em `cv_*` (Comunicação Visual) — outro motor, outro fluxo (m²).
+- Mudar o módulo Calculadora de Etiquetas — segue usando `sheet-pricing.ts`/`labels/layout.ts` que já trabalham por `size`.
+
+## Testes
+
+- Estender `src/test/sheet-yield.test.ts` com:
+  - papel A4 cut-size + 100 peças A4 → sheets = 100, custo = 100×paper_cost.
+  - papel SRA3 não-cut + peça 100×150mm → comportamento atual inalterado.
+  - papel com `purchase_sheet_*_mm` custom (ex.: 660×960) → usa esse folhão.
