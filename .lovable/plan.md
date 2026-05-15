@@ -1,67 +1,49 @@
-# Papel já cortado — ignorar aproveitamento do folhão
+# Mover "papel já cortado" para o cadastro de Papel
 
-## Contexto
+## Por que esta correção
 
-Hoje toda peça é encaixada na **folha de produção padrão** (SRA3 ~ 328×478 mm) via `calcSheetYield`. O custo do papel cadastrado em `printing_price_items.paper_cost` é tratado como "custo de 1 folha SRA3", e a quantidade de folhas cobradas é `ceil(peças / perSheet)`.
+Você está certo — eu errei. Os papéis são entidades cadastradas em **Matérias-Primas → Papel** (tabela `papers`), e `printing_price_items.paper_type` apenas referencia o nome do papel (texto). "Já vem cortado" é uma propriedade física do papel (Sulfite A4 sempre é A4, em qualquer impressora), então pertence ao cadastro do papel, não ao item de preço.
 
-Isso quebra para papéis que compramos já cortados em resma (Sulfite A4, A3, SRA3 já guilhotinado etc.): o custo cadastrado **já é** o custo da folha final, e não deve ser dividido pelo aproveitamento de um SRA3 imaginário.
+O modelo atual (campos em `printing_price_items`) força marcar a flag em cada combinação papel × impressora × tamanho × frente/verso — duplicação e risco de inconsistência.
 
-## Decisão de arquitetura
+## Modelo final
 
-Em vez de só um boolean cego, vamos cadastrar **o tamanho real da folha comprada** por item. Isso resolve o caso atual e prepara o sistema pra qualquer empresa que compre formatos diferentes (A2, BB, 64×88 etc.).
+### Banco
+- **`papers`** ganha 3 colunas:
+  - `is_cut_size boolean NOT NULL DEFAULT false`
+  - `purchase_sheet_width_mm numeric NULL`
+  - `purchase_sheet_height_mm numeric NULL`
+- **`printing_price_items`** perde as 3 colunas adicionadas na migration anterior (revertendo o erro).
 
-**Modelo final em `printing_price_items`:**
+Como o vínculo papel→item é por **nome** (`papers.name` ↔ `printing_price_items.paper_type`), o motor resolve a flag no momento do cálculo via lookup por nome (já carregado no editor de orçamento).
 
-- `is_cut_size boolean NOT NULL DEFAULT false` — atalho de UX ("já vem cortado no formato final")
-- `purchase_sheet_width_mm numeric NULL` — largura da folha comprada (opcional)
-- `purchase_sheet_height_mm numeric NULL` — altura da folha comprada (opcional)
+### UI — Matérias-Primas (`src/pages/MateriasPrimas.tsx`, aba Papel)
+No diálogo de cadastro/edição de papel, abaixo de gramatura:
+- Switch **"Comprado já cortado no formato final"** (tooltip explicando: 1 folha = 1 peça, ignora aproveitamento).
+- Bloco colapsável **"Folha de produção customizada (mm)"** com inputs largura × altura, desabilitado quando o switch está marcado.
 
-**Regra de resolução da "folha de produção" para um item:**
+### UI — Preço de Impressão (`src/pages/PrecoImpressao.tsx`)
+- **Remover** o switch e o bloco de folha customizada do diálogo de item (foram adicionados no lugar errado).
+- Opcional: badge informativa no item "Papel já cortado" quando o papel referenciado tiver a flag, só pra orientação visual.
 
-1. Se `is_cut_size = true` → usa o próprio `size` do item (A4/A3/SRA3/Carta) traduzido em mm. `perSheet = 1`. Custo cadastrado = custo final da folha.
-2. Senão, se `purchase_sheet_width_mm/height_mm` estiverem preenchidos → usa esses valores como folha-base no `calcSheetYield`.
-3. Senão (default) → mantém comportamento atual com `PRODUCTION_SHEET` global (328×478).
+### Motor de cálculo
+- `resolvePaperSheet()` em `sheet-yield.ts` continua com a mesma assinatura (`PaperSheetSource`), só muda a origem dos dados.
+- `PrintingItemEditor.tsx` e `NewQuoteFormV2.tsx`: ao buscar o item de impressão do catálogo, fazer lookup do papel por nome+gramatura em `papers` para obter `is_cut_size` / `purchase_sheet_*_mm`.
+- `PrintingItemSearch` (`PrintingCatalogItem`) deixa de carregar esses 3 campos do item; passa a mesclá-los a partir do papel correspondente.
+- Edge function `assistente-virtual`: nenhuma mudança funcional.
 
-A escada `is_cut_size → purchase_sheet → global` é o que torna o modelo "inteligente": o usuário comum só marca o checkbox; o usuário avançado pode definir um folhão customizado.
-
-## Mudanças
-
-### 1. Banco (`supabase--migration`)
-- `ALTER TABLE printing_price_items ADD COLUMN is_cut_size boolean NOT NULL DEFAULT false`
-- `ADD COLUMN purchase_sheet_width_mm numeric NULL`
-- `ADD COLUMN purchase_sheet_height_mm numeric NULL`
-
-### 2. `src/lib/quotes-v2/sheet-yield.ts`
-- Helper novo `sizeToMm(size: string)` mapeando A4/A3/SRA3/Carta → `{widthMm, heightMm}`.
-- `calcSheetYield` continua igual; quem decide a folha é o caller.
-- Helper novo `resolvePaperSheet(item)` que devolve `{sheet, perSheetOverride?: 1}` segundo as 3 regras acima.
-
-### 3. `src/components/orcamentos-v2/PrintingItemEditor.tsx`
-- No `useMemo` do `yieldInfo` (linhas 208-218): se `item.isCutSize` (vindo do papel selecionado), retorna `{ perSheet: 1, sheetsNeeded: piecesValue, orientation: 'retrato', usable*: 0 }` sem chamar `calcSheetYield` — assume 1 peça por folha (folha = peça final).
-- Ajustar UI do bloco de aproveitamento pra mostrar "Papel já cortado — 1 peça/folha" ao invés do desenho da folha SRA3.
-- Quando `purchase_sheet_*_mm` preenchidos, passa esses valores como `sheet` para `calcSheetYield`.
-
-### 4. `src/pages/PrecoImpressao.tsx` (cadastro)
-- Adicionar Switch **"Comprado já cortado no formato final"** logo abaixo do tamanho. Tooltip: "Marque se você compra a resma já no tamanho final (ex.: Sulfite A4). O sistema vai considerar 1 folha = 1 peça e ignorar o cálculo de aproveitamento."
-- Bloco avançado opcional (collapsible "Folha de produção customizada"): inputs `largura_mm` × `altura_mm`. Desabilitado quando `is_cut_size` está marcado.
-- Tipo local `PriceItem` ganha os 3 campos.
-- Persistir no insert/update existente.
-
-### 5. Tipo do item de orçamento
-- `PrintingItemSearch` (e onde o item de papel é resolvido) já retorna o registro completo de `printing_price_items`. Garantir que `isCutSize`, `purchaseSheetWidthMm/HeightMm` sejam propagados para o `item` que chega no `PrintingItemEditor`.
-
-### 6. Edge function `assistente-virtual` (somente leitura)
-- Sem alteração funcional. Apenas observar que ela faz `select *` no catálogo — os novos campos ficam disponíveis automaticamente.
-
-## Fora de escopo
-
-- Migrar dados existentes: todos os papéis ficam `is_cut_size = false`, comportamento idêntico ao de hoje. O Juliano marca manualmente os Sulfites/etc.
-- Mexer em `cv_*` (Comunicação Visual) — outro motor, outro fluxo (m²).
-- Mudar o módulo Calculadora de Etiquetas — segue usando `sheet-pricing.ts`/`labels/layout.ts` que já trabalham por `size`.
+### Migração de dados
+- Antes do `DROP COLUMN`, copiar `is_cut_size = true` de `printing_price_items` para `papers` agrupando por `(paper_type, grammage)` (caso você já tenha marcado algum durante os testes).
+- `purchase_sheet_*_mm` idem.
 
 ## Testes
+- Atualizar `src/test/sheet-yield.test.ts` para usar `PaperSheetSource` direto (já é o caso) — sem regressão.
+- Adicionar smoke test garantindo que o lookup por nome+gramatura funciona (mock de `papers`).
 
-- Estender `src/test/sheet-yield.test.ts` com:
-  - papel A4 cut-size + 100 peças A4 → sheets = 100, custo = 100×paper_cost.
-  - papel SRA3 não-cut + peça 100×150mm → comportamento atual inalterado.
-  - papel com `purchase_sheet_*_mm` custom (ex.: 660×960) → usa esse folhão.
+## Fora de escopo
+- Migrar o vínculo de texto para FK real (`papers.id`) — mudança maior, fica pra outra rodada.
+- Calculadora de Etiquetas (já não usava as flags).
+
+---
+
+**Confirma que posso seguir?** A migration vai (1) adicionar 3 colunas em `papers`, (2) copiar dados existentes de `printing_price_items` → `papers` agrupando por nome+gramatura, (3) remover as 3 colunas de `printing_price_items`.

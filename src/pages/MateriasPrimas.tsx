@@ -90,6 +90,9 @@ interface Paper {
   quote_date: string | null;
   is_active: boolean;
   sort_order: number;
+  is_cut_size?: boolean | null;
+  purchase_sheet_width_mm?: number | null;
+  purchase_sheet_height_mm?: number | null;
 }
 
 interface PaperHistory {
@@ -178,6 +181,9 @@ export default function MateriasPrimas() {
   const [paperSupplier, setPaperSupplier] = useState("");
   const [paperContact, setPaperContact] = useState("");
   const [paperDate, setPaperDate] = useState("");
+  const [paperIsCutSize, setPaperIsCutSize] = useState(false);
+  const [paperPurchaseSheetW, setPaperPurchaseSheetW] = useState("");
+  const [paperPurchaseSheetH, setPaperPurchaseSheetH] = useState("");
   const [selectedExistingPaper, setSelectedExistingPaper] = useState<Paper | null>(null);
 
   // Computed freight per sheet (66x96)
@@ -273,6 +279,9 @@ export default function MateriasPrimas() {
     setPaperName(""); setPaperGrammage(""); setPaperSheetQty(""); setPaperPackPrice("");
     setPaperFreightTotal("0"); setPaperFreightDivideBy("1"); setPaperSupplier(""); setPaperContact("");
     setPaperDate(new Date().toISOString().split("T")[0]);
+    setPaperIsCutSize(false);
+    setPaperPurchaseSheetW("");
+    setPaperPurchaseSheetH("");
     setSelectedExistingPaper(null);
   };
 
@@ -290,6 +299,9 @@ export default function MateriasPrimas() {
       setPaperSupplier(paper.supplier || "");
       setPaperContact(paper.contact || "");
       setPaperDate(new Date().toISOString().split("T")[0]);
+      setPaperIsCutSize(!!paper.is_cut_size);
+      setPaperPurchaseSheetW(paper.purchase_sheet_width_mm != null ? String(paper.purchase_sheet_width_mm) : "");
+      setPaperPurchaseSheetH(paper.purchase_sheet_height_mm != null ? String(paper.purchase_sheet_height_mm) : "");
     } else {
       setEditingPaper(null);
       resetPaperForm();
@@ -311,6 +323,9 @@ export default function MateriasPrimas() {
     setPaperPackPrice("");
     setPaperFreightTotal("0");
     setPaperFreightDivideBy("1");
+    setPaperIsCutSize(!!paper.is_cut_size);
+    setPaperPurchaseSheetW(paper.purchase_sheet_width_mm != null ? String(paper.purchase_sheet_width_mm) : "");
+    setPaperPurchaseSheetH(paper.purchase_sheet_height_mm != null ? String(paper.purchase_sheet_height_mm) : "");
   };
 
   // When user clears the paper name / types a new name
@@ -343,6 +358,9 @@ export default function MateriasPrimas() {
       contact: paperContact || null,
       quote_date: quoteDate,
       sort_order: editingPaper ? editingPaper.sort_order : papers.length,
+      is_cut_size: paperIsCutSize,
+      purchase_sheet_width_mm: paperIsCutSize ? null : (paperPurchaseSheetW.trim() ? Number(paperPurchaseSheetW) : null),
+      purchase_sheet_height_mm: paperIsCutSize ? null : (paperPurchaseSheetH.trim() ? Number(paperPurchaseSheetH) : null),
     };
 
     if (editingPaper) {
@@ -429,6 +447,9 @@ export default function MateriasPrimas() {
     setPaperSupplier(p.supplier || "");
     setPaperContact(p.contact || "");
     setPaperDate(new Date().toISOString().split("T")[0]);
+    setPaperIsCutSize(!!p.is_cut_size);
+    setPaperPurchaseSheetW(p.purchase_sheet_width_mm != null ? String(p.purchase_sheet_width_mm) : "");
+    setPaperPurchaseSheetH(p.purchase_sheet_height_mm != null ? String(p.purchase_sheet_height_mm) : "");
     setIsPaperDialogOpen(true);
   };
   const saveMaterial = async () => {
@@ -987,6 +1008,59 @@ export default function MateriasPrimas() {
                     disabled={isUpdateMode}
                   />
                 </div>
+              </div>
+
+              {/* Formato de compra — papel já cortado / folhão custom */}
+              <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="paper-is-cut-size"
+                    checked={paperIsCutSize}
+                    onCheckedChange={(v) => setPaperIsCutSize(v === true)}
+                    className="mt-0.5"
+                  />
+                  <div className="space-y-0.5 flex-1">
+                    <Label htmlFor="paper-is-cut-size" className="text-sm cursor-pointer">
+                      Comprado já cortado no formato final
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Marque se a resma já vem no tamanho final (ex.: Sulfite A4). O motor de
+                      preço vai considerar <strong>1 folha = 1 peça</strong> e ignorar o
+                      cálculo de aproveitamento do folhão.
+                    </p>
+                  </div>
+                </div>
+                {!paperIsCutSize && (
+                  <div className="space-y-2 pt-1 border-t">
+                    <p className="text-xs text-muted-foreground">
+                      <strong>Folha de produção customizada (opcional)</strong> — deixe vazio
+                      para usar o folhão padrão (SRA3 ~ 328×478&nbsp;mm). Preencha se você
+                      compra outro formato (ex.: 660×960).
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Largura (mm)</Label>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="328"
+                          value={paperPurchaseSheetW}
+                          onChange={(e) => setPaperPurchaseSheetW(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Altura (mm)</Label>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="478"
+                          value={paperPurchaseSheetH}
+                          onChange={(e) => setPaperPurchaseSheetH(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Pricing fields - always visible */}

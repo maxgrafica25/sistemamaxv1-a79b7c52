@@ -231,7 +231,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         supabase.from("printer_categories").select("*").order("sort_order"),
         supabase.from("equipments").select("id, name, printer_type").order("sort_order"),
         supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
-        supabase.from("papers").select("id, name, grammage, pack_price, freight_price, sheet_qty").eq("is_active", true),
+        supabase.from("papers").select("id, name, grammage, pack_price, freight_price, sheet_qty, is_cut_size, purchase_sheet_width_mm, purchase_sheet_height_mm").eq("is_active", true),
         supabase.from("markup_tiers").select("*").order("sort_order"),
         supabase.from("global_settings").select("*").limit(1).single(),
         supabase.from("monthly_expenses").select("value"),
@@ -292,6 +292,12 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       const small = size === "A4" || size === "A5" || size === "Carta";
       return small ? paperPriceA4(m) : paperPriceSRA3(m);
     };
+    const findPaperRecord = (paperType: string, grammage: string | null) =>
+      papersList.find((p) => {
+        const nm = p.name.toLowerCase() === (paperType || "").toLowerCase();
+        const gm = !grammage || !p.grammage || p.grammage.toLowerCase() === grammage.toLowerCase();
+        return nm && gm;
+      }) || null;
     const getEquipCostPerPage = (equipmentId: string, mode: string) => {
       const eq = equipmentsList.find((e) => e.id === equipmentId);
       if (eq?.printer_type === "ribbon") {
@@ -320,6 +326,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         ? getEquipCostPerPage(item.equipment_id, item.equipment_mode || "color")
         : item.printing_cost;
       const paperCost = Number(item.paper_cost) || 0;
+      const paperRec = findPaperRecord(item.paper_type, item.grammage);
       return {
         id: item.id,
         paper_type: item.paper_type,
@@ -334,9 +341,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         printer_category_id: item.printer_category_id,
         markup_group_id: item.markup_group_id || null,
         totalCostA4: paperCost + roundUp5(printingCost),
-        is_cut_size: item.is_cut_size ?? false,
-        purchase_sheet_width_mm: item.purchase_sheet_width_mm ?? null,
-        purchase_sheet_height_mm: item.purchase_sheet_height_mm ?? null,
+        is_cut_size: paperRec?.is_cut_size ?? false,
+        purchase_sheet_width_mm: paperRec?.purchase_sheet_width_mm ?? null,
+        purchase_sheet_height_mm: paperRec?.purchase_sheet_height_mm ?? null,
       };
     });
     setPrintingCatalog(catalog);
