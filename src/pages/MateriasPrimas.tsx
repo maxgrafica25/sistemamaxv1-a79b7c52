@@ -90,6 +90,9 @@ interface Paper {
   quote_date: string | null;
   is_active: boolean;
   sort_order: number;
+  is_cut_size?: boolean | null;
+  purchase_sheet_width_mm?: number | null;
+  purchase_sheet_height_mm?: number | null;
 }
 
 interface PaperHistory {
