@@ -292,12 +292,18 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       const small = size === "A4" || size === "A5" || size === "Carta";
       return small ? paperPriceA4(m) : paperPriceSRA3(m);
     };
-    const findPaperRecord = (paperType: string, grammage: string | null) =>
-      papersList.find((p) => {
+    const findPaperRecord = (paperType: string, grammage: string | null, size: string) => {
+      const matches = papersList.filter((p) => {
         const nm = p.name.toLowerCase() === (paperType || "").toLowerCase();
         const gm = !grammage || !p.grammage || p.grammage.toLowerCase() === grammage.toLowerCase();
         return nm && gm;
-      }) || null;
+      });
+      if (matches.length === 0) return null;
+      // Prefer "cortado" entry for cut-size catalog items, "folhão" otherwise.
+      const isSmall = size === "A4" || size === "A5" || size === "Carta";
+      const preferred = matches.find((p) => !!p.is_cut_size === isSmall);
+      return preferred || matches[0];
+    };
     const getEquipCostPerPage = (equipmentId: string, mode: string) => {
       const eq = equipmentsList.find((e) => e.id === equipmentId);
       if (eq?.printer_type === "ribbon") {
