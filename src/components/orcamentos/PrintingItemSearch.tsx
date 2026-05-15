@@ -146,20 +146,20 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
                       )}
                     </div>
                     {item.linkedPaper ? (
-                      <div className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground/80 truncate">
-                        <Link2 className="h-3 w-3 shrink-0 text-primary" />
+                      <div className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground/80 group-hover:text-white truncate">
+                        <Link2 className="h-3 w-3 shrink-0 text-primary group-hover:text-white" />
                         <span className="truncate">
-                          <span className="text-muted-foreground">vinculado a:</span>{" "}
+                          <span className="text-muted-foreground group-hover:text-white/80">vinculado a:</span>{" "}
                           <span className="font-medium">
                             {item.linkedPaper.name}
                             {item.linkedPaper.grammage ? ` ${item.linkedPaper.grammage}` : ""}
                           </span>
-                          <span className="text-muted-foreground"> · {item.linkedPaper.packaging_label} · </span>
+                          <span className="text-muted-foreground group-hover:text-white/80"> · {item.linkedPaper.packaging_label} · </span>
                           <span className="font-medium">R$ {item.linkedPaper.unit_cost.toFixed(4)}/fl</span>
                         </span>
                       </div>
                     ) : (
-                      <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 truncate">
+                      <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 group-hover:text-white truncate">
                         <AlertTriangle className="h-3 w-3 shrink-0" />
                         sem papel vinculado em Matérias-Primas
                       </div>
