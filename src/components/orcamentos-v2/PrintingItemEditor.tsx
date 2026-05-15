@@ -1140,13 +1140,31 @@ function CoverPaperPicker({
                           setQuery("");
                         }}
                       >
-                        <div className="flex w-full items-center justify-between gap-2">
-                          <span className="truncate">
-                            {p.paper_type}{p.grammage ? ` ${p.grammage}` : ""} — {p.size} {p.side}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground shrink-0">
-                            {p.equipment_name || p.category_name}
-                          </span>
+                        <div className="flex w-full flex-col gap-0.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate">
+                              {p.paper_type}{p.grammage ? ` ${p.grammage}` : ""} — {p.size} {p.side}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">
+                              {p.equipment_name || p.category_name}
+                            </span>
+                          </div>
+                          {p.linkedPaper ? (
+                            <p className="flex items-center gap-1 text-[10px] text-muted-foreground truncate">
+                              <Link2 className="h-2.5 w-2.5 shrink-0" />
+                              <span className="truncate">
+                                {p.linkedPaper.name}
+                                {p.linkedPaper.grammage ? ` ${p.linkedPaper.grammage}` : ""}
+                                {" · "}{p.linkedPaper.packaging_label}
+                                {" · R$ "}{p.linkedPaper.unit_cost.toFixed(4)}/fl
+                              </span>
+                            </p>
+                          ) : (
+                            <p className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-500">
+                              <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                              sem papel vinculado
+                            </p>
+                          )}
                         </div>
                       </CommandItem>
                     ))}
