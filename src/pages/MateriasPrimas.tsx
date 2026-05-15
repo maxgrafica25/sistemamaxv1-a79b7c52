@@ -1067,8 +1067,8 @@ export default function MateriasPrimas() {
               {/* Pricing fields - always visible */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Qtd. Folhas (66×96) *</Label>
-                  <Input type="number" placeholder="500" value={paperSheetQty} onChange={(e) => setPaperSheetQty(e.target.value)} />
+                  <Label>{paperIsCutSize ? "Qtd. Folhas na resma *" : "Qtd. Folhas (66×96) *"}</Label>
+                  <Input type="number" placeholder={paperIsCutSize ? "Ex: 500" : "500"} value={paperSheetQty} onChange={(e) => setPaperSheetQty(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>Preço do Pacote (R$) *</Label>
