@@ -447,6 +447,9 @@ export default function MateriasPrimas() {
     setPaperSupplier(p.supplier || "");
     setPaperContact(p.contact || "");
     setPaperDate(new Date().toISOString().split("T")[0]);
+    setPaperIsCutSize(!!p.is_cut_size);
+    setPaperPurchaseSheetW(p.purchase_sheet_width_mm != null ? String(p.purchase_sheet_width_mm) : "");
+    setPaperPurchaseSheetH(p.purchase_sheet_height_mm != null ? String(p.purchase_sheet_height_mm) : "");
     setIsPaperDialogOpen(true);
   };
   const saveMaterial = async () => {
