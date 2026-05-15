@@ -127,7 +127,7 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
                 <button
                   key={item.id}
                   onClick={() => handleSelect(item)}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-accent transition-colors border-b last:border-0"
+                  className="group flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b last:border-0"
                 >
                   <Printer className="h-4 w-4 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
