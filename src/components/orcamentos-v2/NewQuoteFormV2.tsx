@@ -653,6 +653,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       generatedTitle: null,
       catalogSource: "printing",
       catalogItemId: item.id,
+      isCutSize: item.is_cut_size ?? false,
+      purchaseSheetWidthMm: item.purchase_sheet_width_mm ?? null,
+      purchaseSheetHeightMm: item.purchase_sheet_height_mm ?? null,
     }]);
     toast.success("Item de impressão adicionado!");
   };
