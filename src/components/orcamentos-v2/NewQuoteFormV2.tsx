@@ -292,12 +292,18 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
       const small = size === "A4" || size === "A5" || size === "Carta";
       return small ? paperPriceA4(m) : paperPriceSRA3(m);
     };
-    const findPaperRecord = (paperType: string, grammage: string | null) =>
-      papersList.find((p) => {
+    const findPaperRecord = (paperType: string, grammage: string | null, size: string) => {
+      const matches = papersList.filter((p) => {
         const nm = p.name.toLowerCase() === (paperType || "").toLowerCase();
         const gm = !grammage || !p.grammage || p.grammage.toLowerCase() === grammage.toLowerCase();
         return nm && gm;
-      }) || null;
+      });
+      if (matches.length === 0) return null;
+      // Prefer "cortado" entry for cut-size catalog items, "folhão" otherwise.
+      const isSmall = size === "A4" || size === "A5" || size === "Carta";
+      const preferred = matches.find((p) => !!p.is_cut_size === isSmall);
+      return preferred || matches[0];
+    };
     const getEquipCostPerPage = (equipmentId: string, mode: string) => {
       const eq = equipmentsList.find((e) => e.id === equipmentId);
       if (eq?.printer_type === "ribbon") {
@@ -326,7 +332,23 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         ? getEquipCostPerPage(item.equipment_id, item.equipment_mode || "color")
         : item.printing_cost;
       const paperCost = Number(item.paper_cost) || 0;
-      const paperRec = findPaperRecord(item.paper_type, item.grammage);
+      const paperRec = findPaperRecord(item.paper_type, item.grammage, item.size);
+      const linkedPaper = paperRec
+        ? {
+            id: paperRec.id,
+            name: paperRec.name,
+            grammage: paperRec.grammage ?? null,
+            sheet_qty: Number(paperRec.sheet_qty) || 0,
+            is_cut_size: !!paperRec.is_cut_size,
+            unit_cost: paperCost,
+            packaging_label: (() => {
+              const q = Number(paperRec.sheet_qty) || 0;
+              if (q <= 0) return "—";
+              const fmt = q.toLocaleString("pt-BR");
+              return q >= 1000 ? `Caixa ${fmt} fl` : `Pacote ${fmt} fl`;
+            })(),
+          }
+        : null;
       return {
         id: item.id,
         paper_type: item.paper_type,
@@ -344,6 +366,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         is_cut_size: paperRec?.is_cut_size ?? false,
         purchase_sheet_width_mm: paperRec?.purchase_sheet_width_mm ?? null,
         purchase_sheet_height_mm: paperRec?.purchase_sheet_height_mm ?? null,
+        linkedPaper,
       };
     });
     setPrintingCatalog(catalog);

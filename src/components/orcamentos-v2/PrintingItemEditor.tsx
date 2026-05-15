@@ -31,7 +31,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Printer, X, Lock, ChevronDown, ChevronRight, Ruler, Layers, AlertTriangle,
+  Printer, X, Lock, ChevronDown, ChevronRight, Ruler, Layers, AlertTriangle, Link2,
 } from "lucide-react";
 import { LabelLayoutDialog } from "@/components/labels/LabelLayoutDialog";
 import {
@@ -646,13 +646,31 @@ export function PrintingItemEditor({
                                 setPaperQuery("");
                               }}
                             >
-                              <div className="flex w-full items-center justify-between gap-2">
-                                <span className="truncate">
-                                  {p.paper_type}{p.grammage ? ` ${p.grammage}` : ""} — {p.size} {p.side}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground shrink-0">
-                                  {p.equipment_name || p.category_name}
-                                </span>
+                              <div className="flex w-full flex-col gap-0.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="truncate">
+                                    {p.paper_type}{p.grammage ? ` ${p.grammage}` : ""} — {p.size} {p.side}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground shrink-0">
+                                    {p.equipment_name || p.category_name}
+                                  </span>
+                                </div>
+                                {p.linkedPaper ? (
+                                  <p className="flex items-center gap-1 text-[10px] text-muted-foreground truncate">
+                                    <Link2 className="h-2.5 w-2.5 shrink-0" />
+                                    <span className="truncate">
+                                      {p.linkedPaper.name}
+                                      {p.linkedPaper.grammage ? ` ${p.linkedPaper.grammage}` : ""}
+                                      {" · "}{p.linkedPaper.packaging_label}
+                                      {" · R$ "}{p.linkedPaper.unit_cost.toFixed(4)}/fl
+                                    </span>
+                                  </p>
+                                ) : (
+                                  <p className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-500">
+                                    <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                                    sem papel vinculado
+                                  </p>
+                                )}
                               </div>
                             </CommandItem>
                           ))}
@@ -663,6 +681,31 @@ export function PrintingItemEditor({
                 </Command>
               </PopoverContent>
             </Popover>
+            {(() => {
+              const cid = item.catalogItemId;
+              if (!cid || !item.paperType) return null;
+              const cat = printingCatalog?.find((p) => p.id === cid);
+              if (!cat) return null;
+              if (cat.linkedPaper) {
+                return (
+                  <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <Link2 className="h-2.5 w-2.5 shrink-0" />
+                    <span className="truncate">
+                      vinculado a: {cat.linkedPaper.name}
+                      {cat.linkedPaper.grammage ? ` ${cat.linkedPaper.grammage}` : ""}
+                      {" · "}{cat.linkedPaper.packaging_label}
+                      {" · R$ "}{cat.linkedPaper.unit_cost.toFixed(4)}/fl
+                    </span>
+                  </p>
+                );
+              }
+              return (
+                <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-500">
+                  <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                  sem papel vinculado em Matérias-Primas
+                </p>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -1122,13 +1165,31 @@ function CoverPaperPicker({
                           setQuery("");
                         }}
                       >
-                        <div className="flex w-full items-center justify-between gap-2">
-                          <span className="truncate">
-                            {p.paper_type}{p.grammage ? ` ${p.grammage}` : ""} — {p.size} {p.side}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground shrink-0">
-                            {p.equipment_name || p.category_name}
-                          </span>
+                        <div className="flex w-full flex-col gap-0.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate">
+                              {p.paper_type}{p.grammage ? ` ${p.grammage}` : ""} — {p.size} {p.side}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">
+                              {p.equipment_name || p.category_name}
+                            </span>
+                          </div>
+                          {p.linkedPaper ? (
+                            <p className="flex items-center gap-1 text-[10px] text-muted-foreground truncate">
+                              <Link2 className="h-2.5 w-2.5 shrink-0" />
+                              <span className="truncate">
+                                {p.linkedPaper.name}
+                                {p.linkedPaper.grammage ? ` ${p.linkedPaper.grammage}` : ""}
+                                {" · "}{p.linkedPaper.packaging_label}
+                                {" · R$ "}{p.linkedPaper.unit_cost.toFixed(4)}/fl
+                              </span>
+                            </p>
+                          ) : (
+                            <p className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-500">
+                              <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                              sem papel vinculado
+                            </p>
+                          )}
                         </div>
                       </CommandItem>
                     ))}

@@ -1,66 +1,55 @@
-# Lançamento inteligente de compras tipo "Caixa com N pacotes de M folhas"
+# Mostrar o papel "real" vinculado ao item de impressão
 
-## Problema
+## Contexto
 
-Hoje, quando você marca **"Comprado já cortado"** (ex.: Sulfite A4) e compra uma caixa Suzano (10 pacotes × 500 folhas = 5.000 folhas, R$ 2.237,17), você precisa fazer a conta de cabeça antes de digitar:
+Hoje, ao buscar um item no orçamento (ex.: "Sulfite 75g — A4 F/V · Xerox C70"), o seletor mostra apenas o que está cadastrado no **Catálogo de Preço de Impressão**. O papel da **Matérias-Primas** que dá origem ao custo (`paper_cost`) fica invisível — você não consegue saber se a Sulfite 75g sendo usada é a "caixa Suzano 5.000fl" ou um pacote avulso de 500fl.
 
-- Qtd. Folhas na resma = **5.000**
-- Preço do Pacote = **2.237,17**
+Importante: hoje **não existe FK** entre `printing_price_items` e `papers`. O vínculo é implícito por **nome + gramatura** (já é assim que a função "Sincronizar custos" funciona em PrecoImpressao, linha 553-554). Não vamos mudar isso — vamos só **expor visualmente** esse vínculo nos lugares onde o usuário escolhe o item.
 
-Isso é fonte de erro (esqueceu um zero, contou pacotes errado) e não deixa rastro de **como** o custo unitário foi formado.
+## O que muda (apenas UI)
 
-## Solução proposta — apenas UI no diálogo de cadastro de papel
+### 1. Resolver o papel vinculado client-side
 
-Adicionar um bloco opcional **"Modo embalagem"** que aparece somente quando `paperIsCutSize` está marcado, logo acima dos campos `Qtd. Folhas` / `Preço do Pacote`.
+Helper puro: dado um `PrintingCatalogItem` e a lista de `papers` (já carregada no `NewQuoteFormV2`), retornar a primeira `papers` row em que `normalize(name) === normalize(paper_type)` **e** (gramatura vazia em algum dos lados ou `grammage` igual). Mesma regra usada pela sincronização de custos. Se houver múltiplos matches (ex.: Sulfite 75g 75x105 + Sulfite 75g A4), preferir o que tem `is_cut_size = true` quando o item do catálogo é cortado, e o folhão caso contrário.
 
-### Novo bloco "Como você comprou?"
+Retorna `{ id, name, grammage, sheet_label, unit_cost }` onde `sheet_label` é algo como `"Caixa 5.000fl"` ou `"Pacote 500fl"` (derivado de `sheet_qty` da papers row, sem mudança de schema).
 
-Toggle (Switch) com 2 modos:
+### 2. Linha extra no resultado da busca
 
-**1. Simples (atual)** — campos `Qtd. Folhas na resma` + `Preço do Pacote` editáveis manualmente. Comportamento idêntico ao de hoje.
-
-**2. Embalagem** — exibe 3 campos lado a lado:
+Em **`PrintingItemSearch`** e no **picker inline do PrintingItemEditor** (mesmo dropdown), abaixo da linha já existente `Categoria · Equipamento · Tier`, adicionar uma terceira linha pequena:
 
 ```text
-┌──────────────┬──────────────┬─────────────────────┐
-│ Caixas       │ Pacotes/cx   │ Folhas/pacote       │
-│   1          │   10         │   500               │
-└──────────────┴──────────────┴─────────────────────┘
-┌──────────────────────────────────────────────────┐
-│ Preço total da compra (R$)   2.237,17            │
-└──────────────────────────────────────────────────┘
+Sulfite 75g — A4 F/V                              R$ 0,42/folha
+Produção · Xerox C70 · 250–500
+↳ vinculado a: Sulfite 75g 75×105 · Caixa 5.000fl  R$ 0,4474/fl
 ```
 
-Mais um preview compacto:
+Estilo: `text-[10px] text-muted-foreground` com um ícone `Link2` de 10px. Se nenhum papel for encontrado em Matérias-Primas, mostrar `↳ sem papel vinculado` em `text-warning` para sinalizar inconsistência.
 
-```text
-1 cx × 10 pct × 500 fl  =  5.000 folhas
-Custo por folha (sem frete): R$ 0,4474
-```
+### 3. Após selecionar o item
 
-Ao mudar qualquer um dos 4 campos, o componente preenche automaticamente os campos existentes:
-- `paperSheetQty`  ← `caixas × pacotes × folhasPorPacote`
-- `paperPackPrice` ← `precoTotalCompra`
-
-Os campos antigos continuam visíveis (read-only no modo Embalagem) para o usuário ver o resultado e ainda poder voltar para o modo Simples.
-
-### Defaults inteligentes
-- Caixas = 1, Pacotes = 1, Folhas/pacote = 500 (resma típica de sulfite).
-- Foco automático em "Preço total" — quase sempre o único valor que muda compra a compra.
-
-### Por que só no modo "cortado"?
-O modo folhão (66×96 / SRA3) já tem semântica diferente (Qtd. de folhões grandes), e raramente é vendido em caixas-de-pacotes. Mantemos esse fluxo intacto.
+O badge atual no `PrintingItemEditor` (que mostra `paperType grammage — size side` selecionado) ganha, embaixo, a mesma linha `↳ vinculado a: …` para que o vínculo continue visível enquanto o orçamento é editado.
 
 ## Fora de escopo
 
-- Não persiste `caixas/pacotes/folhasPorPacote` no banco (pure UI helper). Se mais tarde quisermos histórico de embalagem, adicionamos colunas opcionais.
-- Não mexe no cálculo de preço de impressão, no frete, nem no listing.
-- Não mexe em Suprimentos.
+- **Sem migração de banco** — não adiciono `paper_id` em `printing_price_items` nessa rodada. O vínculo continua por nome+gramatura.
+- Não muda cálculo de preço, frete, ou sincronização de custos.
+- Não mexe em Suprimentos, Acabamentos, ou Pedidos.
+- Não toca no diálogo de cadastro do Catálogo de Preço de Impressão.
 
 ## Detalhes técnicos
 
-- Arquivo único: `src/pages/MateriasPrimas.tsx`.
-- 3 estados locais novos: `pkgBoxes`, `pkgPacks`, `pkgSheetsPerPack` + 1 toggle `pkgMode: "simple" | "package"`.
-- Reset dos estados ao abrir/fechar o diálogo (junto com os resets já existentes).
-- `useEffect` que, em `pkgMode === "package"`, recomputa `paperSheetQty` quando os 3 fatores mudam.
-- O campo "Preço total da compra" reusa o mesmo state `paperPackPrice` (renomeamos só o label visualmente quando em modo embalagem para "Preço total da compra (R$)").
+- Novo helper `src/lib/quotes-v2/linked-paper.ts` exportando `resolveLinkedPaper(catalogItem, papers)` e `formatLinkedPaperLabel(paper)`.
+- `NewQuoteFormV2` já carrega `papers` (linha ~197 de PrecoImpressao usa o mesmo padrão); confirmar que está disponível ou adicionar 1 fetch e passar via prop `papers` para `PrintingItemEditor` e `PrintingItemSearch`.
+- `PrintingItemSearch.tsx`: adicionar prop opcional `papers?: PaperRow[]` e renderizar a linha extra dentro do `<button>` de cada resultado.
+- `PrintingItemEditor.tsx`: passar `papers` para os 2 dropdowns inline (linhas ~604-651 e ~1098-1127) e mostrar a linha `↳ vinculado a:` no badge do papel selecionado (linha ~567 e ~1049).
+- Sem novos estados, sem mudança de schema, sem mudança de tipos do Supabase.
+
+## Pergunta rápida antes de implementar
+
+Para o caso "Sulfite 75g" existir em Matérias-Primas como 2 entradas (uma `75×105` folhão e outra `A4` cortada), prefere que o seletor:
+
+(a) escolha automaticamente pela regra `is_cut_size` (cortado → cortado; folhão → folhão), ou
+(b) mostre as 2 opções vinculadas separadamente no `↳`?
+
+Default sugerido: **(a)**, mais limpo visualmente.

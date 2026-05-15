@@ -1,7 +1,18 @@
 import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Printer } from "lucide-react";
+import { Search, Printer, Link2, AlertTriangle } from "lucide-react";
+
+export interface LinkedPaperInfo {
+  id: string;
+  name: string;
+  grammage: string | null;
+  sheet_qty: number;
+  is_cut_size: boolean;
+  unit_cost: number;
+  /** Label like "Caixa 5.000 fl" or "Pacote 500 fl". */
+  packaging_label: string;
+}
 
 export interface MarkupTier {
   id: string;
@@ -33,6 +44,8 @@ export interface PrintingCatalogItem {
   is_cut_size?: boolean | null;
   purchase_sheet_width_mm?: number | null;
   purchase_sheet_height_mm?: number | null;
+  /** Vínculo (implícito por nome+gramatura) com o papel da Matéria-Prima. */
+  linkedPaper?: LinkedPaperInfo | null;
 }
 
 interface PrintingItemSearchProps {
@@ -132,6 +145,22 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
                         <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{tierLabel}</Badge>
                       )}
                     </div>
+                    {item.linkedPaper ? (
+                      <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground truncate">
+                        <Link2 className="h-2.5 w-2.5 shrink-0" />
+                        <span className="truncate">
+                          vinculado a: {item.linkedPaper.name}
+                          {item.linkedPaper.grammage ? ` ${item.linkedPaper.grammage}` : ""}
+                          {" · "}{item.linkedPaper.packaging_label}
+                          {" · "}R$ {item.linkedPaper.unit_cost.toFixed(4)}/fl
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-500 truncate">
+                        <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                        sem papel vinculado em Matérias-Primas
+                      </p>
+                    )}
                   </div>
                   <div className="text-right shrink-0">
                     <span className="text-sm font-semibold text-primary">
