@@ -231,7 +231,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         supabase.from("printer_categories").select("*").order("sort_order"),
         supabase.from("equipments").select("id, name, printer_type").order("sort_order"),
         supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
-        supabase.from("papers").select("id, name, grammage, pack_price, freight_price, sheet_qty").eq("is_active", true),
+        supabase.from("papers").select("id, name, grammage, pack_price, freight_price, sheet_qty, is_cut_size, purchase_sheet_width_mm, purchase_sheet_height_mm").eq("is_active", true),
         supabase.from("markup_tiers").select("*").order("sort_order"),
         supabase.from("global_settings").select("*").limit(1).single(),
         supabase.from("monthly_expenses").select("value"),
