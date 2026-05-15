@@ -1083,14 +1083,87 @@ export default function MateriasPrimas() {
                 )}
               </div>
 
+              {/* Modo embalagem — atalho p/ caixas × pacotes × folhas (somente papel cortado) */}
+              {paperIsCutSize && (
+                <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="paper-pkg-mode"
+                      checked={pkgMode}
+                      onCheckedChange={(v) => setPkgMode(v === true)}
+                      className="mt-0.5"
+                    />
+                    <div className="space-y-0.5 flex-1">
+                      <Label htmlFor="paper-pkg-mode" className="text-sm cursor-pointer flex items-center gap-1.5">
+                        <Package className="h-3.5 w-3.5 text-primary" />
+                        Comprei em caixas / pacotes
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Ative para informar a embalagem (ex.: 1 caixa × 10 pacotes × 500 folhas) e calcular o total automaticamente.
+                      </p>
+                    </div>
+                  </div>
+                  {pkgMode && (
+                    <div className="space-y-2 pt-1 border-t">
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-xs">Caixas</Label>
+                          <Input type="number" min="1" inputMode="numeric" value={pkgBoxes} onChange={(e) => setPkgBoxes(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Pacotes / caixa</Label>
+                          <Input type="number" min="1" inputMode="numeric" value={pkgPacks} onChange={(e) => setPkgPacks(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Folhas / pacote</Label>
+                          <Input type="number" min="1" inputMode="numeric" value={pkgSheetsPerPack} onChange={(e) => setPkgSheetsPerPack(e.target.value)} />
+                        </div>
+                      </div>
+                      {(() => {
+                        const b = Number(pkgBoxes) || 0;
+                        const p = Number(pkgPacks) || 0;
+                        const s = Number(pkgSheetsPerPack) || 0;
+                        const total = b * p * s;
+                        const price = Number(paperPackPrice) || 0;
+                        return (
+                          <div className="text-xs bg-muted/50 rounded-md p-2 space-y-0.5">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">{b} cx × {p} pct × {s} fl</span>
+                              <span className="font-semibold text-foreground">{total.toLocaleString("pt-BR")} folhas</span>
+                            </div>
+                            {total > 0 && price > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Custo por folha (sem frete)</span>
+                                <span className="font-semibold text-primary">{fmt4(price / total)}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Pricing fields - always visible */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{paperIsCutSize ? "Qtd. Folhas na resma *" : "Qtd. Folhas (66×96) *"}</Label>
-                  <Input type="number" placeholder={paperIsCutSize ? "Ex: 500" : "500"} value={paperSheetQty} onChange={(e) => setPaperSheetQty(e.target.value)} />
+                  <Label>
+                    {paperIsCutSize
+                      ? (pkgMode ? "Qtd. Folhas (calculado)" : "Qtd. Folhas na resma *")
+                      : "Qtd. Folhas (66×96) *"}
+                  </Label>
+                  <Input
+                    type="number"
+                    placeholder={paperIsCutSize ? "Ex: 500" : "500"}
+                    value={paperSheetQty}
+                    onChange={(e) => setPaperSheetQty(e.target.value)}
+                    readOnly={pkgMode}
+                    className={pkgMode ? "bg-muted/40" : undefined}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>Preço do Pacote (R$) *</Label>
+                  <Label>{pkgMode ? "Preço total da compra (R$) *" : "Preço do Pacote (R$) *"}</Label>
                   <Input type="number" step="0.01" placeholder="0,00" value={paperPackPrice} onChange={(e) => setPaperPackPrice(e.target.value)} autoFocus={isUpdateMode} />
                 </div>
               </div>
