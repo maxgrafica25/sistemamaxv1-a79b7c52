@@ -358,6 +358,9 @@ export default function MateriasPrimas() {
       contact: paperContact || null,
       quote_date: quoteDate,
       sort_order: editingPaper ? editingPaper.sort_order : papers.length,
+      is_cut_size: paperIsCutSize,
+      purchase_sheet_width_mm: paperIsCutSize ? null : (paperPurchaseSheetW.trim() ? Number(paperPurchaseSheetW) : null),
+      purchase_sheet_height_mm: paperIsCutSize ? null : (paperPurchaseSheetH.trim() ? Number(paperPurchaseSheetH) : null),
     };
 
     if (editingPaper) {
