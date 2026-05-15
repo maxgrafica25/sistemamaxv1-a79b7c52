@@ -51,6 +51,11 @@ export interface PricingMaterial {
    *  bater na quantidade do filho, o preço manual é o **final ao cliente**
    *  (impostos e cartão já embutidos). Substitui margemPct. */
   pricingTiers?: SupplyTier[] | null;
+  /** Papel comprado já cortado no formato final (ignora aproveitamento do folhão). */
+  isCutSize?: boolean | null;
+  /** Folha de produção customizada (mm) — sobrescreve o folhão padrão SRA3. */
+  purchaseSheetWidthMm?: number | null;
+  purchaseSheetHeightMm?: number | null;
 }
 
 export interface PricingLaborStep {
