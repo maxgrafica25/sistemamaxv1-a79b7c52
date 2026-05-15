@@ -127,7 +127,7 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
                 <button
                   key={item.id}
                   onClick={() => handleSelect(item)}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-accent transition-colors border-b last:border-0"
+                  className="group flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b last:border-0"
                 >
                   <Printer className="h-4 w-4 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -135,7 +135,7 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
                       {item.paper_type} {item.grammage && `${item.grammage}`} — {item.size} {item.side}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-muted-foreground">{item.category_name}</span>
+                      <span className="text-xs text-muted-foreground group-hover:text-white/80">{item.category_name}</span>
                       {item.equipment_name && (
                         <Badge variant="outline" className="text-[10px] h-4 px-1.5">
                           {item.equipment_name}{item.equipment_mode === "pb" ? " (PB)" : ""}
@@ -146,31 +146,31 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
                       )}
                     </div>
                     {item.linkedPaper ? (
-                      <div className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground/80 truncate">
-                        <Link2 className="h-3 w-3 shrink-0 text-primary" />
+                      <div className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground/80 group-hover:text-white truncate">
+                        <Link2 className="h-3 w-3 shrink-0 text-primary group-hover:text-white" />
                         <span className="truncate">
-                          <span className="text-muted-foreground">vinculado a:</span>{" "}
+                          <span className="text-muted-foreground group-hover:text-white/80">vinculado a:</span>{" "}
                           <span className="font-medium">
                             {item.linkedPaper.name}
                             {item.linkedPaper.grammage ? ` ${item.linkedPaper.grammage}` : ""}
                           </span>
-                          <span className="text-muted-foreground"> · {item.linkedPaper.packaging_label} · </span>
+                          <span className="text-muted-foreground group-hover:text-white/80"> · {item.linkedPaper.packaging_label} · </span>
                           <span className="font-medium">R$ {item.linkedPaper.unit_cost.toFixed(4)}/fl</span>
                         </span>
                       </div>
                     ) : (
-                      <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 truncate">
+                      <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 group-hover:text-white truncate">
                         <AlertTriangle className="h-3 w-3 shrink-0" />
                         sem papel vinculado em Matérias-Primas
                       </div>
                     )}
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="text-sm font-semibold text-primary">
+                    <span className="text-sm font-semibold text-primary group-hover:text-white">
                       R$ {sellingPrice.toFixed(2)}/folha
                     </span>
                     {sellingPrice !== baseCost && (
-                      <p className="text-[10px] text-muted-foreground">custo: R$ {baseCost.toFixed(2)}</p>
+                      <p className="text-[10px] text-muted-foreground group-hover:text-white/80">custo: R$ {baseCost.toFixed(2)}</p>
                     )}
                   </div>
                 </button>
