@@ -1105,7 +1105,7 @@ export default function MateriasPrimas() {
                       <span className="font-medium text-foreground">{formatCurrency(Number(paperFreightTotal) / (Number(paperFreightDivideBy) || 1))}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Frete por folha (66×96)</span>
+                      <span>{paperIsCutSize ? "Frete por folha" : "Frete por folha (66×96)"}</span>
                       <span className="font-medium text-foreground">{fmt4(computedFreightPerSheet)}</span>
                     </div>
                   </div>
