@@ -332,7 +332,23 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         ? getEquipCostPerPage(item.equipment_id, item.equipment_mode || "color")
         : item.printing_cost;
       const paperCost = Number(item.paper_cost) || 0;
-      const paperRec = findPaperRecord(item.paper_type, item.grammage);
+      const paperRec = findPaperRecord(item.paper_type, item.grammage, item.size);
+      const linkedPaper = paperRec
+        ? {
+            id: paperRec.id,
+            name: paperRec.name,
+            grammage: paperRec.grammage ?? null,
+            sheet_qty: Number(paperRec.sheet_qty) || 0,
+            is_cut_size: !!paperRec.is_cut_size,
+            unit_cost: paperCost,
+            packaging_label: (() => {
+              const q = Number(paperRec.sheet_qty) || 0;
+              if (q <= 0) return "—";
+              const fmt = q.toLocaleString("pt-BR");
+              return q >= 1000 ? `Caixa ${fmt} fl` : `Pacote ${fmt} fl`;
+            })(),
+          }
+        : null;
       return {
         id: item.id,
         paper_type: item.paper_type,
@@ -350,6 +366,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         is_cut_size: paperRec?.is_cut_size ?? false,
         purchase_sheet_width_mm: paperRec?.purchase_sheet_width_mm ?? null,
         purchase_sheet_height_mm: paperRec?.purchase_sheet_height_mm ?? null,
+        linkedPaper,
       };
     });
     setPrintingCatalog(catalog);
