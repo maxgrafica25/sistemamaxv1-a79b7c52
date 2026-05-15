@@ -435,18 +435,12 @@ export default function PrecoImpressao() {
       setItemEquipmentId(item.equipment_id || ""); setItemEquipmentMode(item.equipment_mode || "color"); setItemPaperSource("manual");
       setBatchSizes([item.size]); setBatchSides([item.side]);
       setItemMarkupGroupId(item.markup_group_id || "__default__");
-      setItemIsCutSize(!!item.is_cut_size);
-      setItemPurchaseSheetW(item.purchase_sheet_width_mm != null ? String(item.purchase_sheet_width_mm) : "");
-      setItemPurchaseSheetH(item.purchase_sheet_height_mm != null ? String(item.purchase_sheet_height_mm) : "");
     } else {
       setEditingItem(null); setItemCode(""); setItemPaperType(""); setItemGrammage("");
       setItemSize("A4"); setItemSide("F"); setItemPaperCost("0"); setItemPrintingCost("0");
       setItemEquipmentId(""); setItemEquipmentMode("color"); setItemPaperSource("manual");
       setBatchSizes(["A4"]); setBatchSides(["F"]);
       setItemMarkupGroupId("__default__");
-      setItemIsCutSize(false);
-      setItemPurchaseSheetW("");
-      setItemPurchaseSheetH("");
     }
     setShowItemDialog(true);
   };
