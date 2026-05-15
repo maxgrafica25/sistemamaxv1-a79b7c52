@@ -1081,13 +1081,10 @@ export default function MateriasPrimas() {
                 <div className="flex items-center gap-2">
                   <Truck className="h-4 w-4 text-primary" />
                   <span className="text-sm font-medium text-foreground">Frete</span>
-                  <Tooltip>
-                    <TooltipTrigger asChild><HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p>Informe o valor total do frete e entre quantos itens ele será dividido.</p>
-                    </TooltipContent>
-                  </Tooltip>
                 </div>
+                <p className="text-xs text-muted-foreground -mt-1">
+                  Informe o valor total do frete e entre quantos itens ele será dividido.
+                </p>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Valor total do frete (R$)</Label>
