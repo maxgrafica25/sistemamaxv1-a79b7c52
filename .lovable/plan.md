@@ -1,49 +1,45 @@
-# Mover "papel já cortado" para o cadastro de Papel
+## Problema
 
-## Por que esta correção
+No diálogo "Novo Papel" (Matérias-Primas), quando você marca **"Comprado já cortado no formato final"** (ex.: Sulfite A4), o restante do formulário continua exibindo rótulos `(66×96)` hard-coded:
 
-Você está certo — eu errei. Os papéis são entidades cadastradas em **Matérias-Primas → Papel** (tabela `papers`), e `printing_price_items.paper_type` apenas referencia o nome do papel (texto). "Já vem cortado" é uma propriedade física do papel (Sulfite A4 sempre é A4, em qualquer impressora), então pertence ao cadastro do papel, não ao item de preço.
+- "Qtd. Folhas (66×96) *"
+- "Frete por folha (66×96)"
+- "Preço por folha (66×96)" + preview "Preço A4 (÷9)" / "Preço A3+ (÷4)"
 
-O modelo atual (campos em `printing_price_items`) força marcar a flag em cada combinação papel × impressora × tamanho × frente/verso — duplicação e risco de inconsistência.
+Para uma resma de Sulfite A4, esses rótulos não fazem sentido — a folha **já é** A4, e o preview de divisão por 9/4 está conceitualmente errado (1 folha = 1 peça).
 
-## Modelo final
+## Solução (somente UI, sem mudanças de motor/banco)
 
-### Banco
-- **`papers`** ganha 3 colunas:
-  - `is_cut_size boolean NOT NULL DEFAULT false`
-  - `purchase_sheet_width_mm numeric NULL`
-  - `purchase_sheet_height_mm numeric NULL`
-- **`printing_price_items`** perde as 3 colunas adicionadas na migration anterior (revertendo o erro).
+Tornar os rótulos e o preview **reativos a `paperIsCutSize`** no diálogo de cadastro/edição de papel em `src/pages/MateriasPrimas.tsx`.
 
-Como o vínculo papel→item é por **nome** (`papers.name` ↔ `printing_price_items.paper_type`), o motor resolve a flag no momento do cálculo via lookup por nome (já carregado no editor de orçamento).
+### Mudanças
 
-### UI — Matérias-Primas (`src/pages/MateriasPrimas.tsx`, aba Papel)
-No diálogo de cadastro/edição de papel, abaixo de gramatura:
-- Switch **"Comprado já cortado no formato final"** (tooltip explicando: 1 folha = 1 peça, ignora aproveitamento).
-- Bloco colapsável **"Folha de produção customizada (mm)"** com inputs largura × altura, desabilitado quando o switch está marcado.
+1. **Reordenar** o bloco "Comprado já cortado" para aparecer **antes** ou imediatamente acima dos campos Qtd./Preço, deixando claro que ele muda o significado dos campos abaixo. (Já está acima — manter.)
 
-### UI — Preço de Impressão (`src/pages/PrecoImpressao.tsx`)
-- **Remover** o switch e o bloco de folha customizada do diálogo de item (foram adicionados no lugar errado).
-- Opcional: badge informativa no item "Papel já cortado" quando o papel referenciado tiver a flag, só pra orientação visual.
+2. **Rótulo de quantidade** (linha 1069):
+   - Se `paperIsCutSize`: `"Qtd. Folhas na resma *"` + helper "Ex.: 500 folhas em uma resma de Sulfite A4"
+   - Senão: manter `"Qtd. Folhas (66×96) *"`
 
-### Motor de cálculo
-- `resolvePaperSheet()` em `sheet-yield.ts` continua com a mesma assinatura (`PaperSheetSource`), só muda a origem dos dados.
-- `PrintingItemEditor.tsx` e `NewQuoteFormV2.tsx`: ao buscar o item de impressão do catálogo, fazer lookup do papel por nome+gramatura em `papers` para obter `is_cut_size` / `purchase_sheet_*_mm`.
-- `PrintingItemSearch` (`PrintingCatalogItem`) deixa de carregar esses 3 campos do item; passa a mesclá-los a partir do papel correspondente.
-- Edge function `assistente-virtual`: nenhuma mudança funcional.
+3. **Rótulos de frete** (linhas 1107):
+   - Se `paperIsCutSize`: `"Frete por folha"` (sem "(66×96)")
+   - Senão: manter como está
 
-### Migração de dados
-- Antes do `DROP COLUMN`, copiar `is_cut_size = true` de `printing_price_items` para `papers` agrupando por `(paper_type, grammage)` (caso você já tenha marcado algum durante os testes).
-- `purchase_sheet_*_mm` idem.
+4. **Bloco de preview** (linhas 1115-1130) — quando `paperIsCutSize`:
+   - Mostrar apenas **uma linha**: `"Custo por folha"` = `pack_price / sheet_qty + frete`
+   - **Esconder** as linhas de divisão "÷9" e "÷4" (não se aplicam — folha já é a peça final)
+   - Quando não marcado: manter o preview atual (preço folha 66×96 + ÷9 A4 + ÷4 A3/SRA3)
 
-## Testes
-- Atualizar `src/test/sheet-yield.test.ts` para usar `PaperSheetSource` direto (já é o caso) — sem regressão.
-- Adicionar smoke test garantindo que o lookup por nome+gramatura funciona (mock de `papers`).
+5. **Texto do bloco "cut size"** (linhas 1026-1030): pequeno ajuste — explicitar que o campo "Qtd. Folhas" abaixo passa a representar a quantidade de folhas da resma já cortada.
 
 ## Fora de escopo
-- Migrar o vínculo de texto para FK real (`papers.id`) — mudança maior, fica pra outra rodada.
-- Calculadora de Etiquetas (já não usava as flags).
 
----
+- Alterar a tabela/listagem (colunas "66×96" continuam fazendo sentido para papéis de folhão)
+- Mudar lógica de cálculo de custo (`paper_cost_per_sheet` continua sendo `pack/qty + frete`; o motor já trata `is_cut_size` corretamente via `resolvePaperSheet`)
+- Mudar o cadastro de Suprimentos
 
-**Confirma que posso seguir?** A migration vai (1) adicionar 3 colunas em `papers`, (2) copiar dados existentes de `printing_price_items` → `papers` agrupando por nome+gramatura, (3) remover as 3 colunas de `printing_price_items`.
+## Resultado esperado
+
+Ao marcar "Comprado já cortado" para um Sulfite A4:
+- Campo passa a se chamar "Qtd. Folhas na resma" (sem "66×96")
+- Preview mostra apenas "Custo por folha: R$ 0,4300" — sem divisões artificiais
+- Usuário entende que está informando 500 folhas A4, e o sistema usará 1:1.

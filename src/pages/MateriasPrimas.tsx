@@ -1024,9 +1024,10 @@ export default function MateriasPrimas() {
                       Comprado já cortado no formato final
                     </Label>
                     <p className="text-xs text-muted-foreground">
-                      Marque se a resma já vem no tamanho final (ex.: Sulfite A4). O motor de
-                      preço vai considerar <strong>1 folha = 1 peça</strong> e ignorar o
-                      cálculo de aproveitamento do folhão.
+                      Marque se a resma já vem no tamanho final (ex.: Sulfite A4). O campo
+                      <strong> Qtd. Folhas</strong> abaixo passa a representar quantas folhas
+                      vêm na resma, e o motor de preço considera <strong>1 folha = 1 peça</strong>
+                      (sem cálculo de aproveitamento de folhão).
                     </p>
                   </div>
                 </div>
@@ -1066,8 +1067,8 @@ export default function MateriasPrimas() {
               {/* Pricing fields - always visible */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Qtd. Folhas (66×96) *</Label>
-                  <Input type="number" placeholder="500" value={paperSheetQty} onChange={(e) => setPaperSheetQty(e.target.value)} />
+                  <Label>{paperIsCutSize ? "Qtd. Folhas na resma *" : "Qtd. Folhas (66×96) *"}</Label>
+                  <Input type="number" placeholder={paperIsCutSize ? "Ex: 500" : "500"} value={paperSheetQty} onChange={(e) => setPaperSheetQty(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>Preço do Pacote (R$) *</Label>
@@ -1104,7 +1105,7 @@ export default function MateriasPrimas() {
                       <span className="font-medium text-foreground">{formatCurrency(Number(paperFreightTotal) / (Number(paperFreightDivideBy) || 1))}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Frete por folha (66×96)</span>
+                      <span>{paperIsCutSize ? "Frete por folha" : "Frete por folha (66×96)"}</span>
                       <span className="font-medium text-foreground">{fmt4(computedFreightPerSheet)}</span>
                     </div>
                   </div>
@@ -1115,17 +1116,21 @@ export default function MateriasPrimas() {
               {paperSheetQty && paperPackPrice && Number(paperSheetQty) > 0 && (
                 <div className="rounded-lg bg-muted p-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Preço por folha (66×96)</span>
+                    <span className="text-muted-foreground">{paperIsCutSize ? "Custo por folha" : "Preço por folha (66×96)"}</span>
                     <span className="font-semibold">{fmt4(Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet)}</span>
                   </div>
-                  <div className="border-t border-border pt-2 flex justify-between text-sm">
-                    <span className="text-muted-foreground">Preço A4 <span className="text-xs">(÷ 9)</span></span>
-                    <span className="font-bold text-primary">{fmt4((Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet) / 9)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Preço A3+ / SRA3 <span className="text-xs">(÷ 4)</span></span>
-                    <span className="font-bold text-primary">{fmt4((Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet) / 4)}</span>
-                  </div>
+                  {!paperIsCutSize && (
+                    <>
+                      <div className="border-t border-border pt-2 flex justify-between text-sm">
+                        <span className="text-muted-foreground">Preço A4 <span className="text-xs">(÷ 9)</span></span>
+                        <span className="font-bold text-primary">{fmt4((Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet) / 9)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Preço A3+ / SRA3 <span className="text-xs">(÷ 4)</span></span>
+                        <span className="font-bold text-primary">{fmt4((Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet) / 4)}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
