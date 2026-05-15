@@ -1,7 +1,18 @@
 import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Printer } from "lucide-react";
+import { Search, Printer, Link2, AlertTriangle } from "lucide-react";
+
+export interface LinkedPaperInfo {
+  id: string;
+  name: string;
+  grammage: string | null;
+  sheet_qty: number;
+  is_cut_size: boolean;
+  unit_cost: number;
+  /** Label like "Caixa 5.000 fl" or "Pacote 500 fl". */
+  packaging_label: string;
+}
 
 export interface MarkupTier {
   id: string;
