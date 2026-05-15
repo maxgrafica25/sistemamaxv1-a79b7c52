@@ -30,3 +30,36 @@ describe("calcSheetYield", () => {
     expect(calcSheetYield(100, 0, 10)).toBeNull();
   });
 });
+
+describe("resolvePaperSheet", () => {
+  it("is_cut_size força 1 peça por folha (folha = size do item)", () => {
+    const r = resolvePaperSheet({ isCutSize: true, size: "A4" });
+    expect(r.forcePerSheetOne).toBe(true);
+    expect(r.sheet).toEqual({ widthMm: 210, heightMm: 297 });
+  });
+
+  it("usa folhão custom quando preenchido", () => {
+    const r = resolvePaperSheet({
+      isCutSize: false,
+      size: "A4",
+      purchaseSheetWidthMm: 660,
+      purchaseSheetHeightMm: 960,
+    });
+    expect(r.forcePerSheetOne).toBe(false);
+    expect(r.sheet).toEqual({ widthMm: 660, heightMm: 960 });
+  });
+
+  it("default → folhão de produção (SRA3 ~ 328×478)", () => {
+    const r = resolvePaperSheet({ isCutSize: false, size: "A4" });
+    expect(r.forcePerSheetOne).toBe(false);
+    expect(r.sheet).toEqual(PRODUCTION_SHEET);
+  });
+
+  it("sizeToMm mapeia A4/A3/SRA3", () => {
+    expect(sizeToMm("A4")).toEqual({ widthMm: 210, heightMm: 297 });
+    expect(sizeToMm("a3")).toEqual({ widthMm: 297, heightMm: 420 });
+    expect(sizeToMm("SRA3")).toEqual({ widthMm: 320, heightMm: 450 });
+    expect(sizeToMm("100x150mm")).toEqual({ widthMm: 100, heightMm: 150 });
+    expect(sizeToMm(null)).toBeNull();
+  });
+});
