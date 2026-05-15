@@ -334,6 +334,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         printer_category_id: item.printer_category_id,
         markup_group_id: item.markup_group_id || null,
         totalCostA4: paperCost + roundUp5(printingCost),
+        is_cut_size: item.is_cut_size ?? false,
+        purchase_sheet_width_mm: item.purchase_sheet_width_mm ?? null,
+        purchase_sheet_height_mm: item.purchase_sheet_height_mm ?? null,
       };
     });
     setPrintingCatalog(catalog);
