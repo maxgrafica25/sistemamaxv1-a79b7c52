@@ -44,6 +44,8 @@ export interface PrintingCatalogItem {
   is_cut_size?: boolean | null;
   purchase_sheet_width_mm?: number | null;
   purchase_sheet_height_mm?: number | null;
+  /** Vínculo (implícito por nome+gramatura) com o papel da Matéria-Prima. */
+  linkedPaper?: LinkedPaperInfo | null;
 }
 
 interface PrintingItemSearchProps {
