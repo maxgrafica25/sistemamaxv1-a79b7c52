@@ -166,11 +166,11 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
                     )}
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="text-sm font-semibold text-primary">
+                    <span className="text-sm font-semibold text-primary group-hover:text-white">
                       R$ {sellingPrice.toFixed(2)}/folha
                     </span>
                     {sellingPrice !== baseCost && (
-                      <p className="text-[10px] text-muted-foreground">custo: R$ {baseCost.toFixed(2)}</p>
+                      <p className="text-[10px] text-muted-foreground group-hover:text-white/80">custo: R$ {baseCost.toFixed(2)}</p>
                     )}
                   </div>
                 </button>
