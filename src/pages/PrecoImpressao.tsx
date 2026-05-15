@@ -514,9 +514,6 @@ export default function PrecoImpressao() {
             paper_cost: Number(paperCost.toFixed(4)), printing_cost: effectivePrintingCost,
             equipment_id: itemEquipmentId || null, equipment_mode: itemEquipmentMode,
             sort_order: sortBase++, markup_group_id: resolvedGroupId,
-            is_cut_size: itemIsCutSize,
-            purchase_sheet_width_mm: itemIsCutSize ? null : (itemPurchaseSheetW.trim() ? Number(itemPurchaseSheetW) : null),
-            purchase_sheet_height_mm: itemIsCutSize ? null : (itemPurchaseSheetH.trim() ? Number(itemPurchaseSheetH) : null),
           });
         }
       }
