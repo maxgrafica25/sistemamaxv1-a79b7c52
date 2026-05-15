@@ -279,6 +279,9 @@ export default function MateriasPrimas() {
     setPaperName(""); setPaperGrammage(""); setPaperSheetQty(""); setPaperPackPrice("");
     setPaperFreightTotal("0"); setPaperFreightDivideBy("1"); setPaperSupplier(""); setPaperContact("");
     setPaperDate(new Date().toISOString().split("T")[0]);
+    setPaperIsCutSize(false);
+    setPaperPurchaseSheetW("");
+    setPaperPurchaseSheetH("");
     setSelectedExistingPaper(null);
   };
 
