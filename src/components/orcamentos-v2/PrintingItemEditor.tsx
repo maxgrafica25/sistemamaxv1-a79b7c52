@@ -681,6 +681,31 @@ export function PrintingItemEditor({
                 </Command>
               </PopoverContent>
             </Popover>
+            {(() => {
+              const cid = (item as any).catalogItemId as string | null | undefined;
+              if (!cid || !item.paperType) return null;
+              const cat = printingCatalog?.find((p) => p.id === cid);
+              if (!cat) return null;
+              if (cat.linkedPaper) {
+                return (
+                  <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <Link2 className="h-2.5 w-2.5 shrink-0" />
+                    <span className="truncate">
+                      vinculado a: {cat.linkedPaper.name}
+                      {cat.linkedPaper.grammage ? ` ${cat.linkedPaper.grammage}` : ""}
+                      {" · "}{cat.linkedPaper.packaging_label}
+                      {" · R$ "}{cat.linkedPaper.unit_cost.toFixed(4)}/fl
+                    </span>
+                  </p>
+                );
+              }
+              return (
+                <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-500">
+                  <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                  sem papel vinculado em Matérias-Primas
+                </p>
+              );
+            })()}
           </div>
         </div>
       )}
