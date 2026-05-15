@@ -299,6 +299,9 @@ export default function MateriasPrimas() {
       setPaperSupplier(paper.supplier || "");
       setPaperContact(paper.contact || "");
       setPaperDate(new Date().toISOString().split("T")[0]);
+      setPaperIsCutSize(!!paper.is_cut_size);
+      setPaperPurchaseSheetW(paper.purchase_sheet_width_mm != null ? String(paper.purchase_sheet_width_mm) : "");
+      setPaperPurchaseSheetH(paper.purchase_sheet_height_mm != null ? String(paper.purchase_sheet_height_mm) : "");
     } else {
       setEditingPaper(null);
       resetPaperForm();
