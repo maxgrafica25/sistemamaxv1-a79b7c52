@@ -874,6 +874,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         markupGroupId: item.markup_group_id,
         catalogSource: "printing" as any,
         catalogItemId: item.id,
+        isCutSize: item.is_cut_size ?? false,
+        purchaseSheetWidthMm: item.purchase_sheet_width_mm ?? null,
+        purchaseSheetHeightMm: item.purchase_sheet_height_mm ?? null,
       };
       if (existing) {
         return prev.map((m) => (m.id === existing.id ? { ...m, ...patch } : m));
