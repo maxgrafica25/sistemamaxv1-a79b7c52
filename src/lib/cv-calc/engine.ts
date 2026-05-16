@@ -135,17 +135,9 @@ export function selecionarBastao(
     return { acab: ideal, info: { tipo: "normal", escolhido: ideal.nome, qtd: 1 } };
   }
   const maior = bastoes[bastoes.length - 1];
-  const qtd = Math.max(1, Math.ceil(largura_cm / (maior.largura_max_bastao(maior) ?? 1)));
+  const qtd = Math.max(1, Math.ceil(largura_cm / (maior.largura_max_cm ?? 1)));
   return { acab: maior, info: { tipo: "emenda", escolhido: maior.nome, qtd } };
 }
-
-/** Helper interno — devolve largura_max_cm de forma segura. */
-function _lmax(a: Acabamento): number {
-  return a.largura_max_cm ?? 1;
-}
-
-// Patch da assinatura acima (chamada inline corrigida)
-(selecionarBastao as unknown as { _impl?: boolean })._impl = true;
 
 /** Calcula o preço de um único acabamento aplicado à peça. */
 function precificarAcabamento(
