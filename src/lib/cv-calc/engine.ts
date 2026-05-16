@@ -160,7 +160,8 @@ export function calcular(input: CalcInput): CalcResult {
   const valor_minimo = Math.max(0, safe(input.valor_minimo));
   const com_minimo = Math.max(subtotal, valor_minimo);
   const aplicou_minimo = subtotal < valor_minimo;
-  const valor_unitario = Math.ceil(com_minimo);
+  // Arredonda subtotal para 2 casas antes do ceil para evitar imprecisão de ponto flutuante
+  const valor_unitario = Math.ceil(Math.round(com_minimo * 100) / 100 - 1e-9);
   const valor_total = valor_unitario * qtd;
 
   return {
