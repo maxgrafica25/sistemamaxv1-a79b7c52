@@ -8,14 +8,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Edit, Trash2, Search, Loader2, Megaphone, Layers, Printer as PrinterIcon, Scissors } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Loader2, Megaphone, Layers, Printer as PrinterIcon, Scissors, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
+import CalculadoraTab from "@/components/cv-calc/CalculadoraTab";
 
-type Tab = "materiais" | "impressoras" | "acabamentos";
+type Tab = "calculadora" | "materiais" | "impressoras" | "acabamentos";
 
 const CATEGORIAS = [
   { value: "lona", label: "Lona" },
