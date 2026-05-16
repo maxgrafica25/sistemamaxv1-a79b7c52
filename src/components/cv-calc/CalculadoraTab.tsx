@@ -79,7 +79,7 @@ export default function CalculadoraTab() {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
+    <div className="grid gap-6 lg:grid-cols-2">
       {/* Entradas */}
       <Card>
         <CardHeader className="pb-3">
