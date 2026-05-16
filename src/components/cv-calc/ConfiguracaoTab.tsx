@@ -58,7 +58,7 @@ export default function ConfiguracaoTab() {
             onChange={(e) => setValorMinimo(+e.target.value || 0)}
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Quando o cálculo final ficar abaixo deste valor, o sistema aplica este mínimo automaticamente.
+            Valor mínimo de venda para peças muito pequenas (ex.: adesivo 10×10 cm). Não aparece para o cliente — é apenas um piso de cálculo.
           </p>
         </div>
         <Button onClick={save} disabled={saving} className="gap-1.5">
