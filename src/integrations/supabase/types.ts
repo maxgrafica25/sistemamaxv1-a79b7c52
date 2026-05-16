@@ -563,6 +563,177 @@ export type Database = {
           },
         ]
       }
+      cv_calc_acabamentos: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          custo_fixo: number
+          custo_mt2: number
+          custo_perimetro: number
+          custo_unidade: number
+          familia: string
+          id: string
+          largura_max_cm: number | null
+          lucro_fixo: number
+          lucro_mt2: number
+          lucro_perimetro: number
+          lucro_unidade: number
+          nome: string
+          sort_order: number
+          tipos_midia_compativeis: string[]
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          custo_fixo?: number
+          custo_mt2?: number
+          custo_perimetro?: number
+          custo_unidade?: number
+          familia: string
+          id?: string
+          largura_max_cm?: number | null
+          lucro_fixo?: number
+          lucro_mt2?: number
+          lucro_perimetro?: number
+          lucro_unidade?: number
+          nome: string
+          sort_order?: number
+          tipos_midia_compativeis?: string[]
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          custo_fixo?: number
+          custo_mt2?: number
+          custo_perimetro?: number
+          custo_unidade?: number
+          familia?: string
+          id?: string
+          largura_max_cm?: number | null
+          lucro_fixo?: number
+          lucro_mt2?: number
+          lucro_perimetro?: number
+          lucro_unidade?: number
+          nome?: string
+          sort_order?: number
+          tipos_midia_compativeis?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cv_calc_config: {
+        Row: {
+          id: string
+          singleton: boolean
+          updated_at: string
+          valor_minimo: number
+        }
+        Insert: {
+          id?: string
+          singleton?: boolean
+          updated_at?: string
+          valor_minimo?: number
+        }
+        Update: {
+          id?: string
+          singleton?: boolean
+          updated_at?: string
+          valor_minimo?: number
+        }
+        Relationships: []
+      }
+      cv_calc_impressoes: {
+        Row: {
+          ativo: boolean
+          comprimento_max_cm: number | null
+          created_at: string
+          custo_fixo: number
+          custo_mt2: number
+          id: string
+          largura_max_cm: number | null
+          lucro_fixo: number
+          lucro_mt2: number
+          nome: string
+          sort_order: number
+          tipos_midia_compativeis: string[]
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          comprimento_max_cm?: number | null
+          created_at?: string
+          custo_fixo?: number
+          custo_mt2?: number
+          id?: string
+          largura_max_cm?: number | null
+          lucro_fixo?: number
+          lucro_mt2?: number
+          nome: string
+          sort_order?: number
+          tipos_midia_compativeis?: string[]
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          comprimento_max_cm?: number | null
+          created_at?: string
+          custo_fixo?: number
+          custo_mt2?: number
+          id?: string
+          largura_max_cm?: number | null
+          lucro_fixo?: number
+          lucro_mt2?: number
+          nome?: string
+          sort_order?: number
+          tipos_midia_compativeis?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cv_calc_midias: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          custo_fixo: number
+          custo_mt2: number
+          id: string
+          lucro_fixo: number
+          lucro_mt2: number
+          nome: string
+          sort_order: number
+          tipo_midia: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          custo_fixo?: number
+          custo_mt2?: number
+          id?: string
+          lucro_fixo?: number
+          lucro_mt2?: number
+          nome: string
+          sort_order?: number
+          tipo_midia: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          custo_fixo?: number
+          custo_mt2?: number
+          id?: string
+          lucro_fixo?: number
+          lucro_mt2?: number
+          nome?: string
+          sort_order?: number
+          tipo_midia?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cv_finishes: {
         Row: {
           categoria_compativel: string[]

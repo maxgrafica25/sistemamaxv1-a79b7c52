@@ -8,14 +8,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Edit, Trash2, Search, Loader2, Megaphone, Layers, Printer as PrinterIcon, Scissors } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Loader2, Megaphone, Layers, Printer as PrinterIcon, Scissors, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
+import CalculadoraTab from "@/components/cv-calc/CalculadoraTab";
 
-type Tab = "materiais" | "impressoras" | "acabamentos";
+type Tab = "calculadora" | "materiais" | "impressoras" | "acabamentos";
 
 const CATEGORIAS = [
   { value: "lona", label: "Lona" },
@@ -74,7 +75,7 @@ const labelCategoria = (v: string) =>
   CATEGORIAS.find((c) => c.value === v)?.label || v;
 
 export default function CadastrosCV() {
-  const [tab, setTab] = useState<Tab>("materiais");
+  const [tab, setTab] = useState<Tab>("calculadora");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -247,7 +248,8 @@ export default function CadastrosCV() {
     return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  const tabs: { key: Tab; label: string; count: number; icon: typeof Layers }[] = [
+  const tabs: { key: Tab; label: string; count: number | null; icon: typeof Layers }[] = [
+    { key: "calculadora", label: "Calculadora", count: null, icon: Calculator },
     { key: "materiais", label: "Materiais", count: materiais.length, icon: Layers },
     { key: "impressoras", label: "Impressoras", count: impressoras.length, icon: PrinterIcon },
     { key: "acabamentos", label: "Acabamentos", count: acabamentos.length, icon: Scissors },
@@ -275,11 +277,16 @@ export default function CadastrosCV() {
             }`}
           >
             <t.icon className="h-4 w-4" />
-            {t.label} <span className="text-muted-foreground">({t.count})</span>
+            {t.label}
+            {t.count !== null && <span className="text-muted-foreground">({t.count})</span>}
           </button>
         ))}
       </div>
 
+      {tab === "calculadora" ? (
+        <CalculadoraTab />
+      ) : (
+      <>
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -422,6 +429,8 @@ export default function CadastrosCV() {
           )}
         </CardContent>
       </Card>
+      </>
+      )}
 
       {/* ───────── Material Dialog ───────── */}
       <Dialog open={matOpen} onOpenChange={setMatOpen}>
