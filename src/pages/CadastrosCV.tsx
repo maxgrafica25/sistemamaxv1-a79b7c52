@@ -75,7 +75,7 @@ const labelCategoria = (v: string) =>
   CATEGORIAS.find((c) => c.value === v)?.label || v;
 
 export default function CadastrosCV() {
-  const [tab, setTab] = useState<Tab>("materiais");
+  const [tab, setTab] = useState<Tab>("calculadora");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -248,7 +248,8 @@ export default function CadastrosCV() {
     return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  const tabs: { key: Tab; label: string; count: number; icon: typeof Layers }[] = [
+  const tabs: { key: Tab; label: string; count: number | null; icon: typeof Layers }[] = [
+    { key: "calculadora", label: "Calculadora", count: null, icon: Calculator },
     { key: "materiais", label: "Materiais", count: materiais.length, icon: Layers },
     { key: "impressoras", label: "Impressoras", count: impressoras.length, icon: PrinterIcon },
     { key: "acabamentos", label: "Acabamentos", count: acabamentos.length, icon: Scissors },
@@ -276,7 +277,8 @@ export default function CadastrosCV() {
             }`}
           >
             <t.icon className="h-4 w-4" />
-            {t.label} <span className="text-muted-foreground">({t.count})</span>
+            {t.label}
+            {t.count !== null && <span className="text-muted-foreground">({t.count})</span>}
           </button>
         ))}
       </div>
