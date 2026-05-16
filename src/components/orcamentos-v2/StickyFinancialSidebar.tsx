@@ -204,6 +204,46 @@ export function StickyFinancialSidebar(props: Props) {
           </TooltipProvider>
         </div>
       )}
+
+      {isAdmin && (
+        <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 space-y-1.5">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">
+            Resumo Financeiro
+          </p>
+          <div className="space-y-1.5 text-xs">
+            <DRELine label="Custo Total do Produto/Serviço" value={productionCost} />
+            <DRELine label="Impostos" badge={fmtPctRaw(taxPct)} value={taxValue} />
+            <DRELine label="Perdas/Desperdícios" badge={fmtPctRaw(lossPct)} value={lossValue} />
+            <DRELine
+              label={`Taxas de Cartão${billingMethod ? ` · ${billingMethod}` : ""}`}
+              badge={fmtPctRaw(billingPct)}
+              value={billingValue}
+            />
+            <Separator className="my-2" />
+            <div className="flex justify-between items-center">
+              <span className="font-semibold text-foreground">Lucro Bruto</span>
+              <span className="font-semibold tabular-nums text-foreground">
+                {formatBRL(revenueBase - productionCost)}
+              </span>
+            </div>
+            <Separator className="my-2" />
+            <div className="flex justify-between items-center">
+              <span className={cn("font-semibold flex items-center gap-1.5", profitColor)}>
+                Lucro Líquido Final
+                {lowMargin && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+              </span>
+              <div className="flex items-center gap-2">
+                <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded bg-muted", profitColor)}>
+                  {formatPct(netMarginPct)}
+                </span>
+                <span className={cn("font-bold tabular-nums", profitColor)}>
+                  {formatBRL(netProfit)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
