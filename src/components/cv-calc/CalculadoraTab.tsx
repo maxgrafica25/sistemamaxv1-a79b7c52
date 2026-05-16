@@ -13,7 +13,7 @@ import {
 } from "@/lib/cv-calc/engine";
 
 export default function CalculadoraTab() {
-  const { isAdmin } = useIsAdmin();
+  const isAdmin = useIsAdmin();
   const [loading, setLoading] = useState(true);
   const [midias, setMidias] = useState<Midia[]>([]);
   const [impressoes, setImpressoes] = useState<Impressao[]>([]);
