@@ -218,7 +218,6 @@ export default function MidiasTab() {
         title="Excluir mídia"
         description={`Excluir "${delCtx?.name}"? Esta ação não pode ser desfeita.`}
         onConfirm={confirmDelete}
-        variant="destructive"
       />
     </>
   );
