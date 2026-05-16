@@ -429,6 +429,8 @@ export default function CadastrosCV() {
           )}
         </CardContent>
       </Card>
+      </>
+      )}
 
       {/* ───────── Material Dialog ───────── */}
       <Dialog open={matOpen} onOpenChange={setMatOpen}>
