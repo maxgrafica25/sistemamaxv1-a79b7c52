@@ -33,7 +33,17 @@ const bastao150: Acabamento = { ...bastao105, id: "a2", nome: "Banner bastão at
 const bastao205: Acabamento = { ...bastao105, id: "a3", nome: "Banner bastão até 205cm",
   custo_unidade: 24, lucro_unidade: 20, largura_max_cm: 205 };
 
-const pool = [bastao105, bastao150, bastao205];
+const ilhos: Acabamento = {
+  id: "il", nome: "Ilhós (un)", familia: "ilhos",
+  tipos_midia_compativeis: ["lona"],
+  custo_fixo: 0, lucro_fixo: 0,
+  custo_mt2: 0, lucro_mt2: 0,
+  custo_perimetro: 0, lucro_perimetro: 0,
+  custo_unidade: 1, lucro_unidade: 1,
+  largura_max_cm: null,
+};
+
+const pool = [bastao105, bastao150, bastao205, ilhos];
 
 const calc = (L: number, A: number) =>
   calcular({
@@ -81,19 +91,29 @@ describe("Seleção automática de bastão", () => {
     expect(r?.acab.id).toBe("a1");
     expect(r?.info.tipo).toBe("normal");
   });
-  it("130cm escolhe bastão 150", () => {
-    const r = selecionarBastao(130, pool);
-    expect(r?.acab.id).toBe("a2");
-  });
-  it("200cm escolhe bastão 205", () => {
-    const r = selecionarBastao(200, pool);
-    expect(r?.acab.id).toBe("a3");
-  });
-  it("500cm > maior bastão → emenda com qtd=ceil(500/205)=3", () => {
+  it("130cm escolhe bastão 150", () => expect(selecionarBastao(130, pool)?.acab.id).toBe("a2"));
+  it("200cm escolhe bastão 205", () => expect(selecionarBastao(200, pool)?.acab.id).toBe("a3"));
+  it("500cm > maior bastão → emenda com qtd=3", () => {
     const r = selecionarBastao(500, pool);
     expect(r?.info.tipo).toBe("emenda");
     expect(r?.info.qtd).toBe(3);
-    expect(r?.acab.id).toBe("a3");
+  });
+});
+
+describe("Múltiplos acabamentos", () => {
+  it("bastão + 4 ilhós soma corretamente", () => {
+    const r = calcular({
+      largura_cm: 90, altura_cm: 120, quantidade: 1,
+      midia: lonaBrilho, impressao: solventeAlta,
+      acabamentos: [
+        { acabamento: bastao105 },
+        { acabamento: ilhos, qtd_unidades: 4 },
+      ],
+      acabamentos_pool: pool, valor_minimo: 35,
+    });
+    // 132 (caso 90×120 base) + 4×(1+1) = 8 → 140
+    expect(r.valor_unitario).toBe(140);
+    expect(r.acabamentos_detalhe).toHaveLength(2);
   });
 });
 

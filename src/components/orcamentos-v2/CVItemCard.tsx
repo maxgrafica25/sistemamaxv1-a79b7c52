@@ -7,22 +7,24 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertTriangle, Trash2, Plus, X, ChevronDown, Megaphone, Lock, Wand2 } from "lucide-react";
+import { AlertTriangle, Trash2, Plus, X, ChevronDown, Megaphone, Lock, Wand2, Info } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  calcularItemCV,
+  calcular,
   formatBRL,
-  type CVMaterial,
-  type CVPrinter,
-  type CVFinish,
-  type CVAppliedFinish,
-  type CVCalcResult,
-} from "@/lib/cv-pricing/engine";
+  type Midia,
+  type Impressao,
+  type Acabamento,
+  type AcabamentoAplicado,
+  type CalcResult,
+} from "@/lib/cv-calc/engine";
 import { marginTextClass, marginLabel } from "@/lib/quotes-v2/margin";
 
 export interface CVItemState {
   id: string;
+  /** legado: `material_id` mapeia agora para `midia_id` */
   material_id: string | null;
+  /** legado: `printer_id` mapeia agora para `impressao_id` */
   printer_id: string | null;
   largura_cm: number;
   altura_cm: number;
@@ -30,7 +32,7 @@ export interface CVItemState {
   acabamentos: Array<{
     finish_id: string;
     quantidade_unidades: number;
-    /** Quando presente, é um acabamento avulso (não cadastrado), válido só neste orçamento. */
+    /** Acabamento avulso, válido só neste orçamento. */
     custom?: { nome: string; valor: number };
   }>;
 }
@@ -38,104 +40,109 @@ export interface CVItemState {
 interface Props {
   item: CVItemState;
   index: number;
-  materiais: CVMaterial[];
-  impressoras: CVPrinter[];
-  acabamentos: CVFinish[];
+  midias: Midia[];
+  impressoes: Impressao[];
+  acabamentos: Acabamento[];
+  valorMinimo: number;
   onChange: (item: CVItemState) => void;
   onRemove: () => void;
-  onResult: (result: CVCalcResult) => void;
+  onResult: (result: CalcResult) => void;
 }
 
 export function CVItemCard({
-  item, index, materiais, impressoras, acabamentos,
+  item, index, midias, impressoes, acabamentos, valorMinimo,
   onChange, onRemove, onResult,
 }: Props) {
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin";
 
-  // Local state mirrors props for instant typing; debounced 150ms before recompute+propagate.
+  // Local + debounce
   const [local, setLocal] = useState(item);
-  useEffect(() => setLocal(item), [item.id]); // re-sync on item swap
+  useEffect(() => setLocal(item), [item.id]);
 
-  // Debounce: only recompute and bubble up after pause
   const [debounced, setDebounced] = useState(local);
   useEffect(() => {
     const t = setTimeout(() => setDebounced(local), 150);
     return () => clearTimeout(t);
   }, [local]);
 
-  const material = useMemo(
-    () => materiais.find((m) => m.id === debounced.material_id) || null,
-    [materiais, debounced.material_id],
+  const midia = useMemo(
+    () => midias.find((m) => m.id === debounced.material_id) || null,
+    [midias, debounced.material_id],
   );
-  const printer = useMemo(
-    () => impressoras.find((p) => p.id === debounced.printer_id) || null,
-    [impressoras, debounced.printer_id],
+  const impressao = useMemo(
+    () => impressoes.find((p) => p.id === debounced.printer_id) || null,
+    [impressoes, debounced.printer_id],
   );
+  const tipo = midia?.tipo_midia ?? null;
 
-  // Intelligent filters: based on selected material's category
-  const compatPrinters = useMemo(() => {
-    if (!material) return impressoras;
-    return impressoras.filter((p) => p.categorias_compativeis.includes(material.categoria));
-  }, [impressoras, material]);
-  const compatFinishes = useMemo(() => {
-    if (!material) return acabamentos;
-    return acabamentos.filter((f) => f.categoria_compativel.includes(material.categoria));
-  }, [acabamentos, material]);
+  // Filtros por compatibilidade com tipo_midia
+  const compatImpressoes = useMemo(() => {
+    if (!tipo) return impressoes;
+    return impressoes.filter((p) => p.tipos_midia_compativeis.includes(tipo));
+  }, [impressoes, tipo]);
+  const compatAcabamentos = useMemo(() => {
+    if (!tipo) return acabamentos;
+    return acabamentos.filter((a) => a.tipos_midia_compativeis.includes(tipo));
+  }, [acabamentos, tipo]);
 
-  // Auto-clear incompatible selections when material category changes
+  // Auto-limpar seleções incompatíveis
   useEffect(() => {
-    if (!material) return;
-    if (printer && !printer.categorias_compativeis.includes(material.categoria)) {
+    if (!tipo) return;
+    if (impressao && !impressao.tipos_midia_compativeis.includes(tipo)) {
       setLocal((prev) => ({ ...prev, printer_id: null }));
     }
     setLocal((prev) => ({
       ...prev,
       acabamentos: prev.acabamentos.filter((a) => {
-        if (a.custom) return true; // avulso é sempre compatível
+        if (a.custom) return true;
         const f = acabamentos.find((x) => x.id === a.finish_id);
-        return f && f.categoria_compativel.includes(material.categoria);
+        return f && f.tipos_midia_compativeis.includes(tipo);
       }),
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [material?.categoria]);
+  }, [tipo]);
 
-  // Map acabamentos refs → CVAppliedFinish[]
-  const appliedFinishes: CVAppliedFinish[] = useMemo(() => {
+  // Monta lista de acabamentos aplicados (incluindo avulsos sintéticos)
+  const aplicados: AcabamentoAplicado[] = useMemo(() => {
     return debounced.acabamentos
       .map((a) => {
         if (a.custom) {
-          const synth: CVFinish = {
+          const synth: Acabamento = {
             id: a.finish_id,
             nome: a.custom.nome || "Acabamento avulso",
-            tipo_calculo: "fixo",
-            custo: Number(a.custom.valor) || 0,
-            margem_pct: 0,
-            categoria_compativel: material ? [material.categoria] : [],
+            familia: "outro",
+            tipos_midia_compativeis: tipo ? [tipo] : [],
+            custo_fixo: Number(a.custom.valor) || 0,
+            lucro_fixo: 0,
+            custo_mt2: 0, lucro_mt2: 0,
+            custo_perimetro: 0, lucro_perimetro: 0,
+            custo_unidade: 0, lucro_unidade: 0,
+            largura_max_cm: null,
           };
-          return { finish: synth, quantidade_unidades: 1 };
+          return { acabamento: synth, qtd_unidades: 1 };
         }
         const f = acabamentos.find((x) => x.id === a.finish_id);
         if (!f) return null;
-        return { finish: f, quantidade_unidades: a.quantidade_unidades };
+        return { acabamento: f, qtd_unidades: a.quantidade_unidades };
       })
-      .filter(Boolean) as CVAppliedFinish[];
-  }, [debounced.acabamentos, acabamentos, material]);
+      .filter(Boolean) as AcabamentoAplicado[];
+  }, [debounced.acabamentos, acabamentos, tipo]);
 
-  // Compute (memoised, pure)
   const result = useMemo(
-    () => calcularItemCV({
+    () => calcular({
       largura_cm: debounced.largura_cm,
       altura_cm: debounced.altura_cm,
       quantidade: debounced.quantidade,
-      material,
-      printer,
-      acabamentos: appliedFinishes,
+      midia,
+      impressao,
+      acabamentos: aplicados,
+      acabamentos_pool: acabamentos,
+      valor_minimo: valorMinimo,
     }),
-    [debounced, material, printer, appliedFinishes],
+    [debounced, midia, impressao, aplicados, acabamentos, valorMinimo],
   );
 
-  // Bubble up debounced state + result to parent (for persistence + total)
   useEffect(() => {
     onChange(debounced);
     onResult(result);
@@ -145,11 +152,11 @@ export function CVItemCard({
   const updateField = <K extends keyof CVItemState>(key: K, value: CVItemState[K]) =>
     setLocal((prev) => ({ ...prev, [key]: value }));
 
-  const addAcabamento = (finish: CVFinish) => {
-    if (local.acabamentos.some((a) => a.finish_id === finish.id)) return;
+  const addAcabamento = (ac: Acabamento) => {
+    if (local.acabamentos.some((a) => a.finish_id === ac.id)) return;
     setLocal((prev) => ({
       ...prev,
-      acabamentos: [...prev.acabamentos, { finish_id: finish.id, quantidade_unidades: 1 }],
+      acabamentos: [...prev.acabamentos, { finish_id: ac.id, quantidade_unidades: 1 }],
     }));
   };
   const removeAcabamento = (finishId: string) =>
@@ -177,6 +184,9 @@ export function CVItemCard({
   const [customValor, setCustomValor] = useState("");
   const resetCustom = () => { setCustomMode(false); setCustomNome(""); setCustomValor(""); };
 
+  // Detecta detalhe do bastão para mostrar emenda
+  const detalheBastao = result.acabamentos_detalhe.find((d) => d.info_bastao);
+
   return (
     <Card className="border-border/60">
       <CardContent className="p-4 sm:p-5 space-y-4">
@@ -185,24 +195,24 @@ export function CVItemCard({
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Megaphone className="h-4 w-4 text-primary" />
             Item {index + 1}
-            {material && <Badge variant="outline" className="text-[10px]">{material.categoria}</Badge>}
+            {midia && <Badge variant="outline" className="text-[10px]">{midia.tipo_midia}</Badge>}
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={onRemove}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
 
-        {/* Material + Printer */}
+        {/* Mídia + Impressão */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">Material</Label>
+            <Label className="text-xs">Mídia</Label>
             <Select
               value={local.material_id ?? ""}
               onValueChange={(v) => updateField("material_id", v || null)}
             >
-              <SelectTrigger><SelectValue placeholder="Selecione um material" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Selecione uma mídia" /></SelectTrigger>
               <SelectContent>
-                {materiais.map((m) => (
+                {midias.map((m) => (
                   <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>
                 ))}
               </SelectContent>
@@ -210,30 +220,34 @@ export function CVItemCard({
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">
-              Impressora
-              {material && compatPrinters.length < impressoras.length && (
-                <span className="ml-1 text-muted-foreground">(filtrado p/ {material.categoria})</span>
+              Impressão
+              {tipo && compatImpressoes.length < impressoes.length && (
+                <span className="ml-1 text-muted-foreground">(filtrado p/ {tipo})</span>
               )}
             </Label>
             <Select
               value={local.printer_id ?? ""}
               onValueChange={(v) => updateField("printer_id", v || null)}
-              disabled={!material}
+              disabled={!midia}
             >
-              <SelectTrigger><SelectValue placeholder={material ? "Selecione uma impressora" : "Escolha o material primeiro"} /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder={midia ? "Selecione uma impressão" : "Escolha a mídia primeiro"} />
+              </SelectTrigger>
               <SelectContent>
-                {compatPrinters.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.nome} ({p.largura_max_cm}cm)</SelectItem>
+                {compatImpressoes.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.nome}{p.largura_max_cm ? ` (${p.largura_max_cm}cm)` : ""}
+                  </SelectItem>
                 ))}
-                {compatPrinters.length === 0 && (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">Nenhuma impressora compatível</div>
+                {compatImpressoes.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">Nenhuma impressão compatível</div>
                 )}
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        {/* Dimensions */}
+        {/* Dimensões */}
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Largura (cm)</Label>
@@ -269,16 +283,31 @@ export function CVItemCard({
           </div>
         </div>
 
-        {/* Area + emenda warning */}
+        {/* Área + avisos */}
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">
-            Área total: <span className="font-medium text-foreground">{result.area_total_m2.toFixed(2)} m²</span>
+            Área: <span className="font-medium text-foreground">{result.area_m2.toFixed(2)} m²</span>
+            <span className="mx-2">·</span>
+            Perímetro: <span className="font-medium text-foreground">{result.perim_m.toFixed(2)} m</span>
           </span>
         </div>
-        {result.tem_emenda && printer && (
+        {result.emenda_impressao && impressao && (
           <div className="flex items-start gap-2 rounded-md bg-yellow-500/10 border border-yellow-500/30 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-400">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-            <span>Largura excede a impressora ({printer.largura_max_cm}cm). O material terá emenda.</span>
+            <span>Largura excede a impressão ({impressao.largura_max_cm}cm). Haverá emenda.</span>
+          </div>
+        )}
+        {detalheBastao?.info_bastao && (
+          <div className="flex items-start gap-2 rounded-md bg-primary/5 border border-primary/20 px-3 py-2 text-xs text-foreground">
+            <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
+            <span>
+              Bastão escolhido: <strong>{detalheBastao.info_bastao.escolhido}</strong>
+              {detalheBastao.info_bastao.tipo === "emenda" && (
+                <Badge variant="destructive" className="ml-2 text-[10px]">
+                  Emenda × {detalheBastao.info_bastao.qtd}
+                </Badge>
+              )}
+            </span>
           </div>
         )}
 
@@ -291,7 +320,7 @@ export function CVItemCard({
               onOpenChange={(o) => { setFinishPickerOpen(o); if (!o) resetCustom(); }}
             >
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" disabled={!material}>
+                <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" disabled={!midia}>
                   <Plus className="h-3 w-3" /> Adicionar
                 </Button>
               </PopoverTrigger>
@@ -345,12 +374,12 @@ export function CVItemCard({
                       <Wand2 className="h-3.5 w-3.5" />
                       <span className="font-medium">Adicionar acabamento avulso</span>
                     </button>
-                    {compatFinishes.length === 0 ? (
+                    {compatAcabamentos.length === 0 ? (
                       <div className="px-3 py-4 text-xs text-muted-foreground text-center">
-                        Nenhum acabamento cadastrado compatível com {material?.categoria || "este material"}.
+                        Nenhum acabamento compatível com {tipo || "esta mídia"}.
                       </div>
                     ) : (
-                      compatFinishes
+                      compatAcabamentos
                         .filter((f) => !local.acabamentos.some((a) => a.finish_id === f.id))
                         .map((f) => (
                           <button
@@ -359,11 +388,7 @@ export function CVItemCard({
                             className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
                           >
                             <span>{f.nome}</span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {f.tipo_calculo === "unidade" ? "un" :
-                               f.tipo_calculo === "mt2" ? "m²" :
-                               f.tipo_calculo === "perimetro_metro" ? "perím." : "fixo"}
-                            </span>
+                            <span className="text-[10px] text-muted-foreground">{f.familia}</span>
                           </button>
                         ))
                     )}
@@ -380,9 +405,11 @@ export function CVItemCard({
                 const isCustom = !!a.custom;
                 const f = isCustom ? null : acabamentos.find((x) => x.id === a.finish_id);
                 if (!isCustom && !f) return null;
-                const finishResult = result.finishes.find((r) => r.finish_id === a.finish_id);
+                const detalhe = result.acabamentos_detalhe.find((r) => r.acabamento_id === a.finish_id);
                 const nome = isCustom ? (a.custom!.nome || "Acabamento avulso") : f!.nome;
-                const tipo = isCustom ? "fixo" : f!.tipo_calculo;
+                // Mostra input de quantidade só para famílias unidade-based
+                const usaUnidade = !isCustom && f && (f.custo_unidade > 0 || f.lucro_unidade > 0)
+                  && f.familia !== "banner_bastao"; // bastão auto-selecionado
                 return (
                   <div key={a.finish_id} className="flex items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
                     <span className="flex-1 text-sm font-medium truncate flex items-center gap-1.5">
@@ -391,7 +418,7 @@ export function CVItemCard({
                         <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">avulso</Badge>
                       )}
                     </span>
-                    {tipo === "unidade" && (
+                    {usaUnidade && (
                       <Input
                         type="number" min="1" step="1"
                         value={a.quantidade_unidades || 1}
@@ -400,7 +427,7 @@ export function CVItemCard({
                       />
                     )}
                     <span className="w-20 text-right text-sm font-semibold">
-                      {finishResult ? formatBRL(finishResult.valor) : "—"}
+                      {detalhe ? formatBRL(detalhe.preco) : "—"}
                     </span>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeAcabamento(a.finish_id)}>
                       <X className="h-3 w-3" />
@@ -422,7 +449,7 @@ export function CVItemCard({
               </Badge>
             )}
           </div>
-          <span className="text-xl font-bold text-primary">{formatBRL(result.preco_total)}</span>
+          <span className="text-xl font-bold text-primary">{formatBRL(result.valor_total)}</span>
         </div>
 
         {/* Admin-only: Saúde do orçamento */}
@@ -447,7 +474,7 @@ export function CVItemCard({
                   </div>
                   <div>
                     <p className="text-[10px] uppercase text-muted-foreground">Acabamentos</p>
-                    <p className="font-semibold">{formatBRL(result.preco_acabamentos)}</p>
+                    <p className="font-semibold">{formatBRL(result.preco_acabamento)}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/50">

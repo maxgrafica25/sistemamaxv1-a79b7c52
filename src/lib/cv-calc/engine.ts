@@ -52,14 +52,24 @@ export interface Acabamento {
   largura_max_cm: number | null;
 }
 
+/** Acabamento aplicado pode ter quantidade customizada de unidades. */
+export interface AcabamentoAplicado {
+  acabamento: Acabamento;
+  /** Para acabamentos que somam por unidade (ilhós, parafusos, bastões). Default: auto. */
+  qtd_unidades?: number;
+}
+
 export interface CalcInput {
   largura_cm: number;
   altura_cm: number;
   quantidade: number;
   midia: Midia | null;
   impressao: Impressao | null;
-  acabamento: Acabamento | null;
-  /** Todos os acabamentos disponíveis (necessário para seleção automática de bastão). */
+  /** Um único acabamento (modo calculadora simples) — mantido para retro-compat. */
+  acabamento?: Acabamento | null;
+  /** Vários acabamentos (modo orçamento). Se ambos forem informados, este prevalece. */
+  acabamentos?: AcabamentoAplicado[];
+  /** Pool de acabamentos disponíveis (para seleção automática de bastão). */
   acabamentos_pool?: Acabamento[];
   valor_minimo: number;
 }
@@ -70,16 +80,31 @@ export interface InfoBastao {
   qtd: number;
 }
 
+export interface AcabamentoResult {
+  acabamento_id: string;
+  nome: string;
+  familia: FamiliaAcabamento;
+  preco: number;
+  custo: number;
+  info_bastao?: InfoBastao;
+}
+
 export interface CalcResult {
   area_m2: number;
   perim_m: number;
+  /** Acabamento principal efetivo (após seleção automática de bastão) — modo simples. */
   acabamento_efetivo: Acabamento | null;
   info_bastao: InfoBastao | null;
   emenda_impressao: boolean;
   preco_midia: number;
   preco_impressao: number;
   preco_acabamento: number;
+  /** Quebra por acabamento (modo múltiplo). */
+  acabamentos_detalhe: AcabamentoResult[];
   subtotal: number;
+  custo_total: number;
+  lucro_liquido: number;
+  margem_pct: number;
   aplicou_minimo: boolean;
   valor_unitario: number;
   valor_total: number;
@@ -114,6 +139,27 @@ export function selecionarBastao(
   return { acab: maior, info: { tipo: "emenda", escolhido: maior.nome, qtd } };
 }
 
+/** Calcula o preço de um único acabamento aplicado à peça. */
+function precificarAcabamento(
+  ac: Acabamento,
+  area: number,
+  perim_m: number,
+  qtd_unidades: number,
+): { preco: number; custo: number } {
+  const preco =
+    (ac.custo_mt2 + ac.lucro_mt2) * area +
+    (ac.custo_perimetro + ac.lucro_perimetro) * perim_m +
+    (ac.custo_unidade + ac.lucro_unidade) * qtd_unidades +
+    ac.custo_fixo +
+    ac.lucro_fixo;
+  const custo =
+    ac.custo_mt2 * area +
+    ac.custo_perimetro * perim_m +
+    ac.custo_unidade * qtd_unidades +
+    ac.custo_fixo;
+  return { preco, custo };
+}
+
 export function calcular(input: CalcInput): CalcResult {
   const largura = Math.max(0, safe(input.largura_cm));
   const altura = Math.max(0, safe(input.altura_cm));
@@ -126,34 +172,64 @@ export function calcular(input: CalcInput): CalcResult {
   const preco_midia = m
     ? (m.custo_mt2 + m.lucro_mt2) * area + m.custo_fixo + m.lucro_fixo
     : 0;
+  const custo_midia = m ? m.custo_mt2 * area + m.custo_fixo : 0;
 
   // ── Impressão ────────────────────────────────────
   const i = input.impressao;
   const preco_impressao = i
     ? (i.custo_mt2 + i.lucro_mt2) * area + i.custo_fixo + i.lucro_fixo
     : 0;
+  const custo_impressao = i ? i.custo_mt2 * area + i.custo_fixo : 0;
   const emenda_impressao =
     !!i && i.largura_max_cm != null && largura > i.largura_max_cm;
 
-  // ── Acabamento (com seleção automática de bastão) ─
-  let acab = input.acabamento;
+  // ── Acabamento(s) ─────────────────────────────────
+  // Modo múltiplo (orçamento) tem prioridade sobre modo simples (calculadora).
+  const acabamentos_detalhe: AcabamentoResult[] = [];
+  let preco_acabamento = 0;
+  let custo_acabamento = 0;
+  let acabamento_efetivo: Acabamento | null = null;
   let info_bastao: InfoBastao | null = null;
-  let qtd_unidade = 1;
-  if (acab?.familia === "banner_bastao" && input.acabamentos_pool) {
-    const pick = selecionarBastao(largura, input.acabamentos_pool);
-    if (pick) {
-      acab = pick.acab;
-      info_bastao = pick.info;
-      qtd_unidade = pick.info.qtd;
+
+  const aplicados: AcabamentoAplicado[] = (() => {
+    if (input.acabamentos && input.acabamentos.length > 0) return input.acabamentos;
+    if (input.acabamento) return [{ acabamento: input.acabamento }];
+    return [];
+  })();
+
+  for (const ap of aplicados) {
+    let ac = ap.acabamento;
+    let qtd_unidades = ap.qtd_unidades ?? 1;
+    let inf: InfoBastao | undefined;
+
+    // Auto-seleção de bastão na família banner_bastao
+    if (ac.familia === "banner_bastao" && input.acabamentos_pool) {
+      const pick = selecionarBastao(largura, input.acabamentos_pool);
+      if (pick) {
+        ac = pick.acab;
+        inf = pick.info;
+        qtd_unidades = pick.info.qtd;
+        if (!acabamento_efetivo) {
+          acabamento_efetivo = ac;
+          info_bastao = pick.info;
+        }
+      }
+    } else if (!acabamento_efetivo) {
+      acabamento_efetivo = ac;
     }
+
+    const { preco, custo } = precificarAcabamento(ac, area, perim_m, qtd_unidades);
+    preco_acabamento += preco;
+    custo_acabamento += custo;
+    acabamentos_detalhe.push({
+      acabamento_id: ac.id,
+      nome: ac.nome,
+      familia: ac.familia,
+      preco,
+      custo,
+      info_bastao: inf,
+    });
   }
-  const preco_acabamento = acab
-    ? (acab.custo_mt2 + acab.lucro_mt2) * area +
-      (acab.custo_perimetro + acab.lucro_perimetro) * perim_m +
-      (acab.custo_unidade + acab.lucro_unidade) * qtd_unidade +
-      acab.custo_fixo +
-      acab.lucro_fixo
-    : 0;
 
   // ── Totais ────────────────────────────────────────
   const subtotal = preco_midia + preco_impressao + preco_acabamento;
@@ -163,17 +239,24 @@ export function calcular(input: CalcInput): CalcResult {
   // Arredonda subtotal para 2 casas antes do ceil para evitar imprecisão de ponto flutuante
   const valor_unitario = Math.ceil(Math.round(com_minimo * 100) / 100 - 1e-9);
   const valor_total = valor_unitario * qtd;
+  const custo_total = custo_midia + custo_impressao + custo_acabamento;
+  const lucro_liquido = subtotal - custo_total;
+  const margem_pct = subtotal > 0 ? (lucro_liquido / subtotal) * 100 : 0;
 
   return {
     area_m2: area,
     perim_m,
-    acabamento_efetivo: acab,
+    acabamento_efetivo,
     info_bastao,
     emenda_impressao,
     preco_midia,
     preco_impressao,
     preco_acabamento,
+    acabamentos_detalhe,
     subtotal,
+    custo_total,
+    lucro_liquido,
+    margem_pct,
     aplicou_minimo,
     valor_unitario,
     valor_total,

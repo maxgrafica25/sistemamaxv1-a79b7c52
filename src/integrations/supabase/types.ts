@@ -734,137 +734,10 @@ export type Database = {
         }
         Relationships: []
       }
-      cv_finishes: {
-        Row: {
-          categoria_compativel: string[]
-          created_at: string
-          custo: number
-          id: string
-          is_active: boolean
-          margem_pct: number
-          nome: string
-          sort_order: number
-          tipo_calculo: string
-          updated_at: string
-        }
-        Insert: {
-          categoria_compativel?: string[]
-          created_at?: string
-          custo?: number
-          id?: string
-          is_active?: boolean
-          margem_pct?: number
-          nome: string
-          sort_order?: number
-          tipo_calculo: string
-          updated_at?: string
-        }
-        Update: {
-          categoria_compativel?: string[]
-          created_at?: string
-          custo?: number
-          id?: string
-          is_active?: boolean
-          margem_pct?: number
-          nome?: string
-          sort_order?: number
-          tipo_calculo?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      cv_materials: {
-        Row: {
-          categoria: string
-          created_at: string
-          custo_mt2: number
-          id: string
-          is_active: boolean
-          largura_util_cm: number
-          margem_mt2_pct: number
-          nome: string
-          sort_order: number
-          updated_at: string
-          valor_minimo: number
-        }
-        Insert: {
-          categoria: string
-          created_at?: string
-          custo_mt2?: number
-          id?: string
-          is_active?: boolean
-          largura_util_cm?: number
-          margem_mt2_pct?: number
-          nome: string
-          sort_order?: number
-          updated_at?: string
-          valor_minimo?: number
-        }
-        Update: {
-          categoria?: string
-          created_at?: string
-          custo_mt2?: number
-          id?: string
-          is_active?: boolean
-          largura_util_cm?: number
-          margem_mt2_pct?: number
-          nome?: string
-          sort_order?: number
-          updated_at?: string
-          valor_minimo?: number
-        }
-        Relationships: []
-      }
-      cv_printers: {
-        Row: {
-          categorias_compativeis: string[]
-          created_at: string
-          custo_fixo_setup: number
-          custo_mt2_print: number
-          id: string
-          is_active: boolean
-          largura_max_cm: number
-          lucro_fixo_setup: number
-          margem_mt2_print_pct: number
-          nome: string
-          sort_order: number
-          tecnologia: string
-          updated_at: string
-        }
-        Insert: {
-          categorias_compativeis?: string[]
-          created_at?: string
-          custo_fixo_setup?: number
-          custo_mt2_print?: number
-          id?: string
-          is_active?: boolean
-          largura_max_cm?: number
-          lucro_fixo_setup?: number
-          margem_mt2_print_pct?: number
-          nome: string
-          sort_order?: number
-          tecnologia?: string
-          updated_at?: string
-        }
-        Update: {
-          categorias_compativeis?: string[]
-          created_at?: string
-          custo_fixo_setup?: number
-          custo_mt2_print?: number
-          id?: string
-          is_active?: boolean
-          largura_max_cm?: number
-          lucro_fixo_setup?: number
-          margem_mt2_print_pct?: number
-          nome?: string
-          sort_order?: number
-          tecnologia?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       cv_quote_items: {
         Row: {
+          acabamento_id: string | null
+          acabamento_nome: string | null
           altura_cm: number
           aplicou_minimo: boolean
           area_total_m2: number
@@ -874,6 +747,7 @@ export type Database = {
           largura_cm: number
           material_id: string | null
           material_nome: string | null
+          perimetro_m: number
           preco_acabamentos: number
           preco_impressao: number
           preco_midia: number
@@ -887,6 +761,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acabamento_id?: string | null
+          acabamento_nome?: string | null
           altura_cm?: number
           aplicou_minimo?: boolean
           area_total_m2?: number
@@ -896,6 +772,7 @@ export type Database = {
           largura_cm?: number
           material_id?: string | null
           material_nome?: string | null
+          perimetro_m?: number
           preco_acabamentos?: number
           preco_impressao?: number
           preco_midia?: number
@@ -909,6 +786,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acabamento_id?: string | null
+          acabamento_nome?: string | null
           altura_cm?: number
           aplicou_minimo?: boolean
           area_total_m2?: number
@@ -918,6 +797,7 @@ export type Database = {
           largura_cm?: number
           material_id?: string | null
           material_nome?: string | null
+          perimetro_m?: number
           preco_acabamentos?: number
           preco_impressao?: number
           preco_midia?: number
@@ -935,14 +815,14 @@ export type Database = {
             foreignKeyName: "cv_quote_items_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
-            referencedRelation: "cv_materials"
+            referencedRelation: "legacy_cv_materials"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "cv_quote_items_printer_id_fkey"
             columns: ["printer_id"]
             isOneToOne: false
-            referencedRelation: "cv_printers"
+            referencedRelation: "legacy_cv_printers"
             referencedColumns: ["id"]
           },
           {
@@ -1375,6 +1255,135 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      legacy_cv_finishes: {
+        Row: {
+          categoria_compativel: string[]
+          created_at: string
+          custo: number
+          id: string
+          is_active: boolean
+          margem_pct: number
+          nome: string
+          sort_order: number
+          tipo_calculo: string
+          updated_at: string
+        }
+        Insert: {
+          categoria_compativel?: string[]
+          created_at?: string
+          custo?: number
+          id?: string
+          is_active?: boolean
+          margem_pct?: number
+          nome: string
+          sort_order?: number
+          tipo_calculo: string
+          updated_at?: string
+        }
+        Update: {
+          categoria_compativel?: string[]
+          created_at?: string
+          custo?: number
+          id?: string
+          is_active?: boolean
+          margem_pct?: number
+          nome?: string
+          sort_order?: number
+          tipo_calculo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      legacy_cv_materials: {
+        Row: {
+          categoria: string
+          created_at: string
+          custo_mt2: number
+          id: string
+          is_active: boolean
+          largura_util_cm: number
+          margem_mt2_pct: number
+          nome: string
+          sort_order: number
+          updated_at: string
+          valor_minimo: number
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          custo_mt2?: number
+          id?: string
+          is_active?: boolean
+          largura_util_cm?: number
+          margem_mt2_pct?: number
+          nome: string
+          sort_order?: number
+          updated_at?: string
+          valor_minimo?: number
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          custo_mt2?: number
+          id?: string
+          is_active?: boolean
+          largura_util_cm?: number
+          margem_mt2_pct?: number
+          nome?: string
+          sort_order?: number
+          updated_at?: string
+          valor_minimo?: number
+        }
+        Relationships: []
+      }
+      legacy_cv_printers: {
+        Row: {
+          categorias_compativeis: string[]
+          created_at: string
+          custo_fixo_setup: number
+          custo_mt2_print: number
+          id: string
+          is_active: boolean
+          largura_max_cm: number
+          lucro_fixo_setup: number
+          margem_mt2_print_pct: number
+          nome: string
+          sort_order: number
+          tecnologia: string
+          updated_at: string
+        }
+        Insert: {
+          categorias_compativeis?: string[]
+          created_at?: string
+          custo_fixo_setup?: number
+          custo_mt2_print?: number
+          id?: string
+          is_active?: boolean
+          largura_max_cm?: number
+          lucro_fixo_setup?: number
+          margem_mt2_print_pct?: number
+          nome: string
+          sort_order?: number
+          tecnologia?: string
+          updated_at?: string
+        }
+        Update: {
+          categorias_compativeis?: string[]
+          created_at?: string
+          custo_fixo_setup?: number
+          custo_mt2_print?: number
+          id?: string
+          is_active?: boolean
+          largura_max_cm?: number
+          lucro_fixo_setup?: number
+          margem_mt2_print_pct?: number
+          nome?: string
+          sort_order?: number
+          tecnologia?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       maintenance_requests: {
         Row: {

@@ -111,15 +111,7 @@ export default function CadastrosCV() {
   const [deleteCtx, setDeleteCtx] = useState<{ table: string; id: string; name: string } | null>(null);
 
   const fetchAll = async () => {
-    setLoading(true);
-    const [mRes, pRes, fRes] = await Promise.all([
-      supabase.from("cv_materials" as never).select("*").order("sort_order").order("nome"),
-      supabase.from("cv_printers" as never).select("*").order("sort_order").order("nome"),
-      supabase.from("cv_finishes" as never).select("*").order("sort_order").order("nome"),
-    ]);
-    if (mRes.data) setMateriais(mRes.data as never);
-    if (pRes.data) setImpressoras(pRes.data as never);
-    if (fRes.data) setAcabamentos(fRes.data as never);
+    // Tabelas antigas renomeadas para legacy_*; CRUD será reescrito para cv_calc_*.
     setLoading(false);
   };
 
@@ -250,9 +242,8 @@ export default function CadastrosCV() {
 
   const tabs: { key: Tab; label: string; count: number | null; icon: typeof Layers }[] = [
     { key: "calculadora", label: "Calculadora", count: null, icon: Calculator },
-    { key: "materiais", label: "Materiais", count: materiais.length, icon: Layers },
-    { key: "impressoras", label: "Impressoras", count: impressoras.length, icon: PrinterIcon },
-    { key: "acabamentos", label: "Acabamentos", count: acabamentos.length, icon: Scissors },
+    // Abas Materiais/Impressoras/Acabamentos temporariamente ocultas durante migração para cv_calc_*.
+    // CRUD novo será adicionado no próximo passo. Os dados antigos foram preservados em legacy_cv_*.
   ];
 
   return (
