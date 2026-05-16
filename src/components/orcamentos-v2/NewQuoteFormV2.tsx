@@ -226,7 +226,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   // ---------- Load catalog & quote ----------
   const loadInit = useCallback(async () => {
     setLoadingInit(true);
-    const [printRes, catRes, eqRes, consRes, papersRes, tiersRes, settingsRes, expRes, salRes, depRes, capRes, cvMatRes, cvPrtRes, cvFinRes] =
+    const [printRes, catRes, eqRes, consRes, papersRes, tiersRes, settingsRes, expRes, salRes, depRes, capRes, cvMatRes, cvPrtRes, cvFinRes, cvCfgRes] =
       await Promise.all([
         supabase.from("printing_price_items").select("*").eq("is_active", true).order("sort_order"),
         supabase.from("printer_categories").select("*").order("sort_order"),
