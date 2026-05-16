@@ -17,7 +17,7 @@ import { CVItemCard, type CVItemState } from "@/components/orcamentos-v2/CVItemC
 import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
 import { ClientDetailsPanel } from "@/components/orcamentos-v2/ClientDetailsPanel";
 import { ClientLastSalesPanel } from "@/components/orcamentos-v2/ClientLastSalesPanel";
-import type { CVMaterial, CVPrinter, CVFinish, CVCalcResult } from "@/lib/cv-pricing/engine";
+import type { Midia as CVMidia, Impressao as CVImpressao, Acabamento as CVAcabamento, CalcResult as CVCalcResult } from "@/lib/cv-calc/engine";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import PrintingItemSearch, { type PrintingCatalogItem, type MarkupTier } from "@/components/orcamentos/PrintingItemSearch";
@@ -154,9 +154,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [thirdParty, setThirdParty] = useState<ThirdParty[]>([]);
 
   // CV (Comunicação Visual)
-  const [cvMaterials, setCvMaterials] = useState<CVMaterial[]>([]);
-  const [cvPrinters, setCvPrinters] = useState<CVPrinter[]>([]);
-  const [cvFinishes, setCvFinishes] = useState<CVFinish[]>([]);
+  const [cvMaterials, setCvMaterials] = useState<CVMidia[]>([]);
+  const [cvPrinters, setCvPrinters] = useState<CVImpressao[]>([]);
+  const [cvFinishes, setCvFinishes] = useState<CVAcabamento[]>([]);
+  const [cvValorMinimo, setCvValorMinimo] = useState<number>(35);
   const [cvItems, setCvItems] = useState<CVItemState[]>([]);
   const [cvResults, setCvResults] = useState<Record<string, CVCalcResult>>({});
 
@@ -238,14 +239,17 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         supabase.from("salaries").select("salary, is_production"),
         supabase.from("equipment_depreciation").select("purchase_value, useful_life_months, residual_value"),
         supabase.from("productive_capacity").select("hours_per_month, production_employees").limit(1).single(),
-        supabase.from("cv_materials").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from("cv_printers").select("*").eq("is_active", true).order("sort_order"),
-        supabase.from("cv_finishes").select("*").eq("is_active", true).order("sort_order"),
+        supabase.from("cv_calc_midias" as never).select("*").eq("ativo", true).order("sort_order"),
+        supabase.from("cv_calc_impressoes" as never).select("*").eq("ativo", true).order("sort_order"),
+        supabase.from("cv_calc_acabamentos" as never).select("*").eq("ativo", true).order("sort_order"),
+        supabase.from("cv_calc_config" as never).select("valor_minimo").maybeSingle(),
       ]);
 
-    setCvMaterials((cvMatRes.data || []) as unknown as CVMaterial[]);
-    setCvPrinters((cvPrtRes.data || []) as unknown as CVPrinter[]);
-    setCvFinishes((cvFinRes.data || []) as unknown as CVFinish[]);
+    setCvMaterials(((cvMatRes as { data: unknown[] | null }).data || []) as unknown as CVMidia[]);
+    setCvPrinters(((cvPrtRes as { data: unknown[] | null }).data || []) as unknown as CVImpressao[]);
+    setCvFinishes(((cvFinRes as { data: unknown[] | null }).data || []) as unknown as CVAcabamento[]);
+    const cfgVal = (cvCfgRes as { data: { valor_minimo?: number } | null }).data?.valor_minimo;
+    if (cfgVal != null) setCvValorMinimo(Number(cfgVal));
 
     const tiers: MarkupTier[] = (tiersRes.data || []).map((t: any) => ({
       id: t.id,
