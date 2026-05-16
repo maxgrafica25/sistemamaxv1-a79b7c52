@@ -617,7 +617,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const composition = useMemo(() => breakdownForQuantity(snapshot, 1), [snapshot]);
 
   const cvTotal = useMemo(
-    () => Object.values(cvResults).reduce((s, r) => s + (r?.preco_total || 0), 0),
+    () => Object.values(cvResults).reduce((s, r) => s + (r?.valor_total || 0), 0),
     [cvResults],
   );
   const cvCostTotal = useMemo(
@@ -1218,22 +1218,26 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
             const r = cvResults[it.id];
             const mat = cvMaterials.find((m) => m.id === it.material_id);
             const prt = cvPrinters.find((p) => p.id === it.printer_id);
+            const acabEfetivo = r?.acabamento_efetivo;
             return {
               quote_id: id,
               material_id: it.material_id,
               printer_id: it.printer_id,
               material_nome: mat?.nome ?? null,
               printer_nome: prt?.nome ?? null,
+              acabamento_id: acabEfetivo?.id ?? null,
+              acabamento_nome: acabEfetivo?.nome ?? null,
               largura_cm: it.largura_cm,
               altura_cm: it.altura_cm,
               quantidade: it.quantidade,
-              area_total_m2: r?.area_total_m2 ?? 0,
-              tem_emenda: r?.tem_emenda ?? false,
+              area_total_m2: (r?.area_m2 ?? 0) * (it.quantidade || 1),
+              perimetro_m: r?.perim_m ?? 0,
+              tem_emenda: r?.emenda_impressao ?? false,
               aplicou_minimo: r?.aplicou_minimo ?? false,
               preco_midia: r?.preco_midia ?? 0,
               preco_impressao: r?.preco_impressao ?? 0,
-              preco_acabamentos: r?.preco_acabamentos ?? 0,
-              preco_total: r?.preco_total ?? 0,
+              preco_acabamentos: r?.preco_acabamento ?? 0,
+              preco_total: r?.valor_total ?? 0,
               finishes_json: it.acabamentos as never,
               sort_order: i,
             };
@@ -1603,14 +1607,15 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               {cvItems.map((it, idx) => (
                 <CVItemCard
                   key={it.id} item={it} index={idx}
-                  materiais={cvMaterials} impressoras={cvPrinters} acabamentos={cvFinishes}
+                  midias={cvMaterials} impressoes={cvPrinters} acabamentos={cvFinishes}
+                  valorMinimo={cvValorMinimo}
                   onChange={(updated) => setCvItems((p) => p.map((x) => (x.id === it.id ? updated : x)))}
                   onRemove={() => {
                     setCvItems((p) => p.filter((x) => x.id !== it.id));
                     setCvResults((p) => { const { [it.id]: _, ...rest } = p; return rest; });
                   }}
                   onResult={(r) =>
-                    setCvResults((p) => (p[it.id]?.preco_total === r.preco_total && p[it.id]?.custo_total === r.custo_total ? p : { ...p, [it.id]: r }))
+                    setCvResults((p) => (p[it.id]?.valor_total === r.valor_total && p[it.id]?.custo_total === r.custo_total ? p : { ...p, [it.id]: r }))
                   }
                 />
               ))}
