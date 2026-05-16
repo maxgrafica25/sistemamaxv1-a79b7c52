@@ -208,7 +208,7 @@ export function StickyFinancialSidebar(props: Props) {
       {isAdmin && (
         <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 space-y-1.5">
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mb-1">
-            Resumo Financeiro
+            Composição do Resultado
           </p>
           <div className="space-y-1.5 text-xs">
             <DRELine label="Custo Total do Produto/Serviço" value={productionCost} />
