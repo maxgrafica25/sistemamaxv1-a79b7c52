@@ -168,7 +168,7 @@ export default function CalculadoraTab() {
       </Card>
 
       {/* Resultado */}
-      <Card className="border-primary/30">
+      <Card className="border-primary/30 lg:sticky lg:top-4 lg:self-start">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Resultado</CardTitle>
         </CardHeader>
@@ -182,11 +182,6 @@ export default function CalculadoraTab() {
               <DetailRow label="Acabamento" value={formatBRL(result.preco_acabamento)} />
               <div className="border-t pt-2">
                 <DetailRow label="Subtotal" value={formatBRL(result.subtotal)} bold />
-                <DetailRow
-                  label="Valor mínimo"
-                  value={`${formatBRL(valorMinimo)}${result.aplicou_minimo ? " (aplicado)" : ""}`}
-                  muted={!result.aplicou_minimo}
-                />
               </div>
             </>
           )}
