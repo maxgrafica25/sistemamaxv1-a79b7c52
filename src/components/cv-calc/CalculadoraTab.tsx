@@ -202,7 +202,9 @@ export default function CalculadoraTab() {
       const kitRes: KitPriceResult | null = kit
         ? calcKitPrice(kit, { largura_cm: it.largura, altura_cm: it.altura, quantidade: it.quantidade }, kitGlobals)
         : null;
-      return { item: it, midia, kit, res, kitRes };
+      const tipoInfo = detectarTipoProduto(midia, acabamento ? [acabamento] : []);
+      const nomeFinal = it.nomeOverride?.trim() || tipoInfo.nome;
+      return { item: it, midia, kit, res, kitRes, tipoInfo, nomeFinal };
     });
   }, [items, midias, impressoes, acabamentos, kits, valorMinimo, sangrias, markup, kitGlobals]);
 
