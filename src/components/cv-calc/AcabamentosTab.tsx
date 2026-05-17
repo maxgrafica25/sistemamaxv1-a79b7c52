@@ -347,6 +347,29 @@ export default function AcabamentosTab() {
 
   return (
     <>
+      <div className="flex gap-1 border-b border-border mb-4">
+        <button
+          onClick={() => setSubTab("lista")}
+          className={`px-3 py-2 text-sm font-medium border-b-[3px] -mb-px transition-colors ${
+            subTab === "lista" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Lista de acabamentos
+        </button>
+        <button
+          onClick={() => setSubTab("ordem")}
+          className={`px-3 py-2 text-sm font-medium border-b-[3px] -mb-px transition-colors ${
+            subTab === "ordem" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Ordem por mídia
+        </button>
+      </div>
+
+      {subTab === "ordem" ? (
+        <AcabamentosMediaOrderPanel />
+      ) : (
+        <>
       <div className="flex items-center gap-3 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
