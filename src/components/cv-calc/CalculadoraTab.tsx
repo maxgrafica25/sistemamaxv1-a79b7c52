@@ -6,15 +6,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Loader2, AlertTriangle, Calculator, Info, Plus, Trash2, Copy, Receipt,
+  Loader2, AlertTriangle, Calculator, Info, Plus, Trash2, Copy, Receipt, Package,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useHourRate } from "@/hooks/useHourRate";
+import { useGlobalSettings } from "@/hooks/useGlobalSettings";
 import {
   calcular, formatBRL,
   type Midia, type Impressao, type Acabamento, type SangriasMm, type CalcResult,
   type MarkupSettings, type RecipeItem,
 } from "@/lib/cv-calc/engine";
+import { calcKitPrice, type KitDef, type KitConsumoTipo, type KitPricingMode, type KitPriceResult } from "@/lib/kitPricing";
 
 type Item = {
   id: string;
@@ -24,6 +27,7 @@ type Item = {
   midiaId: string;
   impressaoId: string;
   acabamentoId: string;
+  kitId: string;
 };
 
 const uid = () =>
@@ -39,14 +43,18 @@ const newItem = (): Item => ({
   midiaId: "",
   impressaoId: "",
   acabamentoId: "",
+  kitId: "",
 });
 
 export default function CalculadoraTab() {
   const isAdmin = useIsAdmin();
+  const { hourRate } = useHourRate();
+  const { settings: globalSettings } = useGlobalSettings();
   const [loading, setLoading] = useState(true);
   const [midias, setMidias] = useState<Midia[]>([]);
   const [impressoes, setImpressoes] = useState<Impressao[]>([]);
   const [acabamentos, setAcabamentos] = useState<Acabamento[]>([]);
+  const [kits, setKits] = useState<KitDef[]>([]);
   const [valorMinimo, setValorMinimo] = useState(35);
   const [sangrias, setSangrias] = useState<SangriasMm>({});
   const [markup, setMarkup] = useState<MarkupSettings | undefined>(undefined);
@@ -55,7 +63,7 @@ export default function CalculadoraTab() {
 
   useEffect(() => {
     (async () => {
-      const [m, i, a, c, gs, recipes, supplies] = await Promise.all([
+      const [m, i, a, c, gs, recipes, supplies, kitGroups, kitItems] = await Promise.all([
         supabase.from("cv_calc_midias" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_impressoes" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_acabamentos" as never).select("*").eq("ativo", true).order("sort_order"),
@@ -63,6 +71,8 @@ export default function CalculadoraTab() {
         supabase.from("global_settings" as never).select("tax_pct, invoice_pct, credit_card_pct, collection_fee_pct, default_margin_pct").maybeSingle(),
         supabase.from("cv_calc_acabamento_recipe_items" as never).select("acabamento_id, supply_id, consumo_qty, consumo_tipo"),
         supabase.from("supplies").select("id, valor_unitario"),
+        supabase.from("material_groups").select("id, name, pricing_mode, labor_minutes, margin_pct, modulo, is_kit").eq("is_kit", true).contains("modulo", ["cv"]).order("name"),
+        supabase.from("material_group_items").select("id, material_group_id, description, quantity, unit_price, consumo_tipo, supply_id, sort_order").order("sort_order"),
       ]);
 
       // monta map supply_id -> custo unitário
@@ -89,9 +99,36 @@ export default function CalculadoraTab() {
         recipe: recipeByAc.get(ac.id) ?? [],
       }));
 
+      // Monta kits a partir de material_groups + material_group_items
+      const itemsByKit = new Map<string, KitDef["items"]>();
+      ((kitItems.data as Array<{ id: string; material_group_id: string; description: string; quantity: number; unit_price: number; consumo_tipo: string; supply_id: string | null }>) ?? [])
+        .forEach((ki) => {
+          const arr = itemsByKit.get(ki.material_group_id) ?? [];
+          // Usa preço atualizado do suprimento quando disponível; fallback no snapshot
+          const live = ki.supply_id ? supplyCost.get(ki.supply_id) : undefined;
+          arr.push({
+            id: ki.id,
+            description: ki.description,
+            quantity: Number(ki.quantity) || 0,
+            unit_price: live ?? (Number(ki.unit_price) || 0),
+            consumo_tipo: (ki.consumo_tipo as KitConsumoTipo) ?? "fixo",
+          });
+          itemsByKit.set(ki.material_group_id, arr);
+        });
+      const kitsParsed: KitDef[] = ((kitGroups.data as Array<{ id: string; name: string; pricing_mode: string; labor_minutes: number; margin_pct: number | null }>) ?? [])
+        .map((k) => ({
+          id: k.id,
+          name: k.name,
+          pricing_mode: (k.pricing_mode as KitPricingMode) ?? "fixo",
+          labor_minutes: Number(k.labor_minutes) || 0,
+          margin_pct: k.margin_pct,
+          items: itemsByKit.get(k.id) ?? [],
+        }));
+
       setMidias((m.data as never) ?? []);
       setImpressoes((i.data as never) ?? []);
       setAcabamentos(acabamentos);
+      setKits(kitsParsed);
       const cfg = c.data as {
         valor_minimo?: number;
         sangria_adesivo_mm?: number;
@@ -125,11 +162,23 @@ export default function CalculadoraTab() {
       return [...arr.slice(0, idx + 1), copy, ...arr.slice(idx + 1)];
     });
 
+  const kitGlobals = useMemo(() => ({
+    hourRate,
+    tax_pct: globalSettings.tax_pct,
+    invoice_pct: globalSettings.invoice_pct,
+    collection_pct: globalSettings.collection_pct,
+    collection_fee_pct: globalSettings.collection_fee_pct,
+    credit_card_pct: globalSettings.credit_card_pct,
+    waste_pct: globalSettings.waste_pct,
+    default_margin_pct: globalSettings.default_margin_pct,
+  }), [hourRate, globalSettings]);
+
   const results = useMemo(() => {
     return items.map((it) => {
       const midia = midias.find((m) => m.id === it.midiaId) ?? null;
       const impressao = impressoes.find((i) => i.id === it.impressaoId) ?? null;
       const acabamento = acabamentos.find((a) => a.id === it.acabamentoId) ?? null;
+      const kit = kits.find((k) => k.id === it.kitId) ?? null;
       const res = calcular({
         largura_cm: it.largura,
         altura_cm: it.altura,
@@ -140,11 +189,14 @@ export default function CalculadoraTab() {
         sangrias_mm: sangrias,
         markup,
       });
-      return { item: it, midia, res };
+      const kitRes: KitPriceResult | null = kit
+        ? calcKitPrice(kit, { largura_cm: it.largura, altura_cm: it.altura, quantidade: it.quantidade }, kitGlobals)
+        : null;
+      return { item: it, midia, kit, res, kitRes };
     });
-  }, [items, midias, impressoes, acabamentos, valorMinimo, sangrias, markup]);
+  }, [items, midias, impressoes, acabamentos, kits, valorMinimo, sangrias, markup, kitGlobals]);
 
-  const totalGeral = results.reduce((s, r) => s + r.res.valor_total, 0);
+  const totalGeral = results.reduce((s, r) => s + r.res.valor_total + (r.kitRes?.precoVenda ?? 0), 0);
   const totalPecas = results.reduce((s, r) => s + r.item.quantidade, 0);
 
   if (loading) {
@@ -170,16 +222,19 @@ export default function CalculadoraTab() {
           </Button>
         </div>
 
-        {results.map(({ item, midia, res }, idx) => (
+        {results.map(({ item, midia, res, kit, kitRes }, idx) => (
           <ItemCard
             key={item.id}
             index={idx + 1}
             item={item}
             midia={midia}
             res={res}
+            kit={kit}
+            kitRes={kitRes}
             midias={midias}
             impressoes={impressoes}
             acabamentos={acabamentos}
+            kits={kits}
             isAdmin={isAdmin}
             canRemove={items.length > 1}
             onChange={(patch) => patchItem(item.id, patch)}
@@ -202,31 +257,41 @@ export default function CalculadoraTab() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
-            {results.map(({ item, midia, res }, idx) => (
-              <div key={item.id} className="rounded-md border bg-card/50 p-2.5 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      Item {idx + 1}
-                    </div>
-                    <div className="truncate font-medium">
-                      {midia?.nome ?? <span className="text-muted-foreground italic">Sem mídia</span>}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {item.largura}×{item.altura}cm · {item.quantidade}×
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-semibold text-primary">{formatBRL(res.valor_total)}</div>
-                    {item.quantidade > 1 && (
-                      <div className="text-[10px] text-muted-foreground">
-                        {formatBRL(res.valor_unitario)}/un
+            {results.map(({ item, midia, res, kit, kitRes }, idx) => {
+              const totalItem = res.valor_total + (kitRes?.precoVenda ?? 0);
+              const unit = item.quantidade > 0 ? totalItem / item.quantidade : totalItem;
+              return (
+                <div key={item.id} className="rounded-md border bg-card/50 p-2.5 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Item {idx + 1}
                       </div>
-                    )}
+                      <div className="truncate font-medium">
+                        {midia?.nome ?? <span className="text-muted-foreground italic">Sem mídia</span>}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {item.largura}×{item.altura}cm · {item.quantidade}×
+                      </div>
+                      {kit && kitRes && (
+                        <div className="mt-1 flex items-center gap-1 text-[11px] text-primary">
+                          <Package className="h-3 w-3" />
+                          <span className="truncate">{kit.name}: {formatBRL(kitRes.precoVenda)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="font-semibold text-primary">{formatBRL(totalItem)}</div>
+                      {item.quantidade > 1 && (
+                        <div className="text-[10px] text-muted-foreground">
+                          {formatBRL(unit)}/un
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="border-t pt-3 space-y-1">
@@ -261,9 +326,12 @@ interface ItemCardProps {
   item: Item;
   midia: Midia | null;
   res: CalcResult;
+  kit: KitDef | null;
+  kitRes: KitPriceResult | null;
   midias: Midia[];
   impressoes: Impressao[];
   acabamentos: Acabamento[];
+  kits: KitDef[];
   isAdmin: boolean;
   canRemove: boolean;
   onChange: (patch: Partial<Item>) => void;
@@ -272,7 +340,7 @@ interface ItemCardProps {
 }
 
 function ItemCard({
-  index, item, midia, res, midias, impressoes, acabamentos,
+  index, item, midia, res, kit, kitRes, midias, impressoes, acabamentos, kits,
   isAdmin, canRemove, onChange, onClone, onRemove,
 }: ItemCardProps) {
   const tipo = midia?.tipo_midia ?? null;
@@ -307,7 +375,7 @@ function ItemCard({
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold text-primary tabular-nums">
-            {formatBRL(res.valor_total)}
+            {formatBRL(res.valor_total + (kitRes?.precoVenda ?? 0))}
           </span>
           <div className="flex items-center gap-0.5">
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onClone} title="Duplicar item">
@@ -384,6 +452,35 @@ function ItemCard({
             </Select>
           </div>
         </div>
+
+        {kits.length > 0 && (
+          <div>
+            <Label className="text-xs flex items-center gap-1">
+              <Package className="h-3 w-3 text-primary" /> Kit (Grupo de Materiais)
+            </Label>
+            <Select
+              value={item.kitId || "none"}
+              onValueChange={(v) => onChange({ kitId: v === "none" ? "" : v })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Nenhum kit" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhum kit</SelectItem>
+                {kits.map((k) => (
+                  <SelectItem key={k.id} value={k.id}>{k.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {kit && kitRes && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Material {formatBRL(kitRes.custoMaterial)} · MO {formatBRL(kitRes.custoMO)} · Venda{" "}
+                <span className="text-primary font-semibold">{formatBRL(kitRes.precoVenda)}</span>
+                {" · Lucro "}<span className="text-green-600 font-medium">{formatBRL(kitRes.lucroLiquido)}</span>
+              </p>
+            )}
+          </div>
+        )}
 
         {(res.emenda_impressao || res.info_bastao) && (
           <div className="space-y-1">
