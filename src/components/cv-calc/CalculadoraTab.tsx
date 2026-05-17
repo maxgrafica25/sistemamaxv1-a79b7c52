@@ -234,7 +234,7 @@ export default function CalculadoraTab() {
           </Button>
         </div>
 
-        {results.map(({ item, midia, res, kit, kitRes }, idx) => (
+        {results.map(({ item, midia, res, kit, kitRes, tipoInfo, nomeFinal }, idx) => (
           <ItemCard
             key={item.id}
             index={idx + 1}
@@ -243,6 +243,8 @@ export default function CalculadoraTab() {
             res={res}
             kit={kit}
             kitRes={kitRes}
+            tipoInfo={tipoInfo}
+            nomeFinal={nomeFinal}
             midias={midias}
             impressoes={impressoes}
             acabamentos={acabamentos}
