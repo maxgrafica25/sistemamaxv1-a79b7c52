@@ -9,12 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Search, Loader2, Package, X } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Loader2, Package, X, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
+import { useHourRate } from "@/hooks/useHourRate";
 
 const TIPOS_MIDIA = [
   { value: "lona", label: "Lona" },
