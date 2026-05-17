@@ -453,6 +453,35 @@ function ItemCard({
           </div>
         </div>
 
+        {kits.length > 0 && (
+          <div>
+            <Label className="text-xs flex items-center gap-1">
+              <Package className="h-3 w-3 text-primary" /> Kit (Grupo de Materiais)
+            </Label>
+            <Select
+              value={item.kitId || "none"}
+              onValueChange={(v) => onChange({ kitId: v === "none" ? "" : v })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Nenhum kit" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhum kit</SelectItem>
+                {kits.map((k) => (
+                  <SelectItem key={k.id} value={k.id}>{k.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {kit && kitRes && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Material {formatBRL(kitRes.custoMaterial)} · MO {formatBRL(kitRes.custoMO)} · Venda{" "}
+                <span className="text-primary font-semibold">{formatBRL(kitRes.precoVenda)}</span>
+                {" · Lucro "}<span className="text-green-600 font-medium">{formatBRL(kitRes.lucroLiquido)}</span>
+              </p>
+            )}
+          </div>
+        )}
+
         {(res.emenda_impressao || res.info_bastao) && (
           <div className="space-y-1">
             {res.emenda_impressao && (
