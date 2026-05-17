@@ -106,7 +106,8 @@ export default function CalculadoraTab() {
         chapa: Number(cfg?.sangria_chapa_mm ?? 0),
         outro: Number(cfg?.sangria_outro_mm ?? 0),
       });
-      if (gs.data) setMarkup(gs.data as MarkupSettings);
+      const gsData = (gs as { data: unknown }).data;
+      if (gsData) setMarkup(gsData as MarkupSettings);
       setLoading(false);
     })();
   }, []);
