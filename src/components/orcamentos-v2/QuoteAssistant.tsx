@@ -337,10 +337,64 @@ export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags, c
                   </div>
                 )}
 
+                {aiVisible.length > 0 && (
+                  <div className="pt-1">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground px-1 pb-1 flex items-center gap-1">
+                      <Bot className="h-3 w-3" /> IA contextual {aiRanAt && <span className="opacity-60">· Gemini</span>}
+                    </div>
+                    {aiVisible.map((s, i) => (
+                      <div key={i} className="rounded-md border border-primary/30 bg-primary/[0.06] px-3 py-2 flex gap-2 mb-1">
+                        <span className="text-base leading-none">🤖</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold">{s.mensagem}</div>
+                          {s.justificativa && (
+                            <div className="text-[11px] text-muted-foreground mt-0.5">{s.justificativa}</div>
+                          )}
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground/70 mt-1">
+                            {s.tipo}
+                            {s.alvo_id && s.tipo === "acabamento" && acabNames[s.alvo_id] ? ` · ${acabNames[s.alvo_id]}` : ""}
+                            {s.alvo_id && s.tipo === "pergunta" && questionNames[s.alvo_id] ? ` · ${questionNames[s.alvo_id]}` : ""}
+                          </div>
+                        </div>
+                        <Button
+                          type="button" variant="ghost" size="icon"
+                          className="h-6 w-6 shrink-0 hover:bg-foreground/10"
+                          onClick={() => setAiDismissed((d) => new Set(d).add(ai.indexOf(s)))}
+                          title="Dispensar nesta sessão"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {histLoading && histVisible.length === 0 && ativas.length === 0 && (
                   <p className="text-[11px] text-muted-foreground px-1">Buscando padrões…</p>
                 )}
               </>
+            )}
+
+            {cvItems.length > 0 && (
+              <div className="pt-1 flex items-center justify-between gap-2">
+                <Button
+                  type="button" variant="outline" size="sm"
+                  className="h-7 text-xs"
+                  disabled={aiLoading}
+                  onClick={() => runAi(true)}
+                >
+                  {aiLoading ? (
+                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Consultando IA…</>
+                  ) : (
+                    <><Bot className="h-3 w-3 mr-1" /> Pedir opinião da IA</>
+                  )}
+                </Button>
+                {aiRanAt && !aiLoading && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Última: {new Date(aiRanAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         )}
