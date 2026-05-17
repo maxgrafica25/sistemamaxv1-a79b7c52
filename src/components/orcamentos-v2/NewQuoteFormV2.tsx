@@ -279,11 +279,15 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         });
         laborByAc.set(l.acabamento_id, arr);
       });
-    const cvFinishesEnriched = (((cvFinRes as { data: CVAcabamento[] | null }).data) ?? []).map((ac) => ({
+    const cvFinishesEnrichedRaw = (((cvFinRes as { data: CVAcabamento[] | null }).data) ?? []).map((ac) => ({
       ...ac,
       recipe: recipeByAc.get(ac.id) ?? [],
       labor: laborByAc.get(ac.id) ?? [],
     }));
+    const cvFinishesEnriched = attachMediaOrder(
+      cvFinishesEnrichedRaw,
+      (((cvOrdRes as { data: unknown }).data) as Parameters<typeof attachMediaOrder>[1]) ?? [],
+    );
 
     setCvMaterials(((cvMatRes as { data: unknown[] | null }).data || []) as unknown as CVMidia[]);
     setCvPrinters(((cvPrtRes as { data: unknown[] | null }).data || []) as unknown as CVImpressao[]);
