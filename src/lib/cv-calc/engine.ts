@@ -164,8 +164,13 @@ export function calcular(input: CalcInput): CalcResult {
   const largura = Math.max(0, safe(input.largura_cm));
   const altura = Math.max(0, safe(input.altura_cm));
   const qtd = Math.max(1, Math.floor(safe(input.quantidade, 1)));
-  const area = (largura * altura) / 10_000;
-  const perim_m = ((largura + altura) * 2) / 100;
+
+  // Modelo "job único": área/perímetro escalam com a quantidade;
+  // custos fixos (setup) permanecem únicos.
+  const area_un = (largura * altura) / 10_000;
+  const perim_un_m = ((largura + altura) * 2) / 100;
+  const area = area_un * qtd;
+  const perim_m = perim_un_m * qtd;
 
   // ── Mídia ─────────────────────────────────────────
   const m = input.midia;
@@ -199,7 +204,8 @@ export function calcular(input: CalcInput): CalcResult {
 
   for (const ap of aplicados) {
     let ac = ap.acabamento;
-    let qtd_unidades = ap.qtd_unidades ?? 1;
+    // Por unidade (ilhós ×4 = 4 por peça). Total no job = qtd_un_por_peca × qtd.
+    let qtd_un_por_peca = ap.qtd_unidades ?? 1;
     let inf: InfoBastao | undefined;
 
     // Auto-seleção de bastão na família banner_bastao
@@ -208,7 +214,7 @@ export function calcular(input: CalcInput): CalcResult {
       if (pick) {
         ac = pick.acab;
         inf = pick.info;
-        qtd_unidades = pick.info.qtd;
+        qtd_un_por_peca = pick.info.qtd; // 1 bastão por peça (ou N em caso de emenda)
         if (!acabamento_efetivo) {
           acabamento_efetivo = ac;
           info_bastao = pick.info;
@@ -218,7 +224,8 @@ export function calcular(input: CalcInput): CalcResult {
       acabamento_efetivo = ac;
     }
 
-    const { preco, custo } = precificarAcabamento(ac, area, perim_m, qtd_unidades);
+    const qtd_unidades_total = qtd_un_por_peca * qtd;
+    const { preco, custo } = precificarAcabamento(ac, area, perim_m, qtd_unidades_total);
     preco_acabamento += preco;
     custo_acabamento += custo;
     acabamentos_detalhe.push({
@@ -231,14 +238,14 @@ export function calcular(input: CalcInput): CalcResult {
     });
   }
 
-  // ── Totais ────────────────────────────────────────
+  // ── Totais (já são o total do job) ────────────────
   const subtotal = preco_midia + preco_impressao + preco_acabamento;
   const valor_minimo = Math.max(0, safe(input.valor_minimo));
   const com_minimo = Math.max(subtotal, valor_minimo);
   const aplicou_minimo = subtotal < valor_minimo;
-  // Arredonda subtotal para 2 casas antes do ceil para evitar imprecisão de ponto flutuante
-  const valor_unitario = Math.ceil(Math.round(com_minimo * 100) / 100 - 1e-9);
-  const valor_total = valor_unitario * qtd;
+  // Arredonda para 2 casas antes do ceil para evitar imprecisão de ponto flutuante
+  const valor_total = Math.ceil(Math.round(com_minimo * 100) / 100 - 1e-9);
+  const valor_unitario = qtd > 0 ? valor_total / qtd : valor_total;
   const custo_total = custo_midia + custo_impressao + custo_acabamento;
   const lucro_liquido = subtotal - custo_total;
   const margem_pct = subtotal > 0 ? (lucro_liquido / subtotal) * 100 : 0;
