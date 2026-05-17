@@ -187,12 +187,16 @@ export default function CalculadoraTab() {
           )}
 
           <div className="rounded-md bg-primary/10 border border-primary/30 p-3">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Valor unitário</div>
-            <div className="text-2xl font-bold text-primary">{formatBRL(result.valor_unitario)}</div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              {quantidade > 1 ? `Valor total (${quantidade}×)` : "Valor unitário"}
+            </div>
+            <div className="text-2xl font-bold text-primary">
+              {formatBRL(quantidade > 1 ? result.valor_total : result.valor_unitario)}
+            </div>
             {quantidade > 1 && (
               <div className="mt-2 text-sm">
-                <span className="text-muted-foreground">Total ({quantidade}×): </span>
-                <strong className="text-foreground">{formatBRL(result.valor_total)}</strong>
+                <span className="text-muted-foreground">Unitário: </span>
+                <strong className="text-foreground">{formatBRL(result.valor_unitario)}</strong>
               </div>
             )}
           </div>
