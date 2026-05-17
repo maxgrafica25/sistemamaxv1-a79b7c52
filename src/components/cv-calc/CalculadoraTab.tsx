@@ -138,10 +138,11 @@ export default function CalculadoraTab() {
         acabamentos_pool: acabamentos,
         valor_minimo: valorMinimo,
         sangrias_mm: sangrias,
+        markup,
       });
       return { item: it, midia, res };
     });
-  }, [items, midias, impressoes, acabamentos, valorMinimo, sangrias]);
+  }, [items, midias, impressoes, acabamentos, valorMinimo, sangrias, markup]);
 
   const totalGeral = results.reduce((s, r) => s + r.res.valor_total, 0);
   const totalPecas = results.reduce((s, r) => s + r.item.quantidade, 0);
