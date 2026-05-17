@@ -695,6 +695,10 @@ export default function AcabamentosTab() {
                     <span className="font-mono">{brl(custoReceitaPorPeca + (form.extra_cost_fixo || 0))}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
+                    <span>Custo de MO ({brl(hourRate)}/h)</span>
+                    <span className="font-mono">{brl(custoMoPorPeca)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
                     <span>Margem aplicada</span>
                     <span className="font-mono">{usedMarkupPct.toFixed(1)}%</span>
                   </div>
