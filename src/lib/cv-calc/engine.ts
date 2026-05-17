@@ -271,7 +271,13 @@ function precificarAcabamento(
       safe(ac.extra_cost_perimetro) * perim_m +
       safe(ac.extra_cost_unidade) * qtd_unidades;
 
-    const custo = custo_recipe + custo_extras;
+    // 2.b) Mão-de-obra via etapas (labor items) × hourRate
+    const custo_mo = calcLaborCost(ac.labor, {
+      area, perim_m, qtd_pecas, largura_m, altura_m,
+      hourRate: safe(hourRate),
+    });
+
+    const custo = custo_recipe + custo_extras + custo_mo;
 
     // 3) Markup total (impostos + cartão + comissão + margem) — engenharia reversa
     const totalPct = ac.markup_override_pct != null
