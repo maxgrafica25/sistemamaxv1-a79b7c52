@@ -19,6 +19,7 @@ import {
   type MarkupSettings, type RecipeItem, type TipoProduto,
 } from "@/lib/cv-calc/engine";
 import { calcKitPrice, type KitDef, type KitConsumoTipo, type KitPricingMode, type KitPriceResult } from "@/lib/kitPricing";
+import { attachMediaOrder, filterAndSortForMidia } from "@/lib/cv-calc/media-order";
 
 type Item = {
   id: string;
