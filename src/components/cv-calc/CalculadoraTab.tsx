@@ -326,9 +326,12 @@ interface ItemCardProps {
   item: Item;
   midia: Midia | null;
   res: CalcResult;
+  kit: KitDef | null;
+  kitRes: KitPriceResult | null;
   midias: Midia[];
   impressoes: Impressao[];
   acabamentos: Acabamento[];
+  kits: KitDef[];
   isAdmin: boolean;
   canRemove: boolean;
   onChange: (patch: Partial<Item>) => void;
@@ -337,7 +340,7 @@ interface ItemCardProps {
 }
 
 function ItemCard({
-  index, item, midia, res, midias, impressoes, acabamentos,
+  index, item, midia, res, kit, kitRes, midias, impressoes, acabamentos, kits,
   isAdmin, canRemove, onChange, onClone, onRemove,
 }: ItemCardProps) {
   const tipo = midia?.tipo_midia ?? null;
