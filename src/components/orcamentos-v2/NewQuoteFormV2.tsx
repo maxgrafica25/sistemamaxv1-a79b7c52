@@ -17,7 +17,7 @@ import { CVItemCard, type CVItemState } from "@/components/orcamentos-v2/CVItemC
 import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
 import { ClientDetailsPanel } from "@/components/orcamentos-v2/ClientDetailsPanel";
 import { ClientLastSalesPanel } from "@/components/orcamentos-v2/ClientLastSalesPanel";
-import type { Midia as CVMidia, Impressao as CVImpressao, Acabamento as CVAcabamento, CalcResult as CVCalcResult } from "@/lib/cv-calc/engine";
+import type { Midia as CVMidia, Impressao as CVImpressao, Acabamento as CVAcabamento, CalcResult as CVCalcResult, MarkupSettings as CVMarkupSettings, RecipeItem as CVRecipeItem, LaborItem as CVLaborItem } from "@/lib/cv-calc/engine";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import PrintingItemSearch, { type PrintingCatalogItem, type MarkupTier } from "@/components/orcamentos/PrintingItemSearch";
