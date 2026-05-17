@@ -120,8 +120,10 @@ const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", curren
 
 export default function AcabamentosTab() {
   const { requireAdmin } = usePermissionGuard();
+  const { hourRate } = useHourRate();
   const [rows, setRows] = useState<Row[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
+  const [steps, setSteps] = useState<ProductionStep[]>([]);
   const [globalMarkupPct, setGlobalMarkupPct] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -129,19 +131,22 @@ export default function AcabamentosTab() {
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState<Omit<Row, "id">>(empty);
   const [recipe, setRecipe] = useState<RecipeRow[]>([]);
+  const [labor, setLabor] = useState<LaborRow[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [delCtx, setDelCtx] = useState<{ id: string; name: string } | null>(null);
 
   const fetchAll = async () => {
     setLoading(true);
-    const [rs, sp, gs] = await Promise.all([
+    const [rs, sp, gs, st] = await Promise.all([
       supabase.from("cv_calc_acabamentos").select("*").order("familia").order("sort_order").order("nome"),
       supabase.from("supplies").select("id, produto, valor_unitario, unidade").contains("modulo", ["cv"]).order("produto"),
       supabase.from("global_settings" as never).select("tax_pct, invoice_pct, credit_card_pct, collection_fee_pct, default_margin_pct").maybeSingle(),
+      supabase.from("production_steps").select("id, description, time_minutes").order("description"),
     ]);
     if (rs.error) handleError(rs.error, "carregar acabamentos");
     else setRows((rs.data as Row[]) ?? []);
     setSupplies((sp.data as Supply[]) ?? []);
+    setSteps((st.data as ProductionStep[]) ?? []);
     const g = (gs as { data: Record<string, number> | null }).data;
     if (g) {
       setGlobalMarkupPct(
