@@ -34,11 +34,20 @@ interface Rule {
   severidade: string;
 }
 
+interface AiSuggestion {
+  tipo: "acabamento" | "pergunta" | "alerta";
+  alvo_id: string | null;
+  mensagem: string;
+  justificativa: string;
+}
+
 interface Props {
   cvItems: CVItemState[];
   cvMaterials: { id: string; tipo_midia: string }[];
   cvFinishes: { id: string; nome: string; familia: string }[];
   clientTags: string[];
+  clientName?: string;
+  checklistAnswers?: { pergunta: string; resposta: string }[];
 }
 
 const SEV_ICON: Record<string, any> = {
