@@ -34,13 +34,25 @@ export default function CalculadoraTab() {
         supabase.from("cv_calc_midias" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_impressoes" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_acabamentos" as never).select("*").eq("ativo", true).order("sort_order"),
-        supabase.from("cv_calc_config" as never).select("valor_minimo").maybeSingle(),
+        supabase.from("cv_calc_config" as never).select("valor_minimo, sangria_adesivo_mm, sangria_lona_mm, sangria_chapa_mm, sangria_outro_mm").maybeSingle(),
       ]);
       setMidias((m.data as never) ?? []);
       setImpressoes((i.data as never) ?? []);
       setAcabamentos((a.data as never) ?? []);
-      const cfg = c.data as { valor_minimo?: number } | null;
+      const cfg = c.data as {
+        valor_minimo?: number;
+        sangria_adesivo_mm?: number;
+        sangria_lona_mm?: number;
+        sangria_chapa_mm?: number;
+        sangria_outro_mm?: number;
+      } | null;
       if (cfg?.valor_minimo != null) setValorMinimo(Number(cfg.valor_minimo));
+      setSangrias({
+        adesivo: Number(cfg?.sangria_adesivo_mm ?? 3),
+        lona: Number(cfg?.sangria_lona_mm ?? 0),
+        chapa: Number(cfg?.sangria_chapa_mm ?? 0),
+        outro: Number(cfg?.sangria_outro_mm ?? 0),
+      });
       setLoading(false);
     })();
   }, []);
