@@ -47,6 +47,7 @@ import { QuoteItemsTable, type ProcessStep, type ProcessGroup } from "@/componen
 import { QuoteOptionsBuilder } from "@/components/orcamentos-v2/QuoteOptionsBuilder";
 import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
 import { useLocalDraft, hasDraft, loadDraft, clearDraft } from "@/hooks/useLocalDraft";
+import { QuoteChecklist } from "@/components/orcamentos-v2/QuoteChecklist";
 
 const QUOTE_DRAFT_VERSION = 1;
 const QUOTE_DRAFT_TTL_DAYS = 7;
@@ -162,6 +163,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [cvItems, setCvItems] = useState<CVItemState[]>([]);
   const [cvResults, setCvResults] = useState<Record<string, CVCalcResult>>({});
   const [cvMarkup, setCvMarkup] = useState<CVMarkupSettings | undefined>(undefined);
+
+  // Checklist contextual
+  const [checklistAnswers, setChecklistAnswers] = useState<import("@/components/orcamentos-v2/QuoteChecklist").ChecklistAnswerState[]>([]);
 
   const [discountValue, setDiscountValue] = useState<number | null>(null);
   const [discountType, setDiscountType] = useState<DiscountType>("brl");
@@ -1109,6 +1113,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           supabase.from("quote_labor_steps").delete().eq("quote_id", id),
           supabase.from("quote_third_party").delete().eq("quote_id", id),
           supabase.from("cv_quote_items").delete().eq("quote_id", id),
+          supabase.from("quote_checklist_answers").delete().eq("quote_id", id),
         ]);
       } else {
         const { data, error } = await supabase
@@ -1299,6 +1304,20 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           });
           await supabase.from("cv_quote_items").insert(cvRows);
         }
+
+        // Checklist answers
+        if (checklistAnswers.length > 0) {
+          await supabase.from("quote_checklist_answers").insert(
+            checklistAnswers.map((a) => ({
+              quote_id: id,
+              question_id: a.question_id,
+              resposta_bool: a.resposta_bool ?? null,
+              resposta_num: a.resposta_num ?? null,
+              resposta_text: a.resposta_text ?? null,
+              resposta_url: a.resposta_url ?? null,
+            })),
+          );
+        }
       }
 
       toast.success(isEditing ? "Orçamento atualizado!" : "Orçamento salvo!");
@@ -1318,6 +1337,26 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     navigator.clipboard.writeText(url);
     toast.success("Link público copiado!");
   };
+
+  // Sincroniza mão de obra automática vinda do checklist como material avulso
+  // (id prefixado "chk-<questionId>" para idempotência ao recalcular).
+  const handleChecklistAutoLabor = useCallback(
+    (questionId: string, item: { description: string; totalValue: number } | null) => {
+      const matId = `chk-${questionId}`;
+      setMaterials((prev) => {
+        const without = prev.filter((m) => m.id !== matId);
+        if (!item) return without;
+        return [...without, {
+          id: matId,
+          description: item.description,
+          quantity: 1,
+          unitPrice: item.totalValue,
+          parentItemId: null,
+        } as SubformMaterial];
+      });
+    },
+    [],
+  );
 
   if (loadingInit) {
     return (
@@ -1682,6 +1721,15 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                   <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
                 </div>
               )}
+
+              <QuoteChecklist
+                quoteId={savedQuoteId}
+                cvItems={cvItems}
+                cvMaterials={cvMaterials}
+                cvFinishes={cvFinishes}
+                onAnswersChange={setChecklistAnswers}
+                onAutoLaborChange={handleChecklistAutoLabor}
+              />
             </div>
           </details>
         )}
