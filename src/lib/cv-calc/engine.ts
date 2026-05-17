@@ -285,6 +285,7 @@ export function calcular(input: CalcInput): CalcResult {
     aplicou_minimo,
     valor_unitario,
     valor_total,
+    sangria_aplicada_mm: sangria_mm,
   };
 }
 
