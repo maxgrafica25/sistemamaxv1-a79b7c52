@@ -163,6 +163,9 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [cvResults, setCvResults] = useState<Record<string, CVCalcResult>>({});
   const [cvMarkup, setCvMarkup] = useState<CVMarkupSettings | undefined>(undefined);
 
+  // Checklist contextual
+  const [checklistAnswers, setChecklistAnswers] = useState<import("@/components/orcamentos-v2/QuoteChecklist").ChecklistAnswerState[]>([]);
+
   const [discountValue, setDiscountValue] = useState<number | null>(null);
   const [discountType, setDiscountType] = useState<DiscountType>("brl");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
