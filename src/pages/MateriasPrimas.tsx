@@ -149,6 +149,7 @@ export default function MateriasPrimas() {
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
   const [filterFinalidade, setFilterFinalidade] = useState<string>("all");
+  const [moduloFiltro, setModuloFiltro] = useState<"todos" | "grafica" | "cv">("todos");
   const [paperSortBy, setPaperSortBy] = useState<"name" | "grammage" | "priceA4" | "date">("name");
 
   // Suprimento form
@@ -602,8 +603,15 @@ export default function MateriasPrimas() {
     materials.filter(m => {
       if (searchTerm && !m.produto.toLowerCase().includes(searchTerm.toLowerCase())) return false;
       if (filterFinalidade !== "all" && m.finalidade !== filterFinalidade) return false;
+      if (moduloFiltro !== "todos" && !(m.modulo || []).includes(moduloFiltro)) return false;
       return true;
-    }), [materials, searchTerm, filterFinalidade]);
+    }), [materials, searchTerm, filterFinalidade, moduloFiltro]);
+
+  const moduloCounts = useMemo(() => ({
+    todos: materials.length,
+    grafica: materials.filter(m => (m.modulo || []).includes("grafica")).length,
+    cv: materials.filter(m => (m.modulo || []).includes("cv")).length,
+  }), [materials]);
 
   const filteredPapers = useMemo(() => {
     const filtered = papers.filter(p => {
@@ -720,13 +728,34 @@ export default function MateriasPrimas() {
                 </Select>
               )}
               {activeTab === "suprimento" && (
-                <Select value={filterFinalidade} onValueChange={setFilterFinalidade}>
-                  <SelectTrigger className="w-[200px] shrink-0"><SelectValue placeholder="Filtrar finalidade" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas finalidades</SelectItem>
-                    {uniqueFinalidades.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {([
+                      { k: "todos" as const, label: "Todos" },
+                      { k: "grafica" as const, label: "Gráfica" },
+                      { k: "cv" as const, label: "CV" },
+                    ]).map(c => (
+                      <button
+                        key={c.k}
+                        onClick={() => setModuloFiltro(c.k)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                          moduloFiltro === c.k
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
+                        }`}
+                      >
+                        {c.label} <span className="opacity-70">· {moduloCounts[c.k]}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <Select value={filterFinalidade} onValueChange={setFilterFinalidade}>
+                    <SelectTrigger className="w-[200px] shrink-0"><SelectValue placeholder="Filtrar finalidade" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas finalidades</SelectItem>
+                      {uniqueFinalidades.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </>
               )}
               <AdminOnly mode="disable" action={`cadastrar ${activeTab === "papel" ? "papel" : "suprimento"}`}>
                 <Button
