@@ -780,6 +780,8 @@ export default function AcabamentosTab() {
         description={`Excluir "${delCtx?.name}"? Esta ação não pode ser desfeita.`}
         onConfirm={confirmDelete}
       />
+        </>
+      )}
     </>
   );
 }
