@@ -1349,6 +1349,27 @@ export type Database = {
         }
         Relationships: []
       }
+      historical_suggestion_cache: {
+        Row: {
+          computed_at: string
+          expires_at: string
+          payload: Json
+          signature: string
+        }
+        Insert: {
+          computed_at?: string
+          expires_at?: string
+          payload?: Json
+          signature: string
+        }
+        Update: {
+          computed_at?: string
+          expires_at?: string
+          payload?: Json
+          signature?: string
+        }
+        Relationships: []
+      }
       historico_precos: {
         Row: {
           criado_em: string
