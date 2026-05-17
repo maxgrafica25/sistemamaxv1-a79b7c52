@@ -195,7 +195,7 @@ const roundUpToTenCents = (n: number): number => {
 };
 
 /** Calcula o preço de um único acabamento aplicado à peça.
- *  Em modo "manual" usa custo_*/lucro_* exatamente como antes.
+ *  Em modo "manual" usa custo_* e lucro_* exatamente como antes.
  *  Em modo "recipe" soma custo_supply×consumo + extras e aplica o markup
  *  global (ou override), usando engenharia reversa: preço = custo/(1 - markup). */
 function precificarAcabamento(
