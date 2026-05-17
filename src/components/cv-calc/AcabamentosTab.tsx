@@ -299,6 +299,27 @@ export default function AcabamentosTab() {
           if (rErr) return handleError(rErr, "salvar receita");
         }
       }
+
+      // Sincroniza mão-de-obra (labor)
+      await supabase.from("cv_calc_acabamento_labor_items" as never)
+        .delete().eq("acabamento_id", acabamentoId);
+      if (form.pricing_mode === "recipe" && labor.length > 0) {
+        const validL = labor.filter((l) => l.time_minutes > 0);
+        if (validL.length > 0) {
+          const { error: lErr } = await (supabase
+            .from("cv_calc_acabamento_labor_items" as never) as unknown as { insert: (rows: unknown[]) => Promise<{ error: unknown }> })
+            .insert(validL.map((l, i) => ({
+              acabamento_id: acabamentoId,
+              production_step_id: l.production_step_id || null,
+              descricao: l.descricao || (steps.find((s) => s.id === l.production_step_id)?.description ?? ""),
+              time_minutes: l.time_minutes,
+              consumo_tipo: l.consumo_tipo,
+              consumo_qty: l.consumo_qty,
+              sort_order: i,
+            })));
+          if (lErr) return handleError(lErr, "salvar mão-de-obra");
+        }
+      }
     }
 
     toast.success(editing ? "Acabamento atualizado!" : "Acabamento criado!");
