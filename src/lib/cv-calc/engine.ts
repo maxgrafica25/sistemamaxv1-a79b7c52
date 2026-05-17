@@ -59,6 +59,12 @@ export interface AcabamentoAplicado {
   qtd_unidades?: number;
 }
 
+/** Sangria (margem de bleed) em milímetros por tipo de mídia.
+ *  Somada a cada dimensão antes do cálculo de área e perímetro,
+ *  replicando o comportamento da planilha (CONFIGURACOES!E8..E10).
+ */
+export type SangriasMm = Partial<Record<TipoMidia, number>>;
+
 export interface CalcInput {
   largura_cm: number;
   altura_cm: number;
@@ -72,6 +78,8 @@ export interface CalcInput {
   /** Pool de acabamentos disponíveis (para seleção automática de bastão). */
   acabamentos_pool?: Acabamento[];
   valor_minimo: number;
+  /** Sangria por tipo de mídia (mm). Default: 0 para todos. */
+  sangrias_mm?: SangriasMm;
 }
 
 export interface InfoBastao {
