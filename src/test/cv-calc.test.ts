@@ -128,3 +128,40 @@ describe("Emenda de impressão", () => {
     expect(r.emenda_impressao).toBe(true);
   });
 });
+
+describe("Sangria por tipo de mídia (planilha AK15)", () => {
+  const adesivoBrilho: Midia = {
+    id: "ad1", nome: "Adesivo Brilho", tipo_midia: "adesivo",
+    custo_mt2: 11, lucro_mt2: 12, custo_fixo: 0, lucro_fixo: 6,
+  };
+  const recorteCartelas: Acabamento = {
+    id: "rc", nome: "Recorte Eletrônico + Entregue em Cartelas", familia: "recorte",
+    tipos_midia_compativeis: ["adesivo"],
+    custo_fixo: 14, lucro_fixo: 0,
+    custo_mt2: 50, lucro_mt2: 50,
+    custo_perimetro: 0, lucro_perimetro: 0,
+    custo_unidade: 0, lucro_unidade: 0,
+    largura_max_cm: null,
+  };
+
+  it("6×6 cm × 100 un, Adesivo (sangria 3 mm) → área 0,3969 m²", () => {
+    const r = calcular({
+      largura_cm: 6, altura_cm: 6, quantidade: 100,
+      midia: adesivoBrilho, impressao: solventeAlta, acabamento: recorteCartelas,
+      acabamentos_pool: [], valor_minimo: 35,
+      sangrias_mm: { adesivo: 3 },
+    });
+    expect(r.area_m2).toBeCloseTo(0.3969, 4);
+    expect(r.sangria_aplicada_mm).toBe(3);
+  });
+
+  it("sangria 0 mantém a área crua (6×6×100 = 0,36 m²)", () => {
+    const r = calcular({
+      largura_cm: 6, altura_cm: 6, quantidade: 100,
+      midia: adesivoBrilho, impressao: null, acabamento: null,
+      acabamentos_pool: [], valor_minimo: 35,
+      sangrias_mm: { adesivo: 0 },
+    });
+    expect(r.area_m2).toBeCloseTo(0.36, 4);
+  });
+});
