@@ -210,10 +210,33 @@ const roundUpToTenCents = (n: number): number => {
   return Math.ceil(n * 10 - 1e-9) / 10;
 };
 
+/** Custo de mão-de-obra a partir das etapas (labor items) × hourRate. */
+export function calcLaborCost(
+  items: LaborItem[] | undefined,
+  ctx: { area: number; perim_m: number; qtd_pecas: number; largura_m: number; altura_m: number; hourRate: number },
+): number {
+  if (!items || items.length === 0 || !ctx.hourRate) return 0;
+  let total_min_por_peca = 0;
+  let total_min_fixo = 0;
+  for (const l of items) {
+    const min = safe(l.time_minutes) * safe(l.consumo_qty, 1);
+    switch (l.consumo_tipo) {
+      case "fixo":             total_min_fixo += min; break;
+      case "por_peca":         total_min_por_peca += min; break;
+      case "por_perimetro_m":  total_min_por_peca += min * (ctx.perim_m / Math.max(1, ctx.qtd_pecas)); break;
+      case "por_mt2":          total_min_por_peca += min * (ctx.area / Math.max(1, ctx.qtd_pecas)); break;
+      case "por_largura_m":    total_min_por_peca += min * ctx.largura_m; break;
+      case "por_altura_m":     total_min_por_peca += min * ctx.altura_m; break;
+    }
+  }
+  const total_min = total_min_fixo + total_min_por_peca * ctx.qtd_pecas;
+  return (total_min / 60) * ctx.hourRate;
+}
+
 /** Calcula o preço de um único acabamento aplicado à peça.
  *  Em modo "manual" usa custo_* e lucro_* exatamente como antes.
- *  Em modo "recipe" soma custo_supply×consumo + extras e aplica o markup
- *  global (ou override), usando engenharia reversa: preço = custo/(1 - markup). */
+ *  Em modo "recipe" soma custo_supply×consumo + extras + MO (labor) e aplica
+ *  o markup global (ou override) via engenharia reversa: preço = custo/(1 - markup). */
 function precificarAcabamento(
   ac: Acabamento,
   area: number,
@@ -223,6 +246,7 @@ function precificarAcabamento(
   altura_m: number,
   qtd_pecas: number,
   markup?: MarkupSettings,
+  hourRate?: number,
 ): { preco: number; custo: number } {
   if (ac.pricing_mode === "recipe") {
     // 1) Soma custos da receita por peça × qtd
