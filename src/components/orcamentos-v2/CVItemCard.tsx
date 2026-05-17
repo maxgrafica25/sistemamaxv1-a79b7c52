@@ -45,13 +45,15 @@ interface Props {
   impressoes: Impressao[];
   acabamentos: Acabamento[];
   valorMinimo: number;
+  hourRate?: number;
+  markup?: MarkupSettings;
   onChange: (item: CVItemState) => void;
   onRemove: () => void;
   onResult: (result: CalcResult) => void;
 }
 
 export function CVItemCard({
-  item, index, midias, impressoes, acabamentos, valorMinimo,
+  item, index, midias, impressoes, acabamentos, valorMinimo, hourRate, markup,
   onChange, onRemove, onResult,
 }: Props) {
   const { profile } = useAuth();
