@@ -1723,6 +1723,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 </div>
               )}
 
+              <QuoteAssistant
+                cvItems={cvItems}
+                cvMaterials={cvMaterials}
+                cvFinishes={cvFinishes}
+                clientTags={tags}
+              />
+
               <QuoteChecklist
                 quoteId={savedQuoteId}
                 cvItems={cvItems}
