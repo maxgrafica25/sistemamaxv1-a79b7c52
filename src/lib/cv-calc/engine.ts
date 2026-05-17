@@ -171,9 +171,17 @@ function precificarAcabamento(
 }
 
 export function calcular(input: CalcInput): CalcResult {
-  const largura = Math.max(0, safe(input.largura_cm));
-  const altura = Math.max(0, safe(input.altura_cm));
+  const largura_in = Math.max(0, safe(input.largura_cm));
+  const altura_in = Math.max(0, safe(input.altura_cm));
   const qtd = Math.max(1, Math.floor(safe(input.quantidade, 1)));
+
+  // Sangria por tipo de mídia (mm → cm). Somada a cada dimensão,
+  // replicando AK15 da planilha: (W + sangria) × (H + sangria).
+  const tipo = input.midia?.tipo_midia;
+  const sangria_mm = Math.max(0, safe(tipo ? input.sangrias_mm?.[tipo] : 0));
+  const sangria_cm = sangria_mm / 10;
+  const largura = largura_in > 0 ? largura_in + sangria_cm : 0;
+  const altura = altura_in > 0 ? altura_in + sangria_cm : 0;
 
   // Modelo "job único": área/perímetro escalam com a quantidade;
   // custos fixos (setup) permanecem únicos.
