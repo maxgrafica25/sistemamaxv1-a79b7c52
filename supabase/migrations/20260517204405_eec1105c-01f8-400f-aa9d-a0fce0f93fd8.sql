@@ -1,0 +1,2 @@
+ALTER TABLE public.cv_calc_acabamentos DROP CONSTRAINT cv_calc_acabamentos_familia_check;
+ALTER TABLE public.cv_calc_acabamentos ADD CONSTRAINT cv_calc_acabamentos_familia_check CHECK (familia = ANY (ARRAY['banner_bastao'::text, 'faixa'::text, 'bainha_ilhos'::text, 'ilhos'::text, 'emenda'::text, 'laminacao'::text, 'recorte'::text, 'refile'::text, 'dobra'::text, 'outro'::text]));
