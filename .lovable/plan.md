@@ -1,67 +1,60 @@
-## Causa do bug
+## Causa da diferença de R$ 4
 
-O engine atual calcula **por unidade** e faz `ceil(unitário) × qtd`:
+A planilha **acrescenta sangria a cada dimensão da peça antes de calcular a área**. A sangria é configurada na aba `CONFIGURACOES` por **tipo de mídia**:
 
+- Sangria Adesivo: **3 mm** (0,3 cm)
+- Sangria Lona: 0
+- Sangria Chapa: 0
+
+Fórmula da planilha (célula AK15):
 ```
-6×6cm × 1000 → área_un = 0,0036 m²
-preço_un ≈ 0,33  →  ceil(0,33) = 1,00  →  total = 1000,00
-```
-
-A planilha calcula sobre **área total** (`9×9 = 81` ou `0,0036×1000 = 3,6 m²`) e arredonda **uma única vez** no total. Por isso o valor correto é R$ 576 (≈ R$ 0,576/un) — e não R$ 1.000.
-
-## Mudança de modelo
-
-Trocar para **job único** em todo o engine `cv-calc/engine.ts`:
-
-| Componente            | Antes (por un.)         | Depois (job único)              |
-|-----------------------|-------------------------|---------------------------------|
-| custo/lucro **m²**    | × área_un               | × área_total (qtd × área_un)    |
-| custo/lucro **perímetro** | × perim_un          | × perim_un × qtd                |
-| custo/lucro **unidade**   | × 1                 | × qtd                           |
-| custo/lucro **fixo**      | × 1                 | × 1 (setup único)               |
-| **Valor mínimo (R$35)**   | aplicado no unitário | aplicado no **total**          |
-| **Arredondamento (ceil R$1)** | no unitário     | no **total**                    |
-| `valor_unitario`          | base do cálculo     | derivado: `total / qtd`         |
-
-Validação do caso adesivo (parâmetros exemplo do user):
-```
-área_total = 3,6 m²
-impressão + mídia = 315,64
-acabamento (recorte + cartelas) = 260,07
-subtotal = 575,71  →  ceil = 576 ✅
+Área = qtd × (largura_cm + sangria_cm) × (altura_cm + sangria_cm) / 10.000
 ```
 
-## Impacto nos testes existentes
+Validação com seu teste (6×6, qty 100, Adesivo Brilho):
+- (6 + 0,3) × (6 + 0,3) × 100 = **0,3969 m²** → planilha mostra 0,40 m²
+- Calculadora atual usa 6 × 6 × 100 = 0,36 m² → daí os R$ 4 a menos
 
-Os testes atuais (`90×120 = 132`, `100×300 qtd=3 = 855` etc.) foram calibrados pro modelo per-unit. Com o modelo job único:
+## O que vou fazer
 
-- **qtd=1** → resultado quase idêntico (mudança só vem do ceil R$1 sobre total). Provável que `132`, `135`, `205`, `285`, `301`, `365` continuem batendo.
-- **qtd=3 100×300** → muda (perde economia de setup × 3 da impressão). Precisa recalibrar com a planilha.
+### 1. Configuração global de sangria por tipo de mídia
+Já existe a aba **Configuração** no módulo Comunicação Visual e a tabela `cv_calc_config` (campo `valor_minimo`). Vou adicionar três novos campos:
 
-Vou recalcular cada caso e **atualizar `src/test/cv-calc.test.ts`** com os valores que o modelo novo produz, antes de pedir validação visual.
+- `sangria_adesivo_mm` (default 3)
+- `sangria_lona_mm` (default 0)
+- `sangria_chapa_mm` (default 0)
+- `sangria_outro_mm` (default 0)
 
-## Arquivos alterados
+Migration adiciona as colunas com defaults. UI da aba **Configuração** ganha um bloco "Sangrias (mm)" com 4 inputs numéricos.
 
-1. **`src/lib/cv-calc/engine.ts`** — refator do `calcular()`:
-   - `area_total = area_un × qtd`, `perim_total = perim_un × qtd`
-   - todos os componentes m²/perímetro/unidade multiplicados por qtd
-   - `custo_fixo` / `lucro_fixo` permanecem **uma vez** (setup)
-   - `aplicou_minimo` e `ceil` movidos pro **total**
-   - `valor_unitario = valor_total / qtd` (apenas para exibição)
-   - seleção automática de bastão: `qtd_unidades = pick.info.qtd × qtd` (3 banners × 1 bastão cada)
+### 2. Engine — aplicar sangria na área e no perímetro
+Em `src/lib/cv-calc/engine.ts`, a função `calcular()` passa a receber `sangrias_mm` (objeto por tipo). Lógica:
 
-2. **`src/test/cv-calc.test.ts`** — atualizar valores esperados (especialmente caso qtd=3) após validar contra a planilha.
+```text
+sangria_cm = (sangrias_mm[midia.tipo_midia] ?? 0) / 10
+largura_efetiva = largura_cm + sangria_cm
+altura_efetiva = altura_cm + sangria_cm
+area_un = (largura_efetiva × altura_efetiva) / 10.000
+perim_un_m = 2 × (largura_efetiva + altura_efetiva) / 100
+```
 
-3. **`src/components/cv-calc/CalculadoraTab.tsx`** — pequeno ajuste no card "Resultado": destacar o **Total** quando qtd > 1 (o unitário continua aparecendo, mas como linha secundária derivada).
+O resto do motor (job único, mínimo, arredondamento) permanece igual.
 
-4. **`src/components/orcamentos-v2/CVItemCard.tsx`** — se exibe `valor_unitario` em destaque, trocar pra `valor_total` (a tela do orçamento se preocupa com o total do item). Vou conferir o componente antes de editar.
+### 3. UI da Calculadora
+- `CalculadoraTab` carrega `cv_calc_config` (já carrega), passa as sangrias pro engine.
+- Mostra no painel **Resultado** uma linha discreta `Sangria aplicada: 3 mm (Adesivo)` quando > 0, pra ficar transparente.
 
-## Fora de escopo
+### 4. Testes
+- Atualizar `src/test/cv-calc.test.ts` com um caso novo: 6×6, qty 100, Adesivo, sangria 3 mm → área 0,3969 m².
+- Manter testes anteriores passando setando sangria = 0 nos fixtures (que é o default antigo).
 
-- Estrutura das tabelas `cv_calc_*` não muda.
-- Modo "múltiplo acabamento" (orçamento V2) continua funcionando — apenas o cálculo subjacente passa a usar área total.
-- Engine legado `src/lib/cv-pricing/engine.ts` (que já usava modelo job-único) não é tocado.
+## Arquivos afetados
 
-## Próximo passo após aprovar
+- **Migration**: adicionar 4 colunas em `cv_calc_config`
+- `src/lib/cv-calc/engine.ts` — receber e aplicar sangrias
+- `src/components/cv-calc/CalculadoraTab.tsx` — passar sangrias ao engine + linha informativa
+- `src/components/cv-calc/ConfiguracaoTab.tsx` — bloco "Sangrias (mm)"
+- `src/test/cv-calc.test.ts` — novo caso e ajuste dos existentes
 
-Implemento o engine novo, rodo `cv-calc.test.ts`, ajusto os números esperados conforme cálculos da planilha, e te mostro o teste 6×6 × 1000 batendo R$ 576.
+## Resultado esperado (seu cenário)
+6×6, qty 100, Adesivo Brilho, Impressão Solvente Alta, Recorte + Cartelas → **R$ 84** (bate com a planilha).
