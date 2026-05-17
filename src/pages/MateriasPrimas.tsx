@@ -1323,6 +1323,19 @@ export default function MateriasPrimas() {
                 <div className="space-y-2"><Label>Data Cotação</Label><DatePickerField value={data} onChange={setData} /></div>
                 <div className="space-y-2"><Label>Contato</Label><Input placeholder="Nome" value={contato} onChange={(e) => setContato(e.target.value)} /></div>
               </div>
+              <div className="rounded-md border p-3 space-y-2">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Visível em quais módulos?</Label>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={moduloGrafica} onCheckedChange={(v) => setModuloGrafica(!!v)} />
+                    <span className="text-sm">Gráfica</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={moduloCv} onCheckedChange={(v) => setModuloCv(!!v)} />
+                    <span className="text-sm">Comunicação Visual</span>
+                  </label>
+                </div>
+              </div>
             </div>
             <DialogFooter className="gap-2 pt-4">
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
