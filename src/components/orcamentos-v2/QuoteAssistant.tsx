@@ -178,6 +178,78 @@ export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags, c
 
   const histVisible = hist.filter((h) => !histDismissed.has(h.acabamento_id));
 
+  // Phase 3c: IA contextual (Gemini)
+  const aiPayload = useMemo(() => {
+    const items = cvItems
+      .filter((it) => it.material_id)
+      .map((it) => {
+        const m = cvMaterials.find((x) => x.id === it.material_id);
+        const acabs = it.acabamentos
+          .map((a) => cvFinishes.find((f) => f.id === a.finish_id)?.nome)
+          .filter(Boolean) as string[];
+        return {
+          material_id: it.material_id,
+          material_nome: m ? (m as any).nome ?? null : null,
+          tipo_midia: m?.tipo_midia ?? null,
+          largura_cm: it.largura_cm || 0,
+          altura_cm: it.altura_cm || 0,
+          quantidade: it.quantidade || 1,
+          area_m2: ((it.largura_cm || 0) * (it.altura_cm || 0)) / 10000,
+          acabamentos: acabs,
+        };
+      });
+    return {
+      client_name: clientName ?? null,
+      client_tags: clientTags,
+      items,
+      checklist_answers: checklistAnswers ?? [],
+    };
+  }, [cvItems, cvMaterials, cvFinishes, clientName, clientTags, checklistAnswers]);
+
+  const runAi = async (manual = false) => {
+    if (aiPayload.items.length === 0) return;
+    try {
+      setAiLoading(true);
+      const { data, error } = await supabase.functions.invoke("quote-ai-assistant", {
+        body: aiPayload,
+      });
+      if (error) throw error;
+      if ((data as any)?.error === "rate_limited") {
+        if (manual) toast.error("IA sobrecarregada. Tente em alguns segundos.");
+        return;
+      }
+      if ((data as any)?.error === "credits_exhausted") {
+        if (manual) toast.error("Sem créditos no Gemini.");
+        return;
+      }
+      setAi(((data as any)?.suggestions ?? []) as AiSuggestion[]);
+      setAiDismissed(new Set());
+      setAiRanAt(Date.now());
+    } catch (e) {
+      if (manual) toast.error("Erro ao consultar IA: " + (e as Error).message);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // Auto-run debounced 4s após estabilizar
+  useEffect(() => {
+    if (aiTimer.current) window.clearTimeout(aiTimer.current);
+    if (aiPayload.items.length === 0) {
+      setAi([]);
+      return;
+    }
+    aiTimer.current = window.setTimeout(() => {
+      runAi(false);
+    }, 4000) as unknown as number;
+    return () => {
+      if (aiTimer.current) window.clearTimeout(aiTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiPayload]);
+
+  const aiVisible = ai.filter((_, i) => !aiDismissed.has(i));
+
   if (rules.length === 0 && cvItems.length === 0) return null;
 
   return (
