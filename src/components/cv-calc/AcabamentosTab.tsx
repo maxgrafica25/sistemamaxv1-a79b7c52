@@ -215,8 +215,8 @@ export default function AcabamentosTab() {
       if (form.pricing_mode === "recipe" && recipe.length > 0) {
         const valid = recipe.filter((r) => r.supply_id && r.consumo_qty > 0);
         if (valid.length > 0) {
-          const { error: rErr } = await supabase
-            .from("cv_calc_acabamento_recipe_items" as never)
+          const { error: rErr } = await (supabase
+            .from("cv_calc_acabamento_recipe_items" as never) as unknown as { insert: (rows: unknown[]) => Promise<{ error: unknown }> })
             .insert(valid.map((r, i) => ({
               acabamento_id: acabamentoId,
               supply_id: r.supply_id,
