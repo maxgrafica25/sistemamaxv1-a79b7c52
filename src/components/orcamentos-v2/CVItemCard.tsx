@@ -17,6 +17,7 @@ import {
   type Acabamento,
   type AcabamentoAplicado,
   type CalcResult,
+  type MarkupSettings,
 } from "@/lib/cv-calc/engine";
 import { marginTextClass, marginLabel } from "@/lib/quotes-v2/margin";
 
@@ -44,13 +45,15 @@ interface Props {
   impressoes: Impressao[];
   acabamentos: Acabamento[];
   valorMinimo: number;
+  hourRate?: number;
+  markup?: MarkupSettings;
   onChange: (item: CVItemState) => void;
   onRemove: () => void;
   onResult: (result: CalcResult) => void;
 }
 
 export function CVItemCard({
-  item, index, midias, impressoes, acabamentos, valorMinimo,
+  item, index, midias, impressoes, acabamentos, valorMinimo, hourRate, markup,
   onChange, onRemove, onResult,
 }: Props) {
   const { profile } = useAuth();
@@ -139,8 +142,10 @@ export function CVItemCard({
       acabamentos: aplicados,
       acabamentos_pool: acabamentos,
       valor_minimo: valorMinimo,
+      hourRate,
+      markup,
     }),
-    [debounced, midia, impressao, aplicados, acabamentos, valorMinimo],
+    [debounced, midia, impressao, aplicados, acabamentos, valorMinimo, hourRate, markup],
   );
 
   useEffect(() => {
