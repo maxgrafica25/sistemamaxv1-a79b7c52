@@ -44,6 +44,11 @@ const CONSUMO_TIPOS = [
   { value: "por_altura_m", label: "por m de altura" },
 ];
 
+const CONSUMO_TIPOS_LABOR = [
+  { value: "fixo", label: "fixo (setup, 1×)" },
+  ...CONSUMO_TIPOS,
+];
+
 interface Row {
   id: string;
   nome: string;
