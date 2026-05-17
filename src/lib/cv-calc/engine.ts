@@ -53,6 +53,18 @@ export interface RecipeItem {
   consumo_tipo: ConsumoTipo;
 }
 
+export type LaborConsumoTipo = ConsumoTipo | "fixo";
+
+export interface LaborItem {
+  /** Etapa de produção vinculada (opcional). */
+  production_step_id?: string | null;
+  descricao: string;
+  /** Tempo em minutos por unidade da escala. */
+  time_minutes: number;
+  consumo_tipo: LaborConsumoTipo;
+  consumo_qty: number;
+}
+
 export interface Acabamento {
   id: string;
   nome: string;
