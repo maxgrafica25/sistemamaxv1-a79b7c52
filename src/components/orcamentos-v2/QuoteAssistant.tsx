@@ -174,48 +174,85 @@ export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags }:
         >
           <Sparkles className="h-4 w-4 text-primary" />
           <span>Assistente do orçamento</span>
-          {ativas.length > 0 && <Badge variant="secondary" className="ml-1">{ativas.length}</Badge>}
+          {(ativas.length + histVisible.length) > 0 && (
+            <Badge variant="secondary" className="ml-1">{ativas.length + histVisible.length}</Badge>
+          )}
           <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${collapsed ? "-rotate-90" : ""}`} />
         </button>
 
         {!collapsed && (
           <div className="space-y-2 pt-1">
-            {ativas.length === 0 ? (
+            {ativas.length === 0 && histVisible.length === 0 && !histLoading ? (
               <p className="text-xs text-muted-foreground px-1">
                 {cvItems.length === 0
                   ? "Adicione itens CV para receber sugestões."
                   : "Nenhuma sugestão para este orçamento. 👍"}
               </p>
             ) : (
-              ativas.map((r) => {
-                const Icon = SEV_ICON[r.severidade] ?? Info;
-                const extra =
-                  r.acao_tipo === "sugerir_acabamento" && r.acao_acab_id
-                    ? `Acabamento sugerido: ${acabNames[r.acao_acab_id] ?? "—"}`
-                    : r.acao_tipo === "sugerir_pergunta" && r.acao_question_id
-                    ? `Pergunta: ${questionNames[r.acao_question_id] ?? "—"}`
-                    : null;
-                return (
-                  <div key={r.id} className={`rounded-md border px-3 py-2 flex gap-2 ${SEV_COLOR[r.severidade] ?? ""}`}>
-                    <Icon className="h-4 w-4 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold">{r.nome}</div>
-                      {r.acao_mensagem && (
-                        <div className="text-xs opacity-90 mt-0.5">{r.acao_mensagem}</div>
-                      )}
-                      {extra && <div className="text-[11px] opacity-75 mt-0.5">{extra}</div>}
+              <>
+                {ativas.map((r) => {
+                  const Icon = SEV_ICON[r.severidade] ?? Info;
+                  const extra =
+                    r.acao_tipo === "sugerir_acabamento" && r.acao_acab_id
+                      ? `Acabamento sugerido: ${acabNames[r.acao_acab_id] ?? "—"}`
+                      : r.acao_tipo === "sugerir_pergunta" && r.acao_question_id
+                      ? `Pergunta: ${questionNames[r.acao_question_id] ?? "—"}`
+                      : null;
+                  return (
+                    <div key={r.id} className={`rounded-md border px-3 py-2 flex gap-2 ${SEV_COLOR[r.severidade] ?? ""}`}>
+                      <Icon className="h-4 w-4 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold flex items-center gap-1">
+                          <span className="opacity-60">🔧</span>{r.nome}
+                        </div>
+                        {r.acao_mensagem && (
+                          <div className="text-xs opacity-90 mt-0.5">{r.acao_mensagem}</div>
+                        )}
+                        {extra && <div className="text-[11px] opacity-75 mt-0.5">{extra}</div>}
+                      </div>
+                      <Button
+                        type="button" variant="ghost" size="icon"
+                        className="h-6 w-6 shrink-0 hover:bg-foreground/10"
+                        onClick={() => setDismissed((d) => new Set(d).add(r.id))}
+                        title="Dispensar nesta sessão"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                    <Button
-                      type="button" variant="ghost" size="icon"
-                      className="h-6 w-6 shrink-0 hover:bg-foreground/10"
-                      onClick={() => setDismissed((d) => new Set(d).add(r.id))}
-                      title="Dispensar nesta sessão"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
+                  );
+                })}
+
+                {histVisible.length > 0 && (
+                  <div className="pt-1">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground px-1 pb-1 flex items-center gap-1">
+                      <History className="h-3 w-3" /> Padrão histórico
+                    </div>
+                    {histVisible.map((h) => (
+                      <div key={h.acabamento_id} className="rounded-md border border-primary/20 bg-primary/[0.04] px-3 py-2 flex gap-2 mb-1">
+                        <span className="text-base leading-none">📊</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold">{h.nome || "Acabamento"}</div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            Incluso em {h.count} de {h.total} orçamentos parecidos ({h.pct}%).
+                          </div>
+                        </div>
+                        <Button
+                          type="button" variant="ghost" size="icon"
+                          className="h-6 w-6 shrink-0 hover:bg-foreground/10"
+                          onClick={() => setHistDismissed((d) => new Set(d).add(h.acabamento_id))}
+                          title="Dispensar nesta sessão"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                );
-              })
+                )}
+
+                {histLoading && histVisible.length === 0 && ativas.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground px-1">Buscando padrões…</p>
+                )}
+              </>
             )}
           </div>
         )}
