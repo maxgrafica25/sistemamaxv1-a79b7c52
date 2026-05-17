@@ -215,6 +215,7 @@ export default function CalculadoraTab() {
         valor_minimo: valorMinimo,
         sangrias_mm: sangrias,
         markup,
+        hourRate,
       });
       const kitRes: KitPriceResult | null = kit
         ? calcKitPrice(kit, { largura_cm: it.largura, altura_cm: it.altura, quantidade: it.quantidade }, kitGlobals)
