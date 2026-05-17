@@ -262,9 +262,10 @@ export default function AcabamentosTab() {
     if (!requireAdmin(editing ? "editar acabamento" : "criar acabamento")) return;
     if (!form.nome.trim()) return toast.error("Informe o nome");
     if (form.tipos_midia_compativeis.length === 0) return toast.error("Marque ao menos um tipo de mídia compatível");
-    if (form.pricing_mode === "recipe" && recipe.length === 0 && form.extra_cost_fixo === 0
-        && form.extra_cost_mt2 === 0 && form.extra_cost_perimetro === 0 && form.extra_cost_unidade === 0) {
-      return toast.error("No modo Receita, adicione ao menos um suprimento ou custo extra");
+    if (form.pricing_mode === "recipe" && recipe.length === 0 && labor.length === 0
+        && form.extra_cost_fixo === 0 && form.extra_cost_mt2 === 0
+        && form.extra_cost_perimetro === 0 && form.extra_cost_unidade === 0) {
+      return toast.error("No modo Receita, adicione ao menos um suprimento, etapa ou custo extra");
     }
 
     const payload = { ...form, nome: form.nome.trim() };
