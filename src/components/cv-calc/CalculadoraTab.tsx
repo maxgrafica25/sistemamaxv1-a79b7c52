@@ -4,13 +4,41 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertTriangle, Calculator, Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Loader2, AlertTriangle, Calculator, Info, Plus, Trash2, Copy, Receipt,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
   calcular, formatBRL,
-  type Midia, type Impressao, type Acabamento, type SangriasMm,
+  type Midia, type Impressao, type Acabamento, type SangriasMm, type CalcResult,
 } from "@/lib/cv-calc/engine";
+
+type Item = {
+  id: string;
+  largura: number;
+  altura: number;
+  quantidade: number;
+  midiaId: string;
+  impressaoId: string;
+  acabamentoId: string;
+};
+
+const uid = () =>
+  (typeof crypto !== "undefined" && "randomUUID" in crypto)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+
+const newItem = (): Item => ({
+  id: uid(),
+  largura: 90,
+  altura: 120,
+  quantidade: 1,
+  midiaId: "",
+  impressaoId: "",
+  acabamentoId: "",
+});
 
 export default function CalculadoraTab() {
   const isAdmin = useIsAdmin();
@@ -21,12 +49,7 @@ export default function CalculadoraTab() {
   const [valorMinimo, setValorMinimo] = useState(35);
   const [sangrias, setSangrias] = useState<SangriasMm>({});
 
-  const [largura, setLargura] = useState(90);
-  const [altura, setAltura] = useState(120);
-  const [quantidade, setQuantidade] = useState(1);
-  const [midiaId, setMidiaId] = useState<string>("");
-  const [impressaoId, setImpressaoId] = useState<string>("");
-  const [acabamentoId, setAcabamentoId] = useState<string>("");
+  const [items, setItems] = useState<Item[]>([newItem()]);
 
   useEffect(() => {
     (async () => {
@@ -57,73 +80,241 @@ export default function CalculadoraTab() {
     })();
   }, []);
 
-  const midia = useMemo(() => midias.find((m) => m.id === midiaId) ?? null, [midias, midiaId]);
-  const tipo = midia?.tipo_midia ?? null;
+  const patchItem = (id: string, patch: Partial<Item>) =>
+    setItems((arr) => arr.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+  const addItem = () => setItems((arr) => [...arr, newItem()]);
+  const removeItem = (id: string) =>
+    setItems((arr) => (arr.length <= 1 ? arr : arr.filter((it) => it.id !== id)));
+  const cloneItem = (id: string) =>
+    setItems((arr) => {
+      const idx = arr.findIndex((it) => it.id === id);
+      if (idx < 0) return arr;
+      const copy = { ...arr[idx], id: uid() };
+      return [...arr.slice(0, idx + 1), copy, ...arr.slice(idx + 1)];
+    });
 
-  const impressoesCompat = useMemo(
-    () => (tipo ? impressoes.filter((i) => i.tipos_midia_compativeis.includes(tipo)) : impressoes),
-    [impressoes, tipo],
-  );
-  const acabamentosCompat = useMemo(
-    () => (tipo ? acabamentos.filter((a) => a.tipos_midia_compativeis.includes(tipo)) : acabamentos),
-    [acabamentos, tipo],
-  );
+  const results = useMemo(() => {
+    return items.map((it) => {
+      const midia = midias.find((m) => m.id === it.midiaId) ?? null;
+      const impressao = impressoes.find((i) => i.id === it.impressaoId) ?? null;
+      const acabamento = acabamentos.find((a) => a.id === it.acabamentoId) ?? null;
+      const res = calcular({
+        largura_cm: it.largura,
+        altura_cm: it.altura,
+        quantidade: it.quantidade,
+        midia, impressao, acabamento,
+        acabamentos_pool: acabamentos,
+        valor_minimo: valorMinimo,
+        sangrias_mm: sangrias,
+      });
+      return { item: it, midia, res };
+    });
+  }, [items, midias, impressoes, acabamentos, valorMinimo, sangrias]);
 
-  useEffect(() => {
-    if (impressaoId && !impressoesCompat.some((i) => i.id === impressaoId)) setImpressaoId("");
-    if (acabamentoId && !acabamentosCompat.some((a) => a.id === acabamentoId)) setAcabamentoId("");
-  }, [impressaoId, acabamentoId, impressoesCompat, acabamentosCompat]);
-
-  const impressao = impressoesCompat.find((i) => i.id === impressaoId) ?? null;
-  const acabamento = acabamentosCompat.find((a) => a.id === acabamentoId) ?? null;
-
-  const result = useMemo(
-    () => calcular({
-      largura_cm: largura, altura_cm: altura, quantidade,
-      midia, impressao, acabamento,
-      acabamentos_pool: acabamentos,
-      valor_minimo: valorMinimo,
-      sangrias_mm: sangrias,
-    }),
-    [largura, altura, quantidade, midia, impressao, acabamento, acabamentos, valorMinimo, sangrias],
-  );
+  const totalGeral = results.reduce((s, r) => s + r.res.valor_total, 0);
+  const totalPecas = results.reduce((s, r) => s + r.item.quantidade, 0);
 
   if (loading) {
     return <div className="flex h-40 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      {/* Entradas */}
-      <Card>
+    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      {/* Itens */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Calculator className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold">
+              Itens do orçamento
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                ({items.length} {items.length === 1 ? "item" : "itens"})
+              </span>
+            </h2>
+          </div>
+          <Button size="sm" variant="outline" onClick={addItem}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar item
+          </Button>
+        </div>
+
+        {results.map(({ item, midia, res }, idx) => (
+          <ItemCard
+            key={item.id}
+            index={idx + 1}
+            item={item}
+            midia={midia}
+            res={res}
+            midias={midias}
+            impressoes={impressoes}
+            acabamentos={acabamentos}
+            isAdmin={isAdmin}
+            canRemove={items.length > 1}
+            onChange={(patch) => patchItem(item.id, patch)}
+            onClone={() => cloneItem(item.id)}
+            onRemove={() => removeItem(item.id)}
+          />
+        ))}
+
+        <Button variant="outline" className="w-full border-dashed" onClick={addItem}>
+          <Plus className="h-4 w-4 mr-1" /> Adicionar outro item
+        </Button>
+      </div>
+
+      {/* Resumo */}
+      <Card className="border-primary/30 lg:sticky lg:top-4 lg:self-start">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Calculator className="h-4 w-4 text-primary" /> Dados da peça
+            <Receipt className="h-4 w-4 text-primary" /> Resumo do orçamento
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label htmlFor="lg">Largura (cm)</Label>
-              <Input id="lg" type="number" min={0} value={largura}
-                onChange={(e) => setLargura(Number(e.target.value) || 0)} />
+        <CardContent className="space-y-3">
+          <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+            {results.map(({ item, midia, res }, idx) => (
+              <div key={item.id} className="rounded-md border bg-card/50 p-2.5 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Item {idx + 1}
+                    </div>
+                    <div className="truncate font-medium">
+                      {midia?.nome ?? <span className="text-muted-foreground italic">Sem mídia</span>}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {item.largura}×{item.altura}cm · {item.quantidade}×
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="font-semibold text-primary">{formatBRL(res.valor_total)}</div>
+                    {item.quantidade > 1 && (
+                      <div className="text-[10px] text-muted-foreground">
+                        {formatBRL(res.valor_unitario)}/un
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t pt-3 space-y-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Total de peças</span>
+              <span>{totalPecas}</span>
             </div>
-            <div>
-              <Label htmlFor="al">Altura (cm)</Label>
-              <Input id="al" type="number" min={0} value={altura}
-                onChange={(e) => setAltura(Number(e.target.value) || 0)} />
-            </div>
-            <div>
-              <Label htmlFor="qt">Quantidade</Label>
-              <Input id="qt" type="number" min={1} value={quantidade}
-                onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))} />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Itens distintos</span>
+              <span>{items.length}</span>
             </div>
           </div>
 
+          <div className="rounded-md bg-primary/10 border border-primary/30 p-3">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Valor total do orçamento
+            </div>
+            <div className="text-3xl font-bold text-primary tabular-nums">
+              {formatBRL(totalGeral)}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+
+interface ItemCardProps {
+  index: number;
+  item: Item;
+  midia: Midia | null;
+  res: CalcResult;
+  midias: Midia[];
+  impressoes: Impressao[];
+  acabamentos: Acabamento[];
+  isAdmin: boolean;
+  canRemove: boolean;
+  onChange: (patch: Partial<Item>) => void;
+  onClone: () => void;
+  onRemove: () => void;
+}
+
+function ItemCard({
+  index, item, midia, res, midias, impressoes, acabamentos,
+  isAdmin, canRemove, onChange, onClone, onRemove,
+}: ItemCardProps) {
+  const tipo = midia?.tipo_midia ?? null;
+  const impressoesCompat = tipo
+    ? impressoes.filter((i) => i.tipos_midia_compativeis.includes(tipo))
+    : impressoes;
+  const acabamentosCompat = tipo
+    ? acabamentos.filter((a) => a.tipos_midia_compativeis.includes(tipo))
+    : acabamentos;
+
+  // Reset incompat selections
+  useEffect(() => {
+    if (item.impressaoId && !impressoesCompat.some((i) => i.id === item.impressaoId)) {
+      onChange({ impressaoId: "" });
+    }
+    if (item.acabamentoId && !acabamentosCompat.some((a) => a.id === item.acabamentoId)) {
+      onChange({ acabamentoId: "" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipo]);
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex items-center justify-between bg-muted/40 px-3 py-1.5 border-b">
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="text-[10px]">Item {index}</Badge>
+          {midia && (
+            <span className="text-xs text-muted-foreground truncate">
+              {midia.nome}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-semibold text-primary tabular-nums">
+            {formatBRL(res.valor_total)}
+          </span>
+          <div className="flex items-center gap-0.5">
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onClone} title="Duplicar item">
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="icon" variant="ghost"
+              className="h-7 w-7 text-destructive hover:text-destructive disabled:opacity-30"
+              onClick={onRemove} disabled={!canRemove} title="Remover item"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <CardContent className="p-3 space-y-3">
+        <div className="grid grid-cols-3 gap-2">
           <div>
-            <Label>Mídia</Label>
-            <Select value={midiaId} onValueChange={setMidiaId}>
-              <SelectTrigger><SelectValue placeholder="Selecione a mídia" /></SelectTrigger>
+            <Label className="text-xs">Largura (cm)</Label>
+            <Input type="number" min={0} value={item.largura}
+              onChange={(e) => onChange({ largura: Number(e.target.value) || 0 })} />
+          </div>
+          <div>
+            <Label className="text-xs">Altura (cm)</Label>
+            <Input type="number" min={0} value={item.altura}
+              onChange={(e) => onChange({ altura: Number(e.target.value) || 0 })} />
+          </div>
+          <div>
+            <Label className="text-xs">Quantidade</Label>
+            <Input type="number" min={1} value={item.quantidade}
+              onChange={(e) => onChange({ quantidade: Math.max(1, Number(e.target.value) || 1) })} />
+          </div>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-3">
+          <div>
+            <Label className="text-xs">Mídia</Label>
+            <Select value={item.midiaId} onValueChange={(v) => onChange({ midiaId: v })}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
                 {midias.map((m) => (
                   <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>
@@ -133,10 +324,10 @@ export default function CalculadoraTab() {
           </div>
 
           <div>
-            <Label>Impressão</Label>
-            <Select value={impressaoId} onValueChange={setImpressaoId} disabled={!midia}>
+            <Label className="text-xs">Impressão</Label>
+            <Select value={item.impressaoId} onValueChange={(v) => onChange({ impressaoId: v })} disabled={!midia}>
               <SelectTrigger>
-                <SelectValue placeholder={midia ? "Selecione a impressão" : "Escolha a mídia primeiro"} />
+                <SelectValue placeholder={midia ? "Selecione" : "Escolha a mídia"} />
               </SelectTrigger>
               <SelectContent>
                 {impressoesCompat.map((i) => (
@@ -144,19 +335,13 @@ export default function CalculadoraTab() {
                 ))}
               </SelectContent>
             </Select>
-            {result.emenda_impressao && (
-              <div className="mt-1.5 flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <span>Largura excede o limite da impressora — será necessária emenda de impressão.</span>
-              </div>
-            )}
           </div>
 
           <div>
-            <Label>Acabamento</Label>
-            <Select value={acabamentoId} onValueChange={setAcabamentoId} disabled={!midia}>
+            <Label className="text-xs">Acabamento</Label>
+            <Select value={item.acabamentoId} onValueChange={(v) => onChange({ acabamentoId: v })} disabled={!midia}>
               <SelectTrigger>
-                <SelectValue placeholder={midia ? "Selecione o acabamento (opcional)" : "Escolha a mídia primeiro"} />
+                <SelectValue placeholder={midia ? "Opcional" : "Escolha a mídia"} />
               </SelectTrigger>
               <SelectContent>
                 {acabamentosCompat.map((a) => (
@@ -164,76 +349,59 @@ export default function CalculadoraTab() {
                 ))}
               </SelectContent>
             </Select>
-            {result.info_bastao && (
-              <div className="mt-1.5 flex items-start gap-1.5 text-xs text-muted-foreground">
+          </div>
+        </div>
+
+        {(res.emenda_impressao || res.info_bastao) && (
+          <div className="space-y-1">
+            {res.emenda_impressao && (
+              <div className="flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>Largura excede o limite da impressora — emenda necessária.</span>
+              </div>
+            )}
+            {res.info_bastao && (
+              <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
                 <span>
-                  Bastão escolhido: <strong className="text-foreground">{result.info_bastao.escolhido}</strong>
-                  {result.info_bastao.tipo === "emenda" && (
+                  Bastão: <strong className="text-foreground">{res.info_bastao.escolhido}</strong>
+                  {res.info_bastao.tipo === "emenda" && (
                     <Badge variant="destructive" className="ml-2 text-[10px]">
-                      Emenda × {result.info_bastao.qtd}
+                      Emenda × {res.info_bastao.qtd}
                     </Badge>
                   )}
                 </span>
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        )}
 
-      {/* Resultado */}
-      <Card className="border-primary/30 lg:sticky lg:top-4 lg:self-start">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Resultado</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {isAdmin && (
-            <>
-              <DetailRow label="Área" value={`${result.area_m2.toFixed(2)} m²`} />
-              {result.sangria_aplicada_mm > 0 && (
-                <DetailRow
-                  label="Sangria aplicada"
-                  value={`+${result.sangria_aplicada_mm} mm (${midia?.tipo_midia ?? ""})`}
-                  muted
-                />
-              )}
-              <DetailRow label="Perímetro" value={`${result.perim_m.toFixed(2)} m`} />
-              <DetailRow label="Mídia" value={formatBRL(result.preco_midia)} />
-              <DetailRow label="Impressão" value={formatBRL(result.preco_impressao)} />
-              <DetailRow label="Acabamento" value={formatBRL(result.preco_acabamento)} />
-              <div className="border-t pt-2">
-                <DetailRow label="Subtotal" value={formatBRL(result.subtotal)} bold />
-              </div>
-            </>
-          )}
-
-          <div className="rounded-md bg-primary/10 border border-primary/30 p-3">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-              {quantidade > 1 ? `Valor total (${quantidade}×)` : "Valor unitário"}
-            </div>
-            <div className="text-2xl font-bold text-primary">
-              {formatBRL(quantidade > 1 ? result.valor_total : result.valor_unitario)}
-            </div>
-            {quantidade > 1 && (
-              <div className="mt-2 text-sm">
-                <span className="text-muted-foreground">Unitário: </span>
-                <strong className="text-foreground">{formatBRL(result.valor_unitario)}</strong>
-              </div>
+        {isAdmin && midia && (
+          <div className="rounded-md bg-muted/30 p-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
+            <Mini label="Área" value={`${res.area_m2.toFixed(2)} m²`} />
+            <Mini label="Perímetro" value={`${res.perim_m.toFixed(2)} m`} />
+            <Mini label="Mídia" value={formatBRL(res.preco_midia)} />
+            <Mini label="Impressão" value={formatBRL(res.preco_impressao)} />
+            <Mini label="Acabamento" value={formatBRL(res.preco_acabamento)} />
+            <Mini label="Subtotal" value={formatBRL(res.subtotal)} bold />
+            {item.quantidade > 1 && (
+              <Mini label="Unitário" value={formatBRL(res.valor_unitario)} muted />
+            )}
+            {res.sangria_aplicada_mm > 0 && (
+              <Mini label="Sangria" value={`+${res.sangria_aplicada_mm} mm`} muted />
             )}
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
-function DetailRow({
-  label, value, bold, muted,
-}: { label: string; value: string; bold?: boolean; muted?: boolean }) {
+function Mini({ label, value, bold, muted }: { label: string; value: string; bold?: boolean; muted?: boolean }) {
   return (
-    <div className="flex justify-between text-sm">
+    <div className="flex justify-between">
       <span className="text-muted-foreground">{label}</span>
-      <span className={`${bold ? "font-semibold" : ""} ${muted ? "text-muted-foreground" : "text-foreground"}`}>
+      <span className={`tabular-nums ${bold ? "font-semibold text-foreground" : muted ? "text-muted-foreground" : "text-foreground"}`}>
         {value}
       </span>
     </div>
