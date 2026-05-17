@@ -1,47 +1,102 @@
-# Espelho Suprimentos CV ↔ Suprimentos Geral
+# Plano — Filtros + Kits CV + Padrão UX
 
-Suas escolhas — **bidirecional automático, espelhar tudo, lançar nos dois lados** — descrevem na prática **um único registro aparecendo em dois lugares**. Vou implementar exatamente isso: zero duplicação de dados, mas duas "portas de entrada" idênticas (CV e Geral), cada uma com a cara do seu módulo.
+## Parte 1 — Filtros visuais em Matérias-Primas
 
-Por que não duplicar fisicamente: dois registros sincronizados sempre acabam desalinhando (trigger falha, race condition, alguém edita direto no banco). Um registro com flag `cv` resolve todos os requisitos sem essa dívida.
+**Arquivo:** `src/pages/MateriasPrimas.tsx`
 
-## O que muda para o usuário
+- 3 chips no header: `Todos · Gráfica · CV` (com contador `Gráfica · 42`)
+- Estado `moduloFiltro`, default `todos`; filtra por `modulo @> {grafica|cv}`
+- `Badge` outline/secondary, primary quando ativo
 
-- Aba nova **"Suprimentos CV"** dentro de `/cadastros-cv`, ao lado de Mídias / Impressões / Acabamentos.
-- Lista, formulário, histórico de preço, fornecedor, estoque — **idênticos** ao módulo Matérias-Primas, mas só mostra itens marcados como CV.
-- Em **Matérias-Primas geral**, ganha um filtro/chip `Módulo: Todos · Gráfica · CV` no topo.
-- Cadastrar/editar em qualquer um dos dois lados altera o mesmo registro. Lançamento de NF idem.
-- Toggle `Visível no CV` no formulário — marca/desmarca a flag.
-- Acabamentos CV (receitas) continuam apontando para `supplies.id` direto. Atualização de preço aparece **instantaneamente** nos dois módulos e no cálculo da calculadora.
+## Parte 2 — Kits em Grupos de Materiais
 
-## Mudanças técnicas
+`material_groups` já guarda insumos com `supply_id`. Estender para suportar mão de obra e cobrança por dimensão (replica planilha Excel: Banner Bastão Topo = bastão x2 + ponteira x4 + cordinha por m + 10 min MO).
 
-### Banco
-- Adicionar coluna `supplies.modulo text[] not null default '{grafica}'` (array para suportar `{grafica,cv}` quando o item serve aos dois — ex.: lâmina de estilete).
-- Índice GIN em `supplies.modulo` para filtros rápidos.
-- Migração de dados: itens hoje usados em `cv_calc_acabamento_recipe_items` recebem `cv` adicionado ao array automaticamente.
-- Nada de trigger de sincronização — não há o que sincronizar.
+### 2.1 Schema (migration)
 
-### Frontend
-- Nova aba `SuprimentosCVTab.tsx` em `src/components/cv-calc/` que **reutiliza** o componente de lista/form de `MateriasPrimas.tsx`, passando `defaultModulo="cv"` e `filterModulo="cv"`.
-- `MateriasPrimas.tsx`: adiciona filtro de módulo no header (default Todos).
-- Form de supply: checkboxes `Gráfica` / `Comunicação Visual` (multi). Default depende de onde foi aberto.
-- Registrar a aba em `CadastrosCV.tsx` (rota atual `/cadastros-cv`).
+`material_groups` — novas colunas (defaults seguros):
+- `is_kit boolean default false`
+- `modulo text[] default '{grafica}'` (mesmo padrão dos supplies)
+- `pricing_mode text default 'fixo'` — `fixo | mt2 | perimetro | unidade`
+- `labor_minutes numeric default 0`
+- `labor_hour_rate_source text default 'despesas_fixas'` — `despesas_fixas | manual`
+- `labor_hour_rate_manual numeric default 0`
+- `margin_pct numeric` (null = usa global)
+- `notes text`
 
-### Acabamentos CV — receita
-- No `AcabamentosTab.tsx`, o picker de supply passa a filtrar `modulo @> '{cv}'` por padrão, com um link "ver todos" para casos raros.
+`material_group_items`:
+- `consumo_tipo text default 'fixo'` — `fixo | por_m2 | por_perimetro_m | por_unidade`
 
-## O que **não** muda
-- Estrutura de receitas (`cv_calc_acabamento_recipe_items`), engine de cálculo, histórico de preço, fornecedores — tudo intacto.
-- Nenhum dado existente é apagado nem duplicado.
+### 2.2 UI em `GruposMateriais.tsx`
 
-## Resultado prático para a sua dor
+Dialog com novo bloco "Kit calculável" (toggle `is_kit`):
+- Modo de cobrança, Tempo MO (min), Origem hora (Despesas Fixas/Manual)
+- Checkbox "Visível em" (Gráfica/CV)
+- Por item: select **Escala** (Fixo / por m² / por metro de perímetro / por unidade)
+- **Sugestão inteligente de consumo_tipo:** ao escolher um supply, sugere a escala mais provável a partir do nome (heurística: "bastão|barra|perfil" → por_largura/perimetro, "cordinha|fita" → por_perimetro_m, "ponteira|olhal|ilhós" → por_unidade, demais → fixo). Aplica como default mas sempre editável.
 
-| Você queria | Como atende |
-|---|---|
-| Administração isolada de CV | Aba dedicada, só mostra itens CV |
-| Cadastrar/editar nos dois lados | Sim, ambos abrem o mesmo registro |
-| Bidirecional automático | Trivial: é o mesmo registro |
-| Espelhar tudo (preço, fornecedor, estoque, histórico) | Garantido por design |
-| Lançar NF nos dois | Sim, é o mesmo fluxo de compra |
+#### 2.2.1 Preview financeiro ao vivo (UX prioritária)
 
-Se aprovar, executo a migração e os componentes em sequência.
+Painel sticky na lateral do dialog de edição do kit (mesmo padrão "config no meio + resumo direita" da Parte 3):
+- Inputs de exemplo: `Largura × Altura × Qtd` (default 100×100×1)
+- Recalcula em tempo real conforme o usuário edita itens, MO ou margem
+- Mostra: Custo Material · Custo MO · Subtotal Custo · Impostos+Taxas · Margem · **Preço Venda** · **Lucro Líquido (R$ · %)**
+- Breakdown linha-a-linha por item do kit (qtd efetiva × preço unit)
+- Usa exatamente a mesma engine da Parte 2.3 (garante paridade com a calculadora)
+
+### 2.3 Engine `src/lib/kitPricing.ts`
+
+```ts
+calcKitPrice(kit, { largura_cm, altura_cm, quantidade }, { hourRate, globalSettings })
+→ { custoMaterial, custoMO, custoTotal, lucroLiquido, precoVenda, breakdown[] }
+```
+- `custoMaterial` = Σ `item.quantity × unit_price × escala(dim)`
+- `custoMO` = `(labor_minutes/60) × hourRate`
+- `precoVenda` = `custoTotal / (1 - (taxes+fees+margin)/100)`, arredondado p/ cima R$ 0,10
+
+### 2.4 Consumo na Calculadora CV
+
+`AcabamentosTab.tsx` + `CalculadoraTab.tsx`:
+- Picker de acabamento ganha seção "Kits" (lista `material_groups` com `is_kit=true` e `cv` no módulo)
+- Selecionar kit injeta resultado de `calcKitPrice`; breakdown salvo em `finishes_json` como `{ kit_id, custo_material, custo_mo, lucro }`
+
+## Parte 3 — Padrão UX "config no meio + resumo direita"
+
+`src/components/shared/CalcShell.tsx`:
+```
+Header
+Grid 2col (gap-6):
+  [ Configuração (col-span-2) ] [ Resumo Financeiro (sticky) ]
+```
+
+Props: `{ title, icon, actions, children, summary, steps? }`.
+**`steps?`** slot opcional para stepper (preparado para futuras calculadoras multi-step, mesmo que não usado agora).
+
+`FinancialSummary` reutilizável: linhas Custo/Lucro com `text-destructive`/`text-success`, espelha padrão do Orçamento V2. Reaproveitado também pelo preview do kit (2.2.1).
+
+### Ordem de migração:
+1. Calculadora CV (`CalculadoraTab.tsx`) — mostrar breakdown Material+MO+Lucro do kit
+2. Calc Etiquetas (`CalculadoraEtiquetas.tsx`)
+3. Preço Impressão (`PrecoImpressao.tsx`)
+4. Orçamento V2 — referência, não muda
+
+## Ordem de execução
+
+1. Chips em Matérias-Primas (Parte 1)
+2. Migration kits (2.1)
+3. Engine `kitPricing.ts` (2.3) — primeiro, pois alimenta o preview
+4. `CalcShell` + `FinancialSummary` (Parte 3 base)
+5. UI de kits em Grupos com preview ao vivo + sugestão de escala (2.2)
+6. Calculadora CV consumindo kits + novo shell (2.4 + 3.1)
+7. Migrar Calc Etiquetas e Preço Impressão
+
+## Diferido (anotado para iteração futura)
+
+- **Histórico de versões dos kits**: tabela `material_group_versions` para snapshot da receita em cada mudança, permitindo auditar custo de pedidos antigos. Fora do escopo atual.
+- **Views materializadas por módulo**: só se o índice GIN virar gargalo real.
+
+## Detalhes técnicos
+
+- `useHourRate()`: hook que lê `despesas_fixas` e divide pelas horas produtivas/mês (reaproveitar lógica existente; criar se faltar)
+- Markup/arredondamento: utilitários já existentes
+- Sem mudanças destrutivas — toda coluna nova tem default; grupos existentes continuam funcionando (kit=false)

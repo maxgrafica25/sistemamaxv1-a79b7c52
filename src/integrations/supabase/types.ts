@@ -1596,6 +1596,7 @@ export type Database = {
       }
       material_group_items: {
         Row: {
+          consumo_tipo: string
           created_at: string
           description: string
           id: string
@@ -1606,6 +1607,7 @@ export type Database = {
           unit_price: number
         }
         Insert: {
+          consumo_tipo?: string
           created_at?: string
           description: string
           id?: string
@@ -1616,6 +1618,7 @@ export type Database = {
           unit_price?: number
         }
         Update: {
+          consumo_tipo?: string
           created_at?: string
           description?: string
           id?: string
@@ -1646,19 +1649,43 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_kit: boolean
+          labor_hour_rate_manual: number
+          labor_hour_rate_source: string
+          labor_minutes: number
+          margin_pct: number | null
+          modulo: string[]
           name: string
+          notes: string | null
+          pricing_mode: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
+          is_kit?: boolean
+          labor_hour_rate_manual?: number
+          labor_hour_rate_source?: string
+          labor_minutes?: number
+          margin_pct?: number | null
+          modulo?: string[]
           name: string
+          notes?: string | null
+          pricing_mode?: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
+          is_kit?: boolean
+          labor_hour_rate_manual?: number
+          labor_hour_rate_source?: string
+          labor_minutes?: number
+          margin_pct?: number | null
+          modulo?: string[]
           name?: string
+          notes?: string | null
+          pricing_mode?: string
           updated_at?: string
         }
         Relationships: []
