@@ -13,6 +13,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
   calcular, formatBRL,
   type Midia, type Impressao, type Acabamento, type SangriasMm, type CalcResult,
+  type MarkupSettings, type RecipeItem,
 } from "@/lib/cv-calc/engine";
 
 type Item = {
