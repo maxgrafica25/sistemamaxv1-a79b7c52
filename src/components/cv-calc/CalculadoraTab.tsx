@@ -162,11 +162,23 @@ export default function CalculadoraTab() {
       return [...arr.slice(0, idx + 1), copy, ...arr.slice(idx + 1)];
     });
 
+  const kitGlobals = useMemo(() => ({
+    hourRate,
+    tax_pct: globalSettings.tax_pct,
+    invoice_pct: globalSettings.invoice_pct,
+    collection_pct: globalSettings.collection_pct,
+    collection_fee_pct: globalSettings.collection_fee_pct,
+    credit_card_pct: globalSettings.credit_card_pct,
+    waste_pct: globalSettings.waste_pct,
+    default_margin_pct: globalSettings.default_margin_pct,
+  }), [hourRate, globalSettings]);
+
   const results = useMemo(() => {
     return items.map((it) => {
       const midia = midias.find((m) => m.id === it.midiaId) ?? null;
       const impressao = impressoes.find((i) => i.id === it.impressaoId) ?? null;
       const acabamento = acabamentos.find((a) => a.id === it.acabamentoId) ?? null;
+      const kit = kits.find((k) => k.id === it.kitId) ?? null;
       const res = calcular({
         largura_cm: it.largura,
         altura_cm: it.altura,
@@ -177,11 +189,14 @@ export default function CalculadoraTab() {
         sangrias_mm: sangrias,
         markup,
       });
-      return { item: it, midia, res };
+      const kitRes: KitPriceResult | null = kit
+        ? calcKitPrice(kit, { largura_cm: it.largura, altura_cm: it.altura, quantidade: it.quantidade }, kitGlobals)
+        : null;
+      return { item: it, midia, kit, res, kitRes };
     });
-  }, [items, midias, impressoes, acabamentos, valorMinimo, sangrias, markup]);
+  }, [items, midias, impressoes, acabamentos, kits, valorMinimo, sangrias, markup, kitGlobals]);
 
-  const totalGeral = results.reduce((s, r) => s + r.res.valor_total, 0);
+  const totalGeral = results.reduce((s, r) => s + r.res.valor_total + (r.kitRes?.precoVenda ?? 0), 0);
   const totalPecas = results.reduce((s, r) => s + r.item.quantidade, 0);
 
   if (loading) {
