@@ -19,6 +19,7 @@ import {
   type MarkupSettings, type RecipeItem, type TipoProduto,
 } from "@/lib/cv-calc/engine";
 import { calcKitPrice, type KitDef, type KitConsumoTipo, type KitPricingMode, type KitPriceResult } from "@/lib/kitPricing";
+import { attachMediaOrder, filterAndSortForMidia } from "@/lib/cv-calc/media-order";
 
 type Item = {
   id: string;
@@ -73,7 +74,7 @@ export default function CalculadoraTab() {
 
   useEffect(() => {
     (async () => {
-      const [m, i, a, c, gs, recipes, supplies, kitGroups, kitItems, laborItems] = await Promise.all([
+      const [m, i, a, c, gs, recipes, supplies, kitGroups, kitItems, laborItems, mediaOrders] = await Promise.all([
         supabase.from("cv_calc_midias" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_impressoes" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_acabamentos" as never).select("*").eq("ativo", true).order("sort_order"),
@@ -84,6 +85,7 @@ export default function CalculadoraTab() {
         supabase.from("material_groups").select("id, name, pricing_mode, labor_minutes, margin_pct, modulo, is_kit").eq("is_kit", true).contains("modulo", ["cv"]).order("name"),
         supabase.from("material_group_items").select("id, material_group_id, description, quantity, unit_price, consumo_tipo, supply_id, sort_order").order("sort_order"),
         supabase.from("cv_calc_acabamento_labor_items" as never).select("acabamento_id, descricao, time_minutes, consumo_tipo, consumo_qty, production_step_id"),
+        supabase.from("cv_calc_acabamento_media_order" as never).select("acabamento_id, tipo_midia, sort_order, visivel"),
       ]);
 
       // monta map supply_id -> custo unitário
@@ -120,11 +122,15 @@ export default function CalculadoraTab() {
           laborByAc.set(l.acabamento_id, arr);
         });
 
-      const acabamentos = ((a.data as Acabamento[]) ?? []).map((ac) => ({
+      const acabsRaw = ((a.data as Acabamento[]) ?? []).map((ac) => ({
         ...ac,
         recipe: recipeByAc.get(ac.id) ?? [],
         labor: laborByAc.get(ac.id) ?? [],
       }));
+      const acabamentos = attachMediaOrder(
+        acabsRaw,
+        (mediaOrders.data as Parameters<typeof attachMediaOrder>[1]) ?? [],
+      );
 
       // Monta kits a partir de material_groups + material_group_items
       const itemsByKit = new Map<string, KitDef["items"]>();
@@ -370,9 +376,7 @@ function ItemCard({
   const impressoesCompat = tipo
     ? impressoes.filter((i) => i.tipos_midia_compativeis.includes(tipo))
     : impressoes;
-  const acabamentosCompat = tipo
-    ? acabamentos.filter((a) => a.tipos_midia_compativeis.includes(tipo))
-    : acabamentos;
+  const acabamentosCompat = filterAndSortForMidia(acabamentos, tipo);
 
   // Edição inline do nome
   const [editingName, setEditingName] = useState(false);

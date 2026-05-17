@@ -19,6 +19,7 @@ import {
   type CalcResult,
   type MarkupSettings,
 } from "@/lib/cv-calc/engine";
+import { filterAndSortForMidia } from "@/lib/cv-calc/media-order";
 import { marginTextClass, marginLabel } from "@/lib/quotes-v2/margin";
 
 export interface CVItemState {
@@ -84,10 +85,10 @@ export function CVItemCard({
     if (!tipo) return impressoes;
     return impressoes.filter((p) => p.tipos_midia_compativeis.includes(tipo));
   }, [impressoes, tipo]);
-  const compatAcabamentos = useMemo(() => {
-    if (!tipo) return acabamentos;
-    return acabamentos.filter((a) => a.tipos_midia_compativeis.includes(tipo));
-  }, [acabamentos, tipo]);
+  const compatAcabamentos = useMemo(
+    () => filterAndSortForMidia(acabamentos, tipo),
+    [acabamentos, tipo],
+  );
 
   // Auto-limpar seleções incompatíveis
   useEffect(() => {

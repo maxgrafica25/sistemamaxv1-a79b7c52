@@ -617,6 +617,41 @@ export type Database = {
           },
         ]
       }
+      cv_calc_acabamento_media_order: {
+        Row: {
+          acabamento_id: string
+          created_at: string
+          sort_order: number
+          tipo_midia: string
+          updated_at: string
+          visivel: boolean
+        }
+        Insert: {
+          acabamento_id: string
+          created_at?: string
+          sort_order?: number
+          tipo_midia: string
+          updated_at?: string
+          visivel?: boolean
+        }
+        Update: {
+          acabamento_id?: string
+          created_at?: string
+          sort_order?: number
+          tipo_midia?: string
+          updated_at?: string
+          visivel?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cv_calc_acabamento_media_order_acabamento_id_fkey"
+            columns: ["acabamento_id"]
+            isOneToOne: false
+            referencedRelation: "cv_calc_acabamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cv_calc_acabamento_recipe_items: {
         Row: {
           acabamento_id: string

@@ -227,7 +227,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   // ---------- Load catalog & quote ----------
   const loadInit = useCallback(async () => {
     setLoadingInit(true);
-    const [printRes, catRes, eqRes, consRes, papersRes, tiersRes, settingsRes, expRes, salRes, depRes, capRes, cvMatRes, cvPrtRes, cvFinRes, cvCfgRes, cvRecRes, cvLabRes, cvSupRes] =
+    const [printRes, catRes, eqRes, consRes, papersRes, tiersRes, settingsRes, expRes, salRes, depRes, capRes, cvMatRes, cvPrtRes, cvFinRes, cvCfgRes, cvRecRes, cvLabRes, cvSupRes, cvOrdRes] =
       await Promise.all([
         supabase.from("printing_price_items").select("*").eq("is_active", true).order("sort_order"),
         supabase.from("printer_categories").select("*").order("sort_order"),
@@ -247,6 +247,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         supabase.from("cv_calc_acabamento_recipe_items" as never).select("acabamento_id, supply_id, consumo_qty, consumo_tipo"),
         supabase.from("cv_calc_acabamento_labor_items" as never).select("acabamento_id, descricao, time_minutes, consumo_tipo, consumo_qty, production_step_id"),
         supabase.from("supplies").select("id, valor_unitario"),
+        supabase.from("cv_calc_acabamento_media_order" as never).select("acabamento_id, tipo_midia, sort_order, visivel"),
       ]);
 
     // Enriquecer acabamentos CV com receita (recipe) e mão-de-obra (labor)
@@ -278,11 +279,15 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         });
         laborByAc.set(l.acabamento_id, arr);
       });
-    const cvFinishesEnriched = (((cvFinRes as { data: CVAcabamento[] | null }).data) ?? []).map((ac) => ({
+    const cvFinishesEnrichedRaw = (((cvFinRes as { data: CVAcabamento[] | null }).data) ?? []).map((ac) => ({
       ...ac,
       recipe: recipeByAc.get(ac.id) ?? [],
       labor: laborByAc.get(ac.id) ?? [],
     }));
+    const cvFinishesEnriched = attachMediaOrder(
+      cvFinishesEnrichedRaw,
+      (((cvOrdRes as { data: unknown }).data) as Parameters<typeof attachMediaOrder>[1]) ?? [],
+    );
 
     setCvMaterials(((cvMatRes as { data: unknown[] | null }).data || []) as unknown as CVMidia[]);
     setCvPrinters(((cvPrtRes as { data: unknown[] | null }).data || []) as unknown as CVImpressao[]);
