@@ -204,7 +204,7 @@ export function calcular(input: CalcInput): CalcResult {
     : 0;
   const custo_impressao = i ? i.custo_mt2 * area + i.custo_fixo : 0;
   const emenda_impressao =
-    !!i && i.largura_max_cm != null && largura > i.largura_max_cm;
+    !!i && i.largura_max_cm != null && largura_in > i.largura_max_cm;
 
   // ── Acabamento(s) ─────────────────────────────────
   // Modo múltiplo (orçamento) tem prioridade sobre modo simples (calculadora).
