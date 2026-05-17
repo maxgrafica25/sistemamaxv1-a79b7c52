@@ -160,6 +160,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [cvValorMinimo, setCvValorMinimo] = useState<number>(35);
   const [cvItems, setCvItems] = useState<CVItemState[]>([]);
   const [cvResults, setCvResults] = useState<Record<string, CVCalcResult>>({});
+  const [cvMarkup, setCvMarkup] = useState<CVMarkupSettings | undefined>(undefined);
 
   const [discountValue, setDiscountValue] = useState<number | null>(null);
   const [discountType, setDiscountType] = useState<DiscountType>("brl");
