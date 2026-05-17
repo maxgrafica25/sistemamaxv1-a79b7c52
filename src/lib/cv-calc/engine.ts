@@ -90,6 +90,8 @@ export interface Acabamento {
   extra_cost_unidade?: number;
   /** Receita (lista de suprimentos × consumo) — modo receita. */
   recipe?: RecipeItem[];
+  /** Mão-de-obra (etapas de produção × tempo). Calculado em runtime com hourRate. */
+  labor?: LaborItem[];
 }
 
 /** Markup global do ERP (mesma fórmula do Orçamentos v2). */
