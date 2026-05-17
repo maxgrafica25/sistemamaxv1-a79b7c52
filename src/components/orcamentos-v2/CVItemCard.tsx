@@ -19,6 +19,7 @@ import {
   type CalcResult,
   type MarkupSettings,
 } from "@/lib/cv-calc/engine";
+import { filterAndSortForMidia } from "@/lib/cv-calc/media-order";
 import { marginTextClass, marginLabel } from "@/lib/quotes-v2/margin";
 
 export interface CVItemState {
