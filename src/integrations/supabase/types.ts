@@ -626,18 +626,30 @@ export type Database = {
       cv_calc_config: {
         Row: {
           id: string
+          sangria_adesivo_mm: number
+          sangria_chapa_mm: number
+          sangria_lona_mm: number
+          sangria_outro_mm: number
           singleton: boolean
           updated_at: string
           valor_minimo: number
         }
         Insert: {
           id?: string
+          sangria_adesivo_mm?: number
+          sangria_chapa_mm?: number
+          sangria_lona_mm?: number
+          sangria_outro_mm?: number
           singleton?: boolean
           updated_at?: string
           valor_minimo?: number
         }
         Update: {
           id?: string
+          sangria_adesivo_mm?: number
+          sangria_chapa_mm?: number
+          sangria_lona_mm?: number
+          sangria_outro_mm?: number
           singleton?: boolean
           updated_at?: string
           valor_minimo?: number

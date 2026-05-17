@@ -59,6 +59,12 @@ export interface AcabamentoAplicado {
   qtd_unidades?: number;
 }
 
+/** Sangria (margem de bleed) em milímetros por tipo de mídia.
+ *  Somada a cada dimensão antes do cálculo de área e perímetro,
+ *  replicando o comportamento da planilha (CONFIGURACOES!E8..E10).
+ */
+export type SangriasMm = Partial<Record<TipoMidia, number>>;
+
 export interface CalcInput {
   largura_cm: number;
   altura_cm: number;
@@ -72,6 +78,8 @@ export interface CalcInput {
   /** Pool de acabamentos disponíveis (para seleção automática de bastão). */
   acabamentos_pool?: Acabamento[];
   valor_minimo: number;
+  /** Sangria por tipo de mídia (mm). Default: 0 para todos. */
+  sangrias_mm?: SangriasMm;
 }
 
 export interface InfoBastao {
@@ -108,6 +116,8 @@ export interface CalcResult {
   aplicou_minimo: boolean;
   valor_unitario: number;
   valor_total: number;
+  /** Sangria aplicada na peça (mm) — informativo para a UI. */
+  sangria_aplicada_mm: number;
 }
 
 const safe = (n: unknown, fallback = 0): number => {
@@ -161,9 +171,17 @@ function precificarAcabamento(
 }
 
 export function calcular(input: CalcInput): CalcResult {
-  const largura = Math.max(0, safe(input.largura_cm));
-  const altura = Math.max(0, safe(input.altura_cm));
+  const largura_in = Math.max(0, safe(input.largura_cm));
+  const altura_in = Math.max(0, safe(input.altura_cm));
   const qtd = Math.max(1, Math.floor(safe(input.quantidade, 1)));
+
+  // Sangria por tipo de mídia (mm → cm). Somada a cada dimensão,
+  // replicando AK15 da planilha: (W + sangria) × (H + sangria).
+  const tipo = input.midia?.tipo_midia;
+  const sangria_mm = Math.max(0, safe(tipo ? input.sangrias_mm?.[tipo] : 0));
+  const sangria_cm = sangria_mm / 10;
+  const largura = largura_in > 0 ? largura_in + sangria_cm : 0;
+  const altura = altura_in > 0 ? altura_in + sangria_cm : 0;
 
   // Modelo "job único": área/perímetro escalam com a quantidade;
   // custos fixos (setup) permanecem únicos.
@@ -186,7 +204,7 @@ export function calcular(input: CalcInput): CalcResult {
     : 0;
   const custo_impressao = i ? i.custo_mt2 * area + i.custo_fixo : 0;
   const emenda_impressao =
-    !!i && i.largura_max_cm != null && largura > i.largura_max_cm;
+    !!i && i.largura_max_cm != null && largura_in > i.largura_max_cm;
 
   // ── Acabamento(s) ─────────────────────────────────
   // Modo múltiplo (orçamento) tem prioridade sobre modo simples (calculadora).
@@ -210,7 +228,7 @@ export function calcular(input: CalcInput): CalcResult {
 
     // Auto-seleção de bastão na família banner_bastao
     if (ac.familia === "banner_bastao" && input.acabamentos_pool) {
-      const pick = selecionarBastao(largura, input.acabamentos_pool);
+      const pick = selecionarBastao(largura_in, input.acabamentos_pool);
       if (pick) {
         ac = pick.acab;
         inf = pick.info;
@@ -267,6 +285,7 @@ export function calcular(input: CalcInput): CalcResult {
     aplicou_minimo,
     valor_unitario,
     valor_total,
+    sangria_aplicada_mm: sangria_mm,
   };
 }
 

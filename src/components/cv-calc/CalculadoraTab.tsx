@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
   calcular, formatBRL,
-  type Midia, type Impressao, type Acabamento,
+  type Midia, type Impressao, type Acabamento, type SangriasMm,
 } from "@/lib/cv-calc/engine";
 
 export default function CalculadoraTab() {
@@ -19,6 +19,7 @@ export default function CalculadoraTab() {
   const [impressoes, setImpressoes] = useState<Impressao[]>([]);
   const [acabamentos, setAcabamentos] = useState<Acabamento[]>([]);
   const [valorMinimo, setValorMinimo] = useState(35);
+  const [sangrias, setSangrias] = useState<SangriasMm>({});
 
   const [largura, setLargura] = useState(90);
   const [altura, setAltura] = useState(120);
@@ -33,13 +34,25 @@ export default function CalculadoraTab() {
         supabase.from("cv_calc_midias" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_impressoes" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_acabamentos" as never).select("*").eq("ativo", true).order("sort_order"),
-        supabase.from("cv_calc_config" as never).select("valor_minimo").maybeSingle(),
+        supabase.from("cv_calc_config" as never).select("valor_minimo, sangria_adesivo_mm, sangria_lona_mm, sangria_chapa_mm, sangria_outro_mm").maybeSingle(),
       ]);
       setMidias((m.data as never) ?? []);
       setImpressoes((i.data as never) ?? []);
       setAcabamentos((a.data as never) ?? []);
-      const cfg = c.data as { valor_minimo?: number } | null;
+      const cfg = c.data as {
+        valor_minimo?: number;
+        sangria_adesivo_mm?: number;
+        sangria_lona_mm?: number;
+        sangria_chapa_mm?: number;
+        sangria_outro_mm?: number;
+      } | null;
       if (cfg?.valor_minimo != null) setValorMinimo(Number(cfg.valor_minimo));
+      setSangrias({
+        adesivo: Number(cfg?.sangria_adesivo_mm ?? 3),
+        lona: Number(cfg?.sangria_lona_mm ?? 0),
+        chapa: Number(cfg?.sangria_chapa_mm ?? 0),
+        outro: Number(cfg?.sangria_outro_mm ?? 0),
+      });
       setLoading(false);
     })();
   }, []);
@@ -70,8 +83,9 @@ export default function CalculadoraTab() {
       midia, impressao, acabamento,
       acabamentos_pool: acabamentos,
       valor_minimo: valorMinimo,
+      sangrias_mm: sangrias,
     }),
-    [largura, altura, quantidade, midia, impressao, acabamento, acabamentos, valorMinimo],
+    [largura, altura, quantidade, midia, impressao, acabamento, acabamentos, valorMinimo, sangrias],
   );
 
   if (loading) {
@@ -176,6 +190,13 @@ export default function CalculadoraTab() {
           {isAdmin && (
             <>
               <DetailRow label="Área" value={`${result.area_m2.toFixed(2)} m²`} />
+              {result.sangria_aplicada_mm > 0 && (
+                <DetailRow
+                  label="Sangria aplicada"
+                  value={`+${result.sangria_aplicada_mm} mm (${midia?.tipo_midia ?? ""})`}
+                  muted
+                />
+              )}
               <DetailRow label="Perímetro" value={`${result.perim_m.toFixed(2)} m`} />
               <DetailRow label="Mídia" value={formatBRL(result.preco_midia)} />
               <DetailRow label="Impressão" value={formatBRL(result.preco_impressao)} />
