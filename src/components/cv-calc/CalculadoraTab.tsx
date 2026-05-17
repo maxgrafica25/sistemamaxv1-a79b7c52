@@ -43,6 +43,7 @@ const newItem = (): Item => ({
   midiaId: "",
   impressaoId: "",
   acabamentoId: "",
+  kitId: "",
 });
 
 export default function CalculadoraTab() {
