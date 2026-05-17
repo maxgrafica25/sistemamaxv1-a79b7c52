@@ -48,10 +48,13 @@ const newItem = (): Item => ({
 
 export default function CalculadoraTab() {
   const isAdmin = useIsAdmin();
+  const { hourRate } = useHourRate();
+  const { settings: globalSettings } = useGlobalSettings();
   const [loading, setLoading] = useState(true);
   const [midias, setMidias] = useState<Midia[]>([]);
   const [impressoes, setImpressoes] = useState<Impressao[]>([]);
   const [acabamentos, setAcabamentos] = useState<Acabamento[]>([]);
+  const [kits, setKits] = useState<KitDef[]>([]);
   const [valorMinimo, setValorMinimo] = useState(35);
   const [sangrias, setSangrias] = useState<SangriasMm>({});
   const [markup, setMarkup] = useState<MarkupSettings | undefined>(undefined);
