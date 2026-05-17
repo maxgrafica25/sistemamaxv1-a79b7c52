@@ -17,6 +17,7 @@ import {
   type Acabamento,
   type AcabamentoAplicado,
   type CalcResult,
+  type MarkupSettings,
 } from "@/lib/cv-calc/engine";
 import { marginTextClass, marginLabel } from "@/lib/quotes-v2/margin";
 
