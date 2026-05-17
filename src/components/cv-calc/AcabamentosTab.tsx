@@ -16,6 +16,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { useHourRate } from "@/hooks/useHourRate";
+import AcabamentosMediaOrderPanel from "./AcabamentosMediaOrderPanel";
 
 const TIPOS_MIDIA = [
   { value: "lona", label: "Lona" },
