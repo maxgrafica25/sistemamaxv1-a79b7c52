@@ -105,9 +105,25 @@ export default function CalculadoraTab() {
           recipeByAc.set(r.acabamento_id, arr);
         });
 
+      // agrupa MO (labor) por acabamento
+      const laborByAc = new Map<string, NonNullable<Acabamento["labor"]>>();
+      ((laborItems.data as Array<{ acabamento_id: string; descricao: string; time_minutes: number; consumo_tipo: string; consumo_qty: number; production_step_id: string | null }>) ?? [])
+        .forEach((l) => {
+          const arr = laborByAc.get(l.acabamento_id) ?? [];
+          arr.push({
+            production_step_id: l.production_step_id,
+            descricao: l.descricao,
+            time_minutes: Number(l.time_minutes) || 0,
+            consumo_tipo: l.consumo_tipo as NonNullable<Acabamento["labor"]>[number]["consumo_tipo"],
+            consumo_qty: Number(l.consumo_qty) || 1,
+          });
+          laborByAc.set(l.acabamento_id, arr);
+        });
+
       const acabamentos = ((a.data as Acabamento[]) ?? []).map((ac) => ({
         ...ac,
         recipe: recipeByAc.get(ac.id) ?? [],
+        labor: laborByAc.get(ac.id) ?? [],
       }));
 
       // Monta kits a partir de material_groups + material_group_items
