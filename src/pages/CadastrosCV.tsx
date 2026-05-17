@@ -54,6 +54,7 @@ export default function CadastrosCV() {
       {tab === "midias" && <MidiasTab />}
       {tab === "impressoes" && <ImpressoesTab />}
       {tab === "acabamentos" && <AcabamentosTab />}
+      {tab === "suprimentos" && <SuprimentosCVTab />}
       {tab === "config" && <ConfiguracaoTab />}
     </div>
   );
