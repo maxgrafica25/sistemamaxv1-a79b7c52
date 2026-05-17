@@ -1,10 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, AlertTriangle, Info, AlertCircle, X, ChevronDown } from "lucide-react";
+import { Sparkles, AlertTriangle, Info, AlertCircle, X, ChevronDown, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { CVItemState } from "@/components/orcamentos-v2/CVItemCard";
+
+interface HistSuggestion {
+  acabamento_id: string;
+  nome: string;
+  count: number;
+  total: number;
+  pct: number;
+}
 
 interface Rule {
   id: string;
