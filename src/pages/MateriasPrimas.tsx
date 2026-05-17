@@ -240,6 +240,7 @@ export default function MateriasPrimas() {
         data: s.data,
         contato: s.contato,
         margemPct: Number(s.margem_pct ?? 0),
+        modulo: Array.isArray(s.modulo) ? s.modulo : ["grafica"],
       })));
     }
     if (histRes.data) {
