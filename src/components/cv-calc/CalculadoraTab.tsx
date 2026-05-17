@@ -110,7 +110,7 @@ export default function CalculadoraTab() {
             id: ki.id,
             description: ki.description,
             quantity: Number(ki.quantity) || 0,
-            unit_price: live ?? Number(ki.unit_price) || 0,
+            unit_price: live ?? (Number(ki.unit_price) || 0),
             consumo_tipo: (ki.consumo_tipo as KitConsumoTipo) ?? "fixo",
           });
           itemsByKit.set(ki.material_group_id, arr);
