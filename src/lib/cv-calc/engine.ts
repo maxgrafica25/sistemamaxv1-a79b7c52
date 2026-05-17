@@ -188,13 +188,64 @@ export function selecionarBastao(
   return { acab: maior, info: { tipo: "emenda", escolhido: maior.nome, qtd } };
 }
 
-/** Calcula o preço de um único acabamento aplicado à peça. */
+/** Arredonda para cima ao próximo R$ 0,10 — regra global de preço. */
+const roundUpToTenCents = (n: number): number => {
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.ceil(n * 10 - 1e-9) / 10;
+};
+
+/** Calcula o preço de um único acabamento aplicado à peça.
+ *  Em modo "manual" usa custo_*/lucro_* exatamente como antes.
+ *  Em modo "recipe" soma custo_supply×consumo + extras e aplica o markup
+ *  global (ou override), usando engenharia reversa: preço = custo/(1 - markup). */
 function precificarAcabamento(
   ac: Acabamento,
   area: number,
   perim_m: number,
   qtd_unidades: number,
+  largura_m: number,
+  altura_m: number,
+  qtd_pecas: number,
+  markup?: MarkupSettings,
 ): { preco: number; custo: number } {
+  if (ac.pricing_mode === "recipe") {
+    // 1) Soma custos da receita por peça × qtd
+    let custo_recipe_por_peca = 0;
+    for (const r of ac.recipe ?? []) {
+      let consumo_por_peca = 0;
+      switch (r.consumo_tipo) {
+        case "por_peca":         consumo_por_peca = r.consumo_qty; break;
+        case "por_perimetro_m":  consumo_por_peca = r.consumo_qty * (perim_m / Math.max(1, qtd_pecas)); break;
+        case "por_mt2":          consumo_por_peca = r.consumo_qty * (area / Math.max(1, qtd_pecas)); break;
+        case "por_largura_m":    consumo_por_peca = r.consumo_qty * largura_m; break;
+        case "por_altura_m":     consumo_por_peca = r.consumo_qty * altura_m; break;
+      }
+      custo_recipe_por_peca += consumo_por_peca * safe(r.supply_custo_unitario);
+    }
+    const custo_recipe = custo_recipe_por_peca * qtd_pecas;
+
+    // 2) Custos extras (mão-de-obra etc.)
+    const custo_extras =
+      safe(ac.extra_cost_fixo) +
+      safe(ac.extra_cost_mt2) * area +
+      safe(ac.extra_cost_perimetro) * perim_m +
+      safe(ac.extra_cost_unidade) * qtd_unidades;
+
+    const custo = custo_recipe + custo_extras;
+
+    // 3) Markup total (impostos + cartão + comissão + margem) — engenharia reversa
+    const totalPct = ac.markup_override_pct != null
+      ? safe(ac.markup_override_pct)
+      : (markup
+          ? safe(markup.tax_pct) + safe(markup.invoice_pct) + safe(markup.credit_card_pct) +
+            safe(markup.collection_fee_pct) + safe(markup.default_margin_pct)
+          : 0);
+    const divisor = Math.max(0.01, 1 - totalPct / 100);
+    const preco = roundUpToTenCents(custo / divisor);
+    return { preco, custo };
+  }
+
+  // Modo manual (default) — comportamento original intacto.
   const preco =
     (ac.custo_mt2 + ac.lucro_mt2) * area +
     (ac.custo_perimetro + ac.lucro_perimetro) * perim_m +
