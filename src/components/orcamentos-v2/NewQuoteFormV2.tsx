@@ -1323,7 +1323,26 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     toast.success("Link público copiado!");
   };
 
-  if (loadingInit) {
+  // Sincroniza mão de obra automática vinda do checklist como material avulso
+  // (id prefixado "chk-<questionId>" para idempotência ao recalcular).
+  const handleChecklistAutoLabor = useCallback(
+    (questionId: string, item: { description: string; totalValue: number } | null) => {
+      const matId = `chk-${questionId}`;
+      setMaterials((prev) => {
+        const without = prev.filter((m) => m.id !== matId);
+        if (!item) return without;
+        return [...without, {
+          id: matId,
+          description: item.description,
+          quantity: 1,
+          unitPrice: item.totalValue,
+          parentItemId: null,
+        } as SubformMaterial];
+      });
+    },
+    [],
+  );
+
     return (
       <div className="flex h-full items-center justify-center p-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
