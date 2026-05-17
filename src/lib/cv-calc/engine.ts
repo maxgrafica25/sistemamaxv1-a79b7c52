@@ -228,7 +228,7 @@ export function calcular(input: CalcInput): CalcResult {
 
     // Auto-seleção de bastão na família banner_bastao
     if (ac.familia === "banner_bastao" && input.acabamentos_pool) {
-      const pick = selecionarBastao(largura, input.acabamentos_pool);
+      const pick = selecionarBastao(largura_in, input.acabamentos_pool);
       if (pick) {
         ac = pick.acab;
         inf = pick.info;
