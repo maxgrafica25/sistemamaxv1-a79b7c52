@@ -442,7 +442,10 @@ export default function MateriasPrimas() {
     setEditingMaterial(m); setDuplicatingFromId(null); setProduto(m.produto); setFinalidade(m.finalidade);
     setQuantidade(m.quantidade.toString()); setUnidade(m.unidade || "un"); setValor(m.valor.toString());
     setFornecedor(m.fornecedor); setData(m.data); setContato(m.contato);
-    setMargemPct(String(m.margemPct ?? 0)); setIsDialogOpen(true);
+    setMargemPct(String(m.margemPct ?? 0));
+    setModuloGrafica(m.modulo?.includes("grafica") ?? true);
+    setModuloCv(m.modulo?.includes("cv") ?? false);
+    setIsDialogOpen(true);
   };
   const duplicateMaterial = (m: Material) => {
     setEditingMaterial(null);
