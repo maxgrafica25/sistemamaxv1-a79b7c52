@@ -133,6 +133,8 @@ export interface CalcInput {
   sangrias_mm?: SangriasMm;
   /** Markup global (impostos + cartão + comissão + margem) — usado no modo "recipe". */
   markup?: MarkupSettings;
+  /** Custo/hora produtivo (R$/h) — usado p/ calcular MO via labor items. */
+  hourRate?: number;
 }
 
 export interface InfoBastao {
