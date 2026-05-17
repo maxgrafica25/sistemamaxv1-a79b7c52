@@ -1,162 +1,87 @@
-## Fase 1 — Ordenação visual de acabamentos por mídia
+## Fase 3 — Assistente Inteligente
 
-### Hoje
-`cv_calc_acabamentos.sort_order` é global — uma única ordem serve todas as mídias, e não há como esconder "Corte 3mm" da lista de **lona** sem desativar o acabamento inteiro.
+Objetivo: enquanto o orçamentista monta o pedido, um painel lateral sugere **acabamentos, mão-de-obra, perguntas e alertas** que ele provavelmente esqueceu — com justificativa visível ("3 últimos orçamentos de lona ≥6m² incluíram bainha + ilhós").
 
-### Schema (nova tabela leve, sem mexer em `cv_calc_acabamentos`)
-
-```
-cv_calc_acabamento_media_order
-  acabamento_id  uuid  FK → cv_calc_acabamentos (cascade)
-  tipo_midia     text  ('lona' | 'adesivo' | 'chapa' | 'outro')
-  sort_order     int
-  visivel        bool  default true
-  PRIMARY KEY (acabamento_id, tipo_midia)
-```
-
-- Quando não há linha para um par (acabamento, mídia), cai no `sort_order` global → 100% compatível com o que já existe.
-- `visivel=false` esconde o acabamento naquela mídia mesmo que `tipos_midia_compativeis` permita.
-- RLS: admin all + authenticated select (mesmo padrão das outras `cv_calc_*`).
-
-### UI — nova sub-aba "Ordem por mídia" dentro de **Cadastros CV → Acabamentos**
-
-Layout em 4 colunas, uma por tipo de mídia:
+Três camadas combinadas, da mais previsível à mais inteligente:
 
 ```text
-┌─ Lona ──────┐ ┌─ Adesivo ───┐ ┌─ Chapa ─────┐ ┌─ Outro ─────┐
-│ ☰ Bainha+Il │ │ ☰ Refile    │ │ ☰ Dupla Face│ │ ☰ Outro 1   │
-│ ☰ Ilhós     │ │ ☰ Laminação │ │ ☰ Ilhós Cha │ │             │
-│ ☰ Emenda    │ │ 👁 Corte3mm │ │ ☰ Display   │ │             │
-│ 👁 Dupla F. │ │             │ │ ☰ Laminação │ │             │
-└─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
+┌──────────────── Assistente do orçamento ────────────────┐
+│ 🔧 Regras (admin)                                       │
+│   • Lona ≥ 6m² → sugerir Bainha + Ilhós                 │
+│ 📊 Padrão histórico                                     │
+│   • 87% dos orçamentos parecidos incluíram "Recorte"    │
+│ 🤖 IA (Lovable AI Gateway)                              │
+│   • "Cliente é construtora → considerar lona resistente"│
+└─────────────────────────────────────────────────────────┘
 ```
 
-- Drag-and-drop vertical com `@dnd-kit/sortable` → ao soltar, persiste o `sort_order` daquela coluna.
-- Ícone de olho (Eye / EyeOff) para mostrar/ocultar o item naquela mídia.
-- Botão "Resetar para ordem global" no topo de cada coluna.
+### Sub-fases
 
-### Aplicar a ordem no resto do sistema
+**3a — Motor de regras (determinístico)**
+- Tabela `quote_suggestion_rules` (admin): condição (mídia, família, área min/max, altura min, tags do cliente) + ação (sugerir acabamento_id, sugerir pergunta_id do checklist, alerta de texto livre, severidade).
+- Tela admin "Sugestões" em Cadastros CV (CRUD + drag).
+- Painel `QuoteAssistant` no `NewQuoteFormV2` (recolhível, lado direito), avaliação reativa a cada item.
+- Cada sugestão tem botões **Aplicar** (adiciona acabamento/pergunta) / **Dispensar** (some por esta sessão).
 
-Locais que listam acabamentos para escolha: `CVItemCard`, `CalculadoraTab`, `SmartFinishingBlock`. Em todos, ao carregar a lista filtrada por mídia, aplicar:
+**3b — Padrão histórico (sem IA externa)**
+- Edge function `historical-suggestions`: dado um conjunto de itens em montagem, busca os últimos N orçamentos com perfil similar (mesma mídia + faixa de área), retorna acabamentos com frequência ≥ 60%.
+- Cache de 10 min por assinatura (`mídia|faixa_area|familia_dominante`) em tabela `historical_suggestion_cache` para não pesar.
+- Exibido como segunda seção do painel com a porcentagem ("inclusos em 9 de 12 orçamentos parecidos").
 
-```ts
-const ordered = acabamentos
-  .filter(a => a.tipos_midia_compativeis.includes(midiaSelecionada))
-  .map(a => {
-    const m = mediaOrder.find(o => o.acabamento_id === a.id && o.tipo_midia === midiaSelecionada);
-    return { ...a, _order: m?.sort_order ?? a.sort_order, _visivel: m?.visivel ?? true };
-  })
-  .filter(a => a._visivel)
-  .sort((x, y) => x._order - y._order);
+**3c — IA contextual (Lovable AI Gateway — `google/gemini-2.5-flash`)**
+- Edge function `quote-ai-assistant`: recebe snapshot do orçamento (cliente, tags, itens com mídia/área/acabamentos, respostas do checklist) + lista resumida do catálogo (acabamentos ativos, perguntas do checklist).
+- Prompt pede até 3 sugestões objetivas em JSON: `{tipo: 'acabamento'|'pergunta'|'alerta', alvo_id?, mensagem, justificativa}`.
+- Trigger: botão "Pedir opinião da IA" + auto-run debounced 4s após estabilizar.
+- Tratamento dos códigos 429/402 do gateway com toast amigável (mesmo padrão já usado no projeto).
+
+### Schema (3a)
+
+```sql
+quote_suggestion_rules
+  id               uuid
+  nome             text
+  ativo            bool
+  prioridade       int          -- ordem de exibição
+  -- condições
+  cond_tipo_midia  text[]       -- vazio = qualquer
+  cond_familia     text[]
+  cond_area_min    numeric
+  cond_area_max    numeric
+  cond_altura_min  numeric
+  cond_cliente_tag text[]       -- qualquer tag do cliente bate
+  cond_sempre      bool
+  -- ação
+  acao_tipo        text         -- 'sugerir_acabamento'|'sugerir_pergunta'|'alerta'
+  acao_acab_id     uuid null
+  acao_question_id uuid null
+  acao_mensagem    text
+  severidade       text         -- 'info'|'aviso'|'critico'
 ```
 
-`mediaOrder` carregado uma vez no `Promise.all` que já existe nesses componentes.
+RLS: admin all + authenticated select.
 
----
+Dispensas locais ficam só no estado do componente (não persistem) — evita ruído permanente. Se virar problema, depois pluga em `quote_suggestion_dismissals(quote_id, rule_id)`.
 
-## Fase 2 — Perguntas-chave contextuais no orçamento
+### UI — painel lateral
 
-### Princípio
-Não poluir. As perguntas só aparecem **quando relevantes** num único bloco recolhível **"Checklist do orçamento"** no topo do formulário, com badge contando pendentes. Nunca bloqueia salvar.
+Drawer recolhível à direita do `NewQuoteFormV2`, largura 360px, sticky no topo. Vazio mostra "Adicione itens para receber sugestões". Cada card tem ícone por camada (🔧/📊/🤖), título, justificativa em texto pequeno, e ações.
 
-### Schema
+### Seed inicial de regras (3a)
 
-```
-quote_checklist_questions            (admin gerencia)
-  id            uuid
-  pergunta      text       -- "Necessita desinstalar lona antiga?"
-  tipo_resposta text       -- 'sim_nao' | 'sim_nao_valor' | 'texto' | 'foto'
-  categoria     text       -- 'instalacao' | 'remocao' | 'logistica' | 'arte' | 'outro'
-  hint          text       -- explicação curta do porquê
-  ativo         bool
-  sort_order    int
-
-quote_checklist_triggers             (quando a pergunta dispara)
-  id              uuid
-  question_id     uuid FK
-  tipo_midia      text[]    -- ex.: ['lona']
-  familia_acab    text[]    -- ex.: ['ilhos'] (opcional)
-  area_min_m2     numeric   -- opcional
-  area_max_m2     numeric
-  altura_min_m    numeric   -- útil para "precisa de andaime?"
-  sempre          bool      -- ignora filtros se true
-
-quote_checklist_answers              (respostas do orçamento)
-  quote_id      uuid
-  question_id   uuid
-  resposta_bool bool
-  resposta_num  numeric
-  resposta_text text
-  resposta_url  text       -- foto enviada → storage
-  PRIMARY KEY (quote_id, question_id)
-```
-
-RLS: admin gerencia perguntas/triggers; authenticated lê tudo e escreve respostas.
-
-Bucket `quote-attachments` (private) para as fotos do checklist.
-
-### UI no orçamento (`NewQuoteFormV2`)
-
-Componente novo `QuoteChecklist` no topo do formulário:
-
-```text
-📋 Checklist do orçamento                       [2 pendentes ▼]
-─────────────────────────────────────────────────
-⚠ Lona detectada (8m²)
-  • Precisa desinstalar a lona antiga?      ( ) Sim ( ) Não  [+ R$]
-  • Local exige andaime (altura > 3m)?       ( ) Sim ( ) Não
-  • Foto do local                            [📎 Anexar]
-
-✓ Adesivo grande (5m²)
-  • Remover adesivo atual?                   ( ) Sim ( ) Não
-```
-
-Lógica:
-- Recalcula (debounced) a cada mudança nos itens qual conjunto de perguntas dispara, baseando-se em `tipo_midia`, `familia`, área total e altura.
-- Persiste respostas em `quote_checklist_answers` no salvar.
-- "Sim" em pergunta `sim_nao_valor` adiciona automaticamente um item de **mão-de-obra avulsa** ao orçamento (ex.: "Desinstalação de lona antiga — R$ X"), que o usuário pode editar/remover. Valor padrão configurável por pergunta.
-- Foto: upload para `quote-attachments`, vinculada ao quote.
-- Badge no botão de gerar PDF se houver pendentes — **sem bloquear**.
-
-### Tela admin — nova aba **"Checklist"** em Cadastros CV
-
-- Tabela CRUD das perguntas
-- Para cada pergunta: editar triggers (multi-select de mídias/famílias, inputs de área min/max e altura, switch "sempre perguntar")
-- Toggle ativo
-- Drag para reordenar (mesma lib da Fase 1)
-
-### Seed inicial sugerido
-
-| Pergunta | Trigger | Tipo |
+| Condição | Ação | Severidade |
 |---|---|---|
-| Necessita desinstalar lona antiga? | midia=lona, area≥4 | sim_nao_valor |
-| Precisa retirar adesivo atual antes da aplicação? | midia=adesivo, area≥3 | sim_nao_valor |
-| Local exige andaime / plataforma elevatória? | midia ∈ (lona,adesivo), altura≥3 | sim_nao |
-| Foto do local de instalação | midia ∈ (lona,adesivo), area≥4 | foto |
-| Cliente fornecerá arte final ou é necessário criação? | sempre | sim_nao_valor |
-| Há iluminação/back-light atrás da lona? | midia=lona | sim_nao |
+| midia=lona, area≥6 | sugerir acabamento "Bainha + Ilhós" | aviso |
+| midia=adesivo, area≥3 | sugerir pergunta "Remover adesivo atual?" | info |
+| altura_min≥3 | alerta "Confirmar logística de altura (andaime/elevatória)" | crítico |
+| cliente_tag contém "construtora" | alerta "Validar lona reforçada / 440g" | info |
+| midia=chapa, area≥1 | sugerir acabamento "Dupla face" | info |
 
----
+### Ordem de execução
 
-## Roadmap futuro (não entra agora)
+1. **3a**: migration `quote_suggestion_rules` + RLS + seed → aba admin "Sugestões" → painel `QuoteAssistant` (apenas camada Regras). **Entrega usável sozinha.**
+2. **3b**: edge function + cache + segunda seção do painel.
+3. **3c**: edge function IA + terceira seção + botão manual + auto-run debounced.
 
-**Fase 3 — Assistente Inteligente** (conforme já alinhado): sugestões por regra (`quote_suggestion_rules`), por padrão de coocorrência histórica e via LLM. Depende dos dados gerados pela Fase 2 para ter utilidade real.
+### Decisão pedida
 
----
-
-## Ordem de execução
-
-1. Migration: `cv_calc_acabamento_media_order` + RLS
-2. UI Fase 1: sub-aba "Ordem por mídia" com dnd-kit
-3. Aplicar ordem por mídia em `CVItemCard`, `CalculadoraTab`, `SmartFinishingBlock`
-4. Migration: `quote_checklist_questions` + `_triggers` + `_answers` + RLS + bucket `quote-attachments`
-5. Seed das 6 perguntas iniciais
-6. UI Admin: aba "Checklist" com CRUD e editor de triggers
-7. UI Orçamento: componente `QuoteChecklist` no topo do `NewQuoteFormV2` + criação automática de mão-de-obra a partir de respostas "Sim" + salvar respostas
-
-## Decisões a confirmar antes de implementar
-
-1. **Esconder vs desativar:** marcar o olho como oculto em "lona" mantém o acabamento ativo nas outras mídias (adesivo/chapa) — é o objetivo da feature, só confirmando.
-2. **Mão-de-obra automática:** o "Sim" em `sim_nao_valor` deve **adicionar automaticamente** o item ao orçamento (com valor padrão editável) ou apenas registrar a resposta e deixar você adicionar manualmente?
-3. **Foto do local:** vincular **só ao orçamento** ou também ao **cliente** (galeria de fotos do cliente para reaproveitar em pedidos futuros)?
-4. **Ordem de entrega:** posso entregar a **Fase 1 primeiro** (menor, valida o padrão de UI dnd) e depois a Fase 2, ou prefere as duas no mesmo bloco?
+Sigo direto na **3a** (motor de regras + painel) e te entrego pronto para uso, depois discutimos 3b/3c? Ou prefere que eu já planeje as três num único bloco maior?
