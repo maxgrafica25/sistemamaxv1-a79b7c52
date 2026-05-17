@@ -376,9 +376,7 @@ function ItemCard({
   const impressoesCompat = tipo
     ? impressoes.filter((i) => i.tipos_midia_compativeis.includes(tipo))
     : impressoes;
-  const acabamentosCompat = tipo
-    ? acabamentos.filter((a) => a.tipos_midia_compativeis.includes(tipo))
-    : acabamentos;
+  const acabamentosCompat = filterAndSortForMidia(acabamentos, tipo);
 
   // Edição inline do nome
   const [editingName, setEditingName] = useState(false);
