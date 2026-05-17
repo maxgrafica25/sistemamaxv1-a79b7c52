@@ -173,7 +173,7 @@ export default function AcabamentosMediaOrderPanel() {
     if (!rows.length) return;
     const { error } = await supabase
       .from("cv_calc_acabamento_media_order" as never)
-      .upsert(rows, { onConflict: "acabamento_id,tipo_midia" });
+      .upsert(rows as never, { onConflict: "acabamento_id,tipo_midia" });
     if (error) {
       handleError(error, "salvar ordem");
       return false;
