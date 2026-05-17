@@ -7,15 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Loader2, AlertTriangle, Calculator, Info, Plus, Trash2, Copy, Receipt, Package,
+  Flag, AlignHorizontalJustifyCenter, Square, Megaphone, Pencil, RotateCcw, ChevronDown, Check, X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useHourRate } from "@/hooks/useHourRate";
 import { useGlobalSettings } from "@/hooks/useGlobalSettings";
 import {
-  calcular, formatBRL,
+  calcular, formatBRL, detectarTipoProduto,
   type Midia, type Impressao, type Acabamento, type SangriasMm, type CalcResult,
-  type MarkupSettings, type RecipeItem,
+  type MarkupSettings, type RecipeItem, type TipoProduto,
 } from "@/lib/cv-calc/engine";
 import { calcKitPrice, type KitDef, type KitConsumoTipo, type KitPricingMode, type KitPriceResult } from "@/lib/kitPricing";
 
