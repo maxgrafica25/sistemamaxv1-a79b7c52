@@ -561,7 +561,83 @@ export default function AcabamentosTab() {
                   )}
                 </div>
 
-                {/* Custos extras / mão-de-obra */}
+                {/* Mão-de-obra (etapas de produção) */}
+                <div className="rounded-md border p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm flex items-center gap-1.5"><Clock className="h-4 w-4 text-primary" /> Mão-de-obra (etapas)</Label>
+                    <Button size="sm" variant="outline" onClick={addLaborRow}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar etapa
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    💡 Custo recalculado automaticamente quando o custo/hora muda. Custo/hora atual: <strong>{brl(hourRate)}/h</strong>
+                  </p>
+                  {labor.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-3 text-center">
+                      Nenhuma etapa de mão-de-obra. Adicione "Refilar", "Aplicar adesivo", "Cortar chapa" etc.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {labor.map((l, idx) => {
+                        const custoLinha = (l.time_minutes / 60) * hourRate * (l.consumo_qty || 1);
+                        return (
+                          <div key={idx} className="grid grid-cols-[1fr_90px_160px_70px_auto] gap-2 items-end">
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Etapa de produção</Label>
+                              <Select value={l.production_step_id ?? "__custom__"} onValueChange={(v) =>
+                                patchLaborRow(idx, { production_step_id: v === "__custom__" ? null : v })
+                              }>
+                                <SelectTrigger className="h-9"><SelectValue placeholder="Escolha…" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__custom__">— personalizado —</SelectItem>
+                                  {steps.map((s) => (
+                                    <SelectItem key={s.id} value={s.id}>
+                                      {s.description} ({Number(s.time_minutes)} min)
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {!l.production_step_id && (
+                                <Input className="h-8 mt-1" placeholder="Descrição"
+                                  value={l.descricao}
+                                  onChange={(e) => patchLaborRow(idx, { descricao: e.target.value })} />
+                              )}
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Tempo (min)</Label>
+                              <Input type="number" step="0.1" className="h-9"
+                                value={l.time_minutes}
+                                onChange={(e) => patchLaborRow(idx, { time_minutes: +e.target.value || 0 })} />
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Escala</Label>
+                              <Select value={l.consumo_tipo} onValueChange={(v) => patchLaborRow(idx, { consumo_tipo: v as LaborRow["consumo_tipo"] })}>
+                                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {CONSUMO_TIPOS_LABOR.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Qtd</Label>
+                              <Input type="number" step="0.01" className="h-9"
+                                value={l.consumo_qty}
+                                onChange={(e) => patchLaborRow(idx, { consumo_qty: +e.target.value || 0 })} />
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive"
+                              onClick={() => removeLaborRow(idx)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                            <div className="col-span-5 -mt-1 text-[10px] text-muted-foreground">
+                              ≈ {brl(custoLinha)} por unidade da escala @ {brl(hourRate)}/h
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <div className="rounded-md border p-3 space-y-2">
                   <Label className="text-sm">Custos extras (mão-de-obra, insumos não cadastrados)</Label>
                   <div className="grid grid-cols-2 gap-3">
