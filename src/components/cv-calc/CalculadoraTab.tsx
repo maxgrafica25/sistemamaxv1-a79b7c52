@@ -83,8 +83,9 @@ export default function CalculadoraTab() {
       midia, impressao, acabamento,
       acabamentos_pool: acabamentos,
       valor_minimo: valorMinimo,
+      sangrias_mm: sangrias,
     }),
-    [largura, altura, quantidade, midia, impressao, acabamento, acabamentos, valorMinimo],
+    [largura, altura, quantidade, midia, impressao, acabamento, acabamentos, valorMinimo, sangrias],
   );
 
   if (loading) {
