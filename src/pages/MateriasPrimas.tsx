@@ -161,6 +161,8 @@ export default function MateriasPrimas() {
   const [data, setData] = useState("");
   const [contato, setContato] = useState("");
   const [margemPct, setMargemPct] = useState("0");
+  const [moduloGrafica, setModuloGrafica] = useState(true);
+  const [moduloCv, setModuloCv] = useState(false);
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
