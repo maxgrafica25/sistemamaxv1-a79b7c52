@@ -99,9 +99,36 @@ export default function CalculadoraTab() {
         recipe: recipeByAc.get(ac.id) ?? [],
       }));
 
+      // Monta kits a partir de material_groups + material_group_items
+      const itemsByKit = new Map<string, KitDef["items"]>();
+      ((kitItems.data as Array<{ id: string; material_group_id: string; description: string; quantity: number; unit_price: number; consumo_tipo: string; supply_id: string | null }>) ?? [])
+        .forEach((ki) => {
+          const arr = itemsByKit.get(ki.material_group_id) ?? [];
+          // Usa preço atualizado do suprimento quando disponível; fallback no snapshot
+          const live = ki.supply_id ? supplyCost.get(ki.supply_id) : undefined;
+          arr.push({
+            id: ki.id,
+            description: ki.description,
+            quantity: Number(ki.quantity) || 0,
+            unit_price: live ?? Number(ki.unit_price) || 0,
+            consumo_tipo: (ki.consumo_tipo as KitConsumoTipo) ?? "fixo",
+          });
+          itemsByKit.set(ki.material_group_id, arr);
+        });
+      const kitsParsed: KitDef[] = ((kitGroups.data as Array<{ id: string; name: string; pricing_mode: string; labor_minutes: number; margin_pct: number | null }>) ?? [])
+        .map((k) => ({
+          id: k.id,
+          name: k.name,
+          pricing_mode: (k.pricing_mode as KitPricingMode) ?? "fixo",
+          labor_minutes: Number(k.labor_minutes) || 0,
+          margin_pct: k.margin_pct,
+          items: itemsByKit.get(k.id) ?? [],
+        }));
+
       setMidias((m.data as never) ?? []);
       setImpressoes((i.data as never) ?? []);
       setAcabamentos(acabamentos);
+      setKits(kitsParsed);
       const cfg = c.data as {
         valor_minimo?: number;
         sangria_adesivo_mm?: number;
