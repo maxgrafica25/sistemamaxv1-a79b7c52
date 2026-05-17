@@ -2522,6 +2522,139 @@ export type Database = {
         }
         Relationships: []
       }
+      quote_checklist_answers: {
+        Row: {
+          created_at: string
+          question_id: string
+          quote_id: string
+          resposta_bool: boolean | null
+          resposta_num: number | null
+          resposta_text: string | null
+          resposta_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          question_id: string
+          quote_id: string
+          resposta_bool?: boolean | null
+          resposta_num?: number | null
+          resposta_text?: string | null
+          resposta_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          question_id?: string
+          quote_id?: string
+          resposta_bool?: boolean | null
+          resposta_num?: number | null
+          resposta_text?: string | null
+          resposta_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_checklist_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quote_checklist_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_checklist_questions: {
+        Row: {
+          ativo: boolean
+          categoria: string
+          created_at: string
+          hint: string | null
+          id: string
+          labor_custo_fixo: number
+          labor_custo_m2: number
+          labor_descricao: string | null
+          labor_step_type: string | null
+          pergunta: string
+          sort_order: number
+          tipo_resposta: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          categoria?: string
+          created_at?: string
+          hint?: string | null
+          id?: string
+          labor_custo_fixo?: number
+          labor_custo_m2?: number
+          labor_descricao?: string | null
+          labor_step_type?: string | null
+          pergunta: string
+          sort_order?: number
+          tipo_resposta: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: string
+          created_at?: string
+          hint?: string | null
+          id?: string
+          labor_custo_fixo?: number
+          labor_custo_m2?: number
+          labor_descricao?: string | null
+          labor_step_type?: string | null
+          pergunta?: string
+          sort_order?: number
+          tipo_resposta?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      quote_checklist_triggers: {
+        Row: {
+          altura_min_m: number | null
+          area_max_m2: number | null
+          area_min_m2: number | null
+          created_at: string
+          familia_acab: string[]
+          id: string
+          question_id: string
+          sempre: boolean
+          tipo_midia: string[]
+        }
+        Insert: {
+          altura_min_m?: number | null
+          area_max_m2?: number | null
+          area_min_m2?: number | null
+          created_at?: string
+          familia_acab?: string[]
+          id?: string
+          question_id: string
+          sempre?: boolean
+          tipo_midia?: string[]
+        }
+        Update: {
+          altura_min_m?: number | null
+          area_max_m2?: number | null
+          area_min_m2?: number | null
+          created_at?: string
+          familia_acab?: string[]
+          id?: string
+          question_id?: string
+          sempre?: boolean
+          tipo_midia?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_checklist_triggers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quote_checklist_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_engagement_events: {
         Row: {
           created_at: string
