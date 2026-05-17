@@ -227,7 +227,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   // ---------- Load catalog & quote ----------
   const loadInit = useCallback(async () => {
     setLoadingInit(true);
-    const [printRes, catRes, eqRes, consRes, papersRes, tiersRes, settingsRes, expRes, salRes, depRes, capRes, cvMatRes, cvPrtRes, cvFinRes, cvCfgRes] =
+    const [printRes, catRes, eqRes, consRes, papersRes, tiersRes, settingsRes, expRes, salRes, depRes, capRes, cvMatRes, cvPrtRes, cvFinRes, cvCfgRes, cvRecRes, cvLabRes, cvSupRes] =
       await Promise.all([
         supabase.from("printing_price_items").select("*").eq("is_active", true).order("sort_order"),
         supabase.from("printer_categories").select("*").order("sort_order"),
@@ -244,13 +244,61 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
         supabase.from("cv_calc_impressoes" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_acabamentos" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_config" as never).select("valor_minimo").maybeSingle(),
+        supabase.from("cv_calc_acabamento_recipe_items" as never).select("acabamento_id, supply_id, consumo_qty, consumo_tipo"),
+        supabase.from("cv_calc_acabamento_labor_items" as never).select("acabamento_id, descricao, time_minutes, consumo_tipo, consumo_qty, production_step_id"),
+        supabase.from("supplies").select("id, valor_unitario"),
       ]);
+
+    // Enriquecer acabamentos CV com receita (recipe) e mão-de-obra (labor)
+    const supplyCost = new Map<string, number>();
+    (((cvSupRes as { data: { id: string; valor_unitario: number }[] | null }).data) ?? [])
+      .forEach((s) => supplyCost.set(s.id, Number(s.valor_unitario) || 0));
+    const recipeByAc = new Map<string, CVRecipeItem[]>();
+    (((cvRecRes as { data: { acabamento_id: string; supply_id: string; consumo_qty: number; consumo_tipo: CVRecipeItem["consumo_tipo"] }[] | null }).data) ?? [])
+      .forEach((r) => {
+        const arr = recipeByAc.get(r.acabamento_id) ?? [];
+        arr.push({
+          supply_id: r.supply_id,
+          supply_custo_unitario: supplyCost.get(r.supply_id) ?? 0,
+          consumo_qty: Number(r.consumo_qty) || 0,
+          consumo_tipo: r.consumo_tipo,
+        });
+        recipeByAc.set(r.acabamento_id, arr);
+      });
+    const laborByAc = new Map<string, CVLaborItem[]>();
+    (((cvLabRes as { data: Array<{ acabamento_id: string; descricao: string; time_minutes: number; consumo_tipo: string; consumo_qty: number; production_step_id: string | null }> | null }).data) ?? [])
+      .forEach((l) => {
+        const arr = laborByAc.get(l.acabamento_id) ?? [];
+        arr.push({
+          production_step_id: l.production_step_id,
+          descricao: l.descricao,
+          time_minutes: Number(l.time_minutes) || 0,
+          consumo_tipo: l.consumo_tipo as CVLaborItem["consumo_tipo"],
+          consumo_qty: Number(l.consumo_qty) || 1,
+        });
+        laborByAc.set(l.acabamento_id, arr);
+      });
+    const cvFinishesEnriched = (((cvFinRes as { data: CVAcabamento[] | null }).data) ?? []).map((ac) => ({
+      ...ac,
+      recipe: recipeByAc.get(ac.id) ?? [],
+      labor: laborByAc.get(ac.id) ?? [],
+    }));
 
     setCvMaterials(((cvMatRes as { data: unknown[] | null }).data || []) as unknown as CVMidia[]);
     setCvPrinters(((cvPrtRes as { data: unknown[] | null }).data || []) as unknown as CVImpressao[]);
-    setCvFinishes(((cvFinRes as { data: unknown[] | null }).data || []) as unknown as CVAcabamento[]);
+    setCvFinishes(cvFinishesEnriched);
     const cfgVal = (cvCfgRes as { data: { valor_minimo?: number } | null }).data?.valor_minimo;
     if (cfgVal != null) setCvValorMinimo(Number(cfgVal));
+
+    if (settingsRes.data) {
+      setCvMarkup({
+        tax_pct: Number((settingsRes.data as any).tax_pct ?? 0),
+        invoice_pct: Number((settingsRes.data as any).invoice_pct ?? 0),
+        credit_card_pct: Number((settingsRes.data as any).credit_card_pct ?? 0),
+        collection_fee_pct: Number((settingsRes.data as any).collection_fee_pct ?? 0),
+        default_margin_pct: Number((settingsRes.data as any).default_margin_pct ?? 0),
+      });
+    }
 
     const tiers: MarkupTier[] = (tiersRes.data || []).map((t: any) => ({
       id: t.id,
