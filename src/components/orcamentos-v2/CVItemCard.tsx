@@ -142,8 +142,10 @@ export function CVItemCard({
       acabamentos: aplicados,
       acabamentos_pool: acabamentos,
       valor_minimo: valorMinimo,
+      hourRate,
+      markup,
     }),
-    [debounced, midia, impressao, aplicados, acabamentos, valorMinimo],
+    [debounced, midia, impressao, aplicados, acabamentos, valorMinimo, hourRate, markup],
   );
 
   useEffect(() => {
