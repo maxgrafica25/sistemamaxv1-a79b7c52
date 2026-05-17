@@ -49,6 +49,7 @@ export default function CalculadoraTab() {
   const [acabamentos, setAcabamentos] = useState<Acabamento[]>([]);
   const [valorMinimo, setValorMinimo] = useState(35);
   const [sangrias, setSangrias] = useState<SangriasMm>({});
+  const [markup, setMarkup] = useState<MarkupSettings | undefined>(undefined);
 
   const [items, setItems] = useState<Item[]>([newItem()]);
 
