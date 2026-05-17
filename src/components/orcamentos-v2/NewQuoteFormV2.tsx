@@ -1343,6 +1343,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     [],
   );
 
+  if (loadingInit) {
     return (
       <div className="flex h-full items-center justify-center p-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
