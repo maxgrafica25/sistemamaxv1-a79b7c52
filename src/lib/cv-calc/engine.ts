@@ -92,6 +92,10 @@ export interface Acabamento {
   recipe?: RecipeItem[];
   /** Mão-de-obra (etapas de produção × tempo). Calculado em runtime com hourRate. */
   labor?: LaborItem[];
+  /** Sort order global (fallback quando não há override por mídia). */
+  sort_order?: number;
+  /** Override de ordem/visibilidade por tipo de mídia. */
+  mediaOrder?: Partial<Record<TipoMidia, { sort_order: number; visivel: boolean }>>;
 }
 
 /** Markup global do ERP (mesma fórmula do Orçamentos v2). */
