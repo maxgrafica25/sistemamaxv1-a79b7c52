@@ -38,6 +38,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PrintingItemEditor } from "@/components/orcamentos-v2/PrintingItemEditor";
 import { LaborAndSupplySubform, type SubformLabor, type SubformMaterial } from "@/components/orcamentos-v2/LaborAndSupplySubform";
 import { buildDynamicTitle } from "@/lib/quotes-v2/item-title";
+import { attachMediaOrder } from "@/lib/cv-calc/media-order";
 import { buildSubjectSuggestion } from "@/lib/quotes-v2/subject-suggestion";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { TagInput } from "@/components/ui/TagInput";
