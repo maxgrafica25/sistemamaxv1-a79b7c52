@@ -29,6 +29,8 @@ type Item = {
   impressaoId: string;
   acabamentoId: string;
   kitId: string;
+  /** Nome customizado pelo usuário (sobrescreve a sugestão automática). */
+  nomeOverride?: string;
 };
 
 const uid = () =>
@@ -46,6 +48,13 @@ const newItem = (): Item => ({
   acabamentoId: "",
   kitId: "",
 });
+
+const tipoIconMap: Record<TipoProduto, typeof Flag> = {
+  banner: Flag,
+  faixa: AlignHorizontalJustifyCenter,
+  lona: Square,
+  outro: Megaphone,
+};
 
 export default function CalculadoraTab() {
   const isAdmin = useIsAdmin();
