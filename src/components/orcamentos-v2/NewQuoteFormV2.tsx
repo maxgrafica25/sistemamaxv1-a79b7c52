@@ -48,6 +48,7 @@ import { QuoteOptionsBuilder } from "@/components/orcamentos-v2/QuoteOptionsBuil
 import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
 import { useLocalDraft, hasDraft, loadDraft, clearDraft } from "@/hooks/useLocalDraft";
 import { QuoteChecklist } from "@/components/orcamentos-v2/QuoteChecklist";
+import { QuoteAssistant } from "@/components/orcamentos-v2/QuoteAssistant";
 
 const QUOTE_DRAFT_VERSION = 1;
 const QUOTE_DRAFT_TTL_DAYS = 7;
@@ -1721,6 +1722,13 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                   <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
                 </div>
               )}
+
+              <QuoteAssistant
+                cvItems={cvItems}
+                cvMaterials={cvMaterials}
+                cvFinishes={cvFinishes}
+                clientTags={tags}
+              />
 
               <QuoteChecklist
                 quoteId={savedQuoteId}
