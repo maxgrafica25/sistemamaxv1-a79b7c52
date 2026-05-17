@@ -563,6 +563,54 @@ export type Database = {
           },
         ]
       }
+      cv_calc_acabamento_recipe_items: {
+        Row: {
+          acabamento_id: string
+          consumo_qty: number
+          consumo_tipo: string
+          created_at: string
+          id: string
+          sort_order: number
+          supply_id: string
+          updated_at: string
+        }
+        Insert: {
+          acabamento_id: string
+          consumo_qty?: number
+          consumo_tipo?: string
+          created_at?: string
+          id?: string
+          sort_order?: number
+          supply_id: string
+          updated_at?: string
+        }
+        Update: {
+          acabamento_id?: string
+          consumo_qty?: number
+          consumo_tipo?: string
+          created_at?: string
+          id?: string
+          sort_order?: number
+          supply_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cv_calc_acabamento_recipe_items_acabamento_id_fkey"
+            columns: ["acabamento_id"]
+            isOneToOne: false
+            referencedRelation: "cv_calc_acabamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cv_calc_acabamento_recipe_items_supply_id_fkey"
+            columns: ["supply_id"]
+            isOneToOne: false
+            referencedRelation: "supplies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cv_calc_acabamentos: {
         Row: {
           ativo: boolean
@@ -571,6 +619,10 @@ export type Database = {
           custo_mt2: number
           custo_perimetro: number
           custo_unidade: number
+          extra_cost_fixo: number
+          extra_cost_mt2: number
+          extra_cost_perimetro: number
+          extra_cost_unidade: number
           familia: string
           id: string
           largura_max_cm: number | null
@@ -578,7 +630,9 @@ export type Database = {
           lucro_mt2: number
           lucro_perimetro: number
           lucro_unidade: number
+          markup_override_pct: number | null
           nome: string
+          pricing_mode: string
           sort_order: number
           tipos_midia_compativeis: string[]
           updated_at: string
@@ -590,6 +644,10 @@ export type Database = {
           custo_mt2?: number
           custo_perimetro?: number
           custo_unidade?: number
+          extra_cost_fixo?: number
+          extra_cost_mt2?: number
+          extra_cost_perimetro?: number
+          extra_cost_unidade?: number
           familia: string
           id?: string
           largura_max_cm?: number | null
@@ -597,7 +655,9 @@ export type Database = {
           lucro_mt2?: number
           lucro_perimetro?: number
           lucro_unidade?: number
+          markup_override_pct?: number | null
           nome: string
+          pricing_mode?: string
           sort_order?: number
           tipos_midia_compativeis?: string[]
           updated_at?: string
@@ -609,6 +669,10 @@ export type Database = {
           custo_mt2?: number
           custo_perimetro?: number
           custo_unidade?: number
+          extra_cost_fixo?: number
+          extra_cost_mt2?: number
+          extra_cost_perimetro?: number
+          extra_cost_unidade?: number
           familia?: string
           id?: string
           largura_max_cm?: number | null
@@ -616,7 +680,9 @@ export type Database = {
           lucro_mt2?: number
           lucro_perimetro?: number
           lucro_unidade?: number
+          markup_override_pct?: number | null
           nome?: string
+          pricing_mode?: string
           sort_order?: number
           tipos_midia_compativeis?: string[]
           updated_at?: string
