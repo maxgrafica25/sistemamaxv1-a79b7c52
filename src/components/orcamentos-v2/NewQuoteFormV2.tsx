@@ -1658,6 +1658,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                   key={it.id} item={it} index={idx}
                   midias={cvMaterials} impressoes={cvPrinters} acabamentos={cvFinishes}
                   valorMinimo={cvValorMinimo}
+                  hourRate={hourlyRate}
+                  markup={cvMarkup}
                   onChange={(updated) => setCvItems((p) => p.map((x) => (x.id === it.id ? updated : x)))}
                   onRemove={() => {
                     setCvItems((p) => p.filter((x) => x.id !== it.id));
