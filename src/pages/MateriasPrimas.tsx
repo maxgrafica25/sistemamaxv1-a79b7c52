@@ -50,6 +50,7 @@ interface Material {
   data: string;
   contato: string;
   margemPct: number;
+  modulo: string[];
 }
 
 const UNIDADES_MEDIDA = [
@@ -160,6 +161,8 @@ export default function MateriasPrimas() {
   const [data, setData] = useState("");
   const [contato, setContato] = useState("");
   const [margemPct, setMargemPct] = useState("0");
+  const [moduloGrafica, setModuloGrafica] = useState(true);
+  const [moduloCv, setModuloCv] = useState(false);
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -239,6 +242,7 @@ export default function MateriasPrimas() {
         data: s.data,
         contato: s.contato,
         margemPct: Number(s.margem_pct ?? 0),
+        modulo: Array.isArray(s.modulo) ? s.modulo : ["grafica"],
       })));
     }
     if (histRes.data) {
@@ -432,13 +436,16 @@ export default function MateriasPrimas() {
   };
 
   // ── Suprimento logic (DB-backed) ──
-  const resetForm = () => { setProduto(""); setFinalidade(""); setQuantidade(""); setUnidade("un"); setValor(""); setFornecedor(""); setData(""); setContato(""); setMargemPct("0"); };
+  const resetForm = () => { setProduto(""); setFinalidade(""); setQuantidade(""); setUnidade("un"); setValor(""); setFornecedor(""); setData(""); setContato(""); setMargemPct("0"); setModuloGrafica(true); setModuloCv(false); };
   const openNewDialog = () => { setEditingMaterial(null); setDuplicatingFromId(null); resetForm(); setIsDialogOpen(true); };
   const openEditDialog = (m: Material) => {
     setEditingMaterial(m); setDuplicatingFromId(null); setProduto(m.produto); setFinalidade(m.finalidade);
     setQuantidade(m.quantidade.toString()); setUnidade(m.unidade || "un"); setValor(m.valor.toString());
     setFornecedor(m.fornecedor); setData(m.data); setContato(m.contato);
-    setMargemPct(String(m.margemPct ?? 0)); setIsDialogOpen(true);
+    setMargemPct(String(m.margemPct ?? 0));
+    setModuloGrafica(m.modulo?.includes("grafica") ?? true);
+    setModuloCv(m.modulo?.includes("cv") ?? false);
+    setIsDialogOpen(true);
   };
   const duplicateMaterial = (m: Material) => {
     setEditingMaterial(null);
@@ -478,6 +485,10 @@ export default function MateriasPrimas() {
     const unitario = qtd > 0 ? val / qtd : 0;
     const dt = data || new Date().toISOString().split("T")[0];
     const margemNum = Math.max(0, Math.min(500, parseFloat(margemPct) || 0));
+    const modulo: string[] = [];
+    if (moduloGrafica) modulo.push("grafica");
+    if (moduloCv) modulo.push("cv");
+    if (modulo.length === 0) { toast.error("Selecione ao menos um módulo"); return; }
     const saveData = {
       produto,
       finalidade,
@@ -489,6 +500,7 @@ export default function MateriasPrimas() {
       contato,
       data: dt,
       margem_pct: margemNum,
+      modulo,
     };
     if (editingMaterial) {
       const { error: updErr } = await supabase.from("supplies").update(saveData).eq("id", editingMaterial.id);
@@ -1310,6 +1322,19 @@ export default function MateriasPrimas() {
               <div className="grid grid-cols-2 gap-4 items-end">
                 <div className="space-y-2"><Label>Data Cotação</Label><DatePickerField value={data} onChange={setData} /></div>
                 <div className="space-y-2"><Label>Contato</Label><Input placeholder="Nome" value={contato} onChange={(e) => setContato(e.target.value)} /></div>
+              </div>
+              <div className="rounded-md border p-3 space-y-2">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">Visível em quais módulos?</Label>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={moduloGrafica} onCheckedChange={(v) => setModuloGrafica(!!v)} />
+                    <span className="text-sm">Gráfica</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox checked={moduloCv} onCheckedChange={(v) => setModuloCv(!!v)} />
+                    <span className="text-sm">Comunicação Visual</span>
+                  </label>
+                </div>
               </div>
             </div>
             <DialogFooter className="gap-2 pt-4">

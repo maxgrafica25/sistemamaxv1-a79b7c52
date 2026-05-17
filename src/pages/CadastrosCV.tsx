@@ -1,18 +1,20 @@
 import { useState } from "react";
-import { Megaphone, Layers, Printer as PrinterIcon, Scissors, Calculator, Settings } from "lucide-react";
+import { Megaphone, Layers, Printer as PrinterIcon, Scissors, Calculator, Settings, Package } from "lucide-react";
 import CalculadoraTab from "@/components/cv-calc/CalculadoraTab";
 import MidiasTab from "@/components/cv-calc/MidiasTab";
 import ImpressoesTab from "@/components/cv-calc/ImpressoesTab";
 import AcabamentosTab from "@/components/cv-calc/AcabamentosTab";
+import SuprimentosCVTab from "@/components/cv-calc/SuprimentosCVTab";
 import ConfiguracaoTab from "@/components/cv-calc/ConfiguracaoTab";
 
-type Tab = "calculadora" | "midias" | "impressoes" | "acabamentos" | "config";
+type Tab = "calculadora" | "midias" | "impressoes" | "acabamentos" | "suprimentos" | "config";
 
 const TABS: { key: Tab; label: string; icon: typeof Layers }[] = [
   { key: "calculadora", label: "Calculadora", icon: Calculator },
   { key: "midias", label: "Mídias", icon: Layers },
   { key: "impressoes", label: "Impressões", icon: PrinterIcon },
   { key: "acabamentos", label: "Acabamentos", icon: Scissors },
+  { key: "suprimentos", label: "Suprimentos CV", icon: Package },
   { key: "config", label: "Configuração", icon: Settings },
 ];
 
@@ -52,6 +54,7 @@ export default function CadastrosCV() {
       {tab === "midias" && <MidiasTab />}
       {tab === "impressoes" && <ImpressoesTab />}
       {tab === "acabamentos" && <AcabamentosTab />}
+      {tab === "suprimentos" && <SuprimentosCVTab />}
       {tab === "config" && <ConfiguracaoTab />}
     </div>
   );

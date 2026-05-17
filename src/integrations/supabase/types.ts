@@ -3302,6 +3302,7 @@ export type Database = {
           fornecedor: string
           id: string
           margem_pct: number
+          modulo: string[]
           produto: string
           quantidade: number
           unidade: string
@@ -3317,6 +3318,7 @@ export type Database = {
           fornecedor?: string
           id?: string
           margem_pct?: number
+          modulo?: string[]
           produto: string
           quantidade?: number
           unidade?: string
@@ -3332,6 +3334,7 @@ export type Database = {
           fornecedor?: string
           id?: string
           margem_pct?: number
+          modulo?: string[]
           produto?: string
           quantidade?: number
           unidade?: string

@@ -114,7 +114,7 @@ export default function AcabamentosTab() {
     setLoading(true);
     const [rs, sp, gs] = await Promise.all([
       supabase.from("cv_calc_acabamentos").select("*").order("familia").order("sort_order").order("nome"),
-      supabase.from("supplies").select("id, produto, valor_unitario, unidade").order("produto"),
+      supabase.from("supplies").select("id, produto, valor_unitario, unidade").contains("modulo", ["cv"]).order("produto"),
       supabase.from("global_settings" as never).select("tax_pct, invoice_pct, credit_card_pct, collection_fee_pct, default_margin_pct").maybeSingle(),
     ]);
     if (rs.error) handleError(rs.error, "carregar acabamentos");
