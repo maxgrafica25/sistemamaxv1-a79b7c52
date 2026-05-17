@@ -73,7 +73,7 @@ export default function CalculadoraTab() {
 
   useEffect(() => {
     (async () => {
-      const [m, i, a, c, gs, recipes, supplies, kitGroups, kitItems] = await Promise.all([
+      const [m, i, a, c, gs, recipes, supplies, kitGroups, kitItems, laborItems] = await Promise.all([
         supabase.from("cv_calc_midias" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_impressoes" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_acabamentos" as never).select("*").eq("ativo", true).order("sort_order"),
@@ -83,6 +83,7 @@ export default function CalculadoraTab() {
         supabase.from("supplies").select("id, valor_unitario"),
         supabase.from("material_groups").select("id, name, pricing_mode, labor_minutes, margin_pct, modulo, is_kit").eq("is_kit", true).contains("modulo", ["cv"]).order("name"),
         supabase.from("material_group_items").select("id, material_group_id, description, quantity, unit_price, consumo_tipo, supply_id, sort_order").order("sort_order"),
+        supabase.from("cv_calc_acabamento_labor_items" as never).select("acabamento_id, descricao, time_minutes, consumo_tipo, consumo_qty, production_step_id"),
       ]);
 
       // monta map supply_id -> custo unitário
