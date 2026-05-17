@@ -271,39 +271,25 @@ export default function CalculadoraTab() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
-            {results.map(({ item, midia, res, kit, kitRes }, idx) => {
+            {results.map(({ item, res, kit, kitRes, tipoInfo, nomeFinal }, idx) => {
               const totalItem = res.valor_total + (kitRes?.precoVenda ?? 0);
               const unit = item.quantidade > 0 ? totalItem / item.quantidade : totalItem;
+              const TipoIcon = tipoIconMap[tipoInfo.tipo];
               return (
-                <div key={item.id} className="rounded-md border bg-card/50 p-2.5 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        Item {idx + 1}
-                      </div>
-                      <div className="truncate font-medium">
-                        {midia?.nome ?? <span className="text-muted-foreground italic">Sem mídia</span>}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        {item.largura}×{item.altura}cm · {item.quantidade}×
-                      </div>
-                      {kit && kitRes && (
-                        <div className="mt-1 flex items-center gap-1 text-[11px] text-primary">
-                          <Package className="h-3 w-3" />
-                          <span className="truncate">{kit.name}: {formatBRL(kitRes.precoVenda)}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="font-semibold text-primary">{formatBRL(totalItem)}</div>
-                      {item.quantidade > 1 && (
-                        <div className="text-[10px] text-muted-foreground">
-                          {formatBRL(unit)}/un
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <ResumoItem
+                  key={item.id}
+                  index={idx + 1}
+                  nome={nomeFinal}
+                  Icon={TipoIcon}
+                  largura={item.largura}
+                  altura={item.altura}
+                  quantidade={item.quantidade}
+                  totalItem={totalItem}
+                  unit={unit}
+                  res={res}
+                  kit={kit}
+                  kitRes={kitRes}
+                />
               );
             })}
           </div>
