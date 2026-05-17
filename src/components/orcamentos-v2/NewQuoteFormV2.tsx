@@ -1706,6 +1706,15 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                   <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
                 </div>
               )}
+
+              <QuoteChecklist
+                quoteId={savedQuoteId}
+                cvItems={cvItems}
+                cvMaterials={cvMaterials}
+                cvFinishes={cvFinishes}
+                onAnswersChange={setChecklistAnswers}
+                onAutoLaborChange={handleChecklistAutoLabor}
+              />
             </div>
           </details>
         )}
