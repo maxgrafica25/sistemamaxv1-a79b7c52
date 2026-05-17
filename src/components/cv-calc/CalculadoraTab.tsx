@@ -375,7 +375,7 @@ function ItemCard({
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold text-primary tabular-nums">
-            {formatBRL(res.valor_total)}
+            {formatBRL(res.valor_total + (kitRes?.precoVenda ?? 0))}
           </span>
           <div className="flex items-center gap-0.5">
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onClone} title="Duplicar item">
