@@ -19,6 +19,7 @@ export default function CalculadoraTab() {
   const [impressoes, setImpressoes] = useState<Impressao[]>([]);
   const [acabamentos, setAcabamentos] = useState<Acabamento[]>([]);
   const [valorMinimo, setValorMinimo] = useState(35);
+  const [sangrias, setSangrias] = useState<SangriasMm>({});
 
   const [largura, setLargura] = useState(90);
   const [altura, setAltura] = useState(120);
