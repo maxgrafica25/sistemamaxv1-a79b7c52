@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
   calcular, formatBRL,
-  type Midia, type Impressao, type Acabamento,
+  type Midia, type Impressao, type Acabamento, type SangriasMm,
 } from "@/lib/cv-calc/engine";
 
 export default function CalculadoraTab() {
