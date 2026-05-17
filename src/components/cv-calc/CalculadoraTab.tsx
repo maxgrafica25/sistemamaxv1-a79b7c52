@@ -222,16 +222,19 @@ export default function CalculadoraTab() {
           </Button>
         </div>
 
-        {results.map(({ item, midia, res }, idx) => (
+        {results.map(({ item, midia, res, kit, kitRes }, idx) => (
           <ItemCard
             key={item.id}
             index={idx + 1}
             item={item}
             midia={midia}
             res={res}
+            kit={kit}
+            kitRes={kitRes}
             midias={midias}
             impressoes={impressoes}
             acabamentos={acabamentos}
+            kits={kits}
             isAdmin={isAdmin}
             canRemove={items.length > 1}
             onChange={(patch) => patchItem(item.id, patch)}
