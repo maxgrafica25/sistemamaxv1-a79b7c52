@@ -33,8 +33,8 @@ const uid = () =>
 
 const newItem = (): Item => ({
   id: uid(),
-  largura: 90,
-  altura: 120,
+  largura: 0,
+  altura: 0,
   quantidade: 1,
   midiaId: "",
   impressaoId: "",
