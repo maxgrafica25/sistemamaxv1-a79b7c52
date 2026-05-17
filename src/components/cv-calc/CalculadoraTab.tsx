@@ -190,6 +190,13 @@ export default function CalculadoraTab() {
           {isAdmin && (
             <>
               <DetailRow label="Área" value={`${result.area_m2.toFixed(2)} m²`} />
+              {result.sangria_aplicada_mm > 0 && (
+                <DetailRow
+                  label="Sangria aplicada"
+                  value={`+${result.sangria_aplicada_mm} mm (${midia?.tipo_midia ?? ""})`}
+                  muted
+                />
+              )}
               <DetailRow label="Perímetro" value={`${result.perim_m.toFixed(2)} m`} />
               <DetailRow label="Mídia" value={formatBRL(result.preco_midia)} />
               <DetailRow label="Impressão" value={formatBRL(result.preco_impressao)} />
