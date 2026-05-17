@@ -321,6 +321,8 @@ export default function CalculadoraTab() {
 
 /* ─────────────────────────────────────────────────────────── */
 
+type LucideIcon = typeof Flag;
+
 interface ItemCardProps {
   index: number;
   item: Item;
@@ -328,6 +330,8 @@ interface ItemCardProps {
   res: CalcResult;
   kit: KitDef | null;
   kitRes: KitPriceResult | null;
+  tipoInfo: { tipo: TipoProduto; nome: string };
+  nomeFinal: string;
   midias: Midia[];
   impressoes: Impressao[];
   acabamentos: Acabamento[];
@@ -340,8 +344,9 @@ interface ItemCardProps {
 }
 
 function ItemCard({
-  index, item, midia, res, kit, kitRes, midias, impressoes, acabamentos, kits,
-  isAdmin, canRemove, onChange, onClone, onRemove,
+  index, item, midia, res, kit, kitRes, tipoInfo, nomeFinal,
+  midias, impressoes, acabamentos, kits,
+  isAdmin: _isAdmin, canRemove, onChange, onClone, onRemove,
 }: ItemCardProps) {
   const tipo = midia?.tipo_midia ?? null;
   const impressoesCompat = tipo
@@ -350,6 +355,21 @@ function ItemCard({
   const acabamentosCompat = tipo
     ? acabamentos.filter((a) => a.tipos_midia_compativeis.includes(tipo))
     : acabamentos;
+
+  // Edição inline do nome
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const startEdit = () => {
+    setDraftName(item.nomeOverride ?? nomeFinal);
+    setEditingName(true);
+  };
+  const commitEdit = () => {
+    const trimmed = draftName.trim();
+    onChange({ nomeOverride: trimmed && trimmed !== tipoInfo.nome ? trimmed : undefined });
+    setEditingName(false);
+  };
+  const cancelEdit = () => setEditingName(false);
+  const resetOverride = () => onChange({ nomeOverride: undefined });
 
   // Reset incompat selections
   useEffect(() => {
@@ -362,18 +382,70 @@ function ItemCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipo]);
 
+  // Default contextual: lona + sem acabamento → sugere Refile.
+  // (Sem auto-remover refile se usuário escolher bastão depois — single-select
+  //  já resolve isso porque uma escolha substitui a anterior.)
+  useEffect(() => {
+    if (!midia || tipo !== "lona" || item.acabamentoId) return;
+    const refile = acabamentosCompat.find((a) => a.familia === "refile");
+    if (refile) onChange({ acabamentoId: refile.id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [midia?.id]);
+
+  const TipoIcon: LucideIcon = tipoIconMap[tipoInfo.tipo];
+  const hasOverride = !!item.nomeOverride?.trim();
+
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center justify-between bg-muted/40 px-3 py-1.5 border-b">
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-[10px]">Item {index}</Badge>
-          {midia && (
-            <span className="text-xs text-muted-foreground truncate">
-              {midia.nome}
-            </span>
+      <div className="flex items-center justify-between gap-2 bg-muted/40 px-3 py-1.5 border-b">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <Badge variant="secondary" className="text-[10px] shrink-0">Item {index}</Badge>
+          <TipoIcon className="h-3.5 w-3.5 text-primary shrink-0" />
+          {editingName ? (
+            <div className="flex items-center gap-1 flex-1 min-w-0">
+              <Input
+                autoFocus
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitEdit();
+                  if (e.key === "Escape") cancelEdit();
+                }}
+                className="h-6 text-xs px-2 py-0"
+              />
+              <Button size="icon" variant="ghost" className="h-6 w-6 text-primary" onClick={commitEdit} title="Salvar">
+                <Check className="h-3 w-3" />
+              </Button>
+              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={cancelEdit} title="Cancelar">
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={startEdit}
+                className="text-xs font-medium text-foreground truncate hover:underline decoration-dotted underline-offset-2"
+                title="Editar nome do item"
+              >
+                {nomeFinal}
+              </button>
+              {!hasOverride && tipoInfo.tipo !== "outro" && (
+                <span className="text-[9px] uppercase tracking-wide text-muted-foreground shrink-0">sugerido</span>
+              )}
+              {hasOverride ? (
+                <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-primary" onClick={resetOverride} title="Voltar ao nome sugerido">
+                  <RotateCcw className="h-3 w-3" />
+                </Button>
+              ) : (
+                <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-primary" onClick={startEdit} title="Renomear">
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              )}
+            </>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <span className="text-sm font-semibold text-primary tabular-nums">
             {formatBRL(res.valor_total + (kitRes?.precoVenda ?? 0))}
           </span>
@@ -482,48 +554,108 @@ function ItemCard({
           </div>
         )}
 
-        {(res.emenda_impressao || res.info_bastao) && (
-          <div className="space-y-1">
+        {/* Linha enxuta: avisos contextuais + área/perímetro inline */}
+        {midia && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground pt-1">
+            {res.area_m2 > 0 && (
+              <span className="tabular-nums">
+                {res.area_m2.toFixed(2)} m² · {res.perim_m.toFixed(2)} m
+              </span>
+            )}
             {res.emenda_impressao && (
-              <div className="flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <span>Largura excede o limite da impressora — emenda necessária.</span>
-              </div>
+              <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3" />
+                Largura excede limite — emenda
+              </span>
             )}
             {res.info_bastao && (
-              <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
-                <span>
-                  Bastão: <strong className="text-foreground">{res.info_bastao.escolhido}</strong>
-                  {res.info_bastao.tipo === "emenda" && (
-                    <Badge variant="destructive" className="ml-2 text-[10px]">
-                      Emenda × {res.info_bastao.qtd}
-                    </Badge>
-                  )}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {isAdmin && midia && (
-          <div className="rounded-md bg-muted/30 p-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
-            <Mini label="Área" value={`${res.area_m2.toFixed(2)} m²`} />
-            <Mini label="Perímetro" value={`${res.perim_m.toFixed(2)} m`} />
-            <Mini label="Mídia" value={formatBRL(res.preco_midia)} />
-            <Mini label="Impressão" value={formatBRL(res.preco_impressao)} />
-            <Mini label="Acabamento" value={formatBRL(res.preco_acabamento)} />
-            <Mini label="Subtotal" value={formatBRL(res.subtotal)} bold />
-            {item.quantidade > 1 && (
-              <Mini label="Unitário" value={formatBRL(res.valor_unitario)} muted />
-            )}
-            {res.sangria_aplicada_mm > 0 && (
-              <Mini label="Sangria" value={`+${res.sangria_aplicada_mm} mm`} muted />
+              <span className="inline-flex items-center gap-1">
+                <Info className="h-3 w-3 text-primary" />
+                Bastão: <strong className="text-foreground">{res.info_bastao.escolhido}</strong>
+                {res.info_bastao.tipo === "emenda" && (
+                  <Badge variant="destructive" className="ml-1 text-[9px]">
+                    × {res.info_bastao.qtd}
+                  </Badge>
+                )}
+              </span>
             )}
           </div>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+
+interface ResumoItemProps {
+  index: number;
+  nome: string;
+  Icon: LucideIcon;
+  largura: number;
+  altura: number;
+  quantidade: number;
+  totalItem: number;
+  unit: number;
+  res: CalcResult;
+  kit: KitDef | null;
+  kitRes: KitPriceResult | null;
+}
+
+function ResumoItem({
+  index, nome, Icon, largura, altura, quantidade, totalItem, unit, res, kit, kitRes,
+}: ResumoItemProps) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-md border bg-card/50 text-sm">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-start justify-between gap-2 p-2.5 text-left hover:bg-accent/30 transition-colors"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            Item {index}
+          </div>
+          <div className="truncate font-medium flex items-center gap-1.5">
+            <Icon className="h-3 w-3 text-primary shrink-0" />
+            {nome}
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            {largura}×{altura}cm · {quantidade}×
+          </div>
+          {kit && kitRes && (
+            <div className="mt-1 flex items-center gap-1 text-[11px] text-primary">
+              <Package className="h-3 w-3" />
+              <span className="truncate">{kit.name}: {formatBRL(kitRes.precoVenda)}</span>
+            </div>
+          )}
+        </div>
+        <div className="text-right shrink-0 flex items-start gap-1">
+          <div>
+            <div className="font-semibold text-primary">{formatBRL(totalItem)}</div>
+            {quantidade > 1 && (
+              <div className="text-[10px] text-muted-foreground">{formatBRL(unit)}/un</div>
+            )}
+          </div>
+          <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground mt-0.5 transition-transform ${open ? "rotate-180" : ""}`} />
+        </div>
+      </button>
+      {open && (
+        <div className="border-t bg-muted/30 px-2.5 py-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
+          <Mini label="Área" value={`${res.area_m2.toFixed(2)} m²`} />
+          <Mini label="Perímetro" value={`${res.perim_m.toFixed(2)} m`} />
+          <Mini label="Mídia" value={formatBRL(res.preco_midia)} />
+          <Mini label="Impressão" value={formatBRL(res.preco_impressao)} />
+          <Mini label="Acabamento" value={formatBRL(res.preco_acabamento)} />
+          <Mini label="Subtotal" value={formatBRL(res.subtotal)} bold />
+          {kitRes && <Mini label="Kit" value={formatBRL(kitRes.precoVenda)} />}
+          {res.sangria_aplicada_mm > 0 && (
+            <Mini label="Sangria" value={`+${res.sangria_aplicada_mm} mm`} muted />
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
