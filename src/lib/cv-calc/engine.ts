@@ -117,6 +117,8 @@ export interface CalcInput {
   valor_minimo: number;
   /** Sangria por tipo de mídia (mm). Default: 0 para todos. */
   sangrias_mm?: SangriasMm;
+  /** Markup global (impostos + cartão + comissão + margem) — usado no modo "recipe". */
+  markup?: MarkupSettings;
 }
 
 export interface InfoBastao {
