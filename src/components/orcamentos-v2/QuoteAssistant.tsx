@@ -121,7 +121,48 @@ export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags }:
     [rules, ctx, dismissed],
   );
 
-  if (rules.length === 0) return null;
+  // Phase 3b: padrão histórico (debounced)
+  const histPayload = useMemo(() => {
+    const items = cvItems
+      .filter((it) => it.material_id)
+      .map((it) => ({
+        material_id: it.material_id,
+        area_m2: ((it.largura_cm || 0) * (it.altura_cm || 0)) / 10000,
+      }));
+    const current_finish_ids = [
+      ...new Set(cvItems.flatMap((it) => it.acabamentos.map((a) => a.finish_id))),
+    ];
+    return { items, current_finish_ids };
+  }, [cvItems]);
+
+  useEffect(() => {
+    if (histTimer.current) window.clearTimeout(histTimer.current);
+    if (histPayload.items.length === 0) {
+      setHist([]);
+      return;
+    }
+    histTimer.current = window.setTimeout(async () => {
+      try {
+        setHistLoading(true);
+        const { data, error } = await supabase.functions.invoke("historical-suggestions", {
+          body: histPayload,
+        });
+        if (error) throw error;
+        setHist((data?.suggestions ?? []) as HistSuggestion[]);
+      } catch {
+        setHist([]);
+      } finally {
+        setHistLoading(false);
+      }
+    }, 800) as unknown as number;
+    return () => {
+      if (histTimer.current) window.clearTimeout(histTimer.current);
+    };
+  }, [histPayload]);
+
+  const histVisible = hist.filter((h) => !histDismissed.has(h.acabamento_id));
+
+  if (rules.length === 0 && cvItems.length === 0) return null;
 
   return (
     <Card className="border-primary/30 bg-primary/[0.02]">
