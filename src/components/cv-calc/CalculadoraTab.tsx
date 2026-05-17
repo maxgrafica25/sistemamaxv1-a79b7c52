@@ -55,15 +55,43 @@ export default function CalculadoraTab() {
 
   useEffect(() => {
     (async () => {
-      const [m, i, a, c] = await Promise.all([
+      const [m, i, a, c, gs, recipes, supplies] = await Promise.all([
         supabase.from("cv_calc_midias" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_impressoes" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_acabamentos" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_config" as never).select("valor_minimo, sangria_adesivo_mm, sangria_lona_mm, sangria_chapa_mm, sangria_outro_mm").maybeSingle(),
+        supabase.from("global_settings" as never).select("tax_pct, invoice_pct, credit_card_pct, collection_fee_pct, default_margin_pct").maybeSingle(),
+        supabase.from("cv_calc_acabamento_recipe_items" as never).select("acabamento_id, supply_id, consumo_qty, consumo_tipo"),
+        supabase.from("supplies").select("id, valor_unitario"),
       ]);
+
+      // monta map supply_id -> custo unitário
+      const supplyCost = new Map<string, number>();
+      ((supplies.data as { id: string; valor_unitario: number }[]) ?? [])
+        .forEach((s) => supplyCost.set(s.id, Number(s.valor_unitario) || 0));
+
+      // agrupa receita por acabamento
+      const recipeByAc = new Map<string, RecipeItem[]>();
+      ((recipes.data as { acabamento_id: string; supply_id: string; consumo_qty: number; consumo_tipo: RecipeItem["consumo_tipo"] }[]) ?? [])
+        .forEach((r) => {
+          const arr = recipeByAc.get(r.acabamento_id) ?? [];
+          arr.push({
+            supply_id: r.supply_id,
+            supply_custo_unitario: supplyCost.get(r.supply_id) ?? 0,
+            consumo_qty: Number(r.consumo_qty) || 0,
+            consumo_tipo: r.consumo_tipo,
+          });
+          recipeByAc.set(r.acabamento_id, arr);
+        });
+
+      const acabamentos = ((a.data as Acabamento[]) ?? []).map((ac) => ({
+        ...ac,
+        recipe: recipeByAc.get(ac.id) ?? [],
+      }));
+
       setMidias((m.data as never) ?? []);
       setImpressoes((i.data as never) ?? []);
-      setAcabamentos((a.data as never) ?? []);
+      setAcabamentos(acabamentos);
       const cfg = c.data as {
         valor_minimo?: number;
         sangria_adesivo_mm?: number;
@@ -78,6 +106,7 @@ export default function CalculadoraTab() {
         chapa: Number(cfg?.sangria_chapa_mm ?? 0),
         outro: Number(cfg?.sangria_outro_mm ?? 0),
       });
+      if (gs.data) setMarkup(gs.data as MarkupSettings);
       setLoading(false);
     })();
   }, []);
