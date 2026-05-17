@@ -135,6 +135,7 @@ export default function AcabamentosTab() {
   const [labor, setLabor] = useState<LaborRow[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [delCtx, setDelCtx] = useState<{ id: string; name: string } | null>(null);
+  const [subTab, setSubTab] = useState<"lista" | "ordem">("lista");
 
   const fetchAll = async () => {
     setLoading(true);
