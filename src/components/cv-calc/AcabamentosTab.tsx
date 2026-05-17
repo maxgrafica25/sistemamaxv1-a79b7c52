@@ -168,13 +168,27 @@ export default function AcabamentosTab() {
     setRecipe(((data as RecipeRow[]) ?? []).map((r) => ({ ...r, consumo_qty: Number(r.consumo_qty) })));
   };
 
-  const openNew = () => { setEditing(null); setForm(empty); setRecipe([]); setOpen(true); };
+  const loadLabor = async (acabamentoId: string) => {
+    const { data } = await supabase
+      .from("cv_calc_acabamento_labor_items" as never)
+      .select("id, production_step_id, descricao, time_minutes, consumo_tipo, consumo_qty, sort_order")
+      .eq("acabamento_id", acabamentoId)
+      .order("sort_order");
+    setLabor(((data as LaborRow[]) ?? []).map((r) => ({
+      ...r,
+      time_minutes: Number(r.time_minutes),
+      consumo_qty: Number(r.consumo_qty),
+    })));
+  };
+
+  const openNew = () => { setEditing(null); setForm(empty); setRecipe([]); setLabor([]); setOpen(true); };
   const openEdit = async (r: Row) => {
     setEditing(r);
     setForm({ ...r });
     setRecipe([]);
+    setLabor([]);
     setOpen(true);
-    await loadRecipe(r.id);
+    await Promise.all([loadRecipe(r.id), loadLabor(r.id)]);
   };
 
   const toggleTipo = (v: string) =>
@@ -196,22 +210,53 @@ export default function AcabamentosTab() {
   const removeRecipeRow = (idx: number) =>
     setRecipe((r) => r.filter((_, i) => i !== idx));
 
+  const addLaborRow = () => setLabor((r) => [...r, {
+    production_step_id: null,
+    descricao: "",
+    time_minutes: 0,
+    consumo_tipo: "por_mt2",
+    consumo_qty: 1,
+    sort_order: r.length,
+  }]);
+  const patchLaborRow = (idx: number, patch: Partial<LaborRow>) =>
+    setLabor((r) => r.map((x, i) => {
+      if (i !== idx) return x;
+      const next = { ...x, ...patch };
+      // Ao trocar a etapa, preenche descrição/tempo do step (snapshot editável)
+      if (patch.production_step_id !== undefined && patch.production_step_id) {
+        const s = steps.find((st) => st.id === patch.production_step_id);
+        if (s) {
+          next.descricao = next.descricao || s.description;
+          if (!x.time_minutes) next.time_minutes = Number(s.time_minutes) || 0;
+        }
+      }
+      return next;
+    }));
+  const removeLaborRow = (idx: number) =>
+    setLabor((r) => r.filter((_, i) => i !== idx));
+
   // Custo "por peça" da receita — útil pra preview
   const custoReceitaPorPeca = useMemo(() => {
     return recipe.reduce((s, r) => {
       const sup = supplies.find((x) => x.id === r.supply_id);
       const custoUn = sup?.valor_unitario ?? 0;
-      // assume 1m² / 1m perím / 1m largura / 1m altura na "peça base" para o preview
       return s + custoUn * (r.consumo_qty || 0);
     }, 0);
   }, [recipe, supplies]);
 
+  // Custo de MO "por peça base" (1m², 1m perím, 1m largura, 1m altura, 1 peça)
+  const custoMoPorPeca = useMemo(() => {
+    if (!hourRate) return 0;
+    const totalMin = labor.reduce((s, l) => s + (l.time_minutes || 0) * (l.consumo_qty || 1), 0);
+    return (totalMin / 60) * hourRate;
+  }, [labor, hourRate]);
+
   const usedMarkupPct = form.markup_override_pct ?? globalMarkupPct;
   const previewPrecoPorPeca = useMemo(() => {
-    const totalCusto = custoReceitaPorPeca + (form.extra_cost_fixo || 0);
+    const totalCusto = custoReceitaPorPeca + custoMoPorPeca + (form.extra_cost_fixo || 0);
     const divisor = Math.max(0.01, 1 - usedMarkupPct / 100);
     return totalCusto / divisor;
-  }, [custoReceitaPorPeca, form.extra_cost_fixo, usedMarkupPct]);
+  }, [custoReceitaPorPeca, custoMoPorPeca, form.extra_cost_fixo, usedMarkupPct]);
 
   const save = async () => {
     if (!requireAdmin(editing ? "editar acabamento" : "criar acabamento")) return;
