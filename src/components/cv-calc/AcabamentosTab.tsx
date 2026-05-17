@@ -9,12 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Search, Loader2, Package, X } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Loader2, Package, X, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
+import { useHourRate } from "@/hooks/useHourRate";
 
 const TIPOS_MIDIA = [
   { value: "lona", label: "Lona" },
@@ -41,6 +42,11 @@ const CONSUMO_TIPOS = [
   { value: "por_mt2", label: "por m²" },
   { value: "por_largura_m", label: "por m de largura" },
   { value: "por_altura_m", label: "por m de altura" },
+];
+
+const CONSUMO_TIPOS_LABOR = [
+  { value: "fixo", label: "fixo (setup, 1×)" },
+  ...CONSUMO_TIPOS,
 ];
 
 interface Row {
@@ -75,6 +81,22 @@ interface RecipeRow {
   sort_order: number;
 }
 
+interface LaborRow {
+  id?: string;
+  production_step_id: string | null;
+  descricao: string;
+  time_minutes: number;
+  consumo_tipo: "fixo" | "por_peca" | "por_perimetro_m" | "por_mt2" | "por_largura_m" | "por_altura_m";
+  consumo_qty: number;
+  sort_order: number;
+}
+
+interface ProductionStep {
+  id: string;
+  description: string;
+  time_minutes: number;
+}
+
 interface Supply {
   id: string;
   produto: string;
@@ -98,8 +120,10 @@ const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", curren
 
 export default function AcabamentosTab() {
   const { requireAdmin } = usePermissionGuard();
+  const { hourRate } = useHourRate();
   const [rows, setRows] = useState<Row[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
+  const [steps, setSteps] = useState<ProductionStep[]>([]);
   const [globalMarkupPct, setGlobalMarkupPct] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -107,19 +131,22 @@ export default function AcabamentosTab() {
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState<Omit<Row, "id">>(empty);
   const [recipe, setRecipe] = useState<RecipeRow[]>([]);
+  const [labor, setLabor] = useState<LaborRow[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [delCtx, setDelCtx] = useState<{ id: string; name: string } | null>(null);
 
   const fetchAll = async () => {
     setLoading(true);
-    const [rs, sp, gs] = await Promise.all([
+    const [rs, sp, gs, st] = await Promise.all([
       supabase.from("cv_calc_acabamentos").select("*").order("familia").order("sort_order").order("nome"),
       supabase.from("supplies").select("id, produto, valor_unitario, unidade").contains("modulo", ["cv"]).order("produto"),
       supabase.from("global_settings" as never).select("tax_pct, invoice_pct, credit_card_pct, collection_fee_pct, default_margin_pct").maybeSingle(),
+      supabase.from("production_steps").select("id, description, time_minutes").order("description"),
     ]);
     if (rs.error) handleError(rs.error, "carregar acabamentos");
     else setRows((rs.data as Row[]) ?? []);
     setSupplies((sp.data as Supply[]) ?? []);
+    setSteps((st.data as ProductionStep[]) ?? []);
     const g = (gs as { data: Record<string, number> | null }).data;
     if (g) {
       setGlobalMarkupPct(
@@ -141,13 +168,27 @@ export default function AcabamentosTab() {
     setRecipe(((data as RecipeRow[]) ?? []).map((r) => ({ ...r, consumo_qty: Number(r.consumo_qty) })));
   };
 
-  const openNew = () => { setEditing(null); setForm(empty); setRecipe([]); setOpen(true); };
+  const loadLabor = async (acabamentoId: string) => {
+    const { data } = await supabase
+      .from("cv_calc_acabamento_labor_items" as never)
+      .select("id, production_step_id, descricao, time_minutes, consumo_tipo, consumo_qty, sort_order")
+      .eq("acabamento_id", acabamentoId)
+      .order("sort_order");
+    setLabor(((data as LaborRow[]) ?? []).map((r) => ({
+      ...r,
+      time_minutes: Number(r.time_minutes),
+      consumo_qty: Number(r.consumo_qty),
+    })));
+  };
+
+  const openNew = () => { setEditing(null); setForm(empty); setRecipe([]); setLabor([]); setOpen(true); };
   const openEdit = async (r: Row) => {
     setEditing(r);
     setForm({ ...r });
     setRecipe([]);
+    setLabor([]);
     setOpen(true);
-    await loadRecipe(r.id);
+    await Promise.all([loadRecipe(r.id), loadLabor(r.id)]);
   };
 
   const toggleTipo = (v: string) =>
@@ -169,30 +210,62 @@ export default function AcabamentosTab() {
   const removeRecipeRow = (idx: number) =>
     setRecipe((r) => r.filter((_, i) => i !== idx));
 
+  const addLaborRow = () => setLabor((r) => [...r, {
+    production_step_id: null,
+    descricao: "",
+    time_minutes: 0,
+    consumo_tipo: "por_mt2",
+    consumo_qty: 1,
+    sort_order: r.length,
+  }]);
+  const patchLaborRow = (idx: number, patch: Partial<LaborRow>) =>
+    setLabor((r) => r.map((x, i) => {
+      if (i !== idx) return x;
+      const next = { ...x, ...patch };
+      // Ao trocar a etapa, preenche descrição/tempo do step (snapshot editável)
+      if (patch.production_step_id !== undefined && patch.production_step_id) {
+        const s = steps.find((st) => st.id === patch.production_step_id);
+        if (s) {
+          next.descricao = next.descricao || s.description;
+          if (!x.time_minutes) next.time_minutes = Number(s.time_minutes) || 0;
+        }
+      }
+      return next;
+    }));
+  const removeLaborRow = (idx: number) =>
+    setLabor((r) => r.filter((_, i) => i !== idx));
+
   // Custo "por peça" da receita — útil pra preview
   const custoReceitaPorPeca = useMemo(() => {
     return recipe.reduce((s, r) => {
       const sup = supplies.find((x) => x.id === r.supply_id);
       const custoUn = sup?.valor_unitario ?? 0;
-      // assume 1m² / 1m perím / 1m largura / 1m altura na "peça base" para o preview
       return s + custoUn * (r.consumo_qty || 0);
     }, 0);
   }, [recipe, supplies]);
 
+  // Custo de MO "por peça base" (1m², 1m perím, 1m largura, 1m altura, 1 peça)
+  const custoMoPorPeca = useMemo(() => {
+    if (!hourRate) return 0;
+    const totalMin = labor.reduce((s, l) => s + (l.time_minutes || 0) * (l.consumo_qty || 1), 0);
+    return (totalMin / 60) * hourRate;
+  }, [labor, hourRate]);
+
   const usedMarkupPct = form.markup_override_pct ?? globalMarkupPct;
   const previewPrecoPorPeca = useMemo(() => {
-    const totalCusto = custoReceitaPorPeca + (form.extra_cost_fixo || 0);
+    const totalCusto = custoReceitaPorPeca + custoMoPorPeca + (form.extra_cost_fixo || 0);
     const divisor = Math.max(0.01, 1 - usedMarkupPct / 100);
     return totalCusto / divisor;
-  }, [custoReceitaPorPeca, form.extra_cost_fixo, usedMarkupPct]);
+  }, [custoReceitaPorPeca, custoMoPorPeca, form.extra_cost_fixo, usedMarkupPct]);
 
   const save = async () => {
     if (!requireAdmin(editing ? "editar acabamento" : "criar acabamento")) return;
     if (!form.nome.trim()) return toast.error("Informe o nome");
     if (form.tipos_midia_compativeis.length === 0) return toast.error("Marque ao menos um tipo de mídia compatível");
-    if (form.pricing_mode === "recipe" && recipe.length === 0 && form.extra_cost_fixo === 0
-        && form.extra_cost_mt2 === 0 && form.extra_cost_perimetro === 0 && form.extra_cost_unidade === 0) {
-      return toast.error("No modo Receita, adicione ao menos um suprimento ou custo extra");
+    if (form.pricing_mode === "recipe" && recipe.length === 0 && labor.length === 0
+        && form.extra_cost_fixo === 0 && form.extra_cost_mt2 === 0
+        && form.extra_cost_perimetro === 0 && form.extra_cost_unidade === 0) {
+      return toast.error("No modo Receita, adicione ao menos um suprimento, etapa ou custo extra");
     }
 
     const payload = { ...form, nome: form.nome.trim() };
@@ -225,6 +298,27 @@ export default function AcabamentosTab() {
               sort_order: i,
             })));
           if (rErr) return handleError(rErr, "salvar receita");
+        }
+      }
+
+      // Sincroniza mão-de-obra (labor)
+      await supabase.from("cv_calc_acabamento_labor_items" as never)
+        .delete().eq("acabamento_id", acabamentoId);
+      if (form.pricing_mode === "recipe" && labor.length > 0) {
+        const validL = labor.filter((l) => l.time_minutes > 0);
+        if (validL.length > 0) {
+          const { error: lErr } = await (supabase
+            .from("cv_calc_acabamento_labor_items" as never) as unknown as { insert: (rows: unknown[]) => Promise<{ error: unknown }> })
+            .insert(validL.map((l, i) => ({
+              acabamento_id: acabamentoId,
+              production_step_id: l.production_step_id || null,
+              descricao: l.descricao || (steps.find((s) => s.id === l.production_step_id)?.description ?? ""),
+              time_minutes: l.time_minutes,
+              consumo_tipo: l.consumo_tipo,
+              consumo_qty: l.consumo_qty,
+              sort_order: i,
+            })));
+          if (lErr) return handleError(lErr, "salvar mão-de-obra");
         }
       }
     }
@@ -468,7 +562,83 @@ export default function AcabamentosTab() {
                   )}
                 </div>
 
-                {/* Custos extras / mão-de-obra */}
+                {/* Mão-de-obra (etapas de produção) */}
+                <div className="rounded-md border p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm flex items-center gap-1.5"><Clock className="h-4 w-4 text-primary" /> Mão-de-obra (etapas)</Label>
+                    <Button size="sm" variant="outline" onClick={addLaborRow}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar etapa
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    💡 Custo recalculado automaticamente quando o custo/hora muda. Custo/hora atual: <strong>{brl(hourRate)}/h</strong>
+                  </p>
+                  {labor.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-3 text-center">
+                      Nenhuma etapa de mão-de-obra. Adicione "Refilar", "Aplicar adesivo", "Cortar chapa" etc.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {labor.map((l, idx) => {
+                        const custoLinha = (l.time_minutes / 60) * hourRate * (l.consumo_qty || 1);
+                        return (
+                          <div key={idx} className="grid grid-cols-[1fr_90px_160px_70px_auto] gap-2 items-end">
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Etapa de produção</Label>
+                              <Select value={l.production_step_id ?? "__custom__"} onValueChange={(v) =>
+                                patchLaborRow(idx, { production_step_id: v === "__custom__" ? null : v })
+                              }>
+                                <SelectTrigger className="h-9"><SelectValue placeholder="Escolha…" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__custom__">— personalizado —</SelectItem>
+                                  {steps.map((s) => (
+                                    <SelectItem key={s.id} value={s.id}>
+                                      {s.description} ({Number(s.time_minutes)} min)
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {!l.production_step_id && (
+                                <Input className="h-8 mt-1" placeholder="Descrição"
+                                  value={l.descricao}
+                                  onChange={(e) => patchLaborRow(idx, { descricao: e.target.value })} />
+                              )}
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Tempo (min)</Label>
+                              <Input type="number" step="0.1" className="h-9"
+                                value={l.time_minutes}
+                                onChange={(e) => patchLaborRow(idx, { time_minutes: +e.target.value || 0 })} />
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Escala</Label>
+                              <Select value={l.consumo_tipo} onValueChange={(v) => patchLaborRow(idx, { consumo_tipo: v as LaborRow["consumo_tipo"] })}>
+                                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {CONSUMO_TIPOS_LABOR.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Qtd</Label>
+                              <Input type="number" step="0.01" className="h-9"
+                                value={l.consumo_qty}
+                                onChange={(e) => patchLaborRow(idx, { consumo_qty: +e.target.value || 0 })} />
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive"
+                              onClick={() => removeLaborRow(idx)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                            <div className="col-span-5 -mt-1 text-[10px] text-muted-foreground">
+                              ≈ {brl(custoLinha)} por unidade da escala @ {brl(hourRate)}/h
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <div className="rounded-md border p-3 space-y-2">
                   <Label className="text-sm">Custos extras (mão-de-obra, insumos não cadastrados)</Label>
                   <div className="grid grid-cols-2 gap-3">
@@ -524,6 +694,10 @@ export default function AcabamentosTab() {
                   <div className="flex items-center justify-between text-sm">
                     <span>Custo da receita + extra fixo</span>
                     <span className="font-mono">{brl(custoReceitaPorPeca + (form.extra_cost_fixo || 0))}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Custo de MO ({brl(hourRate)}/h)</span>
+                    <span className="font-mono">{brl(custoMoPorPeca)}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span>Margem aplicada</span>

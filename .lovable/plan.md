@@ -1,102 +1,93 @@
-# Plano — Filtros + Kits CV + Padrão UX
 
-## Parte 1 — Filtros visuais em Matérias-Primas
+# Plano — Acabamentos CV com MO dinâmica (processos) + seed chapa
 
-**Arquivo:** `src/pages/MateriasPrimas.tsx`
+## Problema
 
-- 3 chips no header: `Todos · Gráfica · CV` (com contador `Gráfica · 42`)
-- Estado `moduloFiltro`, default `todos`; filtra por `modulo @> {grafica|cv}`
-- `Badge` outline/secondary, primary quando ativo
+Hoje os campos `extra_cost_*` em `cv_calc_acabamentos` armazenam **valores fixos** (R$/m², R$/m, R$ fixo). Quando o custo/hora muda (despesas, salários) ou um processo fica mais rápido, é preciso reeditar cada acabamento manualmente — exatamente o que a planilha já obriga.
 
-## Parte 2 — Kits em Grupos de Materiais
+Solução: ligar cada acabamento a uma **receita de processos** (lista de `production_steps` com tempos em minutos, e a **escala** em que cada tempo se aplica). O custo de MO passa a ser:
 
-`material_groups` já guarda insumos com `supply_id`. Estender para suportar mão de obra e cobrança por dimensão (replica planilha Excel: Banner Bastão Topo = bastão x2 + ponteira x4 + cordinha por m + 10 min MO).
-
-### 2.1 Schema (migration)
-
-`material_groups` — novas colunas (defaults seguros):
-- `is_kit boolean default false`
-- `modulo text[] default '{grafica}'` (mesmo padrão dos supplies)
-- `pricing_mode text default 'fixo'` — `fixo | mt2 | perimetro | unidade`
-- `labor_minutes numeric default 0`
-- `labor_hour_rate_source text default 'despesas_fixas'` — `despesas_fixas | manual`
-- `labor_hour_rate_manual numeric default 0`
-- `margin_pct numeric` (null = usa global)
-- `notes text`
-
-`material_group_items`:
-- `consumo_tipo text default 'fixo'` — `fixo | por_m2 | por_perimetro_m | por_unidade`
-
-### 2.2 UI em `GruposMateriais.tsx`
-
-Dialog com novo bloco "Kit calculável" (toggle `is_kit`):
-- Modo de cobrança, Tempo MO (min), Origem hora (Despesas Fixas/Manual)
-- Checkbox "Visível em" (Gráfica/CV)
-- Por item: select **Escala** (Fixo / por m² / por metro de perímetro / por unidade)
-- **Sugestão inteligente de consumo_tipo:** ao escolher um supply, sugere a escala mais provável a partir do nome (heurística: "bastão|barra|perfil" → por_largura/perimetro, "cordinha|fita" → por_perimetro_m, "ponteira|olhal|ilhós" → por_unidade, demais → fixo). Aplica como default mas sempre editável.
-
-#### 2.2.1 Preview financeiro ao vivo (UX prioritária)
-
-Painel sticky na lateral do dialog de edição do kit (mesmo padrão "config no meio + resumo direita" da Parte 3):
-- Inputs de exemplo: `Largura × Altura × Qtd` (default 100×100×1)
-- Recalcula em tempo real conforme o usuário edita itens, MO ou margem
-- Mostra: Custo Material · Custo MO · Subtotal Custo · Impostos+Taxas · Margem · **Preço Venda** · **Lucro Líquido (R$ · %)**
-- Breakdown linha-a-linha por item do kit (qtd efetiva × preço unit)
-- Usa exatamente a mesma engine da Parte 2.3 (garante paridade com a calculadora)
-
-### 2.3 Engine `src/lib/kitPricing.ts`
-
-```ts
-calcKitPrice(kit, { largura_cm, altura_cm, quantidade }, { hourRate, globalSettings })
-→ { custoMaterial, custoMO, custoTotal, lucroLiquido, precoVenda, breakdown[] }
 ```
-- `custoMaterial` = Σ `item.quantity × unit_price × escala(dim)`
-- `custoMO` = `(labor_minutes/60) × hourRate`
-- `precoVenda` = `custoTotal / (1 - (taxes+fees+margin)/100)`, arredondado p/ cima R$ 0,10
-
-### 2.4 Consumo na Calculadora CV
-
-`AcabamentosTab.tsx` + `CalculadoraTab.tsx`:
-- Picker de acabamento ganha seção "Kits" (lista `material_groups` com `is_kit=true` e `cv` no módulo)
-- Selecionar kit injeta resultado de `calcKitPrice`; breakdown salvo em `finishes_json` como `{ kit_id, custo_material, custo_mo, lucro }`
-
-## Parte 3 — Padrão UX "config no meio + resumo direita"
-
-`src/components/shared/CalcShell.tsx`:
-```
-Header
-Grid 2col (gap-6):
-  [ Configuração (col-span-2) ] [ Resumo Financeiro (sticky) ]
+custo_mo = Σ ( time_minutes / 60 × hourRate × escala(área|perímetro|peças|unidades) )
 ```
 
-Props: `{ title, icon, actions, children, summary, steps? }`.
-**`steps?`** slot opcional para stepper (preparado para futuras calculadoras multi-step, mesmo que não usado agora).
+Quando muda `useHourRate` ou o `time_minutes` da etapa, **todos** os acabamentos recalculam automaticamente.
 
-`FinancialSummary` reutilizável: linhas Custo/Lucro com `text-destructive`/`text-success`, espelha padrão do Orçamento V2. Reaproveitado também pelo preview do kit (2.2.1).
+## Parte 1 — Schema
 
-### Ordem de migração:
-1. Calculadora CV (`CalculadoraTab.tsx`) — mostrar breakdown Material+MO+Lucro do kit
-2. Calc Etiquetas (`CalculadoraEtiquetas.tsx`)
-3. Preço Impressão (`PrecoImpressao.tsx`)
-4. Orçamento V2 — referência, não muda
+Nova tabela `cv_calc_acabamento_labor_items` (mesmo padrão de `cv_calc_acabamento_recipe_items`):
+
+| coluna | tipo | nota |
+|---|---|---|
+| id | uuid PK | |
+| acabamento_id | uuid FK → cv_calc_acabamentos | cascade delete |
+| production_step_id | uuid FK → production_steps | nullable (pode digitar livre) |
+| descricao | text | snapshot do nome da etapa (editável) |
+| time_minutes | numeric | snapshot (override do step) |
+| consumo_tipo | text | `por_peca \| por_mt2 \| por_perimetro_m \| por_largura_m \| por_altura_m \| fixo` |
+| consumo_qty | numeric default 1 | multiplicador |
+| sort_order | int | |
+
+Snapshot do `time_minutes` permite ajustar para um caso específico sem mudar a etapa global. Se nulo, lê do `production_steps` em runtime.
+
+RLS: admin all + authenticated select (igual recipe_items).
+
+Manter `extra_cost_*` como **fallback de migração**; novos acabamentos usam labor_items.
+
+## Parte 2 — Engine
+
+`engine.ts → precificarAcabamento`:
+
+- Carregar `labor_items` no `Acabamento` (junto com `recipe`).
+- Adicionar parâmetro `hourRate` em `CalcInput` (já temos `useHourRate`).
+- Calcular `custo_mo` somando cada item conforme `consumo_tipo` (mesma lógica do `recipe`).
+- `custo_total` = `custo_recipe + custo_mo + extra_cost_* (legado)`.
+- Resto (markup, arredondamento) inalterado.
+
+Função utilitária `calcLaborCost(items, ctx)` reaproveitável.
+
+## Parte 3 — UI Acabamentos (AcabamentosTab)
+
+No dialog em modo `recipe`, novo bloco **"Mão-de-obra (processos)"** abaixo do bloco de Receita:
+
+- Botão "+ Adicionar etapa"
+- Cada linha: combobox de `production_steps` · tempo (min, prefill do step, editável) · escala (select igual ao recipe) · qtd
+- Hint: "💡 O custo é recalculado automaticamente quando o custo/hora mudar"
+- Mini preview "Custo MO estimado: R$ X,XX @ R$ Y/h" usando `useHourRate`
+
+## Parte 4 — Seed dos acabamentos de chapa (corrigido)
+
+Conforme correção do usuário — entradas **separadas** entre chapa/lona quando o processo difere, e famílias ajustadas:
+
+| Nome | Família | Mídia | MO (processos) | Custo material/outros |
+|---|---|---|---|---|
+| Corte até 3mm | recorte | chapa | (a definir nos processos) | — |
+| Dupla Face | bainha_ilhos? | **lona** | refile R$2/m² → 8min/m² @ hourRate | fita dupla face na recipe |
+| Ilhós Chapa | ilhos | chapa | só ilhós, sem bainha | ilhós por unidade |
+| Ilhós Lona (já existente) | bainha_ilhos | lona | bainha + ilhós | — |
+| Laminação Vinil | laminacao | chapa | aplicar + refilar | vinil por m² |
+| Corte Ímã Automotivo | recorte | chapa (ímã) | — | — |
+| Recorte Especial | recorte | chapa | — | — |
+| Recorte Reto | recorte | chapa | — | — |
+| Laminação Bopp | laminacao | chapa | — | bopp por m² |
+| Display (placa c/ dobra) | **outro (dobra)** ou nova família `dobra` | chapa | tempo de dobra | — |
+
+**Pendências antes de seedar** (ver questões abaixo).
+
+## Parte 5 — Migração dos dados legados
+
+Script único: para cada acabamento existente com `extra_cost_mt2 > 0`, criar 1 `labor_item` "Mão-de-obra legada" com `time_minutes = extra_cost_mt2 / hourRate × 60` e zerar `extra_cost_mt2`. Opcional — pode ficar como manual ("revisar e remigrar" no admin).
 
 ## Ordem de execução
 
-1. Chips em Matérias-Primas (Parte 1)
-2. Migration kits (2.1)
-3. Engine `kitPricing.ts` (2.3) — primeiro, pois alimenta o preview
-4. `CalcShell` + `FinancialSummary` (Parte 3 base)
-5. UI de kits em Grupos com preview ao vivo + sugestão de escala (2.2)
-6. Calculadora CV consumindo kits + novo shell (2.4 + 3.1)
-7. Migrar Calc Etiquetas e Preço Impressão
+1. Migration `cv_calc_acabamento_labor_items` + RLS
+2. Engine: parâmetro `hourRate`, função `calcLaborCost`, soma em `precificarAcabamento`
+3. UI: bloco "Mão-de-obra (processos)" no AcabamentosTab + preview
+4. Calculadora/Orçamento V2: passar `hourRate` ao calcular (já têm hook)
+5. Seed dos 9 acabamentos de chapa via insert tool (após responder questões)
 
-## Diferido (anotado para iteração futura)
+## Questões antes de seedar (Parte 4)
 
-- **Histórico de versões dos kits**: tabela `material_group_versions` para snapshot da receita em cada mudança, permitindo auditar custo de pedidos antigos. Fora do escopo atual.
-- **Views materializadas por módulo**: só se o índice GIN virar gargalo real.
-
-## Detalhes técnicos
-
-- `useHourRate()`: hook que lê `despesas_fixas` e divide pelas horas produtivas/mês (reaproveitar lógica existente; criar se faltar)
-- Markup/arredondamento: utilitários já existentes
-- Sem mudanças destrutivas — toda coluna nova tem default; grupos existentes continuam funcionando (kit=false)
+1. **Família "Dobra"**: criar nova família `dobra` no enum, ou usar `outro` para o Display?
+2. **Dupla Face**: você confirmou "é lona" — devo migrar a entrada para `tipos_midia_compativeis = ['lona']` apenas (não chapa)?
+3. **Tempos exatos dos processos de chapa** (cortar chapa 4min/m², aplicar adesivo 9min/m², refilar 2min/m² — assumindo R$60/h?) — preciso confirmar os minutos para cada etapa, ou cadastro as etapas com valores estimados e você ajusta depois em Processos?

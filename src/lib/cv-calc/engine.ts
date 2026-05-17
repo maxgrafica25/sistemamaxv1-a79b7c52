@@ -53,6 +53,18 @@ export interface RecipeItem {
   consumo_tipo: ConsumoTipo;
 }
 
+export type LaborConsumoTipo = ConsumoTipo | "fixo";
+
+export interface LaborItem {
+  /** Etapa de produção vinculada (opcional). */
+  production_step_id?: string | null;
+  descricao: string;
+  /** Tempo em minutos por unidade da escala. */
+  time_minutes: number;
+  consumo_tipo: LaborConsumoTipo;
+  consumo_qty: number;
+}
+
 export interface Acabamento {
   id: string;
   nome: string;
@@ -78,6 +90,8 @@ export interface Acabamento {
   extra_cost_unidade?: number;
   /** Receita (lista de suprimentos × consumo) — modo receita. */
   recipe?: RecipeItem[];
+  /** Mão-de-obra (etapas de produção × tempo). Calculado em runtime com hourRate. */
+  labor?: LaborItem[];
 }
 
 /** Markup global do ERP (mesma fórmula do Orçamentos v2). */
@@ -119,6 +133,8 @@ export interface CalcInput {
   sangrias_mm?: SangriasMm;
   /** Markup global (impostos + cartão + comissão + margem) — usado no modo "recipe". */
   markup?: MarkupSettings;
+  /** Custo/hora produtivo (R$/h) — usado p/ calcular MO via labor items. */
+  hourRate?: number;
 }
 
 export interface InfoBastao {
@@ -194,10 +210,33 @@ const roundUpToTenCents = (n: number): number => {
   return Math.ceil(n * 10 - 1e-9) / 10;
 };
 
+/** Custo de mão-de-obra a partir das etapas (labor items) × hourRate. */
+export function calcLaborCost(
+  items: LaborItem[] | undefined,
+  ctx: { area: number; perim_m: number; qtd_pecas: number; largura_m: number; altura_m: number; hourRate: number },
+): number {
+  if (!items || items.length === 0 || !ctx.hourRate) return 0;
+  let total_min_por_peca = 0;
+  let total_min_fixo = 0;
+  for (const l of items) {
+    const min = safe(l.time_minutes) * safe(l.consumo_qty, 1);
+    switch (l.consumo_tipo) {
+      case "fixo":             total_min_fixo += min; break;
+      case "por_peca":         total_min_por_peca += min; break;
+      case "por_perimetro_m":  total_min_por_peca += min * (ctx.perim_m / Math.max(1, ctx.qtd_pecas)); break;
+      case "por_mt2":          total_min_por_peca += min * (ctx.area / Math.max(1, ctx.qtd_pecas)); break;
+      case "por_largura_m":    total_min_por_peca += min * ctx.largura_m; break;
+      case "por_altura_m":     total_min_por_peca += min * ctx.altura_m; break;
+    }
+  }
+  const total_min = total_min_fixo + total_min_por_peca * ctx.qtd_pecas;
+  return (total_min / 60) * ctx.hourRate;
+}
+
 /** Calcula o preço de um único acabamento aplicado à peça.
  *  Em modo "manual" usa custo_* e lucro_* exatamente como antes.
- *  Em modo "recipe" soma custo_supply×consumo + extras e aplica o markup
- *  global (ou override), usando engenharia reversa: preço = custo/(1 - markup). */
+ *  Em modo "recipe" soma custo_supply×consumo + extras + MO (labor) e aplica
+ *  o markup global (ou override) via engenharia reversa: preço = custo/(1 - markup). */
 function precificarAcabamento(
   ac: Acabamento,
   area: number,
@@ -207,6 +246,7 @@ function precificarAcabamento(
   altura_m: number,
   qtd_pecas: number,
   markup?: MarkupSettings,
+  hourRate?: number,
 ): { preco: number; custo: number } {
   if (ac.pricing_mode === "recipe") {
     // 1) Soma custos da receita por peça × qtd
@@ -231,7 +271,13 @@ function precificarAcabamento(
       safe(ac.extra_cost_perimetro) * perim_m +
       safe(ac.extra_cost_unidade) * qtd_unidades;
 
-    const custo = custo_recipe + custo_extras;
+    // 2.b) Mão-de-obra via etapas (labor items) × hourRate
+    const custo_mo = calcLaborCost(ac.labor, {
+      area, perim_m, qtd_pecas, largura_m, altura_m,
+      hourRate: safe(hourRate),
+    });
+
+    const custo = custo_recipe + custo_extras + custo_mo;
 
     // 3) Markup total (impostos + cartão + comissão + margem) — engenharia reversa
     const totalPct = ac.markup_override_pct != null
@@ -335,7 +381,7 @@ export function calcular(input: CalcInput): CalcResult {
     const qtd_unidades_total = qtd_un_por_peca * qtd;
     const { preco, custo } = precificarAcabamento(
       ac, area, perim_m, qtd_unidades_total,
-      largura / 100, altura / 100, qtd, input.markup,
+      largura / 100, altura / 100, qtd, input.markup, input.hourRate,
     );
     preco_acabamento += preco;
     custo_acabamento += custo;

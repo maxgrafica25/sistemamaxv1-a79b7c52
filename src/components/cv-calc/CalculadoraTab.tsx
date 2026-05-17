@@ -73,7 +73,7 @@ export default function CalculadoraTab() {
 
   useEffect(() => {
     (async () => {
-      const [m, i, a, c, gs, recipes, supplies, kitGroups, kitItems] = await Promise.all([
+      const [m, i, a, c, gs, recipes, supplies, kitGroups, kitItems, laborItems] = await Promise.all([
         supabase.from("cv_calc_midias" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_impressoes" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_acabamentos" as never).select("*").eq("ativo", true).order("sort_order"),
@@ -83,6 +83,7 @@ export default function CalculadoraTab() {
         supabase.from("supplies").select("id, valor_unitario"),
         supabase.from("material_groups").select("id, name, pricing_mode, labor_minutes, margin_pct, modulo, is_kit").eq("is_kit", true).contains("modulo", ["cv"]).order("name"),
         supabase.from("material_group_items").select("id, material_group_id, description, quantity, unit_price, consumo_tipo, supply_id, sort_order").order("sort_order"),
+        supabase.from("cv_calc_acabamento_labor_items" as never).select("acabamento_id, descricao, time_minutes, consumo_tipo, consumo_qty, production_step_id"),
       ]);
 
       // monta map supply_id -> custo unitário
@@ -104,9 +105,25 @@ export default function CalculadoraTab() {
           recipeByAc.set(r.acabamento_id, arr);
         });
 
+      // agrupa MO (labor) por acabamento
+      const laborByAc = new Map<string, NonNullable<Acabamento["labor"]>>();
+      ((laborItems.data as Array<{ acabamento_id: string; descricao: string; time_minutes: number; consumo_tipo: string; consumo_qty: number; production_step_id: string | null }>) ?? [])
+        .forEach((l) => {
+          const arr = laborByAc.get(l.acabamento_id) ?? [];
+          arr.push({
+            production_step_id: l.production_step_id,
+            descricao: l.descricao,
+            time_minutes: Number(l.time_minutes) || 0,
+            consumo_tipo: l.consumo_tipo as NonNullable<Acabamento["labor"]>[number]["consumo_tipo"],
+            consumo_qty: Number(l.consumo_qty) || 1,
+          });
+          laborByAc.set(l.acabamento_id, arr);
+        });
+
       const acabamentos = ((a.data as Acabamento[]) ?? []).map((ac) => ({
         ...ac,
         recipe: recipeByAc.get(ac.id) ?? [],
+        labor: laborByAc.get(ac.id) ?? [],
       }));
 
       // Monta kits a partir de material_groups + material_group_items
@@ -198,6 +215,7 @@ export default function CalculadoraTab() {
         valor_minimo: valorMinimo,
         sangrias_mm: sangrias,
         markup,
+        hourRate,
       });
       const kitRes: KitPriceResult | null = kit
         ? calcKitPrice(kit, { largura_cm: it.largura, altura_cm: it.altura, quantidade: it.quantidade }, kitGlobals)
@@ -206,7 +224,7 @@ export default function CalculadoraTab() {
       const nomeFinal = it.nomeOverride?.trim() || tipoInfo.nome;
       return { item: it, midia, kit, res, kitRes, tipoInfo, nomeFinal };
     });
-  }, [items, midias, impressoes, acabamentos, kits, valorMinimo, sangrias, markup, kitGlobals]);
+  }, [items, midias, impressoes, acabamentos, kits, valorMinimo, sangrias, markup, kitGlobals, hourRate]);
 
   const totalGeral = results.reduce((s, r) => s + r.res.valor_total + (r.kitRes?.precoVenda ?? 0), 0);
   const totalPecas = results.reduce((s, r) => s + r.item.quantidade, 0);

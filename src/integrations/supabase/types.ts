@@ -563,6 +563,60 @@ export type Database = {
           },
         ]
       }
+      cv_calc_acabamento_labor_items: {
+        Row: {
+          acabamento_id: string
+          consumo_qty: number
+          consumo_tipo: string
+          created_at: string
+          descricao: string
+          id: string
+          production_step_id: string | null
+          sort_order: number
+          time_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          acabamento_id: string
+          consumo_qty?: number
+          consumo_tipo?: string
+          created_at?: string
+          descricao?: string
+          id?: string
+          production_step_id?: string | null
+          sort_order?: number
+          time_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          acabamento_id?: string
+          consumo_qty?: number
+          consumo_tipo?: string
+          created_at?: string
+          descricao?: string
+          id?: string
+          production_step_id?: string | null
+          sort_order?: number
+          time_minutes?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cv_calc_acabamento_labor_items_acabamento_id_fkey"
+            columns: ["acabamento_id"]
+            isOneToOne: false
+            referencedRelation: "cv_calc_acabamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cv_calc_acabamento_labor_items_production_step_id_fkey"
+            columns: ["production_step_id"]
+            isOneToOne: false
+            referencedRelation: "production_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cv_calc_acabamento_recipe_items: {
         Row: {
           acabamento_id: string
