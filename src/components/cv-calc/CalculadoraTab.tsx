@@ -224,7 +224,7 @@ export default function CalculadoraTab() {
       const nomeFinal = it.nomeOverride?.trim() || tipoInfo.nome;
       return { item: it, midia, kit, res, kitRes, tipoInfo, nomeFinal };
     });
-  }, [items, midias, impressoes, acabamentos, kits, valorMinimo, sangrias, markup, kitGlobals]);
+  }, [items, midias, impressoes, acabamentos, kits, valorMinimo, sangrias, markup, kitGlobals, hourRate]);
 
   const totalGeral = results.reduce((s, r) => s + r.res.valor_total + (r.kitRes?.precoVenda ?? 0), 0);
   const totalPecas = results.reduce((s, r) => s + r.item.quantidade, 0);
