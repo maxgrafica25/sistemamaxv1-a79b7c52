@@ -36,6 +36,23 @@ export interface Impressao {
   tipos_midia_compativeis: TipoMidia[];
 }
 
+export type PricingMode = "manual" | "recipe";
+
+export type ConsumoTipo =
+  | "por_peca"
+  | "por_perimetro_m"
+  | "por_mt2"
+  | "por_largura_m"
+  | "por_altura_m";
+
+export interface RecipeItem {
+  supply_id: string;
+  /** Custo unitário do suprimento (R$ por unidade do suprimento). */
+  supply_custo_unitario: number;
+  consumo_qty: number;
+  consumo_tipo: ConsumoTipo;
+}
+
 export interface Acabamento {
   id: string;
   nome: string;
@@ -50,6 +67,26 @@ export interface Acabamento {
   custo_unidade: number;
   lucro_unidade: number;
   largura_max_cm: number | null;
+  /** Modo de precificação. Default "manual" (campos custo_*/lucro_*). */
+  pricing_mode?: PricingMode;
+  /** Margem total (%) que sobrescreve o markup global; null = usa global. */
+  markup_override_pct?: number | null;
+  /** Custos extras (mão-de-obra, insumos não cadastrados) — modo receita. */
+  extra_cost_fixo?: number;
+  extra_cost_mt2?: number;
+  extra_cost_perimetro?: number;
+  extra_cost_unidade?: number;
+  /** Receita (lista de suprimentos × consumo) — modo receita. */
+  recipe?: RecipeItem[];
+}
+
+/** Markup global do ERP (mesma fórmula do Orçamentos v2). */
+export interface MarkupSettings {
+  tax_pct: number;
+  invoice_pct: number;
+  credit_card_pct: number;
+  collection_fee_pct: number;
+  default_margin_pct: number;
 }
 
 /** Acabamento aplicado pode ter quantidade customizada de unidades. */
