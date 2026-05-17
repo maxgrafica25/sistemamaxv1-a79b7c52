@@ -58,6 +58,11 @@ export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags }:
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState(false);
 
+  const [hist, setHist] = useState<HistSuggestion[]>([]);
+  const [histLoading, setHistLoading] = useState(false);
+  const [histDismissed, setHistDismissed] = useState<Set<string>>(new Set());
+  const histTimer = useRef<number | null>(null);
+
   useEffect(() => {
     (async () => {
       const [r, a, q] = await Promise.all([
