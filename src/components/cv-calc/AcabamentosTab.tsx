@@ -81,6 +81,22 @@ interface RecipeRow {
   sort_order: number;
 }
 
+interface LaborRow {
+  id?: string;
+  production_step_id: string | null;
+  descricao: string;
+  time_minutes: number;
+  consumo_tipo: "fixo" | "por_peca" | "por_perimetro_m" | "por_mt2" | "por_largura_m" | "por_altura_m";
+  consumo_qty: number;
+  sort_order: number;
+}
+
+interface ProductionStep {
+  id: string;
+  description: string;
+  time_minutes: number;
+}
+
 interface Supply {
   id: string;
   produto: string;
