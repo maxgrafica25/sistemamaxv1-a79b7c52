@@ -61,7 +61,7 @@ const SEV_COLOR: Record<string, string> = {
   critico: "text-destructive border-destructive/40 bg-destructive/10",
 };
 
-export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags }: Props) {
+export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags, clientName, checklistAnswers }: Props) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [acabNames, setAcabNames] = useState<Record<string, string>>({});
   const [questionNames, setQuestionNames] = useState<Record<string, string>>({});
@@ -72,6 +72,12 @@ export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags }:
   const [histLoading, setHistLoading] = useState(false);
   const [histDismissed, setHistDismissed] = useState<Set<string>>(new Set());
   const histTimer = useRef<number | null>(null);
+
+  const [ai, setAi] = useState<AiSuggestion[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiDismissed, setAiDismissed] = useState<Set<number>>(new Set());
+  const [aiRanAt, setAiRanAt] = useState<number | null>(null);
+  const aiTimer = useRef<number | null>(null);
 
   useEffect(() => {
     (async () => {
