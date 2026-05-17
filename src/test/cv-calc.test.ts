@@ -73,15 +73,16 @@ describe("Valor mínimo", () => {
   });
 });
 
-describe("Quantidade multiplica o total", () => {
-  it("3 unidades de 100×300 = R$ 855", () => {
+describe("Quantidade — modelo job único", () => {
+  it("3 unidades de 100×300 (área total 9 m²) = R$ 827", () => {
+    // mídia: 9×9 + 8 = 89 | impressão: 63×9 + 6 = 573 | bastão: 8×9 + 31×3 = 165
+    // subtotal 827.00 → ceil 827 ; unitário = 827/3
     const r = calcular({
       largura_cm: 100, altura_cm: 300, quantidade: 3,
       midia: lonaBrilho, impressao: solventeAlta, acabamento: bastao105,
       acabamentos_pool: pool, valor_minimo: 35,
     });
-    expect(r.valor_unitario).toBe(285);
-    expect(r.valor_total).toBe(855);
+    expect(r.valor_total).toBe(827);
   });
 });
 
