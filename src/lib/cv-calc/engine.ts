@@ -116,6 +116,8 @@ export interface CalcResult {
   aplicou_minimo: boolean;
   valor_unitario: number;
   valor_total: number;
+  /** Sangria aplicada na peça (mm) — informativo para a UI. */
+  sangria_aplicada_mm: number;
 }
 
 const safe = (n: unknown, fallback = 0): number => {
