@@ -333,7 +333,10 @@ export function calcular(input: CalcInput): CalcResult {
     }
 
     const qtd_unidades_total = qtd_un_por_peca * qtd;
-    const { preco, custo } = precificarAcabamento(ac, area, perim_m, qtd_unidades_total);
+    const { preco, custo } = precificarAcabamento(
+      ac, area, perim_m, qtd_unidades_total,
+      largura / 100, altura / 100, qtd, input.markup,
+    );
     preco_acabamento += preco;
     custo_acabamento += custo;
     acabamentos_detalhe.push({
