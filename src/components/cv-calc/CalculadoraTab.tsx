@@ -6,15 +6,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Loader2, AlertTriangle, Calculator, Info, Plus, Trash2, Copy, Receipt,
+  Loader2, AlertTriangle, Calculator, Info, Plus, Trash2, Copy, Receipt, Package,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useHourRate } from "@/hooks/useHourRate";
+import { useGlobalSettings } from "@/hooks/useGlobalSettings";
 import {
   calcular, formatBRL,
   type Midia, type Impressao, type Acabamento, type SangriasMm, type CalcResult,
   type MarkupSettings, type RecipeItem,
 } from "@/lib/cv-calc/engine";
+import { calcKitPrice, type KitDef, type KitConsumoTipo, type KitPricingMode, type KitPriceResult } from "@/lib/kitPricing";
 
 type Item = {
   id: string;
@@ -24,6 +27,7 @@ type Item = {
   midiaId: string;
   impressaoId: string;
   acabamentoId: string;
+  kitId: string;
 };
 
 const uid = () =>
