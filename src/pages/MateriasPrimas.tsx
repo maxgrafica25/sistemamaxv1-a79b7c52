@@ -50,6 +50,7 @@ interface Material {
   data: string;
   contato: string;
   margemPct: number;
+  modulo: string[];
 }
 
 const UNIDADES_MEDIDA = [
