@@ -436,7 +436,7 @@ export default function MateriasPrimas() {
   };
 
   // ── Suprimento logic (DB-backed) ──
-  const resetForm = () => { setProduto(""); setFinalidade(""); setQuantidade(""); setUnidade("un"); setValor(""); setFornecedor(""); setData(""); setContato(""); setMargemPct("0"); };
+  const resetForm = () => { setProduto(""); setFinalidade(""); setQuantidade(""); setUnidade("un"); setValor(""); setFornecedor(""); setData(""); setContato(""); setMargemPct("0"); setModuloGrafica(true); setModuloCv(false); };
   const openNewDialog = () => { setEditingMaterial(null); setDuplicatingFromId(null); resetForm(); setIsDialogOpen(true); };
   const openEditDialog = (m: Material) => {
     setEditingMaterial(m); setDuplicatingFromId(null); setProduto(m.produto); setFinalidade(m.finalidade);
