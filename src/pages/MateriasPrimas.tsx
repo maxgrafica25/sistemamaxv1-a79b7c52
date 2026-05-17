@@ -485,6 +485,10 @@ export default function MateriasPrimas() {
     const unitario = qtd > 0 ? val / qtd : 0;
     const dt = data || new Date().toISOString().split("T")[0];
     const margemNum = Math.max(0, Math.min(500, parseFloat(margemPct) || 0));
+    const modulo: string[] = [];
+    if (moduloGrafica) modulo.push("grafica");
+    if (moduloCv) modulo.push("cv");
+    if (modulo.length === 0) { toast.error("Selecione ao menos um módulo"); return; }
     const saveData = {
       produto,
       finalidade,
@@ -496,6 +500,7 @@ export default function MateriasPrimas() {
       contato,
       data: dt,
       margem_pct: margemNum,
+      modulo,
     };
     if (editingMaterial) {
       const { error: updErr } = await supabase.from("supplies").update(saveData).eq("id", editingMaterial.id);
