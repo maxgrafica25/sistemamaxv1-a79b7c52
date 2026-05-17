@@ -121,11 +121,15 @@ export default function CalculadoraTab() {
           laborByAc.set(l.acabamento_id, arr);
         });
 
-      const acabamentos = ((a.data as Acabamento[]) ?? []).map((ac) => ({
+      const acabsRaw = ((a.data as Acabamento[]) ?? []).map((ac) => ({
         ...ac,
         recipe: recipeByAc.get(ac.id) ?? [],
         labor: laborByAc.get(ac.id) ?? [],
       }));
+      const acabamentos = attachMediaOrder(
+        acabsRaw,
+        (mediaOrders.data as Parameters<typeof attachMediaOrder>[1]) ?? [],
+      );
 
       // Monta kits a partir de material_groups + material_group_items
       const itemsByKit = new Map<string, KitDef["items"]>();
