@@ -384,3 +384,44 @@ export function calcular(input: CalcInput): CalcResult {
 
 export const formatBRL = (n: number): string =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+/* ────────────────────────────────────────────────────────────
+ * Nomenclatura inteligente do item (Lona / Banner / Faixa)
+ * ────────────────────────────────────────────────────────── */
+
+export type TipoProduto = "banner" | "faixa" | "lona" | "outro";
+
+export interface TipoProdutoInfo {
+  tipo: TipoProduto;
+  /** Nome sugerido para exibir no header do item. */
+  nome: string;
+}
+
+/** Heurística simples baseada em palavras-chave no nome do acabamento bastão. */
+const isFaixa = (nomeAcab: string): boolean =>
+  /faixa|lateral|laterais/i.test(nomeAcab);
+
+/**
+ * Detecta o tipo de produto a partir da mídia + acabamentos aplicados.
+ * - Mídia lona + bastão (topo/base) → Banner
+ * - Mídia lona + bastão lateral/faixa → Faixa
+ * - Mídia lona sem bastão → Lona
+ * - Outras mídias → usa o nome da mídia
+ */
+export function detectarTipoProduto(
+  midia: Midia | null,
+  acabamentosAplicados: Array<Pick<Acabamento, "familia" | "nome">>,
+): TipoProdutoInfo {
+  if (!midia) return { tipo: "outro", nome: "Sem mídia" };
+
+  if (midia.tipo_midia === "lona") {
+    const bastao = acabamentosAplicados.find((a) => a.familia === "banner_bastao");
+    if (bastao) {
+      if (isFaixa(bastao.nome)) return { tipo: "faixa", nome: "Faixa" };
+      return { tipo: "banner", nome: "Banner" };
+    }
+    return { tipo: "lona", nome: "Lona" };
+  }
+
+  return { tipo: "outro", nome: midia.nome };
+}
