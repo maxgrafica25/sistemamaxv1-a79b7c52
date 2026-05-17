@@ -1304,6 +1304,20 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           });
           await supabase.from("cv_quote_items").insert(cvRows);
         }
+
+        // Checklist answers
+        if (checklistAnswers.length > 0) {
+          await supabase.from("quote_checklist_answers").insert(
+            checklistAnswers.map((a) => ({
+              quote_id: id,
+              question_id: a.question_id,
+              resposta_bool: a.resposta_bool ?? null,
+              resposta_num: a.resposta_num ?? null,
+              resposta_text: a.resposta_text ?? null,
+              resposta_url: a.resposta_url ?? null,
+            })),
+          );
+        }
       }
 
       toast.success(isEditing ? "Orçamento atualizado!" : "Orçamento salvo!");
