@@ -1728,6 +1728,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                 cvMaterials={cvMaterials}
                 cvFinishes={cvFinishes}
                 clientTags={tags}
+                clientName={client}
               />
 
               <QuoteChecklist
