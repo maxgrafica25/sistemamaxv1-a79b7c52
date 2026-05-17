@@ -67,7 +67,7 @@ export interface Acabamento {
   custo_unidade: number;
   lucro_unidade: number;
   largura_max_cm: number | null;
-  /** Modo de precificação. Default "manual" (campos custo_*/lucro_*). */
+  /** Modo de precificação. Default "manual" (campos custo_* e lucro_*). */
   pricing_mode?: PricingMode;
   /** Margem total (%) que sobrescreve o markup global; null = usa global. */
   markup_override_pct?: number | null;
