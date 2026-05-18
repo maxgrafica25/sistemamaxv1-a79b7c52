@@ -1031,15 +1031,23 @@ function QuantityVariationsRow({
 
   return (
     <div className="pl-7 space-y-1.5">
+      {variations.length > 0 && (
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <span className="w-20">Lote</span>
+          <span className="w-24 text-center">Quantidade</span>
+          <span className="w-28 text-center">Preço unit.</span>
+          <span>Subtotal</span>
+        </div>
+      )}
       {variations.map((v, i) => (
         <div key={i} className="flex items-center gap-2 text-xs">
-          <span className="text-muted-foreground w-20">Variação {i + 1}</span>
+          <span className="text-muted-foreground w-20">Lote {i + 1}</span>
           <Input
             type="number"
             min={0}
             value={v.pieces || ""}
             onChange={(e) => updateVariation(i, { pieces: parseInt(e.target.value) || 0 })}
-            placeholder="peças"
+            placeholder="Quantidade"
             className="w-24 h-7 text-xs text-center"
           />
           <Input
@@ -1048,7 +1056,7 @@ function QuantityVariationsRow({
             min={0}
             value={v.unit_price || ""}
             onChange={(e) => updateVariation(i, { unit_price: parseFloat(e.target.value) || 0 })}
-            placeholder="R$ unit."
+            placeholder="Preço unit."
             className="w-28 h-7 text-xs text-center"
           />
           <span className="text-muted-foreground tabular-nums">
@@ -1071,7 +1079,7 @@ function QuantityVariationsRow({
         onClick={addVariation}
         className="h-6 px-2 text-[11px] text-muted-foreground hover:text-primary gap-1"
       >
-        <span className="text-base leading-none">+</span> Adicionar variação
+        <span className="text-base leading-none">+</span> Adicionar lote de quantidade
       </Button>
     </div>
   );
