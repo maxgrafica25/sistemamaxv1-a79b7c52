@@ -271,13 +271,14 @@ export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags, c
         >
           <Sparkles className="h-4 w-4 text-primary" />
           <span>Assistente do orçamento</span>
-          {(ativas.length + histVisible.length + aiVisible.length) > 0 && (
-            <Badge variant="secondary" className="ml-1">{ativas.length + histVisible.length + aiVisible.length}</Badge>
+          {totalCount > 0 && (
+            <Badge variant="secondary" className="ml-1">{totalCount}</Badge>
           )}
           <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${collapsed ? "-rotate-90" : ""}`} />
         </button>
+      )}
 
-        {!collapsed && (
+      {(embedded || !collapsed) && (
           <div className="space-y-2 pt-1">
             {ativas.length === 0 && histVisible.length === 0 && aiVisible.length === 0 && !histLoading && !aiLoading ? (
               <p className="text-xs text-muted-foreground px-1">
