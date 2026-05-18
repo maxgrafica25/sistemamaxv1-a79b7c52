@@ -207,6 +207,7 @@ export default function Configuracoes() {
           <TabsTrigger value="integracoes">Integrações</TabsTrigger>
           {isAdmin && <TabsTrigger value="conhecimento">Base de Conhecimento</TabsTrigger>}
           {isAdmin && <TabsTrigger value="backup">Backup &amp; Exportação</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="vps">Migração / VPS</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="empresa">
