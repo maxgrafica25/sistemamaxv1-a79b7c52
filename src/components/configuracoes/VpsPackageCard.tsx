@@ -50,7 +50,7 @@ export default function VpsPackageCard({ sessionToken }: Props) {
     }
     setGenerating(true);
     setResult(null);
-    const toastId = toast.loading("Gerando pacote VPS... (pode levar até 2 minutos)");
+    const toastId = toast.loading("Gerando pacote VPS... (pode levar até 5 minutos com Storage)");
     try {
       const resp = await fetch(`https://${projectId}.supabase.co/functions/v1/generate-vps-package`, {
         method: "POST",
