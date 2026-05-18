@@ -48,6 +48,10 @@ interface Props {
   clientTags: string[];
   clientName?: string;
   checklistAnswers?: { pergunta: string; resposta: string }[];
+  /** Quando true, esconde o próprio header (usado em cartão unificado com abas). */
+  embedded?: boolean;
+  /** Notifica o total de sugestões ativas para badges externos. */
+  onCountChange?: (count: number) => void;
 }
 
 const SEV_ICON: Record<string, any> = {
