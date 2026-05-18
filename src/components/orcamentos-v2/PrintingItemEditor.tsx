@@ -367,17 +367,20 @@ export function PrintingItemEditor({
             <Label className="text-xs">Tipo de Material</Label>
             <Popover open={kindOpen} onOpenChange={setKindOpen}>
               <PopoverAnchor asChild>
-                <Input
-                  value={item.productKind || ""}
-                  onChange={(e) => {
-                    handleProductKindChange(e.target.value);
-                    if (!kindOpen) setKindOpen(true);
-                  }}
-                  onFocus={() => setKindOpen(true)}
-                  onBlur={() => setTimeout(() => setKindOpen(false), 150)}
-                  placeholder="Ex.: Panfleto, Cartão de Visita..."
-                  className="h-9 text-sm"
-                />
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={item.productKind || ""}
+                    onChange={(e) => {
+                      handleProductKindChange(e.target.value);
+                      if (!kindOpen) setKindOpen(true);
+                    }}
+                    onFocus={() => setKindOpen(true)}
+                    onBlur={() => setTimeout(() => setKindOpen(false), 150)}
+                    placeholder="Buscar tipo de material..."
+                    className="h-9 text-sm pl-8"
+                  />
+                </div>
               </PopoverAnchor>
               <PopoverContent
                 className="p-0 w-[var(--radix-popover-trigger-width)]"
