@@ -90,7 +90,7 @@ export function CVItemCard({
     [acabamentos, tipo],
   );
 
-  // Auto-limpar seleções incompatíveis
+  // Auto-limpar seleções incompatíveis + auto-selecionar a única impressão compatível
   useEffect(() => {
     if (!tipo) return;
     if (impressao && !impressao.tipos_midia_compativeis.includes(tipo)) {
@@ -104,8 +104,19 @@ export function CVItemCard({
         return f && f.tipos_midia_compativeis.includes(tipo);
       }),
     }));
+    // Se há exatamente UMA impressão compatível e nenhuma escolhida, seleciona automaticamente
+    if (compatImpressoes.length === 1 && !local.printer_id) {
+      setLocal((prev) => ({ ...prev, printer_id: compatImpressoes[0].id }));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipo]);
+  }, [tipo, compatImpressoes.length]);
+
+  // Autofocus em Largura ao montar
+  const larguraRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    const t = setTimeout(() => larguraRef.current?.focus(), 50);
+    return () => clearTimeout(t);
+  }, []);
 
   // Monta lista de acabamentos aplicados (incluindo avulsos sintéticos)
   const aplicados: AcabamentoAplicado[] = useMemo(() => {
