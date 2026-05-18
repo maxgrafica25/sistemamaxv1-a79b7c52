@@ -164,6 +164,10 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [cvItems, setCvItems] = useState<CVItemState[]>([]);
   const [cvResults, setCvResults] = useState<Record<string, CVCalcResult>>({});
   const [cvMarkup, setCvMarkup] = useState<CVMarkupSettings | undefined>(undefined);
+  const [cvOpen, setCvOpen] = useState<boolean>(false);
+  const [cvIntelTab, setCvIntelTab] = useState<"sugestoes" | "perguntas">("sugestoes");
+  const [cvSuggestionsCount, setCvSuggestionsCount] = useState<number>(0);
+  const [cvPendingCount, setCvPendingCount] = useState<number>(0);
 
   // Checklist contextual
   const [checklistAnswers, setChecklistAnswers] = useState<import("@/components/orcamentos-v2/QuoteChecklist").ChecklistAnswerState[]>([]);
