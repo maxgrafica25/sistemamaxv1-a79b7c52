@@ -338,8 +338,13 @@ export function CVItemCard({
               onOpenChange={(o) => { setFinishPickerOpen(o); if (!o) resetCustom(); }}
             >
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" disabled={!midia}>
-                  <Plus className="h-3 w-3" /> Adicionar
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-primary border-primary/40 hover:bg-primary/5 hover:text-primary font-medium text-xs"
+                  disabled={!midia}
+                >
+                  <Plus className="h-4 w-4" /> Adicionar
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-72 p-1" align="end">
