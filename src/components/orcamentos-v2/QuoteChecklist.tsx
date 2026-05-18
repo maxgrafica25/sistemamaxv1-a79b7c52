@@ -248,37 +248,9 @@ export function QuoteChecklist({
     );
   }
 
-  if (embedded) {
-    return (
-      <div className="space-y-2">
-        {relevantContent({ relevant, answers, q_setAns: setAns, uploadingId, setUploadingId, supabase, toast, handleUpload, setNumericInputForKey: undefined })}
-      </div>
-    );
-  }
-
-  return (
-    <Card className="border-primary/30 bg-primary/5">
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger asChild>
-          <button className="w-full flex items-center justify-between p-3 hover:bg-primary/10 transition-colors">
-            <div className="flex items-center gap-2">
-              <ListChecks className="h-4 w-4 text-primary" />
-              <span className="font-medium text-sm">Checklist do orçamento</span>
-              {pending > 0 ? (
-                <Badge variant="destructive" className="h-5 text-xs">{pending} pendente{pending > 1 ? "s" : ""}</Badge>
-              ) : (
-                <Badge variant="secondary" className="h-5 text-xs gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> Tudo respondido
-                </Badge>
-              )}
-              <span className="text-xs text-muted-foreground">({relevant.length} pergunta{relevant.length > 1 ? "s" : ""})</span>
-            </div>
-            {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <CardContent className="pt-0 pb-3 space-y-2">
-            {relevant.map((q) => {
+  const questionsBody = (
+    <div className={embedded ? "space-y-2" : ""}>
+      {relevant.map((q) => {
               const a = answers[q.id];
               const answered = a && (
                 a.resposta_bool != null ||
