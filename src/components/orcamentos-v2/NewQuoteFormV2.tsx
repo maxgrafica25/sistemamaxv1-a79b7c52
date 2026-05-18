@@ -46,6 +46,7 @@ import { FreightSelector } from "@/components/orcamentos-v2/FreightSelector";
 import { QuoteItemsTable, type ProcessStep, type ProcessGroup } from "@/components/orcamentos-v2/QuoteItemsTable";
 import { QuoteOptionsBuilder } from "@/components/orcamentos-v2/QuoteOptionsBuilder";
 import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
+import { recalculateQuoteForQuantity } from "@/lib/quotes-v2/options-pricing";
 import { useLocalDraft, hasDraft, loadDraft, clearDraft } from "@/hooks/useLocalDraft";
 import { QuoteChecklist } from "@/components/orcamentos-v2/QuoteChecklist";
 import { QuoteAssistant } from "@/components/orcamentos-v2/QuoteAssistant";
