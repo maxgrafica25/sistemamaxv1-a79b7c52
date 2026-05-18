@@ -1991,6 +1991,8 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           snapshot={snapshot}
           options={quoteOptions}
           onChange={setQuoteOptions}
+          baseQuantity={baseQuoteQuantity}
+          recalcForQuantity={recalcQuoteForQty}
         />
       </div>
 
