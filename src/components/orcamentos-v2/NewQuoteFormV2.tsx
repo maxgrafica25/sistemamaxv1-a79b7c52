@@ -715,6 +715,40 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     [live.totalToCharge, cvTotal],
   );
 
+  // Quantidade base do orçamento — referência para os atalhos ½×, 2×, 3×, 5×.
+  // Usa a maior quantidade entre itens de impressão e peças de CV.
+  const baseQuoteQuantity = useMemo(() => {
+    const printQtys = materials
+      .filter((m) => !m.parentItemId && !!m.printerCategoryId)
+      .map((m) => Math.max(1, Math.floor(m.quantity || 0)));
+    const cvQtys = cvItems.map((c) => Math.max(1, Math.floor(c.quantidade || 1)));
+    const all = [...printQtys, ...cvQtys];
+    if (all.length === 0) return 100;
+    return Math.max(...all);
+  }, [materials, cvItems]);
+
+  // Callback de recálculo passado ao QuoteOptionsBuilder — orquestra impressão + CV.
+  const recalcQuoteForQty = useMemo(
+    () => (qty: number) => {
+      const r = recalculateQuoteForQuantity(
+        snapshot,
+        {
+          items: cvItems,
+          midias: cvMaterials,
+          impressoes: cvPrinters,
+          acabamentos: cvFinishes,
+          valorMinimo: cvValorMinimo,
+          hourRate: hourlyRate,
+          markup: cvMarkup,
+        },
+        baseQuoteQuantity,
+        qty,
+      );
+      return { unitPrice: r.unitPrice, total: r.total };
+    },
+    [snapshot, cvItems, cvMaterials, cvPrinters, cvFinishes, cvValorMinimo, hourlyRate, cvMarkup, baseQuoteQuantity],
+  );
+
   const discountedTotal = useMemo(() => {
     const baseTotal = subtotalBeforeDiscount;
     if (!discountValue || discountValue <= 0) return baseTotal;
