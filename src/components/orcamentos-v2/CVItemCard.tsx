@@ -198,11 +198,6 @@ export function CVItemCard({
     }));
   };
 
-  const [finishPickerOpen, setFinishPickerOpen] = useState(false);
-  const [customMode, setCustomMode] = useState(false);
-  const [customNome, setCustomNome] = useState("");
-  const [customValor, setCustomValor] = useState("");
-  const resetCustom = () => { setCustomMode(false); setCustomNome(""); setCustomValor(""); };
 
   // Detecta detalhe do bastão para mostrar emenda
   const detalheBastao = result.acabamentos_detalhe.find((d) => d.info_bastao);
