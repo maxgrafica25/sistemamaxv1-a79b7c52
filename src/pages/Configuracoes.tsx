@@ -390,6 +390,12 @@ export default function Configuracoes() {
             </Card>
           </TabsContent>
         )}
+
+        {isAdmin && (
+          <TabsContent value="vps" className="space-y-6 mt-4">
+            <VpsPackageCard sessionToken={session?.access_token ?? null} />
+          </TabsContent>
+        )}
       </Tabs>
 
       <Dialog open={generating !== null}>
