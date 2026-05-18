@@ -1692,71 +1692,141 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
           />
         </div>
 
-        {/* ===== Comunicação Visual (opcional, recolhido) ===== */}
+        {/* ===== Comunicação Visual (lonas, adesivos, banners — por m²) ===== */}
         {(cvItems.length > 0 || cvMaterials.length > 0) && (
-          <details className="rounded-lg border bg-card group">
-            <summary className="cursor-pointer px-4 py-3 text-sm font-medium flex items-center gap-2 list-none">
+          <div id="cv-block-anchor" className="rounded-lg border bg-card">
+            <button
+              type="button"
+              onClick={() => setCvOpen((o) => !o)}
+              className="w-full px-4 py-3 text-sm font-medium flex items-center gap-2"
+            >
               <Megaphone className="h-4 w-4 text-primary" />
-              Comunicação Visual
+              <span>Comunicação Visual</span>
+              <span className="text-xs text-muted-foreground font-normal hidden sm:inline">
+                — lonas, adesivos, banners (por m²)
+              </span>
               {cvItems.length > 0 && <Badge variant="outline" className="ml-1">{cvItems.length}</Badge>}
-              <ChevronDown className="h-4 w-4 ml-auto group-open:rotate-180 transition-transform" />
-            </summary>
-            <div className="px-4 pb-4 space-y-3 border-t">
-              <div className="flex justify-end pt-3">
-                <Button
-                  variant="outline" size="sm" className="gap-1.5"
-                  disabled={cvMaterials.length === 0}
-                  onClick={() => setCvItems((p) => [...p, {
-                    id: `cv-${Date.now()}`, material_id: null, printer_id: null,
-                    largura_cm: 0, altura_cm: 0, quantidade: 1, acabamentos: [],
-                  }])}
-                >
-                  <Plus className="h-4 w-4" /> Item CV
-                </Button>
+              <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${cvOpen ? "rotate-180" : ""}`} />
+            </button>
+            {cvOpen && (
+              <div className="px-4 pb-4 space-y-3 border-t">
+                {cvItems.length === 0 && (
+                  <div className="pt-4 text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma peça de comunicação visual ainda.
+                    </p>
+                    <Button
+                      variant="outline" size="sm" className="gap-1.5"
+                      disabled={cvMaterials.length === 0}
+                      onClick={() => setCvItems((p) => [...p, {
+                        id: `cv-${Date.now()}`, material_id: null, printer_id: null,
+                        largura_cm: 0, altura_cm: 0, quantidade: 1, acabamentos: [],
+                      }])}
+                    >
+                      <Plus className="h-4 w-4" /> Adicionar peça
+                    </Button>
+                  </div>
+                )}
+                {cvItems.map((it, idx) => (
+                  <CVItemCard
+                    key={it.id} item={it} index={idx}
+                    midias={cvMaterials} impressoes={cvPrinters} acabamentos={cvFinishes}
+                    valorMinimo={cvValorMinimo}
+                    hourRate={hourlyRate}
+                    markup={cvMarkup}
+                    onChange={(updated) => setCvItems((p) => p.map((x) => (x.id === it.id ? updated : x)))}
+                    onRemove={() => {
+                      setCvItems((p) => p.filter((x) => x.id !== it.id));
+                      setCvResults((p) => { const { [it.id]: _, ...rest } = p; return rest; });
+                    }}
+                    onResult={(r) =>
+                      setCvResults((p) => (p[it.id]?.valor_total === r.valor_total && p[it.id]?.custo_total === r.custo_total ? p : { ...p, [it.id]: r }))
+                    }
+                  />
+                ))}
+                {cvItems.length > 0 && (
+                  <div className="flex justify-end">
+                    <Button
+                      variant="ghost" size="sm" className="gap-1.5 text-muted-foreground"
+                      disabled={cvMaterials.length === 0}
+                      onClick={() => setCvItems((p) => [...p, {
+                        id: `cv-${Date.now()}`, material_id: null, printer_id: null,
+                        largura_cm: 0, altura_cm: 0, quantidade: 1, acabamentos: [],
+                      }])}
+                    >
+                      <Plus className="h-4 w-4" /> Adicionar outra peça
+                    </Button>
+                  </div>
+                )}
+                {cvItems.length > 0 && (
+                  <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-muted-foreground">Subtotal Comunicação Visual</span>
+                      <span className="text-[11px] text-muted-foreground/80">Inclui mídia + impressão + acabamentos</span>
+                    </div>
+                    <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
+                  </div>
+                )}
+
+                {/* Cartão unificado: Sugestões da IA + Perguntas ao cliente */}
+                {cvItems.length > 0 && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/[0.02] p-3 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      Inteligência do orçamento
+                    </div>
+                    <Tabs value={cvIntelTab} onValueChange={(v) => setCvIntelTab(v as any)}>
+                      <TabsList className="grid grid-cols-2 w-full">
+                        <TabsTrigger value="sugestoes" className="gap-1.5">
+                          Sugestões
+                          {cvSuggestionsCount > 0 && (
+                            <Badge variant="secondary" className="h-4 px-1 text-[10px]">{cvSuggestionsCount}</Badge>
+                          )}
+                        </TabsTrigger>
+                        <TabsTrigger value="perguntas" className="gap-1.5">
+                          Perguntas ao cliente
+                          {cvPendingCount > 0 && (
+                            <Badge variant="destructive" className="h-4 px-1 text-[10px]">{cvPendingCount}</Badge>
+                          )}
+                        </TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="sugestoes" className="mt-3 space-y-2">
+                        <p className="text-[11px] text-muted-foreground">
+                          Analisa seus itens e aponta acabamentos esquecidos, riscos e perguntas úteis. Atualiza sozinho.
+                        </p>
+                        <QuoteAssistant
+                          embedded
+                          onCountChange={setCvSuggestionsCount}
+                          cvItems={cvItems}
+                          cvMaterials={cvMaterials}
+                          cvFinishes={cvFinishes}
+                          clientTags={tags}
+                          clientName={client}
+                        />
+                      </TabsContent>
+                      <TabsContent value="perguntas" className="mt-3 space-y-2">
+                        <p className="text-[11px] text-muted-foreground">
+                          Dúvidas que afetam o preço (ex.: cliente fornece arte? precisa instalação?). Responda para travar o valor correto.
+                        </p>
+                        <QuoteChecklist
+                          embedded
+                          onPendingChange={setCvPendingCount}
+                          quoteId={savedQuoteId}
+                          cvItems={cvItems}
+                          cvMaterials={cvMaterials}
+                          cvFinishes={cvFinishes}
+                          onAnswersChange={setChecklistAnswers}
+                          onAutoLaborChange={handleChecklistAutoLabor}
+                        />
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                )}
               </div>
-              {cvItems.map((it, idx) => (
-                <CVItemCard
-                  key={it.id} item={it} index={idx}
-                  midias={cvMaterials} impressoes={cvPrinters} acabamentos={cvFinishes}
-                  valorMinimo={cvValorMinimo}
-                  hourRate={hourlyRate}
-                  markup={cvMarkup}
-                  onChange={(updated) => setCvItems((p) => p.map((x) => (x.id === it.id ? updated : x)))}
-                  onRemove={() => {
-                    setCvItems((p) => p.filter((x) => x.id !== it.id));
-                    setCvResults((p) => { const { [it.id]: _, ...rest } = p; return rest; });
-                  }}
-                  onResult={(r) =>
-                    setCvResults((p) => (p[it.id]?.valor_total === r.valor_total && p[it.id]?.custo_total === r.custo_total ? p : { ...p, [it.id]: r }))
-                  }
-                />
-              ))}
-              {cvItems.length > 0 && (
-                <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
-                  <span className="text-sm font-medium text-muted-foreground">Subtotal Comunicação Visual</span>
-                  <span className="text-lg font-bold text-primary">{formatBRL(cvTotal)}</span>
-                </div>
-              )}
-
-              <QuoteAssistant
-                cvItems={cvItems}
-                cvMaterials={cvMaterials}
-                cvFinishes={cvFinishes}
-                clientTags={tags}
-                clientName={client}
-              />
-
-              <QuoteChecklist
-                quoteId={savedQuoteId}
-                cvItems={cvItems}
-                cvMaterials={cvMaterials}
-                cvFinishes={cvFinishes}
-                onAnswersChange={setChecklistAnswers}
-                onAutoLaborChange={handleChecklistAutoLabor}
-              />
-            </div>
-          </details>
+            )}
+          </div>
         )}
+
 
         {/* ===== Descrições complementares ===== */}
         <div className="space-y-2">
