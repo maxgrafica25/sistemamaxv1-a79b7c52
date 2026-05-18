@@ -327,73 +327,91 @@ export function CVItemCard({
           </div>
         )}
 
-        {/* Acabamentos */}
-        <div className="space-y-2">
-          <Label className="text-xs">Acabamentos</Label>
+        {/* Acabamentos (colapsável — padrão impressão) */}
+        <div className="border-t border-border/60 pt-3">
+          <button
+            type="button"
+            onClick={() => setAcabExpanded((v) => !v)}
+            className="group flex items-center gap-2 rounded-md px-2 py-1 -mx-2 text-sm font-semibold text-foreground hover:bg-muted/60 transition-colors w-full"
+          >
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span>Acabamentos</span>
+            {local.acabamentos.length > 0 && (
+              <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                {local.acabamentos.length} aplicado{local.acabamentos.length > 1 ? "s" : ""}
+              </Badge>
+            )}
+            {local.acabamentos.length === 0 && !acabExpanded && (
+              <span className="text-[11px] font-normal text-muted-foreground">— clique para adicionar</span>
+            )}
+            <ChevronDown className={`h-4 w-4 text-muted-foreground ml-auto transition-transform ${acabExpanded ? "rotate-180" : ""}`} />
+          </button>
 
-          {!midia ? (
-            <p className="text-xs text-muted-foreground italic">
-              Selecione a mídia para ver acabamentos compatíveis.
-            </p>
-          ) : (
-            <>
-              {/* Camada 1 — chips contextuais "Sugeridos" */}
-              <CvFinishingSuggestions
-                tipo={tipo}
-                acabamentos={acabamentos}
-                appliedIds={local.acabamentos.map((a) => a.finish_id)}
-                onPick={(ac) => addAcabamento(ac)}
-              />
+          {acabExpanded && (
+            <div className="space-y-2 mt-2">
+              {!midia ? (
+                <p className="text-xs text-muted-foreground italic">
+                  Selecione a mídia para ver acabamentos compatíveis.
+                </p>
+              ) : (
+                <>
+                  {/* Camada 1 — chips contextuais "Sugeridos" */}
+                  <CvFinishingSuggestions
+                    tipo={tipo}
+                    acabamentos={acabamentos}
+                    appliedIds={local.acabamentos.map((a) => a.finish_id)}
+                    onPick={(ac) => addAcabamento(ac)}
+                  />
 
-              {/* Camada 2 — omnibox de busca + criar avulso */}
-              <CvFinishingOmnibox
-                compat={compatAcabamentos}
-                appliedIds={local.acabamentos.map((a) => a.finish_id)}
-                onPick={(ac) => addAcabamento(ac)}
-                onCreateCustom={(nome, valor) => addCustomAcabamento(nome, valor)}
-              />
-            </>
-          )}
+                  {/* Camada 2 — omnibox de busca + criar avulso */}
+                  <CvFinishingOmnibox
+                    compat={compatAcabamentos}
+                    appliedIds={local.acabamentos.map((a) => a.finish_id)}
+                    onPick={(ac) => addAcabamento(ac)}
+                    onCreateCustom={(nome, valor) => addCustomAcabamento(nome, valor)}
+                  />
+                </>
+              )}
 
-
-          {local.acabamentos.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">Nenhum acabamento aplicado.</p>
-          ) : (
-            <div className="space-y-1.5">
-              {local.acabamentos.map((a) => {
-                const isCustom = !!a.custom;
-                const f = isCustom ? null : acabamentos.find((x) => x.id === a.finish_id);
-                if (!isCustom && !f) return null;
-                const detalhe = result.acabamentos_detalhe.find((r) => r.acabamento_id === a.finish_id);
-                const nome = isCustom ? (a.custom!.nome || "Acabamento avulso") : f!.nome;
-                // Mostra input de quantidade só para famílias unidade-based
-                const usaUnidade = !isCustom && f && (f.custo_unidade > 0 || f.lucro_unidade > 0)
-                  && f.familia !== "banner_bastao"; // bastão auto-selecionado
-                return (
-                  <div key={a.finish_id} className="flex items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
-                    <span className="flex-1 text-sm font-medium truncate flex items-center gap-1.5">
-                      {nome}
-                      {isCustom && (
-                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">avulso</Badge>
-                      )}
-                    </span>
-                    {usaUnidade && (
-                      <Input
-                        type="number" min="1" step="1"
-                        value={a.quantidade_unidades || 1}
-                        onChange={(e) => updateAcabamentoQty(a.finish_id, parseInt(e.target.value) || 1)}
-                        className="h-7 w-16 text-center text-xs"
-                      />
-                    )}
-                    <span className="w-20 text-right text-sm font-semibold">
-                      {detalhe ? formatBRL(detalhe.preco) : "—"}
-                    </span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeAcabamento(a.finish_id)}>
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                );
-              })}
+              {local.acabamentos.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Nenhum acabamento aplicado.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {local.acabamentos.map((a) => {
+                    const isCustom = !!a.custom;
+                    const f = isCustom ? null : acabamentos.find((x) => x.id === a.finish_id);
+                    if (!isCustom && !f) return null;
+                    const detalhe = result.acabamentos_detalhe.find((r) => r.acabamento_id === a.finish_id);
+                    const nome = isCustom ? (a.custom!.nome || "Acabamento avulso") : f!.nome;
+                    const usaUnidade = !isCustom && f && (f.custo_unidade > 0 || f.lucro_unidade > 0)
+                      && f.familia !== "banner_bastao";
+                    return (
+                      <div key={a.finish_id} className="flex items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
+                        <span className="flex-1 text-sm font-medium truncate flex items-center gap-1.5">
+                          {nome}
+                          {isCustom && (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">avulso</Badge>
+                          )}
+                        </span>
+                        {usaUnidade && (
+                          <Input
+                            type="number" min="1" step="1"
+                            value={a.quantidade_unidades || 1}
+                            onChange={(e) => updateAcabamentoQty(a.finish_id, parseInt(e.target.value) || 1)}
+                            className="h-7 w-16 text-center text-xs"
+                          />
+                        )}
+                        <span className="w-20 text-right text-sm font-semibold">
+                          {detalhe ? formatBRL(detalhe.preco) : "—"}
+                        </span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeAcabamento(a.finish_id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
