@@ -741,29 +741,36 @@ export default function ClientViewer() {
             </CardContent>
           </Card>
         )}
-        {hasMultipleOptions && (
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground px-1">
-              {showOptionsMode ? "Escolha a quantidade" : "Outras quantidades para comparar"}
-            </h2>
-            {!showOptionsMode && (
-              <p className="text-xs text-muted-foreground px-1 -mt-2">
-                Valores de referência para volumes diferentes. Para alterar a quantidade do orçamento, use <strong>Solicitar alteração</strong>.
-              </p>
-            )}
-            <div className="grid gap-3 sm:grid-cols-2">
-              {options.map((opt) => (
-                <OptionCard
-                  key={opt.id}
-                  option={opt}
-                  selected={opt.id === selectedOptionId}
-                  onSelect={() => setSelectedOptionId(opt.id)}
-                  readOnly={!showOptionsMode}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+        {hasMultipleOptions && (() => {
+          const sorted = [...options].sort((a, b) => a.quantity - b.quantity);
+          const bestUnit = Math.min(...sorted.map((o) => o.unit_price));
+          const worstUnit = Math.max(...sorted.map((o) => o.unit_price));
+          return (
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground px-1">
+                {showOptionsMode ? "Escolha a quantidade" : "Outras quantidades para comparar"}
+              </h2>
+              {!showOptionsMode && (
+                <p className="text-xs text-muted-foreground px-1 -mt-2">
+                  Valores de referência para volumes diferentes. Para alterar a quantidade do orçamento, use <strong>Solicitar alteração</strong>.
+                </p>
+              )}
+              <div className="grid gap-4 sm:grid-cols-2 pt-2">
+                {sorted.map((opt) => (
+                  <OptionCard
+                    key={opt.id}
+                    option={opt}
+                    selected={opt.id === selectedOptionId}
+                    onSelect={() => setSelectedOptionId(opt.id)}
+                    readOnly={!showOptionsMode}
+                    isBest={sorted.length > 1 && opt.unit_price === bestUnit && bestUnit < worstUnit}
+                    reference_unit_price={worstUnit}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })()}
 
         {/* Sem itens nem opções — exibe valor único */}
         {!hasMultipleOptions && materials.length === 0 && cvItems.length === 0 && (
