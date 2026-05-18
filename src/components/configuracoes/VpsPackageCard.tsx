@@ -14,10 +14,15 @@ interface PackageResult {
   size_bytes: number;
   download_url: string;
   expires_in_days: number;
+  split_mode?: boolean;
+  storage_filename?: string | null;
+  storage_download_url?: string | null;
+  storage_size_bytes?: number;
   contents: {
     users: number;
     cron_jobs: number;
     realtime_tables: number;
+    edge_functions?: number;
     storage_files_total: number;
     storage_size_bytes: number;
   };
