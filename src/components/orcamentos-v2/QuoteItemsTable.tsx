@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers, Wand2, RefreshCw, Copy, CheckCircle2, Lock, ChevronDown,
+  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers, Wand2, RefreshCw, Copy, CheckCircle2, Lock, ChevronDown, Megaphone,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -60,6 +60,10 @@ interface Props {
 
   onAddPrinting: (item: PrintingCatalogItem) => void;
   onAddEmptyPrinting: () => void;
+  /** Opcional: handler para adicionar item de Comunicação Visual a partir do menu unificado. */
+  onAddCV?: () => void;
+  /** Opcional: desabilita a entrada CV (ex.: sem mídias cadastradas). */
+  cvDisabled?: boolean;
   onPickPaperForPrinting: (id: string, item: PrintingCatalogItem) => void;
   onSwapPrinting: (id: string, item: PrintingCatalogItem) => void;
   onAddProcess: (parentId: string | null, step: ProcessStep) => void;
@@ -106,7 +110,7 @@ export function QuoteItemsTable(props: Props) {
     markupTiers, categoryDefaultGroupId,
     printingItems, childMaterials, childLabor,
     standaloneLabor, standaloneManualMaterials, thirdParty,
-    onAddPrinting, onAddEmptyPrinting, onPickPaperForPrinting,
+    onAddPrinting, onAddEmptyPrinting, onAddCV, cvDisabled, onPickPaperForPrinting,
     onSwapPrinting, onAddProcess, onExpandStepGroup, onAddCustomFinish,
     onUpdatePrinting, onUpdateChildMaterial,
     onSetChildLaborForItem, onSetChildMaterialsForItem,
@@ -520,6 +524,21 @@ export function QuoteItemsTable(props: Props) {
                 <span className="text-[11px] text-muted-foreground">Sem vínculo com impressão</span>
               </div>
             </DropdownMenuItem>
+            {onAddCV && (
+              <DropdownMenuItem
+                onClick={() => !cvDisabled && onAddCV()}
+                disabled={cvDisabled}
+                className="gap-2"
+              >
+                <Megaphone className="h-4 w-4 text-primary" />
+                <div className="flex flex-col">
+                  <span className="text-sm">Comunicação Visual</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {cvDisabled ? "Cadastre uma mídia primeiro" : "Lona, adesivo, banner — por m²"}
+                  </span>
+                </div>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

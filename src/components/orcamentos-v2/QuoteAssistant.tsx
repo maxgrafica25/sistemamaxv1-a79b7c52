@@ -48,6 +48,10 @@ interface Props {
   clientTags: string[];
   clientName?: string;
   checklistAnswers?: { pergunta: string; resposta: string }[];
+  /** Quando true, esconde o próprio header (usado em cartão unificado com abas). */
+  embedded?: boolean;
+  /** Notifica o total de sugestões ativas para badges externos. */
+  onCountChange?: (count: number) => void;
 }
 
 const SEV_ICON: Record<string, any> = {
@@ -61,7 +65,7 @@ const SEV_COLOR: Record<string, string> = {
   critico: "text-destructive border-destructive/40 bg-destructive/10",
 };
 
-export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags, clientName, checklistAnswers }: Props) {
+export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags, clientName, checklistAnswers, embedded, onCountChange }: Props) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [acabNames, setAcabNames] = useState<Record<string, string>>({});
   const [questionNames, setQuestionNames] = useState<Record<string, string>>({});
@@ -250,11 +254,16 @@ export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags, c
 
   const aiVisible = ai.filter((_, i) => !aiDismissed.has(i));
 
-  if (rules.length === 0 && cvItems.length === 0) return null;
+  const totalCount = ativas.length + histVisible.length + aiVisible.length;
+  useEffect(() => {
+    onCountChange?.(totalCount);
+  }, [totalCount, onCountChange]);
 
-  return (
-    <Card className="border-primary/30 bg-primary/[0.02]">
-      <CardContent className="p-3 space-y-2">
+  if (rules.length === 0 && cvItems.length === 0 && !embedded) return null;
+
+  const body = (
+    <CardContent className={embedded ? "p-0 space-y-2" : "p-3 space-y-2"}>
+      {!embedded && (
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
@@ -262,13 +271,14 @@ export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags, c
         >
           <Sparkles className="h-4 w-4 text-primary" />
           <span>Assistente do orçamento</span>
-          {(ativas.length + histVisible.length + aiVisible.length) > 0 && (
-            <Badge variant="secondary" className="ml-1">{ativas.length + histVisible.length + aiVisible.length}</Badge>
+          {totalCount > 0 && (
+            <Badge variant="secondary" className="ml-1">{totalCount}</Badge>
           )}
           <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${collapsed ? "-rotate-90" : ""}`} />
         </button>
+      )}
 
-        {!collapsed && (
+      {(embedded || !collapsed) && (
           <div className="space-y-2 pt-1">
             {ativas.length === 0 && histVisible.length === 0 && aiVisible.length === 0 && !histLoading && !aiLoading ? (
               <p className="text-xs text-muted-foreground px-1">
@@ -398,7 +408,9 @@ export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags, c
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+    </CardContent>
   );
+
+  if (embedded) return body;
+  return <Card className="border-primary/30 bg-primary/[0.02]">{body}</Card>;
 }
