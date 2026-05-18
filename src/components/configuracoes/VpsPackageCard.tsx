@@ -86,9 +86,9 @@ export default function VpsPackageCard({ sessionToken }: Props) {
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription className="text-sm">
-              <strong>Fase 1:</strong> banco + usuários + cron + manual. Arquivos do Storage ainda
-              não inclusos no ZIP — baixe pelo botão antigo de exportação. Cada pacote fica
-              disponível por 7 dias e mantemos apenas os 3 mais recentes.
+              Pacote completo: banco + usuários + cron + <strong>arquivos do Storage</strong> +
+              docker-compose + script <code>instalar.sh</code> + backup diário automático.
+              Disponível por 7 dias. Mantemos os 3 pacotes mais recentes.
             </AlertDescription>
           </Alert>
 
@@ -99,23 +99,41 @@ export default function VpsPackageCard({ sessionToken }: Props) {
 
           {result && (
             <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-sm">{result.filename}</p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm truncate">{result.filename}</p>
                   <p className="text-xs text-muted-foreground">
                     {fmtBytes(result.size_bytes)} • válido por {result.expires_in_days} dias
                   </p>
                 </div>
-                <Button asChild size="sm" className="gap-2">
+                <Button asChild size="sm" className="gap-2 shrink-0">
                   <a href={result.download_url} download={result.filename}>
-                    <Download className="h-4 w-4" /> Baixar
+                    <Download className="h-4 w-4" /> Baixar base
                   </a>
                 </Button>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-muted-foreground border-t pt-3">
+
+              {result.split_mode && result.storage_download_url && result.storage_filename && (
+                <div className="flex items-center justify-between gap-3 border-t pt-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{result.storage_filename}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {fmtBytes(result.storage_size_bytes || 0)} • <strong>baixe também</strong> e coloque na mesma pasta
+                    </p>
+                  </div>
+                  <Button asChild size="sm" variant="secondary" className="gap-2 shrink-0">
+                    <a href={result.storage_download_url} download={result.storage_filename}>
+                      <Download className="h-4 w-4" /> Baixar storage
+                    </a>
+                  </Button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs text-muted-foreground border-t pt-3">
                 <div><span className="font-mono text-foreground">{result.contents.users}</span> usuários</div>
                 <div><span className="font-mono text-foreground">{result.contents.cron_jobs}</span> cron jobs</div>
-                <div><span className="font-mono text-foreground">{result.contents.realtime_tables}</span> tabelas realtime</div>
+                <div><span className="font-mono text-foreground">{result.contents.realtime_tables}</span> realtime</div>
+                <div><span className="font-mono text-foreground">{result.contents.edge_functions ?? 0}</span> funções</div>
                 <div><span className="font-mono text-foreground">{result.contents.storage_files_total}</span> arquivos ({fmtBytes(result.contents.storage_size_bytes)})</div>
               </div>
               {result.note && <p className="text-xs text-muted-foreground italic">{result.note}</p>}
