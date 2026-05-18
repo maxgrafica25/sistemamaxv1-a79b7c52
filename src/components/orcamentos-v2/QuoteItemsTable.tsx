@@ -494,19 +494,34 @@ export function QuoteItemsTable(props: Props) {
 
       {/* Add row trigger */}
       <div className="flex items-center gap-3 px-3 py-2.5 text-sm flex-wrap">
-        <button
-          onClick={() => onAddEmptyPrinting()}
-          className="text-primary hover:underline inline-flex items-center gap-1.5 font-medium"
-        >
-          <Plus className="h-4 w-4" /> adicionar impressão
-        </button>
-        <span className="text-muted-foreground">·</span>
-        <button
-          onClick={() => addEmptyDraft("finish")}
-          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
-        >
-          <Plus className="h-3.5 w-3.5" /> processo / acabamento avulso
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-primary border-primary/40 hover:bg-primary/5 hover:text-primary font-medium"
+            >
+              <Plus className="h-4 w-4" /> Adicionar
+              <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuItem onClick={() => onAddEmptyPrinting()} className="gap-2">
+              <Printer className="h-4 w-4 text-primary" />
+              <div className="flex flex-col">
+                <span className="text-sm">Impressão</span>
+                <span className="text-[11px] text-muted-foreground">Item com papel + impressão</span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => addEmptyDraft("finish")} className="gap-2">
+              <Wrench className="h-4 w-4 text-muted-foreground" />
+              <div className="flex flex-col">
+                <span className="text-sm">Processo / Acabamento avulso</span>
+                <span className="text-[11px] text-muted-foreground">Sem vínculo com impressão</span>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
