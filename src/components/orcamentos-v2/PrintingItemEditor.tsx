@@ -562,6 +562,7 @@ export function PrintingItemEditor({
             <Popover open={paperOpen} onOpenChange={setPaperOpen}>
               <PopoverAnchor asChild>
                 <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     value={
                       paperOpen
@@ -570,11 +571,11 @@ export function PrintingItemEditor({
                           ? `${item.paperType}${item.grammage ? ` ${item.grammage}` : ""}${item.size ? ` — ${item.size}` : ""}${item.side ? ` ${item.side}` : ""}`
                           : ""
                     }
-                    placeholder="Buscar papel, gramatura, formato…"
+                    placeholder="Buscar papel por nome, gramatura ou formato…"
                     onFocus={() => { setPaperOpen(true); setPaperQuery(""); }}
                     onChange={(e) => { setPaperQuery(e.target.value); setPaperOpen(true); }}
                     onBlur={() => setTimeout(() => setPaperOpen(false), 150)}
-                    className="h-9 text-sm pr-8"
+                    className="h-9 text-sm pl-8 pr-8"
                   />
                   {item.paperType && !paperOpen && (
                     <button
