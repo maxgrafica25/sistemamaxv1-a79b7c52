@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers, Wand2, RefreshCw, Copy, CheckCircle2, Lock, ChevronDown,
+  Plus, X, Printer, Wrench, Tag, Search, Clock, Layers, Wand2, RefreshCw, Copy, CheckCircle2, Lock, ChevronDown, Megaphone,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
