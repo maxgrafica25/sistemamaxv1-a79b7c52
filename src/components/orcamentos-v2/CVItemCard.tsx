@@ -270,6 +270,7 @@ export function CVItemCard({
             <Label className="text-xs">Largura (cm)</Label>
             <div className="relative">
               <Input
+                ref={larguraRef}
                 type="number" inputMode="decimal" step="0.1" min="0"
                 value={local.largura_cm || ""}
                 onChange={(e) => updateField("largura_cm", parseFloat(e.target.value) || 0)}
