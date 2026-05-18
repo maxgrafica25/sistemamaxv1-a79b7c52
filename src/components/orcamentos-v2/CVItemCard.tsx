@@ -65,6 +65,7 @@ export function CVItemCard({
 
   // Local + debounce
   const [local, setLocal] = useState(item);
+  const [acabExpanded, setAcabExpanded] = useState(() => (item.acabamentos?.length ?? 0) > 0);
   useEffect(() => setLocal(item), [item.id]);
 
   const [debounced, setDebounced] = useState(local);
