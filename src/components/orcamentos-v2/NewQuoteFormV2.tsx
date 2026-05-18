@@ -162,6 +162,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [cvFinishes, setCvFinishes] = useState<CVAcabamento[]>([]);
   const [cvValorMinimo, setCvValorMinimo] = useState<number>(35);
   const [cvItems, setCvItems] = useState<CVItemState[]>([]);
+  const cvAutoSeededRef = useRef(false);
   const [cvResults, setCvResults] = useState<Record<string, CVCalcResult>>({});
   const [cvMarkup, setCvMarkup] = useState<CVMarkupSettings | undefined>(undefined);
   const [cvOpen, setCvOpen] = useState<boolean>(false);
