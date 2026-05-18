@@ -24,59 +24,76 @@ export default function ResetPassword() {
   useEffect(() => {
     let resolved = false;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const finish = (recovery: boolean) => {
       if (resolved) return;
-      // Accept PASSWORD_RECOVERY, SIGNED_IN, or magiclink events
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
-        if (session) {
-          resolved = true;
-          setIsRecovery(true);
-          setChecking(false);
+      resolved = true;
+      setIsRecovery(recovery);
+      setChecking(false);
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && session)) {
+        finish(true);
+      }
+    });
+
+    (async () => {
+      const url = new URL(window.location.href);
+      const hash = window.location.hash;
+      const hashParams = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
+
+      // 1) Novo fluxo PKCE: ?code=...
+      const code = url.searchParams.get("code");
+      if (code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (!error && data.session) {
+          // limpa o code da URL
+          url.searchParams.delete("code");
+          window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+          finish(true);
+          return;
         }
       }
-    });
 
-    // Also check if there's already a session (token already processed)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (resolved) return;
-      const hash = window.location.hash;
-      // Accept both recovery and magiclink types
-      if (session && hash && (hash.includes("type=recovery") || hash.includes("type=magiclink"))) {
-        resolved = true;
-        setIsRecovery(true);
-        setChecking(false);
-      } else if (!hash || (!hash.includes("type=recovery") && !hash.includes("type=magiclink"))) {
-        setTimeout(() => {
-          if (!resolved) {
-            // If there's a session but no hash, user might have been redirected after magic link
-            supabase.auth.getSession().then(({ data: { session: s } }) => {
-              if (s && !resolved) {
-                resolved = true;
-                setIsRecovery(true);
-                setChecking(false);
-              } else if (!resolved) {
-                resolved = true;
-                setChecking(false);
-              }
-            });
-          }
-        }, 2000);
-      }
-    });
-
-    // Fallback timeout
-    const timeout = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        // Last chance: check if there's a valid session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          if (session) {
-            setIsRecovery(true);
-          }
-          setChecking(false);
+      // 2) Fluxo token_hash (OTP verify): ?token_hash=...&type=recovery
+      const tokenHash = url.searchParams.get("token_hash");
+      const typeParam = url.searchParams.get("type");
+      if (tokenHash && (typeParam === "recovery" || typeParam === "magiclink")) {
+        const { data, error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: typeParam as "recovery" | "magiclink",
         });
+        if (!error && data.session) {
+          url.searchParams.delete("token_hash");
+          url.searchParams.delete("type");
+          window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+          finish(true);
+          return;
+        }
       }
-    }, 5000);
+
+      // 3) Fluxo antigo: #access_token=...&type=recovery (já processado automaticamente pelo SDK)
+      const hashType = hashParams.get("type");
+      if (hashType === "recovery" || hashType === "magiclink") {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          finish(true);
+          return;
+        }
+      }
+
+      // 4) Já existe sessão (link já consumido)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        finish(true);
+        return;
+      }
+
+      // Sem nenhum método válido — espera o onAuthStateChange por mais 2s
+      setTimeout(() => finish(false), 2000);
+    })();
+
+    const timeout = setTimeout(() => finish(false), 8000);
 
     return () => {
       subscription.unsubscribe();
