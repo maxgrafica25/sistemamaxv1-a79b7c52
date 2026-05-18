@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import BaseConhecimentoTab from "@/components/assistente/BaseConhecimentoTab";
 import CompanyTab from "@/components/configuracoes/CompanyTab";
+import VpsPackageCard from "@/components/configuracoes/VpsPackageCard";
 
 function formatBytes(n: number): string {
   if (!n) return "0 B";
@@ -207,6 +208,7 @@ export default function Configuracoes() {
           <TabsTrigger value="integracoes">Integrações</TabsTrigger>
           {isAdmin && <TabsTrigger value="conhecimento">Base de Conhecimento</TabsTrigger>}
           {isAdmin && <TabsTrigger value="backup">Backup &amp; Exportação</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="vps">Migração / VPS</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="empresa">
@@ -387,6 +389,12 @@ export default function Configuracoes() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="vps" className="space-y-6 mt-4">
+            <VpsPackageCard sessionToken={session?.access_token ?? null} />
           </TabsContent>
         )}
       </Tabs>
