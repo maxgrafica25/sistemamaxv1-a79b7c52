@@ -31,7 +31,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Printer, X, Lock, ChevronDown, ChevronRight, Ruler, Layers, AlertTriangle, Link2,
+  Printer, X, Lock, ChevronDown, ChevronRight, Ruler, Layers, AlertTriangle, Link2, Search, Sparkles,
 } from "lucide-react";
 import { LabelLayoutDialog } from "@/components/labels/LabelLayoutDialog";
 import {
