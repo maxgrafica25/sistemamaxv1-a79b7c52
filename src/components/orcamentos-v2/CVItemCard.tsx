@@ -7,7 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertTriangle, Trash2, Plus, X, ChevronDown, Megaphone, Lock, Wand2, Info } from "lucide-react";
+import { AlertTriangle, Trash2, Plus, X, ChevronDown, Megaphone, Lock, Wand2, Info, Sparkles, Search } from "lucide-react";
+import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import { PopoverAnchor } from "@/components/ui/popover";
+import { getCvFinishingSuggestions } from "@/lib/quotes-v2/cv-finishing-suggestions";
 import { useAuth } from "@/hooks/useAuth";
 import {
   calcular,
