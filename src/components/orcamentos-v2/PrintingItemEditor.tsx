@@ -31,7 +31,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Printer, X, Lock, ChevronDown, ChevronRight, Ruler, Layers, AlertTriangle, Link2,
+  Printer, X, Lock, ChevronDown, Ruler, Layers, AlertTriangle, Link2, Search, Sparkles,
 } from "lucide-react";
 import { LabelLayoutDialog } from "@/components/labels/LabelLayoutDialog";
 import {
@@ -367,17 +367,20 @@ export function PrintingItemEditor({
             <Label className="text-xs">Tipo de Material</Label>
             <Popover open={kindOpen} onOpenChange={setKindOpen}>
               <PopoverAnchor asChild>
-                <Input
-                  value={item.productKind || ""}
-                  onChange={(e) => {
-                    handleProductKindChange(e.target.value);
-                    if (!kindOpen) setKindOpen(true);
-                  }}
-                  onFocus={() => setKindOpen(true)}
-                  onBlur={() => setTimeout(() => setKindOpen(false), 150)}
-                  placeholder="Ex.: Panfleto, Cartão de Visita..."
-                  className="h-9 text-sm"
-                />
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={item.productKind || ""}
+                    onChange={(e) => {
+                      handleProductKindChange(e.target.value);
+                      if (!kindOpen) setKindOpen(true);
+                    }}
+                    onFocus={() => setKindOpen(true)}
+                    onBlur={() => setTimeout(() => setKindOpen(false), 150)}
+                    placeholder="Buscar tipo de material..."
+                    className="h-9 text-sm pl-8"
+                  />
+                </div>
               </PopoverAnchor>
               <PopoverContent
                 className="p-0 w-[var(--radix-popover-trigger-width)]"
@@ -559,6 +562,7 @@ export function PrintingItemEditor({
             <Popover open={paperOpen} onOpenChange={setPaperOpen}>
               <PopoverAnchor asChild>
                 <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     value={
                       paperOpen
@@ -567,11 +571,11 @@ export function PrintingItemEditor({
                           ? `${item.paperType}${item.grammage ? ` ${item.grammage}` : ""}${item.size ? ` — ${item.size}` : ""}${item.side ? ` ${item.side}` : ""}`
                           : ""
                     }
-                    placeholder="Buscar papel, gramatura, formato…"
+                    placeholder="Buscar papel por nome, gramatura ou formato…"
                     onFocus={() => { setPaperOpen(true); setPaperQuery(""); }}
                     onChange={(e) => { setPaperQuery(e.target.value); setPaperOpen(true); }}
                     onBlur={() => setTimeout(() => setPaperOpen(false), 150)}
-                    className="h-9 text-sm pr-8"
+                    className="h-9 text-sm pl-8 pr-8"
                   />
                   {item.paperType && !paperOpen && (
                     <button
@@ -930,19 +934,19 @@ export function PrintingItemEditor({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            className="group flex items-center gap-2 rounded-md px-2 py-1 -mx-2 text-sm font-semibold text-foreground hover:bg-muted/60 transition-colors w-full"
           >
-            {expanded ? (
-              <ChevronDown className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5" />
-            )}
-            Acabamentos
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span>Acabamentos</span>
             {childCount > 0 && (
-              <Badge variant="secondary" className="text-[10px] h-4 px-1.5 ml-1">
-                {childCount}
+              <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                {childCount} aplicado{childCount > 1 ? "s" : ""}
               </Badge>
             )}
+            {childCount === 0 && !expanded && (
+              <span className="text-[11px] font-normal text-muted-foreground">— clique para adicionar</span>
+            )}
+            <ChevronDown className={`h-4 w-4 text-muted-foreground ml-auto transition-transform ${expanded ? "rotate-180" : ""}`} />
           </button>
         </div>
 
@@ -1027,15 +1031,23 @@ function QuantityVariationsRow({
 
   return (
     <div className="pl-7 space-y-1.5">
+      {variations.length > 0 && (
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <span className="w-20">Lote</span>
+          <span className="w-24 text-center">Quantidade</span>
+          <span className="w-28 text-center">Preço unit.</span>
+          <span>Subtotal</span>
+        </div>
+      )}
       {variations.map((v, i) => (
         <div key={i} className="flex items-center gap-2 text-xs">
-          <span className="text-muted-foreground w-20">Variação {i + 1}</span>
+          <span className="text-muted-foreground w-20">Lote {i + 1}</span>
           <Input
             type="number"
             min={0}
             value={v.pieces || ""}
             onChange={(e) => updateVariation(i, { pieces: parseInt(e.target.value) || 0 })}
-            placeholder="peças"
+            placeholder="Quantidade"
             className="w-24 h-7 text-xs text-center"
           />
           <Input
@@ -1044,7 +1056,7 @@ function QuantityVariationsRow({
             min={0}
             value={v.unit_price || ""}
             onChange={(e) => updateVariation(i, { unit_price: parseFloat(e.target.value) || 0 })}
-            placeholder="R$ unit."
+            placeholder="Preço unit."
             className="w-28 h-7 text-xs text-center"
           />
           <span className="text-muted-foreground tabular-nums">
@@ -1067,7 +1079,7 @@ function QuantityVariationsRow({
         onClick={addVariation}
         className="h-6 px-2 text-[11px] text-muted-foreground hover:text-primary gap-1"
       >
-        <span className="text-base leading-none">+</span> Adicionar variação
+        <span className="text-base leading-none">+</span> Adicionar lote de quantidade
       </Button>
     </div>
   );
