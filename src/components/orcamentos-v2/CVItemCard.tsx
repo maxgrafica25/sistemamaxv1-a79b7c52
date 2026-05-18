@@ -360,24 +360,6 @@ export function CVItemCard({
             </>
           )}
 
-          {local.acabamentos.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">Nenhum acabamento aplicado.</p>
-          ) : (
-            <div className="space-y-1.5">
-              {local.acabamentos.map((a) => {
-                const isCustom = !!a.custom;
-                const f = isCustom ? null : acabamentos.find((x) => x.id === a.finish_id);
-                if (!isCustom && !f) return null;
-                const detalhe = result.acabamentos_detalhe.find((r) => r.acabamento_id === a.finish_id);
-                const nome = isCustom ? (a.custom!.nome || "Acabamento avulso") : f!.nome;
-                // Mostra input de quantidade só para famílias unidade-based
-                const usaUnidade = !isCustom && f && (f.custo_unidade > 0 || f.lucro_unidade > 0)
-                  && f.familia !== "banner_bastao"; // bastão auto-selecionado
-                return (
-                  <div key={a.finish_id} className="flex items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
-                    <span className="flex-1 text-sm font-medium truncate flex items-center gap-1.5">
-                      {nome}
-                      {isCustom && (
 
           {local.acabamentos.length === 0 ? (
             <p className="text-xs text-muted-foreground italic">Nenhum acabamento aplicado.</p>
