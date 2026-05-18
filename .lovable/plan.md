@@ -1,87 +1,45 @@
-## Fase 3 — Assistente Inteligente
+## Melhorias de UX — Editor de Item do Orçamento V2
 
-Objetivo: enquanto o orçamentista monta o pedido, um painel lateral sugere **acabamentos, mão-de-obra, perguntas e alertas** que ele provavelmente esqueceu — com justificativa visível ("3 últimos orçamentos de lona ≥6m² incluíram bainha + ilhós").
+Escopo: ajustes puramente visuais/interativos no `PrintingItemEditor.tsx` (e card pai `CVItemCard.tsx`/`QuoteItemsTable.tsx` se necessário). Sem mudança de lógica de preço/cálculo.
 
-Três camadas combinadas, da mais previsível à mais inteligente:
+### 1. Campos de busca com afordância visual
+- Em **Tipo de Material** e **Papel**, adicionar ícone `Search` (lucide) à esquerda do input, padding-left aumentado.
+- Combobox de papel: manter chevron à direita já existente; reforçar com hover/focus ring sutil.
+- Placeholder mais explícito: "Buscar tipo de material..." / "Buscar papel por nome ou gramatura...".
 
-```text
-┌──────────────── Assistente do orçamento ────────────────┐
-│ 🔧 Regras (admin)                                       │
-│   • Lona ≥ 6m² → sugerir Bainha + Ilhós                 │
-│ 📊 Padrão histórico                                     │
-│   • 87% dos orçamentos parecidos incluíram "Recorte"    │
-│ 🤖 IA (Lovable AI Gateway)                              │
-│   • "Cliente é construtora → considerar lona resistente"│
-└─────────────────────────────────────────────────────────┘
-```
+### 2. Botão de adição de itens
+Hoje: linha única `+ adicionar impressão · + processo / acabamento avulso`.
 
-### Sub-fases
+Proposta: dropdown único **"+ Adicionar"** (Button + DropdownMenu) com opções:
+- Impressão
+- Processo / Acabamento avulso
 
-**3a — Motor de regras (determinístico)**
-- Tabela `quote_suggestion_rules` (admin): condição (mídia, família, área min/max, altura min, tags do cliente) + ação (sugerir acabamento_id, sugerir pergunta_id do checklist, alerta de texto livre, severidade).
-- Tela admin "Sugestões" em Cadastros CV (CRUD + drag).
-- Painel `QuoteAssistant` no `NewQuoteFormV2` (recolhível, lado direito), avaliação reativa a cada item.
-- Cada sugestão tem botões **Aplicar** (adiciona acabamento/pergunta) / **Dispensar** (some por esta sessão).
+Alternativa B (se preferir manter visíveis): dois botões separados claramente delimitados, com ícones (`Printer`, `Wrench`).
 
-**3b — Padrão histórico (sem IA externa)**
-- Edge function `historical-suggestions`: dado um conjunto de itens em montagem, busca os últimos N orçamentos com perfil similar (mesma mídia + faixa de área), retorna acabamentos com frequência ≥ 60%.
-- Cache de 10 min por assinatura (`mídia|faixa_area|familia_dominante`) em tabela `historical_suggestion_cache` para não pesar.
-- Exibido como segunda seção do painel com a porcentagem ("inclusos em 9 de 12 orçamentos parecidos").
+### 3. Variações de quantidade
+- Manter coluna "Variação N" como índice à esquerda (chip pequeno e neutro).
+- Adicionar cabeçalho com rótulos **Quantidade** e **Preço unitário** acima da primeira linha (renderizar apenas uma vez).
+- Renomear botão para **"+ Adicionar lote de quantidade"**.
+- Tooltip explicativo no header: "Cadastre faixas adicionais de quantidade para o cliente comparar preços".
 
-**3c — IA contextual (Lovable AI Gateway — `google/gemini-2.5-flash`)**
-- Edge function `quote-ai-assistant`: recebe snapshot do orçamento (cliente, tags, itens com mídia/área/acabamentos, respostas do checklist) + lista resumida do catálogo (acabamentos ativos, perguntas do checklist).
-- Prompt pede até 3 sugestões objetivas em JSON: `{tipo: 'acabamento'|'pergunta'|'alerta', alvo_id?, mensagem, justificativa}`.
-- Trigger: botão "Pedir opinião da IA" + auto-run debounced 4s após estabilizar.
-- Tratamento dos códigos 429/402 do gateway com toast amigável (mesmo padrão já usado no projeto).
+### 4. Seção de Acabamentos
+- Aumentar peso visual do header colapsado:
+  - Ícone `Sparkles`/`Scissors` + título `Acabamentos` em `text-sm font-semibold`.
+  - Chevron animado com `rotate-180` quando aberto.
+  - Badge contadora `n aplicados` quando houver acabamentos selecionados, para sinalizar conteúdo mesmo recolhido.
+- Hover state mais perceptível (bg-muted/40).
 
-### Schema (3a)
+### Detalhes técnicos
+- Arquivo principal: `src/components/orcamentos-v2/PrintingItemEditor.tsx`.
+- Reusar `DropdownMenu`, `Tooltip`, `Badge` já existentes em `src/components/ui`.
+- Ícones via `lucide-react` (Search, Printer, Wrench, Sparkles, ChevronDown).
+- Sem alteração em hooks de cálculo (`useGlobalSettings`, `useHourRate`) nem na engine de preço.
+- Sem migração SQL.
 
-```sql
-quote_suggestion_rules
-  id               uuid
-  nome             text
-  ativo            bool
-  prioridade       int          -- ordem de exibição
-  -- condições
-  cond_tipo_midia  text[]       -- vazio = qualquer
-  cond_familia     text[]
-  cond_area_min    numeric
-  cond_area_max    numeric
-  cond_altura_min  numeric
-  cond_cliente_tag text[]       -- qualquer tag do cliente bate
-  cond_sempre      bool
-  -- ação
-  acao_tipo        text         -- 'sugerir_acabamento'|'sugerir_pergunta'|'alerta'
-  acao_acab_id     uuid null
-  acao_question_id uuid null
-  acao_mensagem    text
-  severidade       text         -- 'info'|'aviso'|'critico'
-```
+### Fora de escopo
+- Lógica de cálculo, regras de negócio, schema do banco.
+- Comportamento da IA / assistente.
+- Outras seções do formulário não citadas pelo usuário.
 
-RLS: admin all + authenticated select.
-
-Dispensas locais ficam só no estado do componente (não persistem) — evita ruído permanente. Se virar problema, depois pluga em `quote_suggestion_dismissals(quote_id, rule_id)`.
-
-### UI — painel lateral
-
-Drawer recolhível à direita do `NewQuoteFormV2`, largura 360px, sticky no topo. Vazio mostra "Adicione itens para receber sugestões". Cada card tem ícone por camada (🔧/📊/🤖), título, justificativa em texto pequeno, e ações.
-
-### Seed inicial de regras (3a)
-
-| Condição | Ação | Severidade |
-|---|---|---|
-| midia=lona, area≥6 | sugerir acabamento "Bainha + Ilhós" | aviso |
-| midia=adesivo, area≥3 | sugerir pergunta "Remover adesivo atual?" | info |
-| altura_min≥3 | alerta "Confirmar logística de altura (andaime/elevatória)" | crítico |
-| cliente_tag contém "construtora" | alerta "Validar lona reforçada / 440g" | info |
-| midia=chapa, area≥1 | sugerir acabamento "Dupla face" | info |
-
-### Ordem de execução
-
-1. **3a**: migration `quote_suggestion_rules` + RLS + seed → aba admin "Sugestões" → painel `QuoteAssistant` (apenas camada Regras). **Entrega usável sozinha.**
-2. **3b**: edge function + cache + segunda seção do painel.
-3. **3c**: edge function IA + terceira seção + botão manual + auto-run debounced.
-
-### Decisão pedida
-
-Sigo direto na **3a** (motor de regras + painel) e te entrego pronto para uso, depois discutimos 3b/3c? Ou prefere que eu já planeje as três num único bloco maior?
+### Pergunta única antes de implementar
+Prefere **dropdown único "+ Adicionar"** (mais limpo) ou **dois botões separados com ícones** (mais explícito)? Default sugerido: dropdown único.
