@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -162,6 +162,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [cvFinishes, setCvFinishes] = useState<CVAcabamento[]>([]);
   const [cvValorMinimo, setCvValorMinimo] = useState<number>(35);
   const [cvItems, setCvItems] = useState<CVItemState[]>([]);
+  const cvAutoSeededRef = useRef(false);
   const [cvResults, setCvResults] = useState<Record<string, CVCalcResult>>({});
   const [cvMarkup, setCvMarkup] = useState<CVMarkupSettings | undefined>(undefined);
   const [cvOpen, setCvOpen] = useState<boolean>(false);
@@ -176,6 +177,25 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [discountType, setDiscountType] = useState<DiscountType>("brl");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const isAdmin = useIsAdmin();
+
+  // Auto-cria 1 peça CV em branco em orçamentos novos, assim que as mídias forem carregadas
+  useEffect(() => {
+    if (isEditing) return;
+    if (cvAutoSeededRef.current) return;
+    if (cvMaterials.length === 0) return;
+    if (cvItems.length > 0) return;
+    cvAutoSeededRef.current = true;
+    setCvItems([{
+      id: `cv-${Date.now()}`,
+      material_id: null,
+      printer_id: null,
+      largura_cm: 0,
+      altura_cm: 0,
+      quantidade: 1,
+      acabamentos: [],
+    }]);
+  }, [cvMaterials.length, cvItems.length, isEditing]);
+
   
 
   // catalog
