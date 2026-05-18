@@ -60,6 +60,10 @@ interface Props {
 
   onAddPrinting: (item: PrintingCatalogItem) => void;
   onAddEmptyPrinting: () => void;
+  /** Opcional: handler para adicionar item de Comunicação Visual a partir do menu unificado. */
+  onAddCV?: () => void;
+  /** Opcional: desabilita a entrada CV (ex.: sem mídias cadastradas). */
+  cvDisabled?: boolean;
   onPickPaperForPrinting: (id: string, item: PrintingCatalogItem) => void;
   onSwapPrinting: (id: string, item: PrintingCatalogItem) => void;
   onAddProcess: (parentId: string | null, step: ProcessStep) => void;
