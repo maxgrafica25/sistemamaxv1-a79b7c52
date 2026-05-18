@@ -234,8 +234,27 @@ export function QuoteChecklist({
     return false;
   }).length;
 
+  useEffect(() => {
+    onPendingChange?.(pending);
+  }, [pending, onPendingChange]);
+
   if (loading) return null;
-  if (relevant.length === 0) return null;
+  if (relevant.length === 0 && !embedded) return null;
+  if (relevant.length === 0 && embedded) {
+    return (
+      <p className="text-xs text-muted-foreground px-1 py-2">
+        Nenhuma pergunta aplicável a este orçamento ainda.
+      </p>
+    );
+  }
+
+  if (embedded) {
+    return (
+      <div className="space-y-2">
+        {relevantContent({ relevant, answers, q_setAns: setAns, uploadingId, setUploadingId, supabase, toast, handleUpload, setNumericInputForKey: undefined })}
+      </div>
+    );
+  }
 
   return (
     <Card className="border-primary/30 bg-primary/5">
