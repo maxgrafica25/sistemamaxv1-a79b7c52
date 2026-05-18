@@ -1716,14 +1716,16 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
                       Nenhuma peça de comunicação visual ainda.
                     </p>
                     <Button
-                      variant="outline" size="sm" className="gap-1.5"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 text-primary border-primary/40 hover:bg-primary/5 hover:text-primary font-medium"
                       disabled={cvMaterials.length === 0}
                       onClick={() => setCvItems((p) => [...p, {
                         id: `cv-${Date.now()}`, material_id: null, printer_id: null,
                         largura_cm: 0, altura_cm: 0, quantidade: 1, acabamentos: [],
                       }])}
                     >
-                      <Plus className="h-4 w-4" /> Adicionar peça
+                      <Plus className="h-4 w-4" /> Adicionar peça de comunicação visual
                     </Button>
                   </div>
                 )}

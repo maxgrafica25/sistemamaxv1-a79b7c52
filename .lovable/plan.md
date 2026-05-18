@@ -1,89 +1,48 @@
-# Orçamento V2 — fluxo CV mais fluido + Assistente/Checklist claros
+# Padronização dos botões "Adicionar" no módulo de Comunicação Visual
 
-## Diagnóstico do que está travando hoje
+## Problema
+No print enviado, os botões do bloco CV não seguem o padrão visual usado no módulo principal de itens (impressão):
 
-Olhando o `NewQuoteFormV2` (bloco "Comunicação Visual"), `CVItemCard`, `QuoteAssistant` e `QuoteChecklist`:
+- **"+ Adicionar outra peça"** (rodapé do bloco CV) está com `variant="ghost"` e cor cinza/muted, parecendo um link secundário — diferente do botão **"+ Adicionar"** principal (outline, borda primary, texto primary, com chevron de dropdown).
+- **"+ Adicionar"** dentro de Acabamentos (CVItemCard) está com `variant="outline"` neutro, sem a cor primary — diferente do padrão usado no bloco de impressão (header "Acabamentos" com `Sparkles` + primary), e também diferente do "+ Adicionar" principal da tabela.
+- **"+ Adicionar peça"** no estado vazio do bloco CV também está outline neutro.
 
-1. **Início pesado.** Para criar o 1º item CV o usuário precisa:
-   - rolar até o bloco recolhido "Comunicação Visual"
-   - abrir o `<details>`
-   - clicar "+ Item CV" (botão pequeno, canto direito)
-   - escolher Mídia
-   - escolher Impressão (mesmo quando só existe **uma** impressão compatível)
-   - preencher Largura / Altura / Quantidade
-   - abrir o popover "Adicionar" para cada acabamento, um por vez
-   → São 6–8 cliques antes do primeiro preço aparecer.
+Resultado: três botões com a mesma função ("adicionar algo") aparecem em três estilos diferentes na mesma tela.
 
-2. **Dois botões "Adicionar" concorrendo.** O dropdown `+ Adicionar` da tabela principal e o `+ Item CV` do bloco CV ficam visualmente próximos e fazem coisas diferentes. Confuso.
+## Padrão de referência (já existente)
+Botão "+ Adicionar" no `QuoteItemsTable` (linha 503-510):
 
-3. **"Assistente do orçamento" e "Checklist do orçamento" não explicam o que fazem.** Aparecem como dois cartões soltos, com títulos vagos. O usuário não sabe se é IA, regra fixa, lembrete interno ou pergunta pro cliente.
-
----
-
-## O que vamos mudar (só UI/UX, sem mexer em cálculo nem em IA)
-
-### 1) Entrada única para itens CV
-- Adicionar **"Comunicação Visual"** como 3ª opção do dropdown `+ Adicionar` que já existe em `QuoteItemsTable` (junto de "Impressão" e "Processo/Acabamento avulso"), com ícone `Megaphone`.
-- Remover o botão duplicado `+ Item CV` de dentro do bloco CV. Manter só um `+ outro item` discreto no rodapé do bloco depois que já existe ≥ 1 item.
-- O bloco CV deixa de ser `<details>` recolhido por padrão **quando há ≥ 1 item**; permanece recolhível, mas inicia aberto após criação.
-
-### 2) Auto-seleção e defaults inteligentes no `CVItemCard`
-- Ao criar item: se a empresa tem só uma Mídia padrão (ou a última usada nesse orçamento), pré-seleciona.
-- **Auto-selecionar Impressão** quando só existe 1 compatível com a mídia escolhida (hoje força clique no segundo `Select`). Mostrar a impressão escolhida como chip "Impressa em: X · trocar".
-- Foco inicial direto no campo **Largura**. Tab natural: Largura → Altura → Quantidade.
-- Quantidade default = 1 (já é), mas placeholder visível "Qtd".
-
-### 3) Acabamentos em 1 clique
-- Acima do botão "Adicionar" do `CVItemCard`, mostrar até **4 chips dos acabamentos mais usados para aquele `tipo_midia`** (vem do `historical-suggestions`/`acabamentos` mais frequentes). Clicar no chip aplica direto sem abrir popover.
-- O popover "Adicionar" continua existindo para os demais, mas agora é exceção, não regra.
-
-### 4) Cartão "Inteligência do orçamento" — unificar Assistente + Checklist
-Substituir os dois cartões soltos por **um cartão único** com 2 abas internas:
-
-```text
-┌─ Inteligência do orçamento ──────────────────────────┐
-│ [ Sugestões (3) ] [ Perguntas pendentes (1) ]        │
-│ ────────────────────────────────────────────────────  │
-│  conteúdo da aba selecionada                          │
-└──────────────────────────────────────────────────────┘
+```tsx
+<Button
+  variant="outline"
+  size="sm"
+  className="h-8 gap-1.5 text-primary border-primary/40 hover:bg-primary/5 hover:text-primary font-medium"
+>
+  <Plus className="h-4 w-4" /> Adicionar
+</Button>
 ```
 
-- Aba **Sugestões** = atual `QuoteAssistant` (regras + histórico + IA), com subtítulo permanente:
-  *"Analisa seus itens e aponta acabamentos esquecidos, riscos e perguntas úteis. Atualiza sozinho."*
-- Aba **Perguntas pendentes** = atual `QuoteChecklist`, com subtítulo:
-  *"Dúvidas que afetam o preço (ex.: cliente fornece arte? precisa instalação?). Responda para travar o valor correto."*
-- Badges nas abas mostram contagem (sugestões ativas / perguntas não respondidas). Aba com pendência fica em destaque.
-- Quando ainda não há itens CV: mostrar **estado vazio** explicando o que cada aba fará assim que houver itens — em vez do texto atual "Adicione itens CV para receber sugestões."
+Este é o padrão "ação primária outline" do módulo. Todos os botões equivalentes devem segui-lo.
 
-### 5) Microcópia e hierarquia
-- Renomear botão `+ Item CV` → `+ Adicionar peça de comunicação visual` quando aparece dentro do bloco vazio.
-- Tooltip no ícone `Megaphone` do header do bloco: "Lonas, adesivos, banners, placas — calculados por m²."
-- Subtotal CV ganha texto auxiliar: "Inclui mídia + impressão + acabamentos."
+## Mudanças
 
----
+### 1. `NewQuoteFormV2.tsx` — bloco CV
 
-## Onde mexer (técnico)
+**"Adicionar peça" (estado vazio, ~linha 1718-1727):** aplicar mesmas classes do padrão (`text-primary border-primary/40 hover:bg-primary/5 hover:text-primary font-medium`), trocar label para "Adicionar peça de comunicação visual".
 
-- `src/components/orcamentos-v2/NewQuoteFormV2.tsx`
-  - linhas ~1680–1744: trocar `<details>` por `<Collapsible>` controlado, remover botão duplicado, montar novo cartão "Inteligência do orçamento" que internamente renderiza `QuoteAssistant` e `QuoteChecklist` em `Tabs`.
-- `src/components/orcamentos-v2/QuoteItemsTable.tsx`
-  - dropdown `+ Adicionar`: adicionar item "Comunicação Visual" que dispara um callback novo `onAddCV` (prop). `NewQuoteFormV2` passa o handler que hoje vive no botão "+ Item CV".
-- `src/components/orcamentos-v2/CVItemCard.tsx`
-  - auto-selecionar impressão única (`useEffect` sobre `compatImpressoes`).
-  - chips de "acabamentos mais usados" (props nova `topFinishesForTipo: Record<string,string[]>`), populada por `NewQuoteFormV2` a partir do que já é buscado para o `QuoteAssistant`.
-  - autofocus em Largura ao montar.
-- `src/components/orcamentos-v2/QuoteAssistant.tsx` e `QuoteChecklist.tsx`
-  - aceitar props `embedded?: boolean` para esconder o próprio header (título/ícone) quando renderizados dentro do cartão unificado.
-  - expor `pendingCount` (Checklist) e `activeCount` (Assistant) via callback `onCountChange`, para os badges das abas.
+**"Adicionar outra peça" (rodapé, ~linha 1748-1758):** mudar de `variant="ghost" ... text-muted-foreground` para o mesmo padrão outline primary. Manter alinhamento à direita.
 
-Sem alteração em: `cv-calc/engine.ts`, regras determinísticas, edge function `quote-ai-assistant`, RLS, schema, persistência, cálculo de preço, multiplicadores.
+### 2. `CVItemCard.tsx` — botão "Adicionar" acabamentos (~linha 341-343)
 
----
+Aplicar mesmo padrão: `variant="outline"`, classes `h-7 gap-1 text-xs text-primary border-primary/40 hover:bg-primary/5 hover:text-primary font-medium` (mantendo h-7 por estar no header interno do card, mais compacto), adicionar `ChevronDown` opcional já que abre Popover.
 
-## Resultado esperado
+### 3. `PrintingItemEditor.tsx` — botão "Adicionar lote de quantidade" (~linha 1075-1083)
 
-- Criar 1 item CV completo: **3 cliques** (Adicionar → CV → digitar dimensões) contra ~7 hoje.
-- Assistente e Checklist viram **uma coisa só** com nomes que explicam função.
-- Bloco CV deixa de competir com 2 botões "Adicionar".
+Avaliar se também deve seguir o padrão. Atualmente é `variant="ghost"` muito sutil. Sugestão: manter `ghost` mas trocar cor para `text-primary hover:bg-primary/5` para sinalizar ação, já que é um "adicionar secundário" dentro de um sub-bloco (diferente nível hierárquico que o "+ Adicionar" do nível de item). **Confirmar com o usuário** se quer padronizar este também ou manter discreto.
 
-Pronto pra implementar quando aprovar.
+## Arquivos alterados
+- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` (2 botões)
+- `src/components/orcamentos-v2/CVItemCard.tsx` (1 botão)
+- opcional: `src/components/orcamentos-v2/PrintingItemEditor.tsx` (1 botão)
+
+Sem mudança de comportamento, apenas estilo.
