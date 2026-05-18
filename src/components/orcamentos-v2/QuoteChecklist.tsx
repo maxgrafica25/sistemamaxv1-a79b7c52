@@ -55,11 +55,16 @@ interface Props {
   onAnswersChange: (answers: ChecklistAnswerState[]) => void;
   /** Quando "Sim" em sim_nao_valor, deve adicionar (ou remover quando "Não") um item de mão de obra avulsa. */
   onAutoLaborChange: (questionId: string, item: { description: string; totalValue: number } | null) => void;
+  /** Quando true, esconde o próprio header (usado em cartão unificado com abas). */
+  embedded?: boolean;
+  /** Notifica nº de perguntas pendentes para badges externos. */
+  onPendingChange?: (pending: number) => void;
 }
 
 export function QuoteChecklist({
   quoteId, cvItems, cvMaterials, cvFinishes,
   onAnswersChange, onAutoLaborChange,
+  embedded, onPendingChange,
 }: Props) {
   const [questions, setQuestions] = useState<ChecklistQuestion[]>([]);
   const [triggers, setTriggers] = useState<ChecklistTrigger[]>([]);
