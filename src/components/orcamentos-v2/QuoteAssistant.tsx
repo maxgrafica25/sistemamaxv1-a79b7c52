@@ -65,7 +65,7 @@ const SEV_COLOR: Record<string, string> = {
   critico: "text-destructive border-destructive/40 bg-destructive/10",
 };
 
-export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags, clientName, checklistAnswers }: Props) {
+export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags, clientName, checklistAnswers, embedded, onCountChange }: Props) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [acabNames, setAcabNames] = useState<Record<string, string>>({});
   const [questionNames, setQuestionNames] = useState<Record<string, string>>({});
