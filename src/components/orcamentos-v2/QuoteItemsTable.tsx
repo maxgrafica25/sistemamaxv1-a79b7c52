@@ -524,6 +524,21 @@ export function QuoteItemsTable(props: Props) {
                 <span className="text-[11px] text-muted-foreground">Sem vínculo com impressão</span>
               </div>
             </DropdownMenuItem>
+            {onAddCV && (
+              <DropdownMenuItem
+                onClick={() => !cvDisabled && onAddCV()}
+                disabled={cvDisabled}
+                className="gap-2"
+              >
+                <Megaphone className="h-4 w-4 text-primary" />
+                <div className="flex flex-col">
+                  <span className="text-sm">Comunicação Visual</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {cvDisabled ? "Cadastre uma mídia primeiro" : "Lona, adesivo, banner — por m²"}
+                  </span>
+                </div>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
