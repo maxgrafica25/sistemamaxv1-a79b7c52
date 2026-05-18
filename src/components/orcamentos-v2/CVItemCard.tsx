@@ -465,3 +465,190 @@ export function CVItemCard({
     </Card>
   );
 }
+
+/* ============================================================
+ * CvFinishingSuggestions — chips "Sugeridos" no padrão impressão
+ * ============================================================ */
+function CvFinishingSuggestions({
+  tipo, acabamentos, appliedIds, onPick,
+}: {
+  tipo: import("@/lib/cv-calc/engine").TipoMidia | null;
+  acabamentos: Acabamento[];
+  appliedIds: string[];
+  onPick: (ac: Acabamento) => void;
+}) {
+  const suggestions = useMemo(
+    () => getCvFinishingSuggestions(tipo, acabamentos, appliedIds),
+    [tipo, acabamentos, appliedIds],
+  );
+  if (suggestions.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Sparkles className="h-3 w-3 text-primary/60" />
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-1">
+        Sugeridos
+      </span>
+      {suggestions.map((s) => (
+        <button
+          key={s.acabamento.id}
+          type="button"
+          onClick={() => onPick(s.acabamento)}
+          className="inline-flex items-center gap-1 rounded-full border border-dashed border-primary/40 bg-primary/5 px-2.5 py-0.5 text-[11px] text-primary hover:bg-primary/10 transition-colors"
+          title={s.acabamento.familia}
+        >
+          <Plus className="h-3 w-3" /> {s.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ============================================================
+ * CvFinishingOmnibox — busca + criar avulso no padrão impressão
+ * ============================================================ */
+function CvFinishingOmnibox({
+  compat, appliedIds, onPick, onCreateCustom,
+}: {
+  compat: Acabamento[];
+  appliedIds: string[];
+  onPick: (ac: Acabamento) => void;
+  onCreateCustom: (nome: string, valor: number) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [customMode, setCustomMode] = useState(false);
+  const [customNome, setCustomNome] = useState("");
+  const [customValor, setCustomValor] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const available = compat.filter((a) => !appliedIds.includes(a.id));
+    if (!q) return available;
+    return available.filter((a) => a.nome.toLowerCase().includes(q));
+  }, [compat, appliedIds, query]);
+
+  const startCustom = () => {
+    setCustomMode(true);
+    setCustomNome(query);
+    setCustomValor("");
+  };
+  const resetCustom = () => {
+    setCustomMode(false); setCustomNome(""); setCustomValor("");
+  };
+  const confirmCustom = () => {
+    const nome = customNome.trim();
+    const valor = parseFloat(customValor) || 0;
+    if (!nome || !(valor > 0)) return;
+    onCreateCustom(nome, valor);
+    resetCustom();
+    setQuery("");
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetCustom(); }}>
+      <PopoverAnchor asChild>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            placeholder="Buscar ou criar novo acabamento…"
+            className="h-8 text-sm pl-8"
+          />
+        </div>
+      </PopoverAnchor>
+      <PopoverContent
+        className="p-0 w-[var(--radix-popover-trigger-width)]"
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        {customMode ? (
+          <div className="p-2 space-y-2">
+            <div className="text-xs font-medium text-foreground flex items-center gap-1.5">
+              <Wand2 className="h-3.5 w-3.5 text-primary" /> Acabamento avulso
+            </div>
+            <Input
+              autoFocus
+              placeholder="Nome (ex: Ilhós dourado)"
+              value={customNome}
+              onChange={(e) => setCustomNome(e.target.value)}
+              className="h-8 text-sm"
+            />
+            <Input
+              type="number" inputMode="decimal" step="0.01" min="0"
+              placeholder="Valor total (R$)"
+              value={customValor}
+              onChange={(e) => setCustomValor(e.target.value)}
+              className="h-8 text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Válido apenas neste orçamento. Não será salvo no cadastro.
+            </p>
+            <div className="flex justify-end gap-1.5 pt-1">
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={resetCustom}>
+                Cancelar
+              </Button>
+              <Button
+                size="sm" className="h-7 text-xs"
+                disabled={!customNome.trim() || !(parseFloat(customValor) > 0)}
+                onClick={confirmCustom}
+              >
+                Adicionar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Command shouldFilter={false}>
+            <CommandList>
+              {filtered.length === 0 ? (
+                <CommandGroup>
+                  <CommandItem
+                    value={`create:${query || "avulso"}`}
+                    onSelect={startCustom}
+                    className="gap-2"
+                  >
+                    <Plus className="h-3.5 w-3.5 text-primary" />
+                    <span>
+                      Criar <strong>"{query || "acabamento avulso"}"</strong>
+                    </span>
+                  </CommandItem>
+                </CommandGroup>
+              ) : (
+                <>
+                  <CommandGroup heading="Compatíveis">
+                    {filtered.map((f) => (
+                      <CommandItem
+                        key={f.id}
+                        value={`f:${f.id}`}
+                        onSelect={() => { onPick(f); setQuery(""); setOpen(false); }}
+                        className="flex items-center justify-between gap-2"
+                      >
+                        <span className="truncate">{f.nome}</span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">
+                          {f.familia}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                  <CommandGroup heading="Outras opções">
+                    <CommandItem
+                      value="create-avulso"
+                      onSelect={startCustom}
+                      className="gap-2 text-primary"
+                    >
+                      <Wand2 className="h-3.5 w-3.5" />
+                      <span>Criar acabamento avulso{query ? ` "${query}"` : ""}</span>
+                    </CommandItem>
+                  </CommandGroup>
+                </>
+              )}
+            </CommandList>
+          </Command>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
