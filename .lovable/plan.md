@@ -1,54 +1,34 @@
-# Acabamentos CV no padrão de impressão (com chips "Sugeridos")
+# Colapsar bloco de acabamentos no CV (padrão impressão)
 
 ## O que muda
 
-Hoje, em cada peça de Comunicação Visual, os acabamentos são adicionados via um único botão "Adicionar" que abre um Popover-lista. Não há sugestão contextual nem busca.
+Hoje, no CVItemCard, o bloco "Acabamentos" mostra o `Label` + chips Sugeridos + omnibox sempre visíveis. No padrão de impressão (`PrintingItemEditor` → `SmartFinishingBlock`), esse bloco é um **header clicável com colapso**:
 
-A proposta é replicar o padrão já usado em **impressão** (`SmartFinishingBlock`):
+- Ícone `Sparkles` + título "Acabamentos"
+- Badge `N aplicado(s)` quando há itens
+- Hint "— clique para adicionar" quando vazio e fechado
+- `ChevronDown` que gira com o estado
+- Conteúdo (chips Sugeridos + omnibox + lista de aplicados) só renderiza quando expandido
 
-1. **Chips "Sugeridos"** no topo — botões pequenos com `Plus + nome`, em pílulas tracejadas com cor primária. Aparecem só os mais comuns para a mídia selecionada e que ainda não foram adicionados.
-2. **Omnibox de busca** ("Buscar ou criar novo acabamento…") — filtra a lista completa de acabamentos compatíveis com a mídia, e dá a opção de criar acabamento avulso quando nada corresponde.
-3. **Botão "Acabamento avulso"** mantém-se acessível como atalho secundário (ou via "Criar 'xyz'" no omnibox, como no padrão de impressão).
-4. Lista de acabamentos aplicados continua igual abaixo.
+## Implementação
 
-## Lógica de "Sugeridos" para CV
+Em `src/components/orcamentos-v2/CVItemCard.tsx`, no bloco "Acabamentos" (linhas ~335-…):
 
-Como CV não tem `productKind`/`processSteps`, a sugestão vem da **mídia** selecionada:
-
-- **Lona** → Bainha, Ilhós, Bastão (Banner Bastão).
-- **Adesivo** → Corte (recorte/contorno), Laminação.
-- **Banner** → Bainha, Ilhós, Bastão.
-- **Outros (papel, tecido…)** → primeiros 3 acabamentos compatíveis ordenados por `sort_order` por mídia.
-
-Implementação: novo helper `getCvFinishingSuggestions(tipo, acabamentos, applied)` em `src/lib/quotes-v2/cv-finishing-suggestions.ts`. Casa por `familia` (`bainha`, `ilhos`, `banner_bastao`, `corte`, `laminacao`) com fallback para os top-3 compatíveis.
-
-- Esconde sugestões já aplicadas (`applied` contém os `finish_id`).
-- Esconde sugestões cuja `familia` não exista no catálogo da empresa.
-- Se nada sugerido sobrar, oculta a faixa inteira (igual ao SmartFinishingBlock).
-
-## Estrutura visual (espelhando SmartFinishingBlock)
-
-````text
-Acabamentos
-[ Sparkles ] SUGERIDOS   [+ Bainha] [+ Ilhós] [+ Bastão]
-
-[ 🔎 Buscar ou criar novo acabamento…              ]
-
-— lista de acabamentos aplicados —
-[ Bainha            qtd: 1   R$ 12,00   x ]
-[ Ilhós             qtd: 4   R$ 8,00    x ]
-````
-
-- Chips: `rounded-full border-dashed border-primary/40 bg-primary/5 text-primary` (mesmas classes).
-- Omnibox: `Popover + Command` filtrando `compatAcabamentos`. Item "Criar avulso" no topo quando há query sem match.
-- Sem mídia selecionada → mostrar texto "Selecione a mídia para ver acabamentos" no lugar dos sugeridos/busca (atualmente o botão fica `disabled`).
-
-## Arquivos afetados
-
-- `src/components/orcamentos-v2/CVItemCard.tsx` — substituir o bloco "Acabamentos" (linhas ~332-422) pelo novo padrão: faixa de chips Sugeridos + omnibox + atalho avulso. Manter `addAcabamento`, `removeAcabamento`, `addCustomAcabamento`.
-- `src/lib/quotes-v2/cv-finishing-suggestions.ts` — **novo**. Exporta `getCvFinishingSuggestions(tipo, acabamentos)` retornando `Array<{ acabamento: Acabamento; label: string }>`.
+1. Adicionar estado local `acabExpanded` (default: `true` quando há acabamentos já aplicados ou quando a peça é nova com mídia selecionada; `false` caso contrário). Para simplificar e seguir o padrão impressão, manter `useState(false)` e abrir automaticamente quando `local.acabamentos.length > 0` na primeira renderização (via `useState(() => local.acabamentos.length > 0)`).
+2. Substituir `<Label className="text-xs">Acabamentos</Label>` por um `<button>` colapsável idêntico ao do `PrintingItemEditor`:
+   - `Sparkles` (primary) + "Acabamentos"
+   - Badge com contagem quando > 0
+   - Hint "— clique para adicionar" quando 0 e fechado
+   - `ChevronDown` rotacionando
+3. Envelopar Sugeridos + Omnibox + lista de aplicados em `{acabExpanded && (...)}`.
+4. Manter borda/separador visual consistente (adicionar `border-t border-border/60 pt-3` no container, opcional, para igualar o estilo de impressão).
 
 ## Não muda
 
-- Engine de cálculo CV, persistência (`finishes_json`), badges de família/bastão automático, controles de quantidade unidade-based.
-- Padrão dos acabamentos em impressão (`SmartFinishingBlock`) permanece intocado.
+- Lógica de adicionar/remover/criar avulso.
+- `CvFinishingSuggestions` e `CvFinishingOmnibox` permanecem como estão.
+- Comportamento "Selecione a mídia para ver acabamentos" continua dentro do colapso.
+
+## Arquivo afetado
+
+- `src/components/orcamentos-v2/CVItemCard.tsx`
