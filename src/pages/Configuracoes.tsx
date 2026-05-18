@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import BaseConhecimentoTab from "@/components/assistente/BaseConhecimentoTab";
 import CompanyTab from "@/components/configuracoes/CompanyTab";
+import VpsPackageCard from "@/components/configuracoes/VpsPackageCard";
 
 function formatBytes(n: number): string {
   if (!n) return "0 B";
