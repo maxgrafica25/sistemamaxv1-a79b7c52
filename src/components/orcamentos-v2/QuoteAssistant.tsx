@@ -408,7 +408,10 @@ export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags, c
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+    </CardContent>
   );
+
+  if (embedded) return body;
+  return <Card className="border-primary/30 bg-primary/[0.02]">{body}</Card>;
+}
 }
