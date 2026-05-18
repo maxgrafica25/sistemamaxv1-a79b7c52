@@ -254,11 +254,16 @@ export function QuoteAssistant({ cvItems, cvMaterials, cvFinishes, clientTags, c
 
   const aiVisible = ai.filter((_, i) => !aiDismissed.has(i));
 
-  if (rules.length === 0 && cvItems.length === 0) return null;
+  if (rules.length === 0 && cvItems.length === 0 && !embedded) return null;
 
-  return (
-    <Card className="border-primary/30 bg-primary/[0.02]">
-      <CardContent className="p-3 space-y-2">
+  const totalCount = ativas.length + histVisible.length + aiVisible.length;
+  useEffect(() => {
+    onCountChange?.(totalCount);
+  }, [totalCount, onCountChange]);
+
+  const body = (
+    <CardContent className={embedded ? "p-0 space-y-2" : "p-3 space-y-2"}>
+      {!embedded && (
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
