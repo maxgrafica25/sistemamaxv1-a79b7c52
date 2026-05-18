@@ -1660,6 +1660,17 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
               toast.success(parentId ? "Acabamento avulso vinculado!" : "Acabamento avulso adicionado!");
             }}
             onAddEmptyPrinting={addEmptyPrintingItem}
+            onAddCV={() => {
+              setCvItems((p) => [...p, {
+                id: `cv-${Date.now()}`, material_id: null, printer_id: null,
+                largura_cm: 0, altura_cm: 0, quantidade: 1, acabamentos: [],
+              }]);
+              setCvOpen(true);
+              setTimeout(() => {
+                document.getElementById("cv-block-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }, 60);
+            }}
+            cvDisabled={cvMaterials.length === 0}
             onPickPaperForPrinting={pickPaperForPrintingItem}
             onSetChildLaborForItem={setChildLaborFor}
             onSetChildMaterialsForItem={setChildMaterialsFor}
