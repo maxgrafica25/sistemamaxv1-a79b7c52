@@ -7,7 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertTriangle, Trash2, Plus, X, ChevronDown, Megaphone, Lock, Wand2, Info } from "lucide-react";
+import { AlertTriangle, Trash2, Plus, X, ChevronDown, Megaphone, Lock, Wand2, Info, Sparkles, Search } from "lucide-react";
+import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import { PopoverAnchor } from "@/components/ui/popover";
+import { getCvFinishingSuggestions } from "@/lib/quotes-v2/cv-finishing-suggestions";
 import { useAuth } from "@/hooks/useAuth";
 import {
   calcular,
@@ -195,11 +198,6 @@ export function CVItemCard({
     }));
   };
 
-  const [finishPickerOpen, setFinishPickerOpen] = useState(false);
-  const [customMode, setCustomMode] = useState(false);
-  const [customNome, setCustomNome] = useState("");
-  const [customValor, setCustomValor] = useState("");
-  const resetCustom = () => { setCustomMode(false); setCustomNome(""); setCustomValor(""); };
 
   // Detecta detalhe do bastão para mostrar emenda
   const detalheBastao = result.acabamentos_detalhe.find((d) => d.info_bastao);
@@ -331,95 +329,33 @@ export function CVItemCard({
 
         {/* Acabamentos */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs">Acabamentos</Label>
-            <Popover
-              open={finishPickerOpen}
-              onOpenChange={(o) => { setFinishPickerOpen(o); if (!o) resetCustom(); }}
-            >
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1.5 text-primary border-primary/40 hover:bg-primary/5 hover:text-primary font-medium text-xs"
-                  disabled={!midia}
-                >
-                  <Plus className="h-4 w-4" /> Adicionar
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72 p-1" align="end">
-                {customMode ? (
-                  <div className="p-2 space-y-2">
-                    <div className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                      <Wand2 className="h-3.5 w-3.5 text-primary" /> Acabamento avulso
-                    </div>
-                    <Input
-                      autoFocus
-                      placeholder="Nome (ex: Ilhós dourado)"
-                      value={customNome}
-                      onChange={(e) => setCustomNome(e.target.value)}
-                      className="h-8 text-sm"
-                    />
-                    <Input
-                      type="number" inputMode="decimal" step="0.01" min="0"
-                      placeholder="Valor total (R$)"
-                      value={customValor}
-                      onChange={(e) => setCustomValor(e.target.value)}
-                      className="h-8 text-sm"
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                      Válido apenas neste orçamento. Não será salvo no cadastro.
-                    </p>
-                    <div className="flex justify-end gap-1.5 pt-1">
-                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={resetCustom}>
-                        Cancelar
-                      </Button>
-                      <Button
-                        size="sm" className="h-7 text-xs"
-                        disabled={!customNome.trim() || !(parseFloat(customValor) > 0)}
-                        onClick={() => {
-                          addCustomAcabamento(customNome.trim(), parseFloat(customValor) || 0);
-                          resetCustom();
-                          setFinishPickerOpen(false);
-                        }}
-                      >
-                        Adicionar
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setCustomMode(true)}
-                      className="flex w-full items-center gap-2 rounded-sm border border-dashed border-primary/40 bg-primary/5 px-2 py-1.5 text-left text-sm text-primary hover:bg-primary/10 mb-1"
-                    >
-                      <Wand2 className="h-3.5 w-3.5" />
-                      <span className="font-medium">Adicionar acabamento avulso</span>
-                    </button>
-                    {compatAcabamentos.length === 0 ? (
-                      <div className="px-3 py-4 text-xs text-muted-foreground text-center">
-                        Nenhum acabamento compatível com {tipo || "esta mídia"}.
-                      </div>
-                    ) : (
-                      compatAcabamentos
-                        .filter((f) => !local.acabamentos.some((a) => a.finish_id === f.id))
-                        .map((f) => (
-                          <button
-                            key={f.id}
-                            onClick={() => { addAcabamento(f); setFinishPickerOpen(false); }}
-                            className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
-                          >
-                            <span>{f.nome}</span>
-                            <span className="text-[10px] text-muted-foreground">{f.familia}</span>
-                          </button>
-                        ))
-                    )}
-                  </>
-                )}
-              </PopoverContent>
-            </Popover>
-          </div>
+          <Label className="text-xs">Acabamentos</Label>
+
+          {!midia ? (
+            <p className="text-xs text-muted-foreground italic">
+              Selecione a mídia para ver acabamentos compatíveis.
+            </p>
+          ) : (
+            <>
+              {/* Camada 1 — chips contextuais "Sugeridos" */}
+              <CvFinishingSuggestions
+                tipo={tipo}
+                acabamentos={acabamentos}
+                appliedIds={local.acabamentos.map((a) => a.finish_id)}
+                onPick={(ac) => addAcabamento(ac)}
+              />
+
+              {/* Camada 2 — omnibox de busca + criar avulso */}
+              <CvFinishingOmnibox
+                compat={compatAcabamentos}
+                appliedIds={local.acabamentos.map((a) => a.finish_id)}
+                onPick={(ac) => addAcabamento(ac)}
+                onCreateCustom={(nome, valor) => addCustomAcabamento(nome, valor)}
+              />
+            </>
+          )}
+
+
           {local.acabamentos.length === 0 ? (
             <p className="text-xs text-muted-foreground italic">Nenhum acabamento aplicado.</p>
           ) : (
@@ -524,3 +460,190 @@ export function CVItemCard({
     </Card>
   );
 }
+
+/* ============================================================
+ * CvFinishingSuggestions — chips "Sugeridos" no padrão impressão
+ * ============================================================ */
+function CvFinishingSuggestions({
+  tipo, acabamentos, appliedIds, onPick,
+}: {
+  tipo: import("@/lib/cv-calc/engine").TipoMidia | null;
+  acabamentos: Acabamento[];
+  appliedIds: string[];
+  onPick: (ac: Acabamento) => void;
+}) {
+  const suggestions = useMemo(
+    () => getCvFinishingSuggestions(tipo, acabamentos, appliedIds),
+    [tipo, acabamentos, appliedIds],
+  );
+  if (suggestions.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Sparkles className="h-3 w-3 text-primary/60" />
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-1">
+        Sugeridos
+      </span>
+      {suggestions.map((s) => (
+        <button
+          key={s.acabamento.id}
+          type="button"
+          onClick={() => onPick(s.acabamento)}
+          className="inline-flex items-center gap-1 rounded-full border border-dashed border-primary/40 bg-primary/5 px-2.5 py-0.5 text-[11px] text-primary hover:bg-primary/10 transition-colors"
+          title={s.acabamento.familia}
+        >
+          <Plus className="h-3 w-3" /> {s.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ============================================================
+ * CvFinishingOmnibox — busca + criar avulso no padrão impressão
+ * ============================================================ */
+function CvFinishingOmnibox({
+  compat, appliedIds, onPick, onCreateCustom,
+}: {
+  compat: Acabamento[];
+  appliedIds: string[];
+  onPick: (ac: Acabamento) => void;
+  onCreateCustom: (nome: string, valor: number) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [customMode, setCustomMode] = useState(false);
+  const [customNome, setCustomNome] = useState("");
+  const [customValor, setCustomValor] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const available = compat.filter((a) => !appliedIds.includes(a.id));
+    if (!q) return available;
+    return available.filter((a) => a.nome.toLowerCase().includes(q));
+  }, [compat, appliedIds, query]);
+
+  const startCustom = () => {
+    setCustomMode(true);
+    setCustomNome(query);
+    setCustomValor("");
+  };
+  const resetCustom = () => {
+    setCustomMode(false); setCustomNome(""); setCustomValor("");
+  };
+  const confirmCustom = () => {
+    const nome = customNome.trim();
+    const valor = parseFloat(customValor) || 0;
+    if (!nome || !(valor > 0)) return;
+    onCreateCustom(nome, valor);
+    resetCustom();
+    setQuery("");
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetCustom(); }}>
+      <PopoverAnchor asChild>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            placeholder="Buscar ou criar novo acabamento…"
+            className="h-8 text-sm pl-8"
+          />
+        </div>
+      </PopoverAnchor>
+      <PopoverContent
+        className="p-0 w-[var(--radix-popover-trigger-width)]"
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        {customMode ? (
+          <div className="p-2 space-y-2">
+            <div className="text-xs font-medium text-foreground flex items-center gap-1.5">
+              <Wand2 className="h-3.5 w-3.5 text-primary" /> Acabamento avulso
+            </div>
+            <Input
+              autoFocus
+              placeholder="Nome (ex: Ilhós dourado)"
+              value={customNome}
+              onChange={(e) => setCustomNome(e.target.value)}
+              className="h-8 text-sm"
+            />
+            <Input
+              type="number" inputMode="decimal" step="0.01" min="0"
+              placeholder="Valor total (R$)"
+              value={customValor}
+              onChange={(e) => setCustomValor(e.target.value)}
+              className="h-8 text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Válido apenas neste orçamento. Não será salvo no cadastro.
+            </p>
+            <div className="flex justify-end gap-1.5 pt-1">
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={resetCustom}>
+                Cancelar
+              </Button>
+              <Button
+                size="sm" className="h-7 text-xs"
+                disabled={!customNome.trim() || !(parseFloat(customValor) > 0)}
+                onClick={confirmCustom}
+              >
+                Adicionar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Command shouldFilter={false}>
+            <CommandList>
+              {filtered.length === 0 ? (
+                <CommandGroup>
+                  <CommandItem
+                    value={`create:${query || "avulso"}`}
+                    onSelect={startCustom}
+                    className="gap-2"
+                  >
+                    <Plus className="h-3.5 w-3.5 text-primary" />
+                    <span>
+                      Criar <strong>"{query || "acabamento avulso"}"</strong>
+                    </span>
+                  </CommandItem>
+                </CommandGroup>
+              ) : (
+                <>
+                  <CommandGroup heading="Compatíveis">
+                    {filtered.map((f) => (
+                      <CommandItem
+                        key={f.id}
+                        value={`f:${f.id}`}
+                        onSelect={() => { onPick(f); setQuery(""); setOpen(false); }}
+                        className="flex items-center justify-between gap-2"
+                      >
+                        <span className="truncate">{f.nome}</span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">
+                          {f.familia}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                  <CommandGroup heading="Outras opções">
+                    <CommandItem
+                      value="create-avulso"
+                      onSelect={startCustom}
+                      className="gap-2 text-primary"
+                    >
+                      <Wand2 className="h-3.5 w-3.5" />
+                      <span>Criar acabamento avulso{query ? ` "${query}"` : ""}</span>
+                    </CommandItem>
+                  </CommandGroup>
+                </>
+              )}
+            </CommandList>
+          </Command>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
