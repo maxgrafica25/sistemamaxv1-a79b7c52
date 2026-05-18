@@ -934,19 +934,19 @@ export function PrintingItemEditor({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            className="group flex items-center gap-2 rounded-md px-2 py-1 -mx-2 text-sm font-semibold text-foreground hover:bg-muted/60 transition-colors w-full"
           >
-            {expanded ? (
-              <ChevronDown className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5" />
-            )}
-            Acabamentos
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span>Acabamentos</span>
             {childCount > 0 && (
-              <Badge variant="secondary" className="text-[10px] h-4 px-1.5 ml-1">
-                {childCount}
+              <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                {childCount} aplicado{childCount > 1 ? "s" : ""}
               </Badge>
             )}
+            {childCount === 0 && !expanded && (
+              <span className="text-[11px] font-normal text-muted-foreground">— clique para adicionar</span>
+            )}
+            <ChevronDown className={`h-4 w-4 text-muted-foreground ml-auto transition-transform ${expanded ? "rotate-180" : ""}`} />
           </button>
         </div>
 
