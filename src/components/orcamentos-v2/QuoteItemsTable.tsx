@@ -110,7 +110,7 @@ export function QuoteItemsTable(props: Props) {
     markupTiers, categoryDefaultGroupId,
     printingItems, childMaterials, childLabor,
     standaloneLabor, standaloneManualMaterials, thirdParty,
-    onAddPrinting, onAddEmptyPrinting, onPickPaperForPrinting,
+    onAddPrinting, onAddEmptyPrinting, onAddCV, cvDisabled, onPickPaperForPrinting,
     onSwapPrinting, onAddProcess, onExpandStepGroup, onAddCustomFinish,
     onUpdatePrinting, onUpdateChildMaterial,
     onSetChildLaborForItem, onSetChildMaterialsForItem,
