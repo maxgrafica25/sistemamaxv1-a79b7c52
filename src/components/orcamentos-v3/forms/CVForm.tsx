@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -9,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, Plus, AlertCircle, Sparkles } from "lucide-react";
+import { Check, Plus, AlertCircle, Sparkles, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3CVItem } from "../types";
@@ -19,6 +20,23 @@ import {
   type Acabamento as CVAcabamento,
 } from "@/lib/cv-calc/engine";
 import { filterAndSortForMidia } from "@/lib/cv-calc/media-order";
+import { SOBRA_CM } from "../shared/bastaoSuggester";
+
+// Extrai o tamanho (cm) de chips do tipo "Banner (Bastão topo e base até 105cm + ...)"
+function parseBastaoCm(nome: string): number | null {
+  const m = nome.match(/at[ée]\s*(\d+)\s*cm/i);
+  return m ? Number(m[1]) : null;
+}
+function isBastaoFinish(nome: string): boolean {
+  return /bast[ãa]o|banner.*at[ée]\s*\d+\s*cm/i.test(nome);
+}
+function isBannerFinish(nome: string): boolean {
+  return /banner|bast[ãa]o|ponteira|cordinha|ilh[óo]s|bainha|emenda|dupla\s*face|faixa/i.test(nome);
+}
+function isLonaOnlyFinish(nome: string): boolean {
+  // Acabamentos típicos de lona (não-banner)
+  return /refile|lona|ilh[óo]s|bainha|dupla\s*face/i.test(nome) && !/bast[ãa]o|banner|ponteira|cordinha|faixa/i.test(nome);
+}
 
 interface Props {
   onAdd: (item: V3CVItem) => void;
@@ -35,11 +53,24 @@ export function CVForm({ onAdd }: Props) {
   const [impressaoId, setImpressaoId] = useState<string>("");
   const [acabIds, setAcabIds] = useState<string[]>([]);
   const [pulse, setPulse] = useState(false);
+  const [isBanner, setIsBanner] = useState(false);
 
   const midia = useMemo(
     () => cat.midias.find((m) => m.id === midiaId) ?? null,
     [cat.midias, midiaId],
   );
+
+  const isLona = useMemo(
+    () => /lona|banner|vinil/i.test((midia?.tipo_midia || "") + " " + (midia?.nome || "")),
+    [midia],
+  );
+
+  // Default "É banner?" quando o nome já indicar banner
+  useEffect(() => {
+    if (!midia) { setIsBanner(false); return; }
+    if (isLona) setIsBanner(/banner/i.test(midia.nome || ""));
+    else setIsBanner(false);
+  }, [midia, isLona]);
 
   // Impressoras compatíveis com a mídia selecionada
   const impressoesCompat = useMemo(() => {
@@ -55,6 +86,39 @@ export function CVForm({ onAdd }: Props) {
     return filterAndSortForMidia(cat.acabamentos, midia?.tipo_midia ?? null);
   }, [cat.acabamentos, midia]);
 
+  // Filtra acabamentos pelo modo Lona × Banner
+  const acabamentosView = useMemo<CVAcabamento[]>(() => {
+    if (!isLona) return acabamentosCompat;
+    if (isBanner) return acabamentosCompat.filter((a) => isBannerFinish(a.nome));
+    return acabamentosCompat.filter((a) => isLonaOnlyFinish(a.nome));
+  }, [acabamentosCompat, isLona, isBanner]);
+
+  // Sugestão de bastão baseada na largura
+  const necessarioBastaoCm = largura_cm > 0 ? largura_cm + 2 * SOBRA_CM : 0;
+  const bastaoSugerido = useMemo<CVAcabamento | null>(() => {
+    if (!isLona || !isBanner || !necessarioBastaoCm) return null;
+    const candidatos = acabamentosView
+      .map((a) => ({ a, cm: parseBastaoCm(a.nome) }))
+      .filter((x): x is { a: CVAcabamento; cm: number } => x.cm != null && x.cm >= necessarioBastaoCm)
+      .sort((x, y) => x.cm - y.cm);
+    return candidatos[0]?.a ?? null;
+  }, [acabamentosView, isLona, isBanner, necessarioBastaoCm]);
+  const semBastaoCabe = isLona && isBanner && necessarioBastaoCm > 0 && !bastaoSugerido &&
+    acabamentosView.some((a) => parseBastaoCm(a.nome) != null);
+
+  // Auto-seleciona o bastão sugerido se nenhum chip de bastão estiver marcado ainda
+  useEffect(() => {
+    if (!bastaoSugerido) return;
+    setAcabIds((prev) => {
+      const jaMarcouBastao = prev.some((id) => {
+        const ac = acabamentosView.find((a) => a.id === id);
+        return ac && parseBastaoCm(ac.nome) != null;
+      });
+      if (jaMarcouBastao) return prev;
+      return [...prev, bastaoSugerido.id];
+    });
+  }, [bastaoSugerido, acabamentosView]);
+
   // Auto-seleciona "Impressão solvente alta resolução" (ou primeira compatível como fallback)
   useEffect(() => {
     if (impressoesCompat.length === 0) {
@@ -68,10 +132,10 @@ export function CVForm({ onAdd }: Props) {
     if (escolhida.id !== impressaoId) setImpressaoId(escolhida.id);
   }, [impressoesCompat, impressaoId]);
 
-  // Reset acabamentos incompatíveis
+  // Reset acabamentos que saíram da view
   useEffect(() => {
-    setAcabIds((prev) => prev.filter((id) => acabamentosCompat.some((a) => a.id === id)));
-  }, [acabamentosCompat]);
+    setAcabIds((prev) => prev.filter((id) => acabamentosView.some((a) => a.id === id)));
+  }, [acabamentosView]);
 
   const impressao = useMemo(
     () => cat.impressoes.find((i) => i.id === impressaoId) ?? null,
@@ -167,18 +231,28 @@ export function CVForm({ onAdd }: Props) {
       </Field>
 
       <Field label="Mídia (catálogo CV)">
-        <Select value={midiaId} onValueChange={setMidiaId} disabled={cat.loading}>
-          <SelectTrigger className="h-9">
-            <SelectValue placeholder={cat.loading ? "Carregando..." : "Selecione a mídia"} />
-          </SelectTrigger>
-          <SelectContent>
-            {cat.midias.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.nome} <span className="text-muted-foreground">· {m.tipo_midia}</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <Select value={midiaId} onValueChange={setMidiaId} disabled={cat.loading}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder={cat.loading ? "Carregando..." : "Selecione a mídia"} />
+              </SelectTrigger>
+              <SelectContent>
+                {cat.midias.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.nome} <span className="text-muted-foreground">· {m.tipo_midia}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {isLona && (
+            <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer shrink-0 rounded-md border border-primary/30 bg-primary/5 px-3 h-9">
+              É banner?
+              <Switch checked={isBanner} onCheckedChange={(v) => setIsBanner(!!v)} />
+            </label>
+          )}
+        </div>
       </Field>
 
       <div
@@ -253,11 +327,15 @@ export function CVForm({ onAdd }: Props) {
         </span>
       </div>
 
-      {acabamentosCompat.length > 0 && (
+      {acabamentosView.length > 0 && (
         <Field label="Acabamentos">
           <div className="flex flex-wrap gap-2">
-            {acabamentosCompat.map((a) => {
+            {acabamentosView.map((a) => {
               const active = acabIds.includes(a.id);
+              const bastaoCm = parseBastaoCm(a.nome);
+              const isBastao = bastaoCm != null;
+              const naoCabe = isBastao && necessarioBastaoCm > 0 && bastaoCm! < necessarioBastaoCm;
+              const sugerido = bastaoSugerido?.id === a.id;
               return (
                 <button
                   key={a.id}
@@ -267,18 +345,37 @@ export function CVForm({ onAdd }: Props) {
                       prev.includes(a.id) ? prev.filter((x) => x !== a.id) : [...prev, a.id],
                     )
                   }
+                  title={naoCabe ? `Não cabe na largura + ${2 * SOBRA_CM}cm de sobra` : undefined}
                   className={cn(
                     "px-3 h-8 rounded-full text-sm border transition-colors",
                     active
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-background hover:bg-muted border-input",
+                    sugerido && !active && "ring-2 ring-primary/40 border-primary/40",
+                    naoCabe && !active && "opacity-50",
                   )}
                 >
                   {a.nome}
+                  {sugerido && !active && (
+                    <span className="ml-1.5 text-[10px] uppercase tracking-wide text-primary font-semibold">
+                      sugerido
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
+          {isLona && isBanner && necessarioBastaoCm > 0 && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Sugestão baseada em largura ({largura_cm}cm) + {2 * SOBRA_CM}cm de sobra para ponteiras = {necessarioBastaoCm}cm úteis.
+            </p>
+          )}
+          {semBastaoCabe && (
+            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-3 w-3" />
+              Nenhum bastão do catálogo cabe — considere marcar "Emenda" e usar 2 bastões.
+            </p>
+          )}
         </Field>
       )}
 

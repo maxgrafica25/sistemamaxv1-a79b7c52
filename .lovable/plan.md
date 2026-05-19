@@ -1,65 +1,47 @@
-## Objetivo
+## Problema
 
-Quando o usuário selecionar um papel "Lona" no PrintForm V3, oferecer um toggle "É banner?" que altera dinamicamente a lista de acabamentos exibida e, ao informar a largura do banner, sugerir automaticamente o melhor bastão (105 / 150 / 200 cm).
+Implementei o toggle "É banner?" e a sugestão de bastão no **PrintForm** (aba "Impressão + Acabamentos"), mas você está usando a aba **Com. Visual** (CVForm), onde Lona Brilho é selecionada como mídia do catálogo CV. Por isso nada apareceu.
 
-## Mudanças
+A aba CV já tem seus próprios chips de acabamentos vindos do banco (Refile (Lona), Banner Bastão 105/150/205cm, Faixa, Dupla Face, Ilhós, Bainha, Emenda — visíveis no print). O que falta é a lógica de **detectar banner**, **separar acabamentos de lona vs banner** e **sugerir o bastão correto** pela largura.
 
-### 1. Detecção de Lona em `PrintForm.tsx`
-- Após `setCatalog`, computar `isLona = /lona|banner|vinil/i.test(catalog.paper_type)`.
-- Quando `isLona` for true, mostrar ao lado do badge do catálogo um `Switch` "É banner?" (`isBanner`, default `true` se o nome já contiver "banner").
+## Plano
 
-### 2. Lista de acabamentos dinâmica
-- Criar dois conjuntos:
-  - `FINISHES_LONA`: laminação, ilhós, bastão, corte especial, costura/bainha.
-  - `FINISHES_BANNER`: ilhós, bastão (com sugestão), bainha, reforço de borda, ponteiras.
-  - `FINISHES_PADRAO` (atual): para os demais papéis.
-- Selecionar o array conforme `isLona && isBanner`, `isLona && !isBanner`, ou padrão.
-- Ao trocar entre listas, limpar chips que não existem no novo conjunto.
+### 1. Detectar Lona e exibir toggle "É banner?"
+Em `CVForm.tsx`, após a seleção de mídia:
+- `isLona = /lona|banner|vinil/i.test(midia?.tipo_midia || midia?.nome || "")`
+- Quando `isLona`, mostrar `Switch` "É banner?" ao lado do bloco da mídia (default `true` se o nome da mídia já contém "banner").
 
-### 3. Campo de medidas do banner
-- Quando `isLona && isBanner`, exibir dois inputs compactos: **Largura (cm)** e **Altura (cm)** logo abaixo do toggle.
-- A largura alimenta o seletor de bastão; altura fica registrada na descrição.
+### 2. Filtrar acabamentos por modo (Lona × Banner)
+Classificar cada acabamento de `acabamentosCompat` pelo nome:
+- **Banner** (`isBanner=true`): nomes contendo `banner`, `bastão`, `bastao`, `ponteira`, `cordinha`, `ilhós/ilhos`, `bainha`, `emenda`, `dupla face`.
+- **Lona** (`isBanner=false`): nomes contendo `refile`, `lona`, `ilhós`, `bainha`, `dupla face` — **excluindo** os de bastão/banner.
+- Quando não é lona, manter comportamento atual (mostra todos).
 
-### 4. Lógica de sugestão de bastão
-Criar `src/components/orcamentos-v3/shared/bastaoSuggester.ts`:
+Acabamentos atualmente selecionados que saírem do conjunto são removidos automaticamente (já existe efeito similar — adapto).
 
-```ts
-export const BASTOES_CM = [105, 150, 200];
-export const SOBRA_CM = 1; // por lado
+### 3. Sugestão de bastão pela largura do banner
+Usar o mesmo `bastaoSuggester.ts` já criado.
 
-export function sugerirBastao(larguraCm: number) {
-  const necessario = larguraCm + 2 * SOBRA_CM;
-  const candidatos = BASTOES_CM.filter(b => b >= necessario);
-  if (candidatos.length === 0) {
-    // banner maior que 198cm útil → usar 2× o maior, ou exigir emenda
-    const qtd = Math.ceil(necessario / (BASTOES_CM.at(-1)! - 2 * SOBRA_CM));
-    return { bastao: BASTOES_CM.at(-1)!, quantidade: qtd, emenda: true };
-  }
-  return { bastao: Math.min(...candidatos), quantidade: 1, emenda: false };
-}
-```
+Como os bastões aqui são chips do catálogo (105/150/205cm), a sugestão funciona assim:
+- Calcular `necessario = largura_cm + 2*1cm`.
+- Identificar nos chips de "Banner ... até XXXcm" os tamanhos disponíveis no catálogo (parse do número no nome).
+- **Sugerir** (visualmente destacado com ring/badge "Sugerido") o menor chip cujo número ≥ `necessario`.
+- Os chips que **não cabem** ficam visualmente atenuados (opacity-50) com tooltip "Não cabe na largura + 2cm de sobra".
+- Auto-marcar o chip sugerido **apenas se** nenhum chip de bastão estiver marcado ainda.
+- Se nenhum chip cabe (banner > 198cm), mostrar aviso amarelo: *"Necessária emenda — considere usar o chip 'Emenda' junto."*
 
-Regra: banner de 105cm **não** pode usar bastão 105 — sugere 150 (porque precisa de 107cm).
+Não vou alterar a engine de preço — apenas guia visual + auto-seleção.
 
-### 5. UI da sugestão dentro do chip "Bastão"
-Quando o chip "Bastão" estiver ativo e houver largura informada:
-- Mostrar mensagem destacada: *"Sugerido: bastão de **150 cm** × 1 un (banner 120cm + 2cm de sobra)"*.
-- Permitir override manual via Select (105 / 150 / 200) e input de quantidade.
-- Quando exigir emenda (largura > 198cm útil), avisar em amarelo: *"Necessária emenda — 2 bastões de 200cm"*.
+### 4. UI mínima
+- Toggle "É banner?" no canto direito da linha de mídia (igual ao PrintForm).
+- Pequena legenda abaixo do grupo de chips quando isLona+isBanner: *"Sugestão baseada em largura + 2cm de sobra para ponteiras."*
 
-### 6. Persistência
-- Salvar no `V3PrintItem.finishings` os ids habilitados (mesmo schema atual).
-- Para registrar a escolha do bastão, anexar metadado simples na `descricao` final (ex: `… — Bastão 150cm × 1`). Sem mudança de schema/DB.
+### Arquivos
+- **Modificar**: `src/components/orcamentos-v3/forms/CVForm.tsx`
+- **Reusar**: `src/components/orcamentos-v3/shared/bastaoSuggester.ts` (sem mudanças)
 
-## Arquivos afetados
+### Fora de escopo
+- Alterar a engine de cálculo CV (`@/lib/cv-calc/engine`) — sugestão é apenas visual + auto-seleção do chip já existente.
+- Remover a implementação prévia do PrintForm (fica como fallback caso alguém crie lona via "Impressão + Acabamentos").
 
-- `src/components/orcamentos-v3/forms/PrintForm.tsx` — toggle banner, inputs largura/altura, troca dinâmica de FINISHES, render da sugestão de bastão.
-- `src/components/orcamentos-v3/shared/bastaoSuggester.ts` (novo) — função pura + constantes.
-- (Opcional) `src/components/orcamentos-v3/shared/FinishingProgressive.tsx` — já suporta `advanced` ReactNode; usaremos para embutir o seletor de bastão.
-
-## Fora de escopo
-- Cálculo de **preço** dos bastões (sem catálogo de bastões cadastrado ainda — apenas sugestão visual).
-- Persistência estruturada do bastão escolhido em coluna própria.
-- Alterações em V2.
-
-Confirma se posso seguir com essa abordagem (sugestão visual sem precificar o bastão) ou se você quer também cadastrar preço por bastão para entrar no total?
+Confirma para eu aplicar?
