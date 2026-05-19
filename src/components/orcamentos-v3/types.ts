@@ -114,13 +114,40 @@ export interface V3SupplyItem {
   quantidade: number;
 }
 
+/** Etiqueta (Fase 6.4) — usa engine de layout/folha das libs labels/*. */
+export interface V3LabelItem {
+  id: string;
+  kind: "label";
+  descricao: string;
+  // Etiqueta
+  labelW_mm: number;
+  labelH_mm: number;
+  shape: "quadrado" | "redondo" | "personalizado";
+  quantidade: number;
+  // Folha & impressão (snapshot do useFolhaPricing)
+  sheet_size: string;             // ex: "A4" / "SRA3" / "Formatao"
+  printing_item_id: string | null;
+  paper_type: string | null;
+  grammage: string | null;
+  side: string | null;
+  finishing_id: string | null;
+  finishing_nome: string | null;
+  // Resultado
+  per_sheet: number;
+  sheets_needed: number;
+  price_per_sheet: number;        // impressão + acabamento
+  preco_total: number;            // já arredondado
+  custo_total: number;
+}
+
 export type V3Item =
   | V3PrintItem
   | V3CVItem
   | V3ThirdItem
   | V3BookletItem
   | V3LaborItem
-  | V3SupplyItem;
+  | V3SupplyItem
+  | V3LabelItem;
 
 export interface V3QuoteState {
   cliente: { id: string | null; nome: string };
