@@ -1,0 +1,247 @@
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, FlaskConical, Save, Clock } from "lucide-react";
+import { toast } from "sonner";
+import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
+import { TabsLayout } from "./workspace/TabsLayout";
+import { PrintForm } from "./forms/PrintForm";
+import { CVForm } from "./forms/CVForm";
+import { ThirdPartyForm } from "./forms/ThirdPartyForm";
+import { UnifiedCart } from "./cart/UnifiedCart";
+import { FinancialPanel } from "./cart/FinancialPanel";
+import { useQuoteDraftV3 } from "./shared/useQuoteDraftV3";
+import { summarize, fmtBRL } from "./shared/pricing";
+import { DEFAULT_STATE, genId, type V3Category, type V3Item, type V3QuoteState } from "./types";
+
+interface Props {
+  onCancel: () => void;
+  onSave?: (state: V3QuoteState) => void;
+}
+
+export function NewQuoteFormV3({ onCancel, onSave }: Props) {
+  const [state, setState] = useState<V3QuoteState>(DEFAULT_STATE);
+  const [active, setActive] = useState<V3Category>("print");
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+
+  const { hydrated, savedAt, clear } = useQuoteDraftV3(state);
+  useEffect(() => {
+    if (hydrated) {
+      setState(hydrated);
+      toast.info("Rascunho restaurado", {
+        description: "Recuperamos o que estava em andamento.",
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey) return;
+      const map: Record<string, V3Category> = { "1": "print", "2": "cv", "3": "third" };
+      const next = map[e.key];
+      if (next) {
+        e.preventDefault();
+        setActive(next);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const summary = useMemo(
+    () => summarize(state.items, state.tax_pct, state.fees_pct, state.margin_pct),
+    [state.items, state.tax_pct, state.fees_pct, state.margin_pct],
+  );
+
+  const addItem = (item: V3Item) => {
+    setState((s) => ({ ...s, items: [...s.items, item] }));
+    setHighlightId(item.id);
+    setTimeout(() => setHighlightId(null), 1500);
+  };
+  const removeItem = (id: string) =>
+    setState((s) => ({ ...s, items: s.items.filter((i) => i.id !== id) }));
+  const duplicateItem = (id: string) =>
+    setState((s) => {
+      const it = s.items.find((i) => i.id === id);
+      if (!it) return s;
+      const clone = { ...it, id: genId() } as V3Item;
+      return { ...s, items: [...s.items, clone] };
+    });
+
+  const handleSave = () => {
+    if (state.items.length === 0) {
+      toast.error("Adicione pelo menos 1 item antes de salvar.");
+      return;
+    }
+    if (!state.cliente.id && state.cliente.nome === "Cliente Balcão") {
+      toast.warning("Selecione o cliente real antes de salvar.", {
+        description: "O cliente Balcão é apenas para começar rápido.",
+      });
+      return;
+    }
+    onSave?.(state);
+    clear();
+    toast.success("Orçamento V3 pronto (persistência será plugada na Fase 5).");
+  };
+
+  const lastSaved = savedAt ? new Date(savedAt).toLocaleTimeString("pt-BR") : null;
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 lg:px-6 py-3 border-b border-border bg-background">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <Button variant="ghost" size="sm" onClick={onCancel} className="shrink-0">
+            <ArrowLeft className="h-4 w-4 mr-1.5" /> Voltar
+          </Button>
+          <Badge
+            variant="outline"
+            className="gap-1 border-amber-500/40 text-amber-700 dark:text-amber-400 shrink-0"
+          >
+            <FlaskConical className="h-3 w-3" /> V3 beta
+          </Badge>
+          <div className="hidden md:flex items-center gap-3 ml-2 min-w-0 flex-1">
+            <div className="w-[280px] shrink-0">
+              <ClientCombobox
+                value={state.cliente}
+                onChange={(next) =>
+                  setState((s) => ({
+                    ...s,
+                    cliente: { id: next.id, nome: next.nome || "Cliente Balcão" },
+                  }))
+                }
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <Input
+                value={state.assunto}
+                onChange={(e) => setState((s) => ({ ...s, assunto: e.target.value }))}
+                placeholder="Assunto do orçamento"
+                className="h-9"
+              />
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {lastSaved && (
+            <span className="hidden md:flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Clock className="h-3 w-3" /> Rascunho {lastSaved}
+            </span>
+          )}
+          <Button onClick={handleSave} size="sm">
+            <Save className="h-4 w-4 mr-1.5" /> Salvar orçamento
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile client/subject */}
+      <div className="md:hidden px-4 py-3 border-b border-border space-y-2 bg-background">
+        <ClientCombobox
+          value={state.cliente}
+          onChange={(next) =>
+            setState((s) => ({
+              ...s,
+              cliente: { id: next.id, nome: next.nome || "Cliente Balcão" },
+            }))
+          }
+        />
+        <Input
+          value={state.assunto}
+          onChange={(e) => setState((s) => ({ ...s, assunto: e.target.value }))}
+          placeholder="Assunto"
+          className="h-9"
+        />
+      </div>
+
+      {/* Split-screen */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_360px] overflow-hidden">
+        {/* Workspace (70%) */}
+        <div className="overflow-y-auto px-4 lg:px-6 py-5 bg-background pb-24 lg:pb-5">
+          <TabsLayout active={active} onChange={setActive} />
+          <div className="mt-6 max-w-3xl">
+            {active === "print" && <PrintForm onAdd={addItem} />}
+            {active === "cv" && <CVForm onAdd={addItem} />}
+            {active === "third" && <ThirdPartyForm onAdd={addItem} />}
+          </div>
+        </div>
+
+        {/* Cart (30%) */}
+        <aside className="hidden lg:flex flex-col border-l border-border bg-muted/20 overflow-hidden">
+          <div className="px-4 py-3 border-b border-border/60 bg-background">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+              Itens do orçamento
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {state.items.length} {state.items.length === 1 ? "item" : "itens"} adicionados
+            </p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            <UnifiedCart
+              items={state.items}
+              onDuplicate={duplicateItem}
+              onRemove={removeItem}
+              highlightId={highlightId}
+            />
+          </div>
+          <div className="p-3 border-t border-border/60 bg-background">
+            <FinancialPanel summary={summary} />
+          </div>
+        </aside>
+
+        {/* Mobile bottom sheet */}
+        <MobileCart
+          state={state}
+          onDuplicate={duplicateItem}
+          onRemove={removeItem}
+          summary={summary}
+          highlightId={highlightId}
+        />
+      </div>
+    </div>
+  );
+}
+
+function MobileCart({
+  state,
+  onDuplicate,
+  onRemove,
+  summary,
+  highlightId,
+}: {
+  state: V3QuoteState;
+  onDuplicate: (id: string) => void;
+  onRemove: (id: string) => void;
+  summary: ReturnType<typeof summarize>;
+  highlightId: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border bg-background/95 backdrop-blur">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3"
+      >
+        <span className="text-xs uppercase tracking-wider text-muted-foreground">
+          {state.items.length} {state.items.length === 1 ? "item" : "itens"}
+        </span>
+        <span className="text-base font-bold text-primary tabular-nums">
+          {fmtBRL(summary.total)}
+        </span>
+      </button>
+      {open && (
+        <div className="max-h-[60vh] overflow-y-auto p-3 space-y-3 border-t border-border/60">
+          <UnifiedCart
+            items={state.items}
+            onDuplicate={onDuplicate}
+            onRemove={onRemove}
+            highlightId={highlightId}
+          />
+          <FinancialPanel summary={summary} />
+        </div>
+      )}
+    </div>
+  );
+}

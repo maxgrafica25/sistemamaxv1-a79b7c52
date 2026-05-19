@@ -1,0 +1,138 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Check, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { PaperAutocomplete, type AutocompleteOption } from "../shared/PaperAutocomplete";
+import { fmtBRL } from "../shared/pricing";
+import { genId, type V3ThirdItem } from "../types";
+
+interface Props {
+  onAdd: (item: V3ThirdItem) => void;
+}
+
+export function ThirdPartyForm({ onAdd }: Props) {
+  const [descricao, setDescricao] = useState("");
+  const [fornecedor, setFornecedor] = useState<AutocompleteOption | null>(null);
+  const [quantidade, setQuantidade] = useState(1);
+  const [custo, setCusto] = useState(0);
+  const [margem, setMargem] = useState(30);
+  const [pulse, setPulse] = useState(false);
+
+  const preview = Math.ceil(quantidade * custo * (1 + margem / 100) * 10) / 10;
+  const canAdd = descricao.trim().length > 0 && quantidade > 0 && custo > 0;
+
+  const submit = () => {
+    if (!canAdd) return;
+    onAdd({
+      id: genId(),
+      kind: "third",
+      descricao: descricao.trim(),
+      fornecedor: fornecedor?.label ?? "",
+      quantidade,
+      custo,
+      margem_pct: margem,
+    });
+    setDescricao("");
+    setPulse(true);
+    setTimeout(() => setPulse(false), 600);
+  };
+
+  return (
+    <div className="space-y-5">
+      <Field label="Descrição">
+        <Input
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder="Ex: Brindes personalizados, etiquetas adesivas"
+          className="h-9"
+        />
+      </Field>
+
+      <Field label="Fornecedor">
+        <PaperAutocomplete
+          table="suppliers"
+          searchColumns={["nome", "empresa"]}
+          selectColumns="id, nome, empresa"
+          placeholder="Buscar fornecedor cadastrado"
+          value={fornecedor}
+          onChange={setFornecedor}
+          mapRow={(r) => ({
+            id: String(r.id),
+            label: String(r.nome ?? r.empresa ?? "—"),
+            hint: r.empresa ? String(r.empresa) : undefined,
+          })}
+        />
+      </Field>
+
+      <div className="grid grid-cols-3 gap-4">
+        <Field label="Quantidade">
+          <Input
+            type="number"
+            min={1}
+            value={quantidade}
+            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
+            className="h-9"
+          />
+        </Field>
+        <Field label="Custo unitário (R$)">
+          <Input
+            type="number"
+            step="0.01"
+            min={0}
+            value={custo}
+            onChange={(e) => setCusto(Math.max(0, Number(e.target.value) || 0))}
+            className="h-9"
+          />
+        </Field>
+        <Field label="Margem (%)">
+          <Input
+            type="number"
+            step="1"
+            min={0}
+            value={margem}
+            onChange={(e) => setMargem(Math.max(0, Number(e.target.value) || 0))}
+            className="h-9"
+          />
+        </Field>
+      </div>
+
+      <div className="flex items-center justify-between pt-2">
+        <p className="text-sm text-muted-foreground">
+          Pré-visualização:{" "}
+          <span className="font-semibold text-foreground">{fmtBRL(preview)}</span>
+        </p>
+        <Button
+          onClick={submit}
+          disabled={!canAdd}
+          className={cn(
+            "min-w-[200px] transition-colors",
+            pulse && "bg-emerald-600 hover:bg-emerald-600",
+          )}
+        >
+          {pulse ? (
+            <>
+              <Check className="h-4 w-4 mr-2" /> Adicionado!
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4 mr-2" /> Adicionar ao orçamento
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
