@@ -22,6 +22,7 @@ import {
 import { filterAndSortForMidia } from "@/lib/cv-calc/media-order";
 import { SOBRA_CM } from "../shared/bastaoSuggester";
 import { buildCvDescricao } from "../shared/buildCvDescricao";
+import { TierSimulator } from "../shared/TierSimulator";
 
 // Extrai o tamanho (cm) de chips do tipo "Banner (Bastão topo e base até 105cm + ...)"
 function parseBastaoCm(nome: string): number | null {
