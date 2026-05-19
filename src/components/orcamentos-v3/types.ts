@@ -5,11 +5,21 @@ export interface V3PrintItem {
   kind: "print";
   descricao: string;
   quantidade: number;
+  // Selecionado do catálogo (printing_price_items + markup_tiers).
+  catalog_item_id: string | null;
+  paper_type: string | null;
+  grammage: string | null;
+  size: string | null;
+  side: string | null;
+  printer_category_id: string | null;
+  markup_group_id: string | null;
+  // Preço por folha (já com multiplicadores e tier aplicados quando vindo do catálogo).
+  valor_unitario: number;
+  custo_unitario: number;
+  // Mantidos para compat com chips legados (entrada manual).
   formato: "A4" | "A3" | "SRA3" | null;
   cores: "4x0" | "4x4" | "1x0" | "1x1" | null;
   face: "frente" | "fv" | null;
-  valor_unitario: number;
-  custo_unitario: number;
   finishings: string[];
 }
 
