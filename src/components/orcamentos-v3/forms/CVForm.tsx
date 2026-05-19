@@ -153,6 +153,24 @@ export function CVForm({ onAdd }: Props) {
     [acabIds, cat.acabamentos],
   );
 
+  // Auto-gera descrição inteligente quando o usuário não editou manualmente
+  useEffect(() => {
+    if (descricaoEditada) return;
+    const auto = buildCvDescricao({
+      midia,
+      isLona,
+      isBanner,
+      impressao: impressao,
+      largura_cm,
+      altura_cm,
+      quantidade,
+      acabamentos: acabamentosAplicados.map((a) => a.acabamento),
+    });
+    setDescricao(auto);
+    // impressao referenciado abaixo — recalc via deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [descricaoEditada, midia, isLona, isBanner, impressaoId, largura_cm, altura_cm, quantidade, acabIds]);
+
   const result = useMemo(() => {
     if (!midia) return null;
     return calcular({
