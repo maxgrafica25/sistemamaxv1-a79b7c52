@@ -123,6 +123,7 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
         print_colors: printIt.cores,
         catalog_source: printIt.catalog_item_id ? "printing" : null,
         catalog_item_id: printIt.catalog_item_id ?? null,
+        tier_group_id: printIt.tier_group_id ?? null,
       };
     });
 
@@ -159,6 +160,7 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
         preco_total: snap?.preco_total ?? priceOf(cv).preco_total,
         finishes_json: (cv.acabamento_ids ?? []) as never,
         sort_order: sort,
+        tier_group_id: cv.tier_group_id ?? null,
       };
     });
 
@@ -183,6 +185,7 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
         supplier: t.fornecedor || null,
         cost: rawCost,
         sort_order: sort,
+        tier_group_id: t.tier_group_id ?? null,
       };
     });
 
