@@ -10,6 +10,7 @@ import {
   Wrench,
   Package,
   ShoppingCart,
+  Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { V3Item } from "../types";
@@ -29,6 +30,7 @@ const ICON = {
   booklet: BookOpen,
   labor: Wrench,
   supply: Package,
+  label: Tag,
 };
 
 const LABEL = {
@@ -38,6 +40,7 @@ const LABEL = {
   booklet: "Apostila",
   labor: "Mão-de-obra",
   supply: "Suprimento",
+  label: "Etiqueta",
 };
 
 function cartMeta(it: V3Item): string {
@@ -46,6 +49,8 @@ function cartMeta(it: V3Item): string {
       return `${it.time_minutes} min · margem ${it.margem_pct.toFixed(0)}%`;
     case "booklet":
       return `${it.bookletUnits}× ${it.bookletPages}fl${it.bookletDuplex ? " F/V" : ""}`;
+    case "label":
+      return `${it.labelW_mm}×${it.labelH_mm}mm · ${it.quantidade} un · ${it.sheets_needed} fl`;
     case "supply":
     case "third":
     case "print":
