@@ -222,17 +222,29 @@ export default function ClientViewer() {
     }
   }, [options, selectedOptionId]);
 
-  // Pré-seleciona todos os itens pendentes na carga inicial — assim o cliente
-  // pode aprovar tudo com 1 clique (e ainda pode desmarcar para aprovação parcial).
+  // Pré-seleciona itens pendentes na carga inicial.
+  // Itens sem faixa: todos marcados. Faixas (tier_group_id): apenas a menor qty de cada grupo.
   const didPreselectRef = useRef(false);
   useEffect(() => {
     if (didPreselectRef.current) return;
     if (!materials.length) return;
-    const pendingIds = materials.filter((m) => m.status === "pendente").map((m) => m.id);
-    if (pendingIds.length > 0) {
-      setSelectedItemIds(new Set(pendingIds));
-      didPreselectRef.current = true;
+    const pending = materials.filter((m) => m.status === "pendente");
+    if (pending.length === 0) return;
+    const preselected = new Set<string>();
+    const groupChosen = new Map<string, { id: string; qty: number }>();
+    for (const m of pending) {
+      if (m.tier_group_id) {
+        const cur = groupChosen.get(m.tier_group_id);
+        if (!cur || m.quantity < cur.qty) {
+          groupChosen.set(m.tier_group_id, { id: m.id, qty: m.quantity });
+        }
+      } else {
+        preselected.add(m.id);
+      }
     }
+    for (const v of groupChosen.values()) preselected.add(v.id);
+    setSelectedItemIds(preselected);
+    didPreselectRef.current = true;
   }, [materials]);
 
   // option_selected com debounce de 2s — só registra se permanecer na opção.
@@ -309,6 +321,34 @@ export default function ClientViewer() {
   const hasAnyPending = pendingItems.length > 0;
   const hasMultipleItems = materials.length >= 2;
 
+  // Agrupa pendentes por tier_group_id, mantendo a ordem de aparição original.
+  type PendingGroup = { groupId: string | null; items: MaterialRow[] };
+  const pendingGroups: PendingGroup[] = (() => {
+    const groupMap = new Map<string, MaterialRow[]>();
+    for (const m of pendingItems) {
+      if (m.tier_group_id) {
+        const arr = groupMap.get(m.tier_group_id) ?? [];
+        arr.push(m);
+        groupMap.set(m.tier_group_id, arr);
+      }
+    }
+    const seen = new Set<string>();
+    const out: PendingGroup[] = [];
+    for (const m of pendingItems) {
+      if (m.tier_group_id) {
+        if (seen.has(m.tier_group_id)) continue;
+        seen.add(m.tier_group_id);
+        const items = [...(groupMap.get(m.tier_group_id) ?? [])].sort(
+          (a, b) => a.quantity - b.quantity,
+        );
+        out.push({ groupId: m.tier_group_id, items });
+      } else {
+        out.push({ groupId: null, items: [m] });
+      }
+    }
+    return out;
+  })();
+
   const subtotalApproved = approvedItems.reduce(
     (sum, m) => sum + Number(m.approved_value ?? m.quantity * m.unit_price),
     0,
@@ -329,6 +369,18 @@ export default function ClientViewer() {
       if (willBeChecked) next.add(itemId);
       else next.delete(itemId);
 
+      // Tier groups: selecting one tier deseleciona as outras faixas do mesmo grupo.
+      const item = materials.find((m) => m.id === itemId);
+      if (willBeChecked && item?.tier_group_id) {
+        for (const sib of materials) {
+          if (sib.id !== itemId && sib.tier_group_id === item.tier_group_id) {
+            next.delete(sib.id);
+            const pt = pendingTimersRef.current.get(sib.id);
+            if (pt) { clearTimeout(pt); pendingTimersRef.current.delete(sib.id); }
+          }
+        }
+      }
+
       // Cancela qualquer timer pendente deste item
       const pending = pendingTimersRef.current.get(itemId);
       if (pending) {
@@ -336,26 +388,23 @@ export default function ClientViewer() {
         pendingTimersRef.current.delete(itemId);
       }
 
-      // Só rastreia checkbox de itens quando há aprovação parcial real (>=2 itens).
-      // Em orçamento de item único, marcar/desmarcar não tem valor analítico.
       if (materials.length < 2) return next;
 
-      const item = materials.find((m) => m.id === itemId);
       const label = item?.description ?? "Item";
 
       if (willBeChecked) {
-        // Vai disparar item_selected em 2s se não cancelado
         const t = setTimeout(() => {
           pendingTimersRef.current.delete(itemId);
           void trackEvent(quote?.id, "item_selected", {
             item_id: itemId,
             item_label: label,
+            tier_group_id: item?.tier_group_id ?? null,
+            tier_qty: item?.tier_group_id ? item?.quantity : undefined,
           });
           sentSelectedRef.current.add(itemId);
         }, 2000);
         pendingTimersRef.current.set(itemId, t);
       } else if (sentSelectedRef.current.has(itemId)) {
-        // Já tinha registrado selected → agendar deselected (hesitação)
         const t = setTimeout(() => {
           pendingTimersRef.current.delete(itemId);
           void trackEvent(quote?.id, "item_deselected", {
@@ -578,7 +627,7 @@ export default function ClientViewer() {
                 </h2>
                 {hasMultipleItems && (
                   <div className="flex items-center gap-2">
-                    {selectedItemIds.size === pendingItems.length && (
+                    {selectedItemIds.size === pendingGroups.length && (
                       <Badge className="bg-green-600 hover:bg-green-600 gap-1 text-[10px]">
                         <CheckCircle2 className="h-3 w-3" />
                         Todos selecionados
@@ -590,20 +639,113 @@ export default function ClientViewer() {
                       type="button"
                       className="h-7 text-xs text-muted-foreground hover:text-foreground"
                       onClick={() => {
-                        if (selectedItemIds.size === pendingItems.length) {
+                        if (selectedItemIds.size === pendingGroups.length) {
                           setSelectedItemIds(new Set());
                         } else {
-                          setSelectedItemIds(new Set(pendingItems.map((m) => m.id)));
+                          // Para cada grupo: 1º item (menor qty p/ tiers, único p/ loose)
+                          const next = new Set<string>();
+                          for (const g of pendingGroups) next.add(g.items[0].id);
+                          setSelectedItemIds(next);
                         }
                       }}
                     >
-                      {selectedItemIds.size === pendingItems.length ? "Limpar seleção" : "Selecionar todos"}
+                      {selectedItemIds.size === pendingGroups.length ? "Limpar seleção" : "Selecionar todos"}
                     </Button>
                   </div>
                 )}
               </div>
               <ul className="space-y-2 text-sm">
-                {pendingItems.map((m) => {
+                {pendingGroups.map((g) => {
+                  // Grupo de faixas: card único com seleção exclusiva por radio
+                  if (g.groupId && g.items.length > 1) {
+                    const base = g.items[0];
+                    const handleGroupAdjust = () => {
+                      openShare(
+                        buildItemAdjustMessage({
+                          quoteNumber: quote.quote_number,
+                          itemDescription: base.description,
+                          clientName: quote.client,
+                          companyName,
+                        }),
+                        "Solicitar alteração nas faixas",
+                        "Envie a mensagem para a gráfica avaliar a alteração.",
+                      );
+                    };
+                    return (
+                      <li
+                        key={g.groupId}
+                        className="rounded-md border border-border bg-card p-3 space-y-2"
+                      >
+                        <div className="flex items-start gap-2">
+                          <Printer className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-foreground font-medium">
+                                {base.generated_title || base.description}
+                              </p>
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                Escolha a faixa
+                              </Badge>
+                            </div>
+                            {base.reference && (
+                              <p className="text-xs text-muted-foreground italic">Ref.: {base.reference}</p>
+                            )}
+                          </div>
+                          {whatsappNumber && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs text-muted-foreground hover:text-green-600 shrink-0"
+                              title="Solicitar alteração nestas faixas"
+                              onClick={handleGroupAdjust}
+                            >
+                              <MessageCircle className="h-3.5 w-3.5 sm:mr-1" />
+                              <span className="hidden sm:inline">Alterar</span>
+                            </Button>
+                          )}
+                        </div>
+                        <ul className="space-y-1.5 pl-6">
+                          {g.items.map((m) => {
+                            const checked = selectedItemIds.has(m.id);
+                            const itemValue = m.quantity * m.unit_price;
+                            return (
+                              <li key={m.id}>
+                                <label
+                                  htmlFor={`tier-${m.id}`}
+                                  className={`flex items-center gap-2 rounded border p-2 cursor-pointer transition-colors ${
+                                    checked
+                                      ? "border-primary bg-primary/5"
+                                      : "border-border/60 bg-background hover:bg-muted/50"
+                                  }`}
+                                >
+                                  <input
+                                    type="radio"
+                                    id={`tier-${m.id}`}
+                                    name={`tier-group-${g.groupId}`}
+                                    checked={checked}
+                                    onChange={() => {
+                                      if (!checked) toggleItem(m.id);
+                                    }}
+                                    className="h-4 w-4 accent-primary"
+                                  />
+                                  <span className="flex-1 text-sm text-foreground">
+                                    <strong>{m.quantity}</strong> un · {formatBRL(m.unit_price)}/un
+                                  </span>
+                                  <span className="text-sm font-semibold text-foreground">
+                                    {formatBRL(itemValue)}
+                                  </span>
+                                </label>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </li>
+                    );
+                  }
+
+                  // Item solto (sem faixas) — comportamento original
+                  const m = g.items[0];
                   const itemValue = m.quantity * m.unit_price;
                   const checked = selectedItemIds.has(m.id);
                   const handleItemAdjust = () => {
