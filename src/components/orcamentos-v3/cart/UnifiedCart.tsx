@@ -84,10 +84,9 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
                   <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4">
                     {LABEL[it.kind]}
                   </Badge>
-                  <span className="text-[11px] text-muted-foreground">
-                    qtd {(it as { quantidade?: number }).quantidade ?? 1}
-                  </span>
+                  <span className="text-[11px] text-muted-foreground">{cartMeta(it)}</span>
                 </div>
+
               </div>
             </div>
             <div className="mt-2 flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
