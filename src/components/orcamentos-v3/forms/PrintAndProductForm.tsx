@@ -20,11 +20,13 @@ import type { V3Item } from "../types";
 
 interface Props {
   onAdd: (item: V3Item) => void;
+  onAddMany?: (items: V3Item[]) => void;
+  defaultMarginPct?: number;
 }
 
 type Mode = "custom" | "product";
 
-export function PrintAndProductForm({ onAdd }: Props) {
+export function PrintAndProductForm({ onAdd, onAddMany, defaultMarginPct = 20 }: Props) {
   const [mode, setMode] = useState<Mode>("custom");
   const [product, setProduct] = useState<ProductPresetId>("folheto");
   const [suggestion, setSuggestion] = useState<SuggestResult | null>(null);
@@ -139,7 +141,13 @@ export function PrintAndProductForm({ onAdd }: Props) {
           <PrintForm onAdd={onAdd} onSelectionChange={handleSelectionChange} />
         )}
         {mode === "product" && preset.form === "print" && <PrintForm onAdd={onAdd} />}
-        {mode === "product" && preset.form === "booklet" && <BookletForm onAdd={onAdd} />}
+        {mode === "product" && preset.form === "booklet" && (
+          <BookletForm
+            onAdd={onAdd}
+            onAddMany={onAddMany}
+            defaultMarginPct={defaultMarginPct}
+          />
+        )}
         {mode === "product" && preset.form === "label" && <LabelEmbeddedForm onAdd={onAdd} />}
       </div>
     </div>
