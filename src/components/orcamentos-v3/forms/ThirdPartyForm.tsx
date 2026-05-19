@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Check, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PaperAutocomplete, type AutocompleteOption } from "../shared/PaperAutocomplete";
-import { fmtBRL } from "../shared/pricing";
+import { fmtBRL, roundUp10 } from "../shared/pricing";
+import { TierSimulator } from "../shared/TierSimulator";
 import { genId, type V3ThirdItem } from "../types";
 
 interface Props {
@@ -68,13 +69,24 @@ export function ThirdPartyForm({ onAdd }: Props) {
 
       <div className="grid grid-cols-3 gap-4">
         <Field label="Quantidade">
-          <Input
-            type="number"
-            min={1}
-            value={quantidade}
-            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
-            className="h-9"
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              value={quantidade}
+              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
+              className="h-9"
+            />
+            <TierSimulator
+              currentQty={quantidade}
+              disabled={!(custo > 0)}
+              compute={(q) => {
+                const c = q * (custo || 0);
+                return { custo_total: c, preco_total: roundUp10(c * (1 + (margem || 0) / 100)) };
+              }}
+              onPickQty={(q) => setQuantidade(q)}
+            />
+          </div>
         </Field>
         <Field label="Custo unitário (R$)">
           <Input

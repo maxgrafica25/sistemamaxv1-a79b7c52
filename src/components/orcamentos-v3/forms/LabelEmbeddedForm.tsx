@@ -25,6 +25,7 @@ import {
 } from "@/lib/labels/layout";
 import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
 import { fmtBRL } from "../shared/pricing";
+import { TierSimulator } from "../shared/TierSimulator";
 import { genId, type V3LabelItem } from "../types";
 
 interface Props {
@@ -181,13 +182,31 @@ export function LabelEmbeddedForm({ onAdd }: Props) {
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Quantidade de etiquetas">
-          <Input
-            type="number"
-            min={1}
-            value={quantidade}
-            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 0))}
-            className="h-9"
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              value={quantidade}
+              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 0))}
+              className="h-9"
+            />
+            <TierSimulator
+              currentQty={quantidade}
+              disabled={!folha.selectedPrinting || perSheet <= 0}
+              compute={(q) => {
+                const pr = computeSheetPricing({
+                  pricePerSheet: folha.total,
+                  qtyRequested: q,
+                  perSheet,
+                });
+                return {
+                  custo_total: sheetCost * pr.sheetsNeeded,
+                  preco_total: pr.totalPrice,
+                };
+              }}
+              onPickQty={(q) => setQuantidade(q)}
+            />
+          </div>
         </Field>
         <Field label="Folha">
           <Select value={sheetId} onValueChange={setSheetId}>
