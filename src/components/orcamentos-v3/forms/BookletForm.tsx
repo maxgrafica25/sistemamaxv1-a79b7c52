@@ -97,11 +97,10 @@ export function BookletForm({ onAdd }: Props) {
             collection_pct: 0,
             waste_pct: 0,
             default_margin_pct: 20,
-            tax_pct: 0,
-            credit_card_pct: 0,
           }}
           onSelect={(it) => setCatalog(it)}
         />
+
         {loading && (
           <p className="text-[11px] text-muted-foreground mt-1">Carregando catálogo…</p>
         )}
