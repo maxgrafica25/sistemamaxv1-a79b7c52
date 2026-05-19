@@ -1,4 +1,4 @@
-export type V3Category = "print" | "cv" | "third" | "booklet" | "labor" | "supply";
+export type V3Category = "print" | "cv" | "third" | "labor" | "supply";
 
 export interface V3PrintItem {
   id: string;
