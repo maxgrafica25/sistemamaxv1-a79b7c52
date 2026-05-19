@@ -123,14 +123,15 @@ Regras:
     });
 
     if (resp.status === 429) {
-      return new Response(JSON.stringify({ error: "rate_limited", message: "IA temporariamente sobrecarregada, tente em alguns segundos." }), {
-        status: 429,
+      // Retorna 200 com flag para não disparar FunctionsHttpError no cliente (auto-run silencioso)
+      return new Response(JSON.stringify({ suggestions: [], error: "rate_limited", message: "IA temporariamente sobrecarregada, tente em alguns segundos." }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     if (resp.status === 402) {
-      return new Response(JSON.stringify({ error: "credits_exhausted", message: "Sem créditos no Gemini." }), {
-        status: 402,
+      return new Response(JSON.stringify({ suggestions: [], error: "credits_exhausted", message: "Sem créditos no Gemini." }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
