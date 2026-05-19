@@ -345,12 +345,35 @@ export function CVForm({ onAdd }: Props) {
           />
         </Field>
         <Field label="Quantidade">
-          <Input
-            type="number" min={1}
-            value={quantidade}
-            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
-            className="h-9"
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              type="number" min={1}
+              value={quantidade}
+              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
+              className="h-9 flex-1"
+            />
+            <TierSimulator
+              currentQty={quantidade}
+              disabled={!midia || largura_cm <= 0 || altura_cm <= 0}
+              onPickQty={(q) => setQuantidade(q)}
+              compute={(q) => {
+                if (!midia) return { custo_total: 0, preco_total: 0 };
+                const r = calcular({
+                  largura_cm,
+                  altura_cm,
+                  quantidade: q,
+                  midia,
+                  impressao,
+                  acabamentos: acabamentosAplicados,
+                  acabamentos_pool: cat.acabamentos,
+                  valor_minimo: cat.valorMinimo,
+                  markup: cat.markup,
+                  hourRate: cat.hourRate,
+                });
+                return { custo_total: r.custo_total, preco_total: r.valor_total };
+              }}
+            />
+          </div>
         </Field>
       </div>
 
