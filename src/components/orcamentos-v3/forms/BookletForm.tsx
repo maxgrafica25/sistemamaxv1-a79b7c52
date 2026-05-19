@@ -24,10 +24,11 @@ interface Props {
   onAdd: (item: V3BookletItem) => void;
   /** Quando definido, "Adicionar apostila + Kit" empurra todos os itens de uma vez. */
   onAddMany?: (items: V3Item[]) => void;
+  onAddTiers?: (items: V3BookletItem[]) => void;
   defaultMarginPct?: number;
 }
 
-export function BookletForm({ onAdd, onAddMany, defaultMarginPct = 20 }: Props) {
+export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20 }: Props) {
   const { loading, items, tiers } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
   const [descricao, setDescricao] = useState("");
@@ -64,15 +65,23 @@ export function BookletForm({ onAdd, onAddMany, defaultMarginPct = 20 }: Props) 
 
   const canAdd = !!catalog && bookletPages > 0 && bookletUnits > 0 && totalMioloPreco > 0;
 
-  const buildBookletItem = (): V3BookletItem | null => {
+  const buildBookletItem = (
+    unitsOverride?: number,
+    tierGroupId?: string,
+  ): V3BookletItem | null => {
     if (!canAdd || !catalog) return null;
+    const units = Math.floor(unitsOverride ?? bookletUnits);
+    if (units <= 0) return null;
+    const sheets = Math.max(1, Math.floor(bookletPages) * units);
+    const pr = pricePerSheet(catalog, tiers, sheets);
     const label =
       descricao.trim() ||
-      `Apostila ${bookletUnits}× ${bookletPages}fl ${catalog.paper_type}${catalog.grammage ? ` ${catalog.grammage}` : ""}`;
+      `Apostila ${units}× ${bookletPages}fl ${catalog.paper_type}${catalog.grammage ? ` ${catalog.grammage}` : ""}`;
     return {
       id: genId(),
       kind: "booklet",
       descricao: label,
+      tier_group_id: tierGroupId ?? null,
       catalog_item_id: catalog.id,
       paper_type: catalog.paper_type,
       grammage: catalog.grammage,
@@ -80,10 +89,10 @@ export function BookletForm({ onAdd, onAddMany, defaultMarginPct = 20 }: Props) 
       side: catalog.side,
       printer_category_id: catalog.printer_category_id,
       markup_group_id: catalog.markup_group_id,
-      valor_unitario: pricing?.sellingPrice ?? 0,
-      custo_unitario: pricing?.baseCost ?? 0,
+      valor_unitario: pr.sellingPrice,
+      custo_unitario: pr.baseCost,
       bookletPages: Math.floor(bookletPages),
-      bookletUnits: Math.floor(bookletUnits),
+      bookletUnits: units,
       bookletDuplex: duplex,
     };
   };
@@ -189,6 +198,21 @@ export function BookletForm({ onAdd, onAddMany, defaultMarginPct = 20 }: Props) 
                 };
               }}
               onPickQty={(q) => setBookletUnits(q)}
+              onCloneAsTiers={
+                onAddTiers
+                  ? (qtys) => {
+                      const tg = `tg_${genId()}`;
+                      const items = qtys
+                        .map((q) => buildBookletItem(q, tg))
+                        .filter((x): x is V3BookletItem => !!x);
+                      if (items.length === 0) return;
+                      onAddTiers(items);
+                      setDescricao("");
+                      setPulse(true);
+                      setTimeout(() => setPulse(false), 600);
+                    }
+                  : undefined
+              }
             />
           </div>
         </Field>

@@ -48,6 +48,8 @@ interface Props {
   compute: (qty: number) => TierResult;
   /** Aplica a quantidade selecionada no form pai. */
   onPickQty: (qty: number) => void;
+  /** Adiciona todas as faixas como itens agrupados no orçamento. */
+  onCloneAsTiers?: (qtys: number[]) => void;
   /** Desabilita o botão (ex.: form incompleto). */
   disabled?: boolean;
   /** Label customizado (default: "Comparar faixas"). */
@@ -58,6 +60,7 @@ export function TierSimulator({
   currentQty,
   compute,
   onPickQty,
+  onCloneAsTiers,
   disabled,
   label = "Comparar faixas",
 }: Props) {
@@ -269,6 +272,20 @@ export function TierSimulator({
               </button>
             ))}
           </div>
+          {onCloneAsTiers && sorted.length >= 2 && (
+            <button
+              type="button"
+              onClick={() => {
+                onCloneAsTiers(sorted);
+                setOpen(false);
+              }}
+              className="w-full mt-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold h-8 transition-colors"
+              title="Cria um grupo no orçamento com todas as faixas — o cliente escolhe a quantidade no PDF."
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Adicionar todas como faixas ({sorted.length})
+            </button>
+          )}
         </div>
       </PopoverContent>
     </Popover>

@@ -925,6 +925,7 @@ export type Database = {
           quote_id: string
           sort_order: number
           tem_emenda: boolean
+          tier_group_id: string | null
           updated_at: string
         }
         Insert: {
@@ -950,6 +951,7 @@ export type Database = {
           quote_id: string
           sort_order?: number
           tem_emenda?: boolean
+          tier_group_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -975,6 +977,7 @@ export type Database = {
           quote_id?: string
           sort_order?: number
           tem_emenda?: boolean
+          tier_group_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2791,6 +2794,7 @@ export type Database = {
           size: string | null
           sort_order: number
           status: string
+          tier_group_id: string | null
           unit_price: number
           width_mm: number | null
         }
@@ -2822,6 +2826,7 @@ export type Database = {
           size?: string | null
           sort_order?: number
           status?: string
+          tier_group_id?: string | null
           unit_price?: number
           width_mm?: number | null
         }
@@ -2853,6 +2858,7 @@ export type Database = {
           size?: string | null
           sort_order?: number
           status?: string
+          tier_group_id?: string | null
           unit_price?: number
           width_mm?: number | null
         }
@@ -2997,6 +3003,7 @@ export type Database = {
           quote_id: string
           sort_order: number
           supplier: string
+          tier_group_id: string | null
         }
         Insert: {
           cost?: number
@@ -3005,6 +3012,7 @@ export type Database = {
           quote_id: string
           sort_order?: number
           supplier?: string
+          tier_group_id?: string | null
         }
         Update: {
           cost?: number
@@ -3013,6 +3021,7 @@ export type Database = {
           quote_id?: string
           sort_order?: number
           supplier?: string
+          tier_group_id?: string | null
         }
         Relationships: [
           {

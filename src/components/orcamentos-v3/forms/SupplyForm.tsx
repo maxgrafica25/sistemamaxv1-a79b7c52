@@ -16,9 +16,10 @@ import { genId, type V3SupplyItem } from "../types";
 interface Props {
   defaultMarginPct: number;
   onAdd: (item: V3SupplyItem) => void;
+  onAddTiers?: (items: V3SupplyItem[]) => void;
 }
 
-export function SupplyForm({ defaultMarginPct, onAdd }: Props) {
+export function SupplyForm({ defaultMarginPct, onAdd, onAddTiers }: Props) {
   const [supply, setSupply] = useState<SupplyOption | null>(null);
   const [qty, setQty] = useState<number>(1);
   const [margem, setMargem] = useState<number>(defaultMarginPct || 20);
@@ -30,19 +31,42 @@ export function SupplyForm({ defaultMarginPct, onAdd }: Props) {
   const totalPreco = totalCusto * (1 + margem / 100);
   const canAdd = !!supply && qty > 0;
 
-  const submit = () => {
-    if (!supply || !canAdd) return;
-    onAdd({
+  const buildItem = (q: number, tierGroupId?: string): V3SupplyItem | null => {
+    if (!supply) return null;
+    return {
       id: genId(),
       kind: "supply",
       descricao: descricao.trim() || supply.produto,
+      tier_group_id: tierGroupId ?? null,
       supply_id: supply.id,
       supply_nome: supply.produto,
       fornecedor: supply.fornecedor || null,
       custo_unitario: custoUnit,
       margem_pct: margem,
-      quantidade: qty,
-    });
+      quantidade: q,
+    };
+  };
+
+  const submit = () => {
+    if (!supply || !canAdd) return;
+    const it = buildItem(qty);
+    if (!it) return;
+    onAdd(it);
+    setDescricao("");
+    setSupply(null);
+    setQty(1);
+    setPulse(true);
+    setTimeout(() => setPulse(false), 600);
+  };
+
+  const submitAsTiers = (qtys: number[]) => {
+    if (!onAddTiers || !supply) return;
+    const tg = `tg_${genId()}`;
+    const items = qtys
+      .map((q) => buildItem(q, tg))
+      .filter((x): x is V3SupplyItem => !!x);
+    if (items.length === 0) return;
+    onAddTiers(items);
     setDescricao("");
     setSupply(null);
     setQty(1);
@@ -104,6 +128,7 @@ export function SupplyForm({ defaultMarginPct, onAdd }: Props) {
                 return { custo_total: c, preco_total: roundUp10(c * (1 + margem / 100)) };
               }}
               onPickQty={(q) => setQty(q)}
+              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
             />
           </div>
         </div>

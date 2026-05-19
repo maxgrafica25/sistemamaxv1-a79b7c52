@@ -57,6 +57,7 @@ interface MaterialRow {
   approved_value: number | null;
   generated_title?: string | null;
   reference?: string | null;
+  tier_group_id?: string | null;
 }
 interface LaborRow { id: string; description: string; time_minutes: number; parent_item_id: string | null; }
 interface CvFinishEntry { finish_id: string; quantidade_unidades?: number; custom?: { nome: string; valor: number } }
@@ -153,7 +154,7 @@ export default function ClientViewer() {
     const [m, l, cv] = await Promise.all([
       supabase
         .from("quote_materials")
-        .select("id, description, quantity, unit_price, sort_order, status, approved_at, approved_value, parent_item_id, generated_title, reference")
+        .select("id, description, quantity, unit_price, sort_order, status, approved_at, approved_value, parent_item_id, generated_title, reference, tier_group_id")
         .eq("quote_id", quoteRow.id)
         .is("parent_item_id", null)
         .order("sort_order"),
