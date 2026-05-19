@@ -327,11 +327,15 @@ export function CVForm({ onAdd }: Props) {
         </span>
       </div>
 
-      {acabamentosCompat.length > 0 && (
+      {acabamentosView.length > 0 && (
         <Field label="Acabamentos">
           <div className="flex flex-wrap gap-2">
-            {acabamentosCompat.map((a) => {
+            {acabamentosView.map((a) => {
               const active = acabIds.includes(a.id);
+              const bastaoCm = parseBastaoCm(a.nome);
+              const isBastao = bastaoCm != null;
+              const naoCabe = isBastao && necessarioBastaoCm > 0 && bastaoCm! < necessarioBastaoCm;
+              const sugerido = bastaoSugerido?.id === a.id;
               return (
                 <button
                   key={a.id}
@@ -341,18 +345,37 @@ export function CVForm({ onAdd }: Props) {
                       prev.includes(a.id) ? prev.filter((x) => x !== a.id) : [...prev, a.id],
                     )
                   }
+                  title={naoCabe ? `Não cabe na largura + ${2 * SOBRA_CM}cm de sobra` : undefined}
                   className={cn(
                     "px-3 h-8 rounded-full text-sm border transition-colors",
                     active
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-background hover:bg-muted border-input",
+                    sugerido && !active && "ring-2 ring-primary/40 border-primary/40",
+                    naoCabe && !active && "opacity-50",
                   )}
                 >
                   {a.nome}
+                  {sugerido && !active && (
+                    <span className="ml-1.5 text-[10px] uppercase tracking-wide text-primary font-semibold">
+                      sugerido
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
+          {isLona && isBanner && necessarioBastaoCm > 0 && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Sugestão baseada em largura ({largura_cm}cm) + {2 * SOBRA_CM}cm de sobra para ponteiras = {necessarioBastaoCm}cm úteis.
+            </p>
+          )}
+          {semBastaoCabe && (
+            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-3 w-3" />
+              Nenhum bastão do catálogo cabe — considere marcar "Emenda" e usar 2 bastões.
+            </p>
+          )}
         </Field>
       )}
 
