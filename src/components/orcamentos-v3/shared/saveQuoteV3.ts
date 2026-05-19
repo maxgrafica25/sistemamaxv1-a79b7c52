@@ -20,8 +20,14 @@ const nextQuoteNumber = async () => {
   return `${year}-${String(count + 1).padStart(3, "0")}`;
 };
 
-const describePrint = (it: V3PrintItem) =>
-  [
+const describePrint = (it: V3PrintItem) => {
+  if (it.catalog_item_id) {
+    const head = `${it.paper_type ?? ""}${it.grammage ? ` ${it.grammage}` : ""} — ${it.size ?? ""} ${it.side ?? ""}`.trim();
+    return [it.descricao?.trim(), head, it.finishings.length ? `Acab.: ${it.finishings.join(", ")}` : null]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  return [
     it.descricao?.trim(),
     it.formato,
     it.cores,
@@ -30,6 +36,7 @@ const describePrint = (it: V3PrintItem) =>
   ]
     .filter(Boolean)
     .join(" · ");
+};
 
 const describeCV = (it: V3CVItem) => {
   const m2 = (it.largura_m * it.altura_m).toFixed(2);
