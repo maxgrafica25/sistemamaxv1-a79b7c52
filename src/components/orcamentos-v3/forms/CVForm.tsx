@@ -234,6 +234,7 @@ export function CVForm({ onAdd }: Props) {
       },
     });
     setDescricao("");
+    setDescricaoEditada(false);
     setAcabIds([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
@@ -241,14 +242,33 @@ export function CVForm({ onAdd }: Props) {
 
   return (
     <div className="space-y-5">
-      <Field label="Descrição">
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+            Descrição
+          </Label>
+          {descricaoEditada && (
+            <button
+              type="button"
+              onClick={() => setDescricaoEditada(false)}
+              className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+            >
+              <RotateCcw className="h-3 w-3" /> Regenerar
+            </button>
+          )}
+        </div>
         <Input
           value={descricao}
-          onChange={(e) => setDescricao(e.target.value)}
-          placeholder="Ex: Banner promocional fachada"
+          onChange={(e) => {
+            const v = e.target.value;
+            setDescricao(v);
+            setDescricaoEditada(v.trim().length > 0);
+          }}
+          placeholder="Gerada automaticamente — edite se quiser"
           className="h-9"
         />
-      </Field>
+      </div>
+
 
       <Field label="Mídia (catálogo CV)">
         <div className="flex items-center gap-3">
