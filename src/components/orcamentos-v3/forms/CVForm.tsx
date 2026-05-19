@@ -55,11 +55,17 @@ export function CVForm({ onAdd }: Props) {
     return filterAndSortForMidia(cat.acabamentos, midia?.tipo_midia ?? null);
   }, [cat.acabamentos, midia]);
 
-  // Reset impressão se incompatível
+  // Auto-seleciona "Impressão solvente alta resolução" (ou primeira compatível como fallback)
   useEffect(() => {
-    if (impressaoId && !impressoesCompat.some((i) => i.id === impressaoId)) {
-      setImpressaoId("");
+    if (impressoesCompat.length === 0) {
+      if (impressaoId) setImpressaoId("");
+      return;
     }
+    const preferida = impressoesCompat.find((i) =>
+      i.nome?.toLowerCase().includes("solvente alta resolu"),
+    );
+    const escolhida = preferida ?? impressoesCompat[0];
+    if (escolhida.id !== impressaoId) setImpressaoId(escolhida.id);
   }, [impressoesCompat, impressaoId]);
 
   // Reset acabamentos incompatíveis
