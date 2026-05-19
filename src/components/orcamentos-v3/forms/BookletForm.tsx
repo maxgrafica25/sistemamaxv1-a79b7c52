@@ -16,13 +16,17 @@ import PrintingItemSearch, {
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
 import { getIdealSpiral } from "@/lib/quotes-v2/spiral-selector";
-import { genId, type V3BookletItem } from "../types";
+import { genId, type V3BookletItem, type V3Item } from "../types";
+import { BookletKitPanel } from "./BookletKitPanel";
 
 interface Props {
   onAdd: (item: V3BookletItem) => void;
+  /** Quando definido, "Adicionar apostila + Kit" empurra todos os itens de uma vez. */
+  onAddMany?: (items: V3Item[]) => void;
+  defaultMarginPct?: number;
 }
 
-export function BookletForm({ onAdd }: Props) {
+export function BookletForm({ onAdd, onAddMany, defaultMarginPct = 20 }: Props) {
   const { loading, items, tiers } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
   const [descricao, setDescricao] = useState("");
@@ -59,12 +63,12 @@ export function BookletForm({ onAdd }: Props) {
 
   const canAdd = !!catalog && bookletPages > 0 && bookletUnits > 0 && totalMioloPreco > 0;
 
-  const submit = () => {
-    if (!canAdd || !catalog) return;
+  const buildBookletItem = (): V3BookletItem | null => {
+    if (!canAdd || !catalog) return null;
     const label =
       descricao.trim() ||
       `Apostila ${bookletUnits}× ${bookletPages}fl ${catalog.paper_type}${catalog.grammage ? ` ${catalog.grammage}` : ""}`;
-    onAdd({
+    return {
       id: genId(),
       kind: "booklet",
       descricao: label,
@@ -80,8 +84,24 @@ export function BookletForm({ onAdd }: Props) {
       bookletPages: Math.floor(bookletPages),
       bookletUnits: Math.floor(bookletUnits),
       bookletDuplex: duplex,
-    });
+    };
+  };
+
+  const submit = () => {
+    const item = buildBookletItem();
+    if (!item) return;
+    onAdd(item);
     setDescricao("");
+    setPulse(true);
+    setTimeout(() => setPulse(false), 600);
+  };
+
+  const applyKitItems = (kitItems: V3Item[]) => {
+    if (!onAddMany) return;
+    const miolo = buildBookletItem();
+    const list: V3Item[] = miolo ? [miolo, ...kitItems] : [...kitItems];
+    onAddMany(list);
+    if (miolo) setDescricao("");
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
@@ -205,9 +225,18 @@ export function BookletForm({ onAdd }: Props) {
             </>
           )}
           <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/40 mt-1">
-            Este valor cobre apenas o miolo impresso. Adicione espiral, capas e mão-de-obra de encadernação pelas abas <strong>Suprimentos</strong> e <strong>Mão-de-obra</strong>.
+            Este valor cobre apenas o <strong>miolo impresso</strong>. Use o Kit Encadernação abaixo para adicionar capas, espiral e mão-de-obra automaticamente.
           </p>
         </div>
+      )}
+
+      {onAddMany && canAdd && bookletPages > 0 && bookletUnits > 0 && (
+        <BookletKitPanel
+          bookletPages={Math.floor(bookletPages)}
+          bookletUnits={Math.floor(bookletUnits)}
+          defaultMarginPct={defaultMarginPct}
+          onApply={applyKitItems}
+        />
       )}
 
       <Field label="Descrição (opcional)">

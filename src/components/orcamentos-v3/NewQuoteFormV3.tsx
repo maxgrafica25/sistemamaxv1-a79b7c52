@@ -71,6 +71,12 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
     setHighlightId(item.id);
     setTimeout(() => setHighlightId(null), 1500);
   };
+  const addItems = (items: V3Item[]) => {
+    if (items.length === 0) return;
+    setState((s) => ({ ...s, items: [...s.items, ...items] }));
+    setHighlightId(items[items.length - 1].id);
+    setTimeout(() => setHighlightId(null), 1500);
+  };
   const removeItem = (id: string) =>
     setState((s) => ({ ...s, items: s.items.filter((i) => i.id !== id) }));
   const duplicateItem = (id: string) =>
@@ -185,7 +191,13 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
         <div className="overflow-y-auto px-4 lg:px-6 py-5 bg-background pb-24 lg:pb-5">
           <TabsLayout active={active} onChange={setActive} />
           <div className="mt-6 max-w-3xl">
-            {active === "print" && <PrintAndProductForm onAdd={addItem} />}
+            {active === "print" && (
+              <PrintAndProductForm
+                onAdd={addItem}
+                onAddMany={addItems}
+                defaultMarginPct={state.margin_pct}
+              />
+            )}
             {active === "cv" && <CVForm onAdd={addItem} />}
             {active === "third" && <ThirdPartyForm onAdd={addItem} />}
             {active === "labor" && (

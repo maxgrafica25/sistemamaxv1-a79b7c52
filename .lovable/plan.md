@@ -1,82 +1,63 @@
-
-# Unificar Apostilas + Etiquetas na aba Impressão + Acabamentos (V3)
-
 ## Objetivo
-- Reduzir o número de abas no V3 colocando "Apostilas" e "Etiquetas" como **modos de produto** dentro da aba **Impressão + Acabamentos**.
-- Introduzir um seletor **Produto | Personalizado** no topo do formulário.
-- Adicionar sugestão inteligente: se o usuário escolher uma combinação típica (ex.: papel "lona" + acabamento "ilhós"), o sistema sugere o produto correspondente e o usuário confirma com 1 clique.
 
-## Mudanças visuais
+Trazer para a aba **Apostila (V3)** a inteligência do **Kit Encadernação** da V2 — hoje o usuário precisa adicionar manualmente espiral, capa, contracapa e mão-de-obra (Furação/Encadernação) pelas abas Suprimentos e Mão-de-obra. A V3 já tem `getIdealSpiral()` ligado, mas não monta o kit.
 
-```text
-Abas: [Impressão + Acabamentos]  [Com. Visual]  [Terceirizados]  [Mão-de-obra]  [Suprimentos]
-                                       (Apostilas e Etiquetas saem da barra de abas)
+## Como a V2 faz hoje (`SmartFinishingBlock`)
 
-Dentro da aba Impressão + Acabamentos:
-┌─────────────────────────────────────────────────────────────┐
-│  Modo:  ( ◉ Personalizado )  ( ○ Produto )                  │
-│                                                             │
-│  [ se Produto ] Chips:                                      │
-│     [ Folheto ] [ Cartão Visita ] [ Apostila ]              │
-│     [ Banner ]  [ Etiqueta ]      [ Adesivo ]               │
-│                                                             │
-│  [ formulário muda conforme modo+produto ]                  │
-│                                                             │
-│  💡  Sugestão: "Parece um Banner — aplicar preset?"  [Aplicar]│
-└─────────────────────────────────────────────────────────────┘
-```
+Quando o item é apostila, mostra o botão **"Sugerir Kit Encadernação · espiral 12mm"**. Ao clicar:
 
-- **Personalizado**: formulário atual de impressão (`PrintForm`) sem alterações.
-- **Produto = Apostila**: reutiliza o conteúdo de `BookletForm` (miolo + folhas/apostila + F/V + espiral).
-- **Produto = Etiqueta**: abre a Calculadora de Etiquetas completa em um painel embutido (porta de `LabelLayoutCalculator`) e, ao confirmar, adiciona como item de impressão com snapshot de aproveitamento, acabamentos e preço.
-- **Produto = Folheto / Cartão / Banner / Adesivo**: presets leves que pré-preenchem catálogo, quantidade típica e acabamentos sugeridos no `PrintForm` (não exigem componente novo).
+1. Procura no catálogo de suprimentos usando regex:
+   - `FRONT_COVER_REGEX` → Capa PP Line A4 Incolor
+   - `BACK_COVER_REGEX` → Capa PP Camurça A4 Preta
+   - `spiralRegex(getIdealSpiral(folhas))` → espiral do diâmetro ideal
+2. Adiciona cada suprimento como linha filha (quantidade = nº de apostilas), com preço por faixa.
+3. Procura no catálogo de processos os passos que casam `BINDING_LABOR_PATTERNS` (Furação, Encadernação) e injeta como mão-de-obra com tempo × nº de apostilas.
+4. Fallback: cria linhas "— preencher" e avisa por toast quando algo não foi encontrado no cadastro.
 
-## Sugestão inteligente (não intrusiva)
+## O que mudar na V3
 
-Regras simples avaliadas sempre que o usuário altera catálogo ou acabamentos no modo Personalizado:
+### 1. `BookletForm.tsx` — adicionar botão Kit + bloco de sugestões
 
-| Gatilho                                                        | Sugestão       |
-|----------------------------------------------------------------|----------------|
-| `paper_type` contém "lona" / "vinil" + acabamento ilhós/bastão | Banner         |
-| Acabamento "wire-o" ou "espiral" + páginas > 1                 | Apostila       |
-| Acabamento "corte especial" + tamanho pequeno (<A5)            | Etiqueta       |
-| `paper_type` contém "adesivo"                                  | Adesivo        |
-| `paper_type` "couchê 250g+" + tamanho cartão                   | Cartão Visita  |
+- Carregar catálogo de suprimentos e processos via hooks já existentes (`useV3Catalog` precisa expor supplies, ou criar `useV3Supplies` espelhando o V2; processos via `useV3ProcessCatalog`).
+- Acima do botão "Adicionar apostila", quando `bookletPages > 0 && bookletUnits > 0`, mostrar painel:
+  - Botão primário **"Aplicar Kit Encadernação · espiral {diâmetro}"** (ícone Wand2).
+  - Lista pré-visualizada (4 linhas com checkbox marcado por padrão) dos itens que serão adicionados:
+    - Capa frontal · qtd = nº apostilas · preço
+    - Contracapa · qtd = nº apostilas · preço
+    - Espiral {diâmetro} · qtd = nº apostilas · preço
+    - Furação + Encadernação · tempo × nº apostilas · custo
+  - Usuário pode desmarcar itens individuais antes de aplicar.
+- Substituir o callback `onAdd` por `onAddMany(items: V3Item[])` para empurrar a apostila + suprimentos + mão-de-obra em uma única ação.
 
-A sugestão aparece como faixa discreta acima do botão "Adicionar". Botão **Aplicar** troca o modo para Produto + chip correspondente preservando o que já foi preenchido. Botão **Dispensar** esconde a sugestão até a próxima mudança relevante.
+### 2. Sugestões inteligentes contextuais (segunda camada)
 
-## Arquivos afetados
+Portar `getFinishingSuggestions()` da V2 (já existe em `src/lib/quotes-v2/finishing-suggestions.ts`) e mostrar chips logo abaixo do bloco Kit:
 
-**Editar**
-- `src/components/orcamentos-v3/workspace/TabsLayout.tsx` — remover abas `booklet` e adicionar nada (etiqueta nunca existiu como aba). Atualizar atalhos Alt+N.
-- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` — remover roteamento de `booklet`; o caso `print` passa a renderizar o novo `PrintAndProductForm`. Atualizar mapa de atalhos.
-- `src/components/orcamentos-v3/types.ts` — manter `V3BookletItem` (continua sendo o tipo persistido quando o produto é Apostila). Adicionar `V3LabelItem` para etiqueta com snapshot vindo da calculadora.
-- `src/components/orcamentos-v3/shared/saveQuoteV3.ts` — adicionar branch para `kind === "label"` persistindo metadados de aproveitamento como `quote_print_items` + acabamentos.
+- Para apostila: `Refile`, `Montagem` (extras opcionais que não fazem parte do kit fixo).
+- Clicar no chip adiciona uma linha de mão-de-obra avulsa direto no carrinho.
 
-**Criar**
-- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx` — wrapper com toggle Produto/Personalizado + chips de produto. Roteia para `PrintForm`, `BookletForm` ou `LabelEmbeddedForm`.
-- `src/components/orcamentos-v3/forms/LabelEmbeddedForm.tsx` — embute `LabelLayoutCalculator` em modo "quote" (callback `onConfirm(snapshot)` em vez de salvar favorito) e converte o resultado em `V3LabelItem`.
-- `src/components/orcamentos-v3/shared/productPresets.ts` — definições dos 6 presets (folheto, cartão, apostila, banner, etiqueta, adesivo) com filtros do catálogo, quantidade default e acabamentos sugeridos.
-- `src/components/orcamentos-v3/shared/productSuggester.ts` — função pura que recebe `(catalog, finishings)` e devolve `{ productId, confidence } | null` aplicando as regras da tabela acima.
+### 3. Sinalização visual
 
-**Remover do menu (mas manter o arquivo)**
-- `BookletForm.tsx` continua existindo, agora consumido por `PrintAndProductForm` em vez da aba antiga.
+- Após aplicar o kit, mostrar toast `"Kit aplicado (4 itens). Espiral 12mm + capa + contracapa + mão-de-obra."`.
+- No carrinho, agrupar visualmente os itens originados do kit (badge "Kit Encadernação" — opcional, fase 2).
+- Substituir a frase atual ("Este valor cobre apenas o miolo…") pelo painel do Kit quando aplicável.
 
-## Detalhes técnicos
+### 4. Reaproveitamento futuro
 
-- A Calculadora de Etiquetas (`LabelLayoutCalculator`, ~1790 linhas) será **incluída como componente**, não duplicada. Adicionar uma prop opcional `embeddedMode?: { onConfirm: (snapshot) => void; onCancel: () => void }` que, quando presente, oculta o botão "Salvar favorito"/PDF e exibe "Adicionar ao orçamento" — sem mexer na lógica interna.
-- O snapshot do label inclui: `sheet_size`, `labels_per_sheet`, `quantidade_etiquetas`, `paper_catalog_item_id`, `finishings[]`, `production_minutes`, `custo_total`, `preco_total`. Persistido em `quote_print_items` com a coluna `descricao` enriquecida ("Etiqueta 50×30mm — 5000 un").
-- Atalhos de teclado: Alt+1 segue para "Impressão + Acabamentos"; Alt+2 CV, Alt+3 Terceirizados, Alt+4 Mão-de-obra, Alt+5 Suprimentos. Apostila/Etiqueta acessíveis por chips dentro de Alt+1.
-- Persistência de rascunho (`useQuoteDraftV3`) não muda — o estado novo do toggle vive só dentro de `PrintAndProductForm`.
+O mesmo padrão (botão "Aplicar Kit …" + lista pré-visualizada + `onAddMany`) servirá depois para os outros presets de produto (Banner com ilhós, Cartão com laminação, etc.) — manter o componente `KitSuggestionPanel` genérico, parametrizado por uma função `buildKitItems(context)`.
 
-## Fora de escopo
-- Não tocar em `PrintForm`, `BookletForm` (a não ser ajustar a assinatura de props se necessário), `LabelLayoutCalculator` (apenas adicionar prop opcional).
-- Não mexer em CV, Terceirizados, Mão-de-obra, Suprimentos.
-- Não alterar a página `/etiquetas` standalone — ela continua funcionando.
+## Arquivos a tocar
 
-## Validação após implementação
-1. Abrir `/orcamentos-v3/novo`, conferir 5 abas (sem Apostilas).
-2. Em Impressão + Acabamentos, alternar Produto/Personalizado.
-3. Adicionar 1 item de cada produto (folheto, cartão, apostila, banner, etiqueta, adesivo) e conferir o carrinho.
-4. No modo Personalizado, selecionar lona + ilhós e confirmar que a faixa de sugestão "Banner" aparece.
-5. Salvar orçamento e abrir em `/orcamentos-v2` para verificar que tudo carrega.
+- **Criar:** `src/components/orcamentos-v3/shared/useV3Supplies.ts` (hook compartilhado para carregar `supplies + pricing_tiers`).
+- **Criar:** `src/components/orcamentos-v3/forms/KitSuggestionPanel.tsx` (UI reusável do kit).
+- **Criar:** `src/components/orcamentos-v3/shared/bookletKit.ts` (função `buildBookletKit({ bookletPages, bookletUnits, supplies, steps, hourlyRate, margem })` que devolve `V3SupplyItem[] + V3LaborItem[]`).
+- **Editar:** `src/components/orcamentos-v3/forms/BookletForm.tsx` — integrar o painel e trocar `onAdd` por `onAddMany`.
+- **Editar:** `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx` e `NewQuoteFormV3.tsx` — propagar `onAddMany`.
+- **Editar (opcional):** `src/components/orcamentos-v3/cart/UnifiedCart.tsx` — badge "Kit" para itens com `meta.kitGroupId`.
+
+## Validação
+
+1. Apostila 12 folhas × 10 apostilas → botão mostra "espiral 7mm"; ao aplicar, carrinho recebe miolo + 3 suprimentos + 2 mão-de-obra com totais corretos.
+2. Catálogo sem espiral 7mm cadastrada → linha "Espiral 7mm — preencher" com toast de aviso.
+3. Aplicar duas vezes não duplica (idempotente por nome do produto no carrinho).
+4. Mudar `bookletUnits` depois de aplicar **não** recalcula automaticamente (igual V3, simples); reaplicar Kit substitui.
