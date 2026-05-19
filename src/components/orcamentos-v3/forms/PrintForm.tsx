@@ -120,15 +120,15 @@ export function PrintForm({ onAdd }: Props) {
       </div>
 
       <Field label="Cores">
-        <ChipGroup options={CORES} value={cores} onChange={setCores} />
+        <ChipGroup<CoresV> options={CORES} value={cores} onChange={setCores} />
       </Field>
 
       <Field label="Formato">
-        <ChipGroup options={FORMATOS} value={formato} onChange={setFormato} />
+        <ChipGroup<FormatoV> options={FORMATOS} value={formato} onChange={setFormato} />
       </Field>
 
       <Field label="Face">
-        <ChipGroup options={FACES} value={face} onChange={setFace} />
+        <ChipGroup<FaceV> options={FACES} value={face} onChange={setFace} />
       </Field>
 
       <Field label="Acabamentos">
