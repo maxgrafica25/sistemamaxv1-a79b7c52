@@ -38,16 +38,8 @@ const describePrint = (it: V3PrintItem) => {
     .join(" · ");
 };
 
-const describeCV = (it: V3CVItem) => {
-  const m2 = (it.largura_m * it.altura_m).toFixed(2);
-  return [
-    it.descricao?.trim() || it.midia_nome || "Comunicação Visual",
-    `${it.largura_m}m × ${it.altura_m}m (${m2} m²)`,
-    it.finishings.length ? `Acab.: ${it.finishings.join(", ")}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-};
+// CV: descrição derivada apenas para fins de log/debug — não usada no insert.
+
 
 const totalValue = (items: V3Item[]) =>
   roundUp10(items.reduce((sum, it) => sum + priceOf(it).preco_total, 0));
@@ -95,49 +87,32 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
 
   const quoteId = inserted.id as string;
 
-  // Materiais: print + cv como rows manuais (sem catalog_source).
+  // Materiais de IMPRESSÃO em quote_materials (CV vai em cv_quote_items).
   const materialRows = state.items
     .map((it, i) => ({ it, sort: i }))
-    .filter(({ it }) => it.kind !== "third")
+    .filter(({ it }) => it.kind === "print")
     .map(({ it, sort }) => {
       const p = priceOf(it);
-      const qty = Math.max(1, Math.floor((it as any).quantidade || 1));
+      const printIt = it as V3PrintItem;
+      const qty = Math.max(1, Math.floor(printIt.quantidade || 1));
       const unit = qty > 0 ? roundUp10(p.preco_total / qty) : p.preco_total;
-      if (it.kind === "print") {
-        return {
-          quote_id: quoteId,
-          description: describePrint(it) || "Impressão",
-          quantity: qty,
-          unit_price: unit,
-          sort_order: sort,
-          status: "pendente" as const,
-          parent_item_id: null,
-          product_kind: "impressao",
-          custom_name: it.descricao || null,
-          paper_type: it.paper_type,
-          grammage: it.grammage,
-          size: it.size ?? it.formato,
-          side: it.side ?? (it.face === "fv" ? "F/V" : it.face === "frente" ? "Só frente" : null),
-          print_colors: it.cores,
-          catalog_source: it.catalog_item_id ? "printing" : null,
-          catalog_item_id: it.catalog_item_id ?? null,
-        };
-      }
-      const cv = it as V3CVItem;
       return {
         quote_id: quoteId,
-        description: describeCV(cv),
+        description: describePrint(printIt) || "Impressão",
         quantity: qty,
         unit_price: unit,
         sort_order: sort,
         status: "pendente" as const,
         parent_item_id: null,
-        product_kind: "comunicacao_visual",
-        custom_name: cv.descricao || cv.midia_nome || null,
-        width_mm: Math.round(cv.largura_m * 1000) || null,
-        height_mm: Math.round(cv.altura_m * 1000) || null,
-        catalog_source: null,
-        catalog_item_id: null,
+        product_kind: "impressao",
+        custom_name: printIt.descricao || null,
+        paper_type: printIt.paper_type,
+        grammage: printIt.grammage,
+        size: printIt.size ?? printIt.formato,
+        side: printIt.side ?? (printIt.face === "fv" ? "F/V" : printIt.face === "frente" ? "Só frente" : null),
+        print_colors: printIt.cores,
+        catalog_source: printIt.catalog_item_id ? "printing" : null,
+        catalog_item_id: printIt.catalog_item_id ?? null,
       };
     });
 
@@ -145,6 +120,43 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
     const { error: matErr } = await supabase.from("quote_materials").insert(materialRows);
     if (matErr) throw matErr;
   }
+
+  // CV → cv_quote_items (paridade com V2)
+  const cvRows = state.items
+    .map((it, i) => ({ it, sort: i }))
+    .filter(({ it }) => it.kind === "cv")
+    .map(({ it, sort }) => {
+      const cv = it as V3CVItem;
+      const snap = cv.snapshot;
+      return {
+        quote_id: quoteId,
+        material_id: cv.midia_id,
+        printer_id: cv.impressao_id ?? null,
+        material_nome: cv.midia_nome || null,
+        printer_nome: cv.impressao_nome ?? null,
+        acabamento_id: snap?.acabamento_efetivo_id ?? null,
+        acabamento_nome: snap?.acabamento_efetivo_nome ?? null,
+        largura_cm: cv.largura_m * 100,
+        altura_cm: cv.altura_m * 100,
+        quantidade: cv.quantidade,
+        area_total_m2: snap?.area_total_m2 ?? (cv.largura_m * cv.altura_m * cv.quantidade),
+        perimetro_m: snap?.perim_m ?? 0,
+        tem_emenda: snap?.tem_emenda ?? false,
+        aplicou_minimo: snap?.aplicou_minimo ?? false,
+        preco_midia: snap?.preco_midia ?? 0,
+        preco_impressao: snap?.preco_impressao ?? 0,
+        preco_acabamentos: snap?.preco_acabamentos ?? 0,
+        preco_total: snap?.preco_total ?? priceOf(cv).preco_total,
+        finishes_json: (cv.acabamento_ids ?? []) as never,
+        sort_order: sort,
+      };
+    });
+
+  if (cvRows.length > 0) {
+    const { error: cvErr } = await supabase.from("cv_quote_items").insert(cvRows as never);
+    if (cvErr) throw cvErr;
+  }
+
 
   // Terceiros
   const thirdRows = state.items
