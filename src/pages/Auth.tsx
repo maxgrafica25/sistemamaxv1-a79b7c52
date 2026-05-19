@@ -17,6 +17,20 @@ const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 72;
 const COOLDOWN_SECONDS = 60;
 
+/**
+ * Retorna a URL pública estável do app.
+ * Evita usar a URL de preview privada do Lovable (id-preview--*.lovable.app)
+ * que exige login no workspace e gera "Access denied" em links de e-mail.
+ */
+function getPublicAppUrl(): string {
+  if (typeof window === "undefined") return "https://sistemamaxv1.lovable.app";
+  const host = window.location.hostname;
+  if (host.includes("id-preview--") || host.endsWith("lovable.dev")) {
+    return "https://sistemamaxv1.lovable.app";
+  }
+  return window.location.origin;
+}
+
 export default function Auth() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
