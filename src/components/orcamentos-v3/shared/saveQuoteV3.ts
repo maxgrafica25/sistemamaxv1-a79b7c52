@@ -281,6 +281,42 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
     if (lErr) throw lErr;
   }
 
+  // Etiqueta → quote_materials product_kind 'Etiquetas'
+  const labelRows = state.items
+    .map((it, i) => ({ it, sort: i }))
+    .filter(({ it }) => it.kind === "label")
+    .map(({ it, sort }) => {
+      const l = it as V3LabelItem;
+      const qty = Math.max(1, Math.floor(l.quantidade || 1));
+      const unit = qty > 0 ? roundUp10(l.preco_total / qty) : l.preco_total;
+      return {
+        quote_id: quoteId,
+        description:
+          l.descricao ||
+          `Etiqueta ${l.labelW_mm}×${l.labelH_mm}mm — ${qty} un`,
+        quantity: qty,
+        unit_price: unit,
+        sort_order: 3000 + sort,
+        status: "pendente" as const,
+        parent_item_id: null,
+        product_kind: "Etiquetas",
+        custom_name: l.descricao || null,
+        paper_type: l.paper_type,
+        grammage: l.grammage,
+        size: l.sheet_size,
+        side: l.side,
+        catalog_source: l.printing_item_id ? "printing" : null,
+        catalog_item_id: l.printing_item_id ?? null,
+      };
+    });
+  if (labelRows.length > 0) {
+    const { error: labErr } = await supabase
+      .from("quote_materials")
+      .insert(labelRows as never);
+    if (labErr) throw labErr;
+  }
+
   return { id: quoteId, quote_number: inserted.quote_number as string };
 }
+
 
