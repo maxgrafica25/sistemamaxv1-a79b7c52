@@ -181,22 +181,40 @@ export function CVForm({ onAdd }: Props) {
         </Select>
       </Field>
 
-      <Field label="Impressão">
-        <Select
-          value={impressaoId}
-          onValueChange={setImpressaoId}
-          disabled={!midia || impressoesCompat.length === 0}
+      <div
+        className={cn(
+          "rounded-md border px-3 py-2.5 flex items-center gap-3 transition-colors",
+          impressao
+            ? "border-primary/30 bg-primary/5"
+            : "border-dashed border-border bg-muted/30",
+        )}
+      >
+        <div
+          className={cn(
+            "h-9 w-9 rounded-md flex items-center justify-center shrink-0",
+            impressao ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+          )}
         >
-          <SelectTrigger className="h-9">
-            <SelectValue placeholder={!midia ? "Escolha a mídia primeiro" : "Selecione (opcional)"} />
-          </SelectTrigger>
-          <SelectContent>
-            {impressoesCompat.map((i) => (
-              <SelectItem key={i.id} value={i.id}>{i.nome}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
+          <Sparkles className="h-4 w-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+            Resolução de impressão
+          </p>
+          <p className="text-sm font-medium truncate">
+            {impressao
+              ? impressao.nome
+              : !midia
+                ? "Selecione a mídia primeiro"
+                : "Nenhuma resolução compatível disponível"}
+          </p>
+          {impressao && (
+            <p className="text-[11px] text-muted-foreground">
+              Padrão recomendado · alta qualidade
+            </p>
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-3 gap-4">
         <Field label="Largura (cm)">
