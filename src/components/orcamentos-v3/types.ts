@@ -5,6 +5,8 @@ export interface V3PrintItem {
   kind: "print";
   descricao: string;
   quantidade: number;
+  /** Agrupa irmãos como faixas de quantidade de um mesmo produto. */
+  tier_group_id?: string | null;
   // Selecionado do catálogo (printing_price_items + markup_tiers).
   catalog_item_id: string | null;
   paper_type: string | null;
@@ -27,6 +29,7 @@ export interface V3CVItem {
   id: string;
   kind: "cv";
   descricao: string;
+  tier_group_id?: string | null;
   midia_id: string | null;
   midia_nome: string;
   // Compat com 5.2 (custo manual); na 5.3 vêm do catálogo cv_calc_midias.
@@ -63,6 +66,7 @@ export interface V3ThirdItem {
   id: string;
   kind: "third";
   descricao: string;
+  tier_group_id?: string | null;
   fornecedor: string;
   custo: number;
   margem_pct: number;
@@ -74,6 +78,7 @@ export interface V3BookletItem {
   id: string;
   kind: "booklet";
   descricao: string;
+  tier_group_id?: string | null;
   // Miolo (catálogo igual ao Print)
   catalog_item_id: string | null;
   paper_type: string | null;
@@ -106,6 +111,7 @@ export interface V3SupplyItem {
   id: string;
   kind: "supply";
   descricao: string;
+  tier_group_id?: string | null;
   supply_id: string | null;
   supply_nome: string;
   fornecedor: string | null;
@@ -119,6 +125,7 @@ export interface V3LabelItem {
   id: string;
   kind: "label";
   descricao: string;
+  tier_group_id?: string | null;
   // Etiqueta
   labelW_mm: number;
   labelH_mm: number;
