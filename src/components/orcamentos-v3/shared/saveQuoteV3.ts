@@ -226,6 +226,7 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
         booklet_pages: b.bookletPages,
         booklet_units: b.bookletUnits,
         booklet_duplex: b.bookletDuplex,
+        tier_group_id: b.tier_group_id ?? null,
       };
     });
   if (bookletRows.length > 0) {
@@ -253,6 +254,7 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
         parent_item_id: null,
         product_kind: "Suprimento",
         custom_name: s.descricao || s.supply_nome || null,
+        tier_group_id: s.tier_group_id ?? null,
       };
     });
   if (supplyRows.length > 0) {
@@ -310,6 +312,7 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
         side: l.side,
         catalog_source: l.printing_item_id ? "printing" : null,
         catalog_item_id: l.printing_item_id ?? null,
+        tier_group_id: l.tier_group_id ?? null,
       };
     });
   if (labelRows.length > 0) {
