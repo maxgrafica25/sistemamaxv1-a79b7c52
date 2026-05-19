@@ -44,7 +44,14 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.altKey) return;
-      const map: Record<string, V3Category> = { "1": "print", "2": "cv", "3": "third" };
+      const map: Record<string, V3Category> = {
+        "1": "print",
+        "2": "cv",
+        "3": "third",
+        "4": "booklet",
+        "5": "labor",
+        "6": "supply",
+      };
       const next = map[e.key];
       if (next) {
         e.preventDefault();
@@ -54,6 +61,7 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
 
   const summary = useMemo(
     () => summarize(state.items, state.tax_pct, state.fees_pct, state.margin_pct),
