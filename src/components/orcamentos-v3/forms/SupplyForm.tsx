@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 import SupplySearch, {
   type SupplyOption,
 } from "@/components/orcamentos-v2/SupplySearch";
-import { fmtBRL } from "../shared/pricing";
+import { fmtBRL, roundUp10 } from "../shared/pricing";
+import { TierSimulator } from "../shared/TierSimulator";
 import { genId, type V3SupplyItem } from "../types";
 
 interface Props {
@@ -87,13 +88,24 @@ export function SupplyForm({ defaultMarginPct, onAdd }: Props) {
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
             Quantidade
           </Label>
-          <Input
-            type="number"
-            min={1}
-            value={qty || ""}
-            onChange={(e) => setQty(Math.max(0, Number(e.target.value) || 0))}
-            className="h-9"
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              value={qty || ""}
+              onChange={(e) => setQty(Math.max(0, Number(e.target.value) || 0))}
+              className="h-9"
+            />
+            <TierSimulator
+              currentQty={qty}
+              disabled={!supply}
+              compute={(q) => {
+                const c = q * custoUnit;
+                return { custo_total: c, preco_total: roundUp10(c * (1 + margem / 100)) };
+              }}
+              onPickQty={(q) => setQty(q)}
+            />
+          </div>
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">

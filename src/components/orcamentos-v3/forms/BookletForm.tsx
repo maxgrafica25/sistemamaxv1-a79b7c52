@@ -14,7 +14,8 @@ import PrintingItemSearch, {
   type PrintingCatalogItem,
 } from "@/components/orcamentos/PrintingItemSearch";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
-import { fmtBRL } from "../shared/pricing";
+import { fmtBRL, roundUp10 } from "../shared/pricing";
+import { TierSimulator } from "../shared/TierSimulator";
 import { getIdealSpiral } from "@/lib/quotes-v2/spiral-selector";
 import { genId, type V3BookletItem, type V3Item } from "../types";
 import { BookletKitPanel } from "./BookletKitPanel";
@@ -166,13 +167,30 @@ export function BookletForm({ onAdd, onAddMany, defaultMarginPct = 20 }: Props) 
           />
         </Field>
         <Field label="Qtde de apostilas">
-          <Input
-            type="number"
-            min={1}
-            value={bookletUnits || ""}
-            onChange={(e) => setBookletUnits(Math.max(0, Number(e.target.value) || 0))}
-            className="h-9"
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              value={bookletUnits || ""}
+              onChange={(e) => setBookletUnits(Math.max(0, Number(e.target.value) || 0))}
+              className="h-9"
+            />
+            <TierSimulator
+              currentQty={bookletUnits}
+              disabled={!catalog || bookletPages <= 0}
+              compute={(units) => {
+                const sheets = Math.max(0, Math.floor(bookletPages) * Math.floor(units));
+                if (!catalog || sheets <= 0) return { custo_total: 0, preco_total: 0 };
+                const pr = pricePerSheet(catalog, tiers, sheets);
+                const mult = catalog.side === "F/V" ? 1 : duplex ? 2 : 1;
+                return {
+                  custo_total: pr.baseCost * sheets * mult,
+                  preco_total: roundUp10(pr.sellingPrice * sheets * mult),
+                };
+              }}
+              onPickQty={(q) => setBookletUnits(q)}
+            />
+          </div>
         </Field>
       </div>
 
