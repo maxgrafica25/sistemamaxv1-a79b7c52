@@ -86,6 +86,39 @@ export function CVForm({ onAdd }: Props) {
     return filterAndSortForMidia(cat.acabamentos, midia?.tipo_midia ?? null);
   }, [cat.acabamentos, midia]);
 
+  // Filtra acabamentos pelo modo Lona × Banner
+  const acabamentosView = useMemo<CVAcabamento[]>(() => {
+    if (!isLona) return acabamentosCompat;
+    if (isBanner) return acabamentosCompat.filter((a) => isBannerFinish(a.nome));
+    return acabamentosCompat.filter((a) => isLonaOnlyFinish(a.nome));
+  }, [acabamentosCompat, isLona, isBanner]);
+
+  // Sugestão de bastão baseada na largura
+  const necessarioBastaoCm = largura_cm > 0 ? largura_cm + 2 * SOBRA_CM : 0;
+  const bastaoSugerido = useMemo<CVAcabamento | null>(() => {
+    if (!isLona || !isBanner || !necessarioBastaoCm) return null;
+    const candidatos = acabamentosView
+      .map((a) => ({ a, cm: parseBastaoCm(a.nome) }))
+      .filter((x): x is { a: CVAcabamento; cm: number } => x.cm != null && x.cm >= necessarioBastaoCm)
+      .sort((x, y) => x.cm - y.cm);
+    return candidatos[0]?.a ?? null;
+  }, [acabamentosView, isLona, isBanner, necessarioBastaoCm]);
+  const semBastaoCabe = isLona && isBanner && necessarioBastaoCm > 0 && !bastaoSugerido &&
+    acabamentosView.some((a) => parseBastaoCm(a.nome) != null);
+
+  // Auto-seleciona o bastão sugerido se nenhum chip de bastão estiver marcado ainda
+  useEffect(() => {
+    if (!bastaoSugerido) return;
+    setAcabIds((prev) => {
+      const jaMarcouBastao = prev.some((id) => {
+        const ac = acabamentosView.find((a) => a.id === id);
+        return ac && parseBastaoCm(ac.nome) != null;
+      });
+      if (jaMarcouBastao) return prev;
+      return [...prev, bastaoSugerido.id];
+    });
+  }, [bastaoSugerido, acabamentosView]);
+
   // Auto-seleciona "Impressão solvente alta resolução" (ou primeira compatível como fallback)
   useEffect(() => {
     if (impressoesCompat.length === 0) {
@@ -99,10 +132,10 @@ export function CVForm({ onAdd }: Props) {
     if (escolhida.id !== impressaoId) setImpressaoId(escolhida.id);
   }, [impressoesCompat, impressaoId]);
 
-  // Reset acabamentos incompatíveis
+  // Reset acabamentos que saíram da view
   useEffect(() => {
-    setAcabIds((prev) => prev.filter((id) => acabamentosCompat.some((a) => a.id === id)));
-  }, [acabamentosCompat]);
+    setAcabIds((prev) => prev.filter((id) => acabamentosView.some((a) => a.id === id)));
+  }, [acabamentosView]);
 
   const impressao = useMemo(
     () => cat.impressoes.find((i) => i.id === impressaoId) ?? null,
