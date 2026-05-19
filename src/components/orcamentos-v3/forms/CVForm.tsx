@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, Plus, AlertCircle, Sparkles, AlertTriangle } from "lucide-react";
+import { Check, Plus, AlertCircle, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3CVItem } from "../types";
@@ -255,40 +255,36 @@ export function CVForm({ onAdd }: Props) {
         </div>
       </Field>
 
-      <div
-        className={cn(
-          "rounded-md border px-3 py-2.5 flex items-center gap-3 transition-colors",
-          impressao
-            ? "border-primary/30 bg-primary/5"
-            : "border-dashed border-border bg-muted/30",
-        )}
-      >
-        <div
-          className={cn(
-            "h-9 w-9 rounded-md flex items-center justify-center shrink-0",
-            impressao ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
-          )}
-        >
-          <Sparkles className="h-4 w-4" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Resolução de impressão
-          </p>
-          <p className="text-sm font-medium truncate">
-            {impressao
-              ? impressao.nome
-              : !midia
-                ? "Selecione a mídia primeiro"
-                : "Nenhuma resolução compatível disponível"}
-          </p>
-          {impressao && (
-            <p className="text-[11px] text-muted-foreground">
-              Padrão recomendado · alta qualidade
+      {midia && (
+        <Field label="Resolução de impressão">
+          {impressoesCompat.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhuma resolução compatível disponível
             </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {impressoesCompat.map((i) => {
+                const active = impressaoId === i.id;
+                return (
+                  <button
+                    key={i.id}
+                    type="button"
+                    onClick={() => setImpressaoId(i.id)}
+                    className={cn(
+                      "px-3 h-8 rounded-full text-sm border transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background hover:bg-muted border-input",
+                    )}
+                  >
+                    {i.nome}
+                  </button>
+                );
+              })}
+            </div>
           )}
-        </div>
-      </div>
+        </Field>
+      )}
 
       <div className="grid grid-cols-3 gap-4">
         <Field label="Largura (cm)">
