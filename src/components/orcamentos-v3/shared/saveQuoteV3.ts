@@ -114,13 +114,13 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
           parent_item_id: null,
           product_kind: "impressao",
           custom_name: it.descricao || null,
-          paper_type: null,
-          grammage: null,
-          size: it.formato,
-          side: it.face === "fv" ? "Frente/Verso" : it.face === "frente" ? "Só frente" : null,
+          paper_type: it.paper_type,
+          grammage: it.grammage,
+          size: it.size ?? it.formato,
+          side: it.side ?? (it.face === "fv" ? "F/V" : it.face === "frente" ? "Só frente" : null),
           print_colors: it.cores,
-          catalog_source: null,
-          catalog_item_id: null,
+          catalog_source: it.catalog_item_id ? "printing" : null,
+          catalog_item_id: it.catalog_item_id ?? null,
         };
       }
       const cv = it as V3CVItem;
