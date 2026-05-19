@@ -53,11 +53,24 @@ export function CVForm({ onAdd }: Props) {
   const [impressaoId, setImpressaoId] = useState<string>("");
   const [acabIds, setAcabIds] = useState<string[]>([]);
   const [pulse, setPulse] = useState(false);
+  const [isBanner, setIsBanner] = useState(false);
 
   const midia = useMemo(
     () => cat.midias.find((m) => m.id === midiaId) ?? null,
     [cat.midias, midiaId],
   );
+
+  const isLona = useMemo(
+    () => /lona|banner|vinil/i.test((midia?.tipo_midia || "") + " " + (midia?.nome || "")),
+    [midia],
+  );
+
+  // Default "É banner?" quando o nome já indicar banner
+  useEffect(() => {
+    if (!midia) { setIsBanner(false); return; }
+    if (isLona) setIsBanner(/banner/i.test(midia.nome || ""));
+    else setIsBanner(false);
+  }, [midia, isLona]);
 
   // Impressoras compatíveis com a mídia selecionada
   const impressoesCompat = useMemo(() => {
