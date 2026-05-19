@@ -15,9 +15,11 @@ import { useQuoteDraftV3 } from "./shared/useQuoteDraftV3";
 import { summarize, fmtBRL } from "./shared/pricing";
 import { DEFAULT_STATE, genId, type V3Category, type V3Item, type V3QuoteState } from "./types";
 
+import { saveQuoteV3 } from "./shared/saveQuoteV3";
+
 interface Props {
   onCancel: () => void;
-  onSave?: (state: V3QuoteState) => void;
+  onSave?: (result: { id: string; quote_number: string }) => void;
 }
 
 export function NewQuoteFormV3({ onCancel, onSave }: Props) {
@@ -70,20 +72,32 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
       return { ...s, items: [...s.items, clone] };
     });
 
-  const handleSave = () => {
+  const [saving, setSaving] = useState(false);
+  const handleSave = async () => {
     if (state.items.length === 0) {
       toast.error("Adicione pelo menos 1 item antes de salvar.");
       return;
     }
-    if (!state.cliente.id && state.cliente.nome === "Cliente Balcão") {
-      toast.warning("Selecione o cliente real antes de salvar.", {
-        description: "O cliente Balcão é apenas para começar rápido.",
+    if (!state.cliente.id) {
+      toast.warning("Selecione um cliente válido antes de salvar.", {
+        description: "Cliente Balcão é apenas para começar rápido — escolha o cliente real.",
       });
       return;
     }
-    onSave?.(state);
-    clear();
-    toast.success("Orçamento V3 pronto (persistência será plugada na Fase 5).");
+    setSaving(true);
+    try {
+      const result = await saveQuoteV3(state);
+      clear();
+      toast.success(`Orçamento ${result.quote_number} criado.`);
+      onSave?.(result);
+    } catch (err: any) {
+      console.error("[V3 save]", err);
+      toast.error("Falha ao salvar orçamento", {
+        description: err?.message || "Tente novamente. O rascunho foi mantido.",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const lastSaved = savedAt ? new Date(savedAt).toLocaleTimeString("pt-BR") : null;
@@ -130,8 +144,9 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
               <Clock className="h-3 w-3" /> Rascunho {lastSaved}
             </span>
           )}
-          <Button onClick={handleSave} size="sm">
-            <Save className="h-4 w-4 mr-1.5" /> Salvar orçamento
+          <Button onClick={handleSave} size="sm" disabled={saving}>
+            <Save className="h-4 w-4 mr-1.5" />
+            {saving ? "Salvando..." : "Salvar orçamento"}
           </Button>
         </div>
       </div>
