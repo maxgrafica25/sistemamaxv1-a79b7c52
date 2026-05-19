@@ -158,21 +158,20 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
   }
 
 
-  // Terceiros
+  // Terceiros — paridade com V2: armazena CUSTO BRUTO (cost),
+  // o markup/margem é aplicado pela engine financeira do quote.
   const thirdRows = state.items
     .map((it, i) => ({ it, sort: i }))
     .filter(({ it }) => it.kind === "third")
     .map(({ it, sort }) => {
       const t = it as V3ThirdItem;
-      const p = priceOf(t);
+      const qty = Math.max(1, Math.floor(t.quantidade || 1));
+      const rawCost = qty * (t.custo || 0);
       return {
         quote_id: quoteId,
-        description:
-          [t.descricao?.trim(), t.fornecedor && `Fornecedor: ${t.fornecedor}`]
-            .filter(Boolean)
-            .join(" · ") || "Material terceirizado",
+        description: t.descricao?.trim() || "Material terceirizado",
         supplier: t.fornecedor || null,
-        cost: p.preco_total,
+        cost: rawCost,
         sort_order: sort,
       };
     });
