@@ -15,9 +15,11 @@ import { useQuoteDraftV3 } from "./shared/useQuoteDraftV3";
 import { summarize, fmtBRL } from "./shared/pricing";
 import { DEFAULT_STATE, genId, type V3Category, type V3Item, type V3QuoteState } from "./types";
 
+import { saveQuoteV3 } from "./shared/saveQuoteV3";
+
 interface Props {
   onCancel: () => void;
-  onSave?: (state: V3QuoteState) => void;
+  onSave?: (result: { id: string; quote_number: string }) => void;
 }
 
 export function NewQuoteFormV3({ onCancel, onSave }: Props) {
