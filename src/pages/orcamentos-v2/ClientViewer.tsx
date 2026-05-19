@@ -321,6 +321,34 @@ export default function ClientViewer() {
   const hasAnyPending = pendingItems.length > 0;
   const hasMultipleItems = materials.length >= 2;
 
+  // Agrupa pendentes por tier_group_id, mantendo a ordem de aparição original.
+  type PendingGroup = { groupId: string | null; items: MaterialRow[] };
+  const pendingGroups: PendingGroup[] = (() => {
+    const groupMap = new Map<string, MaterialRow[]>();
+    for (const m of pendingItems) {
+      if (m.tier_group_id) {
+        const arr = groupMap.get(m.tier_group_id) ?? [];
+        arr.push(m);
+        groupMap.set(m.tier_group_id, arr);
+      }
+    }
+    const seen = new Set<string>();
+    const out: PendingGroup[] = [];
+    for (const m of pendingItems) {
+      if (m.tier_group_id) {
+        if (seen.has(m.tier_group_id)) continue;
+        seen.add(m.tier_group_id);
+        const items = [...(groupMap.get(m.tier_group_id) ?? [])].sort(
+          (a, b) => a.quantity - b.quantity,
+        );
+        out.push({ groupId: m.tier_group_id, items });
+      } else {
+        out.push({ groupId: null, items: [m] });
+      }
+    }
+    return out;
+  })();
+
   const subtotalApproved = approvedItems.reduce(
     (sum, m) => sum + Number(m.approved_value ?? m.quantity * m.unit_price),
     0,
