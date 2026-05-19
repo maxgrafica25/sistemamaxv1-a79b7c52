@@ -4,7 +4,16 @@
 // preservando os campos disponíveis. A engine completa de catálogo
 // (markup tiers + paper costs) será plugada na Fase 5.2.
 import { supabase } from "@/integrations/supabase/client";
-import type { V3QuoteState, V3Item, V3PrintItem, V3CVItem, V3ThirdItem } from "../types";
+import type {
+  V3QuoteState,
+  V3Item,
+  V3PrintItem,
+  V3CVItem,
+  V3ThirdItem,
+  V3BookletItem,
+  V3LaborItem,
+  V3SupplyItem,
+} from "../types";
 import { priceOf, roundUp10 } from "./pricing";
 
 const nextQuoteNumber = async () => {
