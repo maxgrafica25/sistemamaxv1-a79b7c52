@@ -393,6 +393,7 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
               currentQty={quantidade}
               disabled={!midia || largura_cm <= 0 || altura_cm <= 0}
               onPickQty={(q) => setQuantidade(q)}
+              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
               compute={(q) => {
                 if (!midia) return { custo_total: 0, preco_total: 0 };
                 const r = calcular({
