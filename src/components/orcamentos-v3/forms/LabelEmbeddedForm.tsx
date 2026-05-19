@@ -233,6 +233,7 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers }: Props) {
                 };
               }}
               onPickQty={(q) => setQuantidade(q)}
+              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
             />
           </div>
         </Field>
