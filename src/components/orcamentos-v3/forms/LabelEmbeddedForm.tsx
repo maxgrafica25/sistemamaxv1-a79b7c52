@@ -30,11 +30,12 @@ import { genId, type V3LabelItem } from "../types";
 
 interface Props {
   onAdd: (item: V3LabelItem) => void;
+  onAddTiers?: (items: V3LabelItem[]) => void;
 }
 
 const DEFAULT_MARGINS = { top: 10, right: 10, bottom: 10, left: 10, gap: 3 };
 
-export function LabelEmbeddedForm({ onAdd }: Props) {
+export function LabelEmbeddedForm({ onAdd, onAddTiers }: Props) {
   const [descricao, setDescricao] = useState("");
   const [labelW, setLabelW] = useState(50);
   const [labelH, setLabelH] = useState(30);
@@ -88,20 +89,27 @@ export function LabelEmbeddedForm({ onAdd }: Props) {
   const canAdd =
     !!folha.selectedPrinting && quantidade > 0 && perSheet > 0 && pricing.totalPrice > 0;
 
-  const submit = () => {
-    if (!canAdd || !folha.selectedPrinting) return;
+  const buildItem = (q: number, tierGroupId?: string): V3LabelItem | null => {
+    if (!folha.selectedPrinting) return null;
+    const pr = computeSheetPricing({
+      pricePerSheet: folha.total,
+      qtyRequested: q,
+      perSheet,
+    });
+    if (pr.totalPrice <= 0) return null;
     const label =
       descricao.trim() ||
-      `Etiqueta ${labelW}×${labelH}mm — ${quantidade} un (${folha.selectedPrinting.paper_type})`;
+      `Etiqueta ${labelW}×${labelH}mm — ${q} un (${folha.selectedPrinting.paper_type})`;
     const fin = folha.selectedFinishing;
-    onAdd({
+    return {
       id: genId(),
       kind: "label",
       descricao: label,
+      tier_group_id: tierGroupId ?? null,
       labelW_mm: labelW,
       labelH_mm: labelH,
       shape,
-      quantidade,
+      quantidade: q,
       sheet_size: sheetId,
       printing_item_id: folha.selectedPrinting.id,
       paper_type: folha.selectedPrinting.paper_type,
@@ -110,11 +118,31 @@ export function LabelEmbeddedForm({ onAdd }: Props) {
       finishing_id: fin && fin.id !== "__none__" ? fin.id : null,
       finishing_nome: fin && fin.id !== "__none__" ? fin.name : null,
       per_sheet: perSheet,
-      sheets_needed: pricing.sheetsNeeded,
+      sheets_needed: pr.sheetsNeeded,
       price_per_sheet: folha.total,
-      preco_total: pricing.totalPrice,
-      custo_total: custoTotal,
-    });
+      preco_total: pr.totalPrice,
+      custo_total: sheetCost * pr.sheetsNeeded,
+    };
+  };
+
+  const submit = () => {
+    if (!canAdd) return;
+    const it = buildItem(quantidade);
+    if (!it) return;
+    onAdd(it);
+    setDescricao("");
+    setPulse(true);
+    setTimeout(() => setPulse(false), 600);
+  };
+
+  const submitAsTiers = (qtys: number[]) => {
+    if (!onAddTiers) return;
+    const tg = `tg_${genId()}`;
+    const items = qtys
+      .map((q) => buildItem(q, tg))
+      .filter((x): x is V3LabelItem => !!x);
+    if (items.length === 0) return;
+    onAddTiers(items);
     setDescricao("");
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
