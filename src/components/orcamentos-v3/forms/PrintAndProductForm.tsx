@@ -1,13 +1,21 @@
 // Wrapper da aba "Impressão + Acabamentos".
 // Toggle Personalizado | Produto. Em modo Produto, mostra chips de presets
 // que roteiam para o sub-formulário certo (PrintForm/BookletForm/LabelForm).
-import { useState } from "react";
+// Em modo Personalizado, mostra sugestão inteligente quando a combinação
+// de papel + acabamentos casa com um produto conhecido (ex: lona + ilhós).
+import { useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Wand2, Pencil } from "lucide-react";
+import { Wand2, Pencil, Sparkles, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PrintForm } from "./PrintForm";
 import { BookletForm } from "./BookletForm";
 import { LabelEmbeddedForm } from "./LabelEmbeddedForm";
-import { PRODUCT_PRESETS, type ProductPresetId } from "../shared/productPresets";
+import {
+  PRODUCT_PRESETS,
+  PRESET_BY_ID,
+  type ProductPresetId,
+} from "../shared/productPresets";
+import { suggestProduct, type SuggestResult } from "../shared/productSuggester";
 import type { V3Item } from "../types";
 
 interface Props {
@@ -19,8 +27,39 @@ type Mode = "custom" | "product";
 export function PrintAndProductForm({ onAdd }: Props) {
   const [mode, setMode] = useState<Mode>("custom");
   const [product, setProduct] = useState<ProductPresetId>("folheto");
+  const [suggestion, setSuggestion] = useState<SuggestResult | null>(null);
+  const [dismissedKey, setDismissedKey] = useState<string>("");
 
-  const preset = PRODUCT_PRESETS.find((p) => p.id === product) ?? PRODUCT_PRESETS[0];
+  const preset = PRESET_BY_ID[product] ?? PRODUCT_PRESETS[0];
+
+  const handleSelectionChange = useCallback(
+    (sel: {
+      paper_type: string | null;
+      size: string | null;
+      grammage: string | null;
+      finishings: string[];
+    }) => {
+      const s = suggestProduct(sel);
+      if (!s) {
+        setSuggestion(null);
+        return;
+      }
+      const key = `${s.productId}|${sel.paper_type}|${sel.finishings.join(",")}`;
+      if (key === dismissedKey) {
+        setSuggestion(null);
+        return;
+      }
+      setSuggestion(s);
+    },
+    [dismissedKey],
+  );
+
+  const applySuggestion = () => {
+    if (!suggestion) return;
+    setMode("product");
+    setProduct(suggestion.productId);
+    setSuggestion(null);
+  };
 
   return (
     <div className="space-y-5">
@@ -66,9 +105,39 @@ export function PrintAndProductForm({ onAdd }: Props) {
         </div>
       )}
 
+      {/* Faixa de sugestão (apenas em Personalizado) */}
+      {mode === "custom" && suggestion && (
+        <div className="flex items-center gap-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5">
+          <Sparkles className="h-4 w-4 text-primary shrink-0" />
+          <div className="flex-1 min-w-0 text-xs">
+            <p className="font-medium text-foreground">
+              Parece um <strong>{PRESET_BY_ID[suggestion.productId].label}</strong> —
+              aplicar preset?
+            </p>
+            <p className="text-muted-foreground">{suggestion.reason}</p>
+          </div>
+          <Button size="sm" variant="default" className="h-7 text-xs" onClick={applySuggestion}>
+            Aplicar
+          </Button>
+          <button
+            type="button"
+            aria-label="Dispensar sugestão"
+            onClick={() => {
+              setDismissedKey(`${suggestion.productId}|||`);
+              setSuggestion(null);
+            }}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Sub-formulário */}
       <div>
-        {mode === "custom" && <PrintForm onAdd={onAdd} />}
+        {mode === "custom" && (
+          <PrintForm onAdd={onAdd} onSelectionChange={handleSelectionChange} />
+        )}
         {mode === "product" && preset.form === "print" && <PrintForm onAdd={onAdd} />}
         {mode === "product" && preset.form === "booklet" && <BookletForm onAdd={onAdd} />}
         {mode === "product" && preset.form === "label" && <LabelEmbeddedForm onAdd={onAdd} />}

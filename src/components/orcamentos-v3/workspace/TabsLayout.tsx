@@ -2,7 +2,6 @@ import {
   Printer,
   Megaphone,
   Handshake,
-  BookOpen,
   Wrench,
   Package,
 } from "lucide-react";
@@ -18,9 +17,8 @@ export const TABS: {
   { id: "print", label: "Impressão + Acabamentos", icon: Printer, shortcut: "Alt+1" },
   { id: "cv", label: "Com. Visual", icon: Megaphone, shortcut: "Alt+2" },
   { id: "third", label: "Terceirizados", icon: Handshake, shortcut: "Alt+3" },
-  { id: "booklet", label: "Apostilas", icon: BookOpen, shortcut: "Alt+4" },
-  { id: "labor", label: "Mão-de-obra", icon: Wrench, shortcut: "Alt+5" },
-  { id: "supply", label: "Suprimentos", icon: Package, shortcut: "Alt+6" },
+  { id: "labor", label: "Mão-de-obra", icon: Wrench, shortcut: "Alt+4" },
+  { id: "supply", label: "Suprimentos", icon: Package, shortcut: "Alt+5" },
 ];
 
 interface Props {
