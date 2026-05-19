@@ -29,12 +29,34 @@ export interface V3CVItem {
   descricao: string;
   midia_id: string | null;
   midia_nome: string;
+  // Compat com 5.2 (custo manual); na 5.3 vêm do catálogo cv_calc_midias.
   custo_mt2: number;
   margem_mt2_pct: number;
+  // Dimensões mantidas em metros para preservar UI atual.
   largura_m: number;
   altura_m: number;
   quantidade: number;
+  // Acabamentos selecionados (chips legados / nomes); na 5.3 mantidos por id.
   finishings: string[];
+  // ===== Catálogo CV (Fase 5.3) =====
+  impressao_id?: string | null;
+  impressao_nome?: string | null;
+  acabamento_ids?: string[];
+  acabamentos_qtd_unidades?: Record<string, number>;
+  // Snapshot do resultado da engine V2 (preferido por priceOf quando presente).
+  snapshot?: {
+    preco_total: number;
+    custo_total: number;
+    preco_midia: number;
+    preco_impressao: number;
+    preco_acabamentos: number;
+    area_total_m2: number;
+    perim_m: number;
+    tem_emenda: boolean;
+    aplicou_minimo: boolean;
+    acabamento_efetivo_id: string | null;
+    acabamento_efetivo_nome: string | null;
+  } | null;
 }
 
 export interface V3ThirdItem {

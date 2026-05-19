@@ -17,6 +17,13 @@ export const priceOfPrint = (it: V3PrintItem): ItemPrice => {
 };
 
 export const priceOfCV = (it: V3CVItem): ItemPrice => {
+  // 5.3: usa snapshot da engine V2 quando presente (paridade ao centavo).
+  if (it.snapshot && it.snapshot.preco_total > 0) {
+    return {
+      custo_total: it.snapshot.custo_total,
+      preco_total: it.snapshot.preco_total,
+    };
+  }
   const m2 = Math.max(0, it.largura_m) * Math.max(0, it.altura_m);
   const q = Math.max(1, Math.floor(it.quantidade || 1));
   const custo_total = m2 * q * (it.custo_mt2 || 0);
