@@ -1,4 +1,12 @@
-import type { V3CVItem, V3Item, V3PrintItem, V3ThirdItem } from "../types";
+import type {
+  V3BookletItem,
+  V3CVItem,
+  V3Item,
+  V3LaborItem,
+  V3PrintItem,
+  V3SupplyItem,
+  V3ThirdItem,
+} from "../types";
 
 export const roundUp10 = (n: number) =>
   !isFinite(n) || n <= 0 ? 0 : Math.ceil(n * 10) / 10;
@@ -17,7 +25,6 @@ export const priceOfPrint = (it: V3PrintItem): ItemPrice => {
 };
 
 export const priceOfCV = (it: V3CVItem): ItemPrice => {
-  // 5.3: usa snapshot da engine V2 quando presente (paridade ao centavo).
   if (it.snapshot && it.snapshot.preco_total > 0) {
     return {
       custo_total: it.snapshot.custo_total,
@@ -38,6 +45,33 @@ export const priceOfThird = (it: V3ThirdItem): ItemPrice => {
   return { custo_total, preco_total };
 };
 
+export const priceOfBooklet = (it: V3BookletItem): ItemPrice => {
+  const physicalSheets = Math.max(
+    0,
+    Math.floor(it.bookletPages || 0) * Math.floor(it.bookletUnits || 0),
+  );
+  // Se catálogo é Só frente e usuário marcou F/V, dobra (paridade com PrintingItemEditor).
+  const sideMult = it.side === "F/V" ? 1 : it.bookletDuplex ? 2 : 1;
+  const custo_total = physicalSheets * (it.custo_unitario || 0) * sideMult;
+  const preco_total = roundUp10(
+    physicalSheets * (it.valor_unitario || 0) * sideMult,
+  );
+  return { custo_total, preco_total };
+};
+
+export const priceOfLabor = (it: V3LaborItem): ItemPrice => {
+  const custo_total = (it.time_minutes / 60) * (it.hourly_rate || 0);
+  const preco_total = roundUp10(custo_total * (1 + (it.margem_pct || 0) / 100));
+  return { custo_total, preco_total };
+};
+
+export const priceOfSupply = (it: V3SupplyItem): ItemPrice => {
+  const q = Math.max(1, Math.floor(it.quantidade || 1));
+  const custo_total = q * (it.custo_unitario || 0);
+  const preco_total = roundUp10(custo_total * (1 + (it.margem_pct || 0) / 100));
+  return { custo_total, preco_total };
+};
+
 export const priceOf = (it: V3Item): ItemPrice => {
   switch (it.kind) {
     case "print":
@@ -46,6 +80,12 @@ export const priceOf = (it: V3Item): ItemPrice => {
       return priceOfCV(it);
     case "third":
       return priceOfThird(it);
+    case "booklet":
+      return priceOfBooklet(it);
+    case "labor":
+      return priceOfLabor(it);
+    case "supply":
+      return priceOfSupply(it);
   }
 };
 

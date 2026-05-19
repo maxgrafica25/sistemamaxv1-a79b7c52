@@ -9,6 +9,9 @@ import { TabsLayout } from "./workspace/TabsLayout";
 import { PrintForm } from "./forms/PrintForm";
 import { CVForm } from "./forms/CVForm";
 import { ThirdPartyForm } from "./forms/ThirdPartyForm";
+import { BookletForm } from "./forms/BookletForm";
+import { LaborForm } from "./forms/LaborForm";
+import { SupplyForm } from "./forms/SupplyForm";
 import { UnifiedCart } from "./cart/UnifiedCart";
 import { FinancialPanel } from "./cart/FinancialPanel";
 import { useQuoteDraftV3 } from "./shared/useQuoteDraftV3";
@@ -41,7 +44,14 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.altKey) return;
-      const map: Record<string, V3Category> = { "1": "print", "2": "cv", "3": "third" };
+      const map: Record<string, V3Category> = {
+        "1": "print",
+        "2": "cv",
+        "3": "third",
+        "4": "booklet",
+        "5": "labor",
+        "6": "supply",
+      };
       const next = map[e.key];
       if (next) {
         e.preventDefault();
@@ -51,6 +61,7 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
 
   const summary = useMemo(
     () => summarize(state.items, state.tax_pct, state.fees_pct, state.margin_pct),
@@ -179,7 +190,15 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
             {active === "print" && <PrintForm onAdd={addItem} />}
             {active === "cv" && <CVForm onAdd={addItem} />}
             {active === "third" && <ThirdPartyForm onAdd={addItem} />}
+            {active === "booklet" && <BookletForm onAdd={addItem} />}
+            {active === "labor" && (
+              <LaborForm defaultMarginPct={state.margin_pct} onAdd={addItem} />
+            )}
+            {active === "supply" && (
+              <SupplyForm defaultMarginPct={state.margin_pct} onAdd={addItem} />
+            )}
           </div>
+
         </div>
 
         {/* Cart (30%) */}

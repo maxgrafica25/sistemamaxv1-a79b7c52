@@ -1,6 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Trash2, Printer, Megaphone, Handshake, ShoppingCart } from "lucide-react";
+import {
+  Copy,
+  Trash2,
+  Printer,
+  Megaphone,
+  Handshake,
+  BookOpen,
+  Wrench,
+  Package,
+  ShoppingCart,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { V3Item } from "../types";
 import { priceOf, fmtBRL } from "../shared/pricing";
@@ -16,13 +26,35 @@ const ICON = {
   print: Printer,
   cv: Megaphone,
   third: Handshake,
+  booklet: BookOpen,
+  labor: Wrench,
+  supply: Package,
 };
 
 const LABEL = {
   print: "Impressão",
   cv: "Com. Visual",
   third: "Terceirizado",
+  booklet: "Apostila",
+  labor: "Mão-de-obra",
+  supply: "Suprimento",
 };
+
+function cartMeta(it: V3Item): string {
+  switch (it.kind) {
+    case "labor":
+      return `${it.time_minutes} min · margem ${it.margem_pct.toFixed(0)}%`;
+    case "booklet":
+      return `${it.bookletUnits}× ${it.bookletPages}fl${it.bookletDuplex ? " F/V" : ""}`;
+    case "supply":
+    case "third":
+    case "print":
+    case "cv":
+      return `qtd ${it.quantidade ?? 1}`;
+  }
+}
+
+
 
 export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props) {
   if (items.length === 0) {
@@ -67,10 +99,9 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
                   <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4">
                     {LABEL[it.kind]}
                   </Badge>
-                  <span className="text-[11px] text-muted-foreground">
-                    qtd {(it as { quantidade?: number }).quantidade ?? 1}
-                  </span>
+                  <span className="text-[11px] text-muted-foreground">{cartMeta(it)}</span>
                 </div>
+
               </div>
             </div>
             <div className="mt-2 flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">

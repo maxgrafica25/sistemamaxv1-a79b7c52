@@ -1,4 +1,4 @@
-export type V3Category = "print" | "cv" | "third";
+export type V3Category = "print" | "cv" | "third" | "booklet" | "labor" | "supply";
 
 export interface V3PrintItem {
   id: string;
@@ -69,7 +69,58 @@ export interface V3ThirdItem {
   quantidade: number;
 }
 
-export type V3Item = V3PrintItem | V3CVItem | V3ThirdItem;
+/** Apostila (Fase 6.1) — derivada de Print com bookletPages × bookletUnits. */
+export interface V3BookletItem {
+  id: string;
+  kind: "booklet";
+  descricao: string;
+  // Miolo (catálogo igual ao Print)
+  catalog_item_id: string | null;
+  paper_type: string | null;
+  grammage: string | null;
+  size: string | null;
+  side: string | null;
+  printer_category_id: string | null;
+  markup_group_id: string | null;
+  valor_unitario: number; // preço por folha do miolo
+  custo_unitario: number; // custo por folha do miolo
+  // Configuração da apostila
+  bookletPages: number;   // folhas por apostila (lados de papel)
+  bookletUnits: number;   // qtde de apostilas
+  bookletDuplex: boolean; // F/V no miolo
+}
+
+/** Mão-de-obra avulsa (Fase 6.2). Persistida em quote_labor_steps (parent_item_id null). */
+export interface V3LaborItem {
+  id: string;
+  kind: "labor";
+  descricao: string;
+  time_minutes: number;
+  step_type: "impressao" | "acabamento" | "corte" | "outro";
+  hourly_rate: number; // snapshot do custo/hora no momento da inserção
+  margem_pct: number;  // margem aplicada (default = margem do orçamento)
+}
+
+/** Suprimento avulso (Fase 6.3). Persistido em quote_materials product_kind 'Suprimento'. */
+export interface V3SupplyItem {
+  id: string;
+  kind: "supply";
+  descricao: string;
+  supply_id: string | null;
+  supply_nome: string;
+  fornecedor: string | null;
+  custo_unitario: number;
+  margem_pct: number;
+  quantidade: number;
+}
+
+export type V3Item =
+  | V3PrintItem
+  | V3CVItem
+  | V3ThirdItem
+  | V3BookletItem
+  | V3LaborItem
+  | V3SupplyItem;
 
 export interface V3QuoteState {
   cliente: { id: string | null; nome: string };

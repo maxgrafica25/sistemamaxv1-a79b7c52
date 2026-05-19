@@ -1,53 +1,82 @@
-# Orçamento V3 — Scaffold + Fases 1–4
+# Paridade total V2 → V3
 
-Implementação **isolada** em `src/components/orcamentos-v3/` e rota `/orcamentos-v3/novo`. Zero alteração no V2. Inclui as fases 1–4 do rollout. A fase 5 (persistência real + swap de rota padrão) só após QA aprovado pelo usuário.
+Escopo: trazer **todas as funcionalidades do módulo V2** para o V3, mantendo o layout split-screen (Tabs + Carrinho + Financeiro) já entregue nas Fases 1–5.
 
-## Arquivos a criar
+## Lacunas atuais (V3 hoje vs V2)
 
-### Rota
-- `src/App.tsx` — adicionar `<Route path="/orcamentos-v3/novo" element={<NewQuoteV3 />} />` + import.
-- `src/pages/orcamentos-v3/NewQuoteV3.tsx` — page wrapper com navigate.
+| Área | V2 | V3 | Falta |
+|---|---|---|---|
+| Tipos de item | Impressos, CV, Apostila, Terceiros, Mão-de-obra, Suprimento | Impressos, CV, Terceiros | **Apostila, Mão-de-obra, Suprimento** |
+| Listagem `/orcamentos-v3` | OrcamentosV2.tsx (tabela, filtros, ações em massa) | só `/novo` | **Tela de listagem inteira** |
+| Edição | EditQuoteV2.tsx | não existe | **Tela de edição (load + save)** |
+| Cliente | ClientCombobox + DetailsPanel + LastSalesPanel | só campo simples | **Combobox + painel lateral** |
+| Frete | FreightSelector | hardcoded | **Seletor de frete** |
+| Desconto/Pagamento | DiscountPaymentBlock | só margem | **Bloco completo** |
+| Opções (A/B/C) | QuoteOptionsBuilder | — | **Builder de opções** |
+| Templates / Grupos | UseTemplateDialog + LoadFromGroupDialog | — | **2 diálogos** |
+| Acabamentos inteligentes | SmartFinishingBlock + finishing-suggestions | progressivo simples | **Sugestões automáticas + CV** |
+| Mão-de-obra/Suprimento por item | LaborAndSupplySubform + SupplySearch + ProcessPicker | — | **Subform inteiro** |
+| Validação | QuoteChecklist | — | **Checklist** |
+| Assistente IA | QuoteAssistant | — | **Painel do assistente** |
+| Engajamento | EngagementBadge + Popover + RealtimeRadar | — | **3 componentes** |
+| Ações | Clone, Nova Versão, GerarOP, GerarPedido, BulkActionBar | — | **5 ações** |
+| Cliente público | client-viewer/ | — | **Página pública /q/:id** |
+| Tracking | useScrollDepthTracking + tracking.ts | — | **Hook + lib** |
 
-### Componente principal
-- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` — orquestrador: header (Voltar · badge V3 beta · cliente · assunto · salvar), grid `lg:grid-cols-[1fr_360px]`, atalhos `Alt+1/2/3`, auto-save + restauração de rascunho com toast.
-- `src/components/orcamentos-v3/types.ts` — `V3Item` (print | cv | third), `V3QuoteState`, `DEFAULT_STATE` (cliente = "Cliente Balcão").
+## Plano em 6 fases
 
-### Workspace (70%)
-- `src/components/orcamentos-v3/workspace/TabsLayout.tsx` — segmented control discreto (border-bottom na ativa, ícone Lucide + kbd do atalho).
+### Fase 6 — Tipos de item faltantes (≈ 3 sub-passos)
+- 6.1 `BookletForm.tsx` (Apostila): miolo + capa + acabamento (espiral/wire-o/grampo), reusando `spiral-selector.ts` e `sheet-yield.ts`.
+- 6.2 `LaborForm.tsx` (Mão-de-obra avulsa) + `SupplyForm.tsx` (Suprimento avulso) com `ProcessPicker` e `SupplySearch` portados.
+- 6.3 Estender `saveQuoteV3.ts` para persistir os 3 novos tipos em `quote_materials` / `quote_labor_steps`.
 
-### Forms
-- `src/components/orcamentos-v3/forms/PrintForm.tsx` — descrição, qtd, custo/valor unit, chips de Cores (4x0/4x4/1x0/1x1), Formato (A4/A3/SRA3), Face (frente/F+V), acabamentos toggle, botão "Adicionar" que pisca verde.
-- `src/components/orcamentos-v3/forms/CVForm.tsx` — descrição, autocomplete de mídia (Supabase `midias_cv`), largura/altura inline com m² calculado, custo m² + margem, acabamentos toggle, preview do total.
-- `src/components/orcamentos-v3/forms/ThirdPartyForm.tsx` — descrição, autocomplete de fornecedor (`suppliers`), qtd, custo, margem, preview.
+### Fase 7 — Cliente, Frete, Desconto, Pagamento (no Financeiro sidebar)
+- 7.1 Portar `ClientCombobox` + `ClientDetailsPanel` + `ClientLastSalesPanel` para o V3.
+- 7.2 Portar `FreightSelector` + `DiscountPaymentBlock` e plugar no engine.
+- 7.3 Atualizar `pricing.ts` do V3 para refletir desconto/frete/forma de pagamento idêntico ao V2.
 
-### Cart (30%)
-- `src/components/orcamentos-v3/cart/UnifiedCart.tsx` — lista compacta com ícone por categoria, badge, qtd, preço, ações Duplicar/Excluir; estado vazio com ícone; animação suave no item recém-adicionado.
-- `src/components/orcamentos-v3/cart/FinancialPanel.tsx` — Subtotal, Impostos, Taxas, Total a cobrar, Margem (cor pelo valor). Visual minimalista.
-- `MobileCart` (dentro do NewQuoteFormV3) — bottom-sheet expansível.
+### Fase 8 — Tela de listagem + edição
+- 8.1 Criar `/orcamentos-v3` reaproveitando 90% de `OrcamentosV2.tsx` (filtros, busca, paginação, bulk).
+- 8.2 Criar `/orcamentos-v3/:id` (EditQuoteV3) com hidratação completa do `V3State` a partir do banco.
+- 8.3 Trocar `useQuoteDraftV3` por modo "draft only para novos".
 
-### Shared
-- `src/components/orcamentos-v3/shared/ChipGroup.tsx` — grupo de chips ativável.
-- `src/components/orcamentos-v3/shared/PaperAutocomplete.tsx` — autocomplete genérico ligado ao Supabase (tabela + colunas configuráveis), debounce 200ms.
-- `src/components/orcamentos-v3/shared/FinishingProgressive.tsx` — lista de toggles; conteúdo avançado só aparece quando ativo (progressive disclosure).
-- `src/components/orcamentos-v3/shared/useQuoteDraftV3.ts` — auto-save em `localStorage` com debounce 800ms, TTL 7 dias, restauração na montagem, `clear()`.
-- `src/components/orcamentos-v3/shared/pricing.ts` — `priceOf(item)`, `summarize(items, tax, fees, margin)`, `roundUp10` (regra global R$ 0,10), `fmtBRL`.
+### Fase 9 — Recursos avançados
+- 9.1 `QuoteOptionsBuilder` (orçamentos A/B/C).
+- 9.2 `UseTemplateDialog` + `LoadFromGroupDialog`.
+- 9.3 `SmartFinishingBlock` (sugestões automáticas via `finishing-suggestions.ts` e `cv-finishing-suggestions.ts`).
+- 9.4 `LaborAndSupplySubform` (mão-de-obra/suprimento *por item* impresso).
+- 9.5 `QuoteChecklist` + `QuoteAssistant`.
 
-### Entrada beta no V2
-- `src/pages/orcamentos-v2/OrcamentosV2.tsx` — adicionar botão pequeno "Experimentar V3 (beta)" no header que navega para `/orcamentos-v3/novo`.
+### Fase 10 — Ações e engajamento
+- 10.1 Botões: `CloneQuoteButton`, `CreateVersionButton`, `GenerateOPButton`, `GenerateOrderButton`, `BulkActionBar`.
+- 10.2 `EngagementBadge` + `EngagementPopover` + `RealtimeRadar`.
+- 10.3 `StepTypeBadge` + `QuoteStatusBadge` no V3.
 
-## Escopo deliberadamente fora desta entrega
+### Fase 11 — Viewer público + tracking + switch
+- 11.1 Portar página `client-viewer/` para `/q/:id` compartilhada (V2 e V3 usam o mesmo viewer — já é o caso, validar).
+- 11.2 Plugar `useScrollDepthTracking` e `tracking.ts` no viewer.
+- 11.3 **Switch final:** trocar `/orcamentos` para apontar V3, manter V2 acessível em `/orcamentos-v2-legado` por 30 dias, depois remover.
 
-- **Persistência no banco** (Fase 5). `onSave` apenas valida + limpa rascunho e mostra toast. Quando aprovado o UX, plugamos no mesmo `quotes`/`quote_items` do V2.
-- **Recompute via `lib/quotes-v2/pricing.ts` completo** (com tiers, materiais, etapas). V3 começa com cálculo direto (custo × qtd × margem + R$ 0,10 round) para validar o **fluxo de UI**. Engine completa é trocada na Fase 5 sem mexer na UI.
-- Edição de orçamento existente (`/orcamentos-v3/:id`). V3 começa só com criação.
+## Estimativa
 
-## Validação após implementar
+- Fase 6: ~1 turno
+- Fase 7: ~1 turno
+- Fase 8: ~2 turnos (listagem + edição são grandes)
+- Fase 9: ~2 turnos
+- Fase 10: ~1 turno
+- Fase 11: ~1 turno
 
-1. Acessar `/orcamentos-v3/novo` direto e via botão beta no V2.
-2. Trocar abas com `Alt+1/2/3`.
-3. Adicionar 1 item por categoria → ver no carrinho à direita + total atualizando.
-4. Duplicar e excluir do carrinho.
-5. Recarregar a página → toast "Rascunho restaurado" + itens preservados.
-6. Mobile (394×728): cart vira bottom-sheet expansível.
+**Total: ~8 turnos de implementação**, validáveis incrementalmente após cada fase.
 
-**Pode confirmar para eu sair do plan mode e implementar?**
+## Estratégia de execução
+
+1. **Reuso máximo:** quando o componente V2 não depende de estado do `NewQuoteFormV2`, importo direto (zero cópia). Quando depende, crio adapter em `src/components/orcamentos-v3/adapters/` que traduz `V3State` ↔ props V2.
+2. **Sem tocar no V2:** todo o V2 fica intacto e funcional durante a transição. Zero risco para produção.
+3. **Validação por fase:** ao terminar cada fase, listo o que testar manualmente antes de seguir.
+4. **Engine único:** `pricing.ts` do V2 continua sendo a fonte da verdade — V3 só monta o input.
+
+## Como vamos prosseguir
+
+Confirmando este plano, eu começo pela **Fase 6 (Apostila + Mão-de-obra + Suprimento)** agora, e ao final pergunto se sigo direto para Fase 7 ou se você quer testar primeiro.
+
+Quer aprovar este roteiro?
