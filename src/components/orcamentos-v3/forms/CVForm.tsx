@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, Plus, AlertCircle, AlertTriangle } from "lucide-react";
+import { Check, Plus, AlertCircle, AlertTriangle, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3CVItem } from "../types";
@@ -21,6 +21,7 @@ import {
 } from "@/lib/cv-calc/engine";
 import { filterAndSortForMidia } from "@/lib/cv-calc/media-order";
 import { SOBRA_CM } from "../shared/bastaoSuggester";
+import { buildCvDescricao } from "../shared/buildCvDescricao";
 
 // Extrai o tamanho (cm) de chips do tipo "Banner (Bastão topo e base até 105cm + ...)"
 function parseBastaoCm(nome: string): number | null {
@@ -46,6 +47,7 @@ export function CVForm({ onAdd }: Props) {
   const cat = useV3CVCatalog();
 
   const [descricao, setDescricao] = useState("");
+  const [descricaoEditada, setDescricaoEditada] = useState(false);
   const [largura_cm, setLargura] = useState(100);
   const [altura_cm, setAltura] = useState(100);
   const [quantidade, setQuantidade] = useState(1);
@@ -151,6 +153,24 @@ export function CVForm({ onAdd }: Props) {
     [acabIds, cat.acabamentos],
   );
 
+  // Auto-gera descrição inteligente quando o usuário não editou manualmente
+  useEffect(() => {
+    if (descricaoEditada) return;
+    const auto = buildCvDescricao({
+      midia,
+      isLona,
+      isBanner,
+      impressao: impressao,
+      largura_cm,
+      altura_cm,
+      quantidade,
+      acabamentos: acabamentosAplicados.map((a) => a.acabamento),
+    });
+    setDescricao(auto);
+    // impressao referenciado abaixo — recalc via deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [descricaoEditada, midia, isLona, isBanner, impressaoId, largura_cm, altura_cm, quantidade, acabIds]);
+
   const result = useMemo(() => {
     if (!midia) return null;
     return calcular({
@@ -214,6 +234,7 @@ export function CVForm({ onAdd }: Props) {
       },
     });
     setDescricao("");
+    setDescricaoEditada(false);
     setAcabIds([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
@@ -221,14 +242,33 @@ export function CVForm({ onAdd }: Props) {
 
   return (
     <div className="space-y-5">
-      <Field label="Descrição">
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+            Descrição
+          </Label>
+          {descricaoEditada && (
+            <button
+              type="button"
+              onClick={() => setDescricaoEditada(false)}
+              className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+            >
+              <RotateCcw className="h-3 w-3" /> Regenerar
+            </button>
+          )}
+        </div>
         <Input
           value={descricao}
-          onChange={(e) => setDescricao(e.target.value)}
-          placeholder="Ex: Banner promocional fachada"
+          onChange={(e) => {
+            const v = e.target.value;
+            setDescricao(v);
+            setDescricaoEditada(v.trim().length > 0);
+          }}
+          placeholder="Gerada automaticamente — edite se quiser"
           className="h-9"
         />
-      </Field>
+      </div>
+
 
       <Field label="Mídia (catálogo CV)">
         <div className="flex items-center gap-3">
