@@ -222,17 +222,29 @@ export default function ClientViewer() {
     }
   }, [options, selectedOptionId]);
 
-  // Pré-seleciona todos os itens pendentes na carga inicial — assim o cliente
-  // pode aprovar tudo com 1 clique (e ainda pode desmarcar para aprovação parcial).
+  // Pré-seleciona itens pendentes na carga inicial.
+  // Itens sem faixa: todos marcados. Faixas (tier_group_id): apenas a menor qty de cada grupo.
   const didPreselectRef = useRef(false);
   useEffect(() => {
     if (didPreselectRef.current) return;
     if (!materials.length) return;
-    const pendingIds = materials.filter((m) => m.status === "pendente").map((m) => m.id);
-    if (pendingIds.length > 0) {
-      setSelectedItemIds(new Set(pendingIds));
-      didPreselectRef.current = true;
+    const pending = materials.filter((m) => m.status === "pendente");
+    if (pending.length === 0) return;
+    const preselected = new Set<string>();
+    const groupChosen = new Map<string, { id: string; qty: number }>();
+    for (const m of pending) {
+      if (m.tier_group_id) {
+        const cur = groupChosen.get(m.tier_group_id);
+        if (!cur || m.quantity < cur.qty) {
+          groupChosen.set(m.tier_group_id, { id: m.id, qty: m.quantity });
+        }
+      } else {
+        preselected.add(m.id);
+      }
     }
+    for (const v of groupChosen.values()) preselected.add(v.id);
+    setSelectedItemIds(preselected);
+    didPreselectRef.current = true;
   }, [materials]);
 
   // option_selected com debounce de 2s — só registra se permanecer na opção.
