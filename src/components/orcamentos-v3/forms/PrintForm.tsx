@@ -12,20 +12,24 @@ interface Props {
   onAdd: (item: V3PrintItem) => void;
 }
 
-const CORES: { value: NonNullable<V3PrintItem["cores"]>; label: string }[] = [
+type CoresV = NonNullable<V3PrintItem["cores"]>;
+type FormatoV = NonNullable<V3PrintItem["formato"]>;
+type FaceV = NonNullable<V3PrintItem["face"]>;
+
+const CORES: { value: CoresV; label: string }[] = [
   { value: "4x0", label: "4x0" },
   { value: "4x4", label: "4x4" },
   { value: "1x0", label: "1x0" },
   { value: "1x1", label: "1x1" },
 ];
 
-const FORMATOS: { value: NonNullable<V3PrintItem["formato"]>; label: string }[] = [
+const FORMATOS: { value: FormatoV; label: string }[] = [
   { value: "A4", label: "A4" },
   { value: "A3", label: "A3" },
   { value: "SRA3", label: "SRA3" },
 ];
 
-const FACES: { value: NonNullable<V3PrintItem["face"]>; label: string }[] = [
+const FACES: { value: FaceV; label: string }[] = [
   { value: "frente", label: "Só frente" },
   { value: "fv", label: "Frente e verso" },
 ];
