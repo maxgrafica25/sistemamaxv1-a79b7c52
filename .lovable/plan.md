@@ -1,32 +1,65 @@
-## Problema
-O link de recuperação de senha está sendo gerado apontando para a URL de **preview do Lovable** (`id-preview--667f8a1f-...lovable.app`), que é privada e exige login no workspace do Lovable. Resultado: o usuário (juliano@maxgraficadigital.com.br) recebe "Access denied" antes de chegar em `/reset-password`.
+## Objetivo
 
-Causa: em `src/pages/Auth.tsx`, o `emailRedirectTo` usa `window.location.origin`. Se o reset é solicitado a partir da URL de preview, o link no e-mail aponta para a preview.
+Quando o usuário selecionar um papel "Lona" no PrintForm V3, oferecer um toggle "É banner?" que altera dinamicamente a lista de acabamentos exibida e, ao informar a largura do banner, sugerir automaticamente o melhor bastão (105 / 150 / 200 cm).
 
-## Solução
+## Mudanças
 
-### 1. Fixar a URL pública de destino no código
-Em `src/pages/Auth.tsx`, substituir `window.location.origin` por uma URL pública estável:
+### 1. Detecção de Lona em `PrintForm.tsx`
+- Após `setCatalog`, computar `isLona = /lona|banner|vinil/i.test(catalog.paper_type)`.
+- Quando `isLona` for true, mostrar ao lado do badge do catálogo um `Switch` "É banner?" (`isBanner`, default `true` se o nome já contiver "banner").
 
-- Criar helper `getPublicAppUrl()` que retorna:
-  - `https://sistemamaxv1.lovable.app` quando `window.location.hostname` contém `id-preview--` ou `lovable.dev`
-  - `window.location.origin` caso contrário (domínio próprio ou produção)
-- Usar esse helper no `emailRedirectTo` do `signInWithOtp` (recuperação) e no `emailRedirectTo` do `signUp`.
+### 2. Lista de acabamentos dinâmica
+- Criar dois conjuntos:
+  - `FINISHES_LONA`: laminação, ilhós, bastão, corte especial, costura/bainha.
+  - `FINISHES_BANNER`: ilhós, bastão (com sugestão), bainha, reforço de borda, ponteiras.
+  - `FINISHES_PADRAO` (atual): para os demais papéis.
+- Selecionar o array conforme `isLona && isBanner`, `isLona && !isBanner`, ou padrão.
+- Ao trocar entre listas, limpar chips que não existem no novo conjunto.
 
-### 2. Configurar Redirect URLs no backend (Lovable Cloud)
-No painel de autenticação (Cloud → Users → URL Configuration), garantir que estão na allowlist:
-- `https://sistemamaxv1.lovable.app/reset-password`
-- `https://sistemamaxv1.lovable.app/**` (curinga)
-- Qualquer domínio próprio futuro
+### 3. Campo de medidas do banner
+- Quando `isLona && isBanner`, exibir dois inputs compactos: **Largura (cm)** e **Altura (cm)** logo abaixo do toggle.
+- A largura alimenta o seletor de bastão; altura fica registrada na descrição.
 
-E definir **Site URL** = `https://sistemamaxv1.lovable.app`.
+### 4. Lógica de sugestão de bastão
+Criar `src/components/orcamentos-v3/shared/bastaoSuggester.ts`:
 
-### 3. Reenviar o link para o Juliano
-Após o deploy, solicitar novo "Esqueci minha senha" — o novo link irá direto para `sistemamaxv1.lovable.app/reset-password`, sem passar pelo `auth-bridge` do Lovable.
+```ts
+export const BASTOES_CM = [105, 150, 200];
+export const SOBRA_CM = 1; // por lado
 
-## Arquivos alterados
-- `src/pages/Auth.tsx` — adicionar helper e trocar 2 ocorrências de `emailRedirectTo`.
+export function sugerirBastao(larguraCm: number) {
+  const necessario = larguraCm + 2 * SOBRA_CM;
+  const candidatos = BASTOES_CM.filter(b => b >= necessario);
+  if (candidatos.length === 0) {
+    // banner maior que 198cm útil → usar 2× o maior, ou exigir emenda
+    const qtd = Math.ceil(necessario / (BASTOES_CM.at(-1)! - 2 * SOBRA_CM));
+    return { bastao: BASTOES_CM.at(-1)!, quantidade: qtd, emenda: true };
+  }
+  return { bastao: Math.min(...candidatos), quantidade: 1, emenda: false };
+}
+```
 
-## Observações
-- Links antigos já enviados continuarão quebrados — é preciso gerar um novo após a correção.
-- A solução é puramente de frontend + configuração; nenhum schema ou Edge Function é alterado.
+Regra: banner de 105cm **não** pode usar bastão 105 — sugere 150 (porque precisa de 107cm).
+
+### 5. UI da sugestão dentro do chip "Bastão"
+Quando o chip "Bastão" estiver ativo e houver largura informada:
+- Mostrar mensagem destacada: *"Sugerido: bastão de **150 cm** × 1 un (banner 120cm + 2cm de sobra)"*.
+- Permitir override manual via Select (105 / 150 / 200) e input de quantidade.
+- Quando exigir emenda (largura > 198cm útil), avisar em amarelo: *"Necessária emenda — 2 bastões de 200cm"*.
+
+### 6. Persistência
+- Salvar no `V3PrintItem.finishings` os ids habilitados (mesmo schema atual).
+- Para registrar a escolha do bastão, anexar metadado simples na `descricao` final (ex: `… — Bastão 150cm × 1`). Sem mudança de schema/DB.
+
+## Arquivos afetados
+
+- `src/components/orcamentos-v3/forms/PrintForm.tsx` — toggle banner, inputs largura/altura, troca dinâmica de FINISHES, render da sugestão de bastão.
+- `src/components/orcamentos-v3/shared/bastaoSuggester.ts` (novo) — função pura + constantes.
+- (Opcional) `src/components/orcamentos-v3/shared/FinishingProgressive.tsx` — já suporta `advanced` ReactNode; usaremos para embutir o seletor de bastão.
+
+## Fora de escopo
+- Cálculo de **preço** dos bastões (sem catálogo de bastões cadastrado ainda — apenas sugestão visual).
+- Persistência estruturada do bastão escolhido em coluna própria.
+- Alterações em V2.
+
+Confirma se posso seguir com essa abordagem (sugestão visual sem precificar o bastão) ou se você quer também cadastrar preço por bastão para entrar no total?
