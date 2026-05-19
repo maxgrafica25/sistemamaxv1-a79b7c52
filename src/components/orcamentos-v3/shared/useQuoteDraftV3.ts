@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
 const KEY = "quote-draft-v3:novo";
-const VERSION = 1;
+// v2: V3CVItem ganhou campos de catálogo + snapshot (Fase 5.3).
+// Bump invalida rascunhos antigos (evita hidratação com shape obsoleto).
+const VERSION = 2;
 const TTL_DAYS = 7;
 const DEBOUNCE_MS = 800;
 
