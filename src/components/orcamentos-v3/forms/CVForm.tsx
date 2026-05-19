@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -9,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, Plus, AlertCircle, Sparkles } from "lucide-react";
+import { Check, Plus, AlertCircle, Sparkles, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3CVItem } from "../types";
@@ -19,6 +20,23 @@ import {
   type Acabamento as CVAcabamento,
 } from "@/lib/cv-calc/engine";
 import { filterAndSortForMidia } from "@/lib/cv-calc/media-order";
+import { SOBRA_CM } from "../shared/bastaoSuggester";
+
+// Extrai o tamanho (cm) de chips do tipo "Banner (Bastão topo e base até 105cm + ...)"
+function parseBastaoCm(nome: string): number | null {
+  const m = nome.match(/at[ée]\s*(\d+)\s*cm/i);
+  return m ? Number(m[1]) : null;
+}
+function isBastaoFinish(nome: string): boolean {
+  return /bast[ãa]o|banner.*at[ée]\s*\d+\s*cm/i.test(nome);
+}
+function isBannerFinish(nome: string): boolean {
+  return /banner|bast[ãa]o|ponteira|cordinha|ilh[óo]s|bainha|emenda|dupla\s*face|faixa/i.test(nome);
+}
+function isLonaOnlyFinish(nome: string): boolean {
+  // Acabamentos típicos de lona (não-banner)
+  return /refile|lona|ilh[óo]s|bainha|dupla\s*face/i.test(nome) && !/bast[ãa]o|banner|ponteira|cordinha|faixa/i.test(nome);
+}
 
 interface Props {
   onAdd: (item: V3CVItem) => void;
