@@ -1,66 +1,89 @@
-# Faixas de preço por quantidade no Orçamentos V3
+# Fase C — Faixas persistidas no orçamento
 
-## Problema
-Cliente gráfico quase sempre pede "me dá o preço para 100, 250, 500 e 1000". Hoje o V3 calcula 1 quantidade por item; para simular faixas o usuário precisa duplicar o item N vezes manualmente, refazer cada cálculo e remontar o PDF.
+Objetivo: o usuário clica em **"Adicionar todas como faixas"** dentro do simulador e o orçamento passa a tratar essas N quantidades como **um produto só com várias opções de preço** — visível no carrinho, no save e no PDF que vai pro cliente.
 
-## Estratégia recomendada (em 2 camadas)
+## 1. Schema (migration)
 
-A solução mais ágil mistura **simulação rápida** (durante a montagem do item) com **persistência opcional** (quando o usuário quer enviar as faixas no orçamento final). Ambas usam as engines de pricing que já existem (`priceOf`, engine CV, etc.) — não há lógica nova de negócio, só re-execução com `quantidade` diferente.
+Adicionar coluna `tier_group_id text NULL` em:
+- `quote_materials` (cobre print, booklet, supply, label)
+- `quote_third_party`
+- `cv_quote_items`
 
-### Camada 1 — "Simulador de faixas" (inline, não persistido)
-Um painel **"Comparar faixas"** dentro de cada form de item (Print, CV, Booklet, Label, Third, Supply). 
+Índice composto `(quote_id, tier_group_id)` em cada uma para o agrupamento no viewer ser barato. Sem mudança de RLS — herda das policies existentes.
 
-- Botão `📊 Comparar faixas` ao lado de "Quantidade".
-- Abre um popover/drawer com uma tabelinha editável de quantidades (default: `100, 250, 500, 1000`, mas o usuário pode editar/adicionar/remover livremente, ou clicar em presets `+50%`, `×2`, `×5`).
-- Para cada linha, roda a engine de pricing com aquela quantidade e mostra:
-  - Qtd · Custo total · Preço total · **Preço unitário** · Δ% vs faixa anterior
-- Cada linha tem um botão **"Usar esta"** (substitui `quantidade` no item atual) e **"Adicionar ao orçamento"** (duplica o item com aquela qtd, ver Camada 2).
-- Atualiza em tempo real conforme o usuário muda mídia/acabamentos/papel — é só `useMemo` rodando `priceOf` com cada qtd.
+## 2. Tipos (`types.ts`)
 
-**Por que assim:** zero impacto no schema, zero risco no PDF/ERP, e resolve 80% dos casos (cliente pergunta no WhatsApp, vendedor responde os 4 preços em 5 segundos).
-
-### Camada 2 — "Faixas no orçamento" (persistido, vai pro PDF)
-Quando o cliente realmente quer ver as faixas no PDF do orçamento:
-
-- Botão **"Adicionar como faixas"** no simulador → cria N itens irmãos no carrinho, marcados com um `tier_group_id` comum.
-- No `UnifiedCart`, itens do mesmo grupo aparecem agrupados visualmente (um card só com sub-linhas "100un · R$ X · R$ Y/un").
-- No PDF/cliente viewer, renderiza como tabela de faixas (1 produto, N preços) em vez de N produtos separados.
-- Atualizar a descrição de um item do grupo propaga para os irmãos (mesmo produto, só muda qtd).
-
-**Por que separar das Camada 1:** muita gente só quer o número rápido — não polui o carrinho. Quem precisa do PDF formal usa "Adicionar como faixas".
-
-## Detalhes técnicos
-
-**Tipos** (`types.ts`):
+Adicionar campo opcional em todos os `V3*Item`:
 ```ts
-interface V3ItemBase {
-  tier_group_id?: string | null; // novo, opcional
-}
+tier_group_id?: string | null;
 ```
-Adicionar em todos os `V3*Item`. Default null = comportamento atual.
+Default `undefined` = item solto (comportamento atual, zero impacto em itens já criados).
 
-**Simulador** (`shared/TierSimulator.tsx`, novo):
-- Props: `item: V3Item`, `onPickQty(qty)`, `onCloneAs(qtys: number[])`
-- Usa `priceOf({ ...item, quantidade: q })` para cada qty da lista.
-- Para CV com snapshot, recalcula via engine ao invés do snapshot (snapshot é por qtd).
-- Memoização agressiva.
+## 3. Simulador (`TierSimulator.tsx`)
 
-**Forms**: cada `*Form.tsx` ganha um `<TierSimulatorButton item={draft}/>` ao lado do campo Quantidade. Sem mudança nos handlers de submit.
+Adicionar uma segunda ação no popover:
+- Botão **"➕ Adicionar todas como faixas"** abaixo da tabela.
+- Recebe nova prop `onCloneAsTiers?: (qtys: number[]) => void` (opcional — se ausente, esconde o botão).
+- Ao clicar: gera um `tier_group_id` único (`tg_<id>`) e dispara a callback com a lista atual de quantidades.
 
-**Cart**: `UnifiedCart` agrupa por `tier_group_id` ao renderizar. `saveQuoteV3` apenas persiste o campo extra; os itens continuam linhas independentes no DB.
+A ação **"Usar esta"** continua igual (substitui a qty no item atual, sem grupo).
 
-**PDF/Viewer**: ajustar `ClientViewer` e o gerador de PDF para colapsar grupos em uma tabela de faixas.
+## 4. Forms
 
-**Defaults configuráveis**: salvar em `localStorage` as faixas padrão do usuário (ex: gráfica de etiqueta usa `1k, 5k, 10k`; gráfica offset usa `100, 250, 500`).
+Cada form (Print, CV, Booklet, Label, Supply, Third) ganha um novo prop opcional `onAddTiers?: (items: V3Item[]) => void` e passa para o `TierSimulator` um handler que:
 
-## Fora de escopo
-- Descontos automáticos por faixa (cliente assina contrato com tabela): isso é outro feature.
-- Tiers no catálogo de Print já existem (`markup_tiers`) — eles continuam aplicando a regra por dentro do `priceOf`, esta feature é ortogonal.
-- Edição em massa de margem por faixa (pode vir depois se necessário).
+1. Para cada `qty` da lista, monta o `V3Item` igual ao "Adicionar" normal, mas com `quantidade = qty` e `tier_group_id` compartilhado.
+2. Chama `onAddTiers(items)`.
 
-## Entrega sugerida em fases
-1. **Fase A (rápida, alto valor):** só a Camada 1 (simulador inline) em Print, CV e Label. ~1 PR.
-2. **Fase B:** estender simulador para Booklet/Supply/Third/Labor.
-3. **Fase C:** Camada 2 (tier_group_id, agrupamento no carrinho, PDF de faixas).
+Em CV/Booklet/Label onde o cálculo é mais complexo, a função-fábrica já existe internamente — só precisamos extrair para reaproveitar com qty variável.
 
-Quer que eu siga com a **Fase A** já?
+## 5. NewQuoteFormV3
+
+Já tem `addItems(list)`. Só repassar como `onAddTiers={addItems}` para cada form.
+
+## 6. UnifiedCart — agrupamento visual
+
+Antes de renderizar, agrupar `items` por `tier_group_id`:
+- Itens sem grupo: renderizam normal.
+- Itens com grupo: aparecem como **um card único** com:
+  - Cabeçalho: descrição do primeiro item + badge "Faixas (N)"
+  - Sub-linhas: `100 un · R$ X,XX (R$ Y,YY/un)` para cada faixa, com botão de remover por linha.
+  - Botão "Excluir grupo" remove todos os irmãos.
+
+Editar a descrição de um item do grupo propaga aos irmãos (mesma produção, só muda qtd).
+
+## 7. saveQuoteV3
+
+Repassar `tier_group_id` em todos os inserts (`quote_materials`, `quote_third_party`, `cv_quote_items`). Sem outras mudanças — itens continuam linhas independentes no DB, ligadas pelo `tier_group_id`.
+
+## 8. ClientViewer (PDF/web do cliente)
+
+Em `src/pages/orcamentos-v2/ClientViewer.tsx`:
+- Após carregar `materials`, agrupar por `tier_group_id`.
+- Para cada grupo, renderizar **uma linha de produto** com uma mini-tabela de faixas:
+
+```text
+Banner Lona 90×120cm — Alta resolução
+┌────────┬───────────┬────────────┐
+│ Qtd    │ Total     │ Unitário   │
+├────────┼───────────┼────────────┤
+│ 100    │ R$ 540,00 │ R$ 5,40    │
+│ 250    │ R$ 1.250  │ R$ 5,00    │
+│ 500    │ R$ 2.350  │ R$ 4,70    │
+└────────┴───────────┴────────────┘
+```
+
+- O fluxo de "aprovar item" precisa permitir que o cliente escolha **uma faixa** do grupo (radio em vez de checkbox), e os irmãos não-escolhidos são ignorados na aprovação.
+- Tracking (`item_selected`) passa a registrar também `tier_qty` para análise.
+
+## 9. Fora de escopo desta fase
+- PDF gerado server-side (se existir um) — fica para depois, mesma lógica de agrupamento.
+- Edição/adição de faixas em um orçamento já salvo (`EditQuoteV2`) — agora só *criação* lida com tier_group_id; edição mantém grupos mas não permite remontar.
+- Desconto automático por faixa.
+
+## Entrega
+1 PR único cobrindo migration + types + simulator + forms + cart + save + viewer. Sem mudança no fluxo de itens soltos.
+
+---
+
+Posso seguir? Vou começar pela **migration** (precisa da sua aprovação) e na sequência o código.
