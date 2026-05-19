@@ -18,6 +18,7 @@ import { genId, type V3PrintItem } from "../types";
 
 interface Props {
   onAdd: (item: V3PrintItem) => void;
+  onAddTiers?: (items: V3PrintItem[]) => void;
   onSelectionChange?: (sel: {
     paper_type: string | null;
     size: string | null;
@@ -51,7 +52,7 @@ const FINISHES_BANNER: FinishingDef[] = [
   { id: "reforco_borda", label: "Reforço de borda" },
 ];
 
-export function PrintForm({ onAdd, onSelectionChange }: Props) {
+export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
   const { loading, items, tiers, settings } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
   const [descricao, setDescricao] = useState("");
@@ -151,13 +152,11 @@ export function PrintForm({ onAdd, onSelectionChange }: Props) {
 
   const canAdd = !!catalog && quantidade > 0 && (pricing?.sellingPrice ?? 0) > 0;
 
-  const submit = () => {
-    if (!canAdd || !catalog || !pricing) return;
+  const buildLabel = () => {
+    if (!catalog) return "";
     let label =
       descricao.trim() ||
       `${catalog.paper_type}${catalog.grammage ? ` ${catalog.grammage}` : ""} — ${catalog.size} ${catalog.side}`;
-
-    // Anexa dimensões e bastão na descrição quando for banner
     if (isLona && isBanner) {
       if (bannerLarguraCm > 0 && bannerAlturaCm > 0) {
         label += ` — Banner ${bannerLarguraCm}x${bannerAlturaCm}cm`;
@@ -167,12 +166,18 @@ export function PrintForm({ onAdd, onSelectionChange }: Props) {
         if (bastaoSugestao.emenda) label += " (c/ emenda)";
       }
     }
+    return label;
+  };
 
-    onAdd({
+  const buildItem = (qty: number, tierGroupId?: string): V3PrintItem | null => {
+    if (!catalog) return null;
+    const pr = pricePerSheet(catalog, tiers, qty);
+    return {
       id: genId(),
       kind: "print",
-      descricao: label,
-      quantidade,
+      descricao: buildLabel(),
+      quantidade: qty,
+      tier_group_id: tierGroupId ?? null,
       catalog_item_id: catalog.id,
       paper_type: catalog.paper_type,
       grammage: catalog.grammage,
@@ -180,13 +185,34 @@ export function PrintForm({ onAdd, onSelectionChange }: Props) {
       side: catalog.side,
       printer_category_id: catalog.printer_category_id,
       markup_group_id: catalog.markup_group_id,
-      valor_unitario: pricing.sellingPrice,
-      custo_unitario: pricing.baseCost,
+      valor_unitario: pr.sellingPrice,
+      custo_unitario: pr.baseCost,
       formato: null,
       cores: null,
       face: catalog.side === "F/V" ? "fv" : "frente",
       finishings: Object.keys(finEnabled).filter((k) => finEnabled[k]),
-    });
+    };
+  };
+
+  const submit = () => {
+    if (!canAdd) return;
+    const item = buildItem(quantidade);
+    if (!item) return;
+    onAdd(item);
+    setDescricao("");
+    setFinEnabled({});
+    setPulse(true);
+    setTimeout(() => setPulse(false), 600);
+  };
+
+  const submitAsTiers = (qtys: number[]) => {
+    if (!onAddTiers || !catalog) return;
+    const tg = `tg_${genId()}`;
+    const items = qtys
+      .map((q) => buildItem(q, tg))
+      .filter((x): x is V3PrintItem => !!x);
+    if (items.length === 0) return;
+    onAddTiers(items);
     setDescricao("");
     setFinEnabled({});
     setPulse(true);
