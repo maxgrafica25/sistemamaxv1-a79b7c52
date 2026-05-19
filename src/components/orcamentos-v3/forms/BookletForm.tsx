@@ -205,9 +205,7 @@ export function BookletForm({ onAdd }: Props) {
             </>
           )}
           <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/40 mt-1">
-            Encadernação (espiral, capa, mão-de-obra) deve ser adicionada
-            pelas abas Mão-de-obra e Suprimentos enquanto o Kit Automático
-            está sendo portado.
+            Este valor cobre apenas o miolo impresso. Adicione espiral, capas e mão-de-obra de encadernação pelas abas <strong>Suprimentos</strong> e <strong>Mão-de-obra</strong>.
           </p>
         </div>
       )}
