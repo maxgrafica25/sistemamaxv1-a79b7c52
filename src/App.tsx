@@ -31,6 +31,7 @@ import CadastrosCV from "./pages/CadastrosCV";
 import OrcamentosV2 from "./pages/orcamentos-v2/OrcamentosV2";
 import Usuarios from "./pages/Usuarios";
 import NewQuoteV2 from "./pages/orcamentos-v2/NewQuoteV2";
+import NewQuoteV3 from "./pages/orcamentos-v3/NewQuoteV3";
 import EditQuoteV2 from "./pages/orcamentos-v2/EditQuoteV2";
 import ClientViewer from "./pages/orcamentos-v2/ClientViewer";
 import Pedidos from "./pages/Pedidos";
@@ -65,6 +66,7 @@ const App = () => (
                   <Route path="/orcamentos-v2" element={<OrcamentosV2 />} />
                   <Route path="/orcamentos-v2/novo" element={<NewQuoteV2 />} />
                   <Route path="/orcamentos-v2/:id" element={<EditQuoteV2 />} />
+                  <Route path="/orcamentos-v3/novo" element={<NewQuoteV3 />} />
                   <Route path="/preco-impressao" element={<PrecoImpressao />} />
                   <Route path="/calculadora-etiquetas" element={<CalculadoraEtiquetas />} />
                   <Route path="/acabamentos" element={<Acabamentos />} />
