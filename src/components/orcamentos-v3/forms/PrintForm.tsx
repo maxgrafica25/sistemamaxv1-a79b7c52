@@ -1,38 +1,21 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Check, Plus, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ChipGroup } from "../shared/ChipGroup";
+import PrintingItemSearch, {
+  type PrintingCatalogItem,
+} from "@/components/orcamentos/PrintingItemSearch";
 import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProgressive";
+import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
+import { fmtBRL } from "../shared/pricing";
 import { genId, type V3PrintItem } from "../types";
 
 interface Props {
   onAdd: (item: V3PrintItem) => void;
 }
-
-type CoresV = NonNullable<V3PrintItem["cores"]>;
-type FormatoV = NonNullable<V3PrintItem["formato"]>;
-type FaceV = NonNullable<V3PrintItem["face"]>;
-
-const CORES: { value: CoresV; label: string }[] = [
-  { value: "4x0", label: "4x0" },
-  { value: "4x4", label: "4x4" },
-  { value: "1x0", label: "1x0" },
-  { value: "1x1", label: "1x1" },
-];
-
-const FORMATOS: { value: FormatoV; label: string }[] = [
-  { value: "A4", label: "A4" },
-  { value: "A3", label: "A3" },
-  { value: "SRA3", label: "SRA3" },
-];
-
-const FACES: { value: FaceV; label: string }[] = [
-  { value: "frente", label: "Só frente" },
-  { value: "fv", label: "Frente e verso" },
-];
 
 const FINISHES: FinishingDef[] = [
   { id: "laminacao", label: "Laminação", hint: "BOPP brilho ou fosco" },
@@ -43,30 +26,42 @@ const FINISHES: FinishingDef[] = [
 ];
 
 export function PrintForm({ onAdd }: Props) {
+  const { loading, items, tiers, settings } = useV3Catalog();
+  const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
   const [descricao, setDescricao] = useState("");
   const [quantidade, setQuantidade] = useState(100);
-  const [formato, setFormato] = useState<V3PrintItem["formato"]>("A4");
-  const [cores, setCores] = useState<V3PrintItem["cores"]>("4x0");
-  const [face, setFace] = useState<V3PrintItem["face"]>("frente");
-  const [valorUnit, setValorUnit] = useState(0);
-  const [custoUnit, setCustoUnit] = useState(0);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
 
-  const canAdd = descricao.trim().length > 0 && quantidade > 0 && valorUnit > 0;
+  const pricing = useMemo(
+    () => (catalog ? pricePerSheet(catalog, tiers, quantidade) : null),
+    [catalog, tiers, quantidade],
+  );
+
+  const canAdd = !!catalog && quantidade > 0 && (pricing?.sellingPrice ?? 0) > 0;
 
   const submit = () => {
-    if (!canAdd) return;
+    if (!canAdd || !catalog || !pricing) return;
+    const label =
+      descricao.trim() ||
+      `${catalog.paper_type}${catalog.grammage ? ` ${catalog.grammage}` : ""} — ${catalog.size} ${catalog.side}`;
     onAdd({
       id: genId(),
       kind: "print",
-      descricao: descricao.trim(),
+      descricao: label,
       quantidade,
-      formato,
-      cores,
-      face,
-      valor_unitario: valorUnit,
-      custo_unitario: custoUnit,
+      catalog_item_id: catalog.id,
+      paper_type: catalog.paper_type,
+      grammage: catalog.grammage,
+      size: catalog.size,
+      side: catalog.side,
+      printer_category_id: catalog.printer_category_id,
+      markup_group_id: catalog.markup_group_id,
+      valor_unitario: pricing.sellingPrice,
+      custo_unitario: pricing.baseCost,
+      formato: null,
+      cores: null,
+      face: catalog.side === "F/V" ? "fv" : "frente",
       finishings: Object.keys(finEnabled).filter((k) => finEnabled[k]),
     });
     setDescricao("");
@@ -77,17 +72,49 @@ export function PrintForm({ onAdd }: Props) {
 
   return (
     <div className="space-y-5">
-      <Field label="Descrição">
-        <Input
-          value={descricao}
-          onChange={(e) => setDescricao(e.target.value)}
-          placeholder="Ex: Cartão de visita 90×50mm couché 300g"
-          className="h-9"
+      <Field label="Item do catálogo">
+        <PrintingItemSearch
+          items={items}
+          markupTiers={tiers}
+          globalSettings={settings}
+          onSelect={(it) => setCatalog(it)}
         />
+        {loading && (
+          <p className="text-[11px] text-muted-foreground mt-1">Carregando catálogo…</p>
+        )}
       </Field>
 
-      <div className="grid grid-cols-3 gap-4">
-        <Field label="Quantidade">
+      {catalog && (
+        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3">
+          <Printer className="h-4 w-4 text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">
+              {catalog.paper_type}
+              {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size} {catalog.side}
+            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[11px] text-muted-foreground">
+                {catalog.category_name}
+              </span>
+              {pricing?.tierLabel && (
+                <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
+                  {pricing.tierLabel}
+                </Badge>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCatalog(null)}
+            className="text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            trocar
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Quantidade (folhas)">
           <Input
             type="number"
             inputMode="numeric"
@@ -97,38 +124,31 @@ export function PrintForm({ onAdd }: Props) {
             className="h-9"
           />
         </Field>
-        <Field label="Custo unitário (R$)">
-          <Input
-            type="number"
-            step="0.01"
-            min={0}
-            value={custoUnit}
-            onChange={(e) => setCustoUnit(Math.max(0, Number(e.target.value) || 0))}
-            className="h-9"
-          />
-        </Field>
-        <Field label="Valor unitário (R$)">
-          <Input
-            type="number"
-            step="0.01"
-            min={0}
-            value={valorUnit}
-            onChange={(e) => setValorUnit(Math.max(0, Number(e.target.value) || 0))}
-            className="h-9"
-          />
+        <Field label="Preço unitário">
+          <div className="h-9 px-3 rounded-md border border-border bg-muted/40 flex items-center justify-between">
+            <span className="text-sm font-semibold text-primary tabular-nums">
+              {pricing ? fmtBRL(pricing.sellingPrice) : "—"}
+            </span>
+            {pricing && pricing.sellingPrice !== pricing.baseCost && (
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                custo {fmtBRL(pricing.baseCost)}
+              </span>
+            )}
+          </div>
         </Field>
       </div>
 
-      <Field label="Cores">
-        <ChipGroup<CoresV> options={CORES} value={cores} onChange={setCores} />
-      </Field>
-
-      <Field label="Formato">
-        <ChipGroup<FormatoV> options={FORMATOS} value={formato} onChange={setFormato} />
-      </Field>
-
-      <Field label="Face">
-        <ChipGroup<FaceV> options={FACES} value={face} onChange={setFace} />
+      <Field label="Descrição (opcional)">
+        <Input
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder={
+            catalog
+              ? `Padrão: ${catalog.paper_type}${catalog.grammage ? ` ${catalog.grammage}` : ""} — ${catalog.size} ${catalog.side}`
+              : "Selecione o item primeiro"
+          }
+          className="h-9"
+        />
       </Field>
 
       <Field label="Acabamentos">
@@ -139,7 +159,17 @@ export function PrintForm({ onAdd }: Props) {
         />
       </Field>
 
-      <div className="flex justify-end pt-2">
+      <div className="flex items-center justify-between pt-2">
+        <div className="text-xs text-muted-foreground">
+          {pricing && (
+            <span>
+              Total:{" "}
+              <span className="text-foreground font-semibold tabular-nums">
+                {fmtBRL(pricing.sellingPrice * quantidade)}
+              </span>
+            </span>
+          )}
+        </div>
         <Button
           onClick={submit}
           disabled={!canAdd}

@@ -20,8 +20,14 @@ const nextQuoteNumber = async () => {
   return `${year}-${String(count + 1).padStart(3, "0")}`;
 };
 
-const describePrint = (it: V3PrintItem) =>
-  [
+const describePrint = (it: V3PrintItem) => {
+  if (it.catalog_item_id) {
+    const head = `${it.paper_type ?? ""}${it.grammage ? ` ${it.grammage}` : ""} — ${it.size ?? ""} ${it.side ?? ""}`.trim();
+    return [it.descricao?.trim(), head, it.finishings.length ? `Acab.: ${it.finishings.join(", ")}` : null]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  return [
     it.descricao?.trim(),
     it.formato,
     it.cores,
@@ -30,6 +36,7 @@ const describePrint = (it: V3PrintItem) =>
   ]
     .filter(Boolean)
     .join(" · ");
+};
 
 const describeCV = (it: V3CVItem) => {
   const m2 = (it.largura_m * it.altura_m).toFixed(2);
@@ -107,13 +114,13 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
           parent_item_id: null,
           product_kind: "impressao",
           custom_name: it.descricao || null,
-          paper_type: null,
-          grammage: null,
-          size: it.formato,
-          side: it.face === "fv" ? "Frente/Verso" : it.face === "frente" ? "Só frente" : null,
+          paper_type: it.paper_type,
+          grammage: it.grammage,
+          size: it.size ?? it.formato,
+          side: it.side ?? (it.face === "fv" ? "F/V" : it.face === "frente" ? "Só frente" : null),
           print_colors: it.cores,
-          catalog_source: null,
-          catalog_item_id: null,
+          catalog_source: it.catalog_item_id ? "printing" : null,
+          catalog_item_id: it.catalog_item_id ?? null,
         };
       }
       const cv = it as V3CVItem;
