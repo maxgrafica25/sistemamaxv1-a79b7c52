@@ -3,6 +3,7 @@ import type {
   V3CVItem,
   V3Item,
   V3LaborItem,
+  V3LabelItem,
   V3PrintItem,
   V3SupplyItem,
   V3ThirdItem,
@@ -72,6 +73,11 @@ export const priceOfSupply = (it: V3SupplyItem): ItemPrice => {
   return { custo_total, preco_total };
 };
 
+export const priceOfLabel = (it: V3LabelItem): ItemPrice => ({
+  custo_total: it.custo_total || 0,
+  preco_total: roundUp10(it.preco_total || 0),
+});
+
 export const priceOf = (it: V3Item): ItemPrice => {
   switch (it.kind) {
     case "print":
@@ -86,6 +92,8 @@ export const priceOf = (it: V3Item): ItemPrice => {
       return priceOfLabor(it);
     case "supply":
       return priceOfSupply(it);
+    case "label":
+      return priceOfLabel(it);
   }
 };
 

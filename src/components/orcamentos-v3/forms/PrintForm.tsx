@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,12 @@ import { genId, type V3PrintItem } from "../types";
 
 interface Props {
   onAdd: (item: V3PrintItem) => void;
+  onSelectionChange?: (sel: {
+    paper_type: string | null;
+    size: string | null;
+    grammage: string | null;
+    finishings: string[];
+  }) => void;
 }
 
 const FINISHES: FinishingDef[] = [
@@ -23,15 +29,28 @@ const FINISHES: FinishingDef[] = [
   { id: "vinco", label: "Vinco" },
   { id: "corte_especial", label: "Corte especial" },
   { id: "wire_o", label: "Wire-O / Espiral" },
+  { id: "ilhos", label: "Ilhós" },
+  { id: "bastao", label: "Bastão" },
 ];
 
-export function PrintForm({ onAdd }: Props) {
+export function PrintForm({ onAdd, onSelectionChange }: Props) {
   const { loading, items, tiers, settings } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
   const [descricao, setDescricao] = useState("");
   const [quantidade, setQuantidade] = useState(100);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
+
+  // Expõe a seleção atual para o wrapper poder sugerir produto.
+  useEffect(() => {
+    if (!onSelectionChange) return;
+    onSelectionChange({
+      paper_type: catalog?.paper_type ?? null,
+      size: catalog?.size ?? null,
+      grammage: catalog?.grammage ?? null,
+      finishings: Object.keys(finEnabled).filter((k) => finEnabled[k]),
+    });
+  }, [catalog, finEnabled, onSelectionChange]);
 
   const pricing = useMemo(
     () => (catalog ? pricePerSheet(catalog, tiers, quantidade) : null),

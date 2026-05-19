@@ -1,82 +1,82 @@
-# Paridade total V2 → V3
 
-Escopo: trazer **todas as funcionalidades do módulo V2** para o V3, mantendo o layout split-screen (Tabs + Carrinho + Financeiro) já entregue nas Fases 1–5.
+# Unificar Apostilas + Etiquetas na aba Impressão + Acabamentos (V3)
 
-## Lacunas atuais (V3 hoje vs V2)
+## Objetivo
+- Reduzir o número de abas no V3 colocando "Apostilas" e "Etiquetas" como **modos de produto** dentro da aba **Impressão + Acabamentos**.
+- Introduzir um seletor **Produto | Personalizado** no topo do formulário.
+- Adicionar sugestão inteligente: se o usuário escolher uma combinação típica (ex.: papel "lona" + acabamento "ilhós"), o sistema sugere o produto correspondente e o usuário confirma com 1 clique.
 
-| Área | V2 | V3 | Falta |
-|---|---|---|---|
-| Tipos de item | Impressos, CV, Apostila, Terceiros, Mão-de-obra, Suprimento | Impressos, CV, Terceiros | **Apostila, Mão-de-obra, Suprimento** |
-| Listagem `/orcamentos-v3` | OrcamentosV2.tsx (tabela, filtros, ações em massa) | só `/novo` | **Tela de listagem inteira** |
-| Edição | EditQuoteV2.tsx | não existe | **Tela de edição (load + save)** |
-| Cliente | ClientCombobox + DetailsPanel + LastSalesPanel | só campo simples | **Combobox + painel lateral** |
-| Frete | FreightSelector | hardcoded | **Seletor de frete** |
-| Desconto/Pagamento | DiscountPaymentBlock | só margem | **Bloco completo** |
-| Opções (A/B/C) | QuoteOptionsBuilder | — | **Builder de opções** |
-| Templates / Grupos | UseTemplateDialog + LoadFromGroupDialog | — | **2 diálogos** |
-| Acabamentos inteligentes | SmartFinishingBlock + finishing-suggestions | progressivo simples | **Sugestões automáticas + CV** |
-| Mão-de-obra/Suprimento por item | LaborAndSupplySubform + SupplySearch + ProcessPicker | — | **Subform inteiro** |
-| Validação | QuoteChecklist | — | **Checklist** |
-| Assistente IA | QuoteAssistant | — | **Painel do assistente** |
-| Engajamento | EngagementBadge + Popover + RealtimeRadar | — | **3 componentes** |
-| Ações | Clone, Nova Versão, GerarOP, GerarPedido, BulkActionBar | — | **5 ações** |
-| Cliente público | client-viewer/ | — | **Página pública /q/:id** |
-| Tracking | useScrollDepthTracking + tracking.ts | — | **Hook + lib** |
+## Mudanças visuais
 
-## Plano em 6 fases
+```text
+Abas: [Impressão + Acabamentos]  [Com. Visual]  [Terceirizados]  [Mão-de-obra]  [Suprimentos]
+                                       (Apostilas e Etiquetas saem da barra de abas)
 
-### Fase 6 — Tipos de item faltantes (≈ 3 sub-passos)
-- 6.1 `BookletForm.tsx` (Apostila): miolo + capa + acabamento (espiral/wire-o/grampo), reusando `spiral-selector.ts` e `sheet-yield.ts`.
-- 6.2 `LaborForm.tsx` (Mão-de-obra avulsa) + `SupplyForm.tsx` (Suprimento avulso) com `ProcessPicker` e `SupplySearch` portados.
-- 6.3 Estender `saveQuoteV3.ts` para persistir os 3 novos tipos em `quote_materials` / `quote_labor_steps`.
+Dentro da aba Impressão + Acabamentos:
+┌─────────────────────────────────────────────────────────────┐
+│  Modo:  ( ◉ Personalizado )  ( ○ Produto )                  │
+│                                                             │
+│  [ se Produto ] Chips:                                      │
+│     [ Folheto ] [ Cartão Visita ] [ Apostila ]              │
+│     [ Banner ]  [ Etiqueta ]      [ Adesivo ]               │
+│                                                             │
+│  [ formulário muda conforme modo+produto ]                  │
+│                                                             │
+│  💡  Sugestão: "Parece um Banner — aplicar preset?"  [Aplicar]│
+└─────────────────────────────────────────────────────────────┘
+```
 
-### Fase 7 — Cliente, Frete, Desconto, Pagamento (no Financeiro sidebar)
-- 7.1 Portar `ClientCombobox` + `ClientDetailsPanel` + `ClientLastSalesPanel` para o V3.
-- 7.2 Portar `FreightSelector` + `DiscountPaymentBlock` e plugar no engine.
-- 7.3 Atualizar `pricing.ts` do V3 para refletir desconto/frete/forma de pagamento idêntico ao V2.
+- **Personalizado**: formulário atual de impressão (`PrintForm`) sem alterações.
+- **Produto = Apostila**: reutiliza o conteúdo de `BookletForm` (miolo + folhas/apostila + F/V + espiral).
+- **Produto = Etiqueta**: abre a Calculadora de Etiquetas completa em um painel embutido (porta de `LabelLayoutCalculator`) e, ao confirmar, adiciona como item de impressão com snapshot de aproveitamento, acabamentos e preço.
+- **Produto = Folheto / Cartão / Banner / Adesivo**: presets leves que pré-preenchem catálogo, quantidade típica e acabamentos sugeridos no `PrintForm` (não exigem componente novo).
 
-### Fase 8 — Tela de listagem + edição
-- 8.1 Criar `/orcamentos-v3` reaproveitando 90% de `OrcamentosV2.tsx` (filtros, busca, paginação, bulk).
-- 8.2 Criar `/orcamentos-v3/:id` (EditQuoteV3) com hidratação completa do `V3State` a partir do banco.
-- 8.3 Trocar `useQuoteDraftV3` por modo "draft only para novos".
+## Sugestão inteligente (não intrusiva)
 
-### Fase 9 — Recursos avançados
-- 9.1 `QuoteOptionsBuilder` (orçamentos A/B/C).
-- 9.2 `UseTemplateDialog` + `LoadFromGroupDialog`.
-- 9.3 `SmartFinishingBlock` (sugestões automáticas via `finishing-suggestions.ts` e `cv-finishing-suggestions.ts`).
-- 9.4 `LaborAndSupplySubform` (mão-de-obra/suprimento *por item* impresso).
-- 9.5 `QuoteChecklist` + `QuoteAssistant`.
+Regras simples avaliadas sempre que o usuário altera catálogo ou acabamentos no modo Personalizado:
 
-### Fase 10 — Ações e engajamento
-- 10.1 Botões: `CloneQuoteButton`, `CreateVersionButton`, `GenerateOPButton`, `GenerateOrderButton`, `BulkActionBar`.
-- 10.2 `EngagementBadge` + `EngagementPopover` + `RealtimeRadar`.
-- 10.3 `StepTypeBadge` + `QuoteStatusBadge` no V3.
+| Gatilho                                                        | Sugestão       |
+|----------------------------------------------------------------|----------------|
+| `paper_type` contém "lona" / "vinil" + acabamento ilhós/bastão | Banner         |
+| Acabamento "wire-o" ou "espiral" + páginas > 1                 | Apostila       |
+| Acabamento "corte especial" + tamanho pequeno (<A5)            | Etiqueta       |
+| `paper_type` contém "adesivo"                                  | Adesivo        |
+| `paper_type` "couchê 250g+" + tamanho cartão                   | Cartão Visita  |
 
-### Fase 11 — Viewer público + tracking + switch
-- 11.1 Portar página `client-viewer/` para `/q/:id` compartilhada (V2 e V3 usam o mesmo viewer — já é o caso, validar).
-- 11.2 Plugar `useScrollDepthTracking` e `tracking.ts` no viewer.
-- 11.3 **Switch final:** trocar `/orcamentos` para apontar V3, manter V2 acessível em `/orcamentos-v2-legado` por 30 dias, depois remover.
+A sugestão aparece como faixa discreta acima do botão "Adicionar". Botão **Aplicar** troca o modo para Produto + chip correspondente preservando o que já foi preenchido. Botão **Dispensar** esconde a sugestão até a próxima mudança relevante.
 
-## Estimativa
+## Arquivos afetados
 
-- Fase 6: ~1 turno
-- Fase 7: ~1 turno
-- Fase 8: ~2 turnos (listagem + edição são grandes)
-- Fase 9: ~2 turnos
-- Fase 10: ~1 turno
-- Fase 11: ~1 turno
+**Editar**
+- `src/components/orcamentos-v3/workspace/TabsLayout.tsx` — remover abas `booklet` e adicionar nada (etiqueta nunca existiu como aba). Atualizar atalhos Alt+N.
+- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` — remover roteamento de `booklet`; o caso `print` passa a renderizar o novo `PrintAndProductForm`. Atualizar mapa de atalhos.
+- `src/components/orcamentos-v3/types.ts` — manter `V3BookletItem` (continua sendo o tipo persistido quando o produto é Apostila). Adicionar `V3LabelItem` para etiqueta com snapshot vindo da calculadora.
+- `src/components/orcamentos-v3/shared/saveQuoteV3.ts` — adicionar branch para `kind === "label"` persistindo metadados de aproveitamento como `quote_print_items` + acabamentos.
 
-**Total: ~8 turnos de implementação**, validáveis incrementalmente após cada fase.
+**Criar**
+- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx` — wrapper com toggle Produto/Personalizado + chips de produto. Roteia para `PrintForm`, `BookletForm` ou `LabelEmbeddedForm`.
+- `src/components/orcamentos-v3/forms/LabelEmbeddedForm.tsx` — embute `LabelLayoutCalculator` em modo "quote" (callback `onConfirm(snapshot)` em vez de salvar favorito) e converte o resultado em `V3LabelItem`.
+- `src/components/orcamentos-v3/shared/productPresets.ts` — definições dos 6 presets (folheto, cartão, apostila, banner, etiqueta, adesivo) com filtros do catálogo, quantidade default e acabamentos sugeridos.
+- `src/components/orcamentos-v3/shared/productSuggester.ts` — função pura que recebe `(catalog, finishings)` e devolve `{ productId, confidence } | null` aplicando as regras da tabela acima.
 
-## Estratégia de execução
+**Remover do menu (mas manter o arquivo)**
+- `BookletForm.tsx` continua existindo, agora consumido por `PrintAndProductForm` em vez da aba antiga.
 
-1. **Reuso máximo:** quando o componente V2 não depende de estado do `NewQuoteFormV2`, importo direto (zero cópia). Quando depende, crio adapter em `src/components/orcamentos-v3/adapters/` que traduz `V3State` ↔ props V2.
-2. **Sem tocar no V2:** todo o V2 fica intacto e funcional durante a transição. Zero risco para produção.
-3. **Validação por fase:** ao terminar cada fase, listo o que testar manualmente antes de seguir.
-4. **Engine único:** `pricing.ts` do V2 continua sendo a fonte da verdade — V3 só monta o input.
+## Detalhes técnicos
 
-## Como vamos prosseguir
+- A Calculadora de Etiquetas (`LabelLayoutCalculator`, ~1790 linhas) será **incluída como componente**, não duplicada. Adicionar uma prop opcional `embeddedMode?: { onConfirm: (snapshot) => void; onCancel: () => void }` que, quando presente, oculta o botão "Salvar favorito"/PDF e exibe "Adicionar ao orçamento" — sem mexer na lógica interna.
+- O snapshot do label inclui: `sheet_size`, `labels_per_sheet`, `quantidade_etiquetas`, `paper_catalog_item_id`, `finishings[]`, `production_minutes`, `custo_total`, `preco_total`. Persistido em `quote_print_items` com a coluna `descricao` enriquecida ("Etiqueta 50×30mm — 5000 un").
+- Atalhos de teclado: Alt+1 segue para "Impressão + Acabamentos"; Alt+2 CV, Alt+3 Terceirizados, Alt+4 Mão-de-obra, Alt+5 Suprimentos. Apostila/Etiqueta acessíveis por chips dentro de Alt+1.
+- Persistência de rascunho (`useQuoteDraftV3`) não muda — o estado novo do toggle vive só dentro de `PrintAndProductForm`.
 
-Confirmando este plano, eu começo pela **Fase 6 (Apostila + Mão-de-obra + Suprimento)** agora, e ao final pergunto se sigo direto para Fase 7 ou se você quer testar primeiro.
+## Fora de escopo
+- Não tocar em `PrintForm`, `BookletForm` (a não ser ajustar a assinatura de props se necessário), `LabelLayoutCalculator` (apenas adicionar prop opcional).
+- Não mexer em CV, Terceirizados, Mão-de-obra, Suprimentos.
+- Não alterar a página `/etiquetas` standalone — ela continua funcionando.
 
-Quer aprovar este roteiro?
+## Validação após implementação
+1. Abrir `/orcamentos-v3/novo`, conferir 5 abas (sem Apostilas).
+2. Em Impressão + Acabamentos, alternar Produto/Personalizado.
+3. Adicionar 1 item de cada produto (folheto, cartão, apostila, banner, etiqueta, adesivo) e conferir o carrinho.
+4. No modo Personalizado, selecionar lona + ilhós e confirmar que a faixa de sugestão "Banner" aparece.
+5. Salvar orçamento e abrir em `/orcamentos-v2` para verificar que tudo carrega.
