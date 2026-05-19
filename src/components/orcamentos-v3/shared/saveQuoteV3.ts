@@ -38,16 +38,8 @@ const describePrint = (it: V3PrintItem) => {
     .join(" · ");
 };
 
-const describeCV = (it: V3CVItem) => {
-  const m2 = (it.largura_m * it.altura_m).toFixed(2);
-  return [
-    it.descricao?.trim() || it.midia_nome || "Comunicação Visual",
-    `${it.largura_m}m × ${it.altura_m}m (${m2} m²)`,
-    it.finishings.length ? `Acab.: ${it.finishings.join(", ")}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-};
+// CV: descrição derivada apenas para fins de log/debug — não usada no insert.
+
 
 const totalValue = (items: V3Item[]) =>
   roundUp10(items.reduce((sum, it) => sum + priceOf(it).preco_total, 0));
