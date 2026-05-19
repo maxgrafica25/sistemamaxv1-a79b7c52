@@ -231,18 +231,28 @@ export function CVForm({ onAdd }: Props) {
       </Field>
 
       <Field label="Mídia (catálogo CV)">
-        <Select value={midiaId} onValueChange={setMidiaId} disabled={cat.loading}>
-          <SelectTrigger className="h-9">
-            <SelectValue placeholder={cat.loading ? "Carregando..." : "Selecione a mídia"} />
-          </SelectTrigger>
-          <SelectContent>
-            {cat.midias.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.nome} <span className="text-muted-foreground">· {m.tipo_midia}</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <Select value={midiaId} onValueChange={setMidiaId} disabled={cat.loading}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder={cat.loading ? "Carregando..." : "Selecione a mídia"} />
+              </SelectTrigger>
+              <SelectContent>
+                {cat.midias.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.nome} <span className="text-muted-foreground">· {m.tipo_midia}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {isLona && (
+            <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer shrink-0 rounded-md border border-primary/30 bg-primary/5 px-3 h-9">
+              É banner?
+              <Switch checked={isBanner} onCheckedChange={(v) => setIsBanner(!!v)} />
+            </label>
+          )}
+        </div>
       </Field>
 
       <div
