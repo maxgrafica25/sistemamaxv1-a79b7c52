@@ -16,13 +16,17 @@ import PrintingItemSearch, {
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
 import { getIdealSpiral } from "@/lib/quotes-v2/spiral-selector";
-import { genId, type V3BookletItem } from "../types";
+import { genId, type V3BookletItem, type V3Item } from "../types";
+import { BookletKitPanel } from "./BookletKitPanel";
 
 interface Props {
   onAdd: (item: V3BookletItem) => void;
+  /** Quando definido, "Adicionar apostila + Kit" empurra todos os itens de uma vez. */
+  onAddMany?: (items: V3Item[]) => void;
+  defaultMarginPct?: number;
 }
 
-export function BookletForm({ onAdd }: Props) {
+export function BookletForm({ onAdd, onAddMany, defaultMarginPct = 20 }: Props) {
   const { loading, items, tiers } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
   const [descricao, setDescricao] = useState("");
