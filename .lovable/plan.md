@@ -1,63 +1,53 @@
+# Orçamento V3 — Scaffold + Fases 1–4
 
-# Opções de quantidade — fluxo completo
+Implementação **isolada** em `src/components/orcamentos-v3/` e rota `/orcamentos-v3/novo`. Zero alteração no V2. Inclui as fases 1–4 do rollout. A fase 5 (persistência real + swap de rota padrão) só após QA aprovado pelo usuário.
 
-Objetivo: tornar trivial criar variações de quantidade de um orçamento (incluindo CV e acabamentos) e fácil para o cliente comparar, com a melhor opção em destaque.
+## Arquivos a criar
 
----
+### Rota
+- `src/App.tsx` — adicionar `<Route path="/orcamentos-v3/novo" element={<NewQuoteV3 />} />` + import.
+- `src/pages/orcamentos-v3/NewQuoteV3.tsx` — page wrapper com navigate.
 
-## 1. Cadastro (tela do usuário interno)
+### Componente principal
+- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` — orquestrador: header (Voltar · badge V3 beta · cliente · assunto · salvar), grid `lg:grid-cols-[1fr_360px]`, atalhos `Alt+1/2/3`, auto-save + restauração de rascunho com toast.
+- `src/components/orcamentos-v3/types.ts` — `V3Item` (print | cv | third), `V3QuoteState`, `DEFAULT_STATE` (cliente = "Cliente Balcão").
 
-Reformular o bloco `QuoteOptionsBuilder` (variante `chips`, que é a usada hoje no formulário):
+### Workspace (70%)
+- `src/components/orcamentos-v3/workspace/TabsLayout.tsx` — segmented control discreto (border-bottom na ativa, ícone Lucide + kbd do atalho).
 
-- **Linha de atalhos automáticos**: 4 chips clicáveis baseados na quantidade base do orçamento (a soma dos itens de impressão + CV):
-  - **½×** (metade, arredondado p/ múltiplo "limpo")
-  - **2×**
-  - **3×**
-  - **5×**
-  - Clique = adiciona/remove instantaneamente. Chip fica "preenchido" quando ativo.
-- **Arredondamento inteligente** das sugestões: 50/100/250/500/1000/2500/5000 conforme a escala (ex.: base 80 → ½×=50, 2×=150, 3×=250, 5×=500).
-- **Campo livre** abaixo dos chips, para quantidade personalizada (mantém o input atual mas em estilo mais discreto).
-- **Lista das opções ativas** com preço unitário + total + Δ% vs base, removível com X.
-- Mensagem vazio: "Adicione com 1 clique nos atalhos abaixo".
+### Forms
+- `src/components/orcamentos-v3/forms/PrintForm.tsx` — descrição, qtd, custo/valor unit, chips de Cores (4x0/4x4/1x0/1x1), Formato (A4/A3/SRA3), Face (frente/F+V), acabamentos toggle, botão "Adicionar" que pisca verde.
+- `src/components/orcamentos-v3/forms/CVForm.tsx` — descrição, autocomplete de mídia (Supabase `midias_cv`), largura/altura inline com m² calculado, custo m² + margem, acabamentos toggle, preview do total.
+- `src/components/orcamentos-v3/forms/ThirdPartyForm.tsx` — descrição, autocomplete de fornecedor (`suppliers`), qtd, custo, margem, preview.
 
-## 2. Motor de recálculo
+### Cart (30%)
+- `src/components/orcamentos-v3/cart/UnifiedCart.tsx` — lista compacta com ícone por categoria, badge, qtd, preço, ações Duplicar/Excluir; estado vazio com ícone; animação suave no item recém-adicionado.
+- `src/components/orcamentos-v3/cart/FinancialPanel.tsx` — Subtotal, Impostos, Taxas, Total a cobrar, Margem (cor pelo valor). Visual minimalista.
+- `MobileCart` (dentro do NewQuoteFormV3) — bottom-sheet expansível.
 
-Hoje `recalculateForQuantity` cobre só itens de impressão (snapshot do printing engine). Precisamos estender para que cada opção reflita o orçamento inteiro.
+### Shared
+- `src/components/orcamentos-v3/shared/ChipGroup.tsx` — grupo de chips ativável.
+- `src/components/orcamentos-v3/shared/PaperAutocomplete.tsx` — autocomplete genérico ligado ao Supabase (tabela + colunas configuráveis), debounce 200ms.
+- `src/components/orcamentos-v3/shared/FinishingProgressive.tsx` — lista de toggles; conteúdo avançado só aparece quando ativo (progressive disclosure).
+- `src/components/orcamentos-v3/shared/useQuoteDraftV3.ts` — auto-save em `localStorage` com debounce 800ms, TTL 7 dias, restauração na montagem, `clear()`.
+- `src/components/orcamentos-v3/shared/pricing.ts` — `priceOf(item)`, `summarize(items, tax, fees, margin)`, `roundUp10` (regra global R$ 0,10), `fmtBRL`.
 
-Criar `recalculateQuoteForQuantity(snapshot, cvItems, baseQty, newQty)` em `src/lib/quotes-v2/options-pricing.ts`:
+### Entrada beta no V2
+- `src/pages/orcamentos-v2/OrcamentosV2.tsx` — adicionar botão pequeno "Experimentar V3 (beta)" no header que navega para `/orcamentos-v3/novo`.
 
-1. **Impressão**: chamar `recalculateForQuantity` (já existente — aplica tier correto + dilui setup).
-2. **CV (Comunicação Visual)**: para cada `CVItemState`, rodar `calcularItemCV` com `quantidade` proporcional `Math.round(cv.quantidade * newQty/baseQty)` (mínimo 1). Isso reescala automaticamente mídia, impressão e **acabamentos** (m²/perímetro/unidade) porque o engine de CV já é puro.
-3. **Frete, descontos, taxas**: aplicar exatamente a mesma lógica do total atual em cima do novo subtotal.
-4. **Arredondar para cima** ao múltiplo de R$ 0,10 (regra global).
+## Escopo deliberadamente fora desta entrega
 
-Retornar `{ unitPrice, total, breakdown }` para cada opção e gravar em `quote.options` (formato já existente em `options.ts`).
+- **Persistência no banco** (Fase 5). `onSave` apenas valida + limpa rascunho e mostra toast. Quando aprovado o UX, plugamos no mesmo `quotes`/`quote_items` do V2.
+- **Recompute via `lib/quotes-v2/pricing.ts` completo** (com tiers, materiais, etapas). V3 começa com cálculo direto (custo × qtd × margem + R$ 0,10 round) para validar o **fluxo de UI**. Engine completa é trocada na Fase 5 sem mexer na UI.
+- Edição de orçamento existente (`/orcamentos-v3/:id`). V3 começa só com criação.
 
-## 3. Visão do cliente (`ClientViewer`)
+## Validação após implementar
 
-Refinar o bloco "Outras quantidades para comparar":
+1. Acessar `/orcamentos-v3/novo` direto e via botão beta no V2.
+2. Trocar abas com `Alt+1/2/3`.
+3. Adicionar 1 item por categoria → ver no carrinho à direita + total atualizando.
+4. Duplicar e excluir do carrinho.
+5. Recarregar a página → toast "Rascunho restaurado" + itens preservados.
+6. Mobile (394×728): cart vira bottom-sheet expansível.
 
-- **Grid de cards** (≥2 colunas em desktop, stack em mobile) — `OptionCard`.
-- **Destaque automático** "💡 Melhor custo-benefício" na opção com **menor preço unitário** (geralmente a de maior volume) — badge no canto + borda primária mais forte.
-- Cada card mostra: Quantidade, Total grande, "R$ X,XX / un", e uma **linha de economia** comparando com a menor opção ("economiza 18% por unidade").
-- Manter o modo seletivo (`showOptionsMode`) intacto quando o orçamento foi criado com opções selecionáveis.
-- **Não** adicionar campo para o cliente pedir outra quantidade (decisão sua).
-
-## 4. Detalhes técnicos
-
-Arquivos afetados:
-
-- `src/components/orcamentos-v2/QuoteOptionsBuilder.tsx` — reescrever variante `chips` com atalhos.
-- `src/lib/quotes-v2/options-pricing.ts` *(novo)* — função `recalculateQuoteForQuantity` envolvendo printing + CV.
-- `src/lib/quotes-v2/options.ts` — adicionar `breakdown?: { printing: number; cv: number; finishing: number }` opcional para mostrar no card admin (não obrigatório no DB).
-- `src/components/orcamentos-v2/NewQuoteFormV2.tsx` — passar `cvItems` + `baseQuantity` para o builder; usar a nova função no `recalculateForQuantity` atual.
-- `src/components/orcamentos-v2/client-viewer/OptionCard.tsx` — adicionar prop `isBest` + linha de economia vs base.
-- `src/pages/orcamentos-v2/ClientViewer.tsx` — calcular qual opção é a "melhor" (menor unit_price) e ordenar por quantidade crescente.
-
-Sem migrations: o campo `quotes.options` (jsonb) já suporta o formato existente.
-
-## 5. Fora de escopo
-
-- Não permitir cliente solicitar quantidade fora das opções (decisão sua).
-- Não mudar o motor de impressão nem o de CV — apenas orquestrar chamadas.
-- Não mexer em PDF de orçamento nesta etapa (segue exibindo o `quote.value` da base).
+**Pode confirmar para eu sair do plan mode e implementar?**
