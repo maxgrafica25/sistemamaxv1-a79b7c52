@@ -313,6 +313,7 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
               currentQty={quantidade}
               disabled={!catalog || !pricing}
               onPickQty={(q) => setQuantidade(q)}
+              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
               compute={(q) => {
                 const p = catalog ? pricePerSheet(catalog, tiers, q) : null;
                 return {
