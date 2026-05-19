@@ -11,9 +11,10 @@ import { genId, type V3ThirdItem } from "../types";
 
 interface Props {
   onAdd: (item: V3ThirdItem) => void;
+  onAddTiers?: (items: V3ThirdItem[]) => void;
 }
 
-export function ThirdPartyForm({ onAdd }: Props) {
+export function ThirdPartyForm({ onAdd, onAddTiers }: Props) {
   const [descricao, setDescricao] = useState("");
   const [fornecedor, setFornecedor] = useState<AutocompleteOption | null>(null);
   const [quantidade, setQuantidade] = useState(1);
@@ -24,17 +25,29 @@ export function ThirdPartyForm({ onAdd }: Props) {
   const preview = Math.ceil(quantidade * custo * (1 + margem / 100) * 10) / 10;
   const canAdd = descricao.trim().length > 0 && quantidade > 0 && custo > 0;
 
+  const buildItem = (q: number, tierGroupId?: string): V3ThirdItem => ({
+    id: genId(),
+    kind: "third",
+    descricao: descricao.trim(),
+    tier_group_id: tierGroupId ?? null,
+    fornecedor: fornecedor?.label ?? "",
+    quantidade: q,
+    custo,
+    margem_pct: margem,
+  });
+
   const submit = () => {
     if (!canAdd) return;
-    onAdd({
-      id: genId(),
-      kind: "third",
-      descricao: descricao.trim(),
-      fornecedor: fornecedor?.label ?? "",
-      quantidade,
-      custo,
-      margem_pct: margem,
-    });
+    onAdd(buildItem(quantidade));
+    setDescricao("");
+    setPulse(true);
+    setTimeout(() => setPulse(false), 600);
+  };
+
+  const submitAsTiers = (qtys: number[]) => {
+    if (!onAddTiers || !canAdd) return;
+    const tg = `tg_${genId()}`;
+    onAddTiers(qtys.map((q) => buildItem(q, tg)));
     setDescricao("");
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
@@ -85,6 +98,7 @@ export function ThirdPartyForm({ onAdd }: Props) {
                 return { custo_total: c, preco_total: roundUp10(c * (1 + (margem || 0) / 100)) };
               }}
               onPickQty={(q) => setQuantidade(q)}
+              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
             />
           </div>
         </Field>
