@@ -13,6 +13,7 @@ import type {
   V3BookletItem,
   V3LaborItem,
   V3SupplyItem,
+  V3LabelItem,
 } from "../types";
 import { priceOf, roundUp10 } from "./pricing";
 
