@@ -63,12 +63,12 @@ export function BookletForm({ onAdd, onAddMany, defaultMarginPct = 20 }: Props) 
 
   const canAdd = !!catalog && bookletPages > 0 && bookletUnits > 0 && totalMioloPreco > 0;
 
-  const submit = () => {
-    if (!canAdd || !catalog) return;
+  const buildBookletItem = (): V3BookletItem | null => {
+    if (!canAdd || !catalog) return null;
     const label =
       descricao.trim() ||
       `Apostila ${bookletUnits}× ${bookletPages}fl ${catalog.paper_type}${catalog.grammage ? ` ${catalog.grammage}` : ""}`;
-    onAdd({
+    return {
       id: genId(),
       kind: "booklet",
       descricao: label,
@@ -84,8 +84,24 @@ export function BookletForm({ onAdd, onAddMany, defaultMarginPct = 20 }: Props) 
       bookletPages: Math.floor(bookletPages),
       bookletUnits: Math.floor(bookletUnits),
       bookletDuplex: duplex,
-    });
+    };
+  };
+
+  const submit = () => {
+    const item = buildBookletItem();
+    if (!item) return;
+    onAdd(item);
     setDescricao("");
+    setPulse(true);
+    setTimeout(() => setPulse(false), 600);
+  };
+
+  const applyKitItems = (kitItems: V3Item[]) => {
+    if (!onAddMany) return;
+    const miolo = buildBookletItem();
+    const list: V3Item[] = miolo ? [miolo, ...kitItems] : [...kitItems];
+    onAddMany(list);
+    if (miolo) setDescricao("");
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
