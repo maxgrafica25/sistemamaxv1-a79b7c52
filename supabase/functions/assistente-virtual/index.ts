@@ -1455,11 +1455,22 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
       const aiResp = await callGemini();
 
       if (aiResp.status === 429) {
+        // Retorna 200 com flag pra não disparar FunctionsHttpError/blank-screen no cliente
         return new Response(
           JSON.stringify({
-            error: "Muitas perguntas em pouco tempo (ou cota do Gemini atingida). Aguarde alguns segundos e tente novamente.",
+            error: "rate_limited",
+            resposta: "Muitas perguntas em pouco tempo (ou cota do Gemini atingida). Aguarde alguns segundos e tente novamente.",
           }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      if (aiResp.status === 402) {
+        return new Response(
+          JSON.stringify({
+            error: "credits_exhausted",
+            resposta: "Créditos do serviço de IA esgotados. Avise o administrador.",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
       if (!aiResp.ok) {
