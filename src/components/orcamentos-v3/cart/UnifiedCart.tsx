@@ -40,6 +40,21 @@ const LABEL = {
   supply: "Suprimento",
 };
 
+function cartMeta(it: V3Item): string {
+  switch (it.kind) {
+    case "labor":
+      return `${it.time_minutes} min · margem ${it.margem_pct.toFixed(0)}%`;
+    case "booklet":
+      return `${it.bookletUnits}× ${it.bookletPages}fl${it.bookletDuplex ? " F/V" : ""}`;
+    case "supply":
+    case "third":
+    case "print":
+    case "cv":
+      return `qtd ${it.quantidade ?? 1}`;
+  }
+}
+
+
 
 export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props) {
   if (items.length === 0) {
