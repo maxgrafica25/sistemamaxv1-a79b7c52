@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, Plus, AlertCircle } from "lucide-react";
+import { Check, Plus, AlertCircle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3CVItem } from "../types";
