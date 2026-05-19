@@ -1,6 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Trash2, Printer, Megaphone, Handshake, ShoppingCart } from "lucide-react";
+import {
+  Copy,
+  Trash2,
+  Printer,
+  Megaphone,
+  Handshake,
+  BookOpen,
+  Wrench,
+  Package,
+  ShoppingCart,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { V3Item } from "../types";
 import { priceOf, fmtBRL } from "../shared/pricing";
@@ -16,13 +26,20 @@ const ICON = {
   print: Printer,
   cv: Megaphone,
   third: Handshake,
+  booklet: BookOpen,
+  labor: Wrench,
+  supply: Package,
 };
 
 const LABEL = {
   print: "Impressão",
   cv: "Com. Visual",
   third: "Terceirizado",
+  booklet: "Apostila",
+  labor: "Mão-de-obra",
+  supply: "Suprimento",
 };
+
 
 export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props) {
   if (items.length === 0) {

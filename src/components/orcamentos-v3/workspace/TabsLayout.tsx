@@ -1,11 +1,26 @@
-import { Printer, Megaphone, Handshake } from "lucide-react";
+import {
+  Printer,
+  Megaphone,
+  Handshake,
+  BookOpen,
+  Wrench,
+  Package,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { V3Category } from "../types";
 
-export const TABS: { id: V3Category; label: string; icon: typeof Printer; shortcut: string }[] = [
+export const TABS: {
+  id: V3Category;
+  label: string;
+  icon: typeof Printer;
+  shortcut: string;
+}[] = [
   { id: "print", label: "Impressão + Acabamentos", icon: Printer, shortcut: "Alt+1" },
-  { id: "cv", label: "Comunicação Visual", icon: Megaphone, shortcut: "Alt+2" },
-  { id: "third", label: "Materiais Terceirizados", icon: Handshake, shortcut: "Alt+3" },
+  { id: "cv", label: "Com. Visual", icon: Megaphone, shortcut: "Alt+2" },
+  { id: "third", label: "Terceirizados", icon: Handshake, shortcut: "Alt+3" },
+  { id: "booklet", label: "Apostilas", icon: BookOpen, shortcut: "Alt+4" },
+  { id: "labor", label: "Mão-de-obra", icon: Wrench, shortcut: "Alt+5" },
+  { id: "supply", label: "Suprimentos", icon: Package, shortcut: "Alt+6" },
 ];
 
 interface Props {
@@ -18,7 +33,7 @@ export function TabsLayout({ active, onChange }: Props) {
     <div
       role="tablist"
       aria-label="Categoria do item"
-      className="flex items-end gap-4 md:gap-6 border-b border-border overflow-x-auto"
+      className="flex items-end gap-3 md:gap-5 border-b border-border overflow-x-auto"
     >
       {TABS.map((t) => {
         const isActive = active === t.id;
@@ -31,7 +46,7 @@ export function TabsLayout({ active, onChange }: Props) {
             aria-selected={isActive}
             onClick={() => onChange(t.id)}
             className={cn(
-              "relative pb-3 pt-2 flex items-center gap-2 text-sm font-medium transition-colors whitespace-nowrap",
+              "relative pb-3 pt-2 flex items-center gap-1.5 text-sm font-medium transition-colors whitespace-nowrap",
               isActive
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground",
@@ -41,7 +56,7 @@ export function TabsLayout({ active, onChange }: Props) {
             <span>{t.label}</span>
             <kbd
               className={cn(
-                "ml-1 hidden md:inline text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60",
+                "ml-1 hidden lg:inline text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60",
                 isActive ? "text-foreground/60" : "text-muted-foreground/60",
               )}
             >
