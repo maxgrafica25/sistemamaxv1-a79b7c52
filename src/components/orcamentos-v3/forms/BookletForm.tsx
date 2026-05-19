@@ -198,6 +198,21 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
                 };
               }}
               onPickQty={(q) => setBookletUnits(q)}
+              onCloneAsTiers={
+                onAddTiers
+                  ? (qtys) => {
+                      const tg = `tg_${genId()}`;
+                      const items = qtys
+                        .map((q) => buildBookletItem(q, tg))
+                        .filter((x): x is V3BookletItem => !!x);
+                      if (items.length === 0) return;
+                      onAddTiers(items);
+                      setDescricao("");
+                      setPulse(true);
+                      setTimeout(() => setPulse(false), 600);
+                    }
+                  : undefined
+              }
             />
           </div>
         </Field>
