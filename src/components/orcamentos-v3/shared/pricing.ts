@@ -3,6 +3,7 @@ import type {
   V3CVItem,
   V3Item,
   V3LaborItem,
+  V3LabelItem,
   V3PrintItem,
   V3SupplyItem,
   V3ThirdItem,
