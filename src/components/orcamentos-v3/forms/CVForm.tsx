@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, Plus, AlertCircle, AlertTriangle } from "lucide-react";
+import { Check, Plus, AlertCircle, AlertTriangle, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3CVItem } from "../types";
@@ -21,6 +21,7 @@ import {
 } from "@/lib/cv-calc/engine";
 import { filterAndSortForMidia } from "@/lib/cv-calc/media-order";
 import { SOBRA_CM } from "../shared/bastaoSuggester";
+import { buildCvDescricao } from "../shared/buildCvDescricao";
 
 // Extrai o tamanho (cm) de chips do tipo "Banner (Bastão topo e base até 105cm + ...)"
 function parseBastaoCm(nome: string): number | null {
