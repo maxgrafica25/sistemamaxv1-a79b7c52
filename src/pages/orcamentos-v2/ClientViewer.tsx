@@ -341,6 +341,18 @@ export default function ClientViewer() {
       if (willBeChecked) next.add(itemId);
       else next.delete(itemId);
 
+      // Tier groups: selecting one tier deseleciona as outras faixas do mesmo grupo.
+      const item = materials.find((m) => m.id === itemId);
+      if (willBeChecked && item?.tier_group_id) {
+        for (const sib of materials) {
+          if (sib.id !== itemId && sib.tier_group_id === item.tier_group_id) {
+            next.delete(sib.id);
+            const pt = pendingTimersRef.current.get(sib.id);
+            if (pt) { clearTimeout(pt); pendingTimersRef.current.delete(sib.id); }
+          }
+        }
+      }
+
       // Cancela qualquer timer pendente deste item
       const pending = pendingTimersRef.current.get(itemId);
       if (pending) {
@@ -348,26 +360,23 @@ export default function ClientViewer() {
         pendingTimersRef.current.delete(itemId);
       }
 
-      // Só rastreia checkbox de itens quando há aprovação parcial real (>=2 itens).
-      // Em orçamento de item único, marcar/desmarcar não tem valor analítico.
       if (materials.length < 2) return next;
 
-      const item = materials.find((m) => m.id === itemId);
       const label = item?.description ?? "Item";
 
       if (willBeChecked) {
-        // Vai disparar item_selected em 2s se não cancelado
         const t = setTimeout(() => {
           pendingTimersRef.current.delete(itemId);
           void trackEvent(quote?.id, "item_selected", {
             item_id: itemId,
             item_label: label,
+            tier_group_id: item?.tier_group_id ?? null,
+            tier_qty: item?.tier_group_id ? item?.quantity : undefined,
           });
           sentSelectedRef.current.add(itemId);
         }, 2000);
         pendingTimersRef.current.set(itemId, t);
       } else if (sentSelectedRef.current.has(itemId)) {
-        // Já tinha registrado selected → agendar deselected (hesitação)
         const t = setTimeout(() => {
           pendingTimersRef.current.delete(itemId);
           void trackEvent(quote?.id, "item_deselected", {
