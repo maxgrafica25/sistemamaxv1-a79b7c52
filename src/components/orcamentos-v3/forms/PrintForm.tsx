@@ -13,6 +13,7 @@ import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProg
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
 import { BASTOES_CM, sugerirBastao } from "../shared/bastaoSuggester";
+import { TierSimulator } from "../shared/TierSimulator";
 import { genId, type V3PrintItem } from "../types";
 
 interface Props {
@@ -273,14 +274,28 @@ export function PrintForm({ onAdd, onSelectionChange }: Props) {
 
       <div className="grid grid-cols-2 gap-4">
         <Field label="Quantidade (folhas)">
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            value={quantidade}
-            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
-            className="h-9"
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              value={quantidade}
+              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
+              className="h-9 flex-1"
+            />
+            <TierSimulator
+              currentQty={quantidade}
+              disabled={!catalog || !pricing}
+              onPickQty={(q) => setQuantidade(q)}
+              compute={(q) => {
+                const p = catalog ? pricePerSheet(catalog, tiers, q) : null;
+                return {
+                  custo_total: (p?.baseCost ?? 0) * q,
+                  preco_total: (p?.sellingPrice ?? 0) * q,
+                };
+              }}
+            />
+          </div>
         </Field>
         <Field label="Preço unitário">
           <div className="h-9 px-3 rounded-md border border-border bg-muted/40 flex items-center justify-between">

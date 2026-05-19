@@ -1,51 +1,66 @@
-## Objetivo
-Tornar o campo **Descrição** do `CVForm` auto-preenchido de forma inteligente conforme as escolhas (mídia, banner, resolução, dimensões, quantidade, acabamentos), **sem travar a edição manual** do usuário.
+# Faixas de preço por quantidade no Orçamentos V3
 
-## Comportamento proposto
+## Problema
+Cliente gráfico quase sempre pede "me dá o preço para 100, 250, 500 e 1000". Hoje o V3 calcula 1 quantidade por item; para simular faixas o usuário precisa duplicar o item N vezes manualmente, refazer cada cálculo e remontar o PDF.
 
-### 1. Geração automática
-Sempre que mídia + dimensões estiverem definidos, montar uma string no padrão:
+## Estratégia recomendada (em 2 camadas)
 
+A solução mais ágil mistura **simulação rápida** (durante a montagem do item) com **persistência opcional** (quando o usuário quer enviar as faixas no orçamento final). Ambas usam as engines de pricing que já existem (`priceOf`, engine CV, etc.) — não há lógica nova de negócio, só re-execução com `quantidade` diferente.
+
+### Camada 1 — "Simulador de faixas" (inline, não persistido)
+Um painel **"Comparar faixas"** dentro de cada form de item (Print, CV, Booklet, Label, Third, Supply). 
+
+- Botão `📊 Comparar faixas` ao lado de "Quantidade".
+- Abre um popover/drawer com uma tabelinha editável de quantidades (default: `100, 250, 500, 1000`, mas o usuário pode editar/adicionar/remover livremente, ou clicar em presets `+50%`, `×2`, `×5`).
+- Para cada linha, roda a engine de pricing com aquela quantidade e mostra:
+  - Qtd · Custo total · Preço total · **Preço unitário** · Δ% vs faixa anterior
+- Cada linha tem um botão **"Usar esta"** (substitui `quantidade` no item atual) e **"Adicionar ao orçamento"** (duplica o item com aquela qtd, ver Camada 2).
+- Atualiza em tempo real conforme o usuário muda mídia/acabamentos/papel — é só `useMemo` rodando `priceOf` com cada qtd.
+
+**Por que assim:** zero impacto no schema, zero risco no PDF/ERP, e resolve 80% dos casos (cliente pergunta no WhatsApp, vendedor responde os 4 preços em 5 segundos).
+
+### Camada 2 — "Faixas no orçamento" (persistido, vai pro PDF)
+Quando o cliente realmente quer ver as faixas no PDF do orçamento:
+
+- Botão **"Adicionar como faixas"** no simulador → cria N itens irmãos no carrinho, marcados com um `tier_group_id` comum.
+- No `UnifiedCart`, itens do mesmo grupo aparecem agrupados visualmente (um card só com sub-linhas "100un · R$ X · R$ Y/un").
+- No PDF/cliente viewer, renderiza como tabela de faixas (1 produto, N preços) em vez de N produtos separados.
+- Atualizar a descrição de um item do grupo propaga para os irmãos (mesmo produto, só muda qtd).
+
+**Por que separar das Camada 1:** muita gente só quer o número rápido — não polui o carrinho. Quem precisa do PDF formal usa "Adicionar como faixas".
+
+## Detalhes técnicos
+
+**Tipos** (`types.ts`):
+```ts
+interface V3ItemBase {
+  tier_group_id?: string | null; // novo, opcional
+}
 ```
-{Tipo} {NomeMídia} {LxA}cm — {qtd}un · {Resolução curta} · {Acabamentos}
-```
+Adicionar em todos os `V3*Item`. Default null = comportamento atual.
 
-Exemplos:
-- `Banner Lona Brilho 90x120cm — 1un · Alta resolução · Bastão 105cm, Ilhós`
-- `Lona Brilho 200x100cm — 2un · Baixa resolução · Refile`
-- `Adesivo Vinil 50x30cm — 10un · Alta resolução`
+**Simulador** (`shared/TierSimulator.tsx`, novo):
+- Props: `item: V3Item`, `onPickQty(qty)`, `onCloneAs(qtys: number[])`
+- Usa `priceOf({ ...item, quantidade: q })` para cada qty da lista.
+- Para CV com snapshot, recalcula via engine ao invés do snapshot (snapshot é por qtd).
+- Memoização agressiva.
 
-Regras:
-- **Tipo**: "Banner" se `isLona && isBanner`; senão usa o `tipo_midia` capitalizado (Lona, Adesivo, Vinil…).
-- **NomeMídia**: nome do catálogo, sem repetir o tipo (ex: se nome já contém "Lona", não duplicar).
-- **Dimensões**: inteiros em cm, formato `LxA`.
-- **Resolução curta**: heurística no nome — "alta resolução" → "Alta resolução"; "baixa" → "Baixa resolução"; senão usa o nome completo.
-- **Acabamentos**: lista por vírgula, omitindo o sufixo técnico de bastão (ex: "Banner (Bastão topo e base até 105cm + ...)" → "Bastão 105cm").
+**Forms**: cada `*Form.tsx` ganha um `<TierSimulatorButton item={draft}/>` ao lado do campo Quantidade. Sem mudança nos handlers de submit.
 
-### 2. Edição manual preservada
-- Estado novo `descricaoEditada: boolean`.
-- Auto-gera enquanto `descricaoEditada === false`.
-- Assim que o usuário digita no campo → `descricaoEditada = true` e o auto-update para.
-- Botão pequeno **"↻ Regenerar"** ao lado do label (ghost, ícone `RotateCcw`) que volta `descricaoEditada` para `false` e regenera com os valores atuais.
-- Ao limpar totalmente o campo, voltar automaticamente ao modo auto.
+**Cart**: `UnifiedCart` agrupa por `tier_group_id` ao renderizar. `saveQuoteV3` apenas persiste o campo extra; os itens continuam linhas independentes no DB.
 
-### 3. UX
-- Placeholder muda: `"Gerada automaticamente — edite se quiser"`.
-- Após submit (`onAdd`), reset volta para modo auto (já que `setDescricao("")` é chamado).
+**PDF/Viewer**: ajustar `ClientViewer` e o gerador de PDF para colapsar grupos em uma tabela de faixas.
 
-## Implementação técnica
-- Novo helper `buildSmartDescricao(...)` em `src/components/orcamentos-v3/shared/` (arquivo novo `buildCvDescricao.ts`) — função pura, fácil de testar.
-- Em `CVForm.tsx`:
-  - Adicionar state `descricaoEditada`.
-  - `useEffect` que recalcula descrição quando dependências (midia, isBanner, impressao, largura, altura, quantidade, acabIds) mudam e `descricaoEditada === false`.
-  - Handler do `Input` marca `descricaoEditada = true` (exceto quando esvazia → volta a false).
-  - Botão regenerar ao lado do label `Descrição`.
+**Defaults configuráveis**: salvar em `localStorage` as faixas padrão do usuário (ex: gráfica de etiqueta usa `1k, 5k, 10k`; gráfica offset usa `100, 250, 500`).
 
-## Fora do escopo
-- PrintForm e demais abas (mesmo padrão pode ser aplicado depois se quiser).
-- Persistir preferência do usuário.
-- IA/LLM — heurística determinística é suficiente e instantânea.
+## Fora de escopo
+- Descontos automáticos por faixa (cliente assina contrato com tabela): isso é outro feature.
+- Tiers no catálogo de Print já existem (`markup_tiers`) — eles continuam aplicando a regra por dentro do `priceOf`, esta feature é ortogonal.
+- Edição em massa de margem por faixa (pode vir depois se necessário).
 
-## Arquivos
-- **Novo**: `src/components/orcamentos-v3/shared/buildCvDescricao.ts`
-- **Modificado**: `src/components/orcamentos-v3/forms/CVForm.tsx`
+## Entrega sugerida em fases
+1. **Fase A (rápida, alto valor):** só a Camada 1 (simulador inline) em Print, CV e Label. ~1 PR.
+2. **Fase B:** estender simulador para Booklet/Supply/Third/Labor.
+3. **Fase C:** Camada 2 (tier_group_id, agrupamento no carrinho, PDF de faixas).
+
+Quer que eu siga com a **Fase A** já?
