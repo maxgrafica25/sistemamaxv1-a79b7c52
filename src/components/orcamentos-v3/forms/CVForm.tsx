@@ -47,6 +47,7 @@ export function CVForm({ onAdd }: Props) {
   const cat = useV3CVCatalog();
 
   const [descricao, setDescricao] = useState("");
+  const [descricaoEditada, setDescricaoEditada] = useState(false);
   const [largura_cm, setLargura] = useState(100);
   const [altura_cm, setAltura] = useState(100);
   const [quantidade, setQuantidade] = useState(1);
