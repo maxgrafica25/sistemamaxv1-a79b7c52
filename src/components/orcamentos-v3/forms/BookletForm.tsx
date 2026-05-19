@@ -225,9 +225,18 @@ export function BookletForm({ onAdd, onAddMany, defaultMarginPct = 20 }: Props) 
             </>
           )}
           <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/40 mt-1">
-            Este valor cobre apenas o miolo impresso. Adicione espiral, capas e mão-de-obra de encadernação pelas abas <strong>Suprimentos</strong> e <strong>Mão-de-obra</strong>.
+            Este valor cobre apenas o <strong>miolo impresso</strong>. Use o Kit Encadernação abaixo para adicionar capas, espiral e mão-de-obra automaticamente.
           </p>
         </div>
+      )}
+
+      {onAddMany && canAdd && bookletPages > 0 && bookletUnits > 0 && (
+        <BookletKitPanel
+          bookletPages={Math.floor(bookletPages)}
+          bookletUnits={Math.floor(bookletUnits)}
+          defaultMarginPct={defaultMarginPct}
+          onApply={applyKitItems}
+        />
       )}
 
       <Field label="Descrição (opcional)">
