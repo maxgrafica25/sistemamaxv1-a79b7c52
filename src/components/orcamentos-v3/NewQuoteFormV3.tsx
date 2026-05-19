@@ -190,7 +190,15 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
             {active === "print" && <PrintForm onAdd={addItem} />}
             {active === "cv" && <CVForm onAdd={addItem} />}
             {active === "third" && <ThirdPartyForm onAdd={addItem} />}
+            {active === "booklet" && <BookletForm onAdd={addItem} />}
+            {active === "labor" && (
+              <LaborForm defaultMarginPct={state.margin_pct} onAdd={addItem} />
+            )}
+            {active === "supply" && (
+              <SupplyForm defaultMarginPct={state.margin_pct} onAdd={addItem} />
+            )}
           </div>
+
         </div>
 
         {/* Cart (30%) */}
