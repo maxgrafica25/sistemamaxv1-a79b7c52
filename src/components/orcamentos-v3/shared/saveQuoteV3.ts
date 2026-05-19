@@ -190,5 +190,96 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
     if (tpErr) throw tpErr;
   }
 
+  // ===== Fase 6 — Apostila / Mão-de-obra / Suprimento =====
+
+  // Apostila → quote_materials com booklet_pages / booklet_units / booklet_duplex
+  const bookletRows = state.items
+    .map((it, i) => ({ it, sort: i }))
+    .filter(({ it }) => it.kind === "booklet")
+    .map(({ it, sort }) => {
+      const b = it as V3BookletItem;
+      const p = priceOf(b);
+      const physical = Math.max(1, b.bookletPages * b.bookletUnits);
+      const sideMult = b.side === "F/V" ? 1 : b.bookletDuplex ? 2 : 1;
+      const totalImpressions = Math.max(1, physical * sideMult);
+      const unit = roundUp10(p.preco_total / totalImpressions);
+      return {
+        quote_id: quoteId,
+        description: b.descricao || "Apostila",
+        quantity: totalImpressions,
+        unit_price: unit,
+        sort_order: 1000 + sort,
+        status: "pendente" as const,
+        parent_item_id: null,
+        product_kind: "Apostilas",
+        custom_name: b.descricao || null,
+        paper_type: b.paper_type,
+        grammage: b.grammage,
+        size: b.size,
+        side: b.side ?? (b.bookletDuplex ? "F/V" : "Só frente"),
+        catalog_source: b.catalog_item_id ? "printing" : null,
+        catalog_item_id: b.catalog_item_id ?? null,
+        booklet_pages: b.bookletPages,
+        booklet_units: b.bookletUnits,
+        booklet_duplex: b.bookletDuplex,
+      };
+    });
+  if (bookletRows.length > 0) {
+    const { error: bErr } = await supabase
+      .from("quote_materials")
+      .insert(bookletRows as never);
+    if (bErr) throw bErr;
+  }
+
+  // Suprimento avulso → quote_materials product_kind 'Suprimento'
+  const supplyRows = state.items
+    .map((it, i) => ({ it, sort: i }))
+    .filter(({ it }) => it.kind === "supply")
+    .map(({ it, sort }) => {
+      const s = it as V3SupplyItem;
+      const qty = Math.max(1, Math.floor(s.quantidade || 1));
+      const unit = roundUp10(s.custo_unitario * (1 + (s.margem_pct || 0) / 100));
+      return {
+        quote_id: quoteId,
+        description: s.descricao || s.supply_nome || "Suprimento",
+        quantity: qty,
+        unit_price: unit,
+        sort_order: 2000 + sort,
+        status: "pendente" as const,
+        parent_item_id: null,
+        product_kind: "Suprimento",
+        custom_name: s.descricao || s.supply_nome || null,
+      };
+    });
+  if (supplyRows.length > 0) {
+    const { error: sErr } = await supabase
+      .from("quote_materials")
+      .insert(supplyRows as never);
+    if (sErr) throw sErr;
+  }
+
+  // Mão-de-obra avulsa → quote_labor_steps (parent_item_id null)
+  const laborRows = state.items
+    .map((it, i) => ({ it, sort: i }))
+    .filter(({ it }) => it.kind === "labor")
+    .map(({ it, sort }) => {
+      const l = it as V3LaborItem;
+      return {
+        quote_id: quoteId,
+        description: l.descricao || "Mão-de-obra",
+        time_minutes: l.time_minutes,
+        step_type: l.step_type,
+        sort_order: sort,
+        parent_item_id: null,
+      };
+    });
+  if (laborRows.length > 0) {
+    const { error: lErr } = await supabase
+      .from("quote_labor_steps")
+      .insert(laborRows as never);
+    if (lErr) throw lErr;
+  }
+
   return { id: quoteId, quote_number: inserted.quote_number as string };
 }
+
