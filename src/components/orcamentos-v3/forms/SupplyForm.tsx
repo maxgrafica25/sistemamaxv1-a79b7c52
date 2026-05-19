@@ -128,6 +128,7 @@ export function SupplyForm({ defaultMarginPct, onAdd, onAddTiers }: Props) {
                 return { custo_total: c, preco_total: roundUp10(c * (1 + margem / 100)) };
               }}
               onPickQty={(q) => setQty(q)}
+              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
             />
           </div>
         </div>
