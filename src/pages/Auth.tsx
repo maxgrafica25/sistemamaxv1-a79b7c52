@@ -86,7 +86,7 @@ export default function Auth() {
       email: email.trim(),
       options: {
         shouldCreateUser: false,
-        emailRedirectTo: `${window.location.origin}/reset-password`,
+        emailRedirectTo: `${getPublicAppUrl()}/reset-password`,
       },
     });
 
