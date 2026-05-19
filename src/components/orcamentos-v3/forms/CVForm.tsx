@@ -1,62 +1,150 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, Plus } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Check, Plus, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PaperAutocomplete, type AutocompleteOption } from "../shared/PaperAutocomplete";
-import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProgressive";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3CVItem } from "../types";
+import { useV3CVCatalog } from "../shared/useV3CVCatalog";
+import {
+  calcular,
+  type Acabamento as CVAcabamento,
+} from "@/lib/cv-calc/engine";
+import { filterAndSortForMidia } from "@/lib/cv-calc/media-order";
 
 interface Props {
   onAdd: (item: V3CVItem) => void;
 }
 
-const CV_FINISHES: FinishingDef[] = [
-  { id: "bainha", label: "Bainha" },
-  { id: "ilhos", label: "Ilhós", hint: "A cada 50 cm" },
-  { id: "bastao", label: "Bastão (banner)" },
-  { id: "recorte", label: "Recorte eletrônico" },
-];
-
 export function CVForm({ onAdd }: Props) {
+  const cat = useV3CVCatalog();
+
   const [descricao, setDescricao] = useState("");
-  const [largura, setLargura] = useState(1.0);
-  const [altura, setAltura] = useState(1.0);
+  const [largura_cm, setLargura] = useState(100);
+  const [altura_cm, setAltura] = useState(100);
   const [quantidade, setQuantidade] = useState(1);
-  const [midia, setMidia] = useState<AutocompleteOption | null>(null);
-  const [custo, setCusto] = useState(0);
-  const [margem, setMargem] = useState(60);
-  const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
+  const [midiaId, setMidiaId] = useState<string>("");
+  const [impressaoId, setImpressaoId] = useState<string>("");
+  const [acabIds, setAcabIds] = useState<string[]>([]);
   const [pulse, setPulse] = useState(false);
 
-  const m2 = useMemo(() => Math.max(0, largura) * Math.max(0, altura), [largura, altura]);
-  const preview = useMemo(
-    () => Math.ceil(m2 * quantidade * custo * (1 + margem / 100) * 10) / 10,
-    [m2, quantidade, custo, margem],
+  const midia = useMemo(
+    () => cat.midias.find((m) => m.id === midiaId) ?? null,
+    [cat.midias, midiaId],
   );
 
+  // Impressoras compatíveis com a mídia selecionada
+  const impressoesCompat = useMemo(() => {
+    if (!midia) return cat.impressoes;
+    return cat.impressoes.filter((i) =>
+      !i.tipos_midia_compativeis?.length ||
+      i.tipos_midia_compativeis.includes(midia.tipo_midia),
+    );
+  }, [cat.impressoes, midia]);
+
+  // Acabamentos compatíveis + ordenados pela mídia
+  const acabamentosCompat = useMemo<CVAcabamento[]>(() => {
+    return filterAndSortForMidia(cat.acabamentos, midia?.tipo_midia ?? null);
+  }, [cat.acabamentos, midia]);
+
+  // Reset impressão se incompatível
+  useEffect(() => {
+    if (impressaoId && !impressoesCompat.some((i) => i.id === impressaoId)) {
+      setImpressaoId("");
+    }
+  }, [impressoesCompat, impressaoId]);
+
+  // Reset acabamentos incompatíveis
+  useEffect(() => {
+    setAcabIds((prev) => prev.filter((id) => acabamentosCompat.some((a) => a.id === id)));
+  }, [acabamentosCompat]);
+
+  const impressao = useMemo(
+    () => cat.impressoes.find((i) => i.id === impressaoId) ?? null,
+    [cat.impressoes, impressaoId],
+  );
+
+  const acabamentosAplicados = useMemo(
+    () =>
+      acabIds
+        .map((id) => cat.acabamentos.find((a) => a.id === id))
+        .filter((a): a is CVAcabamento => !!a)
+        .map((a) => ({ acabamento: a })),
+    [acabIds, cat.acabamentos],
+  );
+
+  const result = useMemo(() => {
+    if (!midia) return null;
+    return calcular({
+      largura_cm,
+      altura_cm,
+      quantidade,
+      midia,
+      impressao,
+      acabamentos: acabamentosAplicados,
+      acabamentos_pool: cat.acabamentos,
+      valor_minimo: cat.valorMinimo,
+      markup: cat.markup,
+      hourRate: cat.hourRate,
+    });
+  }, [
+    midia, impressao, largura_cm, altura_cm, quantidade,
+    acabamentosAplicados, cat.acabamentos, cat.valorMinimo, cat.markup, cat.hourRate,
+  ]);
+
   const canAdd =
-    descricao.trim().length > 0 && largura > 0 && altura > 0 && quantidade > 0 && custo > 0;
+    !cat.loading &&
+    descricao.trim().length > 0 &&
+    !!midia &&
+    largura_cm > 0 &&
+    altura_cm > 0 &&
+    quantidade > 0 &&
+    !!result &&
+    result.valor_total > 0;
 
   const submit = () => {
-    if (!canAdd) return;
+    if (!canAdd || !midia || !result) return;
+    const efetivo = result.acabamento_efetivo;
     onAdd({
       id: genId(),
       kind: "cv",
       descricao: descricao.trim(),
-      midia_id: midia?.id ?? null,
-      midia_nome: midia?.label ?? "",
-      custo_mt2: custo,
-      margem_mt2_pct: margem,
-      largura_m: largura,
-      altura_m: altura,
+      midia_id: midia.id,
+      midia_nome: midia.nome,
+      custo_mt2: midia.custo_mt2,
+      margem_mt2_pct: 0,
+      largura_m: largura_cm / 100,
+      altura_m: altura_cm / 100,
       quantidade,
-      finishings: Object.keys(finEnabled).filter((k) => finEnabled[k]),
+      finishings: acabamentosAplicados.map((a) => a.acabamento.nome),
+      impressao_id: impressao?.id ?? null,
+      impressao_nome: impressao?.nome ?? null,
+      acabamento_ids: acabIds,
+      acabamentos_qtd_unidades: {},
+      snapshot: {
+        preco_total: result.valor_total,
+        custo_total: result.custo_total,
+        preco_midia: result.preco_midia,
+        preco_impressao: result.preco_impressao,
+        preco_acabamentos: result.preco_acabamento,
+        area_total_m2: result.area_m2,
+        perim_m: result.perim_m,
+        tem_emenda: result.emenda_impressao,
+        aplicou_minimo: result.aplicou_minimo,
+        acabamento_efetivo_id: efetivo?.id ?? null,
+        acabamento_efetivo_nome: efetivo?.nome ?? null,
+      },
     });
     setDescricao("");
-    setFinEnabled({});
+    setAcabIds([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
@@ -72,107 +160,116 @@ export function CVForm({ onAdd }: Props) {
         />
       </Field>
 
-      <Field label="Mídia">
-        <PaperAutocomplete
-          table="midias_cv"
-          searchColumns={["nome"]}
-          selectColumns="id, nome, tipo_midia, custo_mt2, lucro_mt2"
-          placeholder="Buscar mídia (lona, adesivo, chapa...)"
-          value={midia}
-          onChange={(opt) => {
-            setMidia(opt);
-            if (opt) {
-              const c = Number(opt.custo_mt2) || 0;
-              const m = Number(opt.lucro_mt2) || 0;
-              if (c > 0) setCusto(c);
-              if (m > 0) setMargem(m);
-            }
-          }}
-          mapRow={(r) => ({
-            id: String(r.id),
-            label: String(r.nome ?? "—"),
-            hint: r.tipo_midia ? String(r.tipo_midia) : undefined,
-            custo_mt2: Number(r.custo_mt2 ?? 0),
-            lucro_mt2: Number(r.lucro_mt2 ?? 0),
-          })}
-        />
+      <Field label="Mídia (catálogo CV)">
+        <Select value={midiaId} onValueChange={setMidiaId} disabled={cat.loading}>
+          <SelectTrigger className="h-9">
+            <SelectValue placeholder={cat.loading ? "Carregando..." : "Selecione a mídia"} />
+          </SelectTrigger>
+          <SelectContent>
+            {cat.midias.map((m) => (
+              <SelectItem key={m.id} value={m.id}>
+                {m.nome} <span className="text-muted-foreground">· {m.tipo_midia}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </Field>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Largura (m)">
+      <Field label="Impressão">
+        <Select
+          value={impressaoId}
+          onValueChange={setImpressaoId}
+          disabled={!midia || impressoesCompat.length === 0}
+        >
+          <SelectTrigger className="h-9">
+            <SelectValue placeholder={!midia ? "Escolha a mídia primeiro" : "Selecione (opcional)"} />
+          </SelectTrigger>
+          <SelectContent>
+            {impressoesCompat.map((i) => (
+              <SelectItem key={i.id} value={i.id}>{i.nome}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <div className="grid grid-cols-3 gap-4">
+        <Field label="Largura (cm)">
           <Input
-            type="number"
-            step="0.01"
-            min={0}
-            value={largura}
+            type="number" step="1" min={0}
+            value={largura_cm}
             onChange={(e) => setLargura(Math.max(0, Number(e.target.value) || 0))}
             className="h-9"
           />
         </Field>
-        <Field label="Altura (m)">
+        <Field label="Altura (cm)">
           <Input
-            type="number"
-            step="0.01"
-            min={0}
-            value={altura}
+            type="number" step="1" min={0}
+            value={altura_cm}
             onChange={(e) => setAltura(Math.max(0, Number(e.target.value) || 0))}
+            className="h-9"
+          />
+        </Field>
+        <Field label="Quantidade">
+          <Input
+            type="number" min={1}
+            value={quantidade}
+            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
             className="h-9"
           />
         </Field>
       </div>
 
       <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm">
-        <span className="text-muted-foreground">Área calculada</span>
+        <span className="text-muted-foreground">Área total</span>
         <span className="font-semibold tabular-nums">
-          {m2.toFixed(2).replace(".", ",")} m²
+          {(result?.area_m2 ?? 0).toFixed(2).replace(".", ",")} m²
+          {result?.emenda_impressao && (
+            <span className="ml-2 text-amber-600 text-xs">· com emenda</span>
+          )}
         </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <Field label="Quantidade">
-          <Input
-            type="number"
-            min={1}
-            value={quantidade}
-            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
-            className="h-9"
-          />
+      {acabamentosCompat.length > 0 && (
+        <Field label="Acabamentos">
+          <div className="flex flex-wrap gap-2">
+            {acabamentosCompat.map((a) => {
+              const active = acabIds.includes(a.id);
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() =>
+                    setAcabIds((prev) =>
+                      prev.includes(a.id) ? prev.filter((x) => x !== a.id) : [...prev, a.id],
+                    )
+                  }
+                  className={cn(
+                    "px-3 h-8 rounded-full text-sm border transition-colors",
+                    active
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background hover:bg-muted border-input",
+                  )}
+                >
+                  {a.nome}
+                </button>
+              );
+            })}
+          </div>
         </Field>
-        <Field label="Custo m² (R$)">
-          <Input
-            type="number"
-            step="0.01"
-            min={0}
-            value={custo}
-            onChange={(e) => setCusto(Math.max(0, Number(e.target.value) || 0))}
-            className="h-9"
-          />
-        </Field>
-        <Field label="Margem (%)">
-          <Input
-            type="number"
-            step="1"
-            min={0}
-            value={margem}
-            onChange={(e) => setMargem(Math.max(0, Number(e.target.value) || 0))}
-            className="h-9"
-          />
-        </Field>
-      </div>
-
-      <Field label="Acabamentos">
-        <FinishingProgressive
-          items={CV_FINISHES}
-          enabled={finEnabled}
-          onToggle={(id, on) => setFinEnabled((m) => ({ ...m, [id]: on }))}
-        />
-      </Field>
+      )}
 
       <div className="flex items-center justify-between pt-2">
-        <p className="text-sm text-muted-foreground">
+        <div className="text-sm text-muted-foreground">
+          {result?.aplicou_minimo && (
+            <span className="inline-flex items-center gap-1 text-amber-600 mr-3">
+              <AlertCircle className="h-3 w-3" /> mínimo aplicado
+            </span>
+          )}
           Pré-visualização:{" "}
-          <span className="font-semibold text-foreground">{fmtBRL(preview)}</span>
-        </p>
+          <span className="font-semibold text-foreground">
+            {fmtBRL(result?.valor_total ?? 0)}
+          </span>
+        </div>
         <Button
           onClick={submit}
           disabled={!canAdd}
@@ -182,13 +279,9 @@ export function CVForm({ onAdd }: Props) {
           )}
         >
           {pulse ? (
-            <>
-              <Check className="h-4 w-4 mr-2" /> Adicionado!
-            </>
+            <><Check className="h-4 w-4 mr-2" /> Adicionado!</>
           ) : (
-            <>
-              <Plus className="h-4 w-4 mr-2" /> Adicionar ao orçamento
-            </>
+            <><Plus className="h-4 w-4 mr-2" /> Adicionar ao orçamento</>
           )}
         </Button>
       </div>
