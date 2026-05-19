@@ -42,9 +42,10 @@ function isLonaOnlyFinish(nome: string): boolean {
 
 interface Props {
   onAdd: (item: V3CVItem) => void;
+  onAddTiers?: (items: V3CVItem[]) => void;
 }
 
-export function CVForm({ onAdd }: Props) {
+export function CVForm({ onAdd, onAddTiers }: Props) {
   const cat = useV3CVCatalog();
 
   const [descricao, setDescricao] = useState("");
@@ -201,39 +202,75 @@ export function CVForm({ onAdd }: Props) {
     !!result &&
     result.valor_total > 0;
 
-  const submit = () => {
-    if (!canAdd || !midia || !result) return;
-    const efetivo = result.acabamento_efetivo;
-    onAdd({
+  const buildItem = (qty: number, tierGroupId?: string): V3CVItem | null => {
+    if (!midia) return null;
+    const r = calcular({
+      largura_cm,
+      altura_cm,
+      quantidade: qty,
+      midia,
+      impressao,
+      acabamentos: acabamentosAplicados,
+      acabamentos_pool: cat.acabamentos,
+      valor_minimo: cat.valorMinimo,
+      markup: cat.markup,
+      hourRate: cat.hourRate,
+    });
+    if (!r || r.valor_total <= 0) return null;
+    const efetivo = r.acabamento_efetivo;
+    return {
       id: genId(),
       kind: "cv",
       descricao: descricao.trim(),
+      tier_group_id: tierGroupId ?? null,
       midia_id: midia.id,
       midia_nome: midia.nome,
       custo_mt2: midia.custo_mt2,
       margem_mt2_pct: 0,
       largura_m: largura_cm / 100,
       altura_m: altura_cm / 100,
-      quantidade,
+      quantidade: qty,
       finishings: acabamentosAplicados.map((a) => a.acabamento.nome),
       impressao_id: impressao?.id ?? null,
       impressao_nome: impressao?.nome ?? null,
       acabamento_ids: acabIds,
       acabamentos_qtd_unidades: {},
       snapshot: {
-        preco_total: result.valor_total,
-        custo_total: result.custo_total,
-        preco_midia: result.preco_midia,
-        preco_impressao: result.preco_impressao,
-        preco_acabamentos: result.preco_acabamento,
-        area_total_m2: result.area_m2,
-        perim_m: result.perim_m,
-        tem_emenda: result.emenda_impressao,
-        aplicou_minimo: result.aplicou_minimo,
+        preco_total: r.valor_total,
+        custo_total: r.custo_total,
+        preco_midia: r.preco_midia,
+        preco_impressao: r.preco_impressao,
+        preco_acabamentos: r.preco_acabamento,
+        area_total_m2: r.area_m2,
+        perim_m: r.perim_m,
+        tem_emenda: r.emenda_impressao,
+        aplicou_minimo: r.aplicou_minimo,
         acabamento_efetivo_id: efetivo?.id ?? null,
         acabamento_efetivo_nome: efetivo?.nome ?? null,
       },
-    });
+    };
+  };
+
+  const submit = () => {
+    if (!canAdd) return;
+    const item = buildItem(quantidade);
+    if (!item) return;
+    onAdd(item);
+    setDescricao("");
+    setDescricaoEditada(false);
+    setAcabIds([]);
+    setPulse(true);
+    setTimeout(() => setPulse(false), 600);
+  };
+
+  const submitAsTiers = (qtys: number[]) => {
+    if (!onAddTiers) return;
+    const tg = `tg_${genId()}`;
+    const items = qtys
+      .map((q) => buildItem(q, tg))
+      .filter((x): x is V3CVItem => !!x);
+    if (items.length === 0) return;
+    onAddTiers(items);
     setDescricao("");
     setDescricaoEditada(false);
     setAcabIds([]);
