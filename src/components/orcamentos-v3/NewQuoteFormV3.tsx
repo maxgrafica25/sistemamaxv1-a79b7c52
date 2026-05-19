@@ -185,10 +185,9 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
         <div className="overflow-y-auto px-4 lg:px-6 py-5 bg-background pb-24 lg:pb-5">
           <TabsLayout active={active} onChange={setActive} />
           <div className="mt-6 max-w-3xl">
-            {active === "print" && <PrintForm onAdd={addItem} />}
+            {active === "print" && <PrintAndProductForm onAdd={addItem} />}
             {active === "cv" && <CVForm onAdd={addItem} />}
             {active === "third" && <ThirdPartyForm onAdd={addItem} />}
-            {active === "booklet" && <BookletForm onAdd={addItem} />}
             {active === "labor" && (
               <LaborForm defaultMarginPct={state.margin_pct} onAdd={addItem} />
             )}
