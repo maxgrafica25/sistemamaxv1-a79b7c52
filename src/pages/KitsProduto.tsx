@@ -698,12 +698,18 @@ function ItemRow({
             {item.item_type === "supply" ? "Suprimento" : "Processo"}
           </Label>
           {item.item_type === "supply" ? (
-            <SupplySearch
-              initialLabel={item.supply_label}
-              onSelect={(s) =>
-                onChange({ supply_id: s.id, supply_label: s.produto })
-              }
-            />
+            item.quantity_formula === "variant_by_sheets" ? (
+              <p className="text-[11px] text-muted-foreground italic h-8 flex items-center">
+                Definido pelas faixas abaixo →
+              </p>
+            ) : (
+              <SupplySearch
+                initialLabel={item.supply_label}
+                onSelect={(s) =>
+                  onChange({ supply_id: s.id, supply_label: s.produto })
+                }
+              />
+            )
           ) : (
             <Select
               value={item.process_step_id ?? ""}
