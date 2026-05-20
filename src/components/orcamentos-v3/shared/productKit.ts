@@ -198,7 +198,7 @@ export function buildProductKitRows(args: BuildArgs): ProductKitRow[] {
         alternativeGroup: it.alternative_group,
         autoSelectDefault: it.auto_select_default,
         label: supRef.produto,
-        description: supRef.produto,
+        description: variantLabel ? `${supRef.produto} · ${variantLabel}` : supRef.produto,
         qty,
         unit: "un",
         unitPrice,
