@@ -28,10 +28,20 @@ import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import SupplySearch from "@/components/orcamentos-v2/SupplySearch";
-import type {
-  KitItemRole,
-  KitQuantityFormula,
+import {
+  type KitItemRole,
+  type KitQuantityFormula,
+  SPIRAL_VARIANT_PRESET,
 } from "@/components/orcamentos-v3/shared/productKit";
+
+interface VariantRow {
+  tmp_id: string;
+  min_value: number;
+  max_value: number | null;
+  supply_id: string | null;
+  supply_label: string;
+  label: string;
+}
 
 interface KitItem {
   id?: string;
@@ -48,6 +58,7 @@ interface KitItem {
   quantity_value: number;
   auto_select_default: boolean;
   notes: string;
+  variants: VariantRow[];
 }
 
 interface KitRow {
@@ -78,7 +89,8 @@ const FORMULA_LABELS: Record<KitQuantityFormula, string> = {
   per_perimeter_m: "Por metro de perímetro",
   per_m2: "Por m²",
   fixed: "Quantidade fixa",
-  auto_spiral: "Espiral automática (apostila)",
+  auto_spiral: "Espiral automática (legado)",
+  variant_by_sheets: "Variante por nº de folhas",
 };
 
 const ROLE_LABELS: Record<KitItemRole, string> = {
@@ -177,6 +189,20 @@ export default function KitsProduto() {
       (supList || []).map((s: any) => [s.id, s.produto]),
     );
     const procMap = new Map<string, string>(processes.map((p) => [p.id, p.description]));
+    const itemIdList = (itemsData || []).map((i: any) => i.id);
+    let variantsByItem = new Map<string, any[]>();
+    if (itemIdList.length > 0) {
+      const { data: vars } = await supabase
+        .from("product_kit_item_variants")
+        .select("*")
+        .in("item_id", itemIdList)
+        .order("position");
+      for (const v of (vars || []) as any[]) {
+        const arr = variantsByItem.get(v.item_id) || [];
+        arr.push(v);
+        variantsByItem.set(v.item_id, arr);
+      }
+    }
     setEditingId(kitId);
     setName(k.name);
     setProductKind(k.product_kind);
@@ -198,6 +224,14 @@ export default function KitsProduto() {
         quantity_value: Number(i.quantity_value) || 1,
         auto_select_default: !!i.auto_select_default,
         notes: i.notes ?? "",
+        variants: (variantsByItem.get(i.id) || []).map((v: any) => ({
+          tmp_id: tmp(),
+          min_value: Number(v.min_value) || 0,
+          max_value: v.max_value == null ? null : Number(v.max_value),
+          supply_id: v.supply_id,
+          supply_label: v.supply_id ? supMap.get(v.supply_id) ?? "" : "",
+          label: v.label ?? "",
+        })),
       })),
     );
     setDialogOpen(true);
@@ -227,6 +261,7 @@ export default function KitsProduto() {
         quantity_value: 1,
         auto_select_default: true,
         notes: "",
+        variants: [],
       },
     ]);
   };
@@ -258,8 +293,21 @@ export default function KitsProduto() {
     if (!productKind.trim()) return "Informe o tipo de produto.";
     if (items.length === 0) return "Adicione pelo menos um item ao kit.";
     for (const it of items) {
-      if (it.item_type === "supply" && !it.supply_id && it.quantity_formula !== "auto_spiral") {
-        return "Selecione o suprimento de todos os itens (ou marque como 'auto espiral').";
+      if (
+        it.item_type === "supply" &&
+        !it.supply_id &&
+        it.quantity_formula !== "auto_spiral" &&
+        it.quantity_formula !== "variant_by_sheets"
+      ) {
+        return "Selecione o suprimento de todos os itens (ou use uma fórmula automática).";
+      }
+      if (it.item_type === "supply" && it.quantity_formula === "variant_by_sheets") {
+        if (it.variants.length === 0) {
+          return "Adicione pelo menos uma faixa de variante por nº de folhas.";
+        }
+        if (it.variants.some((v) => !v.supply_id)) {
+          return "Selecione o suprimento de cada faixa de variante.";
+        }
       }
       if (it.item_type === "process" && !it.process_step_id) {
         return "Selecione o processo de todos os itens de mão-de-obra.";
@@ -327,8 +375,37 @@ export default function KitsProduto() {
         notes: i.notes.trim() || null,
       }));
       if (itemsPayload.length > 0) {
-        const { error: ie } = await supabase.from("product_kit_items").insert(itemsPayload);
+        const { data: inserted, error: ie } = await supabase
+          .from("product_kit_items")
+          .insert(itemsPayload)
+          .select("id, position")
+          .order("position");
         if (ie) throw ie;
+        // map position → new id
+        const idByPos = new Map<number, string>();
+        (inserted || []).forEach((row: any) => idByPos.set(row.position, row.id));
+        const variantsPayload: any[] = [];
+        items.forEach((i, idx) => {
+          if (i.quantity_formula !== "variant_by_sheets") return;
+          const newId = idByPos.get(idx);
+          if (!newId) return;
+          i.variants.forEach((v, vIdx) => {
+            variantsPayload.push({
+              item_id: newId,
+              position: vIdx,
+              min_value: Number(v.min_value) || 0,
+              max_value: v.max_value == null || isNaN(Number(v.max_value)) ? null : Number(v.max_value),
+              supply_id: v.supply_id,
+              label: v.label.trim() || null,
+            });
+          });
+        });
+        if (variantsPayload.length > 0) {
+          const { error: ve } = await supabase
+            .from("product_kit_item_variants")
+            .insert(variantsPayload);
+          if (ve) throw ve;
+        }
       }
       toast.success(editingId ? "Kit atualizado." : "Kit criado.");
       setDialogOpen(false);
@@ -621,12 +698,18 @@ function ItemRow({
             {item.item_type === "supply" ? "Suprimento" : "Processo"}
           </Label>
           {item.item_type === "supply" ? (
-            <SupplySearch
-              initialLabel={item.supply_label}
-              onSelect={(s) =>
-                onChange({ supply_id: s.id, supply_label: s.produto })
-              }
-            />
+            item.quantity_formula === "variant_by_sheets" ? (
+              <p className="text-[11px] text-muted-foreground italic h-8 flex items-center">
+                Definido pelas faixas abaixo →
+              </p>
+            ) : (
+              <SupplySearch
+                initialLabel={item.supply_label}
+                onSelect={(s) =>
+                  onChange({ supply_id: s.id, supply_label: s.produto })
+                }
+              />
+            )
           ) : (
             <Select
               value={item.process_step_id ?? ""}
@@ -723,6 +806,130 @@ function ItemRow({
           </Label>
         </div>
       </div>
+
+      {item.item_type === "supply" && item.quantity_formula === "variant_by_sheets" && (
+        <VariantsEditor
+          variants={item.variants}
+          onChange={(variants) => onChange({ variants })}
+        />
+      )}
+    </div>
+  );
+}
+
+function VariantsEditor({
+  variants,
+  onChange,
+}: {
+  variants: VariantRow[];
+  onChange: (next: VariantRow[]) => void;
+}) {
+  const addRow = () => {
+    const last = variants[variants.length - 1];
+    const nextMin = last ? (last.max_value == null ? (last.min_value || 0) + 1 : last.max_value + 1) : 1;
+    onChange([
+      ...variants,
+      {
+        tmp_id: tmp(),
+        min_value: nextMin,
+        max_value: null,
+        supply_id: null,
+        supply_label: "",
+        label: "",
+      },
+    ]);
+  };
+  const update = (id: string, patch: Partial<VariantRow>) =>
+    onChange(variants.map((v) => (v.tmp_id === id ? { ...v, ...patch } : v)));
+  const remove = (id: string) => onChange(variants.filter((v) => v.tmp_id !== id));
+  const loadSpiralPreset = () => {
+    onChange(
+      SPIRAL_VARIANT_PRESET.map((p) => ({
+        tmp_id: tmp(),
+        min_value: p.min,
+        max_value: p.max,
+        supply_id: null,
+        supply_label: "",
+        label: p.label,
+      })),
+    );
+  };
+
+  return (
+    <div className="rounded-md border border-dashed p-2 space-y-2 bg-background">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-medium text-foreground">
+          Variantes por nº de folhas
+        </p>
+        <div className="flex gap-1">
+          <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={loadSpiralPreset}>
+            Carregar preset espirais
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={addRow}>
+            <Plus className="h-3 w-3 mr-1" /> Faixa
+          </Button>
+        </div>
+      </div>
+      {variants.length === 0 && (
+        <p className="text-[11px] text-muted-foreground italic">
+          Adicione faixas (ex.: 1-25 folhas → Espiral 7mm).
+        </p>
+      )}
+      {variants.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="grid grid-cols-[80px_80px_1fr_90px_28px] gap-1.5 text-[10px] uppercase text-muted-foreground tracking-wide px-1">
+            <span>Folhas min</span>
+            <span>Folhas max</span>
+            <span>Suprimento</span>
+            <span>Rótulo</span>
+            <span />
+          </div>
+          {variants.map((v) => (
+            <div
+              key={v.tmp_id}
+              className="grid grid-cols-[80px_80px_1fr_90px_28px] gap-1.5 items-center"
+            >
+              <Input
+                type="number"
+                min={0}
+                className="h-7 text-xs"
+                value={v.min_value}
+                onChange={(e) => update(v.tmp_id, { min_value: Number(e.target.value) || 0 })}
+              />
+              <Input
+                type="number"
+                min={0}
+                placeholder="∞"
+                className="h-7 text-xs"
+                value={v.max_value ?? ""}
+                onChange={(e) =>
+                  update(v.tmp_id, {
+                    max_value: e.target.value === "" ? null : Number(e.target.value),
+                  })
+                }
+              />
+              <SupplySearch
+                initialLabel={v.supply_label}
+                onSelect={(s) => update(v.tmp_id, { supply_id: s.id, supply_label: s.produto })}
+              />
+              <Input
+                className="h-7 text-xs"
+                value={v.label}
+                placeholder="ex.: 7mm"
+                onChange={(e) => update(v.tmp_id, { label: e.target.value })}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0"
+                onClick={() => remove(v.tmp_id)}
+              >
+                <Trash2 className="h-3 w-3 text-destructive" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,138 +1,147 @@
+## Objetivo
 
-# Kits Sugeridos por Produto — solução definitiva
-
-Objetivo: tornar os "Kits de acabamento" (hoje hardcoded só para Apostila) **cadastráveis pelo usuário** e disponíveis em **qualquer tipo de produto** (apostila, cartão, banner, bloco, folder, adesivo etc.), sem mexer em código quando o catálogo mudar.
-
----
-
-## 1. Banco (migration)
-
-Duas tabelas novas em `public`:
-
-**`product_kits`** — o "kit" em si, vinculado a um tipo de produto.
-- `name` (ex.: "Kit Encadernação Apostila")
-- `product_kind` (texto livre, ex.: "apostila", "cartao", "banner") — usado para casar com o `product_kind` do orçamento
-- `description`, `is_active`, `created_by`, timestamps
-
-**`product_kit_items`** — itens dentro do kit.
-- `kit_id` → `product_kits`
-- `position` (ordem)
-- `item_type` (`supply` | `process`) — define em qual catálogo buscar
-- `supply_id` → `supplies` (quando supply) **ou** `process_step_id` → `production_steps` (quando process)
-- `role` (`required` | `optional` | `alternative`) — controla UX no painel: required = sempre marcado, optional = checkbox, alternative = radio
-- `alternative_group` (texto, ex.: "capa") — itens alternativos compartilham o mesmo grupo; o usuário escolhe 1
-- `quantity_formula` (`per_unit` | `per_sheet` | `per_x_sheets` | `per_perimeter_m` | `per_m2` | `fixed` | `auto_spiral`)
-- `quantity_value` (numérico — multiplicador ou valor fixo; default 1)
-- `auto_select_default` (boolean — pré-marcado ao abrir o painel)
-- `notes`
-
-RLS: leitura para `authenticated`, escrita só para `admin` (via `is_profile_admin`).
-
-Sem trigger; sem dados seed (usuário cadastra do zero ou roda script de seed do kit atual de apostila).
+Tornar o painel **Kit de Produto** mais rápido e direto no orçamento, e dar uma solução **cadastrável** para o caso da mola/espiral (item cujo tamanho depende do nº de folhas) — sem voltar a hard-codear regra de apostila.
 
 ---
 
-## 2. Tela de cadastro — Grupos de Materiais → nova aba "Kits de Produto"
+## Parte A — UX do painel no orçamento
 
-Em `src/pages/GruposMateriais.tsx`, adicionar aba `Kits` (componente novo `ProductKitsTab.tsx`):
+Hoje o painel:
+- Mostra um kit por vez, com checkboxes/rádios e exige clicar em **"Aplicar Kit"**.
+- Não mostra preço total estimado antes de aplicar.
+- Trata cada kit como bloco isolado; trocar kit perde escolhas.
+- Itens "alternativos" ficam num bloco à parte com layout diferente dos obrigatórios/opcionais, gerando ruído visual.
 
-- **Lista**: cards de kits por `product_kind`, com toggle ativo/inativo, contagem de itens, ação editar/duplicar/excluir.
-- **Dialog "Novo/Editar Kit"**:
-  - Nome + Tipo de produto (combo com sugestões: apostila, cartão, banner, bloco, folder, adesivo, convite — texto livre)
-  - Lista reordenável de itens, cada linha:
-    - Tipo (Suprimento / Processo) → busca no catálogo (`supplies` ou `production_steps`)
-    - Papel: `Obrigatório` / `Opcional` / `Alternativo`
-    - Se Alternativo → input "Grupo de alternativas" (ex.: "capa") — itens com mesmo grupo aparecem como radio para o cliente
-    - Fórmula de quantidade (combo) + valor
-    - Pré-marcado? (checkbox)
-  - Validações: kit precisa ter ≥1 item; grupos alternativos precisam ter ≥2 itens.
+### Mudanças propostas
 
----
+1. **Auto-aplicar ao abrir** (toggle por kit, default = ligado):
+   - Quando o produto tem exatamente 1 kit ativo, ele é pré-aplicado assim que o usuário digita unidades/folhas.
+   - Aparece uma barra discreta no topo do painel: `Kit aplicado: Apostila Padrão · 5 itens · R$ 12,40 — [Desfazer] [Trocar kit ▾]`.
+   - Re-aplicar quando units/sheets mudam é automático (debounce).
 
-## 3. Motor de aplicação do kit (frontend, `shared/productKit.ts`)
+2. **Linha única e compacta para todo tipo de item** (obrigatório/opcional/alternativo):
+   - Esquerda: ícone do tipo (suprimento ⬡ / processo ⏱) + nome.
+   - Centro: badge da quantidade resolvida (`120 un`, `8 min`) e descrição curta.
+   - Direita: custo + controle de seleção:
+     - **Obrigatório** → cadeado (não desmarca).
+     - **Opcional** → toggle switch.
+     - **Alternativo** → dropdown "Trocar ▾" mostrando as outras opções do grupo (em vez de bloco de rádio separado). Ocupa 1 linha só.
+   - Total do kit visível no rodapé do painel em tempo real.
 
-Função `buildKitRows({ kit, productKind, units, sheets, perimeterM, areaM2, supplies, steps, hourlyRate, defaultMarginPct })` que devolve `KitRow[]` no mesmo formato do `bookletKit.ts` atual (label, descrição, qty, custo, fallback, `build()` → `V3Item`).
+3. **Edição rápida inline** (sem abrir cadastro):
+   - Clicar na quantidade resolvida abre um popover: campo numérico + botão "voltar ao automático".
+   - Trocar um suprimento por outro do catálogo via `SupplySearch` direto na linha (apenas para itens opcionais/alternativos).
 
-Resolve `quantity_formula`:
-- `per_unit` → `units * quantity_value`
-- `per_sheet` → `units * sheets * quantity_value`
-- `per_x_sheets` → `units * ceil(sheets / quantity_value)`
-- `per_perimeter_m` → `units * perimeterM * quantity_value`
-- `per_m2` → `units * areaM2 * quantity_value`
-- `fixed` → `quantity_value`
-- `auto_spiral` → reaproveita `getIdealSpiral(sheets)` + seleciona supply por nome do diâmetro (única regra "inteligente" hardcoded restante)
+4. **Persistência das escolhas por orçamento**:
+   - Se o usuário desmarcou um opcional e depois muda units, a escolha é preservada (só recalcula quantidades).
 
----
+5. **Quando faltar item no cadastro** (fallback amarelo):
+   - Botão "Cadastrar agora" abre o drawer de Materiais/Etapas em modal, e ao salvar o kit re-resolve sem fechar o orçamento.
 
-## 4. Painel genérico `ProductKitPanel.tsx`
-
-Substitui `BookletKitPanel`. Props: `productKind`, `units`, `sheets?`, `perimeterM?`, `areaM2?`, `defaultMarginPct`, `onApply(items)`.
-
-- Busca kits ativos onde `product_kind = productKind` (pode ter mais de um → tabs/select se houver vários).
-- Renderiza linhas conforme `role`:
-  - `required` → checkbox marcado e desabilitado
-  - `optional` → checkbox livre (default = `auto_select_default`)
-  - `alternative` (por grupo) → radio group
-- Botão **"Aplicar Kit"** monta os `V3Item[]` e chama `onApply`.
-- Itens não encontrados no catálogo aparecem com badge amarelo "preencher" (comportamento atual mantido — usuário cadastra na hora no carrinho).
+6. **Múltiplos kits do mesmo produto**:
+   - Quando há 2+ kits ativos, vira um Select chip no topo (já existe), mas agora com preview do total ao lado de cada nome no dropdown.
 
 ---
 
-## 5. Integração nos forms de orçamento
+## Parte B — Como resolver "espiral conforme nº de folhas" de forma genérica
 
-Em cada form que tiver um `productKind` definido (`BookletForm`, `PrintForm`, `PrintAndProductForm`, `LabelEmbeddedForm`), incluir `<ProductKitPanel>` quando houver kit ativo para aquele tipo. Calcula `sheets/perimeterM/areaM2` a partir dos campos já existentes do form.
+Hoje existe a fórmula especial `auto_spiral` que chama `getIdealSpiral(sheets)` e procura no catálogo um suprimento cujo nome bata com `espiral … {diâmetro}mm`. Funciona, mas:
+- Regra dos intervalos está **hard-coded em código** (`spiral-selector.ts`).
+- Só funciona para "espiral"; outros casos parecidos (peso de papel por nº de páginas, tipo de caixa por dimensão, etc.) ficariam sem solução.
 
-`BookletKitPanel` antigo é removido — `BookletForm` passa a usar o painel genérico com `productKind="apostila"`.
+### Proposta: **Tabela de variantes por faixa** (cadastrável)
 
----
-
-## 6. Migração do kit atual de apostila
-
-Script de seed (insert) opcional que cria o kit "Apostila padrão" replicando a lógica atual:
-- Capa PP Line A4 Incolor — supply, required, per_unit×1
-- Capa PP Camurça A4 Preta — supply, required, per_unit×1
-- Espiral — supply, required, auto_spiral
-- Furação — process, required, per_unit×1 (tempo do processo × unidades)
-- Encadernação — process, required, per_unit×1
-
-Para cobrir a regra "capa personalizada em couchê 300g": adicionar 2 itens alternativos no grupo "capa":
-- Capa PP Line A4 Incolor — alternative (group=capa), default
-- Couchê 300g A4 — alternative (group=capa)
-
-Usuário pode editar/expandir depois pela tela.
-
----
-
-## 7. Fora de escopo
-
-- Tabela de regras dinâmicas cadastráveis (só `auto_spiral` continua hardcoded — atende 99% e evita tela complexa).
-- Editar kits aplicados em orçamentos antigos (já salvos no `quote_materials`).
-- Sugestão automática de kit por nome do produto (continua usando `product_kind` explícito).
-
----
-
-## Detalhes técnicos
+Nova tabela `product_kit_item_variants` ligada a `product_kit_items`:
 
 ```text
-product_kits (id, name, product_kind, description, is_active, created_by, created_at, updated_at)
-product_kit_items (
-  id, kit_id, position, item_type ('supply'|'process'),
-  supply_id, process_step_id,
-  role ('required'|'optional'|'alternative'),
-  alternative_group,
-  quantity_formula ('per_unit'|'per_sheet'|'per_x_sheets'|'per_perimeter_m'|'per_m2'|'fixed'|'auto_spiral'),
-  quantity_value, auto_select_default, notes
-)
+product_kit_item_variants
+- id
+- item_id        → FK product_kit_items
+- min_value      numeric   (inclusivo)
+- max_value      numeric   (inclusivo; null = sem limite)
+- supply_id      → FK supplies  (variante a usar nessa faixa)
+- label          text      (opcional, ex.: "7mm")
 ```
 
-Sequência de PRs:
-1. Migration (tabelas + RLS) — precisa de aprovação
-2. `shared/productKit.ts` + `ProductKitPanel.tsx`
-3. Aba `Kits de Produto` em `GruposMateriais.tsx`
-4. Trocar `BookletKitPanel` pelo genérico no `BookletForm`
-5. Plugar painel nos demais forms (Cartão, Banner etc.) conforme `product_kind`
-6. Seed opcional do kit Apostila
+E um novo valor para `quantity_formula`: **`variant_by_sheets`** (e mais tarde `variant_by_perimeter_m`, `variant_by_area_m2`, `variant_by_units` reaproveitando a mesma tabela com um campo `match_metric`).
+
+### Como o usuário cadastra (UI no KitsProduto)
+
+Na linha do item, quando escolher `variant_by_sheets`:
+- O campo "Suprimento" some.
+- Aparece uma mini-tabela editável:
+
+```text
+Faixa de folhas      Suprimento
+1   - 25             [Espiral 7mm ▾]
+26  - 50             [Espiral 9mm ▾]
+51  - 70             [Espiral 12mm ▾]
+…
+351 - ∞              [Espiral 45mm ▾]
+```
+
+- Botão "Carregar preset: Espirais padrão" → preenche com a tabela atual do `spiral-selector` (apenas como atalho; depois fica 100% editável).
+
+### Como o engine resolve
+
+Em `productKit.ts` adiciono um caso na função `resolveQty` + lookup do supply:
+
+```text
+se item.quantity_formula = 'variant_by_sheets':
+  v = item.variants.find(v => sheets >= v.min and (v.max == null or sheets <= v.max))
+  supply = v?.supply
+  qty = units (1 por unidade, configurável via quantity_value)
+```
+
+E `auto_spiral` continua existindo como atalho legado (futuramente migrado).
+
+### Por que essa solução
+
+- **Cadastrável**: cliente cria/edita faixas sem código.
+- **Genérica**: serve para qualquer item cujo tipo varie por uma métrica numérica do orçamento.
+- **Compatível**: kits antigos com `auto_spiral` continuam funcionando.
+- **Transparente no painel**: a linha mostra `Espiral 12mm (faixa 51-70 folhas)` — o usuário entende por que veio aquela escolha e pode trocar pelo dropdown da Parte A.
 
 ---
 
-Posso seguir? Começo pela **migration** das tabelas; depois sigo com a UI sem precisar de novas aprovações.
+## Arquivos afetados (visão técnica)
+
+1. **Migration**
+   - Cria `product_kit_item_variants` + FK.
+   - Adiciona `'variant_by_sheets'` à coluna `quantity_formula` (já é text, sem CHECK constraint — apenas tipo TS a atualizar).
+
+2. **`src/components/orcamentos-v3/shared/productKit.ts`**
+   - Carrega `variants` junto com os itens (`fetchActiveKitsForProduct`).
+   - Adiciona resolver `variant_by_sheets`.
+
+3. **`src/pages/KitsProduto.tsx`**
+   - Nova fórmula no dropdown.
+   - Sub-editor de faixas (tabela + linha "+ adicionar faixa", botão "Carregar preset espirais").
+
+4. **`src/components/orcamentos-v3/forms/ProductKitPanel.tsx`** (reescrita parcial)
+   - Layout de 1 linha por item, dropdown para alternativos, toggle para opcionais.
+   - Auto-aplicar com debounce, barra de status no topo, total no rodapé.
+   - Persistência local da escolha do usuário (Set de excluded + alt picks) memoizada por kitId.
+   - Popover de edição inline de quantidade.
+
+5. **Sem mudança nos forms** (`BookletForm`, `PrintForm`, etc.) — continuam apenas montando o `ProductKitPanel`.
+
+---
+
+## Fora de escopo (agora)
+
+- Outras métricas de variante (perímetro, m², unidades) — deixar o schema pronto, implementar só sheets.
+- Editar kit aplicado dentro de orçamentos antigos.
+- Remover `auto_spiral` (mantém por compatibilidade; podemos migrar dados depois).
+
+---
+
+## Sequência sugerida
+
+1. Migration `product_kit_item_variants` + formula nova.
+2. Engine `productKit.ts` (resolver + fetch).
+3. UI do cadastro (KitsProduto) com sub-editor de faixas + preset.
+4. Reescrita do `ProductKitPanel` (auto-aplicar, dropdown alternativos, total, popover).
+5. Migrar o kit Apostila padrão de `auto_spiral` → `variant_by_sheets` com faixas pré-cadastradas (opcional).
+
+Posso seguir nessa direção? Se sim, começo pela migration e pela engine; depois UI.

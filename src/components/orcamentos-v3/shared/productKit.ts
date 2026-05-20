@@ -13,7 +13,18 @@ export type KitQuantityFormula =
   | "per_perimeter_m"
   | "per_m2"
   | "fixed"
-  | "auto_spiral";
+  | "auto_spiral"
+  | "variant_by_sheets";
+
+export interface ProductKitItemVariantDB {
+  id: string;
+  item_id: string;
+  min_value: number;
+  max_value: number | null;
+  supply_id: string | null;
+  label: string | null;
+  position: number;
+}
 
 export interface ProductKitItemDB {
   id: string;
@@ -28,6 +39,7 @@ export interface ProductKitItemDB {
   quantity_value: number;
   auto_select_default: boolean;
   notes: string | null;
+  variants?: ProductKitItemVariantDB[];
 }
 
 export interface ProductKitDB {
@@ -87,9 +99,25 @@ function resolveQty(
       return v;
     case "auto_spiral":
       return ctx.units; // 1 espiral por apostila
+    case "variant_by_sheets":
+      return ctx.units * (v > 0 ? v : 1);
     default:
       return ctx.units;
   }
+}
+
+function pickVariant(
+  variants: ProductKitItemVariantDB[] | undefined,
+  value: number,
+): ProductKitItemVariantDB | null {
+  if (!variants || variants.length === 0) return null;
+  const sorted = [...variants].sort((a, b) => a.min_value - b.min_value);
+  for (const v of sorted) {
+    const min = Number(v.min_value) || 0;
+    const max = v.max_value == null ? Infinity : Number(v.max_value);
+    if (value >= min && value <= max) return v;
+  }
+  return sorted[sorted.length - 1] ?? null;
 }
 
 export function buildProductKitRows(args: BuildArgs): ProductKitRow[] {
@@ -112,10 +140,23 @@ export function buildProductKitRows(args: BuildArgs): ProductKitRow[] {
       // auto_spiral: tenta achar espiral do diâmetro ideal; senão usa o supply cadastrado
       let sup: V3Supply | undefined;
       let displayName = "";
+      let variantLabel = "";
       if (it.quantity_formula === "auto_spiral" && spiralDiameter) {
         const rx = spiralRegex(spiralDiameter);
         sup = args.supplies.find((s) => rx.test(s.produto));
         displayName = sup?.produto ?? `Espiral ${spiralDiameter}`;
+        variantLabel = spiralDiameter;
+      } else if (it.quantity_formula === "variant_by_sheets") {
+        const v = pickVariant(it.variants, sheets);
+        if (v?.supply_id) {
+          sup = args.supplies.find((s) => s.id === v.supply_id);
+        }
+        variantLabel =
+          v?.label ||
+          (v
+            ? `${v.min_value}-${v.max_value ?? "∞"} folhas`
+            : "");
+        displayName = sup?.produto ?? (variantLabel ? `Variante ${variantLabel}` : "Suprimento");
       }
       if (!sup && it.supply_id) {
         sup = args.supplies.find((s) => s.id === it.supply_id);
@@ -157,7 +198,7 @@ export function buildProductKitRows(args: BuildArgs): ProductKitRow[] {
         alternativeGroup: it.alternative_group,
         autoSelectDefault: it.auto_select_default,
         label: supRef.produto,
-        description: supRef.produto,
+        description: variantLabel ? `${supRef.produto} · ${variantLabel}` : supRef.produto,
         qty,
         unit: "un",
         unitPrice,
@@ -250,8 +291,24 @@ export async function fetchActiveKitsForProduct(
     .select("*")
     .in("kit_id", ids)
     .order("position");
+  const itemList = (items || []) as ProductKitItemDB[];
+  const itemIds = itemList.map((i) => i.id);
+  let variantsByItem = new Map<string, ProductKitItemVariantDB[]>();
+  if (itemIds.length > 0) {
+    const { data: vars } = await supabaseClient
+      .from("product_kit_item_variants")
+      .select("*")
+      .in("item_id", itemIds)
+      .order("position");
+    for (const v of (vars || []) as ProductKitItemVariantDB[]) {
+      const arr = variantsByItem.get(v.item_id) || [];
+      arr.push(v);
+      variantsByItem.set(v.item_id, arr);
+    }
+  }
   const byKit = new Map<string, ProductKitItemDB[]>();
-  for (const it of (items || []) as ProductKitItemDB[]) {
+  for (const it of itemList) {
+    it.variants = variantsByItem.get(it.id) || [];
     const arr = byKit.get(it.kit_id) || [];
     arr.push(it);
     byKit.set(it.kit_id, arr);
@@ -261,3 +318,19 @@ export async function fetchActiveKitsForProduct(
     items: byKit.get(k.id) || [],
   }));
 }
+
+/** Preset de espirais padrão (apostilas) — usar como atalho ao cadastrar variant_by_sheets. */
+export const SPIRAL_VARIANT_PRESET: Array<{ min: number; max: number | null; label: string }> = [
+  { min: 1, max: 25, label: "7mm" },
+  { min: 26, max: 50, label: "9mm" },
+  { min: 51, max: 70, label: "12mm" },
+  { min: 71, max: 85, label: "14mm" },
+  { min: 86, max: 100, label: "17mm" },
+  { min: 101, max: 120, label: "20mm" },
+  { min: 121, max: 140, label: "23mm" },
+  { min: 141, max: 160, label: "25mm" },
+  { min: 161, max: 200, label: "29mm" },
+  { min: 201, max: 250, label: "33mm" },
+  { min: 251, max: 350, label: "40mm" },
+  { min: 351, max: null, label: "45mm" },
+];
