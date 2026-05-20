@@ -39,6 +39,7 @@ export interface ProductKitItemDB {
   quantity_value: number;
   auto_select_default: boolean;
   notes: string | null;
+  variants?: ProductKitItemVariantDB[];
 }
 
 export interface ProductKitDB {
