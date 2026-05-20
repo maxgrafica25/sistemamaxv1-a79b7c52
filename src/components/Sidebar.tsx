@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, Package, Settings, Factory, Receipt, Calculator, Cpu, Shield,
   ClipboardList, MessageSquare, TrendingUp, BookOpen, PanelLeftClose, PanelLeftOpen, X,
-  Layers, Megaphone, UserCog, LogOut, ShoppingCart, Wallet, Ruler, Scissors,
+  Layers, Megaphone, UserCog, LogOut, ShoppingCart, Wallet, Ruler, Scissors, Sparkles,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
