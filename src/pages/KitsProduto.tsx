@@ -156,13 +156,13 @@ export default function KitsProduto() {
   };
 
   const openNew = () => {
-    if (!requireAdmin()) return;
+    if (!requireAdmin("gerenciar kits de produto")) return;
     resetForm();
     setDialogOpen(true);
   };
 
   const openEdit = async (kitId: string) => {
-    if (!requireAdmin()) return;
+    if (!requireAdmin("gerenciar kits de produto")) return;
     const k = kits.find((x) => x.id === kitId);
     if (!k) return;
     const [{ data: itemsData }, { data: supList }] = await Promise.all([
@@ -204,7 +204,7 @@ export default function KitsProduto() {
   };
 
   const duplicateKit = async (kitId: string) => {
-    if (!requireAdmin()) return;
+    if (!requireAdmin("gerenciar kits de produto")) return;
     await openEdit(kitId);
     setEditingId(null);
     setName((n) => `${n} (cópia)`);
@@ -282,7 +282,7 @@ export default function KitsProduto() {
   };
 
   const save = async () => {
-    if (!requireAdmin()) return;
+    if (!requireAdmin("gerenciar kits de produto")) return;
     const err = validate();
     if (err) {
       toast.error(err);
@@ -341,7 +341,7 @@ export default function KitsProduto() {
 
   const remove = async () => {
     if (!deletingId) return;
-    if (!requireAdmin()) return;
+    if (!requireAdmin("gerenciar kits de produto")) return;
     const { error } = await supabase.from("product_kits").delete().eq("id", deletingId);
     if (error) {
       handleError(error, "excluir kit");
@@ -353,7 +353,7 @@ export default function KitsProduto() {
   };
 
   const toggleActive = async (k: KitRow) => {
-    if (!requireAdmin()) return;
+    if (!requireAdmin("gerenciar kits de produto")) return;
     const { error } = await supabase
       .from("product_kits")
       .update({ is_active: !k.is_active })
@@ -536,8 +536,8 @@ export default function KitsProduto() {
         title="Excluir kit?"
         description="Esta ação não pode ser desfeita. Orçamentos já criados não são afetados."
         onConfirm={remove}
-        confirmLabel="Excluir"
-        variant="destructive"
+        confirmText="Excluir"
+        
       />
     </div>
   );
