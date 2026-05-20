@@ -361,8 +361,37 @@ export default function KitsProduto() {
         notes: i.notes.trim() || null,
       }));
       if (itemsPayload.length > 0) {
-        const { error: ie } = await supabase.from("product_kit_items").insert(itemsPayload);
+        const { data: inserted, error: ie } = await supabase
+          .from("product_kit_items")
+          .insert(itemsPayload)
+          .select("id, position")
+          .order("position");
         if (ie) throw ie;
+        // map position → new id
+        const idByPos = new Map<number, string>();
+        (inserted || []).forEach((row: any) => idByPos.set(row.position, row.id));
+        const variantsPayload: any[] = [];
+        items.forEach((i, idx) => {
+          if (i.quantity_formula !== "variant_by_sheets") return;
+          const newId = idByPos.get(idx);
+          if (!newId) return;
+          i.variants.forEach((v, vIdx) => {
+            variantsPayload.push({
+              item_id: newId,
+              position: vIdx,
+              min_value: Number(v.min_value) || 0,
+              max_value: v.max_value == null || isNaN(Number(v.max_value)) ? null : Number(v.max_value),
+              supply_id: v.supply_id,
+              label: v.label.trim() || null,
+            });
+          });
+        });
+        if (variantsPayload.length > 0) {
+          const { error: ve } = await supabase
+            .from("product_kit_item_variants")
+            .insert(variantsPayload);
+          if (ve) throw ve;
+        }
       }
       toast.success(editingId ? "Kit atualizado." : "Kit criado.");
       setDialogOpen(false);
