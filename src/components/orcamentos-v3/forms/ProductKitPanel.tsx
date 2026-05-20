@@ -1,11 +1,35 @@
 // Painel genérico de Kit de Produto — carrega kits cadastrados em product_kits
-// para um determinado product_kind e permite aplicá-los ao orçamento.
+// para um determinado product_kind, mostra um resumo compacto por item e aplica
+// ao orçamento ao clicar em "Aplicar Kit".
 import { useEffect, useMemo, useState } from "react";
-import { Wand2, AlertCircle, Sparkles } from "lucide-react";
+import {
+  Wand2,
+  AlertCircle,
+  Sparkles,
+  Lock,
+  Package,
+  Clock,
+  ChevronDown,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,9 +71,8 @@ export function ProductKitPanel({
   const [kits, setKits] = useState<ProductKitDB[]>([]);
   const [kitsLoaded, setKitsLoaded] = useState(false);
   const [selectedKitId, setSelectedKitId] = useState<string | null>(null);
-  // Estado de seleção por item (opcional/alternativo)
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
-  const [altChoice, setAltChoice] = useState<Record<string, string>>({}); // group → itemId
+  const [altChoice, setAltChoice] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancel = false;
@@ -85,7 +108,6 @@ export function ProductKitPanel({
     });
   }, [kit, units, sheets, perimeterM, areaM2, supplies, steps, hourlyRate, defaultMarginPct]);
 
-  // Inicializa defaults quando o kit muda
   useEffect(() => {
     if (!kit) return;
     const nextExcluded = new Set<string>();
@@ -95,13 +117,11 @@ export function ProductKitPanel({
         nextExcluded.add(it.id);
       }
       if (it.role === "alternative" && it.alternative_group) {
-        // primeiro com auto_select_default vence; fallback = primeiro do grupo
         if (it.auto_select_default && !nextAlt[it.alternative_group]) {
           nextAlt[it.alternative_group] = it.id;
         }
       }
     }
-    // garante pelo menos 1 por grupo
     for (const it of kit.items) {
       if (it.role === "alternative" && it.alternative_group && !nextAlt[it.alternative_group]) {
         nextAlt[it.alternative_group] = it.id;
@@ -113,7 +133,8 @@ export function ProductKitPanel({
 
   const loading = !supLoaded || !stLoaded || !kitsLoaded;
 
-  const altGroups = useMemo(() => {
+  // Agrupa alternativos por grupo
+  const altGroupsRows = useMemo(() => {
     const map = new Map<string, ProductKitRow[]>();
     for (const r of rows) {
       if (r.role === "alternative" && r.alternativeGroup) {
@@ -125,17 +146,46 @@ export function ProductKitPanel({
     return map;
   }, [rows]);
 
-  const requiredRows = rows.filter((r) => r.role === "required");
-  const optionalRows = rows.filter((r) => r.role === "optional");
-
-  const isPicked = (r: ProductKitRow): boolean => {
-    if (r.role === "required") return true;
-    if (r.role === "optional") return !excluded.has(r.itemId);
-    if (r.role === "alternative" && r.alternativeGroup) {
-      return altChoice[r.alternativeGroup] === r.itemId;
+  // Linhas finais (1 por slot): required + optional + 1 escolhido por grupo alt
+  type Slot =
+    | { kind: "row"; row: ProductKitRow }
+    | { kind: "alt"; group: string; rows: ProductKitRow[]; pickedId: string };
+  const slots = useMemo<Slot[]>(() => {
+    const out: Slot[] = [];
+    const seenAltGroups = new Set<string>();
+    for (const r of rows) {
+      if (r.role === "alternative" && r.alternativeGroup) {
+        if (seenAltGroups.has(r.alternativeGroup)) continue;
+        seenAltGroups.add(r.alternativeGroup);
+        const groupRows = altGroupsRows.get(r.alternativeGroup) || [];
+        const pickedId =
+          altChoice[r.alternativeGroup] && groupRows.some((x) => x.itemId === altChoice[r.alternativeGroup])
+            ? altChoice[r.alternativeGroup]
+            : groupRows[0]?.itemId ?? "";
+        out.push({ kind: "alt", group: r.alternativeGroup, rows: groupRows, pickedId });
+      } else {
+        out.push({ kind: "row", row: r });
+      }
     }
-    return false;
-  };
+    return out;
+  }, [rows, altGroupsRows, altChoice]);
+
+  const pickedRows = useMemo<ProductKitRow[]>(() => {
+    const list: ProductKitRow[] = [];
+    for (const s of slots) {
+      if (s.kind === "row") {
+        if (s.row.role === "required") list.push(s.row);
+        else if (s.row.role === "optional" && !excluded.has(s.row.itemId)) list.push(s.row);
+      } else {
+        const picked = s.rows.find((r) => r.itemId === s.pickedId);
+        if (picked) list.push(picked);
+      }
+    }
+    return list;
+  }, [slots, excluded]);
+
+  const total = pickedRows.reduce((acc, r) => acc + r.cost, 0);
+  const fallbackCount = pickedRows.filter((r) => r.fallback).length;
 
   const toggleOpt = (id: string) => {
     setExcluded((prev) => {
@@ -147,36 +197,33 @@ export function ProductKitPanel({
   };
 
   const apply = () => {
-    const picked = rows.filter(isPicked);
-    if (picked.length === 0) {
+    if (pickedRows.length === 0) {
       toast.info("Selecione ao menos um item do kit.");
       return;
     }
-    const items = picked.map((r) => r.build()) as V3Item[];
+    const items = pickedRows.map((r) => r.build()) as V3Item[];
     onApply(items);
-    const fallbacks = picked.filter((r) => r.fallback).map((r) => r.label);
-    if (fallbacks.length > 0) {
-      toast.warning(`Kit aplicado (${items.length} itens). Preencher: ${fallbacks.join(", ")}`);
+    if (fallbackCount > 0) {
+      toast.warning(`Kit aplicado (${items.length} itens). ${fallbackCount} precisa(m) ser preenchido(s) no cadastro.`);
     } else {
-      toast.success(`Kit aplicado (${items.length} itens).`);
+      toast.success(`Kit aplicado (${items.length} itens) · ${fmtBRL(total)}`);
     }
   };
 
-  if (kitsLoaded && kits.length === 0) {
-    return null; // sem kits cadastrados para este produto → painel não aparece
-  }
+  if (kitsLoaded && kits.length === 0) return null;
 
   return (
-    <div className="rounded-md border border-primary/30 bg-primary/[0.03] p-3 space-y-3">
+    <div className="rounded-md border border-primary/30 bg-primary/[0.03] p-3 space-y-2.5">
+      {/* Header */}
       <div className="flex items-center gap-2">
         <Sparkles className="h-4 w-4 text-primary shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground">
+          <p className="text-sm font-medium text-foreground leading-tight">
             Kit sugerido
             {kit && <span className="ml-1.5 text-xs font-normal text-primary">· {kit.name}</span>}
           </p>
-          <p className="text-[11px] text-muted-foreground">
-            Adiciona materiais e processos pré-cadastrados para este produto.
+          <p className="text-[11px] text-muted-foreground leading-tight">
+            {pickedRows.length} item(ns) marcados · total {fmtBRL(total)}
           </p>
         </div>
         {kits.length > 1 && (
@@ -195,74 +242,67 @@ export function ProductKitPanel({
         )}
       </div>
 
+      {/* Linhas */}
       {loading ? (
         <p className="text-[11px] text-muted-foreground">Carregando catálogo…</p>
       ) : (
-        <div className="space-y-1.5">
-          {requiredRows.map((r) => (
-            <RowLine key={r.itemId} row={r} checked disabled onToggle={() => {}} />
-          ))}
-          {optionalRows.map((r) => (
-            <RowLine
-              key={r.itemId}
-              row={r}
-              checked={!excluded.has(r.itemId)}
-              onToggle={() => toggleOpt(r.itemId)}
-            />
-          ))}
-          {Array.from(altGroups.entries()).map(([group, items]) => (
-            <div key={group} className="rounded-sm border border-border/50 p-2 space-y-1">
-              <p className="text-[10.5px] uppercase tracking-wide text-muted-foreground">
-                Escolha uma opção · {group}
-              </p>
-              <RadioGroup
-                value={altChoice[group] ?? ""}
-                onValueChange={(v) => setAltChoice((p) => ({ ...p, [group]: v }))}
-                className="space-y-1"
-              >
-                {items.map((r) => (
-                  <label
-                    key={r.itemId}
-                    className="flex items-center gap-2 rounded-sm px-1.5 py-1 text-xs cursor-pointer hover:bg-muted/50"
-                  >
-                    <RadioGroupItem value={r.itemId} className="h-3.5 w-3.5" />
-                    <span className="flex-1 min-w-0 truncate font-medium">{r.label}</span>
-                    <span className="text-muted-foreground text-[10.5px] truncate max-w-[180px] hidden sm:inline">
-                      {r.description}
-                    </span>
-                    <span className="text-muted-foreground tabular-nums text-[10.5px]">
-                      {r.unit === "un" ? `${r.qty} un` : `${r.qty.toFixed(0)} min`}
-                    </span>
-                    <span className="font-semibold tabular-nums w-[70px] text-right">
-                      {fmtBRL(r.cost)}
-                    </span>
-                    {r.fallback && <AlertCircle className="h-3 w-3 text-amber-500 shrink-0" />}
-                  </label>
-                ))}
-              </RadioGroup>
-            </div>
-          ))}
+        <div className="space-y-1">
+          {slots.map((s, idx) =>
+            s.kind === "row" ? (
+              <SlotRow
+                key={s.row.itemId + idx}
+                row={s.row}
+                checked={s.row.role === "required" || !excluded.has(s.row.itemId)}
+                disabled={s.row.role === "required"}
+                onToggle={() => toggleOpt(s.row.itemId)}
+              />
+            ) : (
+              <AlternativeSlot
+                key={s.group}
+                group={s.group}
+                rows={s.rows}
+                pickedId={s.pickedId}
+                onPick={(id) => setAltChoice((p) => ({ ...p, [s.group]: id }))}
+              />
+            ),
+          )}
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-2 pt-1">
-        <p className="text-[10px] text-muted-foreground">
-          {rows.some((r) => r.fallback) && (
+      {/* Rodapé */}
+      <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40">
+        <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 min-w-0">
+          {fallbackCount > 0 && (
             <>
-              <AlertCircle className="inline h-3 w-3 mr-1 text-amber-500" />
-              Itens em amarelo não foram encontrados no cadastro.
+              <AlertCircle className="inline h-3 w-3 text-amber-500 shrink-0" />
+              <span className="truncate">{fallbackCount} item(ns) sem cadastro</span>
             </>
           )}
-        </p>
-        <Button size="sm" onClick={apply} disabled={loading || !kit} className="h-8 text-xs">
-          <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Aplicar Kit
-        </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold tabular-nums">{fmtBRL(total)}</span>
+          <Button size="sm" onClick={apply} disabled={loading || !kit} className="h-8 text-xs">
+            <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Aplicar Kit
+          </Button>
+        </div>
       </div>
     </div>
   );
 }
 
-function RowLine({
+function ItemIcon({ unit }: { unit: "un" | "min" }) {
+  return unit === "un" ? (
+    <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+  ) : (
+    <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+  );
+}
+
+function qtyLabel(row: ProductKitRow): string {
+  return row.unit === "un" ? `${row.qty} un` : `${row.qty.toFixed(0)} min`;
+}
+
+function SlotRow({
   row,
   checked,
   disabled,
@@ -274,28 +314,113 @@ function RowLine({
   onToggle: () => void;
 }) {
   return (
-    <label
+    <div
       className={cn(
         "flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs transition-colors",
-        disabled ? "cursor-default" : "cursor-pointer",
-        checked ? "bg-background hover:bg-muted/50" : "opacity-50 hover:opacity-75",
+        checked ? "bg-background hover:bg-muted/40" : "opacity-50",
       )}
     >
-      <Checkbox
-        checked={checked}
-        onCheckedChange={onToggle}
-        disabled={disabled}
-        className="h-3.5 w-3.5"
-      />
-      <span className="flex-1 min-w-0 truncate font-medium">{row.label}</span>
-      <span className="text-muted-foreground text-[10.5px] truncate max-w-[180px] hidden sm:inline">
-        {row.description}
+      <ItemIcon unit={row.unit} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="font-medium truncate">{row.label}</span>
+          {row.fallback && (
+            <Badge variant="outline" className="h-4 text-[9px] px-1 border-amber-500 text-amber-600">
+              preencher
+            </Badge>
+          )}
+        </div>
+        {row.description && row.description !== row.label && (
+          <p className="text-[10.5px] text-muted-foreground truncate">{row.description}</p>
+        )}
+      </div>
+      <span className="text-muted-foreground tabular-nums text-[10.5px] shrink-0">
+        {qtyLabel(row)}
       </span>
-      <span className="text-muted-foreground tabular-nums text-[10.5px]">
-        {row.unit === "un" ? `${row.qty} un` : `${row.qty.toFixed(0)} min`}
+      <span className="font-semibold tabular-nums w-[70px] text-right shrink-0">
+        {fmtBRL(row.cost)}
       </span>
-      <span className="font-semibold tabular-nums w-[70px] text-right">{fmtBRL(row.cost)}</span>
-      {row.fallback && <AlertCircle className="h-3 w-3 text-amber-500 shrink-0" />}
-    </label>
+      {disabled ? (
+        <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-label="Obrigatório" />
+      ) : (
+        <Switch
+          checked={checked}
+          onCheckedChange={onToggle}
+          className="scale-75 -mx-1"
+        />
+      )}
+    </div>
+  );
+}
+
+function AlternativeSlot({
+  group,
+  rows,
+  pickedId,
+  onPick,
+}: {
+  group: string;
+  rows: ProductKitRow[];
+  pickedId: string;
+  onPick: (id: string) => void;
+}) {
+  const picked = rows.find((r) => r.itemId === pickedId) ?? rows[0];
+  if (!picked) return null;
+  const hasChoices = rows.length > 1;
+  return (
+    <div className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs bg-background hover:bg-muted/40">
+      <ItemIcon unit={picked.unit} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Badge variant="secondary" className="h-4 text-[9px] px-1 shrink-0 capitalize">
+            {group}
+          </Badge>
+          <span className="font-medium truncate">{picked.label}</span>
+          {picked.fallback && (
+            <Badge variant="outline" className="h-4 text-[9px] px-1 border-amber-500 text-amber-600">
+              preencher
+            </Badge>
+          )}
+        </div>
+        {picked.description && picked.description !== picked.label && (
+          <p className="text-[10.5px] text-muted-foreground truncate">{picked.description}</p>
+        )}
+      </div>
+      <span className="text-muted-foreground tabular-nums text-[10.5px] shrink-0">
+        {qtyLabel(picked)}
+      </span>
+      <span className="font-semibold tabular-nums w-[70px] text-right shrink-0">
+        {fmtBRL(picked.cost)}
+      </span>
+      {hasChoices ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px]">
+              Trocar <ChevronDown className="h-3 w-3 ml-0.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[260px]">
+            <DropdownMenuLabel className="text-[11px] capitalize">{group}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioGroup value={pickedId} onValueChange={onPick}>
+              {rows.map((r) => (
+                <DropdownMenuRadioItem
+                  key={r.itemId}
+                  value={r.itemId}
+                  className="text-xs flex justify-between gap-2"
+                >
+                  <span className="truncate">{r.label}</span>
+                  <span className="text-muted-foreground tabular-nums shrink-0">
+                    {fmtBRL(r.cost)}
+                  </span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+      )}
+    </div>
   );
 }
