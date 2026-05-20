@@ -188,6 +188,20 @@ export default function KitsProduto() {
       (supList || []).map((s: any) => [s.id, s.produto]),
     );
     const procMap = new Map<string, string>(processes.map((p) => [p.id, p.description]));
+    const itemIdList = (itemsData || []).map((i: any) => i.id);
+    let variantsByItem = new Map<string, any[]>();
+    if (itemIdList.length > 0) {
+      const { data: vars } = await supabase
+        .from("product_kit_item_variants")
+        .select("*")
+        .in("item_id", itemIdList)
+        .order("position");
+      for (const v of (vars || []) as any[]) {
+        const arr = variantsByItem.get(v.item_id) || [];
+        arr.push(v);
+        variantsByItem.set(v.item_id, arr);
+      }
+    }
     setEditingId(kitId);
     setName(k.name);
     setProductKind(k.product_kind);
@@ -209,6 +223,14 @@ export default function KitsProduto() {
         quantity_value: Number(i.quantity_value) || 1,
         auto_select_default: !!i.auto_select_default,
         notes: i.notes ?? "",
+        variants: (variantsByItem.get(i.id) || []).map((v: any) => ({
+          tmp_id: tmp(),
+          min_value: Number(v.min_value) || 0,
+          max_value: v.max_value == null ? null : Number(v.max_value),
+          supply_id: v.supply_id,
+          supply_label: v.supply_id ? supMap.get(v.supply_id) ?? "" : "",
+          label: v.label ?? "",
+        })),
       })),
     );
     setDialogOpen(true);
