@@ -13,7 +13,18 @@ export type KitQuantityFormula =
   | "per_perimeter_m"
   | "per_m2"
   | "fixed"
-  | "auto_spiral";
+  | "auto_spiral"
+  | "variant_by_sheets";
+
+export interface ProductKitItemVariantDB {
+  id: string;
+  item_id: string;
+  min_value: number;
+  max_value: number | null;
+  supply_id: string | null;
+  label: string | null;
+  position: number;
+}
 
 export interface ProductKitItemDB {
   id: string;
