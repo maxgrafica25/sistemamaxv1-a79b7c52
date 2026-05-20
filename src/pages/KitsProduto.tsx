@@ -292,8 +292,21 @@ export default function KitsProduto() {
     if (!productKind.trim()) return "Informe o tipo de produto.";
     if (items.length === 0) return "Adicione pelo menos um item ao kit.";
     for (const it of items) {
-      if (it.item_type === "supply" && !it.supply_id && it.quantity_formula !== "auto_spiral") {
-        return "Selecione o suprimento de todos os itens (ou marque como 'auto espiral').";
+      if (
+        it.item_type === "supply" &&
+        !it.supply_id &&
+        it.quantity_formula !== "auto_spiral" &&
+        it.quantity_formula !== "variant_by_sheets"
+      ) {
+        return "Selecione o suprimento de todos os itens (ou use uma fórmula automática).";
+      }
+      if (it.item_type === "supply" && it.quantity_formula === "variant_by_sheets") {
+        if (it.variants.length === 0) {
+          return "Adicione pelo menos uma faixa de variante por nº de folhas.";
+        }
+        if (it.variants.some((v) => !v.supply_id)) {
+          return "Selecione o suprimento de cada faixa de variante.";
+        }
       }
       if (it.item_type === "process" && !it.process_step_id) {
         return "Selecione o processo de todos os itens de mão-de-obra.";
