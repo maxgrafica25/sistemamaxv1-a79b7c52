@@ -18,7 +18,7 @@ import { fmtBRL, roundUp10 } from "../shared/pricing";
 import { TierSimulator } from "../shared/TierSimulator";
 import { getIdealSpiral } from "@/lib/quotes-v2/spiral-selector";
 import { genId, type V3BookletItem, type V3Item } from "../types";
-import { BookletKitPanel } from "./BookletKitPanel";
+import { ProductKitPanel } from "./ProductKitPanel";
 
 interface Props {
   onAdd: (item: V3BookletItem) => void;
@@ -273,9 +273,10 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
       )}
 
       {onAddMany && canAdd && bookletPages > 0 && bookletUnits > 0 && (
-        <BookletKitPanel
-          bookletPages={Math.floor(bookletPages)}
-          bookletUnits={Math.floor(bookletUnits)}
+        <ProductKitPanel
+          productKind="apostila"
+          units={Math.floor(bookletUnits)}
+          sheets={Math.floor(bookletPages)}
           defaultMarginPct={defaultMarginPct}
           onApply={applyKitItems}
         />

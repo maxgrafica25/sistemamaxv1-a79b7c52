@@ -2337,6 +2337,98 @@ export type Database = {
           },
         ]
       }
+      product_kit_items: {
+        Row: {
+          alternative_group: string | null
+          auto_select_default: boolean
+          created_at: string
+          id: string
+          item_type: string
+          kit_id: string
+          notes: string | null
+          position: number
+          process_step_id: string | null
+          quantity_formula: string
+          quantity_value: number
+          role: string
+          supply_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          alternative_group?: string | null
+          auto_select_default?: boolean
+          created_at?: string
+          id?: string
+          item_type: string
+          kit_id: string
+          notes?: string | null
+          position?: number
+          process_step_id?: string | null
+          quantity_formula?: string
+          quantity_value?: number
+          role?: string
+          supply_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          alternative_group?: string | null
+          auto_select_default?: boolean
+          created_at?: string
+          id?: string
+          item_type?: string
+          kit_id?: string
+          notes?: string | null
+          position?: number
+          process_step_id?: string | null
+          quantity_formula?: string
+          quantity_value?: number
+          role?: string
+          supply_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_kit_items_kit_id_fkey"
+            columns: ["kit_id"]
+            isOneToOne: false
+            referencedRelation: "product_kits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_kits: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          product_kind: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          product_kind: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          product_kind?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       production_losses: {
         Row: {
           created_at: string
