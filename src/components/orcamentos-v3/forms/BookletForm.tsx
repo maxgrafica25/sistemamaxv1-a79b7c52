@@ -273,9 +273,10 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
       )}
 
       {onAddMany && canAdd && bookletPages > 0 && bookletUnits > 0 && (
-        <BookletKitPanel
-          bookletPages={Math.floor(bookletPages)}
-          bookletUnits={Math.floor(bookletUnits)}
+        <ProductKitPanel
+          productKind="apostila"
+          units={Math.floor(bookletUnits)}
+          sheets={Math.floor(bookletPages)}
           defaultMarginPct={defaultMarginPct}
           onApply={applyKitItems}
         />
