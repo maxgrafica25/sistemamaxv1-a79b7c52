@@ -291,8 +291,24 @@ export async function fetchActiveKitsForProduct(
     .select("*")
     .in("kit_id", ids)
     .order("position");
+  const itemList = (items || []) as ProductKitItemDB[];
+  const itemIds = itemList.map((i) => i.id);
+  let variantsByItem = new Map<string, ProductKitItemVariantDB[]>();
+  if (itemIds.length > 0) {
+    const { data: vars } = await supabaseClient
+      .from("product_kit_item_variants")
+      .select("*")
+      .in("item_id", itemIds)
+      .order("position");
+    for (const v of (vars || []) as ProductKitItemVariantDB[]) {
+      const arr = variantsByItem.get(v.item_id) || [];
+      arr.push(v);
+      variantsByItem.set(v.item_id, arr);
+    }
+  }
   const byKit = new Map<string, ProductKitItemDB[]>();
-  for (const it of (items || []) as ProductKitItemDB[]) {
+  for (const it of itemList) {
+    it.variants = variantsByItem.get(it.id) || [];
     const arr = byKit.get(it.kit_id) || [];
     arr.push(it);
     byKit.set(it.kit_id, arr);
@@ -302,3 +318,19 @@ export async function fetchActiveKitsForProduct(
     items: byKit.get(k.id) || [],
   }));
 }
+
+/** Preset de espirais padrão (apostilas) — usar como atalho ao cadastrar variant_by_sheets. */
+export const SPIRAL_VARIANT_PRESET: Array<{ min: number; max: number | null; label: string }> = [
+  { min: 1, max: 25, label: "7mm" },
+  { min: 26, max: 50, label: "9mm" },
+  { min: 51, max: 70, label: "12mm" },
+  { min: 71, max: 85, label: "14mm" },
+  { min: 86, max: 100, label: "17mm" },
+  { min: 101, max: 120, label: "20mm" },
+  { min: 121, max: 140, label: "23mm" },
+  { min: 141, max: 160, label: "25mm" },
+  { min: 161, max: 200, label: "29mm" },
+  { min: 201, max: 250, label: "33mm" },
+  { min: 251, max: 350, label: "40mm" },
+  { min: 351, max: null, label: "45mm" },
+];
