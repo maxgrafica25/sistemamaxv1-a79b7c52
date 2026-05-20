@@ -2337,6 +2337,54 @@ export type Database = {
           },
         ]
       }
+      product_kit_item_variants: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          label: string | null
+          max_value: number | null
+          min_value: number
+          position: number
+          supply_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          label?: string | null
+          max_value?: number | null
+          min_value?: number
+          position?: number
+          supply_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          label?: string | null
+          max_value?: number | null
+          min_value?: number
+          position?: number
+          supply_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_kit_item_variants_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "product_kit_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_kit_item_variants_supply_id_fkey"
+            columns: ["supply_id"]
+            isOneToOne: false
+            referencedRelation: "supplies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_kit_items: {
         Row: {
           alternative_group: string | null
