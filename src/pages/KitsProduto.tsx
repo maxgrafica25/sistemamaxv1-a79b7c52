@@ -28,9 +28,10 @@ import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import SupplySearch from "@/components/orcamentos-v2/SupplySearch";
-import type {
-  KitItemRole,
-  KitQuantityFormula,
+import {
+  type KitItemRole,
+  type KitQuantityFormula,
+  SPIRAL_VARIANT_PRESET,
 } from "@/components/orcamentos-v3/shared/productKit";
 
 interface VariantRow {
