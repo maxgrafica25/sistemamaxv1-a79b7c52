@@ -78,7 +78,8 @@ const FORMULA_LABELS: Record<KitQuantityFormula, string> = {
   per_perimeter_m: "Por metro de perímetro",
   per_m2: "Por m²",
   fixed: "Quantidade fixa",
-  auto_spiral: "Espiral automática (apostila)",
+  auto_spiral: "Espiral automática (legado)",
+  variant_by_sheets: "Variante por nº de folhas",
 };
 
 const ROLE_LABELS: Record<KitItemRole, string> = {
