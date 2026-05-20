@@ -99,9 +99,25 @@ function resolveQty(
       return v;
     case "auto_spiral":
       return ctx.units; // 1 espiral por apostila
+    case "variant_by_sheets":
+      return ctx.units * (v > 0 ? v : 1);
     default:
       return ctx.units;
   }
+}
+
+function pickVariant(
+  variants: ProductKitItemVariantDB[] | undefined,
+  value: number,
+): ProductKitItemVariantDB | null {
+  if (!variants || variants.length === 0) return null;
+  const sorted = [...variants].sort((a, b) => a.min_value - b.min_value);
+  for (const v of sorted) {
+    const min = Number(v.min_value) || 0;
+    const max = v.max_value == null ? Infinity : Number(v.max_value);
+    if (value >= min && value <= max) return v;
+  }
+  return sorted[sorted.length - 1] ?? null;
 }
 
 export function buildProductKitRows(args: BuildArgs): ProductKitRow[] {
