@@ -799,6 +799,130 @@ function ItemRow({
           </Label>
         </div>
       </div>
+
+      {item.item_type === "supply" && item.quantity_formula === "variant_by_sheets" && (
+        <VariantsEditor
+          variants={item.variants}
+          onChange={(variants) => onChange({ variants })}
+        />
+      )}
+    </div>
+  );
+}
+
+function VariantsEditor({
+  variants,
+  onChange,
+}: {
+  variants: VariantRow[];
+  onChange: (next: VariantRow[]) => void;
+}) {
+  const addRow = () => {
+    const last = variants[variants.length - 1];
+    const nextMin = last ? (last.max_value == null ? (last.min_value || 0) + 1 : last.max_value + 1) : 1;
+    onChange([
+      ...variants,
+      {
+        tmp_id: tmp(),
+        min_value: nextMin,
+        max_value: null,
+        supply_id: null,
+        supply_label: "",
+        label: "",
+      },
+    ]);
+  };
+  const update = (id: string, patch: Partial<VariantRow>) =>
+    onChange(variants.map((v) => (v.tmp_id === id ? { ...v, ...patch } : v)));
+  const remove = (id: string) => onChange(variants.filter((v) => v.tmp_id !== id));
+  const loadSpiralPreset = () => {
+    onChange(
+      SPIRAL_VARIANT_PRESET.map((p) => ({
+        tmp_id: tmp(),
+        min_value: p.min,
+        max_value: p.max,
+        supply_id: null,
+        supply_label: "",
+        label: p.label,
+      })),
+    );
+  };
+
+  return (
+    <div className="rounded-md border border-dashed p-2 space-y-2 bg-background">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-medium text-foreground">
+          Variantes por nº de folhas
+        </p>
+        <div className="flex gap-1">
+          <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={loadSpiralPreset}>
+            Carregar preset espirais
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={addRow}>
+            <Plus className="h-3 w-3 mr-1" /> Faixa
+          </Button>
+        </div>
+      </div>
+      {variants.length === 0 && (
+        <p className="text-[11px] text-muted-foreground italic">
+          Adicione faixas (ex.: 1-25 folhas → Espiral 7mm).
+        </p>
+      )}
+      {variants.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="grid grid-cols-[80px_80px_1fr_90px_28px] gap-1.5 text-[10px] uppercase text-muted-foreground tracking-wide px-1">
+            <span>Folhas min</span>
+            <span>Folhas max</span>
+            <span>Suprimento</span>
+            <span>Rótulo</span>
+            <span />
+          </div>
+          {variants.map((v) => (
+            <div
+              key={v.tmp_id}
+              className="grid grid-cols-[80px_80px_1fr_90px_28px] gap-1.5 items-center"
+            >
+              <Input
+                type="number"
+                min={0}
+                className="h-7 text-xs"
+                value={v.min_value}
+                onChange={(e) => update(v.tmp_id, { min_value: Number(e.target.value) || 0 })}
+              />
+              <Input
+                type="number"
+                min={0}
+                placeholder="∞"
+                className="h-7 text-xs"
+                value={v.max_value ?? ""}
+                onChange={(e) =>
+                  update(v.tmp_id, {
+                    max_value: e.target.value === "" ? null : Number(e.target.value),
+                  })
+                }
+              />
+              <SupplySearch
+                initialLabel={v.supply_label}
+                onSelect={(s) => update(v.tmp_id, { supply_id: s.id, supply_label: s.produto })}
+              />
+              <Input
+                className="h-7 text-xs"
+                value={v.label}
+                placeholder="ex.: 7mm"
+                onChange={(e) => update(v.tmp_id, { label: e.target.value })}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0"
+                onClick={() => remove(v.tmp_id)}
+              >
+                <Trash2 className="h-3 w-3 text-destructive" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
