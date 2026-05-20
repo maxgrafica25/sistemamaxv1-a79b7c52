@@ -18,7 +18,7 @@ import { fmtBRL, roundUp10 } from "../shared/pricing";
 import { TierSimulator } from "../shared/TierSimulator";
 import { getIdealSpiral } from "@/lib/quotes-v2/spiral-selector";
 import { genId, type V3BookletItem, type V3Item } from "../types";
-import { BookletKitPanel } from "./BookletKitPanel";
+import { ProductKitPanel } from "./ProductKitPanel";
 
 interface Props {
   onAdd: (item: V3BookletItem) => void;
