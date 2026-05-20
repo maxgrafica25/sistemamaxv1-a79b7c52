@@ -33,6 +33,15 @@ import type {
   KitQuantityFormula,
 } from "@/components/orcamentos-v3/shared/productKit";
 
+interface VariantRow {
+  tmp_id: string;
+  min_value: number;
+  max_value: number | null;
+  supply_id: string | null;
+  supply_label: string;
+  label: string;
+}
+
 interface KitItem {
   id?: string;
   tmp_id: string;
@@ -48,6 +57,7 @@ interface KitItem {
   quantity_value: number;
   auto_select_default: boolean;
   notes: string;
+  variants: VariantRow[];
 }
 
 interface KitRow {
