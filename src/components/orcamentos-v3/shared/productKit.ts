@@ -140,10 +140,23 @@ export function buildProductKitRows(args: BuildArgs): ProductKitRow[] {
       // auto_spiral: tenta achar espiral do diâmetro ideal; senão usa o supply cadastrado
       let sup: V3Supply | undefined;
       let displayName = "";
+      let variantLabel = "";
       if (it.quantity_formula === "auto_spiral" && spiralDiameter) {
         const rx = spiralRegex(spiralDiameter);
         sup = args.supplies.find((s) => rx.test(s.produto));
         displayName = sup?.produto ?? `Espiral ${spiralDiameter}`;
+        variantLabel = spiralDiameter;
+      } else if (it.quantity_formula === "variant_by_sheets") {
+        const v = pickVariant(it.variants, sheets);
+        if (v?.supply_id) {
+          sup = args.supplies.find((s) => s.id === v.supply_id);
+        }
+        variantLabel =
+          v?.label ||
+          (v
+            ? `${v.min_value}-${v.max_value ?? "∞"} folhas`
+            : "");
+        displayName = sup?.produto ?? (variantLabel ? `Variante ${variantLabel}` : "Suprimento");
       }
       if (!sup && it.supply_id) {
         sup = args.supplies.find((s) => s.id === it.supply_id);
