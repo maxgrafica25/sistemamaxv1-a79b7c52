@@ -238,6 +238,7 @@ export default function KitsProduto() {
         quantity_value: 1,
         auto_select_default: true,
         notes: "",
+        variants: [],
       },
     ]);
   };
