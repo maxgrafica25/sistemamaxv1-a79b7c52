@@ -1,5 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Edit2, Loader2, Sparkles, GripVertical, Copy } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Edit2,
+  Loader2,
+  Sparkles,
+  Copy,
+  MoreHorizontal,
+  Package,
+  Cog,
+  ChevronDown,
+  Layers,
+  Wand2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,27 +34,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import SupplySearch from "@/components/orcamentos-v2/SupplySearch";
 import {
   type KitItemRole,
   type KitQuantityFormula,
   SPIRAL_VARIANT_PRESET,
 } from "@/components/orcamentos-v3/shared/productKit";
-
-interface VariantRow {
-  tmp_id: string;
-  min_value: number;
-  max_value: number | null;
-  supply_id: string | null;
-  supply_label: string;
-  label: string;
-}
+import AddItemsPicker, { type PickedItem } from "@/components/kits/AddItemsPicker";
+import VariantsDialog, { type VariantRow } from "@/components/kits/VariantsDialog";
 
 interface KitItem {
   id?: string;
@@ -99,11 +110,38 @@ const ROLE_LABELS: Record<KitItemRole, string> = {
   alternative: "Alternativo",
 };
 
+const ROLE_SHORT: Record<KitItemRole, string> = {
+  required: "Obrig.",
+  optional: "Opc.",
+  alternative: "Alt.",
+};
+
 const tmp = () => `tmp_${Math.random().toString(36).slice(2, 9)}`;
 
 interface ProcessOption {
   id: string;
   description: string;
+}
+
+function formulaBadge(it: KitItem): string {
+  switch (it.quantity_formula) {
+    case "per_unit":
+      return `× ${it.quantity_value} / un`;
+    case "per_sheet":
+      return `× ${it.quantity_value} / folha`;
+    case "per_x_sheets":
+      return `1 a cada ${it.quantity_value} folhas`;
+    case "per_perimeter_m":
+      return `× ${it.quantity_value} / m perím.`;
+    case "per_m2":
+      return `× ${it.quantity_value} / m²`;
+    case "fixed":
+      return `fixo ${it.quantity_value}`;
+    case "auto_spiral":
+      return `auto espiral`;
+    case "variant_by_sheets":
+      return `variante · ${it.variants.length} faixa${it.variants.length === 1 ? "" : "s"}`;
+  }
 }
 
 export default function KitsProduto() {
@@ -122,6 +160,10 @@ export default function KitsProduto() {
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [items, setItems] = useState<KitItem[]>([]);
+
+  // Sub-dialogs
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [variantsEditing, setVariantsEditing] = useState<string | null>(null);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -190,7 +232,7 @@ export default function KitsProduto() {
     );
     const procMap = new Map<string, string>(processes.map((p) => [p.id, p.description]));
     const itemIdList = (itemsData || []).map((i: any) => i.id);
-    let variantsByItem = new Map<string, any[]>();
+    const variantsByItem = new Map<string, any[]>();
     if (itemIdList.length > 0) {
       const { data: vars } = await supabase
         .from("product_kit_item_variants")
@@ -244,17 +286,17 @@ export default function KitsProduto() {
     setName((n) => `${n} (cópia)`);
   };
 
-  const addItem = () => {
-    setItems((prev) => [
-      ...prev,
-      {
+  const handlePickerConfirm = (picked: PickedItem[]) => {
+    setItems((prev) => {
+      const start = prev.length;
+      const added: KitItem[] = picked.map((p, i) => ({
         tmp_id: tmp(),
-        position: prev.length,
-        item_type: "supply",
-        supply_id: null,
-        supply_label: "",
-        process_step_id: null,
-        process_label: "",
+        position: start + i,
+        item_type: p.kind,
+        supply_id: p.kind === "supply" ? p.id : null,
+        supply_label: p.kind === "supply" ? p.label : "",
+        process_step_id: p.kind === "process" ? p.id : null,
+        process_label: p.kind === "process" ? p.label : "",
         role: "required",
         alternative_group: "",
         quantity_formula: "per_unit",
@@ -262,8 +304,39 @@ export default function KitsProduto() {
         auto_select_default: true,
         notes: "",
         variants: [],
+      }));
+      return [...prev, ...added];
+    });
+  };
+
+  const addSpiralByVariant = () => {
+    setItems((prev) => [
+      ...prev,
+      {
+        tmp_id: tmp(),
+        position: prev.length,
+        item_type: "supply",
+        supply_id: null,
+        supply_label: "Espiral (variante por folhas)",
+        process_step_id: null,
+        process_label: "",
+        role: "required",
+        alternative_group: "",
+        quantity_formula: "variant_by_sheets",
+        quantity_value: 1,
+        auto_select_default: true,
+        notes: "",
+        variants: SPIRAL_VARIANT_PRESET.map((p) => ({
+          tmp_id: tmp(),
+          min_value: p.min,
+          max_value: p.max,
+          supply_id: null,
+          supply_label: "",
+          label: p.label,
+        })),
       },
     ]);
+    toast.success("Item de espiral adicionado. Configure os suprimentos das faixas.");
   };
 
   const updateItem = (tmp_id: string, patch: Partial<KitItem>) => {
@@ -316,7 +389,6 @@ export default function KitsProduto() {
         return "Itens alternativos precisam de um nome de grupo (ex.: 'capa').";
       }
     }
-    // grupos alternativos com pelo menos 2 itens
     const altCounts: Record<string, number> = {};
     items.forEach((i) => {
       if (i.role === "alternative") {
@@ -381,7 +453,6 @@ export default function KitsProduto() {
           .select("id, position")
           .order("position");
         if (ie) throw ie;
-        // map position → new id
         const idByPos = new Map<number, string>();
         (inserted || []).forEach((row: any) => idByPos.set(row.position, row.id));
         const variantsPayload: any[] = [];
@@ -394,7 +465,10 @@ export default function KitsProduto() {
               item_id: newId,
               position: vIdx,
               min_value: Number(v.min_value) || 0,
-              max_value: v.max_value == null || isNaN(Number(v.max_value)) ? null : Number(v.max_value),
+              max_value:
+                v.max_value == null || isNaN(Number(v.max_value))
+                  ? null
+                  : Number(v.max_value),
               supply_id: v.supply_id,
               label: v.label.trim() || null,
             });
@@ -451,6 +525,35 @@ export default function KitsProduto() {
     }
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [kits]);
+
+  // Agrupar itens: normais individualmente, alternativos agrupados por nome
+  const renderedItems = useMemo(() => {
+    type Block =
+      | { kind: "item"; item: KitItem; index: number }
+      | { kind: "alt-group"; group: string; items: { item: KitItem; index: number }[] };
+    const blocks: Block[] = [];
+    const altSeen = new Map<string, number>();
+    items.forEach((it, idx) => {
+      if (it.role === "alternative" && it.alternative_group.trim()) {
+        const g = it.alternative_group.trim();
+        const at = altSeen.get(g);
+        if (at == null) {
+          const bIdx = blocks.length;
+          blocks.push({ kind: "alt-group", group: g, items: [{ item: it, index: idx }] });
+          altSeen.set(g, bIdx);
+        } else {
+          (blocks[at] as any).items.push({ item: it, index: idx });
+        }
+      } else {
+        blocks.push({ kind: "item", item: it, index: idx });
+      }
+    });
+    return blocks;
+  }, [items]);
+
+  const variantItem = variantsEditing
+    ? items.find((i) => i.tmp_id === variantsEditing)
+    : null;
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -533,24 +636,31 @@ export default function KitsProduto() {
           if (!o) resetForm();
         }}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[92vh] flex flex-col gap-0 p-0">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b">
             <DialogTitle>{editingId ? "Editar Kit" : "Novo Kit"}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2">
+          {/* Cabeçalho enxuto */}
+          <div className="px-5 py-3 border-b space-y-3 bg-muted/20">
+            <div className="grid gap-2 md:grid-cols-[1fr_180px_auto]">
               <div>
-                <Label>Nome do Kit</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Kit Encadernação Apostila" />
+                <Label className="text-xs">Nome do kit</Label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ex.: Kit Encadernação Apostila"
+                  className="h-9"
+                />
               </div>
               <div>
-                <Label>Tipo de produto</Label>
+                <Label className="text-xs">Tipo de produto</Label>
                 <Input
                   list="kit-kinds"
                   value={productKind}
                   onChange={(e) => setProductKind(e.target.value)}
                   placeholder="ex.: apostila"
+                  className="h-9"
                 />
                 <datalist id="kit-kinds">
                   {KIND_SUGGESTIONS.map((s) => (
@@ -558,47 +668,100 @@ export default function KitsProduto() {
                   ))}
                 </datalist>
               </div>
+              <div className="flex items-end gap-2 pb-1">
+                <Switch checked={isActive} onCheckedChange={setIsActive} id="kit-active" />
+                <Label htmlFor="kit-active" className="text-xs">Ativo</Label>
+              </div>
             </div>
-            <div>
-              <Label>Descrição (opcional)</Label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={2}
-                placeholder="Quando aplicar este kit?"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch checked={isActive} onCheckedChange={setIsActive} id="kit-active" />
-              <Label htmlFor="kit-active">Ativo</Label>
-            </div>
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground -ml-2">
+                  <ChevronDown className="h-3.5 w-3.5 mr-1" /> Descrição (opcional)
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={2}
+                  placeholder="Quando aplicar este kit?"
+                  className="mt-1"
+                />
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Itens do kit</h3>
-                <Button size="sm" variant="outline" onClick={addItem}>
-                  <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar item
+          {/* Lista de itens */}
+          <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1.5">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Itens do kit ({items.length})
+              </h3>
+            </div>
+            {items.length === 0 ? (
+              <div className="rounded-md border border-dashed py-10 text-center">
+                <Layers className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+                <p className="text-sm text-muted-foreground mb-3">
+                  Nenhum item ainda. Adicione acabamentos e processos.
+                </p>
+                <Button onClick={() => setPickerOpen(true)} size="sm">
+                  <Plus className="h-4 w-4 mr-1" /> Adicionar acabamentos
                 </Button>
               </div>
-              {items.length === 0 && (
-                <p className="text-xs text-muted-foreground italic">Nenhum item ainda.</p>
-              )}
-              {items.map((it, idx) => (
-                <ItemRow
-                  key={it.tmp_id}
-                  item={it}
-                  index={idx}
-                  total={items.length}
-                  processes={processes}
-                  onChange={(patch) => updateItem(it.tmp_id, patch)}
-                  onRemove={() => removeItem(it.tmp_id)}
-                  onMove={(dir) => moveItem(it.tmp_id, dir)}
-                />
-              ))}
+            ) : (
+              renderedItems.map((b, bi) =>
+                b.kind === "item" ? (
+                  <CompactItemRow
+                    key={b.item.tmp_id}
+                    item={b.item}
+                    index={b.index}
+                    total={items.length}
+                    processes={processes}
+                    onChange={(p) => updateItem(b.item.tmp_id, p)}
+                    onRemove={() => removeItem(b.item.tmp_id)}
+                    onMove={(d) => moveItem(b.item.tmp_id, d)}
+                    onEditVariants={() => setVariantsEditing(b.item.tmp_id)}
+                  />
+                ) : (
+                  <div
+                    key={`alt-${bi}`}
+                    className="rounded-md border border-primary/30 bg-primary/5 p-2 space-y-1.5"
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-primary px-1">
+                      Alternativos · grupo "{b.group}"
+                    </p>
+                    {b.items.map(({ item, index }) => (
+                      <CompactItemRow
+                        key={item.tmp_id}
+                        item={item}
+                        index={index}
+                        total={items.length}
+                        processes={processes}
+                        onChange={(p) => updateItem(item.tmp_id, p)}
+                        onRemove={() => removeItem(item.tmp_id)}
+                        onMove={(d) => moveItem(item.tmp_id, d)}
+                        onEditVariants={() => setVariantsEditing(item.tmp_id)}
+                      />
+                    ))}
+                  </div>
+                ),
+              )
+            )}
+          </div>
+
+          {/* Barra de ações */}
+          <div className="border-t bg-muted/20 px-5 py-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => setPickerOpen(true)} size="sm" variant="default">
+                <Plus className="h-4 w-4 mr-1" /> Adicionar acabamentos
+              </Button>
+              <Button onClick={addSpiralByVariant} size="sm" variant="outline">
+                <Wand2 className="h-4 w-4 mr-1" /> Espiral por folhas
+              </Button>
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="px-5 py-3 border-t">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
@@ -607,6 +770,23 @@ export default function KitsProduto() {
         </DialogContent>
       </Dialog>
 
+      <AddItemsPicker
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        processes={processes}
+        onConfirm={handlePickerConfirm}
+      />
+
+      {variantItem && (
+        <VariantsDialog
+          open={!!variantsEditing}
+          onOpenChange={(v) => !v && setVariantsEditing(null)}
+          variants={variantItem.variants}
+          onChange={(next) => updateItem(variantItem.tmp_id, { variants: next })}
+          itemLabel={variantItem.supply_label || "Item"}
+        />
+      )}
+
       <ConfirmDialog
         open={!!deletingId}
         onOpenChange={(o) => !o && setDeletingId(null)}
@@ -614,13 +794,12 @@ export default function KitsProduto() {
         description="Esta ação não pode ser desfeita. Orçamentos já criados não são afetados."
         onConfirm={remove}
         confirmText="Excluir"
-        
       />
     </div>
   );
 }
 
-function ItemRow({
+function CompactItemRow({
   item,
   index,
   total,
@@ -628,6 +807,7 @@ function ItemRow({
   onChange,
   onRemove,
   onMove,
+  onEditVariants,
 }: {
   item: KitItem;
   index: number;
@@ -636,132 +816,108 @@ function ItemRow({
   onChange: (patch: Partial<KitItem>) => void;
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
+  onEditVariants: () => void;
+}) {
+  const isVariant = item.quantity_formula === "variant_by_sheets";
+  const Icon = item.item_type === "supply" ? Package : Cog;
+  const label =
+    item.item_type === "supply"
+      ? item.supply_label || (isVariant ? "Variante por folhas" : "(sem suprimento)")
+      : item.process_label || "(sem processo)";
+
+  return (
+    <div className="flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 hover:bg-muted/30 transition-colors">
+      <div className="flex flex-col -my-1">
+        <button
+          type="button"
+          className="text-muted-foreground hover:text-foreground disabled:opacity-20 leading-none text-xs"
+          onClick={() => onMove(-1)}
+          disabled={index === 0}
+          aria-label="Subir"
+        >
+          ▲
+        </button>
+        <button
+          type="button"
+          className="text-muted-foreground hover:text-foreground disabled:opacity-20 leading-none text-xs"
+          onClick={() => onMove(1)}
+          disabled={index === total - 1}
+          aria-label="Descer"
+        >
+          ▼
+        </button>
+      </div>
+      <Icon className="h-4 w-4 text-primary shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm truncate" title={label}>
+          {label}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={isVariant ? onEditVariants : undefined}
+        className={`text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0 ${
+          isVariant
+            ? "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
+            : "bg-muted text-muted-foreground"
+        }`}
+      >
+        {formulaBadge(item)}
+      </button>
+      <Select
+        value={item.role}
+        onValueChange={(v: KitItemRole) =>
+          onChange({
+            role: v,
+            alternative_group:
+              v === "alternative" && !item.alternative_group ? "grupo 1" : item.alternative_group,
+          })
+        }
+      >
+        <SelectTrigger className="h-7 w-[90px] text-xs shrink-0">
+          <SelectValue>{ROLE_SHORT[item.role]}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {(Object.keys(ROLE_LABELS) as KitItemRole[]).map((r) => (
+            <SelectItem key={r} value={r} className="text-xs">
+              {ROLE_LABELS[r]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <ItemMorePopover
+        item={item}
+        processes={processes}
+        onChange={onChange}
+        onEditVariants={onEditVariants}
+      />
+      <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={onRemove}>
+        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+      </Button>
+    </div>
+  );
+}
+
+function ItemMorePopover({
+  item,
+  processes,
+  onChange,
+  onEditVariants,
+}: {
+  item: KitItem;
+  processes: ProcessOption[];
+  onChange: (patch: Partial<KitItem>) => void;
+  onEditVariants: () => void;
 }) {
   return (
-    <div className="rounded-md border p-3 space-y-2 bg-muted/30">
-      <div className="flex items-center gap-2">
-        <div className="flex flex-col">
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-            onClick={() => onMove(-1)}
-            disabled={index === 0}
-            aria-label="Subir"
-          >
-            ▲
-          </button>
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-            onClick={() => onMove(1)}
-            disabled={index === total - 1}
-            aria-label="Descer"
-          >
-            ▼
-          </button>
-        </div>
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-        <span className="text-xs text-muted-foreground">#{index + 1}</span>
-        <div className="flex-1" />
-        <Button size="sm" variant="ghost" onClick={onRemove}>
-          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0">
+          <MoreHorizontal className="h-4 w-4" />
         </Button>
-      </div>
-
-      <div className="grid gap-2 md:grid-cols-2">
-        <div>
-          <Label className="text-xs">Tipo</Label>
-          <Select
-            value={item.item_type}
-            onValueChange={(v: "supply" | "process") =>
-              onChange({
-                item_type: v,
-                supply_id: null,
-                supply_label: "",
-                process_step_id: null,
-                process_label: "",
-              })
-            }
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="supply">Suprimento</SelectItem>
-              <SelectItem value="process">Processo (mão-de-obra)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label className="text-xs">
-            {item.item_type === "supply" ? "Suprimento" : "Processo"}
-          </Label>
-          {item.item_type === "supply" ? (
-            item.quantity_formula === "variant_by_sheets" ? (
-              <p className="text-[11px] text-muted-foreground italic h-8 flex items-center">
-                Definido pelas faixas abaixo →
-              </p>
-            ) : (
-              <SupplySearch
-                initialLabel={item.supply_label}
-                onSelect={(s) =>
-                  onChange({ supply_id: s.id, supply_label: s.produto })
-                }
-              />
-            )
-          ) : (
-            <Select
-              value={item.process_step_id ?? ""}
-              onValueChange={(v) => {
-                const p = processes.find((x) => x.id === v);
-                onChange({ process_step_id: v, process_label: p?.description ?? "" });
-              }}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Selecionar processo…" />
-              </SelectTrigger>
-              <SelectContent>
-                {processes.map((p) => (
-                  <SelectItem key={p.id} value={p.id} className="text-xs">
-                    {p.description}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
-
-        <div>
-          <Label className="text-xs">Papel no kit</Label>
-          <Select
-            value={item.role}
-            onValueChange={(v: KitItemRole) => onChange({ role: v })}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(ROLE_LABELS) as KitItemRole[]).map((r) => (
-                <SelectItem key={r} value={r} className="text-xs">
-                  {ROLE_LABELS[r]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {item.role === "alternative" && (
-          <div>
-            <Label className="text-xs">Grupo de alternativas</Label>
-            <Input
-              className="h-8 text-xs"
-              value={item.alternative_group}
-              onChange={(e) => onChange({ alternative_group: e.target.value })}
-              placeholder="ex.: capa"
-            />
-          </div>
-        )}
+      </PopoverTrigger>
+      <PopoverContent className="w-80 space-y-3" align="end">
+        <p className="text-xs font-semibold text-muted-foreground">Configurações avançadas</p>
 
         <div>
           <Label className="text-xs">Fórmula de quantidade</Label>
@@ -782,20 +938,64 @@ function ItemRow({
           </Select>
         </div>
 
-        <div>
-          <Label className="text-xs">Valor da fórmula</Label>
-          <Input
-            type="number"
-            step="0.01"
-            min={0}
-            className="h-8 text-xs"
-            value={item.quantity_value}
-            onChange={(e) => onChange({ quantity_value: Number(e.target.value) })}
-            disabled={item.quantity_formula === "auto_spiral"}
-          />
-        </div>
+        {item.quantity_formula !== "variant_by_sheets" &&
+          item.quantity_formula !== "auto_spiral" && (
+            <div>
+              <Label className="text-xs">Valor da fórmula</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                className="h-8 text-xs"
+                value={item.quantity_value}
+                onChange={(e) => onChange({ quantity_value: Number(e.target.value) })}
+              />
+            </div>
+          )}
 
-        <div className="flex items-center gap-2 md:col-span-2">
+        {item.quantity_formula === "variant_by_sheets" && (
+          <Button size="sm" variant="outline" className="w-full" onClick={onEditVariants}>
+            <Edit2 className="h-3.5 w-3.5 mr-1" /> Editar faixas
+          </Button>
+        )}
+
+        {item.item_type === "process" && (
+          <div>
+            <Label className="text-xs">Processo</Label>
+            <Select
+              value={item.process_step_id ?? ""}
+              onValueChange={(v) => {
+                const p = processes.find((x) => x.id === v);
+                onChange({ process_step_id: v, process_label: p?.description ?? "" });
+              }}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Selecionar processo…" />
+              </SelectTrigger>
+              <SelectContent>
+                {processes.map((p) => (
+                  <SelectItem key={p.id} value={p.id} className="text-xs">
+                    {p.description}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {item.role === "alternative" && (
+          <div>
+            <Label className="text-xs">Grupo de alternativas</Label>
+            <Input
+              className="h-8 text-xs"
+              value={item.alternative_group}
+              onChange={(e) => onChange({ alternative_group: e.target.value })}
+              placeholder="ex.: capa"
+            />
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
           <Switch
             id={`auto-${item.tmp_id}`}
             checked={item.auto_select_default}
@@ -805,131 +1005,17 @@ function ItemRow({
             Pré-marcado ao abrir o painel
           </Label>
         </div>
-      </div>
 
-      {item.item_type === "supply" && item.quantity_formula === "variant_by_sheets" && (
-        <VariantsEditor
-          variants={item.variants}
-          onChange={(variants) => onChange({ variants })}
-        />
-      )}
-    </div>
-  );
-}
-
-function VariantsEditor({
-  variants,
-  onChange,
-}: {
-  variants: VariantRow[];
-  onChange: (next: VariantRow[]) => void;
-}) {
-  const addRow = () => {
-    const last = variants[variants.length - 1];
-    const nextMin = last ? (last.max_value == null ? (last.min_value || 0) + 1 : last.max_value + 1) : 1;
-    onChange([
-      ...variants,
-      {
-        tmp_id: tmp(),
-        min_value: nextMin,
-        max_value: null,
-        supply_id: null,
-        supply_label: "",
-        label: "",
-      },
-    ]);
-  };
-  const update = (id: string, patch: Partial<VariantRow>) =>
-    onChange(variants.map((v) => (v.tmp_id === id ? { ...v, ...patch } : v)));
-  const remove = (id: string) => onChange(variants.filter((v) => v.tmp_id !== id));
-  const loadSpiralPreset = () => {
-    onChange(
-      SPIRAL_VARIANT_PRESET.map((p) => ({
-        tmp_id: tmp(),
-        min_value: p.min,
-        max_value: p.max,
-        supply_id: null,
-        supply_label: "",
-        label: p.label,
-      })),
-    );
-  };
-
-  return (
-    <div className="rounded-md border border-dashed p-2 space-y-2 bg-background">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] font-medium text-foreground">
-          Variantes por nº de folhas
-        </p>
-        <div className="flex gap-1">
-          <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={loadSpiralPreset}>
-            Carregar preset espirais
-          </Button>
-          <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={addRow}>
-            <Plus className="h-3 w-3 mr-1" /> Faixa
-          </Button>
+        <div>
+          <Label className="text-xs">Notas (opcional)</Label>
+          <Textarea
+            value={item.notes}
+            onChange={(e) => onChange({ notes: e.target.value })}
+            rows={2}
+            className="text-xs"
+          />
         </div>
-      </div>
-      {variants.length === 0 && (
-        <p className="text-[11px] text-muted-foreground italic">
-          Adicione faixas (ex.: 1-25 folhas → Espiral 7mm).
-        </p>
-      )}
-      {variants.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="grid grid-cols-[80px_80px_1fr_90px_28px] gap-1.5 text-[10px] uppercase text-muted-foreground tracking-wide px-1">
-            <span>Folhas min</span>
-            <span>Folhas max</span>
-            <span>Suprimento</span>
-            <span>Rótulo</span>
-            <span />
-          </div>
-          {variants.map((v) => (
-            <div
-              key={v.tmp_id}
-              className="grid grid-cols-[80px_80px_1fr_90px_28px] gap-1.5 items-center"
-            >
-              <Input
-                type="number"
-                min={0}
-                className="h-7 text-xs"
-                value={v.min_value}
-                onChange={(e) => update(v.tmp_id, { min_value: Number(e.target.value) || 0 })}
-              />
-              <Input
-                type="number"
-                min={0}
-                placeholder="∞"
-                className="h-7 text-xs"
-                value={v.max_value ?? ""}
-                onChange={(e) =>
-                  update(v.tmp_id, {
-                    max_value: e.target.value === "" ? null : Number(e.target.value),
-                  })
-                }
-              />
-              <SupplySearch
-                initialLabel={v.supply_label}
-                onSelect={(s) => update(v.tmp_id, { supply_id: s.id, supply_label: s.produto })}
-              />
-              <Input
-                className="h-7 text-xs"
-                value={v.label}
-                placeholder="ex.: 7mm"
-                onChange={(e) => update(v.tmp_id, { label: e.target.value })}
-              />
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 w-7 p-0"
-                onClick={() => remove(v.tmp_id)}
-              >
-                <Trash2 className="h-3 w-3 text-destructive" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }
