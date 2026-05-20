@@ -47,6 +47,7 @@ const NAV_GROUPS: NavGroup[] = [
       { name: "Clientes/Fornecedores", href: "/cadastros", icon: Users },
       { name: "Matérias-Primas", href: "/materias-primas", icon: Package },
       { name: "Grupos de Materiais", href: "/grupos-materiais", icon: Layers },
+      { name: "Kits de Produto", href: "/kits-produto", icon: Sparkles },
       { name: "Comunicação Visual", href: "/cadastros-cv", icon: Megaphone },
       { name: "Equipamentos", href: "/equipamentos", icon: Cpu },
     ],
