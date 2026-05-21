@@ -52,6 +52,7 @@ export function BookletKitPanel({
     qty: number;
     margemPct: number;
     collapsed: boolean;
+    enabled: boolean;
   };
   const [extraSlots, setExtraSlots] = useState<ExtraSlot[]>([]);
 
@@ -69,7 +70,9 @@ export function BookletKitPanel({
         qty: Math.max(1, bookletUnits || 1),
         margemPct: defaultMarginPct || 20,
         collapsed: false,
+        enabled: true,
       },
+
     ]);
 
   // Auto-colapsa quando o item personalizado fica pronto
@@ -146,7 +149,9 @@ export function BookletKitPanel({
 
     // Slots livres de acabamento (suprimentos)
     for (const s of extraSlots) {
+      if (!s.enabled) continue;
       if (!s.supply) {
+
         toast.error(
           `Selecione o suprimento do acabamento "${s.label.trim() || "personalizado"}".`,
         );
@@ -364,9 +369,17 @@ export function BookletKitPanel({
               return (
                 <div
                   key={slot.id}
-                  className="flex items-center gap-2 px-2 py-1.5 text-xs rounded-sm bg-background hover:bg-muted/50"
+                  className={cn(
+                    "flex items-center gap-2 px-2 py-1.5 text-xs rounded-sm bg-background hover:bg-muted/50",
+                    !slot.enabled && "opacity-50",
+                  )}
                 >
-                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <Checkbox
+                    checked={slot.enabled}
+                    onCheckedChange={(v) => updateSlot(slot.id, { enabled: !!v })}
+                    className="h-3.5 w-3.5"
+                  />
+
                   <span className="font-medium whitespace-nowrap">
                     {slot.label.trim() || slot.supply.produto}
                   </span>
