@@ -860,17 +860,30 @@ function CompactItemRow({
           {label}
         </p>
       </div>
-      <button
-        type="button"
-        onClick={isVariant ? onEditVariants : undefined}
-        className={`text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0 ${
-          isVariant
-            ? "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
-            : "bg-muted text-muted-foreground"
-        }`}
-      >
-        {formulaBadge(item)}
-      </button>
+      {isVariant ? (() => {
+        const total = item.variants.length;
+        const mapped = item.variants.filter((v) => !!v.supply_id).length;
+        const complete = mapped === total && total > 0;
+        return (
+          <button
+            type="button"
+            onClick={onEditVariants}
+            className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 cursor-pointer transition-colors ${
+              complete
+                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25"
+                : "bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25"
+            }`}
+            title={complete ? "Todas as faixas mapeadas" : "Faixas pendentes — clique para configurar"}
+          >
+            {complete ? `✓ ${total} faixas mapeadas` : `⚠ ${total - mapped} pendente${total - mapped === 1 ? "" : "s"}`}
+          </button>
+        );
+      })() : (
+        <span className="text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0 bg-muted text-muted-foreground">
+          {formulaBadge(item)}
+        </span>
+      )}
+
       <Select
         value={item.role}
         onValueChange={(v: KitItemRole) =>
