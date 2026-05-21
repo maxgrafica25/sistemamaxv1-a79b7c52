@@ -372,16 +372,17 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
         <Field label="Preço unitário">
           <div className="h-9 px-3 rounded-md border border-border bg-muted/40 flex items-center justify-between">
             <span className="text-sm font-semibold text-primary tabular-nums">
-              {pricing ? fmtBRL(pricing.sellingPrice) : "—"}
+              {pricing ? fmtBRL(pricing.sellingPrice + finishingExtraPerSheet) : "—"}
             </span>
-            {pricing && pricing.sellingPrice !== pricing.baseCost && (
+            {pricing && finishingExtraPerSheet > 0 && (
               <span className="text-[11px] text-muted-foreground tabular-nums">
-                custo {fmtBRL(pricing.baseCost)}
+                + {fmtBRL(finishingExtraPerSheet)} acab.
               </span>
             )}
           </div>
         </Field>
       </div>
+
 
       <Field label="Descrição (opcional)">
         <Input
