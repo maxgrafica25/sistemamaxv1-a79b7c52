@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Check, Plus, Tag, ExternalLink } from "lucide-react";
+import { Check, Plus, Tag, ExternalLink, Wand2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import {
@@ -24,8 +24,10 @@ import {
   type LabelShape,
 } from "@/lib/labels/layout";
 import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
+import { loadConfig, SEED_LABEL_PRESETS, type LabelPreset } from "@/lib/labels/config-storage";
 import { fmtBRL } from "../shared/pricing";
 import { TierSimulator } from "../shared/TierSimulator";
+import { ModeButton } from "../shared/ModeButton";
 import { genId, type V3LabelItem } from "../types";
 
 interface Props {
