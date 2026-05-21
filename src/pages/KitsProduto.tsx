@@ -791,8 +791,10 @@ export default function KitsProduto() {
           variants={variantItem.variants}
           onChange={(next) => updateItem(variantItem.tmp_id, { variants: next })}
           itemLabel={variantItem.supply_label || "Item"}
+          currentItemId={variantItem.id}
         />
       )}
+
 
       <ConfirmDialog
         open={!!deletingId}
