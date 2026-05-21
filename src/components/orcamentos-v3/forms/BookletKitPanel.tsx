@@ -73,6 +73,11 @@ export function BookletKitPanel({
   useEffect(() => {
     if (backCoverMode === "custom" && customBackCover) setBackCoverCollapsed(true);
   }, [customBackCover, backCoverMode]);
+  useEffect(() => {
+    setExtraSlots((prev) =>
+      prev.map((s) => (s.item && !s.collapsed ? { ...s, collapsed: true } : s)),
+    );
+  }, [extraSlots.map((s) => (s.item ? s.id : "")).join("|")]);
 
   const { rows, spiralDiameter } = useMemo(
     () =>
