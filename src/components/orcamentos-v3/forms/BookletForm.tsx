@@ -60,7 +60,6 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
         : 1;
 
   const totalMioloPreco = pricing ? pricing.sellingPrice * physicalSheets * (sideMult === 2 && catalog?.side !== "F/V" ? 2 : 1) : 0;
-  const totalMioloCusto = pricing ? pricing.baseCost * physicalSheets * (sideMult === 2 && catalog?.side !== "F/V" ? 2 : 1) : 0;
 
   const spiralDiameter = bookletPages > 0 ? getIdealSpiral(bookletPages) : null;
 
