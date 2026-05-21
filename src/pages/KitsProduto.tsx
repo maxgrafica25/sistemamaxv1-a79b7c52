@@ -707,12 +707,10 @@ export default function KitsProduto() {
             {items.length === 0 ? (
               <div className="rounded-md border border-dashed py-10 text-center">
                 <Layers className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
-                <p className="text-sm text-muted-foreground mb-3">
-                  Nenhum item ainda. Adicione acabamentos e processos.
+                <p className="text-sm text-muted-foreground">
+                  Nenhum item ainda. Use os botões abaixo para adicionar
+                  acabamentos ou encadernação espiral.
                 </p>
-                <Button onClick={() => setPickerOpen(true)} size="sm">
-                  <Plus className="h-4 w-4 mr-1" /> Adicionar acabamentos
-                </Button>
               </div>
             ) : (
               renderedItems.map((b, bi) =>
