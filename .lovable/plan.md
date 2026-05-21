@@ -1,49 +1,53 @@
 ## Objetivo
 
-Tornar a opção **Personalizada** mais evidente em Capa/Contracapa do Kit Apostila e, depois que o usuário escolher o papel, colapsar o editor mostrando um resumo visual (no mesmo tom roxo do bloco do Kit) do que foi configurado — clicável para reabrir e editar.
+Tornar o painel "Kit Encadernação" mais flexível: o kit vira uma sugestão que pode ser usada inteira, parcialmente trocada por impressões personalizadas, ou totalmente substituída por acabamentos livres definidos pelo usuário. O botão de aplicar reflete o que está sendo aplicado.
 
-## Mudanças
+## Mudanças (arquivo único: `BookletKitPanel.tsx`)
 
-### 1. Toggle Padrão/Personalizada mais evidente (`BookletKitPanel.tsx`)
+### 1. Slots livres de acabamento personalizado
 
-Hoje o `Tabs` aparece bem pequeno (h-5, text-[10px]) e fica fácil passar batido.
+Adicionar, abaixo das linhas fixas do kit (capa, contracapa, espiral, furação, encadernação), uma seção **"Acabamentos personalizados"** com:
 
-- Aumentar o toggle: `h-7`, fonte `text-[11px]`, padding maior nos triggers.
-- Adicionar microcopy à direita do toggle quando em modo Padrão: `"← clique em Personalizada para usar impressão (ex.: Couchê 300g + laminação)"` em `text-[10px] text-muted-foreground italic`, visível só quando `mode === "standard"`. Some quando o usuário troca para Personalizada (não polui).
-- Quando `mode === "custom"` e ainda **sem papel escolhido**, mostrar um badge âmbar suave: `"Configure abaixo ↓"` para guiar.
-- Trocar o `TabsTrigger "Personalizada"` por um visual mais "ativável": ícone `Sparkles` pequeno + texto, com `data-[state=inactive]` em cor `primary/70` (em vez de muted) para sinalizar que é uma ação interessante.
+- Botão `+ Adicionar acabamento` (ghost, ícone `Plus`, `text-primary`).
+- Cada clique cria um novo slot com um `CustomCoverEditor` (reutilizando o componente existente) + campo de nome opcional (ex.: "Laminação BOPP", "Capa dura", "Folha guarda").
+- Cada slot tem:
+  - Toggle aberto/colapsado (mesma lógica de capa/contracapa: colapsa para o chip roxo quando o item fica válido).
+  - Botão `Remover` (ícone `Trash2`, ghost, `text-destructive`).
+- Estado: `extraSlots: Array<{ id: string; label: string; item: V3PrintItem | null; collapsed: boolean }>`.
 
-### 2. Colapsar editor após escolha + resumo roxo (`CustomCoverEditor.tsx` + `BookletKitPanel.tsx`)
+Os slots livres são incluídos no `apply()` se tiverem `item` válido. Se um slot estiver aberto sem papel escolhido na hora do apply, mostra `toast.error` (mesma regra de capa/contracapa).
 
-Estado novo em `BookletKitPanel`: `coverCollapsed: boolean` e `backCoverCollapsed: boolean` (default `false`).
+### 2. Rótulo dinâmico do botão
 
-Fluxo:
-- Modo Personalizada + papel ainda não escolhido → editor aberto (igual hoje).
-- Assim que o `CustomCoverEditor` reporta um `V3PrintItem` válido (via `onChange`), o painel **automaticamente colapsa** o editor (`setCoverCollapsed(true)`).
-- No lugar do editor, renderizar um **chip resumo roxo** logo abaixo da linha da capa, no mesmo estilo do bloco principal do Kit (`border-primary/30 bg-primary/[0.03]`):
-
-```text
-[✨ Capa personalizada] Couchê 300g · A4 · F/V · + Laminação BOPP brilhante   R$ 8,20   [Editar]
+Computar `hasAnyCustom`:
+```ts
+const hasAnyCustom =
+  (coverMode === "custom" && !excluded.has("capa")) ||
+  (backCoverMode === "custom" && !excluded.has("contracapa")) ||
+  extraSlots.length > 0;
 ```
 
-  - Ícone `Sparkles` em `text-primary`.
-  - Descrição = mesma string já gerada em `desc` do V3PrintItem (papel + tamanho + face + acabamentos).
-  - Subtotal já calculado (`valor_unitario × quantidade`) em `tabular-nums`.
-  - Botão `Editar` (ghost, `h-6`, ícone `Pencil`) → `setCoverCollapsed(false)` reabre o editor com os valores preservados.
-- Se o usuário trocar de papel/acabamento dentro do editor reaberto, ao fechar (botão "Concluir" no rodapé do editor, novo) volta a colapsar.
-- Se trocar o toggle de volta para **Padrão**, reseta `coverCollapsed = false` e descarta `customCover`.
+Botão final:
+- `hasAnyCustom === true` → label `"Aplicar acabamentos"`, ícone `Sparkles`.
+- `hasAnyCustom === false` → mantém `"Aplicar Kit"` + `Wand2` (comportamento atual).
 
-### 3. Editor com botão "Concluir" (`CustomCoverEditor.tsx`)
+### 3. Cabeçalho/microcopy
 
-Adicionar um rodapé com botão `Concluir` (size sm, variant default) — visível apenas quando há um `item` válido. Recebe nova prop opcional `onDone?: () => void` que o painel usa para colapsar manualmente. Não muda nada se `onDone` não for passado (componente continua reutilizável).
+Atualizar o subtítulo do painel para deixar claro que o kit é opcional:
+> "Use o kit sugerido, troque itens por impressão personalizada, ou desmarque tudo e adicione apenas os acabamentos que precisar."
+
+### 4. Comportamento de aplicar quando nada do kit está marcado
+
+Hoje, se tudo está desmarcado e não há slots livres → `toast.info("Selecione ao menos um item do kit.")`. Atualizar para:
+- Se `items.length === 0` e nenhum slot livre configurado → mensagem `"Adicione ao menos um acabamento ou item do kit."`.
+- Se houver apenas slots livres válidos → aplica normalmente (sem o `spiralDiameter` no toast).
 
 ## Fora de escopo
 
-- Não mexe em pricing, finishing engine, miolo, outras formas (Cartão/Folheto/Etiqueta).
-- Não persiste a capa personalizada como preset reutilizável.
-- Não altera o chip-resumo do miolo nem o Resumo Financeiro.
+- Nenhuma mudança em `CustomCoverEditor.tsx`, `BookletForm.tsx`, `bookletKit.ts`, lógica de preço, ou catálogo.
+- Sem persistência/preset de acabamentos favoritos.
+- Sem novos campos no `V3Item` — slots livres usam o mesmo `V3PrintItem` que capa/contracapa.
 
-## Arquivos
+## Arquivos tocados
 
-- `src/components/orcamentos-v3/forms/BookletKitPanel.tsx` — toggle destacado, microcopy, estado collapsed, chip-resumo roxo.
-- `src/components/orcamentos-v3/forms/CustomCoverEditor.tsx` — prop `onDone` + botão Concluir.
+- `src/components/orcamentos-v3/forms/BookletKitPanel.tsx` (único).
