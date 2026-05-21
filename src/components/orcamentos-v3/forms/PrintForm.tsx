@@ -276,9 +276,9 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
     const items = qtys
       .map((q) => {
         const it = buildItem(q, tg);
-        return it ? { ...it, tier_primary: q === primaryQty } : null;
+        return it ? ({ ...it, tier_primary: q === primaryQty } as V3PrintItem) : null;
       })
-      .filter((x): x is V3PrintItem & { tier_primary: boolean } => !!x);
+      .filter((x): x is V3PrintItem => !!x);
     if (items.length === 0) return;
     onAddTiers(items);
     setDescricao("");
