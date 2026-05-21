@@ -43,6 +43,29 @@ export function BookletKitPanel({
   const [coverCollapsed, setCoverCollapsed] = useState(false);
   const [backCoverCollapsed, setBackCoverCollapsed] = useState(false);
 
+  type ExtraSlot = {
+    id: string;
+    label: string;
+    item: V3PrintItem | null;
+    collapsed: boolean;
+  };
+  const [extraSlots, setExtraSlots] = useState<ExtraSlot[]>([]);
+
+  const updateSlot = (id: string, patch: Partial<ExtraSlot>) =>
+    setExtraSlots((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  const removeSlot = (id: string) =>
+    setExtraSlots((prev) => prev.filter((s) => s.id !== id));
+  const addSlot = () =>
+    setExtraSlots((prev) => [
+      ...prev,
+      {
+        id: `slot_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        label: "",
+        item: null,
+        collapsed: false,
+      },
+    ]);
+
   // Auto-colapsa quando o item personalizado fica pronto
   useEffect(() => {
     if (coverMode === "custom" && customCover) setCoverCollapsed(true);
