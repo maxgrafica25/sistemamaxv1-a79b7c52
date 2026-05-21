@@ -94,6 +94,13 @@ export function BookletKitPanel({
 
   const loading = !supLoaded || !stLoaded;
 
+  const hasAnyCustom =
+    (coverMode === "custom" && !excluded.has("capa")) ||
+    (backCoverMode === "custom" && !excluded.has("contracapa")) ||
+    extraSlots.length > 0;
+
+
+
   const toggleRow = (key: KitRowKind) => {
     setExcluded((prev) => {
       const next = new Set(prev);
