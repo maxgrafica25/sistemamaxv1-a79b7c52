@@ -1,40 +1,61 @@
+# Presets de quantidade — novos valores + UI mais visível
+
 ## Objetivo
+No painel "Faixas adicionais" (`TierFaixasPanel.tsx`), trocar os presets atuais (×2, ×5, ×10, +50%, Limpar) por **−5, +5, +10, +15**, manter o campo livre para quantidade personalizada e **redesenhar a área de presets** para ficar muito mais clara e fácil de usar.
 
-Padronizar a entrada dos formulários de "Impressão + Acabamentos" e "Comunicação Visual" (Etiquetas) com o toggle **Produtos | Personalizado**, sempre nessa ordem, e abrindo por padrão em **Produtos**.
+## Novos presets
+Relativos à quantidade atual (`currentQty`):
+- **−5** → `currentQty − 5`
+- **+5** → `currentQty + 5`
+- **+10** → `currentQty + 10`
+- **+15** → `currentQty + 15`
 
-## 1. Impressão + Acabamentos (`PrintAndProductForm.tsx`)
+`addQty` já ignora valores ≤ 0 e duplicatas, então `−5` em quantidades pequenas é seguro. Ainda assim, vamos **desabilitar visualmente** o botão `−5` quando `currentQty − 5 < 1`, para deixar claro que ele não se aplica.
 
-Trocar apenas a ordem e o default — sem mexer na lógica de sugestão/presets.
+## Redesign da área de presets
 
-- Linha 31: `useState<Mode>("custom")` → `useState<Mode>("product")` (abre já em Produtos).
-- Linhas 70–83: inverter os dois `<ModeButton>` para que **Produto** apareça primeiro e **Personalizado** depois. Padronizar o label para **"Produtos"** (plural), igual ao pedido do usuário.
-- Nada muda em chips, sugestão, formulários internos ou submit.
+### Estado atual
+- Linha discreta com label "Presets:" minúsculo e botões pill cinza pequenos (h-6, text-[10px]) — passam despercebidos.
+- "Limpar" misturado com os presets, sem hierarquia.
+- O campo "Adicionar quantidade" fica acima dos presets, separado.
 
-## 2. Comunicação Visual / Etiquetas (`LabelEmbeddedForm.tsx`)
+### Proposta
+Reagrupar tudo em um único bloco "Adicionar faixa" mais destacado:
 
-Hoje o form abre direto em modo livre. Adicionar o mesmo toggle no topo, na mesma posição visual do form de Impressão.
+```text
+┌─ Adicionar uma faixa para comparar ───────────────┐
+│                                                   │
+│  Atalhos (a partir de {currentQty} un)            │
+│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐                  │
+│  │ −5  │ │ +5  │ │ +10 │ │ +15 │                  │
+│  │ 45  │ │ 55  │ │ 60  │ │ 65  │  ← qty resultante│
+│  └─────┘ └─────┘ └─────┘ └─────┘                  │
+│                                                   │
+│  ou digite outra quantidade                       │
+│  [ 100        ] [ + Adicionar ]                   │
+│                                                   │
+│                              [ Limpar todas ]     │
+└───────────────────────────────────────────────────┘
+```
 
-- Novo estado `mode: "product" | "custom"`, default `"product"`.
-- Renderizar, antes de qualquer campo (acima de Descrição/Folha), o mesmo bloco:
-  ```
-  <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
-    <ModeButton active={mode==="product"} icon={Wand2} label="Produtos" />
-    <ModeButton active={mode==="custom"}  icon={Pencil} label="Personalizado" />
-  </div>
-  ```
-  Reaproveitar o componente `ModeButton` extraindo-o para `shared/ModeButton.tsx` (mesmo arquivo usado pelos dois forms) — sem alterar visual.
-- **Modo Produtos**: mostrar chips com os favoritos de etiqueta vindos de `loadConfig().presets` (`LabelPreset[]` em `src/lib/labels/config-storage.ts`, já com `SEED_LABEL_PRESETS`). Cada chip aplica os valores do preset (`labelW`, `labelH`, `shape`, `sheetId`, `quantidade` se houver) nos states existentes e mantém o restante do formulário visível para ajustes — mesmo padrão visual dos chips de produto em Impressão.
-- **Modo Personalizado**: comportamento atual (sem chips), preservando todos os campos e a integração com `TierSimulator`/`onAdd`/`onAddTiers`.
-- Nenhuma mudança em cálculo, pricing, submit, tiers ou tipos.
+Detalhes visuais:
+- Botões de atalho maiores (`h-12`, conteúdo em 2 linhas: rótulo grande em cima `−5/+5/+10/+15`, número resultante embaixo em `text-[10px] text-muted-foreground tabular-nums`).
+- Borda mais visível (`border-border` sólida em vez de pill discreto) + hover com `bg-primary/5` e `border-primary/40`.
+- Largura igual (`flex-1` em grid de 4 colunas) para alinhamento limpo.
+- Label "Atalhos (a partir de N un)" em `text-xs` para o usuário entender que são relativos.
+- Separador sutil antes do campo de quantidade livre, com label próprio "ou digite outra quantidade".
+- Botão "Limpar todas" movido para a direita, em `ghost` pequeno, separado dos presets — só aparece quando `sortedExtras.length > 0`.
+- Botão `−5` recebe `disabled` + `opacity-40 cursor-not-allowed` quando o resultado seria < 1.
 
-## 3. Fora do escopo
+## Mudanças
 
-- Lógica de sugestão automática para etiquetas (não solicitada).
-- Persistência de qual modo o usuário usou por último.
-- Alterações nos demais formulários (Booklet, CV, Supply, ThirdParty).
+**Arquivo único:** `src/components/orcamentos-v3/shared/TierFaixasPanel.tsx`
 
-## Arquivos afetados
+1. Trocar o array de presets atual pela lista nova `[-5, +5, +10, +15]` (deltas).
+2. Remover o helper `applyPreset` (não é mais usado).
+3. Substituir as duas seções "Adicionar quantidade" e "Presets" por um bloco unificado conforme o esboço acima.
+4. Mover "Limpar" para um botão `ghost` separado, condicionalmente renderizado.
 
-- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx` — reordenar toggle + default.
-- `src/components/orcamentos-v3/forms/LabelEmbeddedForm.tsx` — adicionar toggle + chips de favoritos.
-- `src/components/orcamentos-v3/shared/ModeButton.tsx` (novo) — extrair o botão hoje local em `PrintAndProductForm` para reuso.
+## Fora do escopo
+- Nada de lógica de precificação, cálculo ou outros formulários.
+- Não mexer no resumo da quantidade solicitada nem na lista de sugestões já adicionadas.
