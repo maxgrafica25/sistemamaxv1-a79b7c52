@@ -67,21 +67,22 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
 
   return (
     <div className="space-y-5">
-      {/* Toggle Personalizado / Produto */}
+      {/* Toggle Produtos / Personalizado */}
       <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
+        <ModeButton
+          active={mode === "product"}
+          onClick={() => setMode("product")}
+          icon={Wand2}
+          label="Produtos"
+        />
         <ModeButton
           active={mode === "custom"}
           onClick={() => setMode("custom")}
           icon={Pencil}
           label="Personalizado"
         />
-        <ModeButton
-          active={mode === "product"}
-          onClick={() => setMode("product")}
-          icon={Wand2}
-          label="Produto"
-        />
       </div>
+
 
       {/* Chips de produto */}
       {mode === "product" && (
