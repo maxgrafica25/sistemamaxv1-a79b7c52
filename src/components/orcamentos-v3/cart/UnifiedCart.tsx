@@ -468,3 +468,88 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardPro
     </li>
   );
 }
+
+interface SingleCardProps {
+  item: V3Item;
+  isNew: boolean;
+  onDuplicate: (id: string) => void;
+  onRemove: (id: string) => void;
+}
+
+function SingleCard({ item, isNew, onDuplicate, onRemove }: SingleCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const Icon = ICON[item.kind];
+  const price = priceOf(item).preco_total;
+  const details = expanded ? itemDetails(item) : [];
+  return (
+    <li
+      className={cn(
+        "group rounded-md border border-border/60 bg-card p-3 transition-all",
+        isNew && "ring-2 ring-emerald-500/50 animate-in fade-in slide-in-from-right-2",
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <div className="rounded bg-primary/10 p-1.5 text-primary shrink-0">
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium leading-tight truncate">
+              {(item as { descricao?: string }).descricao || LABEL[item.kind]}
+            </p>
+            <span className="text-sm font-semibold tabular-nums shrink-0">
+              {fmtBRL(price)}
+            </span>
+          </div>
+          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+            <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4">
+              {LABEL[item.kind]}
+            </Badge>
+            <span className="text-[11px] text-muted-foreground">{cartMeta(item)}</span>
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="ml-auto inline-flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              {expanded ? "ocultar detalhes" : "ver detalhes"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {expanded && (
+        <ul className="mt-2.5 space-y-0.5 border-t border-border/60 pt-2">
+          {details.map((d, i) => (
+            <li key={i} className="flex items-center justify-between gap-2 text-[11px]">
+              <span className={cn("text-muted-foreground", d.muted && "opacity-80")}>{d.label}</span>
+              <span className={cn("tabular-nums", d.muted ? "text-muted-foreground" : "font-medium")}>
+                {d.value}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-2 flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 text-xs"
+          onClick={() => onDuplicate(item.id)}
+        >
+          <Copy className="h-3 w-3 mr-1" /> Duplicar
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+          onClick={() => onRemove(item.id)}
+        >
+          <Trash2 className="h-3 w-3 mr-1" /> Excluir
+        </Button>
+      </div>
+    </li>
+  );
+}
+
