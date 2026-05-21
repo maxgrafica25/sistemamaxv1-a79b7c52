@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Check } from "lucide-react";
 import PrintingItemSearch, {
   type PrintingCatalogItem,
 } from "@/components/orcamentos/PrintingItemSearch";
@@ -20,9 +22,11 @@ interface Props {
   slotLabel: string;
   /** Notifica o pai com o V3PrintItem atual (ou null se incompleto). */
   onChange: (item: V3PrintItem | null) => void;
+  /** Callback opcional para fechar/colapsar o editor (botão Concluir). */
+  onDone?: () => void;
 }
 
-export function CustomCoverEditor({ units, slotLabel, onChange }: Props) {
+export function CustomCoverEditor({ units, slotLabel, onChange, onDone }: Props) {
   const { items, tiers } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
   const [duplex, setDuplex] = useState(false);
@@ -160,13 +164,20 @@ export function CustomCoverEditor({ units, slotLabel, onChange }: Props) {
       )}
 
       {item && (
-        <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border/40">
+        <div className="flex items-center justify-between gap-2 text-[11px] pt-1 border-t border-border/40">
           <span className="text-muted-foreground">
             {totalSheets} folha{totalSheets > 1 ? "s" : ""} de impressão
           </span>
-          <Badge variant="secondary" className="font-semibold tabular-nums">
-            {fmtBRL(subtotal)}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="font-semibold tabular-nums">
+              {fmtBRL(subtotal)}
+            </Badge>
+            {onDone && (
+              <Button size="sm" onClick={onDone} className="h-7 text-[11px]">
+                <Check className="h-3.5 w-3.5 mr-1" /> Concluir
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>
