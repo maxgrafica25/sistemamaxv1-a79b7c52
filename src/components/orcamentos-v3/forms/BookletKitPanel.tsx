@@ -321,7 +321,7 @@ export function BookletKitPanel({
             )}
           </p>
           <p className="text-[11px] text-muted-foreground">
-            Capa/Contracapa podem ser padrão (suprimento) ou personalizadas (impressão + acabamento).
+            Use o kit sugerido, troque itens por impressão personalizada, ou desmarque tudo e adicione apenas os acabamentos que precisar.
           </p>
         </div>
       </div>
@@ -330,6 +330,56 @@ export function BookletKitPanel({
         <p className="text-[11px] text-muted-foreground">Carregando catálogo…</p>
       ) : (
         <div className="space-y-1.5">{rows.map(renderRow)}</div>
+      )}
+
+      {/* Slots livres de acabamento personalizado */}
+      {!loading && (
+        <div className="space-y-2 pt-1 border-t border-primary/15">
+          {extraSlots.map((slot) => (
+            <div key={slot.id} className="space-y-1.5">
+              <div className="flex items-center gap-2 px-2">
+                <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                <Input
+                  value={slot.label}
+                  onChange={(e) => updateSlot(slot.id, { label: e.target.value })}
+                  placeholder="Nome do acabamento (ex.: Laminação BOPP, Capa dura)"
+                  className="h-7 text-[11px] flex-1"
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => removeSlot(slot.id)}
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                  aria-label="Remover acabamento"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              {!slot.collapsed && (
+                <CustomCoverEditor
+                  units={Math.max(1, bookletUnits)}
+                  slotLabel={slot.label.trim() || "Acabamento personalizado"}
+                  onChange={(item) => updateSlot(slot.id, { item })}
+                  onDone={() => updateSlot(slot.id, { collapsed: true })}
+                />
+              )}
+              {slot.collapsed && slot.item &&
+                renderCustomSummary(
+                  slot.label.trim() ? { ...slot.item, descricao: slot.label.trim() } : slot.item,
+                  () => updateSlot(slot.id, { collapsed: false }),
+                )}
+            </div>
+          ))}
+
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={addSlot}
+            className="h-7 text-[11px] text-primary hover:text-primary"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar acabamento
+          </Button>
+        </div>
       )}
 
       <div className="flex items-center justify-between gap-2 pt-1">
@@ -342,7 +392,15 @@ export function BookletKitPanel({
           )}
         </p>
         <Button size="sm" onClick={apply} disabled={loading} className="h-8 text-xs">
-          <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Aplicar Kit
+          {hasAnyCustom ? (
+            <>
+              <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Aplicar acabamentos
+            </>
+          ) : (
+            <>
+              <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Aplicar Kit
+            </>
+          )}
         </Button>
       </div>
     </div>
