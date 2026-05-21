@@ -95,8 +95,9 @@ export function BookletKitPanel({
   const loading = !supLoaded || !stLoaded;
 
   const hasAnyCustom =
-    (coverMode === "custom" && !excluded.has("capa")) ||
-    (backCoverMode === "custom" && !excluded.has("contracapa")) ||
+    coverMode === "custom" ||
+    backCoverMode === "custom" ||
+    excluded.size > 0 ||
     extraSlots.length > 0;
 
 
@@ -333,7 +334,7 @@ export function BookletKitPanel({
       )}
 
       {/* Slots livres de acabamento personalizado */}
-      {!loading && (
+      {!loading && extraSlots.length > 0 && (
         <div className="space-y-2 pt-1 border-t border-primary/15">
           {extraSlots.map((slot) => (
             <div key={slot.id} className="space-y-1.5">
@@ -371,26 +372,27 @@ export function BookletKitPanel({
             </div>
           ))}
 
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={addSlot}
-            className="h-7 text-[11px] text-primary hover:text-primary"
-          >
-            <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar acabamento
-          </Button>
         </div>
       )}
 
       <div className="flex items-center justify-between gap-2 pt-1">
-        <p className="text-[10px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={addSlot}
+            disabled={loading}
+            className="h-8 text-xs border-primary/30 text-primary hover:text-primary"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar acabamento
+          </Button>
           {rows.some((r) => r.fallback) && (
-            <>
+            <p className="text-[10px] text-muted-foreground">
               <AlertCircle className="inline h-3 w-3 mr-1 text-amber-500" />
               Itens em amarelo não foram encontrados no cadastro.
-            </>
+            </p>
           )}
-        </p>
+        </div>
         <Button size="sm" onClick={apply} disabled={loading} className="h-8 text-xs">
           {hasAnyCustom ? (
             <>
