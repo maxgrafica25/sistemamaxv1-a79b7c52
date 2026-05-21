@@ -15,7 +15,7 @@ import { fmtBRL } from "../shared/pricing";
 import { BASTOES_CM, sugerirBastao } from "../shared/bastaoSuggester";
 import { TierSimulator } from "../shared/TierSimulator";
 import { genId, type V3PrintItem } from "../types";
-import { listFinishings, type FinishingItem } from "@/lib/finishings/catalog";
+import { listFinishings, sumFinishingsPerSheet, type FinishingItem } from "@/lib/finishings/catalog";
 
 interface Props {
   onAdd: (item: V3PrintItem) => void;
@@ -191,9 +191,31 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
     return label;
   };
 
+  const selections = useMemo(
+    () =>
+      printFinishings
+        .filter((f) => finEnabled[f.id])
+        .map((f) => ({
+          id: f.id,
+          name: f.name,
+          pricing_model: f.pricing_model,
+          unit_label: f.unit_label,
+          price: f.price_per_sheet,
+          cost: f.price_per_sheet,
+        })),
+    [printFinishings, finEnabled],
+  );
+
+  const finishingExtraPerSheet = useMemo(() => {
+    const { perSheet, perUnitTotal } = sumFinishingsPerSheet(selections, quantidade);
+    return perSheet + (quantidade > 0 ? perUnitTotal / quantidade : 0);
+  }, [selections, quantidade]);
+
   const buildItem = (qty: number, tierGroupId?: string): V3PrintItem | null => {
     if (!catalog) return null;
     const pr = pricePerSheet(catalog, tiers, qty);
+    const { perSheet, perUnitTotal } = sumFinishingsPerSheet(selections, qty);
+    const extra = perSheet + (qty > 0 ? perUnitTotal / qty : 0);
     return {
       id: genId(),
       kind: "print",
@@ -207,12 +229,13 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
       side: catalog.side,
       printer_category_id: catalog.printer_category_id,
       markup_group_id: catalog.markup_group_id,
-      valor_unitario: pr.sellingPrice,
-      custo_unitario: pr.baseCost,
+      valor_unitario: pr.sellingPrice + extra,
+      custo_unitario: pr.baseCost + extra,
       formato: null,
       cores: null,
       face: catalog.side === "F/V" ? "fv" : "frente",
       finishings: enabledLabels,
+      finishing_selections: selections,
     };
   };
 
@@ -349,16 +372,17 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
         <Field label="Preço unitário">
           <div className="h-9 px-3 rounded-md border border-border bg-muted/40 flex items-center justify-between">
             <span className="text-sm font-semibold text-primary tabular-nums">
-              {pricing ? fmtBRL(pricing.sellingPrice) : "—"}
+              {pricing ? fmtBRL(pricing.sellingPrice + finishingExtraPerSheet) : "—"}
             </span>
-            {pricing && pricing.sellingPrice !== pricing.baseCost && (
+            {pricing && finishingExtraPerSheet > 0 && (
               <span className="text-[11px] text-muted-foreground tabular-nums">
-                custo {fmtBRL(pricing.baseCost)}
+                + {fmtBRL(finishingExtraPerSheet)} acab.
               </span>
             )}
           </div>
         </Field>
       </div>
+
 
       <Field label="Descrição (opcional)">
         <Input
@@ -387,7 +411,7 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
             <span>
               Total:{" "}
               <span className="text-foreground font-semibold tabular-nums">
-                {fmtBRL(pricing.sellingPrice * quantidade)}
+                {fmtBRL((pricing.sellingPrice + finishingExtraPerSheet) * quantidade)}
               </span>
             </span>
           )}

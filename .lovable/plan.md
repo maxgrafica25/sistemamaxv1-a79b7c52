@@ -1,72 +1,74 @@
-## Unificar Acabamentos: Etiquetas + Impressão V3
+## Engine V3: somar acabamentos no preço do Print
 
-Migração do cadastro `Acabamentos` para servir **dois contextos** (Etiquetas e Impressão), mantendo Comunicação Visual e Processos de Produção separados.
+Hoje o `PrintForm` já lista acabamentos do catálogo unificado, mas o `valor_unitario`/`custo_unitario` do `V3PrintItem` só contém impressão + papel. Os chips marcados não impactam o total. Esta fase fecha o ciclo: chip ligado → custo somado por folha (ou por unidade) → refletido no preço unitário e no total do orçamento.
 
-### Ordem de execução
+### 1. Estender `V3PrintItem` (`src/components/orcamentos-v3/types.ts`)
 
-1. **Migration** (primeiro — destrava tudo)
-2. **UI `/acabamentos`** (form + filtros + reposicionar na sidebar)
-3. **PrintForm V3** (consumir catálogo dinâmico)
+Trocar `finishings: string[]` por estrutura tipada, mantendo compat de exibição:
 
----
-
-### 1. Migration
-
-```sql
--- Enum (extensível depois com ALTER TYPE ADD VALUE)
-CREATE TYPE finishing_pricing_model AS ENUM ('per_sheet', 'per_unit');
-
-ALTER TABLE finishings_price_items
-  ADD COLUMN pricing_model finishing_pricing_model NOT NULL DEFAULT 'per_sheet',
-  ADD COLUMN applies_to text[] NOT NULL DEFAULT '{etiqueta}',
-  ADD COLUMN unit_label text;
-
-ALTER TABLE finishings_price_items ALTER COLUMN size DROP NOT NULL;
-
--- Trigger de validação
-CREATE OR REPLACE FUNCTION validate_finishing_item() RETURNS trigger ...
-  -- applies_to deve conter ao menos um de {etiqueta, impressao}
-  -- per_unit exige unit_label
-  -- per_sheet exige size
+```ts
+finishings: string[];               // labels — continua, p/ UI/descrição
+finishing_selections?: {            // novo — drive do cálculo
+  id: string;
+  name: string;
+  pricing_model: "per_sheet" | "per_unit";
+  unit_label: string | null;
+  price: number;                    // snapshot da unidade (R$/folha ou R$/un)
+  cost: number;                     // mesmo snapshot — sem markup adicional
+  units?: number;                   // só p/ per_unit (default = quantidade do item)
+}[];
 ```
 
-**Zero regressão:** registros existentes (2) ficam `pricing_model='per_sheet'`, `applies_to='{etiqueta}'` — Calc. Etiquetas continua idêntica.
+Snapshot evita recálculo divergente quando o catálogo mudar depois.
 
-### 2. UI `/acabamentos`
+### 2. Helper de cálculo (`src/lib/finishings/catalog.ts`)
 
-- Remove banner amarelo "exclusivo Etiquetas"; título vira só "Acabamentos"
-- Form ganha:
-  - **ToggleGroup "Aplicável em"** (multi): `Etiquetas` / `Impressão` — ambos marcados por padrão
-  - **Select "Modelo de cobrança"**: `Por folha` / `Por unidade`
-  - Se `per_unit`: campo `Unidade` (ex.: "ilhós", "dobra"), `size` fica opcional
-- Novo filtro topo: `Mostrar: Todos / Etiquetas / Impressão`
-- Tabela ganha coluna pequena com chips do contexto (E / I)
+Adicionar:
 
-### 3. PrintForm V3
+```ts
+export function sumFinishingsPerSheet(
+  selections: { pricing_model; price; units? }[],
+  sheets: number,
+): { perSheet: number; perUnitTotal: number }
+```
 
-- Remover array hardcoded `FINISHES_PADRAO`
-- Buscar `finishings_price_items` onde `applies_to @> ARRAY['impressao']` AND `is_active`
-- Cada chip mostra **"a partir de R$ X,XX/folha"** ou **"R$ X,XX/un"** (catálogo base — sem mentir com R$ 0,00)
-- Cálculo no engine: `per_sheet × folhas` ou `per_unit × quantidade do item`
+- `per_sheet` → soma direta em `perSheet`
+- `per_unit`  → `price × (units ?? sheets)` acumulado em `perUnitTotal` (rateado fora)
 
-### 4. Sidebar
+### 3. PrintForm (`src/components/orcamentos-v3/forms/PrintForm.tsx`)
 
-- Mover `Acabamentos` para categoria **Precificação** (perto de `Preço Impressão`)
+- Manter `finEnabled` como está
+- Derivar `selections` a partir de `printFinishings` filtrando os ligados
+- Em `buildItem(qty)`:
+  - `extraPerSheet` = soma dos `per_sheet`
+  - `extraPerUnit`  = soma dos `per_unit × (units ?? qty)`
+  - `valor_unitario = pricing.sellingPrice + extraPerSheet + extraPerUnit/qty`
+  - `custo_unitario = pricing.baseCost + extraPerSheet + extraPerUnit/qty`
+  - Sem markup extra: acabamento é custo direto repassado (decisão prévia: catálogo já está com preço de venda)
+- Chip "Total" no rodapé reflete automaticamente (já usa `sellingPrice × quantidade`)
+- Pequeno breakdown abaixo do "Preço unitário" quando houver acabamentos: `+ R$ X,XX acab.`
+
+### 4. Persistência
+
+`finishing_selections` é serializável → entra direto no JSON do item ao salvar (caminho existente em `NewQuoteFormV3` / `UnifiedCart`). Nenhuma migration nova.
+
+### 5. Tests
+
+Adicionar `src/test/v3-print-finishings.test.ts` cobrindo:
+- só per_sheet: soma direta
+- só per_unit com `units` padrão = qty: rateio volta ao mesmo valor
+- mistura dos dois
+- nenhum acabamento: comportamento idêntico ao atual
 
 ### Fora de escopo
 
-- `cv_calc_acabamentos` (Comunicação Visual) — modelo m² próprio, não muda
-- `production_steps` (Processos de Produção) — mão de obra cronometrada, não muda
-- Orçamentos V2 (será substituído pelo V3)
+- Lona/banner (`FINISHES_LONA`/`FINISHES_BANNER`) seguem hardcoded — não têm preço no catálogo ainda
+- Tiers por quantidade de acabamento (`finishing-pricing.ts`) — Calc Etiquetas usa, Print V3 ainda não; pode entrar em fase seguinte
+- Booklet/Label items — escopo só do `V3PrintItem`
 
 ### Arquivos
 
-- `supabase/migrations/<nova>.sql`
-- `src/pages/Acabamentos.tsx`
-- `src/components/Sidebar.tsx`
+- `src/components/orcamentos-v3/types.ts`
+- `src/lib/finishings/catalog.ts`
 - `src/components/orcamentos-v3/forms/PrintForm.tsx`
-- `src/lib/finishings/catalog.ts` (helper compartilhado)
-
----
-
-**Próximo passo:** rodar a migration. Aprova?
+- `src/test/v3-print-finishings.test.ts` (novo)

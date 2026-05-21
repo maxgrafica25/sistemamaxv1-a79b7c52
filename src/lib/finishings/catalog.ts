@@ -69,3 +69,29 @@ export function calcFinishingCost(
   }
   return item.price_per_sheet * (opts.units ?? 0);
 }
+
+/**
+ * Soma seleções de acabamentos para um item com `sheets` folhas.
+ * - per_sheet → entra em `perSheet` (somado ao preço por folha)
+ * - per_unit  → entra em `perUnitTotal` (rateado fora pelo chamador)
+ */
+export function sumFinishingsPerSheet(
+  selections: {
+    pricing_model: FinishingPricingModel;
+    price: number;
+    units?: number;
+  }[],
+  sheets: number,
+): { perSheet: number; perUnitTotal: number } {
+  let perSheet = 0;
+  let perUnitTotal = 0;
+  for (const s of selections) {
+    if (s.pricing_model === "per_sheet") {
+      perSheet += s.price;
+    } else {
+      perUnitTotal += s.price * (s.units ?? sheets);
+    }
+  }
+  return { perSheet, perUnitTotal };
+}
+
