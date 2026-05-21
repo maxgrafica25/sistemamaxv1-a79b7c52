@@ -102,8 +102,24 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
   const submit = () => {
     const item = buildBookletItem();
     if (!item) return;
-    onAdd(item);
+    const cleanExtras = [...new Set(extraTiers)]
+      .filter((q) => q > 0 && q !== bookletUnits)
+      .sort((a, b) => a - b);
+    if (cleanExtras.length > 0 && onAddTiers) {
+      const tg = `tg_${genId()}`;
+      const primary = { ...item, tier_group_id: tg, tier_primary: true } as V3BookletItem;
+      const siblings = cleanExtras
+        .map((q) => {
+          const s = buildBookletItem(q, tg);
+          return s ? ({ ...s, tier_primary: false } as V3BookletItem) : null;
+        })
+        .filter((x): x is V3BookletItem => !!x);
+      onAddTiers([primary, ...siblings]);
+    } else {
+      onAdd(item);
+    }
     setDescricao("");
+    setExtraTiers([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
