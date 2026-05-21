@@ -1,5 +1,12 @@
 export type V3Category = "print" | "cv" | "third" | "labor" | "supply";
 
+/** Agrupamento visual no carrinho (ex.: Apostila + Kit em um único card). */
+export interface V3BundleFields {
+  bundle_id?: string | null;
+  /** Preenchido apenas no item líder do bundle. */
+  bundle_label?: string | null;
+}
+
 export interface V3PrintItem {
   id: string;
   kind: "print";
