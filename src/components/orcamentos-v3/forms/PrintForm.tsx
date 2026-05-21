@@ -270,11 +270,14 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
     setTimeout(() => setPulse(false), 600);
   };
 
-  const submitAsTiers = (qtys: number[]) => {
+  const submitAsTiers = (qtys: number[], primaryQty: number) => {
     if (!onAddTiers || !catalog) return;
     const tg = `tg_${genId()}`;
     const items = qtys
-      .map((q) => buildItem(q, tg))
+      .map((q) => {
+        const it = buildItem(q, tg);
+        return it ? { ...it, tier_primary: q === primaryQty } : null;
+      })
       .filter((x): x is V3PrintItem => !!x);
     if (items.length === 0) return;
     onAddTiers(items);
