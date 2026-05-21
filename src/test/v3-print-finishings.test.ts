@@ -1,5 +1,43 @@
 import { describe, it, expect } from "vitest";
 import { sumFinishingsPerSheet } from "@/lib/finishings/catalog";
+import {
+  resolveFinishingPricePerSheet,
+  type FinishingTier,
+} from "@/lib/labels/finishing-pricing";
+
+// Helper para simular o que PrintForm.buildSelections faz por trás dos panos:
+// resolve preço efetivo (tier) para per_sheet, mantém base para per_unit.
+function buildSelections(
+  fins: {
+    pricing_model: "per_sheet" | "per_unit";
+    price_per_sheet: number;
+    tiers?: FinishingTier[];
+  }[],
+  qty: number,
+) {
+  return fins.map((f) => ({
+    pricing_model: f.pricing_model,
+    price:
+      f.pricing_model === "per_sheet"
+        ? resolveFinishingPricePerSheet(f.price_per_sheet, f.tiers ?? [], qty)
+        : f.price_per_sheet,
+  }));
+}
+
+const tier = (
+  min: number,
+  max: number | null,
+  price: number,
+): FinishingTier => ({
+  id: `t${min}`,
+  finishing_id: "f1",
+  label: `${min}-${max ?? "+"}`,
+  min_qty: min,
+  max_qty: max,
+  price_per_sheet: price,
+  sort_order: min,
+});
+
 
 describe("sumFinishingsPerSheet", () => {
   it("sem seleções → zero", () => {
@@ -47,5 +85,50 @@ describe("sumFinishingsPerSheet", () => {
     );
     expect(r.perSheet).toBe(0.5);
     expect(r.perUnitTotal).toBe(10);
+  });
+});
+
+describe("buildSelections + tiers (Print V3)", () => {
+  it("per_sheet sem tier → usa preço base", () => {
+    const sel = buildSelections(
+      [{ pricing_model: "per_sheet", price_per_sheet: 0.5 }],
+      500,
+    );
+    expect(sel[0].price).toBe(0.5);
+  });
+
+  it("per_sheet com tier que cobre a qty → preço da tier", () => {
+    const tiers = [tier(1, 99, 0.5), tier(100, 499, 0.35), tier(500, null, 0.2)];
+    const sel = buildSelections(
+      [{ pricing_model: "per_sheet", price_per_sheet: 0.5, tiers }],
+      300,
+    );
+    expect(sel[0].price).toBe(0.35);
+  });
+
+  it("per_sheet com qty abaixo do menor min_qty → primeira tier", () => {
+    const tiers = [tier(10, 100, 0.4), tier(101, null, 0.25)];
+    const sel = buildSelections(
+      [{ pricing_model: "per_sheet", price_per_sheet: 0.5, tiers }],
+      5,
+    );
+    expect(sel[0].price).toBe(0.4);
+  });
+
+  it("per_unit ignora tiers (mantém base)", () => {
+    const tiers = [tier(1, 1000, 0.1)];
+    const sel = buildSelections(
+      [{ pricing_model: "per_unit", price_per_sheet: 2, tiers }],
+      300,
+    );
+    expect(sel[0].price).toBe(2);
+  });
+
+  it("simulação em qtys diferentes → cada uma resolve sua própria tier", () => {
+    const tiers = [tier(1, 99, 0.5), tier(100, 499, 0.35), tier(500, null, 0.2)];
+    const f = { pricing_model: "per_sheet" as const, price_per_sheet: 0.5, tiers };
+    expect(buildSelections([f], 50)[0].price).toBe(0.5);
+    expect(buildSelections([f], 200)[0].price).toBe(0.35);
+    expect(buildSelections([f], 1000)[0].price).toBe(0.2);
   });
 });

@@ -16,6 +16,7 @@ import { BASTOES_CM, sugerirBastao } from "../shared/bastaoSuggester";
 import { TierSimulator } from "../shared/TierSimulator";
 import { genId, type V3PrintItem } from "../types";
 import { listFinishings, sumFinishingsPerSheet, type FinishingItem } from "@/lib/finishings/catalog";
+import { resolveFinishingPricePerSheet, pickFinishingTier } from "@/lib/labels/finishing-pricing";
 
 interface Props {
   onAdd: (item: V3PrintItem) => void;
@@ -85,18 +86,24 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
     }
   }, [catalog, isLona]);
 
-  // Conjunto padrão derivado do catálogo unificado
+  // Conjunto padrão derivado do catálogo unificado.
+  // O hint reflete o preço efetivo da quantidade atual (tier aplicada quando há).
   const FINISHES_PADRAO = useMemo<FinishingDef[]>(
     () =>
-      printFinishings.map((f) => ({
-        id: f.id,
-        label: f.name,
-        hint:
-          f.pricing_model === "per_sheet"
-            ? `a partir de ${fmtBRL(f.price_per_sheet)}/folha`
-            : `${fmtBRL(f.price_per_sheet)}/${f.unit_label ?? "un"}`,
-      })),
-    [printFinishings],
+      printFinishings.map((f) => {
+        let hint: string;
+        if (f.pricing_model === "per_unit") {
+          hint = `${fmtBRL(f.price_per_sheet)}/${f.unit_label ?? "un"}`;
+        } else {
+          const tier = pickFinishingTier(f.tiers ?? [], quantidade);
+          const effective = tier ? tier.price_per_sheet : f.price_per_sheet;
+          hint = tier
+            ? `${fmtBRL(effective)}/folha (faixa ${tier.label || `${tier.min_qty}${tier.max_qty ? `-${tier.max_qty}` : "+"}`})`
+            : `${fmtBRL(effective)}/folha`;
+        }
+        return { id: f.id, label: f.name, hint };
+      }),
+    [printFinishings, quantidade],
   );
 
   // Seleciona conjunto de acabamentos
@@ -191,19 +198,31 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
     return label;
   };
 
-  const selections = useMemo(
-    () =>
-      printFinishings
-        .filter((f) => finEnabled[f.id])
-        .map((f) => ({
+  // Snapshot das seleções de acabamentos resolvendo tiers por quantidade.
+  // per_sheet  → preço efetivo na faixa (cai no base se não houver tier).
+  // per_unit   → mantém preço base (faixas são por folhas, não por unidade).
+  const buildSelections = (qty: number) =>
+    printFinishings
+      .filter((f) => finEnabled[f.id])
+      .map((f) => {
+        const effective =
+          f.pricing_model === "per_sheet"
+            ? resolveFinishingPricePerSheet(f.price_per_sheet, f.tiers ?? [], qty)
+            : f.price_per_sheet;
+        return {
           id: f.id,
           name: f.name,
           pricing_model: f.pricing_model,
           unit_label: f.unit_label,
-          price: f.price_per_sheet,
-          cost: f.price_per_sheet,
-        })),
-    [printFinishings, finEnabled],
+          price: effective,
+          cost: effective,
+        };
+      });
+
+  const selections = useMemo(
+    () => buildSelections(quantidade),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [printFinishings, finEnabled, quantidade],
   );
 
   const finishingExtraPerSheet = useMemo(() => {
@@ -214,7 +233,8 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
   const buildItem = (qty: number, tierGroupId?: string): V3PrintItem | null => {
     if (!catalog) return null;
     const pr = pricePerSheet(catalog, tiers, qty);
-    const { perSheet, perUnitTotal } = sumFinishingsPerSheet(selections, qty);
+    const sel = buildSelections(qty);
+    const { perSheet, perUnitTotal } = sumFinishingsPerSheet(sel, qty);
     const extra = perSheet + (qty > 0 ? perUnitTotal / qty : 0);
     return {
       id: genId(),
@@ -235,7 +255,7 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
       cores: null,
       face: catalog.side === "F/V" ? "fv" : "frente",
       finishings: enabledLabels,
-      finishing_selections: selections,
+      finishing_selections: sel,
     };
   };
 
