@@ -28,6 +28,7 @@ import Monitoramento from "./pages/Monitoramento";
 import Produtos from "./pages/Produtos";
 import GruposMateriais from "./pages/GruposMateriais";
 import KitsProduto from "./pages/KitsProduto";
+import Insumos from "./pages/Insumos";
 import CadastrosCV from "./pages/CadastrosCV";
 import OrcamentosV2 from "./pages/orcamentos-v2/OrcamentosV2";
 import Usuarios from "./pages/Usuarios";
@@ -73,9 +74,10 @@ const App = () => (
                   <Route path="/acabamentos" element={<Acabamentos />} />
                   <Route path="/equipamentos" element={<Equipamentos />} />
                   <Route path="/cadastros" element={<Cadastros />} />
-                  <Route path="/materias-primas" element={<MateriasPrimas />} />
-                  <Route path="/grupos-materiais" element={<GruposMateriais />} />
-                  <Route path="/kits-produto" element={<KitsProduto />} />
+                  <Route path="/insumos" element={<Insumos />} />
+                  <Route path="/materias-primas" element={<Navigate to="/insumos" replace />} />
+                  <Route path="/grupos-materiais" element={<Navigate to="/insumos?tab=grupos" replace />} />
+                  <Route path="/kits-produto" element={<Navigate to="/insumos?tab=kits" replace />} />
                   <Route path="/cadastros-cv" element={<CadastrosCV />} />
                   <Route path="/processos-producao" element={<ProcessosProducao />} />
                   <Route path="/despesas-fixas" element={<DespesasFixas />} />

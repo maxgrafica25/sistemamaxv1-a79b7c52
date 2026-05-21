@@ -1,7 +1,7 @@
 import {
-  LayoutDashboard, Users, Package, Settings, Factory, Receipt, Calculator, Cpu, Shield,
+  Home, Users, Package, Settings, Factory, Receipt, Calculator, Cpu, Shield,
   ClipboardList, MessageSquare, TrendingUp, BookOpen, PanelLeftClose, PanelLeftOpen, X,
-  Layers, Megaphone, UserCog, LogOut, ShoppingCart, Wallet, Ruler, Scissors, Sparkles,
+  Megaphone, UserCog, LogOut, ShoppingCart, Wallet, Ruler, Scissors,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ function initialsOf(name?: string | null) {
 interface NavItem {
   name: string;
   href: string;
-  icon: typeof LayoutDashboard;
+  icon: typeof Home;
   badge?: string;
   adminOnly?: boolean;
   financeiroOnly?: boolean;
@@ -32,24 +32,26 @@ interface NavGroup {
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Principal",
+    label: "",
     items: [
-      { name: "Dashboard", href: "/", icon: LayoutDashboard },
-      { name: "Pedidos", href: "/pedidos", icon: ShoppingCart, badge: "Novo" },
-      { name: "Orçamentos V2", href: "/orcamentos-v2", icon: ClipboardList },
-      { name: "Orçamentos V3", href: "/orcamentos-v3/novo", icon: ClipboardList, badge: "Beta" },
+      { name: "Hoje", href: "/", icon: Home },
+    ],
+  },
+  {
+    label: "Vender",
+    items: [
+      { name: "Pedidos", href: "/pedidos", icon: ShoppingCart },
+      { name: "Orçamentos", href: "/orcamentos-v2", icon: ClipboardList },
       { name: "Chat Interno", href: "/chat", icon: MessageSquare },
     ],
   },
   {
-    label: "Cadastros",
+    label: "Catálogo",
     items: [
-      { name: "Clientes/Fornecedores", href: "/cadastros", icon: Users },
-      { name: "Matérias-Primas", href: "/materias-primas", icon: Package },
-      { name: "Grupos de Materiais", href: "/grupos-materiais", icon: Layers },
-      { name: "Kits de Produto", href: "/kits-produto", icon: Sparkles },
-      { name: "Comunicação Visual", href: "/cadastros-cv", icon: Megaphone },
+      { name: "Insumos", href: "/insumos", icon: Package },
+      { name: "Contatos", href: "/cadastros", icon: Users },
       { name: "Equipamentos", href: "/equipamentos", icon: Cpu },
+      { name: "Comunicação Visual", href: "/cadastros-cv", icon: Megaphone },
     ],
   },
   {
@@ -63,27 +65,17 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Precificação",
     items: [
       { name: "Preço Impressão", href: "/preco-impressao", icon: Calculator },
-      { name: "Acabamentos (Etiquetas)", href: "/acabamentos", icon: Scissors },
+      { name: "Acabamentos", href: "/acabamentos", icon: Scissors },
       { name: "Calc. Etiquetas", href: "/calculadora-etiquetas", icon: Ruler },
       { name: "Processos de Produção", href: "/processos-producao", icon: Factory },
     ],
   },
   {
-    label: "Inteligência de Mercado",
-    items: [
-      { name: "Monitoramento", href: "/monitoramento", icon: TrendingUp },
-      { name: "Produtos de Referência", href: "/produtos", icon: BookOpen },
-    ],
-  },
-  {
-    label: "Análise",
-    items: [
-      { name: "Auditoria", href: "/auditoria", icon: Shield, adminOnly: true },
-    ],
-  },
-  {
     label: "Administração",
     items: [
+      { name: "Monitoramento", href: "/monitoramento", icon: TrendingUp, adminOnly: true },
+      { name: "Produtos Ref.", href: "/produtos", icon: BookOpen, adminOnly: true },
+      { name: "Auditoria", href: "/auditoria", icon: Shield, adminOnly: true },
       { name: "Usuários", href: "/usuarios", icon: UserCog, adminOnly: true },
       { name: "Configurações", href: "/configuracoes", icon: Settings },
     ],
@@ -161,9 +153,9 @@ export default function Sidebar({ collapsed, toggleCollapsed, mobileOpen, closeM
         {/* Nav */}
         <TooltipProvider delayDuration={200}>
           <nav className={cn("flex-1 overflow-y-auto", collapsed ? "px-2 py-3 space-y-2" : "p-3 space-y-4")}>
-            {visibleGroups.map((group) => (
-              <div key={group.label} className="space-y-0.5">
-                {!collapsed && (
+            {visibleGroups.map((group, gi) => (
+              <div key={group.label || `g-${gi}`} className="space-y-0.5">
+                {!collapsed && group.label && (
                   <div className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
                     {group.label}
                   </div>
