@@ -1,6 +1,6 @@
 // Painel "Kit Encadernação" — preview com checkboxes + capa/contracapa personalizada.
 import { useMemo, useState, useEffect } from "react";
-import { Wand2, AlertCircle, Sparkles, Pencil, Plus, Trash2 } from "lucide-react";
+import { Wand2, AlertCircle, Sparkles, Pencil, Plus, Trash2, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,7 +13,9 @@ import { useV3ProcessCatalog } from "../shared/useV3ProcessCatalog";
 import { useV3HourlyRate } from "../shared/useV3HourlyRate";
 import { fmtBRL } from "../shared/pricing";
 import { CustomCoverEditor } from "./CustomCoverEditor";
-import type { V3Item, V3PrintItem } from "../types";
+import SupplySearch, { type SupplyOption } from "@/components/orcamentos-v2/SupplySearch";
+import { genId, type V3Item, type V3PrintItem, type V3SupplyItem } from "../types";
+
 
 interface Props {
   bookletPages: number;
