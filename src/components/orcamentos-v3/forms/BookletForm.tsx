@@ -238,38 +238,20 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
       </div>
 
       {physicalSheets > 0 && (
-        <div className="rounded-md border border-border/60 bg-background px-3 py-2.5 space-y-1">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Folhas físicas (miolo)</span>
-            <span className="font-medium tabular-nums">{physicalSheets}</span>
-          </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10.5px] text-foreground/80">
+            📄 {physicalSheets} folhas físicas
+          </span>
           {spiralDiameter && (
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground flex items-center gap-1">
-                <Info className="h-3 w-3" /> Espiral sugerida ({bookletPages} folhas)
-              </span>
-              <span className="font-medium tabular-nums">{spiralDiameter}</span>
-            </div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10.5px] text-foreground/80">
+              🌀 Espiral sugerida: {spiralDiameter}
+            </span>
           )}
-          {pricing && (
-            <>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Custo do miolo</span>
-                <span className="tabular-nums text-muted-foreground">
-                  {fmtBRL(totalMioloCusto)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">Total miolo</span>
-                <span className="font-semibold text-primary tabular-nums">
-                  {fmtBRL(totalMioloPreco)}
-                </span>
-              </div>
-            </>
+          {(duplex || catalog?.side === "F/V") && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10.5px] text-foreground/80">
+              F/V ativo
+            </span>
           )}
-          <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/40 mt-1">
-            Este valor cobre apenas o <strong>miolo impresso</strong>. Use o Kit Encadernação abaixo para adicionar capas, espiral e mão-de-obra automaticamente.
-          </p>
         </div>
       )}
 
