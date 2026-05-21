@@ -100,13 +100,6 @@ export function TierSimulator({
 
   const removeQty = (q: number) => setTiers((prev) => prev.filter((x) => x !== q));
 
-  const applyMultiplier = (factor: number) => {
-    setTiers((prev) =>
-      [...new Set(prev.map((q) => Math.max(1, Math.round(q * factor))))].sort(
-        (a, b) => a - b,
-      ),
-    );
-  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
