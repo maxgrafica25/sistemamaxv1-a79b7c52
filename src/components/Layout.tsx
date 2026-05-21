@@ -122,7 +122,7 @@ export default function Layout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-scroll [scrollbar-gutter:stable]">
+        <main className="flex-1 overflow-y-auto [scrollbar-gutter:stable]">
           <Outlet />
         </main>
       </div>
