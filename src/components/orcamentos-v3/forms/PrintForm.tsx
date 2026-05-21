@@ -16,6 +16,7 @@ import { BASTOES_CM, sugerirBastao } from "../shared/bastaoSuggester";
 import { TierSimulator } from "../shared/TierSimulator";
 import { genId, type V3PrintItem } from "../types";
 import { listFinishings, sumFinishingsPerSheet, type FinishingItem } from "@/lib/finishings/catalog";
+import { resolveFinishingPricePerSheet, pickFinishingTier } from "@/lib/labels/finishing-pricing";
 
 interface Props {
   onAdd: (item: V3PrintItem) => void;
