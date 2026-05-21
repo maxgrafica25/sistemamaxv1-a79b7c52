@@ -288,6 +288,7 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardPro
   const Icon = ICON[leader.kind];
   const isNew = entry.items.some((i) => i.id === highlightId);
   const total = entry.items.reduce((acc, it) => acc + priceOf(it).preco_total, 0);
+  const leaderQty = itemQty(leader);
   const title =
     (leader as { bundle_label?: string | null }).bundle_label ||
     (leader as { descricao?: string }).descricao ||
@@ -306,16 +307,17 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardPro
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-medium leading-tight">{title}</p>
+            <div className="flex items-start gap-2 min-w-0 flex-1">
+              <span className="text-sm font-semibold tabular-nums text-primary shrink-0">
+                {leaderQty.toLocaleString("pt-BR")} un
+              </span>
+              <p className="text-sm font-medium leading-tight">{title}</p>
+            </div>
             <span className="text-sm font-semibold tabular-nums shrink-0">
               {fmtBRL(total)}
             </span>
           </div>
           <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-            <Badge variant="default" className="text-[10px] py-0 px-1.5 h-4 gap-1">
-              <Layers className="h-2.5 w-2.5" />
-              {LABEL[leader.kind]} + Kit ({entry.items.length} itens)
-            </Badge>
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
