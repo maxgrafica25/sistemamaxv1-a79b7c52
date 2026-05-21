@@ -29,7 +29,7 @@ interface Props {
 type Mode = "custom" | "product";
 
 export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20 }: Props) {
-  const [mode, setMode] = useState<Mode>("custom");
+  const [mode, setMode] = useState<Mode>("product");
   const [product, setProduct] = useState<ProductPresetId>("folheto");
   const [suggestion, setSuggestion] = useState<SuggestResult | null>(null);
   const [dismissedKey, setDismissedKey] = useState<string>("");
