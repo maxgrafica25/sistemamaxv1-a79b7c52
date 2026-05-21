@@ -100,13 +100,6 @@ export function TierSimulator({
 
   const removeQty = (q: number) => setTiers((prev) => prev.filter((x) => x !== q));
 
-  const applyMultiplier = (factor: number) => {
-    setTiers((prev) =>
-      [...new Set(prev.map((q) => Math.max(1, Math.round(q * factor))))].sort(
-        (a, b) => a - b,
-      ),
-    );
-  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -221,56 +214,82 @@ export function TierSimulator({
         </div>
 
         {/* Adicionar nova faixa */}
-        <div className="px-4 py-3 border-t border-border space-y-2">
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={1}
-              value={newQty}
-              onChange={(e) => setNewQty(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
+        <div className="px-4 py-3 border-t border-border space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-foreground">
+              Atalhos{" "}
+              <span className="text-muted-foreground font-normal">
+                (a partir de {currentQty.toLocaleString("pt-BR")} un)
+              </span>
+            </p>
+            {sorted.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setTiers([])}
+                className="text-[10px] uppercase tracking-wide text-muted-foreground hover:text-destructive"
+              >
+                Limpar todas
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-4 gap-2">
+            {[-5, 5, 10, 15].map((delta) => {
+              const result = currentQty + delta;
+              const invalid = result < 1;
+              const label = delta > 0 ? `+${delta}` : `−${Math.abs(delta)}`;
+              return (
+                <button
+                  key={delta}
+                  type="button"
+                  disabled={invalid}
+                  onClick={() => addQty(result)}
+                  className={cn(
+                    "h-12 rounded-md border flex flex-col items-center justify-center gap-0.5 transition-colors",
+                    invalid
+                      ? "border-border/50 opacity-40 cursor-not-allowed"
+                      : "border-border bg-background hover:bg-primary/5 hover:border-primary/40",
+                  )}
+                >
+                  <span className="text-sm font-semibold tabular-nums">{label}</span>
+                  <span className="text-[10px] text-muted-foreground tabular-nums">
+                    {invalid ? "—" : `${result.toLocaleString("pt-BR")} un`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="pt-2 border-t border-border/60 space-y-1.5">
+            <p className="text-[11px] text-muted-foreground">ou digite outra quantidade</p>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={1}
+                value={newQty}
+                onChange={(e) => setNewQty(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    addQty(Number(newQty) || 0);
+                    setNewQty("");
+                  }
+                }}
+                placeholder="Ex: 100"
+                className="h-9 text-sm"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-9"
+                onClick={() => {
                   addQty(Number(newQty) || 0);
                   setNewQty("");
-                }
-              }}
-              placeholder="Adicionar qtd"
-              className="h-8 text-xs"
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              className="h-8"
-              onClick={() => {
-                addQty(Number(newQty) || 0);
-                setNewQty("");
-              }}
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              Add
-            </Button>
-          </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-1">
-              Presets:
-            </span>
-            {[
-              { label: "Atual", fn: () => addQty(currentQty) },
-              { label: "×2", fn: () => applyMultiplier(2) },
-              { label: "×5", fn: () => applyMultiplier(5) },
-              { label: "+50%", fn: () => applyMultiplier(1.5) },
-              { label: "Reset", fn: () => setTiers(DEFAULT_TIERS) },
-            ].map((p) => (
-              <button
-                key={p.label}
-                type="button"
-                onClick={p.fn}
-                className="text-[10px] px-2 h-6 rounded-full border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground"
+                }}
               >
-                {p.label}
-              </button>
-            ))}
+                <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+              </Button>
+            </div>
           </div>
           {onCloneAsTiers && sorted.length >= 2 && (
             <button
