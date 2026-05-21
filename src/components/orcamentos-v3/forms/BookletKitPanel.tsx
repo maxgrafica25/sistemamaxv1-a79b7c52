@@ -144,19 +144,30 @@ export function BookletKitPanel({
       if (r.fallback) fallbacks.push(r.label);
     }
 
-    // Slots livres de acabamento personalizado
+    // Slots livres de acabamento (suprimentos)
     for (const s of extraSlots) {
-      if (!s.item) {
+      if (!s.supply) {
         toast.error(
-          `Configure o acabamento "${s.label.trim() || "personalizado"}" (escolha o papel).`,
+          `Selecione o suprimento do acabamento "${s.label.trim() || "personalizado"}".`,
         );
         return;
       }
-      const labeled = s.label.trim()
-        ? { ...s.item, descricao: s.label.trim() }
-        : s.item;
-      items.push(labeled);
+      const qty = Math.max(1, Math.floor(s.qty || 1));
+      const item: V3SupplyItem = {
+        id: genId(),
+        kind: "supply",
+        descricao: s.label.trim() || s.supply.produto,
+        tier_group_id: null,
+        supply_id: s.supply.id,
+        supply_nome: s.supply.produto,
+        fornecedor: s.supply.fornecedor || null,
+        custo_unitario: Number(s.supply.valor_unitario) || 0,
+        margem_pct: s.margemPct,
+        quantidade: qty,
+      };
+      items.push(item);
     }
+
 
     if (items.length === 0) {
       toast.info("Adicione ao menos um acabamento ou item do kit.");
