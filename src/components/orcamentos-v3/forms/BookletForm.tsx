@@ -16,6 +16,7 @@ import PrintingItemSearch, {
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { roundUp10 } from "../shared/pricing";
 import { TierSimulator } from "../shared/TierSimulator";
+import { TierFaixasPanel } from "../shared/TierFaixasPanel";
 import { getIdealSpiral } from "@/lib/quotes-v2/spiral-selector";
 import { genId, type V3BookletItem, type V3Item } from "../types";
 import { ProductKitPanel } from "./ProductKitPanel";
