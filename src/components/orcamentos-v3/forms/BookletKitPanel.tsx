@@ -149,7 +149,9 @@ export function BookletKitPanel({
 
     // Slots livres de acabamento (suprimentos)
     for (const s of extraSlots) {
+      if (!s.enabled) continue;
       if (!s.supply) {
+
         toast.error(
           `Selecione o suprimento do acabamento "${s.label.trim() || "personalizado"}".`,
         );
