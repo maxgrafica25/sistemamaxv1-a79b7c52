@@ -124,14 +124,28 @@ export function BookletKitPanel({
       if (r.fallback) fallbacks.push(r.label);
     }
 
+    // Slots livres de acabamento personalizado
+    for (const s of extraSlots) {
+      if (!s.item) {
+        toast.error(
+          `Configure o acabamento "${s.label.trim() || "personalizado"}" (escolha o papel).`,
+        );
+        return;
+      }
+      const labeled = s.label.trim()
+        ? { ...s.item, descricao: s.label.trim() }
+        : s.item;
+      items.push(labeled);
+    }
+
     if (items.length === 0) {
-      toast.info("Selecione ao menos um item do kit.");
+      toast.info("Adicione ao menos um acabamento ou item do kit.");
       return;
     }
 
     onApply(items);
     if (fallbacks.length > 0) {
-      toast.warning(`Kit aplicado (${items.length} itens). Preencher: ${fallbacks.join(", ")}`);
+      toast.warning(`Aplicado (${items.length} itens). Preencher: ${fallbacks.join(", ")}`);
     } else {
       toast.success(
         `Kit aplicado (${items.length} itens)${spiralDiameter ? ` · espiral ${spiralDiameter}` : ""}.`,
