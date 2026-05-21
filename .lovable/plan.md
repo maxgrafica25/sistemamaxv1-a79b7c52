@@ -1,74 +1,62 @@
-## Engine V3: somar acabamentos no preço do Print
+## Tiers por quantidade nos acabamentos do Print V3
 
-Hoje o `PrintForm` já lista acabamentos do catálogo unificado, mas o `valor_unitario`/`custo_unitario` do `V3PrintItem` só contém impressão + papel. Os chips marcados não impactam o total. Esta fase fecha o ciclo: chip ligado → custo somado por folha (ou por unidade) → refletido no preço unitário e no total do orçamento.
+Hoje o Print V3 cobra sempre o `price_per_sheet` base do acabamento, ignorando as faixas cadastradas em `finishing_price_tiers` (que a Calc Etiquetas já respeita via `sheet-pricing.ts`). O resultado: orçamentos de tiragem grande ficam mais caros do que deveriam, e o cadastro de tiers fica invisível para o engine de impressão.
 
-### 1. Estender `V3PrintItem` (`src/components/orcamentos-v3/types.ts`)
+Esta fase fecha essa lacuna sem mexer em UI nem em catálogo — só no caminho de dados e no cálculo.
 
-Trocar `finishings: string[]` por estrutura tipada, mantendo compat de exibição:
+### 1. Carregar tiers junto com os acabamentos
 
-```ts
-finishings: string[];               // labels — continua, p/ UI/descrição
-finishing_selections?: {            // novo — drive do cálculo
-  id: string;
-  name: string;
-  pricing_model: "per_sheet" | "per_unit";
-  unit_label: string | null;
-  price: number;                    // snapshot da unidade (R$/folha ou R$/un)
-  cost: number;                     // mesmo snapshot — sem markup adicional
-  units?: number;                   // só p/ per_unit (default = quantidade do item)
-}[];
-```
-
-Snapshot evita recálculo divergente quando o catálogo mudar depois.
-
-### 2. Helper de cálculo (`src/lib/finishings/catalog.ts`)
-
-Adicionar:
+`src/lib/finishings/catalog.ts` → estender `FinishingItem` com `tiers?: FinishingTier[]` e fazer o `select` da `listFinishings` puxar a relação aninhada:
 
 ```ts
-export function sumFinishingsPerSheet(
-  selections: { pricing_model; price; units? }[],
-  sheets: number,
-): { perSheet: number; perUnitTotal: number }
+.select("*, finishing_price_tiers(id, finishing_id, label, min_qty, max_qty, price_per_sheet, sort_order)")
 ```
 
-- `per_sheet` → soma direta em `perSheet`
-- `per_unit`  → `price × (units ?? sheets)` acumulado em `perUnitTotal` (rateado fora)
+Mapear o resultado para `tiers` no objeto retornado (mesmo padrão que `sheet-pricing.ts` já usa). Acabamentos sem tier vêm com `tiers: []` → comportamento atual preservado.
 
-### 3. PrintForm (`src/components/orcamentos-v3/forms/PrintForm.tsx`)
+### 2. Resolver preço efetivo por folha no PrintForm
 
-- Manter `finEnabled` como está
-- Derivar `selections` a partir de `printFinishings` filtrando os ligados
-- Em `buildItem(qty)`:
-  - `extraPerSheet` = soma dos `per_sheet`
-  - `extraPerUnit`  = soma dos `per_unit × (units ?? qty)`
-  - `valor_unitario = pricing.sellingPrice + extraPerSheet + extraPerUnit/qty`
-  - `custo_unitario = pricing.baseCost + extraPerSheet + extraPerUnit/qty`
-  - Sem markup extra: acabamento é custo direto repassado (decisão prévia: catálogo já está com preço de venda)
-- Chip "Total" no rodapé reflete automaticamente (já usa `sellingPrice × quantidade`)
-- Pequeno breakdown abaixo do "Preço unitário" quando houver acabamentos: `+ R$ X,XX acab.`
+`src/components/orcamentos-v3/forms/PrintForm.tsx` → no `useMemo` de `selections`, em vez de mandar `price: f.price_per_sheet` cru, resolver pela quantidade atual usando `resolveFinishingPricePerSheet(f.price_per_sheet, f.tiers ?? [], quantidade)`.
 
-### 4. Persistência
+Detalhes:
+- `per_sheet` → snapshot do preço já com tier aplicado para `quantidade`
+- `per_unit` → tier não se aplica (faixa é por folhas, não por unidades de ilhós/dobra); mantém `price_per_sheet` base
+- Snapshot continua sendo o que vai para `finishing_selections` no item — então o item salvo carrega o preço efetivo daquela tiragem, independente de mudanças futuras nas tiers
 
-`finishing_selections` é serializável → entra direto no JSON do item ao salvar (caminho existente em `NewQuoteFormV3` / `UnifiedCart`). Nenhuma migration nova.
+Em `buildItem(qty, tierGroupId?)` (usado pelo TierSimulator com `qty` diferente da atual), recalcular `selections` localmente com o `qty` do tier para que cada faixa da simulação use a tier correta de cada acabamento. Hoje o `useMemo` está atrelado a `quantidade` — preciso extrair um helper `buildSelections(qty)` e chamá-lo tanto no `useMemo` quanto dentro de `buildItem`.
 
-### 5. Tests
+### 3. Hint visual no chip
 
-Adicionar `src/test/v3-print-finishings.test.ts` cobrindo:
-- só per_sheet: soma direta
-- só per_unit com `units` padrão = qty: rateio volta ao mesmo valor
-- mistura dos dois
-- nenhum acabamento: comportamento idêntico ao atual
+`FINISHES_PADRAO` mostra hoje "a partir de R$ X,XX/folha". Quando o acabamento tem tiers e a `quantidade` atual cai em uma tier mais barata, o hint atual fica confuso (mostra preço base, mas o cálculo usa outro). Atualizar `hint` para refletir o preço efetivo da `quantidade` atual:
 
-### Fora de escopo
+```
+per_sheet sem tier:  "R$ 0,30/folha"
+per_sheet com tier:  "R$ 0,20/folha (faixa 100-499)"
+per_unit:            "R$ 1,50/un"
+```
 
-- Lona/banner (`FINISHES_LONA`/`FINISHES_BANNER`) seguem hardcoded — não têm preço no catálogo ainda
-- Tiers por quantidade de acabamento (`finishing-pricing.ts`) — Calc Etiquetas usa, Print V3 ainda não; pode entrar em fase seguinte
-- Booklet/Label items — escopo só do `V3PrintItem`
+### 4. Tests
+
+Adicionar em `src/test/v3-print-finishings.test.ts`:
+- per_sheet com tier que cobre a qty → usa preço da tier
+- per_sheet com tier que NÃO cobre (qty abaixo do menor min_qty) → usa primeira tier
+- per_sheet sem nenhuma tier → fallback para preço base
+- per_unit ignora tiers (mantém base) mesmo se houver tiers cadastradas
+- Selections em qty diferentes (simulando tier simulator) resolvem preço independente
+
+### 5. Fora de escopo
+
+- UI de cadastro de tiers (já existe em Acabamentos via `FinishingTiersDrawer`)
+- Tiers para `per_unit` (faixa por unidade de ilhós não faz sentido prático hoje)
+- Lona/banner — segue com chips hardcoded sem tier
+- Calc Etiquetas — já usa tiers via outro caminho, não muda nada
 
 ### Arquivos
 
-- `src/components/orcamentos-v3/types.ts`
-- `src/lib/finishings/catalog.ts`
-- `src/components/orcamentos-v3/forms/PrintForm.tsx`
-- `src/test/v3-print-finishings.test.ts` (novo)
+- `src/lib/finishings/catalog.ts` — estender tipo + select aninhado
+- `src/components/orcamentos-v3/forms/PrintForm.tsx` — extrair `buildSelections(qty)`, aplicar `resolveFinishingPricePerSheet`, atualizar `hint`
+- `src/test/v3-print-finishings.test.ts` — novos casos
+
+### Risco
+
+Baixo. O snapshot em `finishing_selections` blinda orçamentos salvos. Acabamentos sem tier mantêm comportamento atual byte-a-byte. A única mudança visível é: tiragens grandes ficam mais baratas quando o acabamento tem faixa cadastrada — exatamente o efeito desejado.
