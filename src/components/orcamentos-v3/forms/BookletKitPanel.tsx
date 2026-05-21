@@ -1,6 +1,7 @@
 // Painel "Kit Encadernação" — preview com checkboxes + capa/contracapa personalizada.
 import { useMemo, useState, useEffect } from "react";
-import { Wand2, AlertCircle, Sparkles, Pencil } from "lucide-react";
+import { Wand2, AlertCircle, Sparkles, Pencil, Plus, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -42,6 +43,29 @@ export function BookletKitPanel({
   const [coverCollapsed, setCoverCollapsed] = useState(false);
   const [backCoverCollapsed, setBackCoverCollapsed] = useState(false);
 
+  type ExtraSlot = {
+    id: string;
+    label: string;
+    item: V3PrintItem | null;
+    collapsed: boolean;
+  };
+  const [extraSlots, setExtraSlots] = useState<ExtraSlot[]>([]);
+
+  const updateSlot = (id: string, patch: Partial<ExtraSlot>) =>
+    setExtraSlots((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  const removeSlot = (id: string) =>
+    setExtraSlots((prev) => prev.filter((s) => s.id !== id));
+  const addSlot = () =>
+    setExtraSlots((prev) => [
+      ...prev,
+      {
+        id: `slot_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        label: "",
+        item: null,
+        collapsed: false,
+      },
+    ]);
+
   // Auto-colapsa quando o item personalizado fica pronto
   useEffect(() => {
     if (coverMode === "custom" && customCover) setCoverCollapsed(true);
@@ -49,6 +73,11 @@ export function BookletKitPanel({
   useEffect(() => {
     if (backCoverMode === "custom" && customBackCover) setBackCoverCollapsed(true);
   }, [customBackCover, backCoverMode]);
+  useEffect(() => {
+    setExtraSlots((prev) =>
+      prev.map((s) => (s.item && !s.collapsed ? { ...s, collapsed: true } : s)),
+    );
+  }, [extraSlots.map((s) => (s.item ? s.id : "")).join("|")]);
 
   const { rows, spiralDiameter } = useMemo(
     () =>
@@ -64,6 +93,13 @@ export function BookletKitPanel({
   );
 
   const loading = !supLoaded || !stLoaded;
+
+  const hasAnyCustom =
+    (coverMode === "custom" && !excluded.has("capa")) ||
+    (backCoverMode === "custom" && !excluded.has("contracapa")) ||
+    extraSlots.length > 0;
+
+
 
   const toggleRow = (key: KitRowKind) => {
     setExcluded((prev) => {
@@ -100,17 +136,32 @@ export function BookletKitPanel({
       if (r.fallback) fallbacks.push(r.label);
     }
 
+    // Slots livres de acabamento personalizado
+    for (const s of extraSlots) {
+      if (!s.item) {
+        toast.error(
+          `Configure o acabamento "${s.label.trim() || "personalizado"}" (escolha o papel).`,
+        );
+        return;
+      }
+      const labeled = s.label.trim()
+        ? { ...s.item, descricao: s.label.trim() }
+        : s.item;
+      items.push(labeled);
+    }
+
     if (items.length === 0) {
-      toast.info("Selecione ao menos um item do kit.");
+      toast.info("Adicione ao menos um acabamento ou item do kit.");
       return;
     }
 
     onApply(items);
+    const headline = hasAnyCustom ? "Acabamentos aplicados" : "Kit aplicado";
     if (fallbacks.length > 0) {
-      toast.warning(`Kit aplicado (${items.length} itens). Preencher: ${fallbacks.join(", ")}`);
+      toast.warning(`${headline} (${items.length} itens). Preencher: ${fallbacks.join(", ")}`);
     } else {
       toast.success(
-        `Kit aplicado (${items.length} itens)${spiralDiameter ? ` · espiral ${spiralDiameter}` : ""}.`,
+        `${headline} (${items.length} itens)${spiralDiameter && !hasAnyCustom ? ` · espiral ${spiralDiameter}` : ""}.`,
       );
     }
   };
@@ -270,7 +321,7 @@ export function BookletKitPanel({
             )}
           </p>
           <p className="text-[11px] text-muted-foreground">
-            Capa/Contracapa podem ser padrão (suprimento) ou personalizadas (impressão + acabamento).
+            Use o kit sugerido, troque itens por impressão personalizada, ou desmarque tudo e adicione apenas os acabamentos que precisar.
           </p>
         </div>
       </div>
@@ -279,6 +330,56 @@ export function BookletKitPanel({
         <p className="text-[11px] text-muted-foreground">Carregando catálogo…</p>
       ) : (
         <div className="space-y-1.5">{rows.map(renderRow)}</div>
+      )}
+
+      {/* Slots livres de acabamento personalizado */}
+      {!loading && (
+        <div className="space-y-2 pt-1 border-t border-primary/15">
+          {extraSlots.map((slot) => (
+            <div key={slot.id} className="space-y-1.5">
+              <div className="flex items-center gap-2 px-2">
+                <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                <Input
+                  value={slot.label}
+                  onChange={(e) => updateSlot(slot.id, { label: e.target.value })}
+                  placeholder="Nome do acabamento (ex.: Laminação BOPP, Capa dura)"
+                  className="h-7 text-[11px] flex-1"
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => removeSlot(slot.id)}
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                  aria-label="Remover acabamento"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              {!slot.collapsed && (
+                <CustomCoverEditor
+                  units={Math.max(1, bookletUnits)}
+                  slotLabel={slot.label.trim() || "Acabamento personalizado"}
+                  onChange={(item) => updateSlot(slot.id, { item })}
+                  onDone={() => updateSlot(slot.id, { collapsed: true })}
+                />
+              )}
+              {slot.collapsed && slot.item &&
+                renderCustomSummary(
+                  slot.label.trim() ? { ...slot.item, descricao: slot.label.trim() } : slot.item,
+                  () => updateSlot(slot.id, { collapsed: false }),
+                )}
+            </div>
+          ))}
+
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={addSlot}
+            className="h-7 text-[11px] text-primary hover:text-primary"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar acabamento
+          </Button>
+        </div>
       )}
 
       <div className="flex items-center justify-between gap-2 pt-1">
@@ -291,7 +392,15 @@ export function BookletKitPanel({
           )}
         </p>
         <Button size="sm" onClick={apply} disabled={loading} className="h-8 text-xs">
-          <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Aplicar Kit
+          {hasAnyCustom ? (
+            <>
+              <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Aplicar acabamentos
+            </>
+          ) : (
+            <>
+              <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Aplicar Kit
+            </>
+          )}
         </Button>
       </div>
     </div>
