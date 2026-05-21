@@ -49,7 +49,7 @@ interface Props {
   /** Aplica a quantidade selecionada no form pai. */
   onPickQty: (qty: number) => void;
   /** Adiciona todas as faixas como itens agrupados no orçamento. */
-  onCloneAsTiers?: (qtys: number[]) => void;
+  onCloneAsTiers?: (qtys: number[], primaryQty: number) => void;
   /** Desabilita o botão (ex.: form incompleto). */
   disabled?: boolean;
   /** Label customizado (default: "Comparar faixas"). */
