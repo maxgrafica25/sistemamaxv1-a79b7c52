@@ -44,10 +44,10 @@ export function ThirdPartyForm({ onAdd, onAddTiers }: Props) {
     setTimeout(() => setPulse(false), 600);
   };
 
-  const submitAsTiers = (qtys: number[]) => {
+  const submitAsTiers = (qtys: number[], primaryQty: number) => {
     if (!onAddTiers || !canAdd) return;
     const tg = `tg_${genId()}`;
-    onAddTiers(qtys.map((q) => buildItem(q, tg)));
+    onAddTiers(qtys.map((q) => ({ ...buildItem(q, tg), tier_primary: q === primaryQty })));
     setDescricao("");
     setPulse(true);
     setTimeout(() => setPulse(false), 600);

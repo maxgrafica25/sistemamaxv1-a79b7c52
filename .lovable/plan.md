@@ -1,33 +1,50 @@
-# Ajustes no card "Apostila + Kit" do carrinho
+# Faixas: destacar quantidade solicitada e marcar as demais como sugestões
 
-Mexer apenas em `src/components/orcamentos-v3/cart/UnifiedCart.tsx` (componente `BundleCard`). Sem alteração em lógica de preço ou persistência.
+Hoje, ao usar "Adicionar todas como faixas", todas as quantidades viram itens irmãos no mesmo bloco (`tier_group_id`), sem distinção entre a que o cliente pediu e as outras. Vou marcar a faixa correspondente à quantidade atual do form como **principal (Solicitada)** e as demais como **Sugestões**, mantendo tudo num único bloco visual.
 
-## 1. Destacar a quantidade
+## Mudanças
 
-Hoje a quantidade aparece embutida no título ("Apostila 1× — miolo …"), o que fica fraco. Vou:
+### 1. `types.ts`
+Adicionar campo opcional `tier_primary?: boolean` em `V3BaseFields` (já existe `tier_group_id` lá). Assim todos os tipos de item herdam.
 
-- Remover o `"Apostila Nx — "` do início do `bundle_label` (ajuste em `buildBookletBundleLabel.ts`: gerar só `"miolo 20fl Sulfite 75g F/V · capa padrão · …"`).
-- No `BundleCard`, mostrar a quantidade do líder (apostila) como um chip grande à esquerda, no mesmo padrão das linhas de faixa (ex.: **`10 un`** em `tabular-nums font-medium`), seguido do título descritivo.
+### 2. `TierSimulator.tsx`
+- `onCloneAsTiers` passa a entregar `{ qtys: number[]; primaryQty: number }` em vez de só o array.
+- `primaryQty` = `currentQty` se estiver entre as faixas, senão `qtys[0]`.
 
-Resultado visual:
+### 3. Forms que usam o simulador (`PrintForm`, `CVForm`, `ThirdPartyForm`, `SupplyForm`, `BookletForm`, `LabelEmbeddedForm`)
+No callback `onCloneAsTiers`, marcar `tier_primary: q === primaryQty` no item gerado para cada quantidade. Sem mais nenhuma mudança de lógica.
+
+### 4. `UnifiedCart.tsx` — render do grupo de faixas
+No bloco existente `type: "group"`:
+
+- Ordenar as faixas com a primária em primeiro lugar, demais em ordem crescente de quantidade.
+- A linha primária recebe um chip pequeno **`Solicitada`** (variant default em `primary`), com a quantidade em destaque (text-sm, primary).
+- Adicionar um separador sutil entre a linha primária e as demais, com um label **`Sugestões`** (text-[10px] uppercase muted) acima delas.
+- Manter as colunas atuais (qtd, unitário, total, remover) e o botão "Excluir grupo".
+- O título do grupo (cabeçalho com ícone) continua igual; o badge "Faixas (N)" continua.
+
+Resultado visual aproximado:
 
 ```text
-[📖]  10 un   miolo 20fl Sulfite 75g F/V · capa padrão · espiral 12mm · furação …
-                                                                       R$ 167,90
-       › ver detalhes
+[📖]  Apostila 20fl Sulfite 75g                          Faixas (3)
+      Comparativo de quantidades
+
+      ──────────────────────────────────────────────
+      [Solicitada]   5 un     R$ 98,02/un   R$ 490,10  🗑
+      ──────────────────────────────────────────────
+      Sugestões
+       10 un     R$ 92,00/un   R$ 920,00  🗑
+       20 un     R$ 88,40/un   R$ 1.768,00 🗑
+      ──────────────────────────────────────────────
+                                          [Excluir grupo]
 ```
 
-## 2. Remover o badge roxo "Apostila + Kit (N itens)"
+## Persistência
 
-No `BundleCard`, apagar o `<Badge>` com `Layers` + `"{LABEL} + Kit (N itens)"`. A informação de composição já fica clara pelo título e pelo "ver detalhes". O toggle "ver detalhes / ocultar detalhes" continua exatamente como está.
-
-## 3. Sobre juntar 5 un e 10 un de Faixas no mesmo bloco
-
-No print, o segundo card ("Apostila 5× 20fl Sulfite 75g" com badge **Faixas (2)** listando 5 un e 10 un) **já está correto e é exatamente o comportamento atual** para faixas de preço — elas compartilham `tier_group_id` e renderizam como um grupo único com uma linha por quantidade. Não precisa mexer.
-
-O que **não** existe hoje é gerar Faixas a partir de um bundle "Apostila + Kit" inteiro (o simulador de faixas só clona o miolo). Se você quiser que no futuro o botão "Comparar faixas" também duplique o kit junto, isso é outra feature — me avise e eu planejo separado.
+`tier_primary` é só para exibição. Decisão: persistir junto com o item (vai num campo `tier_primary` no payload) para que ao reabrir o orçamento a marcação permaneça. Verificar `saveQuoteV3.ts` e o load correspondente; se houver um whitelist de colunas, incluir `tier_primary`. Se não couber sem migração, deixo só em memória (frontend) e cabe num próximo passo.
 
 ## Fora de escopo
 
-- Lógica de preço, persistência, PDF.
-- Fluxo de Faixas + Kit combinados (mencionado só para responder à dúvida).
+- PDF do orçamento (mostrar "Solicitada" no PDF é um próximo passo, se quiser).
+- Bundles "Apostila + Kit" combinados com faixas — não muda nada agora.
+- Cálculo financeiro: soma continua somando todos os itens; se quiser que **só a faixa solicitada** entre no total e as sugestões não, é outra decisão — me avise.
