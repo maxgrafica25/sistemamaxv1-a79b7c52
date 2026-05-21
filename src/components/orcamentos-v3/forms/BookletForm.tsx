@@ -19,6 +19,7 @@ import { TierSimulator } from "../shared/TierSimulator";
 import { getIdealSpiral } from "@/lib/quotes-v2/spiral-selector";
 import { genId, type V3BookletItem, type V3Item } from "../types";
 import { ProductKitPanel } from "./ProductKitPanel";
+import { BookletKitPanel } from "./BookletKitPanel";
 
 interface Props {
   onAdd: (item: V3BookletItem) => void;
@@ -273,13 +274,21 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
       )}
 
       {onAddMany && canAdd && bookletPages > 0 && bookletUnits > 0 && (
-        <ProductKitPanel
-          productKind="apostila"
-          units={Math.floor(bookletUnits)}
-          sheets={Math.floor(bookletPages)}
-          defaultMarginPct={defaultMarginPct}
-          onApply={applyKitItems}
-        />
+        <>
+          <BookletKitPanel
+            bookletPages={Math.floor(bookletPages)}
+            bookletUnits={Math.floor(bookletUnits)}
+            defaultMarginPct={defaultMarginPct}
+            onApply={applyKitItems}
+          />
+          <ProductKitPanel
+            productKind="apostila"
+            units={Math.floor(bookletUnits)}
+            sheets={Math.floor(bookletPages)}
+            defaultMarginPct={defaultMarginPct}
+            onApply={applyKitItems}
+          />
+        </>
       )}
 
       <Field label="Descrição (opcional)">
