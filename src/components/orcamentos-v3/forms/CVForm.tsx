@@ -10,8 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, Plus, AlertCircle, AlertTriangle, RotateCcw } from "lucide-react";
+import { Check, Plus, AlertCircle, AlertTriangle, RotateCcw, Wand2, Pencil, Megaphone } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ModeButton } from "../shared/ModeButton";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3CVItem } from "../types";
 import { useV3CVCatalog } from "../shared/useV3CVCatalog";
@@ -48,6 +49,8 @@ interface Props {
 export function CVForm({ onAdd, onAddTiers }: Props) {
   const cat = useV3CVCatalog();
 
+  const [mode, setMode] = useState<"product" | "custom">("product");
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [descricao, setDescricao] = useState("");
   const [descricaoEditada, setDescricaoEditada] = useState(false);
   const [largura_cm, setLargura] = useState(100);
@@ -58,6 +61,33 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
   const [acabIds, setAcabIds] = useState<string[]>([]);
   const [pulse, setPulse] = useState(false);
   const [isBanner, setIsBanner] = useState(false);
+
+  const CV_PRESETS: Array<{
+    id: string;
+    label: string;
+    match: RegExp;
+    width: number;
+    height: number;
+    qty: number;
+    banner: boolean;
+  }> = [
+    { id: "banner", label: "Banner", match: /banner|lona.*banner|frontlight/i, width: 100, height: 70, qty: 1, banner: true },
+    { id: "lona", label: "Lona", match: /lona/i, width: 200, height: 100, qty: 1, banner: false },
+    { id: "adesivo", label: "Adesivo", match: /adesivo|vinil/i, width: 30, height: 30, qty: 10, banner: false },
+    { id: "faixa", label: "Faixa", match: /lona|banner/i, width: 200, height: 50, qty: 1, banner: true },
+  ];
+
+  const applyPreset = (p: typeof CV_PRESETS[number]) => {
+    setActivePresetId(p.id);
+    setLargura(p.width);
+    setAltura(p.height);
+    setQuantidade(p.qty);
+    setIsBanner(p.banner);
+    const found = cat.midias.find((m) => p.match.test(`${m.nome} ${m.tipo_midia}`));
+    if (found) setMidiaId(found.id);
+    setDescricaoEditada(false);
+  };
+
 
   const midia = useMemo(
     () => cat.midias.find((m) => m.id === midiaId) ?? null,
@@ -283,6 +313,46 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
 
   return (
     <div className="space-y-5">
+      {/* Toggle Produtos / Personalizado */}
+      <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
+        <ModeButton
+          active={mode === "product"}
+          onClick={() => setMode("product")}
+          icon={Wand2}
+          label="Produtos"
+        />
+        <ModeButton
+          active={mode === "custom"}
+          onClick={() => setMode("custom")}
+          icon={Pencil}
+          label="Personalizado"
+        />
+      </div>
+
+      {mode === "product" && (
+        <div className="flex flex-wrap gap-2">
+          {CV_PRESETS.map((p) => {
+            const active = p.id === activePresetId;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => applyPreset(p)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                  active
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+                )}
+              >
+                <Megaphone className="h-3.5 w-3.5" />
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
