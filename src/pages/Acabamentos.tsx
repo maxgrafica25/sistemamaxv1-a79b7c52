@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers, Copy } from "lucide-react";
 import { FinishingTiersDrawer } from "@/components/acabamentos/FinishingTiersDrawer";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Table,
   TableBody,
@@ -44,12 +45,18 @@ const CATEGORIES = [
   { value: "outro", label: "Outro" },
 ];
 
+type Context = "etiqueta" | "impressao";
+type PricingModel = "per_sheet" | "per_unit";
+
 interface FinishingItem {
   id: string;
   name: string;
   category: string;
-  size: string;
+  size: string | null;
   price_per_sheet: number;
+  pricing_model: PricingModel;
+  applies_to: Context[];
+  unit_label: string | null;
   is_active: boolean;
   sort_order: number;
 }
@@ -62,6 +69,9 @@ const emptyDraft: Omit<FinishingItem, "id"> = {
   category: "recorte",
   size: "SRA3",
   price_per_sheet: 0,
+  pricing_model: "per_sheet",
+  applies_to: ["etiqueta", "impressao"],
+  unit_label: null,
   is_active: true,
   sort_order: 0,
 };
@@ -73,6 +83,7 @@ export default function Acabamentos() {
   const [loading, setLoading] = useState(true);
   const [filterSize, setFilterSize] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterContext, setFilterContext] = useState<"all" | Context>("all");
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState<typeof emptyDraft & { id?: string }>(emptyDraft);
   const [editing, setEditing] = useState(false);
@@ -84,7 +95,6 @@ export default function Acabamentos() {
     const { data, error } = await (supabase as any)
       .from("finishings_price_items")
       .select("*")
-      .order("size")
       .order("sort_order");
     if (error) {
       toast.error("Falha ao carregar acabamentos");
@@ -100,12 +110,13 @@ export default function Acabamentos() {
 
   const filtered = useMemo(() => {
     return items.filter((i) => {
+      if (filterContext !== "all" && !i.applies_to?.includes(filterContext)) return false;
       if (filterSize !== "all" && i.size !== filterSize) return false;
       if (filterCategory !== "all" && i.category !== filterCategory) return false;
       if (search && !i.name.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [items, filterSize, filterCategory, search]);
+  }, [items, filterSize, filterCategory, filterContext, search]);
 
   const startNew = () => {
     setDraft(emptyDraft);
@@ -113,7 +124,10 @@ export default function Acabamentos() {
   };
 
   const startEdit = (item: FinishingItem) => {
-    setDraft(item);
+    setDraft({
+      ...item,
+      applies_to: item.applies_to?.length ? item.applies_to : ["etiqueta"],
+    });
     setEditing(true);
   };
 
@@ -132,11 +146,28 @@ export default function Acabamentos() {
       toast.error("Preço não pode ser negativo");
       return;
     }
+    if (!draft.applies_to?.length) {
+      toast.error("Selecione ao menos um contexto de aplicação");
+      return;
+    }
+    if (draft.pricing_model === "per_sheet" && !draft.size) {
+      toast.error("Modelo por folha exige selecionar o tamanho");
+      return;
+    }
+    if (draft.pricing_model === "per_unit" && !draft.unit_label?.trim()) {
+      toast.error("Modelo por unidade exige o nome da unidade (ex.: ilhós, dobra)");
+      return;
+    }
+
     const payload = {
       name: draft.name.trim(),
       category: draft.category,
-      size: draft.size,
+      size: draft.pricing_model === "per_unit" ? null : draft.size,
       price_per_sheet: draft.price_per_sheet,
+      pricing_model: draft.pricing_model,
+      applies_to: draft.applies_to,
+      unit_label:
+        draft.pricing_model === "per_unit" ? draft.unit_label?.trim() ?? null : null,
       is_active: draft.is_active,
       sort_order: draft.sort_order,
     };
@@ -198,6 +229,9 @@ export default function Acabamentos() {
         category: item.category,
         size: item.size,
         price_per_sheet: item.price_per_sheet,
+        pricing_model: item.pricing_model,
+        applies_to: item.applies_to,
+        unit_label: item.unit_label,
         is_active: item.is_active,
         sort_order: item.sort_order,
       })
@@ -232,23 +266,28 @@ export default function Acabamentos() {
     reload();
   };
 
+  const toggleAppliesTo = (ctx: Context) => {
+    const has = draft.applies_to.includes(ctx);
+    const next = has
+      ? draft.applies_to.filter((c) => c !== ctx)
+      : [...draft.applies_to, ctx];
+    setDraft({ ...draft, applies_to: next });
+  };
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Scissors className="h-6 w-6 text-primary" />
-          Acabamentos (Etiquetas)
+          Acabamentos
         </h1>
         <p className="text-sm text-muted-foreground">
-          Cadastre serviços extras cobrados por folha (recorte, laminação, verniz). Estes valores
-          são somados ao preço da folha impressa na <strong>Calculadora de Etiquetas</strong>.
+          Cadastro único de acabamentos para <strong>Etiquetas</strong> e{" "}
+          <strong>Impressão</strong>. Cobre por folha (recorte, laminação, verniz) ou por
+          unidade (ilhós, dobra, vinco). Comunicação Visual e Processos de Produção
+          continuam em módulos próprios.
         </p>
       </header>
-
-      <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-        <strong>Atenção:</strong> Este cadastro é de uso exclusivo da Calculadora de Etiquetas.
-        Para itens de orçamento geral, utilize o cadastro de <strong>Processos de Produção</strong>.
-      </div>
 
       {/* Form modal */}
       {isAdmin && (
@@ -260,15 +299,44 @@ export default function Acabamentos() {
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-2">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs">Nome</Label>
-                  <Input
-                    value={draft.name}
-                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                    placeholder="Ex.: Recorte plotter redondo"
-                  />
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nome</Label>
+                <Input
+                  value={draft.name}
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  placeholder="Ex.: Laminação BOPP brilho"
+                />
+              </div>
+
+              {/* Aplicável em (multi) */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Aplicável em</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={draft.applies_to.includes("etiqueta") ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleAppliesTo("etiqueta")}
+                    className="flex-1"
+                  >
+                    Etiquetas
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={draft.applies_to.includes("impressao") ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleAppliesTo("impressao")}
+                    className="flex-1"
+                  >
+                    Impressão
+                  </Button>
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Marque ambos quando o mesmo acabamento serve para os dois contextos.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Categoria</Label>
                   <Select
@@ -288,27 +356,63 @@ export default function Acabamentos() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Tamanho da folha</Label>
+                  <Label className="text-xs">Modelo de cobrança</Label>
                   <Select
-                    value={draft.size}
-                    onValueChange={(v) => setDraft({ ...draft, size: v })}
+                    value={draft.pricing_model}
+                    onValueChange={(v: PricingModel) =>
+                      setDraft({
+                        ...draft,
+                        pricing_model: v,
+                        size: v === "per_unit" ? null : draft.size ?? "SRA3",
+                        unit_label: v === "per_unit" ? draft.unit_label ?? "" : null,
+                      })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {SIZES.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="per_sheet">Por folha</SelectItem>
+                      <SelectItem value="per_unit">Por unidade</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-3">
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {draft.pricing_model === "per_sheet" ? (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Tamanho da folha</Label>
+                    <Select
+                      value={draft.size ?? ""}
+                      onValueChange={(v) => setDraft({ ...draft, size: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SIZES.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Unidade de cobrança</Label>
+                    <Input
+                      value={draft.unit_label ?? ""}
+                      onChange={(e) => setDraft({ ...draft, unit_label: e.target.value })}
+                      placeholder="Ex.: ilhós, dobra, vinco"
+                    />
+                  </div>
+                )}
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Preço por folha (R$)</Label>
+                  <Label className="text-xs">
+                    Preço por {draft.pricing_model === "per_sheet" ? "folha" : "unidade"} (R$)
+                  </Label>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -320,6 +424,9 @@ export default function Acabamentos() {
                     }
                   />
                 </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Ordem</Label>
                   <Input
@@ -364,6 +471,22 @@ export default function Acabamentos() {
             className="pl-9 h-9"
           />
         </div>
+        <ToggleGroup
+          type="single"
+          value={filterContext}
+          onValueChange={(v) => v && setFilterContext(v as any)}
+          className="h-9"
+        >
+          <ToggleGroupItem value="all" className="h-9 px-3 text-xs">
+            Todos
+          </ToggleGroupItem>
+          <ToggleGroupItem value="etiqueta" className="h-9 px-3 text-xs">
+            Etiquetas
+          </ToggleGroupItem>
+          <ToggleGroupItem value="impressao" className="h-9 px-3 text-xs">
+            Impressão
+          </ToggleGroupItem>
+        </ToggleGroup>
         <Select value={filterSize} onValueChange={setFilterSize}>
           <SelectTrigger className="w-[160px] h-9">
             <SelectValue />
@@ -404,9 +527,10 @@ export default function Acabamentos() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
+                <TableHead>Aplicável</TableHead>
                 <TableHead>Categoria</TableHead>
-                <TableHead>Tamanho</TableHead>
-                <TableHead className="text-right">Preço/folha</TableHead>
+                <TableHead>Cobrança</TableHead>
+                <TableHead className="text-right">Preço</TableHead>
                 <TableHead className="w-[80px]">Ativo</TableHead>
                 {isAdmin && <TableHead className="w-[160px]">Ações</TableHead>}
               </TableRow>
@@ -414,87 +538,110 @@ export default function Acabamentos() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 6 : 5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground py-8">
                     Carregando…
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 6 : 5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground py-8">
                     Nenhum acabamento cadastrado para os filtros selecionados.
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((item) => (
-                  <TableRow key={item.id} className={!item.is_active ? "opacity-50" : ""}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="text-xs">
-                        {CATEGORIES.find((c) => c.value === item.category)?.label ?? item.category}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {item.size}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">
-                      {fmt(item.price_per_sheet)}
-                    </TableCell>
-                    <TableCell>
-                      {isAdmin ? (
-                        <Switch
-                          checked={item.is_active}
-                          onCheckedChange={() => toggleActive(item)}
-                        />
-                      ) : (
-                        <Badge variant={item.is_active ? "default" : "secondary"} className="text-xs">
-                          {item.is_active ? "Sim" : "Não"}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    {isAdmin && (
+                filtered.map((item) => {
+                  const unit =
+                    item.pricing_model === "per_sheet"
+                      ? `/folha ${item.size ?? ""}`.trim()
+                      : `/${item.unit_label ?? "un"}`;
+                  return (
+                    <TableRow key={item.id} className={!item.is_active ? "opacity-50" : ""}>
+                      <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => setTiersFor(item)}
-                            title="Faixas por quantidade"
-                          >
-                            <Layers className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => cloneItem(item)}
-                            title="Clonar acabamento (mesmas faixas)"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => startEdit(item)}
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => setDeleteId(item.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          {item.applies_to?.includes("etiqueta") && (
+                            <Badge variant="outline" className="text-[10px] px-1.5" title="Etiquetas">
+                              E
+                            </Badge>
+                          )}
+                          {item.applies_to?.includes("impressao") && (
+                            <Badge variant="outline" className="text-[10px] px-1.5" title="Impressão">
+                              I
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
-                    )}
-                  </TableRow>
-                ))
+                      <TableCell>
+                        <Badge variant="secondary" className="text-xs">
+                          {CATEGORIES.find((c) => c.value === item.category)?.label ?? item.category}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {item.pricing_model === "per_sheet" ? "Por folha" : "Por unidade"}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">
+                        {fmt(item.price_per_sheet)}
+                        <span className="text-[10px] font-normal text-muted-foreground ml-1">
+                          {unit}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {isAdmin ? (
+                          <Switch
+                            checked={item.is_active}
+                            onCheckedChange={() => toggleActive(item)}
+                          />
+                        ) : (
+                          <Badge variant={item.is_active ? "default" : "secondary"} className="text-xs">
+                            {item.is_active ? "Sim" : "Não"}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {item.pricing_model === "per_sheet" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => setTiersFor(item)}
+                                title="Faixas por quantidade"
+                              >
+                                <Layers className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => cloneItem(item)}
+                              title="Clonar acabamento (mesmas faixas)"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => startEdit(item)}
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => setDeleteId(item.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
