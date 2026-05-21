@@ -1,6 +1,6 @@
 // Painel "Kit Encadernação" — preview com checkboxes + capa/contracapa personalizada.
-import { useMemo, useState } from "react";
-import { Wand2, AlertCircle, Sparkles } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
+import { Wand2, AlertCircle, Sparkles, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,6 +39,16 @@ export function BookletKitPanel({
   const [backCoverMode, setBackCoverMode] = useState<CoverMode>("standard");
   const [customCover, setCustomCover] = useState<V3PrintItem | null>(null);
   const [customBackCover, setCustomBackCover] = useState<V3PrintItem | null>(null);
+  const [coverCollapsed, setCoverCollapsed] = useState(false);
+  const [backCoverCollapsed, setBackCoverCollapsed] = useState(false);
+
+  // Auto-colapsa quando o item personalizado fica pronto
+  useEffect(() => {
+    if (coverMode === "custom" && customCover) setCoverCollapsed(true);
+  }, [customCover, coverMode]);
+  useEffect(() => {
+    if (backCoverMode === "custom" && customBackCover) setBackCoverCollapsed(true);
+  }, [customBackCover, backCoverMode]);
 
   const { rows, spiralDiameter } = useMemo(
     () =>
@@ -105,14 +115,53 @@ export function BookletKitPanel({
     }
   };
 
+  const handleModeChange = (isCover: boolean, v: CoverMode) => {
+    if (isCover) {
+      setCoverMode(v);
+      if (v === "standard") {
+        setCustomCover(null);
+        setCoverCollapsed(false);
+      }
+    } else {
+      setBackCoverMode(v);
+      if (v === "standard") {
+        setCustomBackCover(null);
+        setBackCoverCollapsed(false);
+      }
+    }
+  };
+
+  const renderCustomSummary = (item: V3PrintItem, onEdit: () => void) => (
+    <div className="mt-1.5 ml-6 rounded-md border border-primary/30 bg-primary/[0.05] px-2.5 py-1.5 flex items-center gap-2">
+      <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+      <span className="text-[11px] text-foreground flex-1 truncate">
+        {item.descricao}
+      </span>
+      <span className="text-[11px] font-semibold text-primary tabular-nums">
+        {fmtBRL(item.valor_unitario * item.quantidade)}
+      </span>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={onEdit}
+        className="h-6 px-2 text-[10.5px] text-primary hover:text-primary"
+      >
+        <Pencil className="h-3 w-3 mr-1" /> Editar
+      </Button>
+    </div>
+  );
+
   const renderRow = (r: KitRow) => {
     const checked = !excluded.has(r.key);
     const isCover = r.key === "capa";
     const isBack = r.key === "contracapa";
+    const isCoverLine = isCover || isBack;
     const mode = isCover ? coverMode : isBack ? backCoverMode : "standard";
-    const setMode = isCover ? setCoverMode : isBack ? setBackCoverMode : null;
-    const showCustomBlock =
-      checked && ((isCover && coverMode === "custom") || (isBack && backCoverMode === "custom"));
+    const collapsed = isCover ? coverCollapsed : isBack ? backCoverCollapsed : false;
+    const customItem = isCover ? customCover : isBack ? customBackCover : null;
+
+    const showEditor = checked && isCoverLine && mode === "custom" && !collapsed;
+    const showSummary = checked && isCoverLine && mode === "custom" && collapsed && customItem;
 
     return (
       <div key={r.key} className={cn("rounded-sm transition-colors", !checked && "opacity-50")}>
@@ -129,17 +178,25 @@ export function BookletKitPanel({
           />
           <span className="font-medium whitespace-nowrap">{r.label}</span>
 
-          {setMode && (
+          {isCoverLine && (
             <Tabs
               value={mode}
-              onValueChange={(v) => setMode(v as CoverMode)}
+              onValueChange={(v) => handleModeChange(isCover, v as CoverMode)}
               className="ml-1"
+              onClick={(e) => e.preventDefault()}
             >
-              <TabsList className="h-6 p-0.5">
-                <TabsTrigger value="standard" className="h-5 px-2 text-[10px]">
+              <TabsList className="h-7 p-0.5">
+                <TabsTrigger value="standard" className="h-6 px-2.5 text-[11px]">
                   Padrão
                 </TabsTrigger>
-                <TabsTrigger value="custom" className="h-5 px-2 text-[10px]">
+                <TabsTrigger
+                  value="custom"
+                  className={cn(
+                    "h-6 px-2.5 text-[11px] gap-1",
+                    mode !== "custom" && "text-primary/70 hover:text-primary",
+                  )}
+                >
+                  <Sparkles className="h-3 w-3" />
                   Personalizada
                 </TabsTrigger>
               </TabsList>
@@ -148,9 +205,15 @@ export function BookletKitPanel({
 
           {mode === "standard" && (
             <>
-              <span className="flex-1 text-muted-foreground text-[10.5px] truncate hidden sm:inline">
-                {r.description}
-              </span>
+              {isCoverLine ? (
+                <span className="flex-1 text-[10px] text-muted-foreground italic hidden md:inline truncate">
+                  ← clique em <span className="text-primary/80 not-italic font-medium">Personalizada</span> p/ usar impressão (ex.: Couchê 300g + laminação)
+                </span>
+              ) : (
+                <span className="flex-1 text-muted-foreground text-[10.5px] truncate hidden sm:inline">
+                  {r.description}
+                </span>
+              )}
               <span className="text-muted-foreground tabular-nums text-[10.5px]">
                 {r.unit === "un" ? `${r.qty} un` : `${r.qty.toFixed(0)} min`}
               </span>
@@ -162,20 +225,33 @@ export function BookletKitPanel({
               )}
             </>
           )}
-          {mode === "custom" && (
+          {mode === "custom" && !collapsed && (
+            <span className="flex-1 text-[10.5px] text-amber-600 dark:text-amber-400 italic">
+              Configure abaixo ↓
+            </span>
+          )}
+          {mode === "custom" && collapsed && (
             <span className="flex-1 text-[10.5px] text-muted-foreground italic">
-              Impressão personalizada (Couchê + laminação, etc.)
+              Impressão personalizada
             </span>
           )}
         </label>
 
-        {showCustomBlock && (
+        {showEditor && (
           <CustomCoverEditor
             units={Math.max(1, bookletUnits)}
             slotLabel={isCover ? "Capa frontal" : "Contracapa"}
             onChange={isCover ? setCustomCover : setCustomBackCover}
+            onDone={() =>
+              isCover ? setCoverCollapsed(true) : setBackCoverCollapsed(true)
+            }
           />
         )}
+
+        {showSummary && customItem &&
+          renderCustomSummary(customItem, () =>
+            isCover ? setCoverCollapsed(false) : setBackCoverCollapsed(false),
+          )}
       </div>
     );
   };
