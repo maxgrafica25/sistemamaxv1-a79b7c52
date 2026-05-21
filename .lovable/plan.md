@@ -1,57 +1,65 @@
-## Apostila: sugerir kit de encadernação por padrão
+## Objetivo
+No Kit Encadernação da Apostila, permitir escolher entre **Capa padrão** (suprimento pronto: PP Line, Cristal, etc.) ou **Capa personalizada** (impressão própria, ex.: Couchê 300g + laminação), com troca por linha mantendo o resto do Kit editável.
 
-### Diagnóstico
+## 1. Seletor de modo da Capa
 
-O `BookletForm` já carrega `ProductKitPanel` (genérico, lê de `product_kits` no banco). Hoje a tabela `product_kits` está **vazia** para `product_kind = 'apostila'`, então o painel chama `return null` e o usuário não vê sugestão nenhuma — só a frase "Use o Kit Encadernação abaixo…" sem o "abaixo" existir.
-
-Mas o código já tem tudo o que falta: `src/components/orcamentos-v3/forms/BookletKitPanel.tsx` + `shared/bookletKit.ts` montam, sem precisar de banco, um kit padrão com:
-
-- Capa frontal (regex match em supplies → fallback "Capa PP Line A4 Incolor — preencher")
-- Contracapa (fallback "Capa PP Camurça A4 Preta — preencher")
-- Espiral do diâmetro sugerido por `getIdealSpiral(folhas)`
-- Furação (mão-de-obra)
-- Encadernação (mão-de-obra)
-
-Cada linha tem checkbox para incluir/excluir, e o "Aplicar Kit" empurra os V3Items para o carrinho — exatamente o "sugerir + alterar com facilidade" que o usuário pediu.
-
-### Mudança
-
-`src/components/orcamentos-v3/forms/BookletForm.tsx` — trocar o `<ProductKitPanel productKind="apostila" …>` por uma combinação:
-
-1. **Sempre** renderizar `<BookletKitPanel>` (sugestão automática, zero config no banco). É o caminho default.
-2. **Adicionalmente**, manter `<ProductKitPanel>` para o caso de o usuário cadastrar kits customizados em `product_kits` (ele já se auto-esconde quando não há) — fica abaixo do BookletKitPanel como "Outros kits cadastrados".
-
-Ordem visual (mantém "Use o Kit Encadernação abaixo" coerente):
+Na linha "Capa" do `BookletKitPanel`, antes do select de item, um toggle compacto:
 
 ```
-[ Resumo do miolo ]
-   ↓
-[ BookletKitPanel ]   ← sempre presente, sugestão pronta
-   ↓
-[ ProductKitPanel ]   ← só aparece se houver kit customizado em DB
-   ↓
-[ Descrição ]
-[ Adicionar apostila ]
+Capa:  ( • Padrão  ○ Personalizada )
 ```
 
-### Detalhes
+### Modo Padrão (default — comportamento atual + troca)
+- Select com suprimentos categoria "capa" (PP Line Incolor, Cristal, etc.).
+- Quantidade = 1 por apostila (regra atual de `buildBookletKit`).
+- Mesmo comportamento para Contracapa.
 
-- `BookletKitPanel` já existe e foi descomissionado em favor do `ProductKitPanel`. Vou reativar sem mudanças funcionais.
-- Renderização condicionada a `canAdd && bookletPages > 0 && bookletUnits > 0` (igual hoje).
-- Texto do rodapé do resumo do miolo permanece — agora aponta para algo de verdade.
-- Microcopy do header do BookletKitPanel: alterar de "Kit Encadernação" para "Kit sugerido · Encadernação" para deixar claro que é sugestão (consistente com a frase do resumo).
+### Modo Personalizada (novo)
+Bloco inline com 3 campos:
 
-### Fora de escopo
+| Campo | Origem |
+|---|---|
+| Papel | Select de `papers` (sugere Couchê 300g por padrão) |
+| Formato | A4 / A3 / SRA3 (sugere A4) |
+| Impressão | Frente / Frente e Verso |
+| Acabamento | Multi-select de acabamentos compatíveis com capa (Laminação BOPP fosca/brilhante, Verniz, etc.) — opcional |
 
-- Não vou criar migration para popular `product_kits` (o caminho default já não depende mais disso).
-- Não vou mexer no `BookletKitPanel` em si — ele está pronto.
-- Não toco em `CartãoVisita`, `Folheto`, `Etiqueta` — outros forms seguem usando `ProductKitPanel` como hoje.
+- Gera **uma linha de impressão** (V3Item tipo "print") usando o motor de preço existente (mesmos multiplicadores A3/SRA3 e F/V).
+- Gera **uma linha por acabamento** escolhido (reusa `PrintForm`/catálogo de finishings recém-ajustado).
+- Quantidade = quantidade de apostilas do orçamento.
+- Sugestão default ao ativar: **Couchê 300g + A4 + Frente + Laminação BOPP brilhante** (só sugestão, tudo editável).
 
-### Risco
+Mesmo toggle e bloco disponíveis para **Contracapa** (mesma mecânica).
 
-Mínimo. Estou desfazendo uma regressão (o panel já existia, foi escondido por uma camada genérica que ficou sem dados). Sem mudança de cálculo, sem migration, sem nova dependência.
+## 2. Estado e persistência
 
-### Arquivos
+Estado local no painel:
+```ts
+coverMode: 'standard' | 'custom'
+customCover: { paperId, format, sides, finishingIds[] } | null
+// idem para backCover
+```
 
-- `src/components/orcamentos-v3/forms/BookletForm.tsx` — adicionar `BookletKitPanel` antes do `ProductKitPanel`
-- `src/components/orcamentos-v3/forms/BookletKitPanel.tsx` — só ajuste de microcopy do header
+Ao clicar **"Aplicar Kit"**:
+- Modo padrão → V3Item de suprimento (como hoje).
+- Modo personalizado → V3Item de impressão + N V3Items de acabamento, todos marcados com `kitSlot: 'cover'` para permitir remover/recompor.
+
+## 3. UI
+
+- Toggle estilo `Tabs` pequeno (shadcn) dentro da linha da capa, não abre modal.
+- Quando "Personalizada" ativo, a linha expande verticalmente mostrando os 4 campos em grid compacto.
+- Badge "sugerido" continua aparecendo ao lado dos defaults.
+- Subtotal da linha mostra a soma (impressão + acabamentos) em modo personalizado.
+
+## 4. Arquivos
+
+- `src/components/orcamentos-v3/forms/BookletKitPanel.tsx` — toggle, bloco de capa personalizada, estado.
+- `src/components/orcamentos-v3/forms/CustomCoverEditor.tsx` (novo) — componente reutilizado por capa e contracapa.
+- `src/lib/bookletKit.ts` — `buildBookletKit` aceita `coverOverride` / `backCoverOverride` retornando array de V3Items (impressão + acabamentos) quando custom.
+- Sem migrations. Sem mudança em motor de preço, multiplicadores ou catálogo de finishings.
+
+## Fora de escopo
+
+- Salvar "capa personalizada" como preset reutilizável (pode virar feature futura).
+- Trocar quantidade/tempo manualmente das outras linhas do Kit (mantém o que ficou acordado: só trocar item por categoria).
+- Outros formulários (Cartão, Folheto, Etiqueta) e Resumo Financeiro.

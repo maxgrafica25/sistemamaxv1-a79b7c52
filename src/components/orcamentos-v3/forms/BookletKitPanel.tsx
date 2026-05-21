@@ -1,16 +1,18 @@
-// Painel "Kit Encadernação" — preview com checkboxes e botão Aplicar.
+// Painel "Kit Encadernação" — preview com checkboxes + capa/contracapa personalizada.
 import { useMemo, useState } from "react";
-import { Wand2, Check, AlertCircle, Sparkles } from "lucide-react";
+import { Wand2, AlertCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { buildBookletKit, type KitRow } from "../shared/bookletKit";
+import { buildBookletKit, type KitRow, type KitRowKind } from "../shared/bookletKit";
 import { useV3Supplies } from "../shared/useV3Supplies";
 import { useV3ProcessCatalog } from "../shared/useV3ProcessCatalog";
 import { useV3HourlyRate } from "../shared/useV3HourlyRate";
 import { fmtBRL } from "../shared/pricing";
-import type { V3Item } from "../types";
+import { CustomCoverEditor } from "./CustomCoverEditor";
+import type { V3Item, V3PrintItem } from "../types";
 
 interface Props {
   bookletPages: number;
@@ -19,6 +21,8 @@ interface Props {
   /** Callback que recebe os V3Items prontos (sem o miolo). */
   onApply: (items: V3Item[]) => void;
 }
+
+type CoverMode = "standard" | "custom";
 
 export function BookletKitPanel({
   bookletPages,
@@ -29,7 +33,12 @@ export function BookletKitPanel({
   const { supplies, loaded: supLoaded } = useV3Supplies();
   const { steps, loaded: stLoaded } = useV3ProcessCatalog();
   const { hourlyRate } = useV3HourlyRate();
-  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const [excluded, setExcluded] = useState<Set<KitRowKind>>(new Set());
+
+  const [coverMode, setCoverMode] = useState<CoverMode>("standard");
+  const [backCoverMode, setBackCoverMode] = useState<CoverMode>("standard");
+  const [customCover, setCustomCover] = useState<V3PrintItem | null>(null);
+  const [customBackCover, setCustomBackCover] = useState<V3PrintItem | null>(null);
 
   const { rows, spiralDiameter } = useMemo(
     () =>
@@ -46,7 +55,7 @@ export function BookletKitPanel({
 
   const loading = !supLoaded || !stLoaded;
 
-  const toggleRow = (key: string) => {
+  const toggleRow = (key: KitRowKind) => {
     setExcluded((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -56,14 +65,37 @@ export function BookletKitPanel({
   };
 
   const apply = () => {
-    const picked = rows.filter((r) => !excluded.has(r.key));
-    if (picked.length === 0) {
+    const items: V3Item[] = [];
+    const fallbacks: string[] = [];
+
+    for (const r of rows) {
+      if (excluded.has(r.key)) continue;
+      if (r.key === "capa" && coverMode === "custom") {
+        if (!customCover) {
+          toast.error("Configure a capa personalizada (escolha o papel).");
+          return;
+        }
+        items.push(customCover);
+        continue;
+      }
+      if (r.key === "contracapa" && backCoverMode === "custom") {
+        if (!customBackCover) {
+          toast.error("Configure a contracapa personalizada (escolha o papel).");
+          return;
+        }
+        items.push(customBackCover);
+        continue;
+      }
+      items.push(r.build() as V3Item);
+      if (r.fallback) fallbacks.push(r.label);
+    }
+
+    if (items.length === 0) {
       toast.info("Selecione ao menos um item do kit.");
       return;
     }
-    const items = picked.map((r) => r.build()) as V3Item[];
+
     onApply(items);
-    const fallbacks = picked.filter((r) => r.fallback).map((r) => r.label);
     if (fallbacks.length > 0) {
       toast.warning(`Kit aplicado (${items.length} itens). Preencher: ${fallbacks.join(", ")}`);
     } else {
@@ -71,6 +103,81 @@ export function BookletKitPanel({
         `Kit aplicado (${items.length} itens)${spiralDiameter ? ` · espiral ${spiralDiameter}` : ""}.`,
       );
     }
+  };
+
+  const renderRow = (r: KitRow) => {
+    const checked = !excluded.has(r.key);
+    const isCover = r.key === "capa";
+    const isBack = r.key === "contracapa";
+    const mode = isCover ? coverMode : isBack ? backCoverMode : "standard";
+    const setMode = isCover ? setCoverMode : isBack ? setBackCoverMode : null;
+    const showCustomBlock =
+      checked && ((isCover && coverMode === "custom") || (isBack && backCoverMode === "custom"));
+
+    return (
+      <div key={r.key} className={cn("rounded-sm transition-colors", !checked && "opacity-50")}>
+        <label
+          className={cn(
+            "flex items-center gap-2 px-2 py-1.5 text-xs cursor-pointer",
+            checked ? "bg-background hover:bg-muted/50" : "hover:opacity-75",
+          )}
+        >
+          <Checkbox
+            checked={checked}
+            onCheckedChange={() => toggleRow(r.key)}
+            className="h-3.5 w-3.5"
+          />
+          <span className="font-medium whitespace-nowrap">{r.label}</span>
+
+          {setMode && (
+            <Tabs
+              value={mode}
+              onValueChange={(v) => setMode(v as CoverMode)}
+              className="ml-1"
+            >
+              <TabsList className="h-6 p-0.5">
+                <TabsTrigger value="standard" className="h-5 px-2 text-[10px]">
+                  Padrão
+                </TabsTrigger>
+                <TabsTrigger value="custom" className="h-5 px-2 text-[10px]">
+                  Personalizada
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+
+          {mode === "standard" && (
+            <>
+              <span className="flex-1 text-muted-foreground text-[10.5px] truncate hidden sm:inline">
+                {r.description}
+              </span>
+              <span className="text-muted-foreground tabular-nums text-[10.5px]">
+                {r.unit === "un" ? `${r.qty} un` : `${r.qty.toFixed(0)} min`}
+              </span>
+              <span className="font-semibold tabular-nums w-[70px] text-right">
+                {fmtBRL(r.cost)}
+              </span>
+              {r.fallback && (
+                <AlertCircle className="h-3 w-3 text-amber-500 shrink-0" />
+              )}
+            </>
+          )}
+          {mode === "custom" && (
+            <span className="flex-1 text-[10.5px] text-muted-foreground italic">
+              Impressão personalizada (Couchê + laminação, etc.)
+            </span>
+          )}
+        </label>
+
+        {showCustomBlock && (
+          <CustomCoverEditor
+            units={Math.max(1, bookletUnits)}
+            slotLabel={isCover ? "Capa frontal" : "Contracapa"}
+            onChange={isCover ? setCustomCover : setCustomBackCover}
+          />
+        )}
+      </div>
+    );
   };
 
   return (
@@ -87,7 +194,7 @@ export function BookletKitPanel({
             )}
           </p>
           <p className="text-[11px] text-muted-foreground">
-            Adiciona capa, contracapa, espiral e mão-de-obra ao orçamento.
+            Capa/Contracapa podem ser padrão (suprimento) ou personalizadas (impressão + acabamento).
           </p>
         </div>
       </div>
@@ -95,43 +202,7 @@ export function BookletKitPanel({
       {loading ? (
         <p className="text-[11px] text-muted-foreground">Carregando catálogo…</p>
       ) : (
-        <div className="space-y-1.5">
-          {rows.map((r) => {
-            const checked = !excluded.has(r.key);
-            return (
-              <label
-                key={r.key}
-                className={cn(
-                  "flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs cursor-pointer transition-colors",
-                  checked
-                    ? "bg-background hover:bg-muted/50"
-                    : "opacity-50 hover:opacity-75",
-                )}
-              >
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={() => toggleRow(r.key)}
-                  className="h-3.5 w-3.5"
-                />
-                <span className="flex-1 min-w-0 truncate font-medium">{r.label}</span>
-                <span className="text-muted-foreground text-[10.5px] truncate max-w-[180px] hidden sm:inline">
-                  {r.description}
-                </span>
-                <span className="text-muted-foreground tabular-nums text-[10.5px]">
-                  {r.unit === "un"
-                    ? `${r.qty} un`
-                    : `${r.qty.toFixed(0)} min`}
-                </span>
-                <span className="font-semibold tabular-nums w-[70px] text-right">
-                  {fmtBRL(r.cost)}
-                </span>
-                {r.fallback && (
-                  <AlertCircle className="h-3 w-3 text-amber-500 shrink-0" />
-                )}
-              </label>
-            );
-          })}
-        </div>
+        <div className="space-y-1.5">{rows.map(renderRow)}</div>
       )}
 
       <div className="flex items-center justify-between gap-2 pt-1">
