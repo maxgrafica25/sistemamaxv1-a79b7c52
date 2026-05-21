@@ -15,6 +15,7 @@ import { fmtBRL } from "../shared/pricing";
 import { BASTOES_CM, sugerirBastao } from "../shared/bastaoSuggester";
 import { TierSimulator } from "../shared/TierSimulator";
 import { genId, type V3PrintItem } from "../types";
+import { listFinishings, type FinishingItem } from "@/lib/finishings/catalog";
 
 interface Props {
   onAdd: (item: V3PrintItem) => void;
@@ -26,16 +27,6 @@ interface Props {
     finishings: string[];
   }) => void;
 }
-
-const FINISHES_PADRAO: FinishingDef[] = [
-  { id: "laminacao", label: "Laminação", hint: "BOPP brilho ou fosco" },
-  { id: "verniz", label: "Verniz UV", hint: "Localizado ou total" },
-  { id: "vinco", label: "Vinco" },
-  { id: "corte_especial", label: "Corte especial" },
-  { id: "wire_o", label: "Wire-O / Espiral" },
-  { id: "ilhos", label: "Ilhós" },
-  { id: "bastao", label: "Bastão" },
-];
 
 const FINISHES_LONA: FinishingDef[] = [
   { id: "ilhos", label: "Ilhós", hint: "Reforço metálico nos cantos" },
