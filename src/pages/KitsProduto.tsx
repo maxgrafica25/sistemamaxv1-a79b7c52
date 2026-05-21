@@ -311,14 +311,15 @@ export default function KitsProduto() {
   };
 
   const addSpiralByVariant = () => {
+    const newTmpId = tmp();
     setItems((prev) => [
       ...prev,
       {
-        tmp_id: tmp(),
+        tmp_id: newTmpId,
         position: prev.length,
         item_type: "supply",
         supply_id: null,
-        supply_label: "Espiral (variante por folhas)",
+        supply_label: "Encadernação espiral",
         process_step_id: null,
         process_label: "",
         role: "required",
@@ -337,7 +338,9 @@ export default function KitsProduto() {
         })),
       },
     ]);
-    toast.success("Item de espiral adicionado. Configure os suprimentos das faixas.");
+    setVariantsEditing(newTmpId);
+    toast.success("Selecione o suprimento de cada faixa. Você faz isso uma vez e reusa nos próximos kits.");
+
   };
 
   const updateItem = (tmp_id: string, patch: Partial<KitItem>) => {
@@ -759,8 +762,9 @@ export default function KitsProduto() {
                 <Plus className="h-4 w-4 mr-1" /> Adicionar acabamentos
               </Button>
               <Button onClick={addSpiralByVariant} size="sm" variant="outline">
-                <Wand2 className="h-4 w-4 mr-1" /> Espiral por folhas
+                <Wand2 className="h-4 w-4 mr-1" /> Encadernação espiral
               </Button>
+
             </div>
           </div>
 
@@ -787,8 +791,10 @@ export default function KitsProduto() {
           variants={variantItem.variants}
           onChange={(next) => updateItem(variantItem.tmp_id, { variants: next })}
           itemLabel={variantItem.supply_label || "Item"}
+          currentItemId={variantItem.id}
         />
       )}
+
 
       <ConfirmDialog
         open={!!deletingId}
@@ -856,17 +862,30 @@ function CompactItemRow({
           {label}
         </p>
       </div>
-      <button
-        type="button"
-        onClick={isVariant ? onEditVariants : undefined}
-        className={`text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0 ${
-          isVariant
-            ? "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
-            : "bg-muted text-muted-foreground"
-        }`}
-      >
-        {formulaBadge(item)}
-      </button>
+      {isVariant ? (() => {
+        const total = item.variants.length;
+        const mapped = item.variants.filter((v) => !!v.supply_id).length;
+        const complete = mapped === total && total > 0;
+        return (
+          <button
+            type="button"
+            onClick={onEditVariants}
+            className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 cursor-pointer transition-colors ${
+              complete
+                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25"
+                : "bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25"
+            }`}
+            title={complete ? "Todas as faixas mapeadas" : "Faixas pendentes — clique para configurar"}
+          >
+            {complete ? `✓ ${total} faixas mapeadas` : `⚠ ${total - mapped} pendente${total - mapped === 1 ? "" : "s"}`}
+          </button>
+        );
+      })() : (
+        <span className="text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0 bg-muted text-muted-foreground">
+          {formulaBadge(item)}
+        </span>
+      )}
+
       <Select
         value={item.role}
         onValueChange={(v: KitItemRole) =>
@@ -932,12 +951,15 @@ function ItemMorePopover({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(FORMULA_LABELS) as KitQuantityFormula[]).map((f) => (
-                <SelectItem key={f} value={f} className="text-xs">
-                  {FORMULA_LABELS[f]}
-                </SelectItem>
-              ))}
+              {(Object.keys(FORMULA_LABELS) as KitQuantityFormula[])
+                .filter((f) => f !== "auto_spiral" || item.quantity_formula === "auto_spiral")
+                .map((f) => (
+                  <SelectItem key={f} value={f} className="text-xs">
+                    {FORMULA_LABELS[f]}
+                  </SelectItem>
+                ))}
             </SelectContent>
+
           </Select>
         </div>
 

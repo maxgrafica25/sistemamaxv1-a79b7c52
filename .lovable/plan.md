@@ -1,27 +1,49 @@
-# Tutorial inline na tela de Kits de Produto
+## Objetivo
 
-Adicionar um banner "Como funciona" recolhível no topo do editor de kits, para deixar o fluxo óbvio sem precisar perguntar.
+Eliminar a confusão entre "Espiral automática" (mágica/regex) e "Espiral por folhas" (manual). Deixar **um único caminho óbvio**, com preset já carregado, abertura automática do mapeamento, indicador visual de progresso e botão para copiar de outro kit — sem mudar nada do motor de cálculo.
 
-## O que será criado
+## Mudanças
 
-**Novo componente:** `src/components/kits/KitHowItWorks.tsx`
-- Banner colapsável (usa `Collapsible` do shadcn) com cabeçalho "Como funciona este kit" + ícone `HelpCircle` e chevron.
-- Estado persistido em `localStorage` (`kits.howItWorks.open`) — abre por padrão na primeira visita, lembra preferência depois.
-- Conteúdo em 4 passos curtos com ícones Lucide:
-  1. **Adicionar acabamentos** — botão `+ Adicionar acabamentos` abre o picker com abas Suprimentos/Processos para seleção em massa.
-  2. **Definir papel de cada item** — `Obrigatório` (sempre entra), `Opcional` (cliente escolhe), `Alternativo` (agrupado, escolhe 1).
-  3. **Espiral por nº de folhas** — botão `Espiral por folhas` cria item com 12 faixas; clique em `variante · N faixas` para mapear cada faixa ao suprimento certo.
-  4. **Ajustes finos** — `⋯` por linha abre fórmulas (×N por unidade / por folha), grupos de alternativos, pré-seleção e notas.
-- Linguagem curta, em PT-BR, exemplos práticos ("ex.: capa LINE vs CAMURCA = alternativos no grupo `capa`").
+### 1. Botão único de espiral
+Em `src/pages/KitsProduto.tsx`:
+- Renomear o botão `Espiral por folhas` → **`+ Encadernação espiral`** (mesmo ícone `Wand2`).
+- Remover qualquer opção/menu que crie itens com `quantity_formula: "auto_spiral"`. O motor continua suportando kits antigos (não quebra dados).
+- No `Select` de fórmula (linha ~104), marcar `auto_spiral` apenas como rótulo legível para kits legados (já está como "(legado)"), mas esconder a opção em itens novos.
 
-## Onde integrar
+### 2. Abrir o mapeamento automaticamente após criar
+- Em `addSpiralByVariant`, após inserir o item, abrir imediatamente o `VariantsDialog` daquele item (setar `variantsEditingId = novo tmp_id`).
+- Toast curto: *"Selecione o suprimento de cada faixa. Você faz isso uma vez e reusa nos próximos kits."*
 
-**`src/pages/KitsProduto.tsx`**
-- Importar `KitHowItWorks` e renderizar logo abaixo do cabeçalho do kit (nome/tipo/ativo), antes da lista de itens.
-- Aparece tanto na criação quanto na edição.
+### 3. Banner explicativo dentro do `VariantsDialog`
+Em `src/components/kits/VariantsDialog.tsx`:
+- Adicionar banner azul-claro no topo (1 frase): *"O sistema escolhe automaticamente o suprimento certo no orçamento, conforme o nº de folhas do trabalho."*
+- Esconder o botão `Preset espirais` (preset já vem carregado) e o botão `+ Faixa` fica como ação secundária.
 
-## Fora de escopo
+### 4. Badge de status no item (verde/amarelo)
+Na linha do item `variant_by_sheets` em `KitsProduto.tsx` (~linha 959):
+- Substituir botão `Editar faixas` por um botão-badge:
+  - `✓ 12 faixas mapeadas` (verde) quando todas têm `supply_id`
+  - `⚠ N faixas pendentes` (amarelo) quando faltam
+- Clicar abre o `VariantsDialog`.
 
-- Sem mudanças no engine, no `ProductKitPanel`, no picker, no `VariantsDialog` ou em qualquer lógica de negócio.
-- Sem migrations.
-- Sem mudanças no modelo de dados.
+### 5. Copiar mapeamento de outro kit
+No `VariantsDialog`:
+- Adicionar botão `Copiar de outro kit` (popover com lista de kits que têm item `variant_by_sheets` com pelo menos uma faixa mapeada).
+- Ao selecionar, sobrescrever as 12 faixas atuais com os `supply_id`/`supply_label`/`label` do kit escolhido (mantendo min/max).
+- Carrega os kits via consulta simples a `product_kits` + `product_kit_items` + `product_kit_item_variants` (filtrando `quantity_formula = 'variant_by_sheets'`).
+
+### 6. Atualizar o tutorial
+Em `src/components/kits/KitHowItWorks.tsx`:
+- Passo 3 reescrito: *"Encadernação espiral — clique em `+ Encadernação espiral`. As 12 faixas já vêm prontas; basta escolher o suprimento de cada uma (ou copiar de outro kit). O sistema usa a espiral certa para cada nº de folhas no orçamento."*
+
+## Fora do escopo
+
+- Motor de cálculo (`productKit.ts`, `spiral-selector.ts`) — sem alterações; `auto_spiral` continua funcionando para kits antigos.
+- Migrações de banco — nenhuma.
+- Outros tipos de variante (apenas espiral usa essa UX hoje).
+
+## Resultado de UX
+
+- 1 clique para adicionar espiral → diálogo já aberto com as 12 faixas → o usuário só seleciona suprimentos (ou clica "copiar de outro kit" e termina em 2 cliques).
+- Status visível na linha: nunca mais um kit "esquecido" com faixas vazias.
+- Zero conceitos invisíveis (regex, nomes que precisam casar) — tudo é WYSIWYG.
