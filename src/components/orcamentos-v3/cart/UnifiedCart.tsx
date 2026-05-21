@@ -198,10 +198,67 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
           );
         }
         // Group (tiers) rendering
-        const first = entry.items[0];
-        const Icon = ICON[first.kind];
+        const primaryItem =
+          entry.items.find((i) => (i as { tier_primary?: boolean }).tier_primary) ?? entry.items[0];
+        const suggestions = entry.items
+          .filter((i) => i.id !== primaryItem.id)
+          .sort((a, b) => itemQty(a) - itemQty(b));
+        const Icon = ICON[primaryItem.kind];
         const isNew = entry.items.some((i) => i.id === highlightId);
-        const descricao = (first as { descricao?: string }).descricao || LABEL[first.kind];
+        const descricao =
+          (primaryItem as { descricao?: string }).descricao || LABEL[primaryItem.kind];
+        const renderTierRow = (it: V3Item, opts: { primary: boolean }) => {
+          const price = priceOf(it).preco_total;
+          const q = itemQty(it);
+          const unit = q > 0 ? price / q : 0;
+          return (
+            <li
+              key={it.id}
+              className={cn(
+                "flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-background",
+                opts.primary ? "text-sm" : "text-xs",
+              )}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                {opts.primary && (
+                  <Badge
+                    variant="default"
+                    className="text-[10px] py-0 px-1.5 h-4 shrink-0"
+                  >
+                    Solicitada
+                  </Badge>
+                )}
+                <span
+                  className={cn(
+                    "tabular-nums",
+                    opts.primary ? "font-semibold text-primary" : "font-medium",
+                  )}
+                >
+                  {q.toLocaleString("pt-BR")} un
+                </span>
+              </div>
+              <span className="text-muted-foreground tabular-nums">
+                {fmtBRL(unit)} / un
+              </span>
+              <span
+                className={cn(
+                  "tabular-nums",
+                  opts.primary ? "font-bold" : "font-semibold",
+                )}
+              >
+                {fmtBRL(price)}
+              </span>
+              <button
+                type="button"
+                onClick={() => onRemove(it.id)}
+                className="text-muted-foreground hover:text-destructive shrink-0"
+                title={opts.primary ? "Remover quantidade solicitada" : "Remover sugestão"}
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </li>
+          );
+        };
         return (
           <li
             key={entry.groupId}
@@ -217,46 +274,31 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-medium leading-tight truncate">{descricao}</p>
-                  <Badge variant="default" className="text-[10px] py-0 px-1.5 h-4 shrink-0 gap-1">
+                  <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 shrink-0 gap-1">
                     <Layers className="h-2.5 w-2.5" />
                     Faixas ({entry.items.length})
                   </Badge>
                 </div>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  {LABEL[first.kind]} — o cliente escolhe uma das opções abaixo
+                  Comparativo de quantidades
                 </p>
               </div>
             </div>
 
             <ul className="mt-2.5 space-y-1 border-t border-primary/20 pt-2">
-              {entry.items.map((it) => {
-                const price = priceOf(it).preco_total;
-                const q = itemQty(it);
-                const unit = q > 0 ? price / q : 0;
-                return (
-                  <li
-                    key={it.id}
-                    className="flex items-center justify-between gap-2 text-xs rounded px-2 py-1 hover:bg-background"
-                  >
-                    <span className="tabular-nums font-medium">
-                      {q.toLocaleString("pt-BR")} un
-                    </span>
-                    <span className="text-muted-foreground tabular-nums">
-                      {fmtBRL(unit)} / un
-                    </span>
-                    <span className="font-semibold tabular-nums">{fmtBRL(price)}</span>
-                    <button
-                      type="button"
-                      onClick={() => onRemove(it.id)}
-                      className="text-muted-foreground hover:text-destructive shrink-0"
-                      title="Remover esta faixa"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </li>
-                );
-              })}
+              {renderTierRow(primaryItem, { primary: true })}
             </ul>
+
+            {suggestions.length > 0 && (
+              <>
+                <p className="mt-2 px-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Sugestões
+                </p>
+                <ul className="space-y-1">
+                  {suggestions.map((it) => renderTierRow(it, { primary: false }))}
+                </ul>
+              </>
+            )}
 
             <div className="mt-2 flex items-center justify-end opacity-60 group-hover:opacity-100 transition-opacity">
               <Button
