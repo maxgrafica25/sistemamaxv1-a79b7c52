@@ -1,54 +1,40 @@
-# Faixas inline antes do "Adicionar"
+## Objetivo
 
-Mover a comparação de faixas pra fora do popover e transformá-la numa seção fixa, logo acima do botão "Adicionar apostila". O fluxo passa a ser: configuro o produto → opcionalmente listo outras quantidades pra comparar → clico **Adicionar** e o orçamento já recebe a quantidade solicitada + as faixas extras agrupadas no mesmo bloco.
+Padronizar a entrada dos formulários de "Impressão + Acabamentos" e "Comunicação Visual" (Etiquetas) com o toggle **Produtos | Personalizado**, sempre nessa ordem, e abrindo por padrão em **Produtos**.
 
-## Mudanças no `BookletForm.tsx`
+## 1. Impressão + Acabamentos (`PrintAndProductForm.tsx`)
 
-### 1. Remover o `TierSimulator` (popover) de cima
-Tirar o botão "Comparar faixas" que hoje fica colado no input "Qtde de apostilas".
+Trocar apenas a ordem e o default — sem mexer na lógica de sugestão/presets.
 
-### 2. Nova seção "Faixas adicionais (opcional)"
-Bloco discreto entre o resumo (folhas físicas / espiral sugerida) e o painel de Kit Encadernação. Layout:
+- Linha 31: `useState<Mode>("custom")` → `useState<Mode>("product")` (abre já em Produtos).
+- Linhas 70–83: inverter os dois `<ModeButton>` para que **Produto** apareça primeiro e **Personalizado** depois. Padronizar o label para **"Produtos"** (plural), igual ao pedido do usuário.
+- Nada muda em chips, sugestão, formulários internos ou submit.
 
-```text
-┌─ FAIXAS ADICIONAIS (opcional) ─────────────────── [▾ ocultar] ─┐
-│  Compare preços para outras quantidades. Tudo é adicionado     │
-│  no mesmo bloco do orçamento.                                  │
-│                                                                │
-│  [ Solicitada ] 1 un      preço/un: R$ 167,90   R$ 167,90      │
-│                                                                │
-│  Sugestões                                                     │
-│  ▸ chip 100  ✕   chip 250 ✕   chip 500 ✕   chip 1000 ✕         │
-│  [ adicionar qtd ____ ] [ +Add ]   presets: ×2 ×5 +50% Reset   │
-│                                                                │
-│  Prévia:                                                       │
-│   10 un   R$ 16,79/un   R$ 167,90                              │
-│   100 un  R$ 9,80/un    R$ 980,00                              │
-│   …                                                            │
-└────────────────────────────────────────────────────────────────┘
-```
+## 2. Comunicação Visual / Etiquetas (`LabelEmbeddedForm.tsx`)
 
-- **Faixa "Solicitada"**: sempre a quantidade atual do form (não é chip removível — segue a qtde principal).
-- **Sugestões**: chips com remover. Persistem em `localStorage` (mesma chave do `TierSimulator` atual).
-- **Prévia inline**: tabela leve (qtd, unit, total) usando o mesmo `compute(q)` que o `TierSimulator` já usa.
-- **Toggle ocultar/exibir**: por padrão começa colapsado (só mostra o cabeçalho + chevron) pra não poluir.
+Hoje o form abre direto em modo livre. Adicionar o mesmo toggle no topo, na mesma posição visual do form de Impressão.
 
-### 3. Botão "Adicionar" no rodapé
-- Quando não há sugestões: continua **"Adicionar apostila"**, comportamento atual.
-- Quando há ≥1 sugestão: vira **"Adicionar apostila + N faixas"** e dispara o mesmo caminho do `submitAsTiers` (qty principal + sugestões → mesmo `tier_group_id`, `tier_primary = true` na principal).
-- Quando há sugestões mas o miolo também tem Kit aplicado: prevalece o fluxo de Kit (faixas + kit combinados ficam fora de escopo — vou bloquear o "Adicionar apostila + faixas" se já houver kit selecionado e mostrar um aviso curto).
+- Novo estado `mode: "product" | "custom"`, default `"product"`.
+- Renderizar, antes de qualquer campo (acima de Descrição/Folha), o mesmo bloco:
+  ```
+  <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
+    <ModeButton active={mode==="product"} icon={Wand2} label="Produtos" />
+    <ModeButton active={mode==="custom"}  icon={Pencil} label="Personalizado" />
+  </div>
+  ```
+  Reaproveitar o componente `ModeButton` extraindo-o para `shared/ModeButton.tsx` (mesmo arquivo usado pelos dois forms) — sem alterar visual.
+- **Modo Produtos**: mostrar chips com os favoritos de etiqueta vindos de `loadConfig().presets` (`LabelPreset[]` em `src/lib/labels/config-storage.ts`, já com `SEED_LABEL_PRESETS`). Cada chip aplica os valores do preset (`labelW`, `labelH`, `shape`, `sheetId`, `quantidade` se houver) nos states existentes e mantém o restante do formulário visível para ajustes — mesmo padrão visual dos chips de produto em Impressão.
+- **Modo Personalizado**: comportamento atual (sem chips), preservando todos os campos e a integração com `TierSimulator`/`onAdd`/`onAddTiers`.
+- Nenhuma mudança em cálculo, pricing, submit, tiers ou tipos.
 
-### 4. Pequeno utilitário reutilizável
-Criar `src/components/orcamentos-v3/shared/TierFaixasPanel.tsx` recebendo as mesmas props do `TierSimulator` (`currentQty`, `compute`, `onCloneAsTiers`, `onPickQty`). Reaproveita o mesmo storage. Substitui o popover no Booklet primeiro e fica pronto pra plugarmos em Print/CV/Third/Supply/Label depois.
+## 3. Fora do escopo
 
-## Fora de escopo agora
+- Lógica de sugestão automática para etiquetas (não solicitada).
+- Persistência de qual modo o usuário usou por último.
+- Alterações nos demais formulários (Booklet, CV, Supply, ThirdParty).
 
-- Aplicar a mesma seção em PrintForm/CVForm/ThirdPartyForm/SupplyForm/LabelEmbeddedForm — vou fazer só no Booklet pra validar o padrão e replico nos outros num próximo passo, se você gostar.
-- Combinar Faixas + Kit Apostila num único disparo.
-- Persistência de `tier_primary` no banco (continua só na sessão / cart, como hoje).
+## Arquivos afetados
 
-## O que NÃO muda
-
-- Cálculo de preço, regras de F/V, multiplicadores.
-- Card de "Faixas" no carrinho (já mostra Solicitada + Sugestões).
-- O `TierSimulator` continua existindo para os outros forms enquanto não migrarmos todos.
+- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx` — reordenar toggle + default.
+- `src/components/orcamentos-v3/forms/LabelEmbeddedForm.tsx` — adicionar toggle + chips de favoritos.
+- `src/components/orcamentos-v3/shared/ModeButton.tsx` (novo) — extrair o botão hoje local em `PrintAndProductForm` para reuso.
