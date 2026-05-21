@@ -15,7 +15,7 @@ import PrintingItemSearch, {
 } from "@/components/orcamentos/PrintingItemSearch";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { roundUp10 } from "../shared/pricing";
-import { TierSimulator } from "../shared/TierSimulator";
+import { TierFaixasPanel } from "../shared/TierFaixasPanel";
 import { getIdealSpiral } from "@/lib/quotes-v2/spiral-selector";
 import { genId, type V3BookletItem, type V3Item } from "../types";
 import { ProductKitPanel } from "./ProductKitPanel";
@@ -38,6 +38,7 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
   const [bookletUnits, setBookletUnits] = useState<number>(10);
   const [duplex, setDuplex] = useState<boolean>(true);
   const [pulse, setPulse] = useState(false);
+  const [extraTiers, setExtraTiers] = useState<number[]>([]);
 
   // Folhas físicas = páginas-folha por apostila × nº apostilas.
   // (Se F/V, cada folha = 2 lados; o miolo é cobrado por folha física impressa.)
@@ -101,8 +102,24 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
   const submit = () => {
     const item = buildBookletItem();
     if (!item) return;
-    onAdd(item);
+    const cleanExtras = [...new Set(extraTiers)]
+      .filter((q) => q > 0 && q !== bookletUnits)
+      .sort((a, b) => a - b);
+    if (cleanExtras.length > 0 && onAddTiers) {
+      const tg = `tg_${genId()}`;
+      const primary = { ...item, tier_group_id: tg, tier_primary: true } as V3BookletItem;
+      const siblings = cleanExtras
+        .map((q) => {
+          const s = buildBookletItem(q, tg);
+          return s ? ({ ...s, tier_primary: false } as V3BookletItem) : null;
+        })
+        .filter((x): x is V3BookletItem => !!x);
+      onAddTiers([primary, ...siblings]);
+    } else {
+      onAdd(item);
+    }
     setDescricao("");
+    setExtraTiers([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
@@ -194,50 +211,13 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
           />
         </Field>
         <Field label="Qtde de apostilas">
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={1}
-              value={bookletUnits || ""}
-              onChange={(e) => setBookletUnits(Math.max(0, Number(e.target.value) || 0))}
-              className="h-9"
-            />
-            <TierSimulator
-              currentQty={bookletUnits}
-              disabled={!catalog || bookletPages <= 0}
-              compute={(units) => {
-                const sheets = Math.max(0, Math.floor(bookletPages) * Math.floor(units));
-                if (!catalog || sheets <= 0) return { custo_total: 0, preco_total: 0 };
-                const pr = pricePerSheet(catalog, tiers, sheets);
-                const mult = catalog.side === "F/V" ? 1 : duplex ? 2 : 1;
-                return {
-                  custo_total: pr.baseCost * sheets * mult,
-                  preco_total: roundUp10(pr.sellingPrice * sheets * mult),
-                };
-              }}
-              onPickQty={(q) => setBookletUnits(q)}
-              onCloneAsTiers={
-                onAddTiers
-                  ? (qtys, primaryQty) => {
-                      const tg = `tg_${genId()}`;
-                      const items = qtys
-                        .map((q) => {
-                          const it = buildBookletItem(q, tg);
-                          return it
-                            ? ({ ...it, tier_primary: q === primaryQty } as V3BookletItem)
-                            : null;
-                        })
-                        .filter((x): x is V3BookletItem => !!x);
-                      if (items.length === 0) return;
-                      onAddTiers(items);
-                      setDescricao("");
-                      setPulse(true);
-                      setTimeout(() => setPulse(false), 600);
-                    }
-                  : undefined
-              }
-            />
-          </div>
+          <Input
+            type="number"
+            min={1}
+            value={bookletUnits || ""}
+            onChange={(e) => setBookletUnits(Math.max(0, Number(e.target.value) || 0))}
+            className="h-9"
+          />
         </Field>
       </div>
 
@@ -295,6 +275,24 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
         </>
       )}
 
+      {onAddTiers && canAdd && (
+        <TierFaixasPanel
+          currentQty={bookletUnits}
+          disabled={!catalog || bookletPages <= 0}
+          onExtrasChange={setExtraTiers}
+          compute={(units) => {
+            const sheets = Math.max(0, Math.floor(bookletPages) * Math.floor(units));
+            if (!catalog || sheets <= 0) return { custo_total: 0, preco_total: 0 };
+            const pr = pricePerSheet(catalog, tiers, sheets);
+            const mult = catalog.side === "F/V" ? 1 : duplex ? 2 : 1;
+            return {
+              custo_total: pr.baseCost * sheets * mult,
+              preco_total: roundUp10(pr.sellingPrice * sheets * mult),
+            };
+          }}
+        />
+      )}
+
       <Field label="Descrição (opcional)">
         <Input
           value={descricao}
@@ -313,13 +311,18 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
           onClick={submit}
           disabled={!canAdd}
           className={cn(
-            "min-w-[200px] transition-colors",
+            "min-w-[220px] transition-colors",
             pulse && "bg-emerald-600 hover:bg-emerald-600",
           )}
         >
           {pulse ? (
             <>
               <Check className="h-4 w-4 mr-2" /> Adicionado!
+            </>
+          ) : extraTiers.length > 0 ? (
+            <>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar apostila + {extraTiers.length} faixa{extraTiers.length === 1 ? "" : "s"}
             </>
           ) : (
             <>
