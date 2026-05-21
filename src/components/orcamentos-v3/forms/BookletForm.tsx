@@ -129,7 +129,7 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
     const leader: V3Item = { ...miolo, bundle_id: bundleId, bundle_label: bundleLabel };
     const tagged: V3Item[] = kitItems.map((it) => ({ ...it, bundle_id: bundleId } as V3Item));
     onAddMany([leader, ...tagged]);
-    setDescricao();
+    setDescricao("");
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
