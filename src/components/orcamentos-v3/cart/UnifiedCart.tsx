@@ -71,20 +71,41 @@ function itemQty(it: V3Item): number {
 
 type Entry =
   | { type: "single"; item: V3Item }
-  | { type: "group"; groupId: string; items: V3Item[] };
+  | { type: "group"; groupId: string; items: V3Item[] }
+  | { type: "bundle"; bundleId: string; leader: V3Item; items: V3Item[] };
 
 function groupItems(items: V3Item[]): Entry[] {
   const out: Entry[] = [];
-  const seen = new Map<string, number>();
+  const bundleIdx = new Map<string, number>();
+  const tierIdx = new Map<string, number>();
   for (const it of items) {
+    const bid = (it as { bundle_id?: string | null }).bundle_id;
+    if (bid) {
+      const idx = bundleIdx.get(bid);
+      if (idx == null) {
+        bundleIdx.set(bid, out.length);
+        out.push({ type: "bundle", bundleId: bid, leader: it, items: [it] });
+      } else {
+        const entry = out[idx];
+        if (entry.type === "bundle") {
+          entry.items.push(it);
+          // Líder = primeiro item com bundle_label preenchido
+          if (!((entry.leader as { bundle_label?: string | null }).bundle_label) &&
+              (it as { bundle_label?: string | null }).bundle_label) {
+            entry.leader = it;
+          }
+        }
+      }
+      continue;
+    }
     const tg = (it as { tier_group_id?: string | null }).tier_group_id;
     if (!tg) {
       out.push({ type: "single", item: it });
       continue;
     }
-    const idx = seen.get(tg);
+    const idx = tierIdx.get(tg);
     if (idx == null) {
-      seen.set(tg, out.length);
+      tierIdx.set(tg, out.length);
       out.push({ type: "group", groupId: tg, items: [it] });
     } else {
       const entry = out[idx];
