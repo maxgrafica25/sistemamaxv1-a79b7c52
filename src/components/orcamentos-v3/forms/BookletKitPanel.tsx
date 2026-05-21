@@ -149,11 +149,12 @@ export function BookletKitPanel({
     }
 
     onApply(items);
+    const headline = hasAnyCustom ? "Acabamentos aplicados" : "Kit aplicado";
     if (fallbacks.length > 0) {
-      toast.warning(`Aplicado (${items.length} itens). Preencher: ${fallbacks.join(", ")}`);
+      toast.warning(`${headline} (${items.length} itens). Preencher: ${fallbacks.join(", ")}`);
     } else {
       toast.success(
-        `Kit aplicado (${items.length} itens)${spiralDiameter ? ` · espiral ${spiralDiameter}` : ""}.`,
+        `${headline} (${items.length} itens)${spiralDiameter && !hasAnyCustom ? ` · espiral ${spiralDiameter}` : ""}.`,
       );
     }
   };
