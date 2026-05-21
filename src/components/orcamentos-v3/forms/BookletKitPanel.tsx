@@ -353,28 +353,75 @@ export function BookletKitPanel({
 
       {/* Slots livres de acabamento personalizado */}
       {!loading && extraSlots.length > 0 && (
-        <div className="space-y-2 pt-1 border-t border-primary/15">
-          {extraSlots.map((slot) => (
-            <div key={slot.id} className="space-y-1.5">
-              <div className="flex items-center gap-2 px-2">
-                <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
-                <Input
-                  value={slot.label}
-                  onChange={(e) => updateSlot(slot.id, { label: e.target.value })}
-                  placeholder="Nome do acabamento (ex.: Laminação BOPP, Capa dura)"
-                  className="h-7 text-[11px] flex-1"
-                />
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => removeSlot(slot.id)}
-                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                  aria-label="Remover acabamento"
+        <div className="space-y-1.5 pt-1 border-t border-primary/15">
+          {extraSlots.map((slot) => {
+            // Modo COLAPSADO: linha única alinhada com os itens do kit acima
+            if (slot.collapsed && slot.supply) {
+              const total =
+                (Number(slot.supply.valor_unitario) || 0) *
+                slot.qty *
+                (1 + slot.margemPct / 100);
+              return (
+                <div
+                  key={slot.id}
+                  className="flex items-center gap-2 px-2 py-1.5 text-xs rounded-sm bg-background hover:bg-muted/50"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-              {!slot.collapsed && (
+                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span className="font-medium whitespace-nowrap">
+                    {slot.label.trim() || slot.supply.produto}
+                  </span>
+                  <span className="flex-1 text-muted-foreground text-[10.5px] truncate hidden sm:inline">
+                    {slot.supply.produto}
+                    {slot.supply.fornecedor ? ` · ${slot.supply.fornecedor}` : ""}
+                  </span>
+                  <span className="text-muted-foreground tabular-nums text-[10.5px]">
+                    {slot.qty} un
+                  </span>
+                  <span className="font-semibold tabular-nums w-[70px] text-right">
+                    {fmtBRL(total)}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => updateSlot(slot.id, { collapsed: false })}
+                    className="h-6 px-2 text-[10.5px] text-primary hover:text-primary"
+                  >
+                    <Pencil className="h-3 w-3 mr-1" /> Editar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => removeSlot(slot.id)}
+                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                    aria-label="Remover acabamento"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              );
+            }
+
+            // Modo EDIÇÃO: nome + busca + qtd
+            return (
+              <div key={slot.id} className="space-y-1.5">
+                <div className="flex items-center gap-2 px-2">
+                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <Input
+                    value={slot.label}
+                    onChange={(e) => updateSlot(slot.id, { label: e.target.value })}
+                    placeholder="Nome do acabamento (ex.: Laminação BOPP, Capa dura)"
+                    className="h-7 text-[11px] flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => removeSlot(slot.id)}
+                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                    aria-label="Remover acabamento"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
                 <div className="ml-6 mr-2 space-y-2 rounded-md border border-primary/20 bg-background p-2">
                   <SupplySearch
                     placeholder="Buscar suprimento (ex.: Espiral, Wire-o, Laminação BOPP)..."
@@ -414,39 +461,12 @@ export function BookletKitPanel({
                     </Button>
                   </div>
                 </div>
-              )}
-              {slot.collapsed && slot.supply && (
-                <div className="ml-6 rounded-md border border-primary/30 bg-primary/[0.05] px-2.5 py-1.5 flex items-center gap-2">
-                  <Package className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <span className="text-[11px] text-foreground flex-1 truncate">
-                    {slot.label.trim() || slot.supply.produto}
-                    <span className="text-muted-foreground">
-                      {" "}· {slot.supply.fornecedor || "sem fornecedor"} · {slot.qty} un
-                    </span>
-                  </span>
-                  <span className="text-[11px] font-semibold text-primary tabular-nums">
-                    {fmtBRL(
-                      (Number(slot.supply.valor_unitario) || 0) *
-                        slot.qty *
-                        (1 + slot.margemPct / 100),
-                    )}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => updateSlot(slot.id, { collapsed: false })}
-                    className="h-6 px-2 text-[10.5px] text-primary hover:text-primary"
-                  >
-                    <Pencil className="h-3 w-3 mr-1" /> Editar
-                  </Button>
-                </div>
-              )}
-
-            </div>
-          ))}
-
+              </div>
+            );
+          })}
         </div>
       )}
+
 
       <div className="flex items-center justify-between gap-2 pt-1">
         <div className="flex flex-wrap items-center gap-2 min-w-0">
