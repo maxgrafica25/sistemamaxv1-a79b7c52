@@ -15,6 +15,7 @@ import { StepTypeBadge, STEP_TYPES, type StepType } from "@/components/orcamento
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
+import PageLoader from "@/components/PageLoader";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Step {
@@ -146,9 +147,7 @@ function EtapasTab() {
     fetchSteps();
   };
 
-  if (loading) {
-    return <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
+  if (loading) { return <PageLoader />; }
 
   return (
     <>
@@ -341,9 +340,7 @@ function GruposTab() {
 
   const getTotalTime = (items: GroupItem[]) => items.reduce((sum, i) => sum + i.time_minutes, 0);
 
-  if (loading) {
-    return <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
+  if (loading) { return <PageLoader />; }
 
   return (
     <>

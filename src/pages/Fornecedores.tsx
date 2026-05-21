@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
+import PageLoader from "@/components/PageLoader";
 
 interface Fornecedor {
   id: string;
@@ -89,9 +90,7 @@ export default function Fornecedores() {
     f.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) {
-    return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
+  if (loading) { return <PageLoader />; }
 
   return (
     <div className="p-8">

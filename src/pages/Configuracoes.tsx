@@ -17,6 +17,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import BaseConhecimentoTab from "@/components/assistente/BaseConhecimentoTab";
 import CompanyTab from "@/components/configuracoes/CompanyTab";
 import VpsPackageCard from "@/components/configuracoes/VpsPackageCard";
+import PageLoader from "@/components/PageLoader";
 
 function formatBytes(n: number): string {
   if (!n) return "0 B";
@@ -185,9 +186,7 @@ export default function Configuracoes() {
     }
   };
 
-  if (loading) {
-    return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
+  if (loading) { return <PageLoader />; }
 
   const totalIndiretos = (parseFloat(invoicePercentage) || 0) + composedVariable;
 

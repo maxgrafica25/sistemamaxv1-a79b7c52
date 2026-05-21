@@ -22,6 +22,7 @@ import { FinancialSummary } from "@/components/shared/FinancialSummary";
 import { calcKitPrice, suggestConsumoTipo, KitConsumoTipo, KitPricingMode } from "@/lib/kitPricing";
 import { useHourRate } from "@/hooks/useHourRate";
 import { useGlobalSettings } from "@/hooks/useGlobalSettings";
+import PageLoader from "@/components/PageLoader";
 
 interface MaterialItem {
   id: string;
@@ -283,9 +284,7 @@ export default function GruposMateriais() {
       return s + i.quantity * price;
     }, 0);
 
-  if (loading) {
-    return <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
+  if (loading) { return <PageLoader />; }
 
   return (
     <div className="p-8">

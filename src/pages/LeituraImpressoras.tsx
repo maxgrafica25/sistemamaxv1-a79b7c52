@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { handleError } from "@/lib/handleError";
+import PageLoader from "@/components/PageLoader";
 
 interface PrinterReading {
   id: string;
@@ -98,9 +99,7 @@ export default function LeituraImpressoras() {
     });
   }, [readings, printerModels]);
 
-  if (loading) {
-    return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
+  if (loading) { return <PageLoader />; }
 
   return (
     <div className="p-8">

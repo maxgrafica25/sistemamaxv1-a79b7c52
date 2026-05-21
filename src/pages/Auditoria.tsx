@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { handleError } from "@/lib/handleError";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import PageLoader from "@/components/PageLoader";
 
 interface AuditLog {
   id: string;
@@ -65,9 +66,7 @@ export default function Auditoria() {
     return true;
   });
 
-  if (loading) {
-    return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
+  if (loading) { return <PageLoader />; }
 
   return (
     <div className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-4 lg:space-y-6 max-w-[1400px] mx-auto">
