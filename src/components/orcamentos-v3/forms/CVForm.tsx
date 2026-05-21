@@ -313,6 +313,46 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
 
   return (
     <div className="space-y-5">
+      {/* Toggle Produtos / Personalizado */}
+      <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
+        <ModeButton
+          active={mode === "product"}
+          onClick={() => setMode("product")}
+          icon={Wand2}
+          label="Produtos"
+        />
+        <ModeButton
+          active={mode === "custom"}
+          onClick={() => setMode("custom")}
+          icon={Pencil}
+          label="Personalizado"
+        />
+      </div>
+
+      {mode === "product" && (
+        <div className="flex flex-wrap gap-2">
+          {CV_PRESETS.map((p) => {
+            const active = p.id === activePresetId;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => applyPreset(p)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                  active
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+                )}
+              >
+                <Megaphone className="h-3.5 w-3.5" />
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
