@@ -86,18 +86,24 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
     }
   }, [catalog, isLona]);
 
-  // Conjunto padrão derivado do catálogo unificado
+  // Conjunto padrão derivado do catálogo unificado.
+  // O hint reflete o preço efetivo da quantidade atual (tier aplicada quando há).
   const FINISHES_PADRAO = useMemo<FinishingDef[]>(
     () =>
-      printFinishings.map((f) => ({
-        id: f.id,
-        label: f.name,
-        hint:
-          f.pricing_model === "per_sheet"
-            ? `a partir de ${fmtBRL(f.price_per_sheet)}/folha`
-            : `${fmtBRL(f.price_per_sheet)}/${f.unit_label ?? "un"}`,
-      })),
-    [printFinishings],
+      printFinishings.map((f) => {
+        let hint: string;
+        if (f.pricing_model === "per_unit") {
+          hint = `${fmtBRL(f.price_per_sheet)}/${f.unit_label ?? "un"}`;
+        } else {
+          const tier = pickFinishingTier(f.tiers ?? [], quantidade);
+          const effective = tier ? tier.price_per_sheet : f.price_per_sheet;
+          hint = tier
+            ? `${fmtBRL(effective)}/folha (faixa ${tier.label || `${tier.min_qty}${tier.max_qty ? `-${tier.max_qty}` : "+"}`})`
+            : `${fmtBRL(effective)}/folha`;
+        }
+        return { id: f.id, label: f.name, hint };
+      }),
+    [printFinishings, quantidade],
   );
 
   // Seleciona conjunto de acabamentos
