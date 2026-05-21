@@ -4,9 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, FileText, Clock, CheckCircle2, AlertTriangle, LayoutDashboard } from "lucide-react";
+import {
+  Search, FileText, Clock, CheckCircle2, AlertTriangle, Home,
+  ClipboardList, ShoppingCart, Wallet, Wrench, ArrowRight,
+} from "lucide-react";
+import { useIsFinanceiro } from "@/hooks/useIsFinanceiro";
 
-// Mock data
+// Mock data — substituir por queries reais quando disponível
 const recentQuotes = [
   { id: "2025-001", client: "João Silva", product: "Cartões de Visita 500un", value: 450, status: "approved", date: "2025-01-08" },
   { id: "2025-002", client: "Maria Santos", product: "Banner em Lona 2x1m", value: 280, status: "sent", date: "2025-01-09" },
@@ -39,40 +43,135 @@ const getStatusBadge = (status: string) => {
   }
 };
 
+interface ActionItem {
+  label: string;
+  count: number;
+  hint: string;
+  to: string;
+  icon: typeof ClipboardList;
+  tone: "primary" | "warning" | "danger" | "info";
+}
+
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
+  const isFinanceiro = useIsFinanceiro();
+
+  // Itens de "Ações pendentes" — counts são placeholders enquanto não há queries reais
+  const actions: ActionItem[] = [
+    {
+      label: "Orçamentos aguardando",
+      count: 23,
+      hint: "Cliente ainda não respondeu",
+      to: "/orcamentos-v2?status=sent",
+      icon: ClipboardList,
+      tone: "primary",
+    },
+    {
+      label: "Pedidos em produção",
+      count: 8,
+      hint: "Acompanhe o kanban",
+      to: "/pedidos",
+      icon: ShoppingCart,
+      tone: "info",
+    },
+    ...(isFinanceiro
+      ? [{
+          label: "Contas vencendo",
+          count: 4,
+          hint: "Próximos 3 dias",
+          to: "/financeiro/receber",
+          icon: Wallet,
+          tone: "warning" as const,
+        }]
+      : []),
+    {
+      label: "Estoque baixo",
+      count: lowStockMaterials.length,
+      hint: "Materiais para repor",
+      to: "/insumos",
+      icon: AlertTriangle,
+      tone: "danger",
+    },
+    {
+      label: "Manutenções pendentes",
+      count: 2,
+      hint: "Equipamentos",
+      to: "/equipamentos",
+      icon: Wrench,
+      tone: "info",
+    },
+  ];
+
+  const toneClasses: Record<ActionItem["tone"], string> = {
+    primary: "border-primary/20 hover:border-primary/40 [&_[data-icon]]:text-primary [&_[data-icon-bg]]:bg-primary/10",
+    info: "border-blue-500/20 hover:border-blue-500/40 [&_[data-icon]]:text-blue-500 [&_[data-icon-bg]]:bg-blue-500/10",
+    warning: "border-amber-500/30 hover:border-amber-500/50 [&_[data-icon]]:text-amber-600 [&_[data-icon-bg]]:bg-amber-500/10",
+    danger: "border-orange-500/30 hover:border-orange-500/50 [&_[data-icon]]:text-orange-600 [&_[data-icon-bg]]:bg-orange-500/10",
+  };
 
   return (
     <div className="p-8">
       {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Home className="h-6 w-6 text-primary" />
+          Hoje
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">O que precisa da sua atenção agora</p>
+      </div>
+
+      {/* Ações pendentes */}
       <div className="mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <LayoutDashboard className="h-6 w-6 text-primary" />
-            Dashboard
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Visão geral dos seus orçamentos</p>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 px-1">
+          Ações pendentes
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {actions.map((a) => {
+            const Icon = a.icon;
+            return (
+              <Link
+                key={a.label}
+                to={a.to}
+                className={`group rounded-lg border bg-card p-4 transition-all hover:shadow-sm ${toneClasses[a.tone]}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div data-icon-bg className="rounded-md p-2">
+                    <Icon data-icon className="h-4 w-4" />
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-foreground transition-colors" />
+                </div>
+                <p className="mt-3 text-2xl font-bold text-foreground tabular-nums">{a.count}</p>
+                <p className="text-sm font-medium text-foreground mt-0.5">{a.label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{a.hint}</p>
+              </Link>
+            );
+          })}
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.name} className="shadow-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{stat.name}</p>
-                  <p className="mt-2 text-3xl font-bold text-foreground">{stat.value}</p>
-                  <p className="mt-1 text-xs font-medium text-success">{stat.change} vs mês anterior</p>
+      <div className="mb-8">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 px-1">
+          Resumo do mês
+        </h2>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {stats.map((stat) => (
+            <Card key={stat.name} className="shadow-card">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{stat.name}</p>
+                    <p className="mt-2 text-3xl font-bold text-foreground">{stat.value}</p>
+                    <p className="mt-1 text-xs font-medium text-success">{stat.change} vs mês anterior</p>
+                  </div>
+                  <div className="rounded-full bg-primary/10 p-3">
+                    <stat.icon className="h-6 w-6 text-primary" />
+                  </div>
                 </div>
-                <div className="rounded-full bg-primary/10 p-3">
-                  <stat.icon className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
       {/* Search Bar */}
@@ -87,41 +186,6 @@ export default function Dashboard() {
           />
         </div>
       </div>
-
-      {/* Low Stock Alert */}
-      {lowStockMaterials.length > 0 && (
-        <Card className="mb-6 shadow-card border-orange-200 bg-orange-50/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-orange-700">
-              <AlertTriangle className="h-5 w-5" />
-              Alerta: Matérias-Primas com Estoque Baixo
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {lowStockMaterials.map((material, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200">
-                  <div>
-                    <p className="font-medium text-foreground">{material.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Estoque atual: {material.currentStock} {material.unit} | 
-                      Mínimo: {material.minStock} {material.unit}
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300">
-                    {material.currentStock === 0 ? "Esgotado" : "Baixo"}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-            <Link to="/materias-primas" className="mt-4 block">
-              <Button variant="outline" className="w-full">
-                Gerenciar Matérias-Primas
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Recent Quotes Table */}
       <Card className="shadow-card">
