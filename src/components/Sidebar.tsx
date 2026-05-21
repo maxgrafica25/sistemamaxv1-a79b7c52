@@ -153,9 +153,9 @@ export default function Sidebar({ collapsed, toggleCollapsed, mobileOpen, closeM
         {/* Nav */}
         <TooltipProvider delayDuration={200}>
           <nav className={cn("flex-1 overflow-y-auto", collapsed ? "px-2 py-3 space-y-2" : "p-3 space-y-4")}>
-            {visibleGroups.map((group) => (
-              <div key={group.label} className="space-y-0.5">
-                {!collapsed && (
+            {visibleGroups.map((group, gi) => (
+              <div key={group.label || `g-${gi}`} className="space-y-0.5">
+                {!collapsed && group.label && (
                   <div className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
                     {group.label}
                   </div>
