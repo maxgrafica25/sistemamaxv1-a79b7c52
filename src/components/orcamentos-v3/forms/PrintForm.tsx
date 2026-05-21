@@ -15,7 +15,7 @@ import { fmtBRL } from "../shared/pricing";
 import { BASTOES_CM, sugerirBastao } from "../shared/bastaoSuggester";
 import { TierSimulator } from "../shared/TierSimulator";
 import { genId, type V3PrintItem } from "../types";
-import { listFinishings, type FinishingItem } from "@/lib/finishings/catalog";
+import { listFinishings, sumFinishingsPerSheet, type FinishingItem } from "@/lib/finishings/catalog";
 
 interface Props {
   onAdd: (item: V3PrintItem) => void;
