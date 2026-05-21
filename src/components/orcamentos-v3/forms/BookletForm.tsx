@@ -275,6 +275,24 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
         </>
       )}
 
+      {onAddTiers && canAdd && (
+        <TierFaixasPanel
+          currentQty={bookletUnits}
+          disabled={!catalog || bookletPages <= 0}
+          onExtrasChange={setExtraTiers}
+          compute={(units) => {
+            const sheets = Math.max(0, Math.floor(bookletPages) * Math.floor(units));
+            if (!catalog || sheets <= 0) return { custo_total: 0, preco_total: 0 };
+            const pr = pricePerSheet(catalog, tiers, sheets);
+            const mult = catalog.side === "F/V" ? 1 : duplex ? 2 : 1;
+            return {
+              custo_total: pr.baseCost * sheets * mult,
+              preco_total: roundUp10(pr.sellingPrice * sheets * mult),
+            };
+          }}
+        />
+      )}
+
       <Field label="Descrição (opcional)">
         <Input
           value={descricao}
@@ -293,13 +311,18 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
           onClick={submit}
           disabled={!canAdd}
           className={cn(
-            "min-w-[200px] transition-colors",
+            "min-w-[220px] transition-colors",
             pulse && "bg-emerald-600 hover:bg-emerald-600",
           )}
         >
           {pulse ? (
             <>
               <Check className="h-4 w-4 mr-2" /> Adicionado!
+            </>
+          ) : extraTiers.length > 0 ? (
+            <>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar apostila + {extraTiers.length} faixa{extraTiers.length === 1 ? "" : "s"}
             </>
           ) : (
             <>
