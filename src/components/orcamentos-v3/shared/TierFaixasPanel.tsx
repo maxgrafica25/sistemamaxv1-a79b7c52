@@ -91,15 +91,6 @@ export function TierFaixasPanel({
 
   const removeQty = (q: number) => setExtras((prev) => prev.filter((x) => x !== q));
 
-  const applyPreset = (factor: number) => {
-    const candidates = [
-      Math.max(1, Math.round(currentQty * factor)),
-      Math.max(1, Math.round(currentQty * factor * 2)),
-    ];
-    setExtras((prev) =>
-      [...new Set([...prev, ...candidates])].filter((q) => q !== currentQty),
-    );
-  };
 
   return (
     <div
