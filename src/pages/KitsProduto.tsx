@@ -52,6 +52,7 @@ import {
   SPIRAL_VARIANT_PRESET,
 } from "@/components/orcamentos-v3/shared/productKit";
 import AddItemsPicker, { type PickedItem } from "@/components/kits/AddItemsPicker";
+import KitHowItWorks from "@/components/kits/KitHowItWorks";
 import VariantsDialog, { type VariantRow } from "@/components/kits/VariantsDialog";
 
 interface KitItem {
@@ -693,6 +694,8 @@ export default function KitsProduto() {
 
           {/* Lista de itens */}
           <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1.5">
+            <KitHowItWorks />
+
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Itens do kit ({items.length})
