@@ -36,10 +36,10 @@ export function buildBookletBundleLabel(args: BuildBookletBundleArgs): string {
     customBackCoverDescr,
   } = args;
 
-  // Cabeça: Apostila Nx — miolo Pfl Papel Gramatura F/V
+  // Cabeça: miolo Pfl Papel Gramatura F/V (quantidade fica fora — exibida como chip)
   const paperBits = [miolo.paper_type, miolo.grammage].filter(Boolean).join(" ");
   const sideBit = miolo.bookletDuplex || miolo.side === "F/V" ? "F/V" : "";
-  const head = `Apostila ${miolo.bookletUnits}× — miolo ${miolo.bookletPages}fl${
+  const head = `miolo ${miolo.bookletPages}fl${
     paperBits ? ` ${paperBits}` : ""
   }${sideBit ? ` ${sideBit}` : ""}`;
 
