@@ -4,8 +4,9 @@
 // Em modo Personalizado, mostra sugestão inteligente quando a combinação
 // de papel + acabamentos casa com um produto conhecido (ex: lona + ilhós).
 import { useCallback, useState } from "react";
-import { cn } from "@/lib/utils";
 import { Wand2, Pencil, Sparkles, X } from "lucide-react";
+import { ModeButton } from "../shared/ModeButton";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PrintForm } from "./PrintForm";
 import { BookletForm } from "./BookletForm";
