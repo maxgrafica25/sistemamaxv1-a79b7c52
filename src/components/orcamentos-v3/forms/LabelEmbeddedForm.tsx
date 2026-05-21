@@ -135,11 +135,14 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers }: Props) {
     setTimeout(() => setPulse(false), 600);
   };
 
-  const submitAsTiers = (qtys: number[]) => {
+  const submitAsTiers = (qtys: number[], primaryQty: number) => {
     if (!onAddTiers) return;
     const tg = `tg_${genId()}`;
     const items = qtys
-      .map((q) => buildItem(q, tg))
+      .map((q) => {
+        const it = buildItem(q, tg);
+        return it ? ({ ...it, tier_primary: q === primaryQty } as V3LabelItem) : null;
+      })
       .filter((x): x is V3LabelItem => !!x);
     if (items.length === 0) return;
     onAddTiers(items);
