@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/audit";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { handleError } from "@/lib/handleError";
+import PageLoader from "@/components/PageLoader";
 
 interface Cadastro {
   id: string;
@@ -177,9 +178,7 @@ export default function Cadastros() {
     return "Cliente";
   };
 
-  if (loading) {
-    return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
+  if (loading) { return <PageLoader />; }
 
   const showSupplierFields = tipo === "fornecedor" || tipo === "ambos";
 

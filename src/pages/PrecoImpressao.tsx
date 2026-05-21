@@ -37,6 +37,7 @@ import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import PageLoader from "@/components/PageLoader";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface MarkupGroup {
@@ -580,7 +581,7 @@ export default function PrecoImpressao() {
   const exampleCost = 0.10;
   const examplePrice = tierDivisor > 0 ? exampleCost / tierDivisor : 0;
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
+  if (loading) return <PageLoader />;
 
   return (
     <>

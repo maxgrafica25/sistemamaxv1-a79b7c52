@@ -15,6 +15,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
+import PageLoader from "@/components/PageLoader";
 
 interface Expense { id?: string; name: string; value: number; }
 interface Salary { id?: string; name: string; salary: number; is_production: boolean; }
@@ -138,9 +139,7 @@ export default function DespesasFixas() {
     }
   };
 
-  if (loading) {
-    return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
+  if (loading) { return <PageLoader />; }
 
   return (
     <>

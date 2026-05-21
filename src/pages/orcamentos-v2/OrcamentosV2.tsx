@@ -33,6 +33,7 @@ import type { EngagementEventType } from "@/lib/quotes-v2/tracking";
 import { buildTeamFollowUpMessage, buildWaUrl } from "@/lib/quotes-v2/whatsapp";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { QuoteStatusBadge } from "@/components/orcamentos-v2/QuoteStatusBadge";
+import PageLoader from "@/components/PageLoader";
 
 interface QuoteRow {
   id: string;
@@ -356,13 +357,7 @@ export default function OrcamentosV2() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  if (loading) { return <PageLoader />; }
 
   return (
     <div className="p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6 max-w-[1400px] mx-auto">
