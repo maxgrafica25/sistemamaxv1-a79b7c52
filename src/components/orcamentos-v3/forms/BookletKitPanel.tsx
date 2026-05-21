@@ -375,18 +375,73 @@ export function BookletKitPanel({
                 </Button>
               </div>
               {!slot.collapsed && (
-                <CustomCoverEditor
-                  units={Math.max(1, bookletUnits)}
-                  slotLabel={slot.label.trim() || "Acabamento personalizado"}
-                  onChange={(item) => updateSlot(slot.id, { item })}
-                  onDone={() => updateSlot(slot.id, { collapsed: true })}
-                />
+                <div className="ml-6 mr-2 space-y-2 rounded-md border border-primary/20 bg-background p-2">
+                  <SupplySearch
+                    placeholder="Buscar suprimento (ex.: Espiral, Wire-o, Laminação BOPP)..."
+                    onSelect={(s) =>
+                      updateSlot(slot.id, {
+                        supply: s,
+                        margemPct:
+                          s.margem_pct != null
+                            ? Number(s.margem_pct)
+                            : slot.margemPct,
+                      })
+                    }
+                  />
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10.5px] uppercase tracking-wide text-muted-foreground">
+                      Qtd
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={slot.qty || ""}
+                      onChange={(e) =>
+                        updateSlot(slot.id, {
+                          qty: Math.max(0, Number(e.target.value) || 0),
+                        })
+                      }
+                      className="h-7 w-20 text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => updateSlot(slot.id, { collapsed: true })}
+                      disabled={!slot.supply || slot.qty <= 0}
+                      className="h-7 px-2 text-[11px] ml-auto"
+                    >
+                      Ok
+                    </Button>
+                  </div>
+                </div>
               )}
-              {slot.collapsed && slot.item &&
-                renderCustomSummary(
-                  slot.label.trim() ? { ...slot.item, descricao: slot.label.trim() } : slot.item,
-                  () => updateSlot(slot.id, { collapsed: false }),
-                )}
+              {slot.collapsed && slot.supply && (
+                <div className="ml-6 rounded-md border border-primary/30 bg-primary/[0.05] px-2.5 py-1.5 flex items-center gap-2">
+                  <Package className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span className="text-[11px] text-foreground flex-1 truncate">
+                    {slot.label.trim() || slot.supply.produto}
+                    <span className="text-muted-foreground">
+                      {" "}· {slot.supply.fornecedor || "sem fornecedor"} · {slot.qty} un
+                    </span>
+                  </span>
+                  <span className="text-[11px] font-semibold text-primary tabular-nums">
+                    {fmtBRL(
+                      (Number(slot.supply.valor_unitario) || 0) *
+                        slot.qty *
+                        (1 + slot.margemPct / 100),
+                    )}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => updateSlot(slot.id, { collapsed: false })}
+                    className="h-6 px-2 text-[10.5px] text-primary hover:text-primary"
+                  >
+                    <Pencil className="h-3 w-3 mr-1" /> Editar
+                  </Button>
+                </div>
+              )}
+
             </div>
           ))}
 
