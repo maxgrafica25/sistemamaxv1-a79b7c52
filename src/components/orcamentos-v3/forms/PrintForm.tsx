@@ -147,6 +147,15 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
     });
   }, [finishes, isLona, isBanner, bannerLarguraCm, bastaoSugestao, bastaoEscolhido, bastaoInvalido]);
 
+  // Labels dos acabamentos atualmente ligados (usado para descrição/sugestão)
+  const enabledLabels = useMemo(
+    () =>
+      finishes
+        .filter((f) => finEnabled[f.id])
+        .map((f) => f.label),
+    [finishes, finEnabled],
+  );
+
   // Expõe a seleção atual para o wrapper poder sugerir produto.
   useEffect(() => {
     if (!onSelectionChange) return;
@@ -154,9 +163,9 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
       paper_type: catalog?.paper_type ?? null,
       size: catalog?.size ?? null,
       grammage: catalog?.grammage ?? null,
-      finishings: Object.keys(finEnabled).filter((k) => finEnabled[k]),
+      finishings: enabledLabels,
     });
-  }, [catalog, finEnabled, onSelectionChange]);
+  }, [catalog, enabledLabels, onSelectionChange]);
 
   const pricing = useMemo(
     () => (catalog ? pricePerSheet(catalog, tiers, quantidade) : null),
@@ -203,7 +212,7 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
       formato: null,
       cores: null,
       face: catalog.side === "F/V" ? "fv" : "frente",
-      finishings: Object.keys(finEnabled).filter((k) => finEnabled[k]),
+      finishings: enabledLabels,
     };
   };
 
