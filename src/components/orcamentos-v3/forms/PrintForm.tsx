@@ -51,6 +51,14 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
 
+  // Catálogo de acabamentos de impressão (cadastro unificado)
+  const [printFinishings, setPrintFinishings] = useState<FinishingItem[]>([]);
+  useEffect(() => {
+    listFinishings("impressao")
+      .then(setPrintFinishings)
+      .catch(() => setPrintFinishings([]));
+  }, []);
+
   // Lona / banner
   const isLona = useMemo(
     () => /lona|banner|vinil/i.test(catalog?.paper_type || ""),
@@ -77,12 +85,26 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
     }
   }, [catalog, isLona]);
 
+  // Conjunto padrão derivado do catálogo unificado
+  const FINISHES_PADRAO = useMemo<FinishingDef[]>(
+    () =>
+      printFinishings.map((f) => ({
+        id: f.id,
+        label: f.name,
+        hint:
+          f.pricing_model === "per_sheet"
+            ? `a partir de ${fmtBRL(f.price_per_sheet)}/folha`
+            : `${fmtBRL(f.price_per_sheet)}/${f.unit_label ?? "un"}`,
+      })),
+    [printFinishings],
+  );
+
   // Seleciona conjunto de acabamentos
   const finishes = useMemo<FinishingDef[]>(() => {
     if (isLona && isBanner) return FINISHES_BANNER;
     if (isLona) return FINISHES_LONA;
     return FINISHES_PADRAO;
-  }, [isLona, isBanner]);
+  }, [isLona, isBanner, FINISHES_PADRAO]);
 
   // Limpa chips que não pertencem ao conjunto atual
   useEffect(() => {
