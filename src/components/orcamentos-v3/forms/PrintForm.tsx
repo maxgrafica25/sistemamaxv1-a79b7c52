@@ -191,9 +191,31 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
     return label;
   };
 
+  const selections = useMemo(
+    () =>
+      printFinishings
+        .filter((f) => finEnabled[f.id])
+        .map((f) => ({
+          id: f.id,
+          name: f.name,
+          pricing_model: f.pricing_model,
+          unit_label: f.unit_label,
+          price: f.price_per_sheet,
+          cost: f.price_per_sheet,
+        })),
+    [printFinishings, finEnabled],
+  );
+
+  const finishingExtraPerSheet = useMemo(() => {
+    const { perSheet, perUnitTotal } = sumFinishingsPerSheet(selections, quantidade);
+    return perSheet + (quantidade > 0 ? perUnitTotal / quantidade : 0);
+  }, [selections, quantidade]);
+
   const buildItem = (qty: number, tierGroupId?: string): V3PrintItem | null => {
     if (!catalog) return null;
     const pr = pricePerSheet(catalog, tiers, qty);
+    const { perSheet, perUnitTotal } = sumFinishingsPerSheet(selections, qty);
+    const extra = perSheet + (qty > 0 ? perUnitTotal / qty : 0);
     return {
       id: genId(),
       kind: "print",
@@ -207,12 +229,13 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
       side: catalog.side,
       printer_category_id: catalog.printer_category_id,
       markup_group_id: catalog.markup_group_id,
-      valor_unitario: pr.sellingPrice,
-      custo_unitario: pr.baseCost,
+      valor_unitario: pr.sellingPrice + extra,
+      custo_unitario: pr.baseCost + extra,
       formato: null,
       cores: null,
       face: catalog.side === "F/V" ? "fv" : "frente",
       finishings: enabledLabels,
+      finishing_selections: selections,
     };
   };
 
