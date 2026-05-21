@@ -1216,36 +1216,45 @@ export type Database = {
       }
       finishings_price_items: {
         Row: {
+          applies_to: string[]
           category: string
           created_at: string
           id: string
           is_active: boolean
           name: string
           price_per_sheet: number
-          size: string
+          pricing_model: Database["public"]["Enums"]["finishing_pricing_model"]
+          size: string | null
           sort_order: number
+          unit_label: string | null
           updated_at: string
         }
         Insert: {
+          applies_to?: string[]
           category?: string
           created_at?: string
           id?: string
           is_active?: boolean
           name: string
           price_per_sheet?: number
-          size: string
+          pricing_model?: Database["public"]["Enums"]["finishing_pricing_model"]
+          size?: string | null
           sort_order?: number
+          unit_label?: string | null
           updated_at?: string
         }
         Update: {
+          applies_to?: string[]
           category?: string
           created_at?: string
           id?: string
           is_active?: boolean
           name?: string
           price_per_sheet?: number
-          size?: string
+          pricing_model?: Database["public"]["Enums"]["finishing_pricing_model"]
+          size?: string | null
           sort_order?: number
+          unit_label?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -4073,7 +4082,7 @@ export type Database = {
       register_quote_view: { Args: { quote_id: string }; Returns: undefined }
     }
     Enums: {
-      [_ in never]: never
+      finishing_pricing_model: "per_sheet" | "per_unit"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4200,6 +4209,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      finishing_pricing_model: ["per_sheet", "per_unit"],
+    },
   },
 } as const
