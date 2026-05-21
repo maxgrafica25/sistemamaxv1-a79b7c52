@@ -762,8 +762,9 @@ export default function KitsProduto() {
                 <Plus className="h-4 w-4 mr-1" /> Adicionar acabamentos
               </Button>
               <Button onClick={addSpiralByVariant} size="sm" variant="outline">
-                <Wand2 className="h-4 w-4 mr-1" /> Espiral por folhas
+                <Wand2 className="h-4 w-4 mr-1" /> Encadernação espiral
               </Button>
+
             </div>
           </div>
 
