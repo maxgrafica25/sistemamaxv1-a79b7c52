@@ -23,6 +23,16 @@ export interface V3PrintItem {
   cores: "4x0" | "4x4" | "1x0" | "1x1" | null;
   face: "frente" | "fv" | null;
   finishings: string[];
+  /** Snapshot do catálogo unificado — drive do cálculo extra por folha/unidade. */
+  finishing_selections?: {
+    id: string;
+    name: string;
+    pricing_model: "per_sheet" | "per_unit";
+    unit_label: string | null;
+    price: number;
+    cost: number;
+    units?: number;
+  }[];
 }
 
 export interface V3CVItem {
