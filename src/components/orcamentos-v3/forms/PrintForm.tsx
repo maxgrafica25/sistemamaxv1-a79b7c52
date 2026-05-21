@@ -15,6 +15,7 @@ import { fmtBRL } from "../shared/pricing";
 import { BASTOES_CM, sugerirBastao } from "../shared/bastaoSuggester";
 import { TierSimulator } from "../shared/TierSimulator";
 import { genId, type V3PrintItem } from "../types";
+import { listFinishings, type FinishingItem } from "@/lib/finishings/catalog";
 
 interface Props {
   onAdd: (item: V3PrintItem) => void;
@@ -26,16 +27,6 @@ interface Props {
     finishings: string[];
   }) => void;
 }
-
-const FINISHES_PADRAO: FinishingDef[] = [
-  { id: "laminacao", label: "Laminação", hint: "BOPP brilho ou fosco" },
-  { id: "verniz", label: "Verniz UV", hint: "Localizado ou total" },
-  { id: "vinco", label: "Vinco" },
-  { id: "corte_especial", label: "Corte especial" },
-  { id: "wire_o", label: "Wire-O / Espiral" },
-  { id: "ilhos", label: "Ilhós" },
-  { id: "bastao", label: "Bastão" },
-];
 
 const FINISHES_LONA: FinishingDef[] = [
   { id: "ilhos", label: "Ilhós", hint: "Reforço metálico nos cantos" },
@@ -59,6 +50,14 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
   const [quantidade, setQuantidade] = useState(100);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
+
+  // Catálogo de acabamentos de impressão (cadastro unificado)
+  const [printFinishings, setPrintFinishings] = useState<FinishingItem[]>([]);
+  useEffect(() => {
+    listFinishings("impressao")
+      .then(setPrintFinishings)
+      .catch(() => setPrintFinishings([]));
+  }, []);
 
   // Lona / banner
   const isLona = useMemo(
@@ -86,12 +85,26 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
     }
   }, [catalog, isLona]);
 
+  // Conjunto padrão derivado do catálogo unificado
+  const FINISHES_PADRAO = useMemo<FinishingDef[]>(
+    () =>
+      printFinishings.map((f) => ({
+        id: f.id,
+        label: f.name,
+        hint:
+          f.pricing_model === "per_sheet"
+            ? `a partir de ${fmtBRL(f.price_per_sheet)}/folha`
+            : `${fmtBRL(f.price_per_sheet)}/${f.unit_label ?? "un"}`,
+      })),
+    [printFinishings],
+  );
+
   // Seleciona conjunto de acabamentos
   const finishes = useMemo<FinishingDef[]>(() => {
     if (isLona && isBanner) return FINISHES_BANNER;
     if (isLona) return FINISHES_LONA;
     return FINISHES_PADRAO;
-  }, [isLona, isBanner]);
+  }, [isLona, isBanner, FINISHES_PADRAO]);
 
   // Limpa chips que não pertencem ao conjunto atual
   useEffect(() => {
@@ -134,6 +147,15 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
     });
   }, [finishes, isLona, isBanner, bannerLarguraCm, bastaoSugestao, bastaoEscolhido, bastaoInvalido]);
 
+  // Labels dos acabamentos atualmente ligados (usado para descrição/sugestão)
+  const enabledLabels = useMemo(
+    () =>
+      finishes
+        .filter((f) => finEnabled[f.id])
+        .map((f) => f.label),
+    [finishes, finEnabled],
+  );
+
   // Expõe a seleção atual para o wrapper poder sugerir produto.
   useEffect(() => {
     if (!onSelectionChange) return;
@@ -141,9 +163,9 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
       paper_type: catalog?.paper_type ?? null,
       size: catalog?.size ?? null,
       grammage: catalog?.grammage ?? null,
-      finishings: Object.keys(finEnabled).filter((k) => finEnabled[k]),
+      finishings: enabledLabels,
     });
-  }, [catalog, finEnabled, onSelectionChange]);
+  }, [catalog, enabledLabels, onSelectionChange]);
 
   const pricing = useMemo(
     () => (catalog ? pricePerSheet(catalog, tiers, quantidade) : null),
@@ -190,7 +212,7 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
       formato: null,
       cores: null,
       face: catalog.side === "F/V" ? "fv" : "frente",
-      finishings: Object.keys(finEnabled).filter((k) => finEnabled[k]),
+      finishings: enabledLabels,
     };
   };
 

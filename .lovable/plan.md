@@ -1,105 +1,72 @@
+## Unificar Acabamentos: Etiquetas + Impressão V3
 
-## Objetivo
+Migração do cadastro `Acabamentos` para servir **dois contextos** (Etiquetas e Impressão), mantendo Comunicação Visual e Processos de Produção separados.
 
-Reduzir a sobrecarga cognitiva da sidebar de **7 grupos / ~20 itens** para **5 grupos / ~12 itens visíveis**, agrupando por verbos que combinam com a cabeça do usuário (vendedor, orçamentista, financeiro) em vez de espelhar tabelas do banco. Esconder ruído de versionamento (V2/V3) e mover Kits para onde ele realmente pertence: junto dos insumos que o compõem.
+### Ordem de execução
 
-## Nova Arquitetura de Informação
+1. **Migration** (primeiro — destrava tudo)
+2. **UI `/acabamentos`** (form + filtros + reposicionar na sidebar)
+3. **PrintForm V3** (consumir catálogo dinâmico)
 
-```text
-🏠 Hoje                            ← home unificada (híbrida)
+---
 
-VENDER
-  • Pedidos
-  • Orçamentos                     ← V3 entra como padrão; V2 vira /orcamentos?legacy=1
-  • Chat Interno
+### 1. Migration
 
-CATÁLOGO
-  • Insumos                        ← Matérias-Primas com abas internas:
-                                       [Materiais] [Grupos] [Kits de Produto]
-  • Contatos                       ← Clientes/Fornecedores renomeado
-  • Equipamentos
-  • Comunicação Visual
+```sql
+-- Enum (extensível depois com ALTER TYPE ADD VALUE)
+CREATE TYPE finishing_pricing_model AS ENUM ('per_sheet', 'per_unit');
 
-FINANCEIRO  (visível só p/ role financeiro)
-  • Contas a Receber
-  • Despesas Fixas
+ALTER TABLE finishings_price_items
+  ADD COLUMN pricing_model finishing_pricing_model NOT NULL DEFAULT 'per_sheet',
+  ADD COLUMN applies_to text[] NOT NULL DEFAULT '{etiqueta}',
+  ADD COLUMN unit_label text;
 
-PRECIFICAÇÃO
-  • Preço Impressão
-  • Acabamentos
-  • Cálculo Etiquetas
-  • Processos de Produção
+ALTER TABLE finishings_price_items ALTER COLUMN size DROP NOT NULL;
 
-ADMINISTRAÇÃO  (compacta, no rodapé)
-  • Configurações
-  • Usuários (admin)
-  • Auditoria (admin)
-  • Monitoramento + Produtos Ref (admin, agrupados em "Inteligência")
+-- Trigger de validação
+CREATE OR REPLACE FUNCTION validate_finishing_item() RETURNS trigger ...
+  -- applies_to deve conter ao menos um de {etiqueta, impressao}
+  -- per_unit exige unit_label
+  -- per_sheet exige size
 ```
 
-**Itens REMOVIDOS da sidebar (mas rotas preservadas):**
-- "Grupos de Materiais" — vira aba dentro de Insumos
-- "Kits de Produto" — vira aba dentro de Insumos
-- "Orçamentos V2" — substituído por "Orçamentos" (V3)
-- "Orçamentos V3 (Beta)" — perde o badge Beta e vira o padrão
+**Zero regressão:** registros existentes (2) ficam `pricing_model='per_sheet'`, `applies_to='{etiqueta}'` — Calc. Etiquetas continua idêntica.
 
-## Mudanças por arquivo
+### 2. UI `/acabamentos`
 
-### 1. `src/components/Sidebar.tsx`
-Reescrever a constante `NAV_GROUPS` seguindo o novo IA acima. Manter o sistema atual de:
-- `adminOnly` / `financeiroOnly` por item
-- Layout colapsável (mini-rail com tooltips)
-- Highlight ativo com barra lateral roxa
-- Footer com perfil + logout + recolher
+- Remove banner amarelo "exclusivo Etiquetas"; título vira só "Acabamentos"
+- Form ganha:
+  - **ToggleGroup "Aplicável em"** (multi): `Etiquetas` / `Impressão` — ambos marcados por padrão
+  - **Select "Modelo de cobrança"**: `Por folha` / `Por unidade`
+  - Se `per_unit`: campo `Unidade` (ex.: "ilhós", "dobra"), `size` fica opcional
+- Novo filtro topo: `Mostrar: Todos / Etiquetas / Impressão`
+- Tabela ganha coluna pequena com chips do contexto (E / I)
 
-Aplicar visual do protótipo escolhido (Linear minimal): grupos com label em uppercase tracking-wider, item ativo em `bg-primary/10` com borda `border-primary/20`, ícones em `lucide-react` mantidos, dot indicador no item "Hoje" quando há ações pendentes.
+### 3. PrintForm V3
 
-### 2. `src/App.tsx` — rotas
-- Adicionar redirect: `/grupos-materiais` → `/materias-primas?tab=grupos`
-- Adicionar redirect: `/kits-produto` → `/materias-primas?tab=kits`
-- Manter `/orcamentos-v2` acessível diretamente (sem item na sidebar) para fallback durante a transição
-- Rota `/orcamentos` aponta direto para V3 quando V3 ficar estável (decisão futura — por enquanto mantém V2 como padrão para não quebrar fluxo de vendas)
+- Remover array hardcoded `FINISHES_PADRAO`
+- Buscar `finishings_price_items` onde `applies_to @> ARRAY['impressao']` AND `is_active`
+- Cada chip mostra **"a partir de R$ X,XX/folha"** ou **"R$ X,XX/un"** (catálogo base — sem mentir com R$ 0,00)
+- Cálculo no engine: `per_sheet × folhas` ou `per_unit × quantidade do item`
 
-### 3. `src/pages/MateriasPrimas.tsx` — virar hub "Insumos"
-- Adicionar `<Tabs>` no topo com três abas: **Materiais**, **Grupos**, **Kits de Produto**
-- Cada aba renderiza o conteúdo existente das páginas atuais (extrair lógica de `GruposMateriais.tsx` e `KitsProduto.tsx` para componentes reutilizáveis se ainda não estiverem)
-- Aba inicial via querystring `?tab=`
-- Título da página vira "Insumos" com subtítulo "Materiais, grupos e kits prontos para orçamento"
+### 4. Sidebar
 
-### 4. `src/pages/Dashboard.tsx` — home híbrida "Hoje"
-- Renomear título para **"Hoje"** com subtítulo "O que precisa da sua atenção agora"
-- **Topo (novo)**: bloco "Ações pendentes" com cards clicáveis:
-  - Orçamentos aguardando resposta do cliente (count + link)
-  - Pedidos em produção hoje
-  - Contas a receber vencendo nos próximos 3 dias (só p/ financeiro)
-  - Alertas de estoque baixo (já existe — mover pra cá)
-  - Manutenções de equipamento pendentes
-- **Abaixo**: métricas resumidas atuais (Total/Aprovados/Aguardando) e Orçamentos Recentes — como já estão
-- Respeitar regra da memória: dashboard sem botões de ação direta "agressivos" — cards são links contextuais, não CTAs financeiros
+- Mover `Acabamentos` para categoria **Precificação** (perto de `Preço Impressão`)
 
-### 5. Renomeações cosméticas
-- "Clientes/Fornecedores" → **"Contatos"**
-- "Acabamentos (Etiquetas)" → **"Acabamentos"** (o contexto Etiquetas fica dentro da página)
-- Badge "Beta" do V3 some
+### Fora de escopo
 
-## Fora de escopo (deixar para depois)
+- `cv_calc_acabamentos` (Comunicação Visual) — modelo m² próprio, não muda
+- `production_steps` (Processos de Produção) — mão de obra cronometrada, não muda
+- Orçamentos V2 (será substituído pelo V3)
 
-- Reescrever Preço Impressão / Acabamentos / Calc Etiquetas / Processos em uma única tela "Precificação" (grande refactor — fica para fase 2)
-- Mover edge cases de Auditoria/Monitoramento — só agrupar visualmente
-- Mudar permissões de role — apenas reaplicar as flags atuais
-- Mexer em lógica de negócio, cálculos ou banco
+### Arquivos
 
-## Como o usuário percebe
+- `supabase/migrations/<nova>.sql`
+- `src/pages/Acabamentos.tsx`
+- `src/components/Sidebar.tsx`
+- `src/components/orcamentos-v3/forms/PrintForm.tsx`
+- `src/lib/finishings/catalog.ts` (helper compartilhado)
 
-| Antes | Depois |
-|---|---|
-| 7 grupos, "Cadastros" enorme, dois Orçamentos | 5 grupos por ação, um Orçamentos |
-| Kit perdido em menu separado | Kit aparece junto com materiais que ele usa |
-| Dashboard com métricas | "Hoje" com inbox de ações + métricas |
-| Versionamento exposto (V2/V3/Beta) | Só "Orçamentos" |
+---
 
-## Riscos & mitigação
-
-- **Usuários com links salvos para `/kits-produto` ou `/grupos-materiais`** → redirects preservam acesso
-- **Quebra de muscle memory** → mudança é só visual/IA, todos os fluxos antigos continuam funcionando pelas mesmas URLs
-- **V2 sumindo do menu** → V2 continua acessível via `/orcamentos-v2`, e podemos adicionar um toggle "Versão antiga" temporário se necessário
+**Próximo passo:** rodar a migration. Aprova?
