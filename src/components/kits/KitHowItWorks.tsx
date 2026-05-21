@@ -65,13 +65,14 @@ export default function KitHowItWorks() {
             <li className="flex gap-2">
               <Wand2 className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
               <span>
-                <strong className="text-foreground">3. Espiral por folhas</strong> —
-                clique no botão <em>Espiral por folhas</em> para criar um item com
-                12 faixas pré-definidas. Depois clique no badge{" "}
-                <em>variante · N faixas</em> e mapeie cada faixa ao suprimento
-                certo (ex.: 1–25 fls → Espiral 7mm).
+                <strong className="text-foreground">3. Encadernação espiral</strong> —
+                clique em <em>+ Encadernação espiral</em>. As 12 faixas já vêm
+                prontas; basta escolher o suprimento de cada uma (ou clicar em{" "}
+                <em>Copiar de outro kit</em>). O sistema usa a espiral certa para
+                cada nº de folhas no orçamento.
               </span>
             </li>
+
             <li className="flex gap-2">
               <MoreHorizontal className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
               <span>
