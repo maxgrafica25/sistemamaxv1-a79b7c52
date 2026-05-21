@@ -311,14 +311,15 @@ export default function KitsProduto() {
   };
 
   const addSpiralByVariant = () => {
+    const newTmpId = tmp();
     setItems((prev) => [
       ...prev,
       {
-        tmp_id: tmp(),
+        tmp_id: newTmpId,
         position: prev.length,
         item_type: "supply",
         supply_id: null,
-        supply_label: "Espiral (variante por folhas)",
+        supply_label: "Encadernação espiral",
         process_step_id: null,
         process_label: "",
         role: "required",
@@ -337,7 +338,9 @@ export default function KitsProduto() {
         })),
       },
     ]);
-    toast.success("Item de espiral adicionado. Configure os suprimentos das faixas.");
+    setVariantsEditing(newTmpId);
+    toast.success("Selecione o suprimento de cada faixa. Você faz isso uma vez e reusa nos próximos kits.");
+
   };
 
   const updateItem = (tmp_id: string, patch: Partial<KitItem>) => {
