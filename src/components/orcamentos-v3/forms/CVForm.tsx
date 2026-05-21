@@ -49,6 +49,8 @@ interface Props {
 export function CVForm({ onAdd, onAddTiers }: Props) {
   const cat = useV3CVCatalog();
 
+  const [mode, setMode] = useState<"product" | "custom">("product");
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [descricao, setDescricao] = useState("");
   const [descricaoEditada, setDescricaoEditada] = useState(false);
   const [largura_cm, setLargura] = useState(100);
@@ -59,6 +61,33 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
   const [acabIds, setAcabIds] = useState<string[]>([]);
   const [pulse, setPulse] = useState(false);
   const [isBanner, setIsBanner] = useState(false);
+
+  const CV_PRESETS: Array<{
+    id: string;
+    label: string;
+    match: RegExp;
+    width: number;
+    height: number;
+    qty: number;
+    banner: boolean;
+  }> = [
+    { id: "banner", label: "Banner", match: /banner|lona.*banner|frontlight/i, width: 100, height: 70, qty: 1, banner: true },
+    { id: "lona", label: "Lona", match: /lona/i, width: 200, height: 100, qty: 1, banner: false },
+    { id: "adesivo", label: "Adesivo", match: /adesivo|vinil/i, width: 30, height: 30, qty: 10, banner: false },
+    { id: "faixa", label: "Faixa", match: /lona|banner/i, width: 200, height: 50, qty: 1, banner: true },
+  ];
+
+  const applyPreset = (p: typeof CV_PRESETS[number]) => {
+    setActivePresetId(p.id);
+    setLargura(p.width);
+    setAltura(p.height);
+    setQuantidade(p.qty);
+    setIsBanner(p.banner);
+    const found = cat.midias.find((m) => p.match.test(`${m.nome} ${m.tipo_midia}`));
+    if (found) setMidiaId(found.id);
+    setDescricaoEditada(false);
+  };
+
 
   const midia = useMemo(
     () => cat.midias.find((m) => m.id === midiaId) ?? null,
