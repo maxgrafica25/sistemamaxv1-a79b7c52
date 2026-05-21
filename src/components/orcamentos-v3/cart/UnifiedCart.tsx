@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,6 +13,8 @@ import {
   ShoppingCart,
   Tag,
   Layers,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { V3Item } from "../types";
@@ -68,20 +71,41 @@ function itemQty(it: V3Item): number {
 
 type Entry =
   | { type: "single"; item: V3Item }
-  | { type: "group"; groupId: string; items: V3Item[] };
+  | { type: "group"; groupId: string; items: V3Item[] }
+  | { type: "bundle"; bundleId: string; leader: V3Item; items: V3Item[] };
 
 function groupItems(items: V3Item[]): Entry[] {
   const out: Entry[] = [];
-  const seen = new Map<string, number>();
+  const bundleIdx = new Map<string, number>();
+  const tierIdx = new Map<string, number>();
   for (const it of items) {
+    const bid = (it as { bundle_id?: string | null }).bundle_id;
+    if (bid) {
+      const idx = bundleIdx.get(bid);
+      if (idx == null) {
+        bundleIdx.set(bid, out.length);
+        out.push({ type: "bundle", bundleId: bid, leader: it, items: [it] });
+      } else {
+        const entry = out[idx];
+        if (entry.type === "bundle") {
+          entry.items.push(it);
+          // Líder = primeiro item com bundle_label preenchido
+          if (!((entry.leader as { bundle_label?: string | null }).bundle_label) &&
+              (it as { bundle_label?: string | null }).bundle_label) {
+            entry.leader = it;
+          }
+        }
+      }
+      continue;
+    }
     const tg = (it as { tier_group_id?: string | null }).tier_group_id;
     if (!tg) {
       out.push({ type: "single", item: it });
       continue;
     }
-    const idx = seen.get(tg);
+    const idx = tierIdx.get(tg);
     if (idx == null) {
-      seen.set(tg, out.length);
+      tierIdx.set(tg, out.length);
       out.push({ type: "group", groupId: tg, items: [it] });
     } else {
       const entry = out[idx];
@@ -162,7 +186,18 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
             </li>
           );
         }
-        // Group rendering
+        if (entry.type === "bundle") {
+          return (
+            <BundleCard
+              key={entry.bundleId}
+              entry={entry}
+              highlightId={highlightId}
+              onDuplicate={onDuplicate}
+              onRemove={onRemove}
+            />
+          );
+        }
+        // Group (tiers) rendering
         const first = entry.items[0];
         const Icon = ICON[first.kind];
         const isNew = entry.items.some((i) => i.id === highlightId);
@@ -237,5 +272,110 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
         );
       })}
     </ul>
+  );
+}
+
+interface BundleCardProps {
+  entry: { type: "bundle"; bundleId: string; leader: V3Item; items: V3Item[] };
+  highlightId?: string | null;
+  onDuplicate: (id: string) => void;
+  onRemove: (id: string) => void;
+}
+
+function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const leader = entry.leader;
+  const Icon = ICON[leader.kind];
+  const isNew = entry.items.some((i) => i.id === highlightId);
+  const total = entry.items.reduce((acc, it) => acc + priceOf(it).preco_total, 0);
+  const title =
+    (leader as { bundle_label?: string | null }).bundle_label ||
+    (leader as { descricao?: string }).descricao ||
+    LABEL[leader.kind];
+
+  return (
+    <li
+      className={cn(
+        "group rounded-md border-2 border-primary/30 bg-primary/[0.03] p-3 transition-all",
+        isNew && "ring-2 ring-emerald-500/50 animate-in fade-in slide-in-from-right-2",
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <div className="rounded bg-primary/15 p-1.5 text-primary shrink-0">
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium leading-tight">{title}</p>
+            <span className="text-sm font-semibold tabular-nums shrink-0">
+              {fmtBRL(total)}
+            </span>
+          </div>
+          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+            <Badge variant="default" className="text-[10px] py-0 px-1.5 h-4 gap-1">
+              <Layers className="h-2.5 w-2.5" />
+              {LABEL[leader.kind]} + Kit ({entry.items.length} itens)
+            </Badge>
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              {expanded ? (
+                <ChevronDown className="h-3 w-3" />
+              ) : (
+                <ChevronRight className="h-3 w-3" />
+              )}
+              {expanded ? "ocultar detalhes" : "ver detalhes"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {expanded && (
+        <ul className="mt-2.5 space-y-1 border-t border-primary/20 pt-2">
+          {entry.items.map((it) => {
+            const price = priceOf(it).preco_total;
+            const descr = (it as { descricao?: string }).descricao || LABEL[it.kind];
+            return (
+              <li
+                key={it.id}
+                className="flex items-center justify-between gap-2 text-xs rounded px-2 py-1 hover:bg-background"
+              >
+                <span className="truncate flex-1">{descr}</span>
+                <span className="font-semibold tabular-nums shrink-0">{fmtBRL(price)}</span>
+                <button
+                  type="button"
+                  onClick={() => onRemove(it.id)}
+                  className="text-muted-foreground hover:text-destructive shrink-0"
+                  title="Remover este item do bundle"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <div className="mt-2 flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 text-xs"
+          onClick={() => entry.items.forEach((it) => onDuplicate(it.id))}
+        >
+          <Copy className="h-3 w-3 mr-1" /> Duplicar
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+          onClick={() => entry.items.forEach((it) => onRemove(it.id))}
+        >
+          <Trash2 className="h-3 w-3 mr-1" /> Excluir
+        </Button>
+      </div>
+    </li>
   );
 }

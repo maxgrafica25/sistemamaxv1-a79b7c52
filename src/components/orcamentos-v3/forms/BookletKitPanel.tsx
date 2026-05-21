@@ -17,12 +17,20 @@ import SupplySearch, { type SupplyOption } from "@/components/orcamentos-v2/Supp
 import { genId, type V3Item, type V3PrintItem, type V3SupplyItem } from "../types";
 
 
+export interface BookletKitApplyMeta {
+  coverMode: "standard" | "custom";
+  backCoverMode: "standard" | "custom";
+  customCoverDescr: string | null;
+  customBackCoverDescr: string | null;
+  spiralDiameter: string | null;
+}
+
 interface Props {
   bookletPages: number;
   bookletUnits: number;
   defaultMarginPct: number;
-  /** Callback que recebe os V3Items prontos (sem o miolo). */
-  onApply: (items: V3Item[]) => void;
+  /** Callback que recebe os V3Items prontos (sem o miolo) + metadados do kit. */
+  onApply: (items: V3Item[], meta: BookletKitApplyMeta) => void;
 }
 
 type CoverMode = "standard" | "custom";
@@ -179,7 +187,13 @@ export function BookletKitPanel({
       return;
     }
 
-    onApply(items);
+    onApply(items, {
+      coverMode,
+      backCoverMode,
+      customCoverDescr: customCover?.descricao ?? null,
+      customBackCoverDescr: customBackCover?.descricao ?? null,
+      spiralDiameter: spiralDiameter ?? null,
+    });
     const headline = hasAnyCustom ? "Acabamentos aplicados" : "Kit aplicado";
     if (fallbacks.length > 0) {
       toast.warning(`${headline} (${items.length} itens). Preencher: ${fallbacks.join(", ")}`);

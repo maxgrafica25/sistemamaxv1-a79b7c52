@@ -1,6 +1,13 @@
 export type V3Category = "print" | "cv" | "third" | "labor" | "supply";
 
-export interface V3PrintItem {
+/** Agrupamento visual no carrinho (ex.: Apostila + Kit em um único card). */
+export interface V3BundleFields {
+  bundle_id?: string | null;
+  /** Preenchido apenas no item líder do bundle. */
+  bundle_label?: string | null;
+}
+
+export interface V3PrintItem extends V3BundleFields {
   id: string;
   kind: "print";
   descricao: string;
@@ -35,7 +42,7 @@ export interface V3PrintItem {
   }[];
 }
 
-export interface V3CVItem {
+export interface V3CVItem extends V3BundleFields {
   id: string;
   kind: "cv";
   descricao: string;
@@ -72,7 +79,7 @@ export interface V3CVItem {
   } | null;
 }
 
-export interface V3ThirdItem {
+export interface V3ThirdItem extends V3BundleFields {
   id: string;
   kind: "third";
   descricao: string;
@@ -84,7 +91,7 @@ export interface V3ThirdItem {
 }
 
 /** Apostila (Fase 6.1) — derivada de Print com bookletPages × bookletUnits. */
-export interface V3BookletItem {
+export interface V3BookletItem extends V3BundleFields {
   id: string;
   kind: "booklet";
   descricao: string;
@@ -106,7 +113,7 @@ export interface V3BookletItem {
 }
 
 /** Mão-de-obra avulsa (Fase 6.2). Persistida em quote_labor_steps (parent_item_id null). */
-export interface V3LaborItem {
+export interface V3LaborItem extends V3BundleFields {
   id: string;
   kind: "labor";
   descricao: string;
@@ -117,7 +124,7 @@ export interface V3LaborItem {
 }
 
 /** Suprimento avulso (Fase 6.3). Persistido em quote_materials product_kind 'Suprimento'. */
-export interface V3SupplyItem {
+export interface V3SupplyItem extends V3BundleFields {
   id: string;
   kind: "supply";
   descricao: string;
@@ -131,7 +138,7 @@ export interface V3SupplyItem {
 }
 
 /** Etiqueta (Fase 6.4) — usa engine de layout/folha das libs labels/*. */
-export interface V3LabelItem {
+export interface V3LabelItem extends V3BundleFields {
   id: string;
   kind: "label";
   descricao: string;

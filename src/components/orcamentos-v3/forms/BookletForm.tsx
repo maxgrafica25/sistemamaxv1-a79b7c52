@@ -19,7 +19,8 @@ import { TierSimulator } from "../shared/TierSimulator";
 import { getIdealSpiral } from "@/lib/quotes-v2/spiral-selector";
 import { genId, type V3BookletItem, type V3Item } from "../types";
 import { ProductKitPanel } from "./ProductKitPanel";
-import { BookletKitPanel } from "./BookletKitPanel";
+import { BookletKitPanel, type BookletKitApplyMeta } from "./BookletKitPanel";
+import { buildBookletBundleLabel } from "../shared/buildBookletBundleLabel";
 
 interface Props {
   onAdd: (item: V3BookletItem) => void;
@@ -106,12 +107,29 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
     setTimeout(() => setPulse(false), 600);
   };
 
-  const applyKitItems = (kitItems: V3Item[]) => {
+  const applyKitItems = (kitItems: V3Item[], meta?: BookletKitApplyMeta) => {
     if (!onAddMany) return;
     const miolo = buildBookletItem();
-    const list: V3Item[] = miolo ? [miolo, ...kitItems] : [...kitItems];
-    onAddMany(list);
-    if (miolo) setDescricao("");
+    if (!miolo) {
+      onAddMany(kitItems);
+      return;
+    }
+    const bundleId = `bdl_${genId()}`;
+    const bundleLabel = meta
+      ? buildBookletBundleLabel({
+          miolo,
+          kitItems,
+          coverMode: meta.coverMode,
+          backCoverMode: meta.backCoverMode,
+          customCoverDescr: meta.customCoverDescr,
+          customBackCoverDescr: meta.customBackCoverDescr,
+          spiralDiameter: meta.spiralDiameter,
+        })
+      : miolo.descricao;
+    const leader: V3Item = { ...miolo, bundle_id: bundleId, bundle_label: bundleLabel };
+    const tagged: V3Item[] = kitItems.map((it) => ({ ...it, bundle_id: bundleId } as V3Item));
+    onAddMany([leader, ...tagged]);
+    setDescricao("");
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
