@@ -369,9 +369,17 @@ export function BookletKitPanel({
               return (
                 <div
                   key={slot.id}
-                  className="flex items-center gap-2 px-2 py-1.5 text-xs rounded-sm bg-background hover:bg-muted/50"
+                  className={cn(
+                    "flex items-center gap-2 px-2 py-1.5 text-xs rounded-sm bg-background hover:bg-muted/50",
+                    !slot.enabled && "opacity-50",
+                  )}
                 >
-                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <Checkbox
+                    checked={slot.enabled}
+                    onCheckedChange={(v) => updateSlot(slot.id, { enabled: !!v })}
+                    className="h-3.5 w-3.5"
+                  />
+
                   <span className="font-medium whitespace-nowrap">
                     {slot.label.trim() || slot.supply.produto}
                   </span>
