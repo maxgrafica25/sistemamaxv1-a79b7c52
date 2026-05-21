@@ -411,7 +411,7 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
             <span>
               Total:{" "}
               <span className="text-foreground font-semibold tabular-nums">
-                {fmtBRL(pricing.sellingPrice * quantidade)}
+                {fmtBRL((pricing.sellingPrice + finishingExtraPerSheet) * quantidade)}
               </span>
             </span>
           )}
