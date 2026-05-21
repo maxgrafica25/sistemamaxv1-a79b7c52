@@ -69,6 +69,94 @@ function itemQty(it: V3Item): number {
   return (it as { quantidade?: number }).quantidade ?? 1;
 }
 
+type Detail = { label: string; value: string; muted?: boolean };
+
+function itemDetails(it: V3Item): Detail[] {
+  const p = priceOf(it);
+  const qty = itemQty(it);
+  const unit = qty > 0 ? p.preco_total / qty : 0;
+  const rows: Detail[] = [];
+  switch (it.kind) {
+    case "print": {
+      if (it.paper_type) rows.push({ label: "Papel", value: `${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}` });
+      if (it.size) rows.push({ label: "Formato", value: it.size });
+      if (it.side) rows.push({ label: "Lado", value: it.side });
+      rows.push({ label: "Quantidade", value: `${qty.toLocaleString("pt-BR")} un` });
+      rows.push({ label: "Custo unitário", value: fmtBRL(it.custo_unitario), muted: true });
+      rows.push({ label: "Preço unitário", value: fmtBRL(it.valor_unitario), muted: true });
+      if (it.finishing_selections?.length) {
+        rows.push({ label: "Acabamentos", value: it.finishing_selections.map((f) => f.name).join(", ") });
+        const totalAcab = it.finishing_selections.reduce((a, f) => a + f.price * (f.units ?? 1), 0);
+        if (totalAcab > 0) rows.push({ label: "Total acabamentos", value: fmtBRL(totalAcab), muted: true });
+      } else if (it.finishings?.length) {
+        rows.push({ label: "Acabamentos", value: it.finishings.join(", ") });
+      }
+      break;
+    }
+    case "cv": {
+      rows.push({ label: "Mídia", value: it.midia_nome });
+      if (it.impressao_nome) rows.push({ label: "Impressão", value: it.impressao_nome });
+      const area = (it.largura_m * it.altura_m * qty).toFixed(2).replace(".", ",");
+      rows.push({ label: "Dimensão", value: `${(it.largura_m * 100).toFixed(0)}×${(it.altura_m * 100).toFixed(0)} cm · ${qty} un` });
+      rows.push({ label: "Área total", value: `${area} m²` });
+      if (it.finishings?.length) rows.push({ label: "Acabamentos", value: it.finishings.join(", ") });
+      if (it.snapshot) {
+        rows.push({ label: "Mídia (preço)", value: fmtBRL(it.snapshot.preco_midia), muted: true });
+        rows.push({ label: "Impressão", value: fmtBRL(it.snapshot.preco_impressao), muted: true });
+        rows.push({ label: "Acabamentos", value: fmtBRL(it.snapshot.preco_acabamentos), muted: true });
+        rows.push({ label: "Custo total", value: fmtBRL(it.snapshot.custo_total), muted: true });
+        if (it.snapshot.aplicou_minimo) rows.push({ label: "Atenção", value: "Mínimo aplicado" });
+      }
+      break;
+    }
+    case "third": {
+      rows.push({ label: "Fornecedor", value: it.fornecedor || "—" });
+      rows.push({ label: "Quantidade", value: `${qty} un` });
+      rows.push({ label: "Custo unitário", value: fmtBRL(it.custo), muted: true });
+      rows.push({ label: "Margem", value: `${it.margem_pct.toFixed(0)}%`, muted: true });
+      rows.push({ label: "Custo total", value: fmtBRL(it.custo * qty), muted: true });
+      break;
+    }
+    case "booklet": {
+      if (it.paper_type) rows.push({ label: "Miolo", value: `${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}${it.bookletDuplex ? " · F/V" : ""}` });
+      rows.push({ label: "Folhas por apostila", value: `${it.bookletPages}` });
+      rows.push({ label: "Apostilas", value: `${it.bookletUnits} un` });
+      rows.push({ label: "Custo / folha", value: fmtBRL(it.custo_unitario), muted: true });
+      rows.push({ label: "Preço / folha", value: fmtBRL(it.valor_unitario), muted: true });
+      break;
+    }
+    case "labor": {
+      rows.push({ label: "Etapa", value: it.step_type });
+      rows.push({ label: "Tempo", value: `${it.time_minutes} min` });
+      rows.push({ label: "Custo/hora", value: fmtBRL(it.hourly_rate), muted: true });
+      rows.push({ label: "Margem", value: `${it.margem_pct.toFixed(0)}%`, muted: true });
+      break;
+    }
+    case "supply": {
+      rows.push({ label: "Suprimento", value: it.supply_nome });
+      if (it.fornecedor) rows.push({ label: "Fornecedor", value: it.fornecedor });
+      rows.push({ label: "Quantidade", value: `${qty} un` });
+      rows.push({ label: "Custo unitário", value: fmtBRL(it.custo_unitario), muted: true });
+      rows.push({ label: "Margem", value: `${it.margem_pct.toFixed(0)}%`, muted: true });
+      break;
+    }
+    case "label": {
+      rows.push({ label: "Etiqueta", value: `${it.labelW_mm}×${it.labelH_mm} mm · ${it.shape}` });
+      rows.push({ label: "Quantidade", value: `${qty.toLocaleString("pt-BR")} un` });
+      if (it.paper_type) rows.push({ label: "Papel", value: `${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}` });
+      rows.push({ label: "Folha", value: `${it.sheet_size} · ${it.per_sheet}/folha · ${it.sheets_needed} fl` });
+      if (it.finishing_nome) rows.push({ label: "Acabamento", value: it.finishing_nome });
+      rows.push({ label: "Preço / folha", value: fmtBRL(it.price_per_sheet), muted: true });
+      rows.push({ label: "Custo total", value: fmtBRL(it.custo_total), muted: true });
+      break;
+    }
+  }
+  rows.push({ label: "Unitário", value: `${fmtBRL(unit)} / un`, muted: true });
+  rows.push({ label: "Total", value: fmtBRL(p.preco_total) });
+  return rows;
+}
+
+
 type Entry =
   | { type: "single"; item: V3Item }
   | { type: "group"; groupId: string; items: V3Item[] }
@@ -132,60 +220,17 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
     <ul className="space-y-2">
       {entries.map((entry) => {
         if (entry.type === "single") {
-          const it = entry.item;
-          const Icon = ICON[it.kind];
-          const price = priceOf(it).preco_total;
-          const isNew = highlightId === it.id;
           return (
-            <li
-              key={it.id}
-              className={cn(
-                "group rounded-md border border-border/60 bg-card p-3 transition-all",
-                isNew && "ring-2 ring-emerald-500/50 animate-in fade-in slide-in-from-right-2",
-              )}
-            >
-              <div className="flex items-start gap-2">
-                <div className="rounded bg-primary/10 p-1.5 text-primary shrink-0">
-                  <Icon className="h-3.5 w-3.5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium leading-tight truncate">
-                      {(it as { descricao?: string }).descricao || LABEL[it.kind]}
-                    </p>
-                    <span className="text-sm font-semibold tabular-nums shrink-0">
-                      {fmtBRL(price)}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                    <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4">
-                      {LABEL[it.kind]}
-                    </Badge>
-                    <span className="text-[11px] text-muted-foreground">{cartMeta(it)}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-2 flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => onDuplicate(it.id)}
-                >
-                  <Copy className="h-3 w-3 mr-1" /> Duplicar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2 text-xs text-destructive hover:text-destructive"
-                  onClick={() => onRemove(it.id)}
-                >
-                  <Trash2 className="h-3 w-3 mr-1" /> Excluir
-                </Button>
-              </div>
-            </li>
+            <SingleCard
+              key={entry.item.id}
+              item={entry.item}
+              isNew={highlightId === entry.item.id}
+              onDuplicate={onDuplicate}
+              onRemove={onRemove}
+            />
           );
         }
+
         if (entry.type === "bundle") {
           return (
             <BundleCard
@@ -423,3 +468,88 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardPro
     </li>
   );
 }
+
+interface SingleCardProps {
+  item: V3Item;
+  isNew: boolean;
+  onDuplicate: (id: string) => void;
+  onRemove: (id: string) => void;
+}
+
+function SingleCard({ item, isNew, onDuplicate, onRemove }: SingleCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const Icon = ICON[item.kind];
+  const price = priceOf(item).preco_total;
+  const details = expanded ? itemDetails(item) : [];
+  return (
+    <li
+      className={cn(
+        "group rounded-md border border-border/60 bg-card p-3 transition-all",
+        isNew && "ring-2 ring-emerald-500/50 animate-in fade-in slide-in-from-right-2",
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <div className="rounded bg-primary/10 p-1.5 text-primary shrink-0">
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium leading-tight truncate">
+              {(item as { descricao?: string }).descricao || LABEL[item.kind]}
+            </p>
+            <span className="text-sm font-semibold tabular-nums shrink-0">
+              {fmtBRL(price)}
+            </span>
+          </div>
+          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+            <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4">
+              {LABEL[item.kind]}
+            </Badge>
+            <span className="text-[11px] text-muted-foreground">{cartMeta(item)}</span>
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="ml-auto inline-flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              {expanded ? "ocultar detalhes" : "ver detalhes"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {expanded && (
+        <ul className="mt-2.5 space-y-0.5 border-t border-border/60 pt-2">
+          {details.map((d, i) => (
+            <li key={i} className="flex items-center justify-between gap-2 text-[11px]">
+              <span className={cn("text-muted-foreground", d.muted && "opacity-80")}>{d.label}</span>
+              <span className={cn("tabular-nums", d.muted ? "text-muted-foreground" : "font-medium")}>
+                {d.value}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-2 flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 text-xs"
+          onClick={() => onDuplicate(item.id)}
+        >
+          <Copy className="h-3 w-3 mr-1" /> Duplicar
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+          onClick={() => onRemove(item.id)}
+        >
+          <Trash2 className="h-3 w-3 mr-1" /> Excluir
+        </Button>
+      </div>
+    </li>
+  );
+}
+
