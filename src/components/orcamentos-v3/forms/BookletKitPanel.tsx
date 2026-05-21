@@ -187,7 +187,13 @@ export function BookletKitPanel({
       return;
     }
 
-    onApply(items);
+    onApply(items, {
+      coverMode,
+      backCoverMode,
+      customCoverDescr: customCover?.descricao ?? null,
+      customBackCoverDescr: customBackCover?.descricao ?? null,
+      spiralDiameter: spiralDiameter ?? null,
+    });
     const headline = hasAnyCustom ? "Acabamentos aplicados" : "Kit aplicado";
     if (fallbacks.length > 0) {
       toast.warning(`${headline} (${items.length} itens). Preencher: ${fallbacks.join(", ")}`);
