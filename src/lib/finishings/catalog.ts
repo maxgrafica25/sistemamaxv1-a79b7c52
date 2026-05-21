@@ -13,6 +13,7 @@
 // =============================================================================
 
 import { supabase } from "@/integrations/supabase/client";
+import type { FinishingTier } from "@/lib/labels/finishing-pricing";
 
 export type FinishingContext = "etiqueta" | "impressao";
 export type FinishingPricingModel = "per_sheet" | "per_unit";
@@ -28,18 +29,26 @@ export interface FinishingItem {
   unit_label: string | null;
   is_active: boolean;
   sort_order: number;
+  /** Faixas de preço por quantidade de folhas. Vazio = preço único base. */
+  tiers: FinishingTier[];
 }
 
 /**
  * Lista acabamentos ativos filtrando por contexto.
  * `context` undefined = retorna todos.
+ *
+ * Inclui as `finishing_price_tiers` (faixas por quantidade de folhas) aninhadas
+ * para que o caller possa resolver o preço efetivo via
+ * `resolveFinishingPricePerSheet`.
  */
 export async function listFinishings(
   context?: FinishingContext,
 ): Promise<FinishingItem[]> {
   let q = (supabase as any)
     .from("finishings_price_items")
-    .select("*")
+    .select(
+      "*, finishing_price_tiers(id, finishing_id, label, min_qty, max_qty, price_per_sheet, sort_order)",
+    )
     .eq("is_active", true)
     .order("sort_order");
 
@@ -49,7 +58,10 @@ export async function listFinishings(
 
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as FinishingItem[];
+  return ((data ?? []) as any[]).map((d) => ({
+    ...d,
+    tiers: (d.finishing_price_tiers ?? []) as FinishingTier[],
+  })) as FinishingItem[];
 }
 
 /**
