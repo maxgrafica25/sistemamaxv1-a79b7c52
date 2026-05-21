@@ -87,3 +87,48 @@ describe("sumFinishingsPerSheet", () => {
     expect(r.perUnitTotal).toBe(10);
   });
 });
+
+describe("buildSelections + tiers (Print V3)", () => {
+  it("per_sheet sem tier → usa preço base", () => {
+    const sel = buildSelections(
+      [{ pricing_model: "per_sheet", price_per_sheet: 0.5 }],
+      500,
+    );
+    expect(sel[0].price).toBe(0.5);
+  });
+
+  it("per_sheet com tier que cobre a qty → preço da tier", () => {
+    const tiers = [tier(1, 99, 0.5), tier(100, 499, 0.35), tier(500, null, 0.2)];
+    const sel = buildSelections(
+      [{ pricing_model: "per_sheet", price_per_sheet: 0.5, tiers }],
+      300,
+    );
+    expect(sel[0].price).toBe(0.35);
+  });
+
+  it("per_sheet com qty abaixo do menor min_qty → primeira tier", () => {
+    const tiers = [tier(10, 100, 0.4), tier(101, null, 0.25)];
+    const sel = buildSelections(
+      [{ pricing_model: "per_sheet", price_per_sheet: 0.5, tiers }],
+      5,
+    );
+    expect(sel[0].price).toBe(0.4);
+  });
+
+  it("per_unit ignora tiers (mantém base)", () => {
+    const tiers = [tier(1, 1000, 0.1)];
+    const sel = buildSelections(
+      [{ pricing_model: "per_unit", price_per_sheet: 2, tiers }],
+      300,
+    );
+    expect(sel[0].price).toBe(2);
+  });
+
+  it("simulação em qtys diferentes → cada uma resolve sua própria tier", () => {
+    const tiers = [tier(1, 99, 0.5), tier(100, 499, 0.35), tier(500, null, 0.2)];
+    const f = { pricing_model: "per_sheet" as const, price_per_sheet: 0.5, tiers };
+    expect(buildSelections([f], 50)[0].price).toBe(0.5);
+    expect(buildSelections([f], 200)[0].price).toBe(0.35);
+    expect(buildSelections([f], 1000)[0].price).toBe(0.2);
+  });
+});
