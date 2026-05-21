@@ -38,6 +38,7 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
   const [bookletUnits, setBookletUnits] = useState<number>(10);
   const [duplex, setDuplex] = useState<boolean>(true);
   const [pulse, setPulse] = useState(false);
+  const [extraTiers, setExtraTiers] = useState<number[]>([]);
 
   // Folhas físicas = páginas-folha por apostila × nº apostilas.
   // (Se F/V, cada folha = 2 lados; o miolo é cobrado por folha física impressa.)
