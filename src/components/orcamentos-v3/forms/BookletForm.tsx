@@ -218,10 +218,15 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
               onPickQty={(q) => setBookletUnits(q)}
               onCloneAsTiers={
                 onAddTiers
-                  ? (qtys) => {
+                  ? (qtys, primaryQty) => {
                       const tg = `tg_${genId()}`;
                       const items = qtys
-                        .map((q) => buildBookletItem(q, tg))
+                        .map((q) => {
+                          const it = buildBookletItem(q, tg);
+                          return it
+                            ? ({ ...it, tier_primary: q === primaryQty } as V3BookletItem)
+                            : null;
+                        })
                         .filter((x): x is V3BookletItem => !!x);
                       if (items.length === 0) return;
                       onAddTiers(items);
