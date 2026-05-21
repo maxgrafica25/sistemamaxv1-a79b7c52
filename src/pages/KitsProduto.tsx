@@ -949,12 +949,15 @@ function ItemMorePopover({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(FORMULA_LABELS) as KitQuantityFormula[]).map((f) => (
-                <SelectItem key={f} value={f} className="text-xs">
-                  {FORMULA_LABELS[f]}
-                </SelectItem>
-              ))}
+              {(Object.keys(FORMULA_LABELS) as KitQuantityFormula[])
+                .filter((f) => f !== "auto_spiral" || item.quantity_formula === "auto_spiral")
+                .map((f) => (
+                  <SelectItem key={f} value={f} className="text-xs">
+                    {FORMULA_LABELS[f]}
+                  </SelectItem>
+                ))}
             </SelectContent>
+
           </Select>
         </div>
 
