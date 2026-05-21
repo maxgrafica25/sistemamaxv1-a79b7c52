@@ -5,6 +5,8 @@ export interface V3BundleFields {
   bundle_id?: string | null;
   /** Preenchido apenas no item líder do bundle. */
   bundle_label?: string | null;
+  /** Em um grupo de faixas (tier_group_id), marca o item da quantidade solicitada. */
+  tier_primary?: boolean;
 }
 
 export interface V3PrintItem extends V3BundleFields {
