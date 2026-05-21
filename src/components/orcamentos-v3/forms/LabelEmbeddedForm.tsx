@@ -38,6 +38,7 @@ interface Props {
 const DEFAULT_MARGINS = { top: 10, right: 10, bottom: 10, left: 10, gap: 3 };
 
 export function LabelEmbeddedForm({ onAdd, onAddTiers }: Props) {
+  const [mode, setMode] = useState<"product" | "custom">("product");
   const [descricao, setDescricao] = useState("");
   const [labelW, setLabelW] = useState(50);
   const [labelH, setLabelH] = useState(30);
@@ -45,6 +46,24 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers }: Props) {
   const [quantidade, setQuantidade] = useState(500);
   const [sheetId, setSheetId] = useState<string>("SRA3");
   const [pulse, setPulse] = useState(false);
+
+  const labelPresets = useMemo<LabelPreset[]>(() => {
+    try {
+      const cfg = loadConfig();
+      return cfg.labelPresets?.length ? cfg.labelPresets : SEED_LABEL_PRESETS;
+    } catch {
+      return SEED_LABEL_PRESETS;
+    }
+  }, []);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
+
+  const applyPreset = (p: LabelPreset) => {
+    setLabelW(p.width);
+    setLabelH(p.height);
+    setShape(p.shape);
+    setActivePresetId(p.id);
+  };
+
 
   const sheet = SHEET_PRESETS.find((s) => s.id === sheetId) ?? SHEET_PRESETS[1];
   const folha = useFolhaPricing(sheetId);
