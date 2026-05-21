@@ -52,6 +52,7 @@ export function BookletKitPanel({
     qty: number;
     margemPct: number;
     collapsed: boolean;
+    enabled: boolean;
   };
   const [extraSlots, setExtraSlots] = useState<ExtraSlot[]>([]);
 
@@ -69,7 +70,9 @@ export function BookletKitPanel({
         qty: Math.max(1, bookletUnits || 1),
         margemPct: defaultMarginPct || 20,
         collapsed: false,
+        enabled: true,
       },
+
     ]);
 
   // Auto-colapsa quando o item personalizado fica pronto
