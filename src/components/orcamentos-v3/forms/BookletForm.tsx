@@ -8,13 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Check, Plus, BookOpen, Info } from "lucide-react";
+import { Check, Plus, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PrintingItemSearch, {
   type PrintingCatalogItem,
 } from "@/components/orcamentos/PrintingItemSearch";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
-import { fmtBRL, roundUp10 } from "../shared/pricing";
+import { roundUp10 } from "../shared/pricing";
 import { TierSimulator } from "../shared/TierSimulator";
 import { getIdealSpiral } from "@/lib/quotes-v2/spiral-selector";
 import { genId, type V3BookletItem, type V3Item } from "../types";
