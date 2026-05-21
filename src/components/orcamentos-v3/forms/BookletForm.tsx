@@ -195,50 +195,13 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
           />
         </Field>
         <Field label="Qtde de apostilas">
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={1}
-              value={bookletUnits || ""}
-              onChange={(e) => setBookletUnits(Math.max(0, Number(e.target.value) || 0))}
-              className="h-9"
-            />
-            <TierSimulator
-              currentQty={bookletUnits}
-              disabled={!catalog || bookletPages <= 0}
-              compute={(units) => {
-                const sheets = Math.max(0, Math.floor(bookletPages) * Math.floor(units));
-                if (!catalog || sheets <= 0) return { custo_total: 0, preco_total: 0 };
-                const pr = pricePerSheet(catalog, tiers, sheets);
-                const mult = catalog.side === "F/V" ? 1 : duplex ? 2 : 1;
-                return {
-                  custo_total: pr.baseCost * sheets * mult,
-                  preco_total: roundUp10(pr.sellingPrice * sheets * mult),
-                };
-              }}
-              onPickQty={(q) => setBookletUnits(q)}
-              onCloneAsTiers={
-                onAddTiers
-                  ? (qtys, primaryQty) => {
-                      const tg = `tg_${genId()}`;
-                      const items = qtys
-                        .map((q) => {
-                          const it = buildBookletItem(q, tg);
-                          return it
-                            ? ({ ...it, tier_primary: q === primaryQty } as V3BookletItem)
-                            : null;
-                        })
-                        .filter((x): x is V3BookletItem => !!x);
-                      if (items.length === 0) return;
-                      onAddTiers(items);
-                      setDescricao("");
-                      setPulse(true);
-                      setTimeout(() => setPulse(false), 600);
-                    }
-                  : undefined
-              }
-            />
-          </div>
+          <Input
+            type="number"
+            min={1}
+            value={bookletUnits || ""}
+            onChange={(e) => setBookletUnits(Math.max(0, Number(e.target.value) || 0))}
+            className="h-9"
+          />
         </Field>
       </div>
 
