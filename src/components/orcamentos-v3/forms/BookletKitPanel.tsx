@@ -48,7 +48,9 @@ export function BookletKitPanel({
   type ExtraSlot = {
     id: string;
     label: string;
-    item: V3PrintItem | null;
+    supply: SupplyOption | null;
+    qty: number;
+    margemPct: number;
     collapsed: boolean;
   };
   const [extraSlots, setExtraSlots] = useState<ExtraSlot[]>([]);
@@ -63,7 +65,9 @@ export function BookletKitPanel({
       {
         id: `slot_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         label: "",
-        item: null,
+        supply: null,
+        qty: Math.max(1, bookletUnits || 1),
+        margemPct: defaultMarginPct || 20,
         collapsed: false,
       },
     ]);
@@ -77,9 +81,10 @@ export function BookletKitPanel({
   }, [customBackCover, backCoverMode]);
   useEffect(() => {
     setExtraSlots((prev) =>
-      prev.map((s) => (s.item && !s.collapsed ? { ...s, collapsed: true } : s)),
+      prev.map((s) => (s.supply && !s.collapsed ? { ...s, collapsed: true } : s)),
     );
-  }, [extraSlots.map((s) => (s.item ? s.id : "")).join("|")]);
+  }, [extraSlots.map((s) => (s.supply ? s.id : "")).join("|")]);
+
 
   const { rows, spiralDiameter } = useMemo(
     () =>
