@@ -4,8 +4,9 @@
 // Em modo Personalizado, mostra sugestão inteligente quando a combinação
 // de papel + acabamentos casa com um produto conhecido (ex: lona + ilhós).
 import { useCallback, useState } from "react";
-import { cn } from "@/lib/utils";
 import { Wand2, Pencil, Sparkles, X } from "lucide-react";
+import { ModeButton } from "../shared/ModeButton";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PrintForm } from "./PrintForm";
 import { BookletForm } from "./BookletForm";
@@ -28,7 +29,7 @@ interface Props {
 type Mode = "custom" | "product";
 
 export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20 }: Props) {
-  const [mode, setMode] = useState<Mode>("custom");
+  const [mode, setMode] = useState<Mode>("product");
   const [product, setProduct] = useState<ProductPresetId>("folheto");
   const [suggestion, setSuggestion] = useState<SuggestResult | null>(null);
   const [dismissedKey, setDismissedKey] = useState<string>("");
@@ -66,21 +67,22 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
 
   return (
     <div className="space-y-5">
-      {/* Toggle Personalizado / Produto */}
+      {/* Toggle Produtos / Personalizado */}
       <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
+        <ModeButton
+          active={mode === "product"}
+          onClick={() => setMode("product")}
+          icon={Wand2}
+          label="Produtos"
+        />
         <ModeButton
           active={mode === "custom"}
           onClick={() => setMode("custom")}
           icon={Pencil}
           label="Personalizado"
         />
-        <ModeButton
-          active={mode === "product"}
-          onClick={() => setMode("product")}
-          icon={Wand2}
-          label="Produto"
-        />
       </div>
+
 
       {/* Chips de produto */}
       {mode === "product" && (
@@ -160,30 +162,3 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
   );
 }
 
-function ModeButton({
-  active,
-  onClick,
-  icon: Icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: typeof Wand2;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-all",
-        active
-          ? "bg-background text-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground",
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      {label}
-    </button>
-  );
-}
