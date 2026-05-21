@@ -59,11 +59,14 @@ export function SupplyForm({ defaultMarginPct, onAdd, onAddTiers }: Props) {
     setTimeout(() => setPulse(false), 600);
   };
 
-  const submitAsTiers = (qtys: number[]) => {
+  const submitAsTiers = (qtys: number[], primaryQty: number) => {
     if (!onAddTiers || !supply) return;
     const tg = `tg_${genId()}`;
     const items = qtys
-      .map((q) => buildItem(q, tg))
+      .map((q) => {
+        const it = buildItem(q, tg);
+        return it ? ({ ...it, tier_primary: q === primaryQty } as V3SupplyItem) : null;
+      })
       .filter((x): x is V3SupplyItem => !!x);
     if (items.length === 0) return;
     onAddTiers(items);
