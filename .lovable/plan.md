@@ -1,62 +1,57 @@
-## Tiers por quantidade nos acabamentos do Print V3
+## Apostila: sugerir kit de encadernação por padrão
 
-Hoje o Print V3 cobra sempre o `price_per_sheet` base do acabamento, ignorando as faixas cadastradas em `finishing_price_tiers` (que a Calc Etiquetas já respeita via `sheet-pricing.ts`). O resultado: orçamentos de tiragem grande ficam mais caros do que deveriam, e o cadastro de tiers fica invisível para o engine de impressão.
+### Diagnóstico
 
-Esta fase fecha essa lacuna sem mexer em UI nem em catálogo — só no caminho de dados e no cálculo.
+O `BookletForm` já carrega `ProductKitPanel` (genérico, lê de `product_kits` no banco). Hoje a tabela `product_kits` está **vazia** para `product_kind = 'apostila'`, então o painel chama `return null` e o usuário não vê sugestão nenhuma — só a frase "Use o Kit Encadernação abaixo…" sem o "abaixo" existir.
 
-### 1. Carregar tiers junto com os acabamentos
+Mas o código já tem tudo o que falta: `src/components/orcamentos-v3/forms/BookletKitPanel.tsx` + `shared/bookletKit.ts` montam, sem precisar de banco, um kit padrão com:
 
-`src/lib/finishings/catalog.ts` → estender `FinishingItem` com `tiers?: FinishingTier[]` e fazer o `select` da `listFinishings` puxar a relação aninhada:
+- Capa frontal (regex match em supplies → fallback "Capa PP Line A4 Incolor — preencher")
+- Contracapa (fallback "Capa PP Camurça A4 Preta — preencher")
+- Espiral do diâmetro sugerido por `getIdealSpiral(folhas)`
+- Furação (mão-de-obra)
+- Encadernação (mão-de-obra)
 
-```ts
-.select("*, finishing_price_tiers(id, finishing_id, label, min_qty, max_qty, price_per_sheet, sort_order)")
-```
+Cada linha tem checkbox para incluir/excluir, e o "Aplicar Kit" empurra os V3Items para o carrinho — exatamente o "sugerir + alterar com facilidade" que o usuário pediu.
 
-Mapear o resultado para `tiers` no objeto retornado (mesmo padrão que `sheet-pricing.ts` já usa). Acabamentos sem tier vêm com `tiers: []` → comportamento atual preservado.
+### Mudança
 
-### 2. Resolver preço efetivo por folha no PrintForm
+`src/components/orcamentos-v3/forms/BookletForm.tsx` — trocar o `<ProductKitPanel productKind="apostila" …>` por uma combinação:
 
-`src/components/orcamentos-v3/forms/PrintForm.tsx` → no `useMemo` de `selections`, em vez de mandar `price: f.price_per_sheet` cru, resolver pela quantidade atual usando `resolveFinishingPricePerSheet(f.price_per_sheet, f.tiers ?? [], quantidade)`.
+1. **Sempre** renderizar `<BookletKitPanel>` (sugestão automática, zero config no banco). É o caminho default.
+2. **Adicionalmente**, manter `<ProductKitPanel>` para o caso de o usuário cadastrar kits customizados em `product_kits` (ele já se auto-esconde quando não há) — fica abaixo do BookletKitPanel como "Outros kits cadastrados".
 
-Detalhes:
-- `per_sheet` → snapshot do preço já com tier aplicado para `quantidade`
-- `per_unit` → tier não se aplica (faixa é por folhas, não por unidades de ilhós/dobra); mantém `price_per_sheet` base
-- Snapshot continua sendo o que vai para `finishing_selections` no item — então o item salvo carrega o preço efetivo daquela tiragem, independente de mudanças futuras nas tiers
-
-Em `buildItem(qty, tierGroupId?)` (usado pelo TierSimulator com `qty` diferente da atual), recalcular `selections` localmente com o `qty` do tier para que cada faixa da simulação use a tier correta de cada acabamento. Hoje o `useMemo` está atrelado a `quantidade` — preciso extrair um helper `buildSelections(qty)` e chamá-lo tanto no `useMemo` quanto dentro de `buildItem`.
-
-### 3. Hint visual no chip
-
-`FINISHES_PADRAO` mostra hoje "a partir de R$ X,XX/folha". Quando o acabamento tem tiers e a `quantidade` atual cai em uma tier mais barata, o hint atual fica confuso (mostra preço base, mas o cálculo usa outro). Atualizar `hint` para refletir o preço efetivo da `quantidade` atual:
+Ordem visual (mantém "Use o Kit Encadernação abaixo" coerente):
 
 ```
-per_sheet sem tier:  "R$ 0,30/folha"
-per_sheet com tier:  "R$ 0,20/folha (faixa 100-499)"
-per_unit:            "R$ 1,50/un"
+[ Resumo do miolo ]
+   ↓
+[ BookletKitPanel ]   ← sempre presente, sugestão pronta
+   ↓
+[ ProductKitPanel ]   ← só aparece se houver kit customizado em DB
+   ↓
+[ Descrição ]
+[ Adicionar apostila ]
 ```
 
-### 4. Tests
+### Detalhes
 
-Adicionar em `src/test/v3-print-finishings.test.ts`:
-- per_sheet com tier que cobre a qty → usa preço da tier
-- per_sheet com tier que NÃO cobre (qty abaixo do menor min_qty) → usa primeira tier
-- per_sheet sem nenhuma tier → fallback para preço base
-- per_unit ignora tiers (mantém base) mesmo se houver tiers cadastradas
-- Selections em qty diferentes (simulando tier simulator) resolvem preço independente
+- `BookletKitPanel` já existe e foi descomissionado em favor do `ProductKitPanel`. Vou reativar sem mudanças funcionais.
+- Renderização condicionada a `canAdd && bookletPages > 0 && bookletUnits > 0` (igual hoje).
+- Texto do rodapé do resumo do miolo permanece — agora aponta para algo de verdade.
+- Microcopy do header do BookletKitPanel: alterar de "Kit Encadernação" para "Kit sugerido · Encadernação" para deixar claro que é sugestão (consistente com a frase do resumo).
 
-### 5. Fora de escopo
+### Fora de escopo
 
-- UI de cadastro de tiers (já existe em Acabamentos via `FinishingTiersDrawer`)
-- Tiers para `per_unit` (faixa por unidade de ilhós não faz sentido prático hoje)
-- Lona/banner — segue com chips hardcoded sem tier
-- Calc Etiquetas — já usa tiers via outro caminho, não muda nada
-
-### Arquivos
-
-- `src/lib/finishings/catalog.ts` — estender tipo + select aninhado
-- `src/components/orcamentos-v3/forms/PrintForm.tsx` — extrair `buildSelections(qty)`, aplicar `resolveFinishingPricePerSheet`, atualizar `hint`
-- `src/test/v3-print-finishings.test.ts` — novos casos
+- Não vou criar migration para popular `product_kits` (o caminho default já não depende mais disso).
+- Não vou mexer no `BookletKitPanel` em si — ele está pronto.
+- Não toco em `CartãoVisita`, `Folheto`, `Etiqueta` — outros forms seguem usando `ProductKitPanel` como hoje.
 
 ### Risco
 
-Baixo. O snapshot em `finishing_selections` blinda orçamentos salvos. Acabamentos sem tier mantêm comportamento atual byte-a-byte. A única mudança visível é: tiragens grandes ficam mais baratas quando o acabamento tem faixa cadastrada — exatamente o efeito desejado.
+Mínimo. Estou desfazendo uma regressão (o panel já existia, foi escondido por uma camada genérica que ficou sem dados). Sem mudança de cálculo, sem migration, sem nova dependência.
+
+### Arquivos
+
+- `src/components/orcamentos-v3/forms/BookletForm.tsx` — adicionar `BookletKitPanel` antes do `ProductKitPanel`
+- `src/components/orcamentos-v3/forms/BookletKitPanel.tsx` — só ajuste de microcopy do header
