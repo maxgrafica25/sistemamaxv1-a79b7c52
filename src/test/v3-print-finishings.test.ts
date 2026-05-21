@@ -1,5 +1,43 @@
 import { describe, it, expect } from "vitest";
 import { sumFinishingsPerSheet } from "@/lib/finishings/catalog";
+import {
+  resolveFinishingPricePerSheet,
+  type FinishingTier,
+} from "@/lib/labels/finishing-pricing";
+
+// Helper para simular o que PrintForm.buildSelections faz por trás dos panos:
+// resolve preço efetivo (tier) para per_sheet, mantém base para per_unit.
+function buildSelections(
+  fins: {
+    pricing_model: "per_sheet" | "per_unit";
+    price_per_sheet: number;
+    tiers?: FinishingTier[];
+  }[],
+  qty: number,
+) {
+  return fins.map((f) => ({
+    pricing_model: f.pricing_model,
+    price:
+      f.pricing_model === "per_sheet"
+        ? resolveFinishingPricePerSheet(f.price_per_sheet, f.tiers ?? [], qty)
+        : f.price_per_sheet,
+  }));
+}
+
+const tier = (
+  min: number,
+  max: number | null,
+  price: number,
+): FinishingTier => ({
+  id: `t${min}`,
+  finishing_id: "f1",
+  label: `${min}-${max ?? "+"}`,
+  min_qty: min,
+  max_qty: max,
+  price_per_sheet: price,
+  sort_order: min,
+});
+
 
 describe("sumFinishingsPerSheet", () => {
   it("sem seleções → zero", () => {
