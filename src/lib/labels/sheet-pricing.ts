@@ -255,11 +255,20 @@ export function useFolhaPricing(
   const allPrintingOptions = printingQ.data ?? [];
   const finishingOptions = finishingQ.data ?? [NO_FINISHING];
 
+  // Itens elegíveis: adesivo aceita A3↔SRA3; outros tipos exigem o tamanho exato.
+  const eligiblePrintingOptions = useMemo(
+    () =>
+      allPrintingOptions.filter((p) =>
+        paperKindOf(p) === "adesivo" ? true : p.size === size,
+      ),
+    [allPrintingOptions, size],
+  );
+
   const availableKinds: PaperKind[] = useMemo(() => {
     const set = new Set<PaperKind>();
-    allPrintingOptions.forEach((p) => set.add(paperKindOf(p)));
+    eligiblePrintingOptions.forEach((p) => set.add(paperKindOf(p)));
     return Array.from(set);
-  }, [allPrintingOptions]);
+  }, [eligiblePrintingOptions]);
 
   const [paperKind, setPaperKindState] = useState<PaperKind>(() => {
     return loadChoices()[size]?.paperKind ?? "adesivo";
@@ -290,11 +299,9 @@ export function useFolhaPricing(
   }, [availableKinds, paperKind]);
 
   const printingOptions = useMemo(
-    () => allPrintingOptions.filter((p) => paperKindOf(p) === paperKind),
-    [allPrintingOptions, paperKind],
+    () => eligiblePrintingOptions.filter((p) => paperKindOf(p) === paperKind),
+    [eligiblePrintingOptions, paperKind],
   );
-
-  // Se a opção salva não existir no tipo atual, cai na primeira do tipo
   useEffect(() => {
     if (printingOptions.length === 0) return;
     if (!printingId || !printingOptions.some((p) => p.id === printingId)) {
