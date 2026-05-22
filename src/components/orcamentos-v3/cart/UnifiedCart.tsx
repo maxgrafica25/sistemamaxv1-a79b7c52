@@ -546,17 +546,14 @@ function SingleCard({ item, isNew, onDuplicate, onRemove }: SingleCardProps) {
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <p className="text-[13px] font-medium leading-tight truncate min-w-0 flex-1">
-              {(item as { descricao?: string }).descricao || LABEL[item.kind]}
+              {itemTitle(item)}
             </p>
             <span className="text-[13px] font-semibold tabular-nums shrink-0 whitespace-nowrap">
               {fmtBRL(price)}
             </span>
           </div>
           <div className="mt-0.5 flex items-center gap-1.5 min-w-0">
-            <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 shrink-0">
-              {LABEL[item.kind]}
-            </Badge>
-            <span className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">{cartMeta(item)}</span>
+            <p className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">{itemSubtitle(item)}</p>
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
