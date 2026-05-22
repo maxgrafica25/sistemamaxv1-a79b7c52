@@ -36,7 +36,7 @@ All colors MUST be HSL.
     --danger-foreground: 0 0% 100%;
     --danger-light: 0 84% 95%;
 
-    --muted: 210 40% 94%;
+    --muted: 270 25% 94%;
     --muted-foreground: 270 10% 45%;
 
     --accent: 25 95% 53%;
@@ -46,8 +46,8 @@ All colors MUST be HSL.
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
+    --border: 270 20% 89%;
+    --input: 270 20% 89%;
     --ring: 270 70% 50%;
 
     --radius: 0.5rem;
