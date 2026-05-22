@@ -308,23 +308,23 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
             >
               <span
                 className={cn(
-                  "tabular-nums flex items-center gap-1.5 min-w-[110px]",
+                  "tabular-nums flex items-center gap-1.5 min-w-[110px] whitespace-nowrap",
                   opts.primary && "text-[13px] font-semibold text-primary",
                 )}
               >
                 {q.toLocaleString("pt-BR")} un
                 {opts.primary && (
-                  <span className="text-[9px] uppercase tracking-wide text-primary/70 font-medium">
+                  <span className="text-[9px] uppercase tracking-wide text-primary/70 font-medium whitespace-nowrap">
                     · solicitada
                   </span>
                 )}
               </span>
-              <span className="tabular-nums flex-1 text-right">
+              <span className="tabular-nums flex-1 text-right whitespace-nowrap">
                 {fmtBRL(unit)} / un
               </span>
               <span
                 className={cn(
-                  "tabular-nums min-w-[80px] text-right",
+                  "tabular-nums min-w-[80px] text-right whitespace-nowrap",
                   opts.primary ? "text-[13px] font-bold text-foreground" : "font-medium",
                 )}
               >
@@ -422,7 +422,7 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardPro
               <span className="text-[13px] font-semibold tabular-nums text-primary shrink-0 whitespace-nowrap">
                 {leaderQty.toLocaleString("pt-BR")} un
               </span>
-              <p className="text-[13px] font-medium leading-tight truncate min-w-0">{title}</p>
+              <p className="text-[13px] font-medium leading-tight truncate min-w-0" title={title}>{title}</p>
             </div>
             <span className="text-[13px] font-semibold tabular-nums shrink-0 whitespace-nowrap">
               {fmtBRL(total)}
