@@ -239,8 +239,8 @@ function groupItems(items: V3Item[]): Entry[] {
 export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props) {
   if (items.length === 0) {
     return (
-      <div className="rounded-md border border-dashed border-border/60 bg-muted/20 p-6 text-center">
-        <ShoppingCart className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+      <div className="rounded-md border border-dashed border-border/60 bg-muted/20 p-4 text-center">
+        <ShoppingCart className="h-5 w-5 mx-auto text-muted-foreground mb-2" />
         <p className="text-sm text-muted-foreground">Nenhum item ainda.</p>
         <p className="text-[11px] text-muted-foreground/70 mt-1">
           Configure no painel à esquerda e adicione ao orçamento.
@@ -250,7 +250,7 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
   }
   const entries = groupItems(items);
   return (
-    <ul className="space-y-1.5">
+    <ul className="space-y-1">
       {entries.map((entry) => {
         if (entry.type === "single") {
           return (
@@ -301,15 +301,15 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
             <li
               key={it.id}
               className={cn(
-                "flex items-center gap-2 px-1 py-1 text-xs",
-                opts.showDivider && "border-t border-border/40 mt-0.5 pt-1.5",
+                "flex items-center gap-2 px-1 py-0.5 text-[11px]",
+                opts.showDivider && "border-t border-border/40 mt-0.5 pt-1",
                 !opts.primary && "text-muted-foreground",
               )}
             >
               <span
                 className={cn(
                   "tabular-nums flex items-center gap-1.5 min-w-[110px]",
-                  opts.primary && "text-sm font-semibold text-primary",
+                  opts.primary && "text-[13px] font-semibold text-primary",
                 )}
               >
                 {q.toLocaleString("pt-BR")} un
@@ -325,7 +325,7 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
               <span
                 className={cn(
                   "tabular-nums min-w-[80px] text-right",
-                  opts.primary ? "text-sm font-bold text-foreground" : "font-medium",
+                  opts.primary ? "text-[13px] font-bold text-foreground" : "font-medium",
                 )}
               >
                 {fmtBRL(price)}
@@ -353,16 +353,16 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
           <li
             key={entry.groupId}
             className={cn(
-              "rounded-md border border-border/60 bg-card p-2 transition-all",
+              "rounded-md border border-border/60 bg-card px-2 py-1.5 transition-all",
               isNew && "ring-2 ring-emerald-500/50 animate-in fade-in slide-in-from-right-2",
             )}
           >
             <div className="flex items-start gap-1.5">
-              <div className="rounded bg-primary/10 p-1 text-primary shrink-0">
-                <Icon className="h-3.5 w-3.5" />
+              <div className="rounded bg-primary/10 p-0.5 text-primary shrink-0">
+                <Icon className="h-3 w-3" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium leading-tight truncate">{descricao}</p>
+                <p className="text-[13px] font-medium leading-tight truncate">{descricao}</p>
               </div>
               <CardActions
                 onRemove={() => entry.items.forEach((it) => onRemove(it.id))}
@@ -370,7 +370,7 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
               />
             </div>
 
-            <ul className="mt-1.5 space-y-0">
+            <ul className="mt-1 space-y-0">
               {sortedAll.map((it, i) => {
                 const isPrimary = it.id === primaryItem.id;
                 const prev = sortedAll[i - 1];
@@ -408,27 +408,27 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardPro
   return (
     <li
       className={cn(
-        "rounded-md border border-border/60 bg-card p-2 transition-all",
+        "rounded-md border border-border/60 bg-card px-2 py-1.5 transition-all",
         isNew && "ring-2 ring-emerald-500/50 animate-in fade-in slide-in-from-right-2",
       )}
     >
       <div className="flex items-start gap-1.5">
-        <div className="rounded bg-primary/10 p-1 text-primary shrink-0">
-          <Icon className="h-3.5 w-3.5" />
+        <div className="rounded bg-primary/10 p-0.5 text-primary shrink-0">
+          <Icon className="h-3 w-3" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-start gap-2 min-w-0 flex-1">
-              <span className="text-sm font-semibold tabular-nums text-primary shrink-0">
+              <span className="text-[13px] font-semibold tabular-nums text-primary shrink-0">
                 {leaderQty.toLocaleString("pt-BR")} un
               </span>
-              <p className="text-sm font-medium leading-tight">{title}</p>
+              <p className="text-[13px] font-medium leading-tight">{title}</p>
             </div>
-            <span className="text-sm font-semibold tabular-nums shrink-0">
+            <span className="text-[13px] font-semibold tabular-nums shrink-0">
               {fmtBRL(total)}
             </span>
           </div>
-          <div className="mt-0.5">
+          <div className="mt-0">
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
@@ -450,7 +450,7 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardPro
       </div>
 
       {expanded && (
-        <ul className="mt-1.5 space-y-0 border-t border-border/40 pt-1.5">
+        <ul className="mt-1 space-y-0 border-t border-border/40 pt-1">
           {entry.items.map((it) => {
             const price = priceOf(it).preco_total;
             const descr = (it as { descricao?: string }).descricao || LABEL[it.kind];
@@ -493,20 +493,20 @@ function SingleCard({ item, isNew, onDuplicate, onRemove }: SingleCardProps) {
   return (
     <li
       className={cn(
-        "rounded-md border border-border/60 bg-card p-2 transition-all",
+        "rounded-md border border-border/60 bg-card px-2 py-1.5 transition-all",
         isNew && "ring-2 ring-emerald-500/50 animate-in fade-in slide-in-from-right-2",
       )}
     >
       <div className="flex items-start gap-1.5">
-        <div className="rounded bg-primary/10 p-1 text-primary shrink-0">
-          <Icon className="h-3.5 w-3.5" />
+        <div className="rounded bg-primary/10 p-0.5 text-primary shrink-0">
+          <Icon className="h-3 w-3" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-medium leading-tight truncate">
+            <p className="text-[13px] font-medium leading-tight truncate">
               {(item as { descricao?: string }).descricao || LABEL[item.kind]}
             </p>
-            <span className="text-sm font-semibold tabular-nums shrink-0">
+            <span className="text-[13px] font-semibold tabular-nums shrink-0">
               {fmtBRL(price)}
             </span>
           </div>
@@ -532,7 +532,7 @@ function SingleCard({ item, isNew, onDuplicate, onRemove }: SingleCardProps) {
       </div>
 
       {expanded && (
-        <ul className="mt-1.5 space-y-0 border-t border-border/40 pt-1.5">
+        <ul className="mt-1 space-y-0 border-t border-border/40 pt-1">
           {details.map((d, i) => (
             <li key={i} className="flex items-center justify-between gap-2 text-[10px] px-1">
               <span className={cn("text-muted-foreground", d.muted && "opacity-80")}>{d.label}</span>
