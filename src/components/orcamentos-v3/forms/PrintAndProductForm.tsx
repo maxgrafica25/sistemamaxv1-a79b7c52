@@ -8,6 +8,8 @@ import { Wand2, Pencil, Sparkles, X } from "lucide-react";
 import { ModeButton } from "../shared/ModeButton";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { PrintForm } from "./PrintForm";
 import { BookletForm } from "./BookletForm";
 import { LabelEmbeddedForm } from "./LabelEmbeddedForm";
@@ -32,6 +34,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
   const [mode, setMode] = useState<Mode>("product");
   const { presets } = useQuotePresets("impressao");
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const [descricao, setDescricao] = useState("");
   const [suggestion, setSuggestion] = useState<SuggestResult | null>(null);
   const [dismissedKey, setDismissedKey] = useState<string>("");
 
@@ -81,6 +84,19 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
 
   return (
     <div className="space-y-5">
+      {/* Descrição (opcional) — acima do toggle */}
+      <div className="space-y-1.5">
+        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          Descrição (opcional)
+        </Label>
+        <Input
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder="Opcional — ex: nome do produto ou observação"
+          className="h-9"
+        />
+      </div>
+
       {/* Toggle Produtos / Personalizado */}
       <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
         <ModeButton
@@ -96,6 +112,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
           label="Personalizado"
         />
       </div>
+
 
 
       {/* Chips de produto */}
@@ -155,10 +172,21 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
       {/* Sub-formulário */}
       <div>
         {mode === "custom" && (
-          <PrintForm onAdd={onAdd} onAddTiers={onAddTiers} onSelectionChange={handleSelectionChange} />
+          <PrintForm
+            onAdd={onAdd}
+            onAddTiers={onAddTiers}
+            onSelectionChange={handleSelectionChange}
+            descricao={descricao}
+            onDescricaoChange={setDescricao}
+          />
         )}
         {mode === "product" && formTipo === "print" && (
-          <PrintForm onAdd={onAdd} onAddTiers={onAddTiers} />
+          <PrintForm
+            onAdd={onAdd}
+            onAddTiers={onAddTiers}
+            descricao={descricao}
+            onDescricaoChange={setDescricao}
+          />
         )}
         {mode === "product" && formTipo === "booklet" && (
           <BookletForm
@@ -166,13 +194,21 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onAddMany={onAddMany}
             onAddTiers={onAddTiers}
             defaultMarginPct={defaultMarginPct}
+            descricao={descricao}
+            onDescricaoChange={setDescricao}
           />
         )}
         {mode === "product" && formTipo === "label" && (
-          <LabelEmbeddedForm onAdd={onAdd} onAddTiers={onAddTiers} />
+          <LabelEmbeddedForm
+            onAdd={onAdd}
+            onAddTiers={onAddTiers}
+            descricao={descricao}
+            onDescricaoChange={setDescricao}
+          />
         )}
       </div>
     </div>
   );
 }
+
 
