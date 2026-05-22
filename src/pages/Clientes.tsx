@@ -165,6 +165,7 @@ export default function Clientes() {
                     <TableCell>{cliente.empresa || "-"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => { setRecCliente(cliente); setRecOpen(true); }} className="hover:bg-primary/10 hover:text-primary" title="Recorrentes"><Repeat className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(cliente)} className="hover:bg-primary/10 hover:text-primary"><Edit className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => deleteCliente(cliente.id)} className="text-destructive hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                       </div>
