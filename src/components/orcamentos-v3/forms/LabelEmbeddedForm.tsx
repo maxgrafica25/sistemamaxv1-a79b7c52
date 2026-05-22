@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Check, Plus, Tag, ExternalLink, Wand2, Pencil } from "lucide-react";
+import { Check, Plus, Tag, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import {
