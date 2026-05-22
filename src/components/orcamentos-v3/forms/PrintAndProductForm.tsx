@@ -33,11 +33,18 @@ type Mode = "custom" | "product";
 
 export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20 }: Props) {
   const [mode, setMode] = useState<Mode>("product");
-  const { presets } = useQuotePresets("impressao");
+  const { presets, reload } = useQuotePresets("impressao");
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [descricao, setDescricao] = useState("");
   const [suggestion, setSuggestion] = useState<SuggestResult | null>(null);
   const [dismissedKey, setDismissedKey] = useState<string>("");
+  const [currentSel, setCurrentSel] = useState<{
+    paper_type: string | null;
+    size: string | null;
+    grammage: string | null;
+    finishings: string[];
+  } | null>(null);
+  const [saveOpen, setSaveOpen] = useState(false);
 
   // Seleciona o primeiro preset assim que carregam
   useEffect(() => {
