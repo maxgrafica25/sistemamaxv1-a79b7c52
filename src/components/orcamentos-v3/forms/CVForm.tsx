@@ -354,38 +354,61 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
         />
       </div>
 
-      {/* Toggle Produtos / Personalizado + Salvar preset */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-xs text-muted-foreground">Modo:</span>
-        <div role="group" aria-label="Modo de cadastro" className="inline-flex rounded-md border border-border bg-muted p-1">
-          <ModeButton
-            active={mode === "product"}
-            onClick={() => setMode("product")}
-            icon={Wand2}
-            label="Produtos"
-          />
-          <ModeButton
-            active={mode === "custom"}
-            onClick={() => setMode("custom")}
-            icon={Pencil}
-            label="Personalizado"
-          />
-        </div>
-        {mode === "custom" && midia && (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => setSaveOpen(true)}
-            className="h-8 text-xs text-muted-foreground hover:text-primary"
-            title="Salva a configuração atual como um botão rápido em Produtos"
-          >
-            <Star className="h-3.5 w-3.5" />
-            Salvar como preset
-          </Button>
-        )}
-      </div>
-      {mode === "custom" && midia && (() => {
+      {/* Chips: Personalizado + favoritos + Salvar preset */}
+      {(() => {
+        const isCustom = !activePresetId;
+        return (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActivePresetId(null)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                isCustom
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+              )}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Personalizado
+            </button>
+            {cvPresets.map((p) => {
+              const active = p.id === activePresetId;
+              const Icon = iconFor(p.icone);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => applyPreset(p)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {p.nome}
+                </button>
+              );
+            })}
+            {isCustom && midia && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setSaveOpen(true)}
+                className="h-7 text-xs text-muted-foreground hover:text-primary ml-auto"
+                title="Salva a configuração atual como um botão rápido em favoritos"
+              >
+                <Star className="h-3.5 w-3.5" />
+                Salvar como favorito
+              </Button>
+            )}
+          </div>
+        );
+      })()}
+      {!activePresetId && midia && (() => {
         const tipoSupported = ["lona", "adesivo", "chapa"].includes(midia.tipo_midia ?? "");
         const nameMatch = (midia.nome ?? "").split(/\s+/).slice(0, 2).join(" ").toLowerCase() || null;
         const resumo: { label: string; value: string }[] = [];
@@ -413,30 +436,6 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
         );
       })()}
 
-      {mode === "product" && cvPresets.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {cvPresets.map((p) => {
-            const active = p.id === activePresetId;
-            const Icon = iconFor(p.icone);
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => applyPreset(p)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                  active
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {p.nome}
-              </button>
-            );
-          })}
-        </div>
-      )}
 
 
 
