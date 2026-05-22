@@ -149,6 +149,8 @@ export interface V3LabelItem extends V3BundleFields {
   labelW_mm: number;
   labelH_mm: number;
   shape: "quadrado" | "redondo" | "personalizado";
+  /** Apenas em redondo (SignMaster). Permite reabrir com o diâmetro original. */
+  label_diameter_mm?: number;
   quantidade: number;
   // Folha & impressão (snapshot do useFolhaPricing)
   sheet_size: string;             // ex: "A4" / "SRA3" / "Formatao"
