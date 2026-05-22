@@ -18,8 +18,15 @@ import {
 import { cn } from "@/lib/utils";
 import type { V3Item } from "../types";
 import { priceOf, fmtBRL } from "../shared/pricing";
+import { marginTextClass } from "@/lib/quotes-v2/margin";
 
-interface Props {
+export interface CartPcts {
+  taxPct: number;
+  feesPct: number;
+  wastePct: number;
+}
+
+interface Props extends CartPcts {
   items: V3Item[];
   onDuplicate: (id: string) => void;
   onRemove: (id: string) => void;
