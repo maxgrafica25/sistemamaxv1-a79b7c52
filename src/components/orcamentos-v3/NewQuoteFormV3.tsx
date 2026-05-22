@@ -19,6 +19,7 @@ import { DEFAULT_STATE, genId, type V3Category, type V3Item, type V3QuoteState }
 
 import { saveQuoteV3 } from "./shared/saveQuoteV3";
 import { RecorrentesPanel } from "@/components/recorrentes/RecorrentesPanel";
+import { useGlobalSettings } from "@/hooks/useGlobalSettings";
 
 interface Props {
   onCancel: () => void;
@@ -29,6 +30,7 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
   const [state, setState] = useState<V3QuoteState>(DEFAULT_STATE);
   const [active, setActive] = useState<V3Category>("print");
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const { settings: globalSettings } = useGlobalSettings();
 
   const { hydrated, savedAt, clear } = useQuoteDraftV3(state);
   useEffect(() => {
@@ -226,6 +228,9 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
               onDuplicate={duplicateItem}
               onRemove={removeItem}
               highlightId={highlightId}
+              taxPct={state.tax_pct}
+              feesPct={state.fees_pct}
+              wastePct={globalSettings.waste_pct}
             />
           </div>
           <div className="p-3 border-t border-border/60 bg-background">
@@ -240,6 +245,7 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
           onRemove={removeItem}
           summary={summary}
           highlightId={highlightId}
+          wastePct={globalSettings.waste_pct}
         />
       </div>
     </div>
@@ -253,12 +259,14 @@ function MobileCart({
   onRemove,
   summary,
   highlightId,
+  wastePct,
 }: {
   state: V3QuoteState;
   onDuplicate: (id: string) => void;
   onRemove: (id: string) => void;
   summary: ReturnType<typeof summarize>;
   highlightId: string | null;
+  wastePct: number;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -282,6 +290,9 @@ function MobileCart({
             onDuplicate={onDuplicate}
             onRemove={onRemove}
             highlightId={highlightId}
+            taxPct={state.tax_pct}
+            feesPct={state.fees_pct}
+            wastePct={wastePct}
           />
           <FinancialPanel summary={summary} />
         </div>
