@@ -245,6 +245,7 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
           onRemove={removeItem}
           summary={summary}
           highlightId={highlightId}
+          wastePct={globalSettings.waste_pct}
         />
       </div>
     </div>
