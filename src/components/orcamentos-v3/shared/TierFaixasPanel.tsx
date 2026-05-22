@@ -84,7 +84,12 @@ export function TierFaixasPanel({
   const shortcuts = [-5, 5, 10, 15];
 
   return (
-    <div className={cn("space-y-3", disabled && "opacity-50 pointer-events-none")}>
+    <div
+      className={cn(
+        "space-y-2 rounded-md bg-muted/30 px-3 py-2.5",
+        disabled && "opacity-50 pointer-events-none",
+      )}
+    >
       <div className="flex items-baseline justify-between">
         <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
           Faixas de quantidade
@@ -107,9 +112,9 @@ export function TierFaixasPanel({
             <li
               key={r.qty}
               className={cn(
-                "flex items-center gap-3 px-1 py-1.5 text-sm",
-                isFirstSuggestion && "border-t border-border/40 mt-0.5 pt-2",
-                !r.primary && "text-muted-foreground",
+                "flex items-center gap-3 px-2 py-1.5 text-sm rounded",
+                isFirstSuggestion && "mt-0.5",
+                r.primary ? "bg-background" : "text-muted-foreground",
               )}
             >
               <span
@@ -153,7 +158,7 @@ export function TierFaixasPanel({
         })}
       </ul>
 
-      <div className="flex items-center gap-1.5 flex-wrap pt-1">
+      <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-border/40">
         {shortcuts.map((delta) => {
           const result = currentQty + delta;
           const invalid =
@@ -166,7 +171,7 @@ export function TierFaixasPanel({
               disabled={invalid}
               onClick={() => addQty(result)}
               className={cn(
-                "rounded-full border border-border/60 px-2.5 py-0.5 text-xs tabular-nums transition-colors",
+                "rounded-full border border-border/60 bg-background px-2.5 py-0.5 text-xs tabular-nums transition-colors",
                 invalid
                   ? "opacity-30 cursor-not-allowed"
                   : "text-muted-foreground hover:border-primary/60 hover:text-primary hover:bg-primary/5",
@@ -182,7 +187,12 @@ export function TierFaixasPanel({
           );
         })}
 
-        <div className="flex items-center gap-1 ml-auto">
+        <span className="h-4 w-px bg-border/60 mx-1" aria-hidden />
+
+        <div className="flex items-center gap-1.5 ml-auto">
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            Outra:
+          </Label>
           <Input
             type="number"
             min={1}
@@ -195,14 +205,14 @@ export function TierFaixasPanel({
                 setNewQty("");
               }
             }}
-            placeholder="qtd"
-            className="h-7 w-20 text-xs px-2"
+            placeholder="ex: 250"
+            className="h-7 w-24 text-xs px-2 bg-background"
           />
           <Button
             type="button"
             size="sm"
-            variant="ghost"
-            className="h-7 px-2 text-xs"
+            variant="secondary"
+            className="h-7 px-2"
             onClick={() => {
               addQty(Number(newQty) || 0);
               setNewQty("");
@@ -215,3 +225,4 @@ export function TierFaixasPanel({
     </div>
   );
 }
+

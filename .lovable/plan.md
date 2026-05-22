@@ -1,43 +1,32 @@
-## Refatoração visual — Orçamentos V3
+## Refinar UX das faixas de quantidade — `TierFaixasPanel.tsx`
 
-Objetivo: interface mais minimalista, densa e focada em ancoragem de preço. Reduzir scroll e remover ruído visual. Apenas UI/apresentação — sem mexer em lógica de cálculo, estado ou submit.
+**Problema:** após remover as caixas, o painel ficou "solto" demais — sem âncora visual e o campo de quantidade custom não se diferencia do resto.
 
-### Parte 1 — Painel central: `TierFaixasPanel.tsx`
+### Ajustes (apenas visuais, lógica intacta)
 
-- **Remover** o container `border bg-muted/20` e o header com ícone/badge. Trocar por um título discreto em `text-[11px] uppercase tracking-wide text-muted-foreground` e link "Limpar" alinhado à direita.
-- **Lista única e contínua**: linha solicitada + sugestões num único `<ul>` ordenado por quantidade. A solicitada é marcada apenas por `font-semibold text-primary` + sufixo `· solicitada`. Sem fundo destacado, sem header "Sugestões".
-- **Separação por whitespace**: `border-t border-border/40` sutil entre a solicitada e a primeira sugestão; resto é apenas `space-y-0.5`.
-- **Chips inline** abaixo da lista: `−5`, `+5`, `+10`, `+15` como `rounded-full border border-border/60 px-2.5 py-0.5 text-xs`, sem fundo forte, ficam todos numa única linha (`flex flex-wrap gap-1.5`). Input compacto (`h-7 w-20`) + botão `ghost` "+" no final da mesma linha.
-- **Manter** toda a lógica de `extras`, `addQty`, `removeQty`, localStorage e `onExtrasChange`.
+**1. Ancorar o painel sem virar caixa pesada**
+- Adicionar fundo sutil `bg-muted/30` + `rounded-md` + `px-3 py-2.5` ao container raiz. Sem borda — só o fundo levemente cinza para agrupar visualmente.
+- Mantém ar de "seção" sem voltar ao border pesado anterior.
 
-### Parte 2 — Carrinho lateral: `UnifiedCart.tsx`
+**2. Diferenciar a linha solicitada**
+- Aplicar `bg-background rounded` na linha `r.primary` (fica branca sobre o fundo cinza claro do painel) — destaca naturalmente sem badge.
 
-**Densidade — `SingleCard`, `BundleCard`, card de grupo (tiers):**
-- Padding do `<li>`: `p-3` → `p-2`. Ícone `p-1.5` → `p-1`. Gap `gap-2` → `gap-1.5`.
-- Lista externa: `space-y-2` → `space-y-1.5`.
-- **Ações (Duplicar/Excluir)** movidas para ícones pequenos (`h-6 w-6` ghost, só ícone) no **canto superior direito** do card.
-  - **Sempre visíveis com `opacity-40`**, em `hover:opacity-100` e `active:opacity-100` (touch-friendly para tablets do balcão — sem depender de `group-hover`).
-  - Remove o bloco inferior `mt-2 flex … opacity-60 group-hover:opacity-100`, economizando ~32px por card.
-- Área expandida (ver detalhes): `space-y-0` e fontes `text-[10px]`.
+**3. Reorganizar a linha de ações (chips + input)**
+- Separar visualmente os atalhos do input custom com um divisor sutil:
+  - Esquerda: chips `−5 / +5 / +10 / +15` (atalhos rápidos).
+  - Divisor: `<span className="h-4 w-px bg-border/60 mx-1" />`.
+  - Direita: label inline `text-[10px] uppercase text-muted-foreground` "Outra:" + input + botão "+".
+- Input ganha destaque: trocar fundo (`bg-background`), borda mais visível (`border-input` em vez do default), e largura um pouco maior (`w-24`). Placeholder mais claro: `"ex: 250"`.
+- Botão "+" vira `variant="secondary"` (em vez de `ghost`) para deixar evidente que é o gatilho de adicionar.
 
-**Card de grupo (tiers) — limpeza hierárquica:**
-- Trocar `border-2 border-primary/30 bg-primary/[0.03]` por `border border-border/60 bg-card` (mesmo peso do single).
-- **Remover** o header "SUGESTÕES" em uppercase. Separar a faixa solicitada das sugestões com `border-t border-border/40` sutil.
-- Sugestões em `text-muted-foreground` para hierarquia por cor; solicitada em `font-semibold text-primary` com sufixo `· solicitada` (sem badge).
-
-**Tag de economia (ancoragem de preço):**
-- Em cada linha de sugestão, calcular `economiaPct = (unitPrimary − unitSugestao) / unitPrimary × 100`.
-- Quando `> 0`, exibir badge ao lado do preço total: `inline-flex rounded px-1.5 py-0 text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400`, texto `−{X}% un`.
-- Quando `≤ 0` (faixa menor → unit maior), não exibir badge.
+**4. Micro-ajustes**
+- Pequeno aumento do espaçamento entre lista e linha de ações (`pt-2` em vez de `pt-1`) com `border-t border-border/40` discreto entre eles, para separar "consulta" de "ação".
 
 ### Fora de escopo
-
-- Nenhuma mudança em pricing, submit, estado, draft, tipos.
-- Sem alterações em outros forms, `FinancialPanel`, header ou layout split-screen.
+- Nenhuma mudança em `UnifiedCart`, lógica de cálculo, localStorage ou props.
 
 ### Validação
-
-`/orcamentos-v3/novo` (viewport 1336×895):
-1. Aba Impressão preenchida → painel de faixas sem caixas, chips numa única linha.
-2. Adicionar 2–3 faixas → carrinho mostra grupo compacto com divisor sutil e badges verdes `−X% un`.
-3. Adicionar 3 singles → 3+ cards visíveis sem scroll; ícones de ação visíveis em opacidade reduzida e plenos no toque/hover.
+`/orcamentos-v3/novo` (1336×895), aba Impressão preenchida:
+- Painel destacado por fundo cinza claro, sem peso de borda.
+- Linha solicitada branca sobressai naturalmente.
+- Campo "Outra: [___] [+]" claramente convidativo, separado dos chips por divisor vertical.
