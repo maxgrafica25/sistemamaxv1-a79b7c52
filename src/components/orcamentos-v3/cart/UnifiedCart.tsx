@@ -104,9 +104,54 @@ function itemSubtitle(it: V3Item): string {
   return parts.join(" | ");
 }
 
+const DEFAULT_NAME: Record<V3Item["kind"], string> = {
+  print: "Impresso personalizado",
+  booklet: "Apostila",
+  label: "Etiqueta",
+  cv: "Comunicação visual",
+  third: "Serviço terceirizado",
+  supply: "Suprimento",
+  labor: "Mão-de-obra",
+};
+
+function pluralizeWord(w: string): string {
+  if (!w) return w;
+  // preserva caixa simples
+  const lower = w.toLowerCase();
+  // já no plural?
+  if (/(s|ns|es|is|ões)$/.test(lower) && lower.length > 3) return w;
+  if (lower.endsWith("ão")) return w.slice(0, -2) + "ões";
+  if (lower.endsWith("m")) return w.slice(0, -1) + "ns";
+  if (lower.endsWith("l")) return w.slice(0, -1) + "is";
+  if (/[rsz]$/.test(lower)) return w + "es";
+  if (/[aeiouáéíóúâêôãõn]$/.test(lower)) return w + "s";
+  return w + "s";
+}
+
+function pluralizePt(name: string, qty: number): string {
+  if (qty <= 1) return name;
+  const tokens = name.split(/\s+/);
+  if (tokens.length === 0) return name;
+  // pluraliza primeira palavra (substantivo) e última (provável adjetivo) se diferente
+  tokens[0] = pluralizeWord(tokens[0]);
+  if (tokens.length > 1) {
+    const last = tokens.length - 1;
+    tokens[last] = pluralizeWord(tokens[last]);
+  }
+  return tokens.join(" ");
+}
+
+function rawName(it: V3Item): string {
+  const bundleLabel = (it as { bundle_label?: string | null }).bundle_label;
+  if (bundleLabel && bundleLabel.trim()) return bundleLabel.trim();
+  const descr = (it as { descricao?: string }).descricao;
+  if (descr && descr.trim()) return descr.trim();
+  return DEFAULT_NAME[it.kind];
+}
+
 function itemTitle(it: V3Item): string {
-  const name = (it as { descricao?: string }).descricao || LABEL[it.kind];
   const qty = itemQty(it);
+  const name = pluralizePt(rawName(it), qty);
   return `${qty.toLocaleString("pt-BR")} un. - ${name}`;
 }
 
