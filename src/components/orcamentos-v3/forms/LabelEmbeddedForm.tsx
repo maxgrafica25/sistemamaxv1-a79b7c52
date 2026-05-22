@@ -179,14 +179,17 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
 
   return (
     <div className="space-y-5">
-      <Field label="Descrição (opcional)">
-        <Input
-          value={descricao}
-          onChange={(e) => setDescricao(e.target.value)}
-          placeholder={`Padrão: Etiqueta ${labelW}×${labelH}mm — ${quantidade} un`}
-          className="h-9"
-        />
-      </Field>
+      {!controlledDescricao && (
+        <Field label="Descrição (opcional)">
+          <Input
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            placeholder={`Padrão: Etiqueta ${labelW}×${labelH}mm — ${quantidade} un`}
+            className="h-9"
+          />
+        </Field>
+      )}
+
 
       {/* Chips de presets favoritos */}
       {labelPresets.length > 0 && (
