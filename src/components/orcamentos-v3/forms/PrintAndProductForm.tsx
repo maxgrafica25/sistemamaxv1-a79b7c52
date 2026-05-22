@@ -3,7 +3,7 @@
 // Em personalizado, mostra sugestão inteligente quando a combinação
 // de papel + acabamentos casa com um produto conhecido (ex: lona + ilhós).
 import { useCallback, useMemo, useState } from "react";
-import { Pencil, Sparkles, X, Star } from "lucide-react";
+import { CreditCard, Pencil, Sparkles, X, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,15 @@ import { Label } from "@/components/ui/label";
 import { PrintForm } from "./PrintForm";
 import { BookletForm } from "./BookletForm";
 import { LabelEmbeddedForm } from "./LabelEmbeddedForm";
+import { BusinessCardForm } from "./BusinessCardForm";
 import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
 import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
 import { PRESET_BY_ID } from "../shared/productPresets";
 import { suggestProduct, type SuggestResult } from "../shared/productSuggester";
 import type { V3Item } from "../types";
+
+const BUILTIN_BUSINESS_CARD_ID = "__builtin_business_card__";
 
 interface Props {
   onAdd: (item: V3Item) => void;
