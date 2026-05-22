@@ -64,6 +64,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
       grammage: string | null;
       finishings: string[];
     }) => {
+      setCurrentSel(sel);
       const s = suggestProduct(sel);
       if (!s) {
         setSuggestion(null);
@@ -78,6 +79,27 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
     },
     [dismissedKey],
   );
+
+  const canSavePreset = mode === "custom" && !!currentSel?.paper_type;
+
+  const savePayload = useMemo<SavePresetPayload | null>(() => {
+    if (!currentSel?.paper_type) return null;
+    const paper = currentSel.paper_type.trim().toLowerCase();
+    const resumo: { label: string; value: string }[] = [
+      { label: "Papel", value: paper },
+    ];
+    if (currentSel.finishings.length) {
+      resumo.push({ label: "Acabamentos", value: currentSel.finishings.join(", ") });
+    }
+    if (currentSel.size) resumo.push({ label: "Tamanho de referência", value: currentSel.size });
+    return {
+      modulo: "impressao",
+      form_tipo: "print",
+      papel_inclui: [paper],
+      acabamentos_sugeridos: currentSel.finishings,
+      resumo,
+    };
+  }, [currentSel]);
 
   const applySuggestion = () => {
     if (!suggestion) return;
