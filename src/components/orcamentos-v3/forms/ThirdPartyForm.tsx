@@ -6,7 +6,7 @@ import { Check, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PaperAutocomplete, type AutocompleteOption } from "../shared/PaperAutocomplete";
 import { fmtBRL, roundUp10 } from "../shared/pricing";
-import { TierSimulator } from "../shared/TierSimulator";
+import { TierFaixasPanel } from "../shared/TierFaixasPanel";
 import { genId, type V3ThirdItem } from "../types";
 
 interface Props {
