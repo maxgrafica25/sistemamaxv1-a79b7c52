@@ -81,9 +81,7 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
     if (units <= 0) return null;
     const sheets = Math.max(1, Math.floor(bookletPages) * units);
     const pr = pricePerSheet(catalog, tiers, sheets);
-    const label =
-      descricao.trim() ||
-      `Apostila ${units}× ${bookletPages}fl ${catalog.paper_type}${catalog.grammage ? ` ${catalog.grammage}` : ""}`;
+    const label = descricao.trim();
     return {
       id: genId(),
       kind: "booklet",
