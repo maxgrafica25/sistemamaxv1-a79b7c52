@@ -38,7 +38,7 @@ interface Props {
 const DEFAULT_MARGINS = { top: 10, right: 10, bottom: 10, left: 10, gap: 3 };
 
 export function LabelEmbeddedForm({ onAdd, onAddTiers }: Props) {
-  const [mode, setMode] = useState<"product" | "custom">("product");
+
   const [descricao, setDescricao] = useState("");
   const [labelW, setLabelW] = useState(50);
   const [labelH, setLabelH] = useState(30);
