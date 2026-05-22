@@ -12,7 +12,6 @@ import {
   Package,
   ShoppingCart,
   Tag,
-  Layers,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -156,6 +155,41 @@ function itemDetails(it: V3Item): Detail[] {
   return rows;
 }
 
+// Ícones de ação no canto superior direito — sempre visíveis com opacity-40,
+// passam para opacity-100 em hover/active (touch-friendly para tablets).
+interface CardActionsProps {
+  onDuplicate?: () => void;
+  onRemove: () => void;
+  removeTitle?: string;
+}
+function CardActions({ onDuplicate, onRemove, removeTitle = "Excluir" }: CardActionsProps) {
+  return (
+    <div className="flex items-center gap-0.5 shrink-0 opacity-40 hover:opacity-100 active:opacity-100 focus-within:opacity-100 transition-opacity">
+      {onDuplicate && (
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6"
+          onClick={onDuplicate}
+          title="Duplicar"
+        >
+          <Copy className="h-3 w-3" />
+        </Button>
+      )}
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        className="h-6 w-6 text-destructive hover:text-destructive"
+        onClick={onRemove}
+        title={removeTitle}
+      >
+        <Trash2 className="h-3 w-3" />
+      </Button>
+    </div>
+  );
+}
 
 type Entry =
   | { type: "single"; item: V3Item }
@@ -177,7 +211,6 @@ function groupItems(items: V3Item[]): Entry[] {
         const entry = out[idx];
         if (entry.type === "bundle") {
           entry.items.push(it);
-          // Líder = primeiro item com bundle_label preenchido
           if (!((entry.leader as { bundle_label?: string | null }).bundle_label) &&
               (it as { bundle_label?: string | null }).bundle_label) {
             entry.leader = it;
@@ -217,7 +250,7 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
   }
   const entries = groupItems(items);
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-1.5">
       {entries.map((entry) => {
         if (entry.type === "single") {
           return (
@@ -242,61 +275,72 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
             />
           );
         }
+
         // Group (tiers) rendering
         const primaryItem =
           entry.items.find((i) => (i as { tier_primary?: boolean }).tier_primary) ?? entry.items[0];
-        const suggestions = entry.items
-          .filter((i) => i.id !== primaryItem.id)
-          .sort((a, b) => itemQty(a) - itemQty(b));
+        const primaryQty = itemQty(primaryItem);
+        const primaryPrice = priceOf(primaryItem).preco_total;
+        const primaryUnit = primaryQty > 0 ? primaryPrice / primaryQty : 0;
+
+        const sortedAll = [...entry.items].sort((a, b) => itemQty(a) - itemQty(b));
         const Icon = ICON[primaryItem.kind];
         const isNew = entry.items.some((i) => i.id === highlightId);
         const descricao =
           (primaryItem as { descricao?: string }).descricao || LABEL[primaryItem.kind];
-        const renderTierRow = (it: V3Item, opts: { primary: boolean }) => {
+
+        const renderTierRow = (it: V3Item, opts: { primary: boolean; showDivider: boolean }) => {
           const price = priceOf(it).preco_total;
           const q = itemQty(it);
           const unit = q > 0 ? price / q : 0;
+          const economiaPct =
+            !opts.primary && primaryUnit > 0
+              ? ((primaryUnit - unit) / primaryUnit) * 100
+              : 0;
           return (
             <li
               key={it.id}
               className={cn(
-                "flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-background",
-                opts.primary ? "text-sm" : "text-xs",
+                "flex items-center gap-2 px-1 py-1 text-xs",
+                opts.showDivider && "border-t border-border/40 mt-0.5 pt-1.5",
+                !opts.primary && "text-muted-foreground",
               )}
             >
-              <div className="flex items-center gap-2 min-w-0">
-                {opts.primary && (
-                  <Badge
-                    variant="default"
-                    className="text-[10px] py-0 px-1.5 h-4 shrink-0"
-                  >
-                    Solicitada
-                  </Badge>
+              <span
+                className={cn(
+                  "tabular-nums flex items-center gap-1.5 min-w-[110px]",
+                  opts.primary && "text-sm font-semibold text-primary",
                 )}
-                <span
-                  className={cn(
-                    "tabular-nums",
-                    opts.primary ? "font-semibold text-primary" : "font-medium",
-                  )}
-                >
-                  {q.toLocaleString("pt-BR")} un
-                </span>
-              </div>
-              <span className="text-muted-foreground tabular-nums">
+              >
+                {q.toLocaleString("pt-BR")} un
+                {opts.primary && (
+                  <span className="text-[9px] uppercase tracking-wide text-primary/70 font-medium">
+                    · solicitada
+                  </span>
+                )}
+              </span>
+              <span className="tabular-nums flex-1 text-right">
                 {fmtBRL(unit)} / un
               </span>
               <span
                 className={cn(
-                  "tabular-nums",
-                  opts.primary ? "font-bold" : "font-semibold",
+                  "tabular-nums min-w-[80px] text-right",
+                  opts.primary ? "text-sm font-bold text-foreground" : "font-medium",
                 )}
               >
                 {fmtBRL(price)}
               </span>
+              {economiaPct > 0.5 ? (
+                <span className="inline-flex rounded px-1.5 py-0 text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 tabular-nums">
+                  −{economiaPct.toFixed(0)}% un
+                </span>
+              ) : (
+                <span className="w-[48px]" />
+              )}
               <button
                 type="button"
                 onClick={() => onRemove(it.id)}
-                className="text-muted-foreground hover:text-destructive shrink-0"
+                className="text-muted-foreground/60 hover:text-destructive shrink-0 opacity-40 hover:opacity-100 active:opacity-100 transition-opacity"
                 title={opts.primary ? "Remover quantidade solicitada" : "Remover sugestão"}
               >
                 <Trash2 className="h-3 w-3" />
@@ -304,57 +348,37 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
             </li>
           );
         };
+
         return (
           <li
             key={entry.groupId}
             className={cn(
-              "group rounded-md border-2 border-primary/30 bg-primary/[0.03] p-3 transition-all",
+              "rounded-md border border-border/60 bg-card p-2 transition-all",
               isNew && "ring-2 ring-emerald-500/50 animate-in fade-in slide-in-from-right-2",
             )}
           >
-            <div className="flex items-start gap-2">
-              <div className="rounded bg-primary/15 p-1.5 text-primary shrink-0">
+            <div className="flex items-start gap-1.5">
+              <div className="rounded bg-primary/10 p-1 text-primary shrink-0">
                 <Icon className="h-3.5 w-3.5" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-medium leading-tight truncate">{descricao}</p>
-                  <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 shrink-0 gap-1">
-                    <Layers className="h-2.5 w-2.5" />
-                    Faixas ({entry.items.length})
-                  </Badge>
-                </div>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Comparativo de quantidades
-                </p>
+                <p className="text-sm font-medium leading-tight truncate">{descricao}</p>
               </div>
+              <CardActions
+                onRemove={() => entry.items.forEach((it) => onRemove(it.id))}
+                removeTitle="Excluir grupo"
+              />
             </div>
 
-            <ul className="mt-2.5 space-y-1 border-t border-primary/20 pt-2">
-              {renderTierRow(primaryItem, { primary: true })}
+            <ul className="mt-1.5 space-y-0">
+              {sortedAll.map((it, i) => {
+                const isPrimary = it.id === primaryItem.id;
+                const prev = sortedAll[i - 1];
+                const showDivider =
+                  i > 0 && (isPrimary || (prev && prev.id === primaryItem.id));
+                return renderTierRow(it, { primary: isPrimary, showDivider });
+              })}
             </ul>
-
-            {suggestions.length > 0 && (
-              <>
-                <p className="mt-2 px-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Sugestões
-                </p>
-                <ul className="space-y-1">
-                  {suggestions.map((it) => renderTierRow(it, { primary: false }))}
-                </ul>
-              </>
-            )}
-
-            <div className="mt-2 flex items-center justify-end opacity-60 group-hover:opacity-100 transition-opacity">
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 px-2 text-xs text-destructive hover:text-destructive"
-                onClick={() => entry.items.forEach((it) => onRemove(it.id))}
-              >
-                <Trash2 className="h-3 w-3 mr-1" /> Excluir grupo
-              </Button>
-            </div>
           </li>
         );
       })}
@@ -384,12 +408,12 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardPro
   return (
     <li
       className={cn(
-        "group rounded-md border-2 border-primary/30 bg-primary/[0.03] p-3 transition-all",
+        "rounded-md border border-border/60 bg-card p-2 transition-all",
         isNew && "ring-2 ring-emerald-500/50 animate-in fade-in slide-in-from-right-2",
       )}
     >
-      <div className="flex items-start gap-2">
-        <div className="rounded bg-primary/15 p-1.5 text-primary shrink-0">
+      <div className="flex items-start gap-1.5">
+        <div className="rounded bg-primary/10 p-1 text-primary shrink-0">
           <Icon className="h-3.5 w-3.5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -404,7 +428,7 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardPro
               {fmtBRL(total)}
             </span>
           </div>
-          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+          <div className="mt-0.5">
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
@@ -419,24 +443,28 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardPro
             </button>
           </div>
         </div>
+        <CardActions
+          onDuplicate={() => entry.items.forEach((it) => onDuplicate(it.id))}
+          onRemove={() => entry.items.forEach((it) => onRemove(it.id))}
+        />
       </div>
 
       {expanded && (
-        <ul className="mt-2.5 space-y-1 border-t border-primary/20 pt-2">
+        <ul className="mt-1.5 space-y-0 border-t border-border/40 pt-1.5">
           {entry.items.map((it) => {
             const price = priceOf(it).preco_total;
             const descr = (it as { descricao?: string }).descricao || LABEL[it.kind];
             return (
               <li
                 key={it.id}
-                className="flex items-center justify-between gap-2 text-xs rounded px-2 py-1 hover:bg-background"
+                className="flex items-center justify-between gap-2 text-[11px] px-1 py-0.5"
               >
-                <span className="truncate flex-1">{descr}</span>
-                <span className="font-semibold tabular-nums shrink-0">{fmtBRL(price)}</span>
+                <span className="truncate flex-1 text-muted-foreground">{descr}</span>
+                <span className="font-medium tabular-nums shrink-0">{fmtBRL(price)}</span>
                 <button
                   type="button"
                   onClick={() => onRemove(it.id)}
-                  className="text-muted-foreground hover:text-destructive shrink-0"
+                  className="text-muted-foreground/60 hover:text-destructive shrink-0 opacity-40 hover:opacity-100 active:opacity-100 transition-opacity"
                   title="Remover este item do bundle"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -446,25 +474,6 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardPro
           })}
         </ul>
       )}
-
-      <div className="mt-2 flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 px-2 text-xs"
-          onClick={() => entry.items.forEach((it) => onDuplicate(it.id))}
-        >
-          <Copy className="h-3 w-3 mr-1" /> Duplicar
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 px-2 text-xs text-destructive hover:text-destructive"
-          onClick={() => entry.items.forEach((it) => onRemove(it.id))}
-        >
-          <Trash2 className="h-3 w-3 mr-1" /> Excluir
-        </Button>
-      </div>
     </li>
   );
 }
@@ -484,12 +493,12 @@ function SingleCard({ item, isNew, onDuplicate, onRemove }: SingleCardProps) {
   return (
     <li
       className={cn(
-        "group rounded-md border border-border/60 bg-card p-3 transition-all",
+        "rounded-md border border-border/60 bg-card p-2 transition-all",
         isNew && "ring-2 ring-emerald-500/50 animate-in fade-in slide-in-from-right-2",
       )}
     >
-      <div className="flex items-start gap-2">
-        <div className="rounded bg-primary/10 p-1.5 text-primary shrink-0">
+      <div className="flex items-start gap-1.5">
+        <div className="rounded bg-primary/10 p-1 text-primary shrink-0">
           <Icon className="h-3.5 w-3.5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -501,7 +510,7 @@ function SingleCard({ item, isNew, onDuplicate, onRemove }: SingleCardProps) {
               {fmtBRL(price)}
             </span>
           </div>
-          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+          <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
             <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4">
               {LABEL[item.kind]}
             </Badge>
@@ -512,16 +521,20 @@ function SingleCard({ item, isNew, onDuplicate, onRemove }: SingleCardProps) {
               className="ml-auto inline-flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground"
             >
               {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-              {expanded ? "ocultar detalhes" : "ver detalhes"}
+              {expanded ? "ocultar" : "detalhes"}
             </button>
           </div>
         </div>
+        <CardActions
+          onDuplicate={() => onDuplicate(item.id)}
+          onRemove={() => onRemove(item.id)}
+        />
       </div>
 
       {expanded && (
-        <ul className="mt-2.5 space-y-0.5 border-t border-border/60 pt-2">
+        <ul className="mt-1.5 space-y-0 border-t border-border/40 pt-1.5">
           {details.map((d, i) => (
-            <li key={i} className="flex items-center justify-between gap-2 text-[11px]">
+            <li key={i} className="flex items-center justify-between gap-2 text-[10px] px-1">
               <span className={cn("text-muted-foreground", d.muted && "opacity-80")}>{d.label}</span>
               <span className={cn("tabular-nums", d.muted ? "text-muted-foreground" : "font-medium")}>
                 {d.value}
@@ -530,26 +543,6 @@ function SingleCard({ item, isNew, onDuplicate, onRemove }: SingleCardProps) {
           ))}
         </ul>
       )}
-
-      <div className="mt-2 flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 px-2 text-xs"
-          onClick={() => onDuplicate(item.id)}
-        >
-          <Copy className="h-3 w-3 mr-1" /> Duplicar
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 px-2 text-xs text-destructive hover:text-destructive"
-          onClick={() => onRemove(item.id)}
-        >
-          <Trash2 className="h-3 w-3 mr-1" /> Excluir
-        </Button>
-      </div>
     </li>
   );
 }
-
