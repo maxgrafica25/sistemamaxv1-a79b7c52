@@ -184,13 +184,13 @@ function buildFinancials(
 
   const rows: FinRow[] = [];
   if (opts.laborCost != null) {
-    rows.push({ label: "Custo mão de obra", value: fmtBRL(opts.laborCost), tone: "muted" });
+    rows.push({ label: "Custo mão de obra", value: fmtBRL(opts.laborCost), tone: "muted", className: "text-destructive" });
   } else {
-    rows.push({ label: "Custo material", value: fmtBRL(custo_total), tone: "muted" });
+    rows.push({ label: "Custo material", value: fmtBRL(custo_total), tone: "muted", className: "text-destructive" });
   }
-  rows.push({ label: `Custo perda (${pcts.wastePct.toFixed(0)}%)`, value: fmtBRL(perda), tone: "muted" });
-  rows.push({ label: `Imposto (${pcts.taxPct.toFixed(0)}%)`, value: fmtBRL(imposto), tone: "muted" });
-  rows.push({ label: `Taxa cartão / fatura (${pcts.feesPct.toFixed(0)}%)`, value: fmtBRL(taxa), tone: "muted" });
+  rows.push({ label: `Custo perda (${pcts.wastePct.toFixed(0)}%)`, value: fmtBRL(perda), tone: "muted", className: "text-destructive" });
+  rows.push({ label: `Imposto (${pcts.taxPct.toFixed(0)}%)`, value: fmtBRL(imposto), tone: "muted", className: "text-destructive" });
+  rows.push({ label: `Taxa cartão / fatura (${pcts.feesPct.toFixed(0)}%)`, value: fmtBRL(taxa), tone: "muted", className: "text-destructive" });
   rows.push({ label: "Preço de venda", value: fmtBRL(preco_total), tone: "default" });
   rows.push({
     label: "Lucro líquido",
