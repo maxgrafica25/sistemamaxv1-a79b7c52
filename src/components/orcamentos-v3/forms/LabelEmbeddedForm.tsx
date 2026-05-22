@@ -271,7 +271,7 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
     setTimeout(() => setPulse(false), 600);
   };
 
-  const sizeLabel = isRound ? `Ø${diameter}mm` : `${labelW}×${labelH}mm`;
+  const sizeLabel = isRound ? `Ø${(diameter / 10).toLocaleString("pt-BR")}cm` : `${(labelW / 10).toLocaleString("pt-BR")}×${(labelH / 10).toLocaleString("pt-BR")}cm`;
 
   return (
     <div className="space-y-5">
@@ -345,12 +345,16 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
 
       {isRound ? (
         <div className="grid grid-cols-3 gap-3">
-          <Field label="Diâmetro (mm)">
+          <Field label="Diâmetro (cm)">
             <Input
               type="number"
-              min={5}
-              value={diameter}
-              onChange={(e) => setDiameter(Math.max(1, Number(e.target.value) || 0))}
+              min={0.5}
+              step={0.1}
+              value={(diameter / 10).toString()}
+              onChange={(e) => {
+                const cm = Number(e.target.value) || 0;
+                setDiameter(Math.max(1, Math.round(cm * 10)));
+              }}
               className="h-9"
             />
           </Field>
@@ -377,25 +381,34 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Largura (mm)">
+            <Field label="Largura (cm)">
               <Input
                 type="number"
-                min={5}
-                value={labelW}
-                onChange={(e) => setLabelW(Math.max(1, Number(e.target.value) || 0))}
+                min={0.5}
+                step={0.1}
+                value={(labelW / 10).toString()}
+                onChange={(e) => {
+                  const cm = Number(e.target.value) || 0;
+                  setLabelW(Math.max(1, Math.round(cm * 10)));
+                }}
                 className="h-9"
               />
             </Field>
-            <Field label="Altura (mm)">
+            <Field label="Altura (cm)">
               <Input
                 type="number"
-                min={5}
-                value={labelH}
-                onChange={(e) => setLabelH(Math.max(1, Number(e.target.value) || 0))}
+                min={0.5}
+                step={0.1}
+                value={(labelH / 10).toString()}
+                onChange={(e) => {
+                  const cm = Number(e.target.value) || 0;
+                  setLabelH(Math.max(1, Math.round(cm * 10)));
+                }}
                 className="h-9"
               />
             </Field>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="Quantidade de etiquetas">
               <Input
@@ -481,7 +494,7 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
         <div className="rounded-md border border-border/60 bg-background px-3 py-2.5 space-y-1">
           <Row
             label="Área útil da folha"
-            value={`${usableW}×${usableH}mm (folha ${sheet.width}×${sheet.height}mm)`}
+            value={`${(usableW / 10).toLocaleString("pt-BR")}×${(usableH / 10).toLocaleString("pt-BR")}cm (folha ${(sheet.width / 10).toLocaleString("pt-BR")}×${(sheet.height / 10).toLocaleString("pt-BR")}cm)`}
             muted
           />
           <Row label="Aproveitamento por folha" value={`${perSheet} etiquetas`} />
@@ -520,8 +533,9 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
               </div>
               <p className="text-[11px] text-muted-foreground leading-snug">
                 {isRound
-                  ? `Diminuir Ø em ${shrink.shrinkW}mm → Ø${shrink.newLabelW}mm`
-                  : `Reduzir ${shrink.shrinkW}×${shrink.shrinkH}mm → ${shrink.newLabelW}×${shrink.newLabelH}mm`}
+                  ? `Diminuir Ø em ${(shrink.shrinkW / 10).toLocaleString("pt-BR")}cm → Ø${(shrink.newLabelW / 10).toLocaleString("pt-BR")}cm`
+                  : `Reduzir ${(shrink.shrinkW / 10).toLocaleString("pt-BR")}×${(shrink.shrinkH / 10).toLocaleString("pt-BR")}cm → ${(shrink.newLabelW / 10).toLocaleString("pt-BR")}×${(shrink.newLabelH / 10).toLocaleString("pt-BR")}cm`}
+
                 {" "}rende <strong>{shrink.newPerSheet}</strong>/folha (+{shrink.delta}).
               </p>
             </button>
@@ -538,8 +552,9 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
               </div>
               <p className="text-[11px] text-muted-foreground leading-snug">
                 {isRound
-                  ? `Aumentar Ø em ${grow.growW}mm → Ø${grow.newLabelW}mm`
-                  : `Aumentar ${grow.growW}×${grow.growH}mm → ${grow.newLabelW}×${grow.newLabelH}mm`}
+                  ? `Aumentar Ø em ${(grow.growW / 10).toLocaleString("pt-BR")}cm → Ø${(grow.newLabelW / 10).toLocaleString("pt-BR")}cm`
+                  : `Aumentar ${(grow.growW / 10).toLocaleString("pt-BR")}×${(grow.growH / 10).toLocaleString("pt-BR")}cm → ${(grow.newLabelW / 10).toLocaleString("pt-BR")}×${(grow.newLabelH / 10).toLocaleString("pt-BR")}cm`}
+
                 {" "}mantendo <strong>{grow.newPerSheet}</strong>/folha (+{grow.areaIncreasePct.toFixed(0)}% de área).
               </p>
             </button>
