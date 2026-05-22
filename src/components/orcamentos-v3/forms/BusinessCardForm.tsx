@@ -44,8 +44,10 @@ const DEFAULTS = {
   cardH: 50,
 };
 
+// SRA3 (32,8 × 47,8 cm). Aceita também rótulo "A3" (comum em gráficas BR que
+// usam folha SRA3 cadastrada como "A3").
 const isSRA3Size = (size: string | null | undefined) =>
-  /sra3|32[.,]?8.*47[.,]?8|47[.,]?8.*32[.,]?8/i.test(size || "");
+  /sra3|32[.,]?8.*47[.,]?8|47[.,]?8.*32[.,]?8|^\s*a3\s*$/i.test(size || "");
 
 const isCouche300 = (paperType: string | null | undefined, gram: string | null | undefined) =>
   /couch/i.test(paperType || "") && /300/.test(gram || "");
