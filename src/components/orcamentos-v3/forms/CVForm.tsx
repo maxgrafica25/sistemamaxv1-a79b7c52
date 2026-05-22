@@ -356,7 +356,8 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
 
       {/* Toggle Produtos / Personalizado + Salvar preset */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
+        <span className="text-xs text-muted-foreground">Modo:</span>
+        <div role="group" aria-label="Modo de cadastro" className="inline-flex rounded-md border border-border bg-muted p-1">
           <ModeButton
             active={mode === "product"}
             onClick={() => setMode("product")}
