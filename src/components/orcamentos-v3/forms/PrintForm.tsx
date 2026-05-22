@@ -295,18 +295,21 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
 
   return (
     <div className="space-y-5">
-      <Field label="Descrição (opcional)">
-        <Input
-          value={descricao}
-          onChange={(e) => setDescricao(e.target.value)}
-          placeholder={
-            catalog
-              ? `Padrão: ${catalog.paper_type}${catalog.grammage ? ` ${catalog.grammage}` : ""} — ${catalog.size} ${catalog.side}`
-              : "Selecione o item primeiro"
-          }
-          className="h-9"
-        />
-      </Field>
+      {!controlledDescricao && (
+        <Field label="Descrição (opcional)">
+          <Input
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            placeholder={
+              catalog
+                ? `Padrão: ${catalog.paper_type}${catalog.grammage ? ` ${catalog.grammage}` : ""} — ${catalog.size} ${catalog.side}`
+                : "Selecione o item primeiro"
+            }
+            className="h-9"
+          />
+        </Field>
+      )}
+
 
       {!catalog && (
         <Field label="Item do catálogo">
