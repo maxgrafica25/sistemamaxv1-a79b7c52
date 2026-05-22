@@ -10,7 +10,7 @@ import { PrintAndProductForm } from "./forms/PrintAndProductForm";
 import { CVForm } from "./forms/CVForm";
 import { ThirdPartyForm } from "./forms/ThirdPartyForm";
 import { LaborForm } from "./forms/LaborForm";
-import { SupplyForm } from "./forms/SupplyForm";
+
 import { UnifiedCart } from "./cart/UnifiedCart";
 import { FinancialPanel } from "./cart/FinancialPanel";
 import { useQuoteDraftV3 } from "./shared/useQuoteDraftV3";
@@ -48,7 +48,6 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
         "2": "cv",
         "3": "third",
         "4": "labor",
-        "5": "supply",
       };
       const next = map[e.key];
       if (next) {
@@ -204,9 +203,6 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
             {active === "third" && <ThirdPartyForm onAdd={addItem} onAddTiers={addItems} />}
             {active === "labor" && (
               <LaborForm defaultMarginPct={state.margin_pct} onAdd={addItem} />
-            )}
-            {active === "supply" && (
-              <SupplyForm defaultMarginPct={state.margin_pct} onAdd={addItem} onAddTiers={addItems} />
             )}
           </div>
 

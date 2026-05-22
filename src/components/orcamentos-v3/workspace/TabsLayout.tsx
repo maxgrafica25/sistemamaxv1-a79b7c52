@@ -3,7 +3,6 @@ import {
   Megaphone,
   Handshake,
   Wrench,
-  Package,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -45,13 +44,6 @@ export const TABS: TabDef[] = [
     icon: Wrench,
     shortcut: "Alt+4",
     description: "Horas técnicas, instalação e operação.",
-  },
-  {
-    id: "supply",
-    label: "Suprimentos",
-    icon: Package,
-    shortcut: "Alt+5",
-    description: "Insumos e materiais avulsos cobrados no orçamento.",
   },
 ];
 
