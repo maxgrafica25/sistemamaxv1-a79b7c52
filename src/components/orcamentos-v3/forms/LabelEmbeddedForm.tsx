@@ -403,6 +403,11 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
             <>
               <Check className="h-4 w-4 mr-2" /> Adicionado!
             </>
+          ) : extraTiers.length > 0 ? (
+            <>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar etiqueta + {extraTiers.length} faixa{extraTiers.length === 1 ? "" : "s"}
+            </>
           ) : (
             <>
               <Plus className="h-4 w-4 mr-2" /> Adicionar etiqueta
