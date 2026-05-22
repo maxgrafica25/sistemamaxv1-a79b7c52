@@ -68,7 +68,8 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
   const [bannerTouched, setBannerTouched] = useState(false);
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
 
-  const { presets: cvPresets } = useQuotePresets("cv");
+  const { presets: cvPresets, reload: reloadCvPresets } = useQuotePresets("cv");
+  const [saveOpen, setSaveOpen] = useState(false);
 
   const applyPreset = (p: QuotePreset) => {
     setActivePresetId(p.id);
