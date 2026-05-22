@@ -190,6 +190,7 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
         {/* Workspace (70%) */}
         <div className="overflow-y-auto px-4 lg:px-6 py-5 bg-background pb-24 lg:pb-5">
           <TabsLayout active={active} onChange={setActive} />
+          <ActiveTabBanner active={active} />
           <div className="mt-6 max-w-3xl">
             {active === "print" && (
               <PrintAndProductForm
