@@ -409,29 +409,14 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
 
       <div className="grid grid-cols-2 gap-4">
         <Field label="Quantidade (folhas)">
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
-              className="h-9 flex-1"
-            />
-            <TierSimulator
-              currentQty={quantidade}
-              disabled={!catalog || !pricing}
-              onPickQty={(q) => setQuantidade(q)}
-              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
-              compute={(q) => {
-                const p = catalog ? pricePerSheet(catalog, tiers, q) : null;
-                return {
-                  custo_total: (p?.baseCost ?? 0) * q,
-                  preco_total: (p?.sellingPrice ?? 0) * q,
-                };
-              }}
-            />
-          </div>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            value={quantidade}
+            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
+            className="h-9"
+          />
         </Field>
         <Field label="Preço unitário">
           <div className="h-9 px-3 rounded-md border border-border bg-muted/40 flex items-center justify-between">
@@ -446,6 +431,21 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
           </div>
         </Field>
       </div>
+
+      {onAddTiers && (
+        <TierFaixasPanel
+          currentQty={quantidade}
+          disabled={!catalog || !pricing}
+          onExtrasChange={setExtraTiers}
+          compute={(q) => {
+            const p = catalog ? pricePerSheet(catalog, tiers, q) : null;
+            return {
+              custo_total: (p?.baseCost ?? 0) * q,
+              preco_total: (p?.sellingPrice ?? 0) * q,
+            };
+          }}
+        />
+      )}
 
 
 
