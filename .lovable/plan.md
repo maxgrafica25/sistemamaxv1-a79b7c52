@@ -1,48 +1,65 @@
-## Plano
 
-Hoje os presets (Banner, Lona, Adesivo, Cartão de Visita, Apostila, Folheto, etc.) estão fixos no código. Vou criar um cadastro próprio para você criar/editar/excluir esses presets, que aparecerão automaticamente nos dois módulos: "Impressão + Acabamentos" e "Comunicação Visual" (CV).
+## Objetivo
 
-### 1. Nova tabela `quote_presets`
+Hoje os formulários de orçamento têm ordens de campo diferentes — e isso fica visível quando o usuário alterna entre **Produtos** e **Personalizado** (ou entre presets que roteiam para sub-formulários diferentes em Impressão). A meta é fazer com que a única coisa que mude entre os dois modos seja a presença dos chips de preset.
 
-Campos:
-- `nome` — texto exibido no chip (ex.: "Banner", "Cartão de Visita").
-- `icone` — nome do ícone Lucide (ex.: `Megaphone`, `CreditCard`). Lista pré-definida no select.
-- `modulo` — `cv`, `impressao` ou `ambos` (controla em qual aba aparece).
-- `form_tipo` — só para Impressão: `print`, `booklet` ou `label`.
-- `ativo`, `ordem`.
+## Inconsistências hoje
 
-Hints (todos opcionais):
-- `largura_cm`, `altura_cm`, `quantidade_padrao`
-- `is_banner` (booleano, só CV)
-- `midia_tipo` (`lona`/`adesivo`/`chapa`, só CV)
-- `midia_nome_match` (texto para filtrar mídia, ex.: "brilho 440")
-- `papel_inclui` (lista, só Impressão — ex.: ["couchê 250", "supremo"])
-- `papel_exclui` (lista)
-- `acabamentos_sugeridos` (lista de nomes)
+| Form | Ordem atual |
+|------|-------------|
+| `CVForm` | Descrição → Mídia → Resolução → L×A×Qtd → Tiers → Acabamentos → Total/CTA |
+| `PrintForm` | Catálogo → (Banner) → Qtd+Preço → **Descrição (no fim)** → Acabamentos → Total/CTA |
+| `BookletForm` | Catálogo → Folhas/Qtd → F/V → Kits → Tiers → **Descrição (no fim)** → CTA |
+| `LabelEmbeddedForm` | **Toggle Produtos/Personalizado duplicado** → Dim → Qtd → Papel → Acabamento → Resumo → **Descrição (no fim)** → CTA |
 
-RLS: leitura para usuários autenticados, escrita só para admin (igual a `produtos_catalogo`).
+Além disso, `LabelEmbeddedForm` repete o toggle Produtos/Personalizado que já existe no pai (`PrintAndProductForm`), causando dois toggles na tela quando o preset é Etiqueta.
 
-Seed inicial com os presets atuais (Banner, Lona, Adesivo, Faixa, Folheto, Cartão, Apostila, Etiqueta) para não perder o comportamento de hoje.
+## Ordem padrão a aplicar
 
-### 2. Nova página `/configuracoes/presets-orcamento`
+```text
+1. (Chips de preset)               — só em modo Produtos, renderizado pelo pai
+2. Descrição                       — sempre no topo, com auto-geração / botão "Regenerar"
+3. Catálogo / Mídia (+ header)     — busca + chip resumo do item escolhido
+4. Dimensões / Quantidade          — grid (largura, altura, qtd; ou folhas/apostilas)
+5. Opções específicas              — É banner?, F/V, papel/acabamento de etiqueta
+6. Acabamentos                     — chips
+7. Tiers / Kits                    — painéis opcionais
+8. Resumo                          — área total / folhas físicas / aproveitamento + Total
+9. CTA                             — botão "Adicionar ao orçamento"
+```
 
-Lista + dialog de edição estilo `src/pages/Produtos.tsx`, com:
-- Filtro por módulo (CV / Impressão / Ambos).
-- Drag-and-drop ou campo numérico para ordem.
-- Pré-visualização do ícone selecionado.
-- Restrita a admin (mesma `AdminOnly`/`requireAdmin` já usada).
+A descrição passa a ficar **sempre no topo** (como já é em CV), com placeholder/regenerador quando não preenchida. Isso garante a mesma "altura visual" das seções entre Personalizado e Produtos, e entre os módulos CV ↔ Impressão.
 
-Adicionar item de menu em **Configurações** apontando para a nova página.
+## Mudanças por arquivo
 
-### 3. Substituir os arrays hardcoded pelos dados do banco
+### `src/components/orcamentos-v3/forms/PrintForm.tsx`
+- Mover bloco **Descrição (opcional)** para o topo do `return`, logo após `<Field label="Item do catálogo">` + header do catálogo.
+- Manter o resto (banner → qtd/preço → acabamentos → total/CTA) na mesma ordem.
 
-- Criar hook `useQuotePresets(modulo)` que carrega da tabela e cacheia.
-- Em `CVForm.tsx`: trocar `CV_PRESETS` por `useQuotePresets("cv")`.
-- Em `PrintAndProductForm.tsx`: trocar `PRODUCT_PRESETS`/`productPresets.ts` por `useQuotePresets("impressao")`.
-- Manter os ícones via mapa `LUCIDE_BY_NAME` (segurança contra ícone inválido — fallback para `Wand2`).
+### `src/components/orcamentos-v3/forms/BookletForm.tsx`
+- Mover bloco **Descrição (opcional)** para o topo, logo após o header do catálogo selecionado.
+- Manter Folhas/Apostilas → F/V → resumo de folhas físicas → Kits → Tiers → CTA.
 
-### Fora do escopo
-- Mudanças no engine de cálculo, em mídias/acabamentos do catálogo CV ou em papéis.
-- Permitir o usuário "colaborador" criar presets (continua só admin).
+### `src/components/orcamentos-v3/forms/LabelEmbeddedForm.tsx`
+- **Remover o toggle interno `Produtos/Personalizado`** (e o estado `mode`) — o toggle do pai já cumpre esse papel; manter apenas os chips de presets quando recebidos.
+- Mover bloco **Descrição (opcional)** para o topo, logo após os chips/header "Modo Etiqueta".
+- Manter Dim → Qtd → Papel → Acabamento → Resumo → CTA.
 
-Posso seguir?
+### `src/components/orcamentos-v3/forms/CVForm.tsx`
+- Já segue o padrão. Pequenos ajustes para consistência visual:
+  - Garantir que o bloco "Área total" fique logo acima de "Acabamentos" (já está).
+  - Sem alterações funcionais.
+
+### `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`
+- Sem alterações estruturais; a faixa de **sugestão de produto** continua aparecendo só em Personalizado, posicionada acima do sub-formulário (não conta como "campo", é uma dica).
+
+## Fora de escopo
+
+- Engine de cálculo, regras de bastão, geração de descrição automática, kits e tiers — nenhuma lógica de negócio é alterada.
+- Estilos globais e tokens do design system permanecem iguais.
+- Nenhum schema de banco é tocado.
+
+## Validação
+
+- Abrir CV em Personalizado e em Produtos → confirmar que apenas a faixa de chips muda.
+- Abrir Impressão em Personalizado e alternar entre presets Folheto, Apostila e Etiqueta → confirmar que Descrição/Catálogo/Quantidade/Acabamentos aparecem na mesma posição vertical, e que só existe um toggle Produtos/Personalizado na tela.

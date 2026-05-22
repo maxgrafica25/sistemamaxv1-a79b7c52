@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Check, Plus, Tag, ExternalLink, Wand2, Pencil } from "lucide-react";
+import { Check, Plus, Tag, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import {
@@ -27,7 +27,7 @@ import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
 import { loadConfig, SEED_LABEL_PRESETS, type LabelPreset } from "@/lib/labels/config-storage";
 import { fmtBRL } from "../shared/pricing";
 import { TierSimulator } from "../shared/TierSimulator";
-import { ModeButton } from "../shared/ModeButton";
+
 import { genId, type V3LabelItem } from "../types";
 
 interface Props {
@@ -38,7 +38,7 @@ interface Props {
 const DEFAULT_MARGINS = { top: 10, right: 10, bottom: 10, left: 10, gap: 3 };
 
 export function LabelEmbeddedForm({ onAdd, onAddTiers }: Props) {
-  const [mode, setMode] = useState<"product" | "custom">("product");
+
   const [descricao, setDescricao] = useState("");
   const [labelW, setLabelW] = useState(50);
   const [labelH, setLabelH] = useState(30);
@@ -174,24 +174,17 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* Toggle Produtos / Personalizado */}
-      <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
-        <ModeButton
-          active={mode === "product"}
-          onClick={() => setMode("product")}
-          icon={Wand2}
-          label="Produtos"
+      <Field label="Descrição (opcional)">
+        <Input
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder={`Padrão: Etiqueta ${labelW}×${labelH}mm — ${quantidade} un`}
+          className="h-9"
         />
-        <ModeButton
-          active={mode === "custom"}
-          onClick={() => setMode("custom")}
-          icon={Pencil}
-          label="Personalizado"
-        />
-      </div>
+      </Field>
 
       {/* Chips de presets favoritos */}
-      {mode === "product" && labelPresets.length > 0 && (
+      {labelPresets.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {labelPresets.map((p) => {
             const active = p.id === activePresetId;
@@ -214,6 +207,7 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers }: Props) {
           })}
         </div>
       )}
+
 
 
       <div className="flex items-start justify-between gap-3">
@@ -386,14 +380,6 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers }: Props) {
         </div>
       )}
 
-      <Field label="Descrição (opcional)">
-        <Input
-          value={descricao}
-          onChange={(e) => setDescricao(e.target.value)}
-          placeholder={`Padrão: Etiqueta ${labelW}×${labelH}mm — ${quantidade} un`}
-          className="h-9"
-        />
-      </Field>
 
       <div className="flex items-center justify-end pt-2">
         <Button
