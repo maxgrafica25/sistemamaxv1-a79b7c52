@@ -288,12 +288,21 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
 
   const submit = () => {
     if (!canAdd) return;
+    const cleanExtras = [...new Set(extraTiers)]
+      .filter((q) => q > 0 && q !== quantidade)
+      .sort((a, b) => a - b);
+    if (cleanExtras.length > 0 && onAddTiers) {
+      submitAsTiers([quantidade, ...cleanExtras], quantidade);
+      setExtraTiers([]);
+      return;
+    }
     const item = buildItem(quantidade);
     if (!item) return;
     onAdd(item);
     setDescricao("");
     setDescricaoEditada(false);
     setAcabIds([]);
+    setExtraTiers([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
