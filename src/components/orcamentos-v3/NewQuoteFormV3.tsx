@@ -47,7 +47,6 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
         "1": "print",
         "2": "cv",
         "3": "third",
-        "4": "labor",
       };
       const next = map[e.key];
       if (next) {
