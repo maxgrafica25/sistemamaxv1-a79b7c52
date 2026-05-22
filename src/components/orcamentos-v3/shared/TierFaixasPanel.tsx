@@ -87,7 +87,7 @@ export function TierFaixasPanel({
   return (
     <div
       className={cn(
-        "space-y-2 rounded-md bg-muted/30 px-3 py-2.5",
+        "space-y-2 rounded-md border border-primary/30 bg-primary/[0.03] px-3 py-2.5",
         disabled && "opacity-50 pointer-events-none",
       )}
     >
