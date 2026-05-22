@@ -27,7 +27,7 @@ import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
 import { loadConfig, SEED_LABEL_PRESETS, type LabelPreset } from "@/lib/labels/config-storage";
 import { fmtBRL } from "../shared/pricing";
 import { TierSimulator } from "../shared/TierSimulator";
-import { ModeButton } from "../shared/ModeButton";
+
 import { genId, type V3LabelItem } from "../types";
 
 interface Props {
