@@ -184,13 +184,13 @@ function buildFinancials(
 
   const rows: FinRow[] = [];
   if (opts.laborCost != null) {
-    rows.push({ label: "Custo mão de obra", value: fmtBRL(opts.laborCost), tone: "muted" });
+    rows.push({ label: "Custo mão de obra", value: fmtBRL(opts.laborCost), tone: "muted", className: "text-destructive" });
   } else {
-    rows.push({ label: "Custo material", value: fmtBRL(custo_total), tone: "muted" });
+    rows.push({ label: "Custo material", value: fmtBRL(custo_total), tone: "muted", className: "text-destructive" });
   }
-  rows.push({ label: `Custo perda (${pcts.wastePct.toFixed(0)}%)`, value: fmtBRL(perda), tone: "muted" });
-  rows.push({ label: `Imposto (${pcts.taxPct.toFixed(0)}%)`, value: fmtBRL(imposto), tone: "muted" });
-  rows.push({ label: `Taxa cartão / fatura (${pcts.feesPct.toFixed(0)}%)`, value: fmtBRL(taxa), tone: "muted" });
+  rows.push({ label: `Custo perda (${pcts.wastePct.toFixed(0)}%)`, value: fmtBRL(perda), tone: "muted", className: "text-destructive" });
+  rows.push({ label: `Imposto (${pcts.taxPct.toFixed(0)}%)`, value: fmtBRL(imposto), tone: "muted", className: "text-destructive" });
+  rows.push({ label: `Taxa cartão / fatura (${pcts.feesPct.toFixed(0)}%)`, value: fmtBRL(taxa), tone: "muted", className: "text-destructive" });
   rows.push({ label: "Preço de venda", value: fmtBRL(preco_total), tone: "default" });
   rows.push({
     label: "Lucro líquido",
@@ -282,15 +282,16 @@ function ExpandedDetails({
           {breakdown.rows.map((r, i) => (
             <li key={i} className="flex items-center justify-between gap-2 text-[10px] px-1">
               <span className={cn(
-                r.tone === "strong" ? cn("font-semibold", r.className) : "text-muted-foreground",
+                r.tone === "strong" && "font-semibold",
+                r.className ?? (r.tone === "muted" ? "text-muted-foreground" : undefined),
               )}>
                 {r.label}
               </span>
               <span className={cn(
                 "tabular-nums",
-                r.tone === "muted" && "text-muted-foreground",
                 r.tone === "default" && "font-medium",
-                r.tone === "strong" && cn("font-semibold", r.className),
+                r.tone === "strong" && "font-semibold",
+                r.className ?? (r.tone === "muted" ? "text-muted-foreground" : undefined),
               )}>
                 {r.value}
               </span>
