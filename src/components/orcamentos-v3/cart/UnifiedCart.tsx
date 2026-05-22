@@ -162,7 +162,6 @@ function itemTitle(it: V3Item): string {
   return `${qty.toLocaleString("pt-BR")} un. - ${name}`;
 }
 
-type Detail = { label: string; value: string; muted?: boolean };
 
 type FinRow = { label: string; value: string; tone?: "muted" | "default" | "strong"; className?: string };
 
