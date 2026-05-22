@@ -10,11 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, Plus, AlertCircle, AlertTriangle, RotateCcw, Wand2, Pencil } from "lucide-react";
+import { Check, Plus, AlertCircle, AlertTriangle, RotateCcw, Wand2, Pencil, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
 import { ModeButton } from "../shared/ModeButton";
+import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3CVItem } from "../types";
 import { useV3CVCatalog } from "../shared/useV3CVCatalog";
@@ -67,7 +68,8 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
   const [bannerTouched, setBannerTouched] = useState(false);
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
 
-  const { presets: cvPresets } = useQuotePresets("cv");
+  const { presets: cvPresets, reload: reloadCvPresets } = useQuotePresets("cv");
+  const [saveOpen, setSaveOpen] = useState(false);
 
   const applyPreset = (p: QuotePreset) => {
     setActivePresetId(p.id);
@@ -352,21 +354,63 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
         />
       </div>
 
-      {/* Toggle Produtos / Personalizado */}
-      <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
-        <ModeButton
-          active={mode === "product"}
-          onClick={() => setMode("product")}
-          icon={Wand2}
-          label="Produtos"
-        />
-        <ModeButton
-          active={mode === "custom"}
-          onClick={() => setMode("custom")}
-          icon={Pencil}
-          label="Personalizado"
-        />
+      {/* Toggle Produtos / Personalizado + Salvar preset */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
+          <ModeButton
+            active={mode === "product"}
+            onClick={() => setMode("product")}
+            icon={Wand2}
+            label="Produtos"
+          />
+          <ModeButton
+            active={mode === "custom"}
+            onClick={() => setMode("custom")}
+            icon={Pencil}
+            label="Personalizado"
+          />
+        </div>
+        {mode === "custom" && midia && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setSaveOpen(true)}
+            className="h-8 text-xs text-muted-foreground hover:text-primary"
+            title="Salva a configuração atual como um botão rápido em Produtos"
+          >
+            <Star className="h-3.5 w-3.5" />
+            Salvar como preset
+          </Button>
+        )}
       </div>
+      {mode === "custom" && midia && (() => {
+        const tipoSupported = ["lona", "adesivo", "chapa"].includes(midia.tipo_midia ?? "");
+        const nameMatch = (midia.nome ?? "").split(/\s+/).slice(0, 2).join(" ").toLowerCase() || null;
+        const resumo: { label: string; value: string }[] = [];
+        if (largura_cm > 0 && altura_cm > 0) resumo.push({ label: "Tamanho", value: `${largura_cm} × ${altura_cm} cm` });
+        if (midia.nome) resumo.push({ label: "Mídia", value: midia.nome });
+        if (isBanner) resumo.push({ label: "Banner", value: "sim (filtra acabamentos de banner)" });
+        const payload: SavePresetPayload = {
+          modulo: "cv",
+          form_tipo: null,
+          largura_cm: largura_cm > 0 ? largura_cm : null,
+          altura_cm: altura_cm > 0 ? altura_cm : null,
+          is_banner: isBanner,
+          midia_tipo: tipoSupported ? (midia.tipo_midia as "lona" | "adesivo" | "chapa") : null,
+          midia_nome_match: nameMatch,
+          quantidade_atual: quantidade,
+          resumo,
+        };
+        return (
+          <SavePresetDialog
+            open={saveOpen}
+            onOpenChange={setSaveOpen}
+            payload={payload}
+            onSaved={reloadCvPresets}
+          />
+        );
+      })()}
 
       {mode === "product" && cvPresets.length > 0 && (
         <div className="flex flex-wrap gap-2">

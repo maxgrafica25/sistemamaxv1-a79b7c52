@@ -3,8 +3,8 @@
 // que roteiam para o sub-formulário certo (PrintForm/BookletForm/LabelForm).
 // Em modo Personalizado, mostra sugestão inteligente quando a combinação
 // de papel + acabamentos casa com um produto conhecido (ex: lona + ilhós).
-import { useCallback, useEffect, useState } from "react";
-import { Wand2, Pencil, Sparkles, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Wand2, Pencil, Sparkles, X, Star } from "lucide-react";
 import { ModeButton } from "../shared/ModeButton";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { BookletForm } from "./BookletForm";
 import { LabelEmbeddedForm } from "./LabelEmbeddedForm";
 import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
+import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
 import {
   PRESET_BY_ID,
 } from "../shared/productPresets";
@@ -32,11 +33,18 @@ type Mode = "custom" | "product";
 
 export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20 }: Props) {
   const [mode, setMode] = useState<Mode>("product");
-  const { presets } = useQuotePresets("impressao");
+  const { presets, reload } = useQuotePresets("impressao");
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [descricao, setDescricao] = useState("");
   const [suggestion, setSuggestion] = useState<SuggestResult | null>(null);
   const [dismissedKey, setDismissedKey] = useState<string>("");
+  const [currentSel, setCurrentSel] = useState<{
+    paper_type: string | null;
+    size: string | null;
+    grammage: string | null;
+    finishings: string[];
+  } | null>(null);
+  const [saveOpen, setSaveOpen] = useState(false);
 
   // Seleciona o primeiro preset assim que carregam
   useEffect(() => {
@@ -56,6 +64,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
       grammage: string | null;
       finishings: string[];
     }) => {
+      setCurrentSel(sel);
       const s = suggestProduct(sel);
       if (!s) {
         setSuggestion(null);
@@ -70,6 +79,27 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
     },
     [dismissedKey],
   );
+
+  const canSavePreset = mode === "custom" && !!currentSel?.paper_type;
+
+  const savePayload = useMemo<SavePresetPayload | null>(() => {
+    if (!currentSel?.paper_type) return null;
+    const paper = currentSel.paper_type.trim().toLowerCase();
+    const resumo: { label: string; value: string }[] = [
+      { label: "Papel", value: paper },
+    ];
+    if (currentSel.finishings.length) {
+      resumo.push({ label: "Acabamentos", value: currentSel.finishings.join(", ") });
+    }
+    if (currentSel.size) resumo.push({ label: "Tamanho de referência", value: currentSel.size });
+    return {
+      modulo: "impressao",
+      form_tipo: "print",
+      papel_inclui: [paper],
+      acabamentos_sugeridos: currentSel.finishings,
+      resumo,
+    };
+  }, [currentSel]);
 
   const applySuggestion = () => {
     if (!suggestion) return;
@@ -97,21 +127,44 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         />
       </div>
 
-      {/* Toggle Produtos / Personalizado */}
-      <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
-        <ModeButton
-          active={mode === "product"}
-          onClick={() => setMode("product")}
-          icon={Wand2}
-          label="Produtos"
-        />
-        <ModeButton
-          active={mode === "custom"}
-          onClick={() => setMode("custom")}
-          icon={Pencil}
-          label="Personalizado"
-        />
+      {/* Toggle Produtos / Personalizado + Salvar preset */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
+          <ModeButton
+            active={mode === "product"}
+            onClick={() => setMode("product")}
+            icon={Wand2}
+            label="Produtos"
+          />
+          <ModeButton
+            active={mode === "custom"}
+            onClick={() => setMode("custom")}
+            icon={Pencil}
+            label="Personalizado"
+          />
+        </div>
+        {canSavePreset && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setSaveOpen(true)}
+            className="h-8 text-xs text-muted-foreground hover:text-primary"
+            title="Salva a combinação atual como um botão rápido em Produtos"
+          >
+            <Star className="h-3.5 w-3.5" />
+            Salvar como preset
+          </Button>
+        )}
       </div>
+      {savePayload && (
+        <SavePresetDialog
+          open={saveOpen}
+          onOpenChange={setSaveOpen}
+          payload={savePayload}
+          onSaved={reload}
+        />
+      )}
 
 
 
