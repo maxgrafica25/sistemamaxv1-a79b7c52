@@ -637,14 +637,16 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove, pcts, showFinan
               );
             })}
           </ul>
-          <ExpandedDetails
-            context={[]}
-            breakdown={buildFinancials(
-              entry.items.reduce((a, it) => a + priceOf(it).custo_total, 0),
-              entry.items.reduce((a, it) => a + priceOf(it).preco_total, 0),
-              pcts,
-            )}
-          />
+          {showFinancials && (
+            <ExpandedDetails
+              context={[]}
+              breakdown={buildFinancials(
+                entry.items.reduce((a, it) => a + priceOf(it).custo_total, 0),
+                entry.items.reduce((a, it) => a + priceOf(it).preco_total, 0),
+                pcts,
+              )}
+            />
+          )}
         </>
       )}
     </li>
