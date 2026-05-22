@@ -124,9 +124,7 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
       perSheet,
     });
     if (pr.totalPrice <= 0) return null;
-    const label =
-      descricao.trim() ||
-      `Etiqueta ${labelW}×${labelH}mm — ${q} un (${folha.selectedPrinting.paper_type})`;
+    const label = descricao.trim();
     const fin = folha.selectedFinishing;
     return {
       id: genId(),

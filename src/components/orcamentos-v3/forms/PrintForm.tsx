@@ -192,12 +192,14 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
 
   const buildLabel = () => {
     if (!catalog) return "";
-    let label =
-      descricao.trim() ||
-      `${catalog.paper_type}${catalog.grammage ? ` ${catalog.grammage}` : ""} — ${catalog.size} ${catalog.side}`;
+    // Mantém apenas o que o usuário digitou. O cart cuida do fallback
+    // ("Impresso personalizado" / pluralização) e a linha 2 já mostra os specs.
+    let label = descricao.trim();
     if (isLona && isBanner) {
       if (bannerLarguraCm > 0 && bannerAlturaCm > 0) {
-        label += ` — Banner ${bannerLarguraCm}x${bannerAlturaCm}cm`;
+        label = label
+          ? `${label} — Banner ${bannerLarguraCm}x${bannerAlturaCm}cm`
+          : `Banner ${bannerLarguraCm}x${bannerAlturaCm}cm`;
       }
       if (finEnabled.bastao && bastaoEscolhido && bastaoSugestao) {
         label += ` — Bastão ${bastaoEscolhido}cm × ${bastaoSugestao.quantidade}`;
