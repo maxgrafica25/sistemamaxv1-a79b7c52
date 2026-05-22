@@ -69,15 +69,17 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
     id: string;
     label: string;
     match: RegExp;
+    fallbackTipo?: "lona" | "adesivo" | "chapa";
+    fallbackNome?: RegExp;
     width: number;
     height: number;
     qty: number;
     banner: boolean;
   }> = [
-    { id: "banner", label: "Banner", match: /banner|lona.*banner|frontlight/i, width: 100, height: 70, qty: 1, banner: true },
-    { id: "lona", label: "Lona", match: /lona/i, width: 200, height: 100, qty: 1, banner: false },
-    { id: "adesivo", label: "Adesivo", match: /adesivo|vinil/i, width: 30, height: 30, qty: 10, banner: false },
-    { id: "faixa", label: "Faixa", match: /lona|banner/i, width: 200, height: 50, qty: 1, banner: true },
+    { id: "banner", label: "Banner", match: /banner|frontlight/i, fallbackTipo: "lona", fallbackNome: /brilho.*440|lona.*brilho/i, width: 100, height: 70, qty: 1, banner: true },
+    { id: "lona", label: "Lona", match: /lona/i, fallbackTipo: "lona", width: 200, height: 100, qty: 1, banner: false },
+    { id: "adesivo", label: "Adesivo", match: /adesivo|vinil/i, fallbackTipo: "adesivo", width: 30, height: 30, qty: 10, banner: false },
+    { id: "faixa", label: "Faixa", match: /faixa|lona|banner/i, fallbackTipo: "lona", fallbackNome: /brilho.*440|lona.*brilho/i, width: 200, height: 50, qty: 1, banner: true },
   ];
 
   const applyPreset = (p: typeof CV_PRESETS[number]) => {
@@ -87,7 +89,13 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
     setQuantidade(p.qty);
     setIsBanner(p.banner);
     setBannerTouched(true);
-    const found = cat.midias.find((m) => p.match.test(`${m.nome} ${m.tipo_midia}`));
+    // Escolha de mídia: 1) match por nome/tipo  2) fallback por nome dentro do tipo  3) primeira do tipo
+    let found = cat.midias.find((m) => p.match.test(`${m.nome} ${m.tipo_midia}`));
+    if (!found && p.fallbackTipo) {
+      const doTipo = cat.midias.filter((m) => m.tipo_midia === p.fallbackTipo);
+      if (p.fallbackNome) found = doTipo.find((m) => p.fallbackNome!.test(m.nome));
+      if (!found) found = doTipo[0];
+    }
     if (found) setMidiaId(found.id);
     setDescricaoEditada(false);
   };
