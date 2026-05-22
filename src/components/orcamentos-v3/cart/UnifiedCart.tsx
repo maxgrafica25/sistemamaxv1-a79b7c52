@@ -164,90 +164,145 @@ function itemTitle(it: V3Item): string {
 
 type Detail = { label: string; value: string; muted?: boolean };
 
-function itemDetails(it: V3Item): Detail[] {
-  const p = priceOf(it);
-  const qty = itemQty(it);
-  const unit = qty > 0 ? p.preco_total / qty : 0;
-  const rows: Detail[] = [];
-  switch (it.kind) {
-    case "print": {
-      if (it.paper_type) rows.push({ label: "Papel", value: `${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}` });
-      if (it.size) rows.push({ label: "Formato", value: it.size });
-      if (it.side) rows.push({ label: "Lado", value: it.side });
-      rows.push({ label: "Quantidade", value: `${qty.toLocaleString("pt-BR")} un` });
-      rows.push({ label: "Custo unitário", value: fmtBRL(it.custo_unitario), muted: true });
-      rows.push({ label: "Preço unitário", value: fmtBRL(it.valor_unitario), muted: true });
-      if (it.finishing_selections?.length) {
-        rows.push({ label: "Acabamentos", value: it.finishing_selections.map((f) => f.name).join(", ") });
-        const totalAcab = it.finishing_selections.reduce((a, f) => a + f.price * (f.units ?? 1), 0);
-        if (totalAcab > 0) rows.push({ label: "Total acabamentos", value: fmtBRL(totalAcab), muted: true });
-      } else if (it.finishings?.length) {
-        rows.push({ label: "Acabamentos", value: it.finishings.join(", ") });
-      }
-      break;
-    }
-    case "cv": {
-      rows.push({ label: "Mídia", value: it.midia_nome });
-      if (it.impressao_nome) rows.push({ label: "Impressão", value: it.impressao_nome });
-      const area = (it.largura_m * it.altura_m * qty).toFixed(2).replace(".", ",");
-      rows.push({ label: "Dimensão", value: `${(it.largura_m * 100).toFixed(0)}×${(it.altura_m * 100).toFixed(0)} cm · ${qty} un` });
-      rows.push({ label: "Área total", value: `${area} m²` });
-      if (it.finishings?.length) rows.push({ label: "Acabamentos", value: it.finishings.join(", ") });
-      if (it.snapshot) {
-        rows.push({ label: "Mídia (preço)", value: fmtBRL(it.snapshot.preco_midia), muted: true });
-        rows.push({ label: "Impressão", value: fmtBRL(it.snapshot.preco_impressao), muted: true });
-        rows.push({ label: "Acabamentos", value: fmtBRL(it.snapshot.preco_acabamentos), muted: true });
-        rows.push({ label: "Custo total", value: fmtBRL(it.snapshot.custo_total), muted: true });
-        if (it.snapshot.aplicou_minimo) rows.push({ label: "Atenção", value: "Mínimo aplicado" });
-      }
-      break;
-    }
-    case "third": {
-      rows.push({ label: "Fornecedor", value: it.fornecedor || "—" });
-      rows.push({ label: "Quantidade", value: `${qty} un` });
-      rows.push({ label: "Custo unitário", value: fmtBRL(it.custo), muted: true });
-      rows.push({ label: "Margem", value: `${it.margem_pct.toFixed(0)}%`, muted: true });
-      rows.push({ label: "Custo total", value: fmtBRL(it.custo * qty), muted: true });
-      break;
-    }
-    case "booklet": {
-      if (it.paper_type) rows.push({ label: "Miolo", value: `${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}${it.bookletDuplex ? " · F/V" : ""}` });
-      rows.push({ label: "Folhas por apostila", value: `${it.bookletPages}` });
-      rows.push({ label: "Apostilas", value: `${it.bookletUnits} un` });
-      rows.push({ label: "Custo / folha", value: fmtBRL(it.custo_unitario), muted: true });
-      rows.push({ label: "Preço / folha", value: fmtBRL(it.valor_unitario), muted: true });
-      break;
-    }
-    case "labor": {
-      rows.push({ label: "Etapa", value: it.step_type });
-      rows.push({ label: "Tempo", value: `${it.time_minutes} min` });
-      rows.push({ label: "Custo/hora", value: fmtBRL(it.hourly_rate), muted: true });
-      rows.push({ label: "Margem", value: `${it.margem_pct.toFixed(0)}%`, muted: true });
-      break;
-    }
-    case "supply": {
-      rows.push({ label: "Suprimento", value: it.supply_nome });
-      if (it.fornecedor) rows.push({ label: "Fornecedor", value: it.fornecedor });
-      rows.push({ label: "Quantidade", value: `${qty} un` });
-      rows.push({ label: "Custo unitário", value: fmtBRL(it.custo_unitario), muted: true });
-      rows.push({ label: "Margem", value: `${it.margem_pct.toFixed(0)}%`, muted: true });
-      break;
-    }
-    case "label": {
-      rows.push({ label: "Etiqueta", value: `${it.labelW_mm}×${it.labelH_mm} mm · ${it.shape}` });
-      rows.push({ label: "Quantidade", value: `${qty.toLocaleString("pt-BR")} un` });
-      if (it.paper_type) rows.push({ label: "Papel", value: `${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}` });
-      rows.push({ label: "Folha", value: `${it.sheet_size} · ${it.per_sheet}/folha · ${it.sheets_needed} fl` });
-      if (it.finishing_nome) rows.push({ label: "Acabamento", value: it.finishing_nome });
-      rows.push({ label: "Preço / folha", value: fmtBRL(it.price_per_sheet), muted: true });
-      rows.push({ label: "Custo total", value: fmtBRL(it.custo_total), muted: true });
-      break;
-    }
-  }
-  rows.push({ label: "Unitário", value: `${fmtBRL(unit)} / un`, muted: true });
-  rows.push({ label: "Total", value: fmtBRL(p.preco_total) });
-  return rows;
+type FinRow = { label: string; value: string; tone?: "muted" | "default" | "strong"; className?: string };
+
+interface FinancialBreakdown {
+  rows: FinRow[];
+  profitPct: number;
 }
+
+function buildFinancials(
+  custo_total: number,
+  preco_total: number,
+  pcts: CartPcts,
+  opts: { laborCost?: number } = {},
+): FinancialBreakdown {
+  const perda = custo_total * (pcts.wastePct / 100);
+  const imposto = preco_total * (pcts.taxPct / 100);
+  const taxa = preco_total * (pcts.feesPct / 100);
+  const lucro = preco_total - custo_total - perda - imposto - taxa;
+  const lucroPct = preco_total > 0 ? (lucro / preco_total) * 100 : 0;
+
+  const rows: FinRow[] = [];
+  if (opts.laborCost != null) {
+    rows.push({ label: "Custo mão de obra", value: fmtBRL(opts.laborCost), tone: "muted" });
+  } else {
+    rows.push({ label: "Custo material", value: fmtBRL(custo_total), tone: "muted" });
+  }
+  rows.push({ label: `Custo perda (${pcts.wastePct.toFixed(0)}%)`, value: fmtBRL(perda), tone: "muted" });
+  rows.push({ label: `Imposto (${pcts.taxPct.toFixed(0)}%)`, value: fmtBRL(imposto), tone: "muted" });
+  rows.push({ label: `Taxa cartão / fatura (${pcts.feesPct.toFixed(0)}%)`, value: fmtBRL(taxa), tone: "muted" });
+  rows.push({ label: "Preço de venda", value: fmtBRL(preco_total), tone: "default" });
+  rows.push({
+    label: "Lucro líquido",
+    value: `${fmtBRL(lucro)} · ${lucroPct.toFixed(1).replace(".", ",")}%`,
+    tone: "strong",
+    className: marginTextClass(lucroPct),
+  });
+  return { rows, profitPct: lucroPct };
+}
+
+function itemFinancials(it: V3Item, pcts: CartPcts): FinancialBreakdown {
+  const p = priceOf(it);
+  return buildFinancials(
+    p.custo_total,
+    p.preco_total,
+    pcts,
+    it.kind === "labor" ? { laborCost: p.custo_total } : {},
+  );
+}
+
+function itemContext(it: V3Item): { label: string; value: string }[] {
+  const qty = itemQty(it);
+  const ctx: { label: string; value: string }[] = [];
+  switch (it.kind) {
+    case "print":
+      if (it.paper_type) ctx.push({ label: "Papel", value: `${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}${it.size ? ` · ${it.size}` : ""}${it.side ? ` · ${it.side}` : ""}` });
+      ctx.push({ label: "Quantidade", value: `${qty.toLocaleString("pt-BR")} folhas` });
+      if (it.finishing_selections?.length) {
+        ctx.push({ label: "Acabamentos", value: it.finishing_selections.map((f) => f.name).join(", ") });
+      } else if (it.finishings?.length) {
+        ctx.push({ label: "Acabamentos", value: it.finishings.join(", ") });
+      }
+      break;
+    case "cv":
+      ctx.push({ label: "Mídia", value: it.midia_nome });
+      ctx.push({ label: "Dimensão", value: `${(it.largura_m * 100).toFixed(0)}×${(it.altura_m * 100).toFixed(0)} cm · ${qty} un` });
+      if (it.impressao_nome) ctx.push({ label: "Impressão", value: it.impressao_nome });
+      if (it.finishings?.length) ctx.push({ label: "Acabamentos", value: it.finishings.join(", ") });
+      break;
+    case "third":
+      ctx.push({ label: "Fornecedor", value: it.fornecedor || "—" });
+      ctx.push({ label: "Quantidade", value: `${qty} un` });
+      break;
+    case "booklet":
+      if (it.paper_type) ctx.push({ label: "Miolo", value: `${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}${it.bookletDuplex ? " · F/V" : ""}` });
+      ctx.push({ label: "Apostilas", value: `${it.bookletUnits} un · ${it.bookletPages} fl` });
+      break;
+    case "labor":
+      ctx.push({ label: "Etapa", value: it.step_type });
+      ctx.push({ label: "Tempo", value: `${it.time_minutes} min · ${fmtBRL(it.hourly_rate)}/h` });
+      break;
+    case "supply":
+      ctx.push({ label: "Suprimento", value: it.supply_nome });
+      ctx.push({ label: "Quantidade", value: `${qty} un` });
+      break;
+    case "label":
+      ctx.push({ label: "Etiqueta", value: `${it.labelW_mm}×${it.labelH_mm} mm · ${it.shape} · ${qty} un` });
+      if (it.paper_type) ctx.push({ label: "Papel", value: `${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}` });
+      if (it.finishing_nome) ctx.push({ label: "Acabamento", value: it.finishing_nome });
+      break;
+  }
+  return ctx;
+}
+
+function ExpandedDetails({
+  context,
+  breakdown,
+}: {
+  context: { label: string; value: string }[];
+  breakdown: FinancialBreakdown;
+}) {
+  return (
+    <div className="mt-1 border-t border-border/40 pt-1 space-y-1">
+      {context.length > 0 && (
+        <ul className="space-y-0">
+          {context.map((c, i) => (
+            <li key={i} className="flex items-center justify-between gap-2 text-[10px] px-1">
+              <span className="text-muted-foreground">{c.label}</span>
+              <span className="tabular-nums text-foreground/80 truncate max-w-[60%] text-right">{c.value}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="rounded bg-muted/30 px-1.5 py-1">
+        <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
+          Custos e lucro
+        </p>
+        <ul className="space-y-0">
+          {breakdown.rows.map((r, i) => (
+            <li key={i} className="flex items-center justify-between gap-2 text-[10px] px-1">
+              <span className={cn(
+                r.tone === "strong" ? cn("font-semibold", r.className) : "text-muted-foreground",
+              )}>
+                {r.label}
+              </span>
+              <span className={cn(
+                "tabular-nums",
+                r.tone === "muted" && "text-muted-foreground",
+                r.tone === "default" && "font-medium",
+                r.tone === "strong" && cn("font-semibold", r.className),
+              )}>
+                {r.value}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 
 // Ícones de ação no canto superior direito — sempre visíveis com opacity-40,
 // passam para opacity-100 em hover/active (touch-friendly para tablets).
