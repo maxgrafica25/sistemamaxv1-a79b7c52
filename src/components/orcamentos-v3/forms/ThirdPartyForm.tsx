@@ -39,17 +39,18 @@ export function ThirdPartyForm({ onAdd, onAddTiers }: Props) {
 
   const submit = () => {
     if (!canAdd) return;
-    onAdd(buildItem(quantidade));
+    const cleanExtras = [...new Set(extraTiers)]
+      .filter((q) => q > 0 && q !== quantidade)
+      .sort((a, b) => a - b);
+    if (cleanExtras.length > 0 && onAddTiers) {
+      const tg = `tg_${genId()}`;
+      const all = [quantidade, ...cleanExtras];
+      onAddTiers(all.map((q) => ({ ...buildItem(q, tg), tier_primary: q === quantidade })));
+    } else {
+      onAdd(buildItem(quantidade));
+    }
     setDescricao("");
-    setPulse(true);
-    setTimeout(() => setPulse(false), 600);
-  };
-
-  const submitAsTiers = (qtys: number[], primaryQty: number) => {
-    if (!onAddTiers || !canAdd) return;
-    const tg = `tg_${genId()}`;
-    onAddTiers(qtys.map((q) => ({ ...buildItem(q, tg), tier_primary: q === primaryQty })));
-    setDescricao("");
+    setExtraTiers([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
