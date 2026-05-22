@@ -1,6 +1,6 @@
 // Hook que carrega os presets cadastrados em `quote_presets` para uso
 // nos módulos de orçamento (CV e Impressão + Acabamentos).
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export type PresetModulo = "cv" | "impressao" | "ambos";
@@ -29,6 +29,18 @@ export function useQuotePresets(modulo: "cv" | "impressao") {
   const [presets, setPresets] = useState<QuotePreset[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const reload = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("quote_presets" as never)
+      .select("*")
+      .eq("ativo", true)
+      .in("modulo", [modulo, "ambos"])
+      .order("ordem");
+    setPresets(((data as unknown) as QuotePreset[]) ?? []);
+    setLoading(false);
+  }, [modulo]);
+
   useEffect(() => {
     let cancel = false;
     (async () => {
@@ -46,5 +58,5 @@ export function useQuotePresets(modulo: "cv" | "impressao") {
     return () => { cancel = true; };
   }, [modulo]);
 
-  return { presets, loading };
+  return { presets, loading, reload };
 }
