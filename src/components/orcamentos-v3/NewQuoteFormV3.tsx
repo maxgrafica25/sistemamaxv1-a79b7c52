@@ -228,6 +228,9 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
               onDuplicate={duplicateItem}
               onRemove={removeItem}
               highlightId={highlightId}
+              taxPct={state.tax_pct}
+              feesPct={state.fees_pct}
+              wastePct={globalSettings.waste_pct}
             />
           </div>
           <div className="p-3 border-t border-border/60 bg-background">
