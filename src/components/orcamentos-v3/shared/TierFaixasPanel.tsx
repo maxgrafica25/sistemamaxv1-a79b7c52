@@ -118,9 +118,8 @@ export function TierFaixasPanel({
         )}
       </div>
 
-      {(() => null)()}
-      {true && (
-        <div className="px-3 pb-3 space-y-3">
+      <div className="px-3 pb-3 pt-3 space-y-3">
+
 
           {/* Linha principal */}
           <div className="mt-3 flex items-center justify-between gap-2 rounded-md bg-primary/[0.05] px-3 py-2">
