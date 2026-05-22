@@ -388,6 +388,7 @@ function groupItems(items: V3Item[]): Entry[] {
 
 export function UnifiedCart({ items, onDuplicate, onRemove, highlightId, taxPct, feesPct, wastePct }: Props) {
   const pcts: CartPcts = { taxPct, feesPct, wastePct };
+  const showFinancials = useIsAdmin();
   if (items.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border/60 bg-muted/20 p-4 text-center">
