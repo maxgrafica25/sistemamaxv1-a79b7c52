@@ -183,14 +183,20 @@ export function useFolhaPricing(
   finishingSize?: string,
 ): UseFolhaPricingResult {
   const finishingSizeKey = finishingSize ?? size;
+  // Para papel adesivo, A3 e SRA3 são intercambiáveis (mesma folha física no plotter).
+  // Buscamos os dois e filtramos por tipo abaixo.
+  const sizesToFetch = useMemo<string[]>(
+    () => (size === "SRA3" || size === "A3" ? ["SRA3", "A3"] : [size]),
+    [size],
+  );
   const printingQ = useQuery({
-    queryKey: ["printing_price_items", size],
+    queryKey: ["printing_price_items", sizesToFetch.join("|")],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("printing_price_items")
         .select("id, paper_type, grammage, size, side, equipment_mode, paper_cost, printing_cost, is_active")
         .eq("is_active", true)
-        .eq("size", size)
+        .in("size", sizesToFetch)
         .order("paper_type");
       if (error) throw error;
       return (data ?? []).map<PrintingOption>((d) => {
@@ -249,11 +255,20 @@ export function useFolhaPricing(
   const allPrintingOptions = printingQ.data ?? [];
   const finishingOptions = finishingQ.data ?? [NO_FINISHING];
 
+  // Itens elegíveis: adesivo aceita A3↔SRA3; outros tipos exigem o tamanho exato.
+  const eligiblePrintingOptions = useMemo(
+    () =>
+      allPrintingOptions.filter((p) =>
+        paperKindOf(p) === "adesivo" ? true : p.size === size,
+      ),
+    [allPrintingOptions, size],
+  );
+
   const availableKinds: PaperKind[] = useMemo(() => {
     const set = new Set<PaperKind>();
-    allPrintingOptions.forEach((p) => set.add(paperKindOf(p)));
+    eligiblePrintingOptions.forEach((p) => set.add(paperKindOf(p)));
     return Array.from(set);
-  }, [allPrintingOptions]);
+  }, [eligiblePrintingOptions]);
 
   const [paperKind, setPaperKindState] = useState<PaperKind>(() => {
     return loadChoices()[size]?.paperKind ?? "adesivo";
@@ -284,11 +299,9 @@ export function useFolhaPricing(
   }, [availableKinds, paperKind]);
 
   const printingOptions = useMemo(
-    () => allPrintingOptions.filter((p) => paperKindOf(p) === paperKind),
-    [allPrintingOptions, paperKind],
+    () => eligiblePrintingOptions.filter((p) => paperKindOf(p) === paperKind),
+    [eligiblePrintingOptions, paperKind],
   );
-
-  // Se a opção salva não existir no tipo atual, cai na primeira do tipo
   useEffect(() => {
     if (printingOptions.length === 0) return;
     if (!printingId || !printingOptions.some((p) => p.id === printingId)) {
