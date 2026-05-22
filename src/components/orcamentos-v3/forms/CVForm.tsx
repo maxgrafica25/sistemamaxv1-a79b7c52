@@ -324,6 +324,34 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
 
   return (
     <div className="space-y-5">
+      {/* Descrição — acima do toggle */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+            Descrição
+          </Label>
+          {descricaoEditada && (
+            <button
+              type="button"
+              onClick={() => setDescricaoEditada(false)}
+              className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+            >
+              <RotateCcw className="h-3 w-3" /> Regenerar
+            </button>
+          )}
+        </div>
+        <Input
+          value={descricao}
+          onChange={(e) => {
+            const v = e.target.value;
+            setDescricao(v);
+            setDescricaoEditada(v.trim().length > 0);
+          }}
+          placeholder="Gerada automaticamente — edite se quiser"
+          className="h-9"
+        />
+      </div>
+
       {/* Toggle Produtos / Personalizado */}
       <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
         <ModeButton
@@ -365,32 +393,7 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
         </div>
       )}
 
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-            Descrição
-          </Label>
-          {descricaoEditada && (
-            <button
-              type="button"
-              onClick={() => setDescricaoEditada(false)}
-              className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
-            >
-              <RotateCcw className="h-3 w-3" /> Regenerar
-            </button>
-          )}
-        </div>
-        <Input
-          value={descricao}
-          onChange={(e) => {
-            const v = e.target.value;
-            setDescricao(v);
-            setDescricaoEditada(v.trim().length > 0);
-          }}
-          placeholder="Gerada automaticamente — edite se quiser"
-          className="h-9"
-        />
-      </div>
+
 
 
       <Field label="Mídia (catálogo CV)">
