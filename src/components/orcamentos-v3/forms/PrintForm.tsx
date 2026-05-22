@@ -31,22 +31,6 @@ interface Props {
   emptyDefaults?: boolean;
 }
 
-
-const FINISHES_LONA: FinishingDef[] = [
-  { id: "ilhos", label: "Ilhós", hint: "Reforço metálico nos cantos" },
-  { id: "bainha", label: "Bainha / costura", hint: "Reforço da borda" },
-  { id: "corte_especial", label: "Corte especial" },
-  { id: "laminacao", label: "Laminação" },
-];
-
-const FINISHES_BANNER: FinishingDef[] = [
-  { id: "bastao", label: "Bastão", hint: "Suporte superior/inferior" },
-  { id: "ilhos", label: "Ilhós" },
-  { id: "bainha", label: "Bainha / costura" },
-  { id: "ponteiras", label: "Ponteiras" },
-  { id: "reforco_borda", label: "Reforço de borda" },
-];
-
 export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults }: Props) {
   const { loading, items, tiers, settings } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
