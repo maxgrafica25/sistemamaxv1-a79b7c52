@@ -319,7 +319,7 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
 
       <Field label="Acabamentos">
         <FinishingProgressive
-          items={finishesComBastao}
+          items={finishes}
           enabled={finEnabled}
           onToggle={(id, on) => setFinEnabled((m) => ({ ...m, [id]: on }))}
         />
