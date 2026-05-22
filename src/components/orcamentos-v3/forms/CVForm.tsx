@@ -460,38 +460,38 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
           />
         </Field>
         <Field label="Quantidade">
-          <div className="flex items-center gap-2">
-            <Input
-              type="number" min={1}
-              value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
-              className="h-9 flex-1"
-            />
-            <TierSimulator
-              currentQty={quantidade}
-              disabled={!midia || largura_cm <= 0 || altura_cm <= 0}
-              onPickQty={(q) => setQuantidade(q)}
-              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
-              compute={(q) => {
-                if (!midia) return { custo_total: 0, preco_total: 0 };
-                const r = calcular({
-                  largura_cm,
-                  altura_cm,
-                  quantidade: q,
-                  midia,
-                  impressao,
-                  acabamentos: acabamentosAplicados,
-                  acabamentos_pool: cat.acabamentos,
-                  valor_minimo: cat.valorMinimo,
-                  markup: cat.markup,
-                  hourRate: cat.hourRate,
-                });
-                return { custo_total: r.custo_total, preco_total: r.valor_total };
-              }}
-            />
-          </div>
+          <Input
+            type="number" min={1}
+            value={quantidade}
+            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
+            className="h-9"
+          />
         </Field>
       </div>
+
+      {onAddTiers && (
+        <TierFaixasPanel
+          currentQty={quantidade}
+          disabled={!midia || largura_cm <= 0 || altura_cm <= 0}
+          onExtrasChange={setExtraTiers}
+          compute={(q) => {
+            if (!midia) return { custo_total: 0, preco_total: 0 };
+            const r = calcular({
+              largura_cm,
+              altura_cm,
+              quantidade: q,
+              midia,
+              impressao,
+              acabamentos: acabamentosAplicados,
+              acabamentos_pool: cat.acabamentos,
+              valor_minimo: cat.valorMinimo,
+              markup: cat.markup,
+              hourRate: cat.hourRate,
+            });
+            return { custo_total: r.custo_total, preco_total: r.valor_total };
+          }}
+        />
+      )}
 
       <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm">
         <span className="text-muted-foreground">Área total</span>
