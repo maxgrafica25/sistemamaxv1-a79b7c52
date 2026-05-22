@@ -8,6 +8,8 @@ import { Wand2, Pencil, Sparkles, X } from "lucide-react";
 import { ModeButton } from "../shared/ModeButton";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { PrintForm } from "./PrintForm";
 import { BookletForm } from "./BookletForm";
 import { LabelEmbeddedForm } from "./LabelEmbeddedForm";
