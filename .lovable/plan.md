@@ -1,15 +1,27 @@
-## Problema
-Logo abaixo das abas (Impressão + Acabamentos / Com. Visual / Terceirizados) aparece um card cinza repetindo o nome e a descrição da aba já selecionada. Como a aba ativa já está claramente destacada em roxo na barra superior, esse card é redundante e ocupa espaço útil em todos os módulos.
+## Adicionar descrição discreta abaixo das tabs
 
-## Mudança
+Atualmente, após remover o `ActiveTabBanner`, ficou só a linha de tabs — sem nenhum contexto sobre o que é cada categoria. Reintroduzir o texto descritivo da tab ativa, mas de forma **muito mais leve** que o banner anterior (sem card cinza, sem ícone grande, sem título redundante).
+
+### Mudança
+
 Em `src/components/orcamentos-v3/NewQuoteFormV3.tsx`:
-- Remover o componente `ActiveTabBanner` (linhas 243–259) e a chamada que o renderiza logo após o `<TabsLayout />`.
 
-Isso afeta os três módulos de uma vez (Impressão, Com. Visual e Terceirizados), já que o banner era compartilhado.
+- Reimportar `getTab` de `./workspace/TabsLayout`.
+- Logo após `<TabsLayout />`, renderizar apenas um parágrafo pequeno:
 
-## Fora de escopo
-- Estilo das abas em si (`TabsLayout.tsx`).
-- Conteúdo dos formulários de cada aba.
+```tsx
+<p className="mt-2 text-xs text-muted-foreground">
+  {getTab(active).description}
+</p>
+```
 
-## Validação
-Em `/orcamentos-v3/novo`: ao trocar de aba, o card cinza duplicado some; a aba ativa continua identificável pelo destaque roxo no topo.
+Resultado: a descrição da tab ativa (ex: "Itens impressos no parque próprio (folhetos, apostilas, etiquetas).") aparece como uma linha sutil de subtítulo, sem repetir o nome da categoria nem criar um bloco visual pesado.
+
+### Fora de escopo
+
+- Sub-formulários e campo "Descrição (opcional)" dos itens.
+- Estilo das tabs.
+
+### Validação
+
+Em `/orcamentos-v3/novo`, ao alternar entre Impressão / Com. Visual / Terceirizados, uma linha de texto cinza-claro muda abaixo das tabs, sem reintroduzir o card destacado.

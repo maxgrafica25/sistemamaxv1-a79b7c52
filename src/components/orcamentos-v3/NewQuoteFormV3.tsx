@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, FlaskConical, Save, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
-import { TabsLayout } from "./workspace/TabsLayout";
+import { TabsLayout, getTab } from "./workspace/TabsLayout";
 import { PrintAndProductForm } from "./forms/PrintAndProductForm";
 import { CVForm } from "./forms/CVForm";
 import { ThirdPartyForm } from "./forms/ThirdPartyForm";
@@ -188,7 +188,10 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
         {/* Workspace (70%) */}
         <div className="overflow-y-auto px-4 lg:px-6 py-5 bg-background pb-24 lg:pb-5">
           <TabsLayout active={active} onChange={setActive} />
-          
+          <p className="mt-2 text-xs text-muted-foreground">
+            {getTab(active).description}
+          </p>
+
           <div className="mt-6 max-w-3xl">
             {active === "print" && (
               <PrintAndProductForm
