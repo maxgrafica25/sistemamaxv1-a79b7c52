@@ -261,7 +261,7 @@ function ExpandedDetails({
   breakdown,
 }: {
   context: { label: string; value: string }[];
-  breakdown: FinancialBreakdown;
+  breakdown: FinancialBreakdown | null;
 }) {
   return (
     <div className="mt-1 border-t border-border/40 pt-1 space-y-1">
