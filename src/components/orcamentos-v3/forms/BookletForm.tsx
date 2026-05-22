@@ -153,6 +153,19 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
 
   return (
     <div className="space-y-5">
+      <Field label="Descrição (opcional)">
+        <Input
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder={
+            catalog
+              ? `Padrão: Apostila ${bookletUnits}× ${bookletPages}fl ${catalog.paper_type}`
+              : "Selecione o miolo primeiro"
+          }
+          className="h-9"
+        />
+      </Field>
+
       <Field label="Miolo (papel do catálogo)">
         <PrintingItemSearch
           items={items}
