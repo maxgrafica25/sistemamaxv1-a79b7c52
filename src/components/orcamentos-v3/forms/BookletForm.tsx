@@ -28,12 +28,17 @@ interface Props {
   onAddMany?: (items: V3Item[]) => void;
   onAddTiers?: (items: V3BookletItem[]) => void;
   defaultMarginPct?: number;
+  descricao?: string;
+  onDescricaoChange?: (v: string) => void;
 }
 
-export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20 }: Props) {
+export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20, descricao: descricaoProp, onDescricaoChange }: Props) {
   const { loading, items, tiers } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
-  const [descricao, setDescricao] = useState("");
+  const [descricaoLocal, setDescricaoLocal] = useState("");
+  const descricao = descricaoProp ?? descricaoLocal;
+  const setDescricao = onDescricaoChange ?? setDescricaoLocal;
+  const controlledDescricao = onDescricaoChange !== undefined;
   const [bookletPages, setBookletPages] = useState<number>(20);
   const [bookletUnits, setBookletUnits] = useState<number>(10);
   const [duplex, setDuplex] = useState<boolean>(true);
