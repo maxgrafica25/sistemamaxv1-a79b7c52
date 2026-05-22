@@ -53,7 +53,7 @@ interface Props {
 export function CVForm({ onAdd, onAddTiers }: Props) {
   const cat = useV3CVCatalog();
 
-  const [mode, setMode] = useState<"product" | "custom">("product");
+  // null = Personalizado (padrão); caso contrário, id do preset ativo
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [descricao, setDescricao] = useState("");
   const [descricaoEditada, setDescricaoEditada] = useState(false);
