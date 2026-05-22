@@ -46,26 +46,68 @@ const LABEL = {
   label: "Etiqueta",
 };
 
-function cartMeta(it: V3Item): string {
-  switch (it.kind) {
-    case "labor":
-      return `${it.time_minutes} min · margem ${it.margem_pct.toFixed(0)}%`;
-    case "booklet":
-      return `${it.bookletUnits}× ${it.bookletPages}fl${it.bookletDuplex ? " F/V" : ""}`;
-    case "label":
-      return `${it.labelW_mm}×${it.labelH_mm}mm · ${it.quantidade} un · ${it.sheets_needed} fl`;
-    case "supply":
-    case "third":
-    case "print":
-    case "cv":
-      return `qtd ${it.quantidade ?? 1}`;
-  }
-}
-
 function itemQty(it: V3Item): number {
   if (it.kind === "labor") return 1;
   if (it.kind === "booklet") return it.bookletUnits;
   return (it as { quantidade?: number }).quantidade ?? 1;
+}
+
+function sideLabel(side?: string): string {
+  if (!side) return "";
+  const s = side.toLowerCase();
+  if (s.includes("f/v") || s.includes("verso") || s.includes("duplex")) return "Frente/Verso";
+  return "Frente";
+}
+
+function itemSubtitle(it: V3Item): string {
+  const parts: string[] = [];
+  switch (it.kind) {
+    case "print": {
+      const qty = itemQty(it);
+      parts.push(`${qty.toLocaleString("pt-BR")} folhas`);
+      if (it.paper_type) parts.push(`${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}`);
+      const side = sideLabel(it.side);
+      if (side) parts.push(side);
+      break;
+    }
+    case "booklet": {
+      parts.push(`${it.bookletPages} folhas`);
+      if (it.paper_type) parts.push(`${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}`);
+      parts.push(it.bookletDuplex ? "Frente/Verso" : "Frente");
+      break;
+    }
+    case "label": {
+      parts.push(`${it.labelW_mm}×${it.labelH_mm} mm`);
+      if (it.paper_type) parts.push(`${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}`);
+      break;
+    }
+    case "cv": {
+      parts.push(`${(it.largura_m * 100).toFixed(0)}×${(it.altura_m * 100).toFixed(0)} cm`);
+      if (it.midia_nome) parts.push(it.midia_nome);
+      if (it.impressao_nome) parts.push(it.impressao_nome);
+      break;
+    }
+    case "third": {
+      if (it.fornecedor) parts.push(it.fornecedor);
+      break;
+    }
+    case "supply": {
+      if (it.supply_nome) parts.push(it.supply_nome);
+      break;
+    }
+    case "labor": {
+      parts.push(`${it.time_minutes} min`);
+      if (it.step_type) parts.push(it.step_type);
+      break;
+    }
+  }
+  return parts.join(" | ");
+}
+
+function itemTitle(it: V3Item): string {
+  const name = (it as { descricao?: string }).descricao || LABEL[it.kind];
+  const qty = itemQty(it);
+  return `${qty.toLocaleString("pt-BR")} un. - ${name}`;
 }
 
 type Detail = { label: string; value: string; muted?: boolean };
