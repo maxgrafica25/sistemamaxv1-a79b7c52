@@ -705,7 +705,10 @@ function SingleCard({ item, isNew, onDuplicate, onRemove, pcts, showFinancials }
       </div>
 
       {expanded && (
-        <ExpandedDetails context={itemContext(item)} breakdown={itemFinancials(item, pcts)} />
+        <ExpandedDetails
+          context={itemContext(item)}
+          breakdown={showFinancials ? itemFinancials(item, pcts) : null}
+        />
       )}
     </li>
   );
