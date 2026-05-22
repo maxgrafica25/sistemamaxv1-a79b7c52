@@ -1,11 +1,9 @@
 // Wrapper da aba "Impressão + Acabamentos".
-// Toggle Personalizado | Produto. Em modo Produto, mostra chips de presets
-// que roteiam para o sub-formulário certo (PrintForm/BookletForm/LabelForm).
-// Em modo Personalizado, mostra sugestão inteligente quando a combinação
+// Sem toggle: chip "Personalizado" (padrão) + chips de presets favoritos.
+// Em personalizado, mostra sugestão inteligente quando a combinação
 // de papel + acabamentos casa com um produto conhecido (ex: lona + ilhós).
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Wand2, Pencil, Sparkles, X, Star } from "lucide-react";
-import { ModeButton } from "../shared/ModeButton";
+import { useCallback, useMemo, useState } from "react";
+import { Pencil, Sparkles, X, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +14,7 @@ import { LabelEmbeddedForm } from "./LabelEmbeddedForm";
 import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
 import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
-import {
-  PRESET_BY_ID,
-} from "../shared/productPresets";
+import { PRESET_BY_ID } from "../shared/productPresets";
 import { suggestProduct, type SuggestResult } from "../shared/productSuggester";
 import type { V3Item } from "../types";
 
@@ -29,11 +25,9 @@ interface Props {
   defaultMarginPct?: number;
 }
 
-type Mode = "custom" | "product";
-
 export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20 }: Props) {
-  const [mode, setMode] = useState<Mode>("product");
   const { presets, reload } = useQuotePresets("impressao");
+  // null = Personalizado (padrão)
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [descricao, setDescricao] = useState("");
   const [suggestion, setSuggestion] = useState<SuggestResult | null>(null);
@@ -46,16 +40,11 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
   } | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
 
-  // Seleciona o primeiro preset assim que carregam
-  useEffect(() => {
-    if (!selectedPresetId && presets.length > 0) {
-      setSelectedPresetId(presets[0].id);
-    }
-  }, [presets, selectedPresetId]);
-
-  const selectedPreset: QuotePreset | undefined =
-    presets.find((p) => p.id === selectedPresetId) ?? presets[0];
+  const selectedPreset: QuotePreset | undefined = selectedPresetId
+    ? presets.find((p) => p.id === selectedPresetId)
+    : undefined;
   const formTipo: "print" | "booklet" | "label" = selectedPreset?.form_tipo ?? "print";
+  const isCustom = !selectedPresetId;
 
   const handleSelectionChange = useCallback(
     (sel: {
@@ -80,7 +69,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
     [dismissedKey],
   );
 
-  const canSavePreset = mode === "custom" && !!currentSel?.paper_type;
+  const canSavePreset = isCustom && !!currentSel?.paper_type;
 
   const savePayload = useMemo<SavePresetPayload | null>(() => {
     if (!currentSel?.paper_type) return null;
@@ -103,7 +92,6 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
 
   const applySuggestion = () => {
     if (!suggestion) return;
-    setMode("product");
     const label = PRESET_BY_ID[suggestion.productId]?.label?.toLowerCase();
     const match = label
       ? presets.find((p) => p.nome.toLowerCase().includes(label) || label.includes(p.nome.toLowerCase()))
@@ -114,7 +102,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
 
   return (
     <div className="space-y-5">
-      {/* Descrição (opcional) — acima do toggle */}
+      {/* Descrição (opcional) */}
       <div className="space-y-1.5">
         <Label className="text-xs uppercase tracking-wide text-muted-foreground">
           Descrição (opcional)
@@ -127,34 +115,52 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         />
       </div>
 
-      {/* Toggle Produtos / Personalizado + Salvar preset */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-xs text-muted-foreground">Modo:</span>
-        <div role="group" aria-label="Modo de cadastro" className="inline-flex rounded-md border border-border bg-muted p-1">
-          <ModeButton
-            active={mode === "product"}
-            onClick={() => setMode("product")}
-            icon={Wand2}
-            label="Produtos"
-          />
-          <ModeButton
-            active={mode === "custom"}
-            onClick={() => setMode("custom")}
-            icon={Pencil}
-            label="Personalizado"
-          />
-        </div>
+      {/* Chips: Personalizado + favoritos */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setSelectedPresetId(null)}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+            isCustom
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+          )}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          Personalizado
+        </button>
+        {presets.map((p) => {
+          const Icon = iconFor(p.icone);
+          const active = p.id === selectedPresetId;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setSelectedPresetId(p.id)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {p.nome}
+            </button>
+          );
+        })}
         {canSavePreset && (
           <Button
             type="button"
             size="sm"
             variant="ghost"
             onClick={() => setSaveOpen(true)}
-            className="h-8 text-xs text-muted-foreground hover:text-primary"
-            title="Salva a combinação atual como um botão rápido em Produtos"
+            className="h-7 text-xs text-muted-foreground hover:text-primary ml-auto"
+            title="Salva a combinação atual como um botão rápido em favoritos"
           >
             <Star className="h-3.5 w-3.5" />
-            Salvar como preset
+            Salvar como favorito
           </Button>
         )}
       </div>
@@ -167,36 +173,8 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         />
       )}
 
-
-
-      {/* Chips de produto */}
-      {mode === "product" && presets.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {presets.map((p) => {
-            const Icon = iconFor(p.icone);
-            const active = p.id === selectedPresetId;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setSelectedPresetId(p.id)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                  active
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {p.nome}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       {/* Faixa de sugestão (apenas em Personalizado) */}
-      {mode === "custom" && suggestion && (
+      {isCustom && suggestion && (
         <div className="flex items-center gap-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5">
           <Sparkles className="h-4 w-4 text-primary shrink-0" />
           <div className="flex-1 min-w-0 text-xs">
@@ -225,7 +203,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
 
       {/* Sub-formulário */}
       <div>
-        {mode === "custom" && (
+        {isCustom && (
           <PrintForm
             onAdd={onAdd}
             onAddTiers={onAddTiers}
@@ -234,7 +212,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onDescricaoChange={setDescricao}
           />
         )}
-        {mode === "product" && formTipo === "print" && (
+        {!isCustom && formTipo === "print" && (
           <PrintForm
             onAdd={onAdd}
             onAddTiers={onAddTiers}
@@ -242,7 +220,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onDescricaoChange={setDescricao}
           />
         )}
-        {mode === "product" && formTipo === "booklet" && (
+        {!isCustom && formTipo === "booklet" && (
           <BookletForm
             onAdd={onAdd}
             onAddMany={onAddMany}
@@ -252,7 +230,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onDescricaoChange={setDescricao}
           />
         )}
-        {mode === "product" && formTipo === "label" && (
+        {!isCustom && formTipo === "label" && (
           <LabelEmbeddedForm
             onAdd={onAdd}
             onAddTiers={onAddTiers}
@@ -264,5 +242,6 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
     </div>
   );
 }
+
 
 

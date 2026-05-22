@@ -1,29 +1,43 @@
-## Finalização do sistema "Recorrentes do cliente"
+## Simplificar UX e corrigir acabamentos faltantes
 
-Três últimos passos para fechar a funcionalidade:
+### 1. Remover toggle Produtos/Personalizado
+Concordo: o modo "Personalizado" passa a ser o estado padrão e os presets viram chips de favoritos visíveis no topo. Não há mais necessidade de escolher entre dois botões.
 
-### 1. Card no Dashboard
-Importar e renderizar `RecorrentesVencendoCard` em `src/pages/Dashboard.tsx`, posicionado junto aos outros cards de alerta/lembrete (acima dos módulos principais). O card já se auto-oculta quando não há recorrentes vencendo, então não polui quando vazio.
+**Em `PrintAndProductForm.tsx`:**
+- Remover o `ModeButton` (toggle Produtos | Personalizado) e o estado `mode`.
+- Layout final:
+  1. Campo "Descrição (opcional)"
+  2. Linha de chips: **"✏️ Personalizado"** (selecionado por padrão) + chips de presets (ícone + nome) + botão "Salvar como preset" no fim quando houver papel selecionado
+  3. Sugestão inteligente (banner já existente — agora aparece sempre que houver match, não só em modo custom)
+  4. Sub-formulário (PrintForm/BookletForm/LabelEmbeddedForm) — escolhido pelo chip ativo
+- Estado novo: `selectedPresetId: string | null`. `null` = Personalizado → renderiza `PrintForm` cru. Caso contrário, renderiza o form do preset (`form_tipo`).
+- Limpar `selectedPresetId` ao clicar no chip "Personalizado".
+- Importações de `ModeButton` removidas.
 
-### 2. Cron job de lembretes
-Agendar `enqueue_recurring_reminders()` para rodar 1x por dia (08:00 BRT = 11:00 UTC) via `pg_cron` + `pg_net`. Usa `supabase--insert` (não migration) porque contém a URL/anon key do projeto.
+O componente `ModeButton.tsx` continua existindo (pode ser usado em outros lugares — `CVForm` ainda usa); só deixamos de importar aqui.
 
-```text
-cron: '0 11 * * *'  → SELECT public.enqueue_recurring_reminders();
-```
+### 2. Acabamentos não aparecem no Personalizado — causa raiz
+A consulta `listFinishings("impressao")` retorna **zero** acabamentos hoje no banco. Só existem 2 itens cadastrados, ambos marcados apenas para "etiqueta":
+- Recorte Folhas Adesivas
+- Recorte Folhas Papéis Especiais
 
-Garante extensões `pg_cron` e `pg_net` habilitadas antes.
+Por isso o chip-list de acabamentos vem vazio. O `FinishingProgressive` renderiza uma `<ul>` vazia, sem nenhum hint visual, dando a impressão de "não aparece nada".
 
-### 3. Auto-abrir PostPrintDialog em /pedidos
-Em `src/pages/Pedidos.tsx` (ou no componente do kanban que muda status), detectar transição de status para `entregue` em pedidos que tenham `recurring_id` preenchido. Quando ocorrer:
-- Disparar abertura do `PostPrintDialog` já existente
-- Pré-preencher `recurring_id` + `sales_order_id`
-- Após salvar (chama `mark_recurring_printed`), o trigger já recalcula `proxima_prevista_em` e dispensa a notificação
+**Correções:**
 
-Fluxo: arrastar card para "Entregue" → dialog abre → operador escolhe equipamento + carga de cor + obs → salva → histórico criado, próxima data recalculada, lembrete some.
+**a) Empty state explícito no `FinishingProgressive`**
+Quando `items.length === 0`, mostrar mensagem dentro do card:
+> Nenhum acabamento cadastrado para Impressão.
+> [Cadastrar acabamentos →] (link para `/acabamentos`)
 
-### Validação final
-- Dashboard mostra card só quando há recorrentes vencendo
-- Cron roda diariamente e cria notificações na inbox
-- Mover pedido para "entregue" abre dialog automaticamente
-- Após salvar, recorrente aparece com nova `proxima_prevista_em` na ficha do cliente
+**b) Atalho no `PrintForm`**
+Logo abaixo do label "Acabamentos", quando a lista estiver vazia (e não for lona/banner — esses dois têm presets hardcoded), o mesmo CTA fica visível. Assim o usuário entende exatamente onde resolver.
+
+**c) Não alterar dados automaticamente.** Não vou marcar os dois acabamentos existentes como `impressao` sem confirmação — o usuário decide no módulo `/acabamentos` quais aplicar a impressão.
+
+### Validação
+- `/orcamentos-v3/novo` → aba "Impressão + Acabamentos": não há mais toggle. Chip "Personalizado" ativo por padrão, chips de presets ao lado.
+- Selecionar papel → ainda sem acabamentos cadastrados para impressão → aparece empty state com link para `/acabamentos`.
+- Após cadastrar um acabamento com contexto "Impressão" no módulo, ele passa a aparecer automaticamente como switch na seção Acabamentos.
+- Selecionar um chip de preset continua roteando para o sub-form correto (booklet/label/print).
+- "Salvar como preset" continua aparecendo após selecionar um papel.
