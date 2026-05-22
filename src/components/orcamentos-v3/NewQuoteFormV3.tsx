@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, FlaskConical, Save, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
-import { TabsLayout, getTab } from "./workspace/TabsLayout";
+import { TabsLayout } from "./workspace/TabsLayout";
 import { PrintAndProductForm } from "./forms/PrintAndProductForm";
 import { CVForm } from "./forms/CVForm";
 import { ThirdPartyForm } from "./forms/ThirdPartyForm";
