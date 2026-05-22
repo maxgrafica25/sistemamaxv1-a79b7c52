@@ -33,13 +33,18 @@ import { genId, type V3LabelItem } from "../types";
 interface Props {
   onAdd: (item: V3LabelItem) => void;
   onAddTiers?: (items: V3LabelItem[]) => void;
+  descricao?: string;
+  onDescricaoChange?: (v: string) => void;
 }
 
 const DEFAULT_MARGINS = { top: 10, right: 10, bottom: 10, left: 10, gap: 3 };
 
-export function LabelEmbeddedForm({ onAdd, onAddTiers }: Props) {
+export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp, onDescricaoChange }: Props) {
 
-  const [descricao, setDescricao] = useState("");
+  const [descricaoLocal, setDescricaoLocal] = useState("");
+  const descricao = descricaoProp ?? descricaoLocal;
+  const setDescricao = onDescricaoChange ?? setDescricaoLocal;
+  const controlledDescricao = onDescricaoChange !== undefined;
   const [labelW, setLabelW] = useState(50);
   const [labelH, setLabelH] = useState(30);
   const [shape, setShape] = useState<LabelShape>("quadrado");
