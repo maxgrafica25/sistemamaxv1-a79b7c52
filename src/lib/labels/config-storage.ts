@@ -63,16 +63,16 @@ export interface LabelCalcConfig {
 // ---------- Defaults & seeds -------------------------------------------------
 
 export const SEED_LABEL_PRESETS: LabelPreset[] = [
-  { id: "seed-sra3-r35", label: "SRA3 · Ø3,5cm", shape: "redondo", width: 35, height: 35, sheetId: "SRA3" },
-  { id: "seed-sra3-r40", label: "SRA3 · Ø4cm",   shape: "redondo", width: 40, height: 40, sheetId: "SRA3" },
-  { id: "seed-sra3-r50", label: "SRA3 · Ø5cm",   shape: "redondo", width: 50, height: 50, sheetId: "SRA3" },
-  { id: "seed-sra3-r60", label: "SRA3 · Ø6cm",   shape: "redondo", width: 60, height: 60, sheetId: "SRA3" },
-  { id: "seed-sra3-r70", label: "SRA3 · Ø7cm",   shape: "redondo", width: 70, height: 70, sheetId: "SRA3" },
-  { id: "seed-a4-r35",   label: "A4 · Ø3,5cm",   shape: "redondo", width: 35, height: 35, sheetId: "A4" },
-  { id: "seed-a4-r40",   label: "A4 · Ø4cm",     shape: "redondo", width: 40, height: 40, sheetId: "A4" },
-  { id: "seed-a4-r50",   label: "A4 · Ø5cm",     shape: "redondo", width: 50, height: 50, sheetId: "A4" },
-  { id: "seed-a4-r60",   label: "A4 · Ø6cm",     shape: "redondo", width: 60, height: 60, sheetId: "A4" },
-  { id: "seed-a4-r70",   label: "A4 · Ø7cm",     shape: "redondo", width: 70, height: 70, sheetId: "A4" },
+  { id: "seed-sra3-r35", label: "3,5cm", shape: "redondo", width: 35, height: 35, sheetId: "SRA3" },
+  { id: "seed-sra3-r40", label: "4cm",   shape: "redondo", width: 40, height: 40, sheetId: "SRA3" },
+  { id: "seed-sra3-r50", label: "5cm",   shape: "redondo", width: 50, height: 50, sheetId: "SRA3" },
+  { id: "seed-sra3-r60", label: "6cm",   shape: "redondo", width: 60, height: 60, sheetId: "SRA3" },
+  { id: "seed-sra3-r70", label: "7cm",   shape: "redondo", width: 70, height: 70, sheetId: "SRA3" },
+  { id: "seed-a4-r35",   label: "3,5cm", shape: "redondo", width: 35, height: 35, sheetId: "A4" },
+  { id: "seed-a4-r40",   label: "4cm",   shape: "redondo", width: 40, height: 40, sheetId: "A4" },
+  { id: "seed-a4-r50",   label: "5cm",   shape: "redondo", width: 50, height: 50, sheetId: "A4" },
+  { id: "seed-a4-r60",   label: "6cm",   shape: "redondo", width: 60, height: 60, sheetId: "A4" },
+  { id: "seed-a4-r70",   label: "7cm",   shape: "redondo", width: 70, height: 70, sheetId: "A4" },
 ];
 
 
