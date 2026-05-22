@@ -465,16 +465,16 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardPro
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <div className="flex items-start gap-2 min-w-0 flex-1">
-              <span className="text-[13px] font-semibold tabular-nums text-primary shrink-0 whitespace-nowrap">
-                {leaderQty.toLocaleString("pt-BR")} un
-              </span>
-              <p className="text-[13px] font-medium leading-tight truncate min-w-0" title={title}>{title}</p>
-            </div>
+            <p className="text-[13px] font-medium leading-tight truncate min-w-0 flex-1" title={title}>
+              {leaderQty.toLocaleString("pt-BR")} un. - {title}
+            </p>
             <span className="text-[13px] font-semibold tabular-nums shrink-0 whitespace-nowrap">
               {fmtBRL(total)}
             </span>
           </div>
+          {itemSubtitle(leader) && (
+            <p className="text-[11px] text-muted-foreground truncate">{itemSubtitle(leader)}</p>
+          )}
           <div className="mt-0">
             <button
               type="button"
