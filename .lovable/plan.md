@@ -1,42 +1,76 @@
-## Problema
+## Diagnóstico
 
-As abas inativas ("Com. Visual" e "Terceirizados") hoje aparecem só como texto cinza ao lado da aba ativa (com fundo roxo). Sem borda, sem fundo, sem separação — parecem rótulos, não botões. O usuário não percebe que são clicáveis.
+O sistema de presets ontem foi implementado **só do lado admin**: existe a tabela `quote_presets` populada com 9 presets e a página `/presets-orcamento` para gerenciar. O que **não existe** é o atalho do ponto de vista de quem está orçando: depois de configurar um item personalizado (papel + tamanho + acabamentos no módulo Impressão, ou largura/altura/mídia no módulo CV), **não há botão "Salvar como preset"** dentro do formulário do orçamento. É isso que vamos adicionar.
 
-## Direção proposta
+## Mudanças propostas
 
-Dar a TODAS as abas uma forma visual de "botão/aba", mantendo hierarquia clara entre ativa e inativas. Sem poluir: sutil em repouso, evidente no hover.
+### 1. Backend — permissão para salvar preset (migração)
 
-### Mudanças em `src/components/orcamentos-v3/workspace/TabsLayout.tsx`
+Hoje só admin pode inserir em `quote_presets`. Para a UX pedida funcionar para qualquer colaborador, vamos liberar INSERT para qualquer usuário autenticado. UPDATE e DELETE seguem restritos a admin (gestão continua centralizada).
 
-1. **Abas inativas ganham contorno sutil de aba**
-   - Fundo `bg-muted/40` (cinza muito leve) em repouso → dá forma de "pílula/aba" sem competir com a ativa.
-   - Borda fina `border border-border/60` nas laterais e topo (sem borda inferior, encostando na linha do tablist) — reforça a metáfora de aba de pasta.
-   - Cursor pointer já vem do `<button>`, mas o contorno + fundo deixam claro que é interativo.
+```sql
+DROP POLICY "Admins can insert quote_presets" ON public.quote_presets;
+CREATE POLICY "Authenticated can insert quote_presets"
+  ON public.quote_presets FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() IS NOT NULL);
+```
 
-2. **Hover mais evidente**
-   - `hover:bg-muted` + `hover:text-foreground` + `hover:border-border` — feedback claro ao passar o mouse.
-   - Pequena elevação visual: `hover:-translate-y-0.5` com `transition-transform` (microinteração, ~150ms).
+### 2. Hook `useQuotePresets` — expor `reload()`
 
-3. **Aba ativa permanece destacada**
-   - Mantém `bg-primary/10` + `text-primary` + barra inferior roxa.
-   - Ganha também `border border-primary/30` (laterais/topo) para casar com a forma das inativas, mas em roxo.
+`src/components/orcamentos-v3/shared/useQuotePresets.ts`: extrair o fetch para função, devolver `reload` junto com `presets` e `loading`, para que após salvar um novo preset a lista de chips atualize sem reload de página.
 
-4. **Espaçamento**
-   - Aumentar `gap-2` entre abas (já existe em md+) para que cada uma se leia como item separado.
-   - Manter a linha inferior do tablist (`border-b`) — é o "trilho" das abas.
+### 3. Novo componente `SavePresetDialog.tsx`
 
-### Resultado esperado
+`src/components/orcamentos-v3/shared/SavePresetDialog.tsx` — diálogo enxuto com:
+- Campo **Nome** (obrigatório).
+- Select de **Ícone** (reusa `PRESET_ICONS`/`PRESET_ICON_NAMES`).
+- Preview com os atributos que serão salvos (papel, tamanho, qtd, acabamentos ou largura×altura/mídia, conforme o módulo).
+- Botões Cancelar / Salvar preset.
+- Recebe um `payload: Partial<QuotePresetInsert>` já montado pelo formulário pai e faz o `supabase.from('quote_presets').insert(...)`.
+- Toast de sucesso + `onSaved()` callback para o pai chamar `reload()` do hook.
 
-- Em repouso: três "abas" visíveis lado a lado, a ativa em roxo claro com barra inferior, as inativas em cinza claro com contorno sutil. Fica óbvio que são 3 opções selecionáveis.
-- No hover: a inativa "acorda" (fundo mais escuro, leve elevação) — afirma a clicabilidade.
-- Sem poluição: nada de ícones extras, badges ou cores fortes em inativas.
+### 4. Botão "Salvar como preset" no módulo Impressão
 
-### Fora de escopo
+`src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`:
+- Captura a seleção atual via o `onSelectionChange` que o `PrintForm` já dispara (paper_type, size, grammage, finishings).
+- Renderiza, quando `mode === "custom"` e existe `paper_type`, um botão discreto **"⭐ Salvar como preset"** ao lado/abaixo do toggle Produtos|Personalizado.
+- Ao clicar, abre `SavePresetDialog` com payload:
+  - `modulo: "impressao"`
+  - `form_tipo: "print"` (definido a partir do sub-form ativo; no caso atual sempre `PrintForm` no modo custom)
+  - `papel_inclui: [paper_type]` (lowercase, trimmed)
+  - `acabamentos_sugeridos: finishings` (já vêm como ids em snake_case)
+  - `quantidade_padrao`: opcional, vamos enviar `null` por padrão (a "qtd" do item personalizado não é necessariamente a "qtd padrão" do preset). Marcar isso no preview com checkbox "incluir quantidade padrão (X)" — desmarcado por padrão.
+  - `nome`, `icone`: do diálogo.
 
-- Não mexer no atalho `kbd` (Alt+1/2/3).
-- Não mexer nos ícones nem nos labels.
-- Não tocar nas descrições abaixo dos tabs.
+### 5. Botão "Salvar como preset" no módulo Comunicação Visual
 
-### Validação
+`src/components/orcamentos-v3/forms/CVForm.tsx`:
+- O state já está no próprio `CVForm` (largura, altura, quantidade, midiaId, isBanner). Mais simples.
+- Botão renderizado quando `mode === "custom"` e existe `midia` selecionada.
+- Payload:
+  - `modulo: "cv"`
+  - `largura_cm`, `altura_cm`: do form
+  - `is_banner`: do toggle
+  - `midia_tipo`: `midia.tipo_midia` quando bater com enum suportado (`lona|adesivo|chapa`), senão `null`
+  - `midia_nome_match`: trecho do `midia.nome` (vamos sugerir as 2 primeiras palavras, editável no diálogo)
+  - `quantidade_padrao`: opcional (mesmo checkbox)
+  - `nome`, `icone`: do diálogo.
 
-Em `/orcamentos-v3/novo`: as três abas devem parecer claramente clicáveis em repouso; hover em "Com. Visual" ou "Terceirizados" deve dar feedback visual imediato; clicar continua trocando o conteúdo normalmente.
+### 6. Refresh dos chips
+
+Após salvar com sucesso, chamar `reload()` do `useQuotePresets` no formulário pai (`PrintAndProductForm` ou `CVForm`) para que o novo chip apareça imediatamente.
+
+## Fora de escopo
+
+- Não vamos editar/excluir presets a partir do formulário de orçamento (continua na página admin).
+- Não vamos mudar a UI da página `/presets-orcamento`.
+- Não vamos mexer no módulo Terceirizados (não tem presets).
+- Não vamos adicionar novos campos à tabela `quote_presets` — usamos o schema existente.
+
+## Validação
+
+Em `/orcamentos-v3/novo`:
+1. Aba Impressão → Personalizado → escolher um papel + acabamentos → clicar "Salvar como preset" → digitar "Meu Folder" → confirma → toast → aparece novo chip "Meu Folder" no modo Produtos.
+2. Aba Com. Visual → Personalizado → ajustar largura/altura/mídia → "Salvar como preset" → idem.
+3. Logar como colaborador não-admin: também consegue salvar (após migração de RLS).
+4. Página `/presets-orcamento` continua mostrando o novo preset e permite editar/excluir (apenas admin).
