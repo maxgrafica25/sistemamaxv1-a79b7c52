@@ -9,7 +9,7 @@ import { TabsLayout, getTab } from "./workspace/TabsLayout";
 import { PrintAndProductForm } from "./forms/PrintAndProductForm";
 import { CVForm } from "./forms/CVForm";
 import { ThirdPartyForm } from "./forms/ThirdPartyForm";
-import { LaborForm } from "./forms/LaborForm";
+
 
 import { UnifiedCart } from "./cart/UnifiedCart";
 import { FinancialPanel } from "./cart/FinancialPanel";
