@@ -270,9 +270,25 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
     if (!canAdd) return;
     const item = buildItem(quantidade);
     if (!item) return;
-    onAdd(item);
+    const cleanExtras = [...new Set(extraTiers)]
+      .filter((q) => q > 0 && q !== quantidade)
+      .sort((a, b) => a - b);
+    if (cleanExtras.length > 0 && onAddTiers && catalog) {
+      const tg = `tg_${genId()}`;
+      const primary = { ...item, tier_group_id: tg, tier_primary: true } as V3PrintItem;
+      const siblings = cleanExtras
+        .map((q) => {
+          const it = buildItem(q, tg);
+          return it ? ({ ...it, tier_primary: false } as V3PrintItem) : null;
+        })
+        .filter((x): x is V3PrintItem => !!x);
+      onAddTiers([primary, ...siblings]);
+    } else {
+      onAdd(item);
+    }
     setDescricao("");
     setFinEnabled({});
+    setExtraTiers([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
