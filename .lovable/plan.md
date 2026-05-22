@@ -1,36 +1,27 @@
 ## Objetivo
 
-Tornar óbvio em qual categoria do orçamento o usuário está (Impressão + Acabamentos, Com. Visual, Terceirizados, Mão-de-obra, Suprimentos). Hoje as abas em `TabsLayout` usam só uma linha fina embaixo + cor de texto, o que se perde quando o usuário rola, foca no formulário ou alterna rápido entre tabs.
+Remover a aba **Mão-de-obra** do orçamento V3, pelo mesmo motivo da aba Suprimentos: o tempo/processo já entra embutido quando o usuário escolhe os **acabamentos** dos itens de Impressão e CV (o catálogo de acabamentos consome o mesmo `ProcessPicker` por trás). Ter uma aba dedicada gera risco de cobrança duplicada e polui a navegação.
 
-## Mudanças (apenas frontend / UI)
+## Mudanças (frontend)
 
 ### 1. `src/components/orcamentos-v3/workspace/TabsLayout.tsx`
-Reforçar o estado ativo das abas:
-- Aba ativa ganha **fundo sutil em `bg-primary/10`**, **texto `text-primary`**, ícone colorido e a barra inferior fica mais grossa (`h-1`) e arredondada.
-- Abas inativas mantêm o visual atual (texto `muted-foreground`), com hover mais perceptível (`hover:bg-muted/50`).
-- Aumentar levemente o padding horizontal das tabs para acomodar o fundo.
-- Manter a tecla de atalho (`Alt+1..5`) visível.
+- Remover entrada `labor` do array `TABS` (e o ícone `Wrench` do import se não for mais usado).
+- Restam 3 abas: **Impressão + Acabamentos**, **Com. Visual**, **Terceirizados**.
 
 ### 2. `src/components/orcamentos-v3/NewQuoteFormV3.tsx`
-Adicionar um **cabeçalho contextual** logo abaixo da `TabsLayout` que mostra:
-- Ícone + nome da aba ativa em destaque (ex: `🖨 Impressão + Acabamentos`).
-- Uma frase curta de contexto por categoria (ex: "Itens impressos no parque próprio", "Mídia grande formato e aplicação", "Serviços executados por terceiros", "Horas técnicas e operacionais", "Insumos e materiais avulsos").
-- Cor de fundo suave usando token semântico (`bg-muted/40`, borda `border-border`).
+- Remover `import { LaborForm }`.
+- Remover o bloco `{active === "labor" && <LaborForm .../>}`.
+- Remover o atalho `"4": "labor"` do map de teclado. Restam Alt+1 (print), Alt+2 (cv), Alt+3 (third).
 
-Esse cabeçalho serve como "você está aqui" persistente enquanto o usuário preenche o formulário.
-
-### 3. Constante compartilhada
-Mover o array `TABS` (já em `TabsLayout.tsx`) para também expor uma descrição curta por categoria, consumida tanto pelas abas quanto pelo novo cabeçalho contextual — sem duplicar strings.
-
-### Detalhes técnicos
-- Apenas Tailwind + tokens do design system (`primary`, `muted`, `border`, `foreground`). Nada de cores hardcoded.
-- Sem mudança em lógica de negócio, cálculo, schema ou rotas.
-- Responsivo: em telas estreitas o cabeçalho contextual esconde a descrição e mantém só o ícone+título.
+### Preservado (não mexer)
+- Tipo `V3LaborItem` em `types.ts`, suporte no `UnifiedCart`, em `pricing.ts`, `saveQuoteV3.ts`, `bookletKit.ts`, `productKit.ts` — orçamentos antigos com itens labor continuam exibindo/salvando corretamente.
+- `LaborForm.tsx` permanece no repositório (sem rota), pra resgate fácil caso volte como aba opcional.
 
 ## Fora de escopo
-- Reordenar tabs, mudar atalhos, mexer nos sub-formulários (PrintForm/CVForm/etc.), engine de cálculo, persistência.
+- Engine de cálculo, schema de banco, lógica de acabamentos.
+- Remover/limpar arquivos não referenciados (fica pra um cleanup futuro).
 
 ## Validação
-- Trocar entre as 5 abas: aba ativa deve ter fundo + cor + barra inferior, e o cabeçalho abaixo deve refletir nome/descrição da categoria.
-- Verificar contraste em tema claro e escuro.
-- Verificar em 1336px (viewport atual) e em ~768px que o cabeçalho não quebra layout.
+- Tela `/orcamentos-v3/novo` mostra **3 abas** (Impressão+Acabamentos, Com. Visual, Terceirizados).
+- Atalhos Alt+1/2/3 funcionam; Alt+4 e Alt+5 não fazem nada.
+- Abrir um orçamento salvo que contenha item de mão-de-obra: continua aparecendo no carrinho com o resumo correto.
