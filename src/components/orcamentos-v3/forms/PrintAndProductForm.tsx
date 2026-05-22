@@ -34,6 +34,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
   const [mode, setMode] = useState<Mode>("product");
   const { presets } = useQuotePresets("impressao");
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const [descricao, setDescricao] = useState("");
   const [suggestion, setSuggestion] = useState<SuggestResult | null>(null);
   const [dismissedKey, setDismissedKey] = useState<string>("");
 
