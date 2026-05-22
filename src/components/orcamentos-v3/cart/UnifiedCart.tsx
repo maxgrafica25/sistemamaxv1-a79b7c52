@@ -301,7 +301,7 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
             <li
               key={it.id}
               className={cn(
-                "flex items-center gap-2 px-1 py-0.5 text-[11px]",
+                "flex items-center gap-1.5 px-1 py-0.5 text-[11px]",
                 opts.showDivider && "border-t border-border/40 mt-0.5 pt-1",
                 !opts.primary && "text-muted-foreground",
               )}
@@ -331,11 +331,11 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
                 {fmtBRL(price)}
               </span>
               {economiaPct > 0.5 ? (
-                <span className="inline-flex rounded px-1.5 py-0 text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 tabular-nums">
+                <span className="inline-flex justify-center w-[48px] shrink-0 rounded px-1 py-0 text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 tabular-nums whitespace-nowrap">
                   −{economiaPct.toFixed(0)}% un
                 </span>
               ) : (
-                <span className="w-[48px]" />
+                <span className="w-[48px] shrink-0" />
               )}
               <button
                 type="button"
