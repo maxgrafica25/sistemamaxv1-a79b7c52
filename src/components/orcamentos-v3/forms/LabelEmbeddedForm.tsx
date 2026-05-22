@@ -588,6 +588,11 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
         <Button
           onClick={submit}
           disabled={!canAdd}
+          title={
+            !canAdd && !folha.selectedPrinting
+              ? `Cadastre um papel para ${sheet.label} em Preço de Impressão`
+              : undefined
+          }
           className={cn(
             "min-w-[220px] transition-colors",
             pulse && "bg-emerald-600 hover:bg-emerald-600",
