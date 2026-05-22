@@ -19,6 +19,7 @@ import { DEFAULT_STATE, genId, type V3Category, type V3Item, type V3QuoteState }
 
 import { saveQuoteV3 } from "./shared/saveQuoteV3";
 import { RecorrentesPanel } from "@/components/recorrentes/RecorrentesPanel";
+import { useGlobalSettings } from "@/hooks/useGlobalSettings";
 
 interface Props {
   onCancel: () => void;
