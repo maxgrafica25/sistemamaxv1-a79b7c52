@@ -16,6 +16,23 @@ interface Props {
 }
 
 export function FinishingProgressive({ items, enabled, onToggle }: Props) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-4 text-center">
+        <p className="text-xs text-muted-foreground">
+          Nenhum acabamento cadastrado para Impressão.
+        </p>
+        <a
+          href="/acabamentos"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-block mt-1 text-xs font-medium text-primary hover:underline"
+        >
+          Cadastrar acabamentos →
+        </a>
+      </div>
+    );
+  }
   return (
     <ul className="divide-y divide-border rounded-md border border-border bg-background">
       {items.map((it) => {
