@@ -302,17 +302,19 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
         />
       </Field>
 
-      <Field label="Item do catálogo">
-        <PrintingItemSearch
-          items={items}
-          markupTiers={tiers}
-          globalSettings={settings}
-          onSelect={(it) => setCatalog(it)}
-        />
-        {loading && (
-          <p className="text-[11px] text-muted-foreground mt-1">Carregando catálogo…</p>
-        )}
-      </Field>
+      {!catalog && (
+        <Field label="Item do catálogo">
+          <PrintingItemSearch
+            items={items}
+            markupTiers={tiers}
+            globalSettings={settings}
+            onSelect={(it) => setCatalog(it)}
+          />
+          {loading && (
+            <p className="text-[11px] text-muted-foreground mt-1">Carregando catálogo…</p>
+          )}
+        </Field>
+      )}
 
       {catalog && (
         <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3">
