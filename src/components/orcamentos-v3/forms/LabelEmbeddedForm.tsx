@@ -324,12 +324,27 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
           className="justify-start"
         >
           {SHEET_PRESETS.map((s) => (
-            <ToggleGroupItem key={s.id} value={s.id} className="h-9 px-3 text-xs">
+            <ToggleGroupItem
+              key={s.id}
+              value={s.id}
+              className="h-9 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary"
+            >
               {s.label}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
       </Field>
+
+      {/* Aviso quando não há papel cadastrado para a folha selecionada */}
+      {!folha.isLoading && folha.printingOptions.length === 0 && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+          Nenhum papel adesivo cadastrado para <strong>{sheet.label}</strong>.{" "}
+          <Link to="/preco-impressao" target="_blank" className="underline font-medium">
+            Cadastre em Preço de Impressão
+          </Link>{" "}
+          para habilitar o cálculo.
+        </div>
+      )}
 
       {/* Chips de presets favoritos — filtrados pela folha ativa */}
       {visiblePresets.length > 0 && (
@@ -365,9 +380,9 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
           onValueChange={(v) => v && setShape(v as LabelShape)}
           className="justify-start"
         >
-          <ToggleGroupItem value="redondo" className="h-9 px-3 text-xs">◯ Redonda</ToggleGroupItem>
-          <ToggleGroupItem value="quadrado" className="h-9 px-3 text-xs">▢ Quadrada</ToggleGroupItem>
-          <ToggleGroupItem value="personalizado" className="h-9 px-3 text-xs">⬡ Personalizada</ToggleGroupItem>
+          <ToggleGroupItem value="redondo" className="h-9 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary">◯ Redonda</ToggleGroupItem>
+          <ToggleGroupItem value="quadrado" className="h-9 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary">▢ Quadrada</ToggleGroupItem>
+          <ToggleGroupItem value="personalizado" className="h-9 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary">⬡ Personalizada</ToggleGroupItem>
         </ToggleGroup>
       </Field>
 
@@ -573,6 +588,11 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
         <Button
           onClick={submit}
           disabled={!canAdd}
+          title={
+            !canAdd && !folha.selectedPrinting
+              ? `Cadastre um papel para ${sheet.label} em Preço de Impressão`
+              : undefined
+          }
           className={cn(
             "min-w-[220px] transition-colors",
             pulse && "bg-emerald-600 hover:bg-emerald-600",
