@@ -183,14 +183,20 @@ export function useFolhaPricing(
   finishingSize?: string,
 ): UseFolhaPricingResult {
   const finishingSizeKey = finishingSize ?? size;
+  // Para papel adesivo, A3 e SRA3 são intercambiáveis (mesma folha física no plotter).
+  // Buscamos os dois e filtramos por tipo abaixo.
+  const sizesToFetch = useMemo<string[]>(
+    () => (size === "SRA3" || size === "A3" ? ["SRA3", "A3"] : [size]),
+    [size],
+  );
   const printingQ = useQuery({
-    queryKey: ["printing_price_items", size],
+    queryKey: ["printing_price_items", sizesToFetch.join("|")],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("printing_price_items")
         .select("id, paper_type, grammage, size, side, equipment_mode, paper_cost, printing_cost, is_active")
         .eq("is_active", true)
-        .eq("size", size)
+        .in("size", sizesToFetch)
         .order("paper_type");
       if (error) throw error;
       return (data ?? []).map<PrintingOption>((d) => {
