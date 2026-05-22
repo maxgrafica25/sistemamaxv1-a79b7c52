@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, FlaskConical, Save, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
-import { TabsLayout, getTab } from "./workspace/TabsLayout";
+import { TabsLayout } from "./workspace/TabsLayout";
 import { PrintAndProductForm } from "./forms/PrintAndProductForm";
 import { CVForm } from "./forms/CVForm";
 import { ThirdPartyForm } from "./forms/ThirdPartyForm";
@@ -188,7 +188,7 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
         {/* Workspace (70%) */}
         <div className="overflow-y-auto px-4 lg:px-6 py-5 bg-background pb-24 lg:pb-5">
           <TabsLayout active={active} onChange={setActive} />
-          <ActiveTabBanner active={active} />
+          
           <div className="mt-6 max-w-3xl">
             {active === "print" && (
               <PrintAndProductForm
@@ -240,23 +240,6 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
   );
 }
 
-function ActiveTabBanner({ active }: { active: V3Category }) {
-  const tab = getTab(active);
-  const Icon = tab.icon;
-  return (
-    <div className="mt-4 flex items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-2.5">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-foreground leading-tight">{tab.label}</p>
-        <p className="hidden sm:block text-xs text-muted-foreground leading-tight mt-0.5">
-          {tab.description}
-        </p>
-      </div>
-    </div>
-  );
-}
 
 function MobileCart({
   state,
