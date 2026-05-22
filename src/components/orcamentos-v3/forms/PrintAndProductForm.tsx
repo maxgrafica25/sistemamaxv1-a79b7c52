@@ -84,6 +84,19 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
 
   return (
     <div className="space-y-5">
+      {/* Descrição (opcional) — acima do toggle */}
+      <div className="space-y-1.5">
+        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          Descrição (opcional)
+        </Label>
+        <Input
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder="Opcional — ex: nome do produto ou observação"
+          className="h-9"
+        />
+      </div>
+
       {/* Toggle Produtos / Personalizado */}
       <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
         <ModeButton
@@ -99,6 +112,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
           label="Personalizado"
         />
       </div>
+
 
 
       {/* Chips de produto */}
