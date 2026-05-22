@@ -3,8 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Check, Plus, Printer, AlertTriangle } from "lucide-react";
+import { Check, Plus, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PrintingItemSearch, {
   type PrintingCatalogItem,
@@ -12,7 +11,6 @@ import PrintingItemSearch, {
 import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProgressive";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
-import { BASTOES_CM, sugerirBastao } from "../shared/bastaoSuggester";
 import { TierFaixasPanel } from "../shared/TierFaixasPanel";
 import { genId, type V3PrintItem } from "../types";
 import { listFinishings, sumFinishingsPerSheet, type FinishingItem } from "@/lib/finishings/catalog";
@@ -32,22 +30,6 @@ interface Props {
   /** Quando true, começa com todos os campos vazios (modo Personalizado). */
   emptyDefaults?: boolean;
 }
-
-
-const FINISHES_LONA: FinishingDef[] = [
-  { id: "ilhos", label: "Ilhós", hint: "Reforço metálico nos cantos" },
-  { id: "bainha", label: "Bainha / costura", hint: "Reforço da borda" },
-  { id: "corte_especial", label: "Corte especial" },
-  { id: "laminacao", label: "Laminação" },
-];
-
-const FINISHES_BANNER: FinishingDef[] = [
-  { id: "bastao", label: "Bastão", hint: "Suporte superior/inferior" },
-  { id: "ilhos", label: "Ilhós" },
-  { id: "bainha", label: "Bainha / costura" },
-  { id: "ponteiras", label: "Ponteiras" },
-  { id: "reforco_borda", label: "Reforço de borda" },
-];
 
 export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults }: Props) {
   const { loading, items, tiers, settings } = useV3Catalog();
@@ -70,34 +52,9 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
   }, []);
 
   // Lona / banner
-  const isLona = useMemo(
-    () => /lona|banner|vinil/i.test(catalog?.paper_type || ""),
-    [catalog],
-  );
-  const [isBanner, setIsBanner] = useState(false);
-  const [bannerLarguraCm, setBannerLarguraCm] = useState<number>(0);
-  const [bannerAlturaCm, setBannerAlturaCm] = useState<number>(0);
-  const [bastaoOverride, setBastaoOverride] = useState<number | null>(null);
-
-  // Auto-marcar "É banner?" quando o nome já indicar banner
-  useEffect(() => {
-    if (!catalog) {
-      setIsBanner(false);
-      setBannerLarguraCm(0);
-      setBannerAlturaCm(0);
-      setBastaoOverride(null);
-      return;
-    }
-    if (isLona) {
-      setIsBanner(/banner/i.test(catalog.paper_type));
-    } else {
-      setIsBanner(false);
-    }
-  }, [catalog, isLona]);
-
-  // Conjunto padrão derivado do catálogo unificado.
+  // Conjunto de acabamentos derivado do catálogo unificado.
   // O hint reflete o preço efetivo da quantidade atual (tier aplicada quando há).
-  const FINISHES_PADRAO = useMemo<FinishingDef[]>(
+  const finishes = useMemo<FinishingDef[]>(
     () =>
       printFinishings.map((f) => {
         let hint: string;
@@ -115,13 +72,6 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
     [printFinishings, quantidade],
   );
 
-  // Seleciona conjunto de acabamentos
-  const finishes = useMemo<FinishingDef[]>(() => {
-    if (isLona && isBanner) return FINISHES_BANNER;
-    if (isLona) return FINISHES_LONA;
-    return FINISHES_PADRAO;
-  }, [isLona, isBanner, FINISHES_PADRAO]);
-
   // Limpa chips que não pertencem ao conjunto atual
   useEffect(() => {
     setFinEnabled((m) => {
@@ -131,37 +81,6 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
       return next;
     });
   }, [finishes]);
-
-  // Sugestão de bastão
-  const bastaoSugestao = useMemo(
-    () => (isLona && isBanner ? sugerirBastao(bannerLarguraCm) : null),
-    [isLona, isBanner, bannerLarguraCm],
-  );
-  const bastaoEscolhido = bastaoOverride ?? bastaoSugestao?.bastao ?? null;
-  const bastaoInvalido =
-    bastaoEscolhido != null &&
-    bannerLarguraCm > 0 &&
-    bastaoEscolhido < bannerLarguraCm + 2;
-
-  // Injeta painel "advanced" no chip Bastão quando estiver em modo banner
-  const finishesComBastao = useMemo<FinishingDef[]>(() => {
-    if (!(isLona && isBanner)) return finishes;
-    return finishes.map((f) => {
-      if (f.id !== "bastao") return f;
-      return {
-        ...f,
-        advanced: (
-          <BastaoPanel
-            larguraCm={bannerLarguraCm}
-            sugestao={bastaoSugestao}
-            escolhido={bastaoEscolhido}
-            invalido={bastaoInvalido}
-            onChange={(v) => setBastaoOverride(v)}
-          />
-        ),
-      };
-    });
-  }, [finishes, isLona, isBanner, bannerLarguraCm, bastaoSugestao, bastaoEscolhido, bastaoInvalido]);
 
   // Labels dos acabamentos atualmente ligados (usado para descrição/sugestão)
   const enabledLabels = useMemo(
@@ -194,19 +113,7 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
     if (!catalog) return "";
     // Mantém apenas o que o usuário digitou. O cart cuida do fallback
     // ("Impresso personalizado" / pluralização) e a linha 2 já mostra os specs.
-    let label = descricao.trim();
-    if (isLona && isBanner) {
-      if (bannerLarguraCm > 0 && bannerAlturaCm > 0) {
-        label = label
-          ? `${label} — Banner ${bannerLarguraCm}x${bannerAlturaCm}cm`
-          : `Banner ${bannerLarguraCm}x${bannerAlturaCm}cm`;
-      }
-      if (finEnabled.bastao && bastaoEscolhido && bastaoSugestao) {
-        label += ` — Bastão ${bastaoEscolhido}cm × ${bastaoSugestao.quantidade}`;
-        if (bastaoSugestao.emenda) label += " (c/ emenda)";
-      }
-    }
-    return label;
+    return descricao.trim();
   };
 
   // Snapshot das seleções de acabamentos resolvendo tiers por quantidade.
@@ -349,12 +256,6 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
               )}
             </div>
           </div>
-          {isLona && (
-            <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
-              É banner?
-              <Switch checked={isBanner} onCheckedChange={(v) => setIsBanner(!!v)} />
-            </label>
-          )}
           <button
             type="button"
             onClick={() => setCatalog(null)}
@@ -365,35 +266,6 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
         </div>
       )}
 
-      {isLona && isBanner && (
-        <div className="grid grid-cols-2 gap-4 rounded-md border border-primary/20 bg-primary/5 px-3 py-3">
-          <Field label="Largura do banner (cm)">
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={bannerLarguraCm || ""}
-              onChange={(e) => {
-                setBannerLarguraCm(Math.max(0, Number(e.target.value) || 0));
-                setBastaoOverride(null);
-              }}
-              placeholder="ex.: 120"
-              className="h-9"
-            />
-          </Field>
-          <Field label="Altura do banner (cm)">
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={bannerAlturaCm || ""}
-              onChange={(e) => setBannerAlturaCm(Math.max(0, Number(e.target.value) || 0))}
-              placeholder="ex.: 90"
-              className="h-9"
-            />
-          </Field>
-        </div>
-      )}
 
       <div className="grid grid-cols-2 gap-4">
         <Field label="Quantidade (folhas)">
@@ -447,7 +319,7 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
 
       <Field label="Acabamentos">
         <FinishingProgressive
-          items={finishesComBastao}
+          items={finishes}
           enabled={finEnabled}
           onToggle={(id, on) => setFinEnabled((m) => ({ ...m, [id]: on }))}
         />
@@ -499,79 +371,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
         {label}
       </Label>
       {children}
-    </div>
-  );
-}
-
-function BastaoPanel({
-  larguraCm,
-  sugestao,
-  escolhido,
-  invalido,
-  onChange,
-}: {
-  larguraCm: number;
-  sugestao: ReturnType<typeof sugerirBastao>;
-  escolhido: number | null;
-  invalido: boolean;
-  onChange: (v: number | null) => void;
-}) {
-  if (!larguraCm) {
-    return (
-      <p className="text-[11px] text-muted-foreground">
-        Informe a largura do banner para calcular o bastão.
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {sugestao && (
-        <p className="text-[11px] text-foreground">
-          Sugestão:{" "}
-          <strong className="text-primary">
-            bastão de {sugestao.bastao} cm × {sugestao.quantidade}
-          </strong>{" "}
-          <span className="text-muted-foreground">
-            (largura {larguraCm}cm + 2cm de sobra = {sugestao.necessarioCm}cm úteis)
-          </span>
-        </p>
-      )}
-      <div className="flex items-center gap-2 flex-wrap">
-        {BASTOES_CM.map((b) => {
-          const active = escolhido === b;
-          const invalidThis = b < larguraCm + 2;
-          return (
-            <button
-              key={b}
-              type="button"
-              onClick={() => onChange(b === sugestao?.bastao ? null : b)}
-              className={cn(
-                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground",
-                invalidThis && !active && "opacity-50",
-              )}
-              title={invalidThis ? "Não cabe na largura + 2cm de sobra" : undefined}
-            >
-              {b} cm
-            </button>
-          );
-        })}
-      </div>
-      {sugestao?.emenda && (
-        <p className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
-          <AlertTriangle className="h-3 w-3" />
-          Necessária emenda — {sugestao.quantidade} bastões de {sugestao.bastao}cm.
-        </p>
-      )}
-      {invalido && (
-        <p className="flex items-center gap-1.5 text-[11px] text-destructive">
-          <AlertTriangle className="h-3 w-3" />
-          Bastão escolhido menor que a largura + 2cm de sobra.
-        </p>
-      )}
     </div>
   );
 }
