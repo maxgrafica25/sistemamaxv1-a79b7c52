@@ -23,7 +23,7 @@ import {
 import { filterAndSortForMidia } from "@/lib/cv-calc/media-order";
 import { SOBRA_CM } from "../shared/bastaoSuggester";
 import { buildCvDescricao } from "../shared/buildCvDescricao";
-import { TierSimulator } from "../shared/TierSimulator";
+import { TierFaixasPanel } from "../shared/TierFaixasPanel";
 
 // Extrai o tamanho (cm) de chips do tipo "Banner (Bastão topo e base até 105cm + ...)"
 function parseBastaoCm(nome: string): number | null {
@@ -34,11 +34,12 @@ function isBastaoFinish(nome: string): boolean {
   return /bast[ãa]o|banner.*at[ée]\s*\d+\s*cm/i.test(nome);
 }
 function isBannerFinish(nome: string): boolean {
-  return /banner|bast[ãa]o|ponteira|cordinha|ilh[óo]s|bainha|emenda|dupla\s*face|faixa/i.test(nome);
+  // Banner pode usar qualquer acabamento típico (bastão, ponteira, ilhós, bainha, etc.)
+  return /bast[ãa]o|banner|ponteira|cordinha|faixa|ilh[óo]s|bainha|refor[çc]o|emenda|dupla\s*face/i.test(nome);
 }
 function isLonaOnlyFinish(nome: string): boolean {
-  // Acabamentos típicos de lona (não-banner)
-  return /refile|lona|ilh[óo]s|bainha|dupla\s*face/i.test(nome) && !/bast[ãa]o|banner|ponteira|cordinha|faixa/i.test(nome);
+  // Lona pura: exclui explicitamente acabamentos exclusivos de banner
+  return !/bast[ãa]o|banner|ponteira|cordinha|faixa/i.test(nome);
 }
 
 interface Props {
