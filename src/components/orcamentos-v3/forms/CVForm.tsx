@@ -62,6 +62,8 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
   const [acabIds, setAcabIds] = useState<string[]>([]);
   const [pulse, setPulse] = useState(false);
   const [isBanner, setIsBanner] = useState(false);
+  const [bannerTouched, setBannerTouched] = useState(false);
+  const [extraTiers, setExtraTiers] = useState<number[]>([]);
 
   const CV_PRESETS: Array<{
     id: string;
