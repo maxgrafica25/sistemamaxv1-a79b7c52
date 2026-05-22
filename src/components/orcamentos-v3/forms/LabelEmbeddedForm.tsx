@@ -380,9 +380,9 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
           onValueChange={(v) => v && setShape(v as LabelShape)}
           className="justify-start"
         >
-          <ToggleGroupItem value="redondo" className="h-9 px-3 text-xs">◯ Redonda</ToggleGroupItem>
-          <ToggleGroupItem value="quadrado" className="h-9 px-3 text-xs">▢ Quadrada</ToggleGroupItem>
-          <ToggleGroupItem value="personalizado" className="h-9 px-3 text-xs">⬡ Personalizada</ToggleGroupItem>
+          <ToggleGroupItem value="redondo" className="h-9 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary">◯ Redonda</ToggleGroupItem>
+          <ToggleGroupItem value="quadrado" className="h-9 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary">▢ Quadrada</ToggleGroupItem>
+          <ToggleGroupItem value="personalizado" className="h-9 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary">⬡ Personalizada</ToggleGroupItem>
         </ToggleGroup>
       </Field>
 
