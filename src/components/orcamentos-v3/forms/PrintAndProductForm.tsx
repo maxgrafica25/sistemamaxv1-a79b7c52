@@ -146,6 +146,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         >
           <CreditCard className="h-3.5 w-3.5" />
           Cartão de Visita
+        </button>
         {presets.map((p) => {
           const Icon = iconFor(p.icone);
           const active = p.id === selectedPresetId;
