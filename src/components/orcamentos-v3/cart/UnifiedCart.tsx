@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import type { V3Item } from "../types";
 import { priceOf, fmtBRL } from "../shared/pricing";
 import { marginTextClass } from "@/lib/quotes-v2/margin";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 export interface CartPcts {
   taxPct: number;
