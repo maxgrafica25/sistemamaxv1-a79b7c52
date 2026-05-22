@@ -289,6 +289,19 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
 
   return (
     <div className="space-y-5">
+      <Field label="Descrição (opcional)">
+        <Input
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder={
+            catalog
+              ? `Padrão: ${catalog.paper_type}${catalog.grammage ? ` ${catalog.grammage}` : ""} — ${catalog.size} ${catalog.side}`
+              : "Selecione o item primeiro"
+          }
+          className="h-9"
+        />
+      </Field>
+
       <Field label="Item do catálogo">
         <PrintingItemSearch
           items={items}
@@ -407,18 +420,6 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
       </div>
 
 
-      <Field label="Descrição (opcional)">
-        <Input
-          value={descricao}
-          onChange={(e) => setDescricao(e.target.value)}
-          placeholder={
-            catalog
-              ? `Padrão: ${catalog.paper_type}${catalog.grammage ? ` ${catalog.grammage}` : ""} — ${catalog.size} ${catalog.side}`
-              : "Selecione o item primeiro"
-          }
-          className="h-9"
-        />
-      </Field>
 
       <Field label="Acabamentos">
         <FinishingProgressive
