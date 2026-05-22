@@ -308,23 +308,23 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
             >
               <span
                 className={cn(
-                  "tabular-nums flex items-center gap-1.5 min-w-[110px]",
+                  "tabular-nums flex items-center gap-1.5 min-w-[110px] whitespace-nowrap",
                   opts.primary && "text-[13px] font-semibold text-primary",
                 )}
               >
                 {q.toLocaleString("pt-BR")} un
                 {opts.primary && (
-                  <span className="text-[9px] uppercase tracking-wide text-primary/70 font-medium">
+                  <span className="text-[9px] uppercase tracking-wide text-primary/70 font-medium whitespace-nowrap">
                     · solicitada
                   </span>
                 )}
               </span>
-              <span className="tabular-nums flex-1 text-right">
+              <span className="tabular-nums flex-1 text-right whitespace-nowrap">
                 {fmtBRL(unit)} / un
               </span>
               <span
                 className={cn(
-                  "tabular-nums min-w-[80px] text-right",
+                  "tabular-nums min-w-[80px] text-right whitespace-nowrap",
                   opts.primary ? "text-[13px] font-bold text-foreground" : "font-medium",
                 )}
               >
