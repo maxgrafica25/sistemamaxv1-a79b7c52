@@ -28,7 +28,10 @@ export interface LabelPreset {
   shape: LabelShape;
   width: number;
   height: number;
+  /** Folha alvo opcional. Quando definida, o chip troca a folha ao aplicar. */
+  sheetId?: "SRA3" | "A4";
 }
+
 
 export type LengthUnit = "mm" | "cm";
 
@@ -60,10 +63,18 @@ export interface LabelCalcConfig {
 // ---------- Defaults & seeds -------------------------------------------------
 
 export const SEED_LABEL_PRESETS: LabelPreset[] = [
-  { id: "seed-lacre-40", label: "Lacre 40×40", shape: "quadrado", width: 40, height: 40 },
-  { id: "seed-validade-20", label: "Validade 20×20", shape: "quadrado", width: 20, height: 20 },
-  { id: "seed-redonda-50", label: "Redonda Ø50", shape: "redondo", width: 50, height: 50 },
+  { id: "seed-sra3-r35", label: "SRA3 · Ø35", shape: "redondo", width: 35, height: 35, sheetId: "SRA3" },
+  { id: "seed-sra3-r40", label: "SRA3 · Ø40", shape: "redondo", width: 40, height: 40, sheetId: "SRA3" },
+  { id: "seed-sra3-r50", label: "SRA3 · Ø50", shape: "redondo", width: 50, height: 50, sheetId: "SRA3" },
+  { id: "seed-sra3-r60", label: "SRA3 · Ø60", shape: "redondo", width: 60, height: 60, sheetId: "SRA3" },
+  { id: "seed-sra3-r70", label: "SRA3 · Ø70", shape: "redondo", width: 70, height: 70, sheetId: "SRA3" },
+  { id: "seed-a4-r35",   label: "A4 · Ø35",   shape: "redondo", width: 35, height: 35, sheetId: "A4" },
+  { id: "seed-a4-r40",   label: "A4 · Ø40",   shape: "redondo", width: 40, height: 40, sheetId: "A4" },
+  { id: "seed-a4-r50",   label: "A4 · Ø50",   shape: "redondo", width: 50, height: 50, sheetId: "A4" },
+  { id: "seed-a4-r60",   label: "A4 · Ø60",   shape: "redondo", width: 60, height: 60, sheetId: "A4" },
+  { id: "seed-a4-r70",   label: "A4 · Ø70",   shape: "redondo", width: 70, height: 70, sheetId: "A4" },
 ];
+
 
 // Default usa SignMaster paramétrico + SRA3 (folha solta, caso real do cliente).
 // Margens 7/7/7/7 e gap 3mm conforme spec.
