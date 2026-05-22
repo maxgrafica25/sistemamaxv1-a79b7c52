@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import type { V3Item } from "../types";
 import { priceOf, fmtBRL } from "../shared/pricing";
 import { marginTextClass } from "@/lib/quotes-v2/margin";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 export interface CartPcts {
   taxPct: number;
@@ -260,7 +261,7 @@ function ExpandedDetails({
   breakdown,
 }: {
   context: { label: string; value: string }[];
-  breakdown: FinancialBreakdown;
+  breakdown: FinancialBreakdown | null;
 }) {
   return (
     <div className="mt-1 border-t border-border/40 pt-1 space-y-1">
@@ -274,31 +275,33 @@ function ExpandedDetails({
           ))}
         </ul>
       )}
-      <div className="rounded bg-muted/30 px-1.5 py-1">
-        <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
-          Custos e lucro
-        </p>
-        <ul className="space-y-0">
-          {breakdown.rows.map((r, i) => (
-            <li key={i} className="flex items-center justify-between gap-2 text-[10px] px-1">
-              <span className={cn(
-                r.tone === "strong" && "font-semibold",
-                r.className ?? (r.tone === "muted" ? "text-muted-foreground" : undefined),
-              )}>
-                {r.label}
-              </span>
-              <span className={cn(
-                "tabular-nums",
-                r.tone === "default" && "font-medium",
-                r.tone === "strong" && "font-semibold",
-                r.className ?? (r.tone === "muted" ? "text-muted-foreground" : undefined),
-              )}>
-                {r.value}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {breakdown && (
+        <div className="rounded bg-muted/30 px-1.5 py-1">
+          <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
+            Custos e lucro
+          </p>
+          <ul className="space-y-0">
+            {breakdown.rows.map((r, i) => (
+              <li key={i} className="flex items-center justify-between gap-2 text-[10px] px-1">
+                <span className={cn(
+                  r.tone === "strong" && "font-semibold",
+                  r.className ?? (r.tone === "muted" ? "text-muted-foreground" : undefined),
+                )}>
+                  {r.label}
+                </span>
+                <span className={cn(
+                  "tabular-nums",
+                  r.tone === "default" && "font-medium",
+                  r.tone === "strong" && "font-semibold",
+                  r.className ?? (r.tone === "muted" ? "text-muted-foreground" : undefined),
+                )}>
+                  {r.value}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -387,6 +390,7 @@ function groupItems(items: V3Item[]): Entry[] {
 
 export function UnifiedCart({ items, onDuplicate, onRemove, highlightId, taxPct, feesPct, wastePct }: Props) {
   const pcts: CartPcts = { taxPct, feesPct, wastePct };
+  const showFinancials = useIsAdmin();
   if (items.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border/60 bg-muted/20 p-4 text-center">
@@ -411,6 +415,7 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId, taxPct,
               onDuplicate={onDuplicate}
               onRemove={onRemove}
               pcts={pcts}
+              showFinancials={showFinancials}
             />
           );
         }
@@ -424,6 +429,7 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId, taxPct,
               onDuplicate={onDuplicate}
               onRemove={onRemove}
               pcts={pcts}
+              showFinancials={showFinancials}
             />
           );
         }
@@ -549,9 +555,10 @@ interface BundleCardProps {
   onDuplicate: (id: string) => void;
   onRemove: (id: string) => void;
   pcts: CartPcts;
+  showFinancials: boolean;
 }
 
-function BundleCard({ entry, highlightId, onDuplicate, onRemove, pcts }: BundleCardProps) {
+function BundleCard({ entry, highlightId, onDuplicate, onRemove, pcts, showFinancials }: BundleCardProps) {
   const [expanded, setExpanded] = useState(false);
   const leader = entry.leader;
   const Icon = ICON[leader.kind];
@@ -632,14 +639,16 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove, pcts }: BundleC
               );
             })}
           </ul>
-          <ExpandedDetails
-            context={[]}
-            breakdown={buildFinancials(
-              entry.items.reduce((a, it) => a + priceOf(it).custo_total, 0),
-              entry.items.reduce((a, it) => a + priceOf(it).preco_total, 0),
-              pcts,
-            )}
-          />
+          {showFinancials && (
+            <ExpandedDetails
+              context={[]}
+              breakdown={buildFinancials(
+                entry.items.reduce((a, it) => a + priceOf(it).custo_total, 0),
+                entry.items.reduce((a, it) => a + priceOf(it).preco_total, 0),
+                pcts,
+              )}
+            />
+          )}
         </>
       )}
     </li>
@@ -652,9 +661,10 @@ interface SingleCardProps {
   onDuplicate: (id: string) => void;
   onRemove: (id: string) => void;
   pcts: CartPcts;
+  showFinancials: boolean;
 }
 
-function SingleCard({ item, isNew, onDuplicate, onRemove, pcts }: SingleCardProps) {
+function SingleCard({ item, isNew, onDuplicate, onRemove, pcts, showFinancials }: SingleCardProps) {
   const [expanded, setExpanded] = useState(false);
   const Icon = ICON[item.kind];
   const price = priceOf(item).preco_total;
@@ -697,7 +707,10 @@ function SingleCard({ item, isNew, onDuplicate, onRemove, pcts }: SingleCardProp
       </div>
 
       {expanded && (
-        <ExpandedDetails context={itemContext(item)} breakdown={itemFinancials(item, pcts)} />
+        <ExpandedDetails
+          context={itemContext(item)}
+          breakdown={showFinancials ? itemFinancials(item, pcts) : null}
+        />
       )}
     </li>
   );
