@@ -10,8 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, Plus, AlertCircle, AlertTriangle, RotateCcw, Wand2, Pencil, Megaphone } from "lucide-react";
+import { Check, Plus, AlertCircle, AlertTriangle, RotateCcw, Wand2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
+import { iconFor } from "../shared/presetIcons";
 import { ModeButton } from "../shared/ModeButton";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3CVItem } from "../types";
@@ -65,36 +67,23 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
   const [bannerTouched, setBannerTouched] = useState(false);
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
 
-  const CV_PRESETS: Array<{
-    id: string;
-    label: string;
-    match: RegExp;
-    fallbackTipo?: "lona" | "adesivo" | "chapa";
-    fallbackNome?: RegExp;
-    width: number;
-    height: number;
-    qty: number;
-    banner: boolean;
-  }> = [
-    { id: "banner", label: "Banner", match: /banner|frontlight/i, fallbackTipo: "lona", fallbackNome: /brilho.*440|lona.*brilho/i, width: 100, height: 70, qty: 1, banner: true },
-    { id: "lona", label: "Lona", match: /lona/i, fallbackTipo: "lona", width: 200, height: 100, qty: 1, banner: false },
-    { id: "adesivo", label: "Adesivo", match: /adesivo|vinil/i, fallbackTipo: "adesivo", width: 30, height: 30, qty: 10, banner: false },
-    { id: "faixa", label: "Faixa", match: /faixa|lona|banner/i, fallbackTipo: "lona", fallbackNome: /brilho.*440|lona.*brilho/i, width: 200, height: 50, qty: 1, banner: true },
-  ];
+  const { presets: cvPresets } = useQuotePresets("cv");
 
-  const applyPreset = (p: typeof CV_PRESETS[number]) => {
+  const applyPreset = (p: QuotePreset) => {
     setActivePresetId(p.id);
-    setLargura(p.width);
-    setAltura(p.height);
-    setQuantidade(p.qty);
-    setIsBanner(p.banner);
+    if (p.largura_cm != null) setLargura(Number(p.largura_cm));
+    if (p.altura_cm != null) setAltura(Number(p.altura_cm));
+    if (p.quantidade_padrao != null) setQuantidade(p.quantidade_padrao);
+    setIsBanner(p.is_banner);
     setBannerTouched(true);
-    // Escolha de mídia: 1) match por nome/tipo  2) fallback por nome dentro do tipo  3) primeira do tipo
-    let found = cat.midias.find((m) => p.match.test(`${m.nome} ${m.tipo_midia}`));
-    if (!found && p.fallbackTipo) {
-      const doTipo = cat.midias.filter((m) => m.tipo_midia === p.fallbackTipo);
-      if (p.fallbackNome) found = doTipo.find((m) => p.fallbackNome!.test(m.nome));
-      if (!found) found = doTipo[0];
+    // Escolha de mídia: 1) trecho do nome  2) primeira do tipo  3) qualquer
+    let found = undefined as ReturnType<typeof cat.midias.find>;
+    if (p.midia_nome_match) {
+      const re = new RegExp(p.midia_nome_match, "i");
+      found = cat.midias.find((m) => re.test(`${m.nome} ${m.tipo_midia}`));
+    }
+    if (!found && p.midia_tipo) {
+      found = cat.midias.find((m) => m.tipo_midia === p.midia_tipo);
     }
     if (found) setMidiaId(found.id);
     setDescricaoEditada(false);
