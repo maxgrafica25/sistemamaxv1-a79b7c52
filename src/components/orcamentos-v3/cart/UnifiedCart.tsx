@@ -282,15 +282,16 @@ function ExpandedDetails({
           {breakdown.rows.map((r, i) => (
             <li key={i} className="flex items-center justify-between gap-2 text-[10px] px-1">
               <span className={cn(
-                r.tone === "strong" ? cn("font-semibold", r.className) : "text-muted-foreground",
+                r.tone === "strong" && "font-semibold",
+                r.className ?? (r.tone === "muted" ? "text-muted-foreground" : undefined),
               )}>
                 {r.label}
               </span>
               <span className={cn(
                 "tabular-nums",
-                r.tone === "muted" && "text-muted-foreground",
                 r.tone === "default" && "font-medium",
-                r.tone === "strong" && cn("font-semibold", r.className),
+                r.tone === "strong" && "font-semibold",
+                r.className ?? (r.tone === "muted" ? "text-muted-foreground" : undefined),
               )}>
                 {r.value}
               </span>
