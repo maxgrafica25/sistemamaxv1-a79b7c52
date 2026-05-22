@@ -194,6 +194,8 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
           </p>
 
           <div className="mt-6 max-w-3xl">
+            <RecorrentesPanel clientId={state.cliente.id} clientName={state.cliente.nome} />
+
             {active === "print" && (
               <PrintAndProductForm
                 onAdd={addItem}
