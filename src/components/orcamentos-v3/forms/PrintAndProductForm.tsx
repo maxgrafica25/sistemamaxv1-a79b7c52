@@ -172,10 +172,21 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
       {/* Sub-formulário */}
       <div>
         {mode === "custom" && (
-          <PrintForm onAdd={onAdd} onAddTiers={onAddTiers} onSelectionChange={handleSelectionChange} />
+          <PrintForm
+            onAdd={onAdd}
+            onAddTiers={onAddTiers}
+            onSelectionChange={handleSelectionChange}
+            descricao={descricao}
+            onDescricaoChange={setDescricao}
+          />
         )}
         {mode === "product" && formTipo === "print" && (
-          <PrintForm onAdd={onAdd} onAddTiers={onAddTiers} />
+          <PrintForm
+            onAdd={onAdd}
+            onAddTiers={onAddTiers}
+            descricao={descricao}
+            onDescricaoChange={setDescricao}
+          />
         )}
         {mode === "product" && formTipo === "booklet" && (
           <BookletForm
@@ -183,13 +194,21 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onAddMany={onAddMany}
             onAddTiers={onAddTiers}
             defaultMarginPct={defaultMarginPct}
+            descricao={descricao}
+            onDescricaoChange={setDescricao}
           />
         )}
         {mode === "product" && formTipo === "label" && (
-          <LabelEmbeddedForm onAdd={onAdd} onAddTiers={onAddTiers} />
+          <LabelEmbeddedForm
+            onAdd={onAdd}
+            onAddTiers={onAddTiers}
+            descricao={descricao}
+            onDescricaoChange={setDescricao}
+          />
         )}
       </div>
     </div>
   );
 }
+
 
