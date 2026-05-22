@@ -3,7 +3,7 @@
 // Em personalizado, mostra sugestão inteligente quando a combinação
 // de papel + acabamentos casa com um produto conhecido (ex: lona + ilhós).
 import { useCallback, useMemo, useState } from "react";
-import { Pencil, Sparkles, X, Star } from "lucide-react";
+import { CreditCard, Pencil, Sparkles, X, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,15 @@ import { Label } from "@/components/ui/label";
 import { PrintForm } from "./PrintForm";
 import { BookletForm } from "./BookletForm";
 import { LabelEmbeddedForm } from "./LabelEmbeddedForm";
+import { BusinessCardForm } from "./BusinessCardForm";
 import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
 import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
 import { PRESET_BY_ID } from "../shared/productPresets";
 import { suggestProduct, type SuggestResult } from "../shared/productSuggester";
 import type { V3Item } from "../types";
+
+const BUILTIN_BUSINESS_CARD_ID = "__builtin_business_card__";
 
 interface Props {
   onAdd: (item: V3Item) => void;
@@ -40,9 +43,10 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
   } | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
 
-  const selectedPreset: QuotePreset | undefined = selectedPresetId
+  const selectedPreset: QuotePreset | undefined = selectedPresetId && selectedPresetId !== BUILTIN_BUSINESS_CARD_ID
     ? presets.find((p) => p.id === selectedPresetId)
     : undefined;
+  const isBusinessCard = selectedPresetId === BUILTIN_BUSINESS_CARD_ID;
   const formTipo: "print" | "booklet" | "label" = selectedPreset?.form_tipo ?? "print";
   const isCustom = !selectedPresetId;
 
@@ -130,6 +134,19 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
           <Pencil className="h-3.5 w-3.5" />
           Personalizado
         </button>
+        <button
+          type="button"
+          onClick={() => setSelectedPresetId(BUILTIN_BUSINESS_CARD_ID)}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+            isBusinessCard
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+          )}
+        >
+          <CreditCard className="h-3.5 w-3.5" />
+          Cartão de Visita
+        </button>
         {presets.map((p) => {
           const Icon = iconFor(p.icone);
           const active = p.id === selectedPresetId;
@@ -203,6 +220,13 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
 
       {/* Sub-formulário */}
       <div>
+        {isBusinessCard && (
+          <BusinessCardForm
+            onAdd={onAdd}
+            descricao={descricao}
+            onDescricaoChange={setDescricao}
+          />
+        )}
         {isCustom && (
           <PrintForm
             onAdd={onAdd}
@@ -213,7 +237,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             emptyDefaults
           />
         )}
-        {!isCustom && formTipo === "print" && (
+        {!isCustom && !isBusinessCard && formTipo === "print" && (
           <PrintForm
             onAdd={onAdd}
             onAddTiers={onAddTiers}
@@ -221,7 +245,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onDescricaoChange={setDescricao}
           />
         )}
-        {!isCustom && formTipo === "booklet" && (
+        {!isCustom && !isBusinessCard && formTipo === "booklet" && (
           <BookletForm
             onAdd={onAdd}
             onAddMany={onAddMany}
@@ -231,7 +255,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onDescricaoChange={setDescricao}
           />
         )}
-        {!isCustom && formTipo === "label" && (
+        {!isCustom && !isBusinessCard && formTipo === "label" && (
           <LabelEmbeddedForm
             onAdd={onAdd}
             onAddTiers={onAddTiers}
