@@ -1,24 +1,44 @@
+# Ajuste de contraste global
+
 ## Objetivo
+Tornar a separação visual entre **fundo da página**, **cards/painéis** e **controles (inputs, botões, combobox)** mais forte em todo o sistema — tema claro e escuro — usando o /orcamentos-v2/novo como referência.
 
-Restringir o painel "Custos e lucro" (que aparece ao expandir um item do carrinho) **apenas para usuários admin**, e garantir que ele apareça para **todos os tipos de item** — impressão, apostila, etiqueta, comunicação visual, terceirizado, suprimento e mão-de-obra.
+Os chips de "Acabamentos sugeridos" permanecem como já estão hoje (pill roxo com borda tracejada + ícone +).
 
-## Estado atual
+## Escopo
+- Editar **apenas tokens** em `src/index.css` (`:root` e `.dark`).
+- Nenhuma alteração em componentes individuais, lógica de negócio, ou nos chips de acabamento.
+- Como tudo o resto do sistema usa `bg-background`, `bg-card`, `bg-muted`, `border-border`, `bg-input`, etc., a mudança se propaga sozinha.
 
-- `UnifiedCart` já renderiza o painel para todas as `kinds` (`print`, `cv`, `third`, `booklet`, `labor`, `supply`, `label`) via `itemFinancials` + `ExpandedDetails`. Nada a alterar no cálculo.
-- Não há gate por role — qualquer usuário vê o detalhamento financeiro.
+## Alterações
 
-## Mudança
+### Tema escuro (`.dark`) — referência principal
+| Token | Atual | Novo | Motivo |
+|---|---|---|---|
+| `--background` | `0 0% 7%` | `270 18% 8%` | Fundo levemente roxo (tom da marca), mais profundo |
+| `--card` | `0 0% 10%` | `270 14% 13%` | Card visivelmente acima do fundo |
+| `--popover` | `0 0% 10%` | `270 14% 14%` | Igual ao card |
+| `--secondary` | `0 0% 14%` | `270 12% 17%` | Mais distinto |
+| `--muted` | `0 0% 16%` | `270 10% 18%` | Áreas suaves perceptíveis |
+| `--muted-foreground` | `0 0% 65%` | `270 8% 72%` | Texto secundário mais legível |
+| `--border` | `0 0% 18%` | `270 14% 22%` | Bordas visíveis mas discretas |
+| `--input` | `0 0% 18%` | `270 14% 22%` | Inputs destacados do card |
 
-**`src/components/orcamentos-v3/cart/UnifiedCart.tsx`**
-1. Importar `useIsAdmin` de `@/hooks/useIsAdmin`.
-2. Chamar `const isAdmin = useIsAdmin()` dentro do `UnifiedCart` e propagar como prop opcional `showFinancials: boolean` para `SingleCard` e `BundleCard` (junto do `pcts`).
-3. Em `SingleCard` e `BundleCard`, renderizar `<ExpandedDetails ... />` somente quando `showFinancials` for true. Para usuários não-admin, ao expandir o item será mostrado apenas o contexto (papel/dimensão/quantidade etc.) — sem custos, perdas, impostos ou lucro.
-4. No `BundleCard`, a lista interna de sub-itens continua visível para todos; o bloco financeiro é que fica oculto.
+### Tema claro (`:root`) — ajuste leve
+| Token | Atual | Novo | Motivo |
+|---|---|---|---|
+| `--background` | `210 40% 98%` | `270 30% 97%` | Tom levemente roxo, mais coeso com a marca |
+| `--muted` | `210 40% 94%` | `270 25% 94%` | Mantém suavidade com tom da marca |
+| `--secondary` | `210 40% 96%` | `270 25% 95%` | Mesma família de cor |
+| `--border` | `214 32% 91%` | `270 20% 89%` | Levemente mais escura → mais visível |
+| `--input` | `214 32% 91%` | `270 20% 89%` | Igual border |
 
-Não há outras mudanças (sem alterações em rotas, banco, RLS, motor de preço ou outros módulos). O módulo de Comunicação Visual já é coberto porque os itens CV passam pelo mesmo carrinho via tab "Com. Visual" no V3.
+`--card` no claro permanece `0 0% 100%` (branco puro contrastando com o fundo levemente roxo).
 
 ## Fora de escopo
+- Botões de acabamento e chips de sugestão (mantidos como hoje).
+- Sidebar tokens (já estão coerentes; sem mudança).
+- Qualquer override `text-gray-*` ou cor literal em componentes específicos — não vou caçar isso nesta passada.
 
-- Carrinho do V2 ou de outros fluxos (cv-calc page, calculadora de etiquetas avulsa) — o pedido refere-se ao carrinho do orçamento.
-- Resumo financeiro do orçamento (já existe e segue como está).
-- Edição de role/permissões.
+## Validação
+Após aplicar, abrir Dashboard, Estoque, Orçamentos V2/V3, Pedidos e Configurações em ambos os temas e conferir que cards/inputs/botões ficam visivelmente separados do fundo.
