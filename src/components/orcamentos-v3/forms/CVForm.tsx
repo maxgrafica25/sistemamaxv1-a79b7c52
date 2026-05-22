@@ -86,6 +86,7 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
     setAltura(p.height);
     setQuantidade(p.qty);
     setIsBanner(p.banner);
+    setBannerTouched(true);
     const found = cat.midias.find((m) => p.match.test(`${m.nome} ${m.tipo_midia}`));
     if (found) setMidiaId(found.id);
     setDescricaoEditada(false);
