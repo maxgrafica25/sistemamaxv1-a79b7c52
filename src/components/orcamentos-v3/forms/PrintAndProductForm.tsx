@@ -15,7 +15,6 @@ import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
 import {
   PRESET_BY_ID,
-  type ProductPresetId,
 } from "../shared/productPresets";
 import { suggestProduct, type SuggestResult } from "../shared/productSuggester";
 import type { V3Item } from "../types";
