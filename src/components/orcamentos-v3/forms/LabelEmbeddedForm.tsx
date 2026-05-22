@@ -91,6 +91,17 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
     setActivePresetId(p.id);
   };
 
+  const handleSheetChange = (v: string) => {
+    if (!v || v === sheetId) return;
+    setSheetId(v);
+    setActivePresetId(null);
+  };
+
+  const visiblePresets = useMemo(
+    () => labelPresets.filter((p) => !p.sheetId || p.sheetId === sheetId),
+    [labelPresets, sheetId],
+  );
+
 
   const sheet = SHEET_PRESETS.find((s) => s.id === sheetId) ?? SHEET_PRESETS[1];
   const folha = useFolhaPricing(sheetId);
