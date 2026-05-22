@@ -81,8 +81,16 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
       setLabelW(p.width);
       setLabelH(p.height);
     }
+    if (p.sheetId && p.sheetId !== sheetId) {
+      setSheetId(p.sheetId);
+    }
+    // Força papel adesivo — o hook auto-seleciona o acabamento de recorte adesivo.
+    if (folha.availableKinds.includes("adesivo") && folha.paperKind !== "adesivo") {
+      folha.setPaperKind("adesivo");
+    }
     setActivePresetId(p.id);
   };
+
 
   const sheet = SHEET_PRESETS.find((s) => s.id === sheetId) ?? SHEET_PRESETS[1];
   const folha = useFolhaPricing(sheetId);
