@@ -240,23 +240,6 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
   );
 }
 
-function ActiveTabBanner({ active }: { active: V3Category }) {
-  const tab = getTab(active);
-  const Icon = tab.icon;
-  return (
-    <div className="mt-4 flex items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-2.5">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-foreground leading-tight">{tab.label}</p>
-        <p className="hidden sm:block text-xs text-muted-foreground leading-tight mt-0.5">
-          {tab.description}
-        </p>
-      </div>
-    </div>
-  );
-}
 
 function MobileCart({
   state,
