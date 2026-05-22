@@ -1,51 +1,47 @@
-## Novo formato dos itens no carrinho lateral
+## Título do item: só quantidade + nome, com plural
 
-Substituir o cabeçalho atual de cada item por um padrão consistente, focado em quantidade e detalhes de produção.
+### Regra do título (linha 1)
 
-### Novo padrão visual
+`{qty} un. - {Nome do produto}` — e o **Nome** vira plural quando `qty > 1`.
 
-**Título (linha 1):** `{qty} un. - {Nome do Produto}`
-- Exemplo: `1 un. - Apostila`
-- Negrito, mesmo tamanho atual (`text-[13px]`)
+- Exemplos: `1 un. - Apostila` · `5 un. - Apostilas` · `100 un. - Etiquetas` · `1 un. - Impresso personalizado` · `200 un. - Impressos personalizados`.
+- A linha 2 (subtítulo cinza) já tem as características (folhas, papel, F/V, dimensões) — o título **nunca** repete esses dados.
 
-**Subtítulo (linha 2):** detalhes de produção em cinza (`text-muted-foreground`), fonte menor (`text-[11px]`), separados por `|`. Para evitar redundância com o título, a quantidade principal NÃO se repete no subtítulo de Etiqueta/Terceiro/Suprimento.
+### Como decidir o "Nome do produto"
 
-- Print: `{qty} folhas | {Papel} {gramatura}g | {Frente | Frente/Verso}` (qty = folhas do miolo)
-- Apostila (booklet): `{bookletPages} folhas | {Papel} {gramatura}g | {Frente | Frente/Verso}` (folhas por apostila, não kits)
-- Etiqueta: `{labelW}×{labelH} mm | {Papel} {gramatura}g`
-- CV: `{largura}×{altura} cm | {Mídia} | {Impressão}`
-- Terceiro: `{Fornecedor}`
-- Suprimento: `{Suprimento}`
-- Mão-de-obra: `{tempo} min | {Etapa}`
+Prioridade, no helper `itemTitle()` em `UnifiedCart.tsx`:
 
-Exemplo final: `20 folhas | Sulfite 75g | Frente/Verso`
+1. **Preset/produto nomeado** — se o item tem `bundle_label` ou um nome de preset (ex.: kit Apostila, Etiqueta, Cartão de Visita), usa esse nome.
+2. **Descrição digitada pelo usuário** — se ele preencheu o campo "Descrição (opcional)", usa o que foi digitado.
+3. **Fallback padrão por tipo** — quando nada acima existe:
+   - `print` → `Impresso personalizado`
+   - `booklet` → `Apostila`
+   - `label` → `Etiqueta`
+   - `cv` → `Comunicação visual`
+   - `third` → `Serviço terceirizado`
+   - `supply` → `Suprimento`
+   - `labor` → `Mão-de-obra` (sempre singular)
 
-### Remoção do "1x"
+### Pluralização
 
-- Em `cartMeta` (apostila), substituir `${bookletUnits}× ${bookletPages}fl` pelo novo subtítulo descrito acima — sem o caractere `×` antes da quantidade.
-- O caractere `×` permanece apenas em dimensões físicas (ex: `50×50 mm`, `30×40 cm`), onde representa medida — sem ambiguidade com cores.
+Novo helper `pluralizePt(name, qty)` em `UnifiedCart.tsx`, aplicado à última palavra do nome:
 
-### Onde aplicar (arquivo: `src/components/orcamentos-v3/cart/UnifiedCart.tsx`)
+- termina em vogal/`n` → `+s` (Apostila → Apostilas; Impresso → Impressos)
+- termina em `m` → troca por `ns` (Item → Itens; Bom → Bons)
+- termina em `r`, `s`, `z` → `+es` (Cartaz → Cartazes); palavras já no plural ficam como estão
+- termina em `ão` → `ões` (regra mais comum; aceita-se imperfeição em casos raros)
+- termina em `l` → troca por `is` (Painel → Painéis — sem acento adicional)
+- adjetivos colados ("Impresso personalizado") → flexiona também o adjetivo final quando termina em vogal (`personalizado → personalizados`).
 
-1. **`SingleCard`** (linhas 488-548):
-   - Substituir o `<p>` do título por `{qty} un. - {nome}`.
-   - Substituir o bloco `Badge + cartMeta` por um único `<p>` em cinza com o novo subtítulo.
-   - Manter o preço à direita, o botão "detalhes/ocultar" e as ações (duplicar/excluir).
+Para nomes digitados pelo usuário com várias palavras, pluraliza apenas o substantivo principal (primeira palavra) + adjetivo final, deixando o miolo intacto. Casos exóticos seguem a regra simples (aceita imperfeição — é uma melhoria cosmética, não validação).
 
-2. **Group/Tier card** (linhas 352-383):
-   - Cabeçalho do grupo passa a usar `{primaryQty} un. - {descricao}` no título.
-   - Adicionar subtítulo cinza com os detalhes do `primaryItem`.
-   - Linhas de faixas (tiers) permanecem inalteradas (já mostram "X un · valor").
+### Onde aplicar (escopo)
 
-3. **`BundleCard`** (linhas 396-479):
-   - Cabeçalho passa a `{leaderQty} un. - {title}`.
-   - Adicionar subtítulo cinza com os detalhes do `leader`.
-   - Botão "ver detalhes" e itens internos permanecem.
+Apenas em `src/components/orcamentos-v3/cart/UnifiedCart.tsx`:
 
-4. **Helper novo** `itemSubtitle(it: V3Item): string` — concentra a construção do subtítulo por `kind`, retornando string já formatada com `|`. Reaproveitado nos 3 cards.
+1. Novo helper `pluralizePt(name: string, qty: number): string`.
+2. Novo helper `defaultName(kind: V3Item["kind"]): string` com a tabela de fallback acima.
+3. Atualizar `itemTitle(it)` para usar a prioridade descrita e aplicar `pluralizePt`.
+4. Usar `itemTitle` em **SingleCard**, **Group/Tier card** e **BundleCard** (já é o caso; apenas a lógica interna muda).
 
-5. **`cartMeta`** pode ser removida (ou deixada apenas como fallback) — não será mais usada nos cards após a refatoração.
-
-### Escopo
-
-- Apenas visual/apresentação. Sem alterações em tipos, pricing, lógica de tiers, persistência ou detalhes expandidos (`itemDetails`).
+Nenhuma mudança em forms, tipos, persistência ou pricing. O subtítulo (`itemSubtitle`) permanece exatamente como está.
