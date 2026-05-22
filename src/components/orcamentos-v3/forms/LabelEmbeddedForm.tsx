@@ -271,7 +271,7 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
     setTimeout(() => setPulse(false), 600);
   };
 
-  const sizeLabel = isRound ? `Ø${diameter}mm` : `${labelW}×${labelH}mm`;
+  const sizeLabel = isRound ? `Ø${(diameter / 10).toLocaleString("pt-BR")}cm` : `${(labelW / 10).toLocaleString("pt-BR")}×${(labelH / 10).toLocaleString("pt-BR")}cm`;
 
   return (
     <div className="space-y-5">
@@ -345,12 +345,16 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
 
       {isRound ? (
         <div className="grid grid-cols-3 gap-3">
-          <Field label="Diâmetro (mm)">
+          <Field label="Diâmetro (cm)">
             <Input
               type="number"
-              min={5}
-              value={diameter}
-              onChange={(e) => setDiameter(Math.max(1, Number(e.target.value) || 0))}
+              min={0.5}
+              step={0.1}
+              value={(diameter / 10).toString()}
+              onChange={(e) => {
+                const cm = Number(e.target.value) || 0;
+                setDiameter(Math.max(1, Math.round(cm * 10)));
+              }}
               className="h-9"
             />
           </Field>
@@ -377,25 +381,34 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Largura (mm)">
+            <Field label="Largura (cm)">
               <Input
                 type="number"
-                min={5}
-                value={labelW}
-                onChange={(e) => setLabelW(Math.max(1, Number(e.target.value) || 0))}
+                min={0.5}
+                step={0.1}
+                value={(labelW / 10).toString()}
+                onChange={(e) => {
+                  const cm = Number(e.target.value) || 0;
+                  setLabelW(Math.max(1, Math.round(cm * 10)));
+                }}
                 className="h-9"
               />
             </Field>
-            <Field label="Altura (mm)">
+            <Field label="Altura (cm)">
               <Input
                 type="number"
-                min={5}
-                value={labelH}
-                onChange={(e) => setLabelH(Math.max(1, Number(e.target.value) || 0))}
+                min={0.5}
+                step={0.1}
+                value={(labelH / 10).toString()}
+                onChange={(e) => {
+                  const cm = Number(e.target.value) || 0;
+                  setLabelH(Math.max(1, Math.round(cm * 10)));
+                }}
                 className="h-9"
               />
             </Field>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <Field label="Quantidade de etiquetas">
               <Input
