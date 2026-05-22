@@ -650,13 +650,13 @@ interface SingleCardProps {
   isNew: boolean;
   onDuplicate: (id: string) => void;
   onRemove: (id: string) => void;
+  pcts: CartPcts;
 }
 
-function SingleCard({ item, isNew, onDuplicate, onRemove }: SingleCardProps) {
+function SingleCard({ item, isNew, onDuplicate, onRemove, pcts }: SingleCardProps) {
   const [expanded, setExpanded] = useState(false);
   const Icon = ICON[item.kind];
   const price = priceOf(item).preco_total;
-  const details = expanded ? itemDetails(item) : [];
   return (
     <li
       className={cn(
@@ -696,16 +696,7 @@ function SingleCard({ item, isNew, onDuplicate, onRemove }: SingleCardProps) {
       </div>
 
       {expanded && (
-        <ul className="mt-1 space-y-0 border-t border-border/40 pt-1">
-          {details.map((d, i) => (
-            <li key={i} className="flex items-center justify-between gap-2 text-[10px] px-1">
-              <span className={cn("text-muted-foreground", d.muted && "opacity-80")}>{d.label}</span>
-              <span className={cn("tabular-nums", d.muted ? "text-muted-foreground" : "font-medium")}>
-                {d.value}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <ExpandedDetails context={itemContext(item)} breakdown={itemFinancials(item, pcts)} />
       )}
     </li>
   );
