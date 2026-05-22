@@ -207,10 +207,10 @@ export function loadConfig(): LabelCalcConfig {
   }
   // Migração one-shot: substitui presets de etiqueta antigos pelos novos (SRA3/A4 redondas)
   try {
-    if (typeof window !== "undefined" && !window.localStorage.getItem("labelCalc.presetsMigratedV3")) {
+    if (typeof window !== "undefined" && !window.localStorage.getItem("labelCalc.presetsMigratedV4")) {
       merged = { ...merged, labelPresets: SEED_LABEL_PRESETS.map((p) => ({ ...p })) };
       writeRaw(merged);
-      window.localStorage.setItem("labelCalc.presetsMigratedV3", "1");
+      window.localStorage.setItem("labelCalc.presetsMigratedV4", "1");
     }
   } catch {
     // ignore
