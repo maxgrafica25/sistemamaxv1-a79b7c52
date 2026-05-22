@@ -84,25 +84,13 @@ export function ThirdPartyForm({ onAdd, onAddTiers }: Props) {
 
       <div className="grid grid-cols-3 gap-4">
         <Field label="Quantidade">
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={1}
-              value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
-              className="h-9"
-            />
-            <TierSimulator
-              currentQty={quantidade}
-              disabled={!(custo > 0)}
-              compute={(q) => {
-                const c = q * (custo || 0);
-                return { custo_total: c, preco_total: roundUp10(c * (1 + (margem || 0) / 100)) };
-              }}
-              onPickQty={(q) => setQuantidade(q)}
-              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
-            />
-          </div>
+          <Input
+            type="number"
+            min={1}
+            value={quantidade}
+            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
+            className="h-9"
+          />
         </Field>
         <Field label="Custo unitário (R$)">
           <Input
@@ -125,6 +113,18 @@ export function ThirdPartyForm({ onAdd, onAddTiers }: Props) {
           />
         </Field>
       </div>
+
+      {onAddTiers && (
+        <TierFaixasPanel
+          currentQty={quantidade}
+          disabled={!(custo > 0)}
+          onExtrasChange={setExtraTiers}
+          compute={(q) => {
+            const c = q * (custo || 0);
+            return { custo_total: c, preco_total: roundUp10(c * (1 + (margem || 0) / 100)) };
+          }}
+        />
+      )}
 
       <div className="flex items-center justify-between pt-2">
         <p className="text-sm text-muted-foreground">
