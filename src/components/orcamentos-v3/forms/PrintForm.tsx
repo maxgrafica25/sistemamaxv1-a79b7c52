@@ -256,12 +256,6 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
               )}
             </div>
           </div>
-          {isLona && (
-            <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
-              É banner?
-              <Switch checked={isBanner} onCheckedChange={(v) => setIsBanner(!!v)} />
-            </label>
-          )}
           <button
             type="button"
             onClick={() => setCatalog(null)}
@@ -272,35 +266,6 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
         </div>
       )}
 
-      {isLona && isBanner && (
-        <div className="grid grid-cols-2 gap-4 rounded-md border border-primary/20 bg-primary/5 px-3 py-3">
-          <Field label="Largura do banner (cm)">
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={bannerLarguraCm || ""}
-              onChange={(e) => {
-                setBannerLarguraCm(Math.max(0, Number(e.target.value) || 0));
-                setBastaoOverride(null);
-              }}
-              placeholder="ex.: 120"
-              className="h-9"
-            />
-          </Field>
-          <Field label="Altura do banner (cm)">
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={bannerAlturaCm || ""}
-              onChange={(e) => setBannerAlturaCm(Math.max(0, Number(e.target.value) || 0))}
-              placeholder="ex.: 90"
-              className="h-9"
-            />
-          </Field>
-        </div>
-      )}
 
       <div className="grid grid-cols-2 gap-4">
         <Field label="Quantidade (folhas)">
