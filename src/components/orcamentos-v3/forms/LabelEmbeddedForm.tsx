@@ -174,24 +174,17 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* Toggle Produtos / Personalizado */}
-      <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
-        <ModeButton
-          active={mode === "product"}
-          onClick={() => setMode("product")}
-          icon={Wand2}
-          label="Produtos"
+      <Field label="Descrição (opcional)">
+        <Input
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder={`Padrão: Etiqueta ${labelW}×${labelH}mm — ${quantidade} un`}
+          className="h-9"
         />
-        <ModeButton
-          active={mode === "custom"}
-          onClick={() => setMode("custom")}
-          icon={Pencil}
-          label="Personalizado"
-        />
-      </div>
+      </Field>
 
       {/* Chips de presets favoritos */}
-      {mode === "product" && labelPresets.length > 0 && (
+      {labelPresets.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {labelPresets.map((p) => {
             const active = p.id === activePresetId;
@@ -214,6 +207,7 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers }: Props) {
           })}
         </div>
       )}
+
 
 
       <div className="flex items-start justify-between gap-3">
