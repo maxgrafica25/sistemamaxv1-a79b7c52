@@ -22,6 +22,7 @@ interface Props {
 export function SupplyForm({ defaultMarginPct, onAdd, onAddTiers }: Props) {
   const [supply, setSupply] = useState<SupplyOption | null>(null);
   const [qty, setQty] = useState<number>(1);
+  const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [margem, setMargem] = useState<number>(defaultMarginPct || 20);
   const [descricao, setDescricao] = useState("");
   const [pulse, setPulse] = useState(false);
