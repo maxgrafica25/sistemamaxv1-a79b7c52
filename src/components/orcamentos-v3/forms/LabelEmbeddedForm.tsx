@@ -494,7 +494,7 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
         <div className="rounded-md border border-border/60 bg-background px-3 py-2.5 space-y-1">
           <Row
             label="Área útil da folha"
-            value={`${usableW}×${usableH}mm (folha ${sheet.width}×${sheet.height}mm)`}
+            value={`${(usableW / 10).toLocaleString("pt-BR")}×${(usableH / 10).toLocaleString("pt-BR")}cm (folha ${(sheet.width / 10).toLocaleString("pt-BR")}×${(sheet.height / 10).toLocaleString("pt-BR")}cm)`}
             muted
           />
           <Row label="Aproveitamento por folha" value={`${perSheet} etiquetas`} />
@@ -533,8 +533,9 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
               </div>
               <p className="text-[11px] text-muted-foreground leading-snug">
                 {isRound
-                  ? `Diminuir Ø em ${shrink.shrinkW}mm → Ø${shrink.newLabelW}mm`
-                  : `Reduzir ${shrink.shrinkW}×${shrink.shrinkH}mm → ${shrink.newLabelW}×${shrink.newLabelH}mm`}
+                  ? `Diminuir Ø em ${(shrink.shrinkW / 10).toLocaleString("pt-BR")}cm → Ø${(shrink.newLabelW / 10).toLocaleString("pt-BR")}cm`
+                  : `Reduzir ${(shrink.shrinkW / 10).toLocaleString("pt-BR")}×${(shrink.shrinkH / 10).toLocaleString("pt-BR")}cm → ${(shrink.newLabelW / 10).toLocaleString("pt-BR")}×${(shrink.newLabelH / 10).toLocaleString("pt-BR")}cm`}
+
                 {" "}rende <strong>{shrink.newPerSheet}</strong>/folha (+{shrink.delta}).
               </p>
             </button>
@@ -551,8 +552,9 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
               </div>
               <p className="text-[11px] text-muted-foreground leading-snug">
                 {isRound
-                  ? `Aumentar Ø em ${grow.growW}mm → Ø${grow.newLabelW}mm`
-                  : `Aumentar ${grow.growW}×${grow.growH}mm → ${grow.newLabelW}×${grow.newLabelH}mm`}
+                  ? `Aumentar Ø em ${(grow.growW / 10).toLocaleString("pt-BR")}cm → Ø${(grow.newLabelW / 10).toLocaleString("pt-BR")}cm`
+                  : `Aumentar ${(grow.growW / 10).toLocaleString("pt-BR")}×${(grow.growH / 10).toLocaleString("pt-BR")}cm → ${(grow.newLabelW / 10).toLocaleString("pt-BR")}×${(grow.newLabelH / 10).toLocaleString("pt-BR")}cm`}
+
                 {" "}mantendo <strong>{grow.newPerSheet}</strong>/folha (+{grow.areaIncreasePct.toFixed(0)}% de área).
               </p>
             </button>
