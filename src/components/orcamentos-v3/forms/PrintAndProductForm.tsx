@@ -134,6 +134,18 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
           <Pencil className="h-3.5 w-3.5" />
           Personalizado
         </button>
+        <button
+          type="button"
+          onClick={() => setSelectedPresetId(BUILTIN_BUSINESS_CARD_ID)}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+            isBusinessCard
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+          )}
+        >
+          <CreditCard className="h-3.5 w-3.5" />
+          Cartão de Visita
         {presets.map((p) => {
           const Icon = iconFor(p.icone);
           const active = p.id === selectedPresetId;
