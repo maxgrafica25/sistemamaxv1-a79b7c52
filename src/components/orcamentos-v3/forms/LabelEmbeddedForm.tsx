@@ -279,32 +279,13 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Quantidade de etiquetas">
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={1}
-              value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 0))}
-              className="h-9"
-            />
-            <TierSimulator
-              currentQty={quantidade}
-              disabled={!folha.selectedPrinting || perSheet <= 0}
-              compute={(q) => {
-                const pr = computeSheetPricing({
-                  pricePerSheet: folha.total,
-                  qtyRequested: q,
-                  perSheet,
-                });
-                return {
-                  custo_total: sheetCost * pr.sheetsNeeded,
-                  preco_total: pr.totalPrice,
-                };
-              }}
-              onPickQty={(q) => setQuantidade(q)}
-              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
-            />
-          </div>
+          <Input
+            type="number"
+            min={1}
+            value={quantidade}
+            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 0))}
+            className="h-9"
+          />
         </Field>
         <Field label="Folha">
           <Select value={sheetId} onValueChange={setSheetId}>
@@ -321,6 +302,25 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
           </Select>
         </Field>
       </div>
+
+      {onAddTiers && (
+        <TierFaixasPanel
+          currentQty={quantidade}
+          disabled={!folha.selectedPrinting || perSheet <= 0}
+          onExtrasChange={setExtraTiers}
+          compute={(q) => {
+            const pr = computeSheetPricing({
+              pricePerSheet: folha.total,
+              qtyRequested: q,
+              perSheet,
+            });
+            return {
+              custo_total: sheetCost * pr.sheetsNeeded,
+              preco_total: pr.totalPrice,
+            };
+          }}
+        />
+      )}
 
       <Field label="Papel / Impressão">
         {folha.isLoading ? (
