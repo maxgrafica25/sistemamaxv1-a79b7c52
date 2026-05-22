@@ -516,10 +516,20 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
                 <button
                   key={a.id}
                   type="button"
+                  disabled={naoCabe}
                   onClick={() =>
-                    setAcabIds((prev) =>
-                      prev.includes(a.id) ? prev.filter((x) => x !== a.id) : [...prev, a.id],
-                    )
+                    setAcabIds((prev) => {
+                      if (prev.includes(a.id)) return prev.filter((x) => x !== a.id);
+                      if (isBastao) {
+                        // Apenas 1 bastão por vez: remove outros bastões da seleção
+                        const semOutrosBastoes = prev.filter((id) => {
+                          const ac = acabamentosView.find((x) => x.id === id);
+                          return !ac || parseBastaoCm(ac.nome) == null;
+                        });
+                        return [...semOutrosBastoes, a.id];
+                      }
+                      return [...prev, a.id];
+                    })
                   }
                   title={naoCabe ? `Não cabe na largura + ${2 * SOBRA_CM}cm de sobra` : undefined}
                   className={cn(
@@ -528,13 +538,13 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-background hover:bg-muted border-input",
                     sugerido && !active && "ring-2 ring-primary/40 border-primary/40",
-                    naoCabe && !active && "opacity-50",
+                    naoCabe && "opacity-40 cursor-not-allowed",
                   )}
                 >
                   {a.nome}
                   {sugerido && !active && (
                     <span className="ml-1.5 text-[10px] uppercase tracking-wide text-primary font-semibold">
-                      sugerido
+                      melhor aproveitamento
                     </span>
                   )}
                 </button>
