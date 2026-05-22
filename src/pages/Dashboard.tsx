@@ -9,6 +9,7 @@ import {
   ClipboardList, ShoppingCart, Wallet, Wrench, ArrowRight,
 } from "lucide-react";
 import { useIsFinanceiro } from "@/hooks/useIsFinanceiro";
+import { RecorrentesVencendoCard } from "@/components/dashboard/RecorrentesVencendoCard";
 
 // Mock data — substituir por queries reais quando disponível
 const recentQuotes = [
@@ -147,6 +148,11 @@ export default function Dashboard() {
             );
           })}
         </div>
+      </div>
+
+      {/* Recorrentes vencendo */}
+      <div className="mb-8">
+        <RecorrentesVencendoCard />
       </div>
 
       {/* Stats Grid */}
