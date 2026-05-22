@@ -114,25 +114,13 @@ export function SupplyForm({ defaultMarginPct, onAdd, onAddTiers }: Props) {
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
             Quantidade
           </Label>
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={1}
-              value={qty || ""}
-              onChange={(e) => setQty(Math.max(0, Number(e.target.value) || 0))}
-              className="h-9"
-            />
-            <TierSimulator
-              currentQty={qty}
-              disabled={!supply}
-              compute={(q) => {
-                const c = q * custoUnit;
-                return { custo_total: c, preco_total: roundUp10(c * (1 + margem / 100)) };
-              }}
-              onPickQty={(q) => setQty(q)}
-              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
-            />
-          </div>
+          <Input
+            type="number"
+            min={1}
+            value={qty || ""}
+            onChange={(e) => setQty(Math.max(0, Number(e.target.value) || 0))}
+            className="h-9"
+          />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -147,6 +135,18 @@ export function SupplyForm({ defaultMarginPct, onAdd, onAddTiers }: Props) {
           />
         </div>
       </div>
+
+      {onAddTiers && (
+        <TierFaixasPanel
+          currentQty={qty}
+          disabled={!supply}
+          onExtrasChange={setExtraTiers}
+          compute={(q) => {
+            const c = q * custoUnit;
+            return { custo_total: c, preco_total: roundUp10(c * (1 + margem / 100)) };
+          }}
+        />
+      )}
 
       <div className="space-y-1.5">
         <Label className="text-xs uppercase tracking-wide text-muted-foreground">
