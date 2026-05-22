@@ -17,6 +17,7 @@ import { formatBRL } from "@/lib/erp/payment-terms";
 import { OrderEditorDialog } from "@/components/pedidos/OrderEditorDialog";
 import { GenerateReceivableDialog } from "@/components/pedidos/GenerateReceivableDialog";
 import { PedidosKanban, type KanbanOrder } from "@/components/pedidos/PedidosKanban";
+import { PostPrintDialog } from "@/components/recorrentes/PostPrintDialog";
 import { cn } from "@/lib/utils";
 
 interface SalesOrder {
@@ -31,6 +32,7 @@ interface SalesOrder {
   payment_method: string | null;
   delivery_date: string | null;
   created_at: string;
+  recurring_id: string | null;
 }
 
 export default function Pedidos() {
@@ -46,6 +48,9 @@ export default function Pedidos() {
 
   const [receivableOpen, setReceivableOpen] = useState(false);
   const [receivableOrder, setReceivableOrder] = useState<SalesOrder | null>(null);
+
+  const [postPrintOpen, setPostPrintOpen] = useState(false);
+  const [postPrintCtx, setPostPrintCtx] = useState<{ recurringId: string; recurringNome?: string; salesOrderId: string } | null>(null);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -101,6 +106,18 @@ export default function Pedidos() {
     if (newStatus === "aprovado" && isFinanceiro) {
       setReceivableOrder({ ...order, status: newStatus });
       setReceivableOpen(true);
+    }
+
+    // Pedido recorrente entregue → abre form rápido pós-impressão
+    if (newStatus === "entregue" && order.recurring_id) {
+      const { data: rec } = await supabase
+        .from("client_recurring_products" as never)
+        .select("nome")
+        .eq("id", order.recurring_id)
+        .maybeSingle();
+      const nome = ((rec as unknown) as { nome?: string } | null)?.nome;
+      setPostPrintCtx({ recurringId: order.recurring_id, recurringNome: nome, salesOrderId: order.id });
+      setPostPrintOpen(true);
     }
   };
 
@@ -287,6 +304,16 @@ export default function Pedidos() {
           totalValue={Number(receivableOrder.total_value)}
           defaultTerm={receivableOrder.payment_terms ?? "30_60_90"}
           defaultMethod={receivableOrder.payment_method ?? "pix"}
+        />
+      )}
+
+      {postPrintCtx && (
+        <PostPrintDialog
+          open={postPrintOpen}
+          onOpenChange={(v) => { setPostPrintOpen(v); if (!v) setPostPrintCtx(null); }}
+          recurringId={postPrintCtx.recurringId}
+          recurringNome={postPrintCtx.recurringNome}
+          salesOrderId={postPrintCtx.salesOrderId}
         />
       )}
     </div>
