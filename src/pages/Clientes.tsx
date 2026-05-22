@@ -177,6 +177,15 @@ export default function Clientes() {
           )}
         </CardContent>
       </Card>
+
+      {recCliente && (
+        <RecorrentesManagerSheet
+          open={recOpen}
+          onOpenChange={setRecOpen}
+          clientId={recCliente.id}
+          clientName={recCliente.nome}
+        />
+      )}
     </div>
   );
 }
