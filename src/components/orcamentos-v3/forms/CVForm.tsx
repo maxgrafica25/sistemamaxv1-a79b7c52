@@ -103,12 +103,13 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
     [midia],
   );
 
-  // Default "É banner?" quando o nome já indicar banner
+  // Default "É banner?" baseado no nome da mídia — só enquanto usuário não tocou o toggle nem aplicou preset.
   useEffect(() => {
-    if (!midia) { setIsBanner(false); return; }
-    if (isLona) setIsBanner(/banner/i.test(midia.nome || ""));
-    else setIsBanner(false);
-  }, [midia, isLona]);
+    if (!midia) { setIsBanner(false); setBannerTouched(false); return; }
+    if (!isLona) { setIsBanner(false); return; }
+    if (bannerTouched) return;
+    setIsBanner(/banner/i.test(midia.nome || ""));
+  }, [midia, isLona, bannerTouched]);
 
   // Impressoras compatíveis com a mídia selecionada
   const impressoesCompat = useMemo(() => {
