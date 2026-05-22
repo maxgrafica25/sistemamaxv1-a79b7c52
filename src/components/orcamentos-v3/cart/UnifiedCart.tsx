@@ -511,7 +511,7 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardPro
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <p className="text-[13px] font-medium leading-tight truncate min-w-0 flex-1" title={title}>
-              {leaderQty.toLocaleString("pt-BR")} un. - {title}
+              {itemTitle(leader)}
             </p>
             <span className="text-[13px] font-semibold tabular-nums shrink-0 whitespace-nowrap">
               {fmtBRL(total)}
