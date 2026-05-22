@@ -344,9 +344,9 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
           <button
             type="button"
             onClick={() => setCatalog(null)}
-            className="text-[11px] text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
           >
-            trocar
+            Trocar
           </button>
         </div>
       )}
