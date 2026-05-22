@@ -30,6 +30,7 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
   const [state, setState] = useState<V3QuoteState>(DEFAULT_STATE);
   const [active, setActive] = useState<V3Category>("print");
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const { settings: globalSettings } = useGlobalSettings();
 
   const { hydrated, savedAt, clear } = useQuoteDraftV3(state);
   useEffect(() => {
