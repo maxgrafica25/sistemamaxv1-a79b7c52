@@ -390,7 +390,7 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
       )}
 
 
-      <div className="flex items-center justify-end pt-2">
+      <div className="sticky bottom-0 z-10 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 mt-2 bg-background/95 backdrop-blur border-t border-border flex items-center justify-end gap-3">
         <Button
           onClick={submit}
           disabled={!canAdd}

@@ -618,7 +618,7 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
         </Field>
       )}
 
-      <div className="flex items-center justify-between pt-2">
+      <div className="sticky bottom-0 z-10 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 mt-2 bg-background/95 backdrop-blur border-t border-border flex items-center justify-between gap-3">
         <div className="text-sm text-muted-foreground">
           {result?.aplicou_minimo && (
             <span className="inline-flex items-center gap-1 text-amber-600 mr-3">
