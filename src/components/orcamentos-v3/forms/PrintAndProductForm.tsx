@@ -43,9 +43,10 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
   } | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
 
-  const selectedPreset: QuotePreset | undefined = selectedPresetId
+  const selectedPreset: QuotePreset | undefined = selectedPresetId && selectedPresetId !== BUILTIN_BUSINESS_CARD_ID
     ? presets.find((p) => p.id === selectedPresetId)
     : undefined;
+  const isBusinessCard = selectedPresetId === BUILTIN_BUSINESS_CARD_ID;
   const formTipo: "print" | "booklet" | "label" = selectedPreset?.form_tipo ?? "print";
   const isCustom = !selectedPresetId;
 
