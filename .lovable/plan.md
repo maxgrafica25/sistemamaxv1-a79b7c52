@@ -1,43 +1,41 @@
-## Simplificar UX e corrigir acabamentos faltantes
+# Melhorar UX das faixas de quantidade
 
-### 1. Remover toggle Produtos/Personalizado
-Concordo: o modo "Personalizado" passa a ser o estado padrão e os presets viram chips de favoritos visíveis no topo. Não há mais necessidade de escolher entre dois botões.
+## Problema
 
-**Em `PrintAndProductForm.tsx`:**
-- Remover o `ModeButton` (toggle Produtos | Personalizado) e o estado `mode`.
-- Layout final:
-  1. Campo "Descrição (opcional)"
-  2. Linha de chips: **"✏️ Personalizado"** (selecionado por padrão) + chips de presets (ícone + nome) + botão "Salvar como preset" no fim quando houver papel selecionado
-  3. Sugestão inteligente (banner já existente — agora aparece sempre que houver match, não só em modo custom)
-  4. Sub-formulário (PrintForm/BookletForm/LabelEmbeddedForm) — escolhido pelo chip ativo
-- Estado novo: `selectedPresetId: string | null`. `null` = Personalizado → renderiza `PrintForm` cru. Caso contrário, renderiza o form do preset (`form_tipo`).
-- Limpar `selectedPresetId` ao clicar no chip "Personalizado".
-- Importações de `ModeButton` removidas.
+Hoje, em Impressão, Etiqueta, Terceiros e Suprimento, comparar quantidades exige clicar no botão **Comparar faixas** que abre um popover. O usuário não vê as faixas a menos que descubra o botão — fluxo escondido e pouco intuitivo.
 
-O componente `ModeButton.tsx` continua existindo (pode ser usado em outros lugares — `CVForm` ainda usa); só deixamos de importar aqui.
+Os formulários de **Comunicação Visual** e **Apostila** já usam o painel inline `TierFaixasPanel`, que mostra as faixas direto na tela, junto da quantidade principal. O resultado é muito mais fluido.
 
-### 2. Acabamentos não aparecem no Personalizado — causa raiz
-A consulta `listFinishings("impressao")` retorna **zero** acabamentos hoje no banco. Só existem 2 itens cadastrados, ambos marcados apenas para "etiqueta":
-- Recorte Folhas Adesivas
-- Recorte Folhas Papéis Especiais
+## Solução
 
-Por isso o chip-list de acabamentos vem vazio. O `FinishingProgressive` renderiza uma `<ul>` vazia, sem nenhum hint visual, dando a impressão de "não aparece nada".
+Padronizar todos os formulários para o painel inline.
 
-**Correções:**
+### Mudanças por arquivo
 
-**a) Empty state explícito no `FinishingProgressive`**
-Quando `items.length === 0`, mostrar mensagem dentro do card:
-> Nenhum acabamento cadastrado para Impressão.
-> [Cadastrar acabamentos →] (link para `/acabamentos`)
+1. **`PrintForm.tsx`**
+   - Remover `TierSimulator` do lado direito do campo "Quantidade (folhas)".
+   - Logo abaixo do bloco "Quantidade + Preço unitário", renderizar `<TierFaixasPanel>` (quando `onAddTiers` existir), recebendo `compute(qty)` igual ao atual.
+   - Adicionar estado `extraTiers` + `onExtrasChange={setExtraTiers}`.
+   - No `submit()`, se houver `extraTiers`, chamar `submitAsTiers([quantidade, ...extras], quantidade)` em vez do `onAdd` simples — mesma lógica de `CVForm`.
+   - Atualizar o label do botão "Adicionar" para "Adicionar + N faixa(s)" quando houver extras.
 
-**b) Atalho no `PrintForm`**
-Logo abaixo do label "Acabamentos", quando a lista estiver vazia (e não for lona/banner — esses dois têm presets hardcoded), o mesmo CTA fica visível. Assim o usuário entende exatamente onde resolver.
+2. **`LabelEmbeddedForm.tsx`** — mesma transformação.
 
-**c) Não alterar dados automaticamente.** Não vou marcar os dois acabamentos existentes como `impressao` sem confirmação — o usuário decide no módulo `/acabamentos` quais aplicar a impressão.
+3. **`ThirdPartyForm.tsx`** — mesma transformação.
 
-### Validação
-- `/orcamentos-v3/novo` → aba "Impressão + Acabamentos": não há mais toggle. Chip "Personalizado" ativo por padrão, chips de presets ao lado.
-- Selecionar papel → ainda sem acabamentos cadastrados para impressão → aparece empty state com link para `/acabamentos`.
-- Após cadastrar um acabamento com contexto "Impressão" no módulo, ele passa a aparecer automaticamente como switch na seção Acabamentos.
-- Selecionar um chip de preset continua roteando para o sub-form correto (booklet/label/print).
-- "Salvar como preset" continua aparecendo após selecionar um papel.
+4. **`SupplyForm.tsx`** — mesma transformação.
+
+5. **`TierSimulator.tsx`** — deletar, já não terá usos.
+
+### Detalhes técnicos
+
+- `TierFaixasPanel` já existe e já suporta `onExtrasChange`, atalhos (−5/+5/+10/+15), campo livre, persistência em localStorage, e estado "desabilitado" quando o form está incompleto.
+- O painel mostra a quantidade atual destacada como "Solicitada" + lista de sugestões — não é mais necessário um botão "Usar esta quantidade" (o input principal continua sendo a fonte da quantidade solicitada).
+- O botão final "Adicionar ao orçamento" passa a refletir quantas faixas serão criadas, igual ao `BookletForm` já faz.
+
+## Validação
+
+- `/orcamentos-v3/novo` → Impressão: as faixas aparecem inline abaixo de Quantidade, sem necessidade de abrir popover.
+- Mesmo comportamento em Etiqueta, Terceiros e Suprimento.
+- Selecionar atalhos (+5, +10…) atualiza a lista e o botão "Adicionar" mostra contagem de faixas.
+- Ao adicionar, todas as faixas entram como um grupo no carrinho, com a quantidade do input principal como "tier_primary".
