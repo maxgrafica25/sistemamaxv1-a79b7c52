@@ -220,6 +220,13 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
 
       {/* Sub-formulário */}
       <div>
+        {isBusinessCard && (
+          <BusinessCardForm
+            onAdd={onAdd}
+            descricao={descricao}
+            onDescricaoChange={setDescricao}
+          />
+        )}
         {isCustom && (
           <PrintForm
             onAdd={onAdd}
