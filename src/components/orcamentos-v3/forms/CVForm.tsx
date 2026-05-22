@@ -340,10 +340,11 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
         />
       </div>
 
-      {mode === "product" && (
+      {mode === "product" && cvPresets.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {CV_PRESETS.map((p) => {
+          {cvPresets.map((p) => {
             const active = p.id === activePresetId;
+            const Icon = iconFor(p.icone);
             return (
               <button
                 key={p.id}
@@ -356,8 +357,8 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
                     : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
                 )}
               >
-                <Megaphone className="h-3.5 w-3.5" />
-                {p.label}
+                <Icon className="h-3.5 w-3.5" />
+                {p.nome}
               </button>
             );
           })}
