@@ -10,11 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, Plus, AlertCircle, AlertTriangle, RotateCcw, Wand2, Pencil } from "lucide-react";
+import { Check, Plus, AlertCircle, AlertTriangle, RotateCcw, Wand2, Pencil, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
 import { ModeButton } from "../shared/ModeButton";
+import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3CVItem } from "../types";
 import { useV3CVCatalog } from "../shared/useV3CVCatalog";
