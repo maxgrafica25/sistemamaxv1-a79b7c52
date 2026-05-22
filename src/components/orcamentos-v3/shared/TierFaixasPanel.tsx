@@ -1,7 +1,7 @@
 // Painel inline de "Faixas adicionais" — substitui o popover TierSimulator
 // quando o usuário quer comparar outras quantidades antes de adicionar ao orçamento.
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, ChevronDown, ChevronRight, Plus, X } from "lucide-react";
+import { BarChart3, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +40,7 @@ export interface TierFaixasPanelProps {
   disabled?: boolean;
   /** Faixas extras selecionadas (sem a principal). Notifica o pai a cada mudança. */
   onExtrasChange?: (extras: number[]) => void;
-  /** Inicia colapsado por padrão. */
+  /** @deprecated não há mais colapso; mantido para compat. */
   defaultOpen?: boolean;
 }
 
@@ -49,9 +49,7 @@ export function TierFaixasPanel({
   compute,
   disabled,
   onExtrasChange,
-  defaultOpen = false,
 }: TierFaixasPanelProps) {
-  const [open, setOpen] = useState(defaultOpen);
   const [extras, setExtras] = useState<number[]>(() =>
     loadDefaults().filter((q) => q !== currentQty),
   );
@@ -99,17 +97,8 @@ export function TierFaixasPanel({
         disabled && "opacity-50 pointer-events-none",
       )}
     >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-2 px-3 py-2 text-left"
-      >
-        {open ? (
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-        )}
-        <BarChart3 className="h-3.5 w-3.5 text-primary" />
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/60">
+        <BarChart3 className="h-3.5 w-3.5 text-primary shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
             Faixas adicionais (opcional)
@@ -127,10 +116,11 @@ export function TierFaixasPanel({
             +{sortedExtras.length}
           </Badge>
         )}
-      </button>
+      </div>
 
-      {open && (
-        <div className="px-3 pb-3 space-y-3 border-t border-border/60">
+      <div className="px-3 pb-3 pt-3 space-y-3">
+
+
           {/* Linha principal */}
           <div className="mt-3 flex items-center justify-between gap-2 rounded-md bg-primary/[0.05] px-3 py-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -184,11 +174,12 @@ export function TierFaixasPanel({
           <div className="rounded-md border border-border bg-background p-3 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-medium text-foreground">
-                Atalhos{" "}
+                Adicionar sugestões rápidas{" "}
                 <span className="text-muted-foreground font-normal">
                   (a partir de {currentQty.toLocaleString("pt-BR")} un)
                 </span>
               </p>
+
               {sortedExtras.length > 0 && (
                 <button
                   type="button"
@@ -259,9 +250,9 @@ export function TierFaixasPanel({
                 </Button>
               </div>
             </div>
-          </div>
         </div>
-      )}
+      </div>
+
     </div>
   );
 }
