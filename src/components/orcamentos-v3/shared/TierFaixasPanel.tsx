@@ -1,7 +1,7 @@
 // Painel inline de "Faixas adicionais" — substitui o popover TierSimulator
 // quando o usuário quer comparar outras quantidades antes de adicionar ao orçamento.
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, ChevronDown, ChevronRight, Plus, X } from "lucide-react";
+import { BarChart3, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";

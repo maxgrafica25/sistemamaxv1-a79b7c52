@@ -1,24 +1,16 @@
-# Aplicar o mesmo redesign de presets no `TierSimulator` (popover)
+## Mudança
 
-## Diagnóstico
-A mudança anterior foi aplicada em `TierFaixasPanel.tsx`, usado apenas em **BookletForm**. Os demais formulários (Print, CV, Label, Supply, Terceiros) usam o popover **`TierSimulator.tsx`**, que **ainda mostra os presets antigos** (`Atual`, `×2`, `×5`, `+50%`, `Reset`). Por isso o usuário "continua vendo a visualização antiga".
+**Arquivo:** `src/components/orcamentos-v3/shared/TierFaixasPanel.tsx`
 
-## Mudanças
+Atualmente "Faixas adicionais" é um bloco colapsável (botão com chevron) que inicia fechado, escondendo os atalhos de presets (`−5`, `+5`, `+10`, `+15`) e o campo de quantidade livre. Isso torna a feature pouco descoberta.
 
-**Arquivo:** `src/components/orcamentos-v3/shared/TierSimulator.tsx` (linhas ~223–274)
+### Alterações
 
-Substituir o bloco "Adicionar nova faixa" + "Presets" pelo mesmo padrão visual já aplicado no `TierFaixasPanel`:
+1. **Remover o colapso** — eliminar `open/setOpen`, `defaultOpen`, o `<button>` toggle com `ChevronDown/ChevronRight`. O painel passa a renderizar todo o conteúdo sempre visível.
+2. **Cabeçalho fixo** no topo do card: ícone `BarChart3` + título "Faixas adicionais (opcional)" + subtítulo explicativo ("Compare preços para outras quantidades — todas entram no mesmo bloco."). Badge `+N` quando há sugestões.
+3. **Presets em destaque** — manter a grid de 4 botões grandes (`−5`, `+5`, `+10`, `+15`) com a quantidade resultante, agora sempre visível. Adicionar um label claro acima: `"Adicionar sugestões rápidas"` em vez do atual `"Atalhos (a partir de N un)"`, mantendo o "(a partir de N un)" como subtítulo menor para contexto.
+4. **Manter** linha "Solicitada" + lista de sugestões + campo livre + botão "Limpar todas".
+5. **Remover** `defaultOpen` da prop API (não é breaking — `BookletForm` passa `defaultOpen` mas será simplesmente ignorado; opcionalmente removo a prop no chamador).
 
-1. **Grid de 4 botões grandes** com deltas relativos a `currentQty`:
-   - `−5`, `+5`, `+10`, `+15`
-   - Cada botão em `h-12`, com o delta em destaque em cima e a quantidade resultante (`{currentQty + delta} un`) embaixo em `text-[10px] text-muted-foreground tabular-nums`.
-   - Cada botão chama `addQty(currentQty + delta)`.
-   - `−5` fica desabilitado (`opacity-40`) quando `currentQty − 5 < 1`.
-2. **Cabeçalho do bloco:** `"Atalhos (a partir de N un)"` à esquerda; quando há faixas, botão `"Limpar todas"` (ghost) à direita — em `TierSimulator` o equivalente é `setTiers([])` (limpar as faixas atuais).
-3. **Campo livre** logo abaixo, separado por `border-t border-border/60` e label `"ou digite outra quantidade"`. Mantém o `Input` + botão `Adicionar` (label completo, não mais "Add").
-4. **Remover** o botão `Reset` dessa área (não era pedido — mantém comportamento simples). Se quiser manter um reset para os defaults globais, fica como item futuro.
-5. **Manter intacto** o botão `"Adicionar todas como faixas"` que aparece após (`onCloneAsTiers`).
-
-## Fora do escopo
-- Nenhuma mudança em cálculo, persistência (`localStorage`) ou em outros componentes.
-- O `TierFaixasPanel` (BookletForm) já está atualizado e não será alterado.
+### Fora do escopo
+- Sem mudanças em cálculo, persistência, `TierSimulator` (popover) ou outros forms.
