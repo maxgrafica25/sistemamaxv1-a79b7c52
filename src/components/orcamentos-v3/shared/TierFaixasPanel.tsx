@@ -174,11 +174,12 @@ export function TierFaixasPanel({
           <div className="rounded-md border border-border bg-background p-3 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-medium text-foreground">
-                Atalhos{" "}
+                Adicionar sugestões rápidas{" "}
                 <span className="text-muted-foreground font-normal">
                   (a partir de {currentQty.toLocaleString("pt-BR")} un)
                 </span>
               </p>
+
               {sortedExtras.length > 0 && (
                 <button
                   type="button"
