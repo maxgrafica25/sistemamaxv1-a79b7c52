@@ -547,9 +547,10 @@ interface BundleCardProps {
   highlightId?: string | null;
   onDuplicate: (id: string) => void;
   onRemove: (id: string) => void;
+  pcts: CartPcts;
 }
 
-function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardProps) {
+function BundleCard({ entry, highlightId, onDuplicate, onRemove, pcts }: BundleCardProps) {
   const [expanded, setExpanded] = useState(false);
   const leader = entry.leader;
   const Icon = ICON[leader.kind];
