@@ -1,17 +1,11 @@
-## Ocultar busca de papel após seleção
-
-No `PrintForm.tsx`, o campo "Miolo (papel do catálogo)" com o `PrintingItemSearch` fica visível mesmo depois que um item é escolhido, duplicando a função do botão "trocar" no card do item selecionado.
+Aplicar o mesmo padrão da Impressão na aba **Apostila** (`BookletForm.tsx`): após selecionar o papel do miolo, esconder o campo "Miolo (papel do catálogo)" com a barra de busca. Para trocar, o usuário clica em "trocar" no card do papel já selecionado.
 
 ### Mudança
-
-Em `src/components/orcamentos-v3/forms/PrintForm.tsx`, renderizar o bloco `<Field label="Item do catálogo">` (com o `PrintingItemSearch`) **apenas quando `!catalog`**. Quando houver papel selecionado, só o card resumo com o botão "trocar" aparece — clicar em "trocar" zera `catalog` e a busca volta automaticamente.
+Em `src/components/orcamentos-v3/forms/BookletForm.tsx`, envolver o bloco `<Field label="Miolo (papel do catálogo)">` (linhas 169–185) em `{!catalog && (...)}`. O card de resumo + botão "trocar" (linhas 187–214) já existe e reaparece a busca ao limpar.
 
 ### Fora de escopo
-
-- Lógica de catálogo, preços, acabamentos ou kits.
-- Outros formulários (CV, Terceirizados).
-- Comportamento do botão "trocar" em si (já funciona).
+- `CustomCoverEditor` (capa), `PrintForm` (já feito), demais formulários.
+- Lógica de preço/kit/encadernação.
 
 ### Validação
-
-Em `/orcamentos-v3/novo`: antes de escolher papel → busca visível. Após escolher → só o card. Clicar "trocar" → busca reaparece.
+Em `/orcamentos-v3/novo` → aba Apostila: antes de escolher miolo → busca visível. Depois → só o card. Clicar "trocar" → busca volta.

@@ -166,23 +166,25 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
         />
       </Field>
 
-      <Field label="Miolo (papel do catálogo)">
-        <PrintingItemSearch
-          items={items}
-          markupTiers={tiers}
-          globalSettings={{
-            invoice_pct: 0,
-            collection_pct: 0,
-            waste_pct: 0,
-            default_margin_pct: 20,
-          }}
-          onSelect={(it) => setCatalog(it)}
-        />
+      {!catalog && (
+        <Field label="Miolo (papel do catálogo)">
+          <PrintingItemSearch
+            items={items}
+            markupTiers={tiers}
+            globalSettings={{
+              invoice_pct: 0,
+              collection_pct: 0,
+              waste_pct: 0,
+              default_margin_pct: 20,
+            }}
+            onSelect={(it) => setCatalog(it)}
+          />
 
-        {loading && (
-          <p className="text-[11px] text-muted-foreground mt-1">Carregando catálogo…</p>
-        )}
-      </Field>
+          {loading && (
+            <p className="text-[11px] text-muted-foreground mt-1">Carregando catálogo…</p>
+          )}
+        </Field>
+      )}
 
       {catalog && (
         <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3">
