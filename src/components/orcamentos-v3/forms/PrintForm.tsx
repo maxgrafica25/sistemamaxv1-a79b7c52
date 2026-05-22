@@ -27,7 +27,10 @@ interface Props {
     grammage: string | null;
     finishings: string[];
   }) => void;
+  descricao?: string;
+  onDescricaoChange?: (v: string) => void;
 }
+
 
 const FINISHES_LONA: FinishingDef[] = [
   { id: "ilhos", label: "Ilhós", hint: "Reforço metálico nos cantos" },
