@@ -404,7 +404,12 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
                 <Icon className="h-3 w-3" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium leading-tight truncate">{descricao}</p>
+                <p className="text-[13px] font-medium leading-tight truncate">
+                  {primaryQty.toLocaleString("pt-BR")} un. - {descricao}
+                </p>
+                {itemSubtitle(primaryItem) && (
+                  <p className="text-[11px] text-muted-foreground truncate">{itemSubtitle(primaryItem)}</p>
+                )}
               </div>
               <CardActions
                 onRemove={() => entry.items.forEach((it) => onRemove(it.id))}
