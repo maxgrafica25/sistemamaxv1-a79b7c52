@@ -18,6 +18,7 @@ import { summarize, fmtBRL } from "./shared/pricing";
 import { DEFAULT_STATE, genId, type V3Category, type V3Item, type V3QuoteState } from "./types";
 
 import { saveQuoteV3 } from "./shared/saveQuoteV3";
+import { RecorrentesPanel } from "@/components/recorrentes/RecorrentesPanel";
 
 interface Props {
   onCancel: () => void;
