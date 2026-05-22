@@ -66,10 +66,10 @@ export function TabsLayout({ active, onChange }: Props) {
             aria-selected={isActive}
             onClick={() => onChange(t.id)}
             className={cn(
-              "relative px-3 md:px-4 pt-2 pb-3 flex items-center gap-2 text-sm font-medium whitespace-nowrap rounded-t-md transition-colors",
+              "relative px-3 md:px-4 pt-2 pb-3 flex items-center gap-2 text-sm font-medium whitespace-nowrap rounded-t-md border border-b-0 transition-all duration-150",
               isActive
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                ? "bg-primary/10 text-primary border-primary/30"
+                : "bg-muted/40 text-muted-foreground border-border/60 hover:bg-muted hover:text-foreground hover:border-border hover:-translate-y-0.5",
             )}
           >
             <Icon
