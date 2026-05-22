@@ -249,9 +249,9 @@ export function TierFaixasPanel({
                 </Button>
               </div>
             </div>
-          </div>
         </div>
-      )}
+      </div>
+
     </div>
   );
 }
