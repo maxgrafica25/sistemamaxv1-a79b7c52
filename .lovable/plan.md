@@ -1,53 +1,43 @@
-# Fixar botão "Adicionar ao orçamento" no rodapé do workspace
+## Refatoração visual — Orçamentos V3
 
-## Problema
+Objetivo: interface mais minimalista, densa e focada em ancoragem de preço. Reduzir scroll e remover ruído visual. Apenas UI/apresentação — sem mexer em lógica de cálculo, estado ou submit.
 
-Depois que o painel de faixas adicionais passou a ser inline, o formulário (Impressão / CV / Etiqueta / Terceiros / Suprimento / Apostila) ficou mais alto. O botão de ação principal — "Adicionar ao orçamento" — está no fim de cada form, então só aparece quando o usuário rola até o final. Como a área de scroll do workspace tem o mesmo `bg-background` do form, o usuário percebe o botão como "escondido atrás de um retângulo branco no rodapé".
+### Parte 1 — Painel central: `TierFaixasPanel.tsx`
 
-## Solução
+- **Remover** o container `border bg-muted/20` e o header com ícone/badge. Trocar por um título discreto em `text-[11px] uppercase tracking-wide text-muted-foreground` e link "Limpar" alinhado à direita.
+- **Lista única e contínua**: linha solicitada + sugestões num único `<ul>` ordenado por quantidade. A solicitada é marcada apenas por `font-semibold text-primary` + sufixo `· solicitada`. Sem fundo destacado, sem header "Sugestões".
+- **Separação por whitespace**: `border-t border-border/40` sutil entre a solicitada e a primeira sugestão; resto é apenas `space-y-0.5`.
+- **Chips inline** abaixo da lista: `−5`, `+5`, `+10`, `+15` como `rounded-full border border-border/60 px-2.5 py-0.5 text-xs`, sem fundo forte, ficam todos numa única linha (`flex flex-wrap gap-1.5`). Input compacto (`h-7 w-20`) + botão `ghost` "+" no final da mesma linha.
+- **Manter** toda a lógica de `extras`, `addQty`, `removeQty`, localStorage e `onExtrasChange`.
 
-Em vez de fixar o botão em cada um dos 6 formulários (Print, CV, Label, Third, Supply, Booklet — e o `PrintAndProductForm` wrapper), criar uma **barra de ação sticky no rodapé do workspace** dentro de `NewQuoteFormV3.tsx`. Essa barra mostra:
+### Parte 2 — Carrinho lateral: `UnifiedCart.tsx`
 
-- O total a adicionar (qtd × preço unitário + extras) — vindo do próprio form via callback
-- O botão "Adicionar ao orçamento" (ou "Adicionar + N faixas" quando há extras)
+**Densidade — `SingleCard`, `BundleCard`, card de grupo (tiers):**
+- Padding do `<li>`: `p-3` → `p-2`. Ícone `p-1.5` → `p-1`. Gap `gap-2` → `gap-1.5`.
+- Lista externa: `space-y-2` → `space-y-1.5`.
+- **Ações (Duplicar/Excluir)** movidas para ícones pequenos (`h-6 w-6` ghost, só ícone) no **canto superior direito** do card.
+  - **Sempre visíveis com `opacity-40`**, em `hover:opacity-100` e `active:opacity-100` (touch-friendly para tablets do balcão — sem depender de `group-hover`).
+  - Remove o bloco inferior `mt-2 flex … opacity-60 group-hover:opacity-100`, economizando ~32px por card.
+- Área expandida (ver detalhes): `space-y-0` e fontes `text-[10px]`.
 
-Como hoje cada form possui seu próprio estado e seu próprio botão (com lógica diferente para tiers, kits, presets), a solução menos invasiva é:
+**Card de grupo (tiers) — limpeza hierárquica:**
+- Trocar `border-2 border-primary/30 bg-primary/[0.03]` por `border border-border/60 bg-card` (mesmo peso do single).
+- **Remover** o header "SUGESTÕES" em uppercase. Separar a faixa solicitada das sugestões com `border-t border-border/40` sutil.
+- Sugestões em `text-muted-foreground` para hierarquia por cor; solicitada em `font-semibold text-primary` com sufixo `· solicitada` (sem badge).
 
-### Abordagem escolhida — sticky dentro do scroll do workspace
+**Tag de economia (ancoragem de preço):**
+- Em cada linha de sugestão, calcular `economiaPct = (unitPrimary − unitSugestao) / unitPrimary × 100`.
+- Quando `> 0`, exibir badge ao lado do preço total: `inline-flex rounded px-1.5 py-0 text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400`, texto `−{X}% un`.
+- Quando `≤ 0` (faixa menor → unit maior), não exibir badge.
 
-Em `NewQuoteFormV3.tsx` linha 190, mudar o workspace para um wrapper flex que coloca o scroll na área de cima e mantém uma faixa visual fixa no fim. Mas como o botão vive dentro de cada form filho, o caminho mais simples é **manter o botão onde está e garantir que ele fique sempre visível** com:
+### Fora de escopo
 
-1. **Adicionar `position: sticky; bottom: 0`** ao container final `<div className="flex items-center justify-end pt-2">` de cada um dos 6 formulários, com fundo `bg-background` + borda superior sutil + `py-3 -mx-4 px-4` (ou `-mx-6 px-6` no breakpoint lg) para ocupar a largura cheia e dar sensação de "barra de ação".
+- Nenhuma mudança em pricing, submit, estado, draft, tipos.
+- Sem alterações em outros forms, `FinancialPanel`, header ou layout split-screen.
 
-2. **Remover o `pb-24 lg:pb-5`** do workspace e trocar por `pb-5` simples — o sticky cuida do gap.
+### Validação
 
-### Arquivos afetados
-
-- `src/components/orcamentos-v3/forms/PrintForm.tsx` — wrapper do botão final
-- `src/components/orcamentos-v3/forms/CVForm.tsx`
-- `src/components/orcamentos-v3/forms/LabelEmbeddedForm.tsx`
-- `src/components/orcamentos-v3/forms/ThirdPartyForm.tsx`
-- `src/components/orcamentos-v3/forms/SupplyForm.tsx`
-- `src/components/orcamentos-v3/forms/BookletForm.tsx`
-
-Cada um tem hoje algo como:
-```tsx
-<div className="flex items-center justify-end pt-2">
-  <Button ...>Adicionar ao orçamento</Button>
-</div>
-```
-
-Vira:
-```tsx
-<div className="sticky bottom-0 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 mt-2 bg-background/95 backdrop-blur border-t border-border flex items-center justify-between gap-3">
-  {/* preview de total à esquerda quando relevante */}
-  <Button ...>Adicionar ao orçamento</Button>
-</div>
-```
-
-(Onde o form já mostra "Total: R$ X" antes do botão, mover esse texto para dentro da barra à esquerda.)
-
-## Validação
-
-- `/orcamentos-v3/novo` em qualquer aba (Impressão, CV, Terceirizados) — preencher campos suficientes para a forma crescer e adicionar faixas extras. O botão "Adicionar ao orçamento" permanece visível na borda inferior do workspace independente da rolagem.
-- No mobile (lg:hidden), o `MobileCart` continua sobrepondo a barra — o `pb-24` no workspace mobile garante espaço.
+`/orcamentos-v3/novo` (viewport 1336×895):
+1. Aba Impressão preenchida → painel de faixas sem caixas, chips numa única linha.
+2. Adicionar 2–3 faixas → carrinho mostra grupo compacto com divisor sutil e badges verdes `−X% un`.
+3. Adicionar 3 singles → 3+ cards visíveis sem scroll; ícones de ação visíveis em opacidade reduzida e plenos no toque/hover.
