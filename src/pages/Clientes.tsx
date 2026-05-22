@@ -5,11 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Edit, Trash2, Search, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Loader2, Repeat } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { handleError } from "@/lib/handleError";
 import PageLoader from "@/components/PageLoader";
+import { RecorrentesManagerSheet } from "@/components/recorrentes/RecorrentesManagerSheet";
 
 interface Cliente {
   id: string;
@@ -25,6 +26,8 @@ export default function Clientes() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [recOpen, setRecOpen] = useState(false);
+  const [recCliente, setRecCliente] = useState<Cliente | null>(null);
 
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
@@ -162,6 +165,7 @@ export default function Clientes() {
                     <TableCell>{cliente.empresa || "-"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => { setRecCliente(cliente); setRecOpen(true); }} className="hover:bg-primary/10 hover:text-primary" title="Recorrentes"><Repeat className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(cliente)} className="hover:bg-primary/10 hover:text-primary"><Edit className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={() => deleteCliente(cliente.id)} className="text-destructive hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                       </div>
@@ -173,6 +177,15 @@ export default function Clientes() {
           )}
         </CardContent>
       </Card>
+
+      {recCliente && (
+        <RecorrentesManagerSheet
+          open={recOpen}
+          onOpenChange={setRecOpen}
+          clientId={recCliente.id}
+          clientName={recCliente.nome}
+        />
+      )}
     </div>
   );
 }
