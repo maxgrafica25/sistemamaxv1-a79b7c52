@@ -275,31 +275,33 @@ function ExpandedDetails({
           ))}
         </ul>
       )}
-      <div className="rounded bg-muted/30 px-1.5 py-1">
-        <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
-          Custos e lucro
-        </p>
-        <ul className="space-y-0">
-          {breakdown.rows.map((r, i) => (
-            <li key={i} className="flex items-center justify-between gap-2 text-[10px] px-1">
-              <span className={cn(
-                r.tone === "strong" && "font-semibold",
-                r.className ?? (r.tone === "muted" ? "text-muted-foreground" : undefined),
-              )}>
-                {r.label}
-              </span>
-              <span className={cn(
-                "tabular-nums",
-                r.tone === "default" && "font-medium",
-                r.tone === "strong" && "font-semibold",
-                r.className ?? (r.tone === "muted" ? "text-muted-foreground" : undefined),
-              )}>
-                {r.value}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {breakdown && (
+        <div className="rounded bg-muted/30 px-1.5 py-1">
+          <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
+            Custos e lucro
+          </p>
+          <ul className="space-y-0">
+            {breakdown.rows.map((r, i) => (
+              <li key={i} className="flex items-center justify-between gap-2 text-[10px] px-1">
+                <span className={cn(
+                  r.tone === "strong" && "font-semibold",
+                  r.className ?? (r.tone === "muted" ? "text-muted-foreground" : undefined),
+                )}>
+                  {r.label}
+                </span>
+                <span className={cn(
+                  "tabular-nums",
+                  r.tone === "default" && "font-medium",
+                  r.tone === "strong" && "font-semibold",
+                  r.className ?? (r.tone === "muted" ? "text-muted-foreground" : undefined),
+                )}>
+                  {r.value}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
