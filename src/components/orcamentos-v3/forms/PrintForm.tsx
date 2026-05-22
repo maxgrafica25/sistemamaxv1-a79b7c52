@@ -293,22 +293,6 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
     setTimeout(() => setPulse(false), 600);
   };
 
-  const submitAsTiers = (qtys: number[], primaryQty: number) => {
-    if (!onAddTiers || !catalog) return;
-    const tg = `tg_${genId()}`;
-    const items = qtys
-      .map((q) => {
-        const it = buildItem(q, tg);
-        return it ? ({ ...it, tier_primary: q === primaryQty } as V3PrintItem) : null;
-      })
-      .filter((x): x is V3PrintItem => !!x);
-    if (items.length === 0) return;
-    onAddTiers(items);
-    setDescricao("");
-    setFinEnabled({});
-    setPulse(true);
-    setTimeout(() => setPulse(false), 600);
-  };
 
   return (
     <div className="space-y-5">
