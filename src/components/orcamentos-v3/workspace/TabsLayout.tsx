@@ -2,7 +2,6 @@ import {
   Printer,
   Megaphone,
   Handshake,
-  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,13 +36,6 @@ export const TABS: TabDef[] = [
     icon: Handshake,
     shortcut: "Alt+3",
     description: "Serviços e produtos executados por fornecedores externos.",
-  },
-  {
-    id: "labor",
-    label: "Mão-de-obra",
-    icon: Wrench,
-    shortcut: "Alt+4",
-    description: "Horas técnicas, instalação e operação.",
   },
 ];
 
