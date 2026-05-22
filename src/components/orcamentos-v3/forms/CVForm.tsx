@@ -405,7 +405,7 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
           {isLona && (
             <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer shrink-0 rounded-md border border-primary/30 bg-primary/5 px-3 h-9">
               É banner?
-              <Switch checked={isBanner} onCheckedChange={(v) => setIsBanner(!!v)} />
+              <Switch checked={isBanner} onCheckedChange={(v) => { setIsBanner(!!v); setBannerTouched(true); }} />
             </label>
           )}
         </div>
