@@ -1,47 +1,55 @@
-## Título do item: só quantidade + nome, com plural
 
-### Regra do título (linha 1)
+## Objetivo
 
-`{qty} un. - {Nome do produto}` — e o **Nome** vira plural quando `qty > 1`.
+No preset **Etiquetas** do orçamento V3, deixar disponíveis apenas presets de etiquetas redondas nos diâmetros **35, 40, 50, 60 e 70 mm**, para as duas folhas usadas: **SRA3 (32×45)** e **A4 (21×29,7)**. Ao clicar num chip, o sistema já deixa pronto: folha, diâmetro, papel **adesivo** e acabamento **recorte de papel adesivo**.
 
-- Exemplos: `1 un. - Apostila` · `5 un. - Apostilas` · `100 un. - Etiquetas` · `1 un. - Impresso personalizado` · `200 un. - Impressos personalizados`.
-- A linha 2 (subtítulo cinza) já tem as características (folhas, papel, F/V, dimensões) — o título **nunca** repete esses dados.
+## Mudanças
 
-### Como decidir o "Nome do produto"
+### 1. Seeds de presets de etiqueta (`src/lib/labels/config-storage.ts`)
 
-Prioridade, no helper `itemTitle()` em `UnifiedCart.tsx`:
+Substituir `SEED_LABEL_PRESETS` pelos 10 presets pedidos (5 diâmetros × 2 folhas). Adicionar campo opcional `sheetId` ao tipo `LabelPreset` para o chip saber em qual folha aplicar.
 
-1. **Preset/produto nomeado** — se o item tem `bundle_label` ou um nome de preset (ex.: kit Apostila, Etiqueta, Cartão de Visita), usa esse nome.
-2. **Descrição digitada pelo usuário** — se ele preencheu o campo "Descrição (opcional)", usa o que foi digitado.
-3. **Fallback padrão por tipo** — quando nada acima existe:
-   - `print` → `Impresso personalizado`
-   - `booklet` → `Apostila`
-   - `label` → `Etiqueta`
-   - `cv` → `Comunicação visual`
-   - `third` → `Serviço terceirizado`
-   - `supply` → `Suprimento`
-   - `labor` → `Mão-de-obra` (sempre singular)
+```ts
+export interface LabelPreset {
+  id: string;
+  label: string;
+  shape: LabelShape;
+  width: number;
+  height: number;
+  sheetId?: "SRA3" | "A4"; // novo, opcional
+}
 
-### Pluralização
+export const SEED_LABEL_PRESETS: LabelPreset[] = [
+  { id: "seed-sra3-r35", label: "SRA3 · Ø35", shape: "redondo", width: 35, height: 35, sheetId: "SRA3" },
+  { id: "seed-sra3-r40", label: "SRA3 · Ø40", shape: "redondo", width: 40, height: 40, sheetId: "SRA3" },
+  { id: "seed-sra3-r50", label: "SRA3 · Ø50", shape: "redondo", width: 50, height: 50, sheetId: "SRA3" },
+  { id: "seed-sra3-r60", label: "SRA3 · Ø60", shape: "redondo", width: 60, height: 60, sheetId: "SRA3" },
+  { id: "seed-sra3-r70", label: "SRA3 · Ø70", shape: "redondo", width: 70, height: 70, sheetId: "SRA3" },
+  { id: "seed-a4-r35",   label: "A4 · Ø35",   shape: "redondo", width: 35, height: 35, sheetId: "A4" },
+  { id: "seed-a4-r40",   label: "A4 · Ø40",   shape: "redondo", width: 40, height: 40, sheetId: "A4" },
+  { id: "seed-a4-r50",   label: "A4 · Ø50",   shape: "redondo", width: 50, height: 50, sheetId: "A4" },
+  { id: "seed-a4-r60",   label: "A4 · Ø60",   shape: "redondo", width: 60, height: 60, sheetId: "A4" },
+  { id: "seed-a4-r70",   label: "A4 · Ø70",   shape: "redondo", width: 70, height: 70, sheetId: "A4" },
+];
+```
 
-Novo helper `pluralizePt(name, qty)` em `UnifiedCart.tsx`, aplicado à última palavra do nome:
+Adicionar uma migração one-shot (flag `labelCalc.presetsMigratedV2`) em `loadConfig` para substituir os `labelPresets` antigos pelos novos em usuários existentes — sem mexer em folhas personalizadas nem em outras chaves.
 
-- termina em vogal/`n` → `+s` (Apostila → Apostilas; Impresso → Impressos)
-- termina em `m` → troca por `ns` (Item → Itens; Bom → Bons)
-- termina em `r`, `s`, `z` → `+es` (Cartaz → Cartazes); palavras já no plural ficam como estão
-- termina em `ão` → `ões` (regra mais comum; aceita-se imperfeição em casos raros)
-- termina em `l` → troca por `is` (Painel → Painéis — sem acento adicional)
-- adjetivos colados ("Impresso personalizado") → flexiona também o adjetivo final quando termina em vogal (`personalizado → personalizados`).
+### 2. Form embutido (`src/components/orcamentos-v3/forms/LabelEmbeddedForm.tsx`)
 
-Para nomes digitados pelo usuário com várias palavras, pluraliza apenas o substantivo principal (primeira palavra) + adjetivo final, deixando o miolo intacto. Casos exóticos seguem a regra simples (aceita imperfeição — é uma melhoria cosmética, não validação).
+Ajustar `applyPreset` para também trocar a folha e forçar papel adesivo + recorte de adesivo:
 
-### Onde aplicar (escopo)
+- Se `p.sheetId` existir e for diferente do atual → `setSheetId(p.sheetId)`.
+- Após aplicar o preset, garantir que `folha.paperKind === "adesivo"` (chama `folha.setPaperKind("adesivo")` se disponível).
+- O hook `useFolhaPricing` já roda `pickDefaultFinishing` automaticamente ao trocar o papel, e essa heurística já prioriza o acabamento com nome contendo "adesiv" → resultado: recorte de papel adesivo selecionado sem código extra.
+- O ToggleGroup de forma (Redonda/Quadrada/Personalizada) continua disponível para casos fora do preset.
 
-Apenas em `src/components/orcamentos-v3/cart/UnifiedCart.tsx`:
+### 3. Diálogo de gestão (`src/components/labels/LabelCalcSettingsDialog.tsx`)
 
-1. Novo helper `pluralizePt(name: string, qty: number): string`.
-2. Novo helper `defaultName(kind: V3Item["kind"]): string` com a tabela de fallback acima.
-3. Atualizar `itemTitle(it)` para usar a prioridade descrita e aplicar `pluralizePt`.
-4. Usar `itemTitle` em **SingleCard**, **Group/Tier card** e **BundleCard** (já é o caso; apenas a lógica interna muda).
+Só exibir/editar `sheetId` opcional nos chips (campo extra no formulário do preset). Não obrigatório — se o usuário criar um preset sem folha, segue como hoje (aplica só shape+tamanho).
 
-Nenhuma mudança em forms, tipos, persistência ou pricing. O subtítulo (`itemSubtitle`) permanece exatamente como está.
+## Fora de escopo
+
+- Não muda engine de cálculo (continua SignMaster para redondas).
+- Não muda pricing nem UnifiedCart.
+- Não toca em outros forms da V3.
