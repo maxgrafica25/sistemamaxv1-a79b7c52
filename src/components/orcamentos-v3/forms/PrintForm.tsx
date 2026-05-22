@@ -13,7 +13,7 @@ import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProg
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
 import { BASTOES_CM, sugerirBastao } from "../shared/bastaoSuggester";
-import { TierSimulator } from "../shared/TierSimulator";
+import { TierFaixasPanel } from "../shared/TierFaixasPanel";
 import { genId, type V3PrintItem } from "../types";
 import { listFinishings, sumFinishingsPerSheet, type FinishingItem } from "@/lib/finishings/catalog";
 import { resolveFinishingPricePerSheet, pickFinishingTier } from "@/lib/labels/finishing-pricing";
@@ -55,6 +55,7 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
   const controlledDescricao = onDescricaoChange !== undefined;
   const [quantidade, setQuantidade] = useState(100);
+  const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
 
@@ -269,29 +270,29 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
     if (!canAdd) return;
     const item = buildItem(quantidade);
     if (!item) return;
-    onAdd(item);
+    const cleanExtras = [...new Set(extraTiers)]
+      .filter((q) => q > 0 && q !== quantidade)
+      .sort((a, b) => a - b);
+    if (cleanExtras.length > 0 && onAddTiers && catalog) {
+      const tg = `tg_${genId()}`;
+      const primary = { ...item, tier_group_id: tg, tier_primary: true } as V3PrintItem;
+      const siblings = cleanExtras
+        .map((q) => {
+          const it = buildItem(q, tg);
+          return it ? ({ ...it, tier_primary: false } as V3PrintItem) : null;
+        })
+        .filter((x): x is V3PrintItem => !!x);
+      onAddTiers([primary, ...siblings]);
+    } else {
+      onAdd(item);
+    }
     setDescricao("");
     setFinEnabled({});
+    setExtraTiers([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
 
-  const submitAsTiers = (qtys: number[], primaryQty: number) => {
-    if (!onAddTiers || !catalog) return;
-    const tg = `tg_${genId()}`;
-    const items = qtys
-      .map((q) => {
-        const it = buildItem(q, tg);
-        return it ? ({ ...it, tier_primary: q === primaryQty } as V3PrintItem) : null;
-      })
-      .filter((x): x is V3PrintItem => !!x);
-    if (items.length === 0) return;
-    onAddTiers(items);
-    setDescricao("");
-    setFinEnabled({});
-    setPulse(true);
-    setTimeout(() => setPulse(false), 600);
-  };
 
   return (
     <div className="space-y-5">
@@ -392,29 +393,14 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
 
       <div className="grid grid-cols-2 gap-4">
         <Field label="Quantidade (folhas)">
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
-              className="h-9 flex-1"
-            />
-            <TierSimulator
-              currentQty={quantidade}
-              disabled={!catalog || !pricing}
-              onPickQty={(q) => setQuantidade(q)}
-              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
-              compute={(q) => {
-                const p = catalog ? pricePerSheet(catalog, tiers, q) : null;
-                return {
-                  custo_total: (p?.baseCost ?? 0) * q,
-                  preco_total: (p?.sellingPrice ?? 0) * q,
-                };
-              }}
-            />
-          </div>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            value={quantidade}
+            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
+            className="h-9"
+          />
         </Field>
         <Field label="Preço unitário">
           <div className="h-9 px-3 rounded-md border border-border bg-muted/40 flex items-center justify-between">
@@ -429,6 +415,21 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
           </div>
         </Field>
       </div>
+
+      {onAddTiers && (
+        <TierFaixasPanel
+          currentQty={quantidade}
+          disabled={!catalog || !pricing}
+          onExtrasChange={setExtraTiers}
+          compute={(q) => {
+            const p = catalog ? pricePerSheet(catalog, tiers, q) : null;
+            return {
+              custo_total: (p?.baseCost ?? 0) * q,
+              preco_total: (p?.sellingPrice ?? 0) * q,
+            };
+          }}
+        />
+      )}
 
 
 
@@ -462,6 +463,11 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
           {pulse ? (
             <>
               <Check className="h-4 w-4 mr-2" /> Adicionado!
+            </>
+          ) : extraTiers.length > 0 ? (
+            <>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar + {extraTiers.length} faixa{extraTiers.length === 1 ? "" : "s"}
             </>
           ) : (
             <>

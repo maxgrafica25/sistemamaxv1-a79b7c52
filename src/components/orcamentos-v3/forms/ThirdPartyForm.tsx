@@ -6,7 +6,7 @@ import { Check, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PaperAutocomplete, type AutocompleteOption } from "../shared/PaperAutocomplete";
 import { fmtBRL, roundUp10 } from "../shared/pricing";
-import { TierSimulator } from "../shared/TierSimulator";
+import { TierFaixasPanel } from "../shared/TierFaixasPanel";
 import { genId, type V3ThirdItem } from "../types";
 
 interface Props {
@@ -18,6 +18,7 @@ export function ThirdPartyForm({ onAdd, onAddTiers }: Props) {
   const [descricao, setDescricao] = useState("");
   const [fornecedor, setFornecedor] = useState<AutocompleteOption | null>(null);
   const [quantidade, setQuantidade] = useState(1);
+  const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [custo, setCusto] = useState(0);
   const [margem, setMargem] = useState(30);
   const [pulse, setPulse] = useState(false);
@@ -38,17 +39,18 @@ export function ThirdPartyForm({ onAdd, onAddTiers }: Props) {
 
   const submit = () => {
     if (!canAdd) return;
-    onAdd(buildItem(quantidade));
+    const cleanExtras = [...new Set(extraTiers)]
+      .filter((q) => q > 0 && q !== quantidade)
+      .sort((a, b) => a - b);
+    if (cleanExtras.length > 0 && onAddTiers) {
+      const tg = `tg_${genId()}`;
+      const all = [quantidade, ...cleanExtras];
+      onAddTiers(all.map((q) => ({ ...buildItem(q, tg), tier_primary: q === quantidade })));
+    } else {
+      onAdd(buildItem(quantidade));
+    }
     setDescricao("");
-    setPulse(true);
-    setTimeout(() => setPulse(false), 600);
-  };
-
-  const submitAsTiers = (qtys: number[], primaryQty: number) => {
-    if (!onAddTiers || !canAdd) return;
-    const tg = `tg_${genId()}`;
-    onAddTiers(qtys.map((q) => ({ ...buildItem(q, tg), tier_primary: q === primaryQty })));
-    setDescricao("");
+    setExtraTiers([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
@@ -82,25 +84,13 @@ export function ThirdPartyForm({ onAdd, onAddTiers }: Props) {
 
       <div className="grid grid-cols-3 gap-4">
         <Field label="Quantidade">
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={1}
-              value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
-              className="h-9"
-            />
-            <TierSimulator
-              currentQty={quantidade}
-              disabled={!(custo > 0)}
-              compute={(q) => {
-                const c = q * (custo || 0);
-                return { custo_total: c, preco_total: roundUp10(c * (1 + (margem || 0) / 100)) };
-              }}
-              onPickQty={(q) => setQuantidade(q)}
-              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
-            />
-          </div>
+          <Input
+            type="number"
+            min={1}
+            value={quantidade}
+            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
+            className="h-9"
+          />
         </Field>
         <Field label="Custo unitário (R$)">
           <Input
@@ -124,6 +114,18 @@ export function ThirdPartyForm({ onAdd, onAddTiers }: Props) {
         </Field>
       </div>
 
+      {onAddTiers && (
+        <TierFaixasPanel
+          currentQty={quantidade}
+          disabled={!(custo > 0)}
+          onExtrasChange={setExtraTiers}
+          compute={(q) => {
+            const c = q * (custo || 0);
+            return { custo_total: c, preco_total: roundUp10(c * (1 + (margem || 0) / 100)) };
+          }}
+        />
+      )}
+
       <div className="flex items-center justify-between pt-2">
         <p className="text-sm text-muted-foreground">
           Pré-visualização:{" "}
@@ -140,6 +142,11 @@ export function ThirdPartyForm({ onAdd, onAddTiers }: Props) {
           {pulse ? (
             <>
               <Check className="h-4 w-4 mr-2" /> Adicionado!
+            </>
+          ) : extraTiers.length > 0 ? (
+            <>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar + {extraTiers.length} faixa{extraTiers.length === 1 ? "" : "s"}
             </>
           ) : (
             <>

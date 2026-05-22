@@ -10,7 +10,7 @@ import SupplySearch, {
   type SupplyOption,
 } from "@/components/orcamentos-v2/SupplySearch";
 import { fmtBRL, roundUp10 } from "../shared/pricing";
-import { TierSimulator } from "../shared/TierSimulator";
+import { TierFaixasPanel } from "../shared/TierFaixasPanel";
 import { genId, type V3SupplyItem } from "../types";
 
 interface Props {
@@ -22,6 +22,7 @@ interface Props {
 export function SupplyForm({ defaultMarginPct, onAdd, onAddTiers }: Props) {
   const [supply, setSupply] = useState<SupplyOption | null>(null);
   const [qty, setQty] = useState<number>(1);
+  const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [margem, setMargem] = useState<number>(defaultMarginPct || 20);
   const [descricao, setDescricao] = useState("");
   const [pulse, setPulse] = useState(false);
@@ -51,28 +52,26 @@ export function SupplyForm({ defaultMarginPct, onAdd, onAddTiers }: Props) {
     if (!supply || !canAdd) return;
     const it = buildItem(qty);
     if (!it) return;
-    onAdd(it);
+    const cleanExtras = [...new Set(extraTiers)]
+      .filter((q) => q > 0 && q !== qty)
+      .sort((a, b) => a - b);
+    if (cleanExtras.length > 0 && onAddTiers) {
+      const tg = `tg_${genId()}`;
+      const primary = { ...it, tier_group_id: tg, tier_primary: true } as V3SupplyItem;
+      const siblings = cleanExtras
+        .map((q) => {
+          const s = buildItem(q, tg);
+          return s ? ({ ...s, tier_primary: false } as V3SupplyItem) : null;
+        })
+        .filter((x): x is V3SupplyItem => !!x);
+      onAddTiers([primary, ...siblings]);
+    } else {
+      onAdd(it);
+    }
     setDescricao("");
     setSupply(null);
     setQty(1);
-    setPulse(true);
-    setTimeout(() => setPulse(false), 600);
-  };
-
-  const submitAsTiers = (qtys: number[], primaryQty: number) => {
-    if (!onAddTiers || !supply) return;
-    const tg = `tg_${genId()}`;
-    const items = qtys
-      .map((q) => {
-        const it = buildItem(q, tg);
-        return it ? ({ ...it, tier_primary: q === primaryQty } as V3SupplyItem) : null;
-      })
-      .filter((x): x is V3SupplyItem => !!x);
-    if (items.length === 0) return;
-    onAddTiers(items);
-    setDescricao("");
-    setSupply(null);
-    setQty(1);
+    setExtraTiers([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
@@ -115,25 +114,13 @@ export function SupplyForm({ defaultMarginPct, onAdd, onAddTiers }: Props) {
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
             Quantidade
           </Label>
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={1}
-              value={qty || ""}
-              onChange={(e) => setQty(Math.max(0, Number(e.target.value) || 0))}
-              className="h-9"
-            />
-            <TierSimulator
-              currentQty={qty}
-              disabled={!supply}
-              compute={(q) => {
-                const c = q * custoUnit;
-                return { custo_total: c, preco_total: roundUp10(c * (1 + margem / 100)) };
-              }}
-              onPickQty={(q) => setQty(q)}
-              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
-            />
-          </div>
+          <Input
+            type="number"
+            min={1}
+            value={qty || ""}
+            onChange={(e) => setQty(Math.max(0, Number(e.target.value) || 0))}
+            className="h-9"
+          />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -148,6 +135,18 @@ export function SupplyForm({ defaultMarginPct, onAdd, onAddTiers }: Props) {
           />
         </div>
       </div>
+
+      {onAddTiers && (
+        <TierFaixasPanel
+          currentQty={qty}
+          disabled={!supply}
+          onExtrasChange={setExtraTiers}
+          compute={(q) => {
+            const c = q * custoUnit;
+            return { custo_total: c, preco_total: roundUp10(c * (1 + margem / 100)) };
+          }}
+        />
+      )}
 
       <div className="space-y-1.5">
         <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -184,6 +183,11 @@ export function SupplyForm({ defaultMarginPct, onAdd, onAddTiers }: Props) {
           {pulse ? (
             <>
               <Check className="h-4 w-4 mr-2" /> Adicionado!
+            </>
+          ) : extraTiers.length > 0 ? (
+            <>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar suprimento + {extraTiers.length} faixa{extraTiers.length === 1 ? "" : "s"}
             </>
           ) : (
             <>

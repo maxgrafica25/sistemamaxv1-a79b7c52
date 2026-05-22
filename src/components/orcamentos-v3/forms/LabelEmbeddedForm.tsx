@@ -26,7 +26,7 @@ import {
 import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
 import { loadConfig, SEED_LABEL_PRESETS, type LabelPreset } from "@/lib/labels/config-storage";
 import { fmtBRL } from "../shared/pricing";
-import { TierSimulator } from "../shared/TierSimulator";
+import { TierFaixasPanel } from "../shared/TierFaixasPanel";
 
 import { genId, type V3LabelItem } from "../types";
 
@@ -49,6 +49,7 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
   const [labelH, setLabelH] = useState(30);
   const [shape, setShape] = useState<LabelShape>("quadrado");
   const [quantidade, setQuantidade] = useState(500);
+  const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [sheetId, setSheetId] = useState<string>("SRA3");
   const [pulse, setPulse] = useState(false);
 
@@ -155,24 +156,24 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
     if (!canAdd) return;
     const it = buildItem(quantidade);
     if (!it) return;
-    onAdd(it);
+    const cleanExtras = [...new Set(extraTiers)]
+      .filter((q) => q > 0 && q !== quantidade)
+      .sort((a, b) => a - b);
+    if (cleanExtras.length > 0 && onAddTiers) {
+      const tg = `tg_${genId()}`;
+      const primary = { ...it, tier_group_id: tg, tier_primary: true } as V3LabelItem;
+      const siblings = cleanExtras
+        .map((q) => {
+          const s = buildItem(q, tg);
+          return s ? ({ ...s, tier_primary: false } as V3LabelItem) : null;
+        })
+        .filter((x): x is V3LabelItem => !!x);
+      onAddTiers([primary, ...siblings]);
+    } else {
+      onAdd(it);
+    }
     setDescricao("");
-    setPulse(true);
-    setTimeout(() => setPulse(false), 600);
-  };
-
-  const submitAsTiers = (qtys: number[], primaryQty: number) => {
-    if (!onAddTiers) return;
-    const tg = `tg_${genId()}`;
-    const items = qtys
-      .map((q) => {
-        const it = buildItem(q, tg);
-        return it ? ({ ...it, tier_primary: q === primaryQty } as V3LabelItem) : null;
-      })
-      .filter((x): x is V3LabelItem => !!x);
-    if (items.length === 0) return;
-    onAddTiers(items);
-    setDescricao("");
+    setExtraTiers([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
@@ -278,32 +279,13 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Quantidade de etiquetas">
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min={1}
-              value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 0))}
-              className="h-9"
-            />
-            <TierSimulator
-              currentQty={quantidade}
-              disabled={!folha.selectedPrinting || perSheet <= 0}
-              compute={(q) => {
-                const pr = computeSheetPricing({
-                  pricePerSheet: folha.total,
-                  qtyRequested: q,
-                  perSheet,
-                });
-                return {
-                  custo_total: sheetCost * pr.sheetsNeeded,
-                  preco_total: pr.totalPrice,
-                };
-              }}
-              onPickQty={(q) => setQuantidade(q)}
-              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
-            />
-          </div>
+          <Input
+            type="number"
+            min={1}
+            value={quantidade}
+            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 0))}
+            className="h-9"
+          />
         </Field>
         <Field label="Folha">
           <Select value={sheetId} onValueChange={setSheetId}>
@@ -320,6 +302,25 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
           </Select>
         </Field>
       </div>
+
+      {onAddTiers && (
+        <TierFaixasPanel
+          currentQty={quantidade}
+          disabled={!folha.selectedPrinting || perSheet <= 0}
+          onExtrasChange={setExtraTiers}
+          compute={(q) => {
+            const pr = computeSheetPricing({
+              pricePerSheet: folha.total,
+              qtyRequested: q,
+              perSheet,
+            });
+            return {
+              custo_total: sheetCost * pr.sheetsNeeded,
+              preco_total: pr.totalPrice,
+            };
+          }}
+        />
+      )}
 
       <Field label="Papel / Impressão">
         {folha.isLoading ? (
@@ -401,6 +402,11 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
           {pulse ? (
             <>
               <Check className="h-4 w-4 mr-2" /> Adicionado!
+            </>
+          ) : extraTiers.length > 0 ? (
+            <>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar etiqueta + {extraTiers.length} faixa{extraTiers.length === 1 ? "" : "s"}
             </>
           ) : (
             <>
