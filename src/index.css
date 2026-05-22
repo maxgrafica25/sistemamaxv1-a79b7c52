@@ -100,8 +100,8 @@ All colors MUST be HSL.
     --danger-foreground: 0 0% 100%;
     --danger-light: 0 84% 15%;
 
-    --muted: 0 0% 16%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 270 10% 18%;
+    --muted-foreground: 270 8% 72%;
 
     --accent: 25 95% 58%;
     --accent-foreground: 0 0% 100%;
@@ -110,8 +110,8 @@ All colors MUST be HSL.
     --destructive: 0 84% 65%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
+    --border: 270 14% 22%;
+    --input: 270 14% 22%;
     --ring: 270 70% 60%;
 
     /* Sidebar dark — grafite suave com toque de roxo */
