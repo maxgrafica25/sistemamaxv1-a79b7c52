@@ -47,10 +47,13 @@ const FINISHES_BANNER: FinishingDef[] = [
   { id: "reforco_borda", label: "Reforço de borda" },
 ];
 
-export function PrintForm({ onAdd, onAddTiers, onSelectionChange }: Props) {
+export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange }: Props) {
   const { loading, items, tiers, settings } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
-  const [descricao, setDescricao] = useState("");
+  const [descricaoLocal, setDescricaoLocal] = useState("");
+  const descricao = descricaoProp ?? descricaoLocal;
+  const setDescricao = onDescricaoChange ?? setDescricaoLocal;
+  const controlledDescricao = onDescricaoChange !== undefined;
   const [quantidade, setQuantidade] = useState(100);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
