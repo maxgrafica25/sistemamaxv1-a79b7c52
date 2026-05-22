@@ -1,7 +1,7 @@
 import {
   Home, Users, Package, Settings, Factory, Receipt, Calculator, Cpu, Shield,
   ClipboardList, MessageSquare, TrendingUp, BookOpen, PanelLeftClose, PanelLeftOpen, X,
-  Megaphone, UserCog, LogOut, ShoppingCart, Wallet, Ruler, Scissors,
+  Megaphone, UserCog, LogOut, ShoppingCart, Wallet, Ruler, Scissors, Wand2,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -75,6 +75,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { name: "Monitoramento", href: "/monitoramento", icon: TrendingUp, adminOnly: true },
       { name: "Produtos Ref.", href: "/produtos", icon: BookOpen, adminOnly: true },
+      { name: "Presets de Orçamento", href: "/presets-orcamento", icon: Wand2, adminOnly: true },
       { name: "Auditoria", href: "/auditoria", icon: Shield, adminOnly: true },
       { name: "Usuários", href: "/usuarios", icon: UserCog, adminOnly: true },
       { name: "Configurações", href: "/configuracoes", icon: Settings },

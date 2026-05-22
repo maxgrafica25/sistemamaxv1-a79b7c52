@@ -26,6 +26,7 @@ import Equipamentos from "./pages/Equipamentos";
 import Auditoria from "./pages/Auditoria";
 import Monitoramento from "./pages/Monitoramento";
 import Produtos from "./pages/Produtos";
+import QuotePresets from "./pages/QuotePresets";
 import GruposMateriais from "./pages/GruposMateriais";
 import KitsProduto from "./pages/KitsProduto";
 import Insumos from "./pages/Insumos";
@@ -85,6 +86,7 @@ const App = () => (
                   <Route path="/auditoria" element={<Auditoria />} />
                   <Route path="/monitoramento" element={<Monitoramento />} />
                   <Route path="/produtos" element={<Produtos />} />
+                  <Route path="/presets-orcamento" element={<QuotePresets />} />
                   <Route path="/chat" element={<Chat />} />
                   <Route path="/usuarios" element={<Usuarios />} />
                 </Route>
