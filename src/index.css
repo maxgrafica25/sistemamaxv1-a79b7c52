@@ -8,7 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    --background: 270 30% 97%;
     --foreground: 270 50% 15%;
 
     --card: 0 0% 100%;
@@ -21,7 +21,7 @@ All colors MUST be HSL.
     --primary-foreground: 0 0% 100%;
     --primary-hover: 270 70% 45%;
 
-    --secondary: 210 40% 96%;
+    --secondary: 270 25% 95%;
     --secondary-foreground: 270 50% 25%;
 
     --success: 142 76% 36%;
@@ -36,7 +36,7 @@ All colors MUST be HSL.
     --danger-foreground: 0 0% 100%;
     --danger-light: 0 84% 95%;
 
-    --muted: 210 40% 94%;
+    --muted: 270 25% 94%;
     --muted-foreground: 270 10% 45%;
 
     --accent: 25 95% 53%;
@@ -46,8 +46,8 @@ All colors MUST be HSL.
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
+    --border: 270 20% 89%;
+    --input: 270 20% 89%;
     --ring: 270 70% 50%;
 
     --radius: 0.5rem;
@@ -72,20 +72,20 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 0 0% 7%;
+    --background: 270 18% 8%;
     --foreground: 0 0% 95%;
 
-    --card: 0 0% 10%;
+    --card: 270 14% 13%;
     --card-foreground: 0 0% 95%;
 
-    --popover: 0 0% 10%;
+    --popover: 270 14% 14%;
     --popover-foreground: 0 0% 95%;
 
     --primary: 270 70% 60%;
     --primary-foreground: 0 0% 100%;
     --primary-hover: 270 70% 65%;
 
-    --secondary: 0 0% 14%;
+    --secondary: 270 12% 17%;
     --secondary-foreground: 0 0% 85%;
 
     --success: 142 76% 40%;
@@ -100,8 +100,8 @@ All colors MUST be HSL.
     --danger-foreground: 0 0% 100%;
     --danger-light: 0 84% 15%;
 
-    --muted: 0 0% 16%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 270 10% 18%;
+    --muted-foreground: 270 8% 72%;
 
     --accent: 25 95% 58%;
     --accent-foreground: 0 0% 100%;
@@ -110,8 +110,8 @@ All colors MUST be HSL.
     --destructive: 0 84% 65%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
+    --border: 270 14% 22%;
+    --input: 270 14% 22%;
     --ring: 270 70% 60%;
 
     /* Sidebar dark — grafite suave com toque de roxo */
