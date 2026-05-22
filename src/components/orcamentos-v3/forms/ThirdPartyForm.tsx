@@ -18,6 +18,7 @@ export function ThirdPartyForm({ onAdd, onAddTiers }: Props) {
   const [descricao, setDescricao] = useState("");
   const [fornecedor, setFornecedor] = useState<AutocompleteOption | null>(null);
   const [quantidade, setQuantidade] = useState(1);
+  const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [custo, setCusto] = useState(0);
   const [margem, setMargem] = useState(30);
   const [pulse, setPulse] = useState(false);
