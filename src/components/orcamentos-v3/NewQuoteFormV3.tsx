@@ -259,12 +259,14 @@ function MobileCart({
   onRemove,
   summary,
   highlightId,
+  wastePct,
 }: {
   state: V3QuoteState;
   onDuplicate: (id: string) => void;
   onRemove: (id: string) => void;
   summary: ReturnType<typeof summarize>;
   highlightId: string | null;
+  wastePct: number;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -288,6 +290,9 @@ function MobileCart({
             onDuplicate={onDuplicate}
             onRemove={onRemove}
             highlightId={highlightId}
+            taxPct={state.tax_pct}
+            feesPct={state.fees_pct}
+            wastePct={wastePct}
           />
           <FinancialPanel summary={summary} />
         </div>
