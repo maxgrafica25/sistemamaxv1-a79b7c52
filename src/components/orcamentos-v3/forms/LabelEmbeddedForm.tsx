@@ -380,14 +380,6 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers }: Props) {
         </div>
       )}
 
-      <Field label="Descrição (opcional)">
-        <Input
-          value={descricao}
-          onChange={(e) => setDescricao(e.target.value)}
-          placeholder={`Padrão: Etiqueta ${labelW}×${labelH}mm — ${quantidade} un`}
-          className="h-9"
-        />
-      </Field>
 
       <div className="flex items-center justify-end pt-2">
         <Button
