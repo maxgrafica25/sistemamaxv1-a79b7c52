@@ -72,20 +72,20 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 0 0% 7%;
+    --background: 270 18% 8%;
     --foreground: 0 0% 95%;
 
-    --card: 0 0% 10%;
+    --card: 270 14% 13%;
     --card-foreground: 0 0% 95%;
 
-    --popover: 0 0% 10%;
+    --popover: 270 14% 14%;
     --popover-foreground: 0 0% 95%;
 
     --primary: 270 70% 60%;
     --primary-foreground: 0 0% 100%;
     --primary-hover: 270 70% 65%;
 
-    --secondary: 0 0% 14%;
+    --secondary: 270 12% 17%;
     --secondary-foreground: 0 0% 85%;
 
     --success: 142 76% 40%;
