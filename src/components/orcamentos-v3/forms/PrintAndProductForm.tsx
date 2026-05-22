@@ -3,8 +3,8 @@
 // que roteiam para o sub-formulário certo (PrintForm/BookletForm/LabelForm).
 // Em modo Personalizado, mostra sugestão inteligente quando a combinação
 // de papel + acabamentos casa com um produto conhecido (ex: lona + ilhós).
-import { useCallback, useEffect, useState } from "react";
-import { Wand2, Pencil, Sparkles, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Wand2, Pencil, Sparkles, X, Star } from "lucide-react";
 import { ModeButton } from "../shared/ModeButton";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { BookletForm } from "./BookletForm";
 import { LabelEmbeddedForm } from "./LabelEmbeddedForm";
 import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
+import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
 import {
   PRESET_BY_ID,
 } from "../shared/productPresets";
