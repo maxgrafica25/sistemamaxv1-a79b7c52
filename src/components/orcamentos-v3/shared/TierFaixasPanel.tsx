@@ -7,29 +7,6 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { fmtBRL } from "./pricing";
 
-const STORAGE_KEY = "v3:tier-simulator:tiers";
-
-function loadDefaults(): number[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const arr = JSON.parse(raw);
-    if (Array.isArray(arr) && arr.every((n) => typeof n === "number" && n > 0)) {
-      return arr.slice(0, 10);
-    }
-  } catch {
-    // ignore
-  }
-  return [];
-}
-
-function saveDefaults(tiers: number[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tiers));
-  } catch {
-    // ignore
-  }
-}
 
 export interface TierFaixasPanelProps {
   currentQty: number;
@@ -46,13 +23,10 @@ export function TierFaixasPanel({
   disabled,
   onExtrasChange,
 }: TierFaixasPanelProps) {
-  const [extras, setExtras] = useState<number[]>(() =>
-    loadDefaults().filter((q) => q !== currentQty),
-  );
+  const [extras, setExtras] = useState<number[]>([]);
   const [newQty, setNewQty] = useState("");
 
   useEffect(() => {
-    saveDefaults(extras);
     onExtrasChange?.(extras);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extras]);
