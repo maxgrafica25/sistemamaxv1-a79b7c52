@@ -26,6 +26,8 @@ export default function Clientes() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [recOpen, setRecOpen] = useState(false);
+  const [recCliente, setRecCliente] = useState<Cliente | null>(null);
 
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
