@@ -450,7 +450,7 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-medium leading-tight truncate">
-                  {primaryQty.toLocaleString("pt-BR")} un. - {descricao}
+                  {itemTitle(primaryItem)}
                 </p>
                 {itemSubtitle(primaryItem) && (
                   <p className="text-[11px] text-muted-foreground truncate">{itemSubtitle(primaryItem)}</p>
