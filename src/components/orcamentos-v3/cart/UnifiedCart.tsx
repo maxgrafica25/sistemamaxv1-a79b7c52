@@ -427,6 +427,7 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId, taxPct,
               onDuplicate={onDuplicate}
               onRemove={onRemove}
               pcts={pcts}
+              showFinancials={showFinancials}
             />
           );
         }
