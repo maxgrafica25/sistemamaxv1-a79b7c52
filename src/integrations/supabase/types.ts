@@ -408,6 +408,72 @@ export type Database = {
           },
         ]
       }
+      client_recurring_products: {
+        Row: {
+          ativo: boolean
+          aviso_antecedencia_dias: number
+          client_id: string
+          created_at: string
+          created_by: string | null
+          drive_folder_url: string | null
+          frequencia_dias: number
+          id: string
+          nome: string
+          observacoes: string | null
+          proxima_prevista_em: string | null
+          quote_preset_id: string | null
+          ultima_impressao_em: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          aviso_antecedencia_dias?: number
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          drive_folder_url?: string | null
+          frequencia_dias?: number
+          id?: string
+          nome: string
+          observacoes?: string | null
+          proxima_prevista_em?: string | null
+          quote_preset_id?: string | null
+          ultima_impressao_em?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          aviso_antecedencia_dias?: number
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          drive_folder_url?: string | null
+          frequencia_dias?: number
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          proxima_prevista_em?: string | null
+          quote_preset_id?: string | null
+          ultima_impressao_em?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_recurring_products_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_recurring_products_quote_preset_id_fkey"
+            columns: ["quote_preset_id"]
+            isOneToOne: false
+            referencedRelation: "quote_presets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           cep: string | null
@@ -3271,6 +3337,7 @@ export type Database = {
           product: string
           profit_margin: string | null
           quote_number: string
+          recurring_id: string | null
           rejection_reason: string | null
           status: string
           tags: string[]
@@ -3305,6 +3372,7 @@ export type Database = {
           product: string
           profit_margin?: string | null
           quote_number: string
+          recurring_id?: string | null
           rejection_reason?: string | null
           status?: string
           tags?: string[]
@@ -3339,6 +3407,7 @@ export type Database = {
           product?: string
           profit_margin?: string | null
           quote_number?: string
+          recurring_id?: string | null
           rejection_reason?: string | null
           status?: string
           tags?: string[]
@@ -3354,6 +3423,13 @@ export type Database = {
             columns: ["parent_quote_id"]
             isOneToOne: false
             referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_recurring_id_fkey"
+            columns: ["recurring_id"]
+            isOneToOne: false
+            referencedRelation: "client_recurring_products"
             referencedColumns: ["id"]
           },
         ]
@@ -3396,6 +3472,74 @@ export type Database = {
           severity?: string
         }
         Relationships: []
+      }
+      recurring_print_history: {
+        Row: {
+          carga_cor: string | null
+          created_at: string
+          equipment_id: string | null
+          id: string
+          impresso_em: string
+          observacoes: string | null
+          operador_id: string | null
+          quote_id: string | null
+          recurring_id: string
+          sales_order_id: string | null
+        }
+        Insert: {
+          carga_cor?: string | null
+          created_at?: string
+          equipment_id?: string | null
+          id?: string
+          impresso_em?: string
+          observacoes?: string | null
+          operador_id?: string | null
+          quote_id?: string | null
+          recurring_id: string
+          sales_order_id?: string | null
+        }
+        Update: {
+          carga_cor?: string | null
+          created_at?: string
+          equipment_id?: string | null
+          id?: string
+          impresso_em?: string
+          observacoes?: string | null
+          operador_id?: string | null
+          quote_id?: string | null
+          recurring_id?: string
+          sales_order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_print_history_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_print_history_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_print_history_recurring_id_fkey"
+            columns: ["recurring_id"]
+            isOneToOne: false
+            referencedRelation: "client_recurring_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_print_history_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reminders: {
         Row: {
@@ -3592,6 +3736,7 @@ export type Database = {
           payment_terms: string | null
           production_notes: string | null
           quote_id: string | null
+          recurring_id: string | null
           status: string
           total_value: number
           updated_at: string
@@ -3612,6 +3757,7 @@ export type Database = {
           payment_terms?: string | null
           production_notes?: string | null
           quote_id?: string | null
+          recurring_id?: string | null
           status?: string
           total_value?: number
           updated_at?: string
@@ -3632,6 +3778,7 @@ export type Database = {
           payment_terms?: string | null
           production_notes?: string | null
           quote_id?: string | null
+          recurring_id?: string | null
           status?: string
           total_value?: number
           updated_at?: string
@@ -3642,6 +3789,13 @@ export type Database = {
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_recurring_id_fkey"
+            columns: ["recurring_id"]
+            isOneToOne: false
+            referencedRelation: "client_recurring_products"
             referencedColumns: ["id"]
           },
         ]
@@ -4111,6 +4265,7 @@ export type Database = {
           produto: string
         }[]
       }
+      enqueue_recurring_reminders: { Args: never; Returns: number }
       is_channel_creator: {
         Args: { _channel_id: string; _user_id: string }
         Returns: boolean
@@ -4130,6 +4285,17 @@ export type Database = {
           role: string
           user_id: string
         }[]
+      }
+      mark_recurring_printed: {
+        Args: {
+          p_carga_cor: string
+          p_equipment_id: string
+          p_observacoes: string
+          p_quote_id?: string
+          p_recurring_id: string
+          p_sales_order_id?: string
+        }
+        Returns: string
       }
       next_order_number: { Args: never; Returns: string }
       register_quote_event: {
