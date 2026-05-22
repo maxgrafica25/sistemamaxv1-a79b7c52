@@ -23,7 +23,7 @@ import {
 import { filterAndSortForMidia } from "@/lib/cv-calc/media-order";
 import { SOBRA_CM } from "../shared/bastaoSuggester";
 import { buildCvDescricao } from "../shared/buildCvDescricao";
-import { TierSimulator } from "../shared/TierSimulator";
+import { TierFaixasPanel } from "../shared/TierFaixasPanel";
 
 // Extrai o tamanho (cm) de chips do tipo "Banner (Bastão topo e base até 105cm + ...)"
 function parseBastaoCm(nome: string): number | null {
@@ -34,11 +34,12 @@ function isBastaoFinish(nome: string): boolean {
   return /bast[ãa]o|banner.*at[ée]\s*\d+\s*cm/i.test(nome);
 }
 function isBannerFinish(nome: string): boolean {
-  return /banner|bast[ãa]o|ponteira|cordinha|ilh[óo]s|bainha|emenda|dupla\s*face|faixa/i.test(nome);
+  // Banner pode usar qualquer acabamento típico (bastão, ponteira, ilhós, bainha, etc.)
+  return /bast[ãa]o|banner|ponteira|cordinha|faixa|ilh[óo]s|bainha|refor[çc]o|emenda|dupla\s*face/i.test(nome);
 }
 function isLonaOnlyFinish(nome: string): boolean {
-  // Acabamentos típicos de lona (não-banner)
-  return /refile|lona|ilh[óo]s|bainha|dupla\s*face/i.test(nome) && !/bast[ãa]o|banner|ponteira|cordinha|faixa/i.test(nome);
+  // Lona pura: exclui explicitamente acabamentos exclusivos de banner
+  return !/bast[ãa]o|banner|ponteira|cordinha|faixa/i.test(nome);
 }
 
 interface Props {
@@ -61,6 +62,8 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
   const [acabIds, setAcabIds] = useState<string[]>([]);
   const [pulse, setPulse] = useState(false);
   const [isBanner, setIsBanner] = useState(false);
+  const [bannerTouched, setBannerTouched] = useState(false);
+  const [extraTiers, setExtraTiers] = useState<number[]>([]);
 
   const CV_PRESETS: Array<{
     id: string;
@@ -83,6 +86,7 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
     setAltura(p.height);
     setQuantidade(p.qty);
     setIsBanner(p.banner);
+    setBannerTouched(true);
     const found = cat.midias.find((m) => p.match.test(`${m.nome} ${m.tipo_midia}`));
     if (found) setMidiaId(found.id);
     setDescricaoEditada(false);
@@ -99,12 +103,13 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
     [midia],
   );
 
-  // Default "É banner?" quando o nome já indicar banner
+  // Default "É banner?" baseado no nome da mídia — só enquanto usuário não tocou o toggle nem aplicou preset.
   useEffect(() => {
-    if (!midia) { setIsBanner(false); return; }
-    if (isLona) setIsBanner(/banner/i.test(midia.nome || ""));
-    else setIsBanner(false);
-  }, [midia, isLona]);
+    if (!midia) { setIsBanner(false); setBannerTouched(false); return; }
+    if (!isLona) { setIsBanner(false); return; }
+    if (bannerTouched) return;
+    setIsBanner(/banner/i.test(midia.nome || ""));
+  }, [midia, isLona, bannerTouched]);
 
   // Impressoras compatíveis com a mídia selecionada
   const impressoesCompat = useMemo(() => {
@@ -283,12 +288,21 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
 
   const submit = () => {
     if (!canAdd) return;
+    const cleanExtras = [...new Set(extraTiers)]
+      .filter((q) => q > 0 && q !== quantidade)
+      .sort((a, b) => a - b);
+    if (cleanExtras.length > 0 && onAddTiers) {
+      submitAsTiers([quantidade, ...cleanExtras], quantidade);
+      setExtraTiers([]);
+      return;
+    }
     const item = buildItem(quantidade);
     if (!item) return;
     onAdd(item);
     setDescricao("");
     setDescricaoEditada(false);
     setAcabIds([]);
+    setExtraTiers([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
@@ -400,7 +414,7 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
           {isLona && (
             <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer shrink-0 rounded-md border border-primary/30 bg-primary/5 px-3 h-9">
               É banner?
-              <Switch checked={isBanner} onCheckedChange={(v) => setIsBanner(!!v)} />
+              <Switch checked={isBanner} onCheckedChange={(v) => { setIsBanner(!!v); setBannerTouched(true); }} />
             </label>
           )}
         </div>
@@ -455,38 +469,38 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
           />
         </Field>
         <Field label="Quantidade">
-          <div className="flex items-center gap-2">
-            <Input
-              type="number" min={1}
-              value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
-              className="h-9 flex-1"
-            />
-            <TierSimulator
-              currentQty={quantidade}
-              disabled={!midia || largura_cm <= 0 || altura_cm <= 0}
-              onPickQty={(q) => setQuantidade(q)}
-              onCloneAsTiers={onAddTiers ? submitAsTiers : undefined}
-              compute={(q) => {
-                if (!midia) return { custo_total: 0, preco_total: 0 };
-                const r = calcular({
-                  largura_cm,
-                  altura_cm,
-                  quantidade: q,
-                  midia,
-                  impressao,
-                  acabamentos: acabamentosAplicados,
-                  acabamentos_pool: cat.acabamentos,
-                  valor_minimo: cat.valorMinimo,
-                  markup: cat.markup,
-                  hourRate: cat.hourRate,
-                });
-                return { custo_total: r.custo_total, preco_total: r.valor_total };
-              }}
-            />
-          </div>
+          <Input
+            type="number" min={1}
+            value={quantidade}
+            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
+            className="h-9"
+          />
         </Field>
       </div>
+
+      {onAddTiers && (
+        <TierFaixasPanel
+          currentQty={quantidade}
+          disabled={!midia || largura_cm <= 0 || altura_cm <= 0}
+          onExtrasChange={setExtraTiers}
+          compute={(q) => {
+            if (!midia) return { custo_total: 0, preco_total: 0 };
+            const r = calcular({
+              largura_cm,
+              altura_cm,
+              quantidade: q,
+              midia,
+              impressao,
+              acabamentos: acabamentosAplicados,
+              acabamentos_pool: cat.acabamentos,
+              valor_minimo: cat.valorMinimo,
+              markup: cat.markup,
+              hourRate: cat.hourRate,
+            });
+            return { custo_total: r.custo_total, preco_total: r.valor_total };
+          }}
+        />
+      )}
 
       <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm">
         <span className="text-muted-foreground">Área total</span>
@@ -511,10 +525,20 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
                 <button
                   key={a.id}
                   type="button"
+                  disabled={naoCabe}
                   onClick={() =>
-                    setAcabIds((prev) =>
-                      prev.includes(a.id) ? prev.filter((x) => x !== a.id) : [...prev, a.id],
-                    )
+                    setAcabIds((prev) => {
+                      if (prev.includes(a.id)) return prev.filter((x) => x !== a.id);
+                      if (isBastao) {
+                        // Apenas 1 bastão por vez: remove outros bastões da seleção
+                        const semOutrosBastoes = prev.filter((id) => {
+                          const ac = acabamentosView.find((x) => x.id === id);
+                          return !ac || parseBastaoCm(ac.nome) == null;
+                        });
+                        return [...semOutrosBastoes, a.id];
+                      }
+                      return [...prev, a.id];
+                    })
                   }
                   title={naoCabe ? `Não cabe na largura + ${2 * SOBRA_CM}cm de sobra` : undefined}
                   className={cn(
@@ -523,13 +547,13 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-background hover:bg-muted border-input",
                     sugerido && !active && "ring-2 ring-primary/40 border-primary/40",
-                    naoCabe && !active && "opacity-50",
+                    naoCabe && "opacity-40 cursor-not-allowed",
                   )}
                 >
                   {a.nome}
                   {sugerido && !active && (
                     <span className="ml-1.5 text-[10px] uppercase tracking-wide text-primary font-semibold">
-                      sugerido
+                      melhor aproveitamento
                     </span>
                   )}
                 </button>
