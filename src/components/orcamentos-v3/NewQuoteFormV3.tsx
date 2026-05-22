@@ -9,7 +9,7 @@ import { TabsLayout, getTab } from "./workspace/TabsLayout";
 import { PrintAndProductForm } from "./forms/PrintAndProductForm";
 import { CVForm } from "./forms/CVForm";
 import { ThirdPartyForm } from "./forms/ThirdPartyForm";
-import { LaborForm } from "./forms/LaborForm";
+
 
 import { UnifiedCart } from "./cart/UnifiedCart";
 import { FinancialPanel } from "./cart/FinancialPanel";
@@ -47,7 +47,6 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
         "1": "print",
         "2": "cv",
         "3": "third",
-        "4": "labor",
       };
       const next = map[e.key];
       if (next) {
@@ -201,9 +200,6 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
             )}
             {active === "cv" && <CVForm onAdd={addItem} onAddTiers={addItems} />}
             {active === "third" && <ThirdPartyForm onAdd={addItem} onAddTiers={addItems} />}
-            {active === "labor" && (
-              <LaborForm defaultMarginPct={state.margin_pct} onAdd={addItem} />
-            )}
           </div>
 
         </div>
