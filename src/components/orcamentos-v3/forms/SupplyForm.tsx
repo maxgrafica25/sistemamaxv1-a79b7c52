@@ -52,28 +52,26 @@ export function SupplyForm({ defaultMarginPct, onAdd, onAddTiers }: Props) {
     if (!supply || !canAdd) return;
     const it = buildItem(qty);
     if (!it) return;
-    onAdd(it);
+    const cleanExtras = [...new Set(extraTiers)]
+      .filter((q) => q > 0 && q !== qty)
+      .sort((a, b) => a - b);
+    if (cleanExtras.length > 0 && onAddTiers) {
+      const tg = `tg_${genId()}`;
+      const primary = { ...it, tier_group_id: tg, tier_primary: true } as V3SupplyItem;
+      const siblings = cleanExtras
+        .map((q) => {
+          const s = buildItem(q, tg);
+          return s ? ({ ...s, tier_primary: false } as V3SupplyItem) : null;
+        })
+        .filter((x): x is V3SupplyItem => !!x);
+      onAddTiers([primary, ...siblings]);
+    } else {
+      onAdd(it);
+    }
     setDescricao("");
     setSupply(null);
     setQty(1);
-    setPulse(true);
-    setTimeout(() => setPulse(false), 600);
-  };
-
-  const submitAsTiers = (qtys: number[], primaryQty: number) => {
-    if (!onAddTiers || !supply) return;
-    const tg = `tg_${genId()}`;
-    const items = qtys
-      .map((q) => {
-        const it = buildItem(q, tg);
-        return it ? ({ ...it, tier_primary: q === primaryQty } as V3SupplyItem) : null;
-      })
-      .filter((x): x is V3SupplyItem => !!x);
-    if (items.length === 0) return;
-    onAddTiers(items);
-    setDescricao("");
-    setSupply(null);
-    setQty(1);
+    setExtraTiers([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
