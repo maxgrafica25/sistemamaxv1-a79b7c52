@@ -49,6 +49,7 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
   const [labelH, setLabelH] = useState(30);
   const [shape, setShape] = useState<LabelShape>("quadrado");
   const [quantidade, setQuantidade] = useState(500);
+  const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [sheetId, setSheetId] = useState<string>("SRA3");
   const [pulse, setPulse] = useState(false);
 
