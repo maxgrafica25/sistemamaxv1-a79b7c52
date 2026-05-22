@@ -399,8 +399,16 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
             type="number"
             inputMode="numeric"
             min={1}
-            value={quantidade}
-            onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 1))}
+            value={quantidade === 0 ? "" : quantidade}
+            placeholder="Ex: 100"
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw === "") {
+                setQuantidade(0);
+                return;
+              }
+              setQuantidade(Math.max(1, Number(raw) || 1));
+            }}
             className="h-9"
           />
         </Field>
