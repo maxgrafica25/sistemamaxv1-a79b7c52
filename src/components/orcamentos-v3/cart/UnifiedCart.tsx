@@ -607,29 +607,39 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove, pcts }: BundleC
       </div>
 
       {expanded && (
-        <ul className="mt-1 space-y-0 border-t border-border/40 pt-1">
-          {entry.items.map((it) => {
-            const price = priceOf(it).preco_total;
-            const descr = (it as { descricao?: string }).descricao || LABEL[it.kind];
-            return (
-              <li
-                key={it.id}
-                className="flex items-center justify-between gap-2 text-[11px] px-1 py-0.5"
-              >
-                <span className="truncate flex-1 text-muted-foreground">{descr}</span>
-                <span className="font-medium tabular-nums shrink-0">{fmtBRL(price)}</span>
-                <button
-                  type="button"
-                  onClick={() => onRemove(it.id)}
-                  className="text-muted-foreground/60 hover:text-destructive shrink-0 opacity-40 hover:opacity-100 active:opacity-100 transition-opacity"
-                  title="Remover este item do bundle"
+        <>
+          <ul className="mt-1 space-y-0 border-t border-border/40 pt-1">
+            {entry.items.map((it) => {
+              const price = priceOf(it).preco_total;
+              const descr = (it as { descricao?: string }).descricao || LABEL[it.kind];
+              return (
+                <li
+                  key={it.id}
+                  className="flex items-center justify-between gap-2 text-[11px] px-1 py-0.5"
                 >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                  <span className="truncate flex-1 text-muted-foreground">{descr}</span>
+                  <span className="font-medium tabular-nums shrink-0">{fmtBRL(price)}</span>
+                  <button
+                    type="button"
+                    onClick={() => onRemove(it.id)}
+                    className="text-muted-foreground/60 hover:text-destructive shrink-0 opacity-40 hover:opacity-100 active:opacity-100 transition-opacity"
+                    title="Remover este item do bundle"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <ExpandedDetails
+            context={[]}
+            breakdown={buildFinancials(
+              entry.items.reduce((a, it) => a + priceOf(it).custo_total, 0),
+              entry.items.reduce((a, it) => a + priceOf(it).preco_total, 0),
+              pcts,
+            )}
+          />
+        </>
       )}
     </li>
   );
