@@ -237,7 +237,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             emptyDefaults
           />
         )}
-        {!isCustom && formTipo === "print" && (
+        {!isCustom && !isBusinessCard && formTipo === "print" && (
           <PrintForm
             onAdd={onAdd}
             onAddTiers={onAddTiers}
@@ -245,7 +245,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onDescricaoChange={setDescricao}
           />
         )}
-        {!isCustom && formTipo === "booklet" && (
+        {!isCustom && !isBusinessCard && formTipo === "booklet" && (
           <BookletForm
             onAdd={onAdd}
             onAddMany={onAddMany}
@@ -255,7 +255,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onDescricaoChange={setDescricao}
           />
         )}
-        {!isCustom && formTipo === "label" && (
+        {!isCustom && !isBusinessCard && formTipo === "label" && (
           <LabelEmbeddedForm
             onAdd={onAdd}
             onAddTiers={onAddTiers}
