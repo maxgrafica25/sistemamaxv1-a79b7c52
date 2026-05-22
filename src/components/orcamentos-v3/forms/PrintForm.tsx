@@ -52,34 +52,9 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
   }, []);
 
   // Lona / banner
-  const isLona = useMemo(
-    () => /lona|banner|vinil/i.test(catalog?.paper_type || ""),
-    [catalog],
-  );
-  const [isBanner, setIsBanner] = useState(false);
-  const [bannerLarguraCm, setBannerLarguraCm] = useState<number>(0);
-  const [bannerAlturaCm, setBannerAlturaCm] = useState<number>(0);
-  const [bastaoOverride, setBastaoOverride] = useState<number | null>(null);
-
-  // Auto-marcar "É banner?" quando o nome já indicar banner
-  useEffect(() => {
-    if (!catalog) {
-      setIsBanner(false);
-      setBannerLarguraCm(0);
-      setBannerAlturaCm(0);
-      setBastaoOverride(null);
-      return;
-    }
-    if (isLona) {
-      setIsBanner(/banner/i.test(catalog.paper_type));
-    } else {
-      setIsBanner(false);
-    }
-  }, [catalog, isLona]);
-
-  // Conjunto padrão derivado do catálogo unificado.
+  // Conjunto de acabamentos derivado do catálogo unificado.
   // O hint reflete o preço efetivo da quantidade atual (tier aplicada quando há).
-  const FINISHES_PADRAO = useMemo<FinishingDef[]>(
+  const finishes = useMemo<FinishingDef[]>(
     () =>
       printFinishings.map((f) => {
         let hint: string;
@@ -97,13 +72,6 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
     [printFinishings, quantidade],
   );
 
-  // Seleciona conjunto de acabamentos
-  const finishes = useMemo<FinishingDef[]>(() => {
-    if (isLona && isBanner) return FINISHES_BANNER;
-    if (isLona) return FINISHES_LONA;
-    return FINISHES_PADRAO;
-  }, [isLona, isBanner, FINISHES_PADRAO]);
-
   // Limpa chips que não pertencem ao conjunto atual
   useEffect(() => {
     setFinEnabled((m) => {
@@ -113,37 +81,6 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
       return next;
     });
   }, [finishes]);
-
-  // Sugestão de bastão
-  const bastaoSugestao = useMemo(
-    () => (isLona && isBanner ? sugerirBastao(bannerLarguraCm) : null),
-    [isLona, isBanner, bannerLarguraCm],
-  );
-  const bastaoEscolhido = bastaoOverride ?? bastaoSugestao?.bastao ?? null;
-  const bastaoInvalido =
-    bastaoEscolhido != null &&
-    bannerLarguraCm > 0 &&
-    bastaoEscolhido < bannerLarguraCm + 2;
-
-  // Injeta painel "advanced" no chip Bastão quando estiver em modo banner
-  const finishesComBastao = useMemo<FinishingDef[]>(() => {
-    if (!(isLona && isBanner)) return finishes;
-    return finishes.map((f) => {
-      if (f.id !== "bastao") return f;
-      return {
-        ...f,
-        advanced: (
-          <BastaoPanel
-            larguraCm={bannerLarguraCm}
-            sugestao={bastaoSugestao}
-            escolhido={bastaoEscolhido}
-            invalido={bastaoInvalido}
-            onChange={(v) => setBastaoOverride(v)}
-          />
-        ),
-      };
-    });
-  }, [finishes, isLona, isBanner, bannerLarguraCm, bastaoSugestao, bastaoEscolhido, bastaoInvalido]);
 
   // Labels dos acabamentos atualmente ligados (usado para descrição/sugestão)
   const enabledLabels = useMemo(
@@ -176,19 +113,7 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
     if (!catalog) return "";
     // Mantém apenas o que o usuário digitou. O cart cuida do fallback
     // ("Impresso personalizado" / pluralização) e a linha 2 já mostra os specs.
-    let label = descricao.trim();
-    if (isLona && isBanner) {
-      if (bannerLarguraCm > 0 && bannerAlturaCm > 0) {
-        label = label
-          ? `${label} — Banner ${bannerLarguraCm}x${bannerAlturaCm}cm`
-          : `Banner ${bannerLarguraCm}x${bannerAlturaCm}cm`;
-      }
-      if (finEnabled.bastao && bastaoEscolhido && bastaoSugestao) {
-        label += ` — Bastão ${bastaoEscolhido}cm × ${bastaoSugestao.quantidade}`;
-        if (bastaoSugestao.emenda) label += " (c/ emenda)";
-      }
-    }
-    return label;
+    return descricao.trim();
   };
 
   // Snapshot das seleções de acabamentos resolvendo tiers por quantidade.
