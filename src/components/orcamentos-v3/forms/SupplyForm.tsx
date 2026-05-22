@@ -10,7 +10,7 @@ import SupplySearch, {
   type SupplyOption,
 } from "@/components/orcamentos-v2/SupplySearch";
 import { fmtBRL, roundUp10 } from "../shared/pricing";
-import { TierSimulator } from "../shared/TierSimulator";
+import { TierFaixasPanel } from "../shared/TierFaixasPanel";
 import { genId, type V3SupplyItem } from "../types";
 
 interface Props {
