@@ -3,8 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Check, Plus, Printer, AlertTriangle } from "lucide-react";
+import { Check, Plus, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PrintingItemSearch, {
   type PrintingCatalogItem,
@@ -12,7 +11,6 @@ import PrintingItemSearch, {
 import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProgressive";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
-import { BASTOES_CM, sugerirBastao } from "../shared/bastaoSuggester";
 import { TierFaixasPanel } from "../shared/TierFaixasPanel";
 import { genId, type V3PrintItem } from "../types";
 import { listFinishings, sumFinishingsPerSheet, type FinishingItem } from "@/lib/finishings/catalog";
