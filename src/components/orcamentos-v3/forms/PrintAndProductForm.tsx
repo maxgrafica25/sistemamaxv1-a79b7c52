@@ -127,21 +127,44 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         />
       </div>
 
-      {/* Toggle Produtos / Personalizado */}
-      <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
-        <ModeButton
-          active={mode === "product"}
-          onClick={() => setMode("product")}
-          icon={Wand2}
-          label="Produtos"
-        />
-        <ModeButton
-          active={mode === "custom"}
-          onClick={() => setMode("custom")}
-          icon={Pencil}
-          label="Personalizado"
-        />
+      {/* Toggle Produtos / Personalizado + Salvar preset */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="inline-flex rounded-md border border-border bg-muted/40 p-1">
+          <ModeButton
+            active={mode === "product"}
+            onClick={() => setMode("product")}
+            icon={Wand2}
+            label="Produtos"
+          />
+          <ModeButton
+            active={mode === "custom"}
+            onClick={() => setMode("custom")}
+            icon={Pencil}
+            label="Personalizado"
+          />
+        </div>
+        {canSavePreset && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setSaveOpen(true)}
+            className="h-8 text-xs text-muted-foreground hover:text-primary"
+            title="Salva a combinação atual como um botão rápido em Produtos"
+          >
+            <Star className="h-3.5 w-3.5" />
+            Salvar como preset
+          </Button>
+        )}
       </div>
+      {savePayload && (
+        <SavePresetDialog
+          open={saveOpen}
+          onOpenChange={setSaveOpen}
+          payload={savePayload}
+          onSaved={reload}
+        />
+      )}
 
 
 
