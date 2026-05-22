@@ -210,6 +210,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onSelectionChange={handleSelectionChange}
             descricao={descricao}
             onDescricaoChange={setDescricao}
+            emptyDefaults
           />
         )}
         {!isCustom && formTipo === "print" && (
