@@ -55,6 +55,7 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
   const controlledDescricao = onDescricaoChange !== undefined;
   const [quantidade, setQuantidade] = useState(100);
+  const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
 
