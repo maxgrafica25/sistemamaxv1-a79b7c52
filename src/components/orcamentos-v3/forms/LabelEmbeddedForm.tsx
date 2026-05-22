@@ -156,24 +156,24 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
     if (!canAdd) return;
     const it = buildItem(quantidade);
     if (!it) return;
-    onAdd(it);
+    const cleanExtras = [...new Set(extraTiers)]
+      .filter((q) => q > 0 && q !== quantidade)
+      .sort((a, b) => a - b);
+    if (cleanExtras.length > 0 && onAddTiers) {
+      const tg = `tg_${genId()}`;
+      const primary = { ...it, tier_group_id: tg, tier_primary: true } as V3LabelItem;
+      const siblings = cleanExtras
+        .map((q) => {
+          const s = buildItem(q, tg);
+          return s ? ({ ...s, tier_primary: false } as V3LabelItem) : null;
+        })
+        .filter((x): x is V3LabelItem => !!x);
+      onAddTiers([primary, ...siblings]);
+    } else {
+      onAdd(it);
+    }
     setDescricao("");
-    setPulse(true);
-    setTimeout(() => setPulse(false), 600);
-  };
-
-  const submitAsTiers = (qtys: number[], primaryQty: number) => {
-    if (!onAddTiers) return;
-    const tg = `tg_${genId()}`;
-    const items = qtys
-      .map((q) => {
-        const it = buildItem(q, tg);
-        return it ? ({ ...it, tier_primary: q === primaryQty } as V3LabelItem) : null;
-      })
-      .filter((x): x is V3LabelItem => !!x);
-    if (items.length === 0) return;
-    onAddTiers(items);
-    setDescricao("");
+    setExtraTiers([]);
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
