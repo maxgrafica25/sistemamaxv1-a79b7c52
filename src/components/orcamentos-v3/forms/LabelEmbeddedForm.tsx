@@ -297,31 +297,6 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
         </Field>
       )}
 
-      {/* Chips de presets favoritos */}
-      {labelPresets.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {labelPresets.map((p) => {
-            const active = p.id === activePresetId;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => applyPreset(p)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                  active
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
-                )}
-              >
-                <Tag className="h-3.5 w-3.5" />
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       <div className="flex items-start justify-between gap-3">
         <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 flex items-center gap-2 flex-1">
           <Tag className="h-4 w-4 text-primary" />
@@ -341,6 +316,48 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
         </Button>
       </div>
 
+      <Field label="Folha">
+        <ToggleGroup
+          type="single"
+          value={sheetId}
+          onValueChange={handleSheetChange}
+          className="justify-start"
+        >
+          {SHEET_PRESETS.map((s) => (
+            <ToggleGroupItem key={s.id} value={s.id} className="h-9 px-3 text-xs">
+              {s.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </Field>
+
+      {/* Chips de presets favoritos — filtrados pela folha ativa */}
+      {visiblePresets.length > 0 && (
+        <Field label="Tamanhos rápidos">
+          <div className="flex flex-wrap gap-2">
+            {visiblePresets.map((p) => {
+              const active = p.id === activePresetId;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => applyPreset(p)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+                  )}
+                >
+                  <Tag className="h-3.5 w-3.5" />
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+        </Field>
+      )}
+
       <Field label="Forma">
         <ToggleGroup
           type="single"
@@ -355,7 +372,7 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
       </Field>
 
       {isRound ? (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Field label="Diâmetro (cm)">
             <Input
               type="number"
@@ -377,16 +394,6 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
               onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 0))}
               className="h-9"
             />
-          </Field>
-          <Field label="Folha">
-            <Select value={sheetId} onValueChange={setSheetId}>
-              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {SHEET_PRESETS.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </Field>
         </div>
       ) : (
@@ -420,29 +427,18 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Quantidade de etiquetas">
-              <Input
-                type="number"
-                min={1}
-                value={quantidade}
-                onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 0))}
-                className="h-9"
-              />
-            </Field>
-            <Field label="Folha">
-              <Select value={sheetId} onValueChange={setSheetId}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {SHEET_PRESETS.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
+          <Field label="Quantidade de etiquetas">
+            <Input
+              type="number"
+              min={1}
+              value={quantidade}
+              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 0))}
+              className="h-9"
+            />
+          </Field>
         </>
       )}
+
 
       {onAddTiers && (
         <TierFaixasPanel
