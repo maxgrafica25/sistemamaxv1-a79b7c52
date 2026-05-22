@@ -659,9 +659,10 @@ interface SingleCardProps {
   onDuplicate: (id: string) => void;
   onRemove: (id: string) => void;
   pcts: CartPcts;
+  showFinancials: boolean;
 }
 
-function SingleCard({ item, isNew, onDuplicate, onRemove, pcts }: SingleCardProps) {
+function SingleCard({ item, isNew, onDuplicate, onRemove, pcts, showFinancials }: SingleCardProps) {
   const [expanded, setExpanded] = useState(false);
   const Icon = ICON[item.kind];
   const price = priceOf(item).preco_total;
