@@ -3028,6 +3028,69 @@ export type Database = {
           },
         ]
       }
+      quote_presets: {
+        Row: {
+          acabamentos_sugeridos: string[]
+          altura_cm: number | null
+          ativo: boolean
+          created_at: string
+          form_tipo: string | null
+          icone: string
+          id: string
+          is_banner: boolean
+          largura_cm: number | null
+          midia_nome_match: string | null
+          midia_tipo: string | null
+          modulo: string
+          nome: string
+          ordem: number
+          papel_exclui: string[]
+          papel_inclui: string[]
+          quantidade_padrao: number | null
+          updated_at: string
+        }
+        Insert: {
+          acabamentos_sugeridos?: string[]
+          altura_cm?: number | null
+          ativo?: boolean
+          created_at?: string
+          form_tipo?: string | null
+          icone?: string
+          id?: string
+          is_banner?: boolean
+          largura_cm?: number | null
+          midia_nome_match?: string | null
+          midia_tipo?: string | null
+          modulo: string
+          nome: string
+          ordem?: number
+          papel_exclui?: string[]
+          papel_inclui?: string[]
+          quantidade_padrao?: number | null
+          updated_at?: string
+        }
+        Update: {
+          acabamentos_sugeridos?: string[]
+          altura_cm?: number | null
+          ativo?: boolean
+          created_at?: string
+          form_tipo?: string | null
+          icone?: string
+          id?: string
+          is_banner?: boolean
+          largura_cm?: number | null
+          midia_nome_match?: string | null
+          midia_tipo?: string | null
+          modulo?: string
+          nome?: string
+          ordem?: number
+          papel_exclui?: string[]
+          papel_inclui?: string[]
+          quantidade_padrao?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       quote_reminders: {
         Row: {
           created_at: string
