@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+
 import {
   Copy,
   Trash2,
@@ -46,26 +46,68 @@ const LABEL = {
   label: "Etiqueta",
 };
 
-function cartMeta(it: V3Item): string {
-  switch (it.kind) {
-    case "labor":
-      return `${it.time_minutes} min · margem ${it.margem_pct.toFixed(0)}%`;
-    case "booklet":
-      return `${it.bookletUnits}× ${it.bookletPages}fl${it.bookletDuplex ? " F/V" : ""}`;
-    case "label":
-      return `${it.labelW_mm}×${it.labelH_mm}mm · ${it.quantidade} un · ${it.sheets_needed} fl`;
-    case "supply":
-    case "third":
-    case "print":
-    case "cv":
-      return `qtd ${it.quantidade ?? 1}`;
-  }
-}
-
 function itemQty(it: V3Item): number {
   if (it.kind === "labor") return 1;
   if (it.kind === "booklet") return it.bookletUnits;
   return (it as { quantidade?: number }).quantidade ?? 1;
+}
+
+function sideLabel(side?: string): string {
+  if (!side) return "";
+  const s = side.toLowerCase();
+  if (s.includes("f/v") || s.includes("verso") || s.includes("duplex")) return "Frente/Verso";
+  return "Frente";
+}
+
+function itemSubtitle(it: V3Item): string {
+  const parts: string[] = [];
+  switch (it.kind) {
+    case "print": {
+      const qty = itemQty(it);
+      parts.push(`${qty.toLocaleString("pt-BR")} folhas`);
+      if (it.paper_type) parts.push(`${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}`);
+      const side = sideLabel(it.side);
+      if (side) parts.push(side);
+      break;
+    }
+    case "booklet": {
+      parts.push(`${it.bookletPages} folhas`);
+      if (it.paper_type) parts.push(`${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}`);
+      parts.push(it.bookletDuplex ? "Frente/Verso" : "Frente");
+      break;
+    }
+    case "label": {
+      parts.push(`${it.labelW_mm}×${it.labelH_mm} mm`);
+      if (it.paper_type) parts.push(`${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}`);
+      break;
+    }
+    case "cv": {
+      parts.push(`${(it.largura_m * 100).toFixed(0)}×${(it.altura_m * 100).toFixed(0)} cm`);
+      if (it.midia_nome) parts.push(it.midia_nome);
+      if (it.impressao_nome) parts.push(it.impressao_nome);
+      break;
+    }
+    case "third": {
+      if (it.fornecedor) parts.push(it.fornecedor);
+      break;
+    }
+    case "supply": {
+      if (it.supply_nome) parts.push(it.supply_nome);
+      break;
+    }
+    case "labor": {
+      parts.push(`${it.time_minutes} min`);
+      if (it.step_type) parts.push(it.step_type);
+      break;
+    }
+  }
+  return parts.join(" | ");
+}
+
+function itemTitle(it: V3Item): string {
+  const name = (it as { descricao?: string }).descricao || LABEL[it.kind];
+  const qty = itemQty(it);
+  return `${qty.toLocaleString("pt-BR")} un. - ${name}`;
 }
 
 type Detail = { label: string; value: string; muted?: boolean };
@@ -362,7 +404,12 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId }: Props
                 <Icon className="h-3 w-3" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium leading-tight truncate">{descricao}</p>
+                <p className="text-[13px] font-medium leading-tight truncate">
+                  {primaryQty.toLocaleString("pt-BR")} un. - {descricao}
+                </p>
+                {itemSubtitle(primaryItem) && (
+                  <p className="text-[11px] text-muted-foreground truncate">{itemSubtitle(primaryItem)}</p>
+                )}
               </div>
               <CardActions
                 onRemove={() => entry.items.forEach((it) => onRemove(it.id))}
@@ -418,16 +465,16 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove }: BundleCardPro
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <div className="flex items-start gap-2 min-w-0 flex-1">
-              <span className="text-[13px] font-semibold tabular-nums text-primary shrink-0 whitespace-nowrap">
-                {leaderQty.toLocaleString("pt-BR")} un
-              </span>
-              <p className="text-[13px] font-medium leading-tight truncate min-w-0" title={title}>{title}</p>
-            </div>
+            <p className="text-[13px] font-medium leading-tight truncate min-w-0 flex-1" title={title}>
+              {leaderQty.toLocaleString("pt-BR")} un. - {title}
+            </p>
             <span className="text-[13px] font-semibold tabular-nums shrink-0 whitespace-nowrap">
               {fmtBRL(total)}
             </span>
           </div>
+          {itemSubtitle(leader) && (
+            <p className="text-[11px] text-muted-foreground truncate">{itemSubtitle(leader)}</p>
+          )}
           <div className="mt-0">
             <button
               type="button"
@@ -504,17 +551,14 @@ function SingleCard({ item, isNew, onDuplicate, onRemove }: SingleCardProps) {
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <p className="text-[13px] font-medium leading-tight truncate min-w-0 flex-1">
-              {(item as { descricao?: string }).descricao || LABEL[item.kind]}
+              {itemTitle(item)}
             </p>
             <span className="text-[13px] font-semibold tabular-nums shrink-0 whitespace-nowrap">
               {fmtBRL(price)}
             </span>
           </div>
           <div className="mt-0.5 flex items-center gap-1.5 min-w-0">
-            <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 shrink-0">
-              {LABEL[item.kind]}
-            </Badge>
-            <span className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">{cartMeta(item)}</span>
+            <p className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">{itemSubtitle(item)}</p>
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}

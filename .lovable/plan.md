@@ -1,17 +1,51 @@
-Corrigir alinhamento dos badges de economia (`−X% un`) ao final de cada linha de faixa em `UnifiedCart.tsx`.
+## Novo formato dos itens no carrinho lateral
 
-Sintomas no screenshot:
-- O `un` quebra para a linha de baixo (badge sem `whitespace-nowrap`).
-- O badge fica desalinhado/torto à direita.
+Substituir o cabeçalho atual de cada item por um padrão consistente, focado em quantidade e detalhes de produção.
 
-Alterações em `src/components/orcamentos-v3/cart/UnifiedCart.tsx`, dentro de `renderTierRow`:
+### Novo padrão visual
 
-1. Badge de economia (linha 334): adicionar `whitespace-nowrap` e largura fixa para alinhar com o placeholder. Trocar:
-   - `"inline-flex rounded px-1.5 py-0 text-[10px] font-medium bg-emerald-50 ... tabular-nums"`  
-   - por: `"inline-flex justify-center w-[48px] shrink-0 rounded px-1 py-0 text-[10px] font-medium bg-emerald-50 ... tabular-nums whitespace-nowrap"`
+**Título (linha 1):** `{qty} un. - {Nome do Produto}`
+- Exemplo: `1 un. - Apostila`
+- Negrito, mesmo tamanho atual (`text-[13px]`)
 
-2. Placeholder vazio (linha 338): manter `w-[48px] shrink-0` para garantir mesma largura entre linhas com e sem badge.
+**Subtítulo (linha 2):** detalhes de produção em cinza (`text-muted-foreground`), fonte menor (`text-[11px]`), separados por `|`. Para evitar redundância com o título, a quantidade principal NÃO se repete no subtítulo de Etiqueta/Terceiro/Suprimento.
 
-3. Reduzir o gap entre badge e botão de lixeira: revisar `gap-2` da `<li>` para `gap-1.5` para evitar overflow do card quando a coluna fica apertada (preview 1336px com sidebar).
+- Print: `{qty} folhas | {Papel} {gramatura}g | {Frente | Frente/Verso}` (qty = folhas do miolo)
+- Apostila (booklet): `{bookletPages} folhas | {Papel} {gramatura}g | {Frente | Frente/Verso}` (folhas por apostila, não kits)
+- Etiqueta: `{labelW}×{labelH} mm | {Papel} {gramatura}g`
+- CV: `{largura}×{altura} cm | {Mídia} | {Impressão}`
+- Terceiro: `{Fornecedor}`
+- Suprimento: `{Suprimento}`
+- Mão-de-obra: `{tempo} min | {Etapa}`
 
-Sem mudanças em lógica, dados ou cores. Apenas controle de quebra e largura para alinhar verticalmente os badges.
+Exemplo final: `20 folhas | Sulfite 75g | Frente/Verso`
+
+### Remoção do "1x"
+
+- Em `cartMeta` (apostila), substituir `${bookletUnits}× ${bookletPages}fl` pelo novo subtítulo descrito acima — sem o caractere `×` antes da quantidade.
+- O caractere `×` permanece apenas em dimensões físicas (ex: `50×50 mm`, `30×40 cm`), onde representa medida — sem ambiguidade com cores.
+
+### Onde aplicar (arquivo: `src/components/orcamentos-v3/cart/UnifiedCart.tsx`)
+
+1. **`SingleCard`** (linhas 488-548):
+   - Substituir o `<p>` do título por `{qty} un. - {nome}`.
+   - Substituir o bloco `Badge + cartMeta` por um único `<p>` em cinza com o novo subtítulo.
+   - Manter o preço à direita, o botão "detalhes/ocultar" e as ações (duplicar/excluir).
+
+2. **Group/Tier card** (linhas 352-383):
+   - Cabeçalho do grupo passa a usar `{primaryQty} un. - {descricao}` no título.
+   - Adicionar subtítulo cinza com os detalhes do `primaryItem`.
+   - Linhas de faixas (tiers) permanecem inalteradas (já mostram "X un · valor").
+
+3. **`BundleCard`** (linhas 396-479):
+   - Cabeçalho passa a `{leaderQty} un. - {title}`.
+   - Adicionar subtítulo cinza com os detalhes do `leader`.
+   - Botão "ver detalhes" e itens internos permanecem.
+
+4. **Helper novo** `itemSubtitle(it: V3Item): string` — concentra a construção do subtítulo por `kind`, retornando string já formatada com `|`. Reaproveitado nos 3 cards.
+
+5. **`cartMeta`** pode ser removida (ou deixada apenas como fallback) — não será mais usada nos cards após a refatoração.
+
+### Escopo
+
+- Apenas visual/apresentação. Sem alterações em tipos, pricing, lógica de tiers, persistência ou detalhes expandidos (`itemDetails`).
