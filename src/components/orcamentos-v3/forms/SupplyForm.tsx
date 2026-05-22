@@ -184,6 +184,11 @@ export function SupplyForm({ defaultMarginPct, onAdd, onAddTiers }: Props) {
             <>
               <Check className="h-4 w-4 mr-2" /> Adicionado!
             </>
+          ) : extraTiers.length > 0 ? (
+            <>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar suprimento + {extraTiers.length} faixa{extraTiers.length === 1 ? "" : "s"}
+            </>
           ) : (
             <>
               <Plus className="h-4 w-4 mr-2" /> Adicionar suprimento
