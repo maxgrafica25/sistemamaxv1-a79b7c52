@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Edit2, Clock, Loader2, Factory, Layers, Sparkles, Settings } from "lucide-react";
+import { Plus, Trash2, Edit2, Clock, Loader2, Factory, Layers, Sparkles, Settings, Scissors } from "lucide-react";
 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,14 +61,25 @@ const tabConfig = [
 
 type TabKey = typeof tabConfig[number]["key"];
 
-const tabDescriptions: Record<TabKey, { icon: typeof Clock; text: string }> = {
+const tabDescriptions: Record<TabKey, { icon: typeof Clock; text: React.ReactNode }> = {
   etapas: {
     icon: Clock,
-    text: "Cadastre cada etapa do processo de produção e o tempo estimado (em minutos) que ela leva para ser executada.",
+    text: (
+      <>
+        Cadastre cada etapa do processo de produção e o <strong>tempo de execução</strong> em minutos.
+        Esse tempo alimenta o cálculo de mão de obra dos orçamentos.
+      </>
+    ),
   },
   acabamentos: {
-    icon: Sparkles,
-    text: "Acabamentos aplicáveis aos produtos (laminação, verniz, corte especial, etc.) com seu custo e tempo.",
+    icon: Scissors,
+    text: (
+      <>
+        Tabela de <strong>preços por folha</strong> dos acabamentos (recorte, laminação, verniz…).
+        Cada acabamento pode ter <strong>faixas por quantidade de folhas</strong> da tiragem —
+        a calculadora escolhe automaticamente a faixa correspondente. Sem faixas, usa o preço base.
+      </>
+    ),
   },
   grupos: {
     icon: Layers,
