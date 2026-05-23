@@ -766,14 +766,17 @@ export default function Monitoramento() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="oportunidades">
-            <Sparkles className="h-4 w-4 mr-1" /> Oportunidades {oportunidades.length > 0 && `(${oportunidades.length})`}
-          </TabsTrigger>
-          <TabsTrigger value="comparativo">Comparar fornecedores</TabsTrigger>
-          <TabsTrigger value="tabela">Gerenciar sites</TabsTrigger>
-          <TabsTrigger value="alertas">Alertas {alertasNaoLidos > 0 && `(${alertasNaoLidos})`}</TabsTrigger>
-        </TabsList>
+        <DotTabs
+          tabs={[
+            { key: "oportunidades", label: `Oportunidades${oportunidades.length > 0 ? ` (${oportunidades.length})` : ""}` },
+            { key: "comparativo", label: "Comparar fornecedores" },
+            { key: "tabela", label: "Gerenciar sites" },
+            { key: "alertas", label: `Alertas${alertasNaoLidos > 0 ? ` (${alertasNaoLidos})` : ""}` },
+          ]}
+          value={activeTab}
+          onChange={setActiveTab}
+          className="mb-4"
+        />
 
         {/* === OPORTUNIDADES === Comparação produto-a-produto entre fornecedores === */}
         <TabsContent value="oportunidades" className="space-y-3">
