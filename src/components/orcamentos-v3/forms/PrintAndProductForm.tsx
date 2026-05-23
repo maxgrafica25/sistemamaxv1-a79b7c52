@@ -57,6 +57,7 @@ interface Props {
 
 export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20 }: Props) {
   const { presets, reload } = useQuotePresets("impressao");
+  const { hourRate } = useHourRate();
   // null = Personalizado (padrão)
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [descricao, setDescricao] = useState("");
