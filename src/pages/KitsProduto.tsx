@@ -84,6 +84,7 @@ interface KitRow {
 
 const KIND_SUGGESTIONS = [
   "apostila",
+  "cartao_visita",
   "cartao",
   "banner",
   "bloco",

@@ -1,50 +1,109 @@
-## Objetivo
 
-Hoje, em **Processos de Produção → Vincular a Favoritos**, todo vínculo aparece como chip "fixo" de acabamento no formulário de Cartão de Visita. Você quer separar em **dois grupos**:
+# Unificar tudo em "Kit de Produto"
 
-1. **Fixos / recomendados** — sempre aparecem, marcados por padrão (já implementado).
-2. **Sugestões opcionais** — aparecem em uma seção secundária ("Adicionar acabamento opcional"), desmarcados, para o vendedor incluir só quando o cliente pedir (ex.: laminação, verniz localizado, hot stamping).
+Boa decisão — e a base já existe. O Kit **já tem** o campo `role` com três valores: `required`, `optional`, `alternative`. O que falta é:
 
-## Forma mais inteligente: campo `link_type` no vínculo
+1. **Usar de verdade** o `optional` na UI (hoje o motor calcula mas os formulários V3 só renderizam os obrigatórios).
+2. **Conectar o Kit aos formulários simples** (Cartão de Visita, Folheto, Banner, Adesivo, Etiqueta) — hoje só Apostila usa Kit (`BookletKitPanel`).
+3. **Aposentar** o "Vincular Favoritos" (`product_preset_processes` + `ProductPresetLinksTab`) que criamos recentemente, já que vira redundante.
 
-Em vez de criar uma segunda tabela, adiciono uma coluna **`link_type`** em `product_preset_processes` com dois valores:
+---
 
-- `fixed` — comportamento atual (chip já visível, marcado por padrão).
-- `optional` — aparece em seção separada "Sugestões opcionais", desmarcado.
+## O que muda na prática
 
-Default: `fixed` (mantém o que já existe).
+### Em **Insumos → Kits de Produto**
 
-### Por que essa abordagem
+Cada item do kit ganha tratamento visual claro pelo `role`:
 
-- Reaproveita 100% da tabela e do hook `useProductPresetProcesseses` — só ganha um campo.
-- Admin escolhe o tipo na hora de vincular, sem precisar gerenciar duas listas paralelas.
-- Permite no futuro adicionar outros tipos (ex.: `default_on` = opcional mas pré-marcado) sem refactor.
+- **Obrigatório** (`required`) — entra automático no orçamento, sem botão.
+- **Opcional** (`optional`) — aparece como **sugestão clicável** no formulário; só entra no preço se o usuário ativar.
+- **Alternativa** (`alternative`) — escolha exclusiva dentro de um grupo (ex.: laminação fosca **ou** brilho, nunca as duas). Já existe via `alternative_group`.
 
-## O que muda
+Adicionar 1 campo novo: `default_on` (boolean) — pra "opcional pré-marcado" que o usuário pode desligar (ex.: laminação que normalmente vem, mas dá pra remover).
 
-### 1. Banco
-- `ALTER TABLE product_preset_processes ADD COLUMN link_type text NOT NULL DEFAULT 'fixed' CHECK (link_type IN ('fixed','optional'))`.
-- Registros antigos viram `fixed` automaticamente.
+### Em **Cartão de Visita** (e demais formulários V3)
 
-### 2. Tela de gestão (`ProductPresetLinksTab.tsx`)
-- No card de cada favorito, separar a lista em **dois blocos**: "Fixos" e "Opcionais", cada um com seu próprio "+ Etapa / + Grupo".
-- Cada item exibe um badge sutil (Fixo / Opcional) e um toggle rápido para mover entre os dois.
+Hoje `BusinessCardForm` calcula folhas/aproveitamento sozinho e mostra só etapas "fixed/optional" via hook novo.
 
-### 3. Hook (`useProductPresetProcesses.ts`)
-- Retornar `{ fixedSteps, fixedGroups, optionalSteps, optionalGroups, loaded }` (ou um único array com `link_type` em cada item — prefiro o segundo, mais simples para o form decidir).
+Vira:
+- Carrega o **Kit ativo** do `product_kind = "cartao_visita"` (igual `BookletKitPanel` faz para apostila).
+- Passa `units` e `sheets` (já calculados pelo `business-card-yield`) para o motor `buildProductKitRows`.
+- Renderiza:
+  - Bloco **"Itens incluídos"** (required) — somados ao carrinho automaticamente.
+  - Bloco **"Sugestões opcionais"** (optional) — switches; quando ligado, adiciona ao carrinho.
+  - Bloco **"Alternativas"** (alternative_group) — radio dentro do grupo.
 
-### 4. `BusinessCardForm.tsx`
-- Seção **"Acabamentos"** (atual): só itens `fixed`, marcados por padrão como hoje.
-- Nova seção **"Sugestões opcionais"** abaixo, recolhível (`<details>` ou um chip "+ Adicionar acabamento opcional"): lista os `optional` com switch desligado. Quando ligados, entram no cálculo igual aos fixos.
-- Se não houver opcionais cadastrados, a seção não aparece.
+O cálculo de **quantos cabem na folha** e **quantas folhas** continua igual (motor `business-card-yield`). O Kit só decide o que **acompanha** cada folha/peça.
 
-## Fora de escopo
+### Aposentar "Vincular Favoritos"
 
-- Não mexer em outros formulários (Folheto, Apostila etc.) — eles consomem o mesmo hook e ganham o comportamento automaticamente quando forem migrados, mas o form ajustado nesta rodada é só o de Cartão de Visita.
-- Sem reordenar processos por arrastar — mantém o `sort_order` atual.
+- Remover aba **"Vincular a Favoritos"** de `ProcessosProducao` (`ProductPresetLinksTab.tsx`).
+- Remover hook `useProductPresetProcesses.ts` e helper `lib/orcamentos-v3/product-presets.ts`.
+- Migration de **drop**: tabela `product_preset_processes` + colunas relacionadas.
+- Limpar import/uso em `BusinessCardForm` (volta a depender só do Kit).
 
-## Validação
+---
 
-1. Em Processos de Produção → Cartão de Visita: marcar a "Laminação" como **Opcional** e deixar as 2 etapas + 1 grupo como **Fixas**.
-2. Em `/orcamentos-v3/novo` → Cartão de Visita: ver os 3 acabamentos fixos marcados e uma seção "Sugestões opcionais" com Laminação desligada.
-3. Ligar Laminação → preço atualiza; desligar → volta ao valor anterior.
+## Detalhes técnicos
+
+### Migration
+```sql
+-- 1) Novo campo no item do kit
+ALTER TABLE public.product_kit_items
+  ADD COLUMN default_on boolean NOT NULL DEFAULT false;
+
+-- 2) Drop do sistema antigo de vínculo
+DROP TABLE IF EXISTS public.product_preset_processes;
+```
+
+### Tipos (`productKit.ts`)
+```ts
+export interface ProductKitItemDB {
+  // ...campos existentes
+  default_on: boolean;
+}
+export interface ProductKitRow {
+  // ...campos existentes
+  defaultOn: boolean;
+}
+```
+
+`buildProductKitRows` já devolve `role` e `alternativeGroup` — só passar `defaultOn` adiante.
+
+### Componente novo reaproveitável: `KitOptionalsPanel`
+Generaliza o que hoje vive em `BookletKitPanel`:
+- Props: `kit`, `units`, `sheets`, `supplies`, `steps`, `hourlyRate`, `defaultMarginPct`, `onChange(items)`.
+- Render automático de:
+  - required → injetado sempre
+  - optional → switch (`defaultOn` define estado inicial)
+  - alternative_group → radio
+- Usado por `BusinessCardForm`, `BookletForm`, `PrintForm`, `LabelEmbeddedForm`, `PrintAndProductForm`.
+
+### Arquivos a remover
+- `src/components/orcamentos-v3/admin/ProductPresetLinksTab.tsx`
+- `src/components/orcamentos-v3/shared/useProductPresetProcesses.ts`
+- `src/lib/orcamentos-v3/product-presets.ts`
+- Aba correspondente em `src/pages/ProcessosProducao.tsx`
+
+### Arquivos a editar
+- `src/components/orcamentos-v3/shared/productKit.ts` — campo `defaultOn`.
+- `src/components/orcamentos-v3/forms/BusinessCardForm.tsx` — trocar hook antigo por `KitOptionalsPanel`.
+- `src/components/orcamentos-v3/forms/BookletKitPanel.tsx` — extrair lógica genérica pra `KitOptionalsPanel` e renomear apostila pra usá-lo.
+- `src/integrations/supabase/types.ts` — regenerado automaticamente pela migration.
+- `src/pages/KitsProduto.tsx` (e dialogs em `src/components/kits/`) — adicionar toggle "Pré-marcado" para itens `optional`.
+
+---
+
+## Por que isso é melhor
+
+- **Uma única fonte de verdade**: você cadastra "Cartão de Visita" como Kit, marca Corte como obrigatório, Laminação como opcional, e o sistema responde tanto no preço quanto na UI.
+- **Reaproveita motor existente** (`buildProductKitRows`) — sem código duplicado.
+- **Mantém o cálculo de aproveitamento de folha** intocado (são responsabilidades diferentes).
+- **Remove código novo** que se mostrou redundante (`product_preset_processes`) — sem dívida técnica acumulada.
+
+---
+
+## Risco / atenção
+
+- Quem hoje **não tem Kit cadastrado** para Cartão de Visita verá o formulário sem etapas até criar um. Mitigação: incluir um **seed** simples no migration (Kit "Cartão de Visita Padrão" com Corte = required).
+- O `BookletKitPanel` será refatorado — testar que apostila continua calculando espiral por faixa.
