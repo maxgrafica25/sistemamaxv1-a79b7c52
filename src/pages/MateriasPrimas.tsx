@@ -655,25 +655,14 @@ export default function MateriasPrimas() {
         </div>
 
         <div>
-          <div className="flex gap-1 border-b border-border">
-            {[
-              { key: "papel" as const, label: "Papéis" },
-              { key: "suprimento" as const, label: "Suprimentos" },
-            ].map(t => (
-              <button
-                key={t.key}
-                onClick={() => { setActiveTab(t.key); setSearchTerm(""); setFilterFinalidade("all"); }}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-[3px] -mb-px ${
-                  activeTab === t.key
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <span className={`h-2 w-2 rounded-full ${activeTab === t.key ? "bg-primary" : "bg-muted-foreground/40"}`} />
-                {t.label}
-              </button>
-            ))}
-          </div>
+          <DotTabs
+            tabs={[
+              { key: "papel", label: "Papéis" },
+              { key: "suprimento", label: "Suprimentos" },
+            ]}
+            value={activeTab}
+            onChange={(k) => { setActiveTab(k as ActiveTab); setSearchTerm(""); setFilterFinalidade("all"); }}
+          />
 
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-5">
