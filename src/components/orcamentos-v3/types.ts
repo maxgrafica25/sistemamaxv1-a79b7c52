@@ -1,5 +1,23 @@
 export type V3Category = "print" | "cv" | "third" | "labor" | "supply";
 
+/** Estado de um item CV (Comunicação Visual) — usado pelo CVItemCard e pelo motor de preços. */
+export interface CVItemState {
+  id: string;
+  /** legado: `material_id` mapeia agora para `midia_id` */
+  material_id: string | null;
+  /** legado: `printer_id` mapeia agora para `impressao_id` */
+  printer_id: string | null;
+  largura_cm: number;
+  altura_cm: number;
+  quantidade: number;
+  acabamentos: Array<{
+    finish_id: string;
+    quantidade_unidades: number;
+    /** Acabamento avulso, válido só neste orçamento. */
+    custom?: { nome: string; valor: number };
+  }>;
+}
+
 /** Status da arte para itens de impressão / CV. */
 export type ArtStatus =
   | "ready"        // cliente envia arte pronta
