@@ -9,12 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -208,33 +202,20 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
           const Icon = iconFor(p.icone);
           const active = p.id === selectedPresetId;
           return (
-            <ContextMenu key={p.id}>
-              <ContextMenuTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPresetId(p.id)}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                    active
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
-                  )}
-                  title="Clique direito para opções"
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {p.nome}
-                </button>
-              </ContextMenuTrigger>
-              <ContextMenuContent>
-                <ContextMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onSelect={() => setPresetToDelete(p)}
-                >
-                  <Trash2 className="h-3.5 w-3.5 mr-2" />
-                  Remover favorito
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setSelectedPresetId(p.id)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {p.nome}
+            </button>
           );
         })}
         {canSavePreset && (
@@ -250,6 +231,19 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             Salvar como favorito
           </Button>
         )}
+        {selectedPreset && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setPresetToDelete(selectedPreset)}
+            className="h-7 text-xs text-muted-foreground hover:text-destructive ml-auto"
+            title="Remove este favorito da sua lista de atalhos rápidos"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Desfavoritar
+          </Button>
+        )}
       </div>
       {savePayload && (
         <SavePresetDialog
@@ -263,9 +257,9 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
       <AlertDialog open={!!presetToDelete} onOpenChange={(o) => !o && setPresetToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover favorito?</AlertDialogTitle>
+            <AlertDialogTitle>Desfavoritar este atalho?</AlertDialogTitle>
             <AlertDialogDescription>
-              "{presetToDelete?.nome}" será removido dos seus favoritos. Esta ação não pode ser desfeita.
+              O favorito "{presetToDelete?.nome}" será removido da sua lista de atalhos rápidos. Isso não apaga nenhum orçamento já criado e você pode salvá-lo novamente depois.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
