@@ -257,9 +257,9 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
       <AlertDialog open={!!presetToDelete} onOpenChange={(o) => !o && setPresetToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover favorito?</AlertDialogTitle>
+            <AlertDialogTitle>Desfavoritar este atalho?</AlertDialogTitle>
             <AlertDialogDescription>
-              "{presetToDelete?.nome}" será removido dos seus favoritos. Esta ação não pode ser desfeita.
+              O favorito "{presetToDelete?.nome}" será removido da sua lista de atalhos rápidos. Isso não apaga nenhum orçamento já criado e você pode salvá-lo novamente depois.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
