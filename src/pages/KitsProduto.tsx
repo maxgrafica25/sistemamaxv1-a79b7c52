@@ -671,6 +671,12 @@ export default function KitsProduto() {
     ? items.find((i) => i.tmp_id === variantsEditing)
     : null;
 
+  const presetSuggestions = useMemo(() => {
+    if (suggestionDismissed || !nameTouched) return [];
+    return suggestPresets(name, availablePresets, selectedPresetIds);
+  }, [name, availablePresets, selectedPresetIds, suggestionDismissed, nameTouched]);
+
+
   return (
     <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
