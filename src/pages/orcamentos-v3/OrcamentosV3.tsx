@@ -453,7 +453,7 @@ export default function OrcamentosV3() {
 
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Lista V2</CardTitle>
+          <CardTitle>Lista de Orçamentos</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
