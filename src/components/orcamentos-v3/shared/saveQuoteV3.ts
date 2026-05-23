@@ -374,7 +374,7 @@ export async function saveQuoteV3(
     if (labErr) throw labErr;
   }
 
-  return { id: quoteId, quote_number: inserted.quote_number as string };
+  return { id: quoteId, quote_number };
 }
 
 
