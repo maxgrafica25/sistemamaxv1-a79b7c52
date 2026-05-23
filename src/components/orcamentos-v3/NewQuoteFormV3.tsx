@@ -13,6 +13,7 @@ import { ThirdPartyForm } from "./forms/ThirdPartyForm";
 
 import { UnifiedCart } from "./cart/UnifiedCart";
 import { QuoteAssistantPanelV3 } from "./cart/QuoteAssistantPanelV3";
+import { QuoteChecklistPanelV3 } from "./cart/QuoteChecklistPanelV3";
 import { FinancialPanel } from "./cart/FinancialPanel";
 import { useQuoteDraftV3 } from "./shared/useQuoteDraftV3";
 import { summarize, fmtBRL } from "./shared/pricing";
@@ -36,6 +37,7 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [loadingEdit, setLoadingEdit] = useState(isEditing);
   const [editMeta, setEditMeta] = useState<{ quote_number: string; status: string } | null>(null);
+  const [checklistAnswers, setChecklistAnswers] = useState<{ pergunta: string; resposta: string }[]>([]);
   const { settings: globalSettings } = useGlobalSettings();
 
   // Rascunho local desabilitado em modo edição (não queremos sobrescrever
@@ -304,10 +306,17 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
               feesPct={state.fees_pct}
               wastePct={globalSettings.waste_pct}
             />
+            <QuoteChecklistPanelV3
+              items={state.items}
+              quoteId={editingQuoteId ?? null}
+              onItemsChange={(next) => setState((s) => ({ ...s, items: next }))}
+              onAnswersChange={setChecklistAnswers}
+            />
             <QuoteAssistantPanelV3
               items={state.items}
               clientId={state.cliente.id}
               clientName={state.cliente.nome}
+              checklistAnswers={checklistAnswers}
             />
           </div>
           <div className="p-3 border-t border-border/60 bg-background">

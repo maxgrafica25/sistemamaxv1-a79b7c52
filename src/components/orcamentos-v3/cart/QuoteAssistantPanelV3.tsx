@@ -11,6 +11,7 @@ interface Props {
   items: V3Item[];
   clientId: string | null;
   clientName: string;
+  checklistAnswers?: { pergunta: string; resposta: string }[];
 }
 
 interface MidiaRow { id: string; tipo_midia: string }
@@ -21,7 +22,7 @@ interface AcabRow { id: string; nome: string; familia: string }
  * Only CV items contribute to material/area/finish heuristics; other kinds are
  * ignored — assistant rules in DB are CV-centric.
  */
-export function QuoteAssistantPanelV3({ items, clientId, clientName }: Props) {
+export function QuoteAssistantPanelV3({ items, clientId, clientName, checklistAnswers }: Props) {
   const [midias, setMidias] = useState<MidiaRow[]>([]);
   const [acabs, setAcabs] = useState<AcabRow[]>([]);
   const [clientTags, setClientTags] = useState<string[]>([]);
@@ -91,6 +92,7 @@ export function QuoteAssistantPanelV3({ items, clientId, clientName }: Props) {
             cvFinishes={acabs}
             clientTags={clientTags}
             clientName={clientName}
+            checklistAnswers={checklistAnswers}
             embedded
             onCountChange={setCount}
           />
