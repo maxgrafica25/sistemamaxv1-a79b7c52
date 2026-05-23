@@ -59,6 +59,11 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
     ? presets.find((p) => p.id === selectedPresetId)
     : undefined;
   const isBusinessCard = selectedPresetId === BUILTIN_BUSINESS_CARD_ID;
+  const treatAsBusinessCard = isBusinessCard || (!!selectedPreset && isBusinessCardName(selectedPreset.nome));
+  const hasUserBusinessCardPreset = useMemo(
+    () => presets.some((p) => isBusinessCardName(p.nome)),
+    [presets],
+  );
   const formTipo: "print" | "booklet" | "label" = selectedPreset?.form_tipo ?? "print";
   const isCustom = !selectedPresetId;
 
