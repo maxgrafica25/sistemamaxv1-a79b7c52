@@ -373,15 +373,16 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
       <div>
         {treatAsBusinessCard && (
           <BusinessCardForm
-            onAdd={onAdd}
+            onAdd={wrappedOnAdd}
             descricao={descricao}
             onDescricaoChange={setDescricao}
           />
         )}
         {!treatAsBusinessCard && isCustom && (
           <PrintForm
-            onAdd={onAdd}
-            onAddTiers={onAddTiers}
+            onAdd={wrappedOnAdd}
+            onAddMany={wrappedOnAddMany}
+            onAddTiers={wrappedOnAddTiers}
             onSelectionChange={handleSelectionChange}
             descricao={descricao}
             onDescricaoChange={setDescricao}
@@ -390,9 +391,9 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         )}
         {!treatAsBusinessCard && !isCustom && formTipo === "print" && (
           <PrintForm
-            onAdd={onAdd}
-            onAddMany={onAddMany}
-            onAddTiers={onAddTiers}
+            onAdd={wrappedOnAdd}
+            onAddMany={wrappedOnAddMany}
+            onAddTiers={wrappedOnAddTiers}
             defaultMarginPct={defaultMarginPct}
             descricao={descricao}
             onDescricaoChange={setDescricao}
@@ -400,9 +401,9 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         )}
         {!treatAsBusinessCard && !isCustom && formTipo === "booklet" && (
           <BookletForm
-            onAdd={onAdd}
-            onAddMany={onAddMany}
-            onAddTiers={onAddTiers}
+            onAdd={wrappedOnAdd}
+            onAddMany={wrappedOnAddMany}
+            onAddTiers={wrappedOnAddTiers}
             defaultMarginPct={defaultMarginPct}
             descricao={descricao}
             onDescricaoChange={setDescricao}
@@ -410,8 +411,8 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         )}
         {!treatAsBusinessCard && !isCustom && formTipo === "label" && (
           <LabelEmbeddedForm
-            onAdd={onAdd}
-            onAddTiers={onAddTiers}
+            onAdd={wrappedOnAdd}
+            onAddTiers={wrappedOnAddTiers}
             descricao={descricao}
             onDescricaoChange={setDescricao}
           />
