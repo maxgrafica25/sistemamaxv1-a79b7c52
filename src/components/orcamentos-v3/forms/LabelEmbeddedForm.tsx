@@ -285,7 +285,7 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
   const sizeLabel = isRound ? `Ø${(diameter / 10).toLocaleString("pt-BR")}cm` : `${(labelW / 10).toLocaleString("pt-BR")}×${(labelH / 10).toLocaleString("pt-BR")}cm`;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 flex-1 flex flex-col">
       {!controlledDescricao && (
         <Field label="Descrição (opcional)">
           <Input

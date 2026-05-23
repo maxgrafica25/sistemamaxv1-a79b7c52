@@ -155,7 +155,7 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 flex-1 flex flex-col">
       {!controlledDescricao && (
         <Field label="Descrição (opcional)">
           <Input

@@ -279,7 +279,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 flex-1 flex flex-col">
       {/* Catálogo selecionado / vazio */}
       {couche300Sra3.length === 0 && !loading && (
         <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-4 text-center">

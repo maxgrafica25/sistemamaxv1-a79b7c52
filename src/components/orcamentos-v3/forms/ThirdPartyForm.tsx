@@ -56,7 +56,7 @@ export function ThirdPartyForm({ onAdd, onAddTiers }: Props) {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 flex-1 flex flex-col">
       <Field label="Descrição">
         <Input
           value={descricao}

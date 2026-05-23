@@ -206,7 +206,7 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
 
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 flex-1 flex flex-col">
       {!controlledDescricao && (
         <Field label="Descrição (opcional)">
           <Input

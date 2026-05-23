@@ -51,7 +51,7 @@ export function LaborForm({ defaultMarginPct, onAdd }: Props) {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 flex-1 flex flex-col">
       <div className="space-y-1.5">
         <Label className="text-xs uppercase tracking-wide text-muted-foreground">
           Adicionar processo

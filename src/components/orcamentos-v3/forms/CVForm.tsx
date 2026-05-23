@@ -324,7 +324,7 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 flex-1 flex flex-col">
       {/* Descrição — acima do toggle */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
