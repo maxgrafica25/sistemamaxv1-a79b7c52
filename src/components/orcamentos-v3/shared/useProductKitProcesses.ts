@@ -14,6 +14,7 @@ export interface KitProcStep {
   time_minutes: number;
   link_type: KitProcLinkType;
   default_on: boolean;    // vem do auto_select_default do item do kit
+  step_group_id: string | null;
 }
 
 /**
@@ -68,15 +69,16 @@ export function useProductKitProcesses(productKind: string) {
       // 3) Dados das etapas
       const { data: stepsData } = await supabase
         .from("production_steps")
-        .select("id, description, time_minutes")
+        .select("id, description, time_minutes, step_group_id")
         .in("id", stepIds);
 
       if (cancel) return;
-      const byId = new Map<string, { description: string; time_minutes: number }>();
+      const byId = new Map<string, { description: string; time_minutes: number; step_group_id: string | null }>();
       (stepsData || []).forEach((s: any) =>
         byId.set(s.id, {
           description: s.description,
           time_minutes: Number(s.time_minutes) || 0,
+          step_group_id: s.step_group_id ?? null,
         }),
       );
 
@@ -95,6 +97,7 @@ export function useProductKitProcesses(productKind: string) {
           time_minutes: s.time_minutes,
           link_type: it.role === "required" ? "fixed" : "optional",
           default_on: !!it.auto_select_default,
+          step_group_id: s.step_group_id,
         });
       }
       setSteps(out);

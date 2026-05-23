@@ -25,6 +25,7 @@ interface Step {
   description: string;
   time_minutes: number;
   step_type: StepType;
+  step_group_id: string | null;
 }
 
 interface GroupItem {
@@ -78,18 +79,24 @@ export default function ProcessosProducao() {
 // ─── Etapas Tab ──────────────────────────────────────────────────────
 function EtapasTab() {
   const [steps, setSteps] = useState<Step[]>([]);
+  const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStep, setEditingStep] = useState<Step | null>(null);
   const [description, setDescription] = useState("");
   const [timeMinutes, setTimeMinutes] = useState("");
   const [stepType, setStepType] = useState<StepType>("outro");
+  const [stepGroupId, setStepGroupId] = useState<string>("none");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchSteps = async () => {
     setLoading(true);
-    const { data } = await supabase.from("production_steps").select("*").order("created_at");
-    if (data) setSteps(data as Step[]);
+    const [sRes, gRes] = await Promise.all([
+      supabase.from("production_steps").select("*").order("created_at"),
+      supabase.from("step_groups").select("id, name").order("name"),
+    ]);
+    if (sRes.data) setSteps(sRes.data as Step[]);
+    if (gRes.data) setGroups(gRes.data as { id: string; name: string }[]);
     setLoading(false);
   };
 
@@ -97,6 +104,7 @@ function EtapasTab() {
 
   const openCreateDialog = () => {
     setEditingStep(null); setDescription(""); setTimeMinutes(""); setStepType("outro");
+    setStepGroupId("none");
     setIsDialogOpen(true);
   };
 
@@ -104,6 +112,7 @@ function EtapasTab() {
     setEditingStep(step); setDescription(step.description);
     setTimeMinutes(step.time_minutes.toString());
     setStepType(step.step_type ?? "outro");
+    setStepGroupId(step.step_group_id ?? "none");
     setIsDialogOpen(true);
   };
 
@@ -114,13 +123,14 @@ function EtapasTab() {
     if (!description.trim()) { toast.error("Preencha a descrição da etapa"); return; }
     const time = parseFloat(timeMinutes);
     if (!time || time <= 0) { toast.error("Informe um tempo válido"); return; }
+    const groupIdValue = stepGroupId === "none" ? null : stepGroupId;
 
     if (editingStep) {
-      const { error } = await supabase.from("production_steps").update({ description, time_minutes: time, step_type: stepType }).eq("id", editingStep.id);
+      const { error } = await supabase.from("production_steps").update({ description, time_minutes: time, step_type: stepType, step_group_id: groupIdValue }).eq("id", editingStep.id);
       if (error) return handleError(error, "atualizar etapa");
       toast.success("Etapa atualizada!");
     } else {
-      const { error } = await supabase.from("production_steps").insert({ description, time_minutes: time, step_type: stepType });
+      const { error } = await supabase.from("production_steps").insert({ description, time_minutes: time, step_type: stepType, step_group_id: groupIdValue });
       if (error) return handleError(error, "criar etapa");
       toast.success("Etapa criada!");
     }
@@ -171,6 +181,21 @@ function EtapasTab() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Grupo de Etapas (detalhamento) — opcional</Label>
+                <Select value={stepGroupId} onValueChange={setStepGroupId}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {groups.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Quando preenchido, o orçamento mostra o passo-a-passo do grupo dentro desta etapa.
+                </p>
               </div>
               <Button onClick={saveStep} className="w-full">{editingStep ? "Salvar Alterações" : "Criar Etapa"}</Button>
             </div>

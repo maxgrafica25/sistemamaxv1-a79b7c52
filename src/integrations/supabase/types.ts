@@ -2634,6 +2634,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          step_group_id: string | null
           step_type: string
           time_minutes: number
           updated_at: string
@@ -2642,6 +2643,7 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
+          step_group_id?: string | null
           step_type?: string
           time_minutes?: number
           updated_at?: string
@@ -2650,11 +2652,20 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          step_group_id?: string | null
           step_type?: string
           time_minutes?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "production_steps_step_group_id_fkey"
+            columns: ["step_group_id"]
+            isOneToOne: false
+            referencedRelation: "step_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       productive_capacity: {
         Row: {

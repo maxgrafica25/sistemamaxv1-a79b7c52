@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Check, ChevronDown, FileText, Files, Plus, Printer, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProgressive";
+import { FinishingProgressive, type FinishingDef, type FinishingSubItem } from "../shared/FinishingProgressive";
+import { supabase } from "@/integrations/supabase/client";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3PrintItem } from "../types";
@@ -72,6 +73,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
     minutes: number;
     link_type: "fixed" | "optional";
     default_on: boolean;
+    step_group_id: string | null;
   };
   const cvProcs = useMemo<CVProc[]>(
     () =>
@@ -82,6 +84,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         minutes: Number.isFinite(s.time_minutes) ? s.time_minutes : 0,
         link_type: s.link_type,
         default_on: s.default_on,
+        step_group_id: s.step_group_id,
       })),
     [steps],
   );
@@ -144,21 +147,54 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
     return (m / 60) * (hourRate || 0);
   };
 
+  // Cache lazy de sub-etapas por step_group_id
+  const [subItemsCache, setSubItemsCache] = useState<Record<string, FinishingSubItem[]>>({});
+  const [loadingGroups, setLoadingGroups] = useState<Set<string>>(new Set());
 
-  const toFinishingDef = (p: CVProc): FinishingDef => ({
-    id: p.key,
-    label: `⚙ ${p.name}`,
-    hint: `${p.minutes} min · ${fmtBRL(procCost(p.minutes))}`,
-  });
+  const loadSubItems = async (groupId: string) => {
+    if (subItemsCache[groupId] || loadingGroups.has(groupId)) return;
+    setLoadingGroups((s) => new Set(s).add(groupId));
+    const { data } = await supabase
+      .from("step_group_items")
+      .select("description, time_minutes")
+      .eq("step_group_id", groupId)
+      .order("sort_order");
+    setSubItemsCache((m) => ({
+      ...m,
+      [groupId]: (data || []).map((r: any) => ({
+        description: r.description,
+        time_minutes: Number(r.time_minutes) || 0,
+      })),
+    }));
+    setLoadingGroups((s) => {
+      const n = new Set(s);
+      n.delete(groupId);
+      return n;
+    });
+  };
+
+  const toFinishingDef = (p: CVProc): FinishingDef => {
+    const gid = p.step_group_id;
+    const cached = gid ? subItemsCache[gid] : undefined;
+    return {
+      id: p.key,
+      label: `⚙ ${p.name}`,
+      hint: `${p.minutes} min · ${fmtBRL(procCost(p.minutes))}`,
+      hasGroup: !!gid,
+      subItems: cached,
+      loadingSubItems: gid ? loadingGroups.has(gid) : false,
+      onExpand: gid ? () => loadSubItems(gid) : undefined,
+    };
+  };
   const fixedFinishes = useMemo<FinishingDef[]>(
     () => fixedProcs.map(toFinishingDef),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fixedProcs, hourRate],
+    [fixedProcs, hourRate, subItemsCache, loadingGroups],
   );
   const optionalFinishes = useMemo<FinishingDef[]>(
     () => optionalProcs.map(toFinishingDef),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [optionalProcs, hourRate],
+    [optionalProcs, hourRate, subItemsCache, loadingGroups],
   );
 
   // Pré-marca fixos e opcionais com default_on; mantém escolhas do usuário; limpa órfãos.
