@@ -1,6 +1,6 @@
 // Painel "Kit Encadernação" — preview com checkboxes + capa/contracapa personalizada.
 import { useMemo, useState, useEffect } from "react";
-import { Wand2, AlertCircle, Sparkles, Pencil, Plus, Trash2 } from "lucide-react";
+import { Wand2, AlertCircle, Sparkles, Pencil, Plus, Trash2, Package, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
