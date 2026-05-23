@@ -660,10 +660,12 @@ export default function KitsProduto() {
           </CardContent>
         </Card>
       ) : (
-        grouped.map(([kind, list]) => (
-          <div key={kind} className="space-y-2">
+        grouped.map(([label, list]) => (
+          <div key={label} className="space-y-2">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm uppercase tracking-wide text-muted-foreground">{kind}</h2>
+              <h2 className="text-sm uppercase tracking-wide text-muted-foreground">
+                {label === "__sem_produto__" ? "Sem produto vinculado" : label}
+              </h2>
               <Badge variant="outline">{list.length}</Badge>
             </div>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
