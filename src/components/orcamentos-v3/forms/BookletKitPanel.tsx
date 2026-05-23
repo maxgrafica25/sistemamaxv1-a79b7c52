@@ -312,31 +312,6 @@ export function BookletKitPanel({
           />
           <span className="font-medium whitespace-nowrap">{r.label}</span>
 
-          {isCoverLine && (
-            <Tabs
-              value={mode}
-              onValueChange={(v) => handleModeChange(isCover, v as CoverMode)}
-              className="ml-1"
-              onClick={(e) => e.preventDefault()}
-            >
-              <TabsList className="h-7 p-0.5">
-                <TabsTrigger value="standard" className="h-6 px-2.5 text-[11px]">
-                  Padrão
-                </TabsTrigger>
-                <TabsTrigger
-                  value="custom"
-                  className={cn(
-                    "h-6 px-2.5 text-[11px] gap-1",
-                    mode !== "custom" && "text-primary/70 hover:text-primary",
-                  )}
-                >
-                  <Sparkles className="h-3 w-3" />
-                  Personalizada
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
-
           {mode === "standard" && (
             <>
               {override ? (
@@ -346,15 +321,12 @@ export function BookletKitPanel({
                     trocado
                   </span>
                 </span>
-              ) : isCoverLine ? (
-                <span className="flex-1 text-[10px] text-muted-foreground italic hidden md:inline truncate">
-                  ← clique em <span className="text-primary/80 not-italic font-medium">Personalizada</span> p/ usar impressão (ex.: Couchê 300g + laminação)
-                </span>
               ) : (
                 <span className="flex-1 text-muted-foreground text-[10.5px] truncate hidden sm:inline">
                   {r.description}
                 </span>
               )}
+
               <span className="text-muted-foreground tabular-nums text-[10.5px]">
                 {r.unit === "un" ? `${r.qty} un` : `${r.qty.toFixed(0)} min`}
               </span>
