@@ -65,9 +65,8 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Precificação",
     items: [
       { name: "Preço Impressão", href: "/preco-impressao", icon: Calculator },
-      { name: "Acabamentos", href: "/acabamentos", icon: Scissors },
       { name: "Calc. Etiquetas", href: "/calculadora-etiquetas", icon: Ruler },
-      { name: "Etapas de Produção", href: "/processos-producao", icon: Factory },
+      { name: "Produção", href: "/processos-producao", icon: Factory },
     ],
   },
   {

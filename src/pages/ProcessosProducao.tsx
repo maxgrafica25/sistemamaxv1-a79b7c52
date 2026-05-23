@@ -23,6 +23,7 @@ import PageLoader from "@/components/PageLoader";
 import CategoriasTab from "@/pages/processos-producao/CategoriasTab";
 import GruposMateriais from "@/pages/GruposMateriais";
 import KitsProduto, { type KitsProdutoHandle } from "@/pages/KitsProduto";
+import Acabamentos from "@/pages/Acabamentos";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Step {
@@ -52,8 +53,9 @@ interface StepGroup {
 // ─── Tab config ──────────────────────────────────────────────────────
 const tabConfig = [
   { key: "etapas", label: "Etapas" },
-  { key: "grupos", label: "Grupos de Etapas" },
+  { key: "acabamentos", label: "Acabamentos" },
   { key: "categorias", label: "Categorias" },
+  { key: "grupos", label: "Grupos de Etapas" },
   { key: "grupos-materiais", label: "Grupos de Materiais" },
   { key: "kits", label: "Kits de Produto" },
 ] as const;
@@ -82,10 +84,10 @@ export default function ProcessosProducao() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Factory className="h-6 w-6 text-primary" />
-            Etapas de Produção
+            Produção
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Etapas, categorias, grupos e kits que compõem como cada produto é fabricado.
+            Etapas, acabamentos, categorias, grupos e kits que compõem como cada produto é fabricado.
           </p>
         </div>
         {activeTab === "kits" && (
@@ -105,6 +107,7 @@ export default function ProcessosProducao() {
       />
 
       {activeTab === "etapas" && <EtapasTab />}
+      {activeTab === "acabamentos" && <Acabamentos hideHeader />}
       {activeTab === "grupos" && <GruposTab />}
       {activeTab === "categorias" && <CategoriasTab />}
       {activeTab === "grupos-materiais" && <GruposMateriais hideHeader />}

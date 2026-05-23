@@ -76,7 +76,7 @@ const emptyDraft: Omit<FinishingItem, "id"> = {
   sort_order: 0,
 };
 
-export default function Acabamentos() {
+export default function Acabamentos({ hideHeader = false }: { hideHeader?: boolean } = {}) {
   const isAdmin = useIsAdmin();
   const { requireAdmin } = usePermissionGuard();
   const [items, setItems] = useState<FinishingItem[]>([]);
@@ -275,19 +275,21 @@ export default function Acabamentos() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Scissors className="h-6 w-6 text-primary" />
-          Acabamentos
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Cadastro único de acabamentos para <strong>Etiquetas</strong> e{" "}
-          <strong>Impressão</strong>. Cobre por folha (recorte, laminação, verniz) ou por
-          unidade (ilhós, dobra, vinco). Comunicação Visual e Processos de Produção
-          continuam em módulos próprios.
-        </p>
-      </header>
+    <div className={hideHeader ? "space-y-6" : "p-4 md:p-6 space-y-6"}>
+      {!hideHeader && (
+        <header className="space-y-1">
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            <Scissors className="h-6 w-6 text-primary" />
+            Acabamentos
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Cadastro único de acabamentos para <strong>Etiquetas</strong> e{" "}
+            <strong>Impressão</strong>. Cobre por folha (recorte, laminação, verniz) ou por
+            unidade (ilhós, dobra, vinco). Comunicação Visual e Processos de Produção
+            continuam em módulos próprios.
+          </p>
+        </header>
+      )}
 
       {/* Form modal */}
       {isAdmin && (

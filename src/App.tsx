@@ -72,7 +72,7 @@ const App = () => (
                   <Route path="/orcamentos-v3/novo" element={<NewQuoteV3 />} />
                   <Route path="/preco-impressao" element={<PrecoImpressao />} />
                   <Route path="/calculadora-etiquetas" element={<CalculadoraEtiquetas />} />
-                  <Route path="/acabamentos" element={<Acabamentos />} />
+                  <Route path="/acabamentos" element={<Navigate to="/processos-producao?tab=acabamentos" replace />} />
                   <Route path="/equipamentos" element={<Equipamentos />} />
                   <Route path="/cadastros" element={<Cadastros />} />
                   <Route path="/insumos" element={<Insumos />} />
