@@ -225,6 +225,10 @@ export interface V3QuoteState {
   main_quantity?: number | null;
   /** Opções de quantidade (ancoragem). Opcional. */
   options?: QuoteOptionV3[];
+  /** Resposta única "Tem arte pronta?" para todo o orçamento. */
+  art_status?: ArtStatus | null;
+  /** Valor da arte terceirizada (quando art_status === "terceirizada"). */
+  art_terceirizada_value?: number;
 }
 
 export const DEFAULT_STATE: V3QuoteState = {
@@ -236,7 +240,10 @@ export const DEFAULT_STATE: V3QuoteState = {
   margin_pct: 20,
   main_quantity: null,
   options: [],
+  art_status: null,
+  art_terceirizada_value: 0,
 };
+
 
 export const genId = () =>
   `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
