@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Edit2, Clock, Loader2, Factory, Layers } from "lucide-react";
+import { Plus, Trash2, Edit2, Clock, Loader2, Factory, Layers, Sparkles } from "lucide-react";
 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +21,8 @@ import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
 import PageLoader from "@/components/PageLoader";
 import CategoriasTab from "@/pages/processos-producao/CategoriasTab";
+import GruposMateriais from "@/pages/GruposMateriais";
+import KitsProduto, { type KitsProdutoHandle } from "@/pages/KitsProduto";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Step {
@@ -51,21 +54,47 @@ const tabConfig = [
   { key: "etapas", label: "Etapas" },
   { key: "grupos", label: "Grupos de Etapas" },
   { key: "categorias", label: "Categorias" },
+  { key: "grupos-materiais", label: "Grupos de Materiais" },
+  { key: "kits", label: "Kits de Produto" },
 ] as const;
 
 type TabKey = typeof tabConfig[number]["key"];
 
 export default function ProcessosProducao() {
-  const [activeTab, setActiveTab] = useState<TabKey>("etapas");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initial = (searchParams.get("tab") as TabKey) || "etapas";
+  const [activeTab, setActiveTab] = useState<TabKey>(
+    tabConfig.some((t) => t.key === initial) ? initial : "etapas",
+  );
+  const kitsRef = useRef<KitsProdutoHandle>(null);
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (activeTab === "etapas") next.delete("tab");
+    else next.set("tab", activeTab);
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   return (
     <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Factory className="h-6 w-6 text-primary" />
-          Processos de Produção
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">Gerencie etapas individuais e grupos de etapas reutilizáveis</p>
+      <div className="mb-6 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Factory className="h-6 w-6 text-primary" />
+            Etapas de Produção
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Etapas, categorias, grupos e kits que compõem como cada produto é fabricado.
+          </p>
+        </div>
+        {activeTab === "kits" && (
+          <AdminOnly>
+            <Button onClick={() => kitsRef.current?.openNew()} className="gap-2">
+              <Plus className="h-4 w-4" /> Novo Kit
+            </Button>
+          </AdminOnly>
+        )}
       </div>
 
       <DotTabs
@@ -78,9 +107,12 @@ export default function ProcessosProducao() {
       {activeTab === "etapas" && <EtapasTab />}
       {activeTab === "grupos" && <GruposTab />}
       {activeTab === "categorias" && <CategoriasTab />}
+      {activeTab === "grupos-materiais" && <GruposMateriais hideHeader />}
+      {activeTab === "kits" && <KitsProduto ref={kitsRef} hideHeader />}
     </div>
   );
 }
+
 
 // ─── Etapas Tab ──────────────────────────────────────────────────────
 function EtapasTab() {
