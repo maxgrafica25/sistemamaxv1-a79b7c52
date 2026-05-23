@@ -1099,21 +1099,15 @@ export default function KitsProduto() {
 
 function CompactItemRow({
   item,
-  index,
-  total,
   processes,
   onChange,
   onRemove,
-  onMove,
   onEditVariants,
 }: {
   item: KitItem;
-  index: number;
-  total: number;
   processes: ProcessOption[];
   onChange: (patch: Partial<KitItem>) => void;
   onRemove: () => void;
-  onMove: (dir: -1 | 1) => void;
   onEditVariants: () => void;
 }) {
   const isVariant = item.quantity_formula === "variant_by_sheets";
@@ -1123,28 +1117,38 @@ function CompactItemRow({
       ? item.supply_label || (isVariant ? "Variante por folhas" : "(sem suprimento)")
       : item.process_label || "(sem processo)";
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.tmp_id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    boxShadow: isDragging ? "0 8px 20px hsl(var(--foreground) / 0.15)" : undefined,
+  };
+
   return (
-    <div className="flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 hover:bg-muted/30 transition-colors">
-      <div className="flex flex-col -my-1">
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground disabled:opacity-20 leading-none text-xs"
-          onClick={() => onMove(-1)}
-          disabled={index === 0}
-          aria-label="Subir"
-        >
-          ▲
-        </button>
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground disabled:opacity-20 leading-none text-xs"
-          onClick={() => onMove(1)}
-          disabled={index === total - 1}
-          aria-label="Descer"
-        >
-          ▼
-        </button>
-      </div>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 hover:bg-muted/30 transition-colors"
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none -ml-1 p-0.5 rounded hover:bg-muted"
+        aria-label="Arrastar para reordenar"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
       <Icon className="h-4 w-4 text-primary shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-sm truncate" title={label}>
