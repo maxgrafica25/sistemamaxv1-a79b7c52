@@ -966,43 +966,76 @@ export default function KitsProduto() {
                 </p>
               </div>
             ) : (
-              renderedItems.map((b, bi) =>
-                b.kind === "item" ? (
-                  <CompactItemRow
-                    key={b.item.tmp_id}
-                    item={b.item}
-                    index={b.index}
-                    total={items.length}
-                    processes={processes}
-                    onChange={(p) => updateItem(b.item.tmp_id, p)}
-                    onRemove={() => removeItem(b.item.tmp_id)}
-                    onMove={(d) => moveItem(b.item.tmp_id, d)}
-                    onEditVariants={() => setVariantsEditing(b.item.tmp_id)}
-                  />
-                ) : (
-                  <div
-                    key={`alt-${bi}`}
-                    className="rounded-md border border-primary/30 bg-primary/5 p-2 space-y-1.5"
+              (() => {
+                const looseIds: string[] = [];
+                const groupIds: Record<string, string[]> = {};
+                renderedItems.forEach((b) => {
+                  if (b.kind === "item") looseIds.push(b.item.tmp_id);
+                  else groupIds[b.group] = b.items.map((x) => x.item.tmp_id);
+                });
+                const scopeOf = (id: string): string | null => {
+                  if (looseIds.includes(id)) return "__loose__";
+                  for (const g in groupIds) if (groupIds[g].includes(id)) return g;
+                  return null;
+                };
+                const handleDragEnd = (ev: DragEndEvent) => {
+                  const { active, over } = ev;
+                  if (!over || active.id === over.id) return;
+                  const a = String(active.id);
+                  const o = String(over.id);
+                  const sa = scopeOf(a);
+                  const so = scopeOf(o);
+                  if (!sa || sa !== so) return;
+                  const block = sa === "__loose__" ? looseIds : groupIds[sa];
+                  reorderWithinBlock(block, a, o);
+                };
+                return (
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
                   >
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-primary px-1">
-                      Alternativos · grupo "{b.group}"
-                    </p>
-                    {b.items.map(({ item, index }) => (
-                      <CompactItemRow
-                        key={item.tmp_id}
-                        item={item}
-                        index={index}
-                        total={items.length}
-                        processes={processes}
-                        onChange={(p) => updateItem(item.tmp_id, p)}
-                        onRemove={() => removeItem(item.tmp_id)}
-                        onMove={(d) => moveItem(item.tmp_id, d)}
-                        onEditVariants={() => setVariantsEditing(item.tmp_id)}
-                      />
-                    ))}
-                  </div>
-                ),
-              )
+                    <SortableContext items={looseIds} strategy={verticalListSortingStrategy}>
+                      {renderedItems.map((b, bi) =>
+                        b.kind === "item" ? (
+                          <CompactItemRow
+                            key={b.item.tmp_id}
+                            item={b.item}
+                            processes={processes}
+                            onChange={(p) => updateItem(b.item.tmp_id, p)}
+                            onRemove={() => removeItem(b.item.tmp_id)}
+                            onEditVariants={() => setVariantsEditing(b.item.tmp_id)}
+                          />
+                        ) : (
+                          <div
+                            key={`alt-${bi}`}
+                            className="rounded-md border border-primary/30 bg-primary/5 p-2 space-y-1.5"
+                          >
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-primary px-1">
+                              Alternativos · grupo "{b.group}"
+                            </p>
+                            <SortableContext
+                              items={groupIds[b.group]}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              {b.items.map(({ item }) => (
+                                <CompactItemRow
+                                  key={item.tmp_id}
+                                  item={item}
+                                  processes={processes}
+                                  onChange={(p) => updateItem(item.tmp_id, p)}
+                                  onRemove={() => removeItem(item.tmp_id)}
+                                  onEditVariants={() => setVariantsEditing(item.tmp_id)}
+                                />
+                              ))}
+                            </SortableContext>
+                          </div>
+                        ),
+                      )}
+                    </SortableContext>
+                  </DndContext>
+                );
+              })()
             )}
           </div>
 
