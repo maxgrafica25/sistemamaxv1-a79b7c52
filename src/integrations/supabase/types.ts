@@ -2629,6 +2629,39 @@ export type Database = {
           },
         ]
       }
+      production_step_categories: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_system: boolean
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       production_steps: {
         Row: {
           created_at: string
