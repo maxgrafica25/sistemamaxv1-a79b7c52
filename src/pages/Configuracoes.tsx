@@ -96,6 +96,7 @@ export default function Configuracoes() {
         setDefaultProfitMargin(String(settingsRes.data.default_margin_pct));
         if ((settingsRes.data as any).tax_pct !== undefined) setTaxPct(String((settingsRes.data as any).tax_pct));
         if ((settingsRes.data as any).collection_fee_pct !== undefined) setCollectionFeePct(String((settingsRes.data as any).collection_fee_pct));
+        if ((settingsRes.data as any).checklist_before_save !== undefined) setChecklistBeforeSave(!!(settingsRes.data as any).checklist_before_save);
       }
       setLoading(false);
     };
