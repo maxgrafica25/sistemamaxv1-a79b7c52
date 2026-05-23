@@ -145,6 +145,29 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
     });
 
   const [saving, setSaving] = useState(false);
+  const [checklistDialogOpen, setChecklistDialogOpen] = useState(false);
+
+  const performSave = async () => {
+    setSaving(true);
+    try {
+      const result = await saveQuoteV3(state, editingQuoteId ?? undefined);
+      if (!isEditing) clear();
+      toast.success(
+        isEditing
+          ? `Orçamento ${result.quote_number} atualizado.`
+          : `Orçamento ${result.quote_number} criado.`,
+      );
+      onSave?.(result);
+    } catch (err: any) {
+      console.error("[V3 save]", err);
+      toast.error("Falha ao salvar orçamento", {
+        description: err?.message || "Tente novamente. O rascunho foi mantido.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSave = async () => {
     if (state.items.length === 0) {
       toast.error("Adicione pelo menos 1 item antes de salvar.");
@@ -168,24 +191,13 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
       });
       return;
     }
-    setSaving(true);
-    try {
-      const result = await saveQuoteV3(state, editingQuoteId ?? undefined);
-      if (!isEditing) clear();
-      toast.success(
-        isEditing
-          ? `Orçamento ${result.quote_number} atualizado.`
-          : `Orçamento ${result.quote_number} criado.`,
-      );
-      onSave?.(result);
-    } catch (err: any) {
-      console.error("[V3 save]", err);
-      toast.error("Falha ao salvar orçamento", {
-        description: err?.message || "Tente novamente. O rascunho foi mantido.",
-      });
-    } finally {
-      setSaving(false);
+    // Popup do checklist antes do save (se habilitado e houver itens CV).
+    const hasCV = state.items.some((it) => it.kind === "cv");
+    if (globalSettings.checklist_before_save && hasCV) {
+      setChecklistDialogOpen(true);
+      return;
     }
+    await performSave();
   };
 
   const lastSaved = savedAt ? new Date(savedAt).toLocaleTimeString("pt-BR") : null;
