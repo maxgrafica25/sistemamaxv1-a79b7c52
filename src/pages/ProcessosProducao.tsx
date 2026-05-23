@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,7 +61,7 @@ const tabConfig = [
 
 type TabKey = typeof tabConfig[number]["key"];
 
-const tabDescriptions: Record<TabKey, { icon: typeof Clock; text: React.ReactNode }> = {
+const tabDescriptions: Record<TabKey, { icon: typeof Clock; text: ReactNode }> = {
   etapas: {
     icon: Clock,
     text: (
