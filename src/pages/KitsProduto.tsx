@@ -858,6 +858,7 @@ const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function Kit
               </h2>
               <Badge variant="outline">{list.length}</Badge>
             </div>
+            <Separator className="mb-2" />
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {list.map((k) => (
                 <Card key={k.id} className={k.is_active ? "" : "opacity-60"}>
