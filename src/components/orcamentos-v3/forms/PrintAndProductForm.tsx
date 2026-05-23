@@ -169,13 +169,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
 
   return (
     <div className="space-y-5">
-      {/* Pergunta de arte — obrigatória */}
-      <ArtePromptBlock
-        value={artStatus}
-        onChange={setArtStatus}
-        terceirizadaValue={artTercValue}
-        onTerceirizadaValueChange={setArtTercValue}
-      />
+
 
       {/* Descrição (opcional) */}
       <div className="space-y-1.5">
