@@ -16,10 +16,9 @@ import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
 import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
 import { fmtBRL } from "../shared/pricing";
-import { genId, type ArtStatus, type V3CVItem, type V3Item } from "../types";
-import { ArtePromptBlock } from "../shared/ArtePromptBlock";
-import { stampArt, makeArtThirdParty, makeArtInternal } from "../shared/artStatus";
+import { genId, type V3CVItem, type V3Item } from "../types";
 import { toast } from "sonner";
+
 import { useV3CVCatalog } from "../shared/useV3CVCatalog";
 import {
   calcular,
@@ -55,9 +54,8 @@ interface Props {
 export function CVForm({ onAdd, onAddTiers }: Props) {
   const cat = useV3CVCatalog();
 
-  // Pergunta "Tem arte pronta?"
-  const [artStatus, setArtStatus] = useState<ArtStatus | null>(null);
-  const [artTercValue, setArtTercValue] = useState<number>(0);
+  // "Tem arte pronta?" agora é única por orçamento (NewQuoteFormV3).
+
 
   // null = Personalizado (padrão); caso contrário, id do preset ativo
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
@@ -297,44 +295,14 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
     };
   };
 
-  const artBlockedReason = (): string | null =>
-    !artStatus
-      ? "Responda 'Tem arte pronta?' antes de adicionar."
-      : artStatus === "terceirizada" && artTercValue <= 0
-        ? "Informe o valor da arte terceirizada."
-        : null;
-
+  // A pergunta "Tem arte pronta?" foi movida para o nível do orçamento.
+  // CVForm apenas emite os itens; o pai (NewQuoteFormV3) carimba o art_status
+  // global e reconcilia a linha única de custo de arte.
   const emitWithArt = (items: V3CVItem[], emit: (xs: V3Item[]) => void) => {
-    const reason = artBlockedReason();
-    if (reason) { toast.warning(reason); return; }
-    const stamped = stampArt(items as V3Item[], artStatus);
-    let toEmit: V3Item[] = stamped;
-    const isInternalTier = artStatus && artStatus !== "ready" && artStatus !== "terceirizada";
-    const needsBundle = artStatus === "terceirizada" || isInternalTier;
-    let bundleId: string | null = null;
-    if (needsBundle) {
-      const leader = stamped[0];
-      bundleId = (leader as { bundle_id?: string | null } | undefined)?.bundle_id ?? null;
-      if (leader && !bundleId) {
-        bundleId = `bnd_${Date.now().toString(36)}`;
-        toEmit = stamped.map((it, idx) =>
-          idx === 0
-            ? ({ ...it, bundle_id: bundleId, bundle_label: (it as { descricao?: string }).descricao || "Com. Visual" } as V3Item)
-            : it,
-        );
-      }
-    }
-    if (artStatus === "terceirizada" && artTercValue > 0) {
-      const art = makeArtThirdParty(artTercValue, bundleId);
-      if (art) toEmit = [...toEmit, art];
-    } else if (isInternalTier) {
-      const art = makeArtInternal(artStatus, cat.hourRate || 0, bundleId);
-      if (art) toEmit = [...toEmit, art];
-    }
-    emit(toEmit);
-    setArtStatus(null);
-    setArtTercValue(0);
+    emit(items as V3Item[]);
   };
+
+
 
   const submit = () => {
     if (!canAdd) return;
@@ -377,14 +345,9 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
 
   return (
     <div className="space-y-5 flex-1 flex flex-col">
-      <ArtePromptBlock
-        value={artStatus}
-        onChange={setArtStatus}
-        terceirizadaValue={artTercValue}
-        onTerceirizadaValueChange={setArtTercValue}
-      />
       {/* Descrição — acima do toggle */}
       <div className="space-y-1.5">
+
         <div className="flex items-center justify-between">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
             Descrição

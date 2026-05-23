@@ -1,60 +1,45 @@
-## Diagnóstico
+# Arte: pergunta única por orçamento
 
-Os 4 acabamentos "Arte —" cadastrados em `finishings_price_items` estão assim:
+Hoje cada formulário (Impressão, CV, Etiqueta, Booklet) repete o bloco "Tem arte pronta?" a cada item adicionado. Vamos mover essa pergunta para o nível do orçamento — responde uma vez, vale para todos os itens.
 
-- `pricing_model = per_unit`, `unit_label = arte`, `price_per_sheet = 0`
-- `production_step_id` vinculado (5/10/20/30 min)
-- `applies_to = {impressao, etiqueta}`
+## Comportamento novo
 
-Comportamento atual:
+- A pergunta vive no cabeçalho do `NewQuoteFormV3`, ao lado de Cliente/Assunto (uma faixa fina logo abaixo dos campos, sempre visível).
+- Os formulários de Impressão, CV, Etiqueta e Booklet **não exibem mais** o `ArtePromptBlock`.
+- Cada item criado já entra "carimbado" com o `art_status` global do orçamento (sem precisar responder).
+- O **custo de arte** entra **uma vez por orçamento** (e não por item):
+  - Interna (Ajuste/Fácil/Moderada/Elaborada) → 1 linha "Arte — <tier>" calculada como `minutos × Valor da Hora de Trabalho`.
+  - Terceirizada → 1 linha "Arte terceirizada" com o valor informado.
+  - "Cliente envia pronta" ou sem resposta → nenhuma linha de arte.
+- Trocar a resposta no cabeçalho **atualiza** a linha de arte (substitui/remove) e **re-carimba** o `art_status` dos itens existentes.
+- A validação no Save ("responda 'Tem arte pronta?' em todos os itens") vira: bloqueia salvar se houver itens que exigem arte e a resposta global ainda estiver vazia.
 
-| Form | Toggle aparece? | Gera mão de obra (min × R$/hora)? | Aparece no total? |
-|---|---|---|---|
-| PrintForm (Impressão personalizada) | sim | sim, via `buildLinkedLaborItems` | sim — mas o hint mostra "R$ 0,00/arte", o que dá a impressão de não somar |
-| LabelEmbeddedForm (Etiquetas) | **não** — formulário nem renderiza `FinishingProgressive` | não | não |
-| BookletForm (Revista) | **não** | não | não |
+## Onde fica na UI
 
-Resumo: só Impressão personalizada gera o custo. Etiquetas e Revista ignoram completamente os acabamentos do catálogo unificado (inclusive os "Arte —"). Quando o cliente está em Etiquetas (caso do print enviado), ligar "Arte — Ajuste" não soma nada porque o form não cria nenhum item de mão de obra.
+Cabeçalho do orçamento, segunda linha (abaixo de Cliente + Assunto): um `ArtePromptBlock` compacto. No modo edição, ele já vem preenchido com a resposta carregada.
 
-A página de Arte interna (`ArtePromptBlock` + `makeArtInternal`) é o caminho oficial via "Tem arte pronta?", mas o usuário está usando o caminho paralelo via catálogo de acabamentos — esse caminho precisa funcionar igual.
+## Arquivos afetados
 
-## Plano
+- `src/components/orcamentos-v3/types.ts` — adicionar `art_status?: ArtStatus | null` e `art_terceirizada_value?: number` em `V3QuoteState` + `DEFAULT_STATE`.
+- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` — renderizar `ArtePromptBlock` no header; reconciliar linha única de arte ao mudar resposta; ajustar validação de Save; passar `art_status` para os formulários (via prop) para stamping automático.
+- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx` — remover bloco/estado local de arte; no submit usar `state.art_status` para `stampArt`; **não** chamar mais `makeArtInternal`/`makeArtThirdParty` aqui.
+- `src/components/orcamentos-v3/forms/CVForm.tsx` — mesma limpeza.
+- `src/components/orcamentos-v3/shared/saveQuoteV3.ts` — persistir `art_status`/`art_terceirizada_value` no `v3_payload`.
+- `src/components/orcamentos-v3/shared/loadQuoteV3.ts` — restaurar esses campos ao editar (compatível com payloads antigos, em que cada item já tem `art_status` próprio — usar o mais frequente como fallback).
 
-### 1. PrintForm — hint correto
+## Reconciliação da linha de arte (detalhe técnico)
 
-Em `src/components/orcamentos-v3/forms/PrintForm.tsx`, no `useMemo` de `finishes`:
-- Se `pricing_model === "per_unit"` **e** `price_per_sheet === 0` **e** `production_step` existe → hint passa a mostrar o custo real:  
-  `${fmtBRL((min/60) * hourlyRate)}/${unit_label} · +X min`
-- Caso contrário, mantém o comportamento atual.
+Quando o `art_status` global muda:
+1. Remover qualquer item `third` existente com `fornecedor` em {"Arte (interna)", "Arte (terceiro)"} que **não** esteja vinculado a `bundle_id` (legado fica intocado).
+2. Se nova resposta for `ready` ou `null` → não adicionar nada.
+3. Se interna → adicionar 1 `makeArtInternal(status, hourRate, null)`.
+4. Se terceirizada → adicionar 1 `makeArtThirdParty(value, null)` (input do valor permanece no próprio `ArtePromptBlock`).
+5. Re-`stampArt` em todos os itens existentes (idempotente).
 
-Já existe `useV3HourlyRate()` no escopo, então é só consumir `hourlyRate`.
-
-### 2. LabelEmbeddedForm — habilitar acabamentos + mão de obra
-
-Em `src/components/orcamentos-v3/forms/LabelEmbeddedForm.tsx`:
-- Carregar `listFinishings("etiqueta")` (mesmo padrão do PrintForm).
-- Adicionar bloco "Acabamentos" com `FinishingProgressive` antes do botão Adicionar.
-- No `submit`, gerar `V3LaborItem[]` para cada acabamento ligado que tenha `production_step` (mesma lógica do `buildLinkedLaborItems` do PrintForm), com `bundle_id` agrupando os labors ao item label.
-- Usar `useV3HourlyRate()` para `hourly_rate`.
-- Passar para o callback `onAddTiers` / `onAdd` os labors junto via uma nova prop `onAddMany?` (igual PrintForm) — incluir o novo handler no chamador (`PrintAndProductForm.tsx`).
-
-### 3. BookletForm — mesma extensão
-
-`src/components/orcamentos-v3/forms/BookletForm.tsx` segue o mesmo padrão do PrintForm (`listFinishings("impressao")` + `buildLinkedLaborItems`).
-
-### 4. Aviso no cadastro de acabamento
-
-Em `Acabamentos` (página de cadastro de `finishings_price_items`), quando o acabamento for `per_unit` com preço 0 e sem `production_step_id` vinculado, mostrar aviso amarelo: *"Esse acabamento não tem preço nem etapa vinculada — ficará grátis no orçamento. Vincule uma etapa de produção para cobrar pelo tempo."*
-
-### 5. Validação visual no orçamento
-
-Confirmar via preview, com um item de etiquetas + "Arte — Ajuste" ligado:
-- hint mostra `R$ 4,25/arte · +5 min` (5/60 × 50,99)
-- item de mão de obra aparece bundled abaixo do item de etiquetas
-- subtotal sobe pelo valor correspondente
+`bundle_id` fica `null` porque a arte agora é do orçamento, não de um item específico.
 
 ## Fora do escopo
 
-- Não mexer no `ArtePromptBlock` (caminho "Tem arte pronta?") — continua funcional.
-- Não mexer no cálculo dos demais acabamentos (laminação, vinco, etc.).
-- Não migrar os 4 registros "Arte —" do catálogo para outro lugar — eles continuam como acabamento per_unit com etapa vinculada.
+- Migração de orçamentos antigos (continuam funcionando: cada item mantém seu `art_status` salvo).
+- Mudar `ArtePromptBlock` visualmente — só muda onde ele é renderizado.
+- Itens "Terceiros" e "Mão de obra" avulsos.

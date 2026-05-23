@@ -29,10 +29,8 @@ import { iconFor } from "../shared/presetIcons";
 import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
 import { PRESET_BY_ID } from "../shared/productPresets";
 import { suggestProduct, type SuggestResult } from "../shared/productSuggester";
-import { ArtePromptBlock } from "../shared/ArtePromptBlock";
-import { stampArt, makeArtThirdParty, makeArtInternal } from "../shared/artStatus";
-import { useHourRate } from "@/hooks/useHourRate";
-import type { ArtStatus, V3Item } from "../types";
+import type { V3Item } from "../types";
+
 
 const BUILTIN_BUSINESS_CARD_ID = "__builtin_business_card__";
 
@@ -57,7 +55,6 @@ interface Props {
 
 export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20 }: Props) {
   const { presets, reload } = useQuotePresets("impressao");
-  const { hourRate } = useHourRate();
   // null = Personalizado (padrão)
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [descricao, setDescricao] = useState("");
@@ -73,68 +70,18 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
   const [presetToDelete, setPresetToDelete] = useState<QuotePreset | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Pergunta "Tem arte pronta?" — obrigatória antes de adicionar item
-  const [artStatus, setArtStatus] = useState<ArtStatus | null>(null);
-  const [artTercValue, setArtTercValue] = useState<number>(0);
-
-  const artBlockedReason: string | null = !artStatus
-    ? "Responda 'Tem arte pronta?' antes de adicionar."
-    : artStatus === "terceirizada" && artTercValue <= 0
-      ? "Informe o valor da arte terceirizada."
-      : null;
-
-  // Wrap dos callbacks: carimba art_status nos itens e, quando terceirizada,
-  // anexa um V3ThirdItem como filho do bundle.
-  const enrichAndEmit = useCallback(
-    (items: V3Item[], emit: (xs: V3Item[]) => void) => {
-      if (artBlockedReason) {
-        toast.warning(artBlockedReason);
-        return;
-      }
-      const stamped = stampArt(items, artStatus);
-      let toEmit: V3Item[] = stamped;
-      const isInternalTier = artStatus && artStatus !== "ready" && artStatus !== "terceirizada";
-      const needsBundle = artStatus === "terceirizada" || isInternalTier;
-      let bundleId: string | null = null;
-      if (needsBundle) {
-        const leader = stamped.find((i) => i.kind !== "third" && i.kind !== "labor" && i.kind !== "supply");
-        bundleId = (leader as { bundle_id?: string | null } | undefined)?.bundle_id ?? null;
-        if (leader && !bundleId) {
-          bundleId = `bnd_${Date.now().toString(36)}`;
-          toEmit = stamped.map((it) =>
-            it === leader
-              ? ({ ...it, bundle_id: bundleId, bundle_label: (it as { descricao?: string }).descricao || "Impressão" } as V3Item)
-              : it,
-          );
-        }
-      }
-      if (artStatus === "terceirizada" && artTercValue > 0) {
-        const art = makeArtThirdParty(artTercValue, bundleId);
-        if (art) toEmit = [...toEmit, art];
-      } else if (isInternalTier) {
-        const art = makeArtInternal(artStatus, hourRate, bundleId);
-        if (art) toEmit = [...toEmit, art];
-      }
-      emit(toEmit);
-      // Reseta a pergunta após adicionar
-      setArtStatus(null);
-      setArtTercValue(0);
-    },
-    [artStatus, artTercValue, artBlockedReason, hourRate],
-  );
-
-  const wrappedOnAdd = useCallback(
-    (it: V3Item) => enrichAndEmit([it], (xs) => xs.forEach((x) => onAdd(x))),
-    [enrichAndEmit, onAdd],
-  );
+  // A pergunta "Tem arte pronta?" agora é única por orçamento (NewQuoteFormV3).
+  // Os formulários apenas emitem itens; o pai carimba o art_status global.
+  const wrappedOnAdd = useCallback((it: V3Item) => onAdd(it), [onAdd]);
   const wrappedOnAddMany = useCallback(
-    (its: V3Item[]) => enrichAndEmit(its, (xs) => (onAddMany ? onAddMany(xs) : xs.forEach((x) => onAdd(x)))),
-    [enrichAndEmit, onAddMany, onAdd],
+    (its: V3Item[]) => (onAddMany ? onAddMany(its) : its.forEach((x) => onAdd(x))),
+    [onAddMany, onAdd],
   );
   const wrappedOnAddTiers = useCallback(
-    (its: V3Item[]) => enrichAndEmit(its, (xs) => (onAddTiers ? onAddTiers(xs) : xs.forEach((x) => onAdd(x)))),
-    [enrichAndEmit, onAddTiers, onAdd],
+    (its: V3Item[]) => (onAddTiers ? onAddTiers(its) : its.forEach((x) => onAdd(x))),
+    [onAddTiers, onAdd],
   );
+
 
   const handleConfirmDelete = useCallback(async () => {
     if (!presetToDelete) return;
@@ -222,13 +169,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
 
   return (
     <div className="space-y-5">
-      {/* Pergunta de arte — obrigatória */}
-      <ArtePromptBlock
-        value={artStatus}
-        onChange={setArtStatus}
-        terceirizadaValue={artTercValue}
-        onTerceirizadaValueChange={setArtTercValue}
-      />
+
 
       {/* Descrição (opcional) */}
       <div className="space-y-1.5">

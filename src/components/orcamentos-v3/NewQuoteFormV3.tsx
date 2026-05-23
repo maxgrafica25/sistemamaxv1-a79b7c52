@@ -32,6 +32,11 @@ import { saveQuoteV3, nextQuoteNumber } from "./shared/saveQuoteV3";
 import { loadQuoteV3 } from "./shared/loadQuoteV3";
 import { RecorrentesPanel } from "@/components/recorrentes/RecorrentesPanel";
 import { useGlobalSettings } from "@/hooks/useGlobalSettings";
+import { ArtePromptBlock } from "./shared/ArtePromptBlock";
+import { stampArt, makeArtInternal, makeArtThirdParty, requiresArt } from "./shared/artStatus";
+import { useHourRate } from "@/hooks/useHourRate";
+import type { V3ThirdItem } from "./types";
+
 
 interface Props {
   onCancel: () => void;
@@ -49,6 +54,8 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
   const [previewNumber, setPreviewNumber] = useState<string | null>(null);
   const [checklistAnswers, setChecklistAnswers] = useState<{ pergunta: string; resposta: string }[]>([]);
   const { settings: globalSettings } = useGlobalSettings();
+  const { hourRate } = useHourRate();
+
 
   // Pré-calcula o próximo número (provisório) ao criar um novo orçamento.
   useEffect(() => {
@@ -132,13 +139,19 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
   );
 
   const addItem = (item: V3Item) => {
-    setState((s) => ({ ...s, items: [...s.items, item] }));
+    setState((s) => {
+      const stamped = stampArt([item], s.art_status ?? null)[0] ?? item;
+      return { ...s, items: [...s.items, stamped] };
+    });
     setHighlightId(item.id);
     setTimeout(() => setHighlightId(null), 1500);
   };
   const addItems = (items: V3Item[]) => {
     if (items.length === 0) return;
-    setState((s) => ({ ...s, items: [...s.items, ...items] }));
+    setState((s) => {
+      const stamped = stampArt(items, s.art_status ?? null);
+      return { ...s, items: [...s.items, ...stamped] };
+    });
     setHighlightId(items[items.length - 1].id);
     setTimeout(() => setHighlightId(null), 1500);
   };
@@ -151,6 +164,37 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
       const clone = { ...it, id: genId() } as V3Item;
       return { ...s, items: [...s.items, clone] };
     });
+
+  // Reconciliação da linha única de "Arte" no nível do orçamento.
+  // Roda quando a resposta global muda (ou o valor da hora / arte terceirizada).
+  // Remove qualquer linha de arte vinculada ao orçamento (bundle_id null) e
+  // recria conforme o status atual; re-carimba art_status nos itens existentes.
+  useEffect(() => {
+    setState((s) => {
+      const status = s.art_status ?? null;
+      const value = s.art_terceirizada_value ?? 0;
+      const cleaned = s.items.filter((it) => {
+        if (it.kind !== "third") return true;
+        const t = it as V3ThirdItem;
+        const isArt = t.fornecedor === "Arte (interna)" || t.fornecedor === "Arte (terceiro)";
+        if (!isArt) return true;
+        // mantém apenas itens de arte vinculados a um bundle (legado)
+        return !!t.bundle_id;
+      });
+      const stamped = stampArt(cleaned, status);
+      let next = stamped;
+      if (status === "terceirizada" && value > 0) {
+        const art = makeArtThirdParty(value, null);
+        if (art) next = [...stamped, art];
+      } else if (status && status !== "ready" && status !== "terceirizada") {
+        const art = makeArtInternal(status, hourRate || 0, null);
+        if (art) next = [...stamped, art];
+      }
+      return { ...s, items: next };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.art_status, state.art_terceirizada_value, hourRate]);
+
 
   const [saving, setSaving] = useState(false);
   const [checklistDialogOpen, setChecklistDialogOpen] = useState(false);
@@ -187,18 +231,17 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
       });
       return;
     }
-    // Bloqueia envio se algum item de impressão/CV/apostila/etiqueta ficou sem responder "Tem arte pronta?"
-    const semArte = state.items.filter(
-      (it) =>
-        (it.kind === "print" || it.kind === "cv" || it.kind === "booklet" || it.kind === "label") &&
-        !(it as { art_status?: string | null }).art_status,
-    );
-    if (semArte.length > 0) {
-      toast.warning("Responda 'Tem arte pronta?' em todos os itens", {
-        description: `${semArte.length} ${semArte.length === 1 ? "item está" : "itens estão"} sem essa resposta. Remova ou refaça o item.`,
-      });
+    // Pergunta "Tem arte pronta?" agora é única por orçamento.
+    const hasArtRequiringItem = state.items.some((it) => requiresArt(it));
+    if (hasArtRequiringItem && !state.art_status) {
+      toast.warning("Responda 'Tem arte pronta?' antes de salvar.");
       return;
     }
+    if (state.art_status === "terceirizada" && (!state.art_terceirizada_value || state.art_terceirizada_value <= 0)) {
+      toast.warning("Informe o valor da arte terceirizada.");
+      return;
+    }
+
     // Popup do checklist antes do save (se habilitado e houver itens CV).
     const hasCV = state.items.some((it) => it.kind === "cv");
     if (globalSettings.checklist_before_save && hasCV) {
@@ -294,6 +337,18 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
           className="h-9"
         />
       </div>
+
+      {/* Pergunta única "Tem arte pronta?" para todo o orçamento */}
+      <div className="px-4 lg:px-6 py-3 border-b border-border bg-background">
+        <ArtePromptBlock
+          value={state.art_status ?? null}
+          onChange={(v) => setState((s) => ({ ...s, art_status: v }))}
+          terceirizadaValue={state.art_terceirizada_value ?? 0}
+          onTerceirizadaValueChange={(v) => setState((s) => ({ ...s, art_terceirizada_value: v }))}
+        />
+      </div>
+
+
 
       {/* Split-screen */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_360px] overflow-hidden">
