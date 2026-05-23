@@ -966,8 +966,8 @@ export default function KitsProduto() {
               <div className="rounded-md border border-dashed py-10 text-center">
                 <Layers className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
                 <p className="text-sm text-muted-foreground">
-                  Nenhum item ainda. Use os botões abaixo para adicionar
-                  acabamentos ou encadernação espiral.
+                  Nenhum item ainda. Clique em <em>+ Adicionar acabamentos</em> para
+                  incluir suprimentos, processos ou a encadernação espiral automática.
                 </p>
               </div>
             ) : (
