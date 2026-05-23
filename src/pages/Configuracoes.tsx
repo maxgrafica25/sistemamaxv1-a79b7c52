@@ -43,6 +43,7 @@ interface BackupRun {
 export default function Configuracoes() {
   const { profile, session } = useAuth();
   const isAdmin = profile?.role === "admin";
+  const [configTab, setConfigTab] = useState("empresa");
 
   const [hourlyRate, setHourlyRate] = useState(0);
   const [loading, setLoading] = useState(true);
