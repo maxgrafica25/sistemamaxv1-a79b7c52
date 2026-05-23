@@ -163,7 +163,6 @@ export default function AddItemsPicker({
                       <span className="text-[11px] font-medium text-primary shrink-0">Adicionar</span>
                     </button>
                   )}
-                <div className="divide-y">
                   {filteredSup.length === 0 && (
                     <p className="p-4 text-sm text-muted-foreground italic">Nada encontrado.</p>
                   )}
