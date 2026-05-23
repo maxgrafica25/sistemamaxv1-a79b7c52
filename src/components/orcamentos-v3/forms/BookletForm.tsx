@@ -2,7 +2,7 @@
 // Encadernação (Kit Espiral/Wire-O/Grampo) é tratada como acabamento agregado
 // (mão-de-obra avulsa) — pode ser adicionada via aba "Mão-de-obra" enquanto a
 // integração total com spiral-selector é portada em fase posterior.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,10 +14,14 @@ import PrintingItemSearch, {
   type PrintingCatalogItem,
 } from "@/components/orcamentos-v3/shared/PrintingItemSearch";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
-import { roundUp10 } from "../shared/pricing";
+import { roundUp10, fmtBRL } from "../shared/pricing";
 import { TierFaixasPanel } from "../shared/TierFaixasPanel";
+import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProgressive";
+import { listFinishings, type FinishingItem } from "@/lib/finishings/catalog";
+import { pickFinishingTier } from "@/lib/labels/finishing-pricing";
+import { useV3HourlyRate } from "../shared/useV3HourlyRate";
 import { getIdealSpiral } from "@/lib/quotes/spiral-selector";
-import { genId, type V3BookletItem, type V3Item } from "../types";
+import { genId, type V3BookletItem, type V3Item, type V3LaborItem } from "../types";
 import { ProductKitPanel } from "./ProductKitPanel";
 import { BookletKitPanel, type BookletKitApplyMeta } from "./BookletKitPanel";
 import { buildBookletBundleLabel } from "../shared/buildBookletBundleLabel";
