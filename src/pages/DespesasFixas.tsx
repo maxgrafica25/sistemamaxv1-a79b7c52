@@ -27,11 +27,11 @@ const formatCurrency = (v: number) => v.toLocaleString("pt-BR", { style: "curren
 
 type TabKey = "despesas" | "salarios" | "depreciacao" | "capacidade";
 
-const TAB_CONFIG: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-  { key: "despesas", label: "Despesas Mensais", icon: <DollarSign className="h-3.5 w-3.5" /> },
-  { key: "salarios", label: "Folha de Pagamento", icon: <Users className="h-3.5 w-3.5" /> },
-  { key: "depreciacao", label: "Depreciação", icon: <Monitor className="h-3.5 w-3.5" /> },
-  { key: "capacidade", label: "Capacidade", icon: <Calculator className="h-3.5 w-3.5" /> },
+const TAB_CONFIG: { key: TabKey; label: string }[] = [
+  { key: "despesas", label: "Despesas Mensais" },
+  { key: "salarios", label: "Folha de Pagamento" },
+  { key: "depreciacao", label: "Depreciação" },
+  { key: "capacidade", label: "Capacidade" },
 ];
 
 export default function DespesasFixas() {
