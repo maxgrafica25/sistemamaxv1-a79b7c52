@@ -2519,6 +2519,39 @@ export type Database = {
           },
         ]
       }
+      product_kit_presets: {
+        Row: {
+          created_at: string
+          kit_id: string
+          preset_id: string
+        }
+        Insert: {
+          created_at?: string
+          kit_id: string
+          preset_id: string
+        }
+        Update: {
+          created_at?: string
+          kit_id?: string
+          preset_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_kit_presets_kit_id_fkey"
+            columns: ["kit_id"]
+            isOneToOne: false
+            referencedRelation: "product_kits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_kit_presets_preset_id_fkey"
+            columns: ["preset_id"]
+            isOneToOne: false
+            referencedRelation: "quote_presets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_kits: {
         Row: {
           created_at: string

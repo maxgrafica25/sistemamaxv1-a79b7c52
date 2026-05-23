@@ -80,20 +80,34 @@ interface KitRow {
   description: string | null;
   is_active: boolean;
   item_count: number;
+  preset_ids: string[];
 }
 
-const KIND_SUGGESTIONS = [
-  "apostila",
-  "cartao_visita",
-  "cartao",
-  "banner",
-  "bloco",
-  "folder",
-  "panfleto",
-  "adesivo",
-  "convite",
-  "certificado",
-];
+interface PresetOption {
+  id: string;
+  nome: string;
+  icone: string;
+}
+
+// Mapeia nome do preset → product_kind legado (compat com fetchers antigos).
+const PRESET_NAME_TO_KIND: Record<string, string> = {
+  "Cartão de Visita": "cartao_visita",
+  Apostila: "apostila",
+  Etiqueta: "etiqueta",
+  "Folheto / Flyer": "folheto",
+  Adesivo: "adesivo",
+  Banner: "banner",
+  Lona: "lona",
+  Faixa: "faixa",
+};
+
+const slugify = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 
 const FORMULA_LABELS: Record<KitQuantityFormula, string> = {
   per_unit: "Por unidade",
@@ -151,6 +165,7 @@ export default function KitsProduto() {
   const [kits, setKits] = useState<KitRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [processes, setProcesses] = useState<ProcessOption[]>([]);
+  const [availablePresets, setAvailablePresets] = useState<PresetOption[]>([]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -158,7 +173,7 @@ export default function KitsProduto() {
 
   // Form
   const [name, setName] = useState("");
-  const [productKind, setProductKind] = useState("apostila");
+  const [selectedPresetIds, setSelectedPresetIds] = useState<string[]>([]);
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [items, setItems] = useState<KitItem[]>([]);
@@ -169,20 +184,32 @@ export default function KitsProduto() {
 
   const fetchAll = async () => {
     setLoading(true);
-    const [kitsRes, itemsRes, procRes] = await Promise.all([
+    const [kitsRes, itemsRes, procRes, presetsRes, linksRes] = await Promise.all([
       supabase
         .from("product_kits")
         .select("id, name, product_kind, description, is_active")
-        .order("product_kind")
         .order("name"),
       supabase.from("product_kit_items").select("kit_id"),
       supabase.from("production_steps").select("id, description").order("description"),
+      supabase
+        .from("quote_presets")
+        .select("id, nome, icone, ativo, ordem")
+        .eq("ativo", true)
+        .order("ordem"),
+      supabase.from("product_kit_presets").select("kit_id, preset_id"),
     ]);
     if (kitsRes.error) handleError(kitsRes.error, "carregar kits");
     if (procRes.error) handleError(procRes.error, "carregar processos");
+    if (presetsRes.error) handleError(presetsRes.error, "carregar produtos favoritos");
     const counts = new Map<string, number>();
     (itemsRes.data || []).forEach((i: any) => {
       counts.set(i.kit_id, (counts.get(i.kit_id) || 0) + 1);
+    });
+    const linksByKit = new Map<string, string[]>();
+    (linksRes.data || []).forEach((l: any) => {
+      const arr = linksByKit.get(l.kit_id) || [];
+      arr.push(l.preset_id);
+      linksByKit.set(l.kit_id, arr);
     });
     setKits(
       (kitsRes.data || []).map((k: any) => ({
@@ -192,9 +219,17 @@ export default function KitsProduto() {
         description: k.description,
         is_active: !!k.is_active,
         item_count: counts.get(k.id) || 0,
+        preset_ids: linksByKit.get(k.id) || [],
       })),
     );
     setProcesses((procRes.data || []) as ProcessOption[]);
+    setAvailablePresets(
+      ((presetsRes.data || []) as any[]).map((p) => ({
+        id: p.id,
+        nome: p.nome,
+        icone: p.icone,
+      })),
+    );
     setLoading(false);
   };
 
@@ -205,7 +240,7 @@ export default function KitsProduto() {
   const resetForm = () => {
     setEditingId(null);
     setName("");
-    setProductKind("apostila");
+    setSelectedPresetIds([]);
     setDescription("");
     setIsActive(true);
     setItems([]);
@@ -249,7 +284,7 @@ export default function KitsProduto() {
     }
     setEditingId(kitId);
     setName(k.name);
-    setProductKind(k.product_kind);
+    setSelectedPresetIds(k.preset_ids ?? []);
     setDescription(k.description ?? "");
     setIsActive(k.is_active);
     setItems(
@@ -368,7 +403,8 @@ export default function KitsProduto() {
 
   const validate = (): string | null => {
     if (!name.trim()) return "Informe o nome do kit.";
-    if (!productKind.trim()) return "Informe o tipo de produto.";
+    if (selectedPresetIds.length === 0)
+      return "Selecione pelo menos um produto favorito ao qual este kit se aplica.";
     if (items.length === 0) return "Adicione pelo menos um item ao kit.";
     for (const it of items) {
       if (
@@ -414,9 +450,15 @@ export default function KitsProduto() {
       return;
     }
 
+    // Deriva product_kind do PRIMEIRO preset selecionado (compat com leitores antigos).
+    const firstPreset = availablePresets.find((p) => p.id === selectedPresetIds[0]);
+    const derivedKind = firstPreset
+      ? PRESET_NAME_TO_KIND[firstPreset.nome] ?? slugify(firstPreset.nome)
+      : "outros";
+
     const payload = {
       name: name.trim(),
-      product_kind: productKind.trim().toLowerCase(),
+      product_kind: derivedKind,
       description: description.trim() || null,
       is_active: isActive,
     };
@@ -486,6 +528,20 @@ export default function KitsProduto() {
           if (ve) throw ve;
         }
       }
+
+      // Sincroniza vínculos com Produtos Favoritos (N:N)
+      await supabase.from("product_kit_presets").delete().eq("kit_id", kitId!);
+      if (selectedPresetIds.length > 0) {
+        const linksPayload = selectedPresetIds.map((pid) => ({
+          kit_id: kitId!,
+          preset_id: pid,
+        }));
+        const { error: le } = await supabase
+          .from("product_kit_presets")
+          .insert(linksPayload);
+        if (le) throw le;
+      }
+
       toast.success(editingId ? "Kit atualizado." : "Kit criado.");
       setDialogOpen(false);
       resetForm();
@@ -522,14 +578,28 @@ export default function KitsProduto() {
   };
 
   const grouped = useMemo(() => {
+    const presetName = new Map(availablePresets.map((p) => [p.id, p.nome]));
     const map = new Map<string, KitRow[]>();
     for (const k of kits) {
-      const arr = map.get(k.product_kind) || [];
-      arr.push(k);
-      map.set(k.product_kind, arr);
+      if (k.preset_ids.length === 0) {
+        const arr = map.get("__sem_produto__") || [];
+        arr.push(k);
+        map.set("__sem_produto__", arr);
+        continue;
+      }
+      for (const pid of k.preset_ids) {
+        const label = presetName.get(pid) ?? "Produto removido";
+        const arr = map.get(label) || [];
+        arr.push(k);
+        map.set(label, arr);
+      }
     }
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [kits]);
+    return Array.from(map.entries()).sort(([a], [b]) => {
+      if (a === "__sem_produto__") return 1;
+      if (b === "__sem_produto__") return -1;
+      return a.localeCompare(b);
+    });
+  }, [kits, availablePresets]);
 
   // Agrupar itens: normais individualmente, alternativos agrupados por nome
   const renderedItems = useMemo(() => {
@@ -590,10 +660,12 @@ export default function KitsProduto() {
           </CardContent>
         </Card>
       ) : (
-        grouped.map(([kind, list]) => (
-          <div key={kind} className="space-y-2">
+        grouped.map(([label, list]) => (
+          <div key={label} className="space-y-2">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm uppercase tracking-wide text-muted-foreground">{kind}</h2>
+              <h2 className="text-sm uppercase tracking-wide text-muted-foreground">
+                {label === "__sem_produto__" ? "Sem produto vinculado" : label}
+              </h2>
               <Badge variant="outline">{list.length}</Badge>
             </div>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -648,7 +720,7 @@ export default function KitsProduto() {
 
           {/* Cabeçalho enxuto */}
           <div className="px-5 py-3 border-b space-y-3 bg-muted/20">
-            <div className="grid gap-2 md:grid-cols-[1fr_180px_auto]">
+            <div className="grid gap-2 md:grid-cols-[1fr_auto]">
               <div>
                 <Label className="text-xs">Nome do kit</Label>
                 <Input
@@ -658,25 +730,90 @@ export default function KitsProduto() {
                   className="h-9"
                 />
               </div>
-              <div>
-                <Label className="text-xs">Tipo de produto</Label>
-                <Input
-                  list="kit-kinds"
-                  value={productKind}
-                  onChange={(e) => setProductKind(e.target.value)}
-                  placeholder="ex.: apostila"
-                  className="h-9"
-                />
-                <datalist id="kit-kinds">
-                  {KIND_SUGGESTIONS.map((s) => (
-                    <option key={s} value={s} />
-                  ))}
-                </datalist>
-              </div>
               <div className="flex items-end gap-2 pb-1">
                 <Switch checked={isActive} onCheckedChange={setIsActive} id="kit-active" />
                 <Label htmlFor="kit-active" className="text-xs">Ativo</Label>
               </div>
+            </div>
+            <div>
+              <Label className="text-xs">Aplica-se aos produtos</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-auto min-h-9 w-full justify-start px-2 py-1.5 flex-wrap gap-1"
+                  >
+                    {selectedPresetIds.length === 0 ? (
+                      <span className="text-muted-foreground text-xs">
+                        Selecione um ou mais produtos favoritos…
+                      </span>
+                    ) : (
+                      availablePresets
+                        .filter((p) => selectedPresetIds.includes(p.id))
+                        .map((p) => (
+                          <Badge key={p.id} variant="secondary" className="gap-1">
+                            {p.nome}
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Remover ${p.nome}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPresetIds((prev) =>
+                                  prev.filter((id) => id !== p.id),
+                                );
+                              }}
+                              className="ml-0.5 cursor-pointer text-muted-foreground hover:text-foreground"
+                            >
+                              ×
+                            </span>
+                          </Badge>
+                        ))
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-1 w-72 max-h-72 overflow-y-auto" align="start">
+                  {availablePresets.length === 0 ? (
+                    <p className="text-xs text-muted-foreground p-2">
+                      Nenhum produto favorito ativo. Cadastre em Vender → Produtos
+                      Favoritos.
+                    </p>
+                  ) : (
+                    availablePresets.map((p) => {
+                      const checked = selectedPresetIds.includes(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() =>
+                            setSelectedPresetIds((prev) =>
+                              checked
+                                ? prev.filter((id) => id !== p.id)
+                                : [...prev, p.id],
+                            )
+                          }
+                          className={`w-full text-left text-sm px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2 ${
+                            checked ? "bg-primary/10" : ""
+                          }`}
+                        >
+                          <span
+                            className={`h-3.5 w-3.5 rounded border ${
+                              checked
+                                ? "bg-primary border-primary"
+                                : "border-muted-foreground/40"
+                            }`}
+                          />
+                          {p.nome}
+                        </button>
+                      );
+                    })
+                  )}
+                </PopoverContent>
+              </Popover>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Um mesmo kit pode atender vários produtos (ex.: Cartão + Folheto).
+              </p>
             </div>
             <Collapsible>
               <CollapsibleTrigger asChild>
