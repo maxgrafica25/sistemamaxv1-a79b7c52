@@ -139,13 +139,19 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
   );
 
   const addItem = (item: V3Item) => {
-    setState((s) => ({ ...s, items: [...s.items, item] }));
+    setState((s) => {
+      const stamped = stampArt([item], s.art_status ?? null)[0] ?? item;
+      return { ...s, items: [...s.items, stamped] };
+    });
     setHighlightId(item.id);
     setTimeout(() => setHighlightId(null), 1500);
   };
   const addItems = (items: V3Item[]) => {
     if (items.length === 0) return;
-    setState((s) => ({ ...s, items: [...s.items, ...items] }));
+    setState((s) => {
+      const stamped = stampArt(items, s.art_status ?? null);
+      return { ...s, items: [...s.items, ...stamped] };
+    });
     setHighlightId(items[items.length - 1].id);
     setTimeout(() => setHighlightId(null), 1500);
   };
@@ -158,6 +164,37 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
       const clone = { ...it, id: genId() } as V3Item;
       return { ...s, items: [...s.items, clone] };
     });
+
+  // Reconciliação da linha única de "Arte" no nível do orçamento.
+  // Roda quando a resposta global muda (ou o valor da hora / arte terceirizada).
+  // Remove qualquer linha de arte vinculada ao orçamento (bundle_id null) e
+  // recria conforme o status atual; re-carimba art_status nos itens existentes.
+  useEffect(() => {
+    setState((s) => {
+      const status = s.art_status ?? null;
+      const value = s.art_terceirizada_value ?? 0;
+      const cleaned = s.items.filter((it) => {
+        if (it.kind !== "third") return true;
+        const t = it as V3ThirdItem;
+        const isArt = t.fornecedor === "Arte (interna)" || t.fornecedor === "Arte (terceiro)";
+        if (!isArt) return true;
+        // mantém apenas itens de arte vinculados a um bundle (legado)
+        return !!t.bundle_id;
+      });
+      const stamped = stampArt(cleaned, status);
+      let next = stamped;
+      if (status === "terceirizada" && value > 0) {
+        const art = makeArtThirdParty(value, null);
+        if (art) next = [...stamped, art];
+      } else if (status && status !== "ready" && status !== "terceirizada") {
+        const art = makeArtInternal(status, hourRate || 0, null);
+        if (art) next = [...stamped, art];
+      }
+      return { ...s, items: next };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.art_status, state.art_terceirizada_value, hourRate]);
+
 
   const [saving, setSaving] = useState(false);
   const [checklistDialogOpen, setChecklistDialogOpen] = useState(false);
