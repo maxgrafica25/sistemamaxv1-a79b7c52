@@ -54,6 +54,8 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
   const [previewNumber, setPreviewNumber] = useState<string | null>(null);
   const [checklistAnswers, setChecklistAnswers] = useState<{ pergunta: string; resposta: string }[]>([]);
   const { settings: globalSettings } = useGlobalSettings();
+  const { hourRate } = useHourRate();
+
 
   // Pré-calcula o próximo número (provisório) ao criar um novo orçamento.
   useEffect(() => {
