@@ -540,6 +540,8 @@ export default function KitsProduto() {
           .from("product_kit_presets")
           .insert(linksPayload);
         if (le) throw le;
+      }
+
       toast.success(editingId ? "Kit atualizado." : "Kit criado.");
       setDialogOpen(false);
       resetForm();
