@@ -1,0 +1,1 @@
+UPDATE public.production_steps SET step_type = 'acabamento' WHERE step_type <> 'acabamento';
