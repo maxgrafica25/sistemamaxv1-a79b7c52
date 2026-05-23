@@ -4,7 +4,7 @@ import {
   Handshake,
   type LucideIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { DotTabs } from "@/components/ui/dot-tabs";
 import type { V3Category } from "../types";
 
 export interface TabDef {
@@ -50,54 +50,11 @@ interface Props {
 
 export function TabsLayout({ active, onChange }: Props) {
   return (
-    <div
-      role="tablist"
-      aria-label="Categoria do item"
-      className="flex items-end gap-1 md:gap-2 border-b border-border overflow-x-auto"
-    >
-      {TABS.map((t) => {
-        const isActive = active === t.id;
-        const Icon = t.icon;
-        return (
-          <button
-            key={t.id}
-            role="tab"
-            type="button"
-            aria-selected={isActive}
-            onClick={() => onChange(t.id)}
-            className={cn(
-              "relative px-3 md:px-4 pt-2 pb-3 flex items-center gap-2 text-sm font-medium whitespace-nowrap rounded-t-md border border-b-0 transition-all duration-150",
-              isActive
-                ? "bg-primary/10 text-primary border-primary/30"
-                : "bg-muted/40 text-muted-foreground border-border/60 hover:bg-muted hover:text-foreground hover:border-border hover:-translate-y-0.5",
-            )}
-          >
-            <Icon
-              className={cn(
-                "h-4 w-4 transition-colors",
-                isActive ? "text-primary" : "text-muted-foreground",
-              )}
-            />
-            <span>{t.label}</span>
-            <kbd
-              className={cn(
-                "ml-1 hidden lg:inline text-[10px] font-mono px-1.5 py-0.5 rounded border",
-                isActive
-                  ? "border-primary/30 text-primary/70"
-                  : "border-border/60 text-muted-foreground/60",
-              )}
-            >
-              {t.shortcut}
-            </kbd>
-            <span
-              className={cn(
-                "absolute left-1 right-1 -bottom-px rounded-t transition-all",
-                isActive ? "h-1 bg-primary" : "h-0 bg-transparent",
-              )}
-            />
-          </button>
-        );
-      })}
-    </div>
+    <DotTabs
+      tabs={TABS.map((t) => ({ key: t.id, label: t.label }))}
+      value={active}
+      onChange={(k) => onChange(k as V3Category)}
+    />
   );
 }
+
