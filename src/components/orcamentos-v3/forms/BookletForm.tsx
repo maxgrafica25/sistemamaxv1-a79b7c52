@@ -37,6 +37,7 @@ interface Props {
 }
 
 export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20, descricao: descricaoProp, onDescricaoChange }: Props) {
+  const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
   const [descricaoLocal, setDescricaoLocal] = useState("");
@@ -48,6 +49,14 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
   const [duplex, setDuplex] = useState<boolean>(true);
   const [pulse, setPulse] = useState(false);
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
+  const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
+
+  const [printFinishings, setPrintFinishings] = useState<FinishingItem[]>([]);
+  useEffect(() => {
+    listFinishings("impressao")
+      .then(setPrintFinishings)
+      .catch(() => setPrintFinishings([]));
+  }, []);
 
   // Folhas físicas = páginas-folha por apostila × nº apostilas.
   // (Se F/V, cada folha = 2 lados; o miolo é cobrado por folha física impressa.)
