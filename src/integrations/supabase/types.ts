@@ -1290,6 +1290,7 @@ export type Database = {
           name: string
           price_per_sheet: number
           pricing_model: Database["public"]["Enums"]["finishing_pricing_model"]
+          production_step_id: string | null
           size: string | null
           sort_order: number
           unit_label: string | null
@@ -1304,6 +1305,7 @@ export type Database = {
           name: string
           price_per_sheet?: number
           pricing_model?: Database["public"]["Enums"]["finishing_pricing_model"]
+          production_step_id?: string | null
           size?: string | null
           sort_order?: number
           unit_label?: string | null
@@ -1318,12 +1320,21 @@ export type Database = {
           name?: string
           price_per_sheet?: number
           pricing_model?: Database["public"]["Enums"]["finishing_pricing_model"]
+          production_step_id?: string | null
           size?: string | null
           sort_order?: number
           unit_label?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "finishings_price_items_production_step_id_fkey"
+            columns: ["production_step_id"]
+            isOneToOne: false
+            referencedRelation: "production_steps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       freight_types: {
         Row: {

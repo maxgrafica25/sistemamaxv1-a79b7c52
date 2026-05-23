@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers, Copy } from "lucide-react";
+import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers, Copy, Clock } from "lucide-react";
 import { FinishingTiersDrawer } from "@/components/acabamentos/FinishingTiersDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -59,6 +59,13 @@ interface FinishingItem {
   unit_label: string | null;
   is_active: boolean;
   sort_order: number;
+  production_step_id: string | null;
+}
+
+interface ProductionStepLite {
+  id: string;
+  description: string;
+  time_minutes: number;
 }
 
 const fmt = (v: number) =>
@@ -74,6 +81,7 @@ const emptyDraft: Omit<FinishingItem, "id"> = {
   unit_label: null,
   is_active: true,
   sort_order: 0,
+  production_step_id: null,
 };
 
 export default function Acabamentos({ hideHeader = false }: { hideHeader?: boolean } = {}) {
@@ -89,17 +97,33 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
   const [editing, setEditing] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [tiersFor, setTiersFor] = useState<FinishingItem | null>(null);
+  const [steps, setSteps] = useState<ProductionStepLite[]>([]);
+
+  const stepById = useMemo(() => {
+    const m = new Map<string, ProductionStepLite>();
+    steps.forEach((s) => m.set(s.id, s));
+    return m;
+  }, [steps]);
 
   const reload = async () => {
     setLoading(true);
-    const { data, error } = await (supabase as any)
-      .from("finishings_price_items")
-      .select("*")
-      .order("sort_order");
-    if (error) {
+    const [itemsRes, stepsRes] = await Promise.all([
+      (supabase as any)
+        .from("finishings_price_items")
+        .select("*")
+        .order("sort_order"),
+      supabase
+        .from("production_steps")
+        .select("id, description, time_minutes")
+        .order("description"),
+    ]);
+    if (itemsRes.error) {
       toast.error("Falha ao carregar acabamentos");
     } else {
-      setItems((data ?? []) as FinishingItem[]);
+      setItems((itemsRes.data ?? []) as FinishingItem[]);
+    }
+    if (!stepsRes.error && stepsRes.data) {
+      setSteps(stepsRes.data as ProductionStepLite[]);
     }
     setLoading(false);
   };
@@ -170,6 +194,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
         draft.pricing_model === "per_unit" ? draft.unit_label?.trim() ?? null : null,
       is_active: draft.is_active,
       sort_order: draft.sort_order,
+      production_step_id: draft.production_step_id,
     };
     let error;
     if (draft.id) {
@@ -234,6 +259,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
         unit_label: item.unit_label,
         is_active: item.is_active,
         sort_order: item.sort_order,
+        production_step_id: item.production_step_id,
       })
       .select("id")
       .single();
@@ -449,6 +475,32 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                   </div>
                 </div>
               </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Etapa de produção associada (opcional)</Label>
+                <Select
+                  value={draft.production_step_id ?? "none"}
+                  onValueChange={(v) =>
+                    setDraft({ ...draft, production_step_id: v === "none" ? null : v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Nenhuma" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhuma</SelectItem>
+                    {steps.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.description} · {s.time_minutes} min
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Vincule a uma etapa cadastrada em <strong>Produção → Etapas</strong> para
+                  reaproveitar o tempo de execução nos orçamentos.
+                </p>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={cancelEdit}>
@@ -558,7 +610,20 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                       : `/${item.unit_label ?? "un"}`;
                   return (
                     <TableRow key={item.id} className={!item.is_active ? "opacity-50" : ""}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <span className="inline-flex items-center gap-1.5">
+                          {item.name}
+                          {item.production_step_id && stepById.get(item.production_step_id) && (
+                            <span
+                              className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground"
+                              title={`Etapa: ${stepById.get(item.production_step_id)!.description} (${stepById.get(item.production_step_id)!.time_minutes} min)`}
+                            >
+                              <Clock className="h-3 w-3" />
+                              {stepById.get(item.production_step_id)!.time_minutes}m
+                            </span>
+                          )}
+                        </span>
+                      </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           {item.applies_to?.includes("etiqueta") && (
