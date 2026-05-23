@@ -403,7 +403,8 @@ export default function KitsProduto() {
 
   const validate = (): string | null => {
     if (!name.trim()) return "Informe o nome do kit.";
-    if (!productKind.trim()) return "Informe o tipo de produto.";
+    if (selectedPresetIds.length === 0)
+      return "Selecione pelo menos um produto favorito ao qual este kit se aplica.";
     if (items.length === 0) return "Adicione pelo menos um item ao kit.";
     for (const it of items) {
       if (
@@ -449,9 +450,15 @@ export default function KitsProduto() {
       return;
     }
 
+    // Deriva product_kind do PRIMEIRO preset selecionado (compat com leitores antigos).
+    const firstPreset = availablePresets.find((p) => p.id === selectedPresetIds[0]);
+    const derivedKind = firstPreset
+      ? PRESET_NAME_TO_KIND[firstPreset.nome] ?? slugify(firstPreset.nome)
+      : "outros";
+
     const payload = {
       name: name.trim(),
-      product_kind: productKind.trim().toLowerCase(),
+      product_kind: derivedKind,
       description: description.trim() || null,
       is_active: isActive,
     };
