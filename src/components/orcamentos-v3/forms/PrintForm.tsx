@@ -12,12 +12,14 @@ import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProg
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
 import { TierFaixasPanel } from "../shared/TierFaixasPanel";
-import { genId, type V3PrintItem } from "../types";
+import { genId, type V3PrintItem, type V3LaborItem, type V3Item } from "../types";
 import { listFinishings, sumFinishingsPerSheet, type FinishingItem } from "@/lib/finishings/catalog";
 import { resolveFinishingPricePerSheet, pickFinishingTier } from "@/lib/labels/finishing-pricing";
+import { useV3HourlyRate } from "../shared/useV3HourlyRate";
 
 interface Props {
   onAdd: (item: V3PrintItem) => void;
+  onAddMany?: (items: V3Item[]) => void;
   onAddTiers?: (items: V3PrintItem[]) => void;
   onSelectionChange?: (sel: {
     paper_type: string | null;
@@ -29,9 +31,11 @@ interface Props {
   onDescricaoChange?: (v: string) => void;
   /** Quando true, começa com todos os campos vazios (modo Personalizado). */
   emptyDefaults?: boolean;
+  defaultMarginPct?: number;
 }
 
-export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults }: Props) {
+export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults, defaultMarginPct = 20 }: Props) {
+  const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers, settings } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
   const [descricaoLocal, setDescricaoLocal] = useState("");
