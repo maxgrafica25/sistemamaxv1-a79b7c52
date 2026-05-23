@@ -2,6 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ArrowLeft, FlaskConical, Save, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { ClientCombobox } from "@/components/orcamentos-v3/shared/ClientCombobox";
