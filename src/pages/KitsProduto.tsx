@@ -232,7 +232,18 @@ interface ReadonlyKitItem {
   formula: string;
 }
 
-export default function KitsProduto() {
+export interface KitsProdutoHandle {
+  openNew: () => void;
+}
+
+interface KitsProdutoProps {
+  hideHeader?: boolean;
+}
+
+const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function KitsProduto(
+  { hideHeader = false },
+  ref,
+) {
   const { requireAdmin } = usePermissionGuard();
   const [kits, setKits] = useState<KitRow[]>([]);
   const [loading, setLoading] = useState(true);
