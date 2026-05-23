@@ -73,6 +73,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
     minutes: number;
     link_type: "fixed" | "optional";
     default_on: boolean;
+    step_group_id: string | null;
   };
   const cvProcs = useMemo<CVProc[]>(
     () =>
@@ -83,6 +84,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         minutes: Number.isFinite(s.time_minutes) ? s.time_minutes : 0,
         link_type: s.link_type,
         default_on: s.default_on,
+        step_group_id: s.step_group_id,
       })),
     [steps],
   );
