@@ -368,22 +368,14 @@ export default function OrcamentosV2() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <ClipboardList className="h-6 w-6 text-primary" />
-            Orçamentos V2
-            <Badge variant="outline" className="ml-2 text-xs">Sandbox</Badge>
+            Orçamentos
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Versão experimental com viewer público, ancoragem e radar realtime.
+            Gerencie orçamentos, acompanhe aprovações e compartilhe com clientes.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5 border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
-            onClick={() => navigate("/orcamentos-v3/novo")}
-          >
-            <Sparkles className="h-3.5 w-3.5" /> Experimentar V3 (beta)
-          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" className="gap-1.5">
