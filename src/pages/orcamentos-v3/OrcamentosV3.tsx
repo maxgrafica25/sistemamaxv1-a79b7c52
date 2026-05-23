@@ -83,7 +83,7 @@ const statusBadge = (
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export default function OrcamentosV2() {
+export default function OrcamentosV3() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin";
@@ -453,7 +453,7 @@ export default function OrcamentosV2() {
 
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Lista V2</CardTitle>
+          <CardTitle>Lista de Orçamentos</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">

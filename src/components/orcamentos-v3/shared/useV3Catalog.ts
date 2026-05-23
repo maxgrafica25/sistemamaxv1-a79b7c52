@@ -2,7 +2,7 @@
 // para que o PrintForm V3 calcule preços por folha idênticos ao V2.
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import type { PrintingCatalogItem, MarkupTier } from "@/components/orcamentos/PrintingItemSearch";
+import type { PrintingCatalogItem, MarkupTier } from "@/components/orcamentos-v3/shared/PrintingItemSearch";
 
 export interface V3GlobalSettings {
   invoice_pct: number;

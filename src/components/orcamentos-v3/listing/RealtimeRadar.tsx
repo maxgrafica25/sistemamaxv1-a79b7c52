@@ -43,7 +43,7 @@ export function RealtimeRadar() {
     };
 
     const channel = supabase
-      .channel("quotes-radar-v2")
+      .channel("quotes-radar")
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "quotes" },
