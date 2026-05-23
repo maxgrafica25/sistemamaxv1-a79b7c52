@@ -194,6 +194,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
         draft.pricing_model === "per_unit" ? draft.unit_label?.trim() ?? null : null,
       is_active: draft.is_active,
       sort_order: draft.sort_order,
+      production_step_id: draft.production_step_id,
     };
     let error;
     if (draft.id) {
@@ -258,6 +259,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
         unit_label: item.unit_label,
         is_active: item.is_active,
         sort_order: item.sort_order,
+        production_step_id: item.production_step_id,
       })
       .select("id")
       .single();
