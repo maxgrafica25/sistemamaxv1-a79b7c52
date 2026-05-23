@@ -218,9 +218,13 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
               <Clock className="h-3 w-3" /> Rascunho {lastSaved}
             </span>
           )}
-          <Button onClick={handleSave} size="sm" disabled={saving}>
+          <Button onClick={handleSave} size="sm" disabled={saving || loadingEdit}>
             <Save className="h-4 w-4 mr-1.5" />
-            {saving ? "Salvando..." : "Salvar orçamento"}
+            {saving
+              ? "Salvando..."
+              : isEditing
+                ? "Salvar alterações"
+                : "Salvar orçamento"}
           </Button>
         </div>
       </div>
