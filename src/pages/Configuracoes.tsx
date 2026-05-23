@@ -197,16 +197,17 @@ export default function Configuracoes() {
   const totalIndiretos = (parseFloat(invoicePercentage) || 0) + composedVariable;
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Cog className="h-6 w-6 text-primary" />
+    <div className="p-4 md:p-6 h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+          <Cog className="h-5 w-5 text-primary" />
           Configurações
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">Configure os valores padrão e gerencie o backup do sistema</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Configure os valores padrão e gerencie o backup do sistema</p>
       </div>
 
-      <Tabs value={configTab} onValueChange={setConfigTab} className="max-w-3xl">
+      <Tabs value={configTab} onValueChange={setConfigTab} className="flex-1 min-h-0 flex flex-col w-full max-w-none">
+
         <DotTabs
           tabs={[
             { key: "empresa", label: "Empresa" },
@@ -221,91 +222,83 @@ export default function Configuracoes() {
           className="mb-4"
         />
 
-        <TabsContent value="empresa">
+        <TabsContent value="empresa" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0">
           <CompanyTab isAdmin={isAdmin} />
         </TabsContent>
 
-        <TabsContent value="geral" className="space-y-6 mt-4">
-          <Card className="shadow-card">
-            <CardHeader><CardTitle>Custos Operacionais</CardTitle></CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label>Valor da Hora de Trabalho (R$)</Label>
-                <div className="flex items-center gap-3">
-                  <Input type="text" value={hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} disabled className="bg-muted font-semibold" />
-                  <Link to="/despesas-fixas"><Button variant="outline" size="sm" className="gap-1 whitespace-nowrap"><Info className="h-4 w-4" /> Editar Despesas</Button></Link>
+        <TabsContent value="geral" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0 space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            <Card className="shadow-card">
+              <CardHeader className="pb-3"><CardTitle className="text-base">Custos Operacionais</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-xs">Valor da Hora de Trabalho (R$)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input type="text" value={hourlyRate.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} disabled className="bg-muted font-semibold" />
+                    <Link to="/despesas-fixas"><Button variant="outline" size="sm" className="gap-1 whitespace-nowrap"><Info className="h-4 w-4" /> Editar</Button></Link>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Calculado automaticamente a partir de Despesas Fixas</p>
                 </div>
-                <p className="text-sm text-muted-foreground">Calculado automaticamente a partir do módulo de Despesas Fixas</p>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle>Composição do Preço de Venda</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">Alíquotas padrão sugeridas ao criar novas faixas de preço. Cada faixa pode sobrescrever estes valores.</p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex gap-2 rounded-md border border-primary/20 bg-primary/5 p-3 text-sm">
-                <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
-                <p className="text-muted-foreground">
-                  Estes valores são aplicados apenas a <span className="font-medium text-foreground">novas faixas de preço</span>. Faixas e produtos já cadastrados não são afetados por alterações aqui.
-                </p>
-              </div>
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">Custos Indiretos</h3>
-                <div className="grid gap-4 md:grid-cols-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">C. Fixo (%)</Label>
-                    <Input type="number" step="0.01" value={invoicePercentage} onChange={(e) => setInvoicePercentage(e.target.value)} />
-                    <p className="text-xs text-muted-foreground">Depreciação, aluguel</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Imposto (%)</Label>
-                    <Input type="number" step="0.01" value={taxPct} onChange={(e) => setTaxPct(e.target.value)} />
-                    <p className="text-xs text-muted-foreground">Sobre nota fiscal</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Taxa de Cobrança (%)</Label>
-                    <Input type="number" step="0.01" value={collectionFeePct} onChange={(e) => setCollectionFeePct(e.target.value)} />
-                    <p className="text-xs text-muted-foreground">Boleto, PIX, cartão</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Perda (%)</Label>
-                    <Input type="number" step="0.01" value={wastePercentage} onChange={(e) => setWastePercentage(e.target.value)} />
-                    <p className="text-xs text-muted-foreground">Perda de material</p>
+            <Card className="shadow-card xl:col-span-2">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Composição do Preço de Venda</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">Alíquotas padrão aplicadas apenas a novas faixas de preço.</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">Custos Indiretos</h3>
+                  <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs">C. Fixo (%)</Label>
+                      <Input type="number" step="0.01" value={invoicePercentage} onChange={(e) => setInvoicePercentage(e.target.value)} />
+                      <p className="text-[10px] text-muted-foreground">Depreciação, aluguel</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Imposto (%)</Label>
+                      <Input type="number" step="0.01" value={taxPct} onChange={(e) => setTaxPct(e.target.value)} />
+                      <p className="text-[10px] text-muted-foreground">Sobre nota fiscal</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Taxa Cobrança (%)</Label>
+                      <Input type="number" step="0.01" value={collectionFeePct} onChange={(e) => setCollectionFeePct(e.target.value)} />
+                      <p className="text-[10px] text-muted-foreground">Boleto, PIX, cartão</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Perda (%)</Label>
+                      <Input type="number" step="0.01" value={wastePercentage} onChange={(e) => setWastePercentage(e.target.value)} />
+                      <p className="text-[10px] text-muted-foreground">Perda de material</p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <Separator />
-
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">Margem</h3>
-                <div className="grid gap-4 md:grid-cols-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Margem de Lucro (%)</Label>
-                    <Input type="number" step="0.01" value={defaultProfitMargin} onChange={(e) => setDefaultProfitMargin(e.target.value)} />
-                    <p className="text-xs text-muted-foreground">Lucro líquido desejado</p>
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">Margem</h3>
+                  <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Margem de Lucro (%)</Label>
+                      <Input type="number" step="0.01" value={defaultProfitMargin} onChange={(e) => setDefaultProfitMargin(e.target.value)} />
+                      <p className="text-[10px] text-muted-foreground">Lucro líquido desejado</p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <Separator />
+                <div className="rounded-md bg-muted/40 p-2.5 space-y-1 text-xs">
+                  <div className="flex justify-between"><span className="text-muted-foreground">C. Variável:</span><span className="font-medium">{composedVariable.toFixed(2)}%</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Total Indiretos:</span><span className="font-medium">{totalIndiretos.toFixed(2)}%</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Margem:</span><span className="font-medium text-accent">+{(parseFloat(defaultProfitMargin) || 0).toFixed(2)}%</span></div>
+                  <Separator className="my-1" />
+                  <div className="flex justify-between"><span className="text-muted-foreground">Soma total:</span><span className="font-semibold">{(totalIndiretos + (parseFloat(defaultProfitMargin) || 0)).toFixed(2)}%</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Divisor (1 − soma%):</span><span className="font-semibold text-primary">{(1 - (totalIndiretos + (parseFloat(defaultProfitMargin) || 0)) / 100).toFixed(4)}</span></div>
+                </div>
+              </CardContent>
+            </Card>
 
-              <div className="rounded-md bg-muted/40 p-3 space-y-1.5 text-xs">
-                <div className="flex justify-between"><span className="text-muted-foreground">C. Variável (Imposto + Cobrança + Perda):</span><span className="font-medium">{composedVariable.toFixed(2)}%</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Total Custos Indiretos (C. Fixo + C. Variável):</span><span className="font-medium">{totalIndiretos.toFixed(2)}%</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Margem de Lucro:</span><span className="font-medium text-accent">+{(parseFloat(defaultProfitMargin) || 0).toFixed(2)}%</span></div>
-                <Separator className="my-1" />
-                <div className="flex justify-between"><span className="text-muted-foreground">Soma total:</span><span className="font-semibold">{(totalIndiretos + (parseFloat(defaultProfitMargin) || 0)).toFixed(2)}%</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Divisor (1 − soma%):</span><span className="font-semibold text-primary">{(1 - (totalIndiretos + (parseFloat(defaultProfitMargin) || 0)) / 100).toFixed(4)}</span></div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">Fluxo de orçamentos</h3>
+            <Card className="shadow-card lg:col-span-2 xl:col-span-3">
+              <CardHeader className="pb-3"><CardTitle className="text-base">Fluxo de orçamentos</CardTitle></CardHeader>
+              <CardContent>
                 <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-muted/20 p-3">
                   <div className="space-y-0.5">
                     <Label htmlFor="checklist-before-save" className="text-sm font-medium cursor-pointer">
@@ -321,30 +314,33 @@ export default function Configuracoes() {
                     onCheckedChange={setChecklistBeforeSave}
                   />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
-          <div className="flex justify-end">
-            <Button size="lg" onClick={handleSave} disabled={saving} className="gap-2 bg-accent hover:bg-accent-hover">
-              {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+          <div className="flex justify-end pt-2">
+            <Button onClick={handleSave} disabled={saving} className="gap-2 bg-accent hover:bg-accent-hover">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar Configurações
             </Button>
           </div>
         </TabsContent>
 
-        <TabsContent value="integracoes" className="space-y-6 mt-4">
+
+        <TabsContent value="integracoes" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0 space-y-4">
           <GoogleCalendarCard />
         </TabsContent>
 
         {isAdmin && (
-          <TabsContent value="conhecimento" className="mt-4 max-w-5xl">
+          <TabsContent value="conhecimento" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0">
             <BaseConhecimentoTab />
           </TabsContent>
         )}
 
         {isAdmin && (
-          <TabsContent value="backup" className="space-y-6 mt-4">
+          <TabsContent value="backup" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0">
+            <div className="grid gap-4 xl:grid-cols-2">
+
             <Card className="shadow-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Download className="h-5 w-5 text-primary" /> Gerar backup completo</CardTitle>
@@ -420,15 +416,17 @@ export default function Configuracoes() {
                 )}
               </CardContent>
             </Card>
+            </div>
           </TabsContent>
         )}
 
         {isAdmin && (
-          <TabsContent value="vps" className="space-y-6 mt-4">
+          <TabsContent value="vps" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0 space-y-4">
             <VpsPackageCard sessionToken={session?.access_token ?? null} />
           </TabsContent>
         )}
       </Tabs>
+
 
       <Dialog open={generating !== null}>
         <DialogContent
