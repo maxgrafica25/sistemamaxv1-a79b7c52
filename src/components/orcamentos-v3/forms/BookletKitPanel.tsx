@@ -283,12 +283,19 @@ export function BookletKitPanel({
     const isCover = r.key === "capa";
     const isBack = r.key === "contracapa";
     const isCoverLine = isCover || isBack;
+    const isSwappable = r.key === "capa" || r.key === "contracapa" || r.key === "espiral";
     const mode = isCover ? coverMode : isBack ? backCoverMode : "standard";
     const collapsed = isCover ? coverCollapsed : isBack ? backCoverCollapsed : false;
     const customItem = isCover ? customCover : isBack ? customBackCover : null;
+    const override = isSwappable ? overrides[r.key as SupplyOverrideKey] : undefined;
+    const swapVisible = isSwappable && !!swapOpen[r.key as SupplyOverrideKey];
 
     const showEditor = checked && isCoverLine && mode === "custom" && !collapsed;
     const showSummary = checked && isCoverLine && mode === "custom" && collapsed && customItem;
+    const canSwap = checked && isSwappable && mode === "standard";
+
+    const units = Math.max(1, Math.floor(bookletUnits || 1));
+    const overrideCost = override ? (Number(override.valor_unitario) || 0) * units : 0;
 
     return (
       <div key={r.key} className={cn("rounded-sm transition-colors", !checked && "opacity-50")}>
@@ -332,7 +339,14 @@ export function BookletKitPanel({
 
           {mode === "standard" && (
             <>
-              {isCoverLine ? (
+              {override ? (
+                <span className="flex-1 text-[10.5px] truncate flex items-center gap-1.5 min-w-0">
+                  <span className="text-foreground font-medium truncate">{override.produto}</span>
+                  <span className="text-[9.5px] uppercase tracking-wider text-primary/80 font-semibold shrink-0">
+                    trocado
+                  </span>
+                </span>
+              ) : isCoverLine ? (
                 <span className="flex-1 text-[10px] text-muted-foreground italic hidden md:inline truncate">
                   ← clique em <span className="text-primary/80 not-italic font-medium">Personalizada</span> p/ usar impressão (ex.: Couchê 300g + laminação)
                 </span>
@@ -345,10 +359,39 @@ export function BookletKitPanel({
                 {r.unit === "un" ? `${r.qty} un` : `${r.qty.toFixed(0)} min`}
               </span>
               <span className="font-semibold tabular-nums w-[70px] text-right">
-                {fmtBRL(r.cost)}
+                {fmtBRL(override ? overrideCost : r.cost)}
               </span>
-              {r.fallback && (
+              {r.fallback && !override && (
                 <AlertCircle className="h-3 w-3 text-amber-500 shrink-0" />
+              )}
+              {canSwap && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSwapOpen((p) => ({ ...p, [r.key]: !p[r.key as SupplyOverrideKey] }));
+                  }}
+                  className="h-6 px-2 text-[10.5px] text-primary hover:text-primary"
+                >
+                  {swapVisible ? "Fechar" : override ? "Trocar" : "Trocar"}
+                </Button>
+              )}
+              {override && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setOverride(r.key as SupplyOverrideKey, null);
+                    setSwapOpen((p) => ({ ...p, [r.key]: false }));
+                  }}
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                  aria-label="Restaurar sugestão"
+                  title="Restaurar sugestão"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
               )}
             </>
           )}
@@ -363,6 +406,18 @@ export function BookletKitPanel({
             </span>
           )}
         </label>
+
+        {canSwap && swapVisible && (
+          <div className="ml-6 mr-2 mt-1.5 rounded-md border border-primary/20 bg-background p-2">
+            <SupplySearch
+              placeholder={`Buscar outro ${r.label.toLowerCase()} (ex.: ${r.key === "espiral" ? "Espiral 9mm" : "Capa Couchê"})...`}
+              onSelect={(s) => {
+                setOverride(r.key as SupplyOverrideKey, s);
+                setSwapOpen((p) => ({ ...p, [r.key]: false }));
+              }}
+            />
+          </div>
+        )}
 
         {showEditor && (
           <CustomCoverEditor
@@ -382,6 +437,7 @@ export function BookletKitPanel({
       </div>
     );
   };
+
 
   return (
     <div className="rounded-md border border-primary/30 bg-primary/[0.03] p-3 space-y-3">
