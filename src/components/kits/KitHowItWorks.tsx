@@ -58,10 +58,10 @@ export default function KitHowItWorks() {
             <Wand2 className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
             <span>
               <strong className="text-foreground">3. Encadernação espiral</strong> —
-              clique em <em>+ Encadernação espiral</em>. As 12 faixas já vêm
-              prontas; basta escolher o suprimento de cada uma (ou clicar em{" "}
-              <em>Copiar de outro kit</em>). O sistema usa a espiral certa para
-              cada nº de folhas no orçamento.
+              dentro de <em>+ Adicionar acabamentos</em>, na aba Suprimentos, há um
+              atalho destacado <em>Encadernação espiral automática</em>. As 12
+              faixas já vêm prontas; basta escolher o suprimento de cada uma. O
+              sistema usa a espiral certa para cada nº de folhas no orçamento.
             </span>
           </li>
           <li className="flex gap-2">
