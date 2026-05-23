@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers, Copy } from "lucide-react";
+import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers, Copy, Clock } from "lucide-react";
 import { FinishingTiersDrawer } from "@/components/acabamentos/FinishingTiersDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -59,6 +59,13 @@ interface FinishingItem {
   unit_label: string | null;
   is_active: boolean;
   sort_order: number;
+  production_step_id: string | null;
+}
+
+interface ProductionStepLite {
+  id: string;
+  description: string;
+  time_minutes: number;
 }
 
 const fmt = (v: number) =>
@@ -74,6 +81,7 @@ const emptyDraft: Omit<FinishingItem, "id"> = {
   unit_label: null,
   is_active: true,
   sort_order: 0,
+  production_step_id: null,
 };
 
 export default function Acabamentos({ hideHeader = false }: { hideHeader?: boolean } = {}) {
