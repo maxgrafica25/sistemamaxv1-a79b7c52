@@ -67,17 +67,22 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const [pulse, setPulse] = useState(false);
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
 
-  // Acabamentos relevantes (Corte e Laminação) do catálogo unificado.
+  // Acabamentos do Cartão de Visita: qualquer item cujo nome contenha
+  // "cartão de visita" (acento-insensível, case-insensível), independente
+  // da categoria.
   const [printFinishings, setPrintFinishings] = useState<FinishingItem[]>([]);
   useEffect(() => {
-    listFinishings("impressao")
+    const norm = (s: string) =>
+      s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    listFinishings()
       .then((arr) =>
         setPrintFinishings(
-          arr.filter((f) => /corte/i.test(f.name) || /lamina/i.test(f.name)),
+          arr.filter((f) => norm(f.name).includes("cartao de visita")),
         ),
       )
       .catch(() => setPrintFinishings([]));
   }, []);
+
 
   // Candidatos a Couchê 300g SRA3
   const couche300Sra3 = useMemo(
@@ -450,13 +455,14 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         ) : (
           <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-3 text-center">
             <p className="text-xs text-muted-foreground">
-              Cadastre acabamentos com nome "Corte" ou "Laminação" em{" "}
+              Cadastre um acabamento com "Cartão de Visita" no nome em{" "}
               <a href="/acabamentos" target="_blank" rel="noreferrer" className="text-primary hover:underline">
                 Acabamentos
               </a>
               .
             </p>
           </div>
+
         )}
       </Field>
 
