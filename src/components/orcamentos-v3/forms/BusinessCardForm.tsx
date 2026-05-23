@@ -52,7 +52,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
 
-  const [qtdCartoes, setQtdCartoes] = useState(1000);
+  const [qtdCartoes, setQtdCartoes] = useState(0);
   const [face, setFace] = useState<"frente" | "fv">("frente");
   const [layout, setLayout] = useState(DEFAULTS);
   const [layoutOpen, setLayoutOpen] = useState(false);
@@ -60,13 +60,10 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const [pulse, setPulse] = useState(false);
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
 
-  // Acabamentos do Cartão de Visita: processos individuais + grupos de etapas
-  // cujo nome contenha "cartão de visita" (acento/case-insensível).
-  const { steps, groups } = useV3ProcessCatalog();
+  // Acabamentos do Cartão de Visita: vínculos cadastrados em
+  // Processos de Produção → "Vincular a Favoritos".
+  const { steps, groups } = useProductPresetProcesses("business_card");
   const { hourRate } = useHourRate();
-
-  const norm = (s: string) =>
-    s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
   type CVProc = {
     key: string;
@@ -77,38 +74,21 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const cvProcs = useMemo<CVProc[]>(() => {
     const out: CVProc[] = [];
     for (const s of steps) {
-      if (norm(s.description).includes("cartao de visita")) {
-        const m = Number(s.time_minutes);
-        out.push({
-          key: `step:${s.id}`,
-          kind: "step",
-          name: s.description,
-          minutes: Number.isFinite(m) ? m : 0,
-        });
-      }
+      const m = Number(s.time_minutes);
+      out.push({
+        key: `step:${s.id}`,
+        kind: "step",
+        name: s.description,
+        minutes: Number.isFinite(m) ? m : 0,
+      });
     }
     for (const g of groups) {
-      if (norm(g.name).includes("cartao de visita")) {
-        let mins = 0;
-        const missing: string[] = [];
-        for (const it of g.items) {
-          const n = Number(it.time_minutes);
-          if (!Number.isFinite(n) || n === 0) missing.push(it.description);
-          mins += Number.isFinite(n) ? n : 0;
-        }
-        if (missing.length > 0) {
-          console.warn(
-            "[BusinessCardForm] grupo com item(s) sem time_minutes",
-            { group: g.name, items: missing },
-          );
-        }
-        out.push({
-          key: `group:${g.id}`,
-          kind: "group",
-          name: g.name,
-          minutes: mins,
-        });
-      }
+      out.push({
+        key: `group:${g.id}`,
+        kind: "group",
+        name: g.name,
+        minutes: Number.isFinite(g.total_minutes) ? g.total_minutes : 0,
+      });
     }
     return out;
   }, [steps, groups]);
