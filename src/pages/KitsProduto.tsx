@@ -11,7 +11,7 @@ import {
   Cog,
   ChevronDown,
   Layers,
-  Wand2,
+  
   GripVertical,
 } from "lucide-react";
 import {
@@ -966,8 +966,8 @@ export default function KitsProduto() {
               <div className="rounded-md border border-dashed py-10 text-center">
                 <Layers className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
                 <p className="text-sm text-muted-foreground">
-                  Nenhum item ainda. Use os botões abaixo para adicionar
-                  acabamentos ou encadernação espiral.
+                  Nenhum item ainda. Clique em <em>+ Adicionar acabamentos</em> para
+                  incluir suprimentos, processos ou a encadernação espiral automática.
                 </p>
               </div>
             ) : (
@@ -1050,9 +1050,6 @@ export default function KitsProduto() {
               <Button onClick={() => setPickerOpen(true)} size="sm" variant="default">
                 <Plus className="h-4 w-4 mr-1" /> Adicionar acabamentos
               </Button>
-              <Button onClick={addSpiralByVariant} size="sm" variant="outline">
-                <Wand2 className="h-4 w-4 mr-1" /> Encadernação espiral
-              </Button>
 
             </div>
           </div>
@@ -1071,6 +1068,10 @@ export default function KitsProduto() {
         onOpenChange={setPickerOpen}
         processes={processes}
         onConfirm={handlePickerConfirm}
+        onAddSpiralShortcut={() => {
+          addSpiralByVariant();
+          setPickerOpen(false);
+        }}
       />
 
       {variantItem && (

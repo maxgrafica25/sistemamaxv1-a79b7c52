@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Search, Package, Cog, Loader2 } from "lucide-react";
+import { Search, Package, Cog, Loader2, Sparkles } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useV3Supplies } from "@/components/orcamentos-v3/shared/useV3Supplies";
 
@@ -37,11 +37,13 @@ export default function AddItemsPicker({
   onOpenChange,
   processes,
   onConfirm,
+  onAddSpiralShortcut,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   processes: ProcessOption[];
   onConfirm: (items: PickedItem[]) => void;
+  onAddSpiralShortcut?: () => void;
 }) {
   const { supplies, loaded } = useV3Supplies();
   const [tab, setTab] = useState<"supplies" | "processes">("supplies");
@@ -145,6 +147,22 @@ export default function AddItemsPicker({
             ) : (
               <ScrollArea className="h-[50vh] rounded-md border">
                 <div className="divide-y">
+                  {onAddSpiralShortcut && (
+                    <button
+                      type="button"
+                      onClick={onAddSpiralShortcut}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left bg-primary/5 hover:bg-primary/10 transition-colors border-l-2 border-l-primary"
+                    >
+                      <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">Encadernação espiral automática</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Adiciona linha com 12 faixas (nº de folhas → diâmetro). Você escolhe o suprimento de cada faixa depois.
+                        </p>
+                      </div>
+                      <span className="text-[11px] font-medium text-primary shrink-0">Adicionar</span>
+                    </button>
+                  )}
                   {filteredSup.length === 0 && (
                     <p className="p-4 text-sm text-muted-foreground italic">Nada encontrado.</p>
                   )}
