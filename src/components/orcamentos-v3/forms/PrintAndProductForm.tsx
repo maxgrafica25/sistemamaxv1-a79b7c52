@@ -29,10 +29,8 @@ import { iconFor } from "../shared/presetIcons";
 import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
 import { PRESET_BY_ID } from "../shared/productPresets";
 import { suggestProduct, type SuggestResult } from "../shared/productSuggester";
-import { ArtePromptBlock } from "../shared/ArtePromptBlock";
-import { stampArt, makeArtThirdParty, makeArtInternal } from "../shared/artStatus";
-import { useHourRate } from "@/hooks/useHourRate";
-import type { ArtStatus, V3Item } from "../types";
+import type { V3Item } from "../types";
+
 
 const BUILTIN_BUSINESS_CARD_ID = "__builtin_business_card__";
 
