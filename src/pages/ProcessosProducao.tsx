@@ -25,6 +25,7 @@ interface Step {
   description: string;
   time_minutes: number;
   step_type: StepType;
+  step_group_id: string | null;
 }
 
 interface GroupItem {
