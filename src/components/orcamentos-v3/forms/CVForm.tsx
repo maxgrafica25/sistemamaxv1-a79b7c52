@@ -73,7 +73,9 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
   const applyPreset = (p: QuotePreset) => {
     setActivePresetId(p.id);
     if (p.largura_cm != null) setLargura(Number(p.largura_cm));
+    else if (p.is_banner) setLargura(0);
     if (p.altura_cm != null) setAltura(Number(p.altura_cm));
+    else if (p.is_banner) setAltura(0);
     if (p.quantidade_padrao != null) setQuantidade(p.quantidade_padrao);
     setIsBanner(p.is_banner);
     setBannerTouched(true);
@@ -91,6 +93,7 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
   };
 
 
+
   const midia = useMemo(
     () => cat.midias.find((m) => m.id === midiaId) ?? null,
     [cat.midias, midiaId],
@@ -106,8 +109,11 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
     if (!midia) { setIsBanner(false); setBannerTouched(false); return; }
     if (!isLona) { setIsBanner(false); return; }
     if (bannerTouched) return;
-    setIsBanner(/banner/i.test(midia.nome || ""));
+    const detected = /banner/i.test(midia.nome || "");
+    setIsBanner(detected);
+    if (detected) { setLargura(0); setAltura(0); }
   }, [midia, isLona, bannerTouched]);
+
 
   // Impressoras compatíveis com a mídia selecionada
   const impressoesCompat = useMemo(() => {
@@ -458,7 +464,7 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
           {isLona && (
             <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer shrink-0 rounded-md border border-primary/30 bg-primary/5 px-3 h-9">
               É banner?
-              <Switch checked={isBanner} onCheckedChange={(v) => { setIsBanner(!!v); setBannerTouched(true); }} />
+              <Switch checked={isBanner} onCheckedChange={(v) => { setIsBanner(!!v); setBannerTouched(true); if (v) { setLargura(0); setAltura(0); } }} />
             </label>
           )}
         </div>
@@ -499,7 +505,8 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
         <Field label="Largura (cm)">
           <Input
             type="number" step="1" min={0}
-            value={largura_cm}
+            value={largura_cm === 0 ? "" : largura_cm}
+            placeholder="—"
             onChange={(e) => setLargura(Math.max(0, Number(e.target.value) || 0))}
             className="h-9"
           />
@@ -507,10 +514,12 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
         <Field label="Altura (cm)">
           <Input
             type="number" step="1" min={0}
-            value={altura_cm}
+            value={altura_cm === 0 ? "" : altura_cm}
+            placeholder="—"
             onChange={(e) => setAltura(Math.max(0, Number(e.target.value) || 0))}
             className="h-9"
           />
+
         </Field>
         <Field label="Quantidade">
           <Input
