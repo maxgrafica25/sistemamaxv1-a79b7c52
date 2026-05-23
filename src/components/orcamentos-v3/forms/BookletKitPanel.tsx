@@ -64,6 +64,18 @@ export function BookletKitPanel({
   };
   const [extraSlots, setExtraSlots] = useState<ExtraSlot[]>([]);
 
+  // Overrides: troca de suprimento sugerido (capa/contracapa/espiral) por outro escolhido manualmente.
+  type SupplyOverrideKey = "capa" | "contracapa" | "espiral";
+  const [overrides, setOverrides] = useState<Partial<Record<SupplyOverrideKey, SupplyOption>>>({});
+  const [swapOpen, setSwapOpen] = useState<Partial<Record<SupplyOverrideKey, boolean>>>({});
+  const setOverride = (key: SupplyOverrideKey, s: SupplyOption | null) =>
+    setOverrides((prev) => {
+      const next = { ...prev };
+      if (s) next[key] = s;
+      else delete next[key];
+      return next;
+    });
+
   const updateSlot = (id: string, patch: Partial<ExtraSlot>) =>
     setExtraSlots((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   const removeSlot = (id: string) =>
