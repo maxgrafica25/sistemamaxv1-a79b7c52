@@ -610,7 +610,20 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                       : `/${item.unit_label ?? "un"}`;
                   return (
                     <TableRow key={item.id} className={!item.is_active ? "opacity-50" : ""}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <span className="inline-flex items-center gap-1.5">
+                          {item.name}
+                          {item.production_step_id && stepById.get(item.production_step_id) && (
+                            <span
+                              className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground"
+                              title={`Etapa: ${stepById.get(item.production_step_id)!.description} (${stepById.get(item.production_step_id)!.time_minutes} min)`}
+                            >
+                              <Clock className="h-3 w-3" />
+                              {stepById.get(item.production_step_id)!.time_minutes}m
+                            </span>
+                          )}
+                        </span>
+                      </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           {item.applies_to?.includes("etiqueta") && (
