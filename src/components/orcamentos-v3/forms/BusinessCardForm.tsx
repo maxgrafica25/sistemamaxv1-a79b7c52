@@ -78,17 +78,30 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
     const out: CVProc[] = [];
     for (const s of steps) {
       if (norm(s.description).includes("cartao de visita")) {
+        const m = Number(s.time_minutes);
         out.push({
           key: `step:${s.id}`,
           kind: "step",
           name: s.description,
-          minutes: s.time_minutes,
+          minutes: Number.isFinite(m) ? m : 0,
         });
       }
     }
     for (const g of groups) {
       if (norm(g.name).includes("cartao de visita")) {
-        const mins = g.items.reduce((a, it) => a + (it.time_minutes || 0), 0);
+        let mins = 0;
+        const missing: string[] = [];
+        for (const it of g.items) {
+          const n = Number(it.time_minutes);
+          if (!Number.isFinite(n) || n === 0) missing.push(it.description);
+          mins += Number.isFinite(n) ? n : 0;
+        }
+        if (missing.length > 0) {
+          console.warn(
+            "[BusinessCardForm] grupo com item(s) sem time_minutes",
+            { group: g.name, items: missing },
+          );
+        }
         out.push({
           key: `group:${g.id}`,
           kind: "group",
@@ -99,6 +112,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
     }
     return out;
   }, [steps, groups]);
+
 
 
   // Candidatos a Couchê 300g SRA3
