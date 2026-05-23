@@ -35,11 +35,16 @@ import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
 import { loadConfig, SEED_LABEL_PRESETS, type LabelPreset } from "@/lib/labels/config-storage";
 import { fmtBRL } from "../shared/pricing";
 import { TierFaixasPanel } from "../shared/TierFaixasPanel";
+import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProgressive";
+import { listFinishings, type FinishingItem } from "@/lib/finishings/catalog";
+import { pickFinishingTier } from "@/lib/labels/finishing-pricing";
+import { useV3HourlyRate } from "../shared/useV3HourlyRate";
 
-import { genId, type V3LabelItem } from "../types";
+import { genId, type V3LabelItem, type V3LaborItem, type V3Item } from "../types";
 
 interface Props {
   onAdd: (item: V3LabelItem) => void;
+  onAddMany?: (items: V3Item[]) => void;
   onAddTiers?: (items: V3LabelItem[]) => void;
   descricao?: string;
   onDescricaoChange?: (v: string) => void;
