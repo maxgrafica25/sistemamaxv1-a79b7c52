@@ -187,22 +187,12 @@ export default function DespesasFixas() {
         </div>
 
         <div>
-          <div className="flex gap-1 border-b border-border mb-4">
-            {TAB_CONFIG.map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-[3px] -mb-px ${
-                  activeTab === tab.key
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <span className={`h-2 w-2 rounded-full ${activeTab === tab.key ? "bg-primary" : "bg-muted-foreground/40"}`} />
-                {tab.icon} {tab.label}
-              </button>
-            ))}
-          </div>
+          <DotTabs
+            tabs={TAB_CONFIG}
+            value={activeTab}
+            onChange={(k) => setActiveTab(k as TabKey)}
+            className="mb-4"
+          />
 
           <div>
             {activeTab === "despesas" && (
