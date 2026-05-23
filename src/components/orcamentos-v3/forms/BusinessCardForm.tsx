@@ -162,13 +162,13 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   );
 
   // Pré-marca fixos e opcionais com default_on; mantém escolhas do usuário; limpa órfãos.
+  // Opcionais começam SEMPRE desmarcados (opt-in). Apenas os fixos são pré-marcados.
   useEffect(() => {
     setFinEnabled((m) => {
       const next: Record<string, boolean> = {};
       for (const p of cvProcs) {
         if (p.link_type === "fixed") next[p.key] = true;
         else if (m[p.key] !== undefined) next[p.key] = m[p.key];
-        else if (p.default_on) next[p.key] = true;
       }
       return next;
     });
@@ -357,6 +357,58 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         </div>
       </Field>
 
+      {/* Layout editável (colapsado) — no topo por UX, antes do resumo/preço */}
+      <div className="rounded-md border border-border">
+        <button
+          type="button"
+          onClick={() => setLayoutOpen((v) => !v)}
+          className="w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Settings2 className="h-3.5 w-3.5" />
+            Ajustar layout da folha
+          </span>
+          <ChevronDown
+            className={cn("h-4 w-4 transition-transform", layoutOpen && "rotate-180")}
+          />
+        </button>
+        {layoutOpen && (
+          <div className="px-3 pb-3 pt-1 grid grid-cols-2 sm:grid-cols-3 gap-3 border-t border-border">
+            {([
+              ["sheetW", "Folha L (mm)"],
+              ["sheetH", "Folha A (mm)"],
+              ["marginMm", "Margem (mm)"],
+              ["gapMm", "Gap (mm)"],
+              ["cardW", "Cartão L (mm)"],
+              ["cardH", "Cartão A (mm)"],
+            ] as const).map(([key, label]) => (
+              <Field key={key} label={label}>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step={0.1}
+                  value={layout[key]}
+                  onChange={(e) =>
+                    setLayout((l) => ({ ...l, [key]: Math.max(0, Number(e.target.value) || 0) }))
+                  }
+                  className="h-9"
+                />
+              </Field>
+            ))}
+            <div className="col-span-2 sm:col-span-3">
+              <button
+                type="button"
+                onClick={() => setLayout(DEFAULTS)}
+                className="text-[11px] text-muted-foreground hover:text-primary underline-offset-2 hover:underline"
+              >
+                Restaurar padrão (SRA3 · 7mm · 6mm · 9×5)
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Resumo de aproveitamento */}
       <div className="rounded-md border border-border bg-background px-3 py-2.5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -417,58 +469,6 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         </Field>
       </div>
 
-      {/* Layout editável (colapsado) */}
-      <div className="rounded-md border border-border">
-        <button
-          type="button"
-          onClick={() => setLayoutOpen((v) => !v)}
-          className="w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <Settings2 className="h-3.5 w-3.5" />
-            Ajustar layout da folha
-          </span>
-          <ChevronDown
-            className={cn("h-4 w-4 transition-transform", layoutOpen && "rotate-180")}
-          />
-        </button>
-        {layoutOpen && (
-          <div className="px-3 pb-3 pt-1 grid grid-cols-2 sm:grid-cols-3 gap-3 border-t border-border">
-            {([
-              ["sheetW", "Folha L (mm)"],
-              ["sheetH", "Folha A (mm)"],
-              ["marginMm", "Margem (mm)"],
-              ["gapMm", "Gap (mm)"],
-              ["cardW", "Cartão L (mm)"],
-              ["cardH", "Cartão A (mm)"],
-            ] as const).map(([key, label]) => (
-              <Field key={key} label={label}>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step={0.1}
-                  value={layout[key]}
-                  onChange={(e) =>
-                    setLayout((l) => ({ ...l, [key]: Math.max(0, Number(e.target.value) || 0) }))
-                  }
-                  className="h-9"
-                />
-              </Field>
-            ))}
-            <div className="col-span-2 sm:col-span-3">
-              <button
-                type="button"
-                onClick={() => setLayout(DEFAULTS)}
-                className="text-[11px] text-muted-foreground hover:text-primary underline-offset-2 hover:underline"
-              >
-                Restaurar padrão (SRA3 · 7mm · 6mm · 9×5)
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Acabamentos fixos (pré-marcados) */}
       <Field label="Acabamentos">
         {fixedFinishes.length > 0 ? (
@@ -495,26 +495,25 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         )}
       </Field>
 
-      {/* Sugestões opcionais (desmarcadas) */}
+      {/* Acabamentos opcionais — sempre listados e desmarcados (opt-in) */}
       {optionalFinishes.length > 0 && (
-        <details className="rounded-md border border-border bg-background group" open={optionalProcs.some((p) => finEnabled[p.key])}>
-          <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground flex items-center justify-between">
-            <span className="inline-flex items-center gap-1.5">
-              <Plus className="h-3.5 w-3.5" />
-              Sugestões opcionais
-              <span className="text-[10px] text-muted-foreground/70">({optionalFinishes.length})</span>
+        <div className="space-y-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Acabamentos opcionais
+            </Label>
+            <span className="text-[10.5px] text-muted-foreground/80">
+              Marque para incluir no orçamento
             </span>
-            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
-          </summary>
-          <div className="border-t border-border p-2">
-            <FinishingProgressive
-              items={optionalFinishes}
-              enabled={finEnabled}
-              onToggle={(id, on) => setFinEnabled((m) => ({ ...m, [id]: on }))}
-            />
           </div>
-        </details>
+          <FinishingProgressive
+            items={optionalFinishes}
+            enabled={finEnabled}
+            onToggle={(id, on) => setFinEnabled((m) => ({ ...m, [id]: on }))}
+          />
+        </div>
       )}
+
 
       <div className="sticky bottom-0 z-10 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 mt-2 bg-background/95 backdrop-blur border-t border-border flex items-center justify-between gap-3">
         <div className="text-xs text-muted-foreground">
