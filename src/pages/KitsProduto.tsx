@@ -303,8 +303,78 @@ export default function KitsProduto() {
         icone: p.icone,
       })),
     );
+    // Invalida cache de preview — itens podem ter mudado.
+    setKitItemsCache({});
+    setErroredKits(new Set());
     setLoading(false);
   };
+
+  const toggleKitExpanded = async (kitId: string) => {
+    const isOpen = expandedKits.has(kitId);
+    setExpandedKits((prev) => {
+      const next = new Set(prev);
+      if (isOpen) next.delete(kitId);
+      else next.add(kitId);
+      return next;
+    });
+    if (isOpen) return;
+    if (kitItemsCache[kitId]) return;
+    setLoadingKits((prev) => new Set(prev).add(kitId));
+    setErroredKits((prev) => {
+      const next = new Set(prev);
+      next.delete(kitId);
+      return next;
+    });
+    try {
+      const { data, error } = await supabase
+        .from("product_kit_items")
+        .select("item_type, supply_id, process_step_id, role, quantity_formula, quantity_value")
+        .eq("kit_id", kitId)
+        .order("position");
+      if (error) throw error;
+      const rows = (data || []) as any[];
+      const supplyIds = Array.from(
+        new Set(rows.filter((r) => r.supply_id).map((r) => r.supply_id as string)),
+      );
+      const supMap = new Map<string, string>();
+      if (supplyIds.length > 0) {
+        const { data: sups } = await supabase
+          .from("supplies")
+          .select("id, produto")
+          .in("id", supplyIds);
+        for (const s of (sups || []) as any[]) supMap.set(s.id, s.produto);
+      }
+      const procMap = new Map<string, string>(processes.map((p) => [p.id, p.description]));
+      const mapped: ReadonlyKitItem[] = rows.map((r) => {
+        const kind = (r.item_type as "supply" | "process") ?? "supply";
+        const label =
+          kind === "supply"
+            ? (r.supply_id ? supMap.get(r.supply_id) ?? "(suprimento)" : "(automático)")
+            : (r.process_step_id ? procMap.get(r.process_step_id) ?? "(processo)" : "(processo)");
+        return {
+          kind,
+          label,
+          role: r.role as KitItemRole,
+          formula: formulaBadge({
+            quantity_formula: r.quantity_formula,
+            quantity_value: Number(r.quantity_value) || 1,
+            variants: [],
+          } as KitItem),
+        };
+      });
+      setKitItemsCache((prev) => ({ ...prev, [kitId]: mapped }));
+    } catch (err) {
+      console.error("[kit preview]", err);
+      setErroredKits((prev) => new Set(prev).add(kitId));
+    } finally {
+      setLoadingKits((prev) => {
+        const next = new Set(prev);
+        next.delete(kitId);
+        return next;
+      });
+    }
+  };
+
 
   useEffect(() => {
     fetchAll();
