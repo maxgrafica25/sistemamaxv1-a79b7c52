@@ -8,7 +8,7 @@ import {
   BACK_COVER_REGEX,
   BINDING_LABOR_PATTERNS,
 } from "@/lib/quotes/spiral-selector";
-import type { ProcessStep } from "@/components/orcamentos-v3/listing/ProcessPicker";
+import type { ProcessStep } from "@/components/orcamentos-v3/shared/ProcessPicker";
 import { genId, type V3SupplyItem, type V3LaborItem } from "../types";
 import {
   pickSupplyTierPrice,

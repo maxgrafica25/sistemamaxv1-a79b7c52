@@ -32,7 +32,7 @@ import { buildStatsMap, computeTemperature, type EngagementStats, type Temperatu
 import type { EngagementEventType } from "@/lib/quotes/tracking";
 import { buildTeamFollowUpMessage, buildWaUrl } from "@/lib/quotes/whatsapp";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
-import { QuoteStatusBadge } from "@/components/orcamentos-v3/listing/QuoteStatusBadge";
+import { QuoteStatusBadge } from "@/components/orcamentos-v3/shared/QuoteStatusBadge";
 import PageLoader from "@/components/PageLoader";
 
 interface QuoteRow {

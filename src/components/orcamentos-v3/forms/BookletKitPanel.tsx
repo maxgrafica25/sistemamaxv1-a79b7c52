@@ -13,7 +13,7 @@ import { useV3ProcessCatalog } from "../shared/useV3ProcessCatalog";
 import { useV3HourlyRate } from "../shared/useV3HourlyRate";
 import { fmtBRL } from "../shared/pricing";
 import { CustomCoverEditor } from "./CustomCoverEditor";
-import SupplySearch, { type SupplyOption } from "@/components/orcamentos-v3/listing/SupplySearch";
+import SupplySearch, { type SupplyOption } from "@/components/orcamentos-v3/shared/SupplySearch";
 import { genId, type V3Item, type V3PrintItem, type V3SupplyItem } from "../types";
 
 
