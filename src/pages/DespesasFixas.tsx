@@ -16,6 +16,7 @@ import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
 import PageLoader from "@/components/PageLoader";
+import { DotTabs } from "@/components/ui/dot-tabs";
 
 interface Expense { id?: string; name: string; value: number; }
 interface Salary { id?: string; name: string; salary: number; is_production: boolean; }
