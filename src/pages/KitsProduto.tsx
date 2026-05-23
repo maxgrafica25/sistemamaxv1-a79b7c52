@@ -448,15 +448,24 @@ export default function KitsProduto() {
     );
   };
 
-  const moveItem = (tmp_id: string, dir: -1 | 1) => {
+  const reorderWithinBlock = (blockTmpIds: string[], activeId: string, overId: string) => {
+    if (activeId === overId) return;
     setItems((prev) => {
-      const idx = prev.findIndex((i) => i.tmp_id === tmp_id);
-      if (idx < 0) return prev;
-      const newIdx = idx + dir;
-      if (newIdx < 0 || newIdx >= prev.length) return prev;
-      const copy = [...prev];
-      [copy[idx], copy[newIdx]] = [copy[newIdx], copy[idx]];
-      return copy.map((i, k) => ({ ...i, position: k }));
+      const fromBlock = blockTmpIds.indexOf(activeId);
+      const toBlock = blockTmpIds.indexOf(overId);
+      if (fromBlock < 0 || toBlock < 0) return prev;
+      const newBlockOrder = arrayMove(blockTmpIds, fromBlock, toBlock);
+      // Map block tmp_id → new global index slot (slots = current global indexes of that block)
+      const blockSlots = blockTmpIds
+        .map((id) => prev.findIndex((i) => i.tmp_id === id))
+        .sort((a, b) => a - b);
+      const next = [...prev];
+      newBlockOrder.forEach((tmpId, k) => {
+        const slot = blockSlots[k];
+        const item = prev.find((i) => i.tmp_id === tmpId)!;
+        next[slot] = item;
+      });
+      return next.map((i, k) => ({ ...i, position: k }));
     });
   };
 
