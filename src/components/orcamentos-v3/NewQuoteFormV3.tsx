@@ -319,6 +319,14 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
               clientName={state.cliente.nome}
               checklistAnswers={checklistAnswers}
             />
+            <QuoteOptionsBuilderV3
+              items={state.items}
+              mainQuantity={state.main_quantity ?? null}
+              options={state.options}
+              onChange={({ main_quantity, options }) =>
+                setState((s) => ({ ...s, main_quantity, options }))
+              }
+            />
           </div>
           <div className="p-3 border-t border-border/60 bg-background">
             <FinancialPanel summary={summary} />
