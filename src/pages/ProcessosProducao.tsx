@@ -62,23 +62,12 @@ export default function ProcessosProducao() {
         <p className="text-sm text-muted-foreground mt-1">Gerencie etapas individuais e grupos de etapas reutilizáveis</p>
       </div>
 
-      {/* Tabs styled like Equipamentos */}
-      <div className="flex gap-1 border-b border-border mb-6">
-        {tabConfig.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-[3px] -mb-px ${
-              activeTab === t.key
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <span className={`h-2 w-2 rounded-full ${activeTab === t.key ? "bg-primary" : "bg-muted-foreground/40"}`} />
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <DotTabs
+        tabs={tabConfig}
+        value={activeTab}
+        onChange={(k) => setActiveTab(k as TabKey)}
+        className="mb-6"
+      />
 
       {activeTab === "etapas" && <EtapasTab />}
       {activeTab === "grupos" && <GruposTab />}
