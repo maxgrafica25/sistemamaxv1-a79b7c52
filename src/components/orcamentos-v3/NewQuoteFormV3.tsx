@@ -231,18 +231,17 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
       });
       return;
     }
-    // Bloqueia envio se algum item de impressão/CV/apostila/etiqueta ficou sem responder "Tem arte pronta?"
-    const semArte = state.items.filter(
-      (it) =>
-        (it.kind === "print" || it.kind === "cv" || it.kind === "booklet" || it.kind === "label") &&
-        !(it as { art_status?: string | null }).art_status,
-    );
-    if (semArte.length > 0) {
-      toast.warning("Responda 'Tem arte pronta?' em todos os itens", {
-        description: `${semArte.length} ${semArte.length === 1 ? "item está" : "itens estão"} sem essa resposta. Remova ou refaça o item.`,
-      });
+    // Pergunta "Tem arte pronta?" agora é única por orçamento.
+    const hasArtRequiringItem = state.items.some((it) => requiresArt(it));
+    if (hasArtRequiringItem && !state.art_status) {
+      toast.warning("Responda 'Tem arte pronta?' antes de salvar.");
       return;
     }
+    if (state.art_status === "terceirizada" && (!state.art_terceirizada_value || state.art_terceirizada_value <= 0)) {
+      toast.warning("Informe o valor da arte terceirizada.");
+      return;
+    }
+
     // Popup do checklist antes do save (se habilitado e houver itens CV).
     const hasCV = state.items.some((it) => it.kind === "cv");
     if (globalSettings.checklist_before_save && hasCV) {
