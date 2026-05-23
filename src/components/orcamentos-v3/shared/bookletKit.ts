@@ -41,8 +41,14 @@ interface BuildArgs {
 const findSupply = (list: V3Supply[], rx: RegExp): V3Supply | null =>
   list.find((s) => rx.test(s.produto)) || null;
 
-const findStep = (list: ProcessStep[], rx: RegExp): ProcessStep | null =>
-  list.find((s) => rx.test(s.description)) || null;
+const findStep = (list: ProcessStep[], rx: RegExp): ProcessStep | null => {
+  // Prioridade: Etapa individual (source !== "group") antes de item de Grupo.
+  const matches = list.filter((s) => rx.test(s.description));
+  if (matches.length === 0) return null;
+  const direct = matches.find((s) => (s as any).source !== "group");
+  return direct || matches[0];
+};
+
 
 function makeSupplyRow(
   key: KitRowKind,
