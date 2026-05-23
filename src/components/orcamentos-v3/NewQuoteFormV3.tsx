@@ -100,6 +100,18 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
       });
       return;
     }
+    // Bloqueia envio se algum item de impressão/CV/apostila/etiqueta ficou sem responder "Tem arte pronta?"
+    const semArte = state.items.filter(
+      (it) =>
+        (it.kind === "print" || it.kind === "cv" || it.kind === "booklet" || it.kind === "label") &&
+        !(it as { art_status?: string | null }).art_status,
+    );
+    if (semArte.length > 0) {
+      toast.warning("Responda 'Tem arte pronta?' em todos os itens", {
+        description: `${semArte.length} ${semArte.length === 1 ? "item está" : "itens estão"} sem essa resposta. Remova ou refaça o item.`,
+      });
+      return;
+    }
     setSaving(true);
     try {
       const result = await saveQuoteV3(state);

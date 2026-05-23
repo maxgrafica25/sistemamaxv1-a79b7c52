@@ -29,7 +29,9 @@ import { iconFor } from "../shared/presetIcons";
 import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
 import { PRESET_BY_ID } from "../shared/productPresets";
 import { suggestProduct, type SuggestResult } from "../shared/productSuggester";
-import type { V3Item } from "../types";
+import { ArtePromptBlock } from "../shared/ArtePromptBlock";
+import { stampArt, makeArtThirdParty } from "../shared/artStatus";
+import type { ArtStatus, V3Item } from "../types";
 
 const BUILTIN_BUSINESS_CARD_ID = "__builtin_business_card__";
 
@@ -68,6 +70,62 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
   const [saveOpen, setSaveOpen] = useState(false);
   const [presetToDelete, setPresetToDelete] = useState<QuotePreset | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Pergunta "Tem arte pronta?" — obrigatória antes de adicionar item
+  const [artStatus, setArtStatus] = useState<ArtStatus | null>(null);
+  const [artTercValue, setArtTercValue] = useState<number>(0);
+
+  const artBlockedReason: string | null = !artStatus
+    ? "Responda 'Tem arte pronta?' antes de adicionar."
+    : artStatus === "terceirizada" && artTercValue <= 0
+      ? "Informe o valor da arte terceirizada."
+      : null;
+
+  // Wrap dos callbacks: carimba art_status nos itens e, quando terceirizada,
+  // anexa um V3ThirdItem como filho do bundle.
+  const enrichAndEmit = useCallback(
+    (items: V3Item[], emit: (xs: V3Item[]) => void) => {
+      if (artBlockedReason) {
+        toast.warning(artBlockedReason);
+        return;
+      }
+      const stamped = stampArt(items, artStatus);
+      let toEmit: V3Item[] = stamped;
+      if (artStatus === "terceirizada" && artTercValue > 0) {
+        // Acha um bundle/print "líder" para amarrar a arte terceirizada.
+        const leader = stamped.find((i) => i.kind !== "third" && i.kind !== "labor" && i.kind !== "supply");
+        let bundleId = (leader as { bundle_id?: string | null } | undefined)?.bundle_id ?? null;
+        if (leader && !bundleId) {
+          bundleId = `bnd_${Date.now().toString(36)}`;
+          toEmit = stamped.map((it) =>
+            it === leader
+              ? ({ ...it, bundle_id: bundleId, bundle_label: (it as { descricao?: string }).descricao || "Impressão" } as V3Item)
+              : it,
+          );
+        }
+        const art = makeArtThirdParty(artTercValue, bundleId);
+        if (art) toEmit = [...toEmit, art];
+      }
+      emit(toEmit);
+      // Reseta a pergunta após adicionar
+      setArtStatus(null);
+      setArtTercValue(0);
+    },
+    [artStatus, artTercValue, artBlockedReason],
+  );
+
+  const wrappedOnAdd = useCallback(
+    (it: V3Item) => enrichAndEmit([it], (xs) => xs.forEach((x) => onAdd(x))),
+    [enrichAndEmit, onAdd],
+  );
+  const wrappedOnAddMany = useCallback(
+    (its: V3Item[]) => enrichAndEmit(its, (xs) => (onAddMany ? onAddMany(xs) : xs.forEach((x) => onAdd(x)))),
+    [enrichAndEmit, onAddMany, onAdd],
+  );
+  const wrappedOnAddTiers = useCallback(
+    (its: V3Item[]) => enrichAndEmit(its, (xs) => (onAddTiers ? onAddTiers(xs) : xs.forEach((x) => onAdd(x)))),
+    [enrichAndEmit, onAddTiers, onAdd],
+  );
 
   const handleConfirmDelete = useCallback(async () => {
     if (!presetToDelete) return;
@@ -155,6 +213,14 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
 
   return (
     <div className="space-y-5">
+      {/* Pergunta de arte — obrigatória */}
+      <ArtePromptBlock
+        value={artStatus}
+        onChange={setArtStatus}
+        terceirizadaValue={artTercValue}
+        onTerceirizadaValueChange={setArtTercValue}
+      />
+
       {/* Descrição (opcional) */}
       <div className="space-y-1.5">
         <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -307,15 +373,16 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
       <div>
         {treatAsBusinessCard && (
           <BusinessCardForm
-            onAdd={onAdd}
+            onAdd={wrappedOnAdd}
             descricao={descricao}
             onDescricaoChange={setDescricao}
           />
         )}
         {!treatAsBusinessCard && isCustom && (
           <PrintForm
-            onAdd={onAdd}
-            onAddTiers={onAddTiers}
+            onAdd={wrappedOnAdd}
+            onAddMany={wrappedOnAddMany}
+            onAddTiers={wrappedOnAddTiers}
             onSelectionChange={handleSelectionChange}
             descricao={descricao}
             onDescricaoChange={setDescricao}
@@ -324,9 +391,9 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         )}
         {!treatAsBusinessCard && !isCustom && formTipo === "print" && (
           <PrintForm
-            onAdd={onAdd}
-            onAddMany={onAddMany}
-            onAddTiers={onAddTiers}
+            onAdd={wrappedOnAdd}
+            onAddMany={wrappedOnAddMany}
+            onAddTiers={wrappedOnAddTiers}
             defaultMarginPct={defaultMarginPct}
             descricao={descricao}
             onDescricaoChange={setDescricao}
@@ -334,9 +401,9 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         )}
         {!treatAsBusinessCard && !isCustom && formTipo === "booklet" && (
           <BookletForm
-            onAdd={onAdd}
-            onAddMany={onAddMany}
-            onAddTiers={onAddTiers}
+            onAdd={wrappedOnAdd}
+            onAddMany={wrappedOnAddMany}
+            onAddTiers={wrappedOnAddTiers}
             defaultMarginPct={defaultMarginPct}
             descricao={descricao}
             onDescricaoChange={setDescricao}
@@ -344,8 +411,8 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         )}
         {!treatAsBusinessCard && !isCustom && formTipo === "label" && (
           <LabelEmbeddedForm
-            onAdd={onAdd}
-            onAddTiers={onAddTiers}
+            onAdd={wrappedOnAdd}
+            onAddTiers={wrappedOnAddTiers}
             descricao={descricao}
             onDescricaoChange={setDescricao}
           />

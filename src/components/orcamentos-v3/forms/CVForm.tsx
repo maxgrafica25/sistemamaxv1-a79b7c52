@@ -16,7 +16,10 @@ import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
 import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
 import { fmtBRL } from "../shared/pricing";
-import { genId, type V3CVItem } from "../types";
+import { genId, type ArtStatus, type V3CVItem, type V3Item } from "../types";
+import { ArtePromptBlock } from "../shared/ArtePromptBlock";
+import { stampArt, makeArtThirdParty } from "../shared/artStatus";
+import { toast } from "sonner";
 import { useV3CVCatalog } from "../shared/useV3CVCatalog";
 import {
   calcular,
@@ -45,12 +48,16 @@ function isLonaOnlyFinish(nome: string): boolean {
 }
 
 interface Props {
-  onAdd: (item: V3CVItem) => void;
-  onAddTiers?: (items: V3CVItem[]) => void;
+  onAdd: (item: V3Item) => void;
+  onAddTiers?: (items: V3Item[]) => void;
 }
 
 export function CVForm({ onAdd, onAddTiers }: Props) {
   const cat = useV3CVCatalog();
+
+  // Pergunta "Tem arte pronta?"
+  const [artStatus, setArtStatus] = useState<ArtStatus | null>(null);
+  const [artTercValue, setArtTercValue] = useState<number>(0);
 
   // null = Personalizado (padrão); caso contrário, id do preset ativo
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
@@ -290,6 +297,37 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
     };
   };
 
+  const artBlockedReason = (): string | null =>
+    !artStatus
+      ? "Responda 'Tem arte pronta?' antes de adicionar."
+      : artStatus === "terceirizada" && artTercValue <= 0
+        ? "Informe o valor da arte terceirizada."
+        : null;
+
+  const emitWithArt = (items: V3CVItem[], emit: (xs: V3Item[]) => void) => {
+    const reason = artBlockedReason();
+    if (reason) { toast.warning(reason); return; }
+    const stamped = stampArt(items as V3Item[], artStatus);
+    let toEmit: V3Item[] = stamped;
+    if (artStatus === "terceirizada" && artTercValue > 0) {
+      const leader = stamped[0];
+      let bundleId = (leader as { bundle_id?: string | null } | undefined)?.bundle_id ?? null;
+      if (leader && !bundleId) {
+        bundleId = `bnd_${Date.now().toString(36)}`;
+        toEmit = stamped.map((it, idx) =>
+          idx === 0
+            ? ({ ...it, bundle_id: bundleId, bundle_label: (it as { descricao?: string }).descricao || "Com. Visual" } as V3Item)
+            : it,
+        );
+      }
+      const art = makeArtThirdParty(artTercValue, bundleId);
+      if (art) toEmit = [...toEmit, art];
+    }
+    emit(toEmit);
+    setArtStatus(null);
+    setArtTercValue(0);
+  };
+
   const submit = () => {
     if (!canAdd) return;
     const cleanExtras = [...new Set(extraTiers)]
@@ -302,7 +340,7 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
     }
     const item = buildItem(quantidade);
     if (!item) return;
-    onAdd(item);
+    emitWithArt([item], (xs) => xs.forEach((x) => onAdd(x)));
     setDescricao("");
     setDescricaoEditada(false);
     setAcabIds([]);
@@ -321,7 +359,7 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
       })
       .filter((x): x is V3CVItem => !!x);
     if (items.length === 0) return;
-    onAddTiers(items);
+    emitWithArt(items, (xs) => onAddTiers(xs));
     setDescricao("");
     setDescricaoEditada(false);
     setAcabIds([]);
@@ -331,6 +369,12 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
 
   return (
     <div className="space-y-5 flex-1 flex flex-col">
+      <ArtePromptBlock
+        value={artStatus}
+        onChange={setArtStatus}
+        terceirizadaValue={artTercValue}
+        onTerceirizadaValueChange={setArtTercValue}
+      />
       {/* Descrição — acima do toggle */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
