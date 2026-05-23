@@ -310,7 +310,13 @@ export function BookletKitPanel({
             onCheckedChange={() => toggleRow(r.key)}
             className="h-3.5 w-3.5"
           />
+          {r.unit === "min" ? (
+            <Clock className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+          ) : (
+            <Package className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+          )}
           <span className="font-medium whitespace-nowrap">{r.label}</span>
+
 
           {mode === "standard" && (
             <>
