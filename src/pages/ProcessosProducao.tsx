@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Edit2, Clock, Loader2, Factory, Layers } from "lucide-react";
+import { Plus, Trash2, Edit2, Clock, Loader2, Factory, Layers, Star } from "lucide-react";
+import { ProductPresetLinksTab } from "@/components/orcamentos-v3/admin/ProductPresetLinksTab";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
