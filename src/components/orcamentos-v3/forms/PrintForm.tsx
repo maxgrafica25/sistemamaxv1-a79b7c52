@@ -7,7 +7,7 @@ import { Check, Plus, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PrintingItemSearch, {
   type PrintingCatalogItem,
-} from "@/components/orcamentos/PrintingItemSearch";
+} from "@/components/orcamentos-v3/shared/PrintingItemSearch";
 import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProgressive";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";

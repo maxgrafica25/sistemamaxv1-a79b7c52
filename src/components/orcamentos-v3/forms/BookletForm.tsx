@@ -12,7 +12,7 @@ import { Check, Plus, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PrintingItemSearch, {
   type PrintingCatalogItem,
-} from "@/components/orcamentos/PrintingItemSearch";
+} from "@/components/orcamentos-v3/shared/PrintingItemSearch";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { roundUp10 } from "../shared/pricing";
 import { TierFaixasPanel } from "../shared/TierFaixasPanel";

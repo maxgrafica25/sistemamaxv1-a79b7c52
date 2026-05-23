@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import PrintingItemSearch, {
   type PrintingCatalogItem,
-} from "@/components/orcamentos/PrintingItemSearch";
+} from "@/components/orcamentos-v3/shared/PrintingItemSearch";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
 import { listFinishings, sumFinishingsPerSheet, type FinishingItem } from "@/lib/finishings/catalog";

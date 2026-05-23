@@ -7,7 +7,7 @@
 // productKind === "apostila" or bookletUnits > 0. Standalone (non-printing)
 // materials/labor still flow through the classic global divisor.
 
-import type { MarkupTier } from "@/components/orcamentos/PrintingItemSearch";
+import type { MarkupTier } from "@/components/orcamentos-v3/shared/PrintingItemSearch";
 import type { SupplyTier } from "./supply-pricing";
 
 export interface PricingMaterial {
