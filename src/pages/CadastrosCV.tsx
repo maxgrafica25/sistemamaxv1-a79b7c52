@@ -38,22 +38,7 @@ export default function CadastrosCV() {
         </p>
       </div>
 
-      <div className="flex gap-1 border-b border-border overflow-x-auto">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-[3px] -mb-px shrink-0 ${
-              tab === t.key
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <t.icon className="h-4 w-4" />
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <DotTabs tabs={TABS} value={tab} onChange={(k) => setTab(k as Tab)} />
 
       {tab === "calculadora" && <CalculadoraTab />}
       {tab === "midias" && <MidiasTab />}
