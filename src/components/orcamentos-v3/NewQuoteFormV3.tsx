@@ -338,6 +338,18 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
         />
       </div>
 
+      {/* Pergunta única "Tem arte pronta?" para todo o orçamento */}
+      <div className="px-4 lg:px-6 py-3 border-b border-border bg-background">
+        <ArtePromptBlock
+          value={state.art_status ?? null}
+          onChange={(v) => setState((s) => ({ ...s, art_status: v }))}
+          terceirizadaValue={state.art_terceirizada_value ?? 0}
+          onTerceirizadaValueChange={(v) => setState((s) => ({ ...s, art_terceirizada_value: v }))}
+        />
+      </div>
+
+
+
       {/* Split-screen */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_360px] overflow-hidden">
         {/* Workspace (70%) */}
