@@ -7,8 +7,8 @@ export default function NewQuoteV3() {
   return (
     <NewQuoteFormV3
       editingQuoteId={id ?? null}
-      onCancel={() => navigate("/orcamentos-v2")}
-      onSave={() => navigate("/orcamentos-v2")}
+      onCancel={() => navigate("/orcamentos")}
+      onSave={() => navigate("/orcamentos")}
     />
   );
 }
