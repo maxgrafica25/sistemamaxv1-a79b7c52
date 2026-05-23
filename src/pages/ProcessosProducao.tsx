@@ -397,54 +397,55 @@ function GruposTab() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label>Etapas de Produção *</Label>
-                  <Button variant="outline" size="sm" onClick={addBlankStep} className="gap-2"><Plus className="h-4 w-4" /> Nova Etapa Manual</Button>
+                  <span className="text-xs text-muted-foreground">
+                    Use apenas Etapas cadastradas na aba "Etapas".
+                  </span>
                 </div>
 
-                {/* Picker for existing steps */}
-                {availableSteps.length > 0 && (
+                {availableSteps.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Nenhuma Etapa cadastrada. Cadastre na aba "Etapas" antes de montar grupos.
+                  </p>
+                ) : (
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Selecionar etapa existente:</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {availableSteps.map(s => (
-                        <Button
-                          key={s.id}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addExistingStep(s)}
-                          className="gap-1.5 text-xs"
-                        >
-                          <Plus className="h-3 w-3" />
-                          {s.description} ({s.time_minutes} min)
-                        </Button>
-                      ))}
-                    </div>
+                    <Label className="text-xs text-muted-foreground">Adicionar Etapa:</Label>
+                    <Select value="" onValueChange={(id) => {
+                      const s = stepById.get(id);
+                      if (s) addExistingStep(s);
+                    }}>
+                      <SelectTrigger><SelectValue placeholder="Selecionar etapa..." /></SelectTrigger>
+                      <SelectContent>
+                        {availableSteps.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.description} ({s.time_minutes} min)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
 
-                {groupSteps.length === 0 && (
+                {groupSteps.length === 0 && availableSteps.length > 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">
-                    Selecione etapas existentes acima ou crie uma nova etapa manual
+                    Selecione uma etapa acima para adicionar ao grupo.
                   </p>
                 )}
 
-                {groupSteps.map((step, idx) => (
-                  <div key={step.id} className="flex gap-2 items-start">
-                    <span className="flex h-10 w-7 items-center justify-center text-xs font-medium text-muted-foreground">{idx + 1}</span>
-                    <div className="flex-1"><Input placeholder="Descrição da etapa" value={step.description} onChange={(e) => updateStep(step.id, "description", e.target.value)} /></div>
-                    <div className="w-36">
-                      <Select value={step.step_type} onValueChange={(v) => updateStep(step.id, "step_type", v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {STEP_TYPES.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
-                        </SelectContent>
-                      </Select>
+                {groupSteps.map((s, idx) => {
+                  const ps = stepById.get(s.production_step_id);
+                  return (
+                    <div key={s.uid} className="flex gap-2 items-center">
+                      <span className="flex h-10 w-7 items-center justify-center text-xs font-medium text-muted-foreground">{idx + 1}</span>
+                      <div className="flex-1 text-sm">
+                        {ps ? `${ps.description} · ${ps.time_minutes} min` : "(etapa removida)"}
+                      </div>
+                      {ps && <StepTypeBadge type={ps.step_type} />}
+                      <Button variant="ghost" size="icon" onClick={() => removeStep(s.uid)} className="text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
                     </div>
-                    <div className="w-24"><Input type="number" placeholder="Min" value={step.time_minutes || ""} onChange={(e) => updateStep(step.id, "time_minutes", parseFloat(e.target.value) || 0)} /></div>
-                    <Button variant="ghost" size="icon" onClick={() => removeStep(step.id)} className="text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+
               <div className="flex gap-3 pt-4">
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1">Cancelar</Button>
                 <Button onClick={saveGroup} className="flex-1">{editingGroup ? "Atualizar Grupo" : "Criar Grupo"}</Button>
