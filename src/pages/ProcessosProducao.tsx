@@ -135,8 +135,6 @@ export default function ProcessosProducao() {
     </div>
   );
 }
-  );
-}
 
 
 // ─── Etapas Tab ──────────────────────────────────────────────────────
