@@ -11,6 +11,7 @@ interface Props {
   items: V3Item[];
   clientId: string | null;
   clientName: string;
+  checklistAnswers?: { pergunta: string; resposta: string }[];
 }
 
 interface MidiaRow { id: string; tipo_midia: string }
