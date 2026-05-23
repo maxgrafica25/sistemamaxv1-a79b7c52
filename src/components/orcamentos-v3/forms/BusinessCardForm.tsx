@@ -156,16 +156,20 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
     setLoadingGroups((s) => new Set(s).add(groupId));
     const { data } = await supabase
       .from("step_group_items")
-      .select("description, time_minutes")
+      .select("production_step:production_steps(description, time_minutes)")
       .eq("step_group_id", groupId)
       .order("sort_order");
     setSubItemsCache((m) => ({
       ...m,
-      [groupId]: (data || []).map((r: any) => ({
-        description: r.description,
-        time_minutes: Number(r.time_minutes) || 0,
-      })),
+      [groupId]: (data || [])
+        .map((r: any) => r.production_step)
+        .filter(Boolean)
+        .map((ps: any) => ({
+          description: ps.description,
+          time_minutes: Number(ps.time_minutes) || 0,
+        })),
     }));
+
     setLoadingGroups((s) => {
       const n = new Set(s);
       n.delete(groupId);

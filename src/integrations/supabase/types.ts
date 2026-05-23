@@ -3971,33 +3971,24 @@ export type Database = {
       step_group_items: {
         Row: {
           created_at: string
-          description: string
           id: string
-          production_step_id: string | null
+          production_step_id: string
           sort_order: number
           step_group_id: string
-          step_type: string
-          time_minutes: number
         }
         Insert: {
           created_at?: string
-          description: string
           id?: string
-          production_step_id?: string | null
+          production_step_id: string
           sort_order?: number
           step_group_id: string
-          step_type?: string
-          time_minutes?: number
         }
         Update: {
           created_at?: string
-          description?: string
           id?: string
-          production_step_id?: string | null
+          production_step_id?: string
           sort_order?: number
           step_group_id?: string
-          step_type?: string
-          time_minutes?: number
         }
         Relationships: [
           {

@@ -464,7 +464,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     const [stepsRes, groupsRes, groupItemsRes] = await Promise.all([
       supabase.from("production_steps").select("id, description, time_minutes, step_type").order("description"),
       supabase.from("step_groups").select("id, name").order("name"),
-      supabase.from("step_group_items").select("step_group_id, description, time_minutes, step_type").order("sort_order"),
+      supabase.from("step_group_items").select("step_group_id, production_step:production_steps(description, time_minutes, step_type)").order("sort_order"),
     ]);
     setProcessSteps((stepsRes.data || []).map((s: any) => ({
       id: s.id,
@@ -475,12 +475,15 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
     const itemsByGroup: Record<string, ProcessGroup["items"]> = {};
     (groupItemsRes.data || []).forEach((it: any) => {
       const gid = it.step_group_id;
+      const ps = it.production_step;
+      if (!ps) return;
       (itemsByGroup[gid] ||= []).push({
-        description: it.description,
-        time_minutes: Number(it.time_minutes) || 0,
-        step_type: it.step_type || "outro",
+        description: ps.description,
+        time_minutes: Number(ps.time_minutes) || 0,
+        step_type: ps.step_type || "outro",
       });
     });
+
     setProcessGroups((groupsRes.data || []).map((g: any) => ({
       id: g.id, name: g.name, items: itemsByGroup[g.id] || [],
     })));

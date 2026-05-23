@@ -23,8 +23,9 @@ export function useV3ProcessCatalog() {
         supabase.from("step_groups").select("id, name").order("name"),
         supabase
           .from("step_group_items")
-          .select("step_group_id, description, time_minutes, step_type, production_step_id")
+          .select("step_group_id, sort_order, production_step_id, production_step:production_steps(id, description, time_minutes, step_type)")
           .order("sort_order"),
+
 
       ]);
       if (cancel) return;
@@ -53,32 +54,30 @@ export function useV3ProcessCatalog() {
       const itemsByGroup: Record<string, ProcessGroup["items"]> = {};
       const groupStepsFlat: ProcessStep[] = [];
       (groupItemsRes.data || []).forEach((it: any, idx: number) => {
-        const raw = it.time_minutes;
-        const n = Number(raw);
-        if (raw === null || raw === undefined || !Number.isFinite(n)) {
-          console.warn("[useV3ProcessCatalog] item de grupo sem time_minutes", {
+        const ps = it.production_step;
+        if (!ps) {
+          console.warn("[useV3ProcessCatalog] item de grupo sem Etapa vinculada", {
             step_group_id: it.step_group_id,
-            description: it.description,
+            production_step_id: it.production_step_id,
           });
+          return;
         }
-        const minutes = Number.isFinite(n) ? n : 0;
+        const minutes = Number(ps.time_minutes) || 0;
         (itemsByGroup[it.step_group_id] ||= []).push({
-          description: it.description,
+          description: ps.description,
           time_minutes: minutes,
-          step_type: it.step_type || "outro",
+          step_type: ps.step_type || "outro",
         });
         groupStepsFlat.push({
-          // Se tem FK para Etapa real, usa o id verdadeiro; senão cai no sintético.
-          id: it.production_step_id || `group:${it.step_group_id}:${idx}`,
-          description: it.description,
+          id: ps.id,
+          description: ps.description,
           time_minutes: minutes,
-          step_type: it.step_type || "outro",
-          // metadados para priorização/desambiguação
+          step_type: ps.step_type || "outro",
           source: "group",
           group_name: groupNameById.get(it.step_group_id) || undefined,
         } as ProcessStep & { source?: "group" | "step"; group_name?: string });
-
       });
+
 
       setGroups(
         (groupsRes.data || []).map((g: any) => ({
