@@ -84,10 +84,10 @@ export default function ProcessosProducao() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Factory className="h-6 w-6 text-primary" />
-            Etapas de Produção
+            Produção
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Etapas, categorias, grupos e kits que compõem como cada produto é fabricado.
+            Etapas, acabamentos, categorias, grupos e kits que compõem como cada produto é fabricado.
           </p>
         </div>
         {activeTab === "kits" && (
@@ -107,6 +107,7 @@ export default function ProcessosProducao() {
       />
 
       {activeTab === "etapas" && <EtapasTab />}
+      {activeTab === "acabamentos" && <Acabamentos hideHeader />}
       {activeTab === "grupos" && <GruposTab />}
       {activeTab === "categorias" && <CategoriasTab />}
       {activeTab === "grupos-materiais" && <GruposMateriais hideHeader />}
