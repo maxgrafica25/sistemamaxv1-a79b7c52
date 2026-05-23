@@ -20,7 +20,7 @@ import { useQuoteDraftV3 } from "./shared/useQuoteDraftV3";
 import { summarize, fmtBRL } from "./shared/pricing";
 import { DEFAULT_STATE, genId, type V3Category, type V3Item, type V3QuoteState } from "./types";
 
-import { saveQuoteV3 } from "./shared/saveQuoteV3";
+import { saveQuoteV3, nextQuoteNumber } from "./shared/saveQuoteV3";
 import { loadQuoteV3 } from "./shared/loadQuoteV3";
 import { RecorrentesPanel } from "@/components/recorrentes/RecorrentesPanel";
 import { useGlobalSettings } from "@/hooks/useGlobalSettings";
