@@ -23,6 +23,7 @@ import PageLoader from "@/components/PageLoader";
 import CategoriasTab from "@/pages/processos-producao/CategoriasTab";
 import GruposMateriais from "@/pages/GruposMateriais";
 import KitsProduto, { type KitsProdutoHandle } from "@/pages/KitsProduto";
+import Acabamentos from "@/pages/Acabamentos";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Step {
@@ -52,8 +53,9 @@ interface StepGroup {
 // ─── Tab config ──────────────────────────────────────────────────────
 const tabConfig = [
   { key: "etapas", label: "Etapas" },
-  { key: "grupos", label: "Grupos de Etapas" },
+  { key: "acabamentos", label: "Acabamentos" },
   { key: "categorias", label: "Categorias" },
+  { key: "grupos", label: "Grupos de Etapas" },
   { key: "grupos-materiais", label: "Grupos de Materiais" },
   { key: "kits", label: "Kits de Produto" },
 ] as const;
