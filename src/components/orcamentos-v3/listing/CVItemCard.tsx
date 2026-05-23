@@ -25,22 +25,8 @@ import {
 import { filterAndSortForMidia } from "@/lib/cv-calc/media-order";
 import { marginTextClass, marginLabel } from "@/lib/quotes/margin";
 
-export interface CVItemState {
-  id: string;
-  /** legado: `material_id` mapeia agora para `midia_id` */
-  material_id: string | null;
-  /** legado: `printer_id` mapeia agora para `impressao_id` */
-  printer_id: string | null;
-  largura_cm: number;
-  altura_cm: number;
-  quantidade: number;
-  acabamentos: Array<{
-    finish_id: string;
-    quantidade_unidades: number;
-    /** Acabamento avulso, válido só neste orçamento. */
-    custom?: { nome: string; valor: number };
-  }>;
-}
+export type { CVItemState } from "../types";
+import type { CVItemState } from "../types";
 
 interface Props {
   item: CVItemState;
