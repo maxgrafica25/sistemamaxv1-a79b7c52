@@ -23,8 +23,9 @@ export function useV3ProcessCatalog() {
         supabase.from("step_groups").select("id, name").order("name"),
         supabase
           .from("step_group_items")
-          .select("step_group_id, description, time_minutes, step_type")
+          .select("step_group_id, description, time_minutes, step_type, production_step_id")
           .order("sort_order"),
+
       ]);
       if (cancel) return;
 
