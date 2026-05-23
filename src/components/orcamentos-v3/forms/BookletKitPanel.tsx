@@ -322,14 +322,18 @@ export function BookletKitPanel({
           {mode === "standard" && (
             <>
               {override ? (
-                <span className="text-[9.5px] uppercase tracking-wider text-primary/80 font-semibold shrink-0">
-                  trocado
-                </span>
+                <>
+                  <span className="text-[9.5px] uppercase tracking-wider text-primary/80 font-semibold shrink-0">
+                    trocado
+                  </span>
+                  <span className="flex-1" />
+                </>
               ) : (
                 <span className="flex-1 text-muted-foreground text-[10.5px] truncate hidden sm:inline">
                   {r.description}
                 </span>
               )}
+
 
 
               <span className="text-muted-foreground tabular-nums text-[10.5px]">
