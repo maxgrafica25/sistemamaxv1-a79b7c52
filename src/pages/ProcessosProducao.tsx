@@ -30,6 +30,7 @@ interface Step {
 
 interface GroupItem {
   id: string;
+  production_step_id: string;
   description: string;
   time_minutes: number;
   sort_order: number;
@@ -41,6 +42,7 @@ interface StepGroup {
   name: string;
   items: GroupItem[];
 }
+
 
 // ─── Tab config ──────────────────────────────────────────────────────
 const tabConfig = [
