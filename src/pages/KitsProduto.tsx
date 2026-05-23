@@ -134,6 +134,41 @@ const ROLE_SHORT: Record<KitItemRole, string> = {
 
 const tmp = () => `tmp_${Math.random().toString(36).slice(2, 9)}`;
 
+const normalizeForMatch = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const singularize = (t: string) => (t.length > 3 && t.endsWith("s") ? t.slice(0, -1) : t);
+
+function suggestPresets(
+  kitName: string,
+  presets: PresetOption[],
+  alreadySelected: string[],
+): PresetOption[] {
+  const n = normalizeForMatch(kitName);
+  if (n.length < 3) return [];
+  const kitTokens = new Set(n.split(" ").map(singularize).filter((t) => t.length > 3));
+  const out: PresetOption[] = [];
+  for (const p of presets) {
+    if (alreadySelected.includes(p.id)) continue;
+    const pn = normalizeForMatch(p.nome);
+    if (!pn) continue;
+    let match = n.includes(pn) || pn.includes(n);
+    if (!match) {
+      const presetTokens = pn.split(" ").map(singularize).filter((t) => t.length > 3);
+      match = presetTokens.some((t) => kitTokens.has(t));
+    }
+    if (match) out.push(p);
+  }
+  return out;
+}
+
+
 interface ProcessOption {
   id: string;
   description: string;
