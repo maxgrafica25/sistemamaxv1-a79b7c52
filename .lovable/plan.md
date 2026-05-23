@@ -1,34 +1,32 @@
-## Drag-and-drop para reordenar itens do kit
+## Mover "Encadernação espiral" para dentro do picker
 
-### Por que ordenar importa
+Hoje há **dois botões** na barra inferior do diálogo de kit:
+- `+ Adicionar acabamentos` → abre o picker em massa (Suprimentos/Processos)
+- `+ Encadernação espiral` → atalho que adiciona uma linha com 12 faixas pré-prontas (só faz sentido para Apostila)
 
-`position` define a ordem em que os acabamentos aparecem para o cliente no formulário de orçamento e na OP/PDF. Hoje só dá pra mover de 1 em 1 com ▲/▼ — chato quando o kit tem muitos itens.
+Resultado: poluição visual e dúvida sobre quando usar cada um. Solução: **um único ponto de entrada**.
 
-### Mudança de UX
+### Mudança
 
-- **Alça de arrasto** (ícone `GripVertical`) à esquerda de cada linha de item; cursor vira "grab" no hover, "grabbing" enquanto arrasta.
-- Segura e arrasta a linha inteira para qualquer posição → ao soltar, `position` é recalculado.
-- **Feedback visual** durante o drag: a linha arrastada fica translúcida + sombra; as outras se afastam suavemente.
-- **Setas ▲▼ removidas** — só drag.
-- **Drag restrito ao bloco**: itens "soltos" só reordenam entre si; itens dentro de um grupo Alternativo só reordenam dentro do próprio grupo. Para mover de grupo, continua sendo via `⋯ → Grupo de alternativos`.
-- **Acessibilidade**: `@dnd-kit` já suporta teclado nativamente (Tab até a alça, Espaço pra pegar, setas pra mover, Espaço pra soltar) — fica de graça.
+1. **Remover** o botão `+ Encadernação espiral` da barra inferior.
+2. **Adicionar dentro do picker** (`AddItemsPicker`, aba **Suprimentos**), no topo, um card destacado:
+   > ✨ **Encadernação espiral automática**
+   > Adiciona uma linha com 12 faixas (nº de folhas → diâmetro). Você escolhe o suprimento de cada faixa depois.
+   > [Adicionar ao kit]
+3. Clicar nesse card insere a mesma estrutura de hoje (chama o mesmo `addSpiralByVariant`) e **fecha o picker**.
+4. Atualizar o texto de "estado vazio" da lista de itens — hoje diz "...adicionar acabamentos ou encadernação espiral"; passa a dizer apenas "...adicionar acabamentos".
+5. Atualizar o popover "Como funciona este kit": o passo 3 (Encadernação espiral) passa a explicar que o atalho fica **dentro** de `+ Adicionar acabamentos`.
 
-### Implementação
+### Detalhes técnicos
 
-- Biblioteca: `@dnd-kit/core` + `@dnd-kit/sortable` (já instaladas).
-- Arquivos afetados:
-  - `src/pages/KitsProduto.tsx`:
-    - Envolver a lista renderizada (`renderedItems.map`) em `<DndContext>` + `<SortableContext>` com sensors (Pointer + Keyboard).
-    - Para cada bloco "item solto": uma sortable list única ao nível raiz.
-    - Para cada bloco "alt-group": uma sortable list interna restrita aos `tmp_id`s do grupo (`SortableContext` aninhado por grupo).
-    - Handler `onDragEnd` reordena o array `items` (mantendo a ordem global) e reescreve `position` sequencial. Persistência continua no save (já reenvia tudo).
-  - `src/pages/KitsProduto.tsx` (componente `CompactItemRow`):
-    - Adicionar prop `dragHandleProps` e renderizar `<GripVertical>` à esquerda.
-    - Remover botões ▲/▼ e a prop `onMove`.
-- Manter função `moveItem` ou remover (vou remover, já que ninguém mais usa).
+- Arquivos:
+  - `src/components/kits/AddItemsPicker.tsx` — adicionar prop opcional `onAddSpiralShortcut?: () => void`; quando passada, renderiza o card destacado no topo da aba Suprimentos.
+  - `src/pages/KitsProduto.tsx` — remover o botão da barra; passar `onAddSpiralShortcut={() => { addSpiralByVariant(); setPickerOpen(false); }}` para o picker; ajustar o texto de empty state.
+  - `src/components/kits/KitHowItWorks.tsx` — ajustar o texto do passo 3.
+- Nenhuma mudança em schema, backend ou outras telas.
+- A função `addSpiralByVariant` continua existindo (só muda quem chama).
 
 ### Fora do escopo
 
-- Arrastar entre grupos diferentes.
-- Reordenar grupos inteiros (a ordem dos grupos segue a posição do primeiro item de cada).
-- Mudar o schema (`position` já existe).
+- Esconder a opção por tipo de produto (você optou por mantê-la sempre disponível, só dentro do picker).
+- Refatorar a lógica de "variant_by_sheets" ou as 12 faixas padrão.
