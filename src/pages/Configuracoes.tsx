@@ -416,15 +416,17 @@ export default function Configuracoes() {
                 )}
               </CardContent>
             </Card>
+            </div>
           </TabsContent>
         )}
 
         {isAdmin && (
-          <TabsContent value="vps" className="space-y-6 mt-4">
+          <TabsContent value="vps" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0 space-y-4">
             <VpsPackageCard sessionToken={session?.access_token ?? null} />
           </TabsContent>
         )}
       </Tabs>
+
 
       <Dialog open={generating !== null}>
         <DialogContent
