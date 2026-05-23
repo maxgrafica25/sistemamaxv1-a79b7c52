@@ -65,6 +65,18 @@ import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
+import { buttonVariants } from "@/components/ui/button";
+import {
   type KitItemRole,
   type KitQuantityFormula,
   SPIRAL_VARIANT_PRESET,
