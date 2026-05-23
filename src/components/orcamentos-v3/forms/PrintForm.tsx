@@ -181,6 +181,29 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     };
   };
 
+  // Gera 1 V3LaborItem por acabamento ligado que tenha etapa de produção vinculada.
+  // O tempo é fixo por etapa (não escala com a tiragem) — mesmo critério do
+  // catálogo Etapas. Bundled com o item de impressão para visualização agrupada.
+  const buildLinkedLaborItems = (bundleId: string): V3LaborItem[] => {
+    return printFinishings
+      .filter((f) => finEnabled[f.id] && f.production_step)
+      .map((f) => {
+        const step = f.production_step!;
+        const allowed: V3LaborItem["step_type"][] = ["impressao", "acabamento", "corte", "outro"];
+        const st = (step.step_type ?? "acabamento") as V3LaborItem["step_type"];
+        return {
+          id: genId(),
+          kind: "labor" as const,
+          descricao: `${step.description} (de ${f.name})`,
+          time_minutes: step.time_minutes,
+          step_type: allowed.includes(st) ? st : "acabamento",
+          hourly_rate: hourlyRate,
+          margem_pct: defaultMarginPct,
+          bundle_id: bundleId,
+        };
+      });
+  };
+
   const submit = () => {
     if (!canAdd) return;
     const item = buildItem(quantidade);
@@ -188,9 +211,19 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     const cleanExtras = [...new Set(extraTiers)]
       .filter((q) => q > 0 && q !== quantidade)
       .sort((a, b) => a - b);
+
+    const bundleId = `bnd_${genId()}`;
+    const laborItems = buildLinkedLaborItems(bundleId);
+    const hasLabor = laborItems.length > 0;
+
     if (cleanExtras.length > 0 && onAddTiers && catalog) {
       const tg = `tg_${genId()}`;
-      const primary = { ...item, tier_group_id: tg, tier_primary: true } as V3PrintItem;
+      const primary = {
+        ...item,
+        tier_group_id: tg,
+        tier_primary: true,
+        ...(hasLabor ? { bundle_id: bundleId, bundle_label: item.descricao || "Impressão" } : {}),
+      } as V3PrintItem;
       const siblings = cleanExtras
         .map((q) => {
           const it = buildItem(q, tg);
@@ -198,6 +231,14 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
         })
         .filter((x): x is V3PrintItem => !!x);
       onAddTiers([primary, ...siblings]);
+      if (hasLabor && onAddMany) onAddMany(laborItems);
+    } else if (hasLabor && onAddMany) {
+      const printWithBundle = {
+        ...item,
+        bundle_id: bundleId,
+        bundle_label: item.descricao || "Impressão",
+      } as V3PrintItem;
+      onAddMany([printWithBundle, ...laborItems]);
     } else {
       onAdd(item);
     }
