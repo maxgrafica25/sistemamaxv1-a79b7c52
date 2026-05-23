@@ -54,9 +54,8 @@ interface Props {
 export function CVForm({ onAdd, onAddTiers }: Props) {
   const cat = useV3CVCatalog();
 
-  // Pergunta "Tem arte pronta?"
-  const [artStatus, setArtStatus] = useState<ArtStatus | null>(null);
-  const [artTercValue, setArtTercValue] = useState<number>(0);
+  // "Tem arte pronta?" agora é única por orçamento (NewQuoteFormV3).
+
 
   // null = Personalizado (padrão); caso contrário, id do preset ativo
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
