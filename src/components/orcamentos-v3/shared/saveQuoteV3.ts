@@ -59,43 +59,91 @@ export interface SaveResult {
   quote_number: string;
 }
 
-export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
+export async function saveQuoteV3(
+  state: V3QuoteState,
+  editingQuoteId?: string,
+): Promise<SaveResult> {
   if (!state.cliente.id) throw new Error("Selecione um cliente válido antes de salvar.");
   if (state.items.length === 0) throw new Error("Adicione pelo menos 1 item.");
 
-  const quote_number = await nextQuoteNumber();
   const value = totalValue(state.items);
+  const v3_payload = state as unknown as Record<string, unknown>;
 
-  // Validade default da empresa (fallback 15 dias)
-  const { data: companyRow } = await supabase
-    .from("company_settings")
-    .select("default_quote_validity_days")
-    .limit(1)
-    .maybeSingle();
-  const validity = String((companyRow as any)?.default_quote_validity_days ?? 15);
+  let quoteId: string;
+  let quote_number: string;
 
-  const payload = {
-    quote_number,
-    client: state.cliente.nome.trim(),
-    client_id: state.cliente.id,
-    product: state.assunto.trim() || "Orçamento rápido (V3)",
-    value,
-    status: "pending" as const,
-    date: new Date().toISOString().split("T")[0],
-    validity,
-    profit_margin: String(state.margin_pct ?? 33),
-    payment_method: null,
-    tags: ["v3"],
-  };
+  if (editingQuoteId) {
+    // Bloqueia edição de versão travada (já tem versão filha)
+    const { data: existing, error: exErr } = await supabase
+      .from("quotes")
+      .select("id, quote_number, is_locked")
+      .eq("id", editingQuoteId)
+      .maybeSingle();
+    if (exErr) throw exErr;
+    if (!existing) throw new Error("Orçamento não encontrado.");
+    if ((existing as { is_locked?: boolean }).is_locked) {
+      throw new Error("Esta versão foi substituída e não pode ser editada.");
+    }
+    quoteId = (existing as { id: string }).id;
+    quote_number = (existing as { quote_number: string }).quote_number;
 
-  const { data: inserted, error } = await supabase
-    .from("quotes")
-    .insert([payload])
-    .select("id, quote_number")
-    .single();
-  if (error || !inserted) throw error || new Error("Falha ao criar orçamento.");
+    const updPayload = {
+      client: state.cliente.nome.trim(),
+      client_id: state.cliente.id,
+      product: state.assunto.trim() || "Orçamento rápido (V3)",
+      value,
+      profit_margin: String(state.margin_pct ?? 33),
+      v3_payload: v3_payload as never,
+      updated_at: new Date().toISOString(),
+    };
+    const { error: updErr } = await supabase
+      .from("quotes")
+      .update(updPayload as never)
+      .eq("id", quoteId);
+    if (updErr) throw updErr;
 
-  const quoteId = inserted.id as string;
+    // Limpa filhos antes de reinserir
+    await Promise.all([
+      supabase.from("quote_materials").delete().eq("quote_id", quoteId),
+      supabase.from("quote_labor_steps").delete().eq("quote_id", quoteId),
+      supabase.from("quote_third_party").delete().eq("quote_id", quoteId),
+      supabase.from("cv_quote_items").delete().eq("quote_id", quoteId),
+    ]);
+  } else {
+    quote_number = await nextQuoteNumber();
+
+    // Validade default da empresa (fallback 15 dias)
+    const { data: companyRow } = await supabase
+      .from("company_settings")
+      .select("default_quote_validity_days")
+      .limit(1)
+      .maybeSingle();
+    const validity = String((companyRow as any)?.default_quote_validity_days ?? 15);
+
+    const payload = {
+      quote_number,
+      client: state.cliente.nome.trim(),
+      client_id: state.cliente.id,
+      product: state.assunto.trim() || "Orçamento rápido (V3)",
+      value,
+      status: "pending" as const,
+      date: new Date().toISOString().split("T")[0],
+      validity,
+      profit_margin: String(state.margin_pct ?? 33),
+      payment_method: null,
+      tags: ["v3"],
+      v3_payload: v3_payload as never,
+    };
+
+    const { data: inserted, error } = await supabase
+      .from("quotes")
+      .insert([payload as never])
+      .select("id, quote_number")
+      .single();
+    if (error || !inserted) throw error || new Error("Falha ao criar orçamento.");
+    quoteId = (inserted as { id: string }).id;
+    quote_number = (inserted as { quote_number: string }).quote_number;
+  }
 
   // Materiais de IMPRESSÃO em quote_materials (CV vai em cv_quote_items).
   const materialRows = state.items
