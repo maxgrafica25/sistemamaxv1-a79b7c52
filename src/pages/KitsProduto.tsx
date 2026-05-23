@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import {
   Plus,
   Trash2,
@@ -63,7 +63,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
+import { buttonVariants } from "@/components/ui/button";
 import {
   type KitItemRole,
   type KitQuantityFormula,
@@ -220,7 +231,18 @@ interface ReadonlyKitItem {
   formula: string;
 }
 
-export default function KitsProduto() {
+export interface KitsProdutoHandle {
+  openNew: () => void;
+}
+
+interface KitsProdutoProps {
+  hideHeader?: boolean;
+}
+
+const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function KitsProduto(
+  { hideHeader = false },
+  ref,
+) {
   const { requireAdmin } = usePermissionGuard();
   const [kits, setKits] = useState<KitRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -396,6 +418,9 @@ export default function KitsProduto() {
     resetForm();
     setDialogOpen(true);
   };
+
+  useImperativeHandle(ref, () => ({ openNew }));
+
 
   const openEdit = async (kitId: string) => {
     if (!requireAdmin("gerenciar kits de produto")) return;
@@ -794,22 +819,24 @@ export default function KitsProduto() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-6 w-6 text-primary" />
-          <div>
-            <h1 className="text-2xl font-semibold">Kits de Produto</h1>
-            <p className="text-sm text-muted-foreground">
-              Materiais e processos sugeridos automaticamente por tipo de produto no orçamento.
-            </p>
+      {!hideHeader && (
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-6 w-6 text-primary" />
+            <div>
+              <h1 className="text-2xl font-semibold">Kits de Produto</h1>
+              <p className="text-sm text-muted-foreground">
+                Materiais e processos sugeridos automaticamente por tipo de produto no orçamento.
+              </p>
+            </div>
           </div>
+          <AdminOnly>
+            <Button onClick={openNew}>
+              <Plus className="h-4 w-4 mr-2" /> Novo Kit
+            </Button>
+          </AdminOnly>
         </div>
-        <AdminOnly>
-          <Button onClick={openNew}>
-            <Plus className="h-4 w-4 mr-2" /> Novo Kit
-          </Button>
-        </AdminOnly>
-      </div>
+      )}
 
       {loading ? (
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -830,6 +857,7 @@ export default function KitsProduto() {
               </h2>
               <Badge variant="outline">{list.length}</Badge>
             </div>
+            <Separator className="mb-2" />
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {list.map((k) => (
                 <Card key={k.id} className={k.is_active ? "" : "opacity-60"}>
@@ -906,7 +934,7 @@ export default function KitsProduto() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-destructive hover:text-destructive"
+                        className="ml-auto text-destructive hover:text-destructive"
                         onClick={() => setDeletingId(k.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -1222,17 +1250,31 @@ export default function KitsProduto() {
       )}
 
 
-      <ConfirmDialog
-        open={!!deletingId}
-        onOpenChange={(o) => !o && setDeletingId(null)}
-        title="Excluir kit?"
-        description="Esta ação não pode ser desfeita. Orçamentos já criados não são afetados."
-        onConfirm={remove}
-        confirmText="Excluir"
-      />
+      <AlertDialog open={!!deletingId} onOpenChange={(o) => !o && setDeletingId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Kit?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este kit? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={remove}
+              className={buttonVariants({ variant: "destructive" })}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
-}
+});
+
+export default KitsProduto;
+
 
 function CompactItemRow({
   item,
