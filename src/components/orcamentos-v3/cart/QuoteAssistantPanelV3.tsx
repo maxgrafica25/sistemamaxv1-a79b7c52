@@ -92,6 +92,7 @@ export function QuoteAssistantPanelV3({ items, clientId, clientName, checklistAn
             cvFinishes={acabs}
             clientTags={clientTags}
             clientName={clientName}
+            checklistAnswers={checklistAnswers}
             embedded
             onCountChange={setCount}
           />
