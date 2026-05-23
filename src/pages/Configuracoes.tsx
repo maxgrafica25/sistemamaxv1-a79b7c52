@@ -115,6 +115,7 @@ export default function Configuracoes() {
       default_margin_pct: parseFloat(defaultProfitMargin) || 0,
       tax_pct: parseFloat(taxPct) || 0,
       collection_fee_pct: cardFee,
+      checklist_before_save: checklistBeforeSave,
     };
     if (settingsId) {
       await supabase.from("global_settings").update(data).eq("id", settingsId);
