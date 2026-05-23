@@ -189,27 +189,28 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
       {/* Split-screen */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_360px] overflow-hidden">
         {/* Workspace (70%) */}
-        <div className="overflow-y-auto px-4 lg:px-6 py-5 bg-background pb-24 lg:pb-0">
-          <TabsLayout active={active} onChange={setActive} />
-          <p className="mt-2 text-xs text-muted-foreground">
-            {getTab(active).description}
-          </p>
+        <div className="overflow-y-auto overscroll-contain px-4 lg:px-6 py-5 bg-background pb-24 lg:pb-0">
+          <div className="min-h-full flex flex-col">
+            <TabsLayout active={active} onChange={setActive} />
+            <p className="mt-2 text-xs text-muted-foreground">
+              {getTab(active).description}
+            </p>
 
-          <div className="mt-6 max-w-3xl">
-            <RecorrentesPanel clientId={state.cliente.id} clientName={state.cliente.nome} />
+            <div className="mt-6 max-w-3xl flex-1 flex flex-col">
+              <RecorrentesPanel clientId={state.cliente.id} clientName={state.cliente.nome} />
 
-            {active === "print" && (
-              <PrintAndProductForm
-                onAdd={addItem}
-                onAddMany={addItems}
-                onAddTiers={addItems}
-                defaultMarginPct={state.margin_pct}
-              />
-            )}
-            {active === "cv" && <CVForm onAdd={addItem} onAddTiers={addItems} />}
-            {active === "third" && <ThirdPartyForm onAdd={addItem} onAddTiers={addItems} />}
+              {active === "print" && (
+                <PrintAndProductForm
+                  onAdd={addItem}
+                  onAddMany={addItems}
+                  onAddTiers={addItems}
+                  defaultMarginPct={state.margin_pct}
+                />
+              )}
+              {active === "cv" && <CVForm onAdd={addItem} onAddTiers={addItems} />}
+              {active === "third" && <ThirdPartyForm onAdd={addItem} onAddTiers={addItems} />}
+            </div>
           </div>
-
         </div>
 
         {/* Cart (30%) */}
