@@ -93,10 +93,12 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
       }
       const stamped = stampArt(items, artStatus);
       let toEmit: V3Item[] = stamped;
-      if (artStatus === "terceirizada" && artTercValue > 0) {
-        // Acha um bundle/print "líder" para amarrar a arte terceirizada.
+      const isInternalTier = artStatus && artStatus !== "ready" && artStatus !== "terceirizada";
+      const needsBundle = artStatus === "terceirizada" || isInternalTier;
+      let bundleId: string | null = null;
+      if (needsBundle) {
         const leader = stamped.find((i) => i.kind !== "third" && i.kind !== "labor" && i.kind !== "supply");
-        let bundleId = (leader as { bundle_id?: string | null } | undefined)?.bundle_id ?? null;
+        bundleId = (leader as { bundle_id?: string | null } | undefined)?.bundle_id ?? null;
         if (leader && !bundleId) {
           bundleId = `bnd_${Date.now().toString(36)}`;
           toEmit = stamped.map((it) =>
@@ -105,7 +107,12 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
               : it,
           );
         }
+      }
+      if (artStatus === "terceirizada" && artTercValue > 0) {
         const art = makeArtThirdParty(artTercValue, bundleId);
+        if (art) toEmit = [...toEmit, art];
+      } else if (isInternalTier) {
+        const art = makeArtInternal(artStatus, hourRate, bundleId);
         if (art) toEmit = [...toEmit, art];
       }
       emit(toEmit);
@@ -113,7 +120,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
       setArtStatus(null);
       setArtTercValue(0);
     },
-    [artStatus, artTercValue, artBlockedReason],
+    [artStatus, artTercValue, artBlockedReason, hourRate],
   );
 
   const wrappedOnAdd = useCallback(
