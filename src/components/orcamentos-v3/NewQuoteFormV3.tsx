@@ -37,6 +37,7 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [loadingEdit, setLoadingEdit] = useState(isEditing);
   const [editMeta, setEditMeta] = useState<{ quote_number: string; status: string } | null>(null);
+  const [checklistAnswers, setChecklistAnswers] = useState<{ pergunta: string; resposta: string }[]>([]);
   const { settings: globalSettings } = useGlobalSettings();
 
   // Rascunho local desabilitado em modo edição (não queremos sobrescrever
