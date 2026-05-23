@@ -974,6 +974,7 @@ export type Database = {
           altura_cm: number
           aplicou_minimo: boolean
           area_total_m2: number
+          art_status: string | null
           created_at: string
           finishes_json: Json
           id: string
@@ -1000,6 +1001,7 @@ export type Database = {
           altura_cm?: number
           aplicou_minimo?: boolean
           area_total_m2?: number
+          art_status?: string | null
           created_at?: string
           finishes_json?: Json
           id?: string
@@ -1026,6 +1028,7 @@ export type Database = {
           altura_cm?: number
           aplicou_minimo?: boolean
           area_total_m2?: number
+          art_status?: string | null
           created_at?: string
           finishes_json?: Json
           id?: string

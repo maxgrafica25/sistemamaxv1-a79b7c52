@@ -1,0 +1,1 @@
+ALTER TABLE public.cv_quote_items ADD COLUMN IF NOT EXISTS art_status text NULL;
