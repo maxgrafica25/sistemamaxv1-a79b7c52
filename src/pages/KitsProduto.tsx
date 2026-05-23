@@ -80,20 +80,34 @@ interface KitRow {
   description: string | null;
   is_active: boolean;
   item_count: number;
+  preset_ids: string[];
 }
 
-const KIND_SUGGESTIONS = [
-  "apostila",
-  "cartao_visita",
-  "cartao",
-  "banner",
-  "bloco",
-  "folder",
-  "panfleto",
-  "adesivo",
-  "convite",
-  "certificado",
-];
+interface PresetOption {
+  id: string;
+  nome: string;
+  icone: string;
+}
+
+// Mapeia nome do preset → product_kind legado (compat com fetchers antigos).
+const PRESET_NAME_TO_KIND: Record<string, string> = {
+  "Cartão de Visita": "cartao_visita",
+  Apostila: "apostila",
+  Etiqueta: "etiqueta",
+  "Folheto / Flyer": "folheto",
+  Adesivo: "adesivo",
+  Banner: "banner",
+  Lona: "lona",
+  Faixa: "faixa",
+};
+
+const slugify = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 
 const FORMULA_LABELS: Record<KitQuantityFormula, string> = {
   per_unit: "Por unidade",
