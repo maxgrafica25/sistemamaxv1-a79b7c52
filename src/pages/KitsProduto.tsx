@@ -528,6 +528,18 @@ export default function KitsProduto() {
           if (ve) throw ve;
         }
       }
+
+      // Sincroniza vínculos com Produtos Favoritos (N:N)
+      await supabase.from("product_kit_presets").delete().eq("kit_id", kitId!);
+      if (selectedPresetIds.length > 0) {
+        const linksPayload = selectedPresetIds.map((pid) => ({
+          kit_id: kitId!,
+          preset_id: pid,
+        }));
+        const { error: le } = await supabase
+          .from("product_kit_presets")
+          .insert(linksPayload);
+        if (le) throw le;
       toast.success(editingId ? "Kit atualizado." : "Kit criado.");
       setDialogOpen(false);
       resetForm();
