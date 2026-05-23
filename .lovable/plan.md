@@ -1,64 +1,57 @@
-## Objetivo
-Unificar hierarquia visual, padronizar abas e melhorar UX da tela `/insumos`, integrando a visualização rápida (accordion) já implementada nos cards de Kits — sem mexer em regras de negócio nem em schema.
+## Problema
+No formulário de Cartão de Visita (e demais formulários V3 que usam Kit de Produto), cada acabamento listado mostra apenas o nome do `production_step` (ex.: "Corte de 100 Cartões de visita"). Não fica claro para o operador o que compõe essa etapa.
 
-## 1. Hierarquia da página `/insumos` (Insumos.tsx)
+A intenção é que esses acabamentos sejam, na verdade, **Grupos de Etapas** (`step_groups`), com `step_group_items` representando o passo-a-passo (ex.: "Preparar guilhotina", "Cortar", "Embalar").
 
-Hoje: as 3 abas (Materiais / Grupos / Kits) ficam no topo e cada subpágina renderiza seu próprio header logo abaixo. Para espelhar "Processos de Produção" (header → DotTabs → conteúdo), vou:
+Hoje as tabelas estão desconectadas:
+- `product_kit_items.process_step_id` → `production_steps`
+- `step_groups` ⇄ `step_group_items` (sem relação com `production_steps`)
 
-- Mover o **header da página para `Insumos.tsx`** (título + subtítulo + botão primário), com conteúdo dinâmico por aba:
-  - "Materiais" — título "Materiais", subtítulo "Papéis e suprimentos", ação "+ Novo Material".
-  - "Grupos" — título "Grupos", subtítulo "Agrupamentos por finalidade", ação "+ Novo Grupo".
-  - "Kits de Produto" — título "Kits de Produto", subtítulo atual, ação "+ Novo Kit".
-- Para evitar acoplamento entre Insumos.tsx e o estado interno das subpáginas, expor o botão "+ Novo X" via um pequeno padrão simples: cada subpágina recebe uma prop opcional `hideHeader?: boolean` e a action de "novo" é disparada via um event bus leve (`window.dispatchEvent(new CustomEvent("insumos:new-kit"))`) que a subpágina escuta. Alternativa mais limpa: cada subpágina expõe `imperativeHandle` via `forwardRef` para o pai chamar `openNew()`. Vou usar a **abordagem `forwardRef + useImperativeHandle`** (idiomática React, sem event bus).
-- A ordem visual em `Insumos.tsx` passa a ser:
-  1. Page header (h1 + subtítulo à esquerda, botão "+ Novo X" à direita)
-  2. `<DotTabs>`
-  3. Conteúdo da aba (sem header próprio)
-- Subpáginas (`MateriasPrimas.tsx`, `GruposMateriais.tsx`, `KitsProduto.tsx`) passam a aceitar `hideHeader` e, quando true, escondem o bloco de header próprio. A action de "novo" continua dentro do componente; o pai dispara via ref.
-- A busca global (CommandPalette no Layout) já está acima de tudo — nenhuma mudança ali.
+## Solução (schema + UX, sem alterar regras de negócio)
 
-## 2. Padronização das abas em `Insumos.tsx`
+### 1. Migração — vincular `production_steps` a `step_groups` (opcional)
+- Adicionar coluna `step_group_id uuid NULL REFERENCES public.step_groups(id) ON DELETE SET NULL` em `production_steps`.
+- Índice `idx_production_steps_step_group_id`.
+- **Não altera dados existentes.** Etapas sem grupo continuam funcionando como hoje (sem expansão).
+- Em `src/pages/ProcessosProducao.tsx`: adicionar um seletor opcional "Grupo de etapas (detalhamento)" no diálogo de criação/edição da etapa. Quando preenchido, a etapa passa a ter sub-itens visíveis no orçamento.
 
-- Remover ícones (`Package`, `Layers`, `Sparkles`) das abas superiores.
-- Substituir a implementação custom atual por `<DotTabs>` (já existente em `src/components/ui/dot-tabs.tsx`), mesmo padrão de "Processos de Produção" (dot roxo + border-b roxo na ativa, dot cinza na inativa).
-- Mantém o `?tab=` na URL.
+### 2. UI — card expansível no formulário V3 (`FinishingProgressive`)
+Apenas camada de apresentação. Em `src/components/orcamentos-v3/shared/FinishingProgressive.tsx`:
 
-## 3. UI dos cards de Kit (KitsProduto.tsx)
+- Estender `FinishingDef` com campo opcional `subItems?: { description: string; time_minutes: number }[]` e `loading?: boolean`.
+- Adicionar `ChevronDown` (rotaciona 180° quando aberto) no canto direito do header, ao lado do Switch.
+- Estado local `expanded: Record<string, boolean>` controla a expansão por item.
+- Quando aberto, renderizar lista compacta read-only das sub-etapas:
+  ```
+  • Preparar guilhotina         2 min
+  • Cortar 100 cartões          6 min
+  • Embalar                     2 min
+  ```
+- Se `subItems` ainda não carregou: spinner "Carregando…".
+- Se `subItems` é `undefined` (sem grupo vinculado) ou vazio: esconder o chevron (nada a expandir).
 
-- **Divisor por categoria:** abaixo do rótulo "CARTÃO DE VISITA" + contador, adicionar `<Separator className="my-3" />` (100% da largura do grupo) antes da grade de cards.
-- **Hierarquia do card:** título + contador "N itens" à esquerda; `Switch` (ativo/inativo) movido para a extremidade direita do header do card (já está, mas vou garantir alinhamento `justify-between` no header sem competir com o chevron — chevron fica colado ao contador, switch fica isolado à direita).
-- **Rodapé:** "Editar" + "Duplicar" agrupados à esquerda; **"Excluir" empurrado para a extremidade direita** via `ml-auto`.
-- **AlertDialog para excluir:** substituir o `ConfirmDialog` atual por `<AlertDialog>` da shadcn/ui:
-  - Title: "Excluir Kit?"
-  - Description: "Tem certeza que deseja excluir este kit? Esta ação não pode ser desfeita."
-  - Botões: "Cancelar" + "Excluir" (`variant="destructive"`).
+### 3. Hook — `useProductKitProcesses` traz `step_group_id`
+Em `src/components/orcamentos-v3/shared/useProductKitProcesses.ts`:
+- Incluir `step_group_id` no `select` de `production_steps`.
+- Expor no tipo `KitProcStep`.
 
-## 4. UX do accordion (já implementado — revisar)
+### 4. Lazy-load das sub-etapas no `BusinessCardForm` (e demais consumidores)
+Em `src/components/orcamentos-v3/forms/BusinessCardForm.tsx`:
+- Novo estado `subItemsCache: Record<string, SubItem[]>` (chave = `step_group_id`).
+- Função `loadSubItems(stepGroupId)` que faz `supabase.from("step_group_items").select("description, time_minutes").eq("step_group_id", id).order("sort_order")` apenas na primeira expansão.
+- Passa `subItems` e `onExpand` ao `FinishingProgressive` via `FinishingDef`.
 
-Já está em produção:
-- Header do card clicável com `ChevronDown` que gira 180°.
-- Lista compacta read-only com ícone (`Package`/`Cog`), label, badges `ROLE_SHORT` e `formulaBadge`.
-- Fallback "Nenhum item cadastrado" quando `item_count === 0`.
-- Botões do rodapé fora do accordion.
+Mesma adaptação para outros formulários V3 que usam `useProductKitProcesses` (BookletForm, etc.) — feito como pequenas alterações simétricas.
 
-Ajuste: confirmar que o chevron permanece dentro do botão de toggle, sem conflitar com o `Switch` (que agora estará na extrema direita, fora do botão).
+## Fora do escopo
+- Não altera engine de preço/custo (sub-etapas são puramente informativas).
+- Não muda regras de RLS nem snapshot que vai pro orçamento salvo.
+- Não mexe na V2 nem em CV/Etiquetas.
 
-## 5. Lazy-load (já implementado — manter)
-
-Mantido tal como está:
-- `expandedKits: Set<string>`, `kitItemsCache`, `loadingKits`, `erroredKits`.
-- Fetch único por kit ao expandir; resolve `supply_label` em lote e `process_label` via `processes` em memória.
-- `Loader2` durante o fetch; mensagem destrutiva discreta em erro.
-- `fetchAll()` zera `kitItemsCache` e `erroredKits` para forçar refetch após salvar/editar/excluir.
-
-## 6. Implementação e limites
-
-- Arquivos tocados:
-  - `src/pages/Insumos.tsx` — hoist do header, DotTabs, refs para subpáginas.
-  - `src/pages/KitsProduto.tsx` — `hideHeader`, expor `openNew` via ref, Separator por categoria, AlertDialog, ajustes finos no card.
-  - `src/pages/MateriasPrimas.tsx` e `src/pages/GruposMateriais.tsx` — receber `hideHeader` e expor `openNew` via ref (mudanças mínimas, só apresentação).
-- Sem mudanças de schema, RLS, hooks de negócio ou outros módulos.
-- Sem alteração no Dialog de edição de Kit nem em outros cards do sistema.
-
-## Pequena exceção ao escopo declarado pelo usuário
-O usuário pediu "concentrar mudanças apenas em `KitsProduto.tsx`", mas a hierarquia "header → tabs → conteúdo" exige tocar `Insumos.tsx` (e mínimas adaptações em `MateriasPrimas.tsx` e `GruposMateriais.tsx` para suportar `hideHeader` + ref). É a forma correta de obter a hierarquia pedida; sigo nesse caminho salvo orientação contrária.
+## Arquivos afetados
+- Migração SQL (`production_steps.step_group_id`)
+- `src/pages/ProcessosProducao.tsx` (seletor de grupo)
+- `src/components/orcamentos-v3/shared/useProductKitProcesses.ts`
+- `src/components/orcamentos-v3/shared/FinishingProgressive.tsx`
+- `src/components/orcamentos-v3/forms/BusinessCardForm.tsx`
+- `src/components/orcamentos-v3/forms/BookletForm.tsx` (mesma integração)
