@@ -199,9 +199,18 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
 
   const submit = () => {
     if (!canAdd || !effectiveItem || !pricing) return;
-    const sel = buildSelections(sheets);
-    const { perSheet, perUnitTotal } = sumFinishingsPerSheet(sel, sheets);
-    const extra = perSheet + (sheets > 0 ? perUnitTotal / sheets : 0);
+    const sel = selectedProcs.map((p) => {
+      const cost = procCost(p.minutes);
+      return {
+        id: p.key,
+        name: p.name,
+        pricing_model: "per_unit" as const,
+        unit_label: "min",
+        price: cost,
+        cost,
+      };
+    });
+    const extra = finishingExtraPerSheet;
     const faceLabel = face === "fv" ? "Frente e Verso" : "Frente";
     const defaultDesc = `Cartão de visita ${layout.cardW / 10}×${layout.cardH / 10}cm — Couchê 300g ${faceLabel} (${qtdCartoes} un)`;
     const item: V3PrintItem = {
