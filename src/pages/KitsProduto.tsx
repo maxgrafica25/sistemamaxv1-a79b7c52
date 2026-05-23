@@ -181,6 +181,8 @@ export default function KitsProduto() {
   // Sub-dialogs
   const [pickerOpen, setPickerOpen] = useState(false);
   const [variantsEditing, setVariantsEditing] = useState<string | null>(null);
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  const [nameTouched, setNameTouched] = useState(false);
 
   const fetchAll = async () => {
     setLoading(true);
