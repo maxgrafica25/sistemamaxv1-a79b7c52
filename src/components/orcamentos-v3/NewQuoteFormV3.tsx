@@ -223,7 +223,7 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
               {state.items.length} {state.items.length === 1 ? "item" : "itens"} adicionados
             </p>
           </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-3">
             <UnifiedCart
               items={state.items}
               onDuplicate={duplicateItem}
