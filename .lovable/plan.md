@@ -1,51 +1,43 @@
-# Ajuste de UX — Barra "Adicionar ao orçamento" (V3)
+# Eliminar espaço em branco abaixo da barra "Adicionar ao orçamento"
 
-## Problema observado
-No `/orcamentos-v3/novo` (visível no screenshot do BusinessCardForm):
+## Causa raiz
+A barra `sticky bottom-0` vive **dentro** do container de scroll do workspace (`NewQuoteFormV3.tsx`, div com `overflow-y-auto flex-1`). Quando:
+- o conteúdo do form é mais curto que o container → a barra cola na parte inferior do viewport, mas o container tem altura `flex-1` (ocupa toda altura disponível), gerando área branca abaixo da barra quando se rola até o fim;
+- o usuário rola com o mouse sobre a sidebar do carrinho (que tem scroll próprio só na lista de itens) → o evento de scroll borbulha para o workspace, deslocando-o e expondo a área vazia.
 
-1. **Sobreposição confusa**: a barra `sticky bottom-0` usa `bg-background/95 backdrop-blur`. Como é semitransparente, ao rolar o conteúdo (ex.: lista de acabamentos "Corte de 100 cartões de visita") aparece **embaixo** da barra, dando sensação de "vazamento" sobre o botão.
-2. **Espaço em branco gigante**: o container do workspace tem `pb-24 lg:pb-5` (sobra de mobile aplicada em desktop também) e o `mt-2` da barra empurra o conteúdo, deixando uma área branca grande entre o último controle e a barra/rodapé.
+A barra sticky em si não é o problema — é o fato de ela estar **acoplada ao scroll do form** dentro de um container que sempre tem altura cheia.
 
-Mesmo padrão se repete em todos os forms V3: `BusinessCardForm`, `BookletForm`, `PrintForm`, `CVForm`, `ThirdPartyForm`, `LaborForm`, `SupplyForm`, `LabelEmbeddedForm`.
+## Solução proposta
 
-## Solução proposta (UI apenas, sem mexer em lógica de cálculo)
+**Mover a barra de ação para fora do form**, transformando-a em **rodapé fixo da coluna do workspace** (irmã do scroll, não filha). Assim:
+- O container de scroll só ocupa o espaço acima do rodapé;
+- A barra fica sempre visível, sem `sticky` interno;
+- Não há "espaço em branco abaixo" porque o scroll termina exatamente onde o rodapé começa;
+- Eventos de scroll que borbulhem da sidebar não conseguem expor área vazia.
 
-### 1. Barra sticky 100% opaca + sombra de separação
-Em cada form V3, trocar:
-```
-bg-background/95 backdrop-blur border-t border-border
-```
-por:
-```
-bg-background border-t border-border shadow-[0_-8px_16px_-8px_hsl(var(--background))]
-```
-(opacidade total + leve "fade" para indicar fim do conteúdo, sem deixar passar texto por baixo).
+### Implementação
 
-### 2. Remover o `pb-24` desnecessário no desktop
-Em `NewQuoteFormV3.tsx` linha 192, o `pb-24` existe para não esconder conteúdo atrás do `MobileCart` fixo. No desktop o cart é coluna lateral, então o padding extra cria a "faixa branca gigante". Trocar:
-```
-overflow-y-auto px-4 lg:px-6 py-5 bg-background pb-24 lg:pb-5
-```
-por:
-```
-overflow-y-auto px-4 lg:px-6 py-5 bg-background pb-24 lg:pb-0
-```
-(remove a sobra no desktop — a própria barra sticky já é o rodapé visual).
+1. **`NewQuoteFormV3.tsx`** — Transformar a coluna do workspace em flex coluna com header (tabs/descrição), scroll central (`flex-1 min-h-0 overflow-y-auto`) e rodapé fixo (`shrink-0 border-t bg-background`).
+2. **Cada form V3** (`BusinessCardForm`, `BookletForm`, `PrintForm`, `CVForm`, `ThirdPartyForm`, `LaborForm`, `SupplyForm`, `LabelEmbeddedForm`):
+   - Remover a `<div className="sticky bottom-0 …">` interna;
+   - Expor o estado/handler "submit + canAdd + label" via render prop ou prop `footerSlot`/callback;
+   - Manter toda a lógica de cálculo (`buildItem`, `submit`, `pulse`, `extraTiers`) intacta.
+3. Para evitar refator pesado de 8 forms, usar abordagem mais simples: **manter o botão dentro do form mas remover `sticky` e os `-mx/-mb` negativos**. O botão vira inline ao fim do conteúdo. A barra de ação **fixa do workspace** fica vazia/escondida — alternativa é deixar o botão dentro do form e apenas eliminar a área branca abaixo encolhendo o scroll container ao tamanho do conteúdo (`overflow-y-auto` continua, mas `flex-1` é substituído por `min-h-0` + altura calculada).
 
-### 3. Encostar a sticky no fim do scroll (sem `mt-2`)
-Trocar `mt-2` por `mt-6` nas barras sticky para dar respiro consistente acima, e garantir que ela use `-mb-5 lg:-mb-0` para encostar exatamente no fim do scroll container (anulando o `py-5` do pai apenas embaixo).
+### Abordagem escolhida (mínima, sem refator dos 8 forms)
 
-## Arquivos afetados (apenas JSX/classes Tailwind)
-- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` (1 linha)
-- `src/components/orcamentos-v3/forms/BusinessCardForm.tsx`
-- `src/components/orcamentos-v3/forms/BookletForm.tsx`
-- `src/components/orcamentos-v3/forms/PrintForm.tsx`
-- `src/components/orcamentos-v3/forms/CVForm.tsx`
-- `src/components/orcamentos-v3/forms/ThirdPartyForm.tsx`
-- `src/components/orcamentos-v3/forms/LaborForm.tsx`
-- `src/components/orcamentos-v3/forms/SupplyForm.tsx`
-- `src/components/orcamentos-v3/forms/LabelEmbeddedForm.tsx`
+Manter a sticky bar **mas garantir que não exista espaço vazio abaixo dela**:
+
+a. Em `NewQuoteFormV3.tsx`, envolver o conteúdo do scroll workspace em um wrapper `min-h-full flex flex-col` para que o form **estique** até o fim do container. A sticky bar interna do form já tem `mt-6` que vira `mt-auto` num flex column quando o filho é único — assim a barra encosta no fim natural do container, eliminando a faixa branca.
+
+b. Adicionar `overscroll-contain` na sidebar do carrinho (`<aside>` e na div interna) para que o scroll com mouse sobre o carrinho **não borbulhe** para o workspace.
+
+c. Ajustar o wrapper imediato do form (`<div className="mt-6 max-w-3xl">`) para `mt-6 max-w-3xl flex-1 flex flex-col` — assim o form ocupa toda altura disponível e a sticky bar, sendo o último filho com `mt-6` (que viraremos `mt-auto` via classe condicional), fica grudada no fim.
+
+## Arquivos afetados
+- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` (2 trechos: wrapper do scroll + `<aside>` do cart com `overscroll-contain`)
+- Os 8 forms V3 já editados: trocar `mt-6` por `mt-auto` na barra sticky.
 
 ## Fora do escopo
-- Nenhuma mudança em lógica de preços, kits, faixas, presets ou estado.
-- Nada de refator estrutural do split-screen.
+- Nenhuma mudança em lógica de cálculo, kits, faixas ou persistência.
+- Sem refator estrutural dos forms.
