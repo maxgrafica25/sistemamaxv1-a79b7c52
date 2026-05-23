@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { DotTabs } from "@/components/ui/dot-tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -55,6 +56,7 @@ export default function Configuracoes() {
   const [defaultProfitMargin, setDefaultProfitMargin] = useState("33");
   const [taxPct, setTaxPct] = useState("10");
   const [collectionFeePct, setCollectionFeePct] = useState("7");
+  const [checklistBeforeSave, setChecklistBeforeSave] = useState(true);
 
   // Backup state
   const [backupRuns, setBackupRuns] = useState<BackupRun[]>([]);
@@ -77,7 +79,7 @@ export default function Configuracoes() {
         supabase.from("salaries").select("salary, is_production"),
         supabase.from("equipment_depreciation").select("purchase_value, useful_life_months, residual_value"),
         supabase.from("productive_capacity").select("id, hours_per_month, production_employees").limit(1).single(),
-        supabase.from("global_settings").select("id, invoice_pct, collection_pct, waste_pct, default_margin_pct, tax_pct, collection_fee_pct, credit_card_pct").limit(1).single(),
+        supabase.from("global_settings").select("id, invoice_pct, collection_pct, waste_pct, default_margin_pct, tax_pct, collection_fee_pct, credit_card_pct, checklist_before_save").limit(1).single(),
       ]);
       const totalExp = (expRes.data || []).reduce((s: number, e: any) => s + e.value, 0);
       const totalSal = (salRes.data || []).reduce((s: number, e: any) => s + e.salary, 0) * 1.45;
@@ -95,6 +97,7 @@ export default function Configuracoes() {
         setDefaultProfitMargin(String(settingsRes.data.default_margin_pct));
         if ((settingsRes.data as any).tax_pct !== undefined) setTaxPct(String((settingsRes.data as any).tax_pct));
         if ((settingsRes.data as any).collection_fee_pct !== undefined) setCollectionFeePct(String((settingsRes.data as any).collection_fee_pct));
+        if ((settingsRes.data as any).checklist_before_save !== undefined) setChecklistBeforeSave(!!(settingsRes.data as any).checklist_before_save);
       }
       setLoading(false);
     };
@@ -113,6 +116,7 @@ export default function Configuracoes() {
       default_margin_pct: parseFloat(defaultProfitMargin) || 0,
       tax_pct: parseFloat(taxPct) || 0,
       collection_fee_pct: cardFee,
+      checklist_before_save: checklistBeforeSave,
     };
     if (settingsId) {
       await supabase.from("global_settings").update(data).eq("id", settingsId);
@@ -296,6 +300,27 @@ export default function Configuracoes() {
                 <Separator className="my-1" />
                 <div className="flex justify-between"><span className="text-muted-foreground">Soma total:</span><span className="font-semibold">{(totalIndiretos + (parseFloat(defaultProfitMargin) || 0)).toFixed(2)}%</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Divisor (1 − soma%):</span><span className="font-semibold text-primary">{(1 - (totalIndiretos + (parseFloat(defaultProfitMargin) || 0)) / 100).toFixed(4)}</span></div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">Fluxo de orçamentos</h3>
+                <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-muted/20 p-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="checklist-before-save" className="text-sm font-medium cursor-pointer">
+                      Confirmar checklist antes de salvar orçamento
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Quando ativo, ao clicar em Salvar abre um popup com todas as perguntas pendentes para revisão.
+                    </p>
+                  </div>
+                  <Switch
+                    id="checklist-before-save"
+                    checked={checklistBeforeSave}
+                    onCheckedChange={setChecklistBeforeSave}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>

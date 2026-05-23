@@ -1404,6 +1404,7 @@ export type Database = {
       }
       global_settings: {
         Row: {
+          checklist_before_save: boolean
           collection_fee_pct: number
           collection_pct: number
           created_at: string
@@ -1416,6 +1417,7 @@ export type Database = {
           waste_pct: number
         }
         Insert: {
+          checklist_before_save?: boolean
           collection_fee_pct?: number
           collection_pct?: number
           created_at?: string
@@ -1428,6 +1430,7 @@ export type Database = {
           waste_pct?: number
         }
         Update: {
+          checklist_before_save?: boolean
           collection_fee_pct?: number
           collection_pct?: number
           created_at?: string

@@ -1,14 +1,41 @@
-## Mostrar detalhamento dos acabamentos por padrão
+## Checklist em popup antes de salvar
 
-Hoje, no editor de Cartão de Visita (e demais formulários que usam `FinishingProgressive`), cada linha de "Acabamentos" e "Acabamentos opcionais" lista só o nome — o usuário precisa clicar no chevron para ver as sub-etapas que o compõem.
+Hoje o checklist (perguntas dinâmicas) divide espaço no sidebar de itens do orçamento. Vai virar uma etapa explícita **antes do envio**, com toggle para habilitar/desabilitar.
 
-### Mudança
+### 1. Banco — `global_settings`
 
-No `src/components/orcamentos-v3/shared/FinishingProgressive.tsx`:
+Migration adicionando coluna:
 
-1. Tornar o detalhamento (sub-itens) **visível por padrão** em todas as linhas que têm grupo vinculado.
-2. Disparar o `onExpand()` (lazy-load das sub-etapas) automaticamente ao montar para cada item com `hasGroup` — mantém a performance, mas o usuário não precisa mais clicar.
-3. Remover o botão chevron de expansão (ou mantê-lo só como "recolher" caso o usuário queira economizar espaço — preferência: **remover**, deixando a UI sempre aberta e mais legível).
-4. Manter o bloco `advanced` (configuração extra que aparece quando o switch é ligado) inalterado.
+- `checklist_before_save boolean NOT NULL DEFAULT true`
 
-Resultado: ao abrir o cartão de visita, o usuário vê na hora todas as sub-etapas de "Corte de 100 Cartões de visita" e "Laminação para 100 cartões de visita" sem precisar clicar em nada.
+### 2. Configurações do sistema
+
+Em `src/pages/Configuracoes.tsx` (aba de configurações gerais — mesmo formulário que já edita `waste_pct`, `default_margin_pct` etc):
+
+- Novo `Switch` "Confirmar checklist antes de salvar orçamento"
+- Descrição: "Quando ativo, ao clicar em Salvar abre um popup com todas as perguntas pendentes para revisão"
+- Persiste em `global_settings.checklist_before_save`
+
+Atualizar `useGlobalSettings`:
+- Adicionar `checklist_before_save: boolean` ao `GlobalSettingsData` e `DEFAULTS` (true).
+
+### 3. Editor de orçamento — `NewQuoteFormV3.tsx`
+
+Quando `checklist_before_save = true`:
+
+- **Remover** `<QuoteChecklistPanelV3>` do sidebar de itens (o painel some).
+- Interceptar o handler de salvar: ao clicar em "Salvar orçamento", se houver itens CV (que é a condição atual do checklist), abre um `Dialog` com o `QuoteChecklist` dentro (`embedded`), título "Revisão do checklist".
+- O Dialog tem dois botões:
+  - **Salvar mesmo assim** — fecha e prossegue com o save (mesmo com perguntas pendentes).
+  - **Confirmar e salvar** — só habilitado quando `pending = 0`; fecha e prossegue.
+- Respostas e auto-labor continuam fluindo pelos mesmos callbacks já existentes (`onAnswersChange`, `onAutoLaborChange`).
+
+Quando `checklist_before_save = false`:
+
+- Comportamento atual: checklist no sidebar, sem popup.
+
+### 4. Escopo do que NÃO muda
+
+- `QuoteChecklist` (componente real das perguntas) e `QuoteChecklistPanelV3` continuam existindo — o popup reusa exatamente o mesmo conteúdo.
+- Tabelas `quote_checklist_*` ficam intactas.
+- Mobile (`MobileCart`) continua sem checklist (já é assim).

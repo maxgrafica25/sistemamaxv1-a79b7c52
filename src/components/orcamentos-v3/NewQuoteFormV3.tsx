@@ -2,6 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ArrowLeft, FlaskConical, Save, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { ClientCombobox } from "@/components/orcamentos-v3/shared/ClientCombobox";
@@ -145,6 +153,29 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
     });
 
   const [saving, setSaving] = useState(false);
+  const [checklistDialogOpen, setChecklistDialogOpen] = useState(false);
+
+  const performSave = async () => {
+    setSaving(true);
+    try {
+      const result = await saveQuoteV3(state, editingQuoteId ?? undefined);
+      if (!isEditing) clear();
+      toast.success(
+        isEditing
+          ? `Orçamento ${result.quote_number} atualizado.`
+          : `Orçamento ${result.quote_number} criado.`,
+      );
+      onSave?.(result);
+    } catch (err: any) {
+      console.error("[V3 save]", err);
+      toast.error("Falha ao salvar orçamento", {
+        description: err?.message || "Tente novamente. O rascunho foi mantido.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSave = async () => {
     if (state.items.length === 0) {
       toast.error("Adicione pelo menos 1 item antes de salvar.");
@@ -168,24 +199,13 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
       });
       return;
     }
-    setSaving(true);
-    try {
-      const result = await saveQuoteV3(state, editingQuoteId ?? undefined);
-      if (!isEditing) clear();
-      toast.success(
-        isEditing
-          ? `Orçamento ${result.quote_number} atualizado.`
-          : `Orçamento ${result.quote_number} criado.`,
-      );
-      onSave?.(result);
-    } catch (err: any) {
-      console.error("[V3 save]", err);
-      toast.error("Falha ao salvar orçamento", {
-        description: err?.message || "Tente novamente. O rascunho foi mantido.",
-      });
-    } finally {
-      setSaving(false);
+    // Popup do checklist antes do save (se habilitado e houver itens CV).
+    const hasCV = state.items.some((it) => it.kind === "cv");
+    if (globalSettings.checklist_before_save && hasCV) {
+      setChecklistDialogOpen(true);
+      return;
     }
+    await performSave();
   };
 
   const lastSaved = savedAt ? new Date(savedAt).toLocaleTimeString("pt-BR") : null;
@@ -322,12 +342,14 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
               feesPct={state.fees_pct}
               wastePct={globalSettings.waste_pct}
             />
-            <QuoteChecklistPanelV3
-              items={state.items}
-              quoteId={editingQuoteId ?? null}
-              onItemsChange={(next) => setState((s) => ({ ...s, items: next }))}
-              onAnswersChange={setChecklistAnswers}
-            />
+            {!globalSettings.checklist_before_save && (
+              <QuoteChecklistPanelV3
+                items={state.items}
+                quoteId={editingQuoteId ?? null}
+                onItemsChange={(next) => setState((s) => ({ ...s, items: next }))}
+                onAnswersChange={setChecklistAnswers}
+              />
+            )}
             <QuoteAssistantPanelV3
               items={state.items}
               clientId={state.cliente.id}
@@ -358,6 +380,45 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
           wastePct={globalSettings.waste_pct}
         />
       </div>
+
+      <Dialog open={checklistDialogOpen} onOpenChange={setChecklistDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col gap-0 p-0">
+          <DialogHeader className="px-6 pt-5 pb-3 border-b border-border">
+            <DialogTitle>Revisão do checklist</DialogTitle>
+            <DialogDescription>
+              Confira as perguntas pendentes antes de salvar o orçamento.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto p-4">
+            <QuoteChecklistPanelV3
+              items={state.items}
+              quoteId={editingQuoteId ?? null}
+              onItemsChange={(next) => setState((s) => ({ ...s, items: next }))}
+              onAnswersChange={setChecklistAnswers}
+            />
+          </div>
+          <DialogFooter className="px-6 py-3 border-t border-border gap-2 sm:gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setChecklistDialogOpen(false)}
+              disabled={saving}
+            >
+              Voltar
+            </Button>
+            <Button
+              onClick={async () => {
+                setChecklistDialogOpen(false);
+                await performSave();
+              }}
+              disabled={saving}
+              className="gap-2"
+            >
+              <Save className="h-4 w-4" />
+              Confirmar e salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

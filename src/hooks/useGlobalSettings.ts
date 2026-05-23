@@ -9,6 +9,7 @@ export interface GlobalSettingsData {
   credit_card_pct: number;
   waste_pct: number;
   default_margin_pct: number;
+  checklist_before_save: boolean;
 }
 
 const DEFAULTS: GlobalSettingsData = {
@@ -19,6 +20,7 @@ const DEFAULTS: GlobalSettingsData = {
   credit_card_pct: 5,
   waste_pct: 5,
   default_margin_pct: 33,
+  checklist_before_save: true,
 };
 
 export function useGlobalSettings() {
@@ -39,6 +41,7 @@ export function useGlobalSettings() {
           credit_card_pct: Number(data.credit_card_pct ?? DEFAULTS.credit_card_pct),
           waste_pct: Number(data.waste_pct ?? DEFAULTS.waste_pct),
           default_margin_pct: Number(data.default_margin_pct ?? DEFAULTS.default_margin_pct),
+          checklist_before_save: data.checklist_before_save ?? DEFAULTS.checklist_before_save,
         });
       }
       setLoading(false);
