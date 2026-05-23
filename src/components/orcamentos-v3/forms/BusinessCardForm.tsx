@@ -155,27 +155,33 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   };
 
 
-  // Chips
-  const finishes = useMemo<FinishingDef[]>(
-    () =>
-      cvProcs.map((p) => ({
-        id: p.key,
-        label: `${p.kind === "group" ? "🗂 " : "⚙ "}${p.name}`,
-        hint: `${p.minutes} min · ${fmtBRL(procCost(p.minutes))}`,
-      })),
+  const toFinishingDef = (p: CVProc): FinishingDef => ({
+    id: p.key,
+    label: `${p.kind === "group" ? "🗂 " : "⚙ "}${p.name}`,
+    hint: `${p.minutes} min · ${fmtBRL(procCost(p.minutes))}`,
+  });
+  const fixedFinishes = useMemo<FinishingDef[]>(
+    () => fixedProcs.map(toFinishingDef),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cvProcs, hourRate],
+    [fixedProcs, hourRate],
+  );
+  const optionalFinishes = useMemo<FinishingDef[]>(
+    () => optionalProcs.map(toFinishingDef),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [optionalProcs, hourRate],
   );
 
-  // Limpa chips que saíram do conjunto
+  // Pré-marca fixos; mantém escolhas do usuário para opcionais; limpa órfãos.
   useEffect(() => {
     setFinEnabled((m) => {
-      const allowed = new Set(finishes.map((f) => f.id));
       const next: Record<string, boolean> = {};
-      for (const k of Object.keys(m)) if (allowed.has(k) && m[k]) next[k] = true;
+      for (const p of cvProcs) {
+        if (p.link_type === "fixed") next[p.key] = true;
+        else if (m[p.key]) next[p.key] = true;
+      }
       return next;
     });
-  }, [finishes]);
+  }, [cvProcs]);
 
   const selectedProcs = useMemo(
     () => cvProcs.filter((p) => finEnabled[p.key]),
