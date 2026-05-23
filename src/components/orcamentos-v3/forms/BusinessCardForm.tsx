@@ -279,7 +279,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 flex-1 flex flex-col">
       {/* Catálogo selecionado / vazio */}
       {couche300Sra3.length === 0 && !loading && (
         <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-4 text-center">
@@ -551,7 +551,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
       )}
 
 
-      <div className="sticky bottom-0 z-10 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 mt-6 -mb-5 lg:-mb-0 bg-background border-t border-border shadow-[0_-8px_16px_-8px_hsl(var(--background))] flex items-center justify-between gap-3">
+      <div className="sticky bottom-0 z-10 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 mt-auto -mb-5 lg:-mb-0 bg-background border-t border-border shadow-[0_-8px_16px_-8px_hsl(var(--background))] flex items-center justify-between gap-3">
         <div className="text-xs text-muted-foreground">
           {pricing && (
             <span>
