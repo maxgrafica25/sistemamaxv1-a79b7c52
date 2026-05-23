@@ -182,6 +182,21 @@ function EtapasTab() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>Grupo de Etapas (detalhamento) — opcional</Label>
+                <Select value={stepGroupId} onValueChange={setStepGroupId}>
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {groups.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Quando preenchido, o orçamento mostra o passo-a-passo do grupo dentro desta etapa.
+                </p>
+              </div>
               <Button onClick={saveStep} className="w-full">{editingStep ? "Salvar Alterações" : "Criar Etapa"}</Button>
             </div>
           </DialogContent>
