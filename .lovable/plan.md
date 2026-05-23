@@ -1,24 +1,24 @@
+## Adicionar descrições explicativas nas abas de Produção
 
-# Categorias como configuração do módulo Produção
+Cada aba do módulo Produção ganhará uma linha curta de descrição logo abaixo do `DotTabs`, padronizada visualmente para orientar o usuário sem poluir.
 
-## Mudanças
+### Padrão visual
+- Componente: um único `<p>` com ícone Lucide pequeno + texto.
+- Classes: `mb-4 flex items-center gap-2 text-xs text-muted-foreground`
+- Ícone: `h-3.5 w-3.5` (mesmo tom muted).
+- Renderiza condicionalmente conforme `activeTab`.
 
-### 1. `src/pages/ProcessosProducao.tsx`
-- Remover `"categorias"` da config de abas.
-- Adicionar botão de engrenagem (`Settings` do lucide) no header, ao lado direito do título — visível em todas as abas, restrito a Admin via `AdminOnly`.
-- Estado local `categoriasOpen` controlando um `<Dialog>` que renderiza `<CategoriasTab />` dentro.
-- Nova ordem das abas: **Etapas · Acabamentos · Grupos de Etapas · Grupos de Materiais · Kits de Produto**
-- Manter compatibilidade: se a URL chegar com `?tab=categorias`, abrir o dialog automaticamente e cair na aba default (`etapas`).
+### Textos por aba
 
-### 2. `src/pages/processos-producao/CategoriasTab.tsx`
-- Aceitar prop `hideHeader?: boolean` (mesmo padrão dos outros) caso já tenha header próprio; senão, sem mudança.
+| Aba | Ícone | Texto |
+|---|---|---|
+| Etapas | `Clock` | "Cadastre cada etapa do processo de produção e o tempo estimado (em minutos) que ela leva para ser executada." |
+| Acabamentos | `Sparkles` | "Acabamentos aplicáveis aos produtos (laminação, verniz, corte especial, etc.) com seu custo e tempo." |
+| Grupos de Etapas | `Layers` | "Agrupe várias etapas em uma sequência reutilizável — útil para detalhar o passo-a-passo de uma etapa no orçamento." |
+| Grupos de Materiais | `Layers` | "Conjuntos de materiais (papéis, insumos) que podem ser referenciados em conjunto nos orçamentos." |
+| Kits de Produto | `Sparkles` | "Combinações pré-montadas de etapas + materiais que viram atalhos para criar orçamentos rapidamente." |
 
-### 3. Botões de ação no header
-- Header passa a ter: título + descrição (esquerda) e, à direita, agrupados:
-  - Engrenagem ⚙ (sempre visível para admin) → abre dialog de Categorias
-  - Botão "Novo Kit" (apenas quando aba `kits` ativa, como já é hoje)
-
-## Fora de escopo
-
-- Nenhuma migration. Tabela `production_step_categories` continua igual.
-- Lógica de uso das categorias em `StepTypeBadge`, `EtapasTab` Select etc. inalterada.
+### Implementação
+1. Em `src/pages/ProcessosProducao.tsx`, criar um pequeno mapa `tabDescriptions: Record<TabKey, { icon: LucideIcon; text: string }>`.
+2. Renderizar a linha de descrição imediatamente após `<DotTabs />` e antes do conteúdo da aba ativa.
+3. Sem alterações em lógica, rotas, dados ou nos componentes das abas — apenas frontend/UI no arquivo `ProcessosProducao.tsx`.
