@@ -14,15 +14,8 @@ import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProg
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3PrintItem } from "../types";
-import {
-  listFinishings,
-  sumFinishingsPerSheet,
-  type FinishingItem,
-} from "@/lib/finishings/catalog";
-import {
-  resolveFinishingPricePerSheet,
-  pickFinishingTier,
-} from "@/lib/labels/finishing-pricing";
+import { useV3ProcessCatalog } from "../shared/useV3ProcessCatalog";
+import { useHourRate } from "@/hooks/useHourRate";
 import {
   calcCardsPerSheet,
   sheetsNeeded,
