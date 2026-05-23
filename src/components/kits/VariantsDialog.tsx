@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import SupplySearch from "@/components/orcamentos-v3/listing/SupplySearch";
+import SupplySearch from "@/components/orcamentos-v3/shared/SupplySearch";
 import { SPIRAL_VARIANT_PRESET } from "@/components/orcamentos-v3/shared/productKit";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";

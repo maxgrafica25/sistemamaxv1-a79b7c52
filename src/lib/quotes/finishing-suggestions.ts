@@ -2,7 +2,7 @@
 // Mapa simples: keyword (case-insensitive, substring) → descrições sugeridas.
 // Resolvidas contra `processSteps` reais (matching por substring na descrição).
 
-import type { ProcessStep } from "@/components/orcamentos-v3/listing/ProcessPicker";
+import type { ProcessStep } from "@/components/orcamentos-v3/shared/ProcessPicker";
 
 const RULES: Array<{ match: RegExp; suggest: string[] }> = [
   { match: /apostila/i,                         suggest: ["Furação", "Montagem", "Encadernação espiral", "Refile"] },

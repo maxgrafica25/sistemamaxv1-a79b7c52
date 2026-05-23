@@ -13,7 +13,7 @@ import { Plus, Trash2, Edit2, Clock, Loader2, Factory, Layers, Sparkles, Setting
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { StepTypeBadge, type StepType } from "@/components/orcamentos-v3/listing/StepTypeBadge";
+import { StepTypeBadge, type StepType } from "@/components/orcamentos-v3/shared/StepTypeBadge";
 import { useStepCategories } from "@/hooks/useStepCategories";
 import { DotTabs } from "@/components/ui/dot-tabs";
 import { handleError } from "@/lib/handleError";

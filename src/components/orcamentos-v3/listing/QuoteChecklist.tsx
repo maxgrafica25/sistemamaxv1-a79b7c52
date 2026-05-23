@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { CVItemState } from "@/components/orcamentos-v3/listing/CVItemCard";
+import type { CVItemState } from "@/components/orcamentos-v3/types";
 import type { Midia as CVMidia, Acabamento as CVAcabamento } from "@/lib/cv-calc/engine";
 
 export interface ChecklistQuestion {

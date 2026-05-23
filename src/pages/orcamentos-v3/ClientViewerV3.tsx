@@ -15,12 +15,12 @@ import {
   MessageCircle,
   Lock,
 } from "lucide-react";
-import { ViewerHeader } from "@/components/orcamentos-v3/listing/client-viewer/ViewerHeader";
-import { QuoteStatusBadge } from "@/components/orcamentos-v3/listing/QuoteStatusBadge";
-import { OptionCard } from "@/components/orcamentos-v3/listing/client-viewer/OptionCard";
-import { StickyApprovalBar } from "@/components/orcamentos-v3/listing/client-viewer/StickyApprovalBar";
-import { WhatsAppShareDialog } from "@/components/orcamentos-v3/listing/client-viewer/WhatsAppShareDialog";
-import { ApprovalConfirmDialog } from "@/components/orcamentos-v3/listing/client-viewer/ApprovalConfirmDialog";
+import { ViewerHeader } from "@/components/orcamentos-v3/viewer/ViewerHeader";
+import { QuoteStatusBadge } from "@/components/orcamentos-v3/shared/QuoteStatusBadge";
+import { OptionCard } from "@/components/orcamentos-v3/viewer/OptionCard";
+import { StickyApprovalBar } from "@/components/orcamentos-v3/viewer/StickyApprovalBar";
+import { WhatsAppShareDialog } from "@/components/orcamentos-v3/viewer/WhatsAppShareDialog";
+import { ApprovalConfirmDialog } from "@/components/orcamentos-v3/viewer/ApprovalConfirmDialog";
 import { parseOptions, type QuoteOption } from "@/lib/quotes/options";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { trackEvent } from "@/lib/quotes/tracking";

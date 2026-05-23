@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Sparkles, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { QuoteAssistant } from "@/components/orcamentos-v3/listing/QuoteAssistant";
-import type { CVItemState } from "@/components/orcamentos-v3/listing/CVItemCard";
+import type { CVItemState } from "@/components/orcamentos-v3/types";
 import type { V3CVItem, V3Item } from "../types";
 
 interface Props {

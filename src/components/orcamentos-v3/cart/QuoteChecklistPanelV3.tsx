@@ -7,7 +7,7 @@ import {
   QuoteChecklist,
   type ChecklistAnswerState,
 } from "@/components/orcamentos-v3/listing/QuoteChecklist";
-import type { CVItemState } from "@/components/orcamentos-v3/listing/CVItemCard";
+import type { CVItemState } from "@/components/orcamentos-v3/types";
 import type { Midia as CVMidia, Acabamento as CVAcabamento } from "@/lib/cv-calc/engine";
 import { genId, type V3CVItem, type V3Item, type V3LaborItem } from "../types";
 

@@ -8,7 +8,7 @@ import { Check, Plus, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SupplySearch, {
   type SupplyOption,
-} from "@/components/orcamentos-v3/listing/SupplySearch";
+} from "@/components/orcamentos-v3/shared/SupplySearch";
 import { fmtBRL, roundUp10 } from "../shared/pricing";
 import { TierFaixasPanel } from "../shared/TierFaixasPanel";
 import { genId, type V3SupplyItem } from "../types";
