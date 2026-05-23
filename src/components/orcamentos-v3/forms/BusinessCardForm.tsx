@@ -455,13 +455,14 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         ) : (
           <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-3 text-center">
             <p className="text-xs text-muted-foreground">
-              Cadastre acabamentos com nome "Corte" ou "Laminação" em{" "}
+              Cadastre um acabamento com "Cartão de Visita" no nome em{" "}
               <a href="/acabamentos" target="_blank" rel="noreferrer" className="text-primary hover:underline">
                 Acabamentos
               </a>
               .
             </p>
           </div>
+
         )}
       </Field>
 
