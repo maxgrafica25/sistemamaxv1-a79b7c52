@@ -300,6 +300,27 @@ export default function Configuracoes() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Soma total:</span><span className="font-semibold">{(totalIndiretos + (parseFloat(defaultProfitMargin) || 0)).toFixed(2)}%</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Divisor (1 − soma%):</span><span className="font-semibold text-primary">{(1 - (totalIndiretos + (parseFloat(defaultProfitMargin) || 0)) / 100).toFixed(4)}</span></div>
               </div>
+
+              <Separator />
+
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">Fluxo de orçamentos</h3>
+                <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-muted/20 p-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="checklist-before-save" className="text-sm font-medium cursor-pointer">
+                      Confirmar checklist antes de salvar orçamento
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Quando ativo, ao clicar em Salvar abre um popup com todas as perguntas pendentes para revisão.
+                    </p>
+                  </div>
+                  <Switch
+                    id="checklist-before-save"
+                    checked={checklistBeforeSave}
+                    onCheckedChange={setChecklistBeforeSave}
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
 
