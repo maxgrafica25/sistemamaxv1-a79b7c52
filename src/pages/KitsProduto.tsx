@@ -713,7 +713,7 @@ export default function KitsProduto() {
           if (!o) resetForm();
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[92vh] flex flex-col gap-0 p-0">
+        <DialogContent className="max-w-[95vw] lg:max-w-6xl max-h-[95vh] h-[95vh] flex flex-col gap-0 p-0">
           <DialogHeader className="px-5 pt-5 pb-3 border-b">
             <DialogTitle>{editingId ? "Editar Kit" : "Novo Kit"}</DialogTitle>
           </DialogHeader>
