@@ -1,28 +1,16 @@
 import { cn } from "@/lib/utils";
+import { useStepCategories, findCategory } from "@/hooks/useStepCategories";
 
-export type StepType = "impressao" | "acabamento" | "corte" | "outro";
+// Legacy type — kept for compatibility with existing imports.
+// Categories are now dynamic; this is just a string slug.
+export type StepType = string;
 
-export const STEP_TYPES: { value: StepType; label: string; classes: string }[] = [
-  {
-    value: "impressao",
-    label: "Impressão",
-    classes: "bg-blue-500/15 text-blue-700 border-blue-500/30 dark:text-blue-300",
-  },
-  {
-    value: "acabamento",
-    label: "Acabamento",
-    classes: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30 dark:text-emerald-300",
-  },
-  {
-    value: "corte",
-    label: "Corte",
-    classes: "bg-orange-500/15 text-orange-700 border-orange-500/30 dark:text-orange-300",
-  },
-  {
-    value: "outro",
-    label: "Outro",
-    classes: "bg-muted text-muted-foreground border-border",
-  },
+// Legacy export, used only as fallback in a few places before categories load.
+export const STEP_TYPES: { value: string; label: string; classes: string }[] = [
+  { value: "impressao", label: "Impressão", classes: "" },
+  { value: "acabamento", label: "Acabamento", classes: "" },
+  { value: "corte", label: "Corte", classes: "" },
+  { value: "outro", label: "Outro", classes: "" },
 ];
 
 export function getStepTypeMeta(type: string | null | undefined) {
@@ -34,17 +22,31 @@ interface Props {
   className?: string;
 }
 
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const m = hex.replace("#", "");
+  const v = m.length === 3 ? m.split("").map((c) => c + c).join("") : m;
+  const n = parseInt(v, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
 export function StepTypeBadge({ type, className }: Props) {
-  const meta = getStepTypeMeta(type);
+  const { data: categories } = useStepCategories();
+  const cat = findCategory(categories, type);
+  const { r, g, b } = hexToRgb(cat.color);
+
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
-        meta.classes,
         className,
       )}
+      style={{
+        backgroundColor: `rgba(${r}, ${g}, ${b}, 0.15)`,
+        color: cat.color,
+        borderColor: `rgba(${r}, ${g}, ${b}, 0.35)`,
+      }}
     >
-      {meta.label}
+      {cat.name}
     </span>
   );
 }

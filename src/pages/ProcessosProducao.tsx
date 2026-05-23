@@ -12,12 +12,14 @@ import { Plus, Trash2, Edit2, Clock, Loader2, Factory, Layers } from "lucide-rea
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { StepTypeBadge, STEP_TYPES, type StepType } from "@/components/orcamentos-v2/StepTypeBadge";
+import { StepTypeBadge, type StepType } from "@/components/orcamentos-v2/StepTypeBadge";
+import { useStepCategories } from "@/hooks/useStepCategories";
 import { DotTabs } from "@/components/ui/dot-tabs";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
 import PageLoader from "@/components/PageLoader";
+import CategoriasTab from "@/pages/processos-producao/CategoriasTab";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Step {
@@ -48,6 +50,7 @@ interface StepGroup {
 const tabConfig = [
   { key: "etapas", label: "Etapas" },
   { key: "grupos", label: "Grupos de Etapas" },
+  { key: "categorias", label: "Categorias" },
 ] as const;
 
 type TabKey = typeof tabConfig[number]["key"];
@@ -74,12 +77,14 @@ export default function ProcessosProducao() {
 
       {activeTab === "etapas" && <EtapasTab />}
       {activeTab === "grupos" && <GruposTab />}
+      {activeTab === "categorias" && <CategoriasTab />}
     </div>
   );
 }
 
 // ─── Etapas Tab ──────────────────────────────────────────────────────
 function EtapasTab() {
+  const { data: categories } = useStepCategories();
   const [steps, setSteps] = useState<Step[]>([]);
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -178,8 +183,13 @@ function EtapasTab() {
                 <Select value={stepType} onValueChange={(v) => setStepType(v as StepType)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {STEP_TYPES.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    {(categories ?? []).map((c) => (
+                      <SelectItem key={c.id} value={c.slug}>
+                        <span className="inline-flex items-center gap-2">
+                          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />
+                          {c.name}
+                        </span>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
