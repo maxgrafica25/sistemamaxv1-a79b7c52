@@ -202,15 +202,20 @@ export default function Configuracoes() {
         <p className="text-sm text-muted-foreground mt-1">Configure os valores padrão e gerencie o backup do sistema</p>
       </div>
 
-      <Tabs defaultValue="empresa" className="max-w-3xl">
-        <TabsList>
-          <TabsTrigger value="empresa">Empresa</TabsTrigger>
-          <TabsTrigger value="geral">Geral</TabsTrigger>
-          <TabsTrigger value="integracoes">Integrações</TabsTrigger>
-          {isAdmin && <TabsTrigger value="conhecimento">Base de Conhecimento</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="backup">Backup &amp; Exportação</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="vps">Migração / VPS</TabsTrigger>}
-        </TabsList>
+      <Tabs value={configTab} onValueChange={setConfigTab} className="max-w-3xl">
+        <DotTabs
+          tabs={[
+            { key: "empresa", label: "Empresa" },
+            { key: "geral", label: "Geral" },
+            { key: "integracoes", label: "Integrações" },
+            ...(isAdmin ? [{ key: "conhecimento", label: "Base de Conhecimento" }] : []),
+            ...(isAdmin ? [{ key: "backup", label: "Backup & Exportação" }] : []),
+            ...(isAdmin ? [{ key: "vps", label: "Migração / VPS" }] : []),
+          ]}
+          value={configTab}
+          onChange={setConfigTab}
+          className="mb-4"
+        />
 
         <TabsContent value="empresa">
           <CompanyTab isAdmin={isAdmin} />
