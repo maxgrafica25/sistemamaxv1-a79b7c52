@@ -1,40 +1,50 @@
-## Diagnóstico
+## Objetivo
 
-Suas 2 etapas e 1 grupo existem no banco, mas estão no **plural** ("Cartões de visita") enquanto o filtro busca pelo singular ("cartao de visita"). Por isso nada aparece. Em vez de "consertar" o filtro por nome (frágil), vamos criar um **vínculo explícito** entre cada favorito (Cartão de Visita, Folheto, Apostila, Etiqueta, Adesivo, Certificado) e as etapas/grupos que devem aparecer como acabamentos.
+Hoje, em **Processos de Produção → Vincular a Favoritos**, todo vínculo aparece como chip "fixo" de acabamento no formulário de Cartão de Visita. Você quer separar em **dois grupos**:
 
-## O que será feito
+1. **Fixos / recomendados** — sempre aparecem, marcados por padrão (já implementado).
+2. **Sugestões opcionais** — aparecem em uma seção secundária ("Adicionar acabamento opcional"), desmarcados, para o vendedor incluir só quando o cliente pedir (ex.: laminação, verniz localizado, hot stamping).
 
-### 1. Banco — nova tabela de vínculos
-Tabela `product_preset_processes` com:
-- `preset_key` (texto: `business_card`, `flyer`, `booklet`, `label`, `sticker`, `certificate`)
-- `step_id` (nullable, FK production_steps) OU
-- `group_id` (nullable, FK step_groups)
-- `sort_order`
-- RLS: leitura para autenticados, escrita só admin.
+## Forma mais inteligente: campo `link_type` no vínculo
 
-Restrição: exatamente um de `step_id`/`group_id` preenchido.
+Em vez de criar uma segunda tabela, adiciono uma coluna **`link_type`** em `product_preset_processes` com dois valores:
 
-### 2. Tela de gestão dos vínculos
-Em **Processos de Produção**, adicionar uma aba ou seção "**Vincular a Favoritos do Orçamento**" onde, para cada favorito (Cartão de Visita, Folheto, etc.), o admin escolhe via multi-select quais etapas e grupos aparecem como chip de acabamento.
+- `fixed` — comportamento atual (chip já visível, marcado por padrão).
+- `optional` — aparece em seção separada "Sugestões opcionais", desmarcado.
 
-### 3. Carregar vínculos no formulário
-Novo hook `useProductPresetProcesses(presetKey)` que retorna `{steps, groups}` já filtrados pelos vínculos cadastrados.
+Default: `fixed` (mantém o que já existe).
 
-`BusinessCardForm` passa a usar `useProductPresetProcesses("business_card")` em vez do filtro por nome. Mantém o `procCost(minutes)` e o fallback de `time_minutes`.
+### Por que essa abordagem
 
-Fallback (quando não há nenhum vínculo cadastrado): mostra mensagem "Cadastre vínculos em /processos-producao" com link.
+- Reaproveita 100% da tabela e do hook `useProductPresetProcesseses` — só ganha um campo.
+- Admin escolhe o tipo na hora de vincular, sem precisar gerenciar duas listas paralelas.
+- Permite no futuro adicionar outros tipos (ex.: `default_on` = opcional mas pré-marcado) sem refactor.
 
-### 4. UX — `BusinessCardForm.tsx`
-- **Quantidade**: inicia vazia (`qtdCartoes` como `null`/`""` em vez de `1000`); placeholder "Ex: 1000". Cálculo de folhas/preço só roda se `> 0`.
-- **Face Frente / Frente e Verso**: substituir os dois botões compactos por **2 cards selecionáveis** lado a lado, com ícone (página única vs página dupla), título grande e legenda curta ("1 face de impressão" / "2 faces · custo ~2x"). Estado selecionado com borda primary + check.
+## O que muda
+
+### 1. Banco
+- `ALTER TABLE product_preset_processes ADD COLUMN link_type text NOT NULL DEFAULT 'fixed' CHECK (link_type IN ('fixed','optional'))`.
+- Registros antigos viram `fixed` automaticamente.
+
+### 2. Tela de gestão (`ProductPresetLinksTab.tsx`)
+- No card de cada favorito, separar a lista em **dois blocos**: "Fixos" e "Opcionais", cada um com seu próprio "+ Etapa / + Grupo".
+- Cada item exibe um badge sutil (Fixo / Opcional) e um toggle rápido para mover entre os dois.
+
+### 3. Hook (`useProductPresetProcesses.ts`)
+- Retornar `{ fixedSteps, fixedGroups, optionalSteps, optionalGroups, loaded }` (ou um único array com `link_type` em cada item — prefiro o segundo, mais simples para o form decidir).
+
+### 4. `BusinessCardForm.tsx`
+- Seção **"Acabamentos"** (atual): só itens `fixed`, marcados por padrão como hoje.
+- Nova seção **"Sugestões opcionais"** abaixo, recolhível (`<details>` ou um chip "+ Adicionar acabamento opcional"): lista os `optional` com switch desligado. Quando ligados, entram no cálculo igual aos fixos.
+- Se não houver opcionais cadastrados, a seção não aparece.
 
 ## Fora de escopo
 
-- Outros formulários (Folheto, Apostila, etc.) ganham os vínculos automaticamente quando passarmos a usar `useProductPresetProcesses`, mas neste plano só `BusinessCardForm` é convertido. Os demais ficam para depois.
-- Não mexer em `useV3ProcessCatalog` (continua sendo usado em outros lugares).
+- Não mexer em outros formulários (Folheto, Apostila etc.) — eles consomem o mesmo hook e ganham o comportamento automaticamente quando forem migrados, mas o form ajustado nesta rodada é só o de Cartão de Visita.
+- Sem reordenar processos por arrastar — mantém o `sort_order` atual.
 
 ## Validação
 
-1. Após migração, abrir Processos de Produção → vincular as 2 etapas + 1 grupo ao favorito "Cartão de Visita".
-2. Abrir `/orcamentos-v3/novo` → Cartão de Visita: campo quantidade vazio, face em cards, chips de acabamento aparecem listando as 2 etapas e o grupo com tempo/custo.
-3. Selecionar chip → preço total atualiza.
+1. Em Processos de Produção → Cartão de Visita: marcar a "Laminação" como **Opcional** e deixar as 2 etapas + 1 grupo como **Fixas**.
+2. Em `/orcamentos-v3/novo` → Cartão de Visita: ver os 3 acabamentos fixos marcados e uma seção "Sugestões opcionais" com Laminação desligada.
+3. Ligar Laminação → preço atualiza; desligar → volta ao valor anterior.

@@ -70,6 +70,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
     kind: "step" | "group";
     name: string;
     minutes: number;
+    link_type: "fixed" | "optional";
   };
   const cvProcs = useMemo<CVProc[]>(() => {
     const out: CVProc[] = [];
@@ -80,6 +81,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         kind: "step",
         name: s.description,
         minutes: Number.isFinite(m) ? m : 0,
+        link_type: s.link_type,
       });
     }
     for (const g of groups) {
@@ -88,10 +90,14 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         kind: "group",
         name: g.name,
         minutes: Number.isFinite(g.total_minutes) ? g.total_minutes : 0,
+        link_type: g.link_type,
       });
     }
     return out;
   }, [steps, groups]);
+
+  const fixedProcs = useMemo(() => cvProcs.filter((p) => p.link_type === "fixed"), [cvProcs]);
+  const optionalProcs = useMemo(() => cvProcs.filter((p) => p.link_type === "optional"), [cvProcs]);
 
 
 
@@ -149,27 +155,33 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   };
 
 
-  // Chips
-  const finishes = useMemo<FinishingDef[]>(
-    () =>
-      cvProcs.map((p) => ({
-        id: p.key,
-        label: `${p.kind === "group" ? "🗂 " : "⚙ "}${p.name}`,
-        hint: `${p.minutes} min · ${fmtBRL(procCost(p.minutes))}`,
-      })),
+  const toFinishingDef = (p: CVProc): FinishingDef => ({
+    id: p.key,
+    label: `${p.kind === "group" ? "🗂 " : "⚙ "}${p.name}`,
+    hint: `${p.minutes} min · ${fmtBRL(procCost(p.minutes))}`,
+  });
+  const fixedFinishes = useMemo<FinishingDef[]>(
+    () => fixedProcs.map(toFinishingDef),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cvProcs, hourRate],
+    [fixedProcs, hourRate],
+  );
+  const optionalFinishes = useMemo<FinishingDef[]>(
+    () => optionalProcs.map(toFinishingDef),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [optionalProcs, hourRate],
   );
 
-  // Limpa chips que saíram do conjunto
+  // Pré-marca fixos; mantém escolhas do usuário para opcionais; limpa órfãos.
   useEffect(() => {
     setFinEnabled((m) => {
-      const allowed = new Set(finishes.map((f) => f.id));
       const next: Record<string, boolean> = {};
-      for (const k of Object.keys(m)) if (allowed.has(k) && m[k]) next[k] = true;
+      for (const p of cvProcs) {
+        if (p.link_type === "fixed") next[p.key] = true;
+        else if (m[p.key]) next[p.key] = true;
+      }
       return next;
     });
-  }, [finishes]);
+  }, [cvProcs]);
 
   const selectedProcs = useMemo(
     () => cvProcs.filter((p) => finEnabled[p.key]),
@@ -466,11 +478,11 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         )}
       </div>
 
-      {/* Chips de acabamentos opcionais */}
-      <Field label="Acabamentos opcionais">
-        {finishes.length > 0 ? (
+      {/* Acabamentos fixos (pré-marcados) */}
+      <Field label="Acabamentos">
+        {fixedFinishes.length > 0 ? (
           <FinishingProgressive
-            items={finishes}
+            items={fixedFinishes}
             enabled={finEnabled}
             onToggle={(id, on) => setFinEnabled((m) => ({ ...m, [id]: on }))}
           />
@@ -489,10 +501,29 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
               .
             </p>
           </div>
-
-
         )}
       </Field>
+
+      {/* Sugestões opcionais (desmarcadas) */}
+      {optionalFinishes.length > 0 && (
+        <details className="rounded-md border border-border bg-background group" open={optionalProcs.some((p) => finEnabled[p.key])}>
+          <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground flex items-center justify-between">
+            <span className="inline-flex items-center gap-1.5">
+              <Plus className="h-3.5 w-3.5" />
+              Sugestões opcionais
+              <span className="text-[10px] text-muted-foreground/70">({optionalFinishes.length})</span>
+            </span>
+            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="border-t border-border p-2">
+            <FinishingProgressive
+              items={optionalFinishes}
+              enabled={finEnabled}
+              onToggle={(id, on) => setFinEnabled((m) => ({ ...m, [id]: on }))}
+            />
+          </div>
+        </details>
+      )}
 
       <div className="sticky bottom-0 z-10 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 mt-2 bg-background/95 backdrop-blur border-t border-border flex items-center justify-between gap-3">
         <div className="text-xs text-muted-foreground">

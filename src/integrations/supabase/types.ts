@@ -2557,6 +2557,7 @@ export type Database = {
           created_at: string
           group_id: string | null
           id: string
+          link_type: string
           preset_key: string
           sort_order: number
           step_id: string | null
@@ -2565,6 +2566,7 @@ export type Database = {
           created_at?: string
           group_id?: string | null
           id?: string
+          link_type?: string
           preset_key: string
           sort_order?: number
           step_id?: string | null
@@ -2573,6 +2575,7 @@ export type Database = {
           created_at?: string
           group_id?: string | null
           id?: string
+          link_type?: string
           preset_key?: string
           sort_order?: number
           step_id?: string | null
