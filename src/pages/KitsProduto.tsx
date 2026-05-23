@@ -772,7 +772,11 @@ export default function KitsProduto() {
                 <Label className="text-xs">Nome do kit</Label>
                 <Input
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (!nameTouched) setNameTouched(true);
+                    if (suggestionDismissed) setSuggestionDismissed(false);
+                  }}
                   placeholder="Ex.: Kit Encadernação Apostila"
                   className="h-9"
                 />
