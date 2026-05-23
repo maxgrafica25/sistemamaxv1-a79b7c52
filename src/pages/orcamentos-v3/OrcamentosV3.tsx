@@ -496,9 +496,9 @@ export default function OrcamentosV2() {
                         hasUnseen ? "bg-primary/5 border-l-2 border-l-primary" : ""
                       }`}
                       onClick={() => {
-                        const isV3 = Array.isArray(q.tags) && q.tags.includes("v3");
-                        navigate(isV3 ? `/orcamentos-v3/${q.id}/editar` : `/orcamentos-v2/${q.id}`);
+                        navigate(`/orcamentos-v3/${q.id}/editar`);
                       }}
+
                     >
                       <td className="py-4 pl-4 w-10" onClick={(e) => e.stopPropagation()}>
                         <Checkbox
