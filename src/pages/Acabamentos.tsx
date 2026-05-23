@@ -76,7 +76,7 @@ const emptyDraft: Omit<FinishingItem, "id"> = {
   sort_order: 0,
 };
 
-export default function Acabamentos() {
+export default function Acabamentos({ hideHeader = false }: { hideHeader?: boolean } = {}) {
   const isAdmin = useIsAdmin();
   const { requireAdmin } = usePermissionGuard();
   const [items, setItems] = useState<FinishingItem[]>([]);
