@@ -1,5 +1,5 @@
 import { Check, Sparkles, TrendingDown } from "lucide-react";
-import type { QuoteOption } from "@/lib/quotes-v2/options";
+import type { QuoteOption } from "@/lib/quotes/options";
 import { cn } from "@/lib/utils";
 
 interface Props {

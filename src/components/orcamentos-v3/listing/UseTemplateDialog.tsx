@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { BookmarkCheck, Search, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { cloneQuote } from "@/lib/quotes-v2/clone";
+import { cloneQuote } from "@/lib/quotes/clone";
 
 interface TemplateRow {
   id: string;

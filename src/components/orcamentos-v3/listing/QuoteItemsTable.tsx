@@ -17,7 +17,7 @@ import {
   computeLaborSellingPrice,
   LABOR_SELLING_TOOLTIP,
   type LaborDisplayPcts,
-} from "@/lib/quotes-v2/labor-display";
+} from "@/lib/quotes/labor-display";
 import {
   type PrintingCatalogItem, type MarkupTier,
 } from "@/components/orcamentos/PrintingItemSearch";
@@ -26,8 +26,8 @@ import {
 } from "@/components/ui/select";
 import {
   PRODUCT_KIND_OPTIONS, productKindLabel, buildDynamicTitle,
-} from "@/lib/quotes-v2/item-title";
-import { isDirectSumItem, type PricingMaterial } from "@/lib/quotes-v2/pricing";
+} from "@/lib/quotes/item-title";
+import { isDirectSumItem, type PricingMaterial } from "@/lib/quotes/pricing";
 import type { SubformLabor, SubformMaterial } from "./LaborAndSupplySubform";
 import { PrintingItemEditor } from "./PrintingItemEditor";
 import { ProcessPicker, type ProcessStep, type ProcessGroup, type ProcessGroupItem } from "./ProcessPicker";

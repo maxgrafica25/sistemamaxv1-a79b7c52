@@ -17,8 +17,8 @@ import {
   temperatureLabel,
   type EngagementEvent,
   type EngagementStats,
-} from "@/lib/quotes-v2/temperature";
-import type { EngagementEventType } from "@/lib/quotes-v2/tracking";
+} from "@/lib/quotes/temperature";
+import type { EngagementEventType } from "@/lib/quotes/tracking";
 
 interface Props {
   quoteId: string;

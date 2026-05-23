@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, Copy, Smartphone, Monitor, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { buildWaUrl, buildWaWebUrl } from "@/lib/quotes-v2/whatsapp";
+import { buildWaUrl, buildWaWebUrl } from "@/lib/quotes/whatsapp";
 
 interface Props {
   open: boolean;

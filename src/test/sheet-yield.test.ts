@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calcSheetYield, resolvePaperSheet, sizeToMm, PRODUCTION_SHEET } from "@/lib/quotes-v2/sheet-yield";
+import { calcSheetYield, resolvePaperSheet, sizeToMm, PRODUCTION_SHEET } from "@/lib/quotes/sheet-yield";
 
 describe("calcSheetYield", () => {
   it("panfleto 100x150mm cabe múltiplas vezes", () => {

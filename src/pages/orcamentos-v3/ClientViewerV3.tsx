@@ -21,15 +21,15 @@ import { OptionCard } from "@/components/orcamentos-v3/listing/client-viewer/Opt
 import { StickyApprovalBar } from "@/components/orcamentos-v3/listing/client-viewer/StickyApprovalBar";
 import { WhatsAppShareDialog } from "@/components/orcamentos-v3/listing/client-viewer/WhatsAppShareDialog";
 import { ApprovalConfirmDialog } from "@/components/orcamentos-v3/listing/client-viewer/ApprovalConfirmDialog";
-import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
+import { parseOptions, type QuoteOption } from "@/lib/quotes/options";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
-import { trackEvent } from "@/lib/quotes-v2/tracking";
-import { useScrollDepthTracking } from "@/lib/quotes-v2/useScrollDepthTracking";
+import { trackEvent } from "@/lib/quotes/tracking";
+import { useScrollDepthTracking } from "@/lib/quotes/useScrollDepthTracking";
 import {
   buildAdjustMessage,
   buildItemAdjustMessage,
-} from "@/lib/quotes-v2/whatsapp";
-import { APPROVAL_TERMS_VERSION, buildApprovalTermsText } from "@/lib/quotes-v2/approval-terms";
+} from "@/lib/quotes/whatsapp";
+import { APPROVAL_TERMS_VERSION, buildApprovalTermsText } from "@/lib/quotes/approval-terms";
 
 interface QuoteRow {
   id: string;

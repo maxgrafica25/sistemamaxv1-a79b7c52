@@ -9,9 +9,9 @@ import { toast } from "sonner";
 import {
   recalculateForQuantity,
   type PricingSnapshot,
-} from "@/lib/quotes-v2/pricing";
-import { optionLabel, type QuoteOption } from "@/lib/quotes-v2/options";
-import { niceRoundQty } from "@/lib/quotes-v2/options-pricing";
+} from "@/lib/quotes/pricing";
+import { optionLabel, type QuoteOption } from "@/lib/quotes/options";
+import { niceRoundQty } from "@/lib/quotes/options-pricing";
 import { cn } from "@/lib/utils";
 
 export interface RecalcFn {
