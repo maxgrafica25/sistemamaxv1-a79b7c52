@@ -82,7 +82,7 @@ export function UseTemplateDialog({ open, onOpenChange }: Props) {
       const { newQuoteId, newQuoteNumber } = await cloneQuote(template.id);
       toast.success(`Novo orçamento ${newQuoteNumber} criado a partir do modelo`);
       onOpenChange(false);
-      navigate(`/orcamentos-v2/${newQuoteId}`);
+      navigate(`/orcamentos-v3/${newQuoteId}/editar`);
     } catch (e) {
       toast.error(`Erro ao usar modelo: ${(e as Error).message}`);
     } finally {

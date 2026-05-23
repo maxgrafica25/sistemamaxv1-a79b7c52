@@ -36,7 +36,7 @@ export function CreateVersionButton({
       const { data, error } = await supabase.rpc("create_quote_version", { p_quote_id: quoteId });
       if (error) throw error;
       toast.success("Nova versão criada! Itens aprovados foram preservados.");
-      navigate(`/orcamentos-v2/${data}`);
+      navigate(`/orcamentos-v3/${data}/editar`);
     } catch (e) {
       toast.error("Erro ao criar nova versão: " + (e as Error).message);
     } finally {
