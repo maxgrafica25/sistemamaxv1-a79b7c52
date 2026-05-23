@@ -61,6 +61,29 @@ const tabConfig = [
 
 type TabKey = typeof tabConfig[number]["key"];
 
+const tabDescriptions: Record<TabKey, { icon: typeof Clock; text: string }> = {
+  etapas: {
+    icon: Clock,
+    text: "Cadastre cada etapa do processo de produção e o tempo estimado (em minutos) que ela leva para ser executada.",
+  },
+  acabamentos: {
+    icon: Sparkles,
+    text: "Acabamentos aplicáveis aos produtos (laminação, verniz, corte especial, etc.) com seu custo e tempo.",
+  },
+  grupos: {
+    icon: Layers,
+    text: "Agrupe várias etapas em uma sequência reutilizável — útil para detalhar o passo-a-passo de uma etapa no orçamento.",
+  },
+  "grupos-materiais": {
+    icon: Layers,
+    text: "Conjuntos de materiais (papéis, insumos) que podem ser referenciados em conjunto nos orçamentos.",
+  },
+  kits: {
+    icon: Sparkles,
+    text: "Combinações pré-montadas de etapas + materiais que viram atalhos para criar orçamentos rapidamente.",
+  },
+};
+
 export default function ProcessosProducao() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialRaw = searchParams.get("tab");
