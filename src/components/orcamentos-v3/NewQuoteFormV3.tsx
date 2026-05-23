@@ -372,6 +372,45 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
           wastePct={globalSettings.waste_pct}
         />
       </div>
+
+      <Dialog open={checklistDialogOpen} onOpenChange={setChecklistDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col gap-0 p-0">
+          <DialogHeader className="px-6 pt-5 pb-3 border-b border-border">
+            <DialogTitle>Revisão do checklist</DialogTitle>
+            <DialogDescription>
+              Confira as perguntas pendentes antes de salvar o orçamento.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto p-4">
+            <QuoteChecklistPanelV3
+              items={state.items}
+              quoteId={editingQuoteId ?? null}
+              onItemsChange={(next) => setState((s) => ({ ...s, items: next }))}
+              onAnswersChange={setChecklistAnswers}
+            />
+          </div>
+          <DialogFooter className="px-6 py-3 border-t border-border gap-2 sm:gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setChecklistDialogOpen(false)}
+              disabled={saving}
+            >
+              Voltar
+            </Button>
+            <Button
+              onClick={async () => {
+                setChecklistDialogOpen(false);
+                await performSave();
+              }}
+              disabled={saving}
+              className="gap-2"
+            >
+              <Save className="h-4 w-4" />
+              Confirmar e salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
