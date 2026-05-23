@@ -16,10 +16,9 @@ import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
 import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
 import { fmtBRL } from "../shared/pricing";
-import { genId, type ArtStatus, type V3CVItem, type V3Item } from "../types";
-import { ArtePromptBlock } from "../shared/ArtePromptBlock";
-import { stampArt, makeArtThirdParty, makeArtInternal } from "../shared/artStatus";
+import { genId, type V3CVItem, type V3Item } from "../types";
 import { toast } from "sonner";
+
 import { useV3CVCatalog } from "../shared/useV3CVCatalog";
 import {
   calcular,
