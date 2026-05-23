@@ -327,18 +327,20 @@ export default function Configuracoes() {
         </TabsContent>
 
 
-        <TabsContent value="integracoes" className="space-y-6 mt-4">
+        <TabsContent value="integracoes" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0 space-y-4">
           <GoogleCalendarCard />
         </TabsContent>
 
         {isAdmin && (
-          <TabsContent value="conhecimento" className="mt-4 max-w-5xl">
+          <TabsContent value="conhecimento" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0">
             <BaseConhecimentoTab />
           </TabsContent>
         )}
 
         {isAdmin && (
-          <TabsContent value="backup" className="space-y-6 mt-4">
+          <TabsContent value="backup" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0">
+            <div className="grid gap-4 xl:grid-cols-2">
+
             <Card className="shadow-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Download className="h-5 w-5 text-primary" /> Gerar backup completo</CardTitle>
