@@ -12,12 +12,14 @@ import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProg
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
 import { TierFaixasPanel } from "../shared/TierFaixasPanel";
-import { genId, type V3PrintItem } from "../types";
+import { genId, type V3PrintItem, type V3LaborItem, type V3Item } from "../types";
 import { listFinishings, sumFinishingsPerSheet, type FinishingItem } from "@/lib/finishings/catalog";
 import { resolveFinishingPricePerSheet, pickFinishingTier } from "@/lib/labels/finishing-pricing";
+import { useV3HourlyRate } from "../shared/useV3HourlyRate";
 
 interface Props {
   onAdd: (item: V3PrintItem) => void;
+  onAddMany?: (items: V3Item[]) => void;
   onAddTiers?: (items: V3PrintItem[]) => void;
   onSelectionChange?: (sel: {
     paper_type: string | null;
@@ -29,9 +31,11 @@ interface Props {
   onDescricaoChange?: (v: string) => void;
   /** Quando true, começa com todos os campos vazios (modo Personalizado). */
   emptyDefaults?: boolean;
+  defaultMarginPct?: number;
 }
 
-export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults }: Props) {
+export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults, defaultMarginPct = 20 }: Props) {
+  const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers, settings } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
   const [descricaoLocal, setDescricaoLocal] = useState("");
@@ -66,6 +70,9 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
           hint = tier
             ? `${fmtBRL(effective)}/folha (faixa ${tier.label || `${tier.min_qty}${tier.max_qty ? `-${tier.max_qty}` : "+"}`})`
             : `${fmtBRL(effective)}/folha`;
+        }
+        if (f.production_step) {
+          hint += ` · +${f.production_step.time_minutes} min`;
         }
         return { id: f.id, label: f.name, hint };
       }),
@@ -177,6 +184,29 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
     };
   };
 
+  // Gera 1 V3LaborItem por acabamento ligado que tenha etapa de produção vinculada.
+  // O tempo é fixo por etapa (não escala com a tiragem) — mesmo critério do
+  // catálogo Etapas. Bundled com o item de impressão para visualização agrupada.
+  const buildLinkedLaborItems = (bundleId: string): V3LaborItem[] => {
+    return printFinishings
+      .filter((f) => finEnabled[f.id] && f.production_step)
+      .map((f) => {
+        const step = f.production_step!;
+        const allowed: V3LaborItem["step_type"][] = ["impressao", "acabamento", "corte", "outro"];
+        const st = (step.step_type ?? "acabamento") as V3LaborItem["step_type"];
+        return {
+          id: genId(),
+          kind: "labor" as const,
+          descricao: `${step.description} (de ${f.name})`,
+          time_minutes: step.time_minutes,
+          step_type: allowed.includes(st) ? st : "acabamento",
+          hourly_rate: hourlyRate,
+          margem_pct: defaultMarginPct,
+          bundle_id: bundleId,
+        };
+      });
+  };
+
   const submit = () => {
     if (!canAdd) return;
     const item = buildItem(quantidade);
@@ -184,9 +214,19 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
     const cleanExtras = [...new Set(extraTiers)]
       .filter((q) => q > 0 && q !== quantidade)
       .sort((a, b) => a - b);
+
+    const bundleId = `bnd_${genId()}`;
+    const laborItems = buildLinkedLaborItems(bundleId);
+    const hasLabor = laborItems.length > 0;
+
     if (cleanExtras.length > 0 && onAddTiers && catalog) {
       const tg = `tg_${genId()}`;
-      const primary = { ...item, tier_group_id: tg, tier_primary: true } as V3PrintItem;
+      const primary = {
+        ...item,
+        tier_group_id: tg,
+        tier_primary: true,
+        ...(hasLabor ? { bundle_id: bundleId, bundle_label: item.descricao || "Impressão" } : {}),
+      } as V3PrintItem;
       const siblings = cleanExtras
         .map((q) => {
           const it = buildItem(q, tg);
@@ -194,6 +234,14 @@ export function PrintForm({ onAdd, onAddTiers, onSelectionChange, descricao: des
         })
         .filter((x): x is V3PrintItem => !!x);
       onAddTiers([primary, ...siblings]);
+      if (hasLabor && onAddMany) onAddMany(laborItems);
+    } else if (hasLabor && onAddMany) {
+      const printWithBundle = {
+        ...item,
+        bundle_id: bundleId,
+        bundle_label: item.descricao || "Impressão",
+      } as V3PrintItem;
+      onAddMany([printWithBundle, ...laborItems]);
     } else {
       onAdd(item);
     }

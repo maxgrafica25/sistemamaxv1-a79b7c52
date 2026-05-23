@@ -31,6 +31,14 @@ export interface FinishingItem {
   sort_order: number;
   /** Faixas de preço por quantidade de folhas. Vazio = preço único base. */
   tiers: FinishingTier[];
+  /** Etapa de produção vinculada (opcional) — fonte de tempo de mão de obra. */
+  production_step_id: string | null;
+  production_step?: {
+    id: string;
+    description: string;
+    time_minutes: number;
+    step_type: string | null;
+  } | null;
 }
 
 /**
@@ -47,7 +55,7 @@ export async function listFinishings(
   let q = (supabase as any)
     .from("finishings_price_items")
     .select(
-      "*, finishing_price_tiers(id, finishing_id, label, min_qty, max_qty, price_per_sheet, sort_order)",
+      "*, finishing_price_tiers(id, finishing_id, label, min_qty, max_qty, price_per_sheet, sort_order), production_step:production_steps(id, description, time_minutes, step_type)",
     )
     .eq("is_active", true)
     .order("sort_order");
