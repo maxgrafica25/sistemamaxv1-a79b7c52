@@ -1,32 +1,41 @@
-## Mover "Encadernação espiral" para dentro do picker
+## Reordenar abas + sugerir Processos/Suprimentos pelo nome do kit
 
-Hoje há **dois botões** na barra inferior do diálogo de kit:
-- `+ Adicionar acabamentos` → abre o picker em massa (Suprimentos/Processos)
-- `+ Encadernação espiral` → atalho que adiciona uma linha com 12 faixas pré-prontas (só faz sentido para Apostila)
+### Mudanças no `AddItemsPicker`
 
-Resultado: poluição visual e dúvida sobre quando usar cada um. Solução: **um único ponto de entrada**.
+1. **Inverter ordem das abas**: **Processos** vira a primeira (aba padrão), **Suprimentos** vira a segunda.
+2. **Sugestões automáticas baseadas no nome do kit**:
+   - Passar nova prop `kitName: string` para o picker (vindo do estado `name` de `KitsProduto.tsx`).
+   - Reutilizar o helper `suggestPresets`-style: normalização (lowercase, sem acento, sem pontuação) + tokens >3 letras + match "contém / contido / token compartilhado".
+   - Aplicar a heurística sobre `supplies[].produto` e `processes[].description`.
+   - Só roda quando `kitName` tem ≥3 caracteres **e** o usuário não digitou nada no campo "Buscar…" (a busca tem prioridade).
+3. **UI da sugestão (no topo de cada aba)**:
+   - Faixa destacada `bg-primary/5 border-l-2 border-l-primary` com header pequeno:
+     > ✨ Sugestões para "Nome do kit" · [Marcar todos] [Limpar]
+   - Lista das linhas sugeridas, idênticas às linhas normais (checkbox + título + subtítulo).
+   - **Pré-marca** automaticamente os itens sugeridos quando o picker abre (apenas na 1ª abertura por nome; se o usuário desmarcar, respeita a escolha).
+   - As linhas sugeridas **somem da lista principal abaixo** (pra não repetir).
+   - Se o usuário começar a digitar em "Buscar…", a faixa some.
+4. **Reset de estado**: ao fechar o picker, manter o comportamento atual (resetar seleção); ao reabrir com mesmo nome, sugestões voltam pré-marcadas.
 
-### Mudança
+### Por que não usar LLM
 
-1. **Remover** o botão `+ Encadernação espiral` da barra inferior.
-2. **Adicionar dentro do picker** (`AddItemsPicker`, aba **Suprimentos**), no topo, um card destacado:
-   > ✨ **Encadernação espiral automática**
-   > Adiciona uma linha com 12 faixas (nº de folhas → diâmetro). Você escolhe o suprimento de cada faixa depois.
-   > [Adicionar ao kit]
-3. Clicar nesse card insere a mesma estrutura de hoje (chama o mesmo `addSpiralByVariant`) e **fecha o picker**.
-4. Atualizar o texto de "estado vazio" da lista de itens — hoje diz "...adicionar acabamentos ou encadernação espiral"; passa a dizer apenas "...adicionar acabamentos".
-5. Atualizar o popover "Como funciona este kit": o passo 3 (Encadernação espiral) passa a explicar que o atalho fica **dentro** de `+ Adicionar acabamentos`.
+Match por nome é um problema clássico de comparação de strings: heurística local responde em <1ms, é grátis e determinística. LLM seria mais lento, custoso e sem ganho real para este caso.
 
 ### Detalhes técnicos
 
 - Arquivos:
-  - `src/components/kits/AddItemsPicker.tsx` — adicionar prop opcional `onAddSpiralShortcut?: () => void`; quando passada, renderiza o card destacado no topo da aba Suprimentos.
-  - `src/pages/KitsProduto.tsx` — remover o botão da barra; passar `onAddSpiralShortcut={() => { addSpiralByVariant(); setPickerOpen(false); }}` para o picker; ajustar o texto de empty state.
-  - `src/components/kits/KitHowItWorks.tsx` — ajustar o texto do passo 3.
-- Nenhuma mudança em schema, backend ou outras telas.
-- A função `addSpiralByVariant` continua existindo (só muda quem chama).
+  - `src/components/kits/AddItemsPicker.tsx`:
+    - Nova prop `kitName?: string`.
+    - Extrair helper local `matchesKitName(name, kitName)` (mesma fórmula do `suggestPresets`).
+    - `useMemo`s para `suggestedSupplies` e `suggestedProcesses`.
+    - `useEffect` que pré-marca as sugestões ao abrir (controlado por uma flag `autoMarkedFor: string | null` pra não repetir).
+    - Trocar a ordem dos `TabsTrigger` e o `defaultValue` do `Tabs`.
+    - `filteredSup`/`filteredProc` excluem ids já presentes em `suggested*` quando a faixa estiver visível.
+  - `src/pages/KitsProduto.tsx`:
+    - Passar `kitName={name}` ao `<AddItemsPicker />`.
 
 ### Fora do escopo
 
-- Esconder a opção por tipo de produto (você optou por mantê-la sempre disponível, só dentro do picker).
-- Refatorar a lógica de "variant_by_sheets" ou as 12 faixas padrão.
+- Sugestão semântica via LLM.
+- Aprender com histórico de kits anteriores.
+- Mudar a ordem das colunas de itens no kit (já tratado pelo drag).
