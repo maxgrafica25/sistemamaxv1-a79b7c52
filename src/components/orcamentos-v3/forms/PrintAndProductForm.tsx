@@ -325,7 +325,9 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         {!treatAsBusinessCard && !isCustom && formTipo === "print" && (
           <PrintForm
             onAdd={onAdd}
+            onAddMany={onAddMany}
             onAddTiers={onAddTiers}
+            defaultMarginPct={defaultMarginPct}
             descricao={descricao}
             onDescricaoChange={setDescricao}
           />
