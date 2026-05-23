@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChevronDown, Plus, Printer, Settings2 } from "lucide-react";
+import { Check, ChevronDown, FileText, Files, Plus, Printer, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProgressive";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3PrintItem } from "../types";
-import { useV3ProcessCatalog } from "../shared/useV3ProcessCatalog";
+import { useProductPresetProcesses } from "../shared/useProductPresetProcesses";
 import { useHourRate } from "@/hooks/useHourRate";
 import {
   calcCardsPerSheet,
