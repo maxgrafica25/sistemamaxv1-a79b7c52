@@ -1050,9 +1050,6 @@ export default function KitsProduto() {
               <Button onClick={() => setPickerOpen(true)} size="sm" variant="default">
                 <Plus className="h-4 w-4 mr-1" /> Adicionar acabamentos
               </Button>
-              <Button onClick={addSpiralByVariant} size="sm" variant="outline">
-                <Wand2 className="h-4 w-4 mr-1" /> Encadernação espiral
-              </Button>
 
             </div>
           </div>
