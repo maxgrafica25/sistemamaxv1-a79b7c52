@@ -14,7 +14,7 @@ import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProg
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3PrintItem } from "../types";
-import { useProductPresetProcesses } from "../shared/useProductPresetProcesses";
+import { useProductKitProcesses } from "../shared/useProductKitProcesses";
 import { useHourRate } from "@/hooks/useHourRate";
 import {
   calcCardsPerSheet,
@@ -60,41 +60,31 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const [pulse, setPulse] = useState(false);
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
 
-  // Acabamentos do Cartão de Visita: vínculos cadastrados em
-  // Processos de Produção → "Vincular a Favoritos".
-  const { steps, groups } = useProductPresetProcesses("business_card");
+  // Acabamentos do Cartão de Visita: vêm do Kit de Produto ativo cadastrado
+  // em Insumos → Kits de Produto (product_kind = "cartao_visita").
+  const { steps } = useProductKitProcesses("cartao_visita");
   const { hourRate } = useHourRate();
 
   type CVProc = {
     key: string;
-    kind: "step" | "group";
+    kind: "step";
     name: string;
     minutes: number;
     link_type: "fixed" | "optional";
+    default_on: boolean;
   };
-  const cvProcs = useMemo<CVProc[]>(() => {
-    const out: CVProc[] = [];
-    for (const s of steps) {
-      const m = Number(s.time_minutes);
-      out.push({
+  const cvProcs = useMemo<CVProc[]>(
+    () =>
+      steps.map((s) => ({
         key: `step:${s.id}`,
-        kind: "step",
+        kind: "step" as const,
         name: s.description,
-        minutes: Number.isFinite(m) ? m : 0,
+        minutes: Number.isFinite(s.time_minutes) ? s.time_minutes : 0,
         link_type: s.link_type,
-      });
-    }
-    for (const g of groups) {
-      out.push({
-        key: `group:${g.id}`,
-        kind: "group",
-        name: g.name,
-        minutes: Number.isFinite(g.total_minutes) ? g.total_minutes : 0,
-        link_type: g.link_type,
-      });
-    }
-    return out;
-  }, [steps, groups]);
+        default_on: s.default_on,
+      })),
+    [steps],
+  );
 
   const fixedProcs = useMemo(() => cvProcs.filter((p) => p.link_type === "fixed"), [cvProcs]);
   const optionalProcs = useMemo(() => cvProcs.filter((p) => p.link_type === "optional"), [cvProcs]);
@@ -157,7 +147,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
 
   const toFinishingDef = (p: CVProc): FinishingDef => ({
     id: p.key,
-    label: `${p.kind === "group" ? "🗂 " : "⚙ "}${p.name}`,
+    label: `⚙ ${p.name}`,
     hint: `${p.minutes} min · ${fmtBRL(procCost(p.minutes))}`,
   });
   const fixedFinishes = useMemo<FinishingDef[]>(
@@ -171,13 +161,14 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
     [optionalProcs, hourRate],
   );
 
-  // Pré-marca fixos; mantém escolhas do usuário para opcionais; limpa órfãos.
+  // Pré-marca fixos e opcionais com default_on; mantém escolhas do usuário; limpa órfãos.
   useEffect(() => {
     setFinEnabled((m) => {
       const next: Record<string, boolean> = {};
       for (const p of cvProcs) {
         if (p.link_type === "fixed") next[p.key] = true;
-        else if (m[p.key]) next[p.key] = true;
+        else if (m[p.key] !== undefined) next[p.key] = m[p.key];
+        else if (p.default_on) next[p.key] = true;
       }
       return next;
     });
@@ -489,16 +480,16 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         ) : (
           <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-3 text-center">
             <p className="text-xs text-muted-foreground">
-              Nenhuma etapa ou grupo vinculado a este favorito. Cadastre em{" "}
+              Nenhum Kit de Produto ativo para <strong>cartao_visita</strong>. Cadastre em{" "}
               <a
-                href="/processos-producao"
+                href="/insumos?tab=kits"
                 target="_blank"
                 rel="noreferrer"
                 className="text-primary hover:underline"
               >
-                Processos de Produção → Vincular a Favoritos
+                Insumos → Kits de Produto
               </a>
-              .
+              {" "}marcando as etapas como obrigatórias ou opcionais.
             </p>
           </div>
         )}
