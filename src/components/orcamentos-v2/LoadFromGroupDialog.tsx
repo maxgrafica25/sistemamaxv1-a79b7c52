@@ -70,20 +70,23 @@ export function LoadFromGroupDialog(props: Props) {
     if (kind === "labor") {
       supabase
         .from("step_group_items")
-        .select("id, description, time_minutes, step_type")
+        .select("id, production_step:production_steps(description, time_minutes, step_type)")
         .eq("step_group_id", selected)
         .order("sort_order")
         .then(({ data }) => {
           setPreviewLabor(
-            (data || []).map((r: any) => ({
-              id: r.id,
-              description: r.description,
-              timeMinutes: Number(r.time_minutes) || 0,
-              stepType: r.step_type || "outro",
-            })),
+            (data || [])
+              .filter((r: any) => r.production_step)
+              .map((r: any) => ({
+                id: r.id,
+                description: r.production_step.description,
+                timeMinutes: Number(r.production_step.time_minutes) || 0,
+                stepType: r.production_step.step_type || "outro",
+              })),
           );
           setLoading(false);
         });
+
     } else {
       (async () => {
         const { data } = await supabase
