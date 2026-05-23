@@ -14,6 +14,7 @@ import { logAudit } from "@/lib/audit";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { handleError } from "@/lib/handleError";
 import PageLoader from "@/components/PageLoader";
+import { DotTabs } from "@/components/ui/dot-tabs";
 
 interface Cadastro {
   id: string;
