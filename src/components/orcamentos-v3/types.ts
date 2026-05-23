@@ -188,6 +188,14 @@ export type V3Item =
   | V3SupplyItem
   | V3LabelItem;
 
+export interface QuoteOptionV3 {
+  id: string;
+  label: string;
+  quantity: number;
+  unit_price: number;
+  total: number;
+}
+
 export interface V3QuoteState {
   cliente: { id: string | null; nome: string };
   assunto: string;
@@ -195,6 +203,10 @@ export interface V3QuoteState {
   tax_pct: number;
   fees_pct: number;
   margin_pct: number;
+  /** Quantidade-base usada como referência das opções A/B/C. */
+  main_quantity?: number | null;
+  /** Opções de quantidade (ancoragem). Opcional. */
+  options?: QuoteOptionV3[];
 }
 
 export const DEFAULT_STATE: V3QuoteState = {
@@ -204,6 +216,8 @@ export const DEFAULT_STATE: V3QuoteState = {
   tax_pct: 0,
   fees_pct: 0,
   margin_pct: 20,
+  main_quantity: null,
+  options: [],
 };
 
 export const genId = () =>

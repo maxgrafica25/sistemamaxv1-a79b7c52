@@ -94,6 +94,8 @@ export async function saveQuoteV3(
       value,
       profit_margin: String(state.margin_pct ?? 33),
       v3_payload: v3_payload as never,
+      options: (state.options ?? []) as never,
+      main_quantity: state.main_quantity ?? null,
       updated_at: new Date().toISOString(),
     };
     const { error: updErr } = await supabase
@@ -133,6 +135,8 @@ export async function saveQuoteV3(
       payment_method: null,
       tags: ["v3"],
       v3_payload: v3_payload as never,
+      options: (state.options ?? []) as never,
+      main_quantity: state.main_quantity ?? null,
     };
 
     const { data: inserted, error } = await supabase
