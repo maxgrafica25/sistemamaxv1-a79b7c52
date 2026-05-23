@@ -835,16 +835,68 @@ export default function KitsProduto() {
                 <Card key={k.id} className={k.is_active ? "" : "opacity-60"}>
                   <CardContent className="p-4 space-y-2">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-semibold truncate">{k.name}</p>
-                        <p className="text-xs text-muted-foreground">{k.item_count} itens</p>
-                      </div>
+                      {k.item_count > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleKitExpanded(k.id)}
+                          className="flex items-center gap-2 min-w-0 flex-1 text-left rounded-md -mx-1 px-1 py-0.5 hover:bg-muted/50 transition-colors"
+                          aria-expanded={expandedKits.has(k.id)}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold truncate">{k.name}</p>
+                            <p className="text-xs text-muted-foreground">{k.item_count} itens</p>
+                          </div>
+                          <ChevronDown
+                            className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${
+                              expandedKits.has(k.id) ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+                      ) : (
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold truncate">{k.name}</p>
+                          <p className="text-xs text-muted-foreground">Nenhum item cadastrado</p>
+                        </div>
+                      )}
                       <Switch checked={k.is_active} onCheckedChange={() => toggleActive(k)} />
                     </div>
                     {k.description && (
                       <p className="text-xs text-muted-foreground line-clamp-2">{k.description}</p>
                     )}
+                    {expandedKits.has(k.id) && k.item_count > 0 && (
+                      <div className="rounded-md border border-border/60 bg-muted/30 p-2 space-y-1">
+                        {loadingKits.has(k.id) ? (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                            <Loader2 className="h-3 w-3 animate-spin" /> Carregando itens…
+                          </div>
+                        ) : erroredKits.has(k.id) ? (
+                          <p className="text-xs text-destructive py-1">Falha ao carregar itens.</p>
+                        ) : (
+                          (kitItemsCache[k.id] || []).map((it, idx) => {
+                            const Icon = it.kind === "supply" ? Package : Cog;
+                            return (
+                              <div
+                                key={idx}
+                                className="flex items-center gap-2 text-xs min-w-0"
+                              >
+                                <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                <span className="truncate flex-1" title={it.label}>
+                                  {it.label}
+                                </span>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
+                                  {ROLE_SHORT[it.role]}
+                                </Badge>
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                                  {it.formula}
+                                </Badge>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
                     <div className="flex gap-1 pt-1">
+
                       <Button size="sm" variant="ghost" onClick={() => openEdit(k.id)}>
                         <Edit2 className="h-3.5 w-3.5 mr-1" /> Editar
                       </Button>
