@@ -420,6 +420,9 @@ const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function Kit
     setDialogOpen(true);
   };
 
+  useImperativeHandle(ref, () => ({ openNew }));
+
+
   const openEdit = async (kitId: string) => {
     if (!requireAdmin("gerenciar kits de produto")) return;
     const k = kits.find((x) => x.id === kitId);
