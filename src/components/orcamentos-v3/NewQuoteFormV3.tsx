@@ -175,6 +175,14 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
 
   const lastSaved = savedAt ? new Date(savedAt).toLocaleTimeString("pt-BR") : null;
 
+  if (loadingEdit) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)] text-sm text-muted-foreground">
+        Carregando orçamento…
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
