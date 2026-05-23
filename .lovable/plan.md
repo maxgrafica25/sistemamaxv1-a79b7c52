@@ -1,16 +1,17 @@
-## Remover redirects legacy de orçamentos
+## Mostrar número do orçamento sempre
 
-Em `src/App.tsx`, apagar as 3 rotas de redirect que ainda existem por compatibilidade:
+Hoje, quando o usuário cria um orçamento novo, o badge no topo do editor fica vazio (só aparece "Editar Nº XXXX-XXX" ao editar). O número real só é gerado ao salvar.
 
-- `/orcamentos-v2` → `/orcamentos`
-- `/orcamentos-v2/*` → `/orcamentos`
-- `/orcamentos-v3` → `/orcamentos`
+### Mudança
 
-A partir disso, qualquer acesso a essas URLs cairá no `NotFound`. As rotas ativas continuam funcionando normalmente:
+No `NewQuoteFormV3.tsx`:
 
-- `/orcamentos` (lista)
-- `/orcamentos-v3/novo` (criar)
-- `/orcamentos-v3/:id/editar` (editar)
-- `/p/:quoteNumber` (viewer público — link compartilhado com cliente)
+1. Ao montar (modo criação), chamar `nextQuoteNumber()` (já existe em `saveQuoteV3.ts`) para calcular o próximo número disponível e guardar em estado local como `previewNumber`.
+2. Renderizar o badge sempre:
+   - Editando → `Editar Nº {quote_number}`
+   - Criando → `Nº {previewNumber}` (provisório, confirmado no save)
+3. Expor `nextQuoteNumber` como export nomeado em `saveQuoteV3.ts` para poder importar no formulário.
 
-Nenhuma outra mudança: sidebar, command palette e todos os botões internos já apontam para as rotas ativas.
+### Observação
+
+O número é provisório até salvar (race condition possível se outro usuário salvar antes). Na hora do save, a função `nextQuoteNumber()` é re-executada e o número definitivo é gravado — o badge é apenas visual. Isso atende ao requisito "todo orçamento tem um número" sem precisar criar linha rascunho no banco.

@@ -20,7 +20,7 @@ import { useQuoteDraftV3 } from "./shared/useQuoteDraftV3";
 import { summarize, fmtBRL } from "./shared/pricing";
 import { DEFAULT_STATE, genId, type V3Category, type V3Item, type V3QuoteState } from "./types";
 
-import { saveQuoteV3 } from "./shared/saveQuoteV3";
+import { saveQuoteV3, nextQuoteNumber } from "./shared/saveQuoteV3";
 import { loadQuoteV3 } from "./shared/loadQuoteV3";
 import { RecorrentesPanel } from "@/components/recorrentes/RecorrentesPanel";
 import { useGlobalSettings } from "@/hooks/useGlobalSettings";
@@ -38,8 +38,19 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [loadingEdit, setLoadingEdit] = useState(isEditing);
   const [editMeta, setEditMeta] = useState<{ quote_number: string; status: string } | null>(null);
+  const [previewNumber, setPreviewNumber] = useState<string | null>(null);
   const [checklistAnswers, setChecklistAnswers] = useState<{ pergunta: string; resposta: string }[]>([]);
   const { settings: globalSettings } = useGlobalSettings();
+
+  // Pré-calcula o próximo número (provisório) ao criar um novo orçamento.
+  useEffect(() => {
+    if (isEditing) return;
+    let cancelled = false;
+    nextQuoteNumber()
+      .then((n) => { if (!cancelled) setPreviewNumber(n); })
+      .catch(() => { /* silencioso — badge fica oculto */ });
+    return () => { cancelled = true; };
+  }, [isEditing]);
 
   // Rascunho local desabilitado em modo edição (não queremos sobrescrever
   // o estado real com um rascunho antigo de "novo orçamento").
@@ -195,13 +206,15 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
           <Button variant="ghost" size="sm" onClick={onCancel} className="shrink-0">
             <ArrowLeft className="h-4 w-4 mr-1.5" /> Voltar
           </Button>
-          {isEditing && editMeta && (
+          {(isEditing ? editMeta : previewNumber) && (
             <Badge
               variant="outline"
               className="gap-1 border-amber-500/40 text-amber-700 dark:text-amber-400 shrink-0"
             >
               <FlaskConical className="h-3 w-3" />
-              {`Editar Nº ${editMeta.quote_number}`}
+              {isEditing && editMeta
+                ? `Editar Nº ${editMeta.quote_number}`
+                : `Nº ${previewNumber}`}
             </Badge>
           )}
           <div className="hidden md:flex items-center gap-3 ml-2 min-w-0 flex-1">
