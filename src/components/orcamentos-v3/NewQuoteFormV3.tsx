@@ -189,7 +189,7 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
       {/* Split-screen */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_360px] overflow-hidden">
         {/* Workspace (70%) */}
-        <div className="overflow-y-auto px-4 lg:px-6 py-5 bg-background pb-24 lg:pb-5">
+        <div className="overflow-y-auto px-4 lg:px-6 py-5 bg-background pb-24 lg:pb-0">
           <TabsLayout active={active} onChange={setActive} />
           <p className="mt-2 text-xs text-muted-foreground">
             {getTab(active).description}

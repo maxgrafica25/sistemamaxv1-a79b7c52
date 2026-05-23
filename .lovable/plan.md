@@ -1,64 +1,51 @@
-# Auditoria de Módulos Órfãos e Duplicidades
+# Ajuste de UX — Barra "Adicionar ao orçamento" (V3)
 
-Varredura de `src/pages`, `src/components`, `src/App.tsx` e `Sidebar.tsx`.
+## Problema observado
+No `/orcamentos-v3/novo` (visível no screenshot do BusinessCardForm):
 
-## 1. Páginas órfãs (arquivo existe, sem rota e sem import)
+1. **Sobreposição confusa**: a barra `sticky bottom-0` usa `bg-background/95 backdrop-blur`. Como é semitransparente, ao rolar o conteúdo (ex.: lista de acabamentos "Corte de 100 cartões de visita") aparece **embaixo** da barra, dando sensação de "vazamento" sobre o botão.
+2. **Espaço em branco gigante**: o container do workspace tem `pb-24 lg:pb-5` (sobra de mobile aplicada em desktop também) e o `mt-2` da barra empurra o conteúdo, deixando uma área branca grande entre o último controle e a barra/rodapé.
 
-Nenhum import em todo o `src/`. Podem ser **excluídas** com segurança:
+Mesmo padrão se repete em todos os forms V3: `BusinessCardForm`, `BookletForm`, `PrintForm`, `CVForm`, `ThirdPartyForm`, `LaborForm`, `SupplyForm`, `LabelEmbeddedForm`.
 
-| Arquivo | Status | Substituído por |
-|---|---|---|
-| `src/pages/Index.tsx` | Sem rota, sem import | `Dashboard.tsx` (rota `/`) |
-| `src/pages/Clientes.tsx` | Sem rota, sem import | `Cadastros.tsx` (aba Clientes) |
-| `src/pages/Fornecedores.tsx` | Sem rota, sem import | `Cadastros.tsx` (aba Fornecedores) |
-| `src/pages/Etapas.tsx` | Sem rota, sem import | `ProcessosProducao.tsx` |
-| `src/pages/GruposEtapas.tsx` | Sem rota, sem import | `ProcessosProducao.tsx` (a tabela `step_groups` continua viva e agora é usada pelo detalhamento de sub-etapas — só a página foi descontinuada) |
-| `src/pages/LeituraImpressoras.tsx` | Sem rota, sem import | aba dentro de `Equipamentos.tsx` |
+## Solução proposta (UI apenas, sem mexer em lógica de cálculo)
 
-## 2. Páginas vivas via redirect (intencional, manter)
+### 1. Barra sticky 100% opaca + sombra de separação
+Em cada form V3, trocar:
+```
+bg-background/95 backdrop-blur border-t border-border
+```
+por:
+```
+bg-background border-t border-border shadow-[0_-8px_16px_-8px_hsl(var(--background))]
+```
+(opacidade total + leve "fade" para indicar fim do conteúdo, sem deixar passar texto por baixo).
 
-`App.tsx` mantém redirects para URLs antigas — bom para links salvos:
-- `/materias-primas` → `/insumos`
-- `/grupos-materiais` → `/insumos?tab=grupos`
-- `/kits-produto` → `/insumos?tab=kits`
-- `/orcamentos` → `/orcamentos-v2`
+### 2. Remover o `pb-24` desnecessário no desktop
+Em `NewQuoteFormV3.tsx` linha 192, o `pb-24` existe para não esconder conteúdo atrás do `MobileCart` fixo. No desktop o cart é coluna lateral, então o padding extra cria a "faixa branca gigante". Trocar:
+```
+overflow-y-auto px-4 lg:px-6 py-5 bg-background pb-24 lg:pb-5
+```
+por:
+```
+overflow-y-auto px-4 lg:px-6 py-5 bg-background pb-24 lg:pb-0
+```
+(remove a sobra no desktop — a própria barra sticky já é o rodapé visual).
 
-Os arquivos `MateriasPrimas.tsx`, `GruposMateriais.tsx`, `KitsProduto.tsx` continuam sendo **renderizados** dentro de `Insumos.tsx` (abas). **Manter.**
+### 3. Encostar a sticky no fim do scroll (sem `mt-2`)
+Trocar `mt-2` por `mt-6` nas barras sticky para dar respiro consistente acima, e garantir que ela use `-mb-5 lg:-mb-0` para encostar exatamente no fim do scroll container (anulando o `py-5` do pai apenas embaixo).
 
-## 3. Componentes duplicados
+## Arquivos afetados (apenas JSX/classes Tailwind)
+- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` (1 linha)
+- `src/components/orcamentos-v3/forms/BusinessCardForm.tsx`
+- `src/components/orcamentos-v3/forms/BookletForm.tsx`
+- `src/components/orcamentos-v3/forms/PrintForm.tsx`
+- `src/components/orcamentos-v3/forms/CVForm.tsx`
+- `src/components/orcamentos-v3/forms/ThirdPartyForm.tsx`
+- `src/components/orcamentos-v3/forms/LaborForm.tsx`
+- `src/components/orcamentos-v3/forms/SupplyForm.tsx`
+- `src/components/orcamentos-v3/forms/LabelEmbeddedForm.tsx`
 
-### 3.1 `SupplierCombobox` (2 arquivos com mesmo nome)
-- `src/components/SupplierCombobox.tsx` — usado em `MateriasPrimas` e `SuprimentosCVTab`
-- `src/components/equipamentos/SupplierCombobox.tsx` — usado só em `RegisterPurchaseDialog`
-
-Provavelmente um fork antigo. Vale comparar e unificar no global.
-
-### 3.2 Orçamentos V2 × V3
-- V2 (`/orcamentos-v2`): lista, edição, clonagem — fluxo principal.
-- V3 (`/orcamentos-v3/novo`): só criação, acessível por um botão em `OrcamentosV2.tsx:382`.
-- Não é duplicidade propriamente — V3 é o novo fluxo de criação convivendo com V2. **Não mexer** sem decisão de produto.
-
-## 4. Função que perdeu utilidade após mudanças recentes
-
-- **Página `GruposEtapas.tsx`**: foi removida do menu, mas a tabela `step_groups` voltou a ter uso real agora que o detalhamento de sub-etapas no orçamento foi implementado. Hoje o cadastro/edição é feito dentro de `ProcessosProducao.tsx`. A página solta virou código morto — pode remover sem perda funcional.
-
-## 5. Ações propostas (somente quando aprovado)
-
-**Fase 1 — limpeza segura (apenas deleção de arquivos órfãos):**
-- Excluir `src/pages/Index.tsx`, `Clientes.tsx`, `Fornecedores.tsx`, `Etapas.tsx`, `GruposEtapas.tsx`, `LeituraImpressoras.tsx`.
-
-**Fase 2 — unificar duplicidade:**
-- Migrar `RegisterPurchaseDialog.tsx` para usar `@/components/SupplierCombobox` e excluir `src/components/equipamentos/SupplierCombobox.tsx`. Requer comparar props/UX antes.
-
-**Fora de escopo desta auditoria:** decisão V2 vs V3 (precisa de você).
-
-## Detalhes técnicos
-
-Critério usado:
-- "Sem rota": não aparece em `<Route path>` do `App.tsx`.
-- "Sem import": `rg "pages/<Nome>" src/` retornou vazio.
-- Tabelas e migrations não foram tocadas; apenas código de UI.
-
-## Próximo passo
-
-Me confirme se quer que eu execute a **Fase 1** (6 deleções), a **Fase 2** (unificar SupplierCombobox), ambas, ou nenhuma.
+## Fora do escopo
+- Nenhuma mudança em lógica de preços, kits, faixas, presets ou estado.
+- Nada de refator estrutural do split-screen.
