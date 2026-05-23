@@ -243,12 +243,14 @@ export function BookletKitPanel({
   const handleModeChange = (isCover: boolean, v: CoverMode) => {
     if (isCover) {
       setCoverMode(v);
+      if (v === "custom") setOverride("capa", null);
       if (v === "standard") {
         setCustomCover(null);
         setCoverCollapsed(false);
       }
     } else {
       setBackCoverMode(v);
+      if (v === "custom") setOverride("contracapa", null);
       if (v === "standard") {
         setCustomBackCover(null);
         setBackCoverCollapsed(false);
