@@ -1245,17 +1245,31 @@ const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function Kit
       )}
 
 
-      <ConfirmDialog
-        open={!!deletingId}
-        onOpenChange={(o) => !o && setDeletingId(null)}
-        title="Excluir kit?"
-        description="Esta ação não pode ser desfeita. Orçamentos já criados não são afetados."
-        onConfirm={remove}
-        confirmText="Excluir"
-      />
+      <AlertDialog open={!!deletingId} onOpenChange={(o) => !o && setDeletingId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Kit?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este kit? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={remove}
+              className={buttonVariants({ variant: "destructive" })}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
-}
+});
+
+export default KitsProduto;
+
 
 function CompactItemRow({
   item,
