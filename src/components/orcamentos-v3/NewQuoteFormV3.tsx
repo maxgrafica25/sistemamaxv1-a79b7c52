@@ -18,22 +18,30 @@ import { summarize, fmtBRL } from "./shared/pricing";
 import { DEFAULT_STATE, genId, type V3Category, type V3Item, type V3QuoteState } from "./types";
 
 import { saveQuoteV3 } from "./shared/saveQuoteV3";
+import { loadQuoteV3 } from "./shared/loadQuoteV3";
 import { RecorrentesPanel } from "@/components/recorrentes/RecorrentesPanel";
 import { useGlobalSettings } from "@/hooks/useGlobalSettings";
 
 interface Props {
   onCancel: () => void;
   onSave?: (result: { id: string; quote_number: string }) => void;
+  editingQuoteId?: string | null;
 }
 
-export function NewQuoteFormV3({ onCancel, onSave }: Props) {
+export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
+  const isEditing = !!editingQuoteId;
   const [state, setState] = useState<V3QuoteState>(DEFAULT_STATE);
   const [active, setActive] = useState<V3Category>("print");
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [loadingEdit, setLoadingEdit] = useState(isEditing);
+  const [editMeta, setEditMeta] = useState<{ quote_number: string; status: string } | null>(null);
   const { settings: globalSettings } = useGlobalSettings();
 
-  const { hydrated, savedAt, clear } = useQuoteDraftV3(state);
+  // Rascunho local desabilitado em modo edição (não queremos sobrescrever
+  // o estado real com um rascunho antigo de "novo orçamento").
+  const { hydrated, savedAt, clear } = useQuoteDraftV3(state, !isEditing);
   useEffect(() => {
+    if (isEditing) return;
     if (hydrated) {
       setState(hydrated);
       toast.info("Rascunho restaurado", {
@@ -41,7 +49,40 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated]);
+  }, [hydrated, isEditing]);
+
+  // Carrega snapshot v3_payload quando estamos editando.
+  useEffect(() => {
+    if (!editingQuoteId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const loaded = await loadQuoteV3(editingQuoteId);
+        if (cancelled) return;
+        setState(loaded.state);
+        setEditMeta({ quote_number: loaded.quote_number, status: loaded.status });
+        if (loaded.is_locked) {
+          toast.error("Esta versão foi substituída", {
+            description: "Abra a versão mais recente para editar.",
+          });
+        } else if (loaded.status === "approved" || loaded.status === "partial") {
+          toast.warning("Orçamento já tem aceite", {
+            description: "Editar livre vai sobrescrever. Considere criar nova versão.",
+          });
+        }
+      } catch (err: any) {
+        toast.error("Não foi possível abrir o orçamento", {
+          description: err?.message || "Tente novamente.",
+        });
+        onCancel();
+      } finally {
+        if (!cancelled) setLoadingEdit(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editingQuoteId, onCancel]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
