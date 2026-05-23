@@ -231,6 +231,12 @@ export default function KitsProduto() {
   const [isActive, setIsActive] = useState(true);
   const [items, setItems] = useState<KitItem[]>([]);
 
+  // Expansão (preview readonly dos itens no card)
+  const [expandedKits, setExpandedKits] = useState<Set<string>>(new Set());
+  const [kitItemsCache, setKitItemsCache] = useState<Record<string, ReadonlyKitItem[]>>({});
+  const [loadingKits, setLoadingKits] = useState<Set<string>>(new Set());
+  const [erroredKits, setErroredKits] = useState<Set<string>>(new Set());
+
   // Sub-dialogs
   const [pickerOpen, setPickerOpen] = useState(false);
   const [variantsEditing, setVariantsEditing] = useState<string | null>(null);
