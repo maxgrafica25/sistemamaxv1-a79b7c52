@@ -16,7 +16,10 @@ import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
 import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
 import { fmtBRL } from "../shared/pricing";
-import { genId, type V3CVItem } from "../types";
+import { genId, type ArtStatus, type V3CVItem, type V3Item } from "../types";
+import { ArtePromptBlock } from "../shared/ArtePromptBlock";
+import { stampArt, makeArtThirdParty } from "../shared/artStatus";
+import { toast } from "sonner";
 import { useV3CVCatalog } from "../shared/useV3CVCatalog";
 import {
   calcular,
@@ -45,12 +48,16 @@ function isLonaOnlyFinish(nome: string): boolean {
 }
 
 interface Props {
-  onAdd: (item: V3CVItem) => void;
-  onAddTiers?: (items: V3CVItem[]) => void;
+  onAdd: (item: V3Item) => void;
+  onAddTiers?: (items: V3Item[]) => void;
 }
 
 export function CVForm({ onAdd, onAddTiers }: Props) {
   const cat = useV3CVCatalog();
+
+  // Pergunta "Tem arte pronta?"
+  const [artStatus, setArtStatus] = useState<ArtStatus | null>(null);
+  const [artTercValue, setArtTercValue] = useState<number>(0);
 
   // null = Personalizado (padrão); caso contrário, id do preset ativo
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
