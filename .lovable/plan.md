@@ -1,75 +1,79 @@
 
-# Limpeza adicional sugerida
+# Auditoria profunda de resquícios V2
 
-Depois da renomeação `quotes-v2 → quotes`, ainda existem alguns pontos no código que valem a pena ajustar para evitar confusão e conflitos futuros.
-
-## 1. Remover o velho formulário V2 que sobrou dentro de `listing/`
-
-O arquivo `src/components/orcamentos-v3/listing/NewQuoteFormV2.tsx` não é mais importado por ninguém (nem rota, nem outro componente). Ele só serve para arrastar consigo uma série de componentes que também ficaram órfãos.
-
-Apagar:
-- `listing/NewQuoteFormV2.tsx`
-- `listing/SmartFinishingBlock.tsx`
-- `listing/PrintingItemEditor.tsx`
-- `listing/LaborAndSupplySubform.tsx`
-- `listing/QuoteItemsTable.tsx`
-- `listing/DiscountPaymentBlock.tsx`
-- `listing/FreightSelector.tsx`
-- `listing/ClientDetailsPanel.tsx`
-- `listing/ClientLastSalesPanel.tsx`
-- `listing/LoadFromGroupDialog.tsx`
-- `listing/GenerateOrderButton.tsx`
-
-(Verificar uma última vez que nada fora do próprio `NewQuoteFormV2` os importa antes de excluir.)
-
-## 2. Mover tipos compartilhados para fora de `listing/`
-
-Hoje arquivos sérios do V3 importam **tipos** de componentes que vivem em `listing/`, o que cria um acoplamento estranho:
-
-- `CVItemState` é importado por `lib/quotes/options-pricing.ts`, `cart/QuoteAssistantPanelV3`, `cart/QuoteChecklistPanelV3` — mora em `listing/CVItemCard.tsx`.
-- `ProcessStep` é importado por `lib/quotes/finishing-suggestions.ts`, `shared/productKit.ts`, `shared/bookletKit.ts`, `shared/useV3ProcessCatalog.ts`, `forms/LaborForm.tsx` — mora em `listing/ProcessPicker.tsx` e duplicado em `listing/QuoteItemsTable.tsx`.
-- `StepType` vem de `listing/StepTypeBadge.tsx` e é usado por `pages/ProcessosProducao.tsx`.
-
-Mover essas definições para `src/components/orcamentos-v3/types.ts` (ou um novo `shared/types.ts`) e atualizar os imports. Assim, se um dia o `listing/` for refatorado/renomeado, nada de lógica quebra.
-
-## 3. Componentes que são genuinamente "shared", não "listing"
-
-Vários componentes em `listing/` são, na prática, utilitários compartilhados — não pertencem à listagem nem ao viewer:
-
-- `ClientCombobox` (usado em `pedidos/OrderEditorDialog` e no `NewQuoteFormV3`)
-- `SupplySearch` (usado em `KitsProduto`, `GruposMateriais`, `BookletKitPanel`, `SupplyForm`)
-- `ProcessPicker` (usado em `LaborForm`, `productKit`, `bookletKit`)
-- `StepTypeBadge` (usado em `ProcessosProducao`)
-- `QuoteStatusBadge` (usado em listagem **e** no client viewer)
-
-Mover esses cinco para `src/components/orcamentos-v3/shared/` e atualizar imports. O restante de `listing/` (BulkActionBar, CloneQuoteButton, CreateVersionButton, GenerateOPButton, EngagementBadge, EngagementPopover, RealtimeRadar, UseTemplateDialog, QuoteAssistant, QuoteChecklist, QuoteOptionsBuilder, PriceBreakdown, StickyFinancialSidebar, CVItemCard) é realmente da listagem ou auxilia os painéis de carrinho — pode ficar.
-
-## 4. Subpasta `client-viewer/` no lugar errado
-
-`listing/client-viewer/*` é usado só por `pages/orcamentos-v3/ClientViewerV3.tsx`. Faz mais sentido viver em `src/components/orcamentos-v3/viewer/`. Mover a pasta e atualizar os 5 imports do `ClientViewerV3.tsx`.
-
-## 5. Remover redirecionamentos V2 antigos (opcional)
-
-Em `src/App.tsx` ainda existem:
-```
-/view-quote-v2/:id  → /
-/orcamentos-v2      → /orcamentos
-/orcamentos-v2/*    → /orcamentos
-```
-Se já faz tempo que ninguém usa esses links (e nenhum WhatsApp / e-mail antigo aponta para `/view-quote-v2/...`), podemos remover os três `<Route>`. Caso contrário, vale manter por mais alguns meses. **Recomendação:** manter por segurança — custa nada.
-
-## 6. Pequeno detalhe: `product_kind`
-
-A memória diz que `product_kind` é legado e o vínculo Kit↔Preset é via N:N. Ainda há refs em `KitsProduto.tsx`, `BusinessCardForm.tsx`, `ProductKitPanel.tsx`, `productKit.ts`, `useProductKitProcesses.ts` etc. **Não é parte desta limpeza** — exige análise funcional. Só registrando aqui como dívida técnica conhecida.
+Fiz uma varredura criteriosa: rotas, imports, FKs do banco, comentários de código, tabelas legacy e chaves de storage. Restam alguns itens. Resumo abaixo separando o que **vale remover/renomear** e o que **NÃO deve ser mexido** (com justificativa).
 
 ---
 
-## Resumo do que será feito (se você aprovar)
+## A. Componentes órfãos em `src/components/orcamentos-v3/listing/` — REMOVER
 
-1. Excluir `NewQuoteFormV2` + 10 componentes órfãos arrastados por ele.
-2. Mover tipos `CVItemState`, `ProcessStep`, `StepType` para `shared/types.ts`.
-3. Mover `ClientCombobox`, `SupplySearch`, `ProcessPicker`, `StepTypeBadge`, `QuoteStatusBadge` para `shared/`.
-4. Mover `listing/client-viewer/` para `viewer/`.
-5. Atualizar todos os imports impactados.
+Verificado que nenhum arquivo do projeto importa estes (apenas auto-referências entre eles):
 
-Não toco em redirecionamentos V2 (#5) nem em `product_kind` (#6).
+- `CVItemCard.tsx` — o tipo `CVItemState` já foi movido para `types.ts`; o componente em si era o card de edição CV do V2. No V3 a edição de CV é feita por `forms/CVForm.tsx`.
+- `EngagementBadge.tsx` — substituído por `EngagementPopover` na listagem.
+- `StickyFinancialSidebar.tsx` — substituído por `cart/StickyFinancialSidebarV3` (sidebar do V3).
+- `PriceBreakdown.tsx` — só era usado por `StickyFinancialSidebar` (cadeia órfã).
+- `QuoteOptionsBuilder.tsx` — substituído por `cart/QuoteOptionsBuilderV3.tsx`.
+
+## B. Utilitários órfãos em `src/lib/quotes/` — REMOVER
+
+Nenhum import em todo o `src/`:
+
+- `finishing-suggestions.ts` (existe a versão CV em `cv-finishing-suggestions.ts`, ainda em uso)
+- `item-title.ts`
+- `labor-display.ts`
+- `subject-suggestion.ts`
+
+## C. Pasta legada `src/components/orcamentos/` — MOVER e REMOVER
+
+Sobrou apenas um arquivo nessa pasta, que ainda é usado por 5 arquivos do V3:
+
+- Mover `src/components/orcamentos/PrintingItemSearch.tsx` para `src/components/orcamentos-v3/shared/PrintingItemSearch.tsx`.
+- Atualizar 5 imports (`useV3Catalog`, `BookletForm`, `PrintForm`, `CustomCoverEditor`, `BusinessCardForm`, `lib/quotes/pricing.ts`).
+- Apagar a pasta `src/components/orcamentos/` (ficará vazia).
+
+## D. Renomeações cosméticas dentro de `OrcamentosV3.tsx` — RENOMEAR
+
+- Função `export default function OrcamentosV2()` → `OrcamentosV3()`.
+- `CardTitle` "Lista V2" → `Lista de Orçamentos`.
+
+## E. Mensagem de erro desatualizada em `shared/loadQuoteV3.ts` — AJUSTAR
+
+Texto atual: *"Este orçamento não foi criado no V3 e não pode ser editado aqui. Abra-o na versão V2."*
+
+Como o V2 não existe mais como editor (o link `/p/{numero}` abre o viewer somente-leitura), atualizar para:
+
+*"Este orçamento foi criado em uma versão anterior do sistema e está disponível apenas para visualização. Use o link público para abri-lo."*
+
+## F. Canal Realtime `quotes-radar-v2` em `listing/RealtimeRadar.tsx` — RENOMEAR
+
+`.channel("quotes-radar-v2")` → `.channel("quotes-radar")`. Sem efeito colateral: o nome do canal é só um identificador local, não persiste nada.
+
+---
+
+## NÃO MEXER (com justificativa)
+
+1. **Redirects `/orcamentos-v2`, `/orcamentos-v2/*`, `/view-quote-v2/:id` em `App.tsx`** — protegem links antigos compartilhados via WhatsApp/e-mail. Custo zero, benefício real. Mantém.
+
+2. **Tabelas `legacy_cv_materials`, `legacy_cv_finishes`, `legacy_cv_printers` e `cv_quote_items`** — apesar do prefixo "legacy", continuam sendo escritas pelo `saveQuoteV3.ts` (comentário "paridade com V2") e referenciadas por FK. Existem 1 registro em cada. Remover quebraria criação de orçamentos CV no V3. **Decisão técnica de banco fica fora dessa limpeza.**
+
+3. **Tag `'v3'` em `quotes.tags`** — usada como discriminador na listagem (`isV3 = tags.includes("v3")`) para decidir entre abrir editor (V3) ou viewer público (legacy). É contrato vivo.
+
+4. **Chaves localStorage `qv2_visitor`, `qv2_view_*`, `qv2_scroll_*` em `lib/quotes/tracking.ts` e `useScrollDepthTracking.ts`** — renomear apagaria histórico de visitas/scroll dos clientes (eles perderiam estado). Comentário "v2" no nome é só nostálgico, sem efeito funcional. **Manter.**
+
+5. **Comentários históricos "V2" espalhados** (`useV3Catalog`, `useV3CVCatalog`, `useV3HourlyRate`, `bookletKit`, `engine.ts`, `saveQuoteV3`, `useQuoteDraftV3`, `LaborForm`, `SupplyForm`, `LabelEmbeddedForm`, `approval-terms`) — apenas explicam de onde a lógica veio. Têm valor documental, não geram conflito. **Manter.**
+
+6. **Adapters `cart/QuoteAssistantPanelV3` e `cart/QuoteChecklistPanelV3`** — ainda dependem de `listing/QuoteAssistant` e `listing/QuoteChecklist` (componentes vivos), e estes por sua vez foram redirecionados para importar tipos de `types.ts`. Tudo coerente. **Manter.**
+
+---
+
+## Resumo do que será feito (se aprovado)
+
+1. Apagar 5 componentes órfãos em `listing/` (item A).
+2. Apagar 4 utilitários órfãos em `lib/quotes/` (item B).
+3. Mover `PrintingItemSearch` para `orcamentos-v3/shared/` e remover a pasta `components/orcamentos/` (item C).
+4. Renomear função/título em `OrcamentosV3.tsx` (item D).
+5. Atualizar mensagem em `loadQuoteV3.ts` (item E).
+6. Renomear canal Realtime para `quotes-radar` (item F).
+
+Não toco em rotas legacy, tabelas legacy_cv_*, tag `v3`, localStorage `qv2_*` nem comentários históricos.
