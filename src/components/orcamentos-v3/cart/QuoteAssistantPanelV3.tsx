@@ -43,7 +43,7 @@ export function QuoteAssistantPanelV3({ items, clientId, clientName }: Props) {
     if (!clientId) { setClientTags([]); return; }
     (async () => {
       const { data } = await supabase
-        .from("clientes")
+        .from("clients")
         .select("tags")
         .eq("id", clientId)
         .maybeSingle();
