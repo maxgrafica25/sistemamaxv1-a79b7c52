@@ -77,6 +77,7 @@ export default function ProcessosProducao() {
 
       {activeTab === "etapas" && <EtapasTab />}
       {activeTab === "grupos" && <GruposTab />}
+      {activeTab === "categorias" && <CategoriasTab />}
     </div>
   );
 }
