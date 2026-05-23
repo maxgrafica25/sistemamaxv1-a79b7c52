@@ -17,7 +17,7 @@ import {
   type AcabamentoAplicado as CVAcabamentoAplicado,
   type MarkupSettings as CVMarkupSettings,
 } from "@/lib/cv-calc/engine";
-import type { CVItemState } from "@/components/orcamentos-v2/CVItemCard";
+import type { CVItemState } from "@/components/orcamentos-v3/listing/CVItemCard";
 
 export interface CVContext {
   items: CVItemState[];

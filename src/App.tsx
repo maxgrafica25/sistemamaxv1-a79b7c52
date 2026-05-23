@@ -31,14 +31,11 @@ import GruposMateriais from "./pages/GruposMateriais";
 import KitsProduto from "./pages/KitsProduto";
 import Insumos from "./pages/Insumos";
 import CadastrosCV from "./pages/CadastrosCV";
-import OrcamentosV2 from "./pages/orcamentos-v2/OrcamentosV2";
 import OrcamentosV3 from "./pages/orcamentos-v3/OrcamentosV3";
 import Usuarios from "./pages/Usuarios";
-import NewQuoteV2 from "./pages/orcamentos-v2/NewQuoteV2";
 import NewQuoteV3 from "./pages/orcamentos-v3/NewQuoteV3";
-import EditQuoteV2 from "./pages/orcamentos-v2/EditQuoteV2";
-import ClientViewer from "./pages/orcamentos-v2/ClientViewer";
 import ClientViewerV3 from "./pages/orcamentos-v3/ClientViewerV3";
+
 
 import Pedidos from "./pages/Pedidos";
 import ContasReceber from "./pages/ContasReceber";
@@ -63,17 +60,17 @@ const App = () => (
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/view-quote/:id" element={<ClientViewerV3 />} />
                 <Route path="/p/:quoteNumber" element={<ClientViewerV3 />} />
-                <Route path="/view-quote-v2/:id" element={<ClientViewer />} />
+                <Route path="/view-quote-v2/:id" element={<Navigate to="/" replace />} />
                 <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/pedidos" element={<Pedidos />} />
                   <Route path="/financeiro/receber" element={<ContasReceber />} />
                   <Route path="/orcamentos" element={<OrcamentosV3 />} />
                   <Route path="/orcamentos/novo" element={<Navigate to="/orcamentos-v3/novo" replace />} />
-                  <Route path="/orcamentos/:id" element={<Navigate to="/orcamentos-v3/:id/editar" replace />} />
                   <Route path="/orcamentos-v2" element={<Navigate to="/orcamentos" replace />} />
-                  <Route path="/orcamentos-v2/novo" element={<NewQuoteV2 />} />
-                  <Route path="/orcamentos-v2/:id" element={<EditQuoteV2 />} />
+                  <Route path="/orcamentos-v2/*" element={<Navigate to="/orcamentos" replace />} />
+
+
                   <Route path="/orcamentos-v3" element={<Navigate to="/orcamentos" replace />} />
                   <Route path="/orcamentos-v3/novo" element={<NewQuoteV3 />} />
                   <Route path="/orcamentos-v3/:id/editar" element={<NewQuoteV3 />} />

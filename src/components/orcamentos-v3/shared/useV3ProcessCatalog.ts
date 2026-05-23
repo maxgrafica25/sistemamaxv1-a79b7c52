@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type {
   ProcessStep,
   ProcessGroup,
-} from "@/components/orcamentos-v2/ProcessPicker";
+} from "@/components/orcamentos-v3/listing/ProcessPicker";
 
 export function useV3ProcessCatalog() {
   const [steps, setSteps] = useState<ProcessStep[]>([]);
