@@ -22,7 +22,7 @@ import { ThirdPartyForm } from "./forms/ThirdPartyForm";
 import { UnifiedCart } from "./cart/UnifiedCart";
 import { QuoteAssistantPanelV3 } from "./cart/QuoteAssistantPanelV3";
 import { QuoteChecklistPanelV3 } from "./cart/QuoteChecklistPanelV3";
-import { QuoteOptionsBuilderV3 } from "./cart/QuoteOptionsBuilderV3";
+
 import { FinancialPanel } from "./cart/FinancialPanel";
 import { useQuoteDraftV3 } from "./shared/useQuoteDraftV3";
 import { summarize, fmtBRL } from "./shared/pricing";
@@ -347,14 +347,6 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
               clientId={state.cliente.id}
               clientName={state.cliente.nome}
               checklistAnswers={checklistAnswers}
-            />
-            <QuoteOptionsBuilderV3
-              items={state.items}
-              mainQuantity={state.main_quantity ?? null}
-              options={state.options}
-              onChange={({ main_quantity, options }) =>
-                setState((s) => ({ ...s, main_quantity, options }))
-              }
             />
           </div>
           <div className="p-3 border-t border-border/60 bg-background">
