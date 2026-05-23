@@ -475,6 +475,32 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                   </div>
                 </div>
               </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Etapa de produção associada (opcional)</Label>
+                <Select
+                  value={draft.production_step_id ?? "none"}
+                  onValueChange={(v) =>
+                    setDraft({ ...draft, production_step_id: v === "none" ? null : v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Nenhuma" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhuma</SelectItem>
+                    {steps.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.description} · {s.time_minutes} min
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Vincule a uma etapa cadastrada em <strong>Produção → Etapas</strong> para
+                  reaproveitar o tempo de execução nos orçamentos.
+                </p>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={cancelEdit}>
