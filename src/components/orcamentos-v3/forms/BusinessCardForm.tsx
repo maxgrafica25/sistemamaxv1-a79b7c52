@@ -162,13 +162,13 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   );
 
   // Pré-marca fixos e opcionais com default_on; mantém escolhas do usuário; limpa órfãos.
+  // Opcionais começam SEMPRE desmarcados (opt-in). Apenas os fixos são pré-marcados.
   useEffect(() => {
     setFinEnabled((m) => {
       const next: Record<string, boolean> = {};
       for (const p of cvProcs) {
         if (p.link_type === "fixed") next[p.key] = true;
         else if (m[p.key] !== undefined) next[p.key] = m[p.key];
-        else if (p.default_on) next[p.key] = true;
       }
       return next;
     });

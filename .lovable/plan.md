@@ -1,41 +1,40 @@
-## Reordenar abas + sugerir Processos/Suprimentos pelo nome do kit
+# Ajustes no formulário Cartão de Visita (V3)
 
-### Mudanças no `AddItemsPicker`
+Arquivo único: `src/components/orcamentos-v3/forms/BusinessCardForm.tsx`.
 
-1. **Inverter ordem das abas**: **Processos** vira a primeira (aba padrão), **Suprimentos** vira a segunda.
-2. **Sugestões automáticas baseadas no nome do kit**:
-   - Passar nova prop `kitName: string` para o picker (vindo do estado `name` de `KitsProduto.tsx`).
-   - Reutilizar o helper `suggestPresets`-style: normalização (lowercase, sem acento, sem pontuação) + tokens >3 letras + match "contém / contido / token compartilhado".
-   - Aplicar a heurística sobre `supplies[].produto` e `processes[].description`.
-   - Só roda quando `kitName` tem ≥3 caracteres **e** o usuário não digitou nada no campo "Buscar…" (a busca tem prioridade).
-3. **UI da sugestão (no topo de cada aba)**:
-   - Faixa destacada `bg-primary/5 border-l-2 border-l-primary` com header pequeno:
-     > ✨ Sugestões para "Nome do kit" · [Marcar todos] [Limpar]
-   - Lista das linhas sugeridas, idênticas às linhas normais (checkbox + título + subtítulo).
-   - **Pré-marca** automaticamente os itens sugeridos quando o picker abre (apenas na 1ª abertura por nome; se o usuário desmarcar, respeita a escolha).
-   - As linhas sugeridas **somem da lista principal abaixo** (pra não repetir).
-   - Se o usuário começar a digitar em "Buscar…", a faixa some.
-4. **Reset de estado**: ao fechar o picker, manter o comportamento atual (resetar seleção); ao reabrir com mesmo nome, sugestões voltam pré-marcadas.
+## O que muda
 
-### Por que não usar LLM
+### 1) "Ajustar layout da folha" sobe para o topo
+Hoje o bloco colapsável fica no final, depois do preço — o usuário só descobre as opções de folha/cartão depois de já ter visto o resultado. Vou movê-lo para logo após o seletor de **Face de impressão**, ainda colapsado por padrão (para não poluir), mas visível antes do "Resumo de aproveitamento" e do preço. Assim a sequência fica:
 
-Match por nome é um problema clássico de comparação de strings: heurística local responde em <1ms, é grátis e determinística. LLM seria mais lento, custoso e sem ganho real para este caso.
+```
+Catálogo selecionado
+Quantidade
+Face de impressão
+Ajustar layout da folha       ← novo lugar (colapsado)
+Resumo de aproveitamento
+Preço por folha / por cartão
+Acabamentos (fixos)
+Acabamentos opcionais
+[Adicionar ao orçamento]
+```
 
-### Detalhes técnicos
+### 2) Acabamentos opcionais ficam listados (não escondidos atrás de "Sugestões opcionais")
+Hoje os opcionais ficam dentro de um `<details>` chamado "Sugestões opcionais" — pelo nome do grupo o usuário não consegue ver o que está sendo contemplado. Vou:
 
-- Arquivos:
-  - `src/components/kits/AddItemsPicker.tsx`:
-    - Nova prop `kitName?: string`.
-    - Extrair helper local `matchesKitName(name, kitName)` (mesma fórmula do `suggestPresets`).
-    - `useMemo`s para `suggestedSupplies` e `suggestedProcesses`.
-    - `useEffect` que pré-marca as sugestões ao abrir (controlado por uma flag `autoMarkedFor: string | null` pra não repetir).
-    - Trocar a ordem dos `TabsTrigger` e o `defaultValue` do `Tabs`.
-    - `filteredSup`/`filteredProc` excluem ids já presentes em `suggested*` quando a faixa estiver visível.
-  - `src/pages/KitsProduto.tsx`:
-    - Passar `kitName={name}` ao `<AddItemsPicker />`.
+- Trocar o `<details>` por um `<Field label="Acabamentos opcionais">` com a mesma lista (`FinishingProgressive`) sempre visível.
+- Manter um subtítulo curto (ex.: "Marque para incluir no orçamento") para reforçar que são opt-in.
 
-### Fora do escopo
+### 3) Opcionais começam SEMPRE desmarcados
+No `useEffect` que inicializa `finEnabled` (linhas ~165-175), hoje os opcionais com `default_on=true` vêm pré-marcados. Vou remover esse pré-marque para opcionais — somente os `fixed` continuam marcados automaticamente. Opcional = opcional, o usuário decide.
 
-- Sugestão semântica via LLM.
-- Aprender com histórico de kits anteriores.
-- Mudar a ordem das colunas de itens no kit (já tratado pelo drag).
+## Detalhes técnicos
+
+- Em `BusinessCardForm.tsx`: extrair o JSX do bloco "Layout editável (colapsado)" e movê-lo para depois do `<Field label="Face de impressão">`.
+- Substituir o `<details>` de "Sugestões opcionais" por um `<Field>` padrão renderizando `FinishingProgressive` com `optionalFinishes`.
+- No `useEffect` de inicialização de `finEnabled`: remover o ramo `else if (p.default_on) next[p.key] = true;` (que só se aplicava a opcionais).
+- Nenhuma mudança em outros arquivos (PrintForm, ProductKitPanel, etc.) — o problema é específico do fluxo Cartão de Visita visualizado pelo usuário.
+
+## Fora de escopo
+- Não mexer no `ProductKitPanel` (já lista item-a-item).
+- Não alterar lógica de preço, descrição, ou tipos.
