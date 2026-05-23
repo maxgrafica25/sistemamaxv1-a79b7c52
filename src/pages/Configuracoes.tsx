@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { DotTabs } from "@/components/ui/dot-tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Save, Info, Loader2, Cog, Download, FileJson, FileCode, RefreshCw, AlertTriangle, Database, FolderArchive } from "lucide-react";
@@ -42,6 +43,7 @@ interface BackupRun {
 export default function Configuracoes() {
   const { profile, session } = useAuth();
   const isAdmin = profile?.role === "admin";
+  const [configTab, setConfigTab] = useState("empresa");
 
   const [hourlyRate, setHourlyRate] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -200,15 +202,20 @@ export default function Configuracoes() {
         <p className="text-sm text-muted-foreground mt-1">Configure os valores padrão e gerencie o backup do sistema</p>
       </div>
 
-      <Tabs defaultValue="empresa" className="max-w-3xl">
-        <TabsList>
-          <TabsTrigger value="empresa">Empresa</TabsTrigger>
-          <TabsTrigger value="geral">Geral</TabsTrigger>
-          <TabsTrigger value="integracoes">Integrações</TabsTrigger>
-          {isAdmin && <TabsTrigger value="conhecimento">Base de Conhecimento</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="backup">Backup &amp; Exportação</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="vps">Migração / VPS</TabsTrigger>}
-        </TabsList>
+      <Tabs value={configTab} onValueChange={setConfigTab} className="max-w-3xl">
+        <DotTabs
+          tabs={[
+            { key: "empresa", label: "Empresa" },
+            { key: "geral", label: "Geral" },
+            { key: "integracoes", label: "Integrações" },
+            ...(isAdmin ? [{ key: "conhecimento", label: "Base de Conhecimento" }] : []),
+            ...(isAdmin ? [{ key: "backup", label: "Backup & Exportação" }] : []),
+            ...(isAdmin ? [{ key: "vps", label: "Migração / VPS" }] : []),
+          ]}
+          value={configTab}
+          onChange={setConfigTab}
+          className="mb-4"
+        />
 
         <TabsContent value="empresa">
           <CompanyTab isAdmin={isAdmin} />

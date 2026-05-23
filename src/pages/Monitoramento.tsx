@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { DotTabs } from "@/components/ui/dot-tabs";
 import { toast } from "sonner";
 import { TrendingUp, TrendingDown, RefreshCw, Plus, Trash2, ExternalLink, Trophy, AlertTriangle, Wifi, WifiOff, Layers, Target, Flame, ShoppingCart, Sparkles, BookOpen } from "lucide-react";
 import NovoSiteDialog from "@/components/monitoramento/NovoSiteDialog";
@@ -765,14 +766,17 @@ export default function Monitoramento() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="oportunidades">
-            <Sparkles className="h-4 w-4 mr-1" /> Oportunidades {oportunidades.length > 0 && `(${oportunidades.length})`}
-          </TabsTrigger>
-          <TabsTrigger value="comparativo">Comparar fornecedores</TabsTrigger>
-          <TabsTrigger value="tabela">Gerenciar sites</TabsTrigger>
-          <TabsTrigger value="alertas">Alertas {alertasNaoLidos > 0 && `(${alertasNaoLidos})`}</TabsTrigger>
-        </TabsList>
+        <DotTabs
+          tabs={[
+            { key: "oportunidades", label: `Oportunidades${oportunidades.length > 0 ? ` (${oportunidades.length})` : ""}` },
+            { key: "comparativo", label: "Comparar fornecedores" },
+            { key: "tabela", label: "Gerenciar sites" },
+            { key: "alertas", label: `Alertas${alertasNaoLidos > 0 ? ` (${alertasNaoLidos})` : ""}` },
+          ]}
+          value={activeTab}
+          onChange={setActiveTab}
+          className="mb-4"
+        />
 
         {/* === OPORTUNIDADES === Comparação produto-a-produto entre fornecedores === */}
         <TabsContent value="oportunidades" className="space-y-3">

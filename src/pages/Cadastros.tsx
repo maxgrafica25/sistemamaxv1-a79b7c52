@@ -14,6 +14,7 @@ import { logAudit } from "@/lib/audit";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { handleError } from "@/lib/handleError";
 import PageLoader from "@/components/PageLoader";
+import { DotTabs } from "@/components/ui/dot-tabs";
 
 interface Cadastro {
   id: string;
@@ -197,26 +198,16 @@ export default function Cadastros() {
         </Button>
       </div>
 
-      <div className="flex gap-1 border-b border-border mb-4">
-        {[
+      <DotTabs
+        tabs={[
           { key: "todos", label: `Todos (${cadastros.length})` },
           { key: "clientes", label: `Clientes (${clientCount})` },
           { key: "fornecedores", label: `Fornecedores (${supplierCount})` },
-        ].map(t => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-[3px] -mb-px ${
-              activeTab === t.key
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <span className={`h-2 w-2 rounded-full ${activeTab === t.key ? "bg-primary" : "bg-muted-foreground/40"}`} />
-            {t.label}
-          </button>
-        ))}
-      </div>
+        ]}
+        value={activeTab}
+        onChange={setActiveTab}
+        className="mb-4"
+      />
 
       <div>
           <div className="relative mb-4">

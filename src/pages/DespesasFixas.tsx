@@ -16,6 +16,7 @@ import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
 import PageLoader from "@/components/PageLoader";
+import { DotTabs } from "@/components/ui/dot-tabs";
 
 interface Expense { id?: string; name: string; value: number; }
 interface Salary { id?: string; name: string; salary: number; is_production: boolean; }
@@ -26,11 +27,11 @@ const formatCurrency = (v: number) => v.toLocaleString("pt-BR", { style: "curren
 
 type TabKey = "despesas" | "salarios" | "depreciacao" | "capacidade";
 
-const TAB_CONFIG: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-  { key: "despesas", label: "Despesas Mensais", icon: <DollarSign className="h-3.5 w-3.5" /> },
-  { key: "salarios", label: "Folha de Pagamento", icon: <Users className="h-3.5 w-3.5" /> },
-  { key: "depreciacao", label: "Depreciação", icon: <Monitor className="h-3.5 w-3.5" /> },
-  { key: "capacidade", label: "Capacidade", icon: <Calculator className="h-3.5 w-3.5" /> },
+const TAB_CONFIG: { key: TabKey; label: string }[] = [
+  { key: "despesas", label: "Despesas Mensais" },
+  { key: "salarios", label: "Folha de Pagamento" },
+  { key: "depreciacao", label: "Depreciação" },
+  { key: "capacidade", label: "Capacidade" },
 ];
 
 export default function DespesasFixas() {
@@ -186,22 +187,12 @@ export default function DespesasFixas() {
         </div>
 
         <div>
-          <div className="flex gap-1 border-b border-border mb-4">
-            {TAB_CONFIG.map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-[3px] -mb-px ${
-                  activeTab === tab.key
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <span className={`h-2 w-2 rounded-full ${activeTab === tab.key ? "bg-primary" : "bg-muted-foreground/40"}`} />
-                {tab.icon} {tab.label}
-              </button>
-            ))}
-          </div>
+          <DotTabs
+            tabs={TAB_CONFIG}
+            value={activeTab}
+            onChange={(k) => setActiveTab(k as TabKey)}
+            className="mb-4"
+          />
 
           <div>
             {activeTab === "despesas" && (
