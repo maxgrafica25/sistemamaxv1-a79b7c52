@@ -35,7 +35,7 @@ import { useGlobalSettings } from "@/hooks/useGlobalSettings";
 import { ArtePromptBlock } from "./shared/ArtePromptBlock";
 import { stampArt, makeArtInternal, makeArtThirdParty, requiresArt } from "./shared/artStatus";
 import { useHourRate } from "@/hooks/useHourRate";
-import type { ArtStatus, V3ThirdItem } from "./types";
+import type { ArtStatus as _ArtStatus, V3ThirdItem } from "./types";
 
 
 interface Props {
