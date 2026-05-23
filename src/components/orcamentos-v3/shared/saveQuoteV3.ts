@@ -17,7 +17,7 @@ import type {
 } from "../types";
 import { priceOf, roundUp10 } from "./pricing";
 
-const nextQuoteNumber = async () => {
+export const nextQuoteNumber = async () => {
   const { data } = await supabase
     .from("quotes")
     .select("quote_number")
