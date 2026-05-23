@@ -704,7 +704,7 @@ export default function KitsProduto() {
 
           {/* Cabeçalho enxuto */}
           <div className="px-5 py-3 border-b space-y-3 bg-muted/20">
-            <div className="grid gap-2 md:grid-cols-[1fr_180px_auto]">
+            <div className="grid gap-2 md:grid-cols-[1fr_auto]">
               <div>
                 <Label className="text-xs">Nome do kit</Label>
                 <Input
@@ -714,25 +714,90 @@ export default function KitsProduto() {
                   className="h-9"
                 />
               </div>
-              <div>
-                <Label className="text-xs">Tipo de produto</Label>
-                <Input
-                  list="kit-kinds"
-                  value={productKind}
-                  onChange={(e) => setProductKind(e.target.value)}
-                  placeholder="ex.: apostila"
-                  className="h-9"
-                />
-                <datalist id="kit-kinds">
-                  {KIND_SUGGESTIONS.map((s) => (
-                    <option key={s} value={s} />
-                  ))}
-                </datalist>
-              </div>
               <div className="flex items-end gap-2 pb-1">
                 <Switch checked={isActive} onCheckedChange={setIsActive} id="kit-active" />
                 <Label htmlFor="kit-active" className="text-xs">Ativo</Label>
               </div>
+            </div>
+            <div>
+              <Label className="text-xs">Aplica-se aos produtos</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-auto min-h-9 w-full justify-start px-2 py-1.5 flex-wrap gap-1"
+                  >
+                    {selectedPresetIds.length === 0 ? (
+                      <span className="text-muted-foreground text-xs">
+                        Selecione um ou mais produtos favoritos…
+                      </span>
+                    ) : (
+                      availablePresets
+                        .filter((p) => selectedPresetIds.includes(p.id))
+                        .map((p) => (
+                          <Badge key={p.id} variant="secondary" className="gap-1">
+                            {p.nome}
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Remover ${p.nome}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPresetIds((prev) =>
+                                  prev.filter((id) => id !== p.id),
+                                );
+                              }}
+                              className="ml-0.5 cursor-pointer text-muted-foreground hover:text-foreground"
+                            >
+                              ×
+                            </span>
+                          </Badge>
+                        ))
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-1 w-72 max-h-72 overflow-y-auto" align="start">
+                  {availablePresets.length === 0 ? (
+                    <p className="text-xs text-muted-foreground p-2">
+                      Nenhum produto favorito ativo. Cadastre em Vender → Produtos
+                      Favoritos.
+                    </p>
+                  ) : (
+                    availablePresets.map((p) => {
+                      const checked = selectedPresetIds.includes(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() =>
+                            setSelectedPresetIds((prev) =>
+                              checked
+                                ? prev.filter((id) => id !== p.id)
+                                : [...prev, p.id],
+                            )
+                          }
+                          className={`w-full text-left text-sm px-2 py-1.5 rounded hover:bg-muted flex items-center gap-2 ${
+                            checked ? "bg-primary/10" : ""
+                          }`}
+                        >
+                          <span
+                            className={`h-3.5 w-3.5 rounded border ${
+                              checked
+                                ? "bg-primary border-primary"
+                                : "border-muted-foreground/40"
+                            }`}
+                          />
+                          {p.nome}
+                        </button>
+                      );
+                    })
+                  )}
+                </PopoverContent>
+              </Popover>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Um mesmo kit pode atender vários produtos (ex.: Cartão + Folheto).
+              </p>
             </div>
             <Collapsible>
               <CollapsibleTrigger asChild>
