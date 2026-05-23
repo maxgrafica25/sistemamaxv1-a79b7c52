@@ -1067,6 +1067,7 @@ export default function KitsProduto() {
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         processes={processes}
+        kitName={name}
         onConfirm={handlePickerConfirm}
         onAddSpiralShortcut={() => {
           addSpiralByVariant();
