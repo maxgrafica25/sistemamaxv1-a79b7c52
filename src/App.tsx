@@ -77,8 +77,8 @@ const App = () => (
                   <Route path="/cadastros" element={<Cadastros />} />
                   <Route path="/insumos" element={<Insumos />} />
                   <Route path="/materias-primas" element={<Navigate to="/insumos" replace />} />
-                  <Route path="/grupos-materiais" element={<Navigate to="/insumos?tab=grupos" replace />} />
-                  <Route path="/kits-produto" element={<Navigate to="/insumos?tab=kits" replace />} />
+                  <Route path="/grupos-materiais" element={<Navigate to="/processos-producao?tab=grupos-materiais" replace />} />
+                  <Route path="/kits-produto" element={<Navigate to="/processos-producao?tab=kits" replace />} />
                   <Route path="/cadastros-cv" element={<CadastrosCV />} />
                   <Route path="/processos-producao" element={<ProcessosProducao />} />
                   <Route path="/despesas-fixas" element={<DespesasFixas />} />
