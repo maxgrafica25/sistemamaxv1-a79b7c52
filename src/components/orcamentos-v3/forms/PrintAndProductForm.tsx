@@ -239,8 +239,6 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
 
       {/* Sub-formulário */}
       <div>
-      {/* Sub-formulário */}
-      <div>
         {treatAsBusinessCard && (
           <BusinessCardForm
             onAdd={onAdd}
