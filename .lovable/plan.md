@@ -1,43 +1,60 @@
-## Auditoria
+## Diagnóstico
 
-Mapeei todos os consumidores de `production_steps.time_minutes` no V3 e **todos já convertem `minutos × Valor da Hora de Trabalho`**:
+Os 4 acabamentos "Arte —" cadastrados em `finishings_price_items` estão assim:
 
-| Consumidor | Arquivo | Conversão |
-|---|---|---|
-| Mão-de-obra avulsa | `forms/LaborForm.tsx` | `(time/60) × hourlyRate` |
-| Acabamentos de Cartão de Visita | `forms/BusinessCardForm.tsx` (`procCost`) | `(min/60) × hourRate` |
-| Acabamentos de Impressão | `forms/PrintForm.tsx` (gera `V3LaborItem` por etapa vinculada) | via `priceOfLabor` → `(min/60) × hourly_rate` |
-| Acabamentos CV | `forms/CVForm.tsx` + `cv-calc/AcabamentosTab.tsx` | `(min/60) × cat.hourRate` |
-| Kit de Produto | `shared/productKit.ts` | `(totalMin/60) × hourlyRate` |
-| Kit Booklet/Apostila | `shared/bookletKit.ts` | `(totalMin/60) × hourlyRate` |
-| Arte interna (tiers) | `shared/artStatus.ts` (implementado agora) | `(min/60) × hourRate` |
-| Totalização final | `shared/pricing.ts → priceOfLabor` | `(min/60) × hourly_rate` |
+- `pricing_model = per_unit`, `unit_label = arte`, `price_per_sheet = 0`
+- `production_step_id` vinculado (5/10/20/30 min)
+- `applies_to = {impressao, etiqueta}`
 
-**Logo, todo item cadastrado em Etapas que entrar em qualquer fluxo do orçamento gera custo em R$.** O risco residual é uma etapa ser salva com `time_minutes` zero ou nulo — aí ela aparece, mas não soma. O cadastro em `ProcessosProducao.tsx` já bloqueia (`time <= 0 → toast.error`), mas não há proteção no banco para inserções por outras vias.
+Comportamento atual:
 
-## Mudanças propostas (proteção definitiva)
+| Form | Toggle aparece? | Gera mão de obra (min × R$/hora)? | Aparece no total? |
+|---|---|---|---|
+| PrintForm (Impressão personalizada) | sim | sim, via `buildLinkedLaborItems` | sim — mas o hint mostra "R$ 0,00/arte", o que dá a impressão de não somar |
+| LabelEmbeddedForm (Etiquetas) | **não** — formulário nem renderiza `FinishingProgressive` | não | não |
+| BookletForm (Revista) | **não** | não | não |
 
-### 1. Trigger no banco para garantir `time_minutes > 0`
+Resumo: só Impressão personalizada gera o custo. Etiquetas e Revista ignoram completamente os acabamentos do catálogo unificado (inclusive os "Arte —"). Quando o cliente está em Etiquetas (caso do print enviado), ligar "Arte — Ajuste" não soma nada porque o form não cria nenhum item de mão de obra.
 
-Migration: adicionar trigger `BEFORE INSERT OR UPDATE` em `production_steps` que falha quando `time_minutes IS NULL OR time_minutes <= 0`. (Trigger em vez de CHECK por conformidade com a memória do projeto.)
+A página de Arte interna (`ArtePromptBlock` + `makeArtInternal`) é o caminho oficial via "Tem arte pronta?", mas o usuário está usando o caminho paralelo via catálogo de acabamentos — esse caminho precisa funcionar igual.
 
-Mesma proteção em `cv_acabamento_labor.time_minutes` (somente quando `production_step_id IS NOT NULL` — entradas livres podem ter snapshot zero? — vou confirmar e ajustar.)
+## Plano
 
-### 2. Backfill / aviso para dados existentes
+### 1. PrintForm — hint correto
 
-Query opcional para listar (sem alterar) etapas atuais com `time_minutes = 0` para o usuário corrigir manualmente:
-```
-SELECT id, description FROM production_steps WHERE time_minutes IS NULL OR time_minutes <= 0;
-```
-Mostro o resultado no chat depois de aplicar a migration; se houver registros, o usuário decide se edita ou remove.
+Em `src/components/orcamentos-v3/forms/PrintForm.tsx`, no `useMemo` de `finishes`:
+- Se `pricing_model === "per_unit"` **e** `price_per_sheet === 0` **e** `production_step` existe → hint passa a mostrar o custo real:  
+  `${fmtBRL((min/60) * hourlyRate)}/${unit_label} · +X min`
+- Caso contrário, mantém o comportamento atual.
 
-### 3. Reforço de UI
+Já existe `useV3HourlyRate()` no escopo, então é só consumir `hourlyRate`.
 
-Em `ProcessosProducao.tsx` a validação já existe; nenhuma alteração necessária. Apenas remover qualquer caminho que permitisse `0` em `cv-calc/AcabamentosTab.tsx` (`patchLaborRow({time_minutes: +e.target.value || 0})` aceita zero) — exigir `> 0` antes de salvar (linha 310 já filtra, então não há risco em produção, mas o input aceita zero visualmente; deixar um aviso inline).
+### 2. LabelEmbeddedForm — habilitar acabamentos + mão de obra
+
+Em `src/components/orcamentos-v3/forms/LabelEmbeddedForm.tsx`:
+- Carregar `listFinishings("etiqueta")` (mesmo padrão do PrintForm).
+- Adicionar bloco "Acabamentos" com `FinishingProgressive` antes do botão Adicionar.
+- No `submit`, gerar `V3LaborItem[]` para cada acabamento ligado que tenha `production_step` (mesma lógica do `buildLinkedLaborItems` do PrintForm), com `bundle_id` agrupando os labors ao item label.
+- Usar `useV3HourlyRate()` para `hourly_rate`.
+- Passar para o callback `onAddTiers` / `onAdd` os labors junto via uma nova prop `onAddMany?` (igual PrintForm) — incluir o novo handler no chamador (`PrintAndProductForm.tsx`).
+
+### 3. BookletForm — mesma extensão
+
+`src/components/orcamentos-v3/forms/BookletForm.tsx` segue o mesmo padrão do PrintForm (`listFinishings("impressao")` + `buildLinkedLaborItems`).
+
+### 4. Aviso no cadastro de acabamento
+
+Em `Acabamentos` (página de cadastro de `finishings_price_items`), quando o acabamento for `per_unit` com preço 0 e sem `production_step_id` vinculado, mostrar aviso amarelo: *"Esse acabamento não tem preço nem etapa vinculada — ficará grátis no orçamento. Vincule uma etapa de produção para cobrar pelo tempo."*
+
+### 5. Validação visual no orçamento
+
+Confirmar via preview, com um item de etiquetas + "Arte — Ajuste" ligado:
+- hint mostra `R$ 4,25/arte · +5 min` (5/60 × 50,99)
+- item de mão de obra aparece bundled abaixo do item de etiquetas
+- subtotal sobe pelo valor correspondente
 
 ## Fora do escopo
 
-- Não mexer nos cálculos já validados.
-- Não alterar persistência de orçamentos antigos.
-
-Confirma seguir com a migration + auditoria, ou prefere só o aviso visual?
+- Não mexer no `ArtePromptBlock` (caminho "Tem arte pronta?") — continua funcional.
+- Não mexer no cálculo dos demais acabamentos (laminação, vinco, etc.).
+- Não migrar os 4 registros "Arte —" do catálogo para outro lugar — eles continuam como acabamento per_unit com etapa vinculada.

@@ -62,21 +62,31 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     () =>
       printFinishings.map((f) => {
         let hint: string;
-        if (f.pricing_model === "per_unit") {
+        // Caso especial: per_unit com preço 0 + etapa vinculada → cobra só pela etapa.
+        // Mostra o custo real (min × R$/hora) no hint para não parecer "grátis".
+        const isLaborOnly =
+          f.pricing_model === "per_unit" &&
+          (f.price_per_sheet || 0) === 0 &&
+          !!f.production_step &&
+          (f.production_step.time_minutes || 0) > 0;
+        if (isLaborOnly) {
+          const min = f.production_step!.time_minutes;
+          const cost = (min / 60) * (hourlyRate || 0);
+          hint = `${fmtBRL(cost)}/${f.unit_label ?? "un"} · +${min} min`;
+        } else if (f.pricing_model === "per_unit") {
           hint = `${fmtBRL(f.price_per_sheet)}/${f.unit_label ?? "un"}`;
+          if (f.production_step) hint += ` · +${f.production_step.time_minutes} min`;
         } else {
           const tier = pickFinishingTier(f.tiers ?? [], quantidade);
           const effective = tier ? tier.price_per_sheet : f.price_per_sheet;
           hint = tier
             ? `${fmtBRL(effective)}/folha (faixa ${tier.label || `${tier.min_qty}${tier.max_qty ? `-${tier.max_qty}` : "+"}`})`
             : `${fmtBRL(effective)}/folha`;
-        }
-        if (f.production_step) {
-          hint += ` · +${f.production_step.time_minutes} min`;
+          if (f.production_step) hint += ` · +${f.production_step.time_minutes} min`;
         }
         return { id: f.id, label: f.name, hint };
       }),
-    [printFinishings, quantidade],
+    [printFinishings, quantidade, hourlyRate],
   );
 
   // Limpa chips que não pertencem ao conjunto atual

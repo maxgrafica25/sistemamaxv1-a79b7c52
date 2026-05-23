@@ -2,7 +2,7 @@
 // Encadernação (Kit Espiral/Wire-O/Grampo) é tratada como acabamento agregado
 // (mão-de-obra avulsa) — pode ser adicionada via aba "Mão-de-obra" enquanto a
 // integração total com spiral-selector é portada em fase posterior.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,10 +14,14 @@ import PrintingItemSearch, {
   type PrintingCatalogItem,
 } from "@/components/orcamentos-v3/shared/PrintingItemSearch";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
-import { roundUp10 } from "../shared/pricing";
+import { roundUp10, fmtBRL } from "../shared/pricing";
 import { TierFaixasPanel } from "../shared/TierFaixasPanel";
+import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProgressive";
+import { listFinishings, type FinishingItem } from "@/lib/finishings/catalog";
+import { pickFinishingTier } from "@/lib/labels/finishing-pricing";
+import { useV3HourlyRate } from "../shared/useV3HourlyRate";
 import { getIdealSpiral } from "@/lib/quotes/spiral-selector";
-import { genId, type V3BookletItem, type V3Item } from "../types";
+import { genId, type V3BookletItem, type V3Item, type V3LaborItem } from "../types";
 import { ProductKitPanel } from "./ProductKitPanel";
 import { BookletKitPanel, type BookletKitApplyMeta } from "./BookletKitPanel";
 import { buildBookletBundleLabel } from "../shared/buildBookletBundleLabel";
@@ -33,6 +37,7 @@ interface Props {
 }
 
 export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20, descricao: descricaoProp, onDescricaoChange }: Props) {
+  const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
   const [descricaoLocal, setDescricaoLocal] = useState("");
@@ -44,6 +49,14 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
   const [duplex, setDuplex] = useState<boolean>(true);
   const [pulse, setPulse] = useState(false);
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
+  const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
+
+  const [printFinishings, setPrintFinishings] = useState<FinishingItem[]>([]);
+  useEffect(() => {
+    listFinishings("impressao")
+      .then(setPrintFinishings)
+      .catch(() => setPrintFinishings([]));
+  }, []);
 
   // Folhas físicas = páginas-folha por apostila × nº apostilas.
   // (Se F/V, cada folha = 2 lados; o miolo é cobrado por folha física impressa.)
@@ -102,15 +115,81 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
     };
   };
 
+  // Hints dos acabamentos (mesmo padrão do PrintForm)
+  const finishes = useMemo<FinishingDef[]>(
+    () =>
+      printFinishings.map((f) => {
+        let hint: string;
+        const isLaborOnly =
+          f.pricing_model === "per_unit" &&
+          (f.price_per_sheet || 0) === 0 &&
+          !!f.production_step &&
+          (f.production_step.time_minutes || 0) > 0;
+        if (isLaborOnly) {
+          const min = f.production_step!.time_minutes;
+          const cost = (min / 60) * (hourlyRate || 0);
+          hint = `${fmtBRL(cost)}/${f.unit_label ?? "un"} · +${min} min`;
+        } else if (f.pricing_model === "per_unit") {
+          hint = `${fmtBRL(f.price_per_sheet)}/${f.unit_label ?? "un"}`;
+          if (f.production_step) hint += ` · +${f.production_step.time_minutes} min`;
+        } else {
+          const tier = pickFinishingTier(f.tiers ?? [], physicalSheets || 1);
+          const effective = tier ? tier.price_per_sheet : f.price_per_sheet;
+          hint = `${fmtBRL(effective)}/folha`;
+          if (f.production_step) hint += ` · +${f.production_step.time_minutes} min`;
+        }
+        return { id: f.id, label: f.name, hint };
+      }),
+    [printFinishings, hourlyRate, physicalSheets],
+  );
+
+  useEffect(() => {
+    setFinEnabled((m) => {
+      const allowed = new Set(finishes.map((f) => f.id));
+      const next: Record<string, boolean> = {};
+      for (const k of Object.keys(m)) if (allowed.has(k) && m[k]) next[k] = true;
+      return next;
+    });
+  }, [finishes]);
+
+  const buildLinkedLaborItems = (bundleId: string): V3LaborItem[] =>
+    printFinishings
+      .filter((f) => finEnabled[f.id] && f.production_step)
+      .map((f) => {
+        const step = f.production_step!;
+        const allowed: V3LaborItem["step_type"][] = ["impressao", "acabamento", "corte", "outro"];
+        const st = (step.step_type ?? "acabamento") as V3LaborItem["step_type"];
+        return {
+          id: genId(),
+          kind: "labor" as const,
+          descricao: `${step.description} (de ${f.name})`,
+          time_minutes: step.time_minutes,
+          step_type: allowed.includes(st) ? st : "acabamento",
+          hourly_rate: hourlyRate,
+          margem_pct: defaultMarginPct,
+          bundle_id: bundleId,
+        };
+      });
+
   const submit = () => {
     const item = buildBookletItem();
     if (!item) return;
     const cleanExtras = [...new Set(extraTiers)]
       .filter((q) => q > 0 && q !== bookletUnits)
       .sort((a, b) => a - b);
+
+    const bundleId = `bnd_${genId()}`;
+    const laborItems = buildLinkedLaborItems(bundleId);
+    const hasLabor = laborItems.length > 0;
+
     if (cleanExtras.length > 0 && onAddTiers) {
       const tg = `tg_${genId()}`;
-      const primary = { ...item, tier_group_id: tg, tier_primary: true } as V3BookletItem;
+      const primary = {
+        ...item,
+        tier_group_id: tg,
+        tier_primary: true,
+        ...(hasLabor ? { bundle_id: bundleId, bundle_label: item.descricao || "Apostila" } : {}),
+      } as V3BookletItem;
       const siblings = cleanExtras
         .map((q) => {
           const s = buildBookletItem(q, tg);
@@ -118,11 +197,20 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
         })
         .filter((x): x is V3BookletItem => !!x);
       onAddTiers([primary, ...siblings]);
+      if (hasLabor && onAddMany) onAddMany(laborItems);
+    } else if (hasLabor && onAddMany) {
+      const bookletWithBundle = {
+        ...item,
+        bundle_id: bundleId,
+        bundle_label: item.descricao || "Apostila",
+      } as V3BookletItem;
+      onAddMany([bookletWithBundle, ...laborItems]);
     } else {
       onAdd(item);
     }
     setDescricao("");
     setExtraTiers([]);
+    setFinEnabled({});
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
@@ -313,6 +401,18 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
           }}
         />
       )}
+
+      {finishes.length > 0 && (
+        <Field label="Acabamentos">
+          <FinishingProgressive
+            items={finishes}
+            enabled={finEnabled}
+            onToggle={(id, on) => setFinEnabled((m) => ({ ...m, [id]: on }))}
+          />
+        </Field>
+      )}
+
+
 
 
 

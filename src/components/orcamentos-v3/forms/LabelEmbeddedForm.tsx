@@ -35,11 +35,16 @@ import { useFolhaPricing } from "@/lib/labels/sheet-pricing";
 import { loadConfig, SEED_LABEL_PRESETS, type LabelPreset } from "@/lib/labels/config-storage";
 import { fmtBRL } from "../shared/pricing";
 import { TierFaixasPanel } from "../shared/TierFaixasPanel";
+import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProgressive";
+import { listFinishings, type FinishingItem } from "@/lib/finishings/catalog";
+import { pickFinishingTier } from "@/lib/labels/finishing-pricing";
+import { useV3HourlyRate } from "../shared/useV3HourlyRate";
 
-import { genId, type V3LabelItem } from "../types";
+import { genId, type V3LabelItem, type V3LaborItem, type V3Item } from "../types";
 
 interface Props {
   onAdd: (item: V3LabelItem) => void;
+  onAddMany?: (items: V3Item[]) => void;
   onAddTiers?: (items: V3LabelItem[]) => void;
   descricao?: string;
   onDescricaoChange?: (v: string) => void;
@@ -49,7 +54,8 @@ interface Props {
 const M = 7;
 const GAP = 3;
 
-export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp, onDescricaoChange }: Props) {
+export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: descricaoProp, onDescricaoChange }: Props) {
+  const { hourlyRate } = useV3HourlyRate();
   const [descricaoLocal, setDescricaoLocal] = useState("");
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
@@ -62,6 +68,15 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [sheetId, setSheetId] = useState<string>("SRA3");
   const [pulse, setPulse] = useState(false);
+  const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
+
+  // Catálogo unificado de acabamentos (contexto: etiqueta)
+  const [labelFinishings, setLabelFinishings] = useState<FinishingItem[]>([]);
+  useEffect(() => {
+    listFinishings("etiqueta")
+      .then(setLabelFinishings)
+      .catch(() => setLabelFinishings([]));
+  }, []);
 
   const labelPresets = useMemo<LabelPreset[]>(() => {
     try {
@@ -220,6 +235,44 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
   const canAdd =
     !!folha.selectedPrinting && quantidade > 0 && perSheet > 0 && pricing.totalPrice > 0;
 
+  // Hints dos acabamentos (mesmo padrão do PrintForm)
+  const finishes = useMemo<FinishingDef[]>(
+    () =>
+      labelFinishings.map((f) => {
+        let hint: string;
+        const isLaborOnly =
+          f.pricing_model === "per_unit" &&
+          (f.price_per_sheet || 0) === 0 &&
+          !!f.production_step &&
+          (f.production_step.time_minutes || 0) > 0;
+        if (isLaborOnly) {
+          const min = f.production_step!.time_minutes;
+          const cost = (min / 60) * (hourlyRate || 0);
+          hint = `${fmtBRL(cost)}/${f.unit_label ?? "un"} · +${min} min`;
+        } else if (f.pricing_model === "per_unit") {
+          hint = `${fmtBRL(f.price_per_sheet)}/${f.unit_label ?? "un"}`;
+          if (f.production_step) hint += ` · +${f.production_step.time_minutes} min`;
+        } else {
+          const tier = pickFinishingTier(f.tiers ?? [], pricing.sheetsNeeded || 1);
+          const effective = tier ? tier.price_per_sheet : f.price_per_sheet;
+          hint = `${fmtBRL(effective)}/folha`;
+          if (f.production_step) hint += ` · +${f.production_step.time_minutes} min`;
+        }
+        return { id: f.id, label: f.name, hint };
+      }),
+    [labelFinishings, hourlyRate, pricing.sheetsNeeded],
+  );
+
+  // Limpa toggles cujo acabamento não está mais disponível
+  useEffect(() => {
+    setFinEnabled((m) => {
+      const allowed = new Set(finishes.map((f) => f.id));
+      const next: Record<string, boolean> = {};
+      for (const k of Object.keys(m)) if (allowed.has(k) && m[k]) next[k] = true;
+      return next;
+    });
+  }, [finishes]);
+
   const buildItem = (q: number, tierGroupId?: string): V3LabelItem | null => {
     if (!folha.selectedPrinting) return null;
     const pr = computeSheetPricing({
@@ -256,6 +309,27 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
     };
   };
 
+  // Gera V3LaborItem por acabamento ligado que tenha etapa vinculada.
+  // Tempo fixo por etapa, mesmo critério do PrintForm.
+  const buildLinkedLaborItems = (bundleId: string): V3LaborItem[] =>
+    labelFinishings
+      .filter((f) => finEnabled[f.id] && f.production_step)
+      .map((f) => {
+        const step = f.production_step!;
+        const allowed: V3LaborItem["step_type"][] = ["impressao", "acabamento", "corte", "outro"];
+        const st = (step.step_type ?? "acabamento") as V3LaborItem["step_type"];
+        return {
+          id: genId(),
+          kind: "labor" as const,
+          descricao: `${step.description} (de ${f.name})`,
+          time_minutes: step.time_minutes,
+          step_type: allowed.includes(st) ? st : "acabamento",
+          hourly_rate: hourlyRate,
+          margem_pct: 20,
+          bundle_id: bundleId,
+        };
+      });
+
   const submit = () => {
     if (!canAdd) return;
     const it = buildItem(quantidade);
@@ -263,9 +337,19 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
     const cleanExtras = [...new Set(extraTiers)]
       .filter((q) => q > 0 && q !== quantidade)
       .sort((a, b) => a - b);
+
+    const bundleId = `bnd_${genId()}`;
+    const laborItems = buildLinkedLaborItems(bundleId);
+    const hasLabor = laborItems.length > 0;
+
     if (cleanExtras.length > 0 && onAddTiers) {
       const tg = `tg_${genId()}`;
-      const primary = { ...it, tier_group_id: tg, tier_primary: true } as V3LabelItem;
+      const primary = {
+        ...it,
+        tier_group_id: tg,
+        tier_primary: true,
+        ...(hasLabor ? { bundle_id: bundleId, bundle_label: it.descricao || "Etiquetas" } : {}),
+      } as V3LabelItem;
       const siblings = cleanExtras
         .map((q) => {
           const s = buildItem(q, tg);
@@ -273,11 +357,20 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
         })
         .filter((x): x is V3LabelItem => !!x);
       onAddTiers([primary, ...siblings]);
+      if (hasLabor && onAddMany) onAddMany(laborItems);
+    } else if (hasLabor && onAddMany) {
+      const labelWithBundle = {
+        ...it,
+        bundle_id: bundleId,
+        bundle_label: it.descricao || "Etiquetas",
+      } as V3LabelItem;
+      onAddMany([labelWithBundle, ...laborItems]);
     } else {
       onAdd(it);
     }
     setDescricao("");
     setExtraTiers([]);
+    setFinEnabled({});
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
   };
@@ -583,6 +676,18 @@ export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp,
           )}
         </div>
       )}
+
+      {finishes.length > 0 && (
+        <Field label="Acabamentos">
+          <FinishingProgressive
+            items={finishes}
+            enabled={finEnabled}
+            onToggle={(id, on) => setFinEnabled((m) => ({ ...m, [id]: on }))}
+          />
+        </Field>
+      )}
+
+
 
       <div className="sticky bottom-0 z-10 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 mt-auto -mb-5 lg:-mb-0 bg-background border-t border-border shadow-[0_-8px_16px_-8px_hsl(var(--background))] flex items-center justify-end gap-3">
         <Button
