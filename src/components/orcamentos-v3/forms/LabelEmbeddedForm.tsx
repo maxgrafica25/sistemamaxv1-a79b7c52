@@ -68,6 +68,15 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [sheetId, setSheetId] = useState<string>("SRA3");
   const [pulse, setPulse] = useState(false);
+  const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
+
+  // Catálogo unificado de acabamentos (contexto: etiqueta)
+  const [labelFinishings, setLabelFinishings] = useState<FinishingItem[]>([]);
+  useEffect(() => {
+    listFinishings("etiqueta")
+      .then(setLabelFinishings)
+      .catch(() => setLabelFinishings([]));
+  }, []);
 
   const labelPresets = useMemo<LabelPreset[]>(() => {
     try {
