@@ -134,6 +134,41 @@ const ROLE_SHORT: Record<KitItemRole, string> = {
 
 const tmp = () => `tmp_${Math.random().toString(36).slice(2, 9)}`;
 
+const normalizeForMatch = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const singularize = (t: string) => (t.length > 3 && t.endsWith("s") ? t.slice(0, -1) : t);
+
+function suggestPresets(
+  kitName: string,
+  presets: PresetOption[],
+  alreadySelected: string[],
+): PresetOption[] {
+  const n = normalizeForMatch(kitName);
+  if (n.length < 3) return [];
+  const kitTokens = new Set(n.split(" ").map(singularize).filter((t) => t.length > 3));
+  const out: PresetOption[] = [];
+  for (const p of presets) {
+    if (alreadySelected.includes(p.id)) continue;
+    const pn = normalizeForMatch(p.nome);
+    if (!pn) continue;
+    let match = n.includes(pn) || pn.includes(n);
+    if (!match) {
+      const presetTokens = pn.split(" ").map(singularize).filter((t) => t.length > 3);
+      match = presetTokens.some((t) => kitTokens.has(t));
+    }
+    if (match) out.push(p);
+  }
+  return out;
+}
+
+
 interface ProcessOption {
   id: string;
   description: string;
@@ -181,6 +216,8 @@ export default function KitsProduto() {
   // Sub-dialogs
   const [pickerOpen, setPickerOpen] = useState(false);
   const [variantsEditing, setVariantsEditing] = useState<string | null>(null);
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  const [nameTouched, setNameTouched] = useState(false);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -244,6 +281,8 @@ export default function KitsProduto() {
     setDescription("");
     setIsActive(true);
     setItems([]);
+    setSuggestionDismissed(false);
+    setNameTouched(false);
   };
 
   const openNew = () => {
@@ -287,6 +326,8 @@ export default function KitsProduto() {
     setSelectedPresetIds(k.preset_ids ?? []);
     setDescription(k.description ?? "");
     setIsActive(k.is_active);
+    setSuggestionDismissed(false);
+    setNameTouched(false);
     setItems(
       (itemsData || []).map((i: any, idx: number) => ({
         id: i.id,
@@ -630,6 +671,12 @@ export default function KitsProduto() {
     ? items.find((i) => i.tmp_id === variantsEditing)
     : null;
 
+  const presetSuggestions = useMemo(() => {
+    if (suggestionDismissed || !nameTouched) return [];
+    return suggestPresets(name, availablePresets, selectedPresetIds);
+  }, [name, availablePresets, selectedPresetIds, suggestionDismissed, nameTouched]);
+
+
   return (
     <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -725,7 +772,11 @@ export default function KitsProduto() {
                 <Label className="text-xs">Nome do kit</Label>
                 <Input
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (!nameTouched) setNameTouched(true);
+                    if (suggestionDismissed) setSuggestionDismissed(false);
+                  }}
                   placeholder="Ex.: Kit Encadernação Apostila"
                   className="h-9"
                 />
@@ -814,6 +865,44 @@ export default function KitsProduto() {
               <p className="text-[11px] text-muted-foreground mt-1">
                 Um mesmo kit pode atender vários produtos (ex.: Cartão + Folheto).
               </p>
+              {presetSuggestions.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2 py-1.5 text-xs">
+                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span className="text-muted-foreground">Sugestão:</span>
+                  {presetSuggestions.map((p) => (
+                    <Badge key={p.id} variant="secondary" className="font-normal">
+                      {p.nome}
+                    </Badge>
+                  ))}
+                  <div className="ml-auto flex items-center gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="default"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => {
+                        setSelectedPresetIds((prev) => [
+                          ...prev,
+                          ...presetSuggestions
+                            .map((p) => p.id)
+                            .filter((id) => !prev.includes(id)),
+                        ]);
+                      }}
+                    >
+                      Aplicar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => setSuggestionDismissed(true)}
+                    >
+                      Ignorar
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
             <Collapsible>
               <CollapsibleTrigger asChild>
@@ -835,12 +924,11 @@ export default function KitsProduto() {
 
           {/* Lista de itens */}
           <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1.5">
-            <KitHowItWorks />
-
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Itens do kit ({items.length})
               </h3>
+              <KitHowItWorks />
             </div>
             {items.length === 0 ? (
               <div className="rounded-md border border-dashed py-10 text-center">
