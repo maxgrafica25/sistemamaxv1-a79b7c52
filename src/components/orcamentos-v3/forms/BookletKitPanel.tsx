@@ -316,23 +316,25 @@ export function BookletKitPanel({
           ) : (
             <Package className="h-3 w-3 text-muted-foreground/60 shrink-0" />
           )}
-          <span className="font-medium whitespace-nowrap">{r.label}</span>
+          <span className="font-medium whitespace-nowrap truncate">{override ? override.produto : r.label}</span>
 
 
           {mode === "standard" && (
             <>
               {override ? (
-                <span className="flex-1 text-[10.5px] truncate flex items-center gap-1.5 min-w-0">
-                  <span className="text-foreground font-medium truncate">{override.produto}</span>
+                <>
                   <span className="text-[9.5px] uppercase tracking-wider text-primary/80 font-semibold shrink-0">
                     trocado
                   </span>
-                </span>
+                  <span className="flex-1" />
+                </>
               ) : (
                 <span className="flex-1 text-muted-foreground text-[10.5px] truncate hidden sm:inline">
                   {r.description}
                 </span>
               )}
+
+
 
               <span className="text-muted-foreground tabular-nums text-[10.5px]">
                 {r.unit === "un" ? `${r.qty} un` : `${r.qty.toFixed(0)} min`}
