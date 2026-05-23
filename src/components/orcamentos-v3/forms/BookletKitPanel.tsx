@@ -431,62 +431,57 @@ export function BookletKitPanel({
             // Modo EDIÇÃO: nome + busca + qtd
             return (
               <div key={slot.id} className="space-y-1.5">
-                <div className="flex items-center gap-2 px-2">
-                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <Input
-                    value={slot.label}
-                    onChange={(e) => updateSlot(slot.id, { label: e.target.value })}
-                    placeholder="Nome do acabamento (ex.: Laminação BOPP, Capa dura)"
-                    className="h-7 text-[11px] flex-1"
-                  />
+                <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-background p-2">
+                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0 mt-2" />
+                  <div className="flex-1 space-y-2">
+                    <SupplySearch
+                      placeholder="Buscar suprimento (ex.: Espiral, Wire-o, Laminação BOPP)..."
+                      onSelect={(s) =>
+                        updateSlot(slot.id, {
+                          supply: s,
+                          label: s.produto,
+                          margemPct:
+                            s.margem_pct != null
+                              ? Number(s.margem_pct)
+                              : slot.margemPct,
+                        })
+                      }
+                    />
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10.5px] uppercase tracking-wide text-muted-foreground">
+                        Qtd
+                      </label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={slot.qty || ""}
+                        onChange={(e) =>
+                          updateSlot(slot.id, {
+                            qty: Math.max(0, Number(e.target.value) || 0),
+                          })
+                        }
+                        className="h-7 w-20 text-xs"
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => updateSlot(slot.id, { collapsed: true })}
+                        disabled={!slot.supply || slot.qty <= 0}
+                        className="h-7 px-2 text-[11px] ml-auto"
+                      >
+                        Ok
+                      </Button>
+                    </div>
+                  </div>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => removeSlot(slot.id)}
-                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                    className="h-6 w-6 p-0 text-destructive hover:text-destructive shrink-0"
                     aria-label="Remover acabamento"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
-                </div>
-                <div className="ml-6 mr-2 space-y-2 rounded-md border border-primary/20 bg-background p-2">
-                  <SupplySearch
-                    placeholder="Buscar suprimento (ex.: Espiral, Wire-o, Laminação BOPP)..."
-                    onSelect={(s) =>
-                      updateSlot(slot.id, {
-                        supply: s,
-                        margemPct:
-                          s.margem_pct != null
-                            ? Number(s.margem_pct)
-                            : slot.margemPct,
-                      })
-                    }
-                  />
-                  <div className="flex items-center gap-2">
-                    <label className="text-[10.5px] uppercase tracking-wide text-muted-foreground">
-                      Qtd
-                    </label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={slot.qty || ""}
-                      onChange={(e) =>
-                        updateSlot(slot.id, {
-                          qty: Math.max(0, Number(e.target.value) || 0),
-                        })
-                      }
-                      className="h-7 w-20 text-xs"
-                    />
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => updateSlot(slot.id, { collapsed: true })}
-                      disabled={!slot.supply || slot.qty <= 0}
-                      className="h-7 px-2 text-[11px] ml-auto"
-                    >
-                      Ok
-                    </Button>
-                  </div>
                 </div>
               </div>
             );
