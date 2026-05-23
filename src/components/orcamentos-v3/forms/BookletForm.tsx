@@ -402,6 +402,18 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
         />
       )}
 
+      {finishes.length > 0 && (
+        <Field label="Acabamentos">
+          <FinishingProgressive
+            items={finishes}
+            enabled={finEnabled}
+            onToggle={(id, on) => setFinEnabled((m) => ({ ...m, [id]: on }))}
+          />
+        </Field>
+      )}
+
+
+
 
 
 
