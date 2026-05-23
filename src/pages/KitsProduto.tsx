@@ -213,6 +213,13 @@ function formulaBadge(it: KitItem): string {
   }
 }
 
+interface ReadonlyKitItem {
+  kind: "supply" | "process";
+  label: string;
+  role: KitItemRole;
+  formula: string;
+}
+
 export default function KitsProduto() {
   const { requireAdmin } = usePermissionGuard();
   const [kits, setKits] = useState<KitRow[]>([]);
