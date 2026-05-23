@@ -14,15 +14,8 @@ import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProg
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3PrintItem } from "../types";
-import {
-  listFinishings,
-  sumFinishingsPerSheet,
-  type FinishingItem,
-} from "@/lib/finishings/catalog";
-import {
-  resolveFinishingPricePerSheet,
-  pickFinishingTier,
-} from "@/lib/labels/finishing-pricing";
+import { useV3ProcessCatalog } from "../shared/useV3ProcessCatalog";
+import { useHourRate } from "@/hooks/useHourRate";
 import {
   calcCardsPerSheet,
   sheetsNeeded,
@@ -67,21 +60,45 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const [pulse, setPulse] = useState(false);
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
 
-  // Acabamentos do Cartão de Visita: qualquer item cujo nome contenha
-  // "cartão de visita" (acento-insensível, case-insensível), independente
-  // da categoria.
-  const [printFinishings, setPrintFinishings] = useState<FinishingItem[]>([]);
-  useEffect(() => {
-    const norm = (s: string) =>
-      s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    listFinishings()
-      .then((arr) =>
-        setPrintFinishings(
-          arr.filter((f) => norm(f.name).includes("cartao de visita")),
-        ),
-      )
-      .catch(() => setPrintFinishings([]));
-  }, []);
+  // Acabamentos do Cartão de Visita: processos individuais + grupos de etapas
+  // cujo nome contenha "cartão de visita" (acento/case-insensível).
+  const { steps, groups } = useV3ProcessCatalog();
+  const { hourRate } = useHourRate();
+
+  const norm = (s: string) =>
+    s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+  type CVProc = {
+    key: string;
+    kind: "step" | "group";
+    name: string;
+    minutes: number;
+  };
+  const cvProcs = useMemo<CVProc[]>(() => {
+    const out: CVProc[] = [];
+    for (const s of steps) {
+      if (norm(s.description).includes("cartao de visita")) {
+        out.push({
+          key: `step:${s.id}`,
+          kind: "step",
+          name: s.description,
+          minutes: s.time_minutes,
+        });
+      }
+    }
+    for (const g of groups) {
+      if (norm(g.name).includes("cartao de visita")) {
+        const mins = g.items.reduce((a, it) => a + (it.time_minutes || 0), 0);
+        out.push({
+          key: `group:${g.id}`,
+          kind: "group",
+          name: g.name,
+          minutes: mins,
+        });
+      }
+    }
+    return out;
+  }, [steps, groups]);
 
 
   // Candidatos a Couchê 300g SRA3
@@ -118,7 +135,6 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
     if (!catalog) return null;
     const isCatalogFV = (catalog.side || "").toUpperCase() === "F/V";
     if (face === "fv" && !isCatalogFV) {
-      // força F/V no engine sobrescrevendo side
       return { ...catalog, side: "F/V" };
     }
     if (face === "frente" && isCatalogFV) {
@@ -132,23 +148,19 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
     [effectiveItem, tiers, sheets],
   );
 
-  // Hints dos chips
+  // Custo de cada processo: minutos/60 * hourRate
+  const procCost = (minutes: number) => (minutes / 60) * (hourRate || 0);
+
+  // Chips
   const finishes = useMemo<FinishingDef[]>(
     () =>
-      printFinishings.map((f) => {
-        let hint: string;
-        if (f.pricing_model === "per_unit") {
-          hint = `${fmtBRL(f.price_per_sheet)}/${f.unit_label ?? "un"}`;
-        } else {
-          const tier = pickFinishingTier(f.tiers ?? [], sheets);
-          const effective = tier ? tier.price_per_sheet : f.price_per_sheet;
-          hint = tier
-            ? `${fmtBRL(effective)}/folha (faixa ${tier.label || `${tier.min_qty}${tier.max_qty ? `-${tier.max_qty}` : "+"}`})`
-            : `${fmtBRL(effective)}/folha`;
-        }
-        return { id: f.id, label: f.name, hint };
-      }),
-    [printFinishings, sheets],
+      cvProcs.map((p) => ({
+        id: p.key,
+        label: `${p.kind === "group" ? "🗂 " : "⚙ "}${p.name}`,
+        hint: `${p.minutes} min · ${fmtBRL(procCost(p.minutes))}`,
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cvProcs, hourRate],
   );
 
   // Limpa chips que saíram do conjunto
@@ -161,39 +173,23 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
     });
   }, [finishes]);
 
-  const buildSelections = (qty: number) =>
-    printFinishings
-      .filter((f) => finEnabled[f.id])
-      .map((f) => {
-        const effective =
-          f.pricing_model === "per_sheet"
-            ? resolveFinishingPricePerSheet(f.price_per_sheet, f.tiers ?? [], qty)
-            : f.price_per_sheet;
-        return {
-          id: f.id,
-          name: f.name,
-          pricing_model: f.pricing_model,
-          unit_label: f.unit_label,
-          price: effective,
-          cost: effective,
-        };
-      });
+  const selectedProcs = useMemo(
+    () => cvProcs.filter((p) => finEnabled[p.key]),
+    [cvProcs, finEnabled],
+  );
 
   const enabledLabels = useMemo(
-    () => finishes.filter((f) => finEnabled[f.id]).map((f) => f.label),
-    [finishes, finEnabled],
+    () => selectedProcs.map((p) => p.name),
+    [selectedProcs],
   );
 
-  const selections = useMemo(
-    () => buildSelections(sheets),
+  const finishingTotal = useMemo(
+    () => selectedProcs.reduce((s, p) => s + procCost(p.minutes), 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [printFinishings, finEnabled, sheets],
+    [selectedProcs, hourRate],
   );
 
-  const finishingExtraPerSheet = useMemo(() => {
-    const { perSheet, perUnitTotal } = sumFinishingsPerSheet(selections, sheets);
-    return perSheet + (sheets > 0 ? perUnitTotal / sheets : 0);
-  }, [selections, sheets]);
+  const finishingExtraPerSheet = sheets > 0 ? finishingTotal / sheets : 0;
 
   const totalGeral = pricing ? (pricing.sellingPrice + finishingExtraPerSheet) * sheets : 0;
   const precoPorCartao = qtdCartoes > 0 ? totalGeral / qtdCartoes : 0;
@@ -203,9 +199,18 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
 
   const submit = () => {
     if (!canAdd || !effectiveItem || !pricing) return;
-    const sel = buildSelections(sheets);
-    const { perSheet, perUnitTotal } = sumFinishingsPerSheet(sel, sheets);
-    const extra = perSheet + (sheets > 0 ? perUnitTotal / sheets : 0);
+    const sel = selectedProcs.map((p) => {
+      const cost = procCost(p.minutes);
+      return {
+        id: p.key,
+        name: p.name,
+        pricing_model: "per_unit" as const,
+        unit_label: "min",
+        price: cost,
+        cost,
+      };
+    });
+    const extra = finishingExtraPerSheet;
     const faceLabel = face === "fv" ? "Frente e Verso" : "Frente";
     const defaultDesc = `Cartão de visita ${layout.cardW / 10}×${layout.cardH / 10}cm — Couchê 300g ${faceLabel} (${qtdCartoes} un)`;
     const item: V3PrintItem = {
@@ -455,9 +460,13 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         ) : (
           <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-3 text-center">
             <p className="text-xs text-muted-foreground">
-              Cadastre um acabamento com "Cartão de Visita" no nome em{" "}
-              <a href="/acabamentos" target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                Acabamentos
+              Cadastre uma etapa ou grupo com "Cartão de Visita" no nome em{" "}
+              <a href="/processos-producao" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                Processos
+              </a>{" "}
+              ou{" "}
+              <a href="/grupos-etapas" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                Grupos de Etapas
               </a>
               .
             </p>
