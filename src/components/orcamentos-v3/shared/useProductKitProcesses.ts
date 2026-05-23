@@ -14,6 +14,7 @@ export interface KitProcStep {
   time_minutes: number;
   link_type: KitProcLinkType;
   default_on: boolean;    // vem do auto_select_default do item do kit
+  step_group_id: string | null;
 }
 
 /**
