@@ -18,22 +18,30 @@ import { summarize, fmtBRL } from "./shared/pricing";
 import { DEFAULT_STATE, genId, type V3Category, type V3Item, type V3QuoteState } from "./types";
 
 import { saveQuoteV3 } from "./shared/saveQuoteV3";
+import { loadQuoteV3 } from "./shared/loadQuoteV3";
 import { RecorrentesPanel } from "@/components/recorrentes/RecorrentesPanel";
 import { useGlobalSettings } from "@/hooks/useGlobalSettings";
 
 interface Props {
   onCancel: () => void;
   onSave?: (result: { id: string; quote_number: string }) => void;
+  editingQuoteId?: string | null;
 }
 
-export function NewQuoteFormV3({ onCancel, onSave }: Props) {
+export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
+  const isEditing = !!editingQuoteId;
   const [state, setState] = useState<V3QuoteState>(DEFAULT_STATE);
   const [active, setActive] = useState<V3Category>("print");
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [loadingEdit, setLoadingEdit] = useState(isEditing);
+  const [editMeta, setEditMeta] = useState<{ quote_number: string; status: string } | null>(null);
   const { settings: globalSettings } = useGlobalSettings();
 
-  const { hydrated, savedAt, clear } = useQuoteDraftV3(state);
+  // Rascunho local desabilitado em modo edição (não queremos sobrescrever
+  // o estado real com um rascunho antigo de "novo orçamento").
+  const { hydrated, savedAt, clear } = useQuoteDraftV3(state, !isEditing);
   useEffect(() => {
+    if (isEditing) return;
     if (hydrated) {
       setState(hydrated);
       toast.info("Rascunho restaurado", {
@@ -41,7 +49,40 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated]);
+  }, [hydrated, isEditing]);
+
+  // Carrega snapshot v3_payload quando estamos editando.
+  useEffect(() => {
+    if (!editingQuoteId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const loaded = await loadQuoteV3(editingQuoteId);
+        if (cancelled) return;
+        setState(loaded.state);
+        setEditMeta({ quote_number: loaded.quote_number, status: loaded.status });
+        if (loaded.is_locked) {
+          toast.error("Esta versão foi substituída", {
+            description: "Abra a versão mais recente para editar.",
+          });
+        } else if (loaded.status === "approved" || loaded.status === "partial") {
+          toast.warning("Orçamento já tem aceite", {
+            description: "Editar livre vai sobrescrever. Considere criar nova versão.",
+          });
+        }
+      } catch (err: any) {
+        toast.error("Não foi possível abrir o orçamento", {
+          description: err?.message || "Tente novamente.",
+        });
+        onCancel();
+      } finally {
+        if (!cancelled) setLoadingEdit(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editingQuoteId, onCancel]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -114,9 +155,13 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
     }
     setSaving(true);
     try {
-      const result = await saveQuoteV3(state);
-      clear();
-      toast.success(`Orçamento ${result.quote_number} criado.`);
+      const result = await saveQuoteV3(state, editingQuoteId ?? undefined);
+      if (!isEditing) clear();
+      toast.success(
+        isEditing
+          ? `Orçamento ${result.quote_number} atualizado.`
+          : `Orçamento ${result.quote_number} criado.`,
+      );
       onSave?.(result);
     } catch (err: any) {
       console.error("[V3 save]", err);
@@ -130,6 +175,14 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
 
   const lastSaved = savedAt ? new Date(savedAt).toLocaleTimeString("pt-BR") : null;
 
+  if (loadingEdit) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-4rem)] text-sm text-muted-foreground">
+        Carregando orçamento…
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
@@ -142,7 +195,8 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
             variant="outline"
             className="gap-1 border-amber-500/40 text-amber-700 dark:text-amber-400 shrink-0"
           >
-            <FlaskConical className="h-3 w-3" /> V3 beta
+            <FlaskConical className="h-3 w-3" />
+            {isEditing && editMeta ? `Editar Nº ${editMeta.quote_number}` : "V3 beta"}
           </Badge>
           <div className="hidden md:flex items-center gap-3 ml-2 min-w-0 flex-1">
             <div className="w-[280px] shrink-0">
@@ -172,9 +226,13 @@ export function NewQuoteFormV3({ onCancel, onSave }: Props) {
               <Clock className="h-3 w-3" /> Rascunho {lastSaved}
             </span>
           )}
-          <Button onClick={handleSave} size="sm" disabled={saving}>
+          <Button onClick={handleSave} size="sm" disabled={saving || loadingEdit}>
             <Save className="h-4 w-4 mr-1.5" />
-            {saving ? "Salvando..." : "Salvar orçamento"}
+            {saving
+              ? "Salvando..."
+              : isEditing
+                ? "Salvar alterações"
+                : "Salvar orçamento"}
           </Button>
         </div>
       </div>

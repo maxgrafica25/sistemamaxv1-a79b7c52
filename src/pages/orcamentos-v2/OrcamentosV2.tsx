@@ -53,6 +53,7 @@ interface QuoteRow {
   is_locked: boolean | null;
   parent_quote_id: string | null;
   last_partial_seen_at: string | null;
+  tags: string[] | null;
 }
 
 interface ItemAgg {
@@ -141,7 +142,7 @@ export default function OrcamentosV2() {
     const [quotesRes] = await Promise.all([
       supabase
         .from("quotes")
-        .select("id, quote_number, client, client_phone, product, value, status, date, created_at, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id, last_partial_seen_at")
+        .select("id, quote_number, client, client_phone, product, value, status, date, created_at, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id, last_partial_seen_at, tags")
         .order("created_at", { ascending: false }),
       refreshStats(),
       refreshAggregates(),
@@ -502,7 +503,10 @@ export default function OrcamentosV2() {
                       className={`border-b border-border last:border-0 transition-colors hover:bg-muted/50 cursor-pointer ${
                         hasUnseen ? "bg-primary/5 border-l-2 border-l-primary" : ""
                       }`}
-                      onClick={() => navigate(`/orcamentos-v2/${q.id}`)}
+                      onClick={() => {
+                        const isV3 = Array.isArray(q.tags) && q.tags.includes("v3");
+                        navigate(isV3 ? `/orcamentos-v3/${q.id}/editar` : `/orcamentos-v2/${q.id}`);
+                      }}
                     >
                       <td className="py-4 pl-4 w-10" onClick={(e) => e.stopPropagation()}>
                         <Checkbox

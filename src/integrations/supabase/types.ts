@@ -3436,6 +3436,7 @@ export type Database = {
           status: string
           tags: string[]
           updated_at: string
+          v3_payload: Json | null
           validity: string | null
           value: number
           version: number
@@ -3471,6 +3472,7 @@ export type Database = {
           status?: string
           tags?: string[]
           updated_at?: string
+          v3_payload?: Json | null
           validity?: string | null
           value?: number
           version?: number
@@ -3506,6 +3508,7 @@ export type Database = {
           status?: string
           tags?: string[]
           updated_at?: string
+          v3_payload?: Json | null
           validity?: string | null
           value?: number
           version?: number
