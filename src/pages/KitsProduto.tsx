@@ -578,14 +578,28 @@ export default function KitsProduto() {
   };
 
   const grouped = useMemo(() => {
+    const presetName = new Map(availablePresets.map((p) => [p.id, p.nome]));
     const map = new Map<string, KitRow[]>();
     for (const k of kits) {
-      const arr = map.get(k.product_kind) || [];
-      arr.push(k);
-      map.set(k.product_kind, arr);
+      if (k.preset_ids.length === 0) {
+        const arr = map.get("__sem_produto__") || [];
+        arr.push(k);
+        map.set("__sem_produto__", arr);
+        continue;
+      }
+      for (const pid of k.preset_ids) {
+        const label = presetName.get(pid) ?? "Produto removido";
+        const arr = map.get(label) || [];
+        arr.push(k);
+        map.set(label, arr);
+      }
     }
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [kits]);
+    return Array.from(map.entries()).sort(([a], [b]) => {
+      if (a === "__sem_produto__") return 1;
+      if (b === "__sem_produto__") return -1;
+      return a.localeCompare(b);
+    });
+  }, [kits, availablePresets]);
 
   // Agrupar itens: normais individualmente, alternativos agrupados por nome
   const renderedItems = useMemo(() => {
