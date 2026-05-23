@@ -1,65 +1,57 @@
-# Auditoria V2 → V3: o que ainda falta
+# Onda 1 — Edição V3 (estratégia mínima)
 
-V3 hoje tem **apenas** a rota `/orcamentos-v3/novo` (criar orçamento novo). V2 tem listagem, edição, visualização pública e várias ações pós-venda que **ainda não existem em V3**.
+V2 e V3 gravam na mesma tabela `quotes` + filhas. Vamos **reusar** a listagem V2 e o ClientViewer V2 (sem reescrever) e implementar apenas a **edição nativa em V3**.
 
-## Faltando completamente em V3
+## Mudanças
 
-### Páginas/rotas
-| V2 | Status V3 |
-|---|---|
-| `OrcamentosV2.tsx` — listagem com filtros, busca, kanban, status | Não existe |
-| `EditQuoteV2.tsx` — editar orçamento existente | Não existe |
-| `ClientViewer.tsx` — visualização pública do orçamento (link/WhatsApp) | Não existe |
+### 1. Rota nova
+- `src/App.tsx`: adicionar `/orcamentos-v3/:id/editar` → renderiza `NewQuoteV3` com o `id` como prop.
 
-Sem isso, **um orçamento criado em V3 só pode ser visto/editado pelo V2** (ou nem aparece, dependendo dos filtros).
+### 2. Listagem V2 (`OrcamentosV2.tsx`)
+- Trocar `navigate(\`/orcamentos-v2/${q.id}\`)` (linha 505 e similares) por `\`/orcamentos-v3/${q.id}/editar\``.
+- Mantém todo o resto da tela como está (filtros, kanban, badges, BulkActionBar, RealtimeRadar etc.).
 
-### Ações sobre orçamento (componentes V2 não portados)
-- **`CloneQuoteButton`** — duplicar orçamento inteiro.
-- **`CreateVersionButton`** — criar nova versão (usa `create_quote_version` no DB; trava o pai).
-- **`GenerateOPButton`** — gerar PDF de Ordem de Produção.
-- **`GenerateOrderButton`** — converter orçamento em Pedido (ERP).
-- **`UseTemplateDialog`** — partir de um template salvo.
-- **`LoadFromGroupDialog`** — carregar itens de um grupo de produção.
-- **`BulkActionBar`** — ações em lote na listagem (excluir, mudar status).
-- **`QuoteStatusBadge`** + fluxo aprovado/parcial/recusado (existe no DB via `approve_quote_items`, mas sem UI em V3).
+### 3. Hydrator novo (`src/components/orcamentos-v3/shared/loadQuoteV3.ts`)
+Carrega um orçamento existente e devolve `V3State` pronto para o formulário:
+- `quotes` → cabeçalho (cliente, validade, desconto, frete, notes, attention_to, profit_margin, main_quantity, tags).
+- `quote_materials` (parent_item_id IS NULL) → reconstrói cada item conforme `product_kind`:
+  - `print` → `V3PrintItem` (com filhos `finishing` e `production_step` agrupados).
+  - `cv`, `booklet`, `label`, `bcard`, `product` → respectivos tipos.
+- `cv_quote_items` → `V3CVItem` (lê `art_status` que acabamos de persistir).
+- `quote_labor_steps` (parent_item_id IS NULL) → `V3LaborItem`.
+- `quote_third_party` → `V3ThirdItem`.
+- Reaproveita `ArtStatus` de `quote_materials.art_status`.
 
-### Engajamento / rastreio
-- **`EngagementBadge`** + **`EngagementPopover`** — visualizações, scroll, opções selecionadas pelo cliente (`quote_engagement_events`).
-- **`RealtimeRadar`** — quem está olhando o orçamento agora (Realtime).
+Limitação assumida: itens com estrutura que o V2 gravou de forma diferente (sem `product_kind` ou com campos faltando) caem em um item "genérico" não-editável (read-only badge) para não corromper. Log no console.
 
-### Assistente e QA
-- **`QuoteAssistant`** — sugestões via IA durante o preenchimento.
-- **`QuoteChecklist`** — verificações antes de enviar.
+### 4. Save em modo edição (`saveQuoteV3.ts`)
+Adicionar parâmetro opcional `editingQuoteId`:
+- Se presente:
+  - `UPDATE quotes SET ... WHERE id = editingQuoteId` (não cria novo número, mantém versão).
+  - `DELETE` em `quote_materials`, `quote_labor_steps`, `quote_third_party`, `cv_quote_items` WHERE `quote_id = editingQuoteId`.
+  - `INSERT` tudo de novo com o estado atual (mesmo fluxo já existente).
+- Se ausente: comportamento atual (cria).
+- Bloqueia edição se `quotes.is_locked = true` (já tem versão filha).
 
-### Cliente
-- **`ClientDetailsPanel`** — painel lateral com dados completos do cliente.
-- **`ClientLastSalesPanel`** — últimas vendas do cliente.
+### 5. Página `NewQuoteV3.tsx`
+- Lê `useParams().id`. Se houver:
+  - Mostra skeleton, chama `loadQuoteV3(id)`, hidrata o draft.
+  - Título: "Editar Orçamento Nº {quote_number}".
+  - Botão "Salvar" passa `editingQuoteId`.
+- Se não houver: comportamento atual ("Novo orçamento").
 
-### Estrutura de opções A/B/C
-- **`QuoteOptionsBuilder`** — agrupar itens em "Opção A / Opção B" para o cliente escolher (campo `options` em `quotes`). V3 só monta lista única.
+### 6. Pequenos avisos UX
+- Se `is_locked`, banner vermelho "Esta versão foi substituída. Abra a versão mais recente para editar."
+- Se status ∈ {approved, partial}, banner amarelo "Edição livre vai sobrescrever um orçamento já com aceite parcial/total — considere criar Nova Versão (Onda 2)." Não bloqueia.
 
-## Funciona em V3, mas parcial / divergente
+## Fora de escopo (Onda 2+)
+- Criar Nova Versão / Clonar a partir do V3.
+- PDF OP, gerar Pedido.
+- Reescrever listagem ou ClientViewer.
+- Migrar opções A/B/C, anexos, tags UI (se hoje não existem no V3 form, ficam para depois — o load preserva os campos no DB).
 
-- **Frete (`FreightSelector` V2)**: V3 grava `freight_value`/`freight_type_id`? Conferir no `saveQuoteV3`. Se sim, falta a UI dedicada.
-- **Desconto e forma de pagamento (`DiscountPaymentBlock`)**: V3 tem? Hoje o `FinancialPanel` é mais enxuto — precisa confirmar paridade.
-- **`PriceBreakdown` / `StickyFinancialSidebar`**: V3 usa `FinancialPanel`, mas sem detalhamento por item ao nível do V2.
-- **Anexos (`quote-attachments` bucket)**: V2 anexa arquivos ao orçamento — não vi UI em V3.
-- **Tags e `attention_to`**: existem no DB e em V2; conferir se V3 expõe.
-- **Validade, observações internas (`notes`)**: idem.
+## Arquivos tocados
+- **Novo**: `src/components/orcamentos-v3/shared/loadQuoteV3.ts`
+- **Editado**: `src/App.tsx`, `src/pages/orcamentos-v3/NewQuoteV3.tsx`, `src/components/orcamentos-v3/NewQuoteFormV3.tsx`, `src/components/orcamentos-v3/shared/saveQuoteV3.ts`, `src/pages/orcamentos-v2/OrcamentosV2.tsx`.
 
-## O que JÁ está em V3 (paridade ou superior)
-- Criação de itens (Impressão, CV, Cartão, Booklet, Etiqueta, Produto, Mão-de-obra, Suprimento, Terceiros).
-- Kits, presets, tier groups.
-- Duplicar item individual (não o orçamento todo).
-- Pergunta de "Arte pronta?" com 4 faixas + terceirizada (não existe em V2).
-- Persistência de `art_status` em impressão e CV (acabamos de fechar).
-
-## Próximo passo sugerido (a confirmar)
-1. Confirmar quais dessas faltas são **bloqueantes** para você rodar o dia-a-dia em V3.
-2. Priorizar em ondas:
-   - **Onda 1 (mínimo viável):** Listagem V3 + Edição V3 + visualização pública (ClientViewer) → para parar de depender do V2.
-   - **Onda 2 (operação):** Versão, Clonar, gerar PDF OP, gerar Pedido, aprovação parcial.
-   - **Onda 3 (engajamento/IA):** Engagement, Radar realtime, Assistant, Checklist.
-   - **Onda 4 (refino):** Opções A/B, anexos, painéis de cliente.
-
-Quer que eu detalhe um plano completo de uma das ondas?
+Sem migrations.
