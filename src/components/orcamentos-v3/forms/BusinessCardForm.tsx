@@ -478,11 +478,11 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         )}
       </div>
 
-      {/* Chips de acabamentos opcionais */}
-      <Field label="Acabamentos opcionais">
-        {finishes.length > 0 ? (
+      {/* Acabamentos fixos (pré-marcados) */}
+      <Field label="Acabamentos">
+        {fixedFinishes.length > 0 ? (
           <FinishingProgressive
-            items={finishes}
+            items={fixedFinishes}
             enabled={finEnabled}
             onToggle={(id, on) => setFinEnabled((m) => ({ ...m, [id]: on }))}
           />
@@ -501,10 +501,29 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
               .
             </p>
           </div>
-
-
         )}
       </Field>
+
+      {/* Sugestões opcionais (desmarcadas) */}
+      {optionalFinishes.length > 0 && (
+        <details className="rounded-md border border-border bg-background group" open={optionalProcs.some((p) => finEnabled[p.key])}>
+          <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground flex items-center justify-between">
+            <span className="inline-flex items-center gap-1.5">
+              <Plus className="h-3.5 w-3.5" />
+              Sugestões opcionais
+              <span className="text-[10px] text-muted-foreground/70">({optionalFinishes.length})</span>
+            </span>
+            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="border-t border-border p-2">
+            <FinishingProgressive
+              items={optionalFinishes}
+              enabled={finEnabled}
+              onToggle={(id, on) => setFinEnabled((m) => ({ ...m, [id]: on }))}
+            />
+          </div>
+        </details>
+      )}
 
       <div className="sticky bottom-0 z-10 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 mt-2 bg-background/95 backdrop-blur border-t border-border flex items-center justify-between gap-3">
         <div className="text-xs text-muted-foreground">
