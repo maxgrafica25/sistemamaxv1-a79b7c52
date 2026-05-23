@@ -55,6 +55,7 @@ export default function Configuracoes() {
   const [defaultProfitMargin, setDefaultProfitMargin] = useState("33");
   const [taxPct, setTaxPct] = useState("10");
   const [collectionFeePct, setCollectionFeePct] = useState("7");
+  const [checklistBeforeSave, setChecklistBeforeSave] = useState(true);
 
   // Backup state
   const [backupRuns, setBackupRuns] = useState<BackupRun[]>([]);
