@@ -1,31 +1,21 @@
-# Cartão de Visita: unificar built-in e favorito salvo
+## Objetivo
+Permitir remover um favorito direto do chip no formulário de orçamento, via clique direito.
 
-## Problema
-Hoje aparecem **dois chips "Cartão de Visita"** na barra de Impressão + Acabamentos:
-- O **built-in** (ícone CreditCard, contorno) → abre `BusinessCardForm` com sugestões do Kit de Produto.
-- O **favorito salvo** pelo usuário com o mesmo nome → cai no `PrintForm` genérico, sem kit, sem sugestões de acabamento.
+## Mudanças
+**Arquivo:** `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`
 
-O usuário clica no favorito (que aparece destacado/colorido) esperando o formulário rico — e não vê sugestão nenhuma.
+1. Em cada chip renderizado a partir de `presets`, adicionar `onContextMenu` que:
+   - Previne o menu nativo do navegador.
+   - Abre um pequeno menu (shadcn `DropdownMenu` em modo controlado, ou `ContextMenu` do shadcn) ancorado no chip com a opção **"Remover favorito"**.
+2. Ao confirmar (via `AlertDialog`), chamar a função de remoção do hook `useQuotePresets` (verificar se já existe `deletePreset`; se não, adicionar wrapper que faz `DELETE` em `quote_presets` pelo id e dá refetch).
+3. Após remover, mostrar `toast` de sucesso e atualizar a lista de chips.
 
-## Solução (decidida)
-Tratar "Cartão de Visita" como **um único caminho**, independente de quem clicou:
-
-1. **Detecção por nome** — helper `isBusinessCardName(nome)` que normaliza (lowercase, sem acento) e casa qualquer preset cujo nome contenha "cartao de visita" (ou tokens equivalentes "cartao visita").
-
-2. **Esconder o built-in quando há colisão** — em `PrintAndProductForm.tsx`, se algum preset do usuário casar `isBusinessCardName`, omitir o chip built-in (`__builtin_business_card__`). Não há mais duplicação visual.
-
-3. **Roteamento por tipo** — quando o preset selecionado casa `isBusinessCardName`, renderizar `BusinessCardForm` no lugar do `PrintForm`/`BookletForm`/`LabelEmbeddedForm`. Assim o favorito salvo passa a oferecer a mesma experiência do built-in (Kit de Produto + sugestões de acabamento fixos/opcionais).
-
-4. **Quando não há colisão** — o built-in continua aparecendo como antes.
-
-## Arquivo
-- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`
-  - Adicionar `isBusinessCardName` (helper local).
-  - Calcular `hasUserBusinessCardPreset` via `useMemo` sobre `presets`.
-  - Renderizar o chip built-in apenas quando `!hasUserBusinessCardPreset`.
-  - Calcular `treatAsBusinessCard = isBusinessCard || (selectedPreset && isBusinessCardName(selectedPreset.nome))`.
-  - Trocar as condições do bloco "Sub-formulário" para usar `treatAsBusinessCard` no lugar de `isBusinessCard`.
+## Detalhes técnicos
+- Usar `ContextMenu` do shadcn (`@/components/ui/context-menu`) envolvendo o `<Button>` do chip — é o componente mais natural para clique direito e já está no design system.
+- Só presets do usuário recebem o context menu; chip built-in ("Cartão de Visita" embutido) não.
+- Deleção respeita RLS já existente em `quote_presets` (usuário só apaga os próprios).
+- Sem mudanças de schema.
 
 ## Fora de escopo
-- Não mexer em tabela/migrations — a heurística por nome resolve o caso reportado sem precisar consultar o vínculo N:N `product_kits ↔ quote_presets`.
-- Não tocar nos outros tipos (Apostila, Etiqueta etc.).
+- Renomear favorito inline (pode ser feito depois pela página Produtos Favoritos).
+- Atalho para favoritos compartilhados entre usuários.

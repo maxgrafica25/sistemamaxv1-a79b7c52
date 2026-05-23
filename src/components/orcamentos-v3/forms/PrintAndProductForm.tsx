@@ -3,11 +3,29 @@
 // Em personalizado, mostra sugestão inteligente quando a combinação
 // de papel + acabamentos casa com um produto conhecido (ex: lona + ilhós).
 import { useCallback, useMemo, useState } from "react";
-import { CreditCard, Pencil, Sparkles, X, Star } from "lucide-react";
+import { CreditCard, Pencil, Sparkles, X, Star, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { PrintForm } from "./PrintForm";
 import { BookletForm } from "./BookletForm";
 import { LabelEmbeddedForm } from "./LabelEmbeddedForm";
@@ -54,6 +72,26 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
     finishings: string[];
   } | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
+  const [presetToDelete, setPresetToDelete] = useState<QuotePreset | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!presetToDelete) return;
+    setDeleting(true);
+    const { error } = await supabase
+      .from("quote_presets" as never)
+      .delete()
+      .eq("id", presetToDelete.id);
+    setDeleting(false);
+    if (error) {
+      toast.error("Não foi possível remover o favorito.");
+      return;
+    }
+    toast.success(`"${presetToDelete.nome}" removido dos favoritos.`);
+    if (selectedPresetId === presetToDelete.id) setSelectedPresetId(null);
+    setPresetToDelete(null);
+    reload();
+  }, [presetToDelete, reload, selectedPresetId]);
 
   const selectedPreset: QuotePreset | undefined = selectedPresetId && selectedPresetId !== BUILTIN_BUSINESS_CARD_ID
     ? presets.find((p) => p.id === selectedPresetId)
@@ -170,20 +208,33 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
           const Icon = iconFor(p.icone);
           const active = p.id === selectedPresetId;
           return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setSelectedPresetId(p.id)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {p.nome}
-            </button>
+            <ContextMenu key={p.id}>
+              <ContextMenuTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPresetId(p.id)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+                  )}
+                  title="Clique direito para opções"
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {p.nome}
+                </button>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onSelect={() => setPresetToDelete(p)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                  Remover favorito
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           );
         })}
         {canSavePreset && (
@@ -208,6 +259,27 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
           onSaved={reload}
         />
       )}
+
+      <AlertDialog open={!!presetToDelete} onOpenChange={(o) => !o && setPresetToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover favorito?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{presetToDelete?.nome}" será removido dos seus favoritos. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleConfirmDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Removendo..." : "Remover"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Faixa de sugestão (apenas em Personalizado) */}
       {isCustom && suggestion && (
