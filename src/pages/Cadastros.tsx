@@ -198,7 +198,6 @@ export default function Cadastros() {
         </Button>
       </div>
 
-      <div className="flex gap-1 border-b border-border mb-4">
       <DotTabs
         tabs={[
           { key: "todos", label: `Todos (${cadastros.length})` },
