@@ -306,10 +306,17 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
               feesPct={state.fees_pct}
               wastePct={globalSettings.waste_pct}
             />
+            <QuoteChecklistPanelV3
+              items={state.items}
+              quoteId={editingQuoteId ?? null}
+              onItemsChange={(next) => setState((s) => ({ ...s, items: next }))}
+              onAnswersChange={setChecklistAnswers}
+            />
             <QuoteAssistantPanelV3
               items={state.items}
               clientId={state.cliente.id}
               clientName={state.cliente.nome}
+              checklistAnswers={checklistAnswers}
             />
           </div>
           <div className="p-3 border-t border-border/60 bg-background">
