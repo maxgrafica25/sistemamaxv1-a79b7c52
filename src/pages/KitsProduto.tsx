@@ -237,6 +237,11 @@ export default function KitsProduto() {
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
   const [nameTouched, setNameTouched] = useState(false);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
   const fetchAll = async () => {
     setLoading(true);
     const [kitsRes, itemsRes, procRes, presetsRes, linksRes] = await Promise.all([
