@@ -38,8 +38,19 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [loadingEdit, setLoadingEdit] = useState(isEditing);
   const [editMeta, setEditMeta] = useState<{ quote_number: string; status: string } | null>(null);
+  const [previewNumber, setPreviewNumber] = useState<string | null>(null);
   const [checklistAnswers, setChecklistAnswers] = useState<{ pergunta: string; resposta: string }[]>([]);
   const { settings: globalSettings } = useGlobalSettings();
+
+  // Pré-calcula o próximo número (provisório) ao criar um novo orçamento.
+  useEffect(() => {
+    if (isEditing) return;
+    let cancelled = false;
+    nextQuoteNumber()
+      .then((n) => { if (!cancelled) setPreviewNumber(n); })
+      .catch(() => { /* silencioso — badge fica oculto */ });
+    return () => { cancelled = true; };
+  }, [isEditing]);
 
   // Rascunho local desabilitado em modo edição (não queremos sobrescrever
   // o estado real com um rascunho antigo de "novo orçamento").
