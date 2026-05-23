@@ -54,7 +54,8 @@ interface Props {
 const M = 7;
 const GAP = 3;
 
-export function LabelEmbeddedForm({ onAdd, onAddTiers, descricao: descricaoProp, onDescricaoChange }: Props) {
+export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: descricaoProp, onDescricaoChange }: Props) {
+  const { hourlyRate } = useV3HourlyRate();
   const [descricaoLocal, setDescricaoLocal] = useState("");
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
