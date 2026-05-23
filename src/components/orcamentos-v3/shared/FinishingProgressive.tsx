@@ -1,7 +1,7 @@
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { ChevronDown, Loader2 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { Loader2 } from "lucide-react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 export interface FinishingSubItem {
   description: string;
@@ -20,7 +20,7 @@ export interface FinishingDef {
    */
   subItems?: FinishingSubItem[];
   loadingSubItems?: boolean;
-  /** Disparado na primeira expansão para lazy-load. */
+  /** Disparado para lazy-load das sub-etapas (chamado automaticamente na primeira render). */
   onExpand?: () => void;
   /** Quando true, o item tem grupo vinculado mas sub-itens ainda não foram carregados. */
   hasGroup?: boolean;
@@ -33,7 +33,23 @@ interface Props {
 }
 
 export function FinishingProgressive({ items, enabled, onToggle }: Props) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const triggered = useRef<Set<string>>(new Set());
+
+  // Auto-dispara lazy-load das sub-etapas para todos os itens com grupo vinculado.
+  useEffect(() => {
+    items.forEach((it) => {
+      if (
+        it.hasGroup &&
+        it.onExpand &&
+        !it.subItems &&
+        !it.loadingSubItems &&
+        !triggered.current.has(it.id)
+      ) {
+        triggered.current.add(it.id);
+        it.onExpand();
+      }
+    });
+  }, [items]);
 
   if (items.length === 0) {
     return (
@@ -53,20 +69,11 @@ export function FinishingProgressive({ items, enabled, onToggle }: Props) {
     );
   }
 
-  const toggleExpand = (it: FinishingDef) => {
-    const wasOpen = !!expanded[it.id];
-    setExpanded((m) => ({ ...m, [it.id]: !wasOpen }));
-    if (!wasOpen && it.onExpand && !it.subItems && !it.loadingSubItems) {
-      it.onExpand();
-    }
-  };
-
   return (
     <ul className="divide-y divide-border rounded-md border border-border bg-background">
       {items.map((it) => {
         const on = !!enabled[it.id];
-        const isOpen = !!expanded[it.id];
-        const canExpand = it.hasGroup || (it.subItems && it.subItems.length > 0);
+        const showDetails = it.hasGroup || (it.subItems && it.subItems.length > 0);
         return (
           <li key={it.id} className="px-3 py-2.5">
             <div className="flex items-center justify-between gap-3">
@@ -76,24 +83,9 @@ export function FinishingProgressive({ items, enabled, onToggle }: Props) {
                   <p className="text-[11px] text-muted-foreground mt-0.5">{it.hint}</p>
                 )}
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {canExpand && (
-                  <button
-                    type="button"
-                    onClick={() => toggleExpand(it)}
-                    aria-expanded={isOpen}
-                    aria-label={isOpen ? "Recolher detalhamento" : "Ver detalhamento"}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                  >
-                    <ChevronDown
-                      className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")}
-                    />
-                  </button>
-                )}
-                <Switch checked={on} onCheckedChange={(v) => onToggle(it.id, !!v)} />
-              </div>
+              <Switch checked={on} onCheckedChange={(v) => onToggle(it.id, !!v)} />
             </div>
-            {isOpen && canExpand && (
+            {showDetails && (
               <div className="mt-2 pt-2 border-t border-border/60">
                 {it.loadingSubItems ? (
                   <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
