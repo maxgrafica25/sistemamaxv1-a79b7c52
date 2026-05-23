@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Edit2, Clock, Loader2, Factory, Layers } from "lucide-react";
+import { Plus, Trash2, Edit2, Clock, Loader2, Factory, Layers, Star } from "lucide-react";
+import { ProductPresetLinksTab } from "@/components/orcamentos-v3/admin/ProductPresetLinksTab";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -43,6 +44,7 @@ interface StepGroup {
 const tabConfig = [
   { key: "etapas", label: "Etapas", icon: Clock, color: "text-blue-500" },
   { key: "grupos", label: "Grupos de Etapas", icon: Layers, color: "text-emerald-500" },
+  { key: "favoritos", label: "Vincular a Favoritos", icon: Star, color: "text-primary" },
 ] as const;
 
 type TabKey = typeof tabConfig[number]["key"];
@@ -80,6 +82,7 @@ export default function ProcessosProducao() {
 
       {activeTab === "etapas" && <EtapasTab />}
       {activeTab === "grupos" && <GruposTab />}
+      {activeTab === "favoritos" && <ProductPresetLinksTab />}
     </div>
   );
 }

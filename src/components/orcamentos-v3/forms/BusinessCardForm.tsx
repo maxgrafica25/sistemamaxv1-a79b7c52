@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChevronDown, Plus, Printer, Settings2 } from "lucide-react";
+import { Check, ChevronDown, FileText, Files, Plus, Printer, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FinishingProgressive, type FinishingDef } from "../shared/FinishingProgressive";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3PrintItem } from "../types";
-import { useV3ProcessCatalog } from "../shared/useV3ProcessCatalog";
+import { useProductPresetProcesses } from "../shared/useProductPresetProcesses";
 import { useHourRate } from "@/hooks/useHourRate";
 import {
   calcCardsPerSheet,
@@ -52,7 +52,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
 
-  const [qtdCartoes, setQtdCartoes] = useState(1000);
+  const [qtdCartoes, setQtdCartoes] = useState(0);
   const [face, setFace] = useState<"frente" | "fv">("frente");
   const [layout, setLayout] = useState(DEFAULTS);
   const [layoutOpen, setLayoutOpen] = useState(false);
@@ -60,13 +60,10 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const [pulse, setPulse] = useState(false);
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
 
-  // Acabamentos do Cartão de Visita: processos individuais + grupos de etapas
-  // cujo nome contenha "cartão de visita" (acento/case-insensível).
-  const { steps, groups } = useV3ProcessCatalog();
+  // Acabamentos do Cartão de Visita: vínculos cadastrados em
+  // Processos de Produção → "Vincular a Favoritos".
+  const { steps, groups } = useProductPresetProcesses("business_card");
   const { hourRate } = useHourRate();
-
-  const norm = (s: string) =>
-    s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
   type CVProc = {
     key: string;
@@ -77,38 +74,21 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const cvProcs = useMemo<CVProc[]>(() => {
     const out: CVProc[] = [];
     for (const s of steps) {
-      if (norm(s.description).includes("cartao de visita")) {
-        const m = Number(s.time_minutes);
-        out.push({
-          key: `step:${s.id}`,
-          kind: "step",
-          name: s.description,
-          minutes: Number.isFinite(m) ? m : 0,
-        });
-      }
+      const m = Number(s.time_minutes);
+      out.push({
+        key: `step:${s.id}`,
+        kind: "step",
+        name: s.description,
+        minutes: Number.isFinite(m) ? m : 0,
+      });
     }
     for (const g of groups) {
-      if (norm(g.name).includes("cartao de visita")) {
-        let mins = 0;
-        const missing: string[] = [];
-        for (const it of g.items) {
-          const n = Number(it.time_minutes);
-          if (!Number.isFinite(n) || n === 0) missing.push(it.description);
-          mins += Number.isFinite(n) ? n : 0;
-        }
-        if (missing.length > 0) {
-          console.warn(
-            "[BusinessCardForm] grupo com item(s) sem time_minutes",
-            { group: g.name, items: missing },
-          );
-        }
-        out.push({
-          key: `group:${g.id}`,
-          kind: "group",
-          name: g.name,
-          minutes: mins,
-        });
-      }
+      out.push({
+        key: `group:${g.id}`,
+        kind: "group",
+        name: g.name,
+        minutes: Number.isFinite(g.total_minutes) ? g.total_minutes : 0,
+      });
     }
     return out;
   }, [steps, groups]);
@@ -314,46 +294,65 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         </div>
       )}
 
-      {/* Quantidade + Face */}
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Quantidade (cartões)">
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            value={qtdCartoes === 0 ? "" : qtdCartoes}
-            placeholder="Ex: 1000"
-            onChange={(e) => {
-              const raw = e.target.value;
-              if (raw === "") {
-                setQtdCartoes(0);
-                return;
-              }
-              setQtdCartoes(Math.max(1, Number(raw) || 1));
-            }}
-            className="h-9"
-          />
-        </Field>
-        <Field label="Face">
-          <div className="inline-flex rounded-md border border-border overflow-hidden h-9">
-            {(["frente", "fv"] as const).map((f) => (
+      {/* Quantidade */}
+      <Field label="Quantidade (cartões)">
+        <Input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          value={qtdCartoes === 0 ? "" : qtdCartoes}
+          placeholder="Ex: 1000"
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (raw === "") {
+              setQtdCartoes(0);
+              return;
+            }
+            setQtdCartoes(Math.max(1, Number(raw) || 1));
+          }}
+          className="h-9"
+        />
+      </Field>
+
+      {/* Face — cards selecionáveis */}
+      <Field label="Face de impressão">
+        <div className="grid grid-cols-2 gap-3">
+          {([
+            { key: "frente", icon: FileText, title: "Frente", hint: "1 face de impressão" },
+            { key: "fv", icon: Files, title: "Frente e Verso", hint: "2 faces · custo ~2x" },
+          ] as const).map((opt) => {
+            const Icon = opt.icon;
+            const selected = face === opt.key;
+            return (
               <button
-                key={f}
+                key={opt.key}
                 type="button"
-                onClick={() => setFace(f)}
+                onClick={() => setFace(opt.key)}
                 className={cn(
-                  "px-3 text-xs font-medium transition-colors",
-                  face === f
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-background text-muted-foreground hover:text-foreground",
+                  "relative rounded-lg border-2 p-3 text-left transition-all",
+                  selected
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-border bg-background hover:border-primary/40 hover:bg-muted/30",
                 )}
               >
-                {f === "frente" ? "Frente" : "Frente e Verso"}
+                <div className="flex items-start gap-3">
+                  <Icon
+                    className={cn(
+                      "h-5 w-5 mt-0.5 shrink-0",
+                      selected ? "text-primary" : "text-muted-foreground",
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold leading-tight">{opt.title}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{opt.hint}</p>
+                  </div>
+                  {selected && <Check className="h-4 w-4 text-primary shrink-0" />}
+                </div>
               </button>
-            ))}
-          </div>
-        </Field>
-      </div>
+            );
+          })}
+        </div>
+      </Field>
 
       {/* Resumo de aproveitamento */}
       <div className="rounded-md border border-border bg-background px-3 py-2.5">
@@ -478,17 +477,19 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         ) : (
           <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-3 text-center">
             <p className="text-xs text-muted-foreground">
-              Cadastre uma etapa ou grupo com "Cartão de Visita" no nome em{" "}
-              <a href="/processos-producao" target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                Processos
-              </a>{" "}
-              ou{" "}
-              <a href="/grupos-etapas" target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                Grupos de Etapas
+              Nenhuma etapa ou grupo vinculado a este favorito. Cadastre em{" "}
+              <a
+                href="/processos-producao"
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline"
+              >
+                Processos de Produção → Vincular a Favoritos
               </a>
               .
             </p>
           </div>
+
 
         )}
       </Field>

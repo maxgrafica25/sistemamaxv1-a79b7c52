@@ -1,28 +1,40 @@
-## Objetivo
-Evitar que o orçamento quebre quando uma etapa (`production_steps`) ou item de grupo (`step_group_items`) não tiver `time_minutes` definido. Assumir `0` minutos nesses casos e emitir `console.warn` para facilitar diagnóstico.
+## Diagnóstico
 
-## Arquivos alterados
+Suas 2 etapas e 1 grupo existem no banco, mas estão no **plural** ("Cartões de visita") enquanto o filtro busca pelo singular ("cartao de visita"). Por isso nada aparece. Em vez de "consertar" o filtro por nome (frágil), vamos criar um **vínculo explícito** entre cada favorito (Cartão de Visita, Folheto, Apostila, Etiqueta, Adesivo, Certificado) e as etapas/grupos que devem aparecer como acabamentos.
 
-### 1. `src/components/orcamentos-v3/shared/useV3ProcessCatalog.ts`
-Centralizar o fallback na fonte dos dados (já usa `Number(...) || 0`, mas hoje silencioso):
+## O que será feito
 
-- Ao mapear `stepsRes.data`: se `s.time_minutes` for `null/undefined/NaN`, fazer `console.warn("[useV3ProcessCatalog] etapa sem time_minutes", { id, description })` e usar `0`.
-- Ao mapear `groupItemsRes.data`: idem, com `console.warn("[useV3ProcessCatalog] item de grupo sem time_minutes", { step_group_id, description })`.
-- Manter o tipo `number` (sempre numérico) — nenhum consumidor precisa mudar.
+### 1. Banco — nova tabela de vínculos
+Tabela `product_preset_processes` com:
+- `preset_key` (texto: `business_card`, `flyer`, `booklet`, `label`, `sticker`, `certificate`)
+- `step_id` (nullable, FK production_steps) OU
+- `group_id` (nullable, FK step_groups)
+- `sort_order`
+- RLS: leitura para autenticados, escrita só admin.
 
-### 2. `src/components/orcamentos-v3/forms/BusinessCardForm.tsx`
-Defesa em profundidade no cálculo do chip (`cvProcs` memo) e em `procCost`:
+Restrição: exatamente um de `step_id`/`group_id` preenchido.
 
-- No `cvProcs`, ao somar minutos do grupo, usar `Number(it.time_minutes) || 0` e, se algum item resultar em `0` por falta de valor, `console.warn` uma vez por grupo identificando os itens problemáticos.
-- Em `procCost(minutes)`, tratar `minutes` não-finito como `0` (sem `NaN` propagando para o preço).
-- Garantir que chip com `minutes === 0` ainda renderiza (com `hint` "0 min · R$ 0,00") em vez de quebrar — comportamento atual já tolera, só formalizar.
+### 2. Tela de gestão dos vínculos
+Em **Processos de Produção**, adicionar uma aba ou seção "**Vincular a Favoritos do Orçamento**" onde, para cada favorito (Cartão de Visita, Folheto, etc.), o admin escolhe via multi-select quais etapas e grupos aparecem como chip de acabamento.
+
+### 3. Carregar vínculos no formulário
+Novo hook `useProductPresetProcesses(presetKey)` que retorna `{steps, groups}` já filtrados pelos vínculos cadastrados.
+
+`BusinessCardForm` passa a usar `useProductPresetProcesses("business_card")` em vez do filtro por nome. Mantém o `procCost(minutes)` e o fallback de `time_minutes`.
+
+Fallback (quando não há nenhum vínculo cadastrado): mostra mensagem "Cadastre vínculos em /processos-producao" com link.
+
+### 4. UX — `BusinessCardForm.tsx`
+- **Quantidade**: inicia vazia (`qtdCartoes` como `null`/`""` em vez de `1000`); placeholder "Ex: 1000". Cálculo de folhas/preço só roda se `> 0`.
+- **Face Frente / Frente e Verso**: substituir os dois botões compactos por **2 cards selecionáveis** lado a lado, com ícone (página única vs página dupla), título grande e legenda curta ("1 face de impressão" / "2 faces · custo ~2x"). Estado selecionado com borda primary + check.
 
 ## Fora de escopo
-- Não alterar schema do banco nem adicionar `NOT NULL`/default em `time_minutes`.
-- Não mudar outros forms (Print, Booklet, etc.) — escopo é o fluxo do Cartão de Visita que acabamos de migrar.
-- Não tocar no engine de pricing nem em `useHourRate`.
 
-## Como validar
-1. Abrir `/orcamentos-v3` → aba Cartão de Visita: chips continuam aparecendo normalmente para etapas/grupos com tempo.
-2. Cadastrar (manualmente no banco) uma etapa "Cartão de Visita Teste" sem `time_minutes`: form não quebra, chip aparece com `0 min`, e o console mostra o `warn` com o id/descrição.
-3. Selecionar esse chip: `finishingExtraPerSheet` = 0, preço final permanece válido (sem `NaN`/`R$ NaN`).
+- Outros formulários (Folheto, Apostila, etc.) ganham os vínculos automaticamente quando passarmos a usar `useProductPresetProcesses`, mas neste plano só `BusinessCardForm` é convertido. Os demais ficam para depois.
+- Não mexer em `useV3ProcessCatalog` (continua sendo usado em outros lugares).
+
+## Validação
+
+1. Após migração, abrir Processos de Produção → vincular as 2 etapas + 1 grupo ao favorito "Cartão de Visita".
+2. Abrir `/orcamentos-v3/novo` → Cartão de Visita: campo quantidade vazio, face em cards, chips de acabamento aparecem listando as 2 etapas e o grupo com tempo/custo.
+3. Selecionar chip → preço total atualiza.
