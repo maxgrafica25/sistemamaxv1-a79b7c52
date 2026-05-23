@@ -68,7 +68,7 @@ const CONSUMO_LABELS: Record<KitConsumoTipo, string> = {
   por_unidade: "Por unidade da peça",
 };
 
-export default function GruposMateriais() {
+export default function GruposMateriais({ hideHeader = false }: { hideHeader?: boolean } = {}) {
   const [groups, setGroups] = useState<MaterialGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -287,16 +287,18 @@ export default function GruposMateriais() {
   if (loading) { return <PageLoader />; }
 
   return (
-    <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Layers className="h-6 w-6 text-primary" />
-          Grupos de Materiais
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Templates reutilizáveis. Ative "Kit calculável" para banners, faixas e outros produtos que envolvem insumos + mão de obra + cobrança por dimensão.
-        </p>
-      </div>
+    <div className={hideHeader ? "" : "p-8"}>
+      {!hideHeader && (
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Layers className="h-6 w-6 text-primary" />
+            Grupos de Materiais
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Templates reutilizáveis. Ative "Kit calculável" para banners, faixas e outros produtos que envolvem insumos + mão de obra + cobrança por dimensão.
+          </p>
+        </div>
+      )}
 
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{groups.length} grupo(s) cadastrado(s)</p>
