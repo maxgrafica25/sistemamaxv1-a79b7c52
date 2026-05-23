@@ -1,17 +1,14 @@
-## Mostrar número do orçamento sempre
+## Mostrar detalhamento dos acabamentos por padrão
 
-Hoje, quando o usuário cria um orçamento novo, o badge no topo do editor fica vazio (só aparece "Editar Nº XXXX-XXX" ao editar). O número real só é gerado ao salvar.
+Hoje, no editor de Cartão de Visita (e demais formulários que usam `FinishingProgressive`), cada linha de "Acabamentos" e "Acabamentos opcionais" lista só o nome — o usuário precisa clicar no chevron para ver as sub-etapas que o compõem.
 
 ### Mudança
 
-No `NewQuoteFormV3.tsx`:
+No `src/components/orcamentos-v3/shared/FinishingProgressive.tsx`:
 
-1. Ao montar (modo criação), chamar `nextQuoteNumber()` (já existe em `saveQuoteV3.ts`) para calcular o próximo número disponível e guardar em estado local como `previewNumber`.
-2. Renderizar o badge sempre:
-   - Editando → `Editar Nº {quote_number}`
-   - Criando → `Nº {previewNumber}` (provisório, confirmado no save)
-3. Expor `nextQuoteNumber` como export nomeado em `saveQuoteV3.ts` para poder importar no formulário.
+1. Tornar o detalhamento (sub-itens) **visível por padrão** em todas as linhas que têm grupo vinculado.
+2. Disparar o `onExpand()` (lazy-load das sub-etapas) automaticamente ao montar para cada item com `hasGroup` — mantém a performance, mas o usuário não precisa mais clicar.
+3. Remover o botão chevron de expansão (ou mantê-lo só como "recolher" caso o usuário queira economizar espaço — preferência: **remover**, deixando a UI sempre aberta e mais legível).
+4. Manter o bloco `advanced` (configuração extra que aparece quando o switch é ligado) inalterado.
 
-### Observação
-
-O número é provisório até salvar (race condition possível se outro usuário salvar antes). Na hora do save, a função `nextQuoteNumber()` é re-executada e o número definitivo é gravado — o badge é apenas visual. Isso atende ao requisito "todo orçamento tem um número" sem precisar criar linha rascunho no banco.
+Resultado: ao abrir o cartão de visita, o usuário vê na hora todas as sub-etapas de "Corte de 100 Cartões de visita" e "Laminação para 100 cartões de visita" sem precisar clicar em nada.
