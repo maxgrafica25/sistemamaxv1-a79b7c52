@@ -2552,51 +2552,6 @@ export type Database = {
         }
         Relationships: []
       }
-      product_preset_processes: {
-        Row: {
-          created_at: string
-          group_id: string | null
-          id: string
-          link_type: string
-          preset_key: string
-          sort_order: number
-          step_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          group_id?: string | null
-          id?: string
-          link_type?: string
-          preset_key: string
-          sort_order?: number
-          step_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          group_id?: string | null
-          id?: string
-          link_type?: string
-          preset_key?: string
-          sort_order?: number
-          step_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_preset_processes_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "step_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_preset_processes_step_id_fkey"
-            columns: ["step_id"]
-            isOneToOne: false
-            referencedRelation: "production_steps"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       production_losses: {
         Row: {
           created_at: string

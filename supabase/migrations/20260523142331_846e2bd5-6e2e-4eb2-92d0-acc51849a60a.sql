@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS public.product_preset_processes CASCADE;
