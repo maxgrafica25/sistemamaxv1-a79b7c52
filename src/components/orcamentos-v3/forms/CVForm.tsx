@@ -345,14 +345,9 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
 
   return (
     <div className="space-y-5 flex-1 flex flex-col">
-      <ArtePromptBlock
-        value={artStatus}
-        onChange={setArtStatus}
-        terceirizadaValue={artTercValue}
-        onTerceirizadaValueChange={setArtTercValue}
-      />
       {/* Descrição — acima do toggle */}
       <div className="space-y-1.5">
+
         <div className="flex items-center justify-between">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
             Descrição
