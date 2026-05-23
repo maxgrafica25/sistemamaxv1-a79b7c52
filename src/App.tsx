@@ -32,11 +32,14 @@ import KitsProduto from "./pages/KitsProduto";
 import Insumos from "./pages/Insumos";
 import CadastrosCV from "./pages/CadastrosCV";
 import OrcamentosV2 from "./pages/orcamentos-v2/OrcamentosV2";
+import OrcamentosV3 from "./pages/orcamentos-v3/OrcamentosV3";
 import Usuarios from "./pages/Usuarios";
 import NewQuoteV2 from "./pages/orcamentos-v2/NewQuoteV2";
 import NewQuoteV3 from "./pages/orcamentos-v3/NewQuoteV3";
 import EditQuoteV2 from "./pages/orcamentos-v2/EditQuoteV2";
 import ClientViewer from "./pages/orcamentos-v2/ClientViewer";
+import ClientViewerV3 from "./pages/orcamentos-v3/ClientViewerV3";
+
 import Pedidos from "./pages/Pedidos";
 import ContasReceber from "./pages/ContasReceber";
 import CalculadoraEtiquetas from "./pages/CalculadoraEtiquetas";
