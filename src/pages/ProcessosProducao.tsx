@@ -269,20 +269,36 @@ function GruposTab() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<StepGroup | null>(null);
   const [groupName, setGroupName] = useState("");
-  const [groupSteps, setGroupSteps] = useState<{ id: string; description: string; time_minutes: number; step_type: StepType }[]>([]);
+  const [groupSteps, setGroupSteps] = useState<{ uid: string; production_step_id: string }[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const stepById = new Map(availableSteps.map((s) => [s.id, s]));
 
   const fetchGroups = async () => {
     setLoading(true);
     const [gRes, iRes, sRes] = await Promise.all([
       supabase.from("step_groups").select("*").order("created_at"),
-      supabase.from("step_group_items").select("*").order("sort_order"),
+      supabase
+        .from("step_group_items")
+        .select("id, step_group_id, sort_order, production_step_id, production_step:production_steps(id, description, time_minutes, step_type)")
+        .order("sort_order"),
       supabase.from("production_steps").select("*").order("description"),
     ]);
     if (gRes.data && iRes.data) {
+      const items = (iRes.data as any[])
+        .filter((i) => i.production_step)
+        .map((i): GroupItem & { step_group_id: string } => ({
+          id: i.id,
+          step_group_id: i.step_group_id,
+          production_step_id: i.production_step_id,
+          description: i.production_step.description,
+          time_minutes: Number(i.production_step.time_minutes) || 0,
+          sort_order: i.sort_order,
+          step_type: (i.production_step.step_type ?? "outro") as StepType,
+        }));
       setGroups(gRes.data.map(g => ({
         ...g,
-        items: iRes.data.filter(i => i.step_group_id === g.id) as GroupItem[],
+        items: items.filter(i => i.step_group_id === g.id),
       })) as StepGroup[]);
     }
     if (sRes.data) setAvailableSteps(sRes.data as Step[]);
@@ -299,26 +315,23 @@ function GruposTab() {
 
   const openEditDialog = (group: StepGroup) => {
     setEditingGroup(group); setGroupName(group.name);
-    setGroupSteps(group.items.map(i => ({ id: i.id, description: i.description, time_minutes: i.time_minutes, step_type: (i.step_type ?? "outro") as StepType })));
+    setGroupSteps(group.items.map(i => ({ uid: i.id, production_step_id: i.production_step_id })));
     setIsDialogOpen(true);
   };
 
   const addExistingStep = (step: Step) => {
-    setGroupSteps(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, description: step.description, time_minutes: step.time_minutes, step_type: step.step_type ?? "outro" }]);
+    setGroupSteps(prev => [...prev, { uid: `${Date.now()}-${Math.random()}`, production_step_id: step.id }]);
   };
 
-  const addBlankStep = () => setGroupSteps(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, description: "", time_minutes: 0, step_type: "outro" }]);
-  const removeStep = (id: string) => setGroupSteps(groupSteps.filter(s => s.id !== id));
-  const updateStep = (id: string, field: string, value: string | number) =>
-    setGroupSteps(groupSteps.map(s => s.id === id ? { ...s, [field]: value } : s));
+  const removeStep = (uid: string) => setGroupSteps(groupSteps.filter(s => s.uid !== uid));
 
   const { requireAdmin } = usePermissionGuard();
 
   const saveGroup = async () => {
     if (!requireAdmin(editingGroup ? "editar grupo" : "criar grupo")) return;
     if (!groupName.trim()) { toast.error("Digite um nome para o grupo"); return; }
-    if (groupSteps.length === 0 || groupSteps.some(s => !s.description.trim())) {
-      toast.error("Adicione pelo menos uma etapa válida"); return;
+    if (groupSteps.length === 0) {
+      toast.error("Adicione pelo menos uma etapa"); return;
     }
 
     if (editingGroup) {
@@ -327,7 +340,7 @@ function GruposTab() {
       const r2 = await supabase.from("step_group_items").delete().eq("step_group_id", editingGroup.id);
       if (r2.error) return handleError(r2.error, "atualizar itens do grupo");
       const r3 = await supabase.from("step_group_items").insert(
-        groupSteps.map((s, i) => ({ step_group_id: editingGroup.id, description: s.description, time_minutes: s.time_minutes, step_type: s.step_type, sort_order: i }))
+        groupSteps.map((s, i) => ({ step_group_id: editingGroup.id, production_step_id: s.production_step_id, sort_order: i }))
       );
       if (r3.error) return handleError(r3.error, "salvar itens do grupo");
       toast.success("Grupo atualizado!");
@@ -336,7 +349,7 @@ function GruposTab() {
       if (error) return handleError(error, "criar grupo");
       if (data) {
         const r = await supabase.from("step_group_items").insert(
-          groupSteps.map((s, i) => ({ step_group_id: data.id, description: s.description, time_minutes: s.time_minutes, step_type: s.step_type, sort_order: i }))
+          groupSteps.map((s, i) => ({ step_group_id: data.id, production_step_id: s.production_step_id, sort_order: i }))
         );
         if (r.error) return handleError(r.error, "salvar itens do grupo");
       }
@@ -345,6 +358,7 @@ function GruposTab() {
     setIsDialogOpen(false);
     fetchGroups();
   };
+
 
   const confirmDelete = async () => {
     if (!deletingId) return;
