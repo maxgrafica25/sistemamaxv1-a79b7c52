@@ -13,16 +13,16 @@ import {
   History, ChevronDown, ChevronUp, EyeOff, Tags, FileText, Package,
   Sparkles, RefreshCw,
 } from "lucide-react";
-import { CVItemCard, type CVItemState } from "@/components/orcamentos-v2/CVItemCard";
-import { ClientCombobox } from "@/components/orcamentos-v2/ClientCombobox";
-import { ClientDetailsPanel } from "@/components/orcamentos-v2/ClientDetailsPanel";
-import { ClientLastSalesPanel } from "@/components/orcamentos-v2/ClientLastSalesPanel";
+import { CVItemCard, type CVItemState } from "@/components/orcamentos-v3/listing/CVItemCard";
+import { ClientCombobox } from "@/components/orcamentos-v3/listing/ClientCombobox";
+import { ClientDetailsPanel } from "@/components/orcamentos-v3/listing/ClientDetailsPanel";
+import { ClientLastSalesPanel } from "@/components/orcamentos-v3/listing/ClientLastSalesPanel";
 import type { Midia as CVMidia, Impressao as CVImpressao, Acabamento as CVAcabamento, CalcResult as CVCalcResult, MarkupSettings as CVMarkupSettings, RecipeItem as CVRecipeItem, LaborItem as CVLaborItem } from "@/lib/cv-calc/engine";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import PrintingItemSearch, { type PrintingCatalogItem, type MarkupTier } from "@/components/orcamentos/PrintingItemSearch";
-import { StickyFinancialSidebar } from "@/components/orcamentos-v2/StickyFinancialSidebar";
-import { DiscountPaymentBlock, type DiscountType, MAX_DISCOUNT_PERCENT } from "@/components/orcamentos-v2/DiscountPaymentBlock";
+import { StickyFinancialSidebar } from "@/components/orcamentos-v3/listing/StickyFinancialSidebar";
+import { DiscountPaymentBlock, type DiscountType, MAX_DISCOUNT_PERCENT } from "@/components/orcamentos-v3/listing/DiscountPaymentBlock";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 import {
@@ -33,23 +33,23 @@ import {
   type PricingSnapshot,
 } from "@/lib/quotes-v2/pricing";
 
-import { CreateVersionButton } from "@/components/orcamentos-v2/CreateVersionButton";
+import { CreateVersionButton } from "@/components/orcamentos-v3/listing/CreateVersionButton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { PrintingItemEditor } from "@/components/orcamentos-v2/PrintingItemEditor";
-import { LaborAndSupplySubform, type SubformLabor, type SubformMaterial } from "@/components/orcamentos-v2/LaborAndSupplySubform";
+import { PrintingItemEditor } from "@/components/orcamentos-v3/listing/PrintingItemEditor";
+import { LaborAndSupplySubform, type SubformLabor, type SubformMaterial } from "@/components/orcamentos-v3/listing/LaborAndSupplySubform";
 import { buildDynamicTitle } from "@/lib/quotes-v2/item-title";
 import { attachMediaOrder } from "@/lib/cv-calc/media-order";
 import { buildSubjectSuggestion } from "@/lib/quotes-v2/subject-suggestion";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { TagInput } from "@/components/ui/TagInput";
-import { FreightSelector } from "@/components/orcamentos-v2/FreightSelector";
-import { QuoteItemsTable, type ProcessStep, type ProcessGroup } from "@/components/orcamentos-v2/QuoteItemsTable";
-import { QuoteOptionsBuilder } from "@/components/orcamentos-v2/QuoteOptionsBuilder";
+import { FreightSelector } from "@/components/orcamentos-v3/listing/FreightSelector";
+import { QuoteItemsTable, type ProcessStep, type ProcessGroup } from "@/components/orcamentos-v3/listing/QuoteItemsTable";
+import { QuoteOptionsBuilder } from "@/components/orcamentos-v3/listing/QuoteOptionsBuilder";
 import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
 import { recalculateQuoteForQuantity } from "@/lib/quotes-v2/options-pricing";
 import { useLocalDraft, hasDraft, loadDraft, clearDraft } from "@/hooks/useLocalDraft";
-import { QuoteChecklist } from "@/components/orcamentos-v2/QuoteChecklist";
-import { QuoteAssistant } from "@/components/orcamentos-v2/QuoteAssistant";
+import { QuoteChecklist } from "@/components/orcamentos-v3/listing/QuoteChecklist";
+import { QuoteAssistant } from "@/components/orcamentos-v3/listing/QuoteAssistant";
 
 const QUOTE_DRAFT_VERSION = 1;
 const QUOTE_DRAFT_TTL_DAYS = 7;
@@ -172,7 +172,7 @@ export function NewQuoteFormV2({ quoteId, onDone, onCancel }: Props) {
   const [cvPendingCount, setCvPendingCount] = useState<number>(0);
 
   // Checklist contextual
-  const [checklistAnswers, setChecklistAnswers] = useState<import("@/components/orcamentos-v2/QuoteChecklist").ChecklistAnswerState[]>([]);
+  const [checklistAnswers, setChecklistAnswers] = useState<import("@/components/orcamentos-v3/listing/QuoteChecklist").ChecklistAnswerState[]>([]);
 
   const [discountValue, setDiscountValue] = useState<number | null>(null);
   const [discountType, setDiscountType] = useState<DiscountType>("brl");

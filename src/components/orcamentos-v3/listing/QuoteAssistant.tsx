@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkles, AlertTriangle, Info, AlertCircle, X, ChevronDown, History, Bot, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { CVItemState } from "@/components/orcamentos-v2/CVItemCard";
+import type { CVItemState } from "@/components/orcamentos-v3/listing/CVItemCard";
 
 interface HistSuggestion {
   acabamento_id: string;
