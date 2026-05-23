@@ -184,20 +184,32 @@ export default function KitsProduto() {
 
   const fetchAll = async () => {
     setLoading(true);
-    const [kitsRes, itemsRes, procRes] = await Promise.all([
+    const [kitsRes, itemsRes, procRes, presetsRes, linksRes] = await Promise.all([
       supabase
         .from("product_kits")
         .select("id, name, product_kind, description, is_active")
-        .order("product_kind")
         .order("name"),
       supabase.from("product_kit_items").select("kit_id"),
       supabase.from("production_steps").select("id, description").order("description"),
+      supabase
+        .from("quote_presets")
+        .select("id, nome, icone, ativo, ordem")
+        .eq("ativo", true)
+        .order("ordem"),
+      supabase.from("product_kit_presets").select("kit_id, preset_id"),
     ]);
     if (kitsRes.error) handleError(kitsRes.error, "carregar kits");
     if (procRes.error) handleError(procRes.error, "carregar processos");
+    if (presetsRes.error) handleError(presetsRes.error, "carregar produtos favoritos");
     const counts = new Map<string, number>();
     (itemsRes.data || []).forEach((i: any) => {
       counts.set(i.kit_id, (counts.get(i.kit_id) || 0) + 1);
+    });
+    const linksByKit = new Map<string, string[]>();
+    (linksRes.data || []).forEach((l: any) => {
+      const arr = linksByKit.get(l.kit_id) || [];
+      arr.push(l.preset_id);
+      linksByKit.set(l.kit_id, arr);
     });
     setKits(
       (kitsRes.data || []).map((k: any) => ({
@@ -207,9 +219,17 @@ export default function KitsProduto() {
         description: k.description,
         is_active: !!k.is_active,
         item_count: counts.get(k.id) || 0,
+        preset_ids: linksByKit.get(k.id) || [],
       })),
     );
     setProcesses((procRes.data || []) as ProcessOption[]);
+    setAvailablePresets(
+      ((presetsRes.data || []) as any[]).map((p) => ({
+        id: p.id,
+        nome: p.nome,
+        icone: p.icone,
+      })),
+    );
     setLoading(false);
   };
 
@@ -220,7 +240,7 @@ export default function KitsProduto() {
   const resetForm = () => {
     setEditingId(null);
     setName("");
-    setProductKind("apostila");
+    setSelectedPresetIds([]);
     setDescription("");
     setIsActive(true);
     setItems([]);
