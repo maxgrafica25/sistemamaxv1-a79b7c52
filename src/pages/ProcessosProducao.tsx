@@ -50,6 +50,7 @@ interface StepGroup {
 const tabConfig = [
   { key: "etapas", label: "Etapas" },
   { key: "grupos", label: "Grupos de Etapas" },
+  { key: "categorias", label: "Categorias" },
 ] as const;
 
 type TabKey = typeof tabConfig[number]["key"];
