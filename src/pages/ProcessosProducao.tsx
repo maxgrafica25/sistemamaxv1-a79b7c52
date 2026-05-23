@@ -84,6 +84,7 @@ export default function ProcessosProducao() {
 
 // ─── Etapas Tab ──────────────────────────────────────────────────────
 function EtapasTab() {
+  const { data: categories } = useStepCategories();
   const [steps, setSteps] = useState<Step[]>([]);
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
