@@ -206,13 +206,15 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
           <Button variant="ghost" size="sm" onClick={onCancel} className="shrink-0">
             <ArrowLeft className="h-4 w-4 mr-1.5" /> Voltar
           </Button>
-          {isEditing && editMeta && (
+          {(isEditing ? editMeta : previewNumber) && (
             <Badge
               variant="outline"
               className="gap-1 border-amber-500/40 text-amber-700 dark:text-amber-400 shrink-0"
             >
               <FlaskConical className="h-3 w-3" />
-              {`Editar Nº ${editMeta.quote_number}`}
+              {isEditing && editMeta
+                ? `Editar Nº ${editMeta.quote_number}`
+                : `Nº ${previewNumber}`}
             </Badge>
           )}
           <div className="hidden md:flex items-center gap-3 ml-2 min-w-0 flex-1">
