@@ -14,7 +14,7 @@ import { Plus, Trash2, Edit2, Loader2, Package, Layers, Link2, Link2Off, Sparkle
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import SupplySearch from "@/components/orcamentos-v2/SupplySearch";
+import SupplySearch from "@/components/orcamentos-v3/listing/SupplySearch";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";

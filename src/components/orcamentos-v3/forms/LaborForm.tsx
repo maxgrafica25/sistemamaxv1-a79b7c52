@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Check, Plus, Clock, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ProcessPicker } from "@/components/orcamentos-v2/ProcessPicker";
+import { ProcessPicker } from "@/components/orcamentos-v3/listing/ProcessPicker";
 import { useV3ProcessCatalog } from "../shared/useV3ProcessCatalog";
 import { useV3HourlyRate } from "../shared/useV3HourlyRate";
 import { fmtBRL } from "../shared/pricing";
