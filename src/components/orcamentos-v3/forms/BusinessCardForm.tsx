@@ -477,17 +477,19 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         ) : (
           <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-3 text-center">
             <p className="text-xs text-muted-foreground">
-              Cadastre uma etapa ou grupo com "Cartão de Visita" no nome em{" "}
-              <a href="/processos-producao" target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                Processos
-              </a>{" "}
-              ou{" "}
-              <a href="/grupos-etapas" target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                Grupos de Etapas
+              Nenhuma etapa ou grupo vinculado a este favorito. Cadastre em{" "}
+              <a
+                href="/processos-producao"
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline"
+              >
+                Processos de Produção → Vincular a Favoritos
               </a>
               .
             </p>
           </div>
+
 
         )}
       </Field>
