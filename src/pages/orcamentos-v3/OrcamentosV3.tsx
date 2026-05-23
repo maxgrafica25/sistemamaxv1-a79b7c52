@@ -384,7 +384,7 @@ export default function OrcamentosV2() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuItem onClick={() => navigate("/orcamentos-v2/novo")} className="gap-2 py-2.5">
+              <DropdownMenuItem onClick={() => navigate("/orcamentos-v3/novo")} className="gap-2 py-2.5">
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 <div className="flex flex-col">
                   <span className="text-sm font-medium">Orçamento em branco</span>
