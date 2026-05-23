@@ -1,67 +1,35 @@
 
-# Reorganização: Etapas de Produção + Papéis & Suprimentos
+# Unificar Acabamentos em "Produção"
 
-## Objetivo
+## Mudanças
 
-Hoje o conteúdo "como produzir" está espalhado entre `/processos-producao` (etapas + categorias) e `/insumos` (grupos de materiais + kits de produto). Vamos consolidar tudo que é "engenharia/montagem" num único hub e deixar o outro módulo só com o cadastro físico de papéis e suprimentos.
+### 1. Sidebar (`src/components/Sidebar.tsx`)
+- Renomear `"Etapas de Produção"` → `"Produção"` (href continua `/processos-producao`).
+- Remover o item `"Acabamentos"` do grupo Precificação.
 
-## Resultado final no menu lateral
+### 2. Página Produção (`src/pages/ProcessosProducao.tsx`)
+- Mudar título visual de `"Etapas de Produção"` → `"Produção"` e ajustar descrição.
+- Adicionar aba `"Acabamentos"` na config de tabs.
+- Nova ordem: **Etapas · Acabamentos · Categorias · Grupos de Etapas · Grupos de Materiais · Kits de Produto**
+- Importar e renderizar `<Acabamentos hideHeader />` quando aba ativa.
 
-**Catálogo:**
-- **Papéis & Suprimentos** (antigo "Insumos") → ícone `Package`
-  - Aba **Papéis**
-  - Aba **Suprimentos**
-- **Contatos**
-- **Equipamentos**
-- **Comunicação Visual**
+### 3. Página Acabamentos (`src/pages/Acabamentos.tsx`)
+- Aceitar prop `hideHeader?: boolean` na assinatura do componente.
+- Condicionar o `<h1>` + descrição + padding externo da página com base nessa flag (mesmo padrão usado em `GruposMateriais`).
+- Componente continua funcionando standalone em `/acabamentos` para o redirect.
 
-**Precificação:**
-- Preço Impressão
-- Acabamentos
-- Calc. Etiquetas
-- **Etapas de Produção** (antigo "Processos de Produção") → ícone `Factory`
-  - Aba **Etapas** (atual)
-  - Aba **Categorias** (atual)
-  - Aba **Grupos de Etapas** (movida de `step_groups`, hoje editada inline em Etapas)
-  - Aba **Grupos de Materiais** (vinda do Insumos)
-  - Aba **Kits de Produto** (vinda do Insumos)
+### 4. Roteamento (`src/App.tsx`)
+- Trocar `<Route path="/acabamentos" element={<Acabamentos />} />` por `<Route path="/acabamentos" element={<Navigate to="/processos-producao?tab=acabamentos" replace />} />`.
 
-## Mudanças por arquivo
+### 5. Command Palette (`src/components/CommandPalette.tsx`)
+- Trocar label `"Etapas de Produção"` → `"Produção"`.
+- (Acabamentos não está no palette hoje — sem mudança lá.)
 
-### Sidebar (`src/components/Sidebar.tsx`)
-- Renomear `"Insumos"` → `"Papéis & Suprimentos"` (href continua `/insumos` para não quebrar links salvos).
-- Renomear `"Processos de Produção"` → `"Etapas de Produção"`.
+## Fora de escopo
 
-### Página Insumos (`src/pages/Insumos.tsx`)
-- Remover abas **Grupos** e **Kits de Produto** — manter apenas **Papéis** (atual `Materiais`) e **Suprimentos**.
-- Atualizar `TABS`, título da página/header e o `useSearchParams` (default vira `papeis`).
-- Os redirects atuais (`/materias-primas`, `/grupos-materiais`, `/kits-produto`) passam a apontar para a aba correta dentro de `/processos-producao` (ver App.tsx).
+- Nenhuma migration. Tabela `finishings` e toda a lógica de pricing (`finishing-pricing`, `cv-pricing/engine`, sugestões automáticas, calculadora de etiquetas) ficam intocadas.
+- RLS, permissões e fluxos de orçamento sem alteração.
 
-### Página Processos (`src/pages/ProcessosProducao.tsx`)
-- Adicionar duas novas abas além das existentes:
-  - **Grupos de Etapas** → usa a tabela `step_groups` (já existente). Componente novo `StepGroupsTab.tsx` com CRUD básico (nome + cor opcional, igual padrão de Categorias).
-  - **Grupos de Materiais** → reaproveita o componente `GruposMateriais` existente, importado como aba (sem alterar lógica).
-  - **Kits de Produto** → reaproveita o componente `KitsProduto` existente como aba, mantendo o botão "Novo Kit" no header da aba (via ref, igual ao Insumos faz hoje).
-- Reordenar abas: `Etapas · Categorias · Grupos de Etapas · Grupos de Materiais · Kits de Produto`.
+## Ponto de atenção
 
-### Roteamento (`src/App.tsx`)
-- Manter `/insumos` ativo (só com 2 abas agora).
-- Atualizar redirects:
-  - `/grupos-materiais` → `/processos-producao?tab=grupos-materiais`
-  - `/kits-produto` → `/processos-producao?tab=kits`
-  - `/materias-primas` continua → `/insumos`
-
-### Command Palette (`src/components/CommandPalette.tsx`)
-- Conferir e atualizar quaisquer entradas que digam "Insumos", "Processos de Produção", "Grupos de Materiais" ou "Kits de Produto" para os novos nomes/rotas.
-
-## Fora de escopo (não muda)
-
-- **Banco de dados:** nenhuma migration. Tabelas `step_groups`, `material_groups`, `product_kits`, `production_steps` continuam exatamente como estão.
-- **Permissões/RLS:** inalteradas (Admin continua sendo quem edita).
-- **Lógica de orçamentos, pricing, kits:** zero mudança — só estamos movendo telas de lugar.
-
-## Pontos de atenção
-
-- `KitsProduto` já expõe `KitsProdutoHandle` com `openNew()` via ref — vamos reaproveitar exatamente como o Insumos faz hoje, só que dentro da nova aba.
-- O componente de aba (`DotTabs`) hoje tem 3 abas no Insumos; vai pra 5 no Processos — verificar se o layout horizontal continua confortável em 1067px (viewport atual do usuário). Se ficar apertado, usar wrap natural do componente.
-- Memória do projeto (`mem://features/production` e `mem://features/inventory`) será atualizada após a aprovação refletindo a nova organização.
+- A barra de abas vai pra 6 itens (`DotTabs`). No viewport atual (1067px) deve caber em uma linha confortavelmente; se ficar apertado, deixar o wrap natural do componente.
