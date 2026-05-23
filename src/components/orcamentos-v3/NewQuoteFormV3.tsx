@@ -14,6 +14,7 @@ import { ThirdPartyForm } from "./forms/ThirdPartyForm";
 import { UnifiedCart } from "./cart/UnifiedCart";
 import { QuoteAssistantPanelV3 } from "./cart/QuoteAssistantPanelV3";
 import { QuoteChecklistPanelV3 } from "./cart/QuoteChecklistPanelV3";
+import { QuoteOptionsBuilderV3 } from "./cart/QuoteOptionsBuilderV3";
 import { FinancialPanel } from "./cart/FinancialPanel";
 import { useQuoteDraftV3 } from "./shared/useQuoteDraftV3";
 import { summarize, fmtBRL } from "./shared/pricing";
