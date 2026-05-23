@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Megaphone, Layers, Printer as PrinterIcon, Scissors, Calculator, Settings, Package, ListChecks, Sparkles } from "lucide-react";
+import { Megaphone } from "lucide-react";
 import CalculadoraTab from "@/components/cv-calc/CalculadoraTab";
 import MidiasTab from "@/components/cv-calc/MidiasTab";
 import ImpressoesTab from "@/components/cv-calc/ImpressoesTab";
@@ -8,18 +8,19 @@ import SuprimentosCVTab from "@/components/cv-calc/SuprimentosCVTab";
 import ConfiguracaoTab from "@/components/cv-calc/ConfiguracaoTab";
 import ChecklistTab from "@/components/cv-calc/ChecklistTab";
 import SuggestionsTab from "@/components/cv-calc/SuggestionsTab";
+import { DotTabs } from "@/components/ui/dot-tabs";
 
 type Tab = "calculadora" | "midias" | "impressoes" | "acabamentos" | "suprimentos" | "checklist" | "sugestoes" | "config";
 
-const TABS: { key: Tab; label: string; icon: typeof Layers }[] = [
-  { key: "calculadora", label: "Calculadora", icon: Calculator },
-  { key: "midias", label: "Mídias", icon: Layers },
-  { key: "impressoes", label: "Impressões", icon: PrinterIcon },
-  { key: "acabamentos", label: "Acabamentos", icon: Scissors },
-  { key: "suprimentos", label: "Suprimentos CV", icon: Package },
-  { key: "checklist", label: "Checklist", icon: ListChecks },
-  { key: "sugestoes", label: "Sugestões", icon: Sparkles },
-  { key: "config", label: "Configuração", icon: Settings },
+const TABS = [
+  { key: "calculadora" as Tab, label: "Calculadora" },
+  { key: "midias" as Tab, label: "Mídias" },
+  { key: "impressoes" as Tab, label: "Impressões" },
+  { key: "acabamentos" as Tab, label: "Acabamentos" },
+  { key: "suprimentos" as Tab, label: "Suprimentos CV" },
+  { key: "checklist" as Tab, label: "Checklist" },
+  { key: "sugestoes" as Tab, label: "Sugestões" },
+  { key: "config" as Tab, label: "Configuração" },
 ];
 
 export default function CadastrosCV() {
