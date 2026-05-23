@@ -115,12 +115,13 @@ export function BookletKitPanel({
         bookletPages,
         bookletUnits,
         supplies,
-        steps,
+        steps: allSteps,
         hourlyRate,
         defaultMarginPct,
       }),
-    [bookletPages, bookletUnits, supplies, steps, hourlyRate, defaultMarginPct],
+    [bookletPages, bookletUnits, supplies, allSteps, hourlyRate, defaultMarginPct],
   );
+
 
   const loading = !supLoaded || !stLoaded;
 
