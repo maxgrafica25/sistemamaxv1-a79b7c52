@@ -12,12 +12,14 @@ import { Plus, Trash2, Edit2, Clock, Loader2, Factory, Layers } from "lucide-rea
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { StepTypeBadge, STEP_TYPES, type StepType } from "@/components/orcamentos-v2/StepTypeBadge";
+import { StepTypeBadge, type StepType } from "@/components/orcamentos-v2/StepTypeBadge";
+import { useStepCategories } from "@/hooks/useStepCategories";
 import { DotTabs } from "@/components/ui/dot-tabs";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
 import PageLoader from "@/components/PageLoader";
+import CategoriasTab from "@/pages/processos-producao/CategoriasTab";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Step {
