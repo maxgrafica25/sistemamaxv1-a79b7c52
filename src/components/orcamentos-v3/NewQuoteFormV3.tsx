@@ -187,7 +187,8 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
             variant="outline"
             className="gap-1 border-amber-500/40 text-amber-700 dark:text-amber-400 shrink-0"
           >
-            <FlaskConical className="h-3 w-3" /> V3 beta
+            <FlaskConical className="h-3 w-3" />
+            {isEditing && editMeta ? `Editar Nº ${editMeta.quote_number}` : "V3 beta"}
           </Badge>
           <div className="hidden md:flex items-center gap-3 ml-2 min-w-0 flex-1">
             <div className="w-[280px] shrink-0">
