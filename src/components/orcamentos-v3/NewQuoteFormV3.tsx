@@ -32,6 +32,11 @@ import { saveQuoteV3, nextQuoteNumber } from "./shared/saveQuoteV3";
 import { loadQuoteV3 } from "./shared/loadQuoteV3";
 import { RecorrentesPanel } from "@/components/recorrentes/RecorrentesPanel";
 import { useGlobalSettings } from "@/hooks/useGlobalSettings";
+import { ArtePromptBlock } from "./shared/ArtePromptBlock";
+import { stampArt, makeArtInternal, makeArtThirdParty, requiresArt } from "./shared/artStatus";
+import { useHourRate } from "@/hooks/useHourRate";
+import type { ArtStatus, V3ThirdItem } from "./types";
+
 
 interface Props {
   onCancel: () => void;
