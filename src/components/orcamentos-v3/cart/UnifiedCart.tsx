@@ -16,7 +16,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { V3Item } from "../types";
+import type { ArtStatus, V3Item } from "../types";
+import { ART_SHORT } from "../shared/artStatus";
 import { priceOf, fmtBRL } from "../shared/pricing";
 import { marginTextClass } from "@/lib/quotes-v2/margin";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -215,6 +216,8 @@ function itemFinancials(it: V3Item, pcts: CartPcts): FinancialBreakdown {
 function itemContext(it: V3Item): { label: string; value: string }[] {
   const qty = itemQty(it);
   const ctx: { label: string; value: string }[] = [];
+  const art = (it as { art_status?: ArtStatus | null }).art_status;
+  if (art) ctx.push({ label: "Arte", value: ART_SHORT[art] });
   switch (it.kind) {
     case "print":
       if (it.paper_type) ctx.push({ label: "Papel", value: `${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}${it.size ? ` · ${it.size}` : ""}${it.side ? ` · ${it.side}` : ""}` });
