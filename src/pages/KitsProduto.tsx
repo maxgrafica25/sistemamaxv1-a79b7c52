@@ -291,6 +291,8 @@ export default function KitsProduto() {
     setSelectedPresetIds(k.preset_ids ?? []);
     setDescription(k.description ?? "");
     setIsActive(k.is_active);
+    setSuggestionDismissed(false);
+    setNameTouched(false);
     setItems(
       (itemsData || []).map((i: any, idx: number) => ({
         id: i.id,
