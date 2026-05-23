@@ -163,6 +163,30 @@ export function BookletKitPanel({
         items.push(customBackCover);
         continue;
       }
+      const override =
+        (r.key === "capa" || r.key === "contracapa" || r.key === "espiral")
+          ? overrides[r.key as SupplyOverrideKey]
+          : undefined;
+      if (override) {
+        const units = Math.max(1, Math.floor(bookletUnits || 1));
+        const overrideItem: V3SupplyItem = {
+          id: genId(),
+          kind: "supply",
+          descricao: override.produto,
+          tier_group_id: null,
+          supply_id: override.id,
+          supply_nome: override.produto,
+          fornecedor: override.fornecedor || null,
+          custo_unitario: Number(override.valor_unitario) || 0,
+          margem_pct:
+            override.margem_pct != null
+              ? Number(override.margem_pct)
+              : defaultMarginPct,
+          quantidade: units,
+        };
+        items.push(overrideItem);
+        continue;
+      }
       items.push(r.build() as V3Item);
       if (r.fallback) fallbacks.push(r.label);
     }
