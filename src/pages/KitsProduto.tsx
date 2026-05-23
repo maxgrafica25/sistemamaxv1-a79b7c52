@@ -63,7 +63,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
-import ConfirmDialog from "@/components/ConfirmDialog";
 import {
   AlertDialog,
   AlertDialogAction,
