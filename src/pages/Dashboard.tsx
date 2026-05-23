@@ -63,7 +63,7 @@ export default function Dashboard() {
       label: "Orçamentos aguardando",
       count: 23,
       hint: "Cliente ainda não respondeu",
-      to: "/orcamentos-v2?status=sent",
+      to: "/orcamentos?status=sent",
       icon: ClipboardList,
       tone: "primary",
     },
