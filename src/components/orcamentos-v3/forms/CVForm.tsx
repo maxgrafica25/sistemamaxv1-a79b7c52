@@ -18,7 +18,7 @@ import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDi
 import { fmtBRL } from "../shared/pricing";
 import { genId, type ArtStatus, type V3CVItem, type V3Item } from "../types";
 import { ArtePromptBlock } from "../shared/ArtePromptBlock";
-import { stampArt, makeArtThirdParty } from "../shared/artStatus";
+import { stampArt, makeArtThirdParty, makeArtInternal } from "../shared/artStatus";
 import { toast } from "sonner";
 import { useV3CVCatalog } from "../shared/useV3CVCatalog";
 import {
@@ -309,9 +309,12 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
     if (reason) { toast.warning(reason); return; }
     const stamped = stampArt(items as V3Item[], artStatus);
     let toEmit: V3Item[] = stamped;
-    if (artStatus === "terceirizada" && artTercValue > 0) {
+    const isInternalTier = artStatus && artStatus !== "ready" && artStatus !== "terceirizada";
+    const needsBundle = artStatus === "terceirizada" || isInternalTier;
+    let bundleId: string | null = null;
+    if (needsBundle) {
       const leader = stamped[0];
-      let bundleId = (leader as { bundle_id?: string | null } | undefined)?.bundle_id ?? null;
+      bundleId = (leader as { bundle_id?: string | null } | undefined)?.bundle_id ?? null;
       if (leader && !bundleId) {
         bundleId = `bnd_${Date.now().toString(36)}`;
         toEmit = stamped.map((it, idx) =>
@@ -320,7 +323,12 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
             : it,
         );
       }
+    }
+    if (artStatus === "terceirizada" && artTercValue > 0) {
       const art = makeArtThirdParty(artTercValue, bundleId);
+      if (art) toEmit = [...toEmit, art];
+    } else if (isInternalTier) {
+      const art = makeArtInternal(artStatus, cat.hourRate || 0, bundleId);
       if (art) toEmit = [...toEmit, art];
     }
     emit(toEmit);

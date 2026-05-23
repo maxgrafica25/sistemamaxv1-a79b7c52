@@ -48,3 +48,44 @@ export function makeArtThirdParty(value: number, bundleId: string | null): V3Thi
     ...(bundleId ? { bundle_id: bundleId } : {}),
   };
 }
+
+/**
+ * Minutos por tier de Arte interna (teto da faixa, igual aos rótulos do UI).
+ * Multiplicados pelo Valor da Hora de Trabalho para virar custo de mão de obra.
+ */
+export const ART_MINUTES: Record<ArtStatus, number> = {
+  ready: 0,
+  ajuste: 5,
+  facil: 10,
+  moderada: 20,
+  elaborada: 30,
+  terceirizada: 0,
+};
+
+export function artInternalCost(status: ArtStatus | null, hourRate: number): number {
+  if (!status) return 0;
+  const min = ART_MINUTES[status] ?? 0;
+  return (min / 60) * (hourRate || 0);
+}
+
+/** Cria um V3ThirdItem representando o custo de arte interna (minutos × hora). */
+export function makeArtInternal(
+  status: ArtStatus,
+  hourRate: number,
+  bundleId: string | null,
+): V3ThirdItem | null {
+  const min = ART_MINUTES[status] ?? 0;
+  if (min <= 0 || !hourRate || hourRate <= 0) return null;
+  const custo = (min / 60) * hourRate;
+  return {
+    id: genId(),
+    kind: "third",
+    descricao: `Arte — ${ART_LABEL[status]}`,
+    fornecedor: "Arte (interna)",
+    custo,
+    margem_pct: 0,
+    quantidade: 1,
+    art_status: status,
+    ...(bundleId ? { bundle_id: bundleId } : {}),
+  };
+}
