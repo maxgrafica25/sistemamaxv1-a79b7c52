@@ -42,7 +42,7 @@ export function BookletKitPanel({
   onApply,
 }: Props) {
   const { supplies, loaded: supLoaded } = useV3Supplies();
-  const { steps, loaded: stLoaded } = useV3ProcessCatalog();
+  const { allSteps, loaded: stLoaded } = useV3ProcessCatalog();
   const { hourlyRate } = useV3HourlyRate();
   const [excluded, setExcluded] = useState<Set<KitRowKind>>(new Set());
 
