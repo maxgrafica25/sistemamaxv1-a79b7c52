@@ -677,6 +677,18 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
         </div>
       )}
 
+      {finishes.length > 0 && (
+        <Field label="Acabamentos">
+          <FinishingProgressive
+            items={finishes}
+            enabled={finEnabled}
+            onToggle={(id, on) => setFinEnabled((m) => ({ ...m, [id]: on }))}
+          />
+        </Field>
+      )}
+
+
+
       <div className="sticky bottom-0 z-10 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 mt-auto -mb-5 lg:-mb-0 bg-background border-t border-border shadow-[0_-8px_16px_-8px_hsl(var(--background))] flex items-center justify-end gap-3">
         <Button
           onClick={submit}
