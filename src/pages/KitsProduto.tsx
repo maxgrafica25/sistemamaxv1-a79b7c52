@@ -284,7 +284,7 @@ export default function KitsProduto() {
     }
     setEditingId(kitId);
     setName(k.name);
-    setProductKind(k.product_kind);
+    setSelectedPresetIds(k.preset_ids ?? []);
     setDescription(k.description ?? "");
     setIsActive(k.is_active);
     setItems(
