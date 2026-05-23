@@ -78,7 +78,7 @@ export default function Configuracoes() {
         supabase.from("salaries").select("salary, is_production"),
         supabase.from("equipment_depreciation").select("purchase_value, useful_life_months, residual_value"),
         supabase.from("productive_capacity").select("id, hours_per_month, production_employees").limit(1).single(),
-        supabase.from("global_settings").select("id, invoice_pct, collection_pct, waste_pct, default_margin_pct, tax_pct, collection_fee_pct, credit_card_pct").limit(1).single(),
+        supabase.from("global_settings").select("id, invoice_pct, collection_pct, waste_pct, default_margin_pct, tax_pct, collection_fee_pct, credit_card_pct, checklist_before_save").limit(1).single(),
       ]);
       const totalExp = (expRes.data || []).reduce((s: number, e: any) => s + e.value, 0);
       const totalSal = (salRes.data || []).reduce((s: number, e: any) => s + e.salary, 0) * 1.45;
