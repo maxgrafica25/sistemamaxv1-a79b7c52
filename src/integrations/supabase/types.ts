@@ -3973,6 +3973,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          production_step_id: string | null
           sort_order: number
           step_group_id: string
           step_type: string
@@ -3982,6 +3983,7 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
+          production_step_id?: string | null
           sort_order?: number
           step_group_id: string
           step_type?: string
@@ -3991,12 +3993,20 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          production_step_id?: string | null
           sort_order?: number
           step_group_id?: string
           step_type?: string
           time_minutes?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "step_group_items_production_step_id_fkey"
+            columns: ["production_step_id"]
+            isOneToOne: false
+            referencedRelation: "production_steps"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "step_group_items_step_group_id_fkey"
             columns: ["step_group_id"]

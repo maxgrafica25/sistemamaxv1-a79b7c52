@@ -23,8 +23,9 @@ export function useV3ProcessCatalog() {
         supabase.from("step_groups").select("id, name").order("name"),
         supabase
           .from("step_group_items")
-          .select("step_group_id, description, time_minutes, step_type")
+          .select("step_group_id, description, time_minutes, step_type, production_step_id")
           .order("sort_order"),
+
       ]);
       if (cancel) return;
 
@@ -67,8 +68,8 @@ export function useV3ProcessCatalog() {
           step_type: it.step_type || "outro",
         });
         groupStepsFlat.push({
-          // id sintético: itens de grupo não têm id próprio reaproveitável
-          id: `group:${it.step_group_id}:${idx}`,
+          // Se tem FK para Etapa real, usa o id verdadeiro; senão cai no sintético.
+          id: it.production_step_id || `group:${it.step_group_id}:${idx}`,
           description: it.description,
           time_minutes: minutes,
           step_type: it.step_type || "outro",
@@ -76,6 +77,7 @@ export function useV3ProcessCatalog() {
           source: "group",
           group_name: groupNameById.get(it.step_group_id) || undefined,
         } as ProcessStep & { source?: "group" | "step"; group_name?: string });
+
       });
 
       setGroups(
