@@ -28,21 +28,40 @@ export function useV3ProcessCatalog() {
       if (cancel) return;
 
       setSteps(
-        (stepsRes.data || []).map((s: any) => ({
-          id: s.id,
-          description: s.description,
-          time_minutes: Number(s.time_minutes) || 0,
-          step_type: s.step_type || "outro",
-        })),
+        (stepsRes.data || []).map((s: any) => {
+          const raw = s.time_minutes;
+          const n = Number(raw);
+          if (raw === null || raw === undefined || !Number.isFinite(n)) {
+            console.warn("[useV3ProcessCatalog] etapa sem time_minutes", {
+              id: s.id,
+              description: s.description,
+            });
+          }
+          return {
+            id: s.id,
+            description: s.description,
+            time_minutes: Number.isFinite(n) ? n : 0,
+            step_type: s.step_type || "outro",
+          };
+        }),
       );
       const itemsByGroup: Record<string, ProcessGroup["items"]> = {};
       (groupItemsRes.data || []).forEach((it: any) => {
+        const raw = it.time_minutes;
+        const n = Number(raw);
+        if (raw === null || raw === undefined || !Number.isFinite(n)) {
+          console.warn("[useV3ProcessCatalog] item de grupo sem time_minutes", {
+            step_group_id: it.step_group_id,
+            description: it.description,
+          });
+        }
         (itemsByGroup[it.step_group_id] ||= []).push({
           description: it.description,
-          time_minutes: Number(it.time_minutes) || 0,
+          time_minutes: Number.isFinite(n) ? n : 0,
           step_type: it.step_type || "outro",
         });
       });
+
       setGroups(
         (groupsRes.data || []).map((g: any) => ({
           id: g.id,
