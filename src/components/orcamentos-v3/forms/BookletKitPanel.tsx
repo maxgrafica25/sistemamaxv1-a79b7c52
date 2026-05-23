@@ -388,6 +388,13 @@ export function BookletKitPanel({
         {canSwap && swapVisible && (
           <div className="ml-6 mr-2 mt-1.5 rounded-md border border-primary/20 bg-background p-2">
             <SupplySearch
+              initialLabel={
+                r.key === "espiral"
+                  ? "espiral"
+                  : r.key === "capa" || r.key === "contracapa"
+                    ? "capa"
+                    : ""
+              }
               placeholder={`Buscar outro ${r.label.toLowerCase()} (ex.: ${r.key === "espiral" ? "Espiral 9mm" : "Capa Couchê"})...`}
               onSelect={(s) => {
                 setOverride(r.key as SupplyOverrideKey, s);
@@ -396,6 +403,7 @@ export function BookletKitPanel({
             />
           </div>
         )}
+
 
         {showEditor && (
           <CustomCoverEditor

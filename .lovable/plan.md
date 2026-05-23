@@ -1,54 +1,41 @@
-# Diferenciação visual: Insumos vs Mão de obra no Kit Encadernação
+# Pré-filtrar busca do "Trocar" pelas opções do próprio item
 
-Combinar **agrupamento por seção** com **ícone discreto por linha** no `BookletKitPanel`, mantendo o visual minimalista.
+Hoje ao clicar **Trocar** o `SupplySearch` abre vazio e lista todos os suprimentos do cadastro (Bastão, Cordinha, etc). Precisa abrir já filtrado pelo tipo da linha (Capa → capas, Espiral → espirais).
 
-## Resultado visual
+## Mudança
 
-```text
-┌─ Kit Encadernação sugerido · espiral 7mm ─────────────────────┐
-│ Use o kit sugerido, troque itens ou desmarque...              │
-│                                                                │
-│  INSUMOS                                                       │
-│  ☑ 📦 Capa frontal     CAPA PP LINE...    1 un   R$ 2,00  Trocar│
-│  ☑ 📦 Contracapa       CAPA PP CAMURCA... 1 un   R$ 2,00  Trocar│
-│  ☑ 📦 Espiral 7mm      Espiral 7mm        1 un   R$ 0,00  Trocar│
-│                                                                │
-│  MÃO DE OBRA                                                   │
-│  ☑ 🕐 Furação          Furação...         0 min  R$ 0,00      │
-│  ☑ 🕐 Encadernação     Encadernação...    3 min  R$ 2,55      │
-│                                                                │
-│  [+ Adicionar acabamento]              [✨ Aplicar Kit]        │
-└────────────────────────────────────────────────────────────────┘
+**Arquivo único:** `src/components/orcamentos-v3/forms/BookletKitPanel.tsx` (linhas ~388-398, o bloco do swap).
+
+O `SupplySearch` (`src/components/orcamentos-v2/SupplySearch.tsx`) já aceita a prop `initialLabel`, que semeia o estado interno `search` e é usado no filtro `produto.toLowerCase().includes(search)`. Basta passar uma palavra-chave por tipo de linha:
+
+| Row key | seed |
+|---|---|
+| `capa` | `"capa"` |
+| `contracapa` | `"capa"` |
+| `espiral` | `"espiral"` (sem o tamanho, para listar 5/7/9/12mm) |
+
+Implementação:
+```tsx
+const searchSeed =
+  r.key === "espiral" ? "espiral" :
+  r.key === "capa" || r.key === "contracapa" ? "capa" :
+  "";
+
+<SupplySearch
+  initialLabel={searchSeed}
+  placeholder={...}
+  onSelect={...}
+/>
 ```
 
-## Mudanças
+Também ajustar o placeholder pra refletir o contexto ("Buscar outra capa...", "Buscar outro espiral..."), o que já está aproximadamente assim hoje.
 
-**Arquivo único:** `src/components/orcamentos-v3/forms/BookletKitPanel.tsx`
+## Notas
 
-1. **Classificar `KitRow` por tipo**
-   - Insumos: `capa`, `contracapa`, `espiral` (sempre que `r.unit === "un"`)
-   - Mão de obra: `furacao`, `encadernacao` (sempre que `r.unit === "min"`)
-   - Filtrar `rows` em dois arrays (`supplyRows`, `laborRows`) via `useMemo`.
-
-2. **Header de seção** (entre as linhas, dentro do mesmo card)
-   - `<div className="px-2 pt-2 pb-1 text-[9.5px] uppercase tracking-wider text-muted-foreground/70 font-medium">Insumos</div>`
-   - Idem para "Mão de obra".
-   - Renderizar a seção só se houver pelo menos 1 linha (defensivo p/ futuro).
-   - Sem `border-t` — o espaçamento + tipografia já bastam pra separar.
-
-3. **Ícone por linha em `renderRow`**
-   - Adicionar imediatamente após o `<Checkbox>`, antes do `<span>` do nome:
-     - Supply: `<Package className="h-3 w-3 text-muted-foreground/60 shrink-0" />`
-     - Labor: `<Clock className="h-3 w-3 text-muted-foreground/60 shrink-0" />`
-   - Decidido pelo `r.unit` (ou por um campo `r.kind` derivado).
-   - Cor `muted-foreground/60` deixa o glifo presente mas sem competir com `primary` (módulo), `amber` (fallback) ou o badge "trocado".
-
-4. **Acabamentos extras (`extraSlots`)**
-   - Como são sempre insumos (vêm de `SupplySearch`), renderizá-los **dentro do grupo Insumos**, depois das 3 linhas fixas.
-   - O botão `+ Adicionar acabamento` continua no rodapé do card (não vai pra dentro do grupo).
+- O usuário pode apagar o seed e buscar qualquer coisa — a UX continua livre.
+- Nenhuma mudança em `SupplySearch`, schema, lógica de override ou `bookletKit.ts`.
+- Para `contracapa` usar `"capa"` cobre tanto "CAPA PP CAMURCA PRETA" quanto "CAPA PP LINE INCOLOR", o que faz sentido (a maioria das contracapas é uma capa em variação).
 
 ## Fora de escopo
 
-- Cores extras / borda lateral / pílulas — descartado pra não competir com sinalizações existentes.
-- Mexer em `bookletKit.ts`, regex de sugestão, lógica de preço, override/swap, ou outros formulários.
-- Persistência ou nova prop no `apply()` — agrupamento é puramente visual.
+- Adicionar categoria/tipo real no schema de `supplies` (seria mais robusto, mas exige migration e re-cadastro). Fica como melhoria futura se o filtro por substring causar ruído.
