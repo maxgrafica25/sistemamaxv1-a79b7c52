@@ -67,11 +67,6 @@ const App = () => (
                   <Route path="/financeiro/receber" element={<ContasReceber />} />
                   <Route path="/orcamentos" element={<OrcamentosV3 />} />
                   <Route path="/orcamentos/novo" element={<Navigate to="/orcamentos-v3/novo" replace />} />
-                  <Route path="/orcamentos-v2" element={<Navigate to="/orcamentos" replace />} />
-                  <Route path="/orcamentos-v2/*" element={<Navigate to="/orcamentos" replace />} />
-
-
-                  <Route path="/orcamentos-v3" element={<Navigate to="/orcamentos" replace />} />
                   <Route path="/orcamentos-v3/novo" element={<NewQuoteV3 />} />
                   <Route path="/orcamentos-v3/:id/editar" element={<NewQuoteV3 />} />
 
