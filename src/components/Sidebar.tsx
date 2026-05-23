@@ -48,7 +48,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Catálogo",
     items: [
-      { name: "Insumos", href: "/insumos", icon: Package },
+      { name: "Papéis & Suprimentos", href: "/insumos", icon: Package },
       { name: "Contatos", href: "/cadastros", icon: Users },
       { name: "Equipamentos", href: "/equipamentos", icon: Cpu },
       { name: "Comunicação Visual", href: "/cadastros-cv", icon: Megaphone },
@@ -67,7 +67,7 @@ const NAV_GROUPS: NavGroup[] = [
       { name: "Preço Impressão", href: "/preco-impressao", icon: Calculator },
       { name: "Acabamentos", href: "/acabamentos", icon: Scissors },
       { name: "Calc. Etiquetas", href: "/calculadora-etiquetas", icon: Ruler },
-      { name: "Processos de Produção", href: "/processos-producao", icon: Factory },
+      { name: "Etapas de Produção", href: "/processos-producao", icon: Factory },
     ],
   },
   {
