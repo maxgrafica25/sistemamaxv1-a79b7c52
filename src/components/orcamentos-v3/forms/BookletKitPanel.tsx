@@ -42,7 +42,7 @@ export function BookletKitPanel({
   onApply,
 }: Props) {
   const { supplies, loaded: supLoaded } = useV3Supplies();
-  const { steps, loaded: stLoaded } = useV3ProcessCatalog();
+  const { allSteps, loaded: stLoaded } = useV3ProcessCatalog();
   const { hourlyRate } = useV3HourlyRate();
   const [excluded, setExcluded] = useState<Set<KitRowKind>>(new Set());
 
@@ -115,12 +115,13 @@ export function BookletKitPanel({
         bookletPages,
         bookletUnits,
         supplies,
-        steps,
+        steps: allSteps,
         hourlyRate,
         defaultMarginPct,
       }),
-    [bookletPages, bookletUnits, supplies, steps, hourlyRate, defaultMarginPct],
+    [bookletPages, bookletUnits, supplies, allSteps, hourlyRate, defaultMarginPct],
   );
+
 
   const loading = !supLoaded || !stLoaded;
 
