@@ -21,6 +21,18 @@ import type { V3Item } from "../types";
 
 const BUILTIN_BUSINESS_CARD_ID = "__builtin_business_card__";
 
+const isBusinessCardName = (nome: string | null | undefined): boolean => {
+  if (!nome) return false;
+  const norm = nome
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /\bcartao\b.*\bvisita\b/.test(norm);
+};
+
 interface Props {
   onAdd: (item: V3Item) => void;
   onAddMany?: (items: V3Item[]) => void;
@@ -47,6 +59,11 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
     ? presets.find((p) => p.id === selectedPresetId)
     : undefined;
   const isBusinessCard = selectedPresetId === BUILTIN_BUSINESS_CARD_ID;
+  const treatAsBusinessCard = isBusinessCard || (!!selectedPreset && isBusinessCardName(selectedPreset.nome));
+  const hasUserBusinessCardPreset = useMemo(
+    () => presets.some((p) => isBusinessCardName(p.nome)),
+    [presets],
+  );
   const formTipo: "print" | "booklet" | "label" = selectedPreset?.form_tipo ?? "print";
   const isCustom = !selectedPresetId;
 
@@ -134,19 +151,21 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
           <Pencil className="h-3.5 w-3.5" />
           Personalizado
         </button>
-        <button
-          type="button"
-          onClick={() => setSelectedPresetId(BUILTIN_BUSINESS_CARD_ID)}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-            isBusinessCard
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
-          )}
-        >
-          <CreditCard className="h-3.5 w-3.5" />
-          Cartão de Visita
-        </button>
+        {!hasUserBusinessCardPreset && (
+          <button
+            type="button"
+            onClick={() => setSelectedPresetId(BUILTIN_BUSINESS_CARD_ID)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+              isBusinessCard
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+            )}
+          >
+            <CreditCard className="h-3.5 w-3.5" />
+            Cartão de Visita
+          </button>
+        )}
         {presets.map((p) => {
           const Icon = iconFor(p.icone);
           const active = p.id === selectedPresetId;
@@ -220,14 +239,14 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
 
       {/* Sub-formulário */}
       <div>
-        {isBusinessCard && (
+        {treatAsBusinessCard && (
           <BusinessCardForm
             onAdd={onAdd}
             descricao={descricao}
             onDescricaoChange={setDescricao}
           />
         )}
-        {isCustom && (
+        {!treatAsBusinessCard && isCustom && (
           <PrintForm
             onAdd={onAdd}
             onAddTiers={onAddTiers}
@@ -237,7 +256,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             emptyDefaults
           />
         )}
-        {!isCustom && !isBusinessCard && formTipo === "print" && (
+        {!treatAsBusinessCard && !isCustom && formTipo === "print" && (
           <PrintForm
             onAdd={onAdd}
             onAddTiers={onAddTiers}
@@ -245,7 +264,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onDescricaoChange={setDescricao}
           />
         )}
-        {!isCustom && !isBusinessCard && formTipo === "booklet" && (
+        {!treatAsBusinessCard && !isCustom && formTipo === "booklet" && (
           <BookletForm
             onAdd={onAdd}
             onAddMany={onAddMany}
@@ -255,7 +274,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onDescricaoChange={setDescricao}
           />
         )}
-        {!isCustom && !isBusinessCard && formTipo === "label" && (
+        {!treatAsBusinessCard && !isCustom && formTipo === "label" && (
           <LabelEmbeddedForm
             onAdd={onAdd}
             onAddTiers={onAddTiers}
