@@ -12,7 +12,25 @@ import {
   ChevronDown,
   Layers,
   Wand2,
+  GripVertical,
 } from "lucide-react";
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -218,6 +236,11 @@ export default function KitsProduto() {
   const [variantsEditing, setVariantsEditing] = useState<string | null>(null);
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
   const [nameTouched, setNameTouched] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const fetchAll = async () => {
     setLoading(true);
@@ -430,15 +453,24 @@ export default function KitsProduto() {
     );
   };
 
-  const moveItem = (tmp_id: string, dir: -1 | 1) => {
+  const reorderWithinBlock = (blockTmpIds: string[], activeId: string, overId: string) => {
+    if (activeId === overId) return;
     setItems((prev) => {
-      const idx = prev.findIndex((i) => i.tmp_id === tmp_id);
-      if (idx < 0) return prev;
-      const newIdx = idx + dir;
-      if (newIdx < 0 || newIdx >= prev.length) return prev;
-      const copy = [...prev];
-      [copy[idx], copy[newIdx]] = [copy[newIdx], copy[idx]];
-      return copy.map((i, k) => ({ ...i, position: k }));
+      const fromBlock = blockTmpIds.indexOf(activeId);
+      const toBlock = blockTmpIds.indexOf(overId);
+      if (fromBlock < 0 || toBlock < 0) return prev;
+      const newBlockOrder = arrayMove(blockTmpIds, fromBlock, toBlock);
+      // Map block tmp_id → new global index slot (slots = current global indexes of that block)
+      const blockSlots = blockTmpIds
+        .map((id) => prev.findIndex((i) => i.tmp_id === id))
+        .sort((a, b) => a - b);
+      const next = [...prev];
+      newBlockOrder.forEach((tmpId, k) => {
+        const slot = blockSlots[k];
+        const item = prev.find((i) => i.tmp_id === tmpId)!;
+        next[slot] = item;
+      });
+      return next.map((i, k) => ({ ...i, position: k }));
     });
   };
 
@@ -939,43 +971,76 @@ export default function KitsProduto() {
                 </p>
               </div>
             ) : (
-              renderedItems.map((b, bi) =>
-                b.kind === "item" ? (
-                  <CompactItemRow
-                    key={b.item.tmp_id}
-                    item={b.item}
-                    index={b.index}
-                    total={items.length}
-                    processes={processes}
-                    onChange={(p) => updateItem(b.item.tmp_id, p)}
-                    onRemove={() => removeItem(b.item.tmp_id)}
-                    onMove={(d) => moveItem(b.item.tmp_id, d)}
-                    onEditVariants={() => setVariantsEditing(b.item.tmp_id)}
-                  />
-                ) : (
-                  <div
-                    key={`alt-${bi}`}
-                    className="rounded-md border border-primary/30 bg-primary/5 p-2 space-y-1.5"
+              (() => {
+                const looseIds: string[] = [];
+                const groupIds: Record<string, string[]> = {};
+                renderedItems.forEach((b) => {
+                  if (b.kind === "item") looseIds.push(b.item.tmp_id);
+                  else groupIds[b.group] = b.items.map((x) => x.item.tmp_id);
+                });
+                const scopeOf = (id: string): string | null => {
+                  if (looseIds.includes(id)) return "__loose__";
+                  for (const g in groupIds) if (groupIds[g].includes(id)) return g;
+                  return null;
+                };
+                const handleDragEnd = (ev: DragEndEvent) => {
+                  const { active, over } = ev;
+                  if (!over || active.id === over.id) return;
+                  const a = String(active.id);
+                  const o = String(over.id);
+                  const sa = scopeOf(a);
+                  const so = scopeOf(o);
+                  if (!sa || sa !== so) return;
+                  const block = sa === "__loose__" ? looseIds : groupIds[sa];
+                  reorderWithinBlock(block, a, o);
+                };
+                return (
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
                   >
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-primary px-1">
-                      Alternativos · grupo "{b.group}"
-                    </p>
-                    {b.items.map(({ item, index }) => (
-                      <CompactItemRow
-                        key={item.tmp_id}
-                        item={item}
-                        index={index}
-                        total={items.length}
-                        processes={processes}
-                        onChange={(p) => updateItem(item.tmp_id, p)}
-                        onRemove={() => removeItem(item.tmp_id)}
-                        onMove={(d) => moveItem(item.tmp_id, d)}
-                        onEditVariants={() => setVariantsEditing(item.tmp_id)}
-                      />
-                    ))}
-                  </div>
-                ),
-              )
+                    <SortableContext items={looseIds} strategy={verticalListSortingStrategy}>
+                      {renderedItems.map((b, bi) =>
+                        b.kind === "item" ? (
+                          <CompactItemRow
+                            key={b.item.tmp_id}
+                            item={b.item}
+                            processes={processes}
+                            onChange={(p) => updateItem(b.item.tmp_id, p)}
+                            onRemove={() => removeItem(b.item.tmp_id)}
+                            onEditVariants={() => setVariantsEditing(b.item.tmp_id)}
+                          />
+                        ) : (
+                          <div
+                            key={`alt-${bi}`}
+                            className="rounded-md border border-primary/30 bg-primary/5 p-2 space-y-1.5"
+                          >
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-primary px-1">
+                              Alternativos · grupo "{b.group}"
+                            </p>
+                            <SortableContext
+                              items={groupIds[b.group]}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              {b.items.map(({ item }) => (
+                                <CompactItemRow
+                                  key={item.tmp_id}
+                                  item={item}
+                                  processes={processes}
+                                  onChange={(p) => updateItem(item.tmp_id, p)}
+                                  onRemove={() => removeItem(item.tmp_id)}
+                                  onEditVariants={() => setVariantsEditing(item.tmp_id)}
+                                />
+                              ))}
+                            </SortableContext>
+                          </div>
+                        ),
+                      )}
+                    </SortableContext>
+                  </DndContext>
+                );
+              })()
             )}
           </div>
 
@@ -1034,21 +1099,15 @@ export default function KitsProduto() {
 
 function CompactItemRow({
   item,
-  index,
-  total,
   processes,
   onChange,
   onRemove,
-  onMove,
   onEditVariants,
 }: {
   item: KitItem;
-  index: number;
-  total: number;
   processes: ProcessOption[];
   onChange: (patch: Partial<KitItem>) => void;
   onRemove: () => void;
-  onMove: (dir: -1 | 1) => void;
   onEditVariants: () => void;
 }) {
   const isVariant = item.quantity_formula === "variant_by_sheets";
@@ -1058,28 +1117,38 @@ function CompactItemRow({
       ? item.supply_label || (isVariant ? "Variante por folhas" : "(sem suprimento)")
       : item.process_label || "(sem processo)";
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.tmp_id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    boxShadow: isDragging ? "0 8px 20px hsl(var(--foreground) / 0.15)" : undefined,
+  };
+
   return (
-    <div className="flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 hover:bg-muted/30 transition-colors">
-      <div className="flex flex-col -my-1">
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground disabled:opacity-20 leading-none text-xs"
-          onClick={() => onMove(-1)}
-          disabled={index === 0}
-          aria-label="Subir"
-        >
-          ▲
-        </button>
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground disabled:opacity-20 leading-none text-xs"
-          onClick={() => onMove(1)}
-          disabled={index === total - 1}
-          aria-label="Descer"
-        >
-          ▼
-        </button>
-      </div>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 hover:bg-muted/30 transition-colors"
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none -ml-1 p-0.5 rounded hover:bg-muted"
+        aria-label="Arrastar para reordenar"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
       <Icon className="h-4 w-4 text-primary shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-sm truncate" title={label}>

@@ -1,49 +1,34 @@
-## Sugestão de produtos pelo nome do kit + compactar "Como funciona este kit"
+## Drag-and-drop para reordenar itens do kit
 
-### Parte 1 — Sugerir produtos a partir do nome
+### Por que ordenar importa
 
-Adicionar uma linha de **sugestão** abaixo do campo "Aplica-se aos produtos". O sistema compara o nome digitado contra os `quote_presets` ativos e propõe matches — nada é marcado sem o usuário clicar **Aplicar**.
+`position` define a ordem em que os acabamentos aparecem para o cliente no formulário de orçamento e na OP/PDF. Hoje só dá pra mover de 1 em 1 com ▲/▼ — chato quando o kit tem muitos itens.
 
-**Comportamento**
-1. Conforme o usuário digita em **Nome do kit** (debounce ~250ms), rodar matcher fuzzy contra `quote_presets` ativos.
-2. Mostrar linha discreta abaixo do seletor:
-   > 💡 Sugestão: `Cartão de Visita` `Folheto` — **Aplicar** · Ignorar
-3. **Aplicar** → adiciona os presets sugeridos que ainda não estão nos chips.
-4. **Ignorar** (ou marcar/desmarcar manual) → some até o nome mudar de novo.
-5. Não sugerir presets já selecionados.
-6. Ao **editar** kit existente, só sugerir se o nome for alterado pelo usuário (não disparar no load).
+### Mudança de UX
 
-**Regra de match**
-- Normalizar: lowercase, sem acento, sem pontuação.
-- Singular/plural simples (remover `s` final).
-- Match se nome do preset estiver contido no nome do kit (ou vice-versa), OU se compartilharem ≥1 token significativo (>3 letras).
-- Permite múltiplos matches (ex.: "Cartão + Folheto" → 2 sugestões).
-- Se nome do kit < 3 caracteres, não sugerir.
+- **Alça de arrasto** (ícone `GripVertical`) à esquerda de cada linha de item; cursor vira "grab" no hover, "grabbing" enquanto arrasta.
+- Segura e arrasta a linha inteira para qualquer posição → ao soltar, `position` é recalculado.
+- **Feedback visual** durante o drag: a linha arrastada fica translúcida + sombra; as outras se afastam suavemente.
+- **Setas ▲▼ removidas** — só drag.
+- **Drag restrito ao bloco**: itens "soltos" só reordenam entre si; itens dentro de um grupo Alternativo só reordenam dentro do próprio grupo. Para mover de grupo, continua sendo via `⋯ → Grupo de alternativos`.
+- **Acessibilidade**: `@dnd-kit` já suporta teclado nativamente (Tab até a alça, Espaço pra pegar, setas pra mover, Espaço pra soltar) — fica de graça.
 
-### Parte 2 — Compactar "Como funciona este kit"
+### Implementação
 
-O bloco atual ocupa quase metade do diálogo. Vamos manter a explicação, mas tirar do caminho.
-
-**Mudanças**
-- Trocar o painel colapsável grande por um **link discreto** ao lado do título "Itens do kit":
-  > Itens do kit (0) · ⓘ Como funciona
-- Clicar abre um **Popover** (não acordeão inline) com o mesmo conteúdo dos 4 passos, em fonte um pouco menor, largura ~420px.
-- **Padrão fechado** sempre (não persistir estado aberto).
-- Remover o card roxo grande do fluxo do formulário.
-
-Resultado: ganha ~200px de altura útil, a explicação continua a 1 clique.
-
-### Detalhes técnicos
-
-- Único arquivo afetado: `src/pages/KitsProduto.tsx`.
-- Helper local `suggestPresets(kitName, presets, alreadySelectedIds)` → `Preset[]`.
-- Novos estados: `suggestedPresets`, `suggestionDismissed` (reset ao mudar o nome).
-- Reaproveitar lista de `quote_presets` já carregada — sem novas queries nem migrations.
-- Popover usa o componente shadcn já existente no projeto.
-- Sem mudanças em schema, backend, outras telas ou na lógica de salvar.
+- Biblioteca: `@dnd-kit/core` + `@dnd-kit/sortable` (já instaladas).
+- Arquivos afetados:
+  - `src/pages/KitsProduto.tsx`:
+    - Envolver a lista renderizada (`renderedItems.map`) em `<DndContext>` + `<SortableContext>` com sensors (Pointer + Keyboard).
+    - Para cada bloco "item solto": uma sortable list única ao nível raiz.
+    - Para cada bloco "alt-group": uma sortable list interna restrita aos `tmp_id`s do grupo (`SortableContext` aninhado por grupo).
+    - Handler `onDragEnd` reordena o array `items` (mantendo a ordem global) e reescreve `position` sequencial. Persistência continua no save (já reenvia tudo).
+  - `src/pages/KitsProduto.tsx` (componente `CompactItemRow`):
+    - Adicionar prop `dragHandleProps` e renderizar `<GripVertical>` à esquerda.
+    - Remover botões ▲/▼ e a prop `onMove`.
+- Manter função `moveItem` ou remover (vou remover, já que ninguém mais usa).
 
 ### Fora do escopo
 
-- Auto-marcar sem confirmação.
-- Sugerir acabamentos/itens do kit (só presets de produto).
-- Reescrever o texto da explicação.
+- Arrastar entre grupos diferentes.
+- Reordenar grupos inteiros (a ordem dos grupos segue a posição do primeiro item de cada).
+- Mudar o schema (`position` já existe).
