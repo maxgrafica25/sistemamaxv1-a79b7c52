@@ -33,6 +33,7 @@ import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
 import { SupplyTiersDrawer } from "@/components/materias-primas/SupplyTiersDrawer";
+import { DotTabs } from "@/components/ui/dot-tabs";
 
 // ─── Types ───────────────────────────────────────────────────────────
 type ActiveTab = "suprimento" | "papel";
