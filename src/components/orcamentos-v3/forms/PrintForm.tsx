@@ -71,6 +71,9 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
             ? `${fmtBRL(effective)}/folha (faixa ${tier.label || `${tier.min_qty}${tier.max_qty ? `-${tier.max_qty}` : "+"}`})`
             : `${fmtBRL(effective)}/folha`;
         }
+        if (f.production_step) {
+          hint += ` · +${f.production_step.time_minutes} min`;
+        }
         return { id: f.id, label: f.name, hint };
       }),
     [printFinishings, quantidade],
