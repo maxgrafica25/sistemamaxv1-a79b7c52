@@ -124,6 +124,7 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
         catalog_source: printIt.catalog_item_id ? "printing" : null,
         catalog_item_id: printIt.catalog_item_id ?? null,
         tier_group_id: printIt.tier_group_id ?? null,
+        art_status: printIt.art_status ?? null,
       };
     });
 
@@ -227,6 +228,7 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
         booklet_units: b.bookletUnits,
         booklet_duplex: b.bookletDuplex,
         tier_group_id: b.tier_group_id ?? null,
+        art_status: b.art_status ?? null,
       };
     });
   if (bookletRows.length > 0) {
@@ -313,6 +315,7 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
         catalog_source: l.printing_item_id ? "printing" : null,
         catalog_item_id: l.printing_item_id ?? null,
         tier_group_id: l.tier_group_id ?? null,
+        art_status: l.art_status ?? null,
       };
     });
   if (labelRows.length > 0) {
