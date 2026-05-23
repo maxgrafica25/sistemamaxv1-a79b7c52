@@ -865,6 +865,44 @@ export default function KitsProduto() {
               <p className="text-[11px] text-muted-foreground mt-1">
                 Um mesmo kit pode atender vários produtos (ex.: Cartão + Folheto).
               </p>
+              {presetSuggestions.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2 py-1.5 text-xs">
+                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span className="text-muted-foreground">Sugestão:</span>
+                  {presetSuggestions.map((p) => (
+                    <Badge key={p.id} variant="secondary" className="font-normal">
+                      {p.nome}
+                    </Badge>
+                  ))}
+                  <div className="ml-auto flex items-center gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="default"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => {
+                        setSelectedPresetIds((prev) => [
+                          ...prev,
+                          ...presetSuggestions
+                            .map((p) => p.id)
+                            .filter((id) => !prev.includes(id)),
+                        ]);
+                      }}
+                    >
+                      Aplicar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => setSuggestionDismissed(true)}
+                    >
+                      Ignorar
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
             <Collapsible>
               <CollapsibleTrigger asChild>
@@ -886,12 +924,11 @@ export default function KitsProduto() {
 
           {/* Lista de itens */}
           <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1.5">
-            <KitHowItWorks />
-
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Itens do kit ({items.length})
               </h3>
+              <KitHowItWorks />
             </div>
             {items.length === 0 ? (
               <div className="rounded-md border border-dashed py-10 text-center">
