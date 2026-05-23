@@ -1,5 +1,14 @@
 export type V3Category = "print" | "cv" | "third" | "labor" | "supply";
 
+/** Status da arte para itens de impressão / CV. */
+export type ArtStatus =
+  | "ready"        // cliente envia arte pronta
+  | "ajuste"       // até 5min
+  | "facil"        // 5–10min
+  | "moderada"     // 10–20min
+  | "elaborada"    // 20–30min
+  | "terceirizada"; // > 30min — valor manual
+
 /** Agrupamento visual no carrinho (ex.: Apostila + Kit em um único card). */
 export interface V3BundleFields {
   bundle_id?: string | null;
@@ -7,6 +16,8 @@ export interface V3BundleFields {
   bundle_label?: string | null;
   /** Em um grupo de faixas (tier_group_id), marca o item da quantidade solicitada. */
   tier_primary?: boolean;
+  /** Status da arte (obrigatório para itens print/cv/booklet/label antes de salvar). */
+  art_status?: ArtStatus | null;
 }
 
 export interface V3PrintItem extends V3BundleFields {
