@@ -83,7 +83,7 @@ const statusBadge = (
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export default function OrcamentosV2() {
+export default function OrcamentosV3() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin";
