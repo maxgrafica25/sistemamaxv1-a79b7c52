@@ -1,35 +1,24 @@
 
-# Unificar Acabamentos em "Produção"
+# Categorias como configuração do módulo Produção
 
 ## Mudanças
 
-### 1. Sidebar (`src/components/Sidebar.tsx`)
-- Renomear `"Etapas de Produção"` → `"Produção"` (href continua `/processos-producao`).
-- Remover o item `"Acabamentos"` do grupo Precificação.
+### 1. `src/pages/ProcessosProducao.tsx`
+- Remover `"categorias"` da config de abas.
+- Adicionar botão de engrenagem (`Settings` do lucide) no header, ao lado direito do título — visível em todas as abas, restrito a Admin via `AdminOnly`.
+- Estado local `categoriasOpen` controlando um `<Dialog>` que renderiza `<CategoriasTab />` dentro.
+- Nova ordem das abas: **Etapas · Acabamentos · Grupos de Etapas · Grupos de Materiais · Kits de Produto**
+- Manter compatibilidade: se a URL chegar com `?tab=categorias`, abrir o dialog automaticamente e cair na aba default (`etapas`).
 
-### 2. Página Produção (`src/pages/ProcessosProducao.tsx`)
-- Mudar título visual de `"Etapas de Produção"` → `"Produção"` e ajustar descrição.
-- Adicionar aba `"Acabamentos"` na config de tabs.
-- Nova ordem: **Etapas · Acabamentos · Categorias · Grupos de Etapas · Grupos de Materiais · Kits de Produto**
-- Importar e renderizar `<Acabamentos hideHeader />` quando aba ativa.
+### 2. `src/pages/processos-producao/CategoriasTab.tsx`
+- Aceitar prop `hideHeader?: boolean` (mesmo padrão dos outros) caso já tenha header próprio; senão, sem mudança.
 
-### 3. Página Acabamentos (`src/pages/Acabamentos.tsx`)
-- Aceitar prop `hideHeader?: boolean` na assinatura do componente.
-- Condicionar o `<h1>` + descrição + padding externo da página com base nessa flag (mesmo padrão usado em `GruposMateriais`).
-- Componente continua funcionando standalone em `/acabamentos` para o redirect.
-
-### 4. Roteamento (`src/App.tsx`)
-- Trocar `<Route path="/acabamentos" element={<Acabamentos />} />` por `<Route path="/acabamentos" element={<Navigate to="/processos-producao?tab=acabamentos" replace />} />`.
-
-### 5. Command Palette (`src/components/CommandPalette.tsx`)
-- Trocar label `"Etapas de Produção"` → `"Produção"`.
-- (Acabamentos não está no palette hoje — sem mudança lá.)
+### 3. Botões de ação no header
+- Header passa a ter: título + descrição (esquerda) e, à direita, agrupados:
+  - Engrenagem ⚙ (sempre visível para admin) → abre dialog de Categorias
+  - Botão "Novo Kit" (apenas quando aba `kits` ativa, como já é hoje)
 
 ## Fora de escopo
 
-- Nenhuma migration. Tabela `finishings` e toda a lógica de pricing (`finishing-pricing`, `cv-pricing/engine`, sugestões automáticas, calculadora de etiquetas) ficam intocadas.
-- RLS, permissões e fluxos de orçamento sem alteração.
-
-## Ponto de atenção
-
-- A barra de abas vai pra 6 itens (`DotTabs`). No viewport atual (1067px) deve caber em uma linha confortavelmente; se ficar apertado, deixar o wrap natural do componente.
+- Nenhuma migration. Tabela `production_step_categories` continua igual.
+- Lógica de uso das categorias em `StepTypeBadge`, `EtapasTab` Select etc. inalterada.
