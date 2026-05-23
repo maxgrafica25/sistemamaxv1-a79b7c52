@@ -496,8 +496,15 @@ export default function OrcamentosV2() {
                         hasUnseen ? "bg-primary/5 border-l-2 border-l-primary" : ""
                       }`}
                       onClick={() => {
-                        navigate(`/orcamentos-v3/${q.id}/editar`);
+                        const isV3 = Array.isArray(q.tags) && q.tags.includes("v3");
+                        if (isV3) {
+                          navigate(`/orcamentos-v3/${q.id}/editar`);
+                        } else {
+                          // Orçamento legado V2: abre só leitura no viewer público.
+                          navigate(`/p/${q.quote_number}`);
+                        }
                       }}
+
 
                     >
                       <td className="py-4 pl-4 w-10" onClick={(e) => e.stopPropagation()}>
