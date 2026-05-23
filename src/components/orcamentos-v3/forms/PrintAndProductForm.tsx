@@ -421,6 +421,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         {!treatAsBusinessCard && !isCustom && formTipo === "label" && (
           <LabelEmbeddedForm
             onAdd={wrappedOnAdd}
+            onAddMany={wrappedOnAddMany}
             onAddTiers={wrappedOnAddTiers}
             descricao={descricao}
             onDescricaoChange={setDescricao}
