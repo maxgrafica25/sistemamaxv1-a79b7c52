@@ -70,6 +70,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
     kind: "step" | "group";
     name: string;
     minutes: number;
+    link_type: "fixed" | "optional";
   };
   const cvProcs = useMemo<CVProc[]>(() => {
     const out: CVProc[] = [];
@@ -80,6 +81,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         kind: "step",
         name: s.description,
         minutes: Number.isFinite(m) ? m : 0,
+        link_type: s.link_type,
       });
     }
     for (const g of groups) {
@@ -88,10 +90,14 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         kind: "group",
         name: g.name,
         minutes: Number.isFinite(g.total_minutes) ? g.total_minutes : 0,
+        link_type: g.link_type,
       });
     }
     return out;
   }, [steps, groups]);
+
+  const fixedProcs = useMemo(() => cvProcs.filter((p) => p.link_type === "fixed"), [cvProcs]);
+  const optionalProcs = useMemo(() => cvProcs.filter((p) => p.link_type === "optional"), [cvProcs]);
 
 
 
