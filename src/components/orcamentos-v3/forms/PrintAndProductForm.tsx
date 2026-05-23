@@ -208,20 +208,33 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
           const Icon = iconFor(p.icone);
           const active = p.id === selectedPresetId;
           return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setSelectedPresetId(p.id)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {p.nome}
-            </button>
+            <ContextMenu key={p.id}>
+              <ContextMenuTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPresetId(p.id)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+                  )}
+                  title="Clique direito para opções"
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {p.nome}
+                </button>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onSelect={() => setPresetToDelete(p)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                  Remover favorito
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           );
         })}
         {canSavePreset && (
