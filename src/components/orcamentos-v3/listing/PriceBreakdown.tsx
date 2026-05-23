@@ -8,7 +8,7 @@ import type {
   PricingBreakdownItemDirectSum,
   PricingBreakdownItemTier,
   DirectSumChildRow,
-} from "@/lib/quotes-v2/pricing";
+} from "@/lib/quotes/pricing";
 
 const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });

@@ -10,7 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { AlertTriangle, Trash2, Plus, X, ChevronDown, Megaphone, Lock, Wand2, Info, Sparkles, Search } from "lucide-react";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { PopoverAnchor } from "@/components/ui/popover";
-import { getCvFinishingSuggestions } from "@/lib/quotes-v2/cv-finishing-suggestions";
+import { getCvFinishingSuggestions } from "@/lib/quotes/cv-finishing-suggestions";
 import { useAuth } from "@/hooks/useAuth";
 import {
   calcular,
@@ -23,7 +23,7 @@ import {
   type MarkupSettings,
 } from "@/lib/cv-calc/engine";
 import { filterAndSortForMidia } from "@/lib/cv-calc/media-order";
-import { marginTextClass, marginLabel } from "@/lib/quotes-v2/margin";
+import { marginTextClass, marginLabel } from "@/lib/quotes/margin";
 
 export interface CVItemState {
   id: string;

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Copy as CopyIcon } from "lucide-react";
 import { toast } from "sonner";
-import { cloneQuote } from "@/lib/quotes-v2/clone";
+import { cloneQuote } from "@/lib/quotes/clone";
 
 interface Props {
   quoteId: string;

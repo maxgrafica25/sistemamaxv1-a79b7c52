@@ -31,22 +31,22 @@ import {
   isDirectSumItem,
   type PricingMaterial,
   type PricingSnapshot,
-} from "@/lib/quotes-v2/pricing";
+} from "@/lib/quotes/pricing";
 
 import { CreateVersionButton } from "@/components/orcamentos-v3/listing/CreateVersionButton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PrintingItemEditor } from "@/components/orcamentos-v3/listing/PrintingItemEditor";
 import { LaborAndSupplySubform, type SubformLabor, type SubformMaterial } from "@/components/orcamentos-v3/listing/LaborAndSupplySubform";
-import { buildDynamicTitle } from "@/lib/quotes-v2/item-title";
+import { buildDynamicTitle } from "@/lib/quotes/item-title";
 import { attachMediaOrder } from "@/lib/cv-calc/media-order";
-import { buildSubjectSuggestion } from "@/lib/quotes-v2/subject-suggestion";
+import { buildSubjectSuggestion } from "@/lib/quotes/subject-suggestion";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { TagInput } from "@/components/ui/TagInput";
 import { FreightSelector } from "@/components/orcamentos-v3/listing/FreightSelector";
 import { QuoteItemsTable, type ProcessStep, type ProcessGroup } from "@/components/orcamentos-v3/listing/QuoteItemsTable";
 import { QuoteOptionsBuilder } from "@/components/orcamentos-v3/listing/QuoteOptionsBuilder";
-import { parseOptions, type QuoteOption } from "@/lib/quotes-v2/options";
-import { recalculateQuoteForQuantity } from "@/lib/quotes-v2/options-pricing";
+import { parseOptions, type QuoteOption } from "@/lib/quotes/options";
+import { recalculateQuoteForQuantity } from "@/lib/quotes/options-pricing";
 import { useLocalDraft, hasDraft, loadDraft, clearDraft } from "@/hooks/useLocalDraft";
 import { QuoteChecklist } from "@/components/orcamentos-v3/listing/QuoteChecklist";
 import { QuoteAssistant } from "@/components/orcamentos-v3/listing/QuoteAssistant";

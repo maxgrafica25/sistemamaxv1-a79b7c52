@@ -1,6 +1,6 @@
 import { Snowflake, Eye, Flame, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { computeTemperature, temperatureLabel, type EngagementStats } from "@/lib/quotes-v2/temperature";
+import { computeTemperature, temperatureLabel, type EngagementStats } from "@/lib/quotes/temperature";
 
 interface Props {
   stats?: EngagementStats;

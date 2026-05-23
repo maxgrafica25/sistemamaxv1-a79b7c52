@@ -1,6 +1,6 @@
 // Motor genérico de Kits de Produto (cadastráveis em product_kits/product_kit_items).
 // Resolve fórmulas de quantidade e produz V3SupplyItem/V3LaborItem prontos para o carrinho.
-import { getIdealSpiral, spiralRegex } from "@/lib/quotes-v2/spiral-selector";
+import { getIdealSpiral, spiralRegex } from "@/lib/quotes/spiral-selector";
 import type { ProcessStep } from "@/components/orcamentos-v3/listing/ProcessPicker";
 import { genId, type V3SupplyItem, type V3LaborItem } from "../types";
 import { pickSupplyTierPrice, type V3Supply } from "./useV3Supplies";

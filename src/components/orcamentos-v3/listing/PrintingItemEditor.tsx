@@ -39,7 +39,7 @@ import {
   type SubformLabor,
   type SubformMaterial,
 } from "./LaborAndSupplySubform";
-import type { PricingMaterial } from "@/lib/quotes-v2/pricing";
+import type { PricingMaterial } from "@/lib/quotes/pricing";
 import type { PrintingCatalogItem } from "@/components/orcamentos/PrintingItemSearch";
 import {
   PRODUCT_KIND_SUGGESTIONS,
@@ -47,8 +47,8 @@ import {
   buildDynamicTitle,
   sideFromPrintColors,
   isApostilaKind,
-} from "@/lib/quotes-v2/item-title";
-import { calcSheetYield, PRODUCTION_SHEET, A4_SHEET, resolvePaperSheet } from "@/lib/quotes-v2/sheet-yield";
+} from "@/lib/quotes/item-title";
+import { calcSheetYield, PRODUCTION_SHEET, A4_SHEET, resolvePaperSheet } from "@/lib/quotes/sheet-yield";
 import { ProcessPicker, type ProcessStep, type ProcessGroup } from "./ProcessPicker";
 import { SmartFinishingBlock } from "./SmartFinishingBlock";
 import { cn } from "@/lib/utils";
@@ -59,7 +59,7 @@ interface Props {
   childMaterials: SubformMaterial[];
   hourlyRate: number;
   /** Pcts globais para exibir preço de venda dos processos. */
-  displayPcts: import("@/lib/quotes-v2/labor-display").LaborDisplayPcts;
+  displayPcts: import("@/lib/quotes/labor-display").LaborDisplayPcts;
   printingCatalog?: PrintingCatalogItem[];
   processSteps?: ProcessStep[];
   processGroups?: ProcessGroup[];

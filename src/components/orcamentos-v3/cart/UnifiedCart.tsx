@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import type { ArtStatus, V3Item } from "../types";
 import { ART_SHORT } from "../shared/artStatus";
 import { priceOf, fmtBRL } from "../shared/pricing";
-import { marginTextClass } from "@/lib/quotes-v2/margin";
+import { marginTextClass } from "@/lib/quotes/margin";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 export interface CartPcts {

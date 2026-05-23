@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Search, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-import type { SupplyTier } from "@/lib/quotes-v2/supply-pricing";
+import type { SupplyTier } from "@/lib/quotes/supply-pricing";
 
 export interface SupplyOption {
   id: string;

@@ -5,8 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   getIdealSpiral, spiralRegex,
   FRONT_COVER_REGEX, BACK_COVER_REGEX, BINDING_LABOR_PATTERNS,
-} from "@/lib/quotes-v2/spiral-selector";
-import type { SupplyTier } from "@/lib/quotes-v2/supply-pricing";
+} from "@/lib/quotes/spiral-selector";
+import type { SupplyTier } from "@/lib/quotes/supply-pricing";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/command";
 import type { ProcessStep } from "./ProcessPicker";
 import type { SubformLabor, SubformMaterial } from "./LaborAndSupplySubform";
-import { getFinishingSuggestions } from "@/lib/quotes-v2/finishing-suggestions";
+import { getFinishingSuggestions } from "@/lib/quotes/finishing-suggestions";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
@@ -28,7 +28,7 @@ import {
   computeLaborSellingPrice,
   LABOR_SELLING_TOOLTIP,
   type LaborDisplayPcts,
-} from "@/lib/quotes-v2/labor-display";
+} from "@/lib/quotes/labor-display";
 
 interface Props {
   parentItemId: string;

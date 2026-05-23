@@ -1,7 +1,7 @@
 // Hook compartilhado: carrega supplies + pricing_tiers (espelha SupplySearch).
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import type { SupplyTier } from "@/lib/quotes-v2/supply-pricing";
+import type { SupplyTier } from "@/lib/quotes/supply-pricing";
 
 export interface V3Supply {
   id: string;

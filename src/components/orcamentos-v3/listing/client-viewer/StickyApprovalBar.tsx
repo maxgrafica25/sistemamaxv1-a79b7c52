@@ -3,8 +3,8 @@ import { CheckCircle2, MessageCircle, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useAuth } from "@/hooks/useAuth";
-import { buildAdjustMessage, buildApprovalMessage, buildWaUrl } from "@/lib/quotes-v2/whatsapp";
-import { trackEvent } from "@/lib/quotes-v2/tracking";
+import { buildAdjustMessage, buildApprovalMessage, buildWaUrl } from "@/lib/quotes/whatsapp";
+import { trackEvent } from "@/lib/quotes/tracking";
 
 interface Props {
   quoteId?: string;

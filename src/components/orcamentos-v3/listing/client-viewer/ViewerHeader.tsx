@@ -2,7 +2,7 @@ import { Printer, Link2, Check } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { trackEvent } from "@/lib/quotes-v2/tracking";
+import { trackEvent } from "@/lib/quotes/tracking";
 
 interface Props {
   quoteNumber: string;
