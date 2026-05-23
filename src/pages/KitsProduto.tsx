@@ -935,7 +935,7 @@ const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function Kit
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-destructive hover:text-destructive"
+                        className="ml-auto text-destructive hover:text-destructive"
                         onClick={() => setDeletingId(k.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
