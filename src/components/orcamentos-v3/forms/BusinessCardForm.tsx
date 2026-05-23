@@ -163,7 +163,11 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   );
 
   // Custo de cada processo: minutos/60 * hourRate
-  const procCost = (minutes: number) => (minutes / 60) * (hourRate || 0);
+  const procCost = (minutes: number) => {
+    const m = Number.isFinite(minutes) ? minutes : 0;
+    return (m / 60) * (hourRate || 0);
+  };
+
 
   // Chips
   const finishes = useMemo<FinishingDef[]>(
