@@ -71,6 +71,62 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
   const [presetToDelete, setPresetToDelete] = useState<QuotePreset | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Pergunta "Tem arte pronta?" — obrigatória antes de adicionar item
+  const [artStatus, setArtStatus] = useState<ArtStatus | null>(null);
+  const [artTercValue, setArtTercValue] = useState<number>(0);
+
+  const artBlockedReason: string | null = !artStatus
+    ? "Responda 'Tem arte pronta?' antes de adicionar."
+    : artStatus === "terceirizada" && artTercValue <= 0
+      ? "Informe o valor da arte terceirizada."
+      : null;
+
+  // Wrap dos callbacks: carimba art_status nos itens e, quando terceirizada,
+  // anexa um V3ThirdItem como filho do bundle.
+  const enrichAndEmit = useCallback(
+    (items: V3Item[], emit: (xs: V3Item[]) => void) => {
+      if (artBlockedReason) {
+        toast.warning(artBlockedReason);
+        return;
+      }
+      const stamped = stampArt(items, artStatus);
+      let toEmit: V3Item[] = stamped;
+      if (artStatus === "terceirizada" && artTercValue > 0) {
+        // Acha um bundle/print "líder" para amarrar a arte terceirizada.
+        const leader = stamped.find((i) => i.kind !== "third" && i.kind !== "labor" && i.kind !== "supply");
+        let bundleId = (leader as { bundle_id?: string | null } | undefined)?.bundle_id ?? null;
+        if (leader && !bundleId) {
+          bundleId = `bnd_${Date.now().toString(36)}`;
+          toEmit = stamped.map((it) =>
+            it === leader
+              ? ({ ...it, bundle_id: bundleId, bundle_label: (it as { descricao?: string }).descricao || "Impressão" } as V3Item)
+              : it,
+          );
+        }
+        const art = makeArtThirdParty(artTercValue, bundleId);
+        if (art) toEmit = [...toEmit, art];
+      }
+      emit(toEmit);
+      // Reseta a pergunta após adicionar
+      setArtStatus(null);
+      setArtTercValue(0);
+    },
+    [artStatus, artTercValue, artBlockedReason],
+  );
+
+  const wrappedOnAdd = useCallback(
+    (it: V3Item) => enrichAndEmit([it], (xs) => xs.forEach((x) => onAdd(x))),
+    [enrichAndEmit, onAdd],
+  );
+  const wrappedOnAddMany = useCallback(
+    (its: V3Item[]) => enrichAndEmit(its, (xs) => (onAddMany ? onAddMany(xs) : xs.forEach((x) => onAdd(x)))),
+    [enrichAndEmit, onAddMany, onAdd],
+  );
+  const wrappedOnAddTiers = useCallback(
+    (its: V3Item[]) => enrichAndEmit(its, (xs) => (onAddTiers ? onAddTiers(xs) : xs.forEach((x) => onAdd(x)))),
+    [enrichAndEmit, onAddTiers, onAdd],
+  );
+
   const handleConfirmDelete = useCallback(async () => {
     if (!presetToDelete) return;
     setDeleting(true);
