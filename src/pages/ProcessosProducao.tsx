@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Edit2, Clock, Loader2, Factory, Layers, Sparkles } from "lucide-react";
+import { Plus, Trash2, Edit2, Clock, Loader2, Factory, Layers, Sparkles, Settings } from "lucide-react";
 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,7 +54,6 @@ interface StepGroup {
 const tabConfig = [
   { key: "etapas", label: "Etapas" },
   { key: "acabamentos", label: "Acabamentos" },
-  { key: "categorias", label: "Categorias" },
   { key: "grupos", label: "Grupos de Etapas" },
   { key: "grupos-materiais", label: "Grupos de Materiais" },
   { key: "kits", label: "Kits de Produto" },
@@ -64,10 +63,10 @@ type TabKey = typeof tabConfig[number]["key"];
 
 export default function ProcessosProducao() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initial = (searchParams.get("tab") as TabKey) || "etapas";
-  const [activeTab, setActiveTab] = useState<TabKey>(
-    tabConfig.some((t) => t.key === initial) ? initial : "etapas",
-  );
+  const initialRaw = searchParams.get("tab");
+  const initial = (tabConfig.some((t) => t.key === initialRaw) ? initialRaw : "etapas") as TabKey;
+  const [activeTab, setActiveTab] = useState<TabKey>(initial);
+  const [categoriasOpen, setCategoriasOpen] = useState(initialRaw === "categorias");
   const kitsRef = useRef<KitsProdutoHandle>(null);
 
   useEffect(() => {
@@ -87,16 +86,29 @@ export default function ProcessosProducao() {
             Produção
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Etapas, acabamentos, categorias, grupos e kits que compõem como cada produto é fabricado.
+            Etapas, acabamentos, grupos e kits que compõem como cada produto é fabricado.
           </p>
         </div>
-        {activeTab === "kits" && (
+        <div className="flex items-center gap-2">
+          {activeTab === "kits" && (
+            <AdminOnly>
+              <Button onClick={() => kitsRef.current?.openNew()} className="gap-2">
+                <Plus className="h-4 w-4" /> Novo Kit
+              </Button>
+            </AdminOnly>
+          )}
           <AdminOnly>
-            <Button onClick={() => kitsRef.current?.openNew()} className="gap-2">
-              <Plus className="h-4 w-4" /> Novo Kit
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setCategoriasOpen(true)}
+              title="Gerenciar categorias"
+              aria-label="Gerenciar categorias"
+            >
+              <Settings className="h-4 w-4" />
             </Button>
           </AdminOnly>
-        )}
+        </div>
       </div>
 
       <DotTabs
@@ -109,9 +121,17 @@ export default function ProcessosProducao() {
       {activeTab === "etapas" && <EtapasTab />}
       {activeTab === "acabamentos" && <Acabamentos hideHeader />}
       {activeTab === "grupos" && <GruposTab />}
-      {activeTab === "categorias" && <CategoriasTab />}
       {activeTab === "grupos-materiais" && <GruposMateriais hideHeader />}
       {activeTab === "kits" && <KitsProduto ref={kitsRef} hideHeader />}
+
+      <Dialog open={categoriasOpen} onOpenChange={setCategoriasOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Categorias de processos</DialogTitle>
+          </DialogHeader>
+          <CategoriasTab />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
