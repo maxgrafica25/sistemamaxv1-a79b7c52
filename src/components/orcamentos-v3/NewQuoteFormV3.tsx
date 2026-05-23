@@ -12,6 +12,7 @@ import { ThirdPartyForm } from "./forms/ThirdPartyForm";
 
 
 import { UnifiedCart } from "./cart/UnifiedCart";
+import { QuoteAssistantPanelV3 } from "./cart/QuoteAssistantPanelV3";
 import { FinancialPanel } from "./cart/FinancialPanel";
 import { useQuoteDraftV3 } from "./shared/useQuoteDraftV3";
 import { summarize, fmtBRL } from "./shared/pricing";
@@ -302,6 +303,11 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
               taxPct={state.tax_pct}
               feesPct={state.fees_pct}
               wastePct={globalSettings.waste_pct}
+            />
+            <QuoteAssistantPanelV3
+              items={state.items}
+              clientId={state.cliente.id}
+              clientName={state.cliente.nome}
             />
           </div>
           <div className="p-3 border-t border-border/60 bg-background">
