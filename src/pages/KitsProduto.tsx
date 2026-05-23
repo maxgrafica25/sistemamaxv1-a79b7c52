@@ -246,6 +246,8 @@ export default function KitsProduto() {
     setDescription("");
     setIsActive(true);
     setItems([]);
+    setSuggestionDismissed(false);
+    setNameTouched(false);
   };
 
   const openNew = () => {
