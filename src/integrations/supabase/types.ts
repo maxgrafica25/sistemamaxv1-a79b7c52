@@ -3072,6 +3072,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_value: number | null
+          art_status: string | null
           booklet_duplex: boolean | null
           booklet_pages: number | null
           booklet_units: number | null
@@ -3104,6 +3105,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_value?: number | null
+          art_status?: string | null
           booklet_duplex?: boolean | null
           booklet_pages?: number | null
           booklet_units?: number | null
@@ -3136,6 +3138,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_value?: number | null
+          art_status?: string | null
           booklet_duplex?: boolean | null
           booklet_pages?: number | null
           booklet_units?: number | null
