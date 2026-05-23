@@ -197,16 +197,17 @@ export default function Configuracoes() {
   const totalIndiretos = (parseFloat(invoicePercentage) || 0) + composedVariable;
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Cog className="h-6 w-6 text-primary" />
+    <div className="p-4 md:p-6 h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+          <Cog className="h-5 w-5 text-primary" />
           Configurações
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">Configure os valores padrão e gerencie o backup do sistema</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Configure os valores padrão e gerencie o backup do sistema</p>
       </div>
 
-      <Tabs value={configTab} onValueChange={setConfigTab} className="max-w-3xl">
+      <Tabs value={configTab} onValueChange={setConfigTab} className="flex-1 min-h-0 flex flex-col w-full max-w-none">
+
         <DotTabs
           tabs={[
             { key: "empresa", label: "Empresa" },
