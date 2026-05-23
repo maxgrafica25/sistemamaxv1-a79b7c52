@@ -155,9 +155,13 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
     }
     setSaving(true);
     try {
-      const result = await saveQuoteV3(state);
-      clear();
-      toast.success(`Orçamento ${result.quote_number} criado.`);
+      const result = await saveQuoteV3(state, editingQuoteId ?? undefined);
+      if (!isEditing) clear();
+      toast.success(
+        isEditing
+          ? `Orçamento ${result.quote_number} atualizado.`
+          : `Orçamento ${result.quote_number} criado.`,
+      );
       onSave?.(result);
     } catch (err: any) {
       console.error("[V3 save]", err);
