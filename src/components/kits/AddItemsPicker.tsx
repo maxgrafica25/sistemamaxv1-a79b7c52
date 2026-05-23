@@ -37,11 +37,13 @@ export default function AddItemsPicker({
   onOpenChange,
   processes,
   onConfirm,
+  onAddSpiralShortcut,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   processes: ProcessOption[];
   onConfirm: (items: PickedItem[]) => void;
+  onAddSpiralShortcut?: () => void;
 }) {
   const { supplies, loaded } = useV3Supplies();
   const [tab, setTab] = useState<"supplies" | "processes">("supplies");
