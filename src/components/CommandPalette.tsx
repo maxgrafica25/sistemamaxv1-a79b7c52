@@ -25,7 +25,7 @@ const NAV_ITEMS = [
   { label: "Clientes/Fornecedores", path: "/cadastros", icon: Users },
   { label: "Papéis & Suprimentos", path: "/insumos", icon: Package },
   { label: "Equipamentos", path: "/equipamentos", icon: Cpu },
-  { label: "Etapas de Produção", path: "/processos-producao", icon: Factory },
+  { label: "Produção", path: "/processos-producao", icon: Factory },
   { label: "Despesas Fixas", path: "/despesas-fixas", icon: Receipt },
   { label: "Preço Impressão", path: "/preco-impressao", icon: Calculator },
   { label: "Monitoramento", path: "/monitoramento", icon: TrendingUp },
