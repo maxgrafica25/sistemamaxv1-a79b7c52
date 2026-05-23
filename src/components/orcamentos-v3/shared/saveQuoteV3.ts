@@ -162,6 +162,7 @@ export async function saveQuoteV3(state: V3QuoteState): Promise<SaveResult> {
         finishes_json: (cv.acabamento_ids ?? []) as never,
         sort_order: sort,
         tier_group_id: cv.tier_group_id ?? null,
+        art_status: cv.art_status ?? null,
       };
     });
 
