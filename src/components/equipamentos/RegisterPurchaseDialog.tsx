@@ -12,7 +12,7 @@ import { Trophy, TrendingUp, TrendingDown, Minus, Calculator } from "lucide-reac
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/audit";
-import SupplierCombobox from "./SupplierCombobox";
+import ConsumableSupplierCombobox from "./ConsumableSupplierCombobox";
 
 interface EquipmentLite {
   id: string;
@@ -287,7 +287,7 @@ export default function RegisterPurchaseDialog({
           {/* Supplier */}
           <div className="space-y-1">
             <Label className="text-xs">Fornecedor</Label>
-            <SupplierCombobox value={supplier} onChange={setSupplier} />
+            <ConsumableSupplierCombobox value={supplier} onChange={setSupplier} />
           </div>
 
           {/* NF + Date — 2 cols */}

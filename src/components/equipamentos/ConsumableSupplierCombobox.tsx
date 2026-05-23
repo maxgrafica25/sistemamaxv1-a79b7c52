@@ -14,7 +14,7 @@ interface Props {
 
 const norm = (s: string) => s.trim().toLowerCase();
 
-export default function SupplierCombobox({ value, onChange, placeholder = "Selecionar fornecedor..." }: Props) {
+export default function ConsumableSupplierCombobox({ value, onChange, placeholder = "Selecionar fornecedor..." }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [suppliers, setSuppliers] = useState<string[]>([]);
