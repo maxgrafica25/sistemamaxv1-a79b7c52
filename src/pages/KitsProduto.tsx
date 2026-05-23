@@ -11,7 +11,7 @@ import {
   Cog,
   ChevronDown,
   Layers,
-  Wand2,
+  
   GripVertical,
 } from "lucide-react";
 import {
