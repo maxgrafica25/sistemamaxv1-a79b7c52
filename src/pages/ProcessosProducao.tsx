@@ -82,6 +82,7 @@ export default function ProcessosProducao() {
 
       {activeTab === "etapas" && <EtapasTab />}
       {activeTab === "grupos" && <GruposTab />}
+      {activeTab === "favoritos" && <ProductPresetLinksTab />}
     </div>
   );
 }
