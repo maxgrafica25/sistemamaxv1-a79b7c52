@@ -165,6 +165,7 @@ export default function KitsProduto() {
   const [kits, setKits] = useState<KitRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [processes, setProcesses] = useState<ProcessOption[]>([]);
+  const [availablePresets, setAvailablePresets] = useState<PresetOption[]>([]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -172,7 +173,7 @@ export default function KitsProduto() {
 
   // Form
   const [name, setName] = useState("");
-  const [productKind, setProductKind] = useState("apostila");
+  const [selectedPresetIds, setSelectedPresetIds] = useState<string[]>([]);
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [items, setItems] = useState<KitItem[]>([]);
