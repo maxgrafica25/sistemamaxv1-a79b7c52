@@ -20,7 +20,7 @@ export async function loadQuoteV3(quoteId: string): Promise<LoadedQuoteV3> {
   if (error) throw error;
   if (!data) throw new Error("Orçamento não encontrado.");
 
-  const payload = (data as { v3_payload?: V3QuoteState | null }).v3_payload;
+  const payload = (data as unknown as { v3_payload?: V3QuoteState | null }).v3_payload;
   if (!payload || !Array.isArray((payload as V3QuoteState).items)) {
     throw new Error(
       "Este orçamento não foi criado no V3 e não pode ser editado aqui. Abra-o na versão V2.",
