@@ -1,40 +1,31 @@
-# Ajustes no formulário Cartão de Visita (V3)
+# Cartão de Visita: unificar built-in e favorito salvo
 
-Arquivo único: `src/components/orcamentos-v3/forms/BusinessCardForm.tsx`.
+## Problema
+Hoje aparecem **dois chips "Cartão de Visita"** na barra de Impressão + Acabamentos:
+- O **built-in** (ícone CreditCard, contorno) → abre `BusinessCardForm` com sugestões do Kit de Produto.
+- O **favorito salvo** pelo usuário com o mesmo nome → cai no `PrintForm` genérico, sem kit, sem sugestões de acabamento.
 
-## O que muda
+O usuário clica no favorito (que aparece destacado/colorido) esperando o formulário rico — e não vê sugestão nenhuma.
 
-### 1) "Ajustar layout da folha" sobe para o topo
-Hoje o bloco colapsável fica no final, depois do preço — o usuário só descobre as opções de folha/cartão depois de já ter visto o resultado. Vou movê-lo para logo após o seletor de **Face de impressão**, ainda colapsado por padrão (para não poluir), mas visível antes do "Resumo de aproveitamento" e do preço. Assim a sequência fica:
+## Solução (decidida)
+Tratar "Cartão de Visita" como **um único caminho**, independente de quem clicou:
 
-```
-Catálogo selecionado
-Quantidade
-Face de impressão
-Ajustar layout da folha       ← novo lugar (colapsado)
-Resumo de aproveitamento
-Preço por folha / por cartão
-Acabamentos (fixos)
-Acabamentos opcionais
-[Adicionar ao orçamento]
-```
+1. **Detecção por nome** — helper `isBusinessCardName(nome)` que normaliza (lowercase, sem acento) e casa qualquer preset cujo nome contenha "cartao de visita" (ou tokens equivalentes "cartao visita").
 
-### 2) Acabamentos opcionais ficam listados (não escondidos atrás de "Sugestões opcionais")
-Hoje os opcionais ficam dentro de um `<details>` chamado "Sugestões opcionais" — pelo nome do grupo o usuário não consegue ver o que está sendo contemplado. Vou:
+2. **Esconder o built-in quando há colisão** — em `PrintAndProductForm.tsx`, se algum preset do usuário casar `isBusinessCardName`, omitir o chip built-in (`__builtin_business_card__`). Não há mais duplicação visual.
 
-- Trocar o `<details>` por um `<Field label="Acabamentos opcionais">` com a mesma lista (`FinishingProgressive`) sempre visível.
-- Manter um subtítulo curto (ex.: "Marque para incluir no orçamento") para reforçar que são opt-in.
+3. **Roteamento por tipo** — quando o preset selecionado casa `isBusinessCardName`, renderizar `BusinessCardForm` no lugar do `PrintForm`/`BookletForm`/`LabelEmbeddedForm`. Assim o favorito salvo passa a oferecer a mesma experiência do built-in (Kit de Produto + sugestões de acabamento fixos/opcionais).
 
-### 3) Opcionais começam SEMPRE desmarcados
-No `useEffect` que inicializa `finEnabled` (linhas ~165-175), hoje os opcionais com `default_on=true` vêm pré-marcados. Vou remover esse pré-marque para opcionais — somente os `fixed` continuam marcados automaticamente. Opcional = opcional, o usuário decide.
+4. **Quando não há colisão** — o built-in continua aparecendo como antes.
 
-## Detalhes técnicos
-
-- Em `BusinessCardForm.tsx`: extrair o JSX do bloco "Layout editável (colapsado)" e movê-lo para depois do `<Field label="Face de impressão">`.
-- Substituir o `<details>` de "Sugestões opcionais" por um `<Field>` padrão renderizando `FinishingProgressive` com `optionalFinishes`.
-- No `useEffect` de inicialização de `finEnabled`: remover o ramo `else if (p.default_on) next[p.key] = true;` (que só se aplicava a opcionais).
-- Nenhuma mudança em outros arquivos (PrintForm, ProductKitPanel, etc.) — o problema é específico do fluxo Cartão de Visita visualizado pelo usuário.
+## Arquivo
+- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`
+  - Adicionar `isBusinessCardName` (helper local).
+  - Calcular `hasUserBusinessCardPreset` via `useMemo` sobre `presets`.
+  - Renderizar o chip built-in apenas quando `!hasUserBusinessCardPreset`.
+  - Calcular `treatAsBusinessCard = isBusinessCard || (selectedPreset && isBusinessCardName(selectedPreset.nome))`.
+  - Trocar as condições do bloco "Sub-formulário" para usar `treatAsBusinessCard` no lugar de `isBusinessCard`.
 
 ## Fora de escopo
-- Não mexer no `ProductKitPanel` (já lista item-a-item).
-- Não alterar lógica de preço, descrição, ou tipos.
+- Não mexer em tabela/migrations — a heurística por nome resolve o caso reportado sem precisar consultar o vínculo N:N `product_kits ↔ quote_presets`.
+- Não tocar nos outros tipos (Apostila, Etiqueta etc.).

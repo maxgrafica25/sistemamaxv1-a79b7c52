@@ -21,6 +21,18 @@ import type { V3Item } from "../types";
 
 const BUILTIN_BUSINESS_CARD_ID = "__builtin_business_card__";
 
+const isBusinessCardName = (nome: string | null | undefined): boolean => {
+  if (!nome) return false;
+  const norm = nome
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /\bcartao\b.*\bvisita\b/.test(norm);
+};
+
 interface Props {
   onAdd: (item: V3Item) => void;
   onAddMany?: (items: V3Item[]) => void;
