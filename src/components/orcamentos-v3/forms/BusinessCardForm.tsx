@@ -294,46 +294,65 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         </div>
       )}
 
-      {/* Quantidade + Face */}
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Quantidade (cartões)">
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            value={qtdCartoes === 0 ? "" : qtdCartoes}
-            placeholder="Ex: 1000"
-            onChange={(e) => {
-              const raw = e.target.value;
-              if (raw === "") {
-                setQtdCartoes(0);
-                return;
-              }
-              setQtdCartoes(Math.max(1, Number(raw) || 1));
-            }}
-            className="h-9"
-          />
-        </Field>
-        <Field label="Face">
-          <div className="inline-flex rounded-md border border-border overflow-hidden h-9">
-            {(["frente", "fv"] as const).map((f) => (
+      {/* Quantidade */}
+      <Field label="Quantidade (cartões)">
+        <Input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          value={qtdCartoes === 0 ? "" : qtdCartoes}
+          placeholder="Ex: 1000"
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (raw === "") {
+              setQtdCartoes(0);
+              return;
+            }
+            setQtdCartoes(Math.max(1, Number(raw) || 1));
+          }}
+          className="h-9"
+        />
+      </Field>
+
+      {/* Face — cards selecionáveis */}
+      <Field label="Face de impressão">
+        <div className="grid grid-cols-2 gap-3">
+          {([
+            { key: "frente", icon: FileText, title: "Frente", hint: "1 face de impressão" },
+            { key: "fv", icon: Files, title: "Frente e Verso", hint: "2 faces · custo ~2x" },
+          ] as const).map((opt) => {
+            const Icon = opt.icon;
+            const selected = face === opt.key;
+            return (
               <button
-                key={f}
+                key={opt.key}
                 type="button"
-                onClick={() => setFace(f)}
+                onClick={() => setFace(opt.key)}
                 className={cn(
-                  "px-3 text-xs font-medium transition-colors",
-                  face === f
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-background text-muted-foreground hover:text-foreground",
+                  "relative rounded-lg border-2 p-3 text-left transition-all",
+                  selected
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-border bg-background hover:border-primary/40 hover:bg-muted/30",
                 )}
               >
-                {f === "frente" ? "Frente" : "Frente e Verso"}
+                <div className="flex items-start gap-3">
+                  <Icon
+                    className={cn(
+                      "h-5 w-5 mt-0.5 shrink-0",
+                      selected ? "text-primary" : "text-muted-foreground",
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold leading-tight">{opt.title}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{opt.hint}</p>
+                  </div>
+                  {selected && <Check className="h-4 w-4 text-primary shrink-0" />}
+                </div>
               </button>
-            ))}
-          </div>
-        </Field>
-      </div>
+            );
+          })}
+        </div>
+      </Field>
 
       {/* Resumo de aproveitamento */}
       <div className="rounded-md border border-border bg-background px-3 py-2.5">
