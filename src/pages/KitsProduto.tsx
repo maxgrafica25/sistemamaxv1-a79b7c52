@@ -1467,7 +1467,7 @@ function ItemMorePopover({
 
         {item.item_type === "process" && (
           <div>
-            <Label className="text-xs">Processo</Label>
+            <Label className="text-xs">Acabamento</Label>
             <Select
               value={item.process_step_id ?? ""}
               onValueChange={(v) => {
@@ -1476,7 +1476,7 @@ function ItemMorePopover({
               }}
             >
               <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Selecionar processo…" />
+                <SelectValue placeholder="Selecionar acabamento…" />
               </SelectTrigger>
               <SelectContent>
                 {processes.map((p) => (
