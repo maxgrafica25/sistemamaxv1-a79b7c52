@@ -316,10 +316,24 @@ interface CardActionsProps {
   onDuplicate?: () => void;
   onRemove: () => void;
   removeTitle?: string;
+  onToggleExpand?: () => void;
+  expanded?: boolean;
 }
-function CardActions({ onDuplicate, onRemove, removeTitle = "Excluir" }: CardActionsProps) {
+function CardActions({ onDuplicate, onRemove, removeTitle = "Excluir", onToggleExpand, expanded }: CardActionsProps) {
   return (
     <div className="flex items-center gap-0.5 shrink-0 opacity-40 hover:opacity-100 active:opacity-100 focus-within:opacity-100 transition-opacity">
+      {onToggleExpand && (
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6 mr-1"
+          onClick={onToggleExpand}
+          title={expanded ? "Ocultar detalhes" : "Ver detalhes"}
+        >
+          {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        </Button>
+      )}
       {onDuplicate && (
         <Button
           type="button"
@@ -442,6 +456,7 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId, taxPct,
             key={entry.groupId}
             entry={entry}
             highlightId={highlightId}
+            onDuplicate={onDuplicate}
             onRemove={onRemove}
             pcts={pcts}
             showFinancials={showFinancials}
@@ -496,22 +511,10 @@ function BundleCard({ entry, highlightId, onDuplicate, onRemove, pcts, showFinan
           {itemSubtitle(leader) && (
             <p className="text-[11px] text-muted-foreground truncate">{itemSubtitle(leader)}</p>
           )}
-          <div className="mt-0">
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              {expanded ? (
-                <ChevronDown className="h-3 w-3" />
-              ) : (
-                <ChevronRight className="h-3 w-3" />
-              )}
-              {expanded ? "ocultar detalhes" : "ver detalhes"}
-            </button>
-          </div>
         </div>
         <CardActions
+          onToggleExpand={() => setExpanded((v) => !v)}
+          expanded={expanded}
           onDuplicate={() => entry.items.forEach((it) => onDuplicate(it.id))}
           onRemove={() => entry.items.forEach((it) => onRemove(it.id))}
         />
@@ -591,19 +594,11 @@ function SingleCard({ item, isNew, onDuplicate, onRemove, pcts, showFinancials }
               {fmtBRL(price)}
             </span>
           </div>
-          <div className="mt-0.5 flex items-center gap-1.5 min-w-0">
-            <p className="text-[11px] text-muted-foreground truncate min-w-0 flex-1">{itemSubtitle(item)}</p>
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              className="shrink-0 inline-flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground whitespace-nowrap"
-            >
-              {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-              {expanded ? "ocultar" : "detalhes"}
-            </button>
-          </div>
+          <p className="text-[11px] text-muted-foreground truncate mt-0.5">{itemSubtitle(item)}</p>
         </div>
         <CardActions
+          onToggleExpand={() => setExpanded((v) => !v)}
+          expanded={expanded}
           onDuplicate={() => onDuplicate(item.id)}
           onRemove={() => onRemove(item.id)}
         />
@@ -622,12 +617,13 @@ function SingleCard({ item, isNew, onDuplicate, onRemove, pcts, showFinancials }
 interface GroupCardProps {
   entry: { type: "group"; groupId: string; items: V3Item[] };
   highlightId?: string | null;
+  onDuplicate: (id: string) => void;
   onRemove: (id: string) => void;
   pcts: CartPcts;
   showFinancials: boolean;
 }
 
-function GroupCard({ entry, highlightId, onRemove, pcts, showFinancials }: GroupCardProps) {
+function GroupCard({ entry, highlightId, onDuplicate, onRemove, pcts, showFinancials }: GroupCardProps) {
   const [expanded, setExpanded] = useState(showFinancials);
   const primaryItem =
     entry.items.find((i) => (i as { tier_primary?: boolean }).tier_primary) ?? entry.items[0];
@@ -661,16 +657,11 @@ function GroupCard({ entry, highlightId, onRemove, pcts, showFinancials }: Group
               + {extraTiers} {extraTiers === 1 ? "faixa sugerida" : "faixas sugeridas"} ao cliente
             </p>
           )}
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="mt-0.5 inline-flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground"
-          >
-            {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            {expanded ? "ocultar" : "detalhes"}
-          </button>
         </div>
         <CardActions
+          onToggleExpand={() => setExpanded((v) => !v)}
+          expanded={expanded}
+          onDuplicate={() => onDuplicate(primaryItem.id)}
           onRemove={() => entry.items.forEach((it) => onRemove(it.id))}
           removeTitle="Excluir grupo (todas as faixas)"
         />

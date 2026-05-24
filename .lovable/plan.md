@@ -1,18 +1,18 @@
-# Detalhes expandidos por padrão (admin) em todos os itens
+# Toggle de detalhes ao lado de excluir + duplicar em todo card
 
-Hoje só o card de bundle/single tem o botão "detalhes" e ele começa recolhido. Cards de grupo de faixas (tiers) nem têm detalhes. Para admins, queremos abrir tudo de cara em todos os tipos de card.
+## 1. Mover o toggle "detalhes / ocultar" para a área de ações
 
-## O que muda em `UnifiedCart.tsx`
+Hoje o botão fica inline (texto + chevron) abaixo do título, ocupando espaço e variando de posição entre cards. Vou movê-lo para o cluster `CardActions` no canto superior direito, com um pequeno gap antes do excluir — assim a posição é padrão em todos os cards (single, bundle, group).
 
-1. **SingleCard** — `useState(showFinancials)` em vez de `useState(false)`. Para admin começa aberto; colaborador segue sem o painel financeiro (e sem o botão também, já que `ExpandedDetails` só agrega valor quando há financeiro — mas mantém a opção `ver/ocultar` para o contexto técnico). Botão de toggle continua funcionando.
+- Adicionar prop opcional em `CardActions`: `onToggleExpand?: () => void; expanded?: boolean`.
+- Renderizar um `Button` ícone (ChevronDown quando expandido, ChevronRight quando recolhido), com `mr-1` para criar o "pouco distante" do excluir.
+- Remover os botões inline atuais de `SingleCard`, `BundleCard` e `GroupCard`.
+- Comportamento padrão expandido para admin permanece.
 
-2. **BundleCard** — mesmo tratamento: `useState(showFinancials)` para admins começarem com tudo aberto.
+## 2. Garantir botão Duplicar em todo item
 
-3. **Tier group** (o card que mostra só a faixa solicitada): adicionar a mesma estrutura de toggle + `ExpandedDetails` usando o `primaryItem` como referência (`itemContext(primaryItem)` + `itemFinancials(primaryItem, pcts)`). Default expandido para admin.
-
-## Resultado
-
-Admin abre o orçamento e já vê para cada item: composição (Arte, Papel, Quantidade, Acabamentos…) + Custo material, Custo perda, Imposto, Taxa, Preço de venda e Lucro líquido com %. Pode recolher se quiser. Colaborador continua vendo só a linha resumida.
+- **SingleCard / BundleCard:** já têm duplicar — sem mudança.
+- **GroupCard:** hoje só tem excluir. Adicionar `onDuplicate` que duplica **apenas o item primário** da faixa (não duplica todas as faixas — o usuário pode quiser reabrir o gerador de faixas depois). O `quick-actions.ts` / handler de duplicar do pai já gera um novo id sem `tier_group_id`, virando um single — comportamento esperado para "duplicar a base".
 
 ## Arquivo afetado
 
