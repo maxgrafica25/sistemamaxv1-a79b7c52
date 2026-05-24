@@ -30,7 +30,22 @@ import {
   PRESET_ICON_NAMES,
   iconFor,
 } from "@/components/orcamentos-v3/shared/presetIcons";
+import { ChipMultiPicker, type ChipOption } from "@/components/orcamentos-v3/shared/ChipMultiPicker";
+import { listFinishings } from "@/lib/finishings/catalog";
 import type { QuotePreset } from "@/components/orcamentos-v3/shared/useQuotePresets";
+
+const PAPER_GROUP_LABELS: Record<string, string> = {
+  papel: "Papel comum",
+  adesivo: "Adesivo",
+  cartao: "Cartão / PVC",
+};
+const PAPER_GROUP_ORDER = ["papel", "adesivo", "cartao"];
+function paperCategory(name: string): "adesivo" | "cartao" | "papel" {
+  const n = name.toLowerCase();
+  if (/adesiv/.test(n)) return "adesivo";
+  if (/crach|pvc|cart(a|\u00e3)o/.test(n)) return "cartao";
+  return "papel";
+}
 
 type FormState = {
   nome: string;
@@ -45,9 +60,9 @@ type FormState = {
   is_banner: boolean;
   midia_tipo: "lona" | "adesivo" | "chapa" | "";
   midia_nome_match: string;
-  papel_inclui: string;
-  papel_exclui: string;
-  acabamentos_sugeridos: string;
+  papel_inclui: string[];
+  papel_exclui: string[];
+  acabamentos_sugeridos: string[];
 };
 
 const EMPTY: FormState = {
@@ -63,17 +78,10 @@ const EMPTY: FormState = {
   is_banner: false,
   midia_tipo: "",
   midia_nome_match: "",
-  papel_inclui: "",
-  papel_exclui: "",
-  acabamentos_sugeridos: "",
+  papel_inclui: [],
+  papel_exclui: [],
+  acabamentos_sugeridos: [],
 };
-
-function csv(s: string): string[] {
-  return s
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
-}
 
 export default function QuotePresets() {
   const [loading, setLoading] = useState(false);
@@ -83,7 +91,34 @@ export default function QuotePresets() {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [busy, setBusy] = useState(false);
   const [filtroModulo, setFiltroModulo] = useState<"todos" | "cv" | "impressao" | "ambos">("todos");
+  const [paperOptions, setPaperOptions] = useState<ChipOption[]>([]);
+  const [finishingOptions, setFinishingOptions] = useState<ChipOption[]>([]);
   const { requireAdmin } = usePermissionGuard();
+
+  useEffect(() => {
+    (async () => {
+      const [{ data: papers }, finishings] = await Promise.all([
+        (supabase as any)
+          .from("printing_price_items")
+          .select("paper_type")
+          .eq("is_active", true),
+        listFinishings("impressao").catch(() => []),
+      ]);
+      const uniq: string[] = Array.from(
+        new Set((papers ?? []).map((r: any) => String(r.paper_type ?? "").trim()).filter(Boolean)),
+      ) as string[];
+      uniq.sort((a, b) => a.localeCompare(b, "pt-BR"));
+      setPaperOptions(uniq.map((p) => ({ value: p, group: paperCategory(p) })));
+      setFinishingOptions(
+        (finishings as any[])
+          .map((f) => String(f.name ?? "").trim())
+          .filter(Boolean)
+          .filter((v, i, arr) => arr.indexOf(v) === i)
+          .map((v) => ({ value: v })),
+      );
+    })();
+  }, []);
+
 
   const fetchAll = async () => {
     setLoading(true);
@@ -120,9 +155,9 @@ export default function QuotePresets() {
       is_banner: p.is_banner,
       midia_tipo: (p.midia_tipo ?? "") as FormState["midia_tipo"],
       midia_nome_match: p.midia_nome_match ?? "",
-      papel_inclui: (p.papel_inclui ?? []).join(", "),
-      papel_exclui: (p.papel_exclui ?? []).join(", "),
-      acabamentos_sugeridos: (p.acabamentos_sugeridos ?? []).join(", "),
+      papel_inclui: p.papel_inclui ?? [],
+      papel_exclui: p.papel_exclui ?? [],
+      acabamentos_sugeridos: p.acabamentos_sugeridos ?? [],
     });
     setDialogOpen(true);
   };
@@ -144,9 +179,9 @@ export default function QuotePresets() {
       is_banner: form.is_banner,
       midia_tipo: form.midia_tipo || null,
       midia_nome_match: form.midia_nome_match.trim() || null,
-      papel_inclui: csv(form.papel_inclui),
-      papel_exclui: csv(form.papel_exclui),
-      acabamentos_sugeridos: csv(form.acabamentos_sugeridos),
+      papel_inclui: form.papel_inclui,
+      papel_exclui: form.papel_exclui,
+      acabamentos_sugeridos: form.acabamentos_sugeridos,
     };
     setBusy(true);
     if (editing) {
@@ -382,18 +417,33 @@ export default function QuotePresets() {
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Impressão + Acabamentos
                 </p>
-                <div>
-                  <Label>Papel inclui (separe por vírgula)</Label>
-                  <Input value={form.papel_inclui} onChange={(e) => setForm({ ...form, papel_inclui: e.target.value })} placeholder="couchê, supremo, triplex" />
-                </div>
-                <div>
-                  <Label>Papel exclui</Label>
-                  <Input value={form.papel_exclui} onChange={(e) => setForm({ ...form, papel_exclui: e.target.value })} placeholder="opcional" />
-                </div>
-                <div>
-                  <Label>Acabamentos sugeridos</Label>
-                  <Input value={form.acabamentos_sugeridos} onChange={(e) => setForm({ ...form, acabamentos_sugeridos: e.target.value })} placeholder="laminacao, verniz" />
-                </div>
+                <ChipMultiPicker
+                  label="Papel inclui"
+                  helpText="Filtra para sugerir este favorito apenas quando o papel selecionado bate."
+                  options={paperOptions}
+                  value={form.papel_inclui}
+                  onChange={(v) => setForm({ ...form, papel_inclui: v })}
+                  groupLabels={PAPER_GROUP_LABELS}
+                  groupOrder={PAPER_GROUP_ORDER}
+                  emptyHint="Nenhum papel cadastrado em Preço Impressão."
+                />
+                <ChipMultiPicker
+                  label="Papel exclui (opcional)"
+                  helpText="Impede sugerir este favorito quando o papel é um dos marcados."
+                  options={paperOptions}
+                  value={form.papel_exclui}
+                  onChange={(v) => setForm({ ...form, papel_exclui: v })}
+                  groupLabels={PAPER_GROUP_LABELS}
+                  groupOrder={PAPER_GROUP_ORDER}
+                />
+                <ChipMultiPicker
+                  label="Acabamentos sugeridos"
+                  helpText="Acabamentos que aparecem pré-selecionados ao escolher este favorito."
+                  options={finishingOptions}
+                  value={form.acabamentos_sugeridos}
+                  onChange={(v) => setForm({ ...form, acabamentos_sugeridos: v })}
+                  emptyHint="Nenhum acabamento de Impressão cadastrado."
+                />
               </div>
             )}
 
