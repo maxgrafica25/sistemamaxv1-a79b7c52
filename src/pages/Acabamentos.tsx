@@ -458,30 +458,25 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs">Etapa de produção associada (opcional)</Label>
-                <Select
-                  value={draft.production_step_id ?? "none"}
-                  onValueChange={(v) =>
-                    setDraft({ ...draft, production_step_id: v === "none" ? null : v })
+                <Label className="text-xs">Tempo de execução (minutos)</Label>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={1}
+                  value={draft.time_minutes}
+                  onChange={(e) =>
+                    setDraft({ ...draft, time_minutes: parseInt(e.target.value, 10) || 0 })
                   }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Nenhuma" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhuma</SelectItem>
-                    {steps.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.description} · {s.time_minutes} min
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Ex.: 10"
+                />
                 <p className="text-[11px] text-muted-foreground">
-                  Vincule a uma etapa cadastrada em <strong>Produção → Etapas</strong> para
-                  reaproveitar o tempo de execução nos orçamentos.
+                  Tempo de mão de obra deste acabamento. O sistema usa esse valor para
+                  compor o custo de produção em orçamentos, kits e ordens de produção.
+                  Deixe em <strong>0</strong> para acabamentos sem mão de obra associada.
                 </p>
               </div>
+
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={cancelEdit}>
