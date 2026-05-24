@@ -56,7 +56,7 @@ export function TierFaixasPanel({
   const removeQty = (q: number) =>
     setExtras((prev) => prev.filter((x) => x !== q));
 
-  const shortcuts = [-5, 5, 10, 15];
+  const multipliers = [2, 3, 5, 10];
 
   return (
     <div
