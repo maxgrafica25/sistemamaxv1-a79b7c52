@@ -68,6 +68,22 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
       .catch(() => setPrintFinishings([]));
   }, [hideArtFinishings]);
 
+  // Em modo Personalizado, pré-liga todos os acabamentos como sugestão (uma vez).
+  const didSuggestRef = useRef(false);
+  useEffect(() => {
+    if (!suggestAllFinishings) return;
+    if (didSuggestRef.current) return;
+    if (printFinishings.length === 0) return;
+    didSuggestRef.current = true;
+    setFinEnabled((m) => {
+      const next = { ...m };
+      for (const f of printFinishings) next[f.id] = true;
+      return next;
+    });
+  }, [suggestAllFinishings, printFinishings]);
+
+
+
   // Lona / banner
   // Conjunto de acabamentos derivado do catálogo unificado.
   // O hint reflete o preço efetivo da quantidade atual (tier aplicada quando há).
