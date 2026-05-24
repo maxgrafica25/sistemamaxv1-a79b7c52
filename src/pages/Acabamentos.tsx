@@ -133,7 +133,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState<typeof emptyDraft & { id?: string }>(emptyDraft);
-  const [formMode, setFormMode] = useState<FormMode>("per_sheet");
+  const [formMode, setFormMode] = useState<FormMode>("per_unit_simple");
   const [editing, setEditing] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [tiersFor, setTiersFor] = useState<FinishingItem | null>(null);
@@ -178,7 +178,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
       ...emptyDraft,
       sort_order: (items[items.length - 1]?.sort_order ?? 0) + 1,
     });
-    setFormMode("per_sheet");
+    setFormMode("per_unit_simple");
     setEditing(true);
   };
 
@@ -191,7 +191,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
   const cancelEdit = () => {
     setEditing(false);
     setDraft(emptyDraft);
-    setFormMode("per_sheet");
+    setFormMode("per_unit_simple");
   };
 
   const save = async () => {
@@ -204,8 +204,8 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
       toast.error("Preço não pode ser negativo");
       return;
     }
-    if (formMode === "per_sheet" && !draft.size) {
-      toast.error("Modelo por folha exige selecionar o tamanho");
+    if (formMode === "per_unit_multiplier" && !draft.size) {
+      toast.error("Modo com multiplicador exige selecionar o tamanho base da folha");
       return;
     }
     if (formMode === "time_only" && (!draft.time_minutes || draft.time_minutes <= 0)) {
@@ -214,14 +214,17 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
     }
 
     const isTimeOnly = formMode === "time_only";
-    const effectiveModel: PricingModel = isTimeOnly ? "per_unit" : formMode;
+    const isMultiplier = formMode === "per_unit_multiplier";
+    // Retrocompat com o engine atual: multiplicador ⇒ per_sheet, simples ⇒ per_unit.
+    const effectiveModel: PricingModel = isMultiplier ? "per_sheet" : "per_unit";
 
     const payload = {
       name: draft.name.trim(),
       category: draft.category,
-      size: effectiveModel === "per_unit" ? null : draft.size,
+      size: isMultiplier ? draft.size : null,
       price_per_sheet: isTimeOnly ? 0 : draft.price_per_sheet,
       pricing_model: effectiveModel,
+      auto_format_multiplier: isMultiplier,
       applies_to: DEFAULT_APPLIES_TO,
       unit_label:
         effectiveModel === "per_unit"
@@ -233,6 +236,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
       time_minutes: Math.max(0, Math.round(draft.time_minutes || 0)),
     };
     let error;
+
     if (draft.id) {
       ({ error } = await (supabase as any)
         .from("finishings_price_items")
