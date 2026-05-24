@@ -3,23 +3,11 @@
 // Em personalizado, mostra sugestão inteligente quando a combinação
 // de papel + acabamentos casa com um produto conhecido (ex: lona + ilhós).
 import { useCallback, useMemo, useState } from "react";
-import { CreditCard, Pencil, Sparkles, X, Star, Trash2 } from "lucide-react";
+import { CreditCard, Pencil, Sparkles, X, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { PrintForm } from "./PrintForm";
 import { BookletForm } from "./BookletForm";
 import { LabelEmbeddedForm } from "./LabelEmbeddedForm";
@@ -68,8 +56,6 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
     finishings: string[];
   } | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
-  const [presetToDelete, setPresetToDelete] = useState<QuotePreset | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   // A pergunta "Tem arte pronta?" agora é única por orçamento (NewQuoteFormV3).
   // Os formulários apenas emitem itens; o pai carimba o art_status global.
@@ -83,24 +69,6 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
     [onAddTiers, onAdd],
   );
 
-
-  const handleConfirmDelete = useCallback(async () => {
-    if (!presetToDelete) return;
-    setDeleting(true);
-    const { error } = await supabase
-      .from("quote_presets" as never)
-      .delete()
-      .eq("id", presetToDelete.id);
-    setDeleting(false);
-    if (error) {
-      toast.error("Não foi possível remover o favorito.");
-      return;
-    }
-    toast.success(`"${presetToDelete.nome}" removido dos favoritos.`);
-    if (selectedPresetId === presetToDelete.id) setSelectedPresetId(null);
-    setPresetToDelete(null);
-    reload();
-  }, [presetToDelete, reload, selectedPresetId]);
 
   const selectedPreset: QuotePreset | undefined = selectedPresetId && selectedPresetId !== BUILTIN_BUSINESS_CARD_ID
     ? presets.find((p) => p.id === selectedPresetId)
@@ -196,7 +164,13 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         />
       </div>
 
-      {/* Chips: Personalizado + favoritos */}
+      {/* Produtos favoritos: Personalizado + favoritos */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium">Produtos favoritos</Label>
+        <p className="text-xs text-muted-foreground">
+          Atalhos rápidos com combinações salvas. Escolha um ou use "Personalizado".
+        </p>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -259,19 +233,6 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             Salvar como favorito
           </Button>
         )}
-        {selectedPreset && (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => setPresetToDelete(selectedPreset)}
-            className="h-7 text-xs text-muted-foreground hover:text-destructive ml-auto"
-            title="Remove este favorito da sua lista de atalhos rápidos"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Desfavoritar
-          </Button>
-        )}
       </div>
       {savePayload && (
         <SavePresetDialog
@@ -282,26 +243,6 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         />
       )}
 
-      <AlertDialog open={!!presetToDelete} onOpenChange={(o) => !o && setPresetToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Desfavoritar este atalho?</AlertDialogTitle>
-            <AlertDialogDescription>
-              O favorito "{presetToDelete?.nome}" será removido da sua lista de atalhos rápidos. Isso não apaga nenhum orçamento já criado e você pode salvá-lo novamente depois.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); handleConfirmDelete(); }}
-              disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleting ? "Removendo..." : "Remover"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Faixa de sugestão (apenas em Personalizado) */}
       {isCustom && suggestion && (

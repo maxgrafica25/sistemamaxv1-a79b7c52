@@ -186,17 +186,17 @@ export default function QuotePresets() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Wand2 className="h-6 w-6 text-primary" />
-            Presets de Orçamento
+            Produtos Favoritos
           </h1>
           <p className="text-sm text-muted-foreground">
             Botões rápidos exibidos nos módulos Comunicação Visual e Impressão + Acabamentos
             ao criar um orçamento.
           </p>
         </div>
-        <AdminOnly mode="disable" action="criar preset">
+        <AdminOnly mode="disable" action="criar favorito">
           <Button onClick={openNew}>
             <Plus className="h-4 w-4" />
-            Novo preset
+            Novo favorito
           </Button>
         </AdminOnly>
       </div>
