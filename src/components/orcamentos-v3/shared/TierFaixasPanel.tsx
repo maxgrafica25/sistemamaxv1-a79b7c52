@@ -134,14 +134,14 @@ export function TierFaixasPanel({
       </ul>
 
       <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-border/40">
-        {shortcuts.map((delta) => {
-          const result = currentQty + delta;
+        {multipliers.map((mult) => {
+          const result = currentQty * mult;
           const invalid =
             result < 1 || result === currentQty || extras.includes(result);
-          const label = delta > 0 ? `+${delta}` : `−${Math.abs(delta)}`;
+          const label = `×${mult}`;
           return (
             <button
-              key={delta}
+              key={mult}
               type="button"
               disabled={invalid}
               onClick={() => addQty(result)}
