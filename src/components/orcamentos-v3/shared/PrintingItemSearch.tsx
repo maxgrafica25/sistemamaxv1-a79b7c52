@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Printer, Link2, AlertTriangle } from "lucide-react";
+import { Search, Printer, Link2, AlertTriangle, Info } from "lucide-react";
 
 export interface LinkedPaperInfo {
   id: string;
