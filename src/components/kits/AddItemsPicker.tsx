@@ -236,7 +236,7 @@ export default function AddItemsPicker({
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="flex-1 min-h-0 flex flex-col">
           <TabsList className="w-full">
             <TabsTrigger value="processes" className="flex-1 gap-1.5">
-              <Cog className="h-3.5 w-3.5" /> Processos
+              <Scissors className="h-3.5 w-3.5" /> Acabamentos
               {selProc.size > 0 && (
                 <Badge variant="secondary" className="ml-1">{selProc.size}</Badge>
               )}
