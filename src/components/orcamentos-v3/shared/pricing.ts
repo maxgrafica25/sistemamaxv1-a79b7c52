@@ -97,6 +97,8 @@ export const priceOf = (it: V3Item): ItemPrice => {
   }
 };
 
+export type PricingRegime = "por_fora" | "por_dentro";
+
 export interface FinancialSummary {
   subtotal: number;
   cost: number;
@@ -105,6 +107,8 @@ export interface FinancialSummary {
   marginValue: number;
   total: number;
   marginPct: number;
+  regime: PricingRegime;
+  regimeFallback?: boolean;
 }
 
 export const summarize = (
@@ -112,6 +116,7 @@ export const summarize = (
   taxPct: number,
   feesPct: number,
   marginPct: number,
+  regime: PricingRegime = "por_fora",
 ): FinancialSummary => {
   let subtotal = 0;
   let cost = 0;
@@ -124,10 +129,23 @@ export const summarize = (
     subtotal += p.preco_total;
     cost += p.custo_total;
   }
-  const taxValue = subtotal * (taxPct / 100);
-  const feesValue = subtotal * (feesPct / 100);
-  const marginValue = subtotal * (marginPct / 100);
-  const total = subtotal;
+
+  // Por dentro: aplica divisor sobre o custo total. Impostos, taxas e margem
+  // são embutidos no preço final → margem real = margem configurada.
+  let regimeFallback = false;
+  let total = subtotal;
+  if (regime === "por_dentro") {
+    const divisor = 1 - (taxPct + feesPct + marginPct) / 100;
+    if (divisor > 0 && cost > 0) {
+      total = cost / divisor;
+    } else {
+      regimeFallback = true; // soma >= 100% → cai para por_fora
+    }
+  }
+
+  const taxValue = total * (taxPct / 100);
+  const feesValue = total * (feesPct / 100);
+  const marginValue = total * (marginPct / 100);
   const profit = total - cost - taxValue - feesValue;
   const marginActualPct = total > 0 ? (profit / total) * 100 : 0;
   return {
@@ -138,6 +156,8 @@ export const summarize = (
     marginValue,
     total: roundUp10(total),
     marginPct: marginActualPct,
+    regime,
+    regimeFallback,
   };
 };
 
