@@ -735,10 +735,11 @@ function FinishingRow({
   showDragHandle = false,
   dragHandleProps,
 }: RowProps) {
-  const unit =
-    item.pricing_model === "per_sheet"
-      ? `/folha ${item.size ?? ""}`.trim()
-      : `/${item.unit_label || "unidade"}`;
+  const hasMultiplier = item.auto_format_multiplier;
+  const isTimeOnly = item.price_per_sheet === 0 && item.time_minutes > 0;
+  const unit = hasMultiplier
+    ? `/folha ${item.size ?? ""}`.trim()
+    : `/${item.unit_label || "unidade"}`;
   return (
     <TableRow className={!item.is_active ? "opacity-50" : ""}>
       {showDragHandle && (
