@@ -1,15 +1,18 @@
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Check, Palette } from "lucide-react";
+import { AlertTriangle, Check, Info, Palette } from "lucide-react";
 import type { ArtStatus } from "../types";
-import { ART_LABEL } from "./artStatus";
+import { ART_LABEL, ART_MINUTES } from "./artStatus";
+import { fmtBRL } from "./pricing";
 
 interface Props {
   value: ArtStatus | null;
   onChange: (v: ArtStatus | null) => void;
   terceirizadaValue: number;
   onTerceirizadaValueChange: (v: number) => void;
+  hourRate?: number;
 }
+
 
 const TIERS: { id: ArtStatus; label: string; hint: string }[] = [
   { id: "ajuste",     label: "Ajuste",    hint: "até 5min" },
@@ -23,10 +26,18 @@ export function ArtePromptBlock({
   onChange,
   terceirizadaValue,
   onTerceirizadaValueChange,
+  hourRate = 0,
 }: Props) {
   const isReady = value === "ready";
   const isCreate = value !== null && value !== "ready";
   const isTerc = value === "terceirizada";
+
+  const isInternalTier =
+    value && value !== "ready" && value !== "terceirizada";
+  const internalCost = isInternalTier
+    ? ((ART_MINUTES[value] ?? 0) / 60) * (hourRate || 0)
+    : 0;
+
 
   return (
     <div className="rounded-md border border-border bg-muted/20 p-3 space-y-2.5">
@@ -41,6 +52,31 @@ export function ArtePromptBlock({
           </span>
         )}
       </div>
+
+      {/* Aviso: arte é cobrada uma única vez por orçamento */}
+      {isInternalTier && internalCost > 0 ? (
+        <p className="flex items-center gap-1.5 text-[11px] text-primary">
+          <Info className="h-3 w-3 shrink-0" />
+          <span>
+            Vai somar <strong>{fmtBRL(internalCost)}</strong> ao orçamento
+            ({ART_MINUTES[value!]} min × valor da hora) — uma única vez.
+          </span>
+        </p>
+      ) : isTerc && terceirizadaValue > 0 ? (
+        <p className="flex items-center gap-1.5 text-[11px] text-primary">
+          <Info className="h-3 w-3 shrink-0" />
+          <span>
+            Vai somar <strong>{fmtBRL(terceirizadaValue)}</strong> ao orçamento — uma única vez.
+          </span>
+        </p>
+      ) : (
+        <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Info className="h-3 w-3 shrink-0" />
+          <span>O custo da arte é cobrado uma única vez no orçamento — não por item.</span>
+        </p>
+      )}
+
+
 
       <div className="flex flex-wrap gap-2">
         <button
