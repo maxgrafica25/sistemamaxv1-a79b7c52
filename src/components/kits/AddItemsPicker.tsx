@@ -163,10 +163,10 @@ export default function AddItemsPicker({
         const s = supplies.find((x) => x.id === id)!;
         return { kind: "supply" as const, id, label: s?.produto ?? "" };
       }),
-      ...Array.from(selProc).map((id) => {
-        const p = processes.find((x) => x.id === id)!;
-        return { kind: "process" as const, id, label: p?.description ?? "" };
-      }),
+      ...Array.from(selProc)
+        .map((id) => processes.find((x) => x.id === id))
+        .filter((p): p is ProcessOption => !!p && p.production_step_id !== null)
+        .map((p) => ({ kind: "process" as const, id: p.id, label: p.description })),
     ];
     onConfirm(items);
     reset();
