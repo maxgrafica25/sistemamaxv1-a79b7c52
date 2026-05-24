@@ -1286,6 +1286,7 @@ export type Database = {
       finishings_price_items: {
         Row: {
           applies_to: string[]
+          auto_format_multiplier: boolean
           category: string
           created_at: string
           id: string
@@ -1302,6 +1303,7 @@ export type Database = {
         }
         Insert: {
           applies_to?: string[]
+          auto_format_multiplier?: boolean
           category?: string
           created_at?: string
           id?: string
@@ -1318,6 +1320,7 @@ export type Database = {
         }
         Update: {
           applies_to?: string[]
+          auto_format_multiplier?: boolean
           category?: string
           created_at?: string
           id?: string

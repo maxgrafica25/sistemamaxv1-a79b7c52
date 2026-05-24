@@ -1,48 +1,81 @@
-## Contexto
+## Objetivo
 
-Hoje um acabamento tem dois modelos: **Por folha** e **Por unidade**. Você apontou duas coisas:
+Simplificar o cadastro de acabamentos gráficos: todo acabamento passa a ser "Por unidade" por padrão, com um toggle opcional que ativa o multiplicador automático de formato (A3/SRA3 = 2x, F/V = 2x) — usado hoje em laminação/plastificação e disponível para qualquer acabamento no futuro. UX com explicações inline para evitar confusão.
 
-1. Existem acabamentos que **não cobram nada**, só consomem tempo de mão de obra (ex.: Intercalar, Montagem, Conferência).
-2. "Por folha" e "Por unidade" soam redundantes — bastaria "unidade".
+## Modelo conceitual (3 modos)
 
-Antes de mexer eu preciso alinhar uma decisão importante, porque os dois modelos **não são puramente cosméticos** no motor de preço:
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ Modo de cobrança                                            │
+├─────────────────────────────────────────────────────────────┤
+│ ○ Por unidade                                               │
+│   Cobra o preço cheio por folha/peça processada.            │
+│   Use para: ilhós, dobra, vinco, furo, refile, wire-o…      │
+│                                                             │
+│ ○ Por unidade com multiplicador de formato                  │
+│   Cobra o preço base e multiplica conforme o formato        │
+│   da folha e impressão F/V. Configurável global.            │
+│   Use para: laminação, plastificação, verniz, hot stamping… │
+│   ┌─────────────────────────────────────────────────────┐  │
+│   │ Multiplicadores ativos:                             │  │
+│   │   A4: 1x  •  A3/SRA3: 2x  •  Frente e verso: 2x    │  │
+│   │   (stack até 4x — ex: SRA3 F/V = 4x)               │  │
+│   └─────────────────────────────────────────────────────┘  │
+│                                                             │
+│ ○ Somente tempo (sem cobrança)                              │
+│   Não soma valor no orçamento — apenas registra os          │
+│   minutos de mão de obra para cálculo de tempo de           │
+│   produção. Use para: conferência, embalagem, controle…     │
+└─────────────────────────────────────────────────────────────┘
+```
 
-- `per_sheet` → o preço entra no cálculo da folha impressa (`src/lib/labels/sheet-pricing.ts`, `src/lib/finishings/catalog.ts`) e recebe os multiplicadores de formato (A3=2x, SRA3=2x, F/V=2x).
-- `per_unit` → o preço é multiplicado direto pela quantidade final de peças, sem passar pelos multiplicadores de folha.
+## Migração de dados
 
-Ou seja, hoje "folha" e "unidade" definem **em que base o preço é aplicado**, não só o rótulo. Se unificarmos cegamente, perdemos os multiplicadores automáticos do recorte/laminação por SRA3.
+Coluna nova `auto_format_multiplier boolean default false` em `finishings_price_items`. Backfill:
 
-## Proposta
+- Quem hoje tem `pricing_model = 'per_sheet'` → `auto_format_multiplier = true`.
+- Quem hoje tem `pricing_model = 'per_unit'` → `auto_format_multiplier = false`.
+- `pricing_model` permanece na tabela como legado (não removemos agora — código novo lê só o flag).
 
-### 1. Adicionar modo "Somente tempo" (sem mexer no motor)
+Resultado: nenhum preço muda; comportamento idêntico ao atual no primeiro deploy.
 
-Novo seletor com 3 opções no lugar do atual:
+## Mudanças por arquivo
 
-- **Por folha** — cobra preço por folha (mantém multiplicador A3/SRA3/F-V). Campos: preço + tamanho.
-- **Por unidade** — cobra preço por peça final. Campo: preço.
-- **Somente tempo** (novo) — não cobra nada, só lança minutos de mão de obra no cálculo. Campos: tempo (min). Esconde preço e tamanho. Salva `price_per_sheet = 0`, `pricing_model = 'per_unit'`, `unit_label = 'serviço'`.
+### Banco
+- **Migração**: adiciona `auto_format_multiplier`, faz backfill, mantém `pricing_model` por compatibilidade.
 
-Na tabela, esses itens aparecem com badge **"Tempo: 10m"** e preço "R$ 0,00 /serviço" (já é o comportamento atual quando o preço é zero).
+### `src/pages/Acabamentos.tsx`
+- Substitui o `Select` "Modelo de cobrança" pelo grupo de 3 opções acima (radio cards com título + descrição curta + exemplos de uso).
+- Quando "com multiplicador" estiver selecionado, mostra um info-box compacto listando os multiplicadores globais ativos (lê de `globalSettings`).
+- "Somente tempo" continua escondendo preço e exigindo `time_minutes > 0`.
+- `save()`: grava `auto_format_multiplier` em vez de derivar do `pricing_model`. Para retrocompat, também escreve `pricing_model` coerente (`per_sheet` se flag ligado, senão `per_unit`).
+- Coluna na tabela ganha badge `×formato` (ícone Lucide + tooltip explicando) ao lado de itens com flag ligado, em vez do rótulo "Por folha/Por unidade".
 
-Esse é o caminho **seguro** e resolve sua dúvida de cadastro imediatamente.
+### `src/lib/finishings/catalog.ts`
+- `FinishingItem` ganha `auto_format_multiplier: boolean`.
+- Helpers de cálculo (`calcFinishingCost`, `sumFinishingsPerSheet`) passam a olhar o novo flag. `pricing_model` ainda é lido como fallback para registros antigos enquanto a migração não rodou no usuário.
 
-### 2. Sobre unificar "folha" e "unidade" em só "unidade"
+### `src/lib/labels/sheet-pricing.ts` e callers
+- Onde hoje branch-a por `pricing_model === 'per_sheet'` para aplicar multiplicador, passa a branch-ar por `auto_format_multiplier`. Comportamento numérico idêntico.
 
-Tecnicamente dá, mas exige decidir uma destas direções (preciso da sua escolha):
+### `src/integrations/supabase/types.ts`
+- Regenerado automaticamente após a migração.
 
-- **(A) Manter os dois modelos, só renomear na UI** — chamar ambos de "Por unidade" e mostrar um sub-toggle "a unidade é uma folha (aplica multiplicadores A3/SRA3/F-V)". Zero risco no motor, só muda label.
-- **(B) Unificar de verdade** — todo acabamento passa a ser "por unidade" e o multiplicador de formato deixa de ser automático. Quem precisar de "2x em SRA3" cadastra **faixas** (`Tabela de preços por quantidade`, que já existe) ou um acabamento separado por tamanho. Mais limpo conceitualmente, mas exige migrar os acabamentos atuais que dependem do multiplicador automático e ajustar `sheet-pricing.ts` / `catalog.ts`.
-- **(C) Não unificar** — manter os dois rótulos como estão (são funcionalmente diferentes no preço final).
+## UX — capricho
 
-### 3. Limpeza pequena junto
+1. **Radio cards**, não dropdown — ver a explicação dos 3 modos de uma vez evita o "qual eu escolho?".
+2. **Exemplos concretos** em cada modo ("Use para: ilhós, dobra…") — usuário identifica o caso dele rapidamente.
+3. **Info-box dinâmico** do multiplicador lê os valores reais do sistema, então se mudar global de 2x pra 1.8x, o cadastro reflete sem código novo.
+4. **Badge `×formato`** na listagem com tooltip explica por que aquele item escala — elimina a dúvida "por que SRA3 ficou 2x?".
+5. **Sem termos técnicos**: nada de "per_sheet"/"per_unit" na UI; só "Por unidade" e "com multiplicador de formato".
+6. **Migração transparente**: nenhum acabamento existente muda de preço; o usuário só nota a tela de cadastro mais clara.
 
-- Renomear o label do campo de preço de "Preço por folha (R$)" → "Preço (R$)" + sufixo dinâmico ("por folha A4", "por unidade", oculto em "Somente tempo").
-- Esconder o seletor de Tamanho quando não for "Por folha".
+## Riscos e mitigação
 
-## Arquivos afetados (somente passo 1, se aprovar agora)
+- **Risco**: cálculo legado em algum lugar ainda lê `pricing_model`. **Mitigação**: grep do projeto inteiro por `pricing_model` durante implementação; manter escrita dupla (flag + pricing_model coerente) por enquanto.
+- **Risco**: usuário ligar o multiplicador num acabamento que não deveria escalar. **Mitigação**: descrição clara + badge visível na listagem para auditoria.
 
-- `src/pages/Acabamentos.tsx` — adicionar opção "Somente tempo" no `Select` de modelo, esconder campos de preço/tamanho condicionalmente, ajustar `save()` para gravar `price=0` + `unit_label='serviço'`.
+## Fora de escopo
 
-## Pergunta para você
-
-Implemento **só o passo 1 (modo "Somente tempo")** agora e deixamos a unificação dos dois modelos para depois? Ou você prefere já decidir entre A/B/C acima?
+- Não mexer em Comunicação Visual (`cv_calc_acabamentos`) — modelo lá é outro.
+- Não remover `pricing_model` da tabela agora — fica para uma limpeza futura quando todos os ambientes estiverem atualizados.
