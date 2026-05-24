@@ -400,56 +400,84 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                 />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Categoria</Label>
-                  <Select
-                    value={draft.category}
-                    onValueChange={(v) => setDraft({ ...draft, category: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CATEGORIES.map((c) => (
-                        <SelectItem key={c.value} value={c.value}>
-                          {c.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Modelo de cobrança</Label>
-                  <Select
-                    value={formMode}
-                    onValueChange={(v: FormMode) => {
-                      setFormMode(v);
-                      setDraft((d) => ({
-                        ...d,
-                        pricing_model: v === "time_only" ? "per_unit" : v,
-                        size: v === "per_sheet" ? (d.size ?? "SRA3") : null,
-                        price_per_sheet: v === "time_only" ? 0 : d.price_per_sheet,
-                      }));
+              <div className="space-y-1.5">
+                <Label className="text-xs">Categoria</Label>
+                <Select
+                  value={draft.category}
+                  onValueChange={(v) => setDraft({ ...draft, category: v })}
+                >
+                  <SelectTrigger className="sm:w-[260px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Modo de cobrança — radio cards com explicação inline */}
+              <div className="space-y-2">
+                <Label className="text-xs">Modo de cobrança</Label>
+                <div className="grid gap-2">
+                  <ModeCard
+                    selected={formMode === "per_unit_simple"}
+                    onClick={() => {
+                      setFormMode("per_unit_simple");
+                      setDraft((d) => ({ ...d, size: null, price_per_sheet: d.price_per_sheet || 0 }));
                     }}
+                    title="Por unidade"
+                    subtitle="Preço cheio por peça processada — sem multiplicador."
+                    examples="Ilhós, dobra, vinco, furo, refile, wire-o, espiral, grampo"
+                  />
+                  <ModeCard
+                    selected={formMode === "per_unit_multiplier"}
+                    onClick={() => {
+                      setFormMode("per_unit_multiplier");
+                      setDraft((d) => ({ ...d, size: d.size ?? "SRA3" }));
+                    }}
+                    title="Por unidade com multiplicador de formato"
+                    subtitle="Preço base escala automaticamente com formato da folha e impressão F/V."
+                    examples="Laminação, plastificação, verniz, hot stamping"
+                    accent
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="per_sheet">Por folha</SelectItem>
-                      <SelectItem value="per_unit">Por unidade</SelectItem>
-                      <SelectItem value="time_only">Somente tempo (sem cobrança)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    {formMode === "per_unit_multiplier" && (
+                      <div className="mt-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-[11px] leading-relaxed">
+                        <div className="flex items-center gap-1.5 font-medium text-primary mb-1">
+                          <Info className="h-3 w-3" /> Multiplicadores aplicados automaticamente
+                        </div>
+                        <div className="text-foreground/80">
+                          <span className="font-mono">A4</span> = 1× &nbsp;•&nbsp;{" "}
+                          <span className="font-mono">A3 / SRA3</span> = 2× &nbsp;•&nbsp;{" "}
+                          <span className="font-mono">Frente e verso</span> = 2×
+                        </div>
+                        <div className="text-muted-foreground mt-0.5">
+                          Stack até 4× (ex.: SRA3 frente e verso = 4× o preço base).
+                        </div>
+                      </div>
+                    )}
+                  </ModeCard>
+                  <ModeCard
+                    selected={formMode === "time_only"}
+                    onClick={() => {
+                      setFormMode("time_only");
+                      setDraft((d) => ({ ...d, size: null, price_per_sheet: 0 }));
+                    }}
+                    title="Somente tempo (sem cobrança)"
+                    subtitle="Não soma valor no orçamento — apenas registra tempo de mão de obra."
+                    examples="Conferência, embalagem, controle de qualidade"
+                  />
                 </div>
               </div>
 
               {formMode !== "time_only" && (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {formMode === "per_sheet" ? (
+                  {formMode === "per_unit_multiplier" ? (
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Tamanho da folha</Label>
+                      <Label className="text-xs">Tamanho base da folha</Label>
                       <Select
                         value={draft.size ?? ""}
                         onValueChange={(v) => setDraft({ ...draft, size: v })}
@@ -465,13 +493,26 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-[11px] text-muted-foreground">
+                        Tamanho que corresponde ao preço base (1×). Os demais escalam pelo multiplicador.
+                      </p>
                     </div>
                   ) : (
-                    <div /> /* spacer */
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Rótulo da unidade (opcional)</Label>
+                      <Input
+                        value={draft.unit_label ?? ""}
+                        onChange={(e) => setDraft({ ...draft, unit_label: e.target.value })}
+                        placeholder="unidade"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Aparece após o preço (ex.: "/ilhós", "/dobra"). Padrão: "unidade".
+                      </p>
+                    </div>
                   )}
                   <div className="space-y-1.5">
                     <Label className="text-xs">
-                      Preço por {formMode === "per_sheet" ? "folha" : "unidade"} (R$)
+                      Preço base (R$)
                     </Label>
                     <Input
                       type="number"
@@ -486,6 +527,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                   </div>
                 </div>
               )}
+
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
