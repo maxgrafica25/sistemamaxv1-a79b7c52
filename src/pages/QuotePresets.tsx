@@ -417,18 +417,33 @@ export default function QuotePresets() {
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Impressão + Acabamentos
                 </p>
-                <div>
-                  <Label>Papel inclui (separe por vírgula)</Label>
-                  <Input value={form.papel_inclui} onChange={(e) => setForm({ ...form, papel_inclui: e.target.value })} placeholder="couchê, supremo, triplex" />
-                </div>
-                <div>
-                  <Label>Papel exclui</Label>
-                  <Input value={form.papel_exclui} onChange={(e) => setForm({ ...form, papel_exclui: e.target.value })} placeholder="opcional" />
-                </div>
-                <div>
-                  <Label>Acabamentos sugeridos</Label>
-                  <Input value={form.acabamentos_sugeridos} onChange={(e) => setForm({ ...form, acabamentos_sugeridos: e.target.value })} placeholder="laminacao, verniz" />
-                </div>
+                <ChipMultiPicker
+                  label="Papel inclui"
+                  helpText="Filtra para sugerir este favorito apenas quando o papel selecionado bate."
+                  options={paperOptions}
+                  value={form.papel_inclui}
+                  onChange={(v) => setForm({ ...form, papel_inclui: v })}
+                  groupLabels={PAPER_GROUP_LABELS}
+                  groupOrder={PAPER_GROUP_ORDER}
+                  emptyHint="Nenhum papel cadastrado em Preço Impressão."
+                />
+                <ChipMultiPicker
+                  label="Papel exclui (opcional)"
+                  helpText="Impede sugerir este favorito quando o papel é um dos marcados."
+                  options={paperOptions}
+                  value={form.papel_exclui}
+                  onChange={(v) => setForm({ ...form, papel_exclui: v })}
+                  groupLabels={PAPER_GROUP_LABELS}
+                  groupOrder={PAPER_GROUP_ORDER}
+                />
+                <ChipMultiPicker
+                  label="Acabamentos sugeridos"
+                  helpText="Acabamentos que aparecem pré-selecionados ao escolher este favorito."
+                  options={finishingOptions}
+                  value={form.acabamentos_sugeridos}
+                  onChange={(v) => setForm({ ...form, acabamentos_sugeridos: v })}
+                  emptyHint="Nenhum acabamento de Impressão cadastrado."
+                />
               </div>
             )}
 
