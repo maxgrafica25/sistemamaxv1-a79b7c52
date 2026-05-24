@@ -30,7 +30,7 @@ import { Lock } from "lucide-react";
 import { parseOptions } from "@/lib/quotes/options";
 import { buildStatsMap, computeTemperature, type EngagementStats, type Temperature } from "@/lib/quotes/temperature";
 import type { EngagementEventType } from "@/lib/quotes/tracking";
-import { buildTeamFollowUpMessage, buildWaUrl } from "@/lib/quotes/whatsapp";
+import { copyPublicQuoteLink, generateQuotePdf, openWhatsAppForClient } from "@/lib/quotes/quick-actions";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { QuoteStatusBadge } from "@/components/orcamentos-v3/shared/QuoteStatusBadge";
 import PageLoader from "@/components/PageLoader";
@@ -242,37 +242,21 @@ export default function OrcamentosV3() {
   };
 
   const handleWhatsAppClient = (q: QuoteRow) => {
-    if (!q.client_phone) return;
-    const message = buildTeamFollowUpMessage({
+    openWhatsAppForClient({
       quoteNumber: q.quote_number,
       status: q.status,
       clientName: q.client,
+      clientPhone: q.client_phone,
       companyName,
     });
-    const url = buildWaUrl(message, q.client_phone);
-    if (!url) {
-      toast.error("Telefone do cliente inválido.");
-      return;
-    }
-    window.open(url, "_blank");
   };
 
   const handleCopyPublicLink = (quoteNumber: string) => {
-    const url = `${window.location.origin}/p/${quoteNumber}`;
-    navigator.clipboard.writeText(url);
-    toast.success("Link público copiado!");
+    copyPublicQuoteLink(quoteNumber);
   };
 
   const handleGeneratePDF = (q: QuoteRow) => {
-    const html = `<html><head><title>Orçamento ${q.quote_number}</title>
-      <style>body{font-family:Arial;padding:40px;color:#333}h1{border-bottom:2px solid #ddd;padding-bottom:10px}.total{font-size:24px;font-weight:bold;text-align:right;margin-top:30px}</style></head>
-      <body><h1>Orçamento Nº ${q.quote_number}</h1>
-      <p><strong>Cliente:</strong> ${q.client}</p>
-      <p><strong>Produto:</strong> ${q.product}</p>
-      <p><strong>Data:</strong> ${new Date(q.date).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
-      <div class="total">VALOR: ${formatBRL(q.value)}</div></body></html>`;
-    const w = window.open("", "_blank");
-    if (w) { w.document.write(html); w.document.close(); w.print(); }
+    generateQuotePdf(q);
   };
 
   const filtered = useMemo(() => {

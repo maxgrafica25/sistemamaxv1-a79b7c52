@@ -10,8 +10,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, FlaskConical, Save, Clock } from "lucide-react";
+import { ArrowLeft, FlaskConical, Save, Clock, Link2, FileDown, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { copyPublicQuoteLink, generateQuotePdf, openWhatsAppForClient } from "@/lib/quotes/quick-actions";
 import { ClientCombobox } from "@/components/orcamentos-v3/shared/ClientCombobox";
 import { TabsLayout, getTab } from "./workspace/TabsLayout";
 import { PrintAndProductForm } from "./forms/PrintAndProductForm";
@@ -55,6 +58,18 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
   const [checklistAnswers, setChecklistAnswers] = useState<{ pergunta: string; resposta: string }[]>([]);
   const { settings: globalSettings } = useGlobalSettings();
   const { hourRate } = useHourRate();
+  const { companyName } = useCompanySettings();
+  const [clientPhone, setClientPhone] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = state.cliente?.id;
+    if (!id) { setClientPhone(null); return; }
+    let cancelled = false;
+    supabase.from("clients").select("telefone").eq("id", id).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setClientPhone((data as any)?.telefone ?? null); });
+    return () => { cancelled = true; };
+  }, [state.cliente?.id]);
+
 
 
   // Pré-calcula o próximo número (provisório) ao criar um novo orçamento.
@@ -304,6 +319,46 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {isEditing && editMeta && (
+            <div className="flex items-center gap-0.5 border-r border-border pr-2 mr-1">
+              <Button
+                variant="ghost" size="icon" className="h-8 w-8"
+                title="Copiar link público"
+                onClick={() => copyPublicQuoteLink(editMeta.quote_number)}
+              >
+                <Link2 className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost" size="icon" className="h-8 w-8"
+                title="Gerar PDF"
+                onClick={() => generateQuotePdf({
+                  quote_number: editMeta.quote_number,
+                  client: state.cliente?.nome || "Cliente Balcão",
+                  product: state.assunto || "Orçamento",
+                  date: new Date(),
+                  value: summary.total,
+                })}
+              >
+                <FileDown className="h-3.5 w-3.5" />
+              </Button>
+              {clientPhone && (
+                <Button
+                  variant="ghost" size="icon"
+                  className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                  title="Contatar cliente no WhatsApp"
+                  onClick={() => openWhatsAppForClient({
+                    quoteNumber: editMeta.quote_number,
+                    status: editMeta.status,
+                    clientName: state.cliente?.nome,
+                    clientPhone,
+                    companyName,
+                  })}
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          )}
           {lastSaved && (
             <span className="hidden md:flex items-center gap-1 text-[11px] text-muted-foreground">
               <Clock className="h-3 w-3" /> Rascunho {lastSaved}
