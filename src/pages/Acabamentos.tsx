@@ -60,11 +60,6 @@ interface FinishingItem {
   is_active: boolean;
   sort_order: number;
   production_step_id: string | null;
-}
-
-interface ProductionStepLite {
-  id: string;
-  description: string;
   time_minutes: number;
 }
 
@@ -82,6 +77,7 @@ const emptyDraft: Omit<FinishingItem, "id"> = {
   is_active: true,
   sort_order: 0,
   production_step_id: null,
+  time_minutes: 0,
 };
 
 export default function Acabamentos({ hideHeader = false }: { hideHeader?: boolean } = {}) {
