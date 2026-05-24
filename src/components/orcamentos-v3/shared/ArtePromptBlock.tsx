@@ -1,15 +1,18 @@
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Check, Palette } from "lucide-react";
+import { AlertTriangle, Check, Info, Palette } from "lucide-react";
 import type { ArtStatus } from "../types";
-import { ART_LABEL } from "./artStatus";
+import { ART_LABEL, ART_MINUTES } from "./artStatus";
+import { fmtBRL } from "./pricing";
 
 interface Props {
   value: ArtStatus | null;
   onChange: (v: ArtStatus | null) => void;
   terceirizadaValue: number;
   onTerceirizadaValueChange: (v: number) => void;
+  hourRate?: number;
 }
+
 
 const TIERS: { id: ArtStatus; label: string; hint: string }[] = [
   { id: "ajuste",     label: "Ajuste",    hint: "até 5min" },
