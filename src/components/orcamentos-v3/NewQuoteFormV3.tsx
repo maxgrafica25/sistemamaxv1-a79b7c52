@@ -359,7 +359,7 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
               )}
             </div>
           )}
-
+          {lastSaved && (
             <span className="hidden md:flex items-center gap-1 text-[11px] text-muted-foreground">
               <Clock className="h-3 w-3" /> Rascunho {lastSaved}
             </span>
