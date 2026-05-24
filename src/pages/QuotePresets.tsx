@@ -60,9 +60,9 @@ type FormState = {
   is_banner: boolean;
   midia_tipo: "lona" | "adesivo" | "chapa" | "";
   midia_nome_match: string;
-  papel_inclui: string;
-  papel_exclui: string;
-  acabamentos_sugeridos: string;
+  papel_inclui: string[];
+  papel_exclui: string[];
+  acabamentos_sugeridos: string[];
 };
 
 const EMPTY: FormState = {
@@ -78,17 +78,10 @@ const EMPTY: FormState = {
   is_banner: false,
   midia_tipo: "",
   midia_nome_match: "",
-  papel_inclui: "",
-  papel_exclui: "",
-  acabamentos_sugeridos: "",
+  papel_inclui: [],
+  papel_exclui: [],
+  acabamentos_sugeridos: [],
 };
-
-function csv(s: string): string[] {
-  return s
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
-}
 
 export default function QuotePresets() {
   const [loading, setLoading] = useState(false);
