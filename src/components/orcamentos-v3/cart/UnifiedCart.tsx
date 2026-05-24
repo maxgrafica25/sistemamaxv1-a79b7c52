@@ -462,7 +462,7 @@ interface BundleCardProps {
 }
 
 function BundleCard({ entry, highlightId, onDuplicate, onRemove, pcts, showFinancials }: BundleCardProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(showFinancials);
   const leader = entry.leader;
   const Icon = ICON[leader.kind];
   const isNew = entry.items.some((i) => i.id === highlightId);
@@ -568,7 +568,7 @@ interface SingleCardProps {
 }
 
 function SingleCard({ item, isNew, onDuplicate, onRemove, pcts, showFinancials }: SingleCardProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(showFinancials);
   const Icon = ICON[item.kind];
   const price = priceOf(item).preco_total;
   return (
