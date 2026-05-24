@@ -156,17 +156,20 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
       ...emptyDraft,
       sort_order: (items[items.length - 1]?.sort_order ?? 0) + 1,
     });
+    setFormMode("per_sheet");
     setEditing(true);
   };
 
   const startEdit = (item: FinishingItem) => {
     setDraft({ ...item });
+    setFormMode(detectFormMode(item));
     setEditing(true);
   };
 
   const cancelEdit = () => {
     setEditing(false);
     setDraft(emptyDraft);
+    setFormMode("per_sheet");
   };
 
   const save = async () => {
