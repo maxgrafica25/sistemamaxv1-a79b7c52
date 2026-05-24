@@ -88,14 +88,14 @@ const tabDescriptions: Record<TabKey, { icon: typeof Clock; text: ReactNode }> =
 export default function ProcessosProducao() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialRaw = searchParams.get("tab");
-  const initial = (tabConfig.some((t) => t.key === initialRaw) ? initialRaw : "etapas") as TabKey;
+  const initial = (tabConfig.some((t) => t.key === initialRaw) ? initialRaw : "acabamentos") as TabKey;
   const [activeTab, setActiveTab] = useState<TabKey>(initial);
   const [categoriasOpen, setCategoriasOpen] = useState(initialRaw === "categorias");
   const kitsRef = useRef<KitsProdutoHandle>(null);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
-    if (activeTab === "etapas") next.delete("tab");
+    if (activeTab === "acabamentos") next.delete("tab");
     else next.set("tab", activeTab);
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
