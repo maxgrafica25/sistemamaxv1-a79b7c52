@@ -286,12 +286,19 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
 
 
       {!catalog && (
-        <Field label={substrateLabel}>
+        <Field
+          key={substrateLabel}
+          label={substrateLabel}
+          icon={substrateLabel === "Papel" ? <FileText className="h-3 w-3" /> : <CreditCard className="h-3 w-3" />}
+          highlight={substrateLabel !== "Papel"}
+          className="animate-in fade-in slide-in-from-left-1 duration-300"
+        >
           <PrintingItemSearch
             items={items}
             markupTiers={tiers}
             globalSettings={settings}
             onSelect={(it) => setCatalog(it)}
+            placeholder={`Buscar ${substrateLabel.toLowerCase()} (nome, tamanho, impressora)...`}
           />
           {loading && (
             <p className="text-[11px] text-muted-foreground mt-1">Carregando catálogo…</p>
