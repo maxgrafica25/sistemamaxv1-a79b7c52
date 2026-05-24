@@ -58,6 +58,18 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
   const [checklistAnswers, setChecklistAnswers] = useState<{ pergunta: string; resposta: string }[]>([]);
   const { settings: globalSettings } = useGlobalSettings();
   const { hourRate } = useHourRate();
+  const { companyName } = useCompanySettings();
+  const [clientPhone, setClientPhone] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = state.cliente?.id;
+    if (!id) { setClientPhone(null); return; }
+    let cancelled = false;
+    supabase.from("clients").select("telefone").eq("id", id).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setClientPhone((data as any)?.telefone ?? null); });
+    return () => { cancelled = true; };
+  }, [state.cliente?.id]);
+
 
 
   // Pré-calcula o próximo número (provisório) ao criar um novo orçamento.
