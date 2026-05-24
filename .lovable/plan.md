@@ -1,16 +1,23 @@
-# Mover preço total para canto inferior direito
+# Aumentar largura da coluna de itens do orçamento
 
-Hoje o preço total fica no canto superior direito, dividindo a linha com o título e limitando o espaço dele.
+Hoje o grid em `src/components/orcamentos-v3/NewQuoteFormV3.tsx` (linha 413) usa:
+
+```
+lg:grid-cols-[1fr_360px]
+```
+
+A coluna direita (carrinho + resumo financeiro) tem **360px** fixos.
 
 ## Mudança
 
-Em `src/components/orcamentos-v3/cart/UnifiedCart.tsx`, nos componentes `ItemCard` e `GroupCard`:
+Aumentar para **420px** em `lg`, e adicionar um breakpoint maior para telas mais largas:
 
-1. Remover o `<span>` de preço do header (mesma linha do título). Título passa a ocupar 100% da largura disponível ao lado do ícone e das ações (expand/duplicar/excluir).
-2. Adicionar o preço total como uma linha própria **alinhada ao canto inferior direito do card**, abaixo das ações — `text-[13px] font-semibold tabular-nums text-right`.
+```
+lg:grid-cols-[1fr_420px] xl:grid-cols-[1fr_460px]
+```
 
-Mantém subtítulo e linha "+ N faixas sugeridas" inalterados. Layout padronizado entre os dois tipos de card.
+Ganho de ~60–100px de respiro no carrinho (títulos longos, "+ N faixas sugeridas", subtítulos como `5 folhas | Couche 300g | Frente`) sem comprometer o formulário à esquerda, que continua fluido.
 
 ## Arquivo
 
-- `src/components/orcamentos-v3/cart/UnifiedCart.tsx`
+- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` (apenas a linha do grid principal)
