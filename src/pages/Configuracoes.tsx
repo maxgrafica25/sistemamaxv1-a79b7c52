@@ -119,6 +119,7 @@ export default function Configuracoes() {
       tax_pct: parseFloat(taxPct) || 0,
       collection_fee_pct: cardFee,
       checklist_before_save: checklistBeforeSave,
+      pricing_regime: pricingRegime,
     };
     if (settingsId) {
       await supabase.from("global_settings").update(data).eq("id", settingsId);
