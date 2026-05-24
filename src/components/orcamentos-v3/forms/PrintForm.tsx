@@ -34,9 +34,11 @@ interface Props {
   defaultMarginPct?: number;
   /** Rótulo do seletor de substrato (default "Papel"; em Crachá vira "Cartão PVC"). */
   substrateLabel?: string;
+  /** Quando true, oculta acabamentos cujo nome começa com "Arte" (a arte já foi resolvida globalmente). */
+  hideArtFinishings?: boolean;
 }
 
-export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults, defaultMarginPct = 20, substrateLabel = "Papel" }: Props) {
+export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults, defaultMarginPct = 20, substrateLabel = "Papel", hideArtFinishings = false }: Props) {
 
   const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers, settings } = useV3Catalog();
