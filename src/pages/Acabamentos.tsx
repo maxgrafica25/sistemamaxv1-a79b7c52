@@ -63,6 +63,12 @@ const CATEGORIES = [
 
 const DEFAULT_APPLIES_TO = ["etiqueta", "impressao"];
 type PricingModel = "per_sheet" | "per_unit";
+type FormMode = "per_sheet" | "per_unit" | "time_only";
+
+const detectFormMode = (item: { pricing_model: PricingModel; price_per_sheet: number; time_minutes: number }): FormMode => {
+  if (item.price_per_sheet === 0 && item.time_minutes > 0) return "time_only";
+  return item.pricing_model;
+};
 
 interface FinishingItem {
   id: string;
