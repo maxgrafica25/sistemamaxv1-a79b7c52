@@ -10,8 +10,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, FlaskConical, Save, Clock } from "lucide-react";
+import { ArrowLeft, FlaskConical, Save, Clock, Link2, FileDown, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { copyPublicQuoteLink, generateQuotePdf, openWhatsAppForClient } from "@/lib/quotes/quick-actions";
 import { ClientCombobox } from "@/components/orcamentos-v3/shared/ClientCombobox";
 import { TabsLayout, getTab } from "./workspace/TabsLayout";
 import { PrintAndProductForm } from "./forms/PrintAndProductForm";
