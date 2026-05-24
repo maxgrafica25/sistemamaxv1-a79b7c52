@@ -116,6 +116,10 @@ export const summarize = (
   let subtotal = 0;
   let cost = 0;
   for (const it of items) {
+    const tg = (it as { tier_group_id?: string | null }).tier_group_id;
+    const isPrimary = (it as { tier_primary?: boolean }).tier_primary === true;
+    // Sugestões de faixas (tier siblings) não somam — só a quantidade solicitada.
+    if (tg && !isPrimary) continue;
     const p = priceOf(it);
     subtotal += p.preco_total;
     cost += p.custo_total;
