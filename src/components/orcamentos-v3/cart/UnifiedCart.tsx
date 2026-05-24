@@ -407,7 +407,7 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId, taxPct,
   }
   const entries = groupItems(items);
   return (
-    <ul className="space-y-1">
+    <ul className="space-y-1 min-w-0">
       {entries.map((entry) => {
         if (entry.type === "single") {
           return (
