@@ -93,33 +93,17 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
   const [editing, setEditing] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [tiersFor, setTiersFor] = useState<FinishingItem | null>(null);
-  const [steps, setSteps] = useState<ProductionStepLite[]>([]);
-
-  const stepById = useMemo(() => {
-    const m = new Map<string, ProductionStepLite>();
-    steps.forEach((s) => m.set(s.id, s));
-    return m;
-  }, [steps]);
 
   const reload = async () => {
     setLoading(true);
-    const [itemsRes, stepsRes] = await Promise.all([
-      (supabase as any)
-        .from("finishings_price_items")
-        .select("*")
-        .order("sort_order"),
-      supabase
-        .from("production_steps")
-        .select("id, description, time_minutes")
-        .order("description"),
-    ]);
+    const itemsRes = await (supabase as any)
+      .from("finishings_price_items")
+      .select("*")
+      .order("sort_order");
     if (itemsRes.error) {
       toast.error("Falha ao carregar acabamentos");
     } else {
       setItems((itemsRes.data ?? []) as FinishingItem[]);
-    }
-    if (!stepsRes.error && stepsRes.data) {
-      setSteps(stepsRes.data as ProductionStepLite[]);
     }
     setLoading(false);
   };
