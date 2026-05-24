@@ -396,14 +396,16 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                 <div className="space-y-1.5">
                   <Label className="text-xs">Modelo de cobrança</Label>
                   <Select
-                    value={draft.pricing_model}
-                    onValueChange={(v: PricingModel) =>
-                      setDraft({
-                        ...draft,
-                        pricing_model: v,
-                        size: v === "per_unit" ? null : draft.size ?? "SRA3",
-                      })
-                    }
+                    value={formMode}
+                    onValueChange={(v: FormMode) => {
+                      setFormMode(v);
+                      setDraft((d) => ({
+                        ...d,
+                        pricing_model: v === "time_only" ? "per_unit" : v,
+                        size: v === "per_sheet" ? (d.size ?? "SRA3") : null,
+                        price_per_sheet: v === "time_only" ? 0 : d.price_per_sheet,
+                      }));
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -411,50 +413,53 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                     <SelectContent>
                       <SelectItem value="per_sheet">Por folha</SelectItem>
                       <SelectItem value="per_unit">Por unidade</SelectItem>
+                      <SelectItem value="time_only">Somente tempo (sem cobrança)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                {draft.pricing_model === "per_sheet" ? (
+              {formMode !== "time_only" && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {formMode === "per_sheet" ? (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Tamanho da folha</Label>
+                      <Select
+                        value={draft.size ?? ""}
+                        onValueChange={(v) => setDraft({ ...draft, size: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SIZES.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <div /> /* spacer */
+                  )}
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Tamanho da folha</Label>
-                    <Select
-                      value={draft.size ?? ""}
-                      onValueChange={(v) => setDraft({ ...draft, size: v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SIZES.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-xs">
+                      Preço por {formMode === "per_sheet" ? "folha" : "unidade"} (R$)
+                    </Label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.10"
+                      min={0}
+                      value={draft.price_per_sheet}
+                      onChange={(e) =>
+                        setDraft({ ...draft, price_per_sheet: parseFloat(e.target.value) || 0 })
+                      }
+                    />
                   </div>
-                ) : (
-                  <div /> /* spacer */
-                )}
-                <div className="space-y-1.5">
-                  <Label className="text-xs">
-                    Preço por {draft.pricing_model === "per_sheet" ? "folha" : "unidade"} (R$)
-                  </Label>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.10"
-                    min={0}
-                    value={draft.price_per_sheet}
-                    onChange={(e) =>
-                      setDraft({ ...draft, price_per_sheet: parseFloat(e.target.value) || 0 })
-                    }
-                  />
                 </div>
-              </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
