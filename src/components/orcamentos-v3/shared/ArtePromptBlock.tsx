@@ -26,10 +26,18 @@ export function ArtePromptBlock({
   onChange,
   terceirizadaValue,
   onTerceirizadaValueChange,
+  hourRate = 0,
 }: Props) {
   const isReady = value === "ready";
   const isCreate = value !== null && value !== "ready";
   const isTerc = value === "terceirizada";
+
+  const isInternalTier =
+    value && value !== "ready" && value !== "terceirizada";
+  const internalCost = isInternalTier
+    ? ((ART_MINUTES[value] ?? 0) / 60) * (hourRate || 0)
+    : 0;
+
 
   return (
     <div className="rounded-md border border-border bg-muted/20 p-3 space-y-2.5">
