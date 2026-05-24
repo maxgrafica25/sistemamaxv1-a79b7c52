@@ -164,7 +164,13 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         />
       </div>
 
-      {/* Chips: Personalizado + favoritos */}
+      {/* Produtos favoritos: Personalizado + favoritos */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium">Produtos favoritos</Label>
+        <p className="text-xs text-muted-foreground">
+          Atalhos rápidos com combinações salvas. Escolha um ou use "Personalizado".
+        </p>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
