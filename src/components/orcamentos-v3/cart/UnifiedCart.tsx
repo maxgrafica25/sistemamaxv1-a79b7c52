@@ -646,11 +646,16 @@ function GroupCard({ entry, highlightId, onDuplicate, onRemove, pcts, showFinanc
           <Icon className="h-3 w-3" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-medium leading-tight truncate">
-            {itemTitle(primaryItem)}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-[13px] font-medium leading-tight truncate min-w-0 flex-1">
+              {itemTitle(primaryItem)}
+            </p>
+            <span className="text-[13px] font-semibold tabular-nums shrink-0 whitespace-nowrap">
+              {fmtBRL(primaryPrice)}
+            </span>
+          </div>
           {itemSubtitle(primaryItem) && (
-            <p className="text-[11px] text-muted-foreground truncate">{itemSubtitle(primaryItem)}</p>
+            <p className="text-[11px] text-muted-foreground truncate mt-0.5">{itemSubtitle(primaryItem)}</p>
           )}
           {extraTiers > 0 && (
             <p className="text-[10px] text-muted-foreground/80 italic mt-0.5">
@@ -667,20 +672,6 @@ function GroupCard({ entry, highlightId, onDuplicate, onRemove, pcts, showFinanc
         />
       </div>
 
-      <div className="mt-1 flex items-center gap-1.5 px-1 text-[11px]">
-        <span className="tabular-nums flex items-center gap-1.5 min-w-[110px] whitespace-nowrap text-[13px] font-semibold text-primary">
-          {primaryQty.toLocaleString("pt-BR")} un
-          <span className="text-[9px] uppercase tracking-wide text-primary/70 font-medium whitespace-nowrap">
-            · solicitada
-          </span>
-        </span>
-        <span className="tabular-nums flex-1 text-right whitespace-nowrap text-muted-foreground">
-          {fmtBRL(primaryUnit)} / un
-        </span>
-        <span className="tabular-nums min-w-[80px] text-right whitespace-nowrap text-[13px] font-bold text-foreground">
-          {fmtBRL(primaryPrice)}
-        </span>
-      </div>
 
       {expanded && (
         <ExpandedDetails
