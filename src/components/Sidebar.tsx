@@ -74,7 +74,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { name: "Monitoramento", href: "/monitoramento", icon: TrendingUp, adminOnly: true },
       { name: "Produtos Ref.", href: "/produtos", icon: BookOpen, adminOnly: true },
-      { name: "Presets de Orçamento", href: "/presets-orcamento", icon: Wand2, adminOnly: true },
+      { name: "Produtos Favoritos", href: "/presets-orcamento", icon: Wand2, adminOnly: true },
       { name: "Auditoria", href: "/auditoria", icon: Shield, adminOnly: true },
       { name: "Usuários", href: "/usuarios", icon: UserCog, adminOnly: true },
       { name: "Configurações", href: "/configuracoes", icon: Settings },
