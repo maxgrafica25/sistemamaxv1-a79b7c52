@@ -360,8 +360,10 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             defaultMarginPct={defaultMarginPct}
             descricao={descricao}
             onDescricaoChange={setDescricao}
+            substrateLabel={substrateLabel}
           />
         )}
+
         {!treatAsBusinessCard && !isCustom && formTipo === "booklet" && (
           <BookletForm
             onAdd={wrappedOnAdd}
