@@ -410,7 +410,7 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
       </div>
 
       {/* Split-screen */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_420px] xl:grid-cols-[1fr_460px] overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_380px] overflow-hidden">
         {/* Workspace (70%) */}
         <div className="overflow-y-auto overscroll-contain bg-background pb-24 lg:pb-0">
           {/* Pergunta única "Tem arte pronta?" — agora só na coluna do workspace */}

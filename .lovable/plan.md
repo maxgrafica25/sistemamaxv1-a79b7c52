@@ -1,23 +1,32 @@
-# Aumentar largura da coluna de itens do orçamento
+# Coluna 380px + subtítulo padronizado
 
-Hoje o grid em `src/components/orcamentos-v3/NewQuoteFormV3.tsx` (linha 413) usa:
+## 1. Largura da coluna
 
-```
-lg:grid-cols-[1fr_360px]
-```
-
-A coluna direita (carrinho + resumo financeiro) tem **360px** fixos.
-
-## Mudança
-
-Aumentar para **420px** em `lg`, e adicionar um breakpoint maior para telas mais largas:
+Em `src/components/orcamentos-v3/NewQuoteFormV3.tsx`:
 
 ```
-lg:grid-cols-[1fr_420px] xl:grid-cols-[1fr_460px]
+lg:grid-cols-[1fr_380px]
 ```
 
-Ganho de ~60–100px de respiro no carrinho (títulos longos, "+ N faixas sugeridas", subtítulos como `5 folhas | Couche 300g | Frente`) sem comprometer o formulário à esquerda, que continua fluido.
+(sem variação em `xl`, conforme pedido)
 
-## Arquivo
+## 2. Subtítulo padronizado dos cards
 
-- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` (apenas a linha do grid principal)
+Em `src/components/orcamentos-v3/cart/UnifiedCart.tsx`, função `itemSubtitle`:
+
+**Hoje (print):** `5 folhas | Couche 300g | Frente`
+**Novo (print):** `Couche 300g | Frente | Laminação fosca`
+
+Mudanças:
+- **`print`** — remover `N folhas`. Manter `papel + gramatura` e `Frente/Frente-Verso`. Acrescentar nomes dos acabamentos selecionados (`finishings` ou `finishing_selections[].name`) ao final, separados por `|`.
+- **`booklet`** — remover `N folhas`. Manter `papel + gramatura`, `Frente`/`Frente-Verso`, e acrescentar `finishings`.
+- **`label`** — manter dimensões + papel/gramatura (já estão corretos). Acrescentar `finishings` se houver.
+- **`cv`** — manter dimensões + mídia + impressão. Acrescentar acabamentos pelo nome (`finishings` legado ou ignorar IDs sem nome resolvido).
+- **`booklet/labor/third/supply`** — sem mudança além das já citadas.
+
+Sobre "ao lado dos cartões de visita tá mencionando couchê": o subtítulo no screenshot mostrava `5 folhas | Couche 300g | Frente`, padrão de `print` (e não `cv`). Como o título já carrega o nome do produto, o subtítulo passa a ser **apenas características de produção**: tipo de papel, gramatura, frente/verso e acabamentos.
+
+## Arquivos
+
+- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` (grid)
+- `src/components/orcamentos-v3/cart/UnifiedCart.tsx` (`itemSubtitle`)
