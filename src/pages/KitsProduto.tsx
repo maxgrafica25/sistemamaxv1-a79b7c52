@@ -201,6 +201,7 @@ function suggestPresets(
 interface ProcessOption {
   id: string;
   description: string;
+  production_step_id?: string | null;
 }
 
 function formulaBadge(it: KitItem): string {
