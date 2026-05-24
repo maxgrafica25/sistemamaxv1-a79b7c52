@@ -18,33 +18,32 @@ export function FinancialPanel({ summary }: Props) {
         : "text-emerald-600";
   return (
     <Card className="border-border/60 shadow-sm">
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-3 space-y-2">
         <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
           Resumo financeiro
         </p>
         <Row label="Subtotal" value={fmtBRL(summary.subtotal)} />
         <Row label="Impostos" value={fmtBRL(summary.taxValue)} muted />
         <Row label="Taxas" value={fmtBRL(summary.feesValue)} muted />
-        <Separator />
-        <div className="flex items-center justify-between">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">
+        <div className="flex items-center justify-between border-t border-border/60 pt-2">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
             Total a cobrar
           </span>
-          <span className="text-2xl font-bold text-primary tabular-nums">
+          <span className="text-xl font-bold text-primary tabular-nums">
             {fmtBRL(summary.total)}
           </span>
         </div>
         <div
           className={cn(
-            "rounded-md border border-border/60 bg-muted/30 px-3 py-2 flex items-center justify-between text-sm",
+            "rounded-md border border-border/60 bg-muted/30 px-3 py-1.5 flex items-center justify-between text-xs",
             color,
           )}
         >
           <span className="flex items-center gap-1.5 font-medium">
             {positive ? (
-              <TrendingUp className="h-4 w-4" />
+              <TrendingUp className="h-3.5 w-3.5" />
             ) : (
-              <TrendingDown className="h-4 w-4" />
+              <TrendingDown className="h-3.5 w-3.5" />
             )}
             Margem
           </span>
