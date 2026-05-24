@@ -380,8 +380,8 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
         </div>
 
         {/* Cart (30%) */}
-        <aside className="hidden lg:flex flex-col border-l border-border bg-muted/20 overflow-hidden">
-          <div className="px-4 py-3 border-b border-border/60 bg-background">
+        <aside className="hidden lg:flex flex-col border-l border-border bg-muted/20 overflow-hidden min-h-0">
+          <div className="shrink-0 px-4 py-3 border-b border-border/60 bg-background">
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
               Itens do orçamento
             </p>
@@ -389,7 +389,7 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
               {state.items.length} {state.items.length === 1 ? "item" : "itens"} adicionados
             </p>
           </div>
-          <div className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-3">
             <UnifiedCart
               items={state.items}
               onDuplicate={duplicateItem}
@@ -406,7 +406,7 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
               checklistAnswers={checklistAnswers}
             />
           </div>
-          <div className="p-3 border-t border-border/60 bg-background">
+          <div className="shrink-0 p-3 border-t border-border/60 bg-background">
             <FinancialPanel summary={summary} />
           </div>
         </aside>
