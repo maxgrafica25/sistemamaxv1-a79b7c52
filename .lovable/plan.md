@@ -1,32 +1,25 @@
-# Coluna 380px + subtítulo padronizado
+# Título do card: quantidade + produto + tamanho
 
-## 1. Largura da coluna
+Atualizar `itemTitle` em `src/components/orcamentos-v3/cart/UnifiedCart.tsx` para incluir o tamanho do produto após o nome, e remover o tamanho do `itemSubtitle`.
 
-Em `src/components/orcamentos-v3/NewQuoteFormV3.tsx`:
+## Formato novo
 
-```
-lg:grid-cols-[1fr_380px]
-```
+`{qty} un. - {Nome} {tamanho}`
 
-(sem variação em `xl`, conforme pedido)
+Por tipo:
+- **`label`** → tamanho = `50×50 mm` (campos `labelW_mm × labelH_mm`). Remover do subtítulo.
+- **`cv`** → tamanho = `30×40 cm` (a partir de `largura_m × altura_m`). Remover do subtítulo.
+- **`print`** → tamanho = formato (`A4`, `A3`, `SRA3`) quando existir.
+- **`booklet`** → tamanho = `N páginas` (`bookletPages`) — única "dimensão" útil para apostila.
+- **`third` / `supply` / `labor`** → sem tamanho, título inalterado.
 
-## 2. Subtítulo padronizado dos cards
+## Subtítulos finais
 
-Em `src/components/orcamentos-v3/cart/UnifiedCart.tsx`, função `itemSubtitle`:
+- `label`: `papel + gramatura | acabamento`
+- `cv`: `mídia | impressão | acabamentos`
+- `print`: `papel + gramatura | Frente/Verso | acabamentos`
+- `booklet`: `papel + gramatura | Frente/Verso`
 
-**Hoje (print):** `5 folhas | Couche 300g | Frente`
-**Novo (print):** `Couche 300g | Frente | Laminação fosca`
+## Arquivo
 
-Mudanças:
-- **`print`** — remover `N folhas`. Manter `papel + gramatura` e `Frente/Frente-Verso`. Acrescentar nomes dos acabamentos selecionados (`finishings` ou `finishing_selections[].name`) ao final, separados por `|`.
-- **`booklet`** — remover `N folhas`. Manter `papel + gramatura`, `Frente`/`Frente-Verso`, e acrescentar `finishings`.
-- **`label`** — manter dimensões + papel/gramatura (já estão corretos). Acrescentar `finishings` se houver.
-- **`cv`** — manter dimensões + mídia + impressão. Acrescentar acabamentos pelo nome (`finishings` legado ou ignorar IDs sem nome resolvido).
-- **`booklet/labor/third/supply`** — sem mudança além das já citadas.
-
-Sobre "ao lado dos cartões de visita tá mencionando couchê": o subtítulo no screenshot mostrava `5 folhas | Couche 300g | Frente`, padrão de `print` (e não `cv`). Como o título já carrega o nome do produto, o subtítulo passa a ser **apenas características de produção**: tipo de papel, gramatura, frente/verso e acabamentos.
-
-## Arquivos
-
-- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` (grid)
-- `src/components/orcamentos-v3/cart/UnifiedCart.tsx` (`itemSubtitle`)
+- `src/components/orcamentos-v3/cart/UnifiedCart.tsx` (helpers `itemTitle` e `itemSubtitle`)

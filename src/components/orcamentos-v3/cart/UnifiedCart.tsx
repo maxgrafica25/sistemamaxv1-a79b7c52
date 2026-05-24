@@ -85,14 +85,12 @@ function itemSubtitle(it: V3Item): string {
       break;
     }
     case "label": {
-      parts.push(`${it.labelW_mm}×${it.labelH_mm} mm`);
       if (it.paper_type) parts.push(`${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}`);
       if (it.finishing_nome) parts.push(it.finishing_nome);
       break;
     }
 
     case "cv": {
-      parts.push(`${(it.largura_m * 100).toFixed(0)}×${(it.altura_m * 100).toFixed(0)} cm`);
       if (it.midia_nome) parts.push(it.midia_nome);
       if (it.impressao_nome) parts.push(it.impressao_nome);
       (it.finishings ?? []).forEach((n) => parts.push(n));
@@ -161,11 +159,28 @@ function rawName(it: V3Item): string {
   return DEFAULT_NAME[it.kind];
 }
 
+function itemSize(it: V3Item): string {
+  switch (it.kind) {
+    case "label":
+      return `${it.labelW_mm}×${it.labelH_mm} mm`;
+    case "cv":
+      return `${(it.largura_m * 100).toFixed(0)}×${(it.altura_m * 100).toFixed(0)} cm`;
+    case "print":
+      return (it as { formato?: string | null }).formato ?? "";
+    case "booklet":
+      return it.bookletPages ? `${it.bookletPages} pág.` : "";
+    default:
+      return "";
+  }
+}
+
 function itemTitle(it: V3Item): string {
   const qty = itemQty(it);
   const name = pluralizePt(rawName(it), qty);
-  return `${qty.toLocaleString("pt-BR")} un. - ${name}`;
+  const size = itemSize(it);
+  return `${qty.toLocaleString("pt-BR")} un. - ${name}${size ? ` ${size}` : ""}`;
 }
+
 
 
 type FinRow = { label: string; value: string; tone?: "muted" | "default" | "strong"; className?: string };
