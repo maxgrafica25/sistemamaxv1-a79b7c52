@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 type Msg = { role: "user" | "assistant"; content: string; timestamp: number };
 
 const HIDDEN_ROUTES = ["/auth", "/reset-password"];
+const HIDDEN_ROUTE_PATTERNS = [/^\/orcamentos-v3\/novo$/, /^\/orcamentos-v3\/[^/]+\/editar$/];
 
 export default function AssistenteButton() {
   const { user } = useAuth();
@@ -47,6 +48,7 @@ export default function AssistenteButton() {
 
   if (!user) return null;
   if (HIDDEN_ROUTES.includes(pathname)) return null;
+  if (HIDDEN_ROUTE_PATTERNS.some((re) => re.test(pathname))) return null;
 
   async function enviar(override?: string) {
     const pergunta = (override ?? input).trim();
