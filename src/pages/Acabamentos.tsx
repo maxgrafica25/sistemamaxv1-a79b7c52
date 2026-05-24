@@ -111,6 +111,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState<typeof emptyDraft & { id?: string }>(emptyDraft);
+  const [formMode, setFormMode] = useState<FormMode>("per_sheet");
   const [editing, setEditing] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [tiersFor, setTiersFor] = useState<FinishingItem | null>(null);
