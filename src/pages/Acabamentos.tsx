@@ -240,7 +240,8 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
         unit_label: item.unit_label,
         is_active: item.is_active,
         sort_order: item.sort_order,
-        production_step_id: item.production_step_id,
+        production_step_id: null,
+        time_minutes: item.time_minutes,
       })
       .select("id")
       .single();
