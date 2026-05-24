@@ -276,8 +276,9 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
             placeholder={
               catalog
                 ? `Padrão: ${catalog.paper_type}${catalog.grammage ? ` ${catalog.grammage}` : ""} — ${catalog.size} ${catalog.side}`
-                : "Selecione o item primeiro"
+                : `Selecione o ${substrateLabel.toLowerCase()} primeiro`
             }
+
             className="h-9"
           />
         </Field>
