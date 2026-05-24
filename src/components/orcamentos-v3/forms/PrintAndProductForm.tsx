@@ -350,6 +350,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onDescricaoChange={setDescricao}
             emptyDefaults
             substrateLabel={substrateLabel}
+            hideArtFinishings={hideArtFinishings}
           />
 
         )}
@@ -362,6 +363,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             descricao={descricao}
             onDescricaoChange={setDescricao}
             substrateLabel={substrateLabel}
+            hideArtFinishings={hideArtFinishings}
           />
         )}
 
