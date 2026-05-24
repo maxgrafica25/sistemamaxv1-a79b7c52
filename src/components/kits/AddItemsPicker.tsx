@@ -30,6 +30,7 @@ export type PickedItem = PickedSupply | PickedProcess;
 interface ProcessOption {
   id: string;
   description: string;
+  production_step_id?: string | null;
 }
 
 const normalize = (s: string) =>
