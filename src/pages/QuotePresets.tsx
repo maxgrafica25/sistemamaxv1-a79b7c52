@@ -104,9 +104,10 @@ export default function QuotePresets() {
           .eq("is_active", true),
         listFinishings("impressao").catch(() => []),
       ]);
-      const uniq = Array.from(
+      const uniq: string[] = Array.from(
         new Set((papers ?? []).map((r: any) => String(r.paper_type ?? "").trim()).filter(Boolean)),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+      ) as string[];
+      uniq.sort((a, b) => a.localeCompare(b, "pt-BR"));
       setPaperOptions(uniq.map((p) => ({ value: p, group: paperCategory(p) })));
       setFinishingOptions(
         (finishings as any[])
