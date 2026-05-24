@@ -345,6 +345,8 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
           onChange={(v) => setState((s) => ({ ...s, art_status: v }))}
           terceirizadaValue={state.art_terceirizada_value ?? 0}
           onTerceirizadaValueChange={(v) => setState((s) => ({ ...s, art_terceirizada_value: v }))}
+          hourRate={hourRate}
+
         />
       </div>
 
