@@ -53,6 +53,31 @@ export function ArtePromptBlock({
         )}
       </div>
 
+      {/* Aviso: arte é cobrada uma única vez por orçamento */}
+      {isInternalTier && internalCost > 0 ? (
+        <p className="flex items-center gap-1.5 text-[11px] text-primary">
+          <Info className="h-3 w-3 shrink-0" />
+          <span>
+            Vai somar <strong>{fmtBRL(internalCost)}</strong> ao orçamento
+            ({ART_MINUTES[value!]} min × valor da hora) — uma única vez.
+          </span>
+        </p>
+      ) : isTerc && terceirizadaValue > 0 ? (
+        <p className="flex items-center gap-1.5 text-[11px] text-primary">
+          <Info className="h-3 w-3 shrink-0" />
+          <span>
+            Vai somar <strong>{fmtBRL(terceirizadaValue)}</strong> ao orçamento — uma única vez.
+          </span>
+        </p>
+      ) : (
+        <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Info className="h-3 w-3 shrink-0" />
+          <span>O custo da arte é cobrado uma única vez no orçamento — não por item.</span>
+        </p>
+      )}
+
+
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
