@@ -285,7 +285,12 @@ const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function Kit
         .select("id, name, product_kind, description, is_active")
         .order("name"),
       supabase.from("product_kit_items").select("kit_id"),
-      supabase.from("production_steps").select("id, description").order("description"),
+      (supabase as any)
+        .from("finishings_price_items")
+        .select("id, name, production_step_id, is_active")
+        .eq("is_active", true)
+        .not("production_step_id", "is", null)
+        .order("name"),
       supabase
         .from("quote_presets")
         .select("id, nome, icone, ativo, ordem")
@@ -294,7 +299,7 @@ const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function Kit
       supabase.from("product_kit_presets").select("kit_id, preset_id"),
     ]);
     if (kitsRes.error) handleError(kitsRes.error, "carregar kits");
-    if (procRes.error) handleError(procRes.error, "carregar processos");
+    if (procRes.error) handleError(procRes.error, "carregar acabamentos");
     if (presetsRes.error) handleError(presetsRes.error, "carregar produtos favoritos");
     const counts = new Map<string, number>();
     (itemsRes.data || []).forEach((i: any) => {
@@ -317,7 +322,11 @@ const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function Kit
         preset_ids: linksByKit.get(k.id) || [],
       })),
     );
-    setProcesses((procRes.data || []) as ProcessOption[]);
+    setProcesses(
+      ((procRes.data || []) as any[])
+        .filter((f) => f.production_step_id)
+        .map((f) => ({ id: f.production_step_id as string, description: f.name as string })),
+    );
     setAvailablePresets(
       ((presetsRes.data || []) as any[]).map((p) => ({
         id: p.id,
@@ -1458,7 +1467,7 @@ function ItemMorePopover({
 
         {item.item_type === "process" && (
           <div>
-            <Label className="text-xs">Processo</Label>
+            <Label className="text-xs">Acabamento</Label>
             <Select
               value={item.process_step_id ?? ""}
               onValueChange={(v) => {
@@ -1467,7 +1476,7 @@ function ItemMorePopover({
               }}
             >
               <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Selecionar processo…" />
+                <SelectValue placeholder="Selecionar acabamento…" />
               </SelectTrigger>
               <SelectContent>
                 {processes.map((p) => (

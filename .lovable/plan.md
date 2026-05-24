@@ -1,36 +1,52 @@
-# Etiqueta em cm + nomes dos sub-acabamentos para cartões
+## Objetivo
 
-## 1. Etiquetas: tamanho em cm
+Evitar duplicidade entre **Acabamentos** (cadastro precificado) e os itens do **Kit de Produto**. Hoje a aba "Processos" do picker lista todos os `production_steps` (granulares, sem preço), permitindo selecionar etapas avulsas que duplicam acabamentos já cadastrados (ex.: "Corte de 100 Cartões de visita" vs. "Corte reto").
 
-Em `src/components/orcamentos-v3/cart/UnifiedCart.tsx`, `itemSize`:
+## Mudanças
 
-```ts
-case "label": {
-  const w = (it.labelW_mm / 10).toFixed(1).replace(".", ",").replace(/,0$/, "");
-  const h = (it.labelH_mm / 10).toFixed(1).replace(".", ",").replace(/,0$/, "");
-  return `${w}×${h} cm`;
-}
-```
+### 1. Picker (`src/components/kits/AddItemsPicker.tsx`)
 
-(`50×50 mm` → `5×5 cm`; `35×45 mm` → `3,5×4,5 cm`)
+Renomear a aba **Processos → Acabamentos** e trocar a fonte:
 
-## 2. Cartões: listar sub-acabamentos, não o grupo
+- Entrada: nova prop `finishings: { id, name, production_step_id }[]` em vez de `processes`.
+- Lista somente registros de `finishings_price_items` que tenham `production_step_id` vinculado (os sem vínculo são ocultados — não podem ser usados no kit).
+- Ao confirmar, devolve `PickedProcess` com `id = production_step_id` e `label = finishing.name`, mantendo o contrato atual com o restante do código.
+- Sugestões automáticas e filtro de busca usam o `name` do acabamento.
+- Ícone `Cog` → `Scissors` (Lucide) para reforçar "Acabamento".
 
-Hoje em `BusinessCardForm.submit()` o card grava `finishings: enabledLabels` onde cada label é o **nome do grupo de etapas** (`p.name`). Os sub-acabamentos reais ficam em `production_steps` ligados via `step_group_id` e são carregados lazy quando o usuário expande.
+### 2. Página do kit (`src/pages/KitsProduto.tsx`)
 
-Mudança em `src/components/orcamentos-v3/forms/BusinessCardForm.tsx`:
+- Carregar `finishings_price_items` (`id, name, production_step_id, is_active`) junto dos dados iniciais e passar `finishings` (apenas ativos com `production_step_id`) para o picker, no lugar de `processes`.
+- Em `CompactItemRow`, quando `item.item_type === "process"`, o select de "Processo" passa a se chamar **Acabamento** e lista os mesmos `finishings` ativos. O valor salvo continua sendo `process_step_id` (o `production_step_id` do acabamento) e `process_label` recebe o nome do acabamento.
+- Cabeçalhos e textos auxiliares: "Adicionar acabamentos" mantém; troca "Selecionar processo…" → "Selecionar acabamento…"; rótulos "Processos" → "Acabamentos" onde aparecem.
 
-1. No `submit`, **carregar de forma síncrona** os sub-itens de todos os processos selecionados que ainda não estão em `subItemsCache` (usar `loadSubItems` em paralelo + aguardar). Manter o cache em memória.
-2. Para cada `p` em `selectedProcs`:
-   - Se há sub-itens, expandir `p.name` em uma lista de strings `subItems[i].description`.
-   - Se não há `step_group_id` ou o grupo está vazio, manter `p.name` como fallback.
-3. `enabledLabels` (usado em `finishings`) e `finishing_selections[i].name` passam a refletir essa lista expandida — cada sub-item vira um item separado em `finishings`, e em `finishing_selections` agrupa-se sob o mesmo `id`/`price` (mantendo só o cálculo de custo intacto).
+### 3. Suprimentos (aba Suprimentos)
 
-Atalho mais simples para preservar o custo: manter `finishing_selections` como hoje (1 entrada por grupo, com `price`/`cost` somando o grupo), mas trocar `name` para `"sub1, sub2, sub3"`. E em `finishings` (array de strings exibido nos cards), usar a mesma lista plana de sub-itens.
+Sem mudanças funcionais — segue puxando de `useV3Supplies`. Mantém o atalho de Encadernação Espiral.
 
-Como `UnifiedCart.itemSubtitle` para `print` prioriza `finishing_selections[].name` antes de `finishings`, basta ajustar essa string ali.
+### 4. Compatibilidade com kits antigos
 
-## Arquivos
+- Não há migração de dados. Itens já salvos com `process_step_id` que não correspondam a um `finishings_price_items.production_step_id` ainda aparecem no kit (mostrando o `process_label` salvo), mas o select de troca só oferecerá acabamentos cadastrados — forçando a normalização ao editar.
+- Se quiser, adicionar badge "fora do cadastro" nesses casos para o admin migrar manualmente (opcional, posso incluir).
 
-- `src/components/orcamentos-v3/cart/UnifiedCart.tsx` (`itemSize` para label)
-- `src/components/orcamentos-v3/forms/BusinessCardForm.tsx` (carregar sub-itens no submit e expandir nomes)
+## Detalhes técnicos
+
+- Tipos no picker:
+  ```ts
+  interface FinishingOption { id: string; name: string; production_step_id: string; }
+  ```
+  `PickedProcess.id` permanece sendo `production_step_id` (sem mudança de schema).
+- Query nova em `KitsProduto.tsx`:
+  ```ts
+  supabase.from("finishings_price_items")
+    .select("id, name, production_step_id, is_active")
+    .eq("is_active", true)
+    .not("production_step_id", "is", null)
+    .order("name");
+  ```
+- Sem alteração de tabelas/RLS.
+
+## Arquivos afetados
+
+- `src/components/kits/AddItemsPicker.tsx`
+- `src/pages/KitsProduto.tsx`
