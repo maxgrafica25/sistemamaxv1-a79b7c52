@@ -32,9 +32,12 @@ interface Props {
   /** Quando true, começa com todos os campos vazios (modo Personalizado). */
   emptyDefaults?: boolean;
   defaultMarginPct?: number;
+  /** Rótulo do seletor de substrato (default "Papel"; em Crachá vira "Cartão PVC"). */
+  substrateLabel?: string;
 }
 
-export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults, defaultMarginPct = 20 }: Props) {
+export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults, defaultMarginPct = 20, substrateLabel = "Papel" }: Props) {
+
   const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers, settings } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
