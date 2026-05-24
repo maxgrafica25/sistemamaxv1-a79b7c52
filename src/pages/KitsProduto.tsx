@@ -289,7 +289,6 @@ const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function Kit
         .from("finishings_price_items")
         .select("id, name, production_step_id, is_active")
         .eq("is_active", true)
-        .not("production_step_id", "is", null)
         .order("name"),
       supabase
         .from("quote_presets")
