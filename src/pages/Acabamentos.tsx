@@ -589,13 +589,13 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                       <TableCell className="font-medium">
                         <span className="inline-flex items-center gap-1.5">
                           {item.name}
-                          {item.production_step_id && stepById.get(item.production_step_id) && (
+                          {item.time_minutes > 0 && (
                             <span
                               className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground"
-                              title={`Etapa: ${stepById.get(item.production_step_id)!.description} (${stepById.get(item.production_step_id)!.time_minutes} min)`}
+                              title={`Tempo de execução: ${item.time_minutes} min`}
                             >
                               <Clock className="h-3 w-3" />
-                              {stepById.get(item.production_step_id)!.time_minutes}m
+                              {item.time_minutes}m
                             </span>
                           )}
                         </span>
