@@ -72,28 +72,31 @@ function itemSubtitle(it: V3Item): string {
   const parts: string[] = [];
   switch (it.kind) {
     case "print": {
-      const qty = itemQty(it);
-      parts.push(`${qty.toLocaleString("pt-BR")} folhas`);
       if (it.paper_type) parts.push(`${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}`);
       const side = sideLabel(it.side);
       if (side) parts.push(side);
+      const finNames = it.finishing_selections?.map((f) => f.name).filter(Boolean) ?? it.finishings ?? [];
+      finNames.forEach((n) => parts.push(n));
       break;
     }
     case "booklet": {
-      parts.push(`${it.bookletPages} folhas`);
       if (it.paper_type) parts.push(`${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}`);
       parts.push(it.bookletDuplex ? "Frente/Verso" : "Frente");
+      (it.finishings ?? []).forEach((n) => parts.push(n));
       break;
     }
     case "label": {
       parts.push(`${it.labelW_mm}×${it.labelH_mm} mm`);
       if (it.paper_type) parts.push(`${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}`);
+      const finNames = it.finishing_selections?.map((f) => f.name).filter(Boolean) ?? it.finishings ?? [];
+      finNames.forEach((n) => parts.push(n));
       break;
     }
     case "cv": {
       parts.push(`${(it.largura_m * 100).toFixed(0)}×${(it.altura_m * 100).toFixed(0)} cm`);
       if (it.midia_nome) parts.push(it.midia_nome);
       if (it.impressao_nome) parts.push(it.impressao_nome);
+      (it.finishings ?? []).forEach((n) => parts.push(n));
       break;
     }
     case "third": {
@@ -112,6 +115,7 @@ function itemSubtitle(it: V3Item): string {
   }
   return parts.join(" | ");
 }
+
 
 const DEFAULT_NAME: Record<V3Item["kind"], string> = {
   print: "Impresso personalizado",
