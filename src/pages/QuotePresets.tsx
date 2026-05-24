@@ -179,9 +179,9 @@ export default function QuotePresets() {
       is_banner: form.is_banner,
       midia_tipo: form.midia_tipo || null,
       midia_nome_match: form.midia_nome_match.trim() || null,
-      papel_inclui: csv(form.papel_inclui),
-      papel_exclui: csv(form.papel_exclui),
-      acabamentos_sugeridos: csv(form.acabamentos_sugeridos),
+      papel_inclui: form.papel_inclui,
+      papel_exclui: form.papel_exclui,
+      acabamentos_sugeridos: form.acabamentos_sugeridos,
     };
     setBusy(true);
     if (editing) {
