@@ -1481,11 +1481,19 @@ function ItemMorePopover({
                 <SelectValue placeholder="Selecionar acabamento…" />
               </SelectTrigger>
               <SelectContent>
-                {processes.map((p) => (
-                  <SelectItem key={p.id} value={p.id} className="text-xs">
-                    {p.description}
-                  </SelectItem>
-                ))}
+                {processes.map((p) => {
+                  const noStep = p.production_step_id === null;
+                  return (
+                    <SelectItem key={p.id} value={p.id} className="text-xs" disabled={noStep}>
+                      {p.description}
+                      {noStep && (
+                        <span className="ml-1 text-[10px] text-muted-foreground">
+                          (sem etapa vinculada)
+                        </span>
+                      )}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
