@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,9 +36,11 @@ interface Props {
   substrateLabel?: string;
   /** Quando true, oculta acabamentos cujo nome começa com "Arte" (a arte já foi resolvida globalmente). */
   hideArtFinishings?: boolean;
+  /** Quando true, pré-liga todos os acabamentos disponíveis como sugestão (modo Personalizado). */
+  suggestAllFinishings?: boolean;
 }
 
-export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults, defaultMarginPct = 20, substrateLabel = "Papel", hideArtFinishings = false }: Props) {
+export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults, defaultMarginPct = 20, substrateLabel = "Papel", hideArtFinishings = false, suggestAllFinishings = false }: Props) {
 
   const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers, settings } = useV3Catalog();
@@ -65,6 +67,22 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
       )
       .catch(() => setPrintFinishings([]));
   }, [hideArtFinishings]);
+
+  // Em modo Personalizado, pré-liga todos os acabamentos como sugestão (uma vez).
+  const didSuggestRef = useRef(false);
+  useEffect(() => {
+    if (!suggestAllFinishings) return;
+    if (didSuggestRef.current) return;
+    if (printFinishings.length === 0) return;
+    didSuggestRef.current = true;
+    setFinEnabled((m) => {
+      const next = { ...m };
+      for (const f of printFinishings) next[f.id] = true;
+      return next;
+    });
+  }, [suggestAllFinishings, printFinishings]);
+
+
 
   // Lona / banner
   // Conjunto de acabamentos derivado do catálogo unificado.

@@ -292,6 +292,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             emptyDefaults
             substrateLabel={substrateLabel}
             hideArtFinishings={hideArtFinishings}
+            suggestAllFinishings
           />
 
         )}

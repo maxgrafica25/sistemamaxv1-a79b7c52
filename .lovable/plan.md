@@ -1,25 +1,20 @@
-# Título do card: quantidade + produto + tamanho
+# Sugerir todos acabamentos no modo Personalizado
 
-Atualizar `itemTitle` em `src/components/orcamentos-v3/cart/UnifiedCart.tsx` para incluir o tamanho do produto após o nome, e remover o tamanho do `itemSubtitle`.
+No formulário de impressão, quando "Personalizado" está selecionado (chip padrão de "Produtos favoritos"), o card de Acabamentos hoje mostra todas as opções **desligadas**. O catálogo já filtra por `applies_to: ["impressao"]`, então acabamentos de CV (tabela própria `cv_calc_acabamentos`) não entram nessa lista.
 
-## Formato novo
+## Mudança
 
-`{qty} un. - {Nome} {tamanho}`
+1. `src/components/orcamentos-v3/forms/PrintForm.tsx`
+   - Aceitar nova prop `suggestAllFinishings?: boolean`.
+   - Quando `true` e o catálogo `printFinishings` carregar, **pré-ligar todos os chips** (`setFinEnabled` com cada `id: true`) na primeira carga.
+   - Garante que o filtro existente (`hideArtFinishings`) continua removendo acabamentos de Arte se aplicável.
 
-Por tipo:
-- **`label`** → tamanho = `50×50 mm` (campos `labelW_mm × labelH_mm`). Remover do subtítulo.
-- **`cv`** → tamanho = `30×40 cm` (a partir de `largura_m × altura_m`). Remover do subtítulo.
-- **`print`** → tamanho = formato (`A4`, `A3`, `SRA3`) quando existir.
-- **`booklet`** → tamanho = `N páginas` (`bookletPages`) — única "dimensão" útil para apostila.
-- **`third` / `supply` / `labor`** → sem tamanho, título inalterado.
+2. `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`
+   - Passar `suggestAllFinishings={isCustom}` na instância do `PrintForm` usada no modo Personalizado (linhas 284-296).
 
-## Subtítulos finais
+Resultado: ao abrir Personalizado, todos os acabamentos de impressão vêm marcados como sugestão. O usuário pode desmarcar o que não quiser. Acabamentos de CV continuam fora porque pertencem a outro catálogo.
 
-- `label`: `papel + gramatura | acabamento`
-- `cv`: `mídia | impressão | acabamentos`
-- `print`: `papel + gramatura | Frente/Verso | acabamentos`
-- `booklet`: `papel + gramatura | Frente/Verso`
+## Arquivos
 
-## Arquivo
-
-- `src/components/orcamentos-v3/cart/UnifiedCart.tsx` (helpers `itemTitle` e `itemSubtitle`)
+- `src/components/orcamentos-v3/forms/PrintForm.tsx`
+- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`
