@@ -1,22 +1,29 @@
-# Resumo Financeiro só com itens solicitados
+# Renomear Presets → Produtos Favoritos + título da seção + remover Desfavoritar
 
-## Problema
-`summarize()` em `src/components/orcamentos-v3/shared/pricing.ts` soma todos os itens, incluindo as **sugestões de faixas** (tier siblings). No grupo de tiers, apenas o item com `tier_primary: true` representa a quantidade solicitada; os demais são sugestões e não devem afetar Subtotal/Total/Margem.
+## Contexto
+No `/orcamentos-v3/novo`, dentro do `PrintAndProductForm`, os chips de presets aparecem soltos, sem título, e ainda existe o botão "Desfavoritar" — redundante, já que a página `/presets-orcamento` permite excluir. A memória do projeto já usa o termo **"Produtos Favoritos"** (ver Kit ↔ Produtos Favoritos), então adotamos esse nome de forma consistente.
 
-## Mudança
-Em `summarize()`, pular itens que tenham `tier_group_id` definido e `tier_primary !== true`:
+## Mudanças
 
-```ts
-for (const it of items) {
-  const tg = (it as { tier_group_id?: string | null }).tier_group_id;
-  const isPrimary = (it as { tier_primary?: boolean }).tier_primary === true;
-  if (tg && !isPrimary) continue;
-  const p = priceOf(it);
-  subtotal += p.preco_total;
-  cost += p.custo_total;
-}
-```
+### 1. `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`
+- Acima da linha de chips (linha ~200), adicionar um cabeçalho:
+  ```
+  <Label>Produtos favoritos</Label>
+  <p className="text-xs text-muted-foreground">
+    Atalhos rápidos com combinações salvas. Escolha um ou use "Personalizado".
+  </p>
+  ```
+- Remover o bloco `{selectedPreset && (<Button ... Desfavoritar />)}` (linhas 262–274) e o `<AlertDialog>` de confirmação de desfavoritar (linhas 285+ até o fechamento).
+- Remover estado `presetToDelete`, callback de exclusão (linhas ~71, 88–103) e imports não usados (`Trash2`, `AlertDialog*`).
+- Manter botão "Salvar como favorito".
+
+### 2. `src/pages/QuotePresets.tsx`
+- Trocar título "Presets de Orçamento" → "Produtos Favoritos" (linha 189) e ajustar textos/descritivos da página para "favoritos" em vez de "presets".
+
+### 3. `src/components/Sidebar.tsx`
+- Linha 77: trocar `name: "Presets de Orçamento"` por `name: "Produtos Favoritos"`. Rota `/presets-orcamento` permanece (sem quebrar links existentes).
 
 ## Fora de escopo
-- UI do carrinho continua mostrando todas as faixas com economia.
-- Snapshot persistido do orçamento não é alterado.
+- Renomear tabela `quote_presets` no banco, identificadores internos, ou a rota da URL.
+- Alterar lógica de salvar/carregar favoritos.
+- Mexer em `LabelPresets` da calculadora de etiquetas (contexto diferente).
