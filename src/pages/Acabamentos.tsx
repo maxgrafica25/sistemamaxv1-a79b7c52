@@ -175,6 +175,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
       is_active: draft.is_active,
       sort_order: draft.sort_order,
       production_step_id: draft.production_step_id,
+      time_minutes: Math.max(0, Math.round(draft.time_minutes || 0)),
     };
     let error;
     if (draft.id) {
