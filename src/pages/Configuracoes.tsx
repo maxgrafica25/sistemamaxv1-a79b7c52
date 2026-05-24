@@ -303,7 +303,7 @@ export default function Configuracoes() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Regime de cálculo de preço</CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Define como impostos, taxas e margem são aplicados nos orçamentos (Impressão, V3, Comunicação Visual e Etiquetas). Não afeta orçamentos já salvos.
+                  Define como impostos, taxas e margem são aplicados em <strong>Orçamentos V3</strong>, <strong>Comunicação Visual</strong> e <strong>Etiquetas</strong>. Não afeta orçamentos já salvos.
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
