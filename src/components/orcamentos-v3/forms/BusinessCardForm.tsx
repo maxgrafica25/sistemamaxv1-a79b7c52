@@ -238,19 +238,41 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const canAdd =
     !!effectiveItem && qtdCartoes > 0 && sheets > 0 && (pricing?.sellingPrice ?? 0) > 0;
 
-  const submit = () => {
+  const submit = async () => {
     if (!canAdd || !effectiveItem || !pricing) return;
+
+    // Carrega sub-itens (production_steps) de todos os grupos selecionados
+    // para podermos mostrar os nomes reais dos acabamentos no card do orçamento.
+    const groupIds = Array.from(
+      new Set(selectedProcs.map((p) => p.step_group_id).filter((g): g is string => !!g)),
+    );
+    await Promise.all(groupIds.map((g) => loadSubItems(g)));
+
+    // Re-lê cache após o await (closures: usamos setSubItemsCache callback para snapshot atual)
+    let snapshot: Record<string, FinishingSubItem[]> = subItemsCache;
+    setSubItemsCache((m) => {
+      snapshot = m;
+      return m;
+    });
+
+    const expandNames = (p: typeof selectedProcs[number]): string[] => {
+      const subs = p.step_group_id ? snapshot[p.step_group_id] : undefined;
+      if (subs && subs.length > 0) return subs.map((s) => s.description).filter(Boolean);
+      return [p.name];
+    };
+
     const sel = selectedProcs.map((p) => {
       const cost = procCost(p.minutes);
       return {
         id: p.key,
-        name: p.name,
+        name: expandNames(p).join(", "),
         pricing_model: "per_unit" as const,
         unit_label: "min",
         price: cost,
         cost,
       };
     });
+    const flatLabels = selectedProcs.flatMap(expandNames);
     const extra = finishingExtraPerSheet;
     const faceLabel = face === "fv" ? "Frente e Verso" : "Frente";
     const defaultDesc = `Cartão de visita ${layout.cardW / 10}×${layout.cardH / 10}cm — Couchê 300g ${faceLabel} (${qtdCartoes} un)`;
@@ -272,7 +294,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
       formato: null,
       cores: null,
       face: face === "fv" ? "fv" : "frente",
-      finishings: enabledLabels,
+      finishings: flatLabels,
       finishing_selections: sel,
     };
     onAdd(item);
