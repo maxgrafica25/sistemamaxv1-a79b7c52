@@ -1,75 +1,31 @@
-# Selects cadastrados para Papel inclui/exclui e Acabamentos sugeridos
+# Ações rápidas no editor de orçamento
 
-## Contexto
-Hoje os campos em `src/pages/QuotePresets.tsx` (linhas 385–396) são `<Input>` de texto livre — fácil errar grafia (ex: "couchê" vs "couche") e o usuário não vê o que está cadastrado. Vamos trocar por seletores baseados no catálogo real.
+Hoje os botões **Gerar PDF**, **Copiar link público** e **Enviar no WhatsApp** existem só na listagem (`/orcamentos`). Quando você abre um orçamento para editar (`/orcamentos-v3/:id/editar`), não tem como disparar essas ações sem voltar pra lista. Vamos trazê-los para o header do editor.
 
-## Catálogo
-- Papéis: `SELECT DISTINCT paper_type FROM printing_price_items WHERE is_active`.
-- Acabamentos: `listFinishings("impressao")` de `src/lib/finishings/catalog.ts`.
+## O que muda
 
-## Componente novo
-Criar `src/components/orcamentos-v3/shared/ChipMultiPicker.tsx`:
-- Props: `label`, `options: { value: string; group?: string }[]`, `value: string[]`, `onChange(next)`, `groupLabels?: Record<string,string>`, `emptyHint?`.
-- Render: para cada grupo, mostra o nome do grupo + botão pequeno **"+ Todos deste tipo"** e a lista de chips clicáveis (toggle). Chips selecionados ficam preenchidos com `primary`; não selecionados com borda.
-- Acima dos grupos: botões **"Selecionar todos"** e **"Limpar"**.
-- Reutilizável para Papel inclui, Papel exclui e Acabamentos sugeridos (sem agrupamento neste último).
+No header de `NewQuoteFormV3.tsx`, ao lado do botão **Salvar alterações**, adicionar três botões-ícone que aparecem **somente em modo edição** (quando o orçamento já tem número):
 
-## Carregamento dos catálogos
-Em `QuotePresets.tsx`:
-- Adicionar `useEffect` que ao montar busca:
-  - `paperTypes` via `supabase.from("printing_price_items").select("paper_type").eq("is_active", true)` → distinct + classificar por categoria com helper:
-    ```ts
-    function paperCategory(name: string): "adesivo" | "cartao" | "papel" {
-      const n = name.toLowerCase();
-      if (/adesiv/.test(n)) return "adesivo";
-      if (/crach|pvc|cart(a|ã)o/.test(n)) return "cartao";
-      return "papel";
-    }
-    ```
-    `groupLabels = { papel: "Papel comum", adesivo: "Adesivo", cartao: "Cartão / PVC" }`.
-  - `finishings` via `listFinishings("impressao")` → options `{ value: f.name }` (sem grupo).
-- Guardar em estado: `paperOptions`, `finishingOptions`.
+1. **Copiar link público** (ícone `Link2`) — copia `/p/{quote_number}` para a área de transferência, igual ao `handleCopyPublicLink` da listagem.
+2. **Gerar PDF** (ícone `FileDown`) — reaproveita o `handleGeneratePDF` da listagem (mesma função usada lá).
+3. **WhatsApp pro cliente** (ícone `MessageCircle`, verde) — só aparece se o cliente tiver telefone cadastrado; abre `wa.me` com `buildTeamFollowUpMessage` (mesma mensagem de follow-up da listagem).
 
-## Mudanças no FormState
-- Trocar `papel_inclui: string` → `papel_inclui: string[]`.
-- Idem `papel_exclui`, `acabamentos_sugeridos`.
-- Em `EMPTY`: arrays vazios.
-- Em `openEdit`: usar diretamente `p.papel_inclui ?? []` (sem `.join`).
-- Em `handleSave`: enviar arrays direto, remover helper `csv()` desses três campos (manter função se usada em outro lugar — não está).
+## Detalhes técnicos
 
-## UI no diálogo (linhas 380–398)
-Substituir os três `<Input>` por:
-```tsx
-<ChipMultiPicker
-  label="Papel inclui"
-  options={paperOptions}
-  value={form.papel_inclui}
-  onChange={(v) => setForm({ ...form, papel_inclui: v })}
-  groupLabels={PAPER_GROUP_LABELS}
-  emptyHint="Nenhum papel cadastrado"
-/>
-<ChipMultiPicker
-  label="Papel exclui (opcional)"
-  options={paperOptions}
-  value={form.papel_exclui}
-  onChange={(v) => setForm({ ...form, papel_exclui: v })}
-  groupLabels={PAPER_GROUP_LABELS}
-/>
-<ChipMultiPicker
-  label="Acabamentos sugeridos"
-  options={finishingOptions}
-  value={form.acabamentos_sugeridos}
-  onChange={(v) => setForm({ ...form, acabamentos_sugeridos: v })}
-  emptyHint="Cadastre acabamentos em Preço Impressão"
-/>
-```
+- **Detecção de modo "já salvo"**: usar `isEditing && editMeta` (já existe). Em criação nova, os botões ficam ocultos — você precisa salvar primeiro.
+- **Telefone do cliente**: hoje o editor carrega só `cliente.id` e `cliente.nome`. Adicionar fetch leve do `telefone` em `clients` quando `state.cliente.id` mudar (ou estender o loader de edição). Guardar em `clientPhone` local.
+- **Reuso de lógica**: extrair as funções `handleCopyPublicLink`, `handleGeneratePDF` e `handleWhatsAppClient` de `OrcamentosV3.tsx` para um helper `src/lib/quotes/quick-actions.ts` para não duplicar código. A listagem passa a importar do helper também.
+- **Layout**: agrupar os três ícones com `variant="ghost" size="icon"` num `<div className="flex items-center gap-1">` antes do botão Salvar. No mobile, manter os mesmos ícones (cabem bem).
+- **Tooltip/title**: mesmos textos da listagem ("Copiar link público", "Gerar PDF", "Contatar cliente no WhatsApp").
 
-## Compatibilidade com dados antigos
-Os valores hoje salvos como texto livre podem não bater exatamente com `paper_type` cadastrado. Comportamento:
-- Ao abrir um preset existente, qualquer valor em `papel_inclui` que não exista mais no catálogo aparece como chip **inativo** com badge "fora do catálogo" e botão `×` para remover. Isso evita perder dados silenciosamente.
-- Ao salvar, mantém os valores como vieram (sem normalizar grafia automaticamente).
+## Fora do escopo
 
-## Fora de escopo
-- Não alterar o schema do banco (continua `text[]`).
-- Não alterar a forma como `productSuggester.ts` consome `papel_inclui`/`acabamentos_sugeridos` — comparações já são case-insensitive.
-- Não mexer em mídia (lona/adesivo/chapa) do bloco CV.
+- Não mexer no formulário de criação (novo orçamento sem ID).
+- Não alterar a listagem além da refatoração de extrair helpers.
+- Não trocar mensagem de WhatsApp nem template do PDF.
+
+## Arquivos afetados
+
+- `src/lib/quotes/quick-actions.ts` (novo)
+- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` (header + fetch de telefone)
+- `src/pages/orcamentos-v3/OrcamentosV3.tsx` (usar o helper compartilhado)
