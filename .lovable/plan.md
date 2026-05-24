@@ -1,20 +1,36 @@
-# Sugerir todos acabamentos no modo Personalizado
+# Etiqueta em cm + nomes dos sub-acabamentos para cartões
 
-No formulário de impressão, quando "Personalizado" está selecionado (chip padrão de "Produtos favoritos"), o card de Acabamentos hoje mostra todas as opções **desligadas**. O catálogo já filtra por `applies_to: ["impressao"]`, então acabamentos de CV (tabela própria `cv_calc_acabamentos`) não entram nessa lista.
+## 1. Etiquetas: tamanho em cm
 
-## Mudança
+Em `src/components/orcamentos-v3/cart/UnifiedCart.tsx`, `itemSize`:
 
-1. `src/components/orcamentos-v3/forms/PrintForm.tsx`
-   - Aceitar nova prop `suggestAllFinishings?: boolean`.
-   - Quando `true` e o catálogo `printFinishings` carregar, **pré-ligar todos os chips** (`setFinEnabled` com cada `id: true`) na primeira carga.
-   - Garante que o filtro existente (`hideArtFinishings`) continua removendo acabamentos de Arte se aplicável.
+```ts
+case "label": {
+  const w = (it.labelW_mm / 10).toFixed(1).replace(".", ",").replace(/,0$/, "");
+  const h = (it.labelH_mm / 10).toFixed(1).replace(".", ",").replace(/,0$/, "");
+  return `${w}×${h} cm`;
+}
+```
 
-2. `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`
-   - Passar `suggestAllFinishings={isCustom}` na instância do `PrintForm` usada no modo Personalizado (linhas 284-296).
+(`50×50 mm` → `5×5 cm`; `35×45 mm` → `3,5×4,5 cm`)
 
-Resultado: ao abrir Personalizado, todos os acabamentos de impressão vêm marcados como sugestão. O usuário pode desmarcar o que não quiser. Acabamentos de CV continuam fora porque pertencem a outro catálogo.
+## 2. Cartões: listar sub-acabamentos, não o grupo
+
+Hoje em `BusinessCardForm.submit()` o card grava `finishings: enabledLabels` onde cada label é o **nome do grupo de etapas** (`p.name`). Os sub-acabamentos reais ficam em `production_steps` ligados via `step_group_id` e são carregados lazy quando o usuário expande.
+
+Mudança em `src/components/orcamentos-v3/forms/BusinessCardForm.tsx`:
+
+1. No `submit`, **carregar de forma síncrona** os sub-itens de todos os processos selecionados que ainda não estão em `subItemsCache` (usar `loadSubItems` em paralelo + aguardar). Manter o cache em memória.
+2. Para cada `p` em `selectedProcs`:
+   - Se há sub-itens, expandir `p.name` em uma lista de strings `subItems[i].description`.
+   - Se não há `step_group_id` ou o grupo está vazio, manter `p.name` como fallback.
+3. `enabledLabels` (usado em `finishings`) e `finishing_selections[i].name` passam a refletir essa lista expandida — cada sub-item vira um item separado em `finishings`, e em `finishing_selections` agrupa-se sob o mesmo `id`/`price` (mantendo só o cálculo de custo intacto).
+
+Atalho mais simples para preservar o custo: manter `finishing_selections` como hoje (1 entrada por grupo, com `price`/`cost` somando o grupo), mas trocar `name` para `"sub1, sub2, sub3"`. E em `finishings` (array de strings exibido nos cards), usar a mesma lista plana de sub-itens.
+
+Como `UnifiedCart.itemSubtitle` para `print` prioriza `finishing_selections[].name` antes de `finishings`, basta ajustar essa string ali.
 
 ## Arquivos
 
-- `src/components/orcamentos-v3/forms/PrintForm.tsx`
-- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`
+- `src/components/orcamentos-v3/cart/UnifiedCart.tsx` (`itemSize` para label)
+- `src/components/orcamentos-v3/forms/BusinessCardForm.tsx` (carregar sub-itens no submit e expandir nomes)
