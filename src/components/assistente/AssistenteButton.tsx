@@ -48,6 +48,7 @@ export default function AssistenteButton() {
 
   if (!user) return null;
   if (HIDDEN_ROUTES.includes(pathname)) return null;
+  if (HIDDEN_ROUTE_PATTERNS.some((re) => re.test(pathname))) return null;
 
   async function enviar(override?: string) {
     const pergunta = (override ?? input).trim();
