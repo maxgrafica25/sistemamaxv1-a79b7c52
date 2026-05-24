@@ -295,6 +295,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
         size: item.size,
         price_per_sheet: item.price_per_sheet,
         pricing_model: item.pricing_model,
+        auto_format_multiplier: item.auto_format_multiplier,
         applies_to: DEFAULT_APPLIES_TO,
         unit_label: item.unit_label,
         is_active: item.is_active,
