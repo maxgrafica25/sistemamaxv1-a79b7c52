@@ -167,7 +167,18 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
     setSuggestion(null);
   };
 
+  // Substrato do produto: padrão "Papel"; crachá usa "Cartão PVC".
+  const substrateLabel = useMemo(() => {
+    const nome = selectedPreset?.nome ?? "";
+    const norm = nome
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    return /crach/.test(norm) ? "Cartão PVC" : "Papel";
+  }, [selectedPreset]);
+
   return (
+
     <div className="space-y-5">
 
 
@@ -337,7 +348,9 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             descricao={descricao}
             onDescricaoChange={setDescricao}
             emptyDefaults
+            substrateLabel={substrateLabel}
           />
+
         )}
         {!treatAsBusinessCard && !isCustom && formTipo === "print" && (
           <PrintForm
@@ -347,8 +360,10 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             defaultMarginPct={defaultMarginPct}
             descricao={descricao}
             onDescricaoChange={setDescricao}
+            substrateLabel={substrateLabel}
           />
         )}
+
         {!treatAsBusinessCard && !isCustom && formTipo === "booklet" && (
           <BookletForm
             onAdd={wrappedOnAdd}
