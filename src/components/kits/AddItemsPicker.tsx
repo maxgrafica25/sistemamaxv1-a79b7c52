@@ -30,6 +30,7 @@ export type PickedItem = PickedSupply | PickedProcess;
 interface ProcessOption {
   id: string;
   description: string;
+  production_step_id?: string | null;
 }
 
 const normalize = (s: string) =>
@@ -162,10 +163,10 @@ export default function AddItemsPicker({
         const s = supplies.find((x) => x.id === id)!;
         return { kind: "supply" as const, id, label: s?.produto ?? "" };
       }),
-      ...Array.from(selProc).map((id) => {
-        const p = processes.find((x) => x.id === id)!;
-        return { kind: "process" as const, id, label: p?.description ?? "" };
-      }),
+      ...Array.from(selProc)
+        .map((id) => processes.find((x) => x.id === id))
+        .filter((p): p is ProcessOption => !!p && p.production_step_id !== null)
+        .map((p) => ({ kind: "process" as const, id: p.id, label: p.description })),
     ];
     onConfirm(items);
     reset();
@@ -273,17 +274,29 @@ export default function AddItemsPicker({
                     />
                     {suggestedProcesses.map((p) => {
                       const checked = selProc.has(p.id);
+                      const noStep = p.production_step_id === null;
                       return (
                         <label
                           key={p.id}
-                          className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-primary/5 bg-primary/[0.03]"
+                          className={
+                            "flex items-center gap-2 px-3 py-2 " +
+                            (noStep
+                              ? "opacity-60 cursor-not-allowed"
+                              : "cursor-pointer hover:bg-primary/5 bg-primary/[0.03]")
+                          }
                         >
                           <Checkbox
                             checked={checked}
-                            onCheckedChange={() => toggle(selProc, p.id, setSelProc)}
+                            disabled={noStep}
+                            onCheckedChange={() => !noStep && toggle(selProc, p.id, setSelProc)}
                           />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm truncate">{p.description}</p>
+                            {noStep && (
+                              <p className="text-[10px] text-muted-foreground">
+                                Vincule uma etapa de produção no cadastro de Acabamentos
+                              </p>
+                            )}
                           </div>
                         </label>
                       );
@@ -295,17 +308,27 @@ export default function AddItemsPicker({
                 )}
                 {filteredProc.map((p) => {
                   const checked = selProc.has(p.id);
+                  const noStep = p.production_step_id === null;
                   return (
                     <label
                       key={p.id}
-                      className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/50"
+                      className={
+                        "flex items-center gap-2 px-3 py-2 " +
+                        (noStep ? "opacity-60 cursor-not-allowed" : "cursor-pointer hover:bg-muted/50")
+                      }
                     >
                       <Checkbox
                         checked={checked}
-                        onCheckedChange={() => toggle(selProc, p.id, setSelProc)}
+                        disabled={noStep}
+                        onCheckedChange={() => !noStep && toggle(selProc, p.id, setSelProc)}
                       />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm truncate">{p.description}</p>
+                        {noStep && (
+                          <p className="text-[10px] text-muted-foreground">
+                            Vincule uma etapa de produção no cadastro de Acabamentos
+                          </p>
+                        )}
                       </div>
                     </label>
                   );

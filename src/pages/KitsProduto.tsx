@@ -201,6 +201,7 @@ function suggestPresets(
 interface ProcessOption {
   id: string;
   description: string;
+  production_step_id?: string | null;
 }
 
 function formulaBadge(it: KitItem): string {
@@ -289,7 +290,6 @@ const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function Kit
         .from("finishings_price_items")
         .select("id, name, production_step_id, is_active")
         .eq("is_active", true)
-        .not("production_step_id", "is", null)
         .order("name"),
       supabase
         .from("quote_presets")
@@ -323,9 +323,11 @@ const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function Kit
       })),
     );
     setProcesses(
-      ((procRes.data || []) as any[])
-        .filter((f) => f.production_step_id)
-        .map((f) => ({ id: f.production_step_id as string, description: f.name as string })),
+      ((procRes.data || []) as any[]).map((f) => ({
+        id: (f.production_step_id as string | null) ?? `nostep:${f.id}`,
+        description: f.name as string,
+        production_step_id: (f.production_step_id as string | null) ?? null,
+      })),
     );
     setAvailablePresets(
       ((presetsRes.data || []) as any[]).map((p) => ({
@@ -1479,11 +1481,19 @@ function ItemMorePopover({
                 <SelectValue placeholder="Selecionar acabamento…" />
               </SelectTrigger>
               <SelectContent>
-                {processes.map((p) => (
-                  <SelectItem key={p.id} value={p.id} className="text-xs">
-                    {p.description}
-                  </SelectItem>
-                ))}
+                {processes.map((p) => {
+                  const noStep = p.production_step_id === null;
+                  return (
+                    <SelectItem key={p.id} value={p.id} className="text-xs" disabled={noStep}>
+                      {p.description}
+                      {noStep && (
+                        <span className="ml-1 text-[10px] text-muted-foreground">
+                          (sem etapa vinculada)
+                        </span>
+                      )}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
