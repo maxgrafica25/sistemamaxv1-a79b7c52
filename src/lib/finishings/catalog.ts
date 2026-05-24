@@ -25,6 +25,12 @@ export interface FinishingItem {
   size: string | null;
   price_per_sheet: number;
   pricing_model: FinishingPricingModel;
+  /** Quando true, o preço escala automaticamente pelo formato da folha
+   *  (A3/SRA3 = 2x A4) e por impressão frente e verso (2x).
+   *  Substitui conceitualmente "per_sheet"/"per_unit": todo acabamento é
+   *  por unidade; este flag liga o multiplicador automático (laminação,
+   *  plastificação, verniz, etc.). */
+  auto_format_multiplier: boolean;
   applies_to: FinishingContext[];
   unit_label: string | null;
   is_active: boolean;
