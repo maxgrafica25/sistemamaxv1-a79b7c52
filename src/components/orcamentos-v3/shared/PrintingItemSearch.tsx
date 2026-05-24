@@ -66,7 +66,7 @@ const calcSellingPrice = (baseCost: number, tier: MarkupTier, _globals?: { invoi
   return Math.round((baseCost / divisor) * 10) / 10;
 };
 
-export default function PrintingItemSearch({ items, onSelect, markupTiers, globalSettings }: PrintingItemSearchProps) {
+export default function PrintingItemSearch({ items, onSelect, markupTiers, globalSettings, placeholder }: PrintingItemSearchProps) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
