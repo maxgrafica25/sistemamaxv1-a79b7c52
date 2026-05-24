@@ -316,10 +316,24 @@ interface CardActionsProps {
   onDuplicate?: () => void;
   onRemove: () => void;
   removeTitle?: string;
+  onToggleExpand?: () => void;
+  expanded?: boolean;
 }
-function CardActions({ onDuplicate, onRemove, removeTitle = "Excluir" }: CardActionsProps) {
+function CardActions({ onDuplicate, onRemove, removeTitle = "Excluir", onToggleExpand, expanded }: CardActionsProps) {
   return (
     <div className="flex items-center gap-0.5 shrink-0 opacity-40 hover:opacity-100 active:opacity-100 focus-within:opacity-100 transition-opacity">
+      {onToggleExpand && (
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6 mr-1"
+          onClick={onToggleExpand}
+          title={expanded ? "Ocultar detalhes" : "Ver detalhes"}
+        >
+          {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        </Button>
+      )}
       {onDuplicate && (
         <Button
           type="button"
