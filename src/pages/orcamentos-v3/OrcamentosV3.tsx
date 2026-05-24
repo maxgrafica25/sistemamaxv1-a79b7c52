@@ -30,7 +30,7 @@ import { Lock } from "lucide-react";
 import { parseOptions } from "@/lib/quotes/options";
 import { buildStatsMap, computeTemperature, type EngagementStats, type Temperature } from "@/lib/quotes/temperature";
 import type { EngagementEventType } from "@/lib/quotes/tracking";
-import { buildTeamFollowUpMessage, buildWaUrl } from "@/lib/quotes/whatsapp";
+import { copyPublicQuoteLink, generateQuotePdf, openWhatsAppForClient } from "@/lib/quotes/quick-actions";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { QuoteStatusBadge } from "@/components/orcamentos-v3/shared/QuoteStatusBadge";
 import PageLoader from "@/components/PageLoader";
