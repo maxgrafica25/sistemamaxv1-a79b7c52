@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Search, Package, Cog, Loader2, Sparkles } from "lucide-react";
+import { Search, Package, Scissors, Loader2, Sparkles } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useV3Supplies } from "@/components/orcamentos-v3/shared/useV3Supplies";
 
