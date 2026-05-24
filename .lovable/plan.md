@@ -1,81 +1,54 @@
+# Regime de cálculo configurável: por dentro × por fora
+
 ## Objetivo
+Introduzir um toggle global **"Regime de cálculo de preço"** que define como impostos, taxas e margem são aplicados nos módulos Impressão, V3, CV e Etiquetas. Default **"por fora"** (comportamento atual) para não impactar preços já praticados. Quem quiser margem contabilmente correta ativa **"por dentro"**.
 
-Simplificar o cadastro de acabamentos gráficos: todo acabamento passa a ser "Por unidade" por padrão, com um toggle opcional que ativa o multiplicador automático de formato (A3/SRA3 = 2x, F/V = 2x) — usado hoje em laminação/plastificação e disponível para qualquer acabamento no futuro. UX com explicações inline para evitar confusão.
+## Mudanças
 
-## Modelo conceitual (3 modos)
+### 1. Banco — `global_settings`
+Adicionar coluna:
+- `pricing_regime` (text, default `'por_fora'`, check em `('por_fora','por_dentro')`)
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ Modo de cobrança                                            │
-├─────────────────────────────────────────────────────────────┤
-│ ○ Por unidade                                               │
-│   Cobra o preço cheio por folha/peça processada.            │
-│   Use para: ilhós, dobra, vinco, furo, refile, wire-o…      │
-│                                                             │
-│ ○ Por unidade com multiplicador de formato                  │
-│   Cobra o preço base e multiplica conforme o formato        │
-│   da folha e impressão F/V. Configurável global.            │
-│   Use para: laminação, plastificação, verniz, hot stamping… │
-│   ┌─────────────────────────────────────────────────────┐  │
-│   │ Multiplicadores ativos:                             │  │
-│   │   A4: 1x  •  A3/SRA3: 2x  •  Frente e verso: 2x    │  │
-│   │   (stack até 4x — ex: SRA3 F/V = 4x)               │  │
-│   └─────────────────────────────────────────────────────┘  │
-│                                                             │
-│ ○ Somente tempo (sem cobrança)                              │
-│   Não soma valor no orçamento — apenas registra os          │
-│   minutos de mão de obra para cálculo de tempo de           │
-│   produção. Use para: conferência, embalagem, controle…     │
-└─────────────────────────────────────────────────────────────┘
-```
+### 2. Hook `useGlobalSettings`
+Expor `pricing_regime` no objeto retornado, com default `'por_fora'`.
 
-## Migração de dados
+### 3. Engine de cálculo — `src/components/orcamentos-v3/shared/pricing.ts`
+Na função `summarize()`:
+- **por_fora** (atual): `preço = custo × (1 + margem%)`, depois imposto/taxa aplicados sobre o preço.
+- **por_dentro** (novo): `preço = custo / (1 − (imposto + taxa + margem)/100)` no nível do item ou do subtotal, mantendo a margem real igual à configurada.
 
-Coluna nova `auto_format_multiplier boolean default false` em `finishings_price_items`. Backfill:
+Estratégia: aplicar o divisor no nível do **subtotal final** (não item-a-item) para não mexer nos `priceOf*()` individuais — eles continuam mostrando o "preço bruto" do item; o ajuste por_dentro acontece em `summarize()` que retorna `total` corrigido.
 
-- Quem hoje tem `pricing_model = 'per_sheet'` → `auto_format_multiplier = true`.
-- Quem hoje tem `pricing_model = 'per_unit'` → `auto_format_multiplier = false`.
-- `pricing_model` permanece na tabela como legado (não removemos agora — código novo lê só o flag).
+### 4. CV engine — `src/lib/cv-pricing/engine.ts`
+`calcularItemCV` recebe parâmetro opcional `regime` (default `por_fora`). Quando `por_dentro`, aplica divisor no `preco_total` final usando os mesmos percentuais globais (imposto + taxa + margem global).
 
-Resultado: nenhum preço muda; comportamento idêntico ao atual no primeiro deploy.
+### 5. Etiquetas — `src/lib/labels/sheet-pricing.ts` e afins
+Mesmo padrão: aceitar `regime` e aplicar divisor no preço final quando `por_dentro`.
 
-## Mudanças por arquivo
+### 6. UI de configuração
+Em **Configurações → Pricing/Global Settings** (ou seção existente), adicionar:
+- Toggle **"Regime de cálculo de preço"** com 2 opções:
+  - **Por fora** (padrão) — "Margem aplicada sobre o custo. Impostos e taxas saem da margem. Preços menores, margem real abaixo da nominal."
+  - **Por dentro** (contábil) — "Impostos, taxas e margem embutidos no preço final via divisor. Margem real = margem configurada. Preços maiores."
+- Alerta visual ao trocar: "Isso afetará todos os novos orçamentos. Orçamentos salvos mantêm os preços já registrados."
 
-### Banco
-- **Migração**: adiciona `auto_format_multiplier`, faz backfill, mantém `pricing_model` por compatibilidade.
+### 7. FinancialPanel — mostrar regime ativo
+Pequeno badge "Por fora" / "Por dentro" no `FinancialPanel.tsx` para o operador saber em que regime está calculando.
 
-### `src/pages/Acabamentos.tsx`
-- Substitui o `Select` "Modelo de cobrança" pelo grupo de 3 opções acima (radio cards com título + descrição curta + exemplos de uso).
-- Quando "com multiplicador" estiver selecionado, mostra um info-box compacto listando os multiplicadores globais ativos (lê de `globalSettings`).
-- "Somente tempo" continua escondendo preço e exigindo `time_minutes > 0`.
-- `save()`: grava `auto_format_multiplier` em vez de derivar do `pricing_model`. Para retrocompat, também escreve `pricing_model` coerente (`per_sheet` se flag ligado, senão `per_unit`).
-- Coluna na tabela ganha badge `×formato` (ícone Lucide + tooltip explicando) ao lado de itens com flag ligado, em vez do rótulo "Por folha/Por unidade".
-
-### `src/lib/finishings/catalog.ts`
-- `FinishingItem` ganha `auto_format_multiplier: boolean`.
-- Helpers de cálculo (`calcFinishingCost`, `sumFinishingsPerSheet`) passam a olhar o novo flag. `pricing_model` ainda é lido como fallback para registros antigos enquanto a migração não rodou no usuário.
-
-### `src/lib/labels/sheet-pricing.ts` e callers
-- Onde hoje branch-a por `pricing_model === 'per_sheet'` para aplicar multiplicador, passa a branch-ar por `auto_format_multiplier`. Comportamento numérico idêntico.
-
-### `src/integrations/supabase/types.ts`
-- Regenerado automaticamente após a migração.
-
-## UX — capricho
-
-1. **Radio cards**, não dropdown — ver a explicação dos 3 modos de uma vez evita o "qual eu escolho?".
-2. **Exemplos concretos** em cada modo ("Use para: ilhós, dobra…") — usuário identifica o caso dele rapidamente.
-3. **Info-box dinâmico** do multiplicador lê os valores reais do sistema, então se mudar global de 2x pra 1.8x, o cadastro reflete sem código novo.
-4. **Badge `×formato`** na listagem com tooltip explica por que aquele item escala — elimina a dúvida "por que SRA3 ficou 2x?".
-5. **Sem termos técnicos**: nada de "per_sheet"/"per_unit" na UI; só "Por unidade" e "com multiplicador de formato".
-6. **Migração transparente**: nenhum acabamento existente muda de preço; o usuário só nota a tela de cadastro mais clara.
-
-## Riscos e mitigação
-
-- **Risco**: cálculo legado em algum lugar ainda lê `pricing_model`. **Mitigação**: grep do projeto inteiro por `pricing_model` durante implementação; manter escrita dupla (flag + pricing_model coerente) por enquanto.
-- **Risco**: usuário ligar o multiplicador num acabamento que não deveria escalar. **Mitigação**: descrição clara + badge visível na listagem para auditoria.
+### 8. Snapshot histórico
+Orçamentos salvos já guardam `preco_total` no item — não retroage. Só novos cálculos respeitam o novo regime.
 
 ## Fora de escopo
+- Migração de orçamentos antigos.
+- Kits/`kitPricing.ts` — já é por dentro, fica como está.
+- Mudar default para `por_dentro` (decisão futura).
 
-- Não mexer em Comunicação Visual (`cv_calc_acabamentos`) — modelo lá é outro.
-- Não remover `pricing_model` da tabela agora — fica para uma limpeza futura quando todos os ambientes estiverem atualizados.
+## Detalhes técnicos
+- Tabela `global_settings` é singleton (1 linha). Migration adiciona coluna com default e atualiza a linha existente.
+- `summarize()` mantém assinatura, mas passa a aceitar `regime` opcional vindo de `useGlobalSettings`. Componentes que chamam `summarize` precisam passar o regime — usar contexto ou prop drilling curto.
+- Fórmula por_dentro no subtotal:
+  ```
+  divisor = 1 − (taxPct + feesPct + marginPct) / 100
+  total = cost / divisor      (se divisor > 0)
+  ```
+  Validação: se `divisor ≤ 0` (soma ≥ 100%), cair para por_fora e avisar no UI.

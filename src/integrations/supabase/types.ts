@@ -1418,6 +1418,7 @@ export type Database = {
           default_margin_pct: number
           id: string
           invoice_pct: number
+          pricing_regime: string
           tax_pct: number
           updated_at: string
           waste_pct: number
@@ -1431,6 +1432,7 @@ export type Database = {
           default_margin_pct?: number
           id?: string
           invoice_pct?: number
+          pricing_regime?: string
           tax_pct?: number
           updated_at?: string
           waste_pct?: number
@@ -1444,6 +1446,7 @@ export type Database = {
           default_margin_pct?: number
           id?: string
           invoice_pct?: number
+          pricing_regime?: string
           tax_pct?: number
           updated_at?: string
           waste_pct?: number
