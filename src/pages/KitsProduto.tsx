@@ -322,7 +322,11 @@ const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function Kit
         preset_ids: linksByKit.get(k.id) || [],
       })),
     );
-    setProcesses((procRes.data || []) as ProcessOption[]);
+    setProcesses(
+      ((procRes.data || []) as any[])
+        .filter((f) => f.production_step_id)
+        .map((f) => ({ id: f.production_step_id as string, description: f.name as string })),
+    );
     setAvailablePresets(
       ((presetsRes.data || []) as any[]).map((p) => ({
         id: p.id,
