@@ -85,14 +85,12 @@ function itemSubtitle(it: V3Item): string {
       break;
     }
     case "label": {
-      parts.push(`${it.labelW_mm}×${it.labelH_mm} mm`);
       if (it.paper_type) parts.push(`${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}`);
       if (it.finishing_nome) parts.push(it.finishing_nome);
       break;
     }
 
     case "cv": {
-      parts.push(`${(it.largura_m * 100).toFixed(0)}×${(it.altura_m * 100).toFixed(0)} cm`);
       if (it.midia_nome) parts.push(it.midia_nome);
       if (it.impressao_nome) parts.push(it.impressao_nome);
       (it.finishings ?? []).forEach((n) => parts.push(n));
