@@ -903,8 +903,8 @@ function RowCells({
           {CATEGORIES.find((c) => c.value === item.category)?.label ?? item.category}
         </Badge>
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
-        {item.pricing_model === "per_sheet" ? "Por folha" : "Por unidade"}
+      <TableCell>
+        <CobrancaCell hasMultiplier={hasMultiplier} isTimeOnly={isTimeOnly} />
       </TableCell>
       <TableCell className="text-right font-semibold tabular-nums">
         {fmt(item.price_per_sheet)}
