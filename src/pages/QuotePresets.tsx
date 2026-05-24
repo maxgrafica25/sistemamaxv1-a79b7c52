@@ -91,7 +91,33 @@ export default function QuotePresets() {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [busy, setBusy] = useState(false);
   const [filtroModulo, setFiltroModulo] = useState<"todos" | "cv" | "impressao" | "ambos">("todos");
+  const [paperOptions, setPaperOptions] = useState<ChipOption[]>([]);
+  const [finishingOptions, setFinishingOptions] = useState<ChipOption[]>([]);
   const { requireAdmin } = usePermissionGuard();
+
+  useEffect(() => {
+    (async () => {
+      const [{ data: papers }, finishings] = await Promise.all([
+        (supabase as any)
+          .from("printing_price_items")
+          .select("paper_type")
+          .eq("is_active", true),
+        listFinishings("impressao").catch(() => []),
+      ]);
+      const uniq = Array.from(
+        new Set((papers ?? []).map((r: any) => String(r.paper_type ?? "").trim()).filter(Boolean)),
+      ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+      setPaperOptions(uniq.map((p) => ({ value: p, group: paperCategory(p) })));
+      setFinishingOptions(
+        (finishings as any[])
+          .map((f) => String(f.name ?? "").trim())
+          .filter(Boolean)
+          .filter((v, i, arr) => arr.indexOf(v) === i)
+          .map((v) => ({ value: v })),
+      );
+    })();
+  }, []);
+
 
   const fetchAll = async () => {
     setLoading(true);
