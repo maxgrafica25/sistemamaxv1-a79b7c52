@@ -63,6 +63,12 @@ const CATEGORIES = [
 
 const DEFAULT_APPLIES_TO = ["etiqueta", "impressao"];
 type PricingModel = "per_sheet" | "per_unit";
+type FormMode = "per_sheet" | "per_unit" | "time_only";
+
+const detectFormMode = (item: { pricing_model: PricingModel; price_per_sheet: number; time_minutes: number }): FormMode => {
+  if (item.price_per_sheet === 0 && item.time_minutes > 0) return "time_only";
+  return item.pricing_model;
+};
 
 interface FinishingItem {
   id: string;
@@ -105,6 +111,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState<typeof emptyDraft & { id?: string }>(emptyDraft);
+  const [formMode, setFormMode] = useState<FormMode>("per_sheet");
   const [editing, setEditing] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [tiersFor, setTiersFor] = useState<FinishingItem | null>(null);
@@ -149,17 +156,20 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
       ...emptyDraft,
       sort_order: (items[items.length - 1]?.sort_order ?? 0) + 1,
     });
+    setFormMode("per_sheet");
     setEditing(true);
   };
 
   const startEdit = (item: FinishingItem) => {
     setDraft({ ...item });
+    setFormMode(detectFormMode(item));
     setEditing(true);
   };
 
   const cancelEdit = () => {
     setEditing(false);
     setDraft(emptyDraft);
+    setFormMode("per_sheet");
   };
 
   const save = async () => {
@@ -168,25 +178,32 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
       toast.error("Nome é obrigatório");
       return;
     }
-    if (draft.price_per_sheet < 0) {
+    if (formMode !== "time_only" && draft.price_per_sheet < 0) {
       toast.error("Preço não pode ser negativo");
       return;
     }
-    if (draft.pricing_model === "per_sheet" && !draft.size) {
+    if (formMode === "per_sheet" && !draft.size) {
       toast.error("Modelo por folha exige selecionar o tamanho");
       return;
     }
+    if (formMode === "time_only" && (!draft.time_minutes || draft.time_minutes <= 0)) {
+      toast.error("Modo \"Somente tempo\" exige tempo de execução maior que zero");
+      return;
+    }
+
+    const isTimeOnly = formMode === "time_only";
+    const effectiveModel: PricingModel = isTimeOnly ? "per_unit" : formMode;
 
     const payload = {
       name: draft.name.trim(),
       category: draft.category,
-      size: draft.pricing_model === "per_unit" ? null : draft.size,
-      price_per_sheet: draft.price_per_sheet,
-      pricing_model: draft.pricing_model,
+      size: effectiveModel === "per_unit" ? null : draft.size,
+      price_per_sheet: isTimeOnly ? 0 : draft.price_per_sheet,
+      pricing_model: effectiveModel,
       applies_to: DEFAULT_APPLIES_TO,
       unit_label:
-        draft.pricing_model === "per_unit"
-          ? draft.unit_label?.trim() || "unidade"
+        effectiveModel === "per_unit"
+          ? (isTimeOnly ? "serviço" : (draft.unit_label?.trim() || "unidade"))
           : null,
       is_active: draft.is_active,
       sort_order: draft.sort_order,
@@ -379,14 +396,16 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                 <div className="space-y-1.5">
                   <Label className="text-xs">Modelo de cobrança</Label>
                   <Select
-                    value={draft.pricing_model}
-                    onValueChange={(v: PricingModel) =>
-                      setDraft({
-                        ...draft,
-                        pricing_model: v,
-                        size: v === "per_unit" ? null : draft.size ?? "SRA3",
-                      })
-                    }
+                    value={formMode}
+                    onValueChange={(v: FormMode) => {
+                      setFormMode(v);
+                      setDraft((d) => ({
+                        ...d,
+                        pricing_model: v === "time_only" ? "per_unit" : v,
+                        size: v === "per_sheet" ? (d.size ?? "SRA3") : null,
+                        price_per_sheet: v === "time_only" ? 0 : d.price_per_sheet,
+                      }));
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -394,50 +413,53 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                     <SelectContent>
                       <SelectItem value="per_sheet">Por folha</SelectItem>
                       <SelectItem value="per_unit">Por unidade</SelectItem>
+                      <SelectItem value="time_only">Somente tempo (sem cobrança)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                {draft.pricing_model === "per_sheet" ? (
+              {formMode !== "time_only" && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {formMode === "per_sheet" ? (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Tamanho da folha</Label>
+                      <Select
+                        value={draft.size ?? ""}
+                        onValueChange={(v) => setDraft({ ...draft, size: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SIZES.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <div /> /* spacer */
+                  )}
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Tamanho da folha</Label>
-                    <Select
-                      value={draft.size ?? ""}
-                      onValueChange={(v) => setDraft({ ...draft, size: v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SIZES.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-xs">
+                      Preço por {formMode === "per_sheet" ? "folha" : "unidade"} (R$)
+                    </Label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.10"
+                      min={0}
+                      value={draft.price_per_sheet}
+                      onChange={(e) =>
+                        setDraft({ ...draft, price_per_sheet: parseFloat(e.target.value) || 0 })
+                      }
+                    />
                   </div>
-                ) : (
-                  <div /> /* spacer */
-                )}
-                <div className="space-y-1.5">
-                  <Label className="text-xs">
-                    Preço por {draft.pricing_model === "per_sheet" ? "folha" : "unidade"} (R$)
-                  </Label>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.10"
-                    min={0}
-                    value={draft.price_per_sheet}
-                    onChange={(e) =>
-                      setDraft({ ...draft, price_per_sheet: parseFloat(e.target.value) || 0 })
-                    }
-                  />
                 </div>
-              </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
