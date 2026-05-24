@@ -73,7 +73,8 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
   useEffect(() => {
     if (isEditing) return;
     if (hydrated) {
-      setState(hydrated);
+      // A pergunta da arte é respondida fresca por orçamento — não restaurar.
+      setState({ ...hydrated, art_status: null, art_terceirizada_value: 0 });
       toast.info("Rascunho restaurado", {
         description: "Recuperamos o que estava em andamento.",
       });
