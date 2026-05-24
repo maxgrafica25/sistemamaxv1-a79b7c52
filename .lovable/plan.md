@@ -1,19 +1,19 @@
-# Carrinho mais enxuto: só a quantidade solicitada
+# Detalhes expandidos por padrão (admin) em todos os itens
 
-Hoje o carrinho do editor mostra cada grupo de faixas (`tier_group_id`) com a quantidade **solicitada** + todas as **sugestões** (faixas alternativas) em linhas abaixo, com economia %. Isso aperta a coluna lateral de 360px.
+Hoje só o card de bundle/single tem o botão "detalhes" e ele começa recolhido. Cards de grupo de faixas (tiers) nem têm detalhes. Para admins, queremos abrir tudo de cara em todos os tipos de card.
 
-## O que muda
+## O que muda em `UnifiedCart.tsx`
 
-- **No editor (UnifiedCart, desktop + mobile)**: renderizar apenas a faixa primária (`tier_primary`) de cada grupo. As outras faixas continuam no `state.items` e são salvas normalmente — só não aparecem visualmente.
-- O grupo passa a se parecer com um item "single", mas mantém o ícone de excluir-grupo (remove todas as faixas de uma vez).
-- Adicionar uma legenda discreta abaixo do título: *"+ N faixa(s) sugerida(s) ao cliente"* quando houver tiers extras, pra deixar claro que existem alternativas guardadas.
+1. **SingleCard** — `useState(showFinancials)` em vez de `useState(false)`. Para admin começa aberto; colaborador segue sem o painel financeiro (e sem o botão também, já que `ExpandedDetails` só agrega valor quando há financeiro — mas mantém a opção `ver/ocultar` para o contexto técnico). Botão de toggle continua funcionando.
 
-## Fora do escopo (já funciona assim)
+2. **BundleCard** — mesmo tratamento: `useState(showFinancials)` para admins começarem com tudo aberto.
 
-- **Viewer online (`ClientViewerV3`)**: já exibe as faixas como opções de "outras quantidades" (radio por grupo) — não muda.
-- **WhatsApp / aceite**: já usa só a faixa escolhida pelo cliente — não muda.
-- **PDF**: hoje o PDF é só um cabeçalho com valor total (não lista itens). Continua assim — fica pra outra demanda quando você quiser PDF detalhado.
+3. **Tier group** (o card que mostra só a faixa solicitada): adicionar a mesma estrutura de toggle + `ExpandedDetails` usando o `primaryItem` como referência (`itemContext(primaryItem)` + `itemFinancials(primaryItem, pcts)`). Default expandido para admin.
+
+## Resultado
+
+Admin abre o orçamento e já vê para cada item: composição (Arte, Papel, Quantidade, Acabamentos…) + Custo material, Custo perda, Imposto, Taxa, Preço de venda e Lucro líquido com %. Pode recolher se quiser. Colaborador continua vendo só a linha resumida.
 
 ## Arquivo afetado
 
-- `src/components/orcamentos-v3/cart/UnifiedCart.tsx` — no branch `entry.type === "group"`, renderizar apenas `primaryItem` (reaproveitando o visual de `SingleCard` ou simplificando o `renderTierRow`) e adicionar a legenda de contagem.
+- `src/components/orcamentos-v3/cart/UnifiedCart.tsx`
