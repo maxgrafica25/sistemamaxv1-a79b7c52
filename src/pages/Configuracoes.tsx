@@ -351,6 +351,17 @@ export default function Configuracoes() {
                     A troca afeta apenas <strong>novos cálculos</strong>. Orçamentos já salvos mantêm os preços registrados. Recomendado validar o impacto comercial antes de migrar para "Por dentro".
                   </AlertDescription>
                 </Alert>
+                <div className="rounded-md border border-border bg-muted/40 p-3 flex gap-2">
+                  <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>
+                      <strong className="text-foreground">Preço de Impressão</strong> sempre calcula <strong>por dentro</strong>, via faixas de markup definidas em cada categoria de impressora (<code className="rounded bg-background px-1">preço = custo ÷ (1 − (custo fixo% + custo variável% + margem%) / 100)</code>).
+                    </p>
+                    <p>
+                      Esse módulo <strong>não é afetado</strong> por este toggle — a configuração acima vale apenas para Orçamentos V3, Comunicação Visual e Etiquetas.
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
