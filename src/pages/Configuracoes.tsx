@@ -99,6 +99,7 @@ export default function Configuracoes() {
         if ((settingsRes.data as any).tax_pct !== undefined) setTaxPct(String((settingsRes.data as any).tax_pct));
         if ((settingsRes.data as any).collection_fee_pct !== undefined) setCollectionFeePct(String((settingsRes.data as any).collection_fee_pct));
         if ((settingsRes.data as any).checklist_before_save !== undefined) setChecklistBeforeSave(!!(settingsRes.data as any).checklist_before_save);
+        if ((settingsRes.data as any).pricing_regime) setPricingRegime((settingsRes.data as any).pricing_regime as "por_fora" | "por_dentro");
       }
       setLoading(false);
     };
