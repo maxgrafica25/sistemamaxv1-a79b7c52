@@ -470,12 +470,6 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
               feesPct={state.fees_pct}
               wastePct={globalSettings.waste_pct}
             />
-            <QuoteAssistantPanelV3
-              items={state.items}
-              clientId={state.cliente.id}
-              clientName={state.cliente.nome}
-              checklistAnswers={checklistAnswers}
-            />
           </div>
           <div className="shrink-0 p-3 border-t border-border/60 bg-background">
             <FinancialPanel summary={summary} />
