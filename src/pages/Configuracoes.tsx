@@ -57,6 +57,7 @@ export default function Configuracoes() {
   const [taxPct, setTaxPct] = useState("10");
   const [collectionFeePct, setCollectionFeePct] = useState("7");
   const [checklistBeforeSave, setChecklistBeforeSave] = useState(true);
+  const [pricingRegime, setPricingRegime] = useState<"por_fora" | "por_dentro">("por_fora");
 
   // Backup state
   const [backupRuns, setBackupRuns] = useState<BackupRun[]>([]);
