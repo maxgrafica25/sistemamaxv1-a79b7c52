@@ -82,16 +82,15 @@ function itemSubtitle(it: V3Item): string {
     case "booklet": {
       if (it.paper_type) parts.push(`${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}`);
       parts.push(it.bookletDuplex ? "Frente/Verso" : "Frente");
-      (it.finishings ?? []).forEach((n) => parts.push(n));
       break;
     }
     case "label": {
       parts.push(`${it.labelW_mm}×${it.labelH_mm} mm`);
       if (it.paper_type) parts.push(`${it.paper_type}${it.grammage ? ` ${it.grammage}g` : ""}`);
-      const finNames = it.finishing_selections?.map((f) => f.name).filter(Boolean) ?? it.finishings ?? [];
-      finNames.forEach((n) => parts.push(n));
+      if (it.finishing_nome) parts.push(it.finishing_nome);
       break;
     }
+
     case "cv": {
       parts.push(`${(it.largura_m * 100).toFixed(0)}×${(it.altura_m * 100).toFixed(0)} cm`);
       if (it.midia_nome) parts.push(it.midia_nome);
