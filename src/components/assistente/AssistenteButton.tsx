@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 type Msg = { role: "user" | "assistant"; content: string; timestamp: number };
 
 const HIDDEN_ROUTES = ["/auth", "/reset-password"];
+const HIDDEN_ROUTE_PATTERNS = [/^\/orcamentos-v3\/novo$/, /^\/orcamentos-v3\/[^/]+\/editar$/];
 
 export default function AssistenteButton() {
   const { user } = useAuth();
