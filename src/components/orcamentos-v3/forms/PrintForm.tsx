@@ -433,10 +433,14 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, icon, highlight, className }: { label: string; children: React.ReactNode; icon?: React.ReactNode; highlight?: boolean; className?: string }) {
   return (
-    <div className="space-y-1.5">
-      <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+    <div className={cn("space-y-1.5", className)}>
+      <Label className={cn(
+        "text-xs uppercase tracking-wide inline-flex items-center gap-1.5",
+        highlight ? "text-primary font-semibold" : "text-muted-foreground",
+      )}>
+        {icon && <span className={highlight ? "text-primary" : "text-primary/70"}>{icon}</span>}
         {label}
       </Label>
       {children}
