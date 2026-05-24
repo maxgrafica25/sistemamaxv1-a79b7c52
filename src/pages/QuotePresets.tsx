@@ -30,7 +30,22 @@ import {
   PRESET_ICON_NAMES,
   iconFor,
 } from "@/components/orcamentos-v3/shared/presetIcons";
+import { ChipMultiPicker, type ChipOption } from "@/components/orcamentos-v3/shared/ChipMultiPicker";
+import { listFinishings } from "@/lib/finishings/catalog";
 import type { QuotePreset } from "@/components/orcamentos-v3/shared/useQuotePresets";
+
+const PAPER_GROUP_LABELS: Record<string, string> = {
+  papel: "Papel comum",
+  adesivo: "Adesivo",
+  cartao: "Cartão / PVC",
+};
+const PAPER_GROUP_ORDER = ["papel", "adesivo", "cartao"];
+function paperCategory(name: string): "adesivo" | "cartao" | "papel" {
+  const n = name.toLowerCase();
+  if (/adesiv/.test(n)) return "adesivo";
+  if (/crach|pvc|cart(a|\u00e3)o/.test(n)) return "cartao";
+  return "papel";
+}
 
 type FormState = {
   nome: string;
