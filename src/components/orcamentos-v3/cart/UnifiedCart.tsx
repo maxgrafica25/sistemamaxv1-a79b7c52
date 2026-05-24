@@ -643,14 +643,9 @@ function GroupCard({ entry, highlightId, onDuplicate, onRemove, pcts, showFinanc
           <Icon className="h-3 w-3" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-[13px] font-medium leading-tight truncate min-w-0 flex-1">
-              {itemTitle(primaryItem)}
-            </p>
-            <span className="text-[13px] font-semibold tabular-nums shrink-0 whitespace-nowrap">
-              {fmtBRL(primaryPrice)}
-            </span>
-          </div>
+          <p className="text-[13px] font-medium leading-tight truncate">
+            {itemTitle(primaryItem)}
+          </p>
           {itemSubtitle(primaryItem) && (
             <p className="text-[11px] text-muted-foreground truncate mt-0.5">{itemSubtitle(primaryItem)}</p>
           )}
@@ -667,6 +662,10 @@ function GroupCard({ entry, highlightId, onDuplicate, onRemove, pcts, showFinanc
           onRemove={() => entry.items.forEach((it) => onRemove(it.id))}
           removeTitle="Excluir grupo (todas as faixas)"
         />
+      </div>
+
+      <div className="mt-1 text-right text-[13px] font-semibold tabular-nums whitespace-nowrap">
+        {fmtBRL(primaryPrice)}
       </div>
 
 
