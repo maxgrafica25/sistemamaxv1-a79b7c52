@@ -56,7 +56,22 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
   const [editMeta, setEditMeta] = useState<{ quote_number: string; status: string } | null>(null);
   const [previewNumber, setPreviewNumber] = useState<string | null>(null);
   const [checklistAnswers, setChecklistAnswers] = useState<{ pergunta: string; resposta: string }[]>([]);
-  const { settings: globalSettings } = useGlobalSettings();
+  const { settings: globalSettings, loading: globalLoading } = useGlobalSettings();
+
+  // Seed inicial de imposto + taxa de cartão a partir das Configurações Globais
+  // (só aplica quando o estado ainda está em 0 — preserva valores de rascunhos salvos).
+  useEffect(() => {
+    if (globalLoading) return;
+    setState((s) => {
+      if (s.tax_pct !== 0 || s.fees_pct !== 0) return s;
+      return {
+        ...s,
+        tax_pct: globalSettings.tax_pct,
+        fees_pct: globalSettings.credit_card_pct,
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalLoading]);
   const { hourRate } = useHourRate();
   const { companyName } = useCompanySettings();
   const [clientPhone, setClientPhone] = useState<string | null>(null);

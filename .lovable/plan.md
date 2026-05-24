@@ -1,19 +1,23 @@
-# Toggle de detalhes ao lado de excluir + duplicar em todo card
+# Popular Imposto e Taxa cartão a partir das Configurações Globais
 
-## 1. Mover o toggle "detalhes / ocultar" para a área de ações
+## Causa
 
-Hoje o botão fica inline (texto + chevron) abaixo do título, ocupando espaço e variando de posição entre cards. Vou movê-lo para o cluster `CardActions` no canto superior direito, com um pequeno gap antes do excluir — assim a posição é padrão em todos os cards (single, bundle, group).
+O estado inicial do orçamento V3 (`DEFAULT_STATE` em `types.ts`) traz `tax_pct: 0` e `fees_pct: 0`. O `wastePct` é lido de `globalSettings`, mas tax/fees nunca recebem os valores do banco. Resultado: todo orçamento novo começa com Imposto 0% e Taxa cartão/fatura 0%, e essas linhas não somam nada no resumo financeiro.
 
-- Adicionar prop opcional em `CardActions`: `onToggleExpand?: () => void; expanded?: boolean`.
-- Renderizar um `Button` ícone (ChevronDown quando expandido, ChevronRight quando recolhido), com `mr-1` para criar o "pouco distante" do excluir.
-- Remover os botões inline atuais de `SingleCard`, `BundleCard` e `GroupCard`.
-- Comportamento padrão expandido para admin permanece.
+## Correção
 
-## 2. Garantir botão Duplicar em todo item
+Em `NewQuoteFormV3.tsx`, ao final do carregamento de `useGlobalSettings()`, sincronizar uma única vez no `state`:
 
-- **SingleCard / BundleCard:** já têm duplicar — sem mudança.
-- **GroupCard:** hoje só tem excluir. Adicionar `onDuplicate` que duplica **apenas o item primário** da faixa (não duplica todas as faixas — o usuário pode quiser reabrir o gerador de faixas depois). O `quick-actions.ts` / handler de duplicar do pai já gera um novo id sem `tier_group_id`, virando um single — comportamento esperado para "duplicar a base".
+- `state.tax_pct ← globalSettings.tax_pct` (imposto)
+- `state.fees_pct ← globalSettings.credit_card_pct` (apenas taxa de cartão, conforme escolhido)
+
+Implementação: `useEffect` disparado quando `loading` vira `false`, que aplica os valores apenas se o estado atual ainda estiver em 0 (não sobrescreve um orçamento já carregado com valores próprios — importante para edição de rascunhos salvos).
+
+Isso já reflete automaticamente em:
+- `summarize()` → totais de Impostos / Taxas no resumo financeiro
+- `UnifiedCart` (cards expandidos) → linhas "Imposto (X%)" e "Taxa cartão (X%)" com valores reais
+- Cálculo de Lucro líquido por item
 
 ## Arquivo afetado
 
-- `src/components/orcamentos-v3/cart/UnifiedCart.tsx`
+- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` (adiciona o `useEffect` de seed)
