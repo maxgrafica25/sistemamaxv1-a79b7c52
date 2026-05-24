@@ -52,7 +52,6 @@ interface StepGroup {
 
 // ─── Tab config ──────────────────────────────────────────────────────
 const tabConfig = [
-  { key: "etapas", label: "Etapas" },
   { key: "acabamentos", label: "Acabamentos" },
   { key: "grupos", label: "Grupos de Etapas" },
   { key: "grupos-materiais", label: "Grupos de Materiais" },
