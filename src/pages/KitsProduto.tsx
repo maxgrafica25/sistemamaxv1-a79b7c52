@@ -322,9 +322,11 @@ const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function Kit
       })),
     );
     setProcesses(
-      ((procRes.data || []) as any[])
-        .filter((f) => f.production_step_id)
-        .map((f) => ({ id: f.production_step_id as string, description: f.name as string })),
+      ((procRes.data || []) as any[]).map((f) => ({
+        id: (f.production_step_id as string | null) ?? `nostep:${f.id}`,
+        description: f.name as string,
+        production_step_id: (f.production_step_id as string | null) ?? null,
+      })),
     );
     setAvailablePresets(
       ((presetsRes.data || []) as any[]).map((p) => ({
