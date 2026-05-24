@@ -61,15 +61,6 @@ const tabConfig = [
 type TabKey = typeof tabConfig[number]["key"];
 
 const tabDescriptions: Record<TabKey, { icon: typeof Clock; text: ReactNode }> = {
-  etapas: {
-    icon: Clock,
-    text: (
-      <>
-        Cadastre cada etapa do processo de produção e o <strong>tempo de execução</strong> em minutos.
-        Esse tempo alimenta o cálculo de mão de obra dos orçamentos.
-      </>
-    ),
-  },
   acabamentos: {
     icon: Scissors,
     text: (
