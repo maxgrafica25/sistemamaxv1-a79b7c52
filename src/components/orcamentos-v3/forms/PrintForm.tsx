@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Check, Plus, Printer } from "lucide-react";
+import { Check, CreditCard, FileText, Plus, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PrintingItemSearch, {
   type PrintingCatalogItem,
@@ -286,12 +286,19 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
 
 
       {!catalog && (
-        <Field label={substrateLabel}>
+        <Field
+          key={substrateLabel}
+          label={substrateLabel}
+          icon={substrateLabel === "Papel" ? <FileText className="h-3 w-3" /> : <CreditCard className="h-3 w-3" />}
+          highlight={substrateLabel !== "Papel"}
+          className="animate-in fade-in slide-in-from-left-1 duration-300"
+        >
           <PrintingItemSearch
             items={items}
             markupTiers={tiers}
             globalSettings={settings}
             onSelect={(it) => setCatalog(it)}
+            placeholder={`Buscar ${substrateLabel.toLowerCase()} (nome, tamanho, impressora)...`}
           />
           {loading && (
             <p className="text-[11px] text-muted-foreground mt-1">Carregando catálogo…</p>
@@ -426,10 +433,14 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, icon, highlight, className }: { label: string; children: React.ReactNode; icon?: React.ReactNode; highlight?: boolean; className?: string }) {
   return (
-    <div className="space-y-1.5">
-      <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+    <div className={cn("space-y-1.5", className)}>
+      <Label className={cn(
+        "text-xs uppercase tracking-wide inline-flex items-center gap-1.5",
+        highlight ? "text-primary font-semibold" : "text-muted-foreground",
+      )}>
+        {icon && <span className={highlight ? "text-primary" : "text-primary/70"}>{icon}</span>}
         {label}
       </Label>
       {children}

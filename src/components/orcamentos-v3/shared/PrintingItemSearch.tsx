@@ -53,6 +53,7 @@ interface PrintingItemSearchProps {
   onSelect: (item: PrintingCatalogItem) => void;
   markupTiers?: MarkupTier[];
   globalSettings?: { invoice_pct: number; collection_pct: number; waste_pct: number; default_margin_pct: number };
+  placeholder?: string;
 }
 
 const roundUp5 = (v: number) => Math.round(v * 10) / 10;
@@ -65,7 +66,7 @@ const calcSellingPrice = (baseCost: number, tier: MarkupTier, _globals?: { invoi
   return Math.round((baseCost / divisor) * 10) / 10;
 };
 
-export default function PrintingItemSearch({ items, onSelect, markupTiers, globalSettings }: PrintingItemSearchProps) {
+export default function PrintingItemSearch({ items, onSelect, markupTiers, globalSettings, placeholder }: PrintingItemSearchProps) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -111,7 +112,7 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Buscar item de impressão (papel, tamanho, impressora)..."
+          placeholder={placeholder ?? "Buscar item de impressão (papel, tamanho, impressora)..."}
           value={search}
           onChange={(e) => { setSearch(e.target.value); setIsOpen(true); }}
           onFocus={() => setIsOpen(true)}
