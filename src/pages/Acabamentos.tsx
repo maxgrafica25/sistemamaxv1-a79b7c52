@@ -969,3 +969,82 @@ function RowCells({
     </>
   );
 }
+
+// ─── ModeCard ─────────────────────────────────────────────────────────
+// Radio-card visual com título, descrição curta e exemplos de uso.
+// Mantém o conteúdo do modo selecionado expansível via children.
+
+interface ModeCardProps {
+  selected: boolean;
+  onClick: () => void;
+  title: string;
+  subtitle: string;
+  examples: string;
+  accent?: boolean;
+  children?: React.ReactNode;
+}
+
+function ModeCard({ selected, onClick, title, subtitle, examples, accent, children }: ModeCardProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "text-left rounded-lg border p-3 transition-colors " +
+        (selected
+          ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+          : "border-border hover:border-primary/40 hover:bg-muted/40")
+      }
+    >
+      <div className="flex items-start gap-2.5">
+        <div
+          className={
+            "mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 transition-colors " +
+            (selected ? "border-primary bg-primary" : "border-muted-foreground/40")
+          }
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 text-sm font-medium leading-tight">
+            {title}
+            {accent && <Sparkles className="h-3 w-3 text-primary" />}
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
+          <p className="text-[11px] text-muted-foreground/80 mt-1">
+            <span className="font-medium">Use para:</span> {examples}
+          </p>
+          {children}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// ─── CobrancaCell ─────────────────────────────────────────────────────
+// Badge resumido da forma de cobrança usado na listagem.
+
+function CobrancaCell({ hasMultiplier, isTimeOnly }: { hasMultiplier: boolean; isTimeOnly: boolean }) {
+  if (isTimeOnly) {
+    return (
+      <Badge variant="outline" className="text-[10px] gap-1">
+        <Clock className="h-3 w-3" /> Somente tempo
+      </Badge>
+    );
+  }
+  if (hasMultiplier) {
+    return (
+      <Badge
+        variant="secondary"
+        className="text-[10px] gap-1 bg-primary/10 text-primary border-primary/20"
+        title="Preço escala com formato da folha (A3/SRA3 = 2×) e frente e verso (2×)"
+      >
+        <Sparkles className="h-3 w-3" /> Por unidade ×formato
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-[10px]">
+      Por unidade
+    </Badge>
+  );
+}
+
