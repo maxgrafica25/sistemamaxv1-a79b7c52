@@ -1296,6 +1296,7 @@ export type Database = {
           production_step_id: string | null
           size: string | null
           sort_order: number
+          time_minutes: number
           unit_label: string | null
           updated_at: string
         }
@@ -1311,6 +1312,7 @@ export type Database = {
           production_step_id?: string | null
           size?: string | null
           sort_order?: number
+          time_minutes?: number
           unit_label?: string | null
           updated_at?: string
         }
@@ -1326,6 +1328,7 @@ export type Database = {
           production_step_id?: string | null
           size?: string | null
           sort_order?: number
+          time_minutes?: number
           unit_label?: string | null
           updated_at?: string
         }
