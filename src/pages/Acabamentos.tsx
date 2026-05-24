@@ -64,11 +64,29 @@ const CATEGORIES = [
 
 const DEFAULT_APPLIES_TO = ["etiqueta", "impressao"];
 type PricingModel = "per_sheet" | "per_unit";
-type FormMode = "per_sheet" | "per_unit" | "time_only";
+/**
+ * Modo de cadastro (apresentação ao usuário):
+ *  - "per_unit_simple": cobra preço cheio por peça/folha, sem multiplicador.
+ *  - "per_unit_multiplier": cobra por unidade com multiplicador automático
+ *     de formato (A3/SRA3 = 2x A4) e frente-verso (2x). Usado em laminação,
+ *     plastificação, verniz, etc.
+ *  - "time_only": não cobra; só registra minutos de mão de obra.
+ *
+ * No banco mapeamos para `auto_format_multiplier` + `pricing_model` coerente
+ * (per_sheet quando multiplicador ligado, per_unit caso contrário) por
+ * compatibilidade com o engine atual.
+ */
+type FormMode = "per_unit_simple" | "per_unit_multiplier" | "time_only";
 
-const detectFormMode = (item: { pricing_model: PricingModel; price_per_sheet: number; time_minutes: number }): FormMode => {
+const detectFormMode = (item: {
+  pricing_model: PricingModel;
+  price_per_sheet: number;
+  time_minutes: number;
+  auto_format_multiplier?: boolean;
+}): FormMode => {
   if (item.price_per_sheet === 0 && item.time_minutes > 0) return "time_only";
-  return item.pricing_model;
+  if (item.auto_format_multiplier ?? item.pricing_model === "per_sheet") return "per_unit_multiplier";
+  return "per_unit_simple";
 };
 
 interface FinishingItem {
@@ -78,6 +96,7 @@ interface FinishingItem {
   size: string | null;
   price_per_sheet: number;
   pricing_model: PricingModel;
+  auto_format_multiplier: boolean;
   applies_to: string[];
   unit_label: string | null;
   is_active: boolean;
@@ -94,7 +113,8 @@ const emptyDraft: Omit<FinishingItem, "id"> = {
   category: "recorte",
   size: "SRA3",
   price_per_sheet: 0,
-  pricing_model: "per_sheet",
+  pricing_model: "per_unit",
+  auto_format_multiplier: false,
   applies_to: DEFAULT_APPLIES_TO,
   unit_label: null,
   is_active: true,
@@ -102,6 +122,7 @@ const emptyDraft: Omit<FinishingItem, "id"> = {
   production_step_id: null,
   time_minutes: 0,
 };
+
 
 export default function Acabamentos({ hideHeader = false }: { hideHeader?: boolean } = {}) {
   const isAdmin = useIsAdmin();
