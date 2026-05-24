@@ -1,23 +1,13 @@
-# Popular Imposto e Taxa cartão a partir das Configurações Globais
+# Esconder Júlia no editor de orçamento
 
-## Causa
+O botão fixo da Júlia (`AssistenteButton`, `position: fixed; right; bottom`) está sobrepondo o card "Total a cobrar" no canto inferior direito quando o orçamento é editado.
 
-O estado inicial do orçamento V3 (`DEFAULT_STATE` em `types.ts`) traz `tax_pct: 0` e `fees_pct: 0`. O `wastePct` é lido de `globalSettings`, mas tax/fees nunca recebem os valores do banco. Resultado: todo orçamento novo começa com Imposto 0% e Taxa cartão/fatura 0%, e essas linhas não somam nada no resumo financeiro.
+## Solução
 
-## Correção
+Em `AssistenteButton.tsx`, ocultar o botão quando a rota for `/orcamentos-v3/novo` ou `/orcamentos-v3/:id/editar` (telas de edição). Uso `useLocation()` do react-router e um `if (isQuoteEditor) return null;` antes do render.
 
-Em `NewQuoteFormV3.tsx`, ao final do carregamento de `useGlobalSettings()`, sincronizar uma única vez no `state`:
-
-- `state.tax_pct ← globalSettings.tax_pct` (imposto)
-- `state.fees_pct ← globalSettings.credit_card_pct` (apenas taxa de cartão, conforme escolhido)
-
-Implementação: `useEffect` disparado quando `loading` vira `false`, que aplica os valores apenas se o estado atual ainda estiver em 0 (não sobrescreve um orçamento já carregado com valores próprios — importante para edição de rascunhos salvos).
-
-Isso já reflete automaticamente em:
-- `summarize()` → totais de Impostos / Taxas no resumo financeiro
-- `UnifiedCart` (cards expandidos) → linhas "Imposto (X%)" e "Taxa cartão (X%)" com valores reais
-- Cálculo de Lucro líquido por item
+A Júlia continua acessível via Command Palette (Ctrl+K → "Falar com a Júlia") nessas telas.
 
 ## Arquivo afetado
 
-- `src/components/orcamentos-v3/NewQuoteFormV3.tsx` (adiciona o `useEffect` de seed)
+- `src/components/assistente/AssistenteButton.tsx`
