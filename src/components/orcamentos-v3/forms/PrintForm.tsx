@@ -286,7 +286,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
 
 
       {!catalog && (
-        <Field label="Item do catálogo">
+        <Field label={substrateLabel}>
           <PrintingItemSearch
             items={items}
             markupTiers={tiers}
