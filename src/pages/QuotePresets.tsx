@@ -312,13 +312,16 @@ export default function QuotePresets() {
               </div>
               {form.modulo !== "cv" && (
                 <div>
-                  <Label>Tipo de formulário</Label>
+                  <Label>Modo de cálculo</Label>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Define qual calculadora abre ao escolher este favorito no orçamento.
+                  </p>
                   <Select value={form.form_tipo || "print"} onValueChange={(v) => setForm({ ...form, form_tipo: v as FormState["form_tipo"] })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="print">Impressão</SelectItem>
-                      <SelectItem value="booklet">Apostila</SelectItem>
-                      <SelectItem value="label">Etiqueta</SelectItem>
+                      <SelectItem value="print">Impressão (papel + acabamentos)</SelectItem>
+                      <SelectItem value="booklet">Apostila (miolo + capa)</SelectItem>
+                      <SelectItem value="label">Etiqueta (layout em folha)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
