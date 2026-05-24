@@ -23,7 +23,7 @@ import { ThirdPartyForm } from "./forms/ThirdPartyForm";
 
 
 import { UnifiedCart } from "./cart/UnifiedCart";
-import { QuoteAssistantPanelV3 } from "./cart/QuoteAssistantPanelV3";
+
 import { QuoteChecklistPanelV3 } from "./cart/QuoteChecklistPanelV3";
 
 import { FinancialPanel } from "./cart/FinancialPanel";
@@ -469,12 +469,6 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
               taxPct={state.tax_pct}
               feesPct={state.fees_pct}
               wastePct={globalSettings.waste_pct}
-            />
-            <QuoteAssistantPanelV3
-              items={state.items}
-              clientId={state.cliente.id}
-              clientName={state.cliente.nome}
-              checklistAnswers={checklistAnswers}
             />
           </div>
           <div className="shrink-0 p-3 border-t border-border/60 bg-background">
