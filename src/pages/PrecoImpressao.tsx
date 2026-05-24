@@ -597,6 +597,17 @@ export default function PrecoImpressao() {
             <p className="text-sm text-muted-foreground mt-1">
               Monte sua tabela de preços: defina categorias, regras de preço por quantidade e adicione os papéis.
             </p>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition">
+                  <Info className="h-3.5 w-3.5" />
+                  Cálculo sempre <span className="text-primary font-semibold">por dentro</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[320px] text-xs">
+                Preço de venda calculado por dentro: <code className="rounded bg-muted px-1">custo ÷ (1 − (custo fixo% + custo variável% + margem%) / 100)</code>. Este módulo <strong>não é afetado</strong> pelo toggle "Por fora / Por dentro" das Configurações — esse toggle vale apenas para Orçamentos V3, CV e Etiquetas.
+              </TooltipContent>
+            </Tooltip>
           </div>
           <div className="flex gap-2 flex-wrap">
             <AdminOnly mode="disable" action="criar categorias de impressão">

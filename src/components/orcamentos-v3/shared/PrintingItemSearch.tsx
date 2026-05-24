@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Printer, Link2, AlertTriangle } from "lucide-react";
+import { Search, Printer, Link2, AlertTriangle, Info } from "lucide-react";
 
 export interface LinkedPaperInfo {
   id: string;
@@ -180,6 +180,12 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
           ) : (
             <div className="px-4 py-6 text-center text-sm text-muted-foreground">
               Nenhum item de impressão encontrado
+            </div>
+          )}
+          {filtered.length > 0 && (
+            <div className="sticky bottom-0 border-t bg-muted/60 px-3 py-1.5 flex items-start gap-1.5 text-[10px] text-muted-foreground">
+              <Info className="h-3 w-3 shrink-0 mt-0.5" />
+              <span>Preço/folha calculado <strong>por dentro</strong> via faixa de markup da categoria (custo fixo + variável + margem embutidos). Não afetado pelo regime global.</span>
             </div>
           )}
         </div>
