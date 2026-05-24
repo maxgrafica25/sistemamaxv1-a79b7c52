@@ -161,8 +161,10 @@ function rawName(it: V3Item): string {
 
 function itemSize(it: V3Item): string {
   switch (it.kind) {
-    case "label":
-      return `${it.labelW_mm}×${it.labelH_mm} mm`;
+    case "label": {
+      const fmt = (mm: number) => (mm / 10).toFixed(1).replace(".", ",").replace(/,0$/, "");
+      return `${fmt(it.labelW_mm)}×${fmt(it.labelH_mm)} cm`;
+    }
     case "cv":
       return `${(it.largura_m * 100).toFixed(0)}×${(it.altura_m * 100).toFixed(0)} cm`;
     case "print":
