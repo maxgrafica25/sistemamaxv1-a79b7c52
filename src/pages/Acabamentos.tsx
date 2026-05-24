@@ -927,7 +927,7 @@ function RowCells({
       {isAdmin && (
         <TableCell>
           <div className="flex gap-1">
-            {item.pricing_model === "per_sheet" && (
+            {hasMultiplier && (
               <Button
                 variant="ghost"
                 size="icon"
