@@ -1,26 +1,32 @@
-# Rótulo do seletor de substrato no Print
+# Reforço visual do substrato no PrintForm
 
-Trocar o rótulo "Item do catálogo" do `PrintForm` por algo intuitivo para o produto selecionado: padrão **"Papel"**, e **"Cartão PVC"** quando o produto for Crachá.
+Hoje o rótulo do campo de seleção alterna entre "Papel" e "Cartão PVC" conforme o produto, mas o texto é pequeno, uppercase e em cor muted — fácil passar batido. Quero adicionar pistas visuais discretas, sem poluir.
 
-## Onde
+## Mudanças (apenas UI, em `PrintForm.tsx`)
 
-- `src/components/orcamentos-v3/forms/PrintForm.tsx` — aceitar prop `substrateLabel?: string` (default `"Papel"`) e usá-la no `<Field label=...>` e no placeholder.
-- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx` — calcular o rótulo a partir do nome do preset selecionado e repassar nas três montagens do `PrintForm`.
+1. **Ícone ao lado do rótulo do Field**
+   - "Papel" → ícone `FileText` (lucide).
+   - "Cartão PVC" → ícone `CreditCard` (lucide).
+   - Ícone `h-3 w-3` em `text-primary`, inline com o `<Label>` (mesma linha, mesmo tamanho que o texto uppercase). Mantém o visual minimalista.
 
-## Regra do rótulo (PrintAndProductForm)
+2. **Micro-destaque quando vira "Cartão PVC"** (caso não-padrão)
+   - O `<Label>` ganha cor `text-primary` (em vez de `text-muted-foreground`) **somente** quando `substrateLabel !== "Papel"`.
+   - Justificativa: papel é o caso default/esperado — não precisa chamar atenção. PVC é a exceção (crachá) e merece destaque sutil.
 
-```
-nome do preset (case/acento-insensitive) contém "crach" → "Cartão PVC"
-caso contrário → "Papel"
-```
+3. **Pequena animação de entrada ao trocar de substrato**
+   - Quando `substrateLabel` muda, aplica `animate-in fade-in slide-in-from-left-1 duration-300` no Field uma vez.
+   - Implementado com `key={substrateLabel}` no `<Field>` para forçar remount + animação tailwind já existente no projeto.
 
-## Detalhes de UI
+4. **Placeholder do search reforça o contexto**
+   - Atualmente o `PrintingItemSearch` tem placeholder interno fixo. Vou adicionar prop opcional `placeholder` e passar `Buscar ${substrateLabel.toLowerCase()}…` quando vier.
+   - Fora de escopo se ficar complicado: deixa só os itens 1–3.
 
-- `Field label`: usa `substrateLabel` (ex.: "Papel" ou "Cartão PVC").
-- Placeholder do `Input` de descrição quando ainda não há `catalog`: muda de "Selecione o item primeiro" para "Selecione o {substrateLabel.toLowerCase()} primeiro".
+## Arquivos
 
-## Fora do escopo
+- `src/components/orcamentos-v3/forms/PrintForm.tsx` — ajustes no `<Field>` (ícone, cor condicional, key) e no helper `Field` (aceitar `icon` opcional).
+- `src/components/orcamentos-v3/shared/PrintingItemSearch.tsx` — prop opcional `placeholder` (item 4).
 
-- BookletForm ("Miolo (papel do catálogo)") — apostila sempre é papel.
-- LabelEmbeddedForm, BusinessCardForm, CVForm — fluxos diferentes.
-- `PrintingItemSearch` (placeholder interno de busca) — mantém o texto atual; mudar lá afeta outros usos.
+## Fora de escopo
+
+- Não mexe em lógica de cálculo, dados ou outras telas.
+- Não adiciona badge/pill ou banner — manteria minimalismo.
