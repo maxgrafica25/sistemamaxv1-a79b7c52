@@ -1,58 +1,26 @@
-## Resposta curta
+## Mudanças na tela de Acabamentos
 
-**Sim, é viável e recomendável** unificar conceitualmente. Hoje há duas tabelas que descrevem essencialmente a mesma coisa ("uma operação manual com tempo e, opcionalmente, preço"):
+### 1. Remover "Aplicável em" (Etiquetas / Impressão)
+Como etiqueta também é impressão, o seletor não agrega. No banco, todo acabamento passa a ser salvo com `applies_to = ['etiqueta','impressao']` automaticamente. O toggle de filtro no topo da listagem (Todos / Etiquetas / Impressão) também sai. Nenhum consumidor quebra — todos os filtros que usam `applies_to.includes(...)` continuam encontrando ambos.
 
-- `production_steps` (15 linhas) — id + descrição + minutos
-- `finishings_price_items` (6 linhas, 4 vinculadas) — id + nome + categoria + preço/faixas + contexto (`applies_to`) + FK opcional ao step
+### 2. Remover "Unidade de cobrança"
+O campo `unit_label` some do formulário. Para acabamentos em `per_unit`, o sistema salva automaticamente `unit_label = 'unidade'` (mantém o validador feliz e o pricing intacto). Na coluna **Preço** da tabela, em vez de `/ilhós`, `/dobra`, etc., passa a mostrar simplesmente `/unidade` ou `/serviço` quando `price = 0`.
 
-Isso já gerou os sintomas que você viu: duplicidade de nomes ("Corte de 100 Cartões…" como step, "Recorte Folhas Adesivas" como acabamento), picker confuso, acabamentos sem etapa vinculada que não podem ser usados em kits, e o memory note "Fonte única (production_steps); Grupos são atalhos via FK" já assume um modelo único que não está realmente unificado.
+> Observação: registros existentes com unit_label customizado ("ilhós", "dobra", "serviço") **continuam exibindo o label salvo** — só novos cadastros usam "unidade". Se preferir uniformizar tudo agora, podemos rodar um UPDATE em massa; me avise.
 
-## Modelo-alvo
+### 3. Remover "Ordem" e implementar drag-and-drop
+Campo "Ordem" sai do formulário. Na tabela, adiciono uma alça (`GripVertical`) na primeira coluna que permite arrastar a linha para reordenar (uso `@dnd-kit/sortable` que já está no projeto). Ao soltar, persisto o novo `sort_order` de todas as linhas afetadas em uma só transação (upsert). Drag só fica disponível para admin e quando não há filtros/busca ativos (para evitar reordenar uma visão parcial).
 
-Uma única entidade **Acabamento** com:
-
+### Resumo do novo formulário
 ```
-acabamentos
-├── id
-├── nome                       (ex.: "Corte reto")
-├── categoria                  (recorte | laminação | encadernação | arte | montagem | …)
-├── tempo_minutos              (labor; obrigatório)
-├── aplica_a[]                 (etiqueta, impressao, cartao_visita, …)
-├── modelo_preco               (none | per_sheet | per_unit | per_tier)
-├── unidade                    (folha, ilhós, m², …)
-├── preco_base / preco_por_folha
-└── faixas[] (já existe em finishing_price_tiers)
+┌─ Novo acabamento ──────────────┐
+│ Nome              [_________]  │
+│ Categoria  [▼]  Modelo  [▼]    │
+│ Tamanho    [▼]  Preço  [____]  │   (Tamanho só se "Por folha")
+│ Tempo (min)     [____]         │
+│ Ativo           [●]            │
+└────────────────────────────────┘
 ```
 
-Acabamentos sem cobrança própria (puramente labor, ex.: "Montagem") usam `modelo_preco = none` — o custo entra via `tempo_minutos × hourRate`. Acabamentos com cobrança fixa por folha mantêm o modelo atual.
-
-## Caminhos de implementação
-
-Duas opções com perfis bem diferentes de risco/retorno:
-
-### Caminho A — Refactor profundo (estrutural, definitivo)
-
-1. Adicionar colunas em `finishings_price_items`: `time_minutes`, `is_internal_step` (flag p/ steps puros sem preço).
-2. Migrar as 15 linhas de `production_steps` para `finishings_price_items` (preservando ids? não — gerar mapping).
-3. Adicionar `finishing_id` em: `product_kit_items`, `step_group_items`, `quote_labor_steps`, `quote_materials (catalog_source='finishing')`.
-4. Backfill via mapping, dropar `process_step_id` / `production_step_id`.
-5. Remover/depreciar `production_steps`, `step_groups`, `step_group_items` (ou mantê-los como views).
-6. Renomear UI "Processos de Produção" → "Acabamentos" como módulo único.
-
-**Esforço:** 1–2 dias de trabalho com migrações encadeadas, ajuste de ~10 arquivos (cart, kits, quotes, edge functions, OP PDF). **Risco:** médio-alto — toca pricing e PDFs.
-
-### Caminho B — Unificação leve, pela UI (recomendado como 1º passo)
-
-1. **Tornar Acabamentos o único cadastro visível ao usuário**. A página de "Processos de Produção" some do menu (ou vira aba interna read-only).
-2. No CRUD de Acabamentos, o campo `time_minutes` passa a ser obrigatório e o sistema **cria/atualiza/apaga o `production_step` vinculado automaticamente** (trigger no banco ou no service do front). Resultado: toda acabamento sempre tem um step coerente, sem que o usuário precise saber disso.
-3. Migração one-shot: para cada `production_step` sem `finishings_price_items` correspondente, criar uma linha em `finishings_price_items` com `pricing_model='none'` e `time_minutes = step.time_minutes`. Para os que duplicam ("Corte de 100…" vs "Recorte Folhas…"), apresentar tela de merge admin (ou deixar manual).
-4. Picker de Kits, FinishingProgressive, OP PDF e quote pricing continuam usando `production_step_id` por baixo — **zero mudança nos consumidores**.
-5. Memória `production` atualizada: "Acabamentos é a fonte única visível; production_steps é tabela interna gerenciada pelo cadastro".
-
-**Esforço:** ~3–4 horas. **Risco:** baixo — sem mudança de schema dos FKs existentes. **Limitação:** ainda existem duas tabelas no banco; mas o usuário e a UI veem só uma.
-
-## Recomendação
-
-Fazer **Caminho B agora**: resolve 100% do problema do usuário (uma fonte só, sem duplicidade, sem item desabilitado no picker) sem mexer em pricing/cart/edge functions. Avaliar **Caminho A** depois de 1–2 ciclos de uso real, quando ficar claro se vale o custo de migrar todos os FKs.
-
-Quer que eu detalhe e implemente o Caminho B?
+### Arquivos afetados
+- `src/pages/Acabamentos.tsx` — única tela tocada (form, tabela, filtros).
