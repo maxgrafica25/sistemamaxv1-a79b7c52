@@ -159,11 +159,28 @@ function rawName(it: V3Item): string {
   return DEFAULT_NAME[it.kind];
 }
 
+function itemSize(it: V3Item): string {
+  switch (it.kind) {
+    case "label":
+      return `${it.labelW_mm}×${it.labelH_mm} mm`;
+    case "cv":
+      return `${(it.largura_m * 100).toFixed(0)}×${(it.altura_m * 100).toFixed(0)} cm`;
+    case "print":
+      return (it as { formato?: string | null }).formato ?? "";
+    case "booklet":
+      return it.bookletPages ? `${it.bookletPages} pág.` : "";
+    default:
+      return "";
+  }
+}
+
 function itemTitle(it: V3Item): string {
   const qty = itemQty(it);
   const name = pluralizePt(rawName(it), qty);
-  return `${qty.toLocaleString("pt-BR")} un. - ${name}`;
+  const size = itemSize(it);
+  return `${qty.toLocaleString("pt-BR")} un. - ${name}${size ? ` ${size}` : ""}`;
 }
+
 
 
 type FinRow = { label: string; value: string; tone?: "muted" | "default" | "strong"; className?: string };
