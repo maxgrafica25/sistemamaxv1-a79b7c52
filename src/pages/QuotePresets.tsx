@@ -155,9 +155,9 @@ export default function QuotePresets() {
       is_banner: p.is_banner,
       midia_tipo: (p.midia_tipo ?? "") as FormState["midia_tipo"],
       midia_nome_match: p.midia_nome_match ?? "",
-      papel_inclui: (p.papel_inclui ?? []).join(", "),
-      papel_exclui: (p.papel_exclui ?? []).join(", "),
-      acabamentos_sugeridos: (p.acabamentos_sugeridos ?? []).join(", "),
+      papel_inclui: p.papel_inclui ?? [],
+      papel_exclui: p.papel_exclui ?? [],
+      acabamentos_sugeridos: p.acabamentos_sugeridos ?? [],
     });
     setDialogOpen(true);
   };
