@@ -57,6 +57,7 @@ export default function Configuracoes() {
   const [taxPct, setTaxPct] = useState("10");
   const [collectionFeePct, setCollectionFeePct] = useState("7");
   const [checklistBeforeSave, setChecklistBeforeSave] = useState(true);
+  const [pricingRegime, setPricingRegime] = useState<"por_fora" | "por_dentro">("por_fora");
 
   // Backup state
   const [backupRuns, setBackupRuns] = useState<BackupRun[]>([]);
@@ -79,7 +80,7 @@ export default function Configuracoes() {
         supabase.from("salaries").select("salary, is_production"),
         supabase.from("equipment_depreciation").select("purchase_value, useful_life_months, residual_value"),
         supabase.from("productive_capacity").select("id, hours_per_month, production_employees").limit(1).single(),
-        supabase.from("global_settings").select("id, invoice_pct, collection_pct, waste_pct, default_margin_pct, tax_pct, collection_fee_pct, credit_card_pct, checklist_before_save").limit(1).single(),
+        supabase.from("global_settings").select("id, invoice_pct, collection_pct, waste_pct, default_margin_pct, tax_pct, collection_fee_pct, credit_card_pct, checklist_before_save, pricing_regime").limit(1).single(),
       ]);
       const totalExp = (expRes.data || []).reduce((s: number, e: any) => s + e.value, 0);
       const totalSal = (salRes.data || []).reduce((s: number, e: any) => s + e.salary, 0) * 1.45;
@@ -98,6 +99,7 @@ export default function Configuracoes() {
         if ((settingsRes.data as any).tax_pct !== undefined) setTaxPct(String((settingsRes.data as any).tax_pct));
         if ((settingsRes.data as any).collection_fee_pct !== undefined) setCollectionFeePct(String((settingsRes.data as any).collection_fee_pct));
         if ((settingsRes.data as any).checklist_before_save !== undefined) setChecklistBeforeSave(!!(settingsRes.data as any).checklist_before_save);
+        if ((settingsRes.data as any).pricing_regime) setPricingRegime((settingsRes.data as any).pricing_regime as "por_fora" | "por_dentro");
       }
       setLoading(false);
     };
@@ -117,6 +119,7 @@ export default function Configuracoes() {
       tax_pct: parseFloat(taxPct) || 0,
       collection_fee_pct: cardFee,
       checklist_before_save: checklistBeforeSave,
+      pricing_regime: pricingRegime,
     };
     if (settingsId) {
       await supabase.from("global_settings").update(data).eq("id", settingsId);
@@ -293,6 +296,61 @@ export default function Configuracoes() {
                   <div className="flex justify-between"><span className="text-muted-foreground">Soma total:</span><span className="font-semibold">{(totalIndiretos + (parseFloat(defaultProfitMargin) || 0)).toFixed(2)}%</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Divisor (1 − soma%):</span><span className="font-semibold text-primary">{(1 - (totalIndiretos + (parseFloat(defaultProfitMargin) || 0)) / 100).toFixed(4)}</span></div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-card lg:col-span-2 xl:col-span-3">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Regime de cálculo de preço</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Define como impostos, taxas e margem são aplicados nos orçamentos (Impressão, V3, Comunicação Visual e Etiquetas). Não afeta orçamentos já salvos.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setPricingRegime("por_fora")}
+                    className={`text-left rounded-md border p-3 transition ${
+                      pricingRegime === "por_fora"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold">Por fora <span className="text-xs font-normal text-muted-foreground">(padrão atual)</span></span>
+                      {pricingRegime === "por_fora" && <span className="text-[10px] font-medium text-primary uppercase">Ativo</span>}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Margem aplicada sobre o custo: <code className="rounded bg-muted px-1">preço = custo × (1 + margem%)</code>. Impostos e taxas saem da margem.
+                    </p>
+                    <p className="text-[11px] text-amber-600 mt-1">Margem real fica abaixo da nominal.</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPricingRegime("por_dentro")}
+                    className={`text-left rounded-md border p-3 transition ${
+                      pricingRegime === "por_dentro"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold">Por dentro <span className="text-xs font-normal text-muted-foreground">(contábil)</span></span>
+                      {pricingRegime === "por_dentro" && <span className="text-[10px] font-medium text-primary uppercase">Ativo</span>}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Divisor: <code className="rounded bg-muted px-1">preço = custo ÷ (1 − (imp + tx + margem)%)</code>. Impostos, taxas e margem embutidos no preço final.
+                    </p>
+                    <p className="text-[11px] text-emerald-600 mt-1">Margem real = margem configurada. Preços maiores.</p>
+                  </button>
+                </div>
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    A troca afeta apenas <strong>novos cálculos</strong>. Orçamentos já salvos mantêm os preços registrados. Recomendado validar o impacto comercial antes de migrar para "Por dentro".
+                  </AlertDescription>
+                </Alert>
               </CardContent>
             </Card>
 

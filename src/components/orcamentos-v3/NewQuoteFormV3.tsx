@@ -165,8 +165,8 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
 
 
   const summary = useMemo(
-    () => summarize(state.items, state.tax_pct, state.fees_pct, state.margin_pct),
-    [state.items, state.tax_pct, state.fees_pct, state.margin_pct],
+    () => summarize(state.items, state.tax_pct, state.fees_pct, state.margin_pct, globalSettings.pricing_regime),
+    [state.items, state.tax_pct, state.fees_pct, state.margin_pct, globalSettings.pricing_regime],
   );
 
   const addItem = (item: V3Item) => {
