@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers, Copy, Clock } from "lucide-react";
+import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers, Copy, Clock, GripVertical } from "lucide-react";
 import { FinishingTiersDrawer } from "@/components/acabamentos/FinishingTiersDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Table,
   TableBody,
@@ -36,6 +35,23 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const SIZES = ["A4", "A3", "SRA3", "33x48"] as const;
 const CATEGORIES = [
@@ -45,7 +61,7 @@ const CATEGORIES = [
   { value: "outro", label: "Outro" },
 ];
 
-type Context = "etiqueta" | "impressao";
+const DEFAULT_APPLIES_TO = ["etiqueta", "impressao"];
 type PricingModel = "per_sheet" | "per_unit";
 
 interface FinishingItem {
@@ -55,7 +71,7 @@ interface FinishingItem {
   size: string | null;
   price_per_sheet: number;
   pricing_model: PricingModel;
-  applies_to: Context[];
+  applies_to: string[];
   unit_label: string | null;
   is_active: boolean;
   sort_order: number;
@@ -72,7 +88,7 @@ const emptyDraft: Omit<FinishingItem, "id"> = {
   size: "SRA3",
   price_per_sheet: 0,
   pricing_model: "per_sheet",
-  applies_to: ["etiqueta", "impressao"],
+  applies_to: DEFAULT_APPLIES_TO,
   unit_label: null,
   is_active: true,
   sort_order: 0,
@@ -87,12 +103,16 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
   const [loading, setLoading] = useState(true);
   const [filterSize, setFilterSize] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
-  const [filterContext, setFilterContext] = useState<"all" | Context>("all");
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState<typeof emptyDraft & { id?: string }>(emptyDraft);
   const [editing, setEditing] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [tiersFor, setTiersFor] = useState<FinishingItem | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const reload = async () => {
     setLoading(true);
@@ -112,26 +132,28 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
     reload();
   }, []);
 
+  const filtersActive =
+    filterSize !== "all" || filterCategory !== "all" || search.trim() !== "";
+
   const filtered = useMemo(() => {
     return items.filter((i) => {
-      if (filterContext !== "all" && !i.applies_to?.includes(filterContext)) return false;
       if (filterSize !== "all" && i.size !== filterSize) return false;
       if (filterCategory !== "all" && i.category !== filterCategory) return false;
       if (search && !i.name.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [items, filterSize, filterCategory, filterContext, search]);
+  }, [items, filterSize, filterCategory, search]);
 
   const startNew = () => {
-    setDraft(emptyDraft);
+    setDraft({
+      ...emptyDraft,
+      sort_order: (items[items.length - 1]?.sort_order ?? 0) + 1,
+    });
     setEditing(true);
   };
 
   const startEdit = (item: FinishingItem) => {
-    setDraft({
-      ...item,
-      applies_to: item.applies_to?.length ? item.applies_to : ["etiqueta"],
-    });
+    setDraft({ ...item });
     setEditing(true);
   };
 
@@ -150,16 +172,8 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
       toast.error("Preço não pode ser negativo");
       return;
     }
-    if (!draft.applies_to?.length) {
-      toast.error("Selecione ao menos um contexto de aplicação");
-      return;
-    }
     if (draft.pricing_model === "per_sheet" && !draft.size) {
       toast.error("Modelo por folha exige selecionar o tamanho");
-      return;
-    }
-    if (draft.pricing_model === "per_unit" && !draft.unit_label?.trim()) {
-      toast.error("Modelo por unidade exige o nome da unidade (ex.: ilhós, dobra)");
       return;
     }
 
@@ -169,9 +183,11 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
       size: draft.pricing_model === "per_unit" ? null : draft.size,
       price_per_sheet: draft.price_per_sheet,
       pricing_model: draft.pricing_model,
-      applies_to: draft.applies_to,
+      applies_to: DEFAULT_APPLIES_TO,
       unit_label:
-        draft.pricing_model === "per_unit" ? draft.unit_label?.trim() ?? null : null,
+        draft.pricing_model === "per_unit"
+          ? draft.unit_label?.trim() || "unidade"
+          : null,
       is_active: draft.is_active,
       sort_order: draft.sort_order,
       production_step_id: draft.production_step_id,
@@ -236,10 +252,10 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
         size: item.size,
         price_per_sheet: item.price_per_sheet,
         pricing_model: item.pricing_model,
-        applies_to: item.applies_to,
+        applies_to: DEFAULT_APPLIES_TO,
         unit_label: item.unit_label,
         is_active: item.is_active,
-        sort_order: item.sort_order,
+        sort_order: (items[items.length - 1]?.sort_order ?? 0) + 1,
         production_step_id: null,
         time_minutes: item.time_minutes,
       })
@@ -274,13 +290,38 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
     reload();
   };
 
-  const toggleAppliesTo = (ctx: Context) => {
-    const has = draft.applies_to.includes(ctx);
-    const next = has
-      ? draft.applies_to.filter((c) => c !== ctx)
-      : [...draft.applies_to, ctx];
-    setDraft({ ...draft, applies_to: next });
+  const onDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    if (!isAdmin) return;
+
+    const oldIndex = items.findIndex((i) => i.id === active.id);
+    const newIndex = items.findIndex((i) => i.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    const reordered = arrayMove(items, oldIndex, newIndex).map((item, idx) => ({
+      ...item,
+      sort_order: idx + 1,
+    }));
+    setItems(reordered); // optimistic
+
+    // Persist new orders
+    const updates = await Promise.all(
+      reordered.map((it) =>
+        (supabase as any)
+          .from("finishings_price_items")
+          .update({ sort_order: it.sort_order })
+          .eq("id", it.id)
+      )
+    );
+    const failed = updates.find((u: any) => u.error);
+    if (failed) {
+      handleError(failed.error, "reordenar acabamentos");
+      reload();
+    }
   };
+
+  const canDrag = isAdmin && !filtersActive;
 
   return (
     <div className={hideHeader ? "space-y-6" : "p-4 md:p-6 space-y-6"}>
@@ -291,10 +332,8 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
             Acabamentos
           </h1>
           <p className="text-sm text-muted-foreground">
-            Cadastro único de acabamentos para <strong>Etiquetas</strong> e{" "}
-            <strong>Impressão</strong>. Cobre por folha (recorte, laminação, verniz) ou por
-            unidade (ilhós, dobra, vinco). Comunicação Visual e Processos de Produção
-            continuam em módulos próprios.
+            Cadastro único de acabamentos. Cobre por folha (recorte, laminação,
+            verniz…) ou por unidade. Arraste as linhas para reordenar.
           </p>
         </header>
       )}
@@ -316,34 +355,6 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                   onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                   placeholder="Ex.: Laminação BOPP brilho"
                 />
-              </div>
-
-              {/* Aplicável em (multi) */}
-              <div className="space-y-1.5">
-                <Label className="text-xs">Aplicável em</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={draft.applies_to.includes("etiqueta") ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleAppliesTo("etiqueta")}
-                    className="flex-1"
-                  >
-                    Etiquetas
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={draft.applies_to.includes("impressao") ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleAppliesTo("impressao")}
-                    className="flex-1"
-                  >
-                    Impressão
-                  </Button>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Marque ambos quando o mesmo acabamento serve para os dois contextos.
-                </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -374,7 +385,6 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                         ...draft,
                         pricing_model: v,
                         size: v === "per_unit" ? null : draft.size ?? "SRA3",
-                        unit_label: v === "per_unit" ? draft.unit_label ?? "" : null,
                       })
                     }
                   >
@@ -410,14 +420,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                     </Select>
                   </div>
                 ) : (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Unidade de cobrança</Label>
-                    <Input
-                      value={draft.unit_label ?? ""}
-                      onChange={(e) => setDraft({ ...draft, unit_label: e.target.value })}
-                      placeholder="Ex.: ilhós, dobra, vinco"
-                    />
-                  </div>
+                  <div /> /* spacer */
                 )}
                 <div className="space-y-1.5">
                   <Label className="text-xs">
@@ -438,14 +441,22 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Ordem</Label>
+                  <Label className="text-xs">Tempo de execução (minutos)</Label>
                   <Input
                     type="number"
-                    value={draft.sort_order}
+                    inputMode="numeric"
+                    min={0}
+                    step={1}
+                    value={draft.time_minutes}
                     onChange={(e) =>
-                      setDraft({ ...draft, sort_order: parseInt(e.target.value, 10) || 0 })
+                      setDraft({ ...draft, time_minutes: parseInt(e.target.value, 10) || 0 })
                     }
+                    placeholder="Ex.: 10"
                   />
+                  <p className="text-[11px] text-muted-foreground">
+                    Tempo de mão de obra. Deixe 0 se o acabamento não tem
+                    execução manual associada.
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Ativo</Label>
@@ -457,27 +468,6 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                   </div>
                 </div>
               </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Tempo de execução (minutos)</Label>
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  step={1}
-                  value={draft.time_minutes}
-                  onChange={(e) =>
-                    setDraft({ ...draft, time_minutes: parseInt(e.target.value, 10) || 0 })
-                  }
-                  placeholder="Ex.: 10"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Tempo de mão de obra deste acabamento. O sistema usa esse valor para
-                  compor o custo de produção em orçamentos, kits e ordens de produção.
-                  Deixe em <strong>0</strong> para acabamentos sem mão de obra associada.
-                </p>
-              </div>
-
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={cancelEdit}>
@@ -502,22 +492,6 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
             className="pl-9 h-9"
           />
         </div>
-        <ToggleGroup
-          type="single"
-          value={filterContext}
-          onValueChange={(v) => v && setFilterContext(v as any)}
-          className="h-9"
-        >
-          <ToggleGroupItem value="all" className="h-9 px-3 text-xs">
-            Todos
-          </ToggleGroupItem>
-          <ToggleGroupItem value="etiqueta" className="h-9 px-3 text-xs">
-            Etiquetas
-          </ToggleGroupItem>
-          <ToggleGroupItem value="impressao" className="h-9 px-3 text-xs">
-            Impressão
-          </ToggleGroupItem>
-        </ToggleGroup>
         <Select value={filterSize} onValueChange={setFilterSize}>
           <SelectTrigger className="w-[160px] h-9">
             <SelectValue />
@@ -551,14 +525,20 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
         )}
       </div>
 
+      {isAdmin && filtersActive && (
+        <p className="text-[11px] text-muted-foreground">
+          Reordenação por arrasto desativada enquanto há filtros ou busca ativos.
+        </p>
+      )}
+
       {/* Tabela */}
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
+                {canDrag && <TableHead className="w-[36px]" />}
                 <TableHead>Nome</TableHead>
-                <TableHead>Aplicável</TableHead>
                 <TableHead>Categoria</TableHead>
                 <TableHead>Cobrança</TableHead>
                 <TableHead className="text-right">Preço</TableHead>
@@ -569,123 +549,47 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={isAdmin ? (canDrag ? 7 : 6) : 5} className="text-center text-muted-foreground py-8">
                     Carregando…
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={isAdmin ? (canDrag ? 7 : 6) : 5} className="text-center text-muted-foreground py-8">
                     Nenhum acabamento cadastrado para os filtros selecionados.
                   </TableCell>
                 </TableRow>
+              ) : canDrag ? (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+                  <SortableContext items={filtered.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                    {filtered.map((item) => (
+                      <SortableFinishingRow
+                        key={item.id}
+                        item={item}
+                        isAdmin={isAdmin}
+                        onEdit={startEdit}
+                        onClone={cloneItem}
+                        onDelete={(id) => setDeleteId(id)}
+                        onToggleActive={toggleActive}
+                        onOpenTiers={setTiersFor}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               ) : (
-                filtered.map((item) => {
-                  const unit =
-                    item.pricing_model === "per_sheet"
-                      ? `/folha ${item.size ?? ""}`.trim()
-                      : `/${item.unit_label ?? "un"}`;
-                  return (
-                    <TableRow key={item.id} className={!item.is_active ? "opacity-50" : ""}>
-                      <TableCell className="font-medium">
-                        <span className="inline-flex items-center gap-1.5">
-                          {item.name}
-                          {item.time_minutes > 0 && (
-                            <span
-                              className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground"
-                              title={`Tempo de execução: ${item.time_minutes} min`}
-                            >
-                              <Clock className="h-3 w-3" />
-                              {item.time_minutes}m
-                            </span>
-                          )}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          {item.applies_to?.includes("etiqueta") && (
-                            <Badge variant="outline" className="text-[10px] px-1.5" title="Etiquetas">
-                              E
-                            </Badge>
-                          )}
-                          {item.applies_to?.includes("impressao") && (
-                            <Badge variant="outline" className="text-[10px] px-1.5" title="Impressão">
-                              I
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="text-xs">
-                          {CATEGORIES.find((c) => c.value === item.category)?.label ?? item.category}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {item.pricing_model === "per_sheet" ? "Por folha" : "Por unidade"}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">
-                        {fmt(item.price_per_sheet)}
-                        <span className="text-[10px] font-normal text-muted-foreground ml-1">
-                          {unit}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {isAdmin ? (
-                          <Switch
-                            checked={item.is_active}
-                            onCheckedChange={() => toggleActive(item)}
-                          />
-                        ) : (
-                          <Badge variant={item.is_active ? "default" : "secondary"} className="text-xs">
-                            {item.is_active ? "Sim" : "Não"}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      {isAdmin && (
-                        <TableCell>
-                          <div className="flex gap-1">
-                            {item.pricing_model === "per_sheet" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => setTiersFor(item)}
-                                title="Faixas por quantidade"
-                              >
-                                <Layers className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => cloneItem(item)}
-                              title="Clonar acabamento (mesmas faixas)"
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => startEdit(item)}
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive"
-                              onClick={() => setDeleteId(item.id)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })
+                filtered.map((item) => (
+                  <FinishingRow
+                    key={item.id}
+                    item={item}
+                    isAdmin={isAdmin}
+                    onEdit={startEdit}
+                    onClone={cloneItem}
+                    onDelete={(id) => setDeleteId(id)}
+                    onToggleActive={toggleActive}
+                    onOpenTiers={setTiersFor}
+                    showDragHandle={false}
+                  />
+                ))
               )}
             </TableBody>
           </Table>
@@ -710,5 +614,266 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
         onSaved={reload}
       />
     </div>
+  );
+}
+
+// ─── Row components ──────────────────────────────────────────────────
+
+interface RowProps {
+  item: FinishingItem;
+  isAdmin: boolean;
+  onEdit: (item: FinishingItem) => void;
+  onClone: (item: FinishingItem) => void;
+  onDelete: (id: string) => void;
+  onToggleActive: (item: FinishingItem) => void;
+  onOpenTiers: (item: FinishingItem) => void;
+  showDragHandle?: boolean;
+  dragHandleProps?: {
+    attributes: any;
+    listeners: any;
+  };
+}
+
+function FinishingRow({
+  item,
+  isAdmin,
+  onEdit,
+  onClone,
+  onDelete,
+  onToggleActive,
+  onOpenTiers,
+  showDragHandle = false,
+  dragHandleProps,
+}: RowProps) {
+  const unit =
+    item.pricing_model === "per_sheet"
+      ? `/folha ${item.size ?? ""}`.trim()
+      : `/${item.unit_label || "unidade"}`;
+  return (
+    <TableRow className={!item.is_active ? "opacity-50" : ""}>
+      {showDragHandle && (
+        <TableCell className="w-[36px] p-2">
+          <button
+            type="button"
+            className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
+            aria-label="Arrastar para reordenar"
+            {...(dragHandleProps?.attributes ?? {})}
+            {...(dragHandleProps?.listeners ?? {})}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        </TableCell>
+      )}
+      <TableCell className="font-medium">
+        <span className="inline-flex items-center gap-1.5">
+          {item.name}
+          {item.time_minutes > 0 && (
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground"
+              title={`Tempo de execução: ${item.time_minutes} min`}
+            >
+              <Clock className="h-3 w-3" />
+              {item.time_minutes}m
+            </span>
+          )}
+        </span>
+      </TableCell>
+      <TableCell>
+        <Badge variant="secondary" className="text-xs">
+          {CATEGORIES.find((c) => c.value === item.category)?.label ?? item.category}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-xs text-muted-foreground">
+        {item.pricing_model === "per_sheet" ? "Por folha" : "Por unidade"}
+      </TableCell>
+      <TableCell className="text-right font-semibold tabular-nums">
+        {fmt(item.price_per_sheet)}
+        <span className="text-[10px] font-normal text-muted-foreground ml-1">
+          {unit}
+        </span>
+      </TableCell>
+      <TableCell>
+        {isAdmin ? (
+          <Switch
+            checked={item.is_active}
+            onCheckedChange={() => onToggleActive(item)}
+          />
+        ) : (
+          <Badge variant={item.is_active ? "default" : "secondary"} className="text-xs">
+            {item.is_active ? "Sim" : "Não"}
+          </Badge>
+        )}
+      </TableCell>
+      {isAdmin && (
+        <TableCell>
+          <div className="flex gap-1">
+            {item.pricing_model === "per_sheet" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onOpenTiers(item)}
+                title="Faixas por quantidade"
+              >
+                <Layers className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onClone(item)}
+              title="Clonar acabamento (mesmas faixas)"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onEdit(item)}
+            >
+              <Edit2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive"
+              onClick={() => onDelete(item.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </TableCell>
+      )}
+    </TableRow>
+  );
+}
+
+function SortableFinishingRow(props: Omit<RowProps, "showDragHandle" | "dragHandleProps">) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.item.id,
+  });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <tr ref={setNodeRef} style={style} className={!props.item.is_active ? "opacity-50" : ""}>
+      <td className="w-[36px] p-2">
+        <button
+          type="button"
+          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
+          aria-label="Arrastar para reordenar"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      </td>
+      <RowCells {...props} />
+    </tr>
+  );
+}
+
+function RowCells({
+  item,
+  isAdmin,
+  onEdit,
+  onClone,
+  onDelete,
+  onToggleActive,
+  onOpenTiers,
+}: Omit<RowProps, "showDragHandle" | "dragHandleProps">) {
+  const unit =
+    item.pricing_model === "per_sheet"
+      ? `/folha ${item.size ?? ""}`.trim()
+      : `/${item.unit_label || "unidade"}`;
+  return (
+    <>
+      <TableCell className="font-medium">
+        <span className="inline-flex items-center gap-1.5">
+          {item.name}
+          {item.time_minutes > 0 && (
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground"
+              title={`Tempo de execução: ${item.time_minutes} min`}
+            >
+              <Clock className="h-3 w-3" />
+              {item.time_minutes}m
+            </span>
+          )}
+        </span>
+      </TableCell>
+      <TableCell>
+        <Badge variant="secondary" className="text-xs">
+          {CATEGORIES.find((c) => c.value === item.category)?.label ?? item.category}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-xs text-muted-foreground">
+        {item.pricing_model === "per_sheet" ? "Por folha" : "Por unidade"}
+      </TableCell>
+      <TableCell className="text-right font-semibold tabular-nums">
+        {fmt(item.price_per_sheet)}
+        <span className="text-[10px] font-normal text-muted-foreground ml-1">
+          {unit}
+        </span>
+      </TableCell>
+      <TableCell>
+        {isAdmin ? (
+          <Switch
+            checked={item.is_active}
+            onCheckedChange={() => onToggleActive(item)}
+          />
+        ) : (
+          <Badge variant={item.is_active ? "default" : "secondary"} className="text-xs">
+            {item.is_active ? "Sim" : "Não"}
+          </Badge>
+        )}
+      </TableCell>
+      {isAdmin && (
+        <TableCell>
+          <div className="flex gap-1">
+            {item.pricing_model === "per_sheet" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onOpenTiers(item)}
+                title="Faixas por quantidade"
+              >
+                <Layers className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onClone(item)}
+              title="Clonar acabamento (mesmas faixas)"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onEdit(item)}
+            >
+              <Edit2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive"
+              onClick={() => onDelete(item.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </TableCell>
+      )}
+    </>
   );
 }
