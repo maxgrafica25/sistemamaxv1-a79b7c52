@@ -1,21 +1,16 @@
-# Padronizar cards de itens do orçamento
+# Mover preço total para canto inferior direito
 
-Hoje há dois layouts diferentes:
-
-- **ItemCard** (item simples, ex.: "Cartões de visita"): título à esquerda + **preço total no canto superior direito**, subtítulo abaixo.
-- **GroupCard** (grupo com faixas, ex.: "Etiquetas"): título sem preço, e uma **linha extra embaixo** com `100 un · solicitada · R$ 0,20 / un · R$ 20,00`. A quantidade já aparece no título (`"100 un. - Etiquetas"`), então `100 un · solicitada` está duplicado.
+Hoje o preço total fica no canto superior direito, dividindo a linha com o título e limitando o espaço dele.
 
 ## Mudança
 
-Em `src/components/orcamentos-v3/cart/UnifiedCart.tsx`, refatorar o `GroupCard` para usar o mesmo layout do `ItemCard`:
+Em `src/components/orcamentos-v3/cart/UnifiedCart.tsx`, nos componentes `ItemCard` e `GroupCard`:
 
-1. Header: título à esquerda + **preço total no canto superior direito** (mesmo lugar do ItemCard).
-2. Subtítulo padrão (`itemSubtitle`) logo abaixo, igual aos demais.
-3. Manter a linha "+ N faixas sugeridas ao cliente" (informa que é grupo).
-4. **Remover** a linha inferior com `qty · solicitada · preço/un · total` — quantidade já está no título e o total agora está no header.
+1. Remover o `<span>` de preço do header (mesma linha do título). Título passa a ocupar 100% da largura disponível ao lado do ícone e das ações (expand/duplicar/excluir).
+2. Adicionar o preço total como uma linha própria **alinhada ao canto inferior direito do card**, abaixo das ações — `text-[13px] font-semibold tabular-nums text-right`.
 
-Detalhes de preço por unidade (`R$ 0,20 / un`) e demais breakdowns continuam disponíveis ao expandir o card (já existem em `ExpandedDetails`).
+Mantém subtítulo e linha "+ N faixas sugeridas" inalterados. Layout padronizado entre os dois tipos de card.
 
 ## Arquivo
 
-- `src/components/orcamentos-v3/cart/UnifiedCart.tsx` (apenas o componente `GroupCard`)
+- `src/components/orcamentos-v3/cart/UnifiedCart.tsx`
