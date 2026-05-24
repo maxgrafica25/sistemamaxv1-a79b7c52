@@ -370,6 +370,7 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
                     onAddMany={addItems}
                     onAddTiers={addItems}
                     defaultMarginPct={state.margin_pct}
+                    hideArtFinishings={state.art_status === "ready"}
                   />
                 )}
                 {active === "cv" && <CVForm onAdd={addItem} onAddTiers={addItems} />}
