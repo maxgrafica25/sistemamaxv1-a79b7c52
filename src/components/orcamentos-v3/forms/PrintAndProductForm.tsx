@@ -51,9 +51,10 @@ interface Props {
   onAddMany?: (items: V3Item[]) => void;
   onAddTiers?: (items: V3Item[]) => void;
   defaultMarginPct?: number;
+  hideArtFinishings?: boolean;
 }
 
-export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20 }: Props) {
+export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20, hideArtFinishings = false }: Props) {
   const { presets, reload } = useQuotePresets("impressao");
   // null = Personalizado (padrão)
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
@@ -349,6 +350,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onDescricaoChange={setDescricao}
             emptyDefaults
             substrateLabel={substrateLabel}
+            hideArtFinishings={hideArtFinishings}
           />
 
         )}
@@ -361,6 +363,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             descricao={descricao}
             onDescricaoChange={setDescricao}
             substrateLabel={substrateLabel}
+            hideArtFinishings={hideArtFinishings}
           />
         )}
 
