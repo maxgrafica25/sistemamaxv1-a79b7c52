@@ -300,6 +300,61 @@ export default function Configuracoes() {
             </Card>
 
             <Card className="shadow-card lg:col-span-2 xl:col-span-3">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Regime de cálculo de preço</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Define como impostos, taxas e margem são aplicados nos orçamentos (Impressão, V3, Comunicação Visual e Etiquetas). Não afeta orçamentos já salvos.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setPricingRegime("por_fora")}
+                    className={`text-left rounded-md border p-3 transition ${
+                      pricingRegime === "por_fora"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold">Por fora <span className="text-xs font-normal text-muted-foreground">(padrão atual)</span></span>
+                      {pricingRegime === "por_fora" && <span className="text-[10px] font-medium text-primary uppercase">Ativo</span>}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Margem aplicada sobre o custo: <code className="rounded bg-muted px-1">preço = custo × (1 + margem%)</code>. Impostos e taxas saem da margem.
+                    </p>
+                    <p className="text-[11px] text-amber-600 mt-1">Margem real fica abaixo da nominal.</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPricingRegime("por_dentro")}
+                    className={`text-left rounded-md border p-3 transition ${
+                      pricingRegime === "por_dentro"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold">Por dentro <span className="text-xs font-normal text-muted-foreground">(contábil)</span></span>
+                      {pricingRegime === "por_dentro" && <span className="text-[10px] font-medium text-primary uppercase">Ativo</span>}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Divisor: <code className="rounded bg-muted px-1">preço = custo ÷ (1 − (imp + tx + margem)%)</code>. Impostos, taxas e margem embutidos no preço final.
+                    </p>
+                    <p className="text-[11px] text-emerald-600 mt-1">Margem real = margem configurada. Preços maiores.</p>
+                  </button>
+                </div>
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    A troca afeta apenas <strong>novos cálculos</strong>. Orçamentos já salvos mantêm os preços registrados. Recomendado validar o impacto comercial antes de migrar para "Por dentro".
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-card lg:col-span-2 xl:col-span-3">
               <CardHeader className="pb-3"><CardTitle className="text-base">Fluxo de orçamentos</CardTitle></CardHeader>
               <CardContent>
                 <div className="flex items-start justify-between gap-4 rounded-md border border-border bg-muted/20 p-3">
