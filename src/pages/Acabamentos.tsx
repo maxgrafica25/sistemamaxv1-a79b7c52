@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers, Copy, Clock, GripVertical } from "lucide-react";
+import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers, Copy, Clock, GripVertical, Info, Sparkles } from "lucide-react";
+
 import { FinishingTiersDrawer } from "@/components/acabamentos/FinishingTiersDrawer";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -63,11 +64,29 @@ const CATEGORIES = [
 
 const DEFAULT_APPLIES_TO = ["etiqueta", "impressao"];
 type PricingModel = "per_sheet" | "per_unit";
-type FormMode = "per_sheet" | "per_unit" | "time_only";
+/**
+ * Modo de cadastro (apresentação ao usuário):
+ *  - "per_unit_simple": cobra preço cheio por peça/folha, sem multiplicador.
+ *  - "per_unit_multiplier": cobra por unidade com multiplicador automático
+ *     de formato (A3/SRA3 = 2x A4) e frente-verso (2x). Usado em laminação,
+ *     plastificação, verniz, etc.
+ *  - "time_only": não cobra; só registra minutos de mão de obra.
+ *
+ * No banco mapeamos para `auto_format_multiplier` + `pricing_model` coerente
+ * (per_sheet quando multiplicador ligado, per_unit caso contrário) por
+ * compatibilidade com o engine atual.
+ */
+type FormMode = "per_unit_simple" | "per_unit_multiplier" | "time_only";
 
-const detectFormMode = (item: { pricing_model: PricingModel; price_per_sheet: number; time_minutes: number }): FormMode => {
+const detectFormMode = (item: {
+  pricing_model: PricingModel;
+  price_per_sheet: number;
+  time_minutes: number;
+  auto_format_multiplier?: boolean;
+}): FormMode => {
   if (item.price_per_sheet === 0 && item.time_minutes > 0) return "time_only";
-  return item.pricing_model;
+  if (item.auto_format_multiplier ?? item.pricing_model === "per_sheet") return "per_unit_multiplier";
+  return "per_unit_simple";
 };
 
 interface FinishingItem {
@@ -77,6 +96,7 @@ interface FinishingItem {
   size: string | null;
   price_per_sheet: number;
   pricing_model: PricingModel;
+  auto_format_multiplier: boolean;
   applies_to: string[];
   unit_label: string | null;
   is_active: boolean;
@@ -93,7 +113,8 @@ const emptyDraft: Omit<FinishingItem, "id"> = {
   category: "recorte",
   size: "SRA3",
   price_per_sheet: 0,
-  pricing_model: "per_sheet",
+  pricing_model: "per_unit",
+  auto_format_multiplier: false,
   applies_to: DEFAULT_APPLIES_TO,
   unit_label: null,
   is_active: true,
@@ -101,6 +122,7 @@ const emptyDraft: Omit<FinishingItem, "id"> = {
   production_step_id: null,
   time_minutes: 0,
 };
+
 
 export default function Acabamentos({ hideHeader = false }: { hideHeader?: boolean } = {}) {
   const isAdmin = useIsAdmin();
@@ -111,7 +133,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState<typeof emptyDraft & { id?: string }>(emptyDraft);
-  const [formMode, setFormMode] = useState<FormMode>("per_sheet");
+  const [formMode, setFormMode] = useState<FormMode>("per_unit_simple");
   const [editing, setEditing] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [tiersFor, setTiersFor] = useState<FinishingItem | null>(null);
@@ -156,7 +178,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
       ...emptyDraft,
       sort_order: (items[items.length - 1]?.sort_order ?? 0) + 1,
     });
-    setFormMode("per_sheet");
+    setFormMode("per_unit_simple");
     setEditing(true);
   };
 
@@ -169,7 +191,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
   const cancelEdit = () => {
     setEditing(false);
     setDraft(emptyDraft);
-    setFormMode("per_sheet");
+    setFormMode("per_unit_simple");
   };
 
   const save = async () => {
@@ -182,8 +204,8 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
       toast.error("Preço não pode ser negativo");
       return;
     }
-    if (formMode === "per_sheet" && !draft.size) {
-      toast.error("Modelo por folha exige selecionar o tamanho");
+    if (formMode === "per_unit_multiplier" && !draft.size) {
+      toast.error("Modo com multiplicador exige selecionar o tamanho base da folha");
       return;
     }
     if (formMode === "time_only" && (!draft.time_minutes || draft.time_minutes <= 0)) {
@@ -192,14 +214,17 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
     }
 
     const isTimeOnly = formMode === "time_only";
-    const effectiveModel: PricingModel = isTimeOnly ? "per_unit" : formMode;
+    const isMultiplier = formMode === "per_unit_multiplier";
+    // Retrocompat com o engine atual: multiplicador ⇒ per_sheet, simples ⇒ per_unit.
+    const effectiveModel: PricingModel = isMultiplier ? "per_sheet" : "per_unit";
 
     const payload = {
       name: draft.name.trim(),
       category: draft.category,
-      size: effectiveModel === "per_unit" ? null : draft.size,
+      size: isMultiplier ? draft.size : null,
       price_per_sheet: isTimeOnly ? 0 : draft.price_per_sheet,
       pricing_model: effectiveModel,
+      auto_format_multiplier: isMultiplier,
       applies_to: DEFAULT_APPLIES_TO,
       unit_label:
         effectiveModel === "per_unit"
@@ -211,6 +236,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
       time_minutes: Math.max(0, Math.round(draft.time_minutes || 0)),
     };
     let error;
+
     if (draft.id) {
       ({ error } = await (supabase as any)
         .from("finishings_price_items")
@@ -269,6 +295,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
         size: item.size,
         price_per_sheet: item.price_per_sheet,
         pricing_model: item.pricing_model,
+        auto_format_multiplier: item.auto_format_multiplier,
         applies_to: DEFAULT_APPLIES_TO,
         unit_label: item.unit_label,
         is_active: item.is_active,
@@ -374,56 +401,84 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                 />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Categoria</Label>
-                  <Select
-                    value={draft.category}
-                    onValueChange={(v) => setDraft({ ...draft, category: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CATEGORIES.map((c) => (
-                        <SelectItem key={c.value} value={c.value}>
-                          {c.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Modelo de cobrança</Label>
-                  <Select
-                    value={formMode}
-                    onValueChange={(v: FormMode) => {
-                      setFormMode(v);
-                      setDraft((d) => ({
-                        ...d,
-                        pricing_model: v === "time_only" ? "per_unit" : v,
-                        size: v === "per_sheet" ? (d.size ?? "SRA3") : null,
-                        price_per_sheet: v === "time_only" ? 0 : d.price_per_sheet,
-                      }));
+              <div className="space-y-1.5">
+                <Label className="text-xs">Categoria</Label>
+                <Select
+                  value={draft.category}
+                  onValueChange={(v) => setDraft({ ...draft, category: v })}
+                >
+                  <SelectTrigger className="sm:w-[260px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Modo de cobrança — radio cards com explicação inline */}
+              <div className="space-y-2">
+                <Label className="text-xs">Modo de cobrança</Label>
+                <div className="grid gap-2">
+                  <ModeCard
+                    selected={formMode === "per_unit_simple"}
+                    onClick={() => {
+                      setFormMode("per_unit_simple");
+                      setDraft((d) => ({ ...d, size: null, price_per_sheet: d.price_per_sheet || 0 }));
                     }}
+                    title="Por unidade"
+                    subtitle="Preço cheio por peça processada — sem multiplicador."
+                    examples="Ilhós, dobra, vinco, furo, refile, wire-o, espiral, grampo"
+                  />
+                  <ModeCard
+                    selected={formMode === "per_unit_multiplier"}
+                    onClick={() => {
+                      setFormMode("per_unit_multiplier");
+                      setDraft((d) => ({ ...d, size: d.size ?? "SRA3" }));
+                    }}
+                    title="Por unidade com multiplicador de formato"
+                    subtitle="Preço base escala automaticamente com formato da folha e impressão F/V."
+                    examples="Laminação, plastificação, verniz, hot stamping"
+                    accent
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="per_sheet">Por folha</SelectItem>
-                      <SelectItem value="per_unit">Por unidade</SelectItem>
-                      <SelectItem value="time_only">Somente tempo (sem cobrança)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    {formMode === "per_unit_multiplier" && (
+                      <div className="mt-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-[11px] leading-relaxed">
+                        <div className="flex items-center gap-1.5 font-medium text-primary mb-1">
+                          <Info className="h-3 w-3" /> Multiplicadores aplicados automaticamente
+                        </div>
+                        <div className="text-foreground/80">
+                          <span className="font-mono">A4</span> = 1× &nbsp;•&nbsp;{" "}
+                          <span className="font-mono">A3 / SRA3</span> = 2× &nbsp;•&nbsp;{" "}
+                          <span className="font-mono">Frente e verso</span> = 2×
+                        </div>
+                        <div className="text-muted-foreground mt-0.5">
+                          Stack até 4× (ex.: SRA3 frente e verso = 4× o preço base).
+                        </div>
+                      </div>
+                    )}
+                  </ModeCard>
+                  <ModeCard
+                    selected={formMode === "time_only"}
+                    onClick={() => {
+                      setFormMode("time_only");
+                      setDraft((d) => ({ ...d, size: null, price_per_sheet: 0 }));
+                    }}
+                    title="Somente tempo (sem cobrança)"
+                    subtitle="Não soma valor no orçamento — apenas registra tempo de mão de obra."
+                    examples="Conferência, embalagem, controle de qualidade"
+                  />
                 </div>
               </div>
 
               {formMode !== "time_only" && (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {formMode === "per_sheet" ? (
+                  {formMode === "per_unit_multiplier" ? (
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Tamanho da folha</Label>
+                      <Label className="text-xs">Tamanho base da folha</Label>
                       <Select
                         value={draft.size ?? ""}
                         onValueChange={(v) => setDraft({ ...draft, size: v })}
@@ -439,13 +494,26 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-[11px] text-muted-foreground">
+                        Tamanho que corresponde ao preço base (1×). Os demais escalam pelo multiplicador.
+                      </p>
                     </div>
                   ) : (
-                    <div /> /* spacer */
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Rótulo da unidade (opcional)</Label>
+                      <Input
+                        value={draft.unit_label ?? ""}
+                        onChange={(e) => setDraft({ ...draft, unit_label: e.target.value })}
+                        placeholder="unidade"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Aparece após o preço (ex.: "/ilhós", "/dobra"). Padrão: "unidade".
+                      </p>
+                    </div>
                   )}
                   <div className="space-y-1.5">
                     <Label className="text-xs">
-                      Preço por {formMode === "per_sheet" ? "folha" : "unidade"} (R$)
+                      Preço base (R$)
                     </Label>
                     <Input
                       type="number"
@@ -460,6 +528,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                   </div>
                 </div>
               )}
+
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
@@ -667,10 +736,11 @@ function FinishingRow({
   showDragHandle = false,
   dragHandleProps,
 }: RowProps) {
-  const unit =
-    item.pricing_model === "per_sheet"
-      ? `/folha ${item.size ?? ""}`.trim()
-      : `/${item.unit_label || "unidade"}`;
+  const hasMultiplier = item.auto_format_multiplier;
+  const isTimeOnly = item.price_per_sheet === 0 && item.time_minutes > 0;
+  const unit = hasMultiplier
+    ? `/folha ${item.size ?? ""}`.trim()
+    : `/${item.unit_label || "unidade"}`;
   return (
     <TableRow className={!item.is_active ? "opacity-50" : ""}>
       {showDragHandle && (
@@ -705,8 +775,8 @@ function FinishingRow({
           {CATEGORIES.find((c) => c.value === item.category)?.label ?? item.category}
         </Badge>
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
-        {item.pricing_model === "per_sheet" ? "Por folha" : "Por unidade"}
+      <TableCell>
+        <CobrancaCell hasMultiplier={hasMultiplier} isTimeOnly={isTimeOnly} />
       </TableCell>
       <TableCell className="text-right font-semibold tabular-nums">
         {fmt(item.price_per_sheet)}
@@ -729,7 +799,7 @@ function FinishingRow({
       {isAdmin && (
         <TableCell>
           <div className="flex gap-1">
-            {item.pricing_model === "per_sheet" && (
+            {hasMultiplier && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -808,10 +878,11 @@ function RowCells({
   onToggleActive,
   onOpenTiers,
 }: Omit<RowProps, "showDragHandle" | "dragHandleProps">) {
-  const unit =
-    item.pricing_model === "per_sheet"
-      ? `/folha ${item.size ?? ""}`.trim()
-      : `/${item.unit_label || "unidade"}`;
+  const hasMultiplier = item.auto_format_multiplier;
+  const isTimeOnly = item.price_per_sheet === 0 && item.time_minutes > 0;
+  const unit = hasMultiplier
+    ? `/folha ${item.size ?? ""}`.trim()
+    : `/${item.unit_label || "unidade"}`;
   return (
     <>
       <TableCell className="font-medium">
@@ -833,8 +904,8 @@ function RowCells({
           {CATEGORIES.find((c) => c.value === item.category)?.label ?? item.category}
         </Badge>
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
-        {item.pricing_model === "per_sheet" ? "Por folha" : "Por unidade"}
+      <TableCell>
+        <CobrancaCell hasMultiplier={hasMultiplier} isTimeOnly={isTimeOnly} />
       </TableCell>
       <TableCell className="text-right font-semibold tabular-nums">
         {fmt(item.price_per_sheet)}
@@ -857,7 +928,7 @@ function RowCells({
       {isAdmin && (
         <TableCell>
           <div className="flex gap-1">
-            {item.pricing_model === "per_sheet" && (
+            {hasMultiplier && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -899,3 +970,82 @@ function RowCells({
     </>
   );
 }
+
+// ─── ModeCard ─────────────────────────────────────────────────────────
+// Radio-card visual com título, descrição curta e exemplos de uso.
+// Mantém o conteúdo do modo selecionado expansível via children.
+
+interface ModeCardProps {
+  selected: boolean;
+  onClick: () => void;
+  title: string;
+  subtitle: string;
+  examples: string;
+  accent?: boolean;
+  children?: React.ReactNode;
+}
+
+function ModeCard({ selected, onClick, title, subtitle, examples, accent, children }: ModeCardProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "text-left rounded-lg border p-3 transition-colors " +
+        (selected
+          ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+          : "border-border hover:border-primary/40 hover:bg-muted/40")
+      }
+    >
+      <div className="flex items-start gap-2.5">
+        <div
+          className={
+            "mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 transition-colors " +
+            (selected ? "border-primary bg-primary" : "border-muted-foreground/40")
+          }
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 text-sm font-medium leading-tight">
+            {title}
+            {accent && <Sparkles className="h-3 w-3 text-primary" />}
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
+          <p className="text-[11px] text-muted-foreground/80 mt-1">
+            <span className="font-medium">Use para:</span> {examples}
+          </p>
+          {children}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// ─── CobrancaCell ─────────────────────────────────────────────────────
+// Badge resumido da forma de cobrança usado na listagem.
+
+function CobrancaCell({ hasMultiplier, isTimeOnly }: { hasMultiplier: boolean; isTimeOnly: boolean }) {
+  if (isTimeOnly) {
+    return (
+      <Badge variant="outline" className="text-[10px] gap-1">
+        <Clock className="h-3 w-3" /> Somente tempo
+      </Badge>
+    );
+  }
+  if (hasMultiplier) {
+    return (
+      <Badge
+        variant="secondary"
+        className="text-[10px] gap-1 bg-primary/10 text-primary border-primary/20"
+        title="Preço escala com formato da folha (A3/SRA3 = 2×) e frente e verso (2×)"
+      >
+        <Sparkles className="h-3 w-3" /> Por unidade ×formato
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-[10px]">
+      Por unidade
+    </Badge>
+  );
+}
+
