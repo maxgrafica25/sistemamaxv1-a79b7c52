@@ -233,19 +233,6 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             Salvar como favorito
           </Button>
         )}
-        {selectedPreset && (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => setPresetToDelete(selectedPreset)}
-            className="h-7 text-xs text-muted-foreground hover:text-destructive ml-auto"
-            title="Remove este favorito da sua lista de atalhos rápidos"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Desfavoritar
-          </Button>
-        )}
       </div>
       {savePayload && (
         <SavePresetDialog
@@ -256,26 +243,6 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         />
       )}
 
-      <AlertDialog open={!!presetToDelete} onOpenChange={(o) => !o && setPresetToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Desfavoritar este atalho?</AlertDialogTitle>
-            <AlertDialogDescription>
-              O favorito "{presetToDelete?.nome}" será removido da sua lista de atalhos rápidos. Isso não apaga nenhum orçamento já criado e você pode salvá-lo novamente depois.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); handleConfirmDelete(); }}
-              disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleting ? "Removendo..." : "Remover"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Faixa de sugestão (apenas em Personalizado) */}
       {isCustom && suggestion && (
