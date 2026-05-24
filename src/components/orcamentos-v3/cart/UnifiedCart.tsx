@@ -627,9 +627,7 @@ function GroupCard({ entry, highlightId, onDuplicate, onRemove, pcts, showFinanc
   const [expanded, setExpanded] = useState(showFinancials);
   const primaryItem =
     entry.items.find((i) => (i as { tier_primary?: boolean }).tier_primary) ?? entry.items[0];
-  const primaryQty = itemQty(primaryItem);
   const primaryPrice = priceOf(primaryItem).preco_total;
-  const primaryUnit = primaryQty > 0 ? primaryPrice / primaryQty : 0;
   const extraTiers = entry.items.length - 1;
   const Icon = ICON[primaryItem.kind];
   const isNew = entry.items.some((i) => i.id === highlightId);
