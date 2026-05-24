@@ -348,7 +348,9 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             descricao={descricao}
             onDescricaoChange={setDescricao}
             emptyDefaults
+            substrateLabel={substrateLabel}
           />
+
         )}
         {!treatAsBusinessCard && !isCustom && formTipo === "print" && (
           <PrintForm
