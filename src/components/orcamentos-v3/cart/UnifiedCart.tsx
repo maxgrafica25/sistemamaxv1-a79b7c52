@@ -437,65 +437,15 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId, taxPct,
           );
         }
 
-        // Group (tiers) rendering — só a faixa solicitada (primária).
-        // As demais faixas seguem no state e aparecem como "outras quantidades"
-        // no viewer online / WhatsApp / PDF.
-        const primaryItem =
-          entry.items.find((i) => (i as { tier_primary?: boolean }).tier_primary) ?? entry.items[0];
-        const primaryQty = itemQty(primaryItem);
-        const primaryPrice = priceOf(primaryItem).preco_total;
-        const primaryUnit = primaryQty > 0 ? primaryPrice / primaryQty : 0;
-        const extraTiers = entry.items.length - 1;
-
-        const Icon = ICON[primaryItem.kind];
-        const isNew = entry.items.some((i) => i.id === highlightId);
-
         return (
-          <li
+          <GroupCard
             key={entry.groupId}
-            className={cn(
-              "rounded-md border border-border/60 bg-card px-2 py-1.5 transition-all",
-              isNew && "ring-2 ring-emerald-500/50 animate-in fade-in slide-in-from-right-2",
-            )}
-          >
-            <div className="flex items-start gap-1.5">
-              <div className="rounded bg-primary/10 p-0.5 text-primary shrink-0">
-                <Icon className="h-3 w-3" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium leading-tight truncate">
-                  {itemTitle(primaryItem)}
-                </p>
-                {itemSubtitle(primaryItem) && (
-                  <p className="text-[11px] text-muted-foreground truncate">{itemSubtitle(primaryItem)}</p>
-                )}
-                {extraTiers > 0 && (
-                  <p className="text-[10px] text-muted-foreground/80 italic mt-0.5">
-                    + {extraTiers} {extraTiers === 1 ? "faixa sugerida" : "faixas sugeridas"} ao cliente
-                  </p>
-                )}
-              </div>
-              <CardActions
-                onRemove={() => entry.items.forEach((it) => onRemove(it.id))}
-                removeTitle="Excluir grupo (todas as faixas)"
-              />
-            </div>
-
-            <div className="mt-1 flex items-center gap-1.5 px-1 text-[11px]">
-              <span className="tabular-nums flex items-center gap-1.5 min-w-[110px] whitespace-nowrap text-[13px] font-semibold text-primary">
-                {primaryQty.toLocaleString("pt-BR")} un
-                <span className="text-[9px] uppercase tracking-wide text-primary/70 font-medium whitespace-nowrap">
-                  · solicitada
-                </span>
-              </span>
-              <span className="tabular-nums flex-1 text-right whitespace-nowrap text-muted-foreground">
-                {fmtBRL(primaryUnit)} / un
-              </span>
-              <span className="tabular-nums min-w-[80px] text-right whitespace-nowrap text-[13px] font-bold text-foreground">
-                {fmtBRL(primaryPrice)}
-              </span>
-            </div>
-          </li>
+            entry={entry}
+            highlightId={highlightId}
+            onRemove={onRemove}
+            pcts={pcts}
+            showFinancials={showFinancials}
+          />
         );
       })}
     </ul>
@@ -512,7 +462,7 @@ interface BundleCardProps {
 }
 
 function BundleCard({ entry, highlightId, onDuplicate, onRemove, pcts, showFinancials }: BundleCardProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(showFinancials);
   const leader = entry.leader;
   const Icon = ICON[leader.kind];
   const isNew = entry.items.some((i) => i.id === highlightId);
@@ -618,7 +568,7 @@ interface SingleCardProps {
 }
 
 function SingleCard({ item, isNew, onDuplicate, onRemove, pcts, showFinancials }: SingleCardProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(showFinancials);
   const Icon = ICON[item.kind];
   const price = priceOf(item).preco_total;
   return (
@@ -663,6 +613,88 @@ function SingleCard({ item, isNew, onDuplicate, onRemove, pcts, showFinancials }
         <ExpandedDetails
           context={itemContext(item)}
           breakdown={showFinancials ? itemFinancials(item, pcts) : null}
+        />
+      )}
+    </li>
+  );
+}
+
+interface GroupCardProps {
+  entry: { type: "group"; groupId: string; items: V3Item[] };
+  highlightId?: string | null;
+  onRemove: (id: string) => void;
+  pcts: CartPcts;
+  showFinancials: boolean;
+}
+
+function GroupCard({ entry, highlightId, onRemove, pcts, showFinancials }: GroupCardProps) {
+  const [expanded, setExpanded] = useState(showFinancials);
+  const primaryItem =
+    entry.items.find((i) => (i as { tier_primary?: boolean }).tier_primary) ?? entry.items[0];
+  const primaryQty = itemQty(primaryItem);
+  const primaryPrice = priceOf(primaryItem).preco_total;
+  const primaryUnit = primaryQty > 0 ? primaryPrice / primaryQty : 0;
+  const extraTiers = entry.items.length - 1;
+  const Icon = ICON[primaryItem.kind];
+  const isNew = entry.items.some((i) => i.id === highlightId);
+
+  return (
+    <li
+      className={cn(
+        "rounded-md border border-border/60 bg-card px-2 py-1.5 transition-all",
+        isNew && "ring-2 ring-emerald-500/50 animate-in fade-in slide-in-from-right-2",
+      )}
+    >
+      <div className="flex items-start gap-1.5">
+        <div className="rounded bg-primary/10 p-0.5 text-primary shrink-0">
+          <Icon className="h-3 w-3" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-medium leading-tight truncate">
+            {itemTitle(primaryItem)}
+          </p>
+          {itemSubtitle(primaryItem) && (
+            <p className="text-[11px] text-muted-foreground truncate">{itemSubtitle(primaryItem)}</p>
+          )}
+          {extraTiers > 0 && (
+            <p className="text-[10px] text-muted-foreground/80 italic mt-0.5">
+              + {extraTiers} {extraTiers === 1 ? "faixa sugerida" : "faixas sugeridas"} ao cliente
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="mt-0.5 inline-flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            {expanded ? "ocultar" : "detalhes"}
+          </button>
+        </div>
+        <CardActions
+          onRemove={() => entry.items.forEach((it) => onRemove(it.id))}
+          removeTitle="Excluir grupo (todas as faixas)"
+        />
+      </div>
+
+      <div className="mt-1 flex items-center gap-1.5 px-1 text-[11px]">
+        <span className="tabular-nums flex items-center gap-1.5 min-w-[110px] whitespace-nowrap text-[13px] font-semibold text-primary">
+          {primaryQty.toLocaleString("pt-BR")} un
+          <span className="text-[9px] uppercase tracking-wide text-primary/70 font-medium whitespace-nowrap">
+            · solicitada
+          </span>
+        </span>
+        <span className="tabular-nums flex-1 text-right whitespace-nowrap text-muted-foreground">
+          {fmtBRL(primaryUnit)} / un
+        </span>
+        <span className="tabular-nums min-w-[80px] text-right whitespace-nowrap text-[13px] font-bold text-foreground">
+          {fmtBRL(primaryPrice)}
+        </span>
+      </div>
+
+      {expanded && (
+        <ExpandedDetails
+          context={itemContext(primaryItem)}
+          breakdown={showFinancials ? itemFinancials(primaryItem, pcts) : null}
         />
       )}
     </li>
