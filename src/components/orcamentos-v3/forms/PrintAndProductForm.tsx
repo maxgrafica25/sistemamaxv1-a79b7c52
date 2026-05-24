@@ -56,8 +56,6 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
     finishings: string[];
   } | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
-  const [presetToDelete, setPresetToDelete] = useState<QuotePreset | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   // A pergunta "Tem arte pronta?" agora é única por orçamento (NewQuoteFormV3).
   // Os formulários apenas emitem itens; o pai carimba o art_status global.
@@ -71,24 +69,6 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
     [onAddTiers, onAdd],
   );
 
-
-  const handleConfirmDelete = useCallback(async () => {
-    if (!presetToDelete) return;
-    setDeleting(true);
-    const { error } = await supabase
-      .from("quote_presets" as never)
-      .delete()
-      .eq("id", presetToDelete.id);
-    setDeleting(false);
-    if (error) {
-      toast.error("Não foi possível remover o favorito.");
-      return;
-    }
-    toast.success(`"${presetToDelete.nome}" removido dos favoritos.`);
-    if (selectedPresetId === presetToDelete.id) setSelectedPresetId(null);
-    setPresetToDelete(null);
-    reload();
-  }, [presetToDelete, reload, selectedPresetId]);
 
   const selectedPreset: QuotePreset | undefined = selectedPresetId && selectedPresetId !== BUILTIN_BUSINESS_CARD_ID
     ? presets.find((p) => p.id === selectedPresetId)
