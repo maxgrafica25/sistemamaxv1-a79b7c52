@@ -56,9 +56,15 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
   const [printFinishings, setPrintFinishings] = useState<FinishingItem[]>([]);
   useEffect(() => {
     listFinishings("impressao")
-      .then(setPrintFinishings)
+      .then((all) =>
+        setPrintFinishings(
+          hideArtFinishings
+            ? all.filter((f) => !/^arte\b/i.test(f.name.trim()))
+            : all,
+        ),
+      )
       .catch(() => setPrintFinishings([]));
-  }, []);
+  }, [hideArtFinishings]);
 
   // Lona / banner
   // Conjunto de acabamentos derivado do catálogo unificado.
