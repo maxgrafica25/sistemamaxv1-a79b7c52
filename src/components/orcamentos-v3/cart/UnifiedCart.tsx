@@ -437,78 +437,18 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId, taxPct,
           );
         }
 
-        // Group (tiers) rendering
+        // Group (tiers) rendering — só a faixa solicitada (primária).
+        // As demais faixas seguem no state e aparecem como "outras quantidades"
+        // no viewer online / WhatsApp / PDF.
         const primaryItem =
           entry.items.find((i) => (i as { tier_primary?: boolean }).tier_primary) ?? entry.items[0];
         const primaryQty = itemQty(primaryItem);
         const primaryPrice = priceOf(primaryItem).preco_total;
         const primaryUnit = primaryQty > 0 ? primaryPrice / primaryQty : 0;
+        const extraTiers = entry.items.length - 1;
 
-        const sortedAll = [...entry.items].sort((a, b) => itemQty(a) - itemQty(b));
         const Icon = ICON[primaryItem.kind];
         const isNew = entry.items.some((i) => i.id === highlightId);
-        const descricao =
-          (primaryItem as { descricao?: string }).descricao || LABEL[primaryItem.kind];
-
-        const renderTierRow = (it: V3Item, opts: { primary: boolean; showDivider: boolean }) => {
-          const price = priceOf(it).preco_total;
-          const q = itemQty(it);
-          const unit = q > 0 ? price / q : 0;
-          const economiaPct =
-            !opts.primary && primaryUnit > 0
-              ? ((primaryUnit - unit) / primaryUnit) * 100
-              : 0;
-          return (
-            <li
-              key={it.id}
-              className={cn(
-                "flex items-center gap-1.5 px-1 py-0.5 text-[11px]",
-                opts.showDivider && "border-t border-border/40 mt-0.5 pt-1",
-                !opts.primary && "text-muted-foreground",
-              )}
-            >
-              <span
-                className={cn(
-                  "tabular-nums flex items-center gap-1.5 min-w-[110px] whitespace-nowrap",
-                  opts.primary && "text-[13px] font-semibold text-primary",
-                )}
-              >
-                {q.toLocaleString("pt-BR")} un
-                {opts.primary && (
-                  <span className="text-[9px] uppercase tracking-wide text-primary/70 font-medium whitespace-nowrap">
-                    · solicitada
-                  </span>
-                )}
-              </span>
-              <span className="tabular-nums flex-1 text-right whitespace-nowrap">
-                {fmtBRL(unit)} / un
-              </span>
-              <span
-                className={cn(
-                  "tabular-nums min-w-[80px] text-right whitespace-nowrap",
-                  opts.primary ? "text-[13px] font-bold text-foreground" : "font-medium",
-                )}
-              >
-                {fmtBRL(price)}
-              </span>
-              {economiaPct > 0.5 ? (
-                <span className="inline-flex justify-center w-[48px] shrink-0 rounded px-1 py-0 text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 tabular-nums whitespace-nowrap">
-                  −{economiaPct.toFixed(0)}% un
-                </span>
-              ) : (
-                <span className="w-[48px] shrink-0" />
-              )}
-              <button
-                type="button"
-                onClick={() => onRemove(it.id)}
-                className="text-muted-foreground/60 hover:text-destructive shrink-0 opacity-40 hover:opacity-100 active:opacity-100 transition-opacity"
-                title={opts.primary ? "Remover quantidade solicitada" : "Remover sugestão"}
-              >
-                <Trash2 className="h-3 w-3" />
-              </button>
-            </li>
-          );
-        };
 
         return (
           <li
@@ -529,25 +469,35 @@ export function UnifiedCart({ items, onDuplicate, onRemove, highlightId, taxPct,
                 {itemSubtitle(primaryItem) && (
                   <p className="text-[11px] text-muted-foreground truncate">{itemSubtitle(primaryItem)}</p>
                 )}
+                {extraTiers > 0 && (
+                  <p className="text-[10px] text-muted-foreground/80 italic mt-0.5">
+                    + {extraTiers} {extraTiers === 1 ? "faixa sugerida" : "faixas sugeridas"} ao cliente
+                  </p>
+                )}
               </div>
               <CardActions
                 onRemove={() => entry.items.forEach((it) => onRemove(it.id))}
-                removeTitle="Excluir grupo"
+                removeTitle="Excluir grupo (todas as faixas)"
               />
             </div>
 
-            <ul className="mt-1 space-y-0">
-              {sortedAll.map((it, i) => {
-                const isPrimary = it.id === primaryItem.id;
-                const prev = sortedAll[i - 1];
-                const showDivider =
-                  i > 0 && (isPrimary || (prev && prev.id === primaryItem.id));
-                return renderTierRow(it, { primary: isPrimary, showDivider });
-              })}
-            </ul>
+            <div className="mt-1 flex items-center gap-1.5 px-1 text-[11px]">
+              <span className="tabular-nums flex items-center gap-1.5 min-w-[110px] whitespace-nowrap text-[13px] font-semibold text-primary">
+                {primaryQty.toLocaleString("pt-BR")} un
+                <span className="text-[9px] uppercase tracking-wide text-primary/70 font-medium whitespace-nowrap">
+                  · solicitada
+                </span>
+              </span>
+              <span className="tabular-nums flex-1 text-right whitespace-nowrap text-muted-foreground">
+                {fmtBRL(primaryUnit)} / un
+              </span>
+              <span className="tabular-nums min-w-[80px] text-right whitespace-nowrap text-[13px] font-bold text-foreground">
+                {fmtBRL(primaryPrice)}
+              </span>
+            </div>
           </li>
         );
-      })}
+
     </ul>
   );
 }
