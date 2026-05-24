@@ -178,25 +178,32 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
       toast.error("Nome é obrigatório");
       return;
     }
-    if (draft.price_per_sheet < 0) {
+    if (formMode !== "time_only" && draft.price_per_sheet < 0) {
       toast.error("Preço não pode ser negativo");
       return;
     }
-    if (draft.pricing_model === "per_sheet" && !draft.size) {
+    if (formMode === "per_sheet" && !draft.size) {
       toast.error("Modelo por folha exige selecionar o tamanho");
       return;
     }
+    if (formMode === "time_only" && (!draft.time_minutes || draft.time_minutes <= 0)) {
+      toast.error("Modo \"Somente tempo\" exige tempo de execução maior que zero");
+      return;
+    }
+
+    const isTimeOnly = formMode === "time_only";
+    const effectiveModel: PricingModel = isTimeOnly ? "per_unit" : formMode;
 
     const payload = {
       name: draft.name.trim(),
       category: draft.category,
-      size: draft.pricing_model === "per_unit" ? null : draft.size,
-      price_per_sheet: draft.price_per_sheet,
-      pricing_model: draft.pricing_model,
+      size: effectiveModel === "per_unit" ? null : draft.size,
+      price_per_sheet: isTimeOnly ? 0 : draft.price_per_sheet,
+      pricing_model: effectiveModel,
       applies_to: DEFAULT_APPLIES_TO,
       unit_label:
-        draft.pricing_model === "per_unit"
-          ? draft.unit_label?.trim() || "unidade"
+        effectiveModel === "per_unit"
+          ? (isTimeOnly ? "serviço" : (draft.unit_label?.trim() || "unidade"))
           : null,
       is_active: draft.is_active,
       sort_order: draft.sort_order,
