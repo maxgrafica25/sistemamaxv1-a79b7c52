@@ -52,7 +52,6 @@ interface StepGroup {
 
 // ─── Tab config ──────────────────────────────────────────────────────
 const tabConfig = [
-  { key: "etapas", label: "Etapas" },
   { key: "acabamentos", label: "Acabamentos" },
   { key: "grupos", label: "Grupos de Etapas" },
   { key: "grupos-materiais", label: "Grupos de Materiais" },
@@ -62,15 +61,6 @@ const tabConfig = [
 type TabKey = typeof tabConfig[number]["key"];
 
 const tabDescriptions: Record<TabKey, { icon: typeof Clock; text: ReactNode }> = {
-  etapas: {
-    icon: Clock,
-    text: (
-      <>
-        Cadastre cada etapa do processo de produção e o <strong>tempo de execução</strong> em minutos.
-        Esse tempo alimenta o cálculo de mão de obra dos orçamentos.
-      </>
-    ),
-  },
   acabamentos: {
     icon: Scissors,
     text: (
@@ -98,14 +88,14 @@ const tabDescriptions: Record<TabKey, { icon: typeof Clock; text: ReactNode }> =
 export default function ProcessosProducao() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialRaw = searchParams.get("tab");
-  const initial = (tabConfig.some((t) => t.key === initialRaw) ? initialRaw : "etapas") as TabKey;
+  const initial = (tabConfig.some((t) => t.key === initialRaw) ? initialRaw : "acabamentos") as TabKey;
   const [activeTab, setActiveTab] = useState<TabKey>(initial);
   const [categoriasOpen, setCategoriasOpen] = useState(initialRaw === "categorias");
   const kitsRef = useRef<KitsProdutoHandle>(null);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
-    if (activeTab === "etapas") next.delete("tab");
+    if (activeTab === "acabamentos") next.delete("tab");
     else next.set("tab", activeTab);
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -163,8 +153,8 @@ export default function ProcessosProducao() {
         );
       })()}
 
-      {activeTab === "etapas" && <EtapasTab />}
       {activeTab === "acabamentos" && <Acabamentos hideHeader />}
+      {false && <EtapasTab />}
       {activeTab === "grupos" && <GruposTab />}
       {activeTab === "grupos-materiais" && <GruposMateriais hideHeader />}
       {activeTab === "kits" && <KitsProduto ref={kitsRef} hideHeader />}

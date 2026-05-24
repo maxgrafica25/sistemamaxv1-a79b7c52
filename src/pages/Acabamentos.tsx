@@ -60,11 +60,6 @@ interface FinishingItem {
   is_active: boolean;
   sort_order: number;
   production_step_id: string | null;
-}
-
-interface ProductionStepLite {
-  id: string;
-  description: string;
   time_minutes: number;
 }
 
@@ -82,6 +77,7 @@ const emptyDraft: Omit<FinishingItem, "id"> = {
   is_active: true,
   sort_order: 0,
   production_step_id: null,
+  time_minutes: 0,
 };
 
 export default function Acabamentos({ hideHeader = false }: { hideHeader?: boolean } = {}) {
@@ -97,33 +93,17 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
   const [editing, setEditing] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [tiersFor, setTiersFor] = useState<FinishingItem | null>(null);
-  const [steps, setSteps] = useState<ProductionStepLite[]>([]);
-
-  const stepById = useMemo(() => {
-    const m = new Map<string, ProductionStepLite>();
-    steps.forEach((s) => m.set(s.id, s));
-    return m;
-  }, [steps]);
 
   const reload = async () => {
     setLoading(true);
-    const [itemsRes, stepsRes] = await Promise.all([
-      (supabase as any)
-        .from("finishings_price_items")
-        .select("*")
-        .order("sort_order"),
-      supabase
-        .from("production_steps")
-        .select("id, description, time_minutes")
-        .order("description"),
-    ]);
+    const itemsRes = await (supabase as any)
+      .from("finishings_price_items")
+      .select("*")
+      .order("sort_order");
     if (itemsRes.error) {
       toast.error("Falha ao carregar acabamentos");
     } else {
       setItems((itemsRes.data ?? []) as FinishingItem[]);
-    }
-    if (!stepsRes.error && stepsRes.data) {
-      setSteps(stepsRes.data as ProductionStepLite[]);
     }
     setLoading(false);
   };
@@ -195,6 +175,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
       is_active: draft.is_active,
       sort_order: draft.sort_order,
       production_step_id: draft.production_step_id,
+      time_minutes: Math.max(0, Math.round(draft.time_minutes || 0)),
     };
     let error;
     if (draft.id) {
@@ -259,7 +240,8 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
         unit_label: item.unit_label,
         is_active: item.is_active,
         sort_order: item.sort_order,
-        production_step_id: item.production_step_id,
+        production_step_id: null,
+        time_minutes: item.time_minutes,
       })
       .select("id")
       .single();
@@ -477,30 +459,25 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs">Etapa de produção associada (opcional)</Label>
-                <Select
-                  value={draft.production_step_id ?? "none"}
-                  onValueChange={(v) =>
-                    setDraft({ ...draft, production_step_id: v === "none" ? null : v })
+                <Label className="text-xs">Tempo de execução (minutos)</Label>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={1}
+                  value={draft.time_minutes}
+                  onChange={(e) =>
+                    setDraft({ ...draft, time_minutes: parseInt(e.target.value, 10) || 0 })
                   }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Nenhuma" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhuma</SelectItem>
-                    {steps.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.description} · {s.time_minutes} min
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Ex.: 10"
+                />
                 <p className="text-[11px] text-muted-foreground">
-                  Vincule a uma etapa cadastrada em <strong>Produção → Etapas</strong> para
-                  reaproveitar o tempo de execução nos orçamentos.
+                  Tempo de mão de obra deste acabamento. O sistema usa esse valor para
+                  compor o custo de produção em orçamentos, kits e ordens de produção.
+                  Deixe em <strong>0</strong> para acabamentos sem mão de obra associada.
                 </p>
               </div>
+
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={cancelEdit}>
@@ -613,13 +590,13 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
                       <TableCell className="font-medium">
                         <span className="inline-flex items-center gap-1.5">
                           {item.name}
-                          {item.production_step_id && stepById.get(item.production_step_id) && (
+                          {item.time_minutes > 0 && (
                             <span
                               className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground"
-                              title={`Etapa: ${stepById.get(item.production_step_id)!.description} (${stepById.get(item.production_step_id)!.time_minutes} min)`}
+                              title={`Tempo de execução: ${item.time_minutes} min`}
                             >
                               <Clock className="h-3 w-3" />
-                              {stepById.get(item.production_step_id)!.time_minutes}m
+                              {item.time_minutes}m
                             </span>
                           )}
                         </span>
