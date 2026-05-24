@@ -153,8 +153,8 @@ export default function ProcessosProducao() {
         );
       })()}
 
-      {activeTab === "etapas" && <EtapasTab />}
       {activeTab === "acabamentos" && <Acabamentos hideHeader />}
+      {false && <EtapasTab />}
       {activeTab === "grupos" && <GruposTab />}
       {activeTab === "grupos-materiais" && <GruposMateriais hideHeader />}
       {activeTab === "kits" && <KitsProduto ref={kitsRef} hideHeader />}
