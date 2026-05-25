@@ -262,8 +262,41 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
 
       {!catalog && (
         <Field label="Miolo (papel do catálogo)">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+              Lado de impressão
+            </span>
+            <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setSideChoice("Frente")}
+                className={cn(
+                  "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                  sideChoice === "Frente"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                title="Imprimir só na frente"
+              >
+                Frente
+              </button>
+              <button
+                type="button"
+                onClick={() => setSideChoice("F/V")}
+                className={cn(
+                  "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                  sideChoice === "F/V"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                title="Frente e verso (custo ~2x)"
+              >
+                F/V
+              </button>
+            </div>
+          </div>
           <PrintingItemSearch
-            items={items}
+            items={sideChoice === "Frente" ? items.filter((it) => it.side !== "F/V") : items}
             markupTiers={tiers}
             globalSettings={{
               invoice_pct: 0,
