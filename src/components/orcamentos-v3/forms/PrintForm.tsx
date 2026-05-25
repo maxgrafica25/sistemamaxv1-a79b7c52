@@ -40,9 +40,13 @@ interface Props {
   suggestAllFinishings?: boolean;
   /** Lista de papéis (nomes) sugeridos pelo produto favorito ativo; usado para pré-selecionar o chip de categoria. */
   suggestedPapers?: string[];
+  /** Papel padrão (nome + gramatura + lado) para auto-selecionar um item do catálogo. */
+  defaultPaperHint?: { name: string; grammage?: string | null; side?: string | null } | null;
+  /** Ids de acabamentos para pré-marcar (uma vez) ao carregar. */
+  preselectedFinishings?: string[];
 }
 
-export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults, defaultMarginPct = 20, substrateLabel = "Papel", hideArtFinishings = false, suggestAllFinishings = false, suggestedPapers }: Props) {
+export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults, defaultMarginPct = 20, substrateLabel = "Papel", hideArtFinishings = false, suggestAllFinishings = false, suggestedPapers, defaultPaperHint, preselectedFinishings }: Props) {
 
 
   const { hourlyRate } = useV3HourlyRate();
