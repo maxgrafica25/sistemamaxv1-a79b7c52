@@ -35,6 +35,15 @@ const isBusinessCardName = (nome: string | null | undefined): boolean => {
   return /\bcartao\b.*\bvisita\b/.test(norm);
 };
 
+const isCertificateName = (nome: string | null | undefined): boolean => {
+  if (!nome) return false;
+  const norm = nome
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  return /certificad/.test(norm);
+};
+
 interface Props {
   onAdd: (item: V3Item) => void;
   onAddMany?: (items: V3Item[]) => void;
