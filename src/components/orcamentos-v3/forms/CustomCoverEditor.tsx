@@ -2,11 +2,11 @@
 // Permite escolher um item de impressão do catálogo + F/V + acabamentos,
 // devolvendo um V3PrintItem pronto para o Kit.
 import { useEffect, useMemo, useState } from "react";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import PrintingItemSearch, {
   type PrintingCatalogItem,
 } from "@/components/orcamentos-v3/shared/PrintingItemSearch";
