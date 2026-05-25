@@ -296,7 +296,14 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onDescricaoChange={setDescricao}
           />
         )}
-        {!treatAsBusinessCard && isCustom && (
+        {!treatAsBusinessCard && treatAsCertificate && (
+          <CertificateForm
+            onAdd={wrappedOnAdd}
+            descricao={descricao}
+            onDescricaoChange={setDescricao}
+          />
+        )}
+        {!treatAsBusinessCard && !treatAsCertificate && isCustom && (
           <PrintForm
             onAdd={wrappedOnAdd}
             onAddMany={wrappedOnAddMany}
@@ -311,7 +318,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
           />
 
         )}
-        {!treatAsBusinessCard && !isCustom && formTipo === "print" && (
+        {!treatAsBusinessCard && !treatAsCertificate && !isCustom && formTipo === "print" && (
           <PrintForm
             onAdd={wrappedOnAdd}
             onAddMany={wrappedOnAddMany}
