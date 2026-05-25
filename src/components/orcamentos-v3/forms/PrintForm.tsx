@@ -113,6 +113,10 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     const picked = withSide ?? matches[0];
     didPickDefaultRef.current = true;
     setCatalog(picked);
+    // Respeita o lado pedido pelo preset mesmo quando não há variante exata no catálogo.
+    if (defaultPaperHint.side === "F/V" || defaultPaperHint.side === "Frente") {
+      setSideOverride(defaultPaperHint.side);
+    }
   }, [defaultPaperHint, items, catalog]);
 
   // Pré-marca acabamentos sugeridos pelo preset (uma vez).
