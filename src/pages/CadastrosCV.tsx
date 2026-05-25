@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/PageHeader";
 import { useState } from "react";
 import { Megaphone } from "lucide-react";
 import CalculadoraTab from "@/components/cv-calc/CalculadoraTab";

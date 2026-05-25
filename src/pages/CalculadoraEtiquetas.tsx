@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/PageHeader";
 import { Ruler } from "lucide-react";
 import { LabelLayoutCalculator } from "@/components/labels/LabelLayoutCalculator";
 
