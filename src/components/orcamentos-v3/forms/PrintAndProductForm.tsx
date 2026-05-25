@@ -218,6 +218,12 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
         {presets.map((p) => {
           const Icon = iconFor(p.icone);
           const active = p.id === selectedPresetId;
+          const paper = currentSel?.paper_type?.trim() ?? null;
+          const excluded = !!(paper && p.papel_exclui?.includes(paper));
+          if (excluded && !active) return null;
+          const matches = !paper || !p.papel_inclui?.length || p.papel_inclui.includes(paper);
+          const dimmed = !active && !!paper && !matches;
+          const suggested = !active && !!paper && p.papel_inclui?.includes(paper);
           return (
             <button
               key={p.id}
@@ -227,11 +233,15 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
                 "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
                 active
                   ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+                  : suggested
+                    ? "border-primary/60 bg-primary/10 text-primary hover:bg-primary/15"
+                    : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+                dimmed && "opacity-50",
               )}
             >
               <Icon className="h-3.5 w-3.5" />
               {p.nome}
+              {suggested && <Sparkles className="h-3 w-3" />}
             </button>
           );
         })}
