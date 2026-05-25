@@ -832,8 +832,15 @@ export default function MateriasPrimas() {
                           return (
                             <TableRow key={paper.id} className="group">
                               <TableCell className="font-medium">
-                                {paper.name}
-                                {paper.grammage && <span className="text-muted-foreground ml-1 text-xs">{paper.grammage}</span>}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span>{paper.name}</span>
+                                  {paper.grammage && <span className="text-muted-foreground text-xs">{paper.grammage}</span>}
+                                  {paper.category && (
+                                    <Badge variant="outline" className="text-[10px] uppercase">
+                                      {PAPER_CATEGORY_LABEL[paper.category] ?? paper.category}
+                                    </Badge>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell className="text-center tabular-nums">{paper.sheet_qty}</TableCell>
                               <TableCell className="text-right tabular-nums">{formatCurrency(paper.pack_price)}</TableCell>
@@ -1066,6 +1073,21 @@ export default function MateriasPrimas() {
                     disabled={isUpdateMode}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Categoria</Label>
+                <Select value={paperCategory} onValueChange={(v) => setPaperCategory(v as any)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="comum">Papel Comum</SelectItem>
+                    <SelectItem value="especial">Especial (couchê, supremo, cartão/PVC…)</SelectItem>
+                    <SelectItem value="adesivo">Adesivo</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Usada para agrupar e pré-selecionar em massa nos Produtos Favoritos.
+                </p>
               </div>
 
               {/* Formato de compra — papel já cortado / folhão custom */}
