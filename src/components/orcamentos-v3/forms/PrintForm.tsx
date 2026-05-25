@@ -120,9 +120,18 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     if (didPreselectFinRef.current) return;
     if (!preselectedFinishings?.length) return;
     if (printFinishings.length === 0) return;
-    const valid = new Set(printFinishings.map((f) => f.id));
-    const toEnable = preselectedFinishings.filter((id) => valid.has(id));
+    const wanted = new Set(preselectedFinishings.map((s) => s.trim().toLowerCase()));
+    const toEnable = printFinishings
+      .filter((f) => wanted.has(f.id.toLowerCase()) || wanted.has(f.name.trim().toLowerCase()))
+      .map((f) => f.id);
     if (!toEnable.length) return;
+    didPreselectFinRef.current = true;
+    setFinEnabled((m) => {
+      const next = { ...m };
+      for (const id of toEnable) next[id] = true;
+      return next;
+    });
+  }, [preselectedFinishings, printFinishings]);
     didPreselectFinRef.current = true;
     setFinEnabled((m) => {
       const next = { ...m };
