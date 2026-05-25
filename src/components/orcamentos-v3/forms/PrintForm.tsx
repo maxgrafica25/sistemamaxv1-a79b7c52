@@ -419,72 +419,65 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
         </div>
       )}
 
-      {catalog && (() => {
-        const oppositeSide = catalog.side === "F/V" ? "Frente" : "F/V";
-        const oppositeItem = items.find(
-          (it) =>
-            it.paper_type === catalog.paper_type &&
-            (it.grammage || "") === (catalog.grammage || "") &&
-            it.size === catalog.size &&
-            it.side === oppositeSide,
-        );
-        return (
-          <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3 flex-wrap">
-            <Printer className="h-4 w-4 text-primary shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">
-                {catalog.paper_type}
-                {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size} {catalog.side}
-              </p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[11px] text-muted-foreground">
-                  {catalog.category_name}
-                </span>
-                {pricing?.tierLabel && (
-                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
-                    {pricing.tierLabel}
-                  </Badge>
-                )}
-              </div>
+      {catalog && effectiveCatalog && (
+        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3 flex-wrap">
+          <Printer className="h-4 w-4 text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">
+              {catalog.paper_type}
+              {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size} {effectiveCatalog.side}
+            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[11px] text-muted-foreground">
+                {catalog.category_name}
+              </span>
+              {pricing?.tierLabel && (
+                <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
+                  {pricing.tierLabel}
+                </Badge>
+              )}
             </div>
-            {oppositeItem && (
-              <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => catalog.side !== "Frente" && oppositeItem && setCatalog(oppositeItem)}
-                  className={cn(
-                    "px-2.5 py-1 rounded-sm font-medium transition-colors",
-                    catalog.side === "Frente"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  Frente
-                </button>
-                <button
-                  type="button"
-                  onClick={() => catalog.side !== "F/V" && oppositeItem && setCatalog(oppositeItem)}
-                  className={cn(
-                    "px-2.5 py-1 rounded-sm font-medium transition-colors",
-                    catalog.side === "F/V"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  F/V
-                </button>
-              </div>
-            )}
+          </div>
+          <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
             <button
               type="button"
-              onClick={() => setCatalog(null)}
-              className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+              onClick={() => setSideOverride("Frente")}
+              className={cn(
+                "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                effectiveCatalog.side === "Frente"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title="Imprimir só na frente"
             >
-              Trocar
+              Frente
+            </button>
+            <button
+              type="button"
+              onClick={() => setSideOverride("F/V")}
+              className={cn(
+                "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                effectiveCatalog.side === "F/V"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title="Frente e verso (custo ~2x)"
+            >
+              F/V
             </button>
           </div>
-        );
-      })()}
+          <button
+            type="button"
+            onClick={() => {
+              setCatalog(null);
+              setSideOverride(null);
+            }}
+            className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+          >
+            Trocar
+          </button>
+        </div>
+      )}
 
 
       <div className="grid grid-cols-2 gap-4">
