@@ -692,11 +692,11 @@ export default function MateriasPrimas() {
         <div>
           <DotTabs
             tabs={[
-              { key: "papel", label: "Papéis" },
-              { key: "suprimento", label: "Suprimentos" },
+              { key: "papel", label: "Papéis", accent: "emerald" },
+              { key: "suprimento", label: "Suprimentos", accent: "amber" },
             ]}
             value={activeTab}
-            onChange={(k) => { setActiveTab(k as ActiveTab); setSearchTerm(""); setFilterFinalidade("all"); }}
+            onChange={(k) => { setActiveTab(k as ActiveTab); setSearchTerm(""); setFilterFinalidade("all"); setFilterSupplier("all"); setPaperCategoryFilter("all"); setPaperFormatFilter("all"); setPaperSupplierFilter("all"); }}
           />
 
           {/* Stats */}
