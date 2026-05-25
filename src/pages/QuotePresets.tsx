@@ -84,6 +84,10 @@ type FormState = {
   papel_inclui: string[];
   papel_exclui: string[];
   acabamentos_sugeridos: string[];
+  papel_default_nome: string;
+  papel_default_grammage: string;
+  side_default: "" | "F" | "F/V";
+  preselect_acabamentos: boolean;
 };
 
 const EMPTY: FormState = {
@@ -102,6 +106,10 @@ const EMPTY: FormState = {
   papel_inclui: [],
   papel_exclui: [],
   acabamentos_sugeridos: [],
+  papel_default_nome: "",
+  papel_default_grammage: "",
+  side_default: "",
+  preselect_acabamentos: false,
 };
 
 export default function QuotePresets() {
