@@ -90,6 +90,10 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
       finishings: string[];
     }) => {
       setCurrentSel(sel);
+      if (!sel.paper_type) {
+        setSuggestion(null);
+        return;
+      }
       const s = suggestProduct(sel);
       if (!s) {
         setSuggestion(null);
