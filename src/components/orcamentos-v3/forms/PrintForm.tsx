@@ -334,7 +334,22 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
             globalSettings={settings}
             onSelect={(it) => setCatalog(it)}
             placeholder={`Buscar ${substrateLabel.toLowerCase()} (nome, tamanho, impressora)...`}
+            defaultCategory={(() => {
+              if (!suggestedPapers?.length) return null;
+              const wanted = new Set(suggestedPapers.map((s) => s.trim().toLowerCase()));
+              const cats = new Set<string>();
+              for (const it of items) {
+                if (!it.paper_category) continue;
+                if (wanted.has((it.paper_type || "").trim().toLowerCase())) cats.add(it.paper_category);
+              }
+              if (cats.size === 1) {
+                const only = [...cats][0];
+                if (only === "comum" || only === "especial" || only === "adesivo") return only;
+              }
+              return null;
+            })()}
           />
+
           {loading && (
             <p className="text-[11px] text-muted-foreground mt-1">Carregando catálogo…</p>
           )}
