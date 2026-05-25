@@ -443,9 +443,9 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
         {/* Cart (30%) */}
         <aside className="hidden lg:flex flex-col border-l border-border bg-muted/20 overflow-hidden min-h-0">
           <div className="shrink-0 px-4 py-3 border-b border-border/60 bg-background">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+            <h3 className="text-sm font-semibold text-foreground">
               Itens do orçamento
-            </p>
+            </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               {state.items.length} {state.items.length === 1 ? "item" : "itens"} adicionados
             </p>
