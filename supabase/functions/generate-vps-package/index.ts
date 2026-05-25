@@ -57,10 +57,10 @@ const EDGE_FUNCTIONS = [
   "google-disconnect",
   "google-oauth-callback",
   "google-oauth-init",
-  "historical-suggestions",
+  
   "invite-user",
   "monitor-admin-usage",
-  "quote-ai-assistant",
+  
   "reminders-api",
   "scrape-prices-cron",
   "scrape-prices",

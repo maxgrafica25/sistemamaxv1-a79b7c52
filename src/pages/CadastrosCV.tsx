@@ -7,10 +7,10 @@ import AcabamentosTab from "@/components/cv-calc/AcabamentosTab";
 import SuprimentosCVTab from "@/components/cv-calc/SuprimentosCVTab";
 import ConfiguracaoTab from "@/components/cv-calc/ConfiguracaoTab";
 import ChecklistTab from "@/components/cv-calc/ChecklistTab";
-import SuggestionsTab from "@/components/cv-calc/SuggestionsTab";
+
 import { DotTabs } from "@/components/ui/dot-tabs";
 
-type Tab = "calculadora" | "midias" | "impressoes" | "acabamentos" | "suprimentos" | "checklist" | "sugestoes" | "config";
+type Tab = "calculadora" | "midias" | "impressoes" | "acabamentos" | "suprimentos" | "checklist" | "config";
 
 const TABS = [
   { key: "calculadora" as Tab, label: "Calculadora" },
@@ -19,7 +19,6 @@ const TABS = [
   { key: "acabamentos" as Tab, label: "Acabamentos" },
   { key: "suprimentos" as Tab, label: "Suprimentos CV" },
   { key: "checklist" as Tab, label: "Checklist" },
-  { key: "sugestoes" as Tab, label: "Sugestões" },
   { key: "config" as Tab, label: "Configuração" },
 ];
 
@@ -46,7 +45,6 @@ export default function CadastrosCV() {
       {tab === "acabamentos" && <AcabamentosTab />}
       {tab === "suprimentos" && <SuprimentosCVTab />}
       {tab === "checklist" && <ChecklistTab />}
-      {tab === "sugestoes" && <SuggestionsTab />}
       {tab === "config" && <ConfiguracaoTab />}
     </div>
   );
