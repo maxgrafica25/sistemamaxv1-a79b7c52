@@ -314,12 +314,13 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
       )}
 
       {catalog && (
-        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3">
+        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3 flex-wrap">
           <BookOpen className="h-4 w-4 text-primary shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">
               {catalog.paper_type}
-              {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size} {catalog.side}
+              {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size}{" "}
+              {catalog.side === "F/V" ? "F/V" : sideChoice}
             </p>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-[11px] text-muted-foreground">
@@ -332,9 +333,47 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
               )}
             </div>
           </div>
+          <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                if (catalog.side === "F/V") {
+                  setCatalog(null);
+                  setSideChoice("Frente");
+                } else {
+                  setSideChoice("Frente");
+                }
+              }}
+              className={cn(
+                "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                (catalog.side === "F/V" ? "F/V" : sideChoice) === "Frente"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title="Imprimir só na frente"
+            >
+              Frente
+            </button>
+            <button
+              type="button"
+              onClick={() => setSideChoice("F/V")}
+              className={cn(
+                "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                (catalog.side === "F/V" ? "F/V" : sideChoice) === "F/V"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title="Frente e verso (custo ~2x)"
+            >
+              F/V
+            </button>
+          </div>
           <button
             type="button"
-            onClick={() => setCatalog(null)}
+            onClick={() => {
+              setCatalog(null);
+              setSideChoice("F/V");
+            }}
             className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
           >
             Trocar
