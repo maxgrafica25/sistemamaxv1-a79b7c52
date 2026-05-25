@@ -526,7 +526,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
           disabled={!catalog || !pricing}
           onExtrasChange={setExtraTiers}
           compute={(q) => {
-            const p = catalog ? pricePerSheet(catalog, tiers, q) : null;
+            const p = effectiveCatalog ? pricePerSheet(effectiveCatalog, tiers, q) : null;
             return {
               custo_total: (p?.baseCost ?? 0) * q,
               preco_total: (p?.sellingPrice ?? 0) * q,
