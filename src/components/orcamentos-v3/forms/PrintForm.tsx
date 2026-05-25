@@ -204,9 +204,19 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     });
   }, [catalog, enabledLabels, onSelectionChange]);
 
+  // Catálogo "efetivo" — aplica o lado escolhido pelo usuário (Frente/F/V) mesmo
+  // quando o catálogo cadastrado tem só uma variante. F/V dobra o custo de
+  // impressão e do papel (paridade com PrintingItemSearch).
+  const effectiveCatalog = useMemo(() => {
+    if (!catalog) return null;
+    const eff = sideOverride ?? catalog.side;
+    if (eff === catalog.side) return catalog;
+    return { ...catalog, side: eff } as PrintingCatalogItem;
+  }, [catalog, sideOverride]);
+
   const pricing = useMemo(
-    () => (catalog ? pricePerSheet(catalog, tiers, quantidade) : null),
-    [catalog, tiers, quantidade],
+    () => (effectiveCatalog ? pricePerSheet(effectiveCatalog, tiers, quantidade) : null),
+    [effectiveCatalog, tiers, quantidade],
   );
 
   const canAdd = !!catalog && quantidade > 0 && (pricing?.sellingPrice ?? 0) > 0;
