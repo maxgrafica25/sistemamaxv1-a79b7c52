@@ -1453,27 +1453,6 @@ export type Database = {
         }
         Relationships: []
       }
-      historical_suggestion_cache: {
-        Row: {
-          computed_at: string
-          expires_at: string
-          payload: Json
-          signature: string
-        }
-        Insert: {
-          computed_at?: string
-          expires_at?: string
-          payload?: Json
-          signature: string
-        }
-        Update: {
-          computed_at?: string
-          expires_at?: string
-          payload?: Json
-          signature?: string
-        }
-        Relationships: []
-      }
       historico_precos: {
         Row: {
           criado_em: string
@@ -3297,84 +3276,6 @@ export type Database = {
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "quotes"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      quote_suggestion_rules: {
-        Row: {
-          acao_acab_id: string | null
-          acao_mensagem: string
-          acao_question_id: string | null
-          acao_tipo: string
-          ativo: boolean
-          cond_altura_min: number | null
-          cond_area_max: number | null
-          cond_area_min: number | null
-          cond_cliente_tag: string[]
-          cond_familia: string[]
-          cond_sempre: boolean
-          cond_tipo_midia: string[]
-          created_at: string
-          id: string
-          nome: string
-          prioridade: number
-          severidade: string
-          updated_at: string
-        }
-        Insert: {
-          acao_acab_id?: string | null
-          acao_mensagem?: string
-          acao_question_id?: string | null
-          acao_tipo: string
-          ativo?: boolean
-          cond_altura_min?: number | null
-          cond_area_max?: number | null
-          cond_area_min?: number | null
-          cond_cliente_tag?: string[]
-          cond_familia?: string[]
-          cond_sempre?: boolean
-          cond_tipo_midia?: string[]
-          created_at?: string
-          id?: string
-          nome: string
-          prioridade?: number
-          severidade?: string
-          updated_at?: string
-        }
-        Update: {
-          acao_acab_id?: string | null
-          acao_mensagem?: string
-          acao_question_id?: string | null
-          acao_tipo?: string
-          ativo?: boolean
-          cond_altura_min?: number | null
-          cond_area_max?: number | null
-          cond_area_min?: number | null
-          cond_cliente_tag?: string[]
-          cond_familia?: string[]
-          cond_sempre?: boolean
-          cond_tipo_midia?: string[]
-          created_at?: string
-          id?: string
-          nome?: string
-          prioridade?: number
-          severidade?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quote_suggestion_rules_acao_acab_id_fkey"
-            columns: ["acao_acab_id"]
-            isOneToOne: false
-            referencedRelation: "cv_calc_acabamentos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quote_suggestion_rules_acao_question_id_fkey"
-            columns: ["acao_question_id"]
-            isOneToOne: false
-            referencedRelation: "quote_checklist_questions"
             referencedColumns: ["id"]
           },
         ]
