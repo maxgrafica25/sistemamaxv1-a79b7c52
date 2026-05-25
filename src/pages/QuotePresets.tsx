@@ -42,6 +42,32 @@ const PAPER_GROUP_LABELS: Record<string, string> = {
 };
 const PAPER_GROUP_ORDER = ["comum", "especial", "adesivo"];
 
+function summarizePaperSelection(selected: string[], options: ChipOption[]): string {
+  if (!selected.length) return "";
+  const byGroup = new Map<string, { total: number; picked: number }>();
+  for (const opt of options) {
+    const g = opt.group ?? "outros";
+    if (!byGroup.has(g)) byGroup.set(g, { total: 0, picked: 0 });
+    byGroup.get(g)!.total += 1;
+    if (selected.includes(opt.value)) byGroup.get(g)!.picked += 1;
+  }
+  const parts: string[] = [];
+  for (const [g, { total, picked }] of byGroup) {
+    if (picked === 0) continue;
+    if (picked === total) parts.push(`${PAPER_GROUP_LABELS[g] ?? g} (todos)`);
+  }
+  if (parts.length) {
+    const remaining = selected.length - PAPER_GROUP_ORDER.reduce((acc, g) => {
+      const info = byGroup.get(g);
+      return acc + (info && info.picked === info.total ? info.total : 0);
+    }, 0);
+    if (remaining > 0) parts.push(`+${remaining}`);
+    return parts.join(", ");
+  }
+  const head = selected.slice(0, 3).join(", ");
+  return selected.length > 3 ? `${head} +${selected.length - 3}` : head;
+}
+
 type FormState = {
   nome: string;
   icone: string;
