@@ -261,8 +261,8 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
   }, [selections, quantidade]);
 
   const buildItem = (qty: number, tierGroupId?: string): V3PrintItem | null => {
-    if (!catalog) return null;
-    const pr = pricePerSheet(catalog, tiers, qty);
+    if (!catalog || !effectiveCatalog) return null;
+    const pr = pricePerSheet(effectiveCatalog, tiers, qty);
     const sel = buildSelections(qty);
     const { perSheet, perUnitTotal } = sumFinishingsPerSheet(sel, qty);
     const extra = perSheet + (qty > 0 ? perUnitTotal / qty : 0);
@@ -276,14 +276,14 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
       paper_type: catalog.paper_type,
       grammage: catalog.grammage,
       size: catalog.size,
-      side: catalog.side,
+      side: effectiveCatalog.side,
       printer_category_id: catalog.printer_category_id,
       markup_group_id: catalog.markup_group_id,
       valor_unitario: pr.sellingPrice + extra,
       custo_unitario: pr.baseCost + extra,
       formato: null,
       cores: null,
-      face: catalog.side === "F/V" ? "fv" : "frente",
+      face: effectiveCatalog.side === "F/V" ? "fv" : "frente",
       finishings: enabledLabels,
       finishing_selections: sel,
     };
