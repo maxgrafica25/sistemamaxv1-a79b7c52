@@ -35,7 +35,7 @@ import { saveQuoteV3, nextQuoteNumber } from "./shared/saveQuoteV3";
 import { loadQuoteV3 } from "./shared/loadQuoteV3";
 import { RecorrentesPanel } from "@/components/recorrentes/RecorrentesPanel";
 import { useGlobalSettings } from "@/hooks/useGlobalSettings";
-import { ArtePromptBlock } from "./shared/ArtePromptBlock";
+
 import { stampArt, makeArtInternal, makeArtThirdParty, requiresArt } from "./shared/artStatus";
 import { useHourRate } from "@/hooks/useHourRate";
 import type { V3ThirdItem } from "./types";
@@ -413,16 +413,6 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_380px] overflow-hidden">
         {/* Workspace (70%) */}
         <div className="overflow-y-auto overscroll-contain bg-background pb-24 lg:pb-0">
-          {/* Pergunta única "Tem arte pronta?" — agora só na coluna do workspace */}
-          <div className="px-4 lg:px-6 py-3 border-b border-border bg-background">
-            <ArtePromptBlock
-              value={state.art_status ?? null}
-              onChange={(v) => setState((s) => ({ ...s, art_status: v }))}
-              terceirizadaValue={state.art_terceirizada_value ?? 0}
-              onTerceirizadaValueChange={(v) => setState((s) => ({ ...s, art_terceirizada_value: v }))}
-              hourRate={hourRate}
-            />
-          </div>
 
           <div className="px-4 lg:px-6 py-5">
             <div className="min-h-full flex flex-col">
