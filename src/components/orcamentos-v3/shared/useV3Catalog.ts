@@ -21,7 +21,9 @@ interface PaperRow {
   freight_price: number | null;
   sheet_qty: number | null;
   is_cut_size: boolean | null;
+  category: string | null;
 }
+
 
 const buildLinkedPaper = (
   paperType: string,
