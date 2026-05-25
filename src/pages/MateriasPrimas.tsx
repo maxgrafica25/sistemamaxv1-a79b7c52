@@ -158,8 +158,12 @@ export default function MateriasPrimas() {
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
   const [filterFinalidade, setFilterFinalidade] = useState<string>("all");
+  const [filterSupplier, setFilterSupplier] = useState<string>("all");
   const [moduloFiltro, setModuloFiltro] = useState<"todos" | "grafica" | "cv">("todos");
-  const [paperSortBy, setPaperSortBy] = useState<"name" | "grammage" | "priceA4" | "date">("name");
+  const [paperSortBy, setPaperSortBy] = useState<"name" | "grammage" | "priceA4" | "date" | "supplier">("name");
+  const [paperCategoryFilter, setPaperCategoryFilter] = useState<"all" | "comum" | "especial" | "adesivo">("all");
+  const [paperFormatFilter, setPaperFormatFilter] = useState<"all" | "cut" | "large">("all");
+  const [paperSupplierFilter, setPaperSupplierFilter] = useState<string>("all");
 
   // Suprimento form
   const [produto, setProduto] = useState("");
