@@ -85,6 +85,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
     : undefined;
   const isBusinessCard = selectedPresetId === BUILTIN_BUSINESS_CARD_ID;
   const treatAsBusinessCard = isBusinessCard || (!!selectedPreset && isBusinessCardName(selectedPreset.nome));
+  const treatAsCertificate = !!selectedPreset && isCertificateName(selectedPreset.nome);
   const hasUserBusinessCardPreset = useMemo(
     () => presets.some((p) => isBusinessCardName(p.nome)),
     [presets],
