@@ -491,7 +491,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
           <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
             <button
               type="button"
-              onClick={() => setSideOverride("Frente")}
+              onClick={() => setSideChoice("Frente")}
               className={cn(
                 "px-2.5 py-1 rounded-sm font-medium transition-colors",
                 effectiveCatalog.side === "Frente"
@@ -504,7 +504,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
             </button>
             <button
               type="button"
-              onClick={() => setSideOverride("F/V")}
+              onClick={() => setSideChoice("F/V")}
               className={cn(
                 "px-2.5 py-1 rounded-sm font-medium transition-colors",
                 effectiveCatalog.side === "F/V"
@@ -520,7 +520,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
             type="button"
             onClick={() => {
               setCatalog(null);
-              setSideOverride(null);
+              setSideChoice("Frente");
             }}
             className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
           >
