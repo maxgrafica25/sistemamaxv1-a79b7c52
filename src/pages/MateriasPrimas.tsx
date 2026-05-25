@@ -735,51 +735,51 @@ export default function MateriasPrimas() {
           </div>
 
           {/* Search & Filters — sticky no topo do main */}
-          <div className="sticky top-0 z-20 -mx-8 px-8 py-3 mt-5 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/50">
+          <div className="sticky top-0 z-20 -mx-8 px-8 py-3 mt-5 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/50 space-y-2">
             <div className="flex items-center gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input placeholder={`Buscar ${activeTab === "papel" ? "papel por nome ou gramatura" : "suprimento"}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
               </div>
               {activeTab === "papel" && (
-                <Select value={paperSortBy} onValueChange={(v) => setPaperSortBy(v as typeof paperSortBy)}>
-                  <SelectTrigger className="w-[180px] shrink-0"><SelectValue placeholder="Ordenar por" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="name">Nome A-Z</SelectItem>
-                    <SelectItem value="grammage">Gramatura</SelectItem>
-                    <SelectItem value="priceA4">Preço A4</SelectItem>
-                    <SelectItem value="date">Data mais recente</SelectItem>
-                  </SelectContent>
-                </Select>
+                <>
+                  <Select value={paperSupplierFilter} onValueChange={setPaperSupplierFilter}>
+                    <SelectTrigger className="w-[180px] shrink-0"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos fornecedores</SelectItem>
+                      {uniquePaperSuppliers.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={paperSortBy} onValueChange={(v) => setPaperSortBy(v as typeof paperSortBy)}>
+                    <SelectTrigger className="w-[180px] shrink-0"><SelectValue placeholder="Ordenar por" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name">Nome A-Z</SelectItem>
+                      <SelectItem value="grammage">Gramatura</SelectItem>
+                      <SelectItem value="priceA4">Preço A4</SelectItem>
+                      <SelectItem value="date">Data mais recente</SelectItem>
+                      <SelectItem value="supplier">Fornecedor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
               )}
               {activeTab === "suprimento" && (
                 <>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {([
-                      { k: "todos" as const, label: "Todos" },
-                      { k: "grafica" as const, label: "Gráfica" },
-                      { k: "cv" as const, label: "CV" },
-                    ]).map(c => (
-                      <button
-                        key={c.k}
-                        onClick={() => setModuloFiltro(c.k)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                          moduloFiltro === c.k
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
-                        }`}
-                      >
-                        {c.label} <span className="opacity-70">· {moduloCounts[c.k]}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <Select value={filterFinalidade} onValueChange={setFilterFinalidade}>
-                    <SelectTrigger className="w-[200px] shrink-0"><SelectValue placeholder="Filtrar finalidade" /></SelectTrigger>
+                  <Select value={filterSupplier} onValueChange={setFilterSupplier}>
+                    <SelectTrigger className="w-[180px] shrink-0"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todas finalidades</SelectItem>
-                      {uniqueFinalidades.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                      <SelectItem value="all">Todos fornecedores</SelectItem>
+                      {uniqueSupplySuppliers.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  {uniqueFinalidades.length > 6 ? (
+                    <Select value={filterFinalidade} onValueChange={setFilterFinalidade}>
+                      <SelectTrigger className="w-[200px] shrink-0"><SelectValue placeholder="Filtrar finalidade" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas finalidades</SelectItem>
+                        {uniqueFinalidades.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  ) : null}
                 </>
               )}
               <AdminOnly mode="disable" action={`cadastrar ${activeTab === "papel" ? "papel" : "suprimento"}`}>
@@ -792,6 +792,98 @@ export default function MateriasPrimas() {
                 </Button>
               </AdminOnly>
             </div>
+
+            {/* Chips de filtro rápido */}
+            {activeTab === "papel" && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {([
+                  { k: "all" as const, label: "Todas categorias", n: paperCategoryCounts.all },
+                  { k: "comum" as const, label: "Comum", n: paperCategoryCounts.comum },
+                  { k: "especial" as const, label: "Especial", n: paperCategoryCounts.especial },
+                  { k: "adesivo" as const, label: "Adesivo", n: paperCategoryCounts.adesivo },
+                ]).map(c => (
+                  <button
+                    key={c.k}
+                    onClick={() => setPaperCategoryFilter(c.k)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      paperCategoryFilter === c.k
+                        ? "bg-emerald-500 text-white border-emerald-500"
+                        : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
+                    }`}
+                  >
+                    {c.label} <span className="opacity-70">· {c.n}</span>
+                  </button>
+                ))}
+                <span className="mx-1 h-4 w-px bg-border" />
+                {([
+                  { k: "all" as const, label: "Todos formatos" },
+                  { k: "cut" as const, label: "Folha cortada" },
+                  { k: "large" as const, label: "Formato grande" },
+                ]).map(c => (
+                  <button
+                    key={c.k}
+                    onClick={() => setPaperFormatFilter(c.k)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      paperFormatFilter === c.k
+                        ? "bg-emerald-500 text-white border-emerald-500"
+                        : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "suprimento" && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {([
+                  { k: "todos" as const, label: "Todos módulos" },
+                  { k: "grafica" as const, label: "Gráfica" },
+                  { k: "cv" as const, label: "CV" },
+                ]).map(c => (
+                  <button
+                    key={c.k}
+                    onClick={() => setModuloFiltro(c.k)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      moduloFiltro === c.k
+                        ? "bg-amber-500 text-white border-amber-500"
+                        : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
+                    }`}
+                  >
+                    {c.label} <span className="opacity-70">· {moduloCounts[c.k]}</span>
+                  </button>
+                ))}
+                {uniqueFinalidades.length > 0 && uniqueFinalidades.length <= 6 && (
+                  <>
+                    <span className="mx-1 h-4 w-px bg-border" />
+                    <button
+                      onClick={() => setFilterFinalidade("all")}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        filterFinalidade === "all"
+                          ? "bg-amber-500 text-white border-amber-500"
+                          : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
+                      }`}
+                    >
+                      Todas finalidades
+                    </button>
+                    {uniqueFinalidades.map(f => (
+                      <button
+                        key={f}
+                        onClick={() => setFilterFinalidade(f)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                          filterFinalidade === f
+                            ? "bg-amber-500 text-white border-amber-500"
+                            : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
+                        }`}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* ── PAPÉIS TAB ── */}
