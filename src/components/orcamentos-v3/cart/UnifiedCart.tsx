@@ -198,7 +198,7 @@ function buildFinancials(
   pcts: CartPcts,
   opts: { laborCost?: number } = {},
 ): FinancialBreakdown {
-  const perda = custo_total * (pcts.wastePct / 100);
+  const perda = preco_total * (pcts.wastePct / 100);
   const imposto = preco_total * (pcts.taxPct / 100);
   const taxa = preco_total * (pcts.feesPct / 100);
   const lucro = preco_total - custo_total - perda - imposto - taxa;
