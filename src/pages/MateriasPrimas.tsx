@@ -622,9 +622,10 @@ export default function MateriasPrimas() {
     materials.filter(m => {
       if (searchTerm && !m.produto.toLowerCase().includes(searchTerm.toLowerCase())) return false;
       if (filterFinalidade !== "all" && m.finalidade !== filterFinalidade) return false;
+      if (filterSupplier !== "all" && (m.fornecedor || "—") !== filterSupplier) return false;
       if (moduloFiltro !== "todos" && !(m.modulo || []).includes(moduloFiltro)) return false;
       return true;
-    }), [materials, searchTerm, filterFinalidade, moduloFiltro]);
+    }), [materials, searchTerm, filterFinalidade, filterSupplier, moduloFiltro]);
 
   const moduloCounts = useMemo(() => ({
     todos: materials.length,
@@ -632,10 +633,21 @@ export default function MateriasPrimas() {
     cv: materials.filter(m => (m.modulo || []).includes("cv")).length,
   }), [materials]);
 
+  const paperCategoryCounts = useMemo(() => ({
+    all: papers.length,
+    comum: papers.filter(p => (p.category || "comum") === "comum").length,
+    especial: papers.filter(p => p.category === "especial").length,
+    adesivo: papers.filter(p => p.category === "adesivo").length,
+  }), [papers]);
+
   const filteredPapers = useMemo(() => {
     const filtered = papers.filter(p => {
       const search = searchTerm.toLowerCase();
       if (search && !p.name.toLowerCase().includes(search) && !(p.grammage || "").toLowerCase().includes(search)) return false;
+      if (paperCategoryFilter !== "all" && (p.category || "comum") !== paperCategoryFilter) return false;
+      if (paperFormatFilter === "cut" && !p.is_cut_size) return false;
+      if (paperFormatFilter === "large" && p.is_cut_size) return false;
+      if (paperSupplierFilter !== "all" && (p.supplier || "—") !== paperSupplierFilter) return false;
       return true;
     });
     return filtered.sort((a, b) => {
@@ -644,15 +656,26 @@ export default function MateriasPrimas() {
         case "grammage": return (a.grammage || "").localeCompare(b.grammage || "");
         case "priceA4": return calcPriceA4(a) - calcPriceA4(b);
         case "date": return (b.quote_date || "").localeCompare(a.quote_date || "");
+        case "supplier": return (a.supplier || "").localeCompare(b.supplier || "");
         default: return 0;
       }
     });
-  }, [papers, searchTerm, paperSortBy]);
+  }, [papers, searchTerm, paperSortBy, paperCategoryFilter, paperFormatFilter, paperSupplierFilter]);
 
   const uniqueFinalidades = useMemo(() => {
     const set = new Set(materials.map(m => m.finalidade));
     return Array.from(set).sort();
   }, [materials]);
+
+  const uniqueSupplySuppliers = useMemo(() => {
+    const set = new Set(materials.map(m => m.fornecedor || "—"));
+    return Array.from(set).sort();
+  }, [materials]);
+
+  const uniquePaperSuppliers = useMemo(() => {
+    const set = new Set(papers.map(p => p.supplier || "—"));
+    return Array.from(set).sort();
+  }, [papers]);
 
   // ── Stats ──
   const paperAlertCount = papers.filter(p => { const v = getPaperVariation(p.id); return v !== null && v > 10; }).length;
