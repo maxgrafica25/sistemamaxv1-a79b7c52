@@ -52,6 +52,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
   const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers, settings } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
+  const [sideOverride, setSideOverride] = useState<"Frente" | "F/V" | null>(null);
   const [descricaoLocal, setDescricaoLocal] = useState("");
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
