@@ -165,8 +165,8 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
       </div>
 
       {/* Produtos favoritos: Personalizado + favoritos */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">Produtos favoritos</Label>
+      <div className="space-y-1">
+        <h3 className="text-sm font-semibold text-foreground">Produtos favoritos</h3>
         <p className="text-xs text-muted-foreground">
           Atalhos rápidos com combinações salvas. Escolha um ou use "Personalizado".
         </p>
