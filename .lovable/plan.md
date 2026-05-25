@@ -1,26 +1,31 @@
-## Problema
+## Contexto
 
-No preset **Tags** (e em qualquer outro impresso), o botão **Frente / F/V** que adicionei só aparece quando existe uma variante oposta cadastrada no catálogo de Preço Impressão para o mesmo papel + gramatura + tamanho. Para Couchê 300 (e na maioria dos papéis) há só uma linha cadastrada — então o toggle não renderiza.
+A última implementação adicionou o seletor **"Lado de impressão: Frente | F/V"** antes do papel apenas no `PrintForm` (usado pelo modo Personalizado e por presets do tipo `print`). Os demais formulários que também têm escolha de papel continuam com o padrão antigo (`Switch` "Duplex/Frente e Verso") e sem filtro no catálogo.
 
-## Solução
+## Escopo: padronizar os presets restantes
 
-Tornar o toggle **Frente / F/V sempre disponível** no `PrintForm`, aplicando o multiplicador 2× localmente quando o catálogo não tiver a variante oposta. Mesma lógica que o `BookletForm` já usa.
+Aplicar o mesmo padrão visual + comportamento (toggle segmentado **Frente | F/V** acima do campo de busca de papel, com filtragem do catálogo) em:
 
-### Mudanças no `PrintForm.tsx`
+### 1. `BookletForm.tsx` — Miolo da apostila
+- Substituir `const [duplex, setDuplex] = useState(true)` por `const [sideChoice, setSideChoice] = useState<"Frente"|"F/V">("F/V")` (apostila geralmente é F/V).
+- Adicionar o toggle segmentado acima do `PrintingItemSearch` do miolo, no mesmo estilo do `PrintForm`.
+- Passar `items` filtrados: quando `sideChoice === "Frente"`, ocultar itens `side === "F/V"`.
+- Quando trocar para "Frente" e o catálogo atual for F/V, resetar `setCatalog(null)`.
+- Manter o `Switch` "Duplex (F/V)" pós-seleção **removido** (o toggle pós-seleção segue o mesmo padrão do PrintForm — segmentado), e toda a lógica de `sideMult`, `physicalSheets`, `totalMioloPreco` continua intacta lendo `sideChoice` no lugar de `duplex`.
 
-1. Novo state `sideOverride: "Frente" | "F/V" | null`.
-   - Inicializa com o `defaultPaperHint.side` do preset (ex.: Tags vem com F/V já marcado).
-2. Computar `effectiveSide = sideOverride ?? catalog.side`.
-3. Recalcular `pricing` com base num "catálogo efetivo" — `{ ...catalog, side: effectiveSide }` — para refletir o preço dobrado quando F/V está ativo e o catálogo é Frente.
-4. `buildItem`: gravar `side: effectiveSide`, `face: effectiveSide === "F/V" ? "fv" : "frente"` e `valor_unitario` / `custo_unitario` já com o multiplicador aplicado.
-5. Renderizar o toggle (Frente | F/V) **sempre** que houver `catalog`, no card de papel selecionado, sem depender de variante oposta no banco.
+### 2. `CustomCoverEditor.tsx` — Capas personalizadas da apostila
+- Substituir `const [duplex, setDuplex] = useState(false)` por `sideChoice`.
+- Adicionar o toggle segmentado acima do `PrintingItemSearch` da capa.
+- Filtrar `items` por `sideChoice` antes de passar ao search.
+- Trocar o `Switch` "Frente e Verso" atual pelo mesmo toggle segmentado (consistência visual), mantendo `sheetsPerUnit`, `face` e todos os cálculos lendo `sideChoice`.
 
-### Sem mudanças
+### Fora de escopo (mantém UI atual)
+- **`BusinessCardForm`** — UI dedicada de poses (frente/verso por pose), não cabe binário.
+- **`CertificateForm`** — 4 modos exclusivos, não cabe binário.
+- **`LabelEmbeddedForm`** — etiquetas sempre só-frente; sem alternância.
+- **Capa única do `BookletForm`** (se houver Switch separado) — segue a mesma troca por toggle segmentado se existir.
+- `pricing.ts`, `useV3Catalog`, schema, `quote_presets`.
 
-- `pricing.ts` (`priceOfPrint`) — já consome `valor_unitario` que vai vir pronto.
-- Cart / saveQuoteV3 — leem `side` e `face` que serão setados corretamente.
-- Migration / preset Tags — `side_default: 'F/V'` continua válido e agora será respeitado mesmo sem variante F/V no catálogo.
+## Resultado esperado
 
-### Arquivo
-
-- `src/components/orcamentos-v3/forms/PrintForm.tsx`
+Após a implementação, todo formulário que escolhe papel mostra primeiro o seletor **Lado de impressão: Frente | F/V**, filtra o catálogo coerentemente, e o toggle pós-seleção tem o mesmo visual segmentado roxo do `PrintForm`.
