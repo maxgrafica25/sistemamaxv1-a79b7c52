@@ -52,6 +52,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
   const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers, settings } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
+  const [sideOverride, setSideOverride] = useState<"Frente" | "F/V" | null>(null);
   const [descricaoLocal, setDescricaoLocal] = useState("");
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
@@ -112,6 +113,10 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     const picked = withSide ?? matches[0];
     didPickDefaultRef.current = true;
     setCatalog(picked);
+    // Respeita o lado pedido pelo preset mesmo quando não há variante exata no catálogo.
+    if (defaultPaperHint.side === "F/V" || defaultPaperHint.side === "Frente") {
+      setSideOverride(defaultPaperHint.side);
+    }
   }, [defaultPaperHint, items, catalog]);
 
   // Pré-marca acabamentos sugeridos pelo preset (uma vez).
@@ -199,9 +204,19 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     });
   }, [catalog, enabledLabels, onSelectionChange]);
 
+  // Catálogo "efetivo" — aplica o lado escolhido pelo usuário (Frente/F/V) mesmo
+  // quando o catálogo cadastrado tem só uma variante. F/V dobra o custo de
+  // impressão e do papel (paridade com PrintingItemSearch).
+  const effectiveCatalog = useMemo(() => {
+    if (!catalog) return null;
+    const eff = sideOverride ?? catalog.side;
+    if (eff === catalog.side) return catalog;
+    return { ...catalog, side: eff } as PrintingCatalogItem;
+  }, [catalog, sideOverride]);
+
   const pricing = useMemo(
-    () => (catalog ? pricePerSheet(catalog, tiers, quantidade) : null),
-    [catalog, tiers, quantidade],
+    () => (effectiveCatalog ? pricePerSheet(effectiveCatalog, tiers, quantidade) : null),
+    [effectiveCatalog, tiers, quantidade],
   );
 
   const canAdd = !!catalog && quantidade > 0 && (pricing?.sellingPrice ?? 0) > 0;
@@ -246,8 +261,8 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
   }, [selections, quantidade]);
 
   const buildItem = (qty: number, tierGroupId?: string): V3PrintItem | null => {
-    if (!catalog) return null;
-    const pr = pricePerSheet(catalog, tiers, qty);
+    if (!catalog || !effectiveCatalog) return null;
+    const pr = pricePerSheet(effectiveCatalog, tiers, qty);
     const sel = buildSelections(qty);
     const { perSheet, perUnitTotal } = sumFinishingsPerSheet(sel, qty);
     const extra = perSheet + (qty > 0 ? perUnitTotal / qty : 0);
@@ -261,14 +276,14 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
       paper_type: catalog.paper_type,
       grammage: catalog.grammage,
       size: catalog.size,
-      side: catalog.side,
+      side: effectiveCatalog.side,
       printer_category_id: catalog.printer_category_id,
       markup_group_id: catalog.markup_group_id,
       valor_unitario: pr.sellingPrice + extra,
       custo_unitario: pr.baseCost + extra,
       formato: null,
       cores: null,
-      face: catalog.side === "F/V" ? "fv" : "frente",
+      face: effectiveCatalog.side === "F/V" ? "fv" : "frente",
       finishings: enabledLabels,
       finishing_selections: sel,
     };
@@ -404,72 +419,65 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
         </div>
       )}
 
-      {catalog && (() => {
-        const oppositeSide = catalog.side === "F/V" ? "Frente" : "F/V";
-        const oppositeItem = items.find(
-          (it) =>
-            it.paper_type === catalog.paper_type &&
-            (it.grammage || "") === (catalog.grammage || "") &&
-            it.size === catalog.size &&
-            it.side === oppositeSide,
-        );
-        return (
-          <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3 flex-wrap">
-            <Printer className="h-4 w-4 text-primary shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">
-                {catalog.paper_type}
-                {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size} {catalog.side}
-              </p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[11px] text-muted-foreground">
-                  {catalog.category_name}
-                </span>
-                {pricing?.tierLabel && (
-                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
-                    {pricing.tierLabel}
-                  </Badge>
-                )}
-              </div>
+      {catalog && effectiveCatalog && (
+        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3 flex-wrap">
+          <Printer className="h-4 w-4 text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">
+              {catalog.paper_type}
+              {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size} {effectiveCatalog.side}
+            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[11px] text-muted-foreground">
+                {catalog.category_name}
+              </span>
+              {pricing?.tierLabel && (
+                <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
+                  {pricing.tierLabel}
+                </Badge>
+              )}
             </div>
-            {oppositeItem && (
-              <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => catalog.side !== "Frente" && oppositeItem && setCatalog(oppositeItem)}
-                  className={cn(
-                    "px-2.5 py-1 rounded-sm font-medium transition-colors",
-                    catalog.side === "Frente"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  Frente
-                </button>
-                <button
-                  type="button"
-                  onClick={() => catalog.side !== "F/V" && oppositeItem && setCatalog(oppositeItem)}
-                  className={cn(
-                    "px-2.5 py-1 rounded-sm font-medium transition-colors",
-                    catalog.side === "F/V"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  F/V
-                </button>
-              </div>
-            )}
+          </div>
+          <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
             <button
               type="button"
-              onClick={() => setCatalog(null)}
-              className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+              onClick={() => setSideOverride("Frente")}
+              className={cn(
+                "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                effectiveCatalog.side === "Frente"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title="Imprimir só na frente"
             >
-              Trocar
+              Frente
+            </button>
+            <button
+              type="button"
+              onClick={() => setSideOverride("F/V")}
+              className={cn(
+                "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                effectiveCatalog.side === "F/V"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title="Frente e verso (custo ~2x)"
+            >
+              F/V
             </button>
           </div>
-        );
-      })()}
+          <button
+            type="button"
+            onClick={() => {
+              setCatalog(null);
+              setSideOverride(null);
+            }}
+            className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+          >
+            Trocar
+          </button>
+        </div>
+      )}
 
 
       <div className="grid grid-cols-2 gap-4">
@@ -511,7 +519,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
           disabled={!catalog || !pricing}
           onExtrasChange={setExtraTiers}
           compute={(q) => {
-            const p = catalog ? pricePerSheet(catalog, tiers, q) : null;
+            const p = effectiveCatalog ? pricePerSheet(effectiveCatalog, tiers, q) : null;
             return {
               custo_total: (p?.baseCost ?? 0) * q,
               preco_total: (p?.sellingPrice ?? 0) * q,
