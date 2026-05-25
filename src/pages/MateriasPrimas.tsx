@@ -692,8 +692,8 @@ export default function MateriasPrimas() {
         <div>
           <DotTabs
             tabs={[
-              { key: "papel", label: "Papéis", accent: "emerald" },
-              { key: "suprimento", label: "Suprimentos", accent: "amber" },
+              { key: "papel", label: "Papéis", icon: FileText },
+              { key: "suprimento", label: "Suprimentos", icon: Package },
             ]}
             value={activeTab}
             onChange={(k) => { setActiveTab(k as ActiveTab); setSearchTerm(""); setFilterFinalidade("all"); setFilterSupplier("all"); setPaperCategoryFilter("all"); setPaperFormatFilter("all"); setPaperSupplierFilter("all"); }}
