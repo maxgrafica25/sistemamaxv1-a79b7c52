@@ -807,7 +807,7 @@ export default function MateriasPrimas() {
                     onClick={() => setPaperCategoryFilter(c.k)}
                     className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                       paperCategoryFilter === c.k
-                        ? "bg-emerald-500 text-white border-emerald-500"
+                        ? "bg-primary text-primary-foreground border-primary"
                         : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
                     }`}
                   >
@@ -825,7 +825,7 @@ export default function MateriasPrimas() {
                     onClick={() => setPaperFormatFilter(c.k)}
                     className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                       paperFormatFilter === c.k
-                        ? "bg-emerald-500 text-white border-emerald-500"
+                        ? "bg-primary text-primary-foreground border-primary"
                         : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
                     }`}
                   >
@@ -847,7 +847,7 @@ export default function MateriasPrimas() {
                     onClick={() => setModuloFiltro(c.k)}
                     className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                       moduloFiltro === c.k
-                        ? "bg-amber-500 text-white border-amber-500"
+                        ? "bg-primary text-primary-foreground border-primary"
                         : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
                     }`}
                   >
@@ -861,7 +861,7 @@ export default function MateriasPrimas() {
                       onClick={() => setFilterFinalidade("all")}
                       className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                         filterFinalidade === "all"
-                          ? "bg-amber-500 text-white border-amber-500"
+                          ? "bg-primary text-primary-foreground border-primary"
                           : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
                       }`}
                     >
@@ -873,7 +873,7 @@ export default function MateriasPrimas() {
                         onClick={() => setFilterFinalidade(f)}
                         className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                           filterFinalidade === f
-                            ? "bg-amber-500 text-white border-amber-500"
+                            ? "bg-primary text-primary-foreground border-primary"
                             : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
                         }`}
                       >
