@@ -38,9 +38,12 @@ interface Props {
   hideArtFinishings?: boolean;
   /** Quando true, pré-liga todos os acabamentos disponíveis como sugestão (modo Personalizado). */
   suggestAllFinishings?: boolean;
+  /** Lista de papéis (nomes) sugeridos pelo produto favorito ativo; usado para pré-selecionar o chip de categoria. */
+  suggestedPapers?: string[];
 }
 
-export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults, defaultMarginPct = 20, substrateLabel = "Papel", hideArtFinishings = false, suggestAllFinishings = false }: Props) {
+export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, descricao: descricaoProp, onDescricaoChange, emptyDefaults, defaultMarginPct = 20, substrateLabel = "Papel", hideArtFinishings = false, suggestAllFinishings = false, suggestedPapers }: Props) {
+
 
   const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers, settings } = useV3Catalog();
