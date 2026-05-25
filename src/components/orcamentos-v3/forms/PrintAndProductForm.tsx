@@ -12,6 +12,7 @@ import { PrintForm } from "./PrintForm";
 import { BookletForm } from "./BookletForm";
 import { LabelEmbeddedForm } from "./LabelEmbeddedForm";
 import { BusinessCardForm } from "./BusinessCardForm";
+import { CertificateForm } from "./CertificateForm";
 import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
 import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
@@ -32,6 +33,15 @@ const isBusinessCardName = (nome: string | null | undefined): boolean => {
     .replace(/\s+/g, " ")
     .trim();
   return /\bcartao\b.*\bvisita\b/.test(norm);
+};
+
+const isCertificateName = (nome: string | null | undefined): boolean => {
+  if (!nome) return false;
+  const norm = nome
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  return /certificad/.test(norm);
 };
 
 interface Props {
@@ -75,6 +85,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
     : undefined;
   const isBusinessCard = selectedPresetId === BUILTIN_BUSINESS_CARD_ID;
   const treatAsBusinessCard = isBusinessCard || (!!selectedPreset && isBusinessCardName(selectedPreset.nome));
+  const treatAsCertificate = !!selectedPreset && isCertificateName(selectedPreset.nome);
   const hasUserBusinessCardPreset = useMemo(
     () => presets.some((p) => isBusinessCardName(p.nome)),
     [presets],
@@ -285,7 +296,14 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onDescricaoChange={setDescricao}
           />
         )}
-        {!treatAsBusinessCard && isCustom && (
+        {!treatAsBusinessCard && treatAsCertificate && (
+          <CertificateForm
+            onAdd={wrappedOnAdd}
+            descricao={descricao}
+            onDescricaoChange={setDescricao}
+          />
+        )}
+        {!treatAsBusinessCard && !treatAsCertificate && isCustom && (
           <PrintForm
             onAdd={wrappedOnAdd}
             onAddMany={wrappedOnAddMany}
@@ -300,7 +318,7 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
           />
 
         )}
-        {!treatAsBusinessCard && !isCustom && formTipo === "print" && (
+        {!treatAsBusinessCard && !treatAsCertificate && !isCustom && formTipo === "print" && (
           <PrintForm
             onAdd={wrappedOnAdd}
             onAddMany={wrappedOnAddMany}
