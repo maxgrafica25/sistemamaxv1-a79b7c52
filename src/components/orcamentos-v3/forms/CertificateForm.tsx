@@ -1,14 +1,14 @@
 // Sub-formulário: Certificado (built-in).
-// - Papel pré-selecionado: Couchê 210g A4 (auto-detectado no catálogo).
+// - Papel: Couchê 210g A4 (auto-detectado no catálogo).
 // - 1 certificado = 1 folha. Quantidade em unidades.
-// - Face: Frente / Frente e Verso (color).
-// - Acabamentos vindos do Kit de Produto "certificado" (mesmo padrão do CV).
+// - Face: Frente color (padrão), F/V color, F color + V PB (mix), F/V PB.
+// - Acabamentos do Kit de Produto "certificado" (padrão CV).
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Check, FileText, Files, Plus, Printer } from "lucide-react";
+import { Check, FileText, Files, FileMinus, Plus, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   FinishingProgressive,
@@ -29,6 +29,8 @@ interface Props {
   onDescricaoChange?: (v: string) => void;
 }
 
+type FaceKey = "frente" | "fv" | "mix" | "fv_pb";
+
 const isA4 = (size: string | null | undefined) =>
   /^\s*a4\s*$|21[.,]?0?.*29[.,]?7|29[.,]?7.*21[.,]?0?/i.test(size || "");
 
@@ -36,6 +38,14 @@ const isCouche210 = (
   paperType: string | null | undefined,
   gram: string | null | undefined,
 ) => /couch/i.test(paperType || "") && /210/.test(gram || "");
+
+/** Devolve uma cópia do item com o `side` desejado para o engine aplicar o multiplicador. */
+const withSide = (it: PrintingCatalogItem, side: "Frente" | "F/V"): PrintingCatalogItem => {
+  const cur = (it.side || "").toUpperCase();
+  if (side === "F/V" && cur !== "F/V") return { ...it, side: "F/V" };
+  if (side === "Frente" && cur === "F/V") return { ...it, side: "Frente" };
+  return it;
+};
 
 export function CertificateForm({
   onAdd,
@@ -49,17 +59,17 @@ export function CertificateForm({
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
 
   const [qtd, setQtd] = useState(0);
-  const [face, setFace] = useState<"frente" | "fv">("frente");
+  const [face, setFace] = useState<FaceKey>("frente");
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
-  const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
+  const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
+  const [selectedPbId, setSelectedPbId] = useState<string | null>(null);
 
   const { steps } = useProductKitProcesses("certificado");
   const { hourRate } = useHourRate();
 
   type CProc = {
     key: string;
-    kind: "step";
     name: string;
     minutes: number;
     link_type: "fixed" | "optional";
@@ -70,7 +80,6 @@ export function CertificateForm({
     () =>
       steps.map((s) => ({
         key: `step:${s.id}`,
-        kind: "step" as const,
         name: s.description,
         minutes: Number.isFinite(s.time_minutes) ? s.time_minutes : 0,
         link_type: s.link_type,
@@ -83,42 +92,85 @@ export function CertificateForm({
   const fixedProcs = useMemo(() => procs.filter((p) => p.link_type === "fixed"), [procs]);
   const optionalProcs = useMemo(() => procs.filter((p) => p.link_type === "optional"), [procs]);
 
-  // Candidatos a Couchê 210g A4
-  const couche210A4 = useMemo(
+  // Candidatos — separados por modo
+  const colorItems = useMemo(
     () =>
       items.filter(
-        (it) => isCouche210(it.paper_type, it.grammage) && isA4(it.size),
+        (it) =>
+          isCouche210(it.paper_type, it.grammage) &&
+          isA4(it.size) &&
+          (it.equipment_mode || "color") === "color",
+      ),
+    [items],
+  );
+  const pbItems = useMemo(
+    () =>
+      items.filter(
+        (it) =>
+          isCouche210(it.paper_type, it.grammage) &&
+          isA4(it.size) &&
+          (it.equipment_mode || "color") === "pb",
       ),
     [items],
   );
 
-  const catalog: PrintingCatalogItem | null = useMemo(() => {
-    if (couche210A4.length === 0) return null;
-    if (selectedCatalogId) {
-      const sel = couche210A4.find((c) => c.id === selectedCatalogId);
-      if (sel) return sel;
+  const hasPb = pbItems.length > 0;
+
+  const colorBase: PrintingCatalogItem | null = useMemo(() => {
+    if (colorItems.length === 0) return null;
+    if (selectedColorId) {
+      const s = colorItems.find((c) => c.id === selectedColorId);
+      if (s) return s;
     }
-    const wantSide = face === "fv" ? "F/V" : "Frente";
-    const exact = couche210A4.find(
-      (c) => (c.side || "").toLowerCase() === wantSide.toLowerCase(),
-    );
-    return exact ?? couche210A4[0];
-  }, [couche210A4, selectedCatalogId, face]);
+    return colorItems[0];
+  }, [colorItems, selectedColorId]);
 
-  const sheets = qtd; // 1 certificado = 1 folha A4
+  const pbBase: PrintingCatalogItem | null = useMemo(() => {
+    if (pbItems.length === 0) return null;
+    if (selectedPbId) {
+      const s = pbItems.find((c) => c.id === selectedPbId);
+      if (s) return s;
+    }
+    return pbItems[0];
+  }, [pbItems, selectedPbId]);
 
-  const effectiveItem: PrintingCatalogItem | null = useMemo(() => {
-    if (!catalog) return null;
-    const isCatalogFV = (catalog.side || "").toUpperCase() === "F/V";
-    if (face === "fv" && !isCatalogFV) return { ...catalog, side: "F/V" };
-    if (face === "frente" && isCatalogFV) return { ...catalog, side: "Frente" };
-    return catalog;
-  }, [catalog, face]);
+  // Item efetivo principal por face (usado para gravar catalog_item_id, printer_cat, etc.)
+  const primaryItem: PrintingCatalogItem | null = useMemo(() => {
+    if (face === "fv_pb") return pbBase ? withSide(pbBase, "F/V") : null;
+    if (!colorBase) return null;
+    if (face === "fv") return withSide(colorBase, "F/V");
+    // frente e mix usam o color como item principal (verso PB entra como custo extra)
+    return withSide(colorBase, "Frente");
+  }, [face, colorBase, pbBase]);
 
-  const pricing = useMemo(
-    () => (effectiveItem && sheets > 0 ? pricePerSheet(effectiveItem, tiers, sheets) : null),
-    [effectiveItem, tiers, sheets],
+  const sheets = qtd; // 1 cert = 1 folha A4
+
+  // Pricing principal
+  const pricingPrimary = useMemo(
+    () =>
+      primaryItem && sheets > 0
+        ? pricePerSheet(primaryItem, tiers, sheets)
+        : null,
+    [primaryItem, tiers, sheets],
   );
+
+  // Pricing do verso PB para o mix (Frente PB, soma ao principal color Frente)
+  const pricingMixPb = useMemo(() => {
+    if (face !== "mix" || !pbBase || sheets <= 0) return null;
+    return pricePerSheet(withSide(pbBase, "Frente"), tiers, sheets);
+  }, [face, pbBase, tiers, sheets]);
+
+  const baseSellingPerSheet = useMemo(() => {
+    const a = pricingPrimary?.sellingPrice ?? 0;
+    const b = pricingMixPb?.sellingPrice ?? 0;
+    return a + b;
+  }, [pricingPrimary, pricingMixPb]);
+
+  const baseCostPerSheet = useMemo(() => {
+    const a = pricingPrimary?.baseCost ?? 0;
+    const b = pricingMixPb?.baseCost ?? 0;
+    return a + b;
+  }, [pricingPrimary, pricingMixPb]);
 
   const procCost = (minutes: number) => {
     const m = Number.isFinite(minutes) ? minutes : 0;
@@ -189,6 +241,13 @@ export function CertificateForm({
     });
   }, [procs]);
 
+  // Se usuário escolher face PB mas não houver item PB, força fallback para frente
+  useEffect(() => {
+    if ((face === "fv_pb" || face === "mix") && !hasPb) {
+      setFace("frente");
+    }
+  }, [face, hasPb]);
+
   const selectedProcs = useMemo(
     () => procs.filter((p) => finEnabled[p.key]),
     [procs, finEnabled],
@@ -200,14 +259,22 @@ export function CertificateForm({
     [selectedProcs, hourRate],
   );
   const finishingExtraPerSheet = sheets > 0 ? finishingTotal / sheets : 0;
-  const totalGeral = pricing ? (pricing.sellingPrice + finishingExtraPerSheet) * sheets : 0;
+  const totalGeral = sheets > 0 ? (baseSellingPerSheet + finishingExtraPerSheet) * sheets : 0;
   const precoPorUnidade = qtd > 0 ? totalGeral / qtd : 0;
 
   const canAdd =
-    !!effectiveItem && qtd > 0 && sheets > 0 && (pricing?.sellingPrice ?? 0) > 0;
+    !!primaryItem && qtd > 0 && sheets > 0 && baseSellingPerSheet > 0 &&
+    (face !== "mix" || !!pbBase);
+
+  const faceLabelMap: Record<FaceKey, string> = {
+    frente: "Frente",
+    fv: "Frente e Verso",
+    mix: "Frente color + Verso PB",
+    fv_pb: "Frente e Verso PB",
+  };
 
   const submit = async () => {
-    if (!canAdd || !effectiveItem || !pricing) return;
+    if (!canAdd || !primaryItem) return;
 
     const groupIds = Array.from(
       new Set(selectedProcs.map((p) => p.step_group_id).filter((g): g is string => !!g)),
@@ -239,26 +306,27 @@ export function CertificateForm({
     });
     const flatLabels = selectedProcs.flatMap(expandNames);
     const extra = finishingExtraPerSheet;
-    const faceLabel = face === "fv" ? "Frente e Verso" : "Frente";
-    const defaultDesc = `Certificado A4 — Couchê 210g ${faceLabel} (${qtd} un)`;
+    const faceLabel = faceLabelMap[face];
+    const defaultDesc = `Certificado A4 — Couchê 210g · ${faceLabel} (${qtd} un)`;
+    const sideField: "Frente" | "F/V" = face === "frente" ? "Frente" : "F/V";
     const item: V3PrintItem = {
       id: genId(),
       kind: "print",
       descricao: descricao.trim() || defaultDesc,
       quantidade: sheets,
       tier_group_id: null,
-      catalog_item_id: effectiveItem.id,
-      paper_type: effectiveItem.paper_type,
-      grammage: effectiveItem.grammage,
-      size: effectiveItem.size,
-      side: face === "fv" ? "F/V" : "Frente",
-      printer_category_id: effectiveItem.printer_category_id,
-      markup_group_id: effectiveItem.markup_group_id,
-      valor_unitario: pricing.sellingPrice + extra,
-      custo_unitario: pricing.baseCost + extra,
+      catalog_item_id: primaryItem.id,
+      paper_type: primaryItem.paper_type,
+      grammage: primaryItem.grammage,
+      size: primaryItem.size,
+      side: sideField,
+      printer_category_id: primaryItem.printer_category_id,
+      markup_group_id: primaryItem.markup_group_id,
+      valor_unitario: baseSellingPerSheet + extra,
+      custo_unitario: baseCostPerSheet + extra,
       formato: null,
       cores: null,
-      face: face === "fv" ? "fv" : "frente",
+      face,
       finishings: flatLabels,
       finishing_selections: sel,
     };
@@ -269,12 +337,37 @@ export function CertificateForm({
     setTimeout(() => setPulse(false), 600);
   };
 
+  const faceOptions: {
+    key: FaceKey;
+    icon: typeof FileText;
+    title: string;
+    hint: string;
+    requiresPb?: boolean;
+  }[] = [
+    { key: "frente", icon: FileText, title: "Frente", hint: "1 face colorida" },
+    { key: "fv", icon: Files, title: "Frente e Verso", hint: "2 faces coloridas · custo ~2x" },
+    {
+      key: "mix",
+      icon: FileText,
+      title: "F color + V P&B",
+      hint: "Frente colorida, verso em preto e branco",
+      requiresPb: true,
+    },
+    {
+      key: "fv_pb",
+      icon: FileMinus,
+      title: "Frente e Verso (P&B)",
+      hint: "2 faces preto e branco · custo ~2x",
+      requiresPb: true,
+    },
+  ];
+
   return (
     <div className="space-y-5 flex-1 flex flex-col">
-      {couche210A4.length === 0 && !loading && (
+      {colorItems.length === 0 && !loading && (
         <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-4 text-center">
           <p className="text-xs text-muted-foreground">
-            Nenhum item de impressão <strong>Couchê 210g</strong> em <strong>A4</strong> cadastrado.
+            Nenhum item de impressão <strong>Couchê 210g</strong> em <strong>A4</strong> (color) cadastrado.
           </p>
           <a
             href="/preco-impressao"
@@ -287,38 +380,77 @@ export function CertificateForm({
         </div>
       )}
 
-      {catalog && (
-        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3">
-          <Printer className="h-4 w-4 text-primary shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
-              {catalog.paper_type}
-              {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size}
-            </p>
-            <div className="flex items-center gap-2 mt-0.5">
+      {/* Header — uma ou duas linhas (color + PB no mix) */}
+      {primaryItem && (
+        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 space-y-1.5">
+          <div className="flex items-center gap-3">
+            <Printer className="h-4 w-4 text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">
+                {primaryItem.paper_type}
+                {primaryItem.grammage ? ` ${primaryItem.grammage}` : ""} — {primaryItem.size}
+              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[11px] text-muted-foreground">
+                  {primaryItem.category_name}
+                  {(primaryItem.equipment_mode || "color") === "pb" ? " (PB)" : ""}
+                </span>
+                {pricingPrimary?.tierLabel && (
+                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
+                    {pricingPrimary.tierLabel}
+                  </Badge>
+                )}
+              </div>
+            </div>
+            {face !== "fv_pb" && colorItems.length > 1 && (
+              <select
+                value={selectedColorId ?? colorBase?.id ?? ""}
+                onChange={(e) => setSelectedColorId(e.target.value)}
+                className="h-7 text-xs rounded-md border border-border bg-background px-2"
+                title="Mais de um Couchê 210g A4 color cadastrado"
+              >
+                {colorItems.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.category_name} · {c.side}
+                  </option>
+                ))}
+              </select>
+            )}
+            {face === "fv_pb" && pbItems.length > 1 && (
+              <select
+                value={selectedPbId ?? pbBase?.id ?? ""}
+                onChange={(e) => setSelectedPbId(e.target.value)}
+                className="h-7 text-xs rounded-md border border-border bg-background px-2"
+                title="Mais de um Couchê 210g A4 PB cadastrado"
+              >
+                {pbItems.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.category_name} · {c.side}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          {face === "mix" && pbBase && (
+            <div className="flex items-center gap-3 pl-7">
               <span className="text-[11px] text-muted-foreground">
-                {catalog.category_name}
+                + verso PB: <span className="text-foreground">{pbBase.category_name}</span>
+                {pricingMixPb?.tierLabel ? ` · ${pricingMixPb.tierLabel}` : ""}
               </span>
-              {pricing?.tierLabel && (
-                <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
-                  {pricing.tierLabel}
-                </Badge>
+              {pbItems.length > 1 && (
+                <select
+                  value={selectedPbId ?? pbBase.id}
+                  onChange={(e) => setSelectedPbId(e.target.value)}
+                  className="h-6 text-[11px] rounded-md border border-border bg-background px-1.5 ml-auto"
+                >
+                  {pbItems.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.category_name} · {c.side}
+                    </option>
+                  ))}
+                </select>
               )}
             </div>
-          </div>
-          {couche210A4.length > 1 && (
-            <select
-              value={selectedCatalogId ?? catalog.id}
-              onChange={(e) => setSelectedCatalogId(e.target.value)}
-              className="h-7 text-xs rounded-md border border-border bg-background px-2"
-              title="Mais de um Couchê 210g A4 cadastrado"
-            >
-              {couche210A4.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.category_name} · {c.side}
-                </option>
-              ))}
-            </select>
           )}
         </div>
       )}
@@ -343,37 +475,41 @@ export function CertificateForm({
       </Field>
 
       <Field label="Face de impressão">
-        <div className="grid grid-cols-2 gap-3">
-          {([
-            { key: "frente", icon: FileText, title: "Frente", hint: "1 face colorida" },
-            { key: "fv", icon: Files, title: "Frente e Verso", hint: "2 faces coloridas · custo ~2x" },
-          ] as const).map((opt) => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {faceOptions.map((opt) => {
             const Icon = opt.icon;
             const selected = face === opt.key;
+            const disabled = !!opt.requiresPb && !hasPb;
             return (
               <button
                 key={opt.key}
                 type="button"
-                onClick={() => setFace(opt.key)}
+                disabled={disabled}
+                onClick={() => !disabled && setFace(opt.key)}
+                title={disabled ? "Cadastre um item Couchê 210g A4 PB para liberar esta opção" : undefined}
                 className={cn(
                   "relative rounded-lg border-2 p-3 text-left transition-all",
-                  selected
-                    ? "border-primary bg-primary/5 shadow-sm"
-                    : "border-border bg-background hover:border-primary/40 hover:bg-muted/30",
+                  disabled && "opacity-50 cursor-not-allowed",
+                  !disabled && selected && "border-primary bg-primary/5 shadow-sm",
+                  !disabled && !selected && "border-border bg-background hover:border-primary/40 hover:bg-muted/30",
+                  disabled && "border-border bg-background",
                 )}
               >
                 <div className="flex items-start gap-3">
                   <Icon
                     className={cn(
                       "h-5 w-5 mt-0.5 shrink-0",
-                      selected ? "text-primary" : "text-muted-foreground",
+                      selected && !disabled ? "text-primary" : "text-muted-foreground",
                     )}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold leading-tight">{opt.title}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">{opt.hint}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {opt.hint}
+                      {disabled && " · PB não cadastrado"}
+                    </p>
                   </div>
-                  {selected && <Check className="h-4 w-4 text-primary shrink-0" />}
+                  {selected && !disabled && <Check className="h-4 w-4 text-primary shrink-0" />}
                 </div>
               </button>
             );
@@ -385,9 +521,9 @@ export function CertificateForm({
         <Field label="Preço por folha">
           <div className="h-9 px-3 rounded-md border border-border bg-muted/40 flex items-center justify-between">
             <span className="text-sm font-semibold text-primary tabular-nums">
-              {pricing ? fmtBRL(pricing.sellingPrice + finishingExtraPerSheet) : "—"}
+              {baseSellingPerSheet > 0 ? fmtBRL(baseSellingPerSheet + finishingExtraPerSheet) : "—"}
             </span>
-            {pricing && finishingExtraPerSheet > 0 && (
+            {baseSellingPerSheet > 0 && finishingExtraPerSheet > 0 && (
               <span className="text-[11px] text-muted-foreground tabular-nums">
                 + {fmtBRL(finishingExtraPerSheet)} acab.
               </span>
@@ -448,7 +584,7 @@ export function CertificateForm({
 
       <div className="sticky bottom-0 z-10 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 mt-auto -mb-5 lg:-mb-0 bg-background border-t border-border shadow-[0_-8px_16px_-8px_hsl(var(--background))] flex items-center justify-between gap-3">
         <div className="text-xs text-muted-foreground">
-          {pricing && (
+          {baseSellingPerSheet > 0 && (
             <span>
               Total:{" "}
               <span className="text-foreground font-semibold tabular-nums">
