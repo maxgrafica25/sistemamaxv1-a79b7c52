@@ -89,6 +89,48 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     });
   }, [suggestAllFinishings, printFinishings]);
 
+  // Pré-seleciona um item do catálogo a partir do hint do preset (papel + gramatura + lado).
+  const didPickDefaultRef = useRef(false);
+  useEffect(() => {
+    if (didPickDefaultRef.current) return;
+    if (catalog) return;
+    if (!defaultPaperHint?.name) return;
+    if (!items.length) return;
+    const norm = (s: string | null | undefined) =>
+      (s ?? "").toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const wantName = norm(defaultPaperHint.name);
+    const wantGram = defaultPaperHint.grammage ? norm(defaultPaperHint.grammage) : "";
+    const wantSide = defaultPaperHint.side ? norm(defaultPaperHint.side) : "";
+    const matches = items.filter((it) => {
+      const n = norm(it.paper_type);
+      if (!n.includes(wantName) && !wantName.includes(n)) return false;
+      if (wantGram && norm(it.grammage).replace(/[^0-9]/g, "") !== wantGram.replace(/[^0-9]/g, "")) return false;
+      return true;
+    });
+    if (!matches.length) return;
+    const withSide = wantSide ? matches.find((it) => norm(it.side) === wantSide) : null;
+    const picked = withSide ?? matches[0];
+    didPickDefaultRef.current = true;
+    setCatalog(picked);
+  }, [defaultPaperHint, items, catalog]);
+
+  // Pré-marca acabamentos sugeridos pelo preset (uma vez).
+  const didPreselectFinRef = useRef(false);
+  useEffect(() => {
+    if (didPreselectFinRef.current) return;
+    if (!preselectedFinishings?.length) return;
+    if (printFinishings.length === 0) return;
+    const valid = new Set(printFinishings.map((f) => f.id));
+    const toEnable = preselectedFinishings.filter((id) => valid.has(id));
+    if (!toEnable.length) return;
+    didPreselectFinRef.current = true;
+    setFinEnabled((m) => {
+      const next = { ...m };
+      for (const id of toEnable) next[id] = true;
+      return next;
+    });
+  }, [preselectedFinishings, printFinishings]);
+
 
 
   // Lona / banner
