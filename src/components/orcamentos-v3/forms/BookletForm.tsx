@@ -402,23 +402,6 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
         </Field>
       </div>
 
-      <div className="flex items-center justify-between rounded-md border border-border bg-muted/20 px-3 py-2">
-        <div>
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-            Impressão Frente/Verso
-          </Label>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {duplex
-              ? "Cada folha conta como 2 impressões."
-              : "Cada folha conta como 1 impressão."}
-          </p>
-        </div>
-        <Switch
-          checked={duplex}
-          onCheckedChange={(v) => setDuplex(!!v)}
-          disabled={catalog?.side === "F/V"}
-        />
-      </div>
 
       {physicalSheets > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
