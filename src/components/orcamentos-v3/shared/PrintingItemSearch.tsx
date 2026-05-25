@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Printer, Link2, AlertTriangle, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface LinkedPaperInfo {
   id: string;
@@ -27,6 +28,8 @@ export interface MarkupTier {
   sort_order: number;
 }
 
+export type PaperCategory = "comum" | "especial" | "adesivo";
+
 export interface PrintingCatalogItem {
   id: string;
   paper_type: string;
@@ -46,6 +49,8 @@ export interface PrintingCatalogItem {
   purchase_sheet_height_mm?: number | null;
   /** Vínculo (implícito por nome+gramatura) com o papel da Matéria-Prima. */
   linkedPaper?: LinkedPaperInfo | null;
+  /** Categoria derivada de `papers.category` (null quando não há match). */
+  paper_category?: PaperCategory | null;
 }
 
 interface PrintingItemSearchProps {
@@ -54,10 +59,19 @@ interface PrintingItemSearchProps {
   markupTiers?: MarkupTier[];
   globalSettings?: { invoice_pct: number; collection_pct: number; waste_pct: number; default_margin_pct: number };
   placeholder?: string;
+  /** Pré-seleção opcional do chip de categoria (vindo de um produto favorito). */
+  defaultCategory?: PaperCategory | null;
 }
 
 const roundUp5 = (v: number) => Math.round(v * 10) / 10;
 const isLargerThanA4 = (size: string) => /^(A3|SRA3|A2|A1|A0)/i.test(size);
+
+const CATEGORY_ORDER: PaperCategory[] = ["especial", "comum", "adesivo"];
+const CATEGORY_LABEL: Record<PaperCategory, string> = {
+  comum: "Comum",
+  especial: "Especial",
+  adesivo: "Adesivo",
+};
 
 const calcSellingPrice = (baseCost: number, tier: MarkupTier, _globals?: { invoice_pct: number; collection_pct: number; waste_pct: number }) => {
   const soma = (tier.fixed_cost_pct + tier.variable_cost_pct + tier.margin_pct) / 100;
@@ -66,15 +80,55 @@ const calcSellingPrice = (baseCost: number, tier: MarkupTier, _globals?: { invoi
   return Math.round((baseCost / divisor) * 10) / 10;
 };
 
-export default function PrintingItemSearch({ items, onSelect, markupTiers, globalSettings, placeholder }: PrintingItemSearchProps) {
+export default function PrintingItemSearch({ items, onSelect, markupTiers, globalSettings, placeholder, defaultCategory }: PrintingItemSearchProps) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<"all" | PaperCategory>("all");
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const filtered = items.filter(m => {
+  // Aplica pré-seleção quando muda (ex.: usuário troca de favorito).
+  useEffect(() => {
+    if (defaultCategory) setCategoryFilter(defaultCategory);
+    else setCategoryFilter("all");
+  }, [defaultCategory]);
+
+  const matchesText = (m: PrintingCatalogItem) => {
     const label = `${m.paper_type} ${m.grammage || ""} ${m.size} ${m.side} ${m.equipment_name || ""} ${m.category_name}`.toLowerCase();
     return label.includes(search.toLowerCase());
-  });
+  };
+
+  const textMatches = useMemo(() => items.filter(matchesText), [items, search]);
+
+  const counts = useMemo(() => {
+    const c: Record<PaperCategory, number> = { comum: 0, especial: 0, adesivo: 0 };
+    for (const it of items) {
+      if (it.paper_category) c[it.paper_category]++;
+    }
+    return c;
+  }, [items]);
+
+  const filtered = useMemo(() => {
+    if (categoryFilter === "all") return textMatches;
+    return textMatches.filter((m) => m.paper_category === categoryFilter);
+  }, [textMatches, categoryFilter]);
+
+  const otherCategoriesCount = useMemo(() => {
+    if (categoryFilter === "all" || !search.trim()) return 0;
+    return textMatches.length - filtered.length;
+  }, [textMatches, filtered, categoryFilter, search]);
+
+  // Agrupamento por categoria quando "Todos" está ativo.
+  const grouped = useMemo(() => {
+    if (categoryFilter !== "all") return null;
+    const map = new Map<PaperCategory | "outros", PrintingCatalogItem[]>();
+    for (const it of filtered) {
+      const k = (it.paper_category ?? "outros") as PaperCategory | "outros";
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push(it);
+    }
+    const order: (PaperCategory | "outros")[] = [...CATEGORY_ORDER, "outros"];
+    return order.filter((k) => map.has(k) && map.get(k)!.length > 0).map((k) => ({ key: k, items: map.get(k)! }));
+  }, [filtered, categoryFilter]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -97,7 +151,6 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
     const sideMult = item.side === "F/V" ? 2 : 1;
     const printCost = roundUp5(item.printing_cost * sizeMult * sideMult);
     const baseCost = item.paper_cost + printCost;
-    // Find first tier: use item's markup_group_id, fallback to printer_category_id
     const tier = markupTiers?.find(t =>
       item.markup_group_id
         ? t.markup_group_id === item.markup_group_id
@@ -107,8 +160,100 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
     return { baseCost, sellingPrice, tierLabel: tier?.label };
   };
 
+  const totalCount = items.length;
+  const chips: { key: "all" | PaperCategory; label: string; count: number }[] = [
+    { key: "all", label: "Todos", count: totalCount },
+    { key: "comum", label: "Comum", count: counts.comum },
+    { key: "especial", label: "Especial", count: counts.especial },
+    { key: "adesivo", label: "Adesivo", count: counts.adesivo },
+  ];
+
+  const renderItem = (item: PrintingCatalogItem) => {
+    const { baseCost, sellingPrice, tierLabel } = getItemPrices(item);
+    return (
+      <button
+        key={item.id}
+        onClick={() => handleSelect(item)}
+        className="group flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b last:border-0"
+      >
+        <Printer className="h-4 w-4 text-muted-foreground shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="font-medium truncate">
+            {item.paper_type} {item.grammage && `${item.grammage}`} — {item.size} {item.side}
+          </p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-xs text-muted-foreground group-hover:text-white/80">{item.category_name}</span>
+            {item.equipment_name && (
+              <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                {item.equipment_name}{item.equipment_mode === "pb" ? " (PB)" : ""}
+              </Badge>
+            )}
+            {tierLabel && (
+              <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{tierLabel}</Badge>
+            )}
+          </div>
+          {item.linkedPaper ? (
+            <div className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground/80 group-hover:text-white truncate">
+              <Link2 className="h-3 w-3 shrink-0 text-primary group-hover:text-white" />
+              <span className="truncate">
+                <span className="text-muted-foreground group-hover:text-white/80">vinculado a:</span>{" "}
+                <span className="font-medium">
+                  {item.linkedPaper.name}
+                  {item.linkedPaper.grammage ? ` ${item.linkedPaper.grammage}` : ""}
+                </span>
+                <span className="text-muted-foreground group-hover:text-white/80"> · {item.linkedPaper.packaging_label} · </span>
+                <span className="font-medium">R$ {item.linkedPaper.unit_cost.toFixed(4)}/fl</span>
+              </span>
+            </div>
+          ) : (
+            <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 group-hover:text-white truncate">
+              <AlertTriangle className="h-3 w-3 shrink-0" />
+              sem papel vinculado em Matérias-Primas
+            </div>
+          )}
+        </div>
+        <div className="text-right shrink-0">
+          <span className="text-sm font-semibold text-primary group-hover:text-white">
+            R$ {sellingPrice.toFixed(2)}/folha
+          </span>
+          {sellingPrice !== baseCost && (
+            <p className="text-[10px] text-muted-foreground group-hover:text-white/80">custo: R$ {baseCost.toFixed(2)}</p>
+          )}
+        </div>
+      </button>
+    );
+  };
+
   return (
     <div ref={containerRef} className="relative flex-1">
+      {/* Chips de categoria */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+        {chips.map((c) => {
+          const active = categoryFilter === c.key;
+          const disabled = c.key !== "all" && c.count === 0;
+          return (
+            <button
+              key={c.key}
+              type="button"
+              disabled={disabled}
+              onClick={() => setCategoryFilter(c.key)}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+                disabled && "opacity-40 cursor-not-allowed",
+              )}
+            >
+              {c.label}
+              <span className={cn("text-[10px]", active ? "text-primary-foreground/80" : "text-muted-foreground/70")}>
+                · {c.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -122,65 +267,31 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
       {isOpen && (
         <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-80 overflow-auto">
           {filtered.length > 0 ? (
-            filtered.map((item) => {
-              const { baseCost, sellingPrice, tierLabel } = getItemPrices(item);
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleSelect(item)}
-                  className="group flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b last:border-0"
-                >
-                  <Printer className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">
-                      {item.paper_type} {item.grammage && `${item.grammage}`} — {item.size} {item.side}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-muted-foreground group-hover:text-white/80">{item.category_name}</span>
-                      {item.equipment_name && (
-                        <Badge variant="outline" className="text-[10px] h-4 px-1.5">
-                          {item.equipment_name}{item.equipment_mode === "pb" ? " (PB)" : ""}
-                        </Badge>
-                      )}
-                      {tierLabel && (
-                        <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{tierLabel}</Badge>
-                      )}
-                    </div>
-                    {item.linkedPaper ? (
-                      <div className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground/80 group-hover:text-white truncate">
-                        <Link2 className="h-3 w-3 shrink-0 text-primary group-hover:text-white" />
-                        <span className="truncate">
-                          <span className="text-muted-foreground group-hover:text-white/80">vinculado a:</span>{" "}
-                          <span className="font-medium">
-                            {item.linkedPaper.name}
-                            {item.linkedPaper.grammage ? ` ${item.linkedPaper.grammage}` : ""}
-                          </span>
-                          <span className="text-muted-foreground group-hover:text-white/80"> · {item.linkedPaper.packaging_label} · </span>
-                          <span className="font-medium">R$ {item.linkedPaper.unit_cost.toFixed(4)}/fl</span>
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 group-hover:text-white truncate">
-                        <AlertTriangle className="h-3 w-3 shrink-0" />
-                        sem papel vinculado em Matérias-Primas
-                      </div>
-                    )}
+            grouped ? (
+              grouped.map((g) => (
+                <div key={g.key}>
+                  <div className="sticky top-0 z-10 bg-muted/80 backdrop-blur px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border-b">
+                    {g.key === "outros" ? "Outros" : CATEGORY_LABEL[g.key as PaperCategory]} · {g.items.length}
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-sm font-semibold text-primary group-hover:text-white">
-                      R$ {sellingPrice.toFixed(2)}/folha
-                    </span>
-                    {sellingPrice !== baseCost && (
-                      <p className="text-[10px] text-muted-foreground group-hover:text-white/80">custo: R$ {baseCost.toFixed(2)}</p>
-                    )}
-                  </div>
-                </button>
-              );
-            })
+                  {g.items.map(renderItem)}
+                </div>
+              ))
+            ) : (
+              filtered.map(renderItem)
+            )
           ) : (
             <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-              Nenhum item de impressão encontrado
+              Nenhum item de impressão encontrado{categoryFilter !== "all" ? ` em "${CATEGORY_LABEL[categoryFilter]}"` : ""}
             </div>
+          )}
+          {otherCategoriesCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("all")}
+              className="w-full border-t bg-muted/40 px-3 py-2 text-left text-xs text-primary hover:bg-muted/60"
+            >
+              +{otherCategoriesCount} resultado{otherCategoriesCount > 1 ? "s" : ""} em outras categorias — ver todos
+            </button>
           )}
           {filtered.length > 0 && (
             <div className="sticky bottom-0 border-t bg-muted/60 px-3 py-1.5 flex items-start gap-1.5 text-[10px] text-muted-foreground">

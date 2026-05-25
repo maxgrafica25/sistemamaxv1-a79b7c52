@@ -21,7 +21,9 @@ interface PaperRow {
   freight_price: number | null;
   sheet_qty: number | null;
   is_cut_size: boolean | null;
+  category: string | null;
 }
+
 
 const buildLinkedPaper = (
   paperType: string,
@@ -73,7 +75,7 @@ export function useV3Catalog() {
         supabase.from("global_settings").select("*").limit(1).single(),
         supabase
           .from("papers")
-          .select("id, name, grammage, pack_price, freight_price, sheet_qty, is_cut_size")
+          .select("id, name, grammage, pack_price, freight_price, sheet_qty, is_cut_size, category")
           .eq("is_active", true),
       ]);
 
@@ -82,6 +84,17 @@ export function useV3Catalog() {
       const cats = new Map<string, string>();
       (catRes.data || []).forEach((c: any) => cats.set(c.id, c.name));
       const papers: PaperRow[] = (papersRes.data || []) as any;
+
+      const findPaperCategory = (paperType: string, grammage: string | null): "comum" | "especial" | "adesivo" | null => {
+        const m = papers.find(
+          (p) =>
+            p.name?.toLowerCase().trim() === paperType?.toLowerCase().trim() &&
+            (p.grammage || "").trim() === (grammage || "").trim(),
+        );
+        const c = (m?.category || "").toLowerCase();
+        if (c === "comum" || c === "especial" || c === "adesivo") return c;
+        return null;
+      };
 
       const built: PrintingCatalogItem[] = (printRes.data || []).map((r: any) => ({
         id: r.id,
@@ -101,7 +114,9 @@ export function useV3Catalog() {
         purchase_sheet_width_mm: r.purchase_sheet_width_mm ?? null,
         purchase_sheet_height_mm: r.purchase_sheet_height_mm ?? null,
         linkedPaper: buildLinkedPaper(r.paper_type, r.grammage, papers),
+        paper_category: findPaperCategory(r.paper_type, r.grammage),
       }));
+
 
       setItems(built);
       setTiers(
