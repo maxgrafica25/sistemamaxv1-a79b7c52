@@ -96,7 +96,14 @@ interface Paper {
   is_cut_size?: boolean | null;
   purchase_sheet_width_mm?: number | null;
   purchase_sheet_height_mm?: number | null;
+  category?: "comum" | "especial" | "adesivo";
 }
+
+const PAPER_CATEGORY_LABEL: Record<string, string> = {
+  comum: "Comum",
+  especial: "Especial",
+  adesivo: "Adesivo",
+};
 
 interface PaperHistory {
   id: string;
@@ -190,6 +197,7 @@ export default function MateriasPrimas() {
   const [paperIsCutSize, setPaperIsCutSize] = useState(false);
   const [paperPurchaseSheetW, setPaperPurchaseSheetW] = useState("");
   const [paperPurchaseSheetH, setPaperPurchaseSheetH] = useState("");
+  const [paperCategory, setPaperCategory] = useState<"comum" | "especial" | "adesivo">("comum");
   const [selectedExistingPaper, setSelectedExistingPaper] = useState<Paper | null>(null);
   // ── Modo embalagem (UI helper p/ papel cortado) ──
   const [pkgMode, setPkgMode] = useState(false);
@@ -304,6 +312,7 @@ export default function MateriasPrimas() {
     setPaperIsCutSize(false);
     setPaperPurchaseSheetW("");
     setPaperPurchaseSheetH("");
+    setPaperCategory("comum");
     setSelectedExistingPaper(null);
     setPkgMode(false);
     setPkgBoxes("1");
@@ -328,6 +337,7 @@ export default function MateriasPrimas() {
       setPaperIsCutSize(!!paper.is_cut_size);
       setPaperPurchaseSheetW(paper.purchase_sheet_width_mm != null ? String(paper.purchase_sheet_width_mm) : "");
       setPaperPurchaseSheetH(paper.purchase_sheet_height_mm != null ? String(paper.purchase_sheet_height_mm) : "");
+      setPaperCategory((paper.category as any) || "comum");
     } else {
       setEditingPaper(null);
       resetPaperForm();
@@ -352,6 +362,7 @@ export default function MateriasPrimas() {
     setPaperIsCutSize(!!paper.is_cut_size);
     setPaperPurchaseSheetW(paper.purchase_sheet_width_mm != null ? String(paper.purchase_sheet_width_mm) : "");
     setPaperPurchaseSheetH(paper.purchase_sheet_height_mm != null ? String(paper.purchase_sheet_height_mm) : "");
+    setPaperCategory((paper.category as any) || "comum");
   };
 
   // When user clears the paper name / types a new name
@@ -387,6 +398,7 @@ export default function MateriasPrimas() {
       is_cut_size: paperIsCutSize,
       purchase_sheet_width_mm: paperIsCutSize ? null : (paperPurchaseSheetW.trim() ? Number(paperPurchaseSheetW) : null),
       purchase_sheet_height_mm: paperIsCutSize ? null : (paperPurchaseSheetH.trim() ? Number(paperPurchaseSheetH) : null),
+      category: paperCategory,
     };
 
     if (editingPaper) {
@@ -479,6 +491,7 @@ export default function MateriasPrimas() {
     setPaperIsCutSize(!!p.is_cut_size);
     setPaperPurchaseSheetW(p.purchase_sheet_width_mm != null ? String(p.purchase_sheet_width_mm) : "");
     setPaperPurchaseSheetH(p.purchase_sheet_height_mm != null ? String(p.purchase_sheet_height_mm) : "");
+    setPaperCategory((p.category as any) || "comum");
     setIsPaperDialogOpen(true);
   };
   const saveMaterial = async () => {
@@ -819,8 +832,15 @@ export default function MateriasPrimas() {
                           return (
                             <TableRow key={paper.id} className="group">
                               <TableCell className="font-medium">
-                                {paper.name}
-                                {paper.grammage && <span className="text-muted-foreground ml-1 text-xs">{paper.grammage}</span>}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span>{paper.name}</span>
+                                  {paper.grammage && <span className="text-muted-foreground text-xs">{paper.grammage}</span>}
+                                  {paper.category && (
+                                    <Badge variant="outline" className="text-[10px] uppercase">
+                                      {PAPER_CATEGORY_LABEL[paper.category] ?? paper.category}
+                                    </Badge>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell className="text-center tabular-nums">{paper.sheet_qty}</TableCell>
                               <TableCell className="text-right tabular-nums">{formatCurrency(paper.pack_price)}</TableCell>
@@ -1053,6 +1073,21 @@ export default function MateriasPrimas() {
                     disabled={isUpdateMode}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Categoria</Label>
+                <Select value={paperCategory} onValueChange={(v) => setPaperCategory(v as any)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="comum">Papel Comum</SelectItem>
+                    <SelectItem value="especial">Especial (couchê, supremo, cartão/PVC…)</SelectItem>
+                    <SelectItem value="adesivo">Adesivo</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Usada para agrupar e pré-selecionar em massa nos Produtos Favoritos.
+                </p>
               </div>
 
               {/* Formato de compra — papel já cortado / folhão custom */}

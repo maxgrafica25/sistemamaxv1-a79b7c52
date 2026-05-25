@@ -1,61 +1,63 @@
 ## Objetivo
 
-Adicionar duas faces extras ao formulário **Certificados**:
+Simplificar a configuração de **Produtos Favoritos** permitindo pré-selecionar papéis por **painel/categoria** (Papel Comum, Especial, Adesivo) em vez de marcar um a um. A categoria fica no cadastro de **Papéis & Suprimentos**, e os chips individuais continuam visíveis no dialog do favorito.
 
-- **Frente color + Verso PB** (mix)
-- **Ambos PB** (F/V em preto e branco)
+## 1. Banco — nova coluna `category` em `papers`
 
-Total de 4 opções: `Frente color` (padrão), `Frente e Verso color`, `Frente color + Verso PB`, `Frente e Verso PB`.
+Migração:
 
-## Mudanças
+- Adicionar `category text NOT NULL DEFAULT 'comum'` em `public.papers` com `CHECK (category IN ('comum','especial','adesivo'))`.
+- Backfill inicial pelo nome (heurística: `adesiv*` → `adesivo`; `crachá|pvc|cart(a|ã)o|couch[eê]|supremo|triplex` → `especial`; resto → `comum`). Admin pode reclassificar depois na tela.
+- Índice simples em `category` (opcional).
 
-### `src/components/orcamentos-v3/forms/CertificateForm.tsx`
+Sem mudanças em `quote_presets` — `papel_inclui` / `papel_exclui` continuam guardando **nomes de papel** (compatibilidade total com presets já cadastrados).
 
-1. **Filtrar catálogo por modo** — separar `couche210A4Color` (`equipment_mode === "color"`) e `couche210A4Pb` (`equipment_mode === "pb"`). Aviso "Nenhum item cadastrado" só dispara se faltar `color`; faltar PB apenas desabilita as duas opções com mensagem inline.
+## 2. Cadastro de Papéis (`src/pages/MateriasPrimas.tsx`)
 
-2. **Estado de face** — trocar `"frente" | "fv"` por `"frente" | "fv" | "mix" | "fv_pb"`. Padrão continua `"frente"`.
+- Novo campo **Categoria** no formulário de criar/editar papel: select com `Comum / Especial / Adesivo`. Default `Comum`.
+- Exibir badge da categoria na linha da tabela de papéis.
+- Persistir em `papers.category`.
 
-3. **Cards do seletor (grid 2×2 em ≥sm)** — 4 cards com ícone/título/hint:
-   - Frente — `FileText` — "1 face colorida" (padrão)
-   - Frente e Verso — `Files` — "2 faces coloridas · custo ~2x"
-   - Frente color + Verso PB — `FileText + FileMinus` — "F color + V P&B"
-   - Frente e Verso (P&B) — `FileMinus` — "2 faces P&B · custo ~2x"
+## 3. Produtos Favoritos (`src/pages/QuotePresets.tsx`)
 
-   Os dois cards PB ficam `disabled` (estilo `opacity-60 cursor-not-allowed`) se `couche210A4Pb` estiver vazio, com tooltip explicando.
+- `useEffect` que carrega papéis passa a buscar `papers` (não `printing_price_items`) trazendo `name, grammage, category, is_active`. Mantém união por nome (deduplicação atual).
+- `paperCategory(name)` é removido; cada `ChipOption` recebe `group` = `papers.category` do cadastro.
+- `PAPER_GROUP_LABELS` vira `{ comum: "Papel Comum", especial: "Especial", adesivo: "Adesivo" }` e `PAPER_GROUP_ORDER = ["comum","especial","adesivo"]`.
+- Texto do botão "+ Todos deste tipo" continua igual (já existe no `ChipMultiPicker`). Comportamento exatamente como o usuário pediu: marca todos os chips do grupo, chips individuais continuam visíveis e podem ser refinados.
+- O resumo no card do preset (`p.papel_inclui.join(", ")`) ganha um modo curto: se um favorito tem **todos** os papéis de uma categoria marcados, mostra "papel: Especial (todos)" em vez da lista enorme. Caso contrário, mostra os primeiros 3 nomes + "+N".
 
-4. **Cálculo de preço por folha** (`pricing` + `effectiveItem`):
-   - `frente` / `fv` → 1 item color (lógica atual, `side = Frente | F/V`).
-   - `fv_pb` → 1 item PB com `side = F/V`.
-   - `mix` → soma de **dois `pricePerSheet`**: color Frente + PB Frente. `sellingPriceCombined = pColor.sellingPrice + pPb.sellingPrice`; `baseCostCombined = pColor.baseCost + pPb.baseCost`. Para o "tierLabel" exibido no header do catálogo, manter o do color (linha principal continua "Couchê 210 — A4 · color"). Adicionar uma segunda linha discreta "+ verso PB: Impressões Laser PB" quando aplicável.
+## 4. Filtragem no orçamento (`src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`)
 
-5. **Header do catálogo** — quando `mix` ou `fv_pb`, mostrar a impressora correspondente. Em `mix`, listar as duas em duas linhas.
+Hoje os favoritos aparecem todos lado a lado com "Personalizado". A regra de filtragem por papel **não estava ativa**. Vamos ativar de forma suave:
 
-6. **Submit (`V3PrintItem` único)**:
-   - `catalog_item_id` = item color (para `frente`/`fv`/`mix`) ou item PB (para `fv_pb`).
-   - `printer_category_id` / `markup_group_id` = idem.
-   - `valor_unitario` / `custo_unitario` = preço combinado por folha + acabamentos.
-   - `side`: `"Frente"`, `"F/V"`, `"F/V"` (para mix, semanticamente F+V), `"F/V"`.
-   - `face`: novo valor literal `"frente" | "fv" | "mix" | "fv_pb"`. **Verificar** que `V3PrintItem.face` aceita string livre; se for union restrita, ampliar o tipo em `src/components/orcamentos-v3/types.ts`.
-   - `descricao` padrão:
-     - `mix` → `"Certificado A4 — Couchê 210g · Frente color + Verso PB ({n} un)"`
-     - `fv_pb` → `"Certificado A4 — Couchê 210g · Frente e Verso PB ({n} un)"`
-     - demais inalterados.
+- Quando o usuário ainda **não escolheu papel** (estado inicial / personalizado vazio): mostra todos os favoritos (igual hoje).
+- Quando há papel escolhido em `currentSel.paper_type`:
+  - Esconde favoritos cujo `papel_exclui` contém o papel.
+  - Dá destaque (badge "sugerido") aos favoritos cujo `papel_inclui` está vazio **ou** inclui o papel atual.
+  - Demais ficam atenuados (`opacity-60`) mas continuam clicáveis — não removidos, para evitar surpresa.
+- Nenhuma alteração no `productSuggester` (continua sugerindo `banner`, `cartao`, etc. por heurística de tamanho/acabamento).
 
-### Tipos (se necessário)
+## 5. Tipos
 
-Em `src/components/orcamentos-v3/types.ts`, verificar `V3PrintItem.face`. Se for union estrita (`"frente" | "fv"`), estender para `"frente" | "fv" | "mix" | "fv_pb"`. Nenhum consumidor a jusante precisa saber distinguir — UI/cart só renderiza `descricao`.
+- `src/components/orcamentos-v3/shared/useQuotePresets.ts`: sem mudança (campos já existem).
+- `src/integrations/supabase/types.ts` é regenerado pela migração.
+
+## Arquivos editados
+
+- **Migração** — `papers.category` + backfill.
+- `src/pages/MateriasPrimas.tsx` — campo categoria no form + badge na tabela.
+- `src/pages/QuotePresets.tsx` — usar `papers` como fonte, novos grupos, resumo enxuto.
+- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx` — destaque/atenuação por `papel_inclui`/`papel_exclui` quando há papel selecionado.
 
 ## Fora de escopo
 
-- Dividir o item em dois no carrinho/OP (já descartado: "1 item só, somado").
-- Aplicar o mesmo seletor ao Cartão de Visita ou outros presets.
-- Considerar mix em qualquer outro lugar do sistema.
+- Categoria editável em massa (continua um por um na tela de Papéis).
+- Mudar shape de `quote_presets.papel_inclui` para guardar categorias (mantemos nomes para precisão).
+- Aplicar mesma lógica em CV — só Impressão.
 
 ## Validação manual
 
-Com `couche 210g A4 color` e `couche 210g A4 pb` cadastrados:
-
-1. Trocar entre as 4 faces → header do catálogo e preço por folha atualizam.
-2. `mix` com cores diferentes para 50 un → `preco_por_certificado ≈ pColor + pPb`.
-3. Sem PB cadastrado → últimos dois cards desabilitados com mensagem.
-4. Salvar orçamento → item aparece com descrição correta e preço somado.
+1. Migrar e abrir **Papéis & Suprimentos**: cada papel mostra categoria (default Comum); admin reclassifica os adesivos e couchês.
+2. Em **Produtos Favoritos**: dialog mostra 3 grupos (Papel Comum, Especial, Adesivo); botão "+ Todos deste tipo" preenche chips do grupo.
+3. Criar favorito "Folheto Couchê" marcando "+ Todos deste tipo" em **Especial**.
+4. No **novo orçamento (Impressão)**: sem papel escolhido → todos os favoritos visíveis. Ao escolher um papel Especial, o favorito vira "sugerido"; ao escolher um Adesivo, o mesmo favorito fica atenuado.

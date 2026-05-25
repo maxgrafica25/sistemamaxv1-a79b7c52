@@ -2110,6 +2110,7 @@ export type Database = {
       }
       papers: {
         Row: {
+          category: string
           contact: string | null
           created_at: string
           freight_price: number
@@ -2128,6 +2129,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category?: string
           contact?: string | null
           created_at?: string
           freight_price?: number
@@ -2146,6 +2148,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category?: string
           contact?: string | null
           created_at?: string
           freight_price?: number

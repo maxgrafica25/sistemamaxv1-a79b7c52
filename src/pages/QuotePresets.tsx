@@ -36,16 +36,36 @@ import { listFinishings } from "@/lib/finishings/catalog";
 import type { QuotePreset } from "@/components/orcamentos-v3/shared/useQuotePresets";
 
 const PAPER_GROUP_LABELS: Record<string, string> = {
-  papel: "Papel comum",
+  comum: "Papel Comum",
+  especial: "Especial",
   adesivo: "Adesivo",
-  cartao: "Cartão / PVC",
 };
-const PAPER_GROUP_ORDER = ["papel", "adesivo", "cartao"];
-function paperCategory(name: string): "adesivo" | "cartao" | "papel" {
-  const n = name.toLowerCase();
-  if (/adesiv/.test(n)) return "adesivo";
-  if (/crach|pvc|cart(a|\u00e3)o/.test(n)) return "cartao";
-  return "papel";
+const PAPER_GROUP_ORDER = ["comum", "especial", "adesivo"];
+
+function summarizePaperSelection(selected: string[], options: ChipOption[]): string {
+  if (!selected.length) return "";
+  const byGroup = new Map<string, { total: number; picked: number }>();
+  for (const opt of options) {
+    const g = opt.group ?? "outros";
+    if (!byGroup.has(g)) byGroup.set(g, { total: 0, picked: 0 });
+    byGroup.get(g)!.total += 1;
+    if (selected.includes(opt.value)) byGroup.get(g)!.picked += 1;
+  }
+  const parts: string[] = [];
+  for (const [g, { total, picked }] of byGroup) {
+    if (picked === 0) continue;
+    if (picked === total) parts.push(`${PAPER_GROUP_LABELS[g] ?? g} (todos)`);
+  }
+  if (parts.length) {
+    const remaining = selected.length - PAPER_GROUP_ORDER.reduce((acc, g) => {
+      const info = byGroup.get(g);
+      return acc + (info && info.picked === info.total ? info.total : 0);
+    }, 0);
+    if (remaining > 0) parts.push(`+${remaining}`);
+    return parts.join(", ");
+  }
+  const head = selected.slice(0, 3).join(", ");
+  return selected.length > 3 ? `${head} +${selected.length - 3}` : head;
 }
 
 type FormState = {
@@ -100,16 +120,23 @@ export default function QuotePresets() {
     (async () => {
       const [{ data: papers }, finishings] = await Promise.all([
         (supabase as any)
-          .from("printing_price_items")
-          .select("paper_type")
+          .from("papers")
+          .select("name, category")
           .eq("is_active", true),
         listFinishings("impressao").catch(() => []),
       ]);
-      const uniq: string[] = Array.from(
-        new Set((papers ?? []).map((r: any) => String(r.paper_type ?? "").trim()).filter(Boolean)),
-      ) as string[];
-      uniq.sort((a, b) => a.localeCompare(b, "pt-BR"));
-      setPaperOptions(uniq.map((p) => ({ value: p, group: paperCategory(p) })));
+      // Dedupe by name — pick the most specific category found.
+      const byName = new Map<string, string>();
+      for (const r of (papers ?? []) as any[]) {
+        const name = String(r.name ?? "").trim();
+        if (!name) continue;
+        const cat = String(r.category ?? "comum");
+        if (!byName.has(name)) byName.set(name, cat);
+      }
+      const uniq = Array.from(byName.entries()).sort((a, b) =>
+        a[0].localeCompare(b[0], "pt-BR"),
+      );
+      setPaperOptions(uniq.map(([name, cat]) => ({ value: name, group: cat })));
       setFinishingOptions(
         (finishings as any[])
           .map((f) => String(f.name ?? "").trim())
@@ -280,7 +307,7 @@ export default function QuotePresets() {
                       {p.largura_cm ? ` · ${p.largura_cm}×${p.altura_cm ?? "?"} cm` : ""}
                       {p.quantidade_padrao ? ` · qtd ${p.quantidade_padrao}` : ""}
                       {p.midia_nome_match ? ` · mídia "${p.midia_nome_match}"` : ""}
-                      {p.papel_inclui.length ? ` · papel: ${p.papel_inclui.join(", ")}` : ""}
+                      {p.papel_inclui.length ? ` · papel: ${summarizePaperSelection(p.papel_inclui, paperOptions)}` : ""}
                     </p>
                   </div>
                   <Button size="icon" variant="ghost" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
