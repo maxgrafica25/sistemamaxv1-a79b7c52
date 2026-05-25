@@ -312,13 +312,19 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
 
 
       {!catalog && (
-        <Field
+        <div
           key={substrateLabel}
-          label={substrateLabel}
-          icon={substrateLabel === "Papel" ? <FileText className="h-3 w-3" /> : <CreditCard className="h-3 w-3" />}
-          highlight={substrateLabel !== "Papel"}
-          className="animate-in fade-in slide-in-from-left-1 duration-300"
+          className="space-y-2 animate-in fade-in slide-in-from-left-1 duration-300"
         >
+          <h3 className={cn(
+            "text-sm font-semibold inline-flex items-center gap-1.5",
+            substrateLabel !== "Papel" ? "text-primary" : "text-foreground",
+          )}>
+            <span className={substrateLabel !== "Papel" ? "text-primary" : "text-muted-foreground"}>
+              {substrateLabel === "Papel" ? <FileText className="h-3.5 w-3.5" /> : <CreditCard className="h-3.5 w-3.5" />}
+            </span>
+            {substrateLabel}
+          </h3>
           <PrintingItemSearch
             items={items}
             markupTiers={tiers}
@@ -329,7 +335,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
           {loading && (
             <p className="text-[11px] text-muted-foreground mt-1">Carregando catálogo…</p>
           )}
-        </Field>
+        </div>
       )}
 
       {catalog && (
