@@ -12,6 +12,7 @@ import { PrintForm } from "./PrintForm";
 import { BookletForm } from "./BookletForm";
 import { LabelEmbeddedForm } from "./LabelEmbeddedForm";
 import { BusinessCardForm } from "./BusinessCardForm";
+import { CertificateForm } from "./CertificateForm";
 import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
 import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
