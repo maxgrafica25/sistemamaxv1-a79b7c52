@@ -66,9 +66,9 @@ export function TierFaixasPanel({
       )}
     >
       <div className="flex items-baseline justify-between">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
+        <h3 className="text-sm font-semibold text-foreground">
           Faixas de quantidade
-        </p>
+        </h3>
         {sortedExtras.length > 0 && (
           <button
             type="button"
