@@ -281,7 +281,7 @@ export default function QuotePresets() {
                       {p.largura_cm ? ` · ${p.largura_cm}×${p.altura_cm ?? "?"} cm` : ""}
                       {p.quantidade_padrao ? ` · qtd ${p.quantidade_padrao}` : ""}
                       {p.midia_nome_match ? ` · mídia "${p.midia_nome_match}"` : ""}
-                      {p.papel_inclui.length ? ` · papel: ${p.papel_inclui.join(", ")}` : ""}
+                      {p.papel_inclui.length ? ` · papel: ${summarizePaperSelection(p.papel_inclui, paperOptions)}` : ""}
                     </p>
                   </div>
                   <Button size="icon" variant="ghost" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
