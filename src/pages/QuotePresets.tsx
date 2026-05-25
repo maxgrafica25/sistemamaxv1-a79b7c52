@@ -194,6 +194,10 @@ export default function QuotePresets() {
       papel_inclui: p.papel_inclui ?? [],
       papel_exclui: p.papel_exclui ?? [],
       acabamentos_sugeridos: p.acabamentos_sugeridos ?? [],
+      papel_default_nome: p.papel_default_nome ?? "",
+      papel_default_grammage: p.papel_default_grammage ?? "",
+      side_default: (p.side_default ?? "") as FormState["side_default"],
+      preselect_acabamentos: !!p.preselect_acabamentos,
     });
     setDialogOpen(true);
   };
