@@ -338,8 +338,10 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             onDescricaoChange={setDescricao}
             substrateLabel={substrateLabel}
             hideArtFinishings={hideArtFinishings}
+            suggestedPapers={selectedPreset?.papel_inclui ?? undefined}
           />
         )}
+
 
         {!treatAsBusinessCard && !isCustom && formTipo === "booklet" && (
           <BookletForm
