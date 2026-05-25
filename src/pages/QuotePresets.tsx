@@ -222,6 +222,10 @@ export default function QuotePresets() {
       papel_inclui: form.papel_inclui,
       papel_exclui: form.papel_exclui,
       acabamentos_sugeridos: form.acabamentos_sugeridos,
+      papel_default_nome: form.papel_default_nome.trim() || null,
+      papel_default_grammage: form.papel_default_grammage.trim() || null,
+      side_default: form.side_default || null,
+      preselect_acabamentos: form.preselect_acabamentos,
     };
     setBusy(true);
     if (editing) {
