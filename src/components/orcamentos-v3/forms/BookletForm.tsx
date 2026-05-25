@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Check, Plus, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -46,7 +45,8 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
   const controlledDescricao = onDescricaoChange !== undefined;
   const [bookletPages, setBookletPages] = useState<number>(20);
   const [bookletUnits, setBookletUnits] = useState<number>(10);
-  const [duplex, setDuplex] = useState<boolean>(true);
+  const [sideChoice, setSideChoice] = useState<"Frente" | "F/V">("F/V");
+  const duplex = sideChoice === "F/V";
   const [pulse, setPulse] = useState(false);
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
@@ -262,8 +262,41 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
 
       {!catalog && (
         <Field label="Miolo (papel do catálogo)">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+              Lado de impressão
+            </span>
+            <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setSideChoice("Frente")}
+                className={cn(
+                  "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                  sideChoice === "Frente"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                title="Imprimir só na frente"
+              >
+                Frente
+              </button>
+              <button
+                type="button"
+                onClick={() => setSideChoice("F/V")}
+                className={cn(
+                  "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                  sideChoice === "F/V"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                title="Frente e verso (custo ~2x)"
+              >
+                F/V
+              </button>
+            </div>
+          </div>
           <PrintingItemSearch
-            items={items}
+            items={sideChoice === "Frente" ? items.filter((it) => it.side !== "F/V") : items}
             markupTiers={tiers}
             globalSettings={{
               invoice_pct: 0,
@@ -281,12 +314,13 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
       )}
 
       {catalog && (
-        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3">
+        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3 flex-wrap">
           <BookOpen className="h-4 w-4 text-primary shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">
               {catalog.paper_type}
-              {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size} {catalog.side}
+              {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size}{" "}
+              {catalog.side === "F/V" ? "F/V" : sideChoice}
             </p>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-[11px] text-muted-foreground">
@@ -299,9 +333,47 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
               )}
             </div>
           </div>
+          <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                if (catalog.side === "F/V") {
+                  setCatalog(null);
+                  setSideChoice("Frente");
+                } else {
+                  setSideChoice("Frente");
+                }
+              }}
+              className={cn(
+                "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                (catalog.side === "F/V" ? "F/V" : sideChoice) === "Frente"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title="Imprimir só na frente"
+            >
+              Frente
+            </button>
+            <button
+              type="button"
+              onClick={() => setSideChoice("F/V")}
+              className={cn(
+                "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                (catalog.side === "F/V" ? "F/V" : sideChoice) === "F/V"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title="Frente e verso (custo ~2x)"
+            >
+              F/V
+            </button>
+          </div>
           <button
             type="button"
-            onClick={() => setCatalog(null)}
+            onClick={() => {
+              setCatalog(null);
+              setSideChoice("F/V");
+            }}
             className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
           >
             Trocar
@@ -330,23 +402,6 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
         </Field>
       </div>
 
-      <div className="flex items-center justify-between rounded-md border border-border bg-muted/20 px-3 py-2">
-        <div>
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-            Impressão Frente/Verso
-          </Label>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {duplex
-              ? "Cada folha conta como 2 impressões."
-              : "Cada folha conta como 1 impressão."}
-          </p>
-        </div>
-        <Switch
-          checked={duplex}
-          onCheckedChange={(v) => setDuplex(!!v)}
-          disabled={catalog?.side === "F/V"}
-        />
-      </div>
 
       {physicalSheets > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">

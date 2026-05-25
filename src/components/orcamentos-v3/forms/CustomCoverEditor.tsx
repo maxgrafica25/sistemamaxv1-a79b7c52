@@ -2,11 +2,11 @@
 // Permite escolher um item de impressão do catálogo + F/V + acabamentos,
 // devolvendo um V3PrintItem pronto para o Kit.
 import { useEffect, useMemo, useState } from "react";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import PrintingItemSearch, {
   type PrintingCatalogItem,
 } from "@/components/orcamentos-v3/shared/PrintingItemSearch";
@@ -29,7 +29,8 @@ interface Props {
 export function CustomCoverEditor({ units, slotLabel, onChange, onDone }: Props) {
   const { items, tiers } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
-  const [duplex, setDuplex] = useState(false);
+  const [sideChoice, setSideChoice] = useState<"Frente" | "F/V">("Frente");
+  const duplex = sideChoice === "F/V";
   const [finishings, setFinishings] = useState<FinishingItem[]>([]);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
 
@@ -103,9 +104,43 @@ export function CustomCoverEditor({ units, slotLabel, onChange, onDone }: Props)
         <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
           Papel da {slotLabel.toLowerCase()} (ex.: Couchê 300g)
         </Label>
+        <div className="mt-1 flex items-center gap-2 mb-1.5">
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+            Lado de impressão
+          </span>
+          <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-[11px]">
+            <button
+              type="button"
+              onClick={() => {
+                setSideChoice("Frente");
+                if (catalog?.side === "F/V") setCatalog(null);
+              }}
+              className={cn(
+                "px-2 py-0.5 rounded-sm font-medium transition-colors",
+                (catalog?.side === "F/V" ? "F/V" : sideChoice) === "Frente"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Frente
+            </button>
+            <button
+              type="button"
+              onClick={() => setSideChoice("F/V")}
+              className={cn(
+                "px-2 py-0.5 rounded-sm font-medium transition-colors",
+                (catalog?.side === "F/V" ? "F/V" : sideChoice) === "F/V"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              F/V
+            </button>
+          </div>
+        </div>
         <div className="mt-1">
           <PrintingItemSearch
-            items={items}
+            items={sideChoice === "Frente" ? items.filter((it) => it.side !== "F/V") : items}
             markupTiers={tiers}
             globalSettings={{
               invoice_pct: 0,
@@ -119,19 +154,12 @@ export function CustomCoverEditor({ units, slotLabel, onChange, onDone }: Props)
         {catalog && (
           <p className="text-[10.5px] text-muted-foreground mt-1 truncate">
             {catalog.paper_type}
-            {catalog.grammage ? ` ${catalog.grammage}` : ""} · {catalog.size} · {catalog.side}
+            {catalog.grammage ? ` ${catalog.grammage}` : ""} · {catalog.size} ·{" "}
+            {catalog.side === "F/V" ? "F/V" : sideChoice}
           </p>
         )}
       </div>
 
-      <div className="flex items-center justify-between rounded-sm border border-border/60 px-2 py-1.5">
-        <Label className="text-[11px] text-muted-foreground">Frente e Verso</Label>
-        <Switch
-          checked={duplex || catalog?.side === "F/V"}
-          disabled={catalog?.side === "F/V"}
-          onCheckedChange={(v) => setDuplex(!!v)}
-        />
-      </div>
 
       {finishings.length > 0 && (
         <div>
