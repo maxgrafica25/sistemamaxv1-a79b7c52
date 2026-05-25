@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/PageHeader";
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -145,15 +146,7 @@ export default function DespesasFixas() {
   return (
     <>
       <div className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-4 lg:space-y-6 max-w-[1400px] mx-auto">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <DollarSign className="h-6 w-6 text-primary" />
-              Despesas Fixas
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">Lance despesas para calcular o valor da hora</p>
-          </div>
-        </div>
+        <PageHeader icon={DollarSign} title="Despesas Fixas" description="Lance despesas para calcular o valor da hora" />
 
         {/* Summary line */}
         <div className="flex items-center gap-6 text-sm flex-wrap">

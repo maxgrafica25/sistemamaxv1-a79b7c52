@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/PageHeader";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -349,15 +350,7 @@ export default function OrcamentosV3() {
       <RealtimeRadar />
 
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <ClipboardList className="h-6 w-6 text-primary" />
-            Orçamentos
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gerencie orçamentos, acompanhe aprovações e compartilhe com clientes.
-          </p>
-        </div>
+        <PageHeader icon={ClipboardList} title="Orçamentos" description="Gerencie orçamentos, acompanhe aprovações e compartilhe com clientes." />
         <div className="flex items-center gap-2">
 
           <DropdownMenu>

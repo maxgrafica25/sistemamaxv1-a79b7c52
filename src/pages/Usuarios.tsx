@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/PageHeader";
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserCog, UserPlus, Mail, ShieldCheck, ShieldOff, UserX, UserCheck, RefreshCw, Loader2, LogOut, Home } from "lucide-react";
@@ -173,15 +174,7 @@ export default function Usuarios() {
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <UserCog className="h-6 w-6 text-primary" />
-            Usuários
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gerencie quem tem acesso ao sistema e seus perfis de permissão.
-          </p>
-        </div>
+        <PageHeader icon={UserCog} title="Usuários" description="Gerencie quem tem acesso ao sistema e seus perfis de permissão." />
         <Button onClick={() => setInviteOpen(true)} className="gap-2">
           <UserPlus className="h-4 w-4" />
           Convidar Usuário

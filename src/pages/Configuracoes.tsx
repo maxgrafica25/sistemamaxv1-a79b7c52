@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/PageHeader";
 import { useState, useEffect, useCallback } from "react";
 import GoogleCalendarCard from "@/components/configuracoes/GoogleCalendarCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -201,13 +202,7 @@ export default function Configuracoes() {
 
   return (
     <div className="p-4 md:p-6 h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
-      <div className="mb-4">
-        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-          <Cog className="h-5 w-5 text-primary" />
-          Configurações
-        </h1>
-        <p className="text-xs text-muted-foreground mt-0.5">Configure os valores padrão e gerencie o backup do sistema</p>
-      </div>
+      <PageHeader icon={Cog} title="Configurações" description="Configure os valores padrão e gerencie o backup do sistema" className="mb-4" />
 
       <Tabs value={configTab} onValueChange={setConfigTab} className="flex-1 min-h-0 flex flex-col w-full max-w-none">
 

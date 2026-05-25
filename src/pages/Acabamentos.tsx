@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/PageHeader";
 import { useEffect, useMemo, useState } from "react";
 import { Scissors, Plus, Trash2, Edit2, Save, X, Search, Layers, Copy, Clock, GripVertical, Info, Sparkles } from "lucide-react";
 
@@ -370,16 +371,7 @@ export default function Acabamentos({ hideHeader = false }: { hideHeader?: boole
   return (
     <div className={hideHeader ? "space-y-6" : "p-4 md:p-6 space-y-6"}>
       {!hideHeader && (
-        <header className="space-y-1">
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            <Scissors className="h-6 w-6 text-primary" />
-            Acabamentos
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Cadastro único de acabamentos. Cobre por folha (recorte, laminação,
-            verniz…) ou por unidade. Arraste as linhas para reordenar.
-          </p>
-        </header>
+        <PageHeader icon={Scissors} title="Acabamentos" description="Cadastro único de acabamentos. Cobre por folha (recorte, laminação, verniz…) ou por unidade. Arraste as linhas para reordenar." />
       )}
 
       {/* Form modal */}

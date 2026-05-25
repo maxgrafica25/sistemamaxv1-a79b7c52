@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/PageHeader";
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -289,15 +290,7 @@ export default function GruposMateriais({ hideHeader = false }: { hideHeader?: b
   return (
     <div className={hideHeader ? "" : "p-8"}>
       {!hideHeader && (
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Layers className="h-6 w-6 text-primary" />
-            Grupos de Materiais
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Templates reutilizáveis. Ative "Kit calculável" para banners, faixas e outros produtos que envolvem insumos + mão de obra + cobrança por dimensão.
-          </p>
-        </div>
+        <PageHeader icon={Layers} title="Grupos de Materiais" description={`Templates reutilizáveis. Ative "Kit calculável" para banners, faixas e outros produtos que envolvem insumos + mão de obra + cobrança por dimensão.`} className="mb-6" />
       )}
 
       <div className="mb-4 flex items-center justify-between">

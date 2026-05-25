@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/PageHeader";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -112,14 +113,7 @@ export default function Dashboard() {
 
   return (
     <div className="p-8">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Home className="h-6 w-6 text-primary" />
-          Hoje
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">O que precisa da sua atenção agora</p>
-      </div>
+      <PageHeader icon={Home} title="Hoje" description="O que precisa da sua atenção agora" className="mb-6" />
 
       {/* Ações pendentes */}
       <div className="mb-8">

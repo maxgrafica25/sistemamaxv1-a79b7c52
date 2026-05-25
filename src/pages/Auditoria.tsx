@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/PageHeader";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -70,13 +71,7 @@ export default function Auditoria() {
 
   return (
     <div className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-4 lg:space-y-6 max-w-[1400px] mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Shield className="h-6 w-6 text-primary" />
-          Auditoria do Sistema
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">Histórico de todas as alterações realizadas</p>
-      </div>
+      <PageHeader icon={Shield} title="Auditoria do Sistema" description="Histórico de todas as alterações realizadas" />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-l-4 border-l-[hsl(var(--success))]">

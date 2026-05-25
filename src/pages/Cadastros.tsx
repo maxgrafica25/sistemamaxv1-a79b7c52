@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/PageHeader";
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -186,13 +187,7 @@ export default function Cadastros() {
   return (
     <div className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-4 lg:space-y-6 max-w-[1400px] mx-auto">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Users className="h-6 w-6 text-primary" />
-            Cadastros
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Clientes e fornecedores em um só lugar</p>
-        </div>
+        <PageHeader icon={Users} title="Cadastros" description="Clientes e fornecedores em um só lugar" />
         <Button onClick={openNewDialog} size="sm" className="gap-1.5">
           <Plus className="h-4 w-4" /> Novo Cadastro
         </Button>

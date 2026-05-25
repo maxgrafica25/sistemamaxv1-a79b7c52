@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/PageHeader";
 import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -149,13 +150,7 @@ export default function ContasReceber() {
 
   return (
     <div className="p-3 sm:p-4 md:p-6 lg:p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Receipt className="h-6 w-6 text-primary" />
-          Contas a Receber
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">Acompanhamento de recebimentos por parcela.</p>
-      </div>
+      <PageHeader icon={Receipt} title="Contas a Receber" description="Acompanhamento de recebimentos por parcela." className="mb-6" />
 
       {/* Mini-dashboard */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">

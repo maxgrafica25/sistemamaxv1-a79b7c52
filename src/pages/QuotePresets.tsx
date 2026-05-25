@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/PageHeader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -218,16 +219,7 @@ export default function QuotePresets() {
   return (
     <div className="p-3 sm:p-4 lg:p-6 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Wand2 className="h-6 w-6 text-primary" />
-            Produtos Favoritos
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Botões rápidos exibidos nos módulos Comunicação Visual e Impressão + Acabamentos
-            ao criar um orçamento.
-          </p>
-        </div>
+        <PageHeader icon={Wand2} title="Produtos Favoritos" description="Botões rápidos exibidos nos módulos Comunicação Visual e Impressão + Acabamentos ao criar um orçamento." />
         <AdminOnly mode="disable" action="criar favorito">
           <Button onClick={openNew}>
             <Plus className="h-4 w-4" />
