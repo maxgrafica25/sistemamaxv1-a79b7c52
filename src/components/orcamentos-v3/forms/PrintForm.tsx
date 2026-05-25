@@ -132,13 +132,6 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
       return next;
     });
   }, [preselectedFinishings, printFinishings]);
-    didPreselectFinRef.current = true;
-    setFinEnabled((m) => {
-      const next = { ...m };
-      for (const id of toEnable) next[id] = true;
-      return next;
-    });
-  }, [preselectedFinishings, printFinishings]);
 
 
 
