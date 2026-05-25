@@ -405,8 +405,43 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
             </span>
             {substrateLabel}
           </h3>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+              Lado de impressão
+            </span>
+            <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setSideChoice("Frente")}
+                className={cn(
+                  "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                  sideChoice === "Frente"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                title="Imprimir só na frente"
+              >
+                Frente
+              </button>
+              <button
+                type="button"
+                onClick={() => setSideChoice("F/V")}
+                className={cn(
+                  "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                  sideChoice === "F/V"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                title="Frente e verso (custo ~2x)"
+              >
+                F/V
+              </button>
+            </div>
+          </div>
+
           <PrintingItemSearch
-            items={items}
+            items={filteredItems}
             markupTiers={tiers}
             globalSettings={settings}
             onSelect={(it) => setCatalog(it)}
@@ -432,6 +467,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
           )}
         </div>
       )}
+
 
       {catalog && effectiveCatalog && (
         <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3 flex-wrap">
