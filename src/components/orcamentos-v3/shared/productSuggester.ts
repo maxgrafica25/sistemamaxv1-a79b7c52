@@ -34,6 +34,9 @@ export interface SuggestResult {
 }
 
 export function suggestProduct(input: SuggestInput): SuggestResult | null {
+  // Sem substrato escolhido, não há base real para sugerir nada.
+  // Evita banner falso quando o modo Personalizado pré-liga acabamentos.
+  if (!input.paper_type) return null;
   const paper = norm(input.paper_type);
   const fins = input.finishings.map(norm);
   const max = sizeMaxSide(input.size);
