@@ -1,44 +1,42 @@
+## Problema
 
-## Objetivo
+No card de um item do orçamento (ex.: Certificado R$ 7,40), o painel "Custos e Lucro" mostra:
 
-Quando o usuário escolher o favorito **Certificados** na aba *Impressão + Acabamentos*, abrir um formulário dedicado — nos moldes do Cartão de Visita — com **Couchê 210g A4** pré-selecionado do catálogo de Preço de Impressão e seletor de **face** (Frente / Frente e Verso, ambas color).
+```
+Custo material           R$ 2,00
+Custo perda (5%)         R$ 0,10   ← 5% de R$ 2,00 (custo)
+Imposto (10%)            R$ 0,74   ← 10% de R$ 7,40 (preço de venda)
+Taxa cartão / fatura (7%) R$ 0,52  ← 7%  de R$ 7,40 (preço de venda)
+Preço de venda           R$ 7,40
+Lucro líquido            R$ 4,04 · 54,6%
+```
 
-Hoje o preset Certificados (salvo em `quote_presets`) cai no `PrintForm` genérico. A ideia é dar a ele o mesmo tratamento especial que já existe para "Cartão de Visita".
+A linha "Custo perda" usa **custo** como base, enquanto imposto e taxa usam **preço de venda**. Resultado: o rótulo "(5%)" engana visualmente e o "Lucro líquido" residual fica inflado.
 
-## O que muda
+A fórmula canônica em `src/lib/quotes/pricing.ts` (`losses = valueWithMarkup * wastePct/100`) já trata perda como percentual do preço de venda — junto com imposto, taxa e lucro. O painel da `UnifiedCart` é o único ponto divergente.
 
-### 1. Novo formulário `CertificateForm.tsx`
+## Correção
 
-Criar `src/components/orcamentos-v3/forms/CertificateForm.tsx` espelhando a estrutura do `BusinessCardForm`, com:
+### Arquivo único: `src/components/orcamentos-v3/cart/UnifiedCart.tsx`
 
-- **Catálogo auto-detectado**: filtra `items` de `useV3Catalog` por `paper_type` contendo "couch" + `grammage` "210" + `size` "A4" (case-insensitive). Se mais de um item casar (diferentes impressoras color), mostrar o `<select>` igual ao do CV.
-- **Quantidade**: input numérico em "unidades" (= folhas, pois 1 certificado = 1 folha A4). Sem cálculo de aproveitamento — não há layout, é 1 por folha.
-- **Face**: dois cards (mesmo padrão visual do CV) — `Frente` e `Frente e Verso`. Sem opção de mix color/PB nesta versão.
-- **Acabamentos**: reusa o mesmo padrão do CV via `useProductKitProcesses("certificado")` (fixos sempre on; opcionais opt-in). Se nenhum `product_kit` desse tipo existir, painel fica vazio (sem quebrar).
-- **Preço**: `pricePerSheet(effectiveItem, tiers, sheets)` somado ao custo por folha dos acabamentos selecionados; `effectiveItem.side` é forçado para `F/V` ou `Frente` para que o engine aplique o multiplicador 2x corretamente.
-- **Submit**: emite um `V3PrintItem` com `catalog_item_id`, `paper_type`, `grammage`, `size`, `side`, `face`, `finishings`, `finishing_selections`, descrição padrão `"Certificado A4 — Couchê 210g {Face} ({n} un)"`.
+Em `buildFinancials` (~linha 195):
 
-### 2. Roteamento do preset → formulário
+- Trocar `const perda = custo_total * (pcts.wastePct / 100);` por `const perda = preco_total * (pcts.wastePct / 100);`.
+- Manter o cálculo de `lucro = preco_total - custo_total - perda - imposto - taxa` (agora consistente com a fórmula global; `lucro%` passará a refletir a margem líquida real).
 
-Em `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`:
-
-- Adicionar `isCertificateName(nome)` (regex `/certificad/` após normalizar acentos), análogo a `isBusinessCardName`.
-- Calcular `treatAsCertificate = !!selectedPreset && isCertificateName(selectedPreset.nome)`.
-- No bloco de render do sub-formulário, antes do fallback `formTipo === "print"`, renderizar `<CertificateForm … />` quando `treatAsCertificate`.
-- Não criar chip embutido (como o do CV) — o preset "Certificados" do usuário já existe em `quote_presets`.
-
-### 3. Catálogo vazio
-
-Se não houver Couchê 210g A4 cadastrado, mostrar o mesmo aviso do CV ("Nenhum item … cadastrado") com link para `/preco-impressao`.
+Isso afeta tanto o painel por item quanto o agregado do carrinho (ambos usam `buildFinancials`).
 
 ## Fora de escopo
 
-- Mix "Frente color + Verso P&B" (descartado pelo usuário).
-- Alterar `PRODUCT_PRESETS` / `productPresets.ts` (presets built-in continuam como estão).
-- Mexer em `productSuggester` (Certificados não vira sugestão automática agora).
-- Mexer em `useV3Catalog`, `pricePerSheet` ou tipos.
+- `src/lib/kitPricing.ts` — usa um modelo diferente onde a perda entra **dentro** do custo antes do divisor (perda não está em `totalPct`). É internamente coerente e o preço final fecha; não tocar agora para não mexer no pricing dos kits.
+- `src/lib/quotes/pricing.ts` — já está correto (`losses = valueWithMarkup * wastePct/100`).
+- Nenhuma outra ocorrência foi encontrada no projeto (`rg waste_pct/100` mostra só os 3 pontos acima).
 
-## Arquivos
+## Validação
 
-- **Criar**: `src/components/orcamentos-v3/forms/CertificateForm.tsx`
-- **Editar**: `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`
+Recalcular manualmente o exemplo do Certificado (preço R$ 7,40, custo R$ 2,00, imposto 10%, taxa 7%, perda 5%, margem 20%):
+
+- Perda nova: 7,40 × 5% = **R$ 0,37**
+- Imposto: 7,40 × 10% = R$ 0,74
+- Taxa: 7,40 × 7% = R$ 0,52
+- Lucro: 7,40 − 2,00 − 0,37 − 0,74 − 0,52 = **R$ 3,77** (≈ 50,9%, próximo da margem-alvo após acréscimo de custos não-impressão).
