@@ -117,7 +117,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     setCatalog(picked);
     // Respeita o lado pedido pelo preset mesmo quando não há variante exata no catálogo.
     if (defaultPaperHint.side === "F/V" || defaultPaperHint.side === "Frente") {
-      setSideOverride(defaultPaperHint.side);
+      setSideChoice(defaultPaperHint.side);
     }
   }, [defaultPaperHint, items, catalog]);
 
