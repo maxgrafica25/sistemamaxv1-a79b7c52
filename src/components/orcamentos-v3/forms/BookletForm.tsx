@@ -45,7 +45,8 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
   const controlledDescricao = onDescricaoChange !== undefined;
   const [bookletPages, setBookletPages] = useState<number>(20);
   const [bookletUnits, setBookletUnits] = useState<number>(10);
-  const [duplex, setDuplex] = useState<boolean>(true);
+  const [sideChoice, setSideChoice] = useState<"Frente" | "F/V">("F/V");
+  const duplex = sideChoice === "F/V";
   const [pulse, setPulse] = useState(false);
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
