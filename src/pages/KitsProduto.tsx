@@ -833,15 +833,7 @@ const KitsProduto = forwardRef<KitsProdutoHandle, KitsProdutoProps>(function Kit
     <div className="space-y-6 p-4 md:p-6">
       {!hideHeader && (
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
-            <div>
-              <h1 className="text-2xl font-semibold">Kits de Produto</h1>
-              <p className="text-sm text-muted-foreground">
-                Materiais e processos sugeridos automaticamente por tipo de produto no orçamento.
-              </p>
-            </div>
-          </div>
+          <PageHeader icon={Sparkles} title="Kits de Produto" description="Materiais e processos sugeridos automaticamente por tipo de produto no orçamento." />
           <AdminOnly>
             <Button onClick={openNew}>
               <Plus className="h-4 w-4 mr-2" /> Novo Kit

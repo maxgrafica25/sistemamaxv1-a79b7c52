@@ -647,13 +647,7 @@ export default function MateriasPrimas() {
     <>
     <TooltipProvider delayDuration={300}>
       <div className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-4 lg:space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Package className="h-6 w-6 text-primary" />
-            Suprimentos & Papéis
-          </h1>
-          <p className="text-sm text-muted-foreground">Acompanhamento de preços e cadastro de insumos</p>
-        </div>
+        <PageHeader icon={Package} title="Suprimentos & Papéis" description="Acompanhamento de preços e cadastro de insumos" />
 
         <div>
           <DotTabs

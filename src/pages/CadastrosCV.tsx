@@ -28,15 +28,7 @@ export default function CadastrosCV() {
 
   return (
     <div className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-4 lg:space-y-6 max-w-[1400px] mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Megaphone className="h-6 w-6 text-primary" />
-          Comunicação Visual
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Mídias, impressões, acabamentos e configurações para grande formato
-        </p>
-      </div>
+      <PageHeader icon={Megaphone} title="Comunicação Visual" description="Mídias, impressões, acabamentos e configurações para grande formato" />
 
       <DotTabs tabs={TABS} value={tab} onChange={(k) => setTab(k as Tab)} />
 

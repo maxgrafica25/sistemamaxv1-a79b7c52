@@ -105,15 +105,7 @@ export default function ProcessosProducao() {
   return (
     <div className="p-8">
       <div className="mb-6 flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Factory className="h-6 w-6 text-primary" />
-            Produção
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Etapas, acabamentos, grupos e kits que compõem como cada produto é fabricado.
-          </p>
-        </div>
+        <PageHeader icon={Factory} title="Produção" description="Etapas, acabamentos, grupos e kits que compõem como cada produto é fabricado." />
         <div className="flex items-center gap-2">
           {activeTab === "kits" && (
             <AdminOnly>

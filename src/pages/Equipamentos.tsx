@@ -411,15 +411,7 @@ export default function Equipamentos() {
     <div className="p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6 max-w-[1400px] mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Cpu className="h-6 w-6 text-primary" />
-            Cadastro de Equipamentos
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Registre impressoras, consumíveis, acompanhe contadores e evolução de preços
-          </p>
-        </div>
+        <PageHeader icon={Cpu} title="Cadastro de Equipamentos" description="Registre impressoras, consumíveis, acompanhe contadores e evolução de preços" />
         <AdminOnly mode="disable" action="cadastrar equipamento">
           <Button onClick={() => openEquipDialog()} size="sm" className="gap-1.5">
             <Plus className="h-4 w-4" /> Novo Equipamento

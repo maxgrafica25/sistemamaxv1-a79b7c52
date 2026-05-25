@@ -619,15 +619,7 @@ export default function Monitoramento() {
   return (
     <div className="container mx-auto p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <TrendingUp className="h-8 w-8 text-primary" />
-            Monitoramento de Preços
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Acompanhe preços de concorrentes e fornecedores em tempo real
-          </p>
-        </div>
+        <PageHeader icon={TrendingUp} title="Monitoramento de Preços" description="Acompanhe preços de concorrentes e fornecedores em tempo real" />
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm">

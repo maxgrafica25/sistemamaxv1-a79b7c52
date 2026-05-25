@@ -591,13 +591,7 @@ export default function PrecoImpressao() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Printer className="h-6 w-6 text-primary" />
-              Preço de Impressão
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Monte sua tabela de preços: defina categorias, regras de preço por quantidade e adicione os papéis.
-            </p>
+            <PageHeader icon={Printer} title="Preço de Impressão" description="Monte sua tabela de preços: defina categorias, regras de preço por quantidade e adicione os papéis." />
             <Tooltip>
               <TooltipTrigger asChild>
                 <button type="button" className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition">

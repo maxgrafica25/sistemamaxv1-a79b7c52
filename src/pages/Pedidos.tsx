@@ -140,15 +140,7 @@ export default function Pedidos() {
   return (
     <div className="p-3 sm:p-4 md:p-6 lg:p-8">
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ClipboardList className="h-6 w-6 text-primary" />
-            Pedidos de Venda
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gestão de pedidos · Em aberto: {stats.aberto} · Em produção: {stats.em_producao}
-          </p>
-        </div>
+        <PageHeader icon={ClipboardList} title="Pedidos de Venda" description={`Gestão de pedidos · Em aberto: ${stats.aberto} · Em produção: ${stats.em_producao}`} />
         <Button onClick={handleOpenNew}>
           <Plus className="h-4 w-4 mr-1.5" /> Novo Pedido
         </Button>
