@@ -3198,9 +3198,13 @@ export type Database = {
           modulo: string
           nome: string
           ordem: number
+          papel_default_grammage: string | null
+          papel_default_nome: string | null
           papel_exclui: string[]
           papel_inclui: string[]
+          preselect_acabamentos: boolean
           quantidade_padrao: number | null
+          side_default: string | null
           updated_at: string
         }
         Insert: {
@@ -3218,9 +3222,13 @@ export type Database = {
           modulo: string
           nome: string
           ordem?: number
+          papel_default_grammage?: string | null
+          papel_default_nome?: string | null
           papel_exclui?: string[]
           papel_inclui?: string[]
+          preselect_acabamentos?: boolean
           quantidade_padrao?: number | null
+          side_default?: string | null
           updated_at?: string
         }
         Update: {
@@ -3238,9 +3246,13 @@ export type Database = {
           modulo?: string
           nome?: string
           ordem?: number
+          papel_default_grammage?: string | null
+          papel_default_nome?: string | null
           papel_exclui?: string[]
           papel_inclui?: string[]
+          preselect_acabamentos?: boolean
           quantidade_padrao?: number | null
+          side_default?: string | null
           updated_at?: string
         }
         Relationships: []

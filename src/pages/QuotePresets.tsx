@@ -84,6 +84,10 @@ type FormState = {
   papel_inclui: string[];
   papel_exclui: string[];
   acabamentos_sugeridos: string[];
+  papel_default_nome: string;
+  papel_default_grammage: string;
+  side_default: "" | "F" | "F/V";
+  preselect_acabamentos: boolean;
 };
 
 const EMPTY: FormState = {
@@ -102,6 +106,10 @@ const EMPTY: FormState = {
   papel_inclui: [],
   papel_exclui: [],
   acabamentos_sugeridos: [],
+  papel_default_nome: "",
+  papel_default_grammage: "",
+  side_default: "",
+  preselect_acabamentos: false,
 };
 
 export default function QuotePresets() {
@@ -186,6 +194,10 @@ export default function QuotePresets() {
       papel_inclui: p.papel_inclui ?? [],
       papel_exclui: p.papel_exclui ?? [],
       acabamentos_sugeridos: p.acabamentos_sugeridos ?? [],
+      papel_default_nome: p.papel_default_nome ?? "",
+      papel_default_grammage: p.papel_default_grammage ?? "",
+      side_default: (p.side_default ?? "") as FormState["side_default"],
+      preselect_acabamentos: !!p.preselect_acabamentos,
     });
     setDialogOpen(true);
   };
@@ -210,6 +222,10 @@ export default function QuotePresets() {
       papel_inclui: form.papel_inclui,
       papel_exclui: form.papel_exclui,
       acabamentos_sugeridos: form.acabamentos_sugeridos,
+      papel_default_nome: form.papel_default_nome.trim() || null,
+      papel_default_grammage: form.papel_default_grammage.trim() || null,
+      side_default: form.side_default || null,
+      preselect_acabamentos: form.preselect_acabamentos,
     };
     setBusy(true);
     if (editing) {
@@ -463,6 +479,55 @@ export default function QuotePresets() {
                   onChange={(v) => setForm({ ...form, acabamentos_sugeridos: v })}
                   emptyHint="Nenhum acabamento de Impressão cadastrado."
                 />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-border">
+                  <div className="sm:col-span-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Pré-seleção automática (opcional)
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Quando o favorito é escolhido, o orçamento já vem com este papel e lado preenchidos.
+                    </p>
+                  </div>
+                  <div>
+                    <Label>Papel padrão</Label>
+                    <Input
+                      value={form.papel_default_nome}
+                      onChange={(e) => setForm({ ...form, papel_default_nome: e.target.value })}
+                      placeholder="ex: Couchê"
+                    />
+                  </div>
+                  <div>
+                    <Label>Gramatura padrão</Label>
+                    <Input
+                      value={form.papel_default_grammage}
+                      onChange={(e) => setForm({ ...form, papel_default_grammage: e.target.value })}
+                      placeholder="ex: 300"
+                    />
+                  </div>
+                  <div>
+                    <Label>Lado padrão</Label>
+                    <Select
+                      value={form.side_default || "__none"}
+                      onValueChange={(v) =>
+                        setForm({ ...form, side_default: (v === "__none" ? "" : v) as FormState["side_default"] })
+                      }
+                    >
+                      <SelectTrigger><SelectValue placeholder="Qualquer" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none">Qualquer</SelectItem>
+                        <SelectItem value="F">Só frente (F)</SelectItem>
+                        <SelectItem value="F/V">Frente e verso (F/V)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="sm:col-span-3 flex items-center gap-3">
+                    <Switch
+                      checked={form.preselect_acabamentos}
+                      onCheckedChange={(v) => setForm({ ...form, preselect_acabamentos: !!v })}
+                    />
+                    <Label className="cursor-pointer">Pré-marcar acabamentos sugeridos</Label>
+                  </div>
+                </div>
               </div>
             )}
 

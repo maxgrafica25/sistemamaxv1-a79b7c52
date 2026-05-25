@@ -1,72 +1,57 @@
 ## Objetivo
 
-Facilitar a escolha de papel no orçamento (`PrintForm` → `PrintingItemSearch`) usando as categorias **Comum / Especial / Adesivo** já cadastradas em `papers.category`. Mantém a busca textual atual; categoria é triagem opcional.
+Adicionar o favorito **Tags** ao módulo Impressão, já vindo configurado com:
+- **Papel padrão:** Couchê 300g (auto-selecionado ao abrir)
+- **Lado:** F/V disponível (padrão F/V quando existir no catálogo; senão F)
+- **Acabamento pré-marcado:** Recorte (mesma família usada no Adesivo — "Recorte Folhas Papéis Especiais", já que Couchê é categoria *especial*)
+- Filtro de categoria: **Especial**
 
-## UX
+Para isso, o cadastro de favoritos precisa ganhar 3 campos novos (papel padrão, lado padrão e flag de pré-marcar acabamentos). Hoje `papel_inclui` e `acabamentos_sugeridos` só **filtram/sugerem**, não pré-selecionam.
 
-```text
-┌──────────────────────────────────────────────────────┐
-│ [ Todos · 24 ] [ Comum · 11 ] [ Especial · 8 ] [ Adesivo · 5 ] │
-│ 🔎 Buscar papel (nome, tamanho, impressora)...        │
-└──────────────────────────────────────────────────────┘
-   ▼ Dropdown
-   ── Especial ──────────────────
-   • Couchê 300g — SRA3 F      R$ 1,20/folha
-   • Supremo 250g — A3 F        ...
-   ── Comum ─────────────────────
-   • Offset 90g — A4 F          ...
+## Mudanças
+
+### 1. Migration — novos campos em `quote_presets`
+```sql
+ALTER TABLE public.quote_presets
+  ADD COLUMN papel_default_nome       text,
+  ADD COLUMN papel_default_grammage   text,
+  ADD COLUMN side_default             text,         -- 'F' | 'F/V'
+  ADD COLUMN preselect_acabamentos    boolean NOT NULL DEFAULT false;
 ```
 
-- Chip ativo padrão: **Todos**. Clicar num chip restringe os resultados do combobox.
-- Contador no chip mostra quantos itens do catálogo caem na categoria (após dedup por nome+gramatura via `papers`).
-- Dentro do dropdown, resultados ficam agrupados por categoria com header sticky leve. Se o usuário já filtrou por chip, só aparece aquele grupo (sem header redundante).
-- Busca textual continua funcionando em qualquer aba — se o termo bate em item fora da categoria escolhida, mostra uma linha discreta no final: *"+3 resultados em outras categorias — Ver todos"* (clicar volta pra "Todos").
-- Pré-seleção automática: quando o usuário entra no `PrintForm` via um **produto favorito** que tenha `papel_inclui` apontando majoritariamente para uma categoria, o chip dessa categoria já vem ativo. Sem favorito ou ambíguo → "Todos".
+### 2. Seed do preset Tags (mesma migration, `INSERT`)
+- `nome = 'Tags'`, `icone = 'Tag'`, `modulo = 'impressao'`, `form_tipo = 'print'`, `ordem = 55`
+- `papel_inclui = ARRAY['couchê','couche']` (filtra chips/categoria especial)
+- `papel_default_nome = 'couchê'`, `papel_default_grammage = '300'`
+- `side_default = 'F/V'`
+- `acabamentos_sugeridos = ARRAY['<id de Recorte Folhas Papéis Especiais>']`
+- `preselect_acabamentos = true`
 
-## Implementação técnica
+### 3. `useQuotePresets.ts` + `QuotePresets.tsx`
+- Adicionar os 4 campos novos ao type `QuotePreset` e ao formulário de cadastro:
+  - Seletor "Papel padrão" (nome + gramatura, opcional)
+  - Select "Lado padrão" (— / F / F/V)
+  - Switch "Pré-marcar acabamentos sugeridos"
+- Persistir junto do `save`.
 
-### 1. Carregar categorias dos papéis
+### 4. `PrintForm.tsx`
+- Novos props: `defaultPaperHint?: { name: string; grammage?: string; side?: string }` e `preselectedFinishings?: string[]`.
+- Ao carregar o catálogo pela primeira vez (sem `catalog` definido), se houver `defaultPaperHint`, procurar em `items` o primeiro `PrintingCatalogItem` que case por `paper_type` (normalizado) + `grammage` + `side` (com fallback: ignorar `side` se não bater). Setar via `setCatalog(...)` e disparar `onSelectionChange`.
+- Se `preselectedFinishings?.length`, popular `finEnabled` com esses ids (uma vez, gated por ref como o `suggestAllFinishings`).
 
-Hoje `useV3Catalog` traz `items: PrintingCatalogItem[]` (do `printing_price_items`) sem categoria. Vamos:
-
-- Em `useV3Catalog` (ou query paralela em `PrintingItemSearch`), buscar `papers` com `name, grammage, category`.
-- Anexar `category: "comum" | "especial" | "adesivo" | null` em cada `PrintingCatalogItem`, casando por `paper_type` + `grammage` (mesma regra de dedup já usada).
-- Default quando não há match: `null` (cai no balde "Outros" — mostrado só se `null` existir; do contrário, oculto).
-
-### 2. `PrintingItemSearch` ganha chips + agrupamento
-
-- Novo estado interno `categoryFilter: "all" | "comum" | "especial" | "adesivo"`.
-- Render: barra de chips acima do `Input`, com contadores derivados de `items` (memo).
-- `filtered` passa a aplicar: `categoryFilter === "all" || item.category === categoryFilter`, **depois** filtro textual.
-- Agrupamento: `useMemo` que monta `Map<category, items[]>` na ordem `["especial","comum","adesivo","outros"]`. Render percorre grupos não-vazios e injeta um header `<div class="sticky top-0 ...">` antes dos botões. Se `categoryFilter !== "all"`, pula headers.
-- Linha "+N em outras categorias" no fim do dropdown quando há `search` ativo, `categoryFilter !== "all"`, e existem matches fora do filtro.
-
-### 3. Props para pré-seleção
-
-`PrintingItemSearch` aceita `defaultCategory?: "comum" | "especial" | "adesivo" | null`. `PrintForm` calcula esse hint a partir de um novo prop `suggestedCategory?` que `PrintAndProductForm` repassa quando há `selectedPreset?.papel_inclui` apontando para uma única categoria predominante (lookup contra a mesma tabela `papers` já em memória nos presets — passar via prop ou query leve aqui).
-
-### 4. Sem mudanças de schema, sem mudanças em `quote_presets`
-
-A coluna `papers.category` já existe (migração anterior). Tudo é frontend.
-
-## Arquivos editados
-
-- `src/components/orcamentos-v3/shared/useV3Catalog.ts` — incluir join/lookup de `papers.category` em cada `PrintingCatalogItem`.
-- `src/components/orcamentos-v3/shared/PrintingItemSearch.tsx` — chips, agrupamento, contador, prop `defaultCategory`.
-- `src/components/orcamentos-v3/forms/PrintForm.tsx` — repassar `suggestedCategory` ao `PrintingItemSearch`.
-- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx` — derivar categoria sugerida a partir do `selectedPreset.papel_inclui` (consulta única à lista de `papers` já carregada para `QuotePresets`, ou query simples reutilizando `useV3Catalog`).
+### 5. `PrintAndProductForm.tsx`
+- Quando renderiza `PrintForm` em modo preset, passar:
+  - `defaultPaperHint = { name: selectedPreset.papel_default_nome, grammage: selectedPreset.papel_default_grammage, side: selectedPreset.side_default }` (somente se nome existir)
+  - `preselectedFinishings = selectedPreset.preselect_acabamentos ? selectedPreset.acabamentos_sugeridos : undefined`
 
 ## Fora de escopo
+- Aplicar pré-seleção de papel ao módulo CV/etiquetas.
+- Alterar o preset "Adesivo" existente (continua sem default — usuário cadastra depois pela tela se quiser).
+- Editor visual de "qual catálogo exato pré-selecionar" (resolução é por busca textual, primeiro match).
 
-- Aplicar o mesmo na aba CV ou Calculadora de Etiquetas (só Impressão por enquanto, como antes).
-- Editar `papers.category` em massa (continua um a um em Matérias-Primas).
-- Persistir a última categoria escolhida pelo usuário (sessão começa sempre em "Todos" ou na sugerida pelo favorito).
-
-## Validação manual
-
-1. Abrir **novo orçamento → Impressão (Personalizado)**: ver 4 chips com contadores corretos.
-2. Clicar em **Especial**: combobox mostra só couchês/supremos/etc., sem headers de grupo.
-3. Voltar para **Todos** e digitar "couch": resultados agrupados, "Especial" no topo.
-4. Selecionar favorito "Folheto Couchê" (cuja papel_inclui é só de papéis Especiais): chip **Especial** já entra ativo.
-5. Selecionar favorito misto (papel_inclui em múltiplas categorias): chip continua em "Todos".
-6. Digitar termo que só bate em "Comum" estando em "Especial": aparece linha "+N em outras categorias".
+## Arquivos
+- `supabase/migrations/<novo>.sql` (DDL + INSERT do seed)
+- `src/components/orcamentos-v3/shared/useQuotePresets.ts`
+- `src/pages/QuotePresets.tsx`
+- `src/components/orcamentos-v3/forms/PrintForm.tsx`
+- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`

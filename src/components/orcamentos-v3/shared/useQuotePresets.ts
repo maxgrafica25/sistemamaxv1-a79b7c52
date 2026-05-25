@@ -23,6 +23,10 @@ export interface QuotePreset {
   papel_inclui: string[];
   papel_exclui: string[];
   acabamentos_sugeridos: string[];
+  papel_default_nome: string | null;
+  papel_default_grammage: string | null;
+  side_default: string | null;
+  preselect_acabamentos: boolean;
 }
 
 export function useQuotePresets(modulo: "cv" | "impressao") {
