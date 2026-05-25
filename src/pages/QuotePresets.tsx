@@ -36,17 +36,11 @@ import { listFinishings } from "@/lib/finishings/catalog";
 import type { QuotePreset } from "@/components/orcamentos-v3/shared/useQuotePresets";
 
 const PAPER_GROUP_LABELS: Record<string, string> = {
-  papel: "Papel comum",
+  comum: "Papel Comum",
+  especial: "Especial",
   adesivo: "Adesivo",
-  cartao: "Cartão / PVC",
 };
-const PAPER_GROUP_ORDER = ["papel", "adesivo", "cartao"];
-function paperCategory(name: string): "adesivo" | "cartao" | "papel" {
-  const n = name.toLowerCase();
-  if (/adesiv/.test(n)) return "adesivo";
-  if (/crach|pvc|cart(a|\u00e3)o/.test(n)) return "cartao";
-  return "papel";
-}
+const PAPER_GROUP_ORDER = ["comum", "especial", "adesivo"];
 
 type FormState = {
   nome: string;
@@ -100,16 +94,23 @@ export default function QuotePresets() {
     (async () => {
       const [{ data: papers }, finishings] = await Promise.all([
         (supabase as any)
-          .from("printing_price_items")
-          .select("paper_type")
+          .from("papers")
+          .select("name, category")
           .eq("is_active", true),
         listFinishings("impressao").catch(() => []),
       ]);
-      const uniq: string[] = Array.from(
-        new Set((papers ?? []).map((r: any) => String(r.paper_type ?? "").trim()).filter(Boolean)),
-      ) as string[];
-      uniq.sort((a, b) => a.localeCompare(b, "pt-BR"));
-      setPaperOptions(uniq.map((p) => ({ value: p, group: paperCategory(p) })));
+      // Dedupe by name — pick the most specific category found.
+      const byName = new Map<string, string>();
+      for (const r of (papers ?? []) as any[]) {
+        const name = String(r.name ?? "").trim();
+        if (!name) continue;
+        const cat = String(r.category ?? "comum");
+        if (!byName.has(name)) byName.set(name, cat);
+      }
+      const uniq = Array.from(byName.entries()).sort((a, b) =>
+        a[0].localeCompare(b[0], "pt-BR"),
+      );
+      setPaperOptions(uniq.map(([name, cat]) => ({ value: name, group: cat })));
       setFinishingOptions(
         (finishings as any[])
           .map((f) => String(f.name ?? "").trim())
