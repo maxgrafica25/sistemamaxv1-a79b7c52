@@ -59,7 +59,7 @@ export interface V3PrintItem extends V3BundleFields {
   // Mantidos para compat com chips legados (entrada manual).
   formato: "A4" | "A3" | "SRA3" | null;
   cores: "4x0" | "4x4" | "1x0" | "1x1" | null;
-  face: "frente" | "fv" | null;
+  face: "frente" | "fv" | "mix" | "fv_pb" | null;
   finishings: string[];
   /** Snapshot do catálogo unificado — drive do cálculo extra por folha/unidade. */
   finishing_selections?: {
