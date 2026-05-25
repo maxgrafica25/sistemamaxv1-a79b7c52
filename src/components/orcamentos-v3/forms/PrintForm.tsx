@@ -211,14 +211,26 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
   // impressão e do papel (paridade com PrintingItemSearch).
   const effectiveCatalog = useMemo(() => {
     if (!catalog) return null;
-    const eff = sideOverride ?? catalog.side;
-    if (eff === catalog.side) return catalog;
-    return { ...catalog, side: eff } as PrintingCatalogItem;
-  }, [catalog, sideOverride]);
+    if (sideChoice === catalog.side) return catalog;
+    return { ...catalog, side: sideChoice } as PrintingCatalogItem;
+  }, [catalog, sideChoice]);
 
   const pricing = useMemo(
     () => (effectiveCatalog ? pricePerSheet(effectiveCatalog, tiers, quantidade) : null),
     [effectiveCatalog, tiers, quantidade],
+  );
+
+  // Se o usuário voltar para "Frente" mas o catálogo selecionado é F/V, força nova seleção.
+  useEffect(() => {
+    if (catalog && sideChoice === "Frente" && catalog.side === "F/V") {
+      setCatalog(null);
+    }
+  }, [sideChoice, catalog]);
+
+  // Filtra catálogo conforme o lado escolhido (esconde F/V quando "Frente").
+  const filteredItems = useMemo(
+    () => (sideChoice === "Frente" ? items.filter((it) => it.side !== "F/V") : items),
+    [items, sideChoice],
   );
 
   const canAdd = !!catalog && quantidade > 0 && (pricing?.sellingPrice ?? 0) > 0;
