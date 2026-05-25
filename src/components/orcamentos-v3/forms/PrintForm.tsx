@@ -52,7 +52,9 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
   const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers, settings } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
-  const [sideOverride, setSideOverride] = useState<"Frente" | "F/V" | null>(null);
+  const [sideChoice, setSideChoice] = useState<"Frente" | "F/V">(
+    defaultPaperHint?.side === "F/V" ? "F/V" : "Frente",
+  );
   const [descricaoLocal, setDescricaoLocal] = useState("");
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
@@ -115,7 +117,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     setCatalog(picked);
     // Respeita o lado pedido pelo preset mesmo quando não há variante exata no catálogo.
     if (defaultPaperHint.side === "F/V" || defaultPaperHint.side === "Frente") {
-      setSideOverride(defaultPaperHint.side);
+      setSideChoice(defaultPaperHint.side);
     }
   }, [defaultPaperHint, items, catalog]);
 
@@ -209,14 +211,26 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
   // impressão e do papel (paridade com PrintingItemSearch).
   const effectiveCatalog = useMemo(() => {
     if (!catalog) return null;
-    const eff = sideOverride ?? catalog.side;
-    if (eff === catalog.side) return catalog;
-    return { ...catalog, side: eff } as PrintingCatalogItem;
-  }, [catalog, sideOverride]);
+    if (sideChoice === catalog.side) return catalog;
+    return { ...catalog, side: sideChoice } as PrintingCatalogItem;
+  }, [catalog, sideChoice]);
 
   const pricing = useMemo(
     () => (effectiveCatalog ? pricePerSheet(effectiveCatalog, tiers, quantidade) : null),
     [effectiveCatalog, tiers, quantidade],
+  );
+
+  // Se o usuário voltar para "Frente" mas o catálogo selecionado é F/V, força nova seleção.
+  useEffect(() => {
+    if (catalog && sideChoice === "Frente" && catalog.side === "F/V") {
+      setCatalog(null);
+    }
+  }, [sideChoice, catalog]);
+
+  // Filtra catálogo conforme o lado escolhido (esconde F/V quando "Frente").
+  const filteredItems = useMemo(
+    () => (sideChoice === "Frente" ? items.filter((it) => it.side !== "F/V") : items),
+    [items, sideChoice],
   );
 
   const canAdd = !!catalog && quantidade > 0 && (pricing?.sellingPrice ?? 0) > 0;
@@ -391,8 +405,43 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
             </span>
             {substrateLabel}
           </h3>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+              Lado de impressão
+            </span>
+            <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setSideChoice("Frente")}
+                className={cn(
+                  "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                  sideChoice === "Frente"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                title="Imprimir só na frente"
+              >
+                Frente
+              </button>
+              <button
+                type="button"
+                onClick={() => setSideChoice("F/V")}
+                className={cn(
+                  "px-2.5 py-1 rounded-sm font-medium transition-colors",
+                  sideChoice === "F/V"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                title="Frente e verso (custo ~2x)"
+              >
+                F/V
+              </button>
+            </div>
+          </div>
+
           <PrintingItemSearch
-            items={items}
+            items={filteredItems}
             markupTiers={tiers}
             globalSettings={settings}
             onSelect={(it) => setCatalog(it)}
@@ -419,6 +468,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
         </div>
       )}
 
+
       {catalog && effectiveCatalog && (
         <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3 flex-wrap">
           <Printer className="h-4 w-4 text-primary shrink-0" />
@@ -441,7 +491,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
           <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
             <button
               type="button"
-              onClick={() => setSideOverride("Frente")}
+              onClick={() => setSideChoice("Frente")}
               className={cn(
                 "px-2.5 py-1 rounded-sm font-medium transition-colors",
                 effectiveCatalog.side === "Frente"
@@ -454,7 +504,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
             </button>
             <button
               type="button"
-              onClick={() => setSideOverride("F/V")}
+              onClick={() => setSideChoice("F/V")}
               className={cn(
                 "px-2.5 py-1 rounded-sm font-medium transition-colors",
                 effectiveCatalog.side === "F/V"
@@ -470,7 +520,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
             type="button"
             onClick={() => {
               setCatalog(null);
-              setSideOverride(null);
+              setSideChoice("Frente");
             }}
             className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
           >
