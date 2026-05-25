@@ -104,9 +104,43 @@ export function CustomCoverEditor({ units, slotLabel, onChange, onDone }: Props)
         <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
           Papel da {slotLabel.toLowerCase()} (ex.: Couchê 300g)
         </Label>
+        <div className="mt-1 flex items-center gap-2 mb-1.5">
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+            Lado de impressão
+          </span>
+          <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-[11px]">
+            <button
+              type="button"
+              onClick={() => {
+                setSideChoice("Frente");
+                if (catalog?.side === "F/V") setCatalog(null);
+              }}
+              className={cn(
+                "px-2 py-0.5 rounded-sm font-medium transition-colors",
+                (catalog?.side === "F/V" ? "F/V" : sideChoice) === "Frente"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Frente
+            </button>
+            <button
+              type="button"
+              onClick={() => setSideChoice("F/V")}
+              className={cn(
+                "px-2 py-0.5 rounded-sm font-medium transition-colors",
+                (catalog?.side === "F/V" ? "F/V" : sideChoice) === "F/V"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              F/V
+            </button>
+          </div>
+        </div>
         <div className="mt-1">
           <PrintingItemSearch
-            items={items}
+            items={sideChoice === "Frente" ? items.filter((it) => it.side !== "F/V") : items}
             markupTiers={tiers}
             globalSettings={{
               invoice_pct: 0,
@@ -120,19 +154,12 @@ export function CustomCoverEditor({ units, slotLabel, onChange, onDone }: Props)
         {catalog && (
           <p className="text-[10.5px] text-muted-foreground mt-1 truncate">
             {catalog.paper_type}
-            {catalog.grammage ? ` ${catalog.grammage}` : ""} · {catalog.size} · {catalog.side}
+            {catalog.grammage ? ` ${catalog.grammage}` : ""} · {catalog.size} ·{" "}
+            {catalog.side === "F/V" ? "F/V" : sideChoice}
           </p>
         )}
       </div>
 
-      <div className="flex items-center justify-between rounded-sm border border-border/60 px-2 py-1.5">
-        <Label className="text-[11px] text-muted-foreground">Frente e Verso</Label>
-        <Switch
-          checked={duplex || catalog?.side === "F/V"}
-          disabled={catalog?.side === "F/V"}
-          onCheckedChange={(v) => setDuplex(!!v)}
-        />
-      </div>
 
       {finishings.length > 0 && (
         <div>
