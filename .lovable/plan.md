@@ -1,63 +1,72 @@
 ## Objetivo
 
-Simplificar a configuração de **Produtos Favoritos** permitindo pré-selecionar papéis por **painel/categoria** (Papel Comum, Especial, Adesivo) em vez de marcar um a um. A categoria fica no cadastro de **Papéis & Suprimentos**, e os chips individuais continuam visíveis no dialog do favorito.
+Facilitar a escolha de papel no orçamento (`PrintForm` → `PrintingItemSearch`) usando as categorias **Comum / Especial / Adesivo** já cadastradas em `papers.category`. Mantém a busca textual atual; categoria é triagem opcional.
 
-## 1. Banco — nova coluna `category` em `papers`
+## UX
 
-Migração:
+```text
+┌──────────────────────────────────────────────────────┐
+│ [ Todos · 24 ] [ Comum · 11 ] [ Especial · 8 ] [ Adesivo · 5 ] │
+│ 🔎 Buscar papel (nome, tamanho, impressora)...        │
+└──────────────────────────────────────────────────────┘
+   ▼ Dropdown
+   ── Especial ──────────────────
+   • Couchê 300g — SRA3 F      R$ 1,20/folha
+   • Supremo 250g — A3 F        ...
+   ── Comum ─────────────────────
+   • Offset 90g — A4 F          ...
+```
 
-- Adicionar `category text NOT NULL DEFAULT 'comum'` em `public.papers` com `CHECK (category IN ('comum','especial','adesivo'))`.
-- Backfill inicial pelo nome (heurística: `adesiv*` → `adesivo`; `crachá|pvc|cart(a|ã)o|couch[eê]|supremo|triplex` → `especial`; resto → `comum`). Admin pode reclassificar depois na tela.
-- Índice simples em `category` (opcional).
+- Chip ativo padrão: **Todos**. Clicar num chip restringe os resultados do combobox.
+- Contador no chip mostra quantos itens do catálogo caem na categoria (após dedup por nome+gramatura via `papers`).
+- Dentro do dropdown, resultados ficam agrupados por categoria com header sticky leve. Se o usuário já filtrou por chip, só aparece aquele grupo (sem header redundante).
+- Busca textual continua funcionando em qualquer aba — se o termo bate em item fora da categoria escolhida, mostra uma linha discreta no final: *"+3 resultados em outras categorias — Ver todos"* (clicar volta pra "Todos").
+- Pré-seleção automática: quando o usuário entra no `PrintForm` via um **produto favorito** que tenha `papel_inclui` apontando majoritariamente para uma categoria, o chip dessa categoria já vem ativo. Sem favorito ou ambíguo → "Todos".
 
-Sem mudanças em `quote_presets` — `papel_inclui` / `papel_exclui` continuam guardando **nomes de papel** (compatibilidade total com presets já cadastrados).
+## Implementação técnica
 
-## 2. Cadastro de Papéis (`src/pages/MateriasPrimas.tsx`)
+### 1. Carregar categorias dos papéis
 
-- Novo campo **Categoria** no formulário de criar/editar papel: select com `Comum / Especial / Adesivo`. Default `Comum`.
-- Exibir badge da categoria na linha da tabela de papéis.
-- Persistir em `papers.category`.
+Hoje `useV3Catalog` traz `items: PrintingCatalogItem[]` (do `printing_price_items`) sem categoria. Vamos:
 
-## 3. Produtos Favoritos (`src/pages/QuotePresets.tsx`)
+- Em `useV3Catalog` (ou query paralela em `PrintingItemSearch`), buscar `papers` com `name, grammage, category`.
+- Anexar `category: "comum" | "especial" | "adesivo" | null` em cada `PrintingCatalogItem`, casando por `paper_type` + `grammage` (mesma regra de dedup já usada).
+- Default quando não há match: `null` (cai no balde "Outros" — mostrado só se `null` existir; do contrário, oculto).
 
-- `useEffect` que carrega papéis passa a buscar `papers` (não `printing_price_items`) trazendo `name, grammage, category, is_active`. Mantém união por nome (deduplicação atual).
-- `paperCategory(name)` é removido; cada `ChipOption` recebe `group` = `papers.category` do cadastro.
-- `PAPER_GROUP_LABELS` vira `{ comum: "Papel Comum", especial: "Especial", adesivo: "Adesivo" }` e `PAPER_GROUP_ORDER = ["comum","especial","adesivo"]`.
-- Texto do botão "+ Todos deste tipo" continua igual (já existe no `ChipMultiPicker`). Comportamento exatamente como o usuário pediu: marca todos os chips do grupo, chips individuais continuam visíveis e podem ser refinados.
-- O resumo no card do preset (`p.papel_inclui.join(", ")`) ganha um modo curto: se um favorito tem **todos** os papéis de uma categoria marcados, mostra "papel: Especial (todos)" em vez da lista enorme. Caso contrário, mostra os primeiros 3 nomes + "+N".
+### 2. `PrintingItemSearch` ganha chips + agrupamento
 
-## 4. Filtragem no orçamento (`src/components/orcamentos-v3/forms/PrintAndProductForm.tsx`)
+- Novo estado interno `categoryFilter: "all" | "comum" | "especial" | "adesivo"`.
+- Render: barra de chips acima do `Input`, com contadores derivados de `items` (memo).
+- `filtered` passa a aplicar: `categoryFilter === "all" || item.category === categoryFilter`, **depois** filtro textual.
+- Agrupamento: `useMemo` que monta `Map<category, items[]>` na ordem `["especial","comum","adesivo","outros"]`. Render percorre grupos não-vazios e injeta um header `<div class="sticky top-0 ...">` antes dos botões. Se `categoryFilter !== "all"`, pula headers.
+- Linha "+N em outras categorias" no fim do dropdown quando há `search` ativo, `categoryFilter !== "all"`, e existem matches fora do filtro.
 
-Hoje os favoritos aparecem todos lado a lado com "Personalizado". A regra de filtragem por papel **não estava ativa**. Vamos ativar de forma suave:
+### 3. Props para pré-seleção
 
-- Quando o usuário ainda **não escolheu papel** (estado inicial / personalizado vazio): mostra todos os favoritos (igual hoje).
-- Quando há papel escolhido em `currentSel.paper_type`:
-  - Esconde favoritos cujo `papel_exclui` contém o papel.
-  - Dá destaque (badge "sugerido") aos favoritos cujo `papel_inclui` está vazio **ou** inclui o papel atual.
-  - Demais ficam atenuados (`opacity-60`) mas continuam clicáveis — não removidos, para evitar surpresa.
-- Nenhuma alteração no `productSuggester` (continua sugerindo `banner`, `cartao`, etc. por heurística de tamanho/acabamento).
+`PrintingItemSearch` aceita `defaultCategory?: "comum" | "especial" | "adesivo" | null`. `PrintForm` calcula esse hint a partir de um novo prop `suggestedCategory?` que `PrintAndProductForm` repassa quando há `selectedPreset?.papel_inclui` apontando para uma única categoria predominante (lookup contra a mesma tabela `papers` já em memória nos presets — passar via prop ou query leve aqui).
 
-## 5. Tipos
+### 4. Sem mudanças de schema, sem mudanças em `quote_presets`
 
-- `src/components/orcamentos-v3/shared/useQuotePresets.ts`: sem mudança (campos já existem).
-- `src/integrations/supabase/types.ts` é regenerado pela migração.
+A coluna `papers.category` já existe (migração anterior). Tudo é frontend.
 
 ## Arquivos editados
 
-- **Migração** — `papers.category` + backfill.
-- `src/pages/MateriasPrimas.tsx` — campo categoria no form + badge na tabela.
-- `src/pages/QuotePresets.tsx` — usar `papers` como fonte, novos grupos, resumo enxuto.
-- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx` — destaque/atenuação por `papel_inclui`/`papel_exclui` quando há papel selecionado.
+- `src/components/orcamentos-v3/shared/useV3Catalog.ts` — incluir join/lookup de `papers.category` em cada `PrintingCatalogItem`.
+- `src/components/orcamentos-v3/shared/PrintingItemSearch.tsx` — chips, agrupamento, contador, prop `defaultCategory`.
+- `src/components/orcamentos-v3/forms/PrintForm.tsx` — repassar `suggestedCategory` ao `PrintingItemSearch`.
+- `src/components/orcamentos-v3/forms/PrintAndProductForm.tsx` — derivar categoria sugerida a partir do `selectedPreset.papel_inclui` (consulta única à lista de `papers` já carregada para `QuotePresets`, ou query simples reutilizando `useV3Catalog`).
 
 ## Fora de escopo
 
-- Categoria editável em massa (continua um por um na tela de Papéis).
-- Mudar shape de `quote_presets.papel_inclui` para guardar categorias (mantemos nomes para precisão).
-- Aplicar mesma lógica em CV — só Impressão.
+- Aplicar o mesmo na aba CV ou Calculadora de Etiquetas (só Impressão por enquanto, como antes).
+- Editar `papers.category` em massa (continua um a um em Matérias-Primas).
+- Persistir a última categoria escolhida pelo usuário (sessão começa sempre em "Todos" ou na sugerida pelo favorito).
 
 ## Validação manual
 
-1. Migrar e abrir **Papéis & Suprimentos**: cada papel mostra categoria (default Comum); admin reclassifica os adesivos e couchês.
-2. Em **Produtos Favoritos**: dialog mostra 3 grupos (Papel Comum, Especial, Adesivo); botão "+ Todos deste tipo" preenche chips do grupo.
-3. Criar favorito "Folheto Couchê" marcando "+ Todos deste tipo" em **Especial**.
-4. No **novo orçamento (Impressão)**: sem papel escolhido → todos os favoritos visíveis. Ao escolher um papel Especial, o favorito vira "sugerido"; ao escolher um Adesivo, o mesmo favorito fica atenuado.
+1. Abrir **novo orçamento → Impressão (Personalizado)**: ver 4 chips com contadores corretos.
+2. Clicar em **Especial**: combobox mostra só couchês/supremos/etc., sem headers de grupo.
+3. Voltar para **Todos** e digitar "couch": resultados agrupados, "Especial" no topo.
+4. Selecionar favorito "Folheto Couchê" (cuja papel_inclui é só de papéis Especiais): chip **Especial** já entra ativo.
+5. Selecionar favorito misto (papel_inclui em múltiplas categorias): chip continua em "Todos".
+6. Digitar termo que só bate em "Comum" estando em "Especial": aparece linha "+N em outras categorias".
