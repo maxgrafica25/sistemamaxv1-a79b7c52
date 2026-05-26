@@ -1,6 +1,12 @@
 // Edge Function: gcal-sync-worker
 // Processa fila gcal_sync_queue. Cron a cada 1min.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { isServiceRoleRequest, isCronSecretRequest } from "../_shared/admin-client.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -135,7 +141,14 @@ async function processItem(admin: any, item: any): Promise<void> {
   await admin.from("gcal_sync_queue").update({ processed_at: new Date().toISOString() }).eq("id", item.id);
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (!isServiceRoleRequest(req) && !isCronSecretRequest(req)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
   const { data: items, error } = await admin
     .from("gcal_sync_queue")
