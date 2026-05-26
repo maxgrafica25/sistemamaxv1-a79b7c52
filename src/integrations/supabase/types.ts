@@ -4298,6 +4298,10 @@ export type Database = {
         }[]
       }
       enqueue_recurring_reminders: { Args: never; Returns: number }
+      get_public_quote: {
+        Args: { p_quote_id?: string; p_quote_number?: string }
+        Returns: Json
+      }
       is_channel_creator: {
         Args: { _channel_id: string; _user_id: string }
         Returns: boolean
