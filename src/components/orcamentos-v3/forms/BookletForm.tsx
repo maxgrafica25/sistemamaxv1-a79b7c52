@@ -81,6 +81,20 @@ export function BookletForm({
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
 
+  // Aplica filtro do catálogo de acordo com o lado escolhido (com suporte a exceção F/V).
+  const filteredItems = useMemo(
+    () => filterItemsBySideChoice(items, sideChoice),
+    [items, sideChoice],
+  );
+
+  const changeSide = (next: SideChoice) => {
+    setSideChoice(next);
+    if (shouldClearOnSideChange(catalog, next)) {
+      setCatalog(null);
+    }
+  };
+
+
   const [printFinishings, setPrintFinishings] = useState<FinishingItem[]>([]);
   useEffect(() => {
     listFinishings("impressao")
