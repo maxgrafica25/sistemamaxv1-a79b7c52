@@ -312,7 +312,7 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
             </Badge>
           )}
           <div className="hidden md:flex items-center gap-3 ml-2 min-w-0 flex-1">
-            <div className="w-[280px] shrink-0">
+            <div className="w-[380px] shrink-0">
               <ClientCombobox
                 value={state.cliente}
                 onChange={(next) =>
