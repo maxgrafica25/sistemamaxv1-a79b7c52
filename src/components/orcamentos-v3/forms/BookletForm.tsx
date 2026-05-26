@@ -21,6 +21,12 @@ import { pickFinishingTier } from "@/lib/labels/finishing-pricing";
 import { useV3HourlyRate } from "../shared/useV3HourlyRate";
 import { getIdealSpiral } from "@/lib/quotes/spiral-selector";
 import { genId, type V3BookletItem, type V3Item, type V3LaborItem } from "../types";
+import {
+  SideChoiceToggle,
+  filterItemsBySideChoice,
+  shouldClearOnSideChange,
+  type SideChoice,
+} from "../shared/SideChoiceToggle";
 import { ProductKitPanel } from "./ProductKitPanel";
 import { BookletKitPanel, type BookletKitApplyMeta } from "./BookletKitPanel";
 import { buildBookletBundleLabel } from "../shared/buildBookletBundleLabel";
@@ -67,13 +73,27 @@ export function BookletForm({
   const controlledDescricao = onDescricaoChange !== undefined;
   const [bookletPages, setBookletPages] = useState<number>(0);
   const [bookletUnits, setBookletUnits] = useState<number>(0);
-  const [sideChoice, setSideChoice] = useState<"Frente" | "F/V">(
-    defaultPaperHint?.side === "F/V" ? "F/V" : "F/V",
+  const [sideChoice, setSideChoice] = useState<SideChoice>(
+    defaultPaperHint?.side === "Frente" ? "Frente" : "F/V",
   );
   const duplex = sideChoice === "F/V";
   const [pulse, setPulse] = useState(false);
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
+
+  // Aplica filtro do catálogo de acordo com o lado escolhido (com suporte a exceção F/V).
+  const filteredItems = useMemo(
+    () => filterItemsBySideChoice(items, sideChoice),
+    [items, sideChoice],
+  );
+
+  const changeSide = (next: SideChoice) => {
+    setSideChoice(next);
+    if (shouldClearOnSideChange(catalog, next)) {
+      setCatalog(null);
+    }
+  };
+
 
   const [printFinishings, setPrintFinishings] = useState<FinishingItem[]>([]);
   useEffect(() => {
@@ -326,43 +346,13 @@ export function BookletForm({
       )}
 
 
+      {/* Lado de impressão — sempre visível antes do papel */}
+      <SideChoiceToggle value={sideChoice} onChange={changeSide} />
+
       {!catalog && (
         <Field label="Miolo (papel do catálogo)">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-              Lado de impressão
-            </span>
-            <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
-              <button
-                type="button"
-                onClick={() => setSideChoice("Frente")}
-                className={cn(
-                  "px-2.5 py-1 rounded-sm font-medium transition-colors",
-                  sideChoice === "Frente"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-                title="Imprimir só na frente"
-              >
-                Frente
-              </button>
-              <button
-                type="button"
-                onClick={() => setSideChoice("F/V")}
-                className={cn(
-                  "px-2.5 py-1 rounded-sm font-medium transition-colors",
-                  sideChoice === "F/V"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-                title="Frente e verso (custo ~2x)"
-              >
-                F/V
-              </button>
-            </div>
-          </div>
           <PrintingItemSearch
-            items={sideChoice === "Frente" ? items.filter((it) => it.side !== "F/V") : items}
+            items={filteredItems}
             markupTiers={tiers}
             globalSettings={{
               invoice_pct: 0,
@@ -399,53 +389,16 @@ export function BookletForm({
               )}
             </div>
           </div>
-          <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs">
-            <button
-              type="button"
-              onClick={() => {
-                if (catalog.side === "F/V") {
-                  setCatalog(null);
-                  setSideChoice("Frente");
-                } else {
-                  setSideChoice("Frente");
-                }
-              }}
-              className={cn(
-                "px-2.5 py-1 rounded-sm font-medium transition-colors",
-                (catalog.side === "F/V" ? "F/V" : sideChoice) === "Frente"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              title="Imprimir só na frente"
-            >
-              Frente
-            </button>
-            <button
-              type="button"
-              onClick={() => setSideChoice("F/V")}
-              className={cn(
-                "px-2.5 py-1 rounded-sm font-medium transition-colors",
-                (catalog.side === "F/V" ? "F/V" : sideChoice) === "F/V"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              title="Frente e verso (custo ~2x)"
-            >
-              F/V
-            </button>
-          </div>
           <button
             type="button"
-            onClick={() => {
-              setCatalog(null);
-              setSideChoice("F/V");
-            }}
+            onClick={() => setCatalog(null)}
             className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
           >
             Trocar
           </button>
         </div>
       )}
+
 
       <div className="grid grid-cols-2 gap-4">
         <Field label="Folhas por apostila">

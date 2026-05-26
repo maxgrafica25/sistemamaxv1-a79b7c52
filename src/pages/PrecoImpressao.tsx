@@ -60,6 +60,7 @@ interface PrintingPriceItem {
   paper_cost: number; printing_cost: number; is_active: boolean;
   sort_order: number; equipment_id: string | null; equipment_mode: string;
   markup_group_id: string | null;
+  fv_exception?: boolean;
 }
 interface Equipment { id: string; name: string; printer_type: string; }
 interface EquipmentConsumable { equipment_id: string; price: number; yield_pages: number; mode: string; }
@@ -156,6 +157,7 @@ export default function PrecoImpressao() {
   const [itemEquipmentMode, setItemEquipmentMode] = useState<string>("color");
   const [itemPaperSource, setItemPaperSource] = useState<string>("manual");
   const [itemMarkupGroupId, setItemMarkupGroupId] = useState<string>("__default__");
+  const [itemFvException, setItemFvException] = useState<boolean>(false);
   // Batch creation: multiple sizes/sides
   const [batchSizes, setBatchSizes] = useState<string[]>(["A4"]);
   const [batchSides, setBatchSides] = useState<string[]>(["F"]);
@@ -437,12 +439,14 @@ export default function PrecoImpressao() {
       setItemEquipmentId(item.equipment_id || ""); setItemEquipmentMode(item.equipment_mode || "color"); setItemPaperSource("manual");
       setBatchSizes([item.size]); setBatchSides([item.side]);
       setItemMarkupGroupId(item.markup_group_id || "__default__");
+      setItemFvException(!!item.fv_exception);
     } else {
       setEditingItem(null); setItemCode(""); setItemPaperType(""); setItemGrammage("");
       setItemSize("A4"); setItemSide("F"); setItemPaperCost("0"); setItemPrintingCost("0");
       setItemEquipmentId(""); setItemEquipmentMode("color"); setItemPaperSource("manual");
       setBatchSizes(["A4"]); setBatchSides(["F"]);
       setItemMarkupGroupId("__default__");
+      setItemFvException(false);
     }
     setShowItemDialog(true);
   };
@@ -495,6 +499,7 @@ export default function PrecoImpressao() {
         paper_cost: Number(itemPaperCost), printing_cost: effectivePrintingCost,
         equipment_id: itemEquipmentId || null, equipment_mode: itemEquipmentMode,
         sort_order: editingItem.sort_order, markup_group_id: resolvedGroupId,
+        fv_exception: itemSide === "F" ? itemFvException : false,
       };
       const { error } = await supabase.from("printing_price_items").update(data).eq("id", editingItem.id);
       if (error) return handleError(error, "salvar item de impressão");
@@ -516,6 +521,7 @@ export default function PrecoImpressao() {
             paper_cost: Number(paperCost.toFixed(4)), printing_cost: effectivePrintingCost,
             equipment_id: itemEquipmentId || null, equipment_mode: itemEquipmentMode,
             sort_order: sortBase++, markup_group_id: resolvedGroupId,
+            fv_exception: side === "F" ? itemFvException : false,
           });
         }
       }
@@ -1390,6 +1396,22 @@ export default function PrecoImpressao() {
                     </div>
                   )}
                 </>
+              )}
+
+              {((editingItem && itemSide === "F") || (!editingItem && batchSides.includes("F"))) && (
+                <label className="flex items-start gap-2 rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2 text-sm cursor-pointer hover:bg-primary/10">
+                  <Checkbox
+                    checked={itemFvException}
+                    onCheckedChange={(c) => setItemFvException(!!c)}
+                    className="h-4 w-4 mt-0.5"
+                  />
+                  <div>
+                    <div className="font-medium text-foreground">Permitir uso em F/V mesmo sendo "Frente"</div>
+                    <div className="text-xs text-muted-foreground">
+                      Ex.: Sulfite 75g A4 — permanece visível quando o usuário escolher F/V no orçamento.
+                    </div>
+                  </div>
+                </label>
               )}
 
               <div className="space-y-2">

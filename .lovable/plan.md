@@ -1,44 +1,57 @@
-## Problema
 
-Hoje, ao clicar em **Trocar** (ou quando ainda não há papel selecionado), o cabeçalho compacto some e dá lugar a um bloco grande com título "Papel", toggle Frente/F/V, chips de categoria e busca. Isso desloca todo o restante do formulário (Quantidade, Faixas, Acabamentos), causando a sensação de "layout pulando".
+# Lado da impressão sempre antes do papel + filtro recíproco
 
-## Solução
+## Comportamento alvo
 
-Transformar o picker de papel em **modal (Dialog)** que abre por cima, sem alterar o layout da página.
+1. **Em todos os forms de impressão** (Personalizado e presets), o toggle **Frente / F/V** aparece **sempre antes** do seletor de papel, visível desde a abertura do form.
+2. Quando o usuário seleciona um lado, o catálogo é filtrado:
+   - **Frente** → esconde papéis cadastrados como **F/V** (já é o comportamento atual).
+   - **F/V** → esconde papéis cadastrados como **Frente** (novo), **exceto** papéis marcados como "exceção F/V" (ex.: Sulfite 75g A4, que tecnicamente é frente mas é comumente usado em F/V).
+3. Quando o form é aberto a partir de um **preset** (Produto Favorito), o lado vem pré-selecionado conforme `side_default`, mas continua editável no mesmo toggle.
+4. Trocar o lado depois de já ter um papel selecionado: se o papel atual deixar de ser compatível com o novo filtro, o papel é limpo e o usuário escolhe outro.
 
-### Comportamento
+## Forms afetados
 
-- **Sem papel selecionado:** mostrar um cabeçalho compacto único na mesma altura do cabeçalho atual com papel selecionado:
-  - Ícone Printer + texto "Selecionar papel" (ou "Selecionar adesivo", conforme `substrateLabel`)
-  - Toggle Frente / F/V à direita (mantém estado mesmo sem seleção)
-  - Botão primário **"Escolher"** que abre o modal
-  - Se houver `suggestedPapers` (preset), abrir o modal automaticamente na primeira renderização (preservando UX dos presets), mas o layout do formulário já fica com a linha do cabeçalho ocupando a mesma altura
-- **Com papel selecionado:** cabeçalho atual permanece igual; **Trocar** passa a abrir o modal (em vez de limpar e re-renderizar o bloco grande)
-- **Dentro do modal:**
-  - Título "Selecionar papel" / "Selecionar adesivo"
-  - Toggle Frente/F/V (espelha o estado externo)
-  - `PrintingItemSearch` com os mesmos chips (Todos / Comum / Especial / Adesivo) e busca
-  - Ao escolher um item: `setCatalog(it)` + fecha o modal
+- `PrintForm.tsx` (Tags, Etiqueta, Adesivo, Folheto, Personalizado de papel)
+- `BookletForm.tsx` (Apostila — miolo)
+- `BusinessCardForm.tsx` (Cartão de visita)
+- `CertificateForm.tsx` (Certificado)
+- `PrintAndProductForm.tsx`
 
-### Arquivo
+CV/Mídia, Mão-de-obra, Suprimentos, etc. ficam **fora de escopo**.
 
-- `src/components/orcamentos-v3/forms/PrintForm.tsx`
-  - Adicionar estado `pickerOpen` (boolean)
-  - Substituir o bloco `{!catalog && (...)}` (linhas 404–479) por um cabeçalho compacto com botão "Escolher"
-  - Envolver o conteúdo do picker em `<Dialog open={pickerOpen} onOpenChange={setPickerOpen}>` usando `DialogContent` já presente no design system (shadcn)
-  - Trocar `onClick` do botão **Trocar** (linhas 529–538): em vez de `setCatalog(null)`, apenas `setPickerOpen(true)` (mantém papel atual até escolher outro; se o usuário fechar o modal sem escolher, nada muda)
-  - Em `onSelect` do `PrintingItemSearch`: `setCatalog(it); setPickerOpen(false);`
-  - Auto-abrir o modal quando `!catalog` e houver `suggestedPapers` (efeito único)
+## Mudanças por arquivo
 
-### Fora de escopo
+### Banco de dados
+- **Migration**: adicionar coluna `fv_exception boolean NOT NULL DEFAULT false` em `printing_catalog_items` (ou tabela equivalente do catálogo de papéis V3 — vou confirmar o nome ao implementar lendo `useV3Catalog`).
+- O tipo `PrintingCatalogItem` ganha o campo `fv_exception?: boolean`.
 
-- Lógica de preço, multiplicadores F/V, faixas, presets de produto
-- Outros forms (BookletForm, BusinessCardForm, etc.) — só PrintForm, que é o que aparece nos presets afetados (Tags, Etiqueta, Adesivo, Personalizado de papel)
+### Cadastro do papel (módulo Preço de Impressão)
+- `PrecoImpressao.tsx` (ou o componente de edição de item do catálogo de impressão): adicionar um checkbox **"Permitir uso em F/V mesmo sendo papel só frente"** (ativo apenas quando o item está cadastrado como `side = "Frente"`). Salva em `fv_exception`.
 
-### Verificação
+### Forms de orçamento (padrão repetido)
 
-1. Abrir preset **Tags** → cabeçalho mostra "Couche 300 — A3 F/V" + toggle + Trocar (sem mudança).
-2. Clicar **Trocar** → abre modal por cima; layout abaixo (Quantidade, Faixas) não se move.
-3. Escolher outro papel → modal fecha, cabeçalho atualiza, sem salto.
-4. Em "Personalizado" sem papel pré-selecionado → cabeçalho compacto com botão "Escolher"; clicar abre o modal.
-5. Toggle Frente/F/V continua funcionando dentro e fora do modal (sincronizado).
+Em cada um dos 5 forms:
+
+1. **Mover o toggle Frente/F/V para fora do bloco condicional `!catalog`** — ele fica sempre no topo, antes do seletor/header de papel.
+2. Remover a duplicação do toggle que hoje aparece no header "com papel selecionado" (passa a ser um único toggle, sempre visível).
+3. **Filtro do catálogo** ao passar para `PrintingItemSearch`:
+   ```
+   items.filter((it) => {
+     if (sideChoice === "Frente") return it.side !== "F/V";
+     // sideChoice === "F/V"
+     return it.side === "F/V" || it.fv_exception === true;
+   })
+   ```
+4. **Ao alternar `sideChoice`** com papel já selecionado: se o papel atual não passar mais no filtro, `setCatalog(null)`.
+5. Manter `defaultPaperHint.side` como seed do `sideChoice` (presets continuam pré-configurando o toggle).
+6. `BookletForm`: remover a inicialização forçada `"F/V"` quando o hint diz "Frente" (linha 71 — bug atual: usa `"F/V"` como fallback mesmo quando o hint é "Frente").
+
+### PrintForm — ajuste extra
+
+A iteração anterior colocou o picker dentro de um Dialog/modal. O toggle Frente/F/V sai do header e da DialogContent e passa a ficar **acima do bloco "Selecionar papel"**, sempre visível na página. O modal segue existindo apenas para a busca de papel; o toggle não duplica mais.
+
+## Não incluso (a confirmar depois)
+
+- Melhoria do editor de Produtos Favoritos (`QuotePresets.tsx`) para o campo `side_default` — você mencionou "podemos melhorar" mas não definimos o quê. Sugestão futura: substituir o dropdown atual por um toggle visual igual ao do orçamento + checkbox "deixar usuário escolher". Posso fazer em uma próxima rodada.
+- Pré-cadastro de papéis exceção (Sulfite 75g A4) — depois da migration, você marca manualmente no módulo Preço de Impressão os papéis que devem ser permitidos em F/V.
