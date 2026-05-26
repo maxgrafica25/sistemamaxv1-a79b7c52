@@ -4,7 +4,7 @@
 //
 // SERVICE ROLE: necessária — lê tabela auditada (RLS admin-only) e cria
 // notifications para múltiplos usuários (bypass user_id = auth.uid()).
-import { getAdminClient } from "../_shared/admin-client.ts";
+import { getAdminClient, isServiceRoleRequest, isCronSecretRequest } from "../_shared/admin-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
