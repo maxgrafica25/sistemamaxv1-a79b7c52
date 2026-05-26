@@ -1,6 +1,6 @@
 // SERVICE ROLE: necessária — cria notifications para múltiplos usuários
 // (bypass RLS user_id = auth.uid()). Cliente via wrapper auditado.
-import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
+import { getAdminClient, logAdminOperation, isServiceRoleRequest, isCronSecretRequest } from "../_shared/admin-client.ts";
 
 function advanceDate(iso: string, recurrence: string): string {
   const d = new Date(iso);
