@@ -51,6 +51,8 @@ export interface PrintingCatalogItem {
   linkedPaper?: LinkedPaperInfo | null;
   /** Categoria derivada de `papers.category` (null quando não há match). */
   paper_category?: PaperCategory | null;
+  /** Quando true, este papel "Frente" também aparece quando o usuário escolhe F/V. */
+  fv_exception?: boolean;
 }
 
 interface PrintingItemSearchProps {

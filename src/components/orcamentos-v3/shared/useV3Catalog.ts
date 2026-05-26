@@ -115,6 +115,7 @@ export function useV3Catalog() {
         purchase_sheet_height_mm: r.purchase_sheet_height_mm ?? null,
         linkedPaper: buildLinkedPaper(r.paper_type, r.grammage, papers),
         paper_category: findPaperCategory(r.paper_type, r.grammage),
+        fv_exception: !!(r as any).fv_exception,
       }));
 
 
