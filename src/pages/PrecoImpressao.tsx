@@ -1398,6 +1398,22 @@ export default function PrecoImpressao() {
                 </>
               )}
 
+              {((editingItem && itemSide === "F") || (!editingItem && batchSides.includes("F"))) && (
+                <label className="flex items-start gap-2 rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2 text-sm cursor-pointer hover:bg-primary/10">
+                  <Checkbox
+                    checked={itemFvException}
+                    onCheckedChange={(c) => setItemFvException(!!c)}
+                    className="h-4 w-4 mt-0.5"
+                  />
+                  <div>
+                    <div className="font-medium text-foreground">Permitir uso em F/V mesmo sendo "Frente"</div>
+                    <div className="text-xs text-muted-foreground">
+                      Ex.: Sulfite 75g A4 — permanece visível quando o usuário escolher F/V no orçamento.
+                    </div>
+                  </div>
+                </label>
+              )}
+
               <div className="space-y-2">
                 <Label>Custo do Papel (R$ por folha)</Label>
                 {itemPaperSource !== "manual" ? (
