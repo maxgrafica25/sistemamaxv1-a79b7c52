@@ -8,6 +8,7 @@ interface Profile {
   display_name: string;
   avatar_url: string | null;
   role: string;
+  is_financeiro: boolean;
 }
 
 interface AuthCtx {
