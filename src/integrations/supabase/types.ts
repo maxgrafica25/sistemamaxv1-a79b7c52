@@ -2775,6 +2775,7 @@ export type Database = {
           display_name: string
           id: string
           is_active: boolean
+          is_financeiro: boolean
           role: string
           updated_at: string
           user_id: string
@@ -2785,6 +2786,7 @@ export type Database = {
           display_name: string
           id?: string
           is_active?: boolean
+          is_financeiro?: boolean
           role?: string
           updated_at?: string
           user_id: string
@@ -2795,6 +2797,7 @@ export type Database = {
           display_name?: string
           id?: string
           is_active?: boolean
+          is_financeiro?: boolean
           role?: string
           updated_at?: string
           user_id?: string
