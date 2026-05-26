@@ -380,6 +380,39 @@ export function CertificateForm({
         </div>
       )}
 
+      <Field label="Face de impressão">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-md border border-border bg-muted/30 p-0.5">
+          {faceOptions.map((opt) => {
+            const Icon = opt.icon;
+            const selected = face === opt.key;
+            const disabled = !!opt.requiresPb && !hasPb;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                disabled={disabled}
+                onClick={() => !disabled && setFace(opt.key)}
+                aria-pressed={selected}
+                title={
+                  disabled
+                    ? "Cadastre um item Couchê 210g A4 PB para liberar esta opção"
+                    : `${opt.title} — ${opt.hint}`
+                }
+                className={cn(
+                  "inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-sm text-xs font-medium transition-all",
+                  disabled && "opacity-50 cursor-not-allowed text-muted-foreground",
+                  !disabled && selected && "bg-background text-foreground shadow-sm ring-1 ring-border",
+                  !disabled && !selected && "text-muted-foreground hover:text-foreground hover:bg-background/60",
+                )}
+              >
+                <Icon className={cn("h-3.5 w-3.5 shrink-0", !disabled && selected && "text-primary")} />
+                <span className="truncate">{opt.title}</span>
+              </button>
+            );
+          })}
+        </div>
+      </Field>
+
       {/* Header — uma ou duas linhas (color + PB no mix) */}
       {primaryItem && (
         <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 space-y-1.5">
@@ -472,39 +505,6 @@ export function CertificateForm({
           }}
           className="h-9"
         />
-      </Field>
-
-      <Field label="Face de impressão">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-md border border-border bg-muted/30 p-0.5">
-          {faceOptions.map((opt) => {
-            const Icon = opt.icon;
-            const selected = face === opt.key;
-            const disabled = !!opt.requiresPb && !hasPb;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                disabled={disabled}
-                onClick={() => !disabled && setFace(opt.key)}
-                aria-pressed={selected}
-                title={
-                  disabled
-                    ? "Cadastre um item Couchê 210g A4 PB para liberar esta opção"
-                    : `${opt.title} — ${opt.hint}`
-                }
-                className={cn(
-                  "inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-sm text-xs font-medium transition-all",
-                  disabled && "opacity-50 cursor-not-allowed text-muted-foreground",
-                  !disabled && selected && "bg-background text-foreground shadow-sm ring-1 ring-border",
-                  !disabled && !selected && "text-muted-foreground hover:text-foreground hover:bg-background/60",
-                )}
-              >
-                <Icon className={cn("h-3.5 w-3.5 shrink-0", !disabled && selected && "text-primary")} />
-                <span className="truncate">{opt.title}</span>
-              </button>
-            );
-          })}
-        </div>
       </Field>
 
       <div className="grid grid-cols-2 gap-4">
