@@ -5,7 +5,7 @@
 // todos os sites ativos (RLS authenticated não se aplica). Cliente criado via
 // wrapper auditado (_shared/admin-client).
 
-import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
+import { getAdminClient, logAdminOperation, isServiceRoleRequest, isCronSecretRequest } from "../_shared/admin-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,6 +15,13 @@ const corsHeaders = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  if (!isServiceRoleRequest(req) && !isCronSecretRequest(req)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const supabase = getAdminClient({
