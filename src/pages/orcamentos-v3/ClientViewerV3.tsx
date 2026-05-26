@@ -121,60 +121,29 @@ export default function ClientViewer() {
 
 
   const loadData = async () => {
-    let quoteRow: QuoteRow | null = null;
+    const { data, error } = await supabase.rpc("get_public_quote", {
+      p_quote_number: routeQuoteNumber ?? null,
+      p_quote_id: routeId ?? null,
+    });
 
-    if (routeQuoteNumber) {
-      // Lookup amigável por número da proposta — pega a versão mais recente
-      const q = await supabase
-        .from("quotes")
-        .select(
-          "id, quote_number, client, product, value, status, date, validity, discount_value, discount_type, payment_method, options, version, is_locked",
-        )
-        .eq("quote_number", routeQuoteNumber)
-        .order("version", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      quoteRow = (q.data as QuoteRow | null) ?? null;
-    } else if (routeId) {
-      const q = await supabase
-        .from("quotes")
-        .select(
-          "id, quote_number, client, product, value, status, date, validity, discount_value, discount_type, payment_method, options, version, is_locked",
-        )
-        .eq("id", routeId)
-        .maybeSingle();
-      quoteRow = (q.data as QuoteRow | null) ?? null;
-    }
-
-    if (!quoteRow) {
+    if (error || !data) {
       setNotFound(true);
       return;
     }
 
-    const [m, l, cv] = await Promise.all([
-      supabase
-        .from("quote_materials")
-        .select("id, description, quantity, unit_price, sort_order, status, approved_at, approved_value, parent_item_id, generated_title, reference, tier_group_id")
-        .eq("quote_id", quoteRow.id)
-        .is("parent_item_id", null)
-        .order("sort_order"),
-      supabase
-        .from("quote_labor_steps")
-        .select("id, description, time_minutes, sort_order, parent_item_id")
-        .eq("quote_id", quoteRow.id)
-        .order("sort_order"),
-      supabase
-        .from("cv_quote_items")
-        .select("id, material_nome, printer_nome, largura_cm, altura_cm, quantidade, preco_total, tem_emenda, aplicou_minimo, sort_order, finishes_json")
-        .eq("quote_id", quoteRow.id)
-        .order("sort_order"),
-    ]);
+    const payload = data as unknown as {
+      quote: QuoteRow;
+      materials: MaterialRow[];
+      labor: LaborRow[];
+      cv_items: unknown[];
+    };
 
-    setQuote(quoteRow);
-    setMaterials((m.data || []) as MaterialRow[]);
-    setLabor((l.data || []) as LaborRow[]);
-    setCvItems((cv.data || []) as unknown as CvItemRow[]);
+    setQuote(payload.quote);
+    setMaterials(payload.materials || []);
+    setLabor(payload.labor || []);
+    setCvItems((payload.cv_items || []) as unknown as CvItemRow[]);
   };
+
 
   useEffect(() => {
     if (!routeId && !routeQuoteNumber) return;
