@@ -32,6 +32,7 @@ export function ClientCombobox({ value, onChange }: Props) {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<ClientOption | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Hydrate selected when an id is present and we have it in results / fetch direct
