@@ -3,6 +3,7 @@
 // Acionada por cron diário (Seg–Sex 09:00 BRT) e também manualmente para testes.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
+import { isServiceRoleRequest, isCronSecretRequest } from "../_shared/admin-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
