@@ -381,10 +381,10 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
 
       {/* Face — cards selecionáveis */}
       <Field label="Face de impressão">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-muted/30 p-0.5">
           {([
             { key: "frente", icon: FileText, title: "Frente", hint: "1 face de impressão" },
-            { key: "fv", icon: Files, title: "Frente e Verso", hint: "2 faces · custo ~2x" },
+            { key: "fv", icon: Files, title: "F/V", hint: "Frente e Verso · custo ~2x" },
           ] as const).map((opt) => {
             const Icon = opt.icon;
             const selected = face === opt.key;
@@ -393,26 +393,17 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
                 key={opt.key}
                 type="button"
                 onClick={() => setFace(opt.key)}
+                aria-pressed={selected}
+                title={`${opt.title} — ${opt.hint}`}
                 className={cn(
-                  "relative rounded-lg border-2 p-3 text-left transition-all",
+                  "inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-sm text-xs font-medium transition-all",
                   selected
-                    ? "border-primary bg-primary/5 shadow-sm"
-                    : "border-border bg-background hover:border-primary/40 hover:bg-muted/30",
+                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/60",
                 )}
               >
-                <div className="flex items-start gap-3">
-                  <Icon
-                    className={cn(
-                      "h-5 w-5 mt-0.5 shrink-0",
-                      selected ? "text-primary" : "text-muted-foreground",
-                    )}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold leading-tight">{opt.title}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">{opt.hint}</p>
-                  </div>
-                  {selected && <Check className="h-4 w-4 text-primary shrink-0" />}
-                </div>
+                <Icon className={cn("h-3.5 w-3.5 shrink-0", selected && "text-primary")} />
+                <span className="truncate">{opt.title}</span>
               </button>
             );
           })}

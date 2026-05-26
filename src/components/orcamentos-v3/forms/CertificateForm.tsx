@@ -475,7 +475,7 @@ export function CertificateForm({
       </Field>
 
       <Field label="Face de impressão">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-md border border-border bg-muted/30 p-0.5">
           {faceOptions.map((opt) => {
             const Icon = opt.icon;
             const selected = face === opt.key;
@@ -486,31 +486,21 @@ export function CertificateForm({
                 type="button"
                 disabled={disabled}
                 onClick={() => !disabled && setFace(opt.key)}
-                title={disabled ? "Cadastre um item Couchê 210g A4 PB para liberar esta opção" : undefined}
+                aria-pressed={selected}
+                title={
+                  disabled
+                    ? "Cadastre um item Couchê 210g A4 PB para liberar esta opção"
+                    : `${opt.title} — ${opt.hint}`
+                }
                 className={cn(
-                  "relative rounded-lg border-2 p-3 text-left transition-all",
-                  disabled && "opacity-50 cursor-not-allowed",
-                  !disabled && selected && "border-primary bg-primary/5 shadow-sm",
-                  !disabled && !selected && "border-border bg-background hover:border-primary/40 hover:bg-muted/30",
-                  disabled && "border-border bg-background",
+                  "inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-sm text-xs font-medium transition-all",
+                  disabled && "opacity-50 cursor-not-allowed text-muted-foreground",
+                  !disabled && selected && "bg-background text-foreground shadow-sm ring-1 ring-border",
+                  !disabled && !selected && "text-muted-foreground hover:text-foreground hover:bg-background/60",
                 )}
               >
-                <div className="flex items-start gap-3">
-                  <Icon
-                    className={cn(
-                      "h-5 w-5 mt-0.5 shrink-0",
-                      selected && !disabled ? "text-primary" : "text-muted-foreground",
-                    )}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold leading-tight">{opt.title}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {opt.hint}
-                      {disabled && " · PB não cadastrado"}
-                    </p>
-                  </div>
-                  {selected && !disabled && <Check className="h-4 w-4 text-primary shrink-0" />}
-                </div>
+                <Icon className={cn("h-3.5 w-3.5 shrink-0", !disabled && selected && "text-primary")} />
+                <span className="truncate">{opt.title}</span>
               </button>
             );
           })}
