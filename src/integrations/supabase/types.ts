@@ -2347,6 +2347,7 @@ export type Database = {
           created_at: string
           equipment_id: string | null
           equipment_mode: string
+          fv_exception: boolean
           grammage: string | null
           id: string
           is_active: boolean
@@ -2365,6 +2366,7 @@ export type Database = {
           created_at?: string
           equipment_id?: string | null
           equipment_mode?: string
+          fv_exception?: boolean
           grammage?: string | null
           id?: string
           is_active?: boolean
@@ -2383,6 +2385,7 @@ export type Database = {
           created_at?: string
           equipment_id?: string | null
           equipment_mode?: string
+          fv_exception?: boolean
           grammage?: string | null
           id?: string
           is_active?: boolean
