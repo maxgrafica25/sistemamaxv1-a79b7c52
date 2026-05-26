@@ -96,27 +96,45 @@ export function ClientCombobox({ value, onChange }: Props) {
   if (selected && selected.id === value.id) {
     const meta = [selected.empresa, selected.telefone].filter(Boolean).join(" · ");
     return (
-      <div
-        className="flex h-9 items-center gap-2 rounded-md border border-input bg-background px-2"
-        title={meta || undefined}
-      >
-        <User className="h-3.5 w-3.5 text-primary shrink-0" />
-        <span className="flex-1 min-w-0 text-sm font-medium truncate">{selected.nome}</span>
-        {selected.tipo && (
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
-            {selected.tipo}
-          </Badge>
-        )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={handleClear}
-          className="h-7 px-2 text-xs"
+      <>
+        <div
+          className="flex h-9 items-center gap-1.5 rounded-md border border-input bg-background pl-2 pr-1"
+          title={meta || undefined}
         >
-          <X className="h-3.5 w-3.5 mr-1" /> Trocar
-        </Button>
-      </div>
+          <User className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="flex-1 min-w-0 text-sm font-medium truncate">{selected.nome}</span>
+          {selected.tipo && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+              {selected.tipo}
+            </Badge>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setDetailsOpen(true)}
+            className="h-7 w-7"
+            title="Ver dados do cliente"
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={handleClear}
+            className="h-7 w-7"
+            title="Trocar cliente"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <ClientDetailsDialog
+          clientId={selected.id}
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
+        />
+      </>
     );
   }
 
