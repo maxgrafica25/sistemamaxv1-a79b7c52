@@ -67,3 +67,49 @@ export async function logAdminOperation(
     console.error("[admin-client] logAdminOperation threw:", e);
   }
 }
+
+/**
+ * Verifica se o Authorization header carrega a SERVICE_ROLE_KEY (cron/admin interno).
+ * Use para gatear edge functions que NÃO devem ser chamáveis pela internet
+ * (ex.: cron jobs, scrapers privilegiados).
+ */
+export function isServiceRoleRequest(req: Request): boolean {
+  const auth = req.headers.get("Authorization") || req.headers.get("authorization") || "";
+  const token = auth.replace(/^Bearer\s+/i, "").trim();
+  return !!token && token === SERVICE_ROLE_KEY;
+}
+
+/**
+ * Verifica se o Authorization header corresponde ao CRON_SECRET configurado.
+ * Permite chamadas externas autenticadas via shared-secret (pg_cron, webhooks internos).
+ */
+export function isCronSecretRequest(req: Request): boolean {
+  const secret = Deno.env.get("CRON_SECRET");
+  if (!secret) return false;
+  const auth = req.headers.get("Authorization") || req.headers.get("authorization") || "";
+  const token = auth.replace(/^Bearer\s+/i, "").trim();
+  return !!token && token === secret;
+}
+
+/**
+ * Valida que o caller é um usuário autenticado admin. Retorna o user_id ou null.
+ */
+export async function getAdminUserId(req: Request): Promise<string | null> {
+  const auth = req.headers.get("Authorization") || req.headers.get("authorization") || "";
+  const token = auth.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return null;
+  try {
+    const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: claims } = await userClient.auth.getClaims(token);
+    const uid = claims?.claims?.sub;
+    if (!uid) return null;
+    const { data: isAdmin } = await userClient.rpc("is_profile_admin", { _user_id: uid });
+    return isAdmin === true ? uid : null;
+  } catch (_e) {
+    return null;
+  }
+}
+

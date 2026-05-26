@@ -3,6 +3,7 @@
 // Acionada por cron diário (Seg–Sex 09:00 BRT) e também manualmente para testes.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
+import { isServiceRoleRequest, isCronSecretRequest } from "../_shared/admin-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -286,6 +287,13 @@ export async function notifyOverdueReadings(supabase: any, gaps: OverdueGap[]) {
 // ─── Handler principal ────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (!isServiceRoleRequest(req) && !isCronSecretRequest(req)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
 
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
