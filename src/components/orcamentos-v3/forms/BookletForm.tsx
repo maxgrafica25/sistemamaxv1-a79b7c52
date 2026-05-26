@@ -21,6 +21,12 @@ import { pickFinishingTier } from "@/lib/labels/finishing-pricing";
 import { useV3HourlyRate } from "../shared/useV3HourlyRate";
 import { getIdealSpiral } from "@/lib/quotes/spiral-selector";
 import { genId, type V3BookletItem, type V3Item, type V3LaborItem } from "../types";
+import {
+  SideChoiceToggle,
+  filterItemsBySideChoice,
+  shouldClearOnSideChange,
+  type SideChoice,
+} from "../shared/SideChoiceToggle";
 import { ProductKitPanel } from "./ProductKitPanel";
 import { BookletKitPanel, type BookletKitApplyMeta } from "./BookletKitPanel";
 import { buildBookletBundleLabel } from "../shared/buildBookletBundleLabel";
