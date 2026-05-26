@@ -73,7 +73,7 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [globalLoading]);
   const { hourRate } = useHourRate();
-  const { companyName } = useCompanySettings();
+  const { companyName, publicBaseUrl } = useCompanySettings();
   const [clientPhone, setClientPhone] = useState<string | null>(null);
 
   useEffect(() => {
