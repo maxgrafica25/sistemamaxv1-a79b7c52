@@ -253,7 +253,7 @@ export default function OrcamentosV3() {
   };
 
   const handleCopyPublicLink = (quoteNumber: string) => {
-    copyPublicQuoteLink(quoteNumber);
+    copyPublicQuoteLink(quoteNumber, publicBaseUrl);
   };
 
   const handleGeneratePDF = (q: QuoteRow) => {
