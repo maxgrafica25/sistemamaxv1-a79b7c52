@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronsUpDown, Plus, Search, User, X } from "lucide-react";
+import { Check, ChevronsUpDown, Copy, Eye, MessageCircle, Pencil, Plus, Search, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
