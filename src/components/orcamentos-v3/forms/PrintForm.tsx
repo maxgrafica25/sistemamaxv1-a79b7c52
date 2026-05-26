@@ -17,6 +17,12 @@ import { genId, type V3PrintItem, type V3LaborItem, type V3Item } from "../types
 import { listFinishings, sumFinishingsPerSheet, type FinishingItem } from "@/lib/finishings/catalog";
 import { resolveFinishingPricePerSheet, pickFinishingTier } from "@/lib/labels/finishing-pricing";
 import { useV3HourlyRate } from "../shared/useV3HourlyRate";
+import {
+  SideChoiceToggle,
+  filterItemsBySideChoice,
+  shouldClearOnSideChange,
+  type SideChoice,
+} from "../shared/SideChoiceToggle";
 
 interface Props {
   onAdd: (item: V3PrintItem) => void;
@@ -239,11 +245,21 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     if (sibling) setCatalog(sibling);
   }, [sideChoice, catalog, items]);
 
-  // Filtra catálogo conforme o lado escolhido (esconde F/V quando "Frente").
+  // Filtra catálogo conforme o lado escolhido.
+  // - "Frente": esconde itens cadastrados como F/V.
+  // - "F/V":    mostra apenas itens F/V, mais os marcados como exceção F/V (ex.: Sulfite 75g A4).
   const filteredItems = useMemo(
-    () => (sideChoice === "Frente" ? items.filter((it) => it.side !== "F/V") : items),
+    () => filterItemsBySideChoice(items, sideChoice),
     [items, sideChoice],
   );
+
+  // Trocar o lado: se o papel atual deixar de ser compatível, limpa a seleção.
+  const changeSide = (next: SideChoice) => {
+    setSideChoice(next);
+    if (shouldClearOnSideChange(catalog, next)) {
+      setCatalog(null);
+    }
+  };
 
   const canAdd = !!catalog && quantidade > 0 && (pricing?.sellingPrice ?? 0) > 0;
 
