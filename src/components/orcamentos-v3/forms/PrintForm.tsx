@@ -59,7 +59,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
   const controlledDescricao = onDescricaoChange !== undefined;
-  const [quantidade, setQuantidade] = useState(emptyDefaults ? 0 : 100);
+  const [quantidade, setQuantidade] = useState(0);
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
