@@ -141,7 +141,14 @@ async function processItem(admin: any, item: any): Promise<void> {
   await admin.from("gcal_sync_queue").update({ processed_at: new Date().toISOString() }).eq("id", item.id);
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (!isServiceRoleRequest(req) && !isCronSecretRequest(req)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
   const { data: items, error } = await admin
     .from("gcal_sync_queue")
