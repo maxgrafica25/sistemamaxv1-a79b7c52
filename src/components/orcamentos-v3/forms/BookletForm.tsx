@@ -453,6 +453,7 @@ export function BookletForm({
             type="number"
             min={1}
             value={bookletPages || ""}
+            placeholder="Ex: 20 folhas"
             onChange={(e) => setBookletPages(Math.max(0, Number(e.target.value) || 0))}
             className="h-9"
           />
@@ -462,6 +463,7 @@ export function BookletForm({
             type="number"
             min={1}
             value={bookletUnits || ""}
+            placeholder="Ex: 10 apostilas"
             onChange={(e) => setBookletUnits(Math.max(0, Number(e.target.value) || 0))}
             className="h-9"
           />
