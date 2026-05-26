@@ -33,9 +33,31 @@ interface Props {
   defaultMarginPct?: number;
   descricao?: string;
   onDescricaoChange?: (v: string) => void;
+  /** Papel padrão (nome + gramatura + lado) para auto-selecionar um item do catálogo. */
+  defaultPaperHint?: { name: string; grammage?: string | null; side?: string | null } | null;
+  /** Ids de acabamentos para pré-marcar (uma vez) ao carregar. */
+  preselectedFinishings?: string[];
 }
 
-export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20, descricao: descricaoProp, onDescricaoChange }: Props) {
+const normalizeText = (s: string | null | undefined) =>
+  (s ?? "")
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "")
+    .trim();
+
+export function BookletForm({
+  onAdd,
+  onAddMany,
+  onAddTiers,
+  defaultMarginPct = 20,
+  descricao: descricaoProp,
+  onDescricaoChange,
+  defaultPaperHint,
+  preselectedFinishings,
+}: Props) {
   const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
@@ -43,9 +65,11 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
   const controlledDescricao = onDescricaoChange !== undefined;
-  const [bookletPages, setBookletPages] = useState<number>(20);
-  const [bookletUnits, setBookletUnits] = useState<number>(10);
-  const [sideChoice, setSideChoice] = useState<"Frente" | "F/V">("F/V");
+  const [bookletPages, setBookletPages] = useState<number>(0);
+  const [bookletUnits, setBookletUnits] = useState<number>(0);
+  const [sideChoice, setSideChoice] = useState<"Frente" | "F/V">(
+    defaultPaperHint?.side === "F/V" ? "F/V" : "F/V",
+  );
   const duplex = sideChoice === "F/V";
   const [pulse, setPulse] = useState(false);
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
