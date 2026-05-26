@@ -365,6 +365,20 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
             defaultMarginPct={defaultMarginPct}
             descricao={descricao}
             onDescricaoChange={setDescricao}
+            defaultPaperHint={
+              selectedPreset?.papel_default_nome
+                ? {
+                    name: selectedPreset.papel_default_nome,
+                    grammage: selectedPreset.papel_default_grammage,
+                    side: selectedPreset.side_default,
+                  }
+                : null
+            }
+            preselectedFinishings={
+              selectedPreset?.preselect_acabamentos
+                ? selectedPreset.acabamentos_sugeridos
+                : undefined
+            }
           />
         )}
         {!treatAsBusinessCard && !isCustom && formTipo === "label" && (

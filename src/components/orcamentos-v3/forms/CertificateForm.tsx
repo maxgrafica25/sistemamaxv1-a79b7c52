@@ -116,14 +116,19 @@ export function CertificateForm({
 
   const hasPb = pbItems.length > 0;
 
+  const wantSide: "Frente" | "F/V" = face === "frente" || face === "mix" ? "Frente" : "F/V";
+
   const colorBase: PrintingCatalogItem | null = useMemo(() => {
     if (colorItems.length === 0) return null;
     if (selectedColorId) {
       const s = colorItems.find((c) => c.id === selectedColorId);
       if (s) return s;
     }
-    return colorItems[0];
-  }, [colorItems, selectedColorId]);
+    const exact = colorItems.find(
+      (c) => (c.side || "").toLowerCase() === wantSide.toLowerCase(),
+    );
+    return exact ?? colorItems[0];
+  }, [colorItems, selectedColorId, wantSide]);
 
   const pbBase: PrintingCatalogItem | null = useMemo(() => {
     if (pbItems.length === 0) return null;
@@ -131,8 +136,13 @@ export function CertificateForm({
       const s = pbItems.find((c) => c.id === selectedPbId);
       if (s) return s;
     }
-    return pbItems[0];
-  }, [pbItems, selectedPbId]);
+    // No mix, o verso PB é Frente; em fv_pb queremos F/V.
+    const pbWantSide: "Frente" | "F/V" = face === "fv_pb" ? "F/V" : "Frente";
+    const exact = pbItems.find(
+      (c) => (c.side || "").toLowerCase() === pbWantSide.toLowerCase(),
+    );
+    return exact ?? pbItems[0];
+  }, [pbItems, selectedPbId, face]);
 
   // Item efetivo principal por face (usado para gravar catalog_item_id, printer_cat, etc.)
   const primaryItem: PrintingCatalogItem | null = useMemo(() => {
@@ -422,12 +432,20 @@ export function CertificateForm({
               <p className="text-sm font-medium truncate">
                 {primaryItem.paper_type}
                 {primaryItem.grammage ? ` ${primaryItem.grammage}` : ""} — {primaryItem.size}
+                {primaryItem.side ? ` · ${primaryItem.side}` : ""}
               </p>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[11px] text-muted-foreground">
                   {primaryItem.category_name}
                   {(primaryItem.equipment_mode || "color") === "pb" ? " (PB)" : ""}
                 </span>
+                {(face === "fv" || face === "fv_pb") &&
+                  (face === "fv" ? colorBase : pbBase) &&
+                  ((face === "fv" ? colorBase!.side : pbBase!.side) || "").toUpperCase() !== "F/V" && (
+                    <Badge variant="outline" className="h-4 text-[10px] px-1.5">
+                      F/V calculado (2×)
+                    </Badge>
+                  )}
                 {pricingPrimary?.tierLabel && (
                   <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
                     {pricingPrimary.tierLabel}

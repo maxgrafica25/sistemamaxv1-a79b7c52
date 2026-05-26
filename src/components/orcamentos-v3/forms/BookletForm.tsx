@@ -2,7 +2,7 @@
 // Encadernação (Kit Espiral/Wire-O/Grampo) é tratada como acabamento agregado
 // (mão-de-obra avulsa) — pode ser adicionada via aba "Mão-de-obra" enquanto a
 // integração total com spiral-selector é portada em fase posterior.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,9 +33,31 @@ interface Props {
   defaultMarginPct?: number;
   descricao?: string;
   onDescricaoChange?: (v: string) => void;
+  /** Papel padrão (nome + gramatura + lado) para auto-selecionar um item do catálogo. */
+  defaultPaperHint?: { name: string; grammage?: string | null; side?: string | null } | null;
+  /** Ids de acabamentos para pré-marcar (uma vez) ao carregar. */
+  preselectedFinishings?: string[];
 }
 
-export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 20, descricao: descricaoProp, onDescricaoChange }: Props) {
+const normalizeText = (s: string | null | undefined) =>
+  (s ?? "")
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "")
+    .trim();
+
+export function BookletForm({
+  onAdd,
+  onAddMany,
+  onAddTiers,
+  defaultMarginPct = 20,
+  descricao: descricaoProp,
+  onDescricaoChange,
+  defaultPaperHint,
+  preselectedFinishings,
+}: Props) {
   const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
@@ -43,9 +65,11 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
   const controlledDescricao = onDescricaoChange !== undefined;
-  const [bookletPages, setBookletPages] = useState<number>(20);
-  const [bookletUnits, setBookletUnits] = useState<number>(10);
-  const [sideChoice, setSideChoice] = useState<"Frente" | "F/V">("F/V");
+  const [bookletPages, setBookletPages] = useState<number>(0);
+  const [bookletUnits, setBookletUnits] = useState<number>(0);
+  const [sideChoice, setSideChoice] = useState<"Frente" | "F/V">(
+    defaultPaperHint?.side === "F/V" ? "F/V" : "F/V",
+  );
   const duplex = sideChoice === "F/V";
   const [pulse, setPulse] = useState(false);
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
@@ -57,6 +81,48 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
       .then(setPrintFinishings)
       .catch(() => setPrintFinishings([]));
   }, []);
+
+  // Auto-pick do papel padrão (uma vez) quando o preset define defaultPaperHint.
+  const didAutoPickPaper = useRef(false);
+  useEffect(() => {
+    if (didAutoPickPaper.current) return;
+    if (!defaultPaperHint?.name) return;
+    if (!items || items.length === 0) return;
+    const wantName = normalizeText(defaultPaperHint.name);
+    const wantGram = normalizeText(defaultPaperHint.grammage);
+    const wantSide = (defaultPaperHint.side || "").toLowerCase();
+    const candidates = items.filter((it) => {
+      const okName = wantName ? normalizeText(it.paper_type).includes(wantName) : true;
+      const okGram = wantGram ? normalizeText(it.grammage).includes(wantGram) : true;
+      return okName && okGram;
+    });
+    if (candidates.length === 0) return;
+    const exactSide = wantSide
+      ? candidates.find((c) => (c.side || "").toLowerCase() === wantSide)
+      : undefined;
+    setCatalog(exactSide ?? candidates[0]);
+    if (wantSide === "f/v") setSideChoice("F/V");
+    else if (wantSide === "frente") setSideChoice("Frente");
+    didAutoPickPaper.current = true;
+  }, [items, defaultPaperHint]);
+
+  // Pré-marcação dos acabamentos sugeridos do preset (uma única vez).
+  const didPreselectFinishings = useRef(false);
+  useEffect(() => {
+    if (didPreselectFinishings.current) return;
+    if (!preselectedFinishings || preselectedFinishings.length === 0) return;
+    if (!printFinishings || printFinishings.length === 0) return;
+    const wanted = new Set(preselectedFinishings.map((s) => s.toLowerCase()));
+    const next: Record<string, boolean> = {};
+    for (const f of printFinishings) {
+      if (wanted.has(f.id) || wanted.has(f.name.toLowerCase())) {
+        next[f.id] = true;
+      }
+    }
+    if (Object.keys(next).length === 0) return;
+    setFinEnabled((m) => ({ ...m, ...next }));
+    didPreselectFinishings.current = true;
+  }, [printFinishings, preselectedFinishings]);
 
   // Folhas físicas = páginas-folha por apostila × nº apostilas.
   // (Se F/V, cada folha = 2 lados; o miolo é cobrado por folha física impressa.)
@@ -387,6 +453,7 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
             type="number"
             min={1}
             value={bookletPages || ""}
+            placeholder="Ex: 20 folhas"
             onChange={(e) => setBookletPages(Math.max(0, Number(e.target.value) || 0))}
             className="h-9"
           />
@@ -396,6 +463,7 @@ export function BookletForm({ onAdd, onAddMany, onAddTiers, defaultMarginPct = 2
             type="number"
             min={1}
             value={bookletUnits || ""}
+            placeholder="Ex: 10 apostilas"
             onChange={(e) => setBookletUnits(Math.max(0, Number(e.target.value) || 0))}
             className="h-9"
           />
