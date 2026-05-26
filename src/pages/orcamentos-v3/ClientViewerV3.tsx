@@ -131,7 +131,7 @@ export default function ClientViewer() {
       return;
     }
 
-    const payload = data as {
+    const payload = data as unknown as {
       quote: QuoteRow;
       materials: MaterialRow[];
       labor: LaborRow[];
