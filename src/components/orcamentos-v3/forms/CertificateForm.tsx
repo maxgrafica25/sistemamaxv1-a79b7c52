@@ -1,14 +1,14 @@
 // Sub-formulário: Certificado (built-in).
 // - Papel: Couchê 210g A4 (auto-detectado no catálogo).
 // - 1 certificado = 1 folha. Quantidade em unidades.
-// - Face: Frente color (padrão), F/V color, F color + V PB (mix), F/V PB.
+// - Lados: Só Frente ou Frente x Verso (filtra catálogo pelo lado).
 // - Acabamentos do Kit de Produto "certificado" (padrão CV).
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Check, FileText, Files, FileMinus, Plus, Printer } from "lucide-react";
+import { Check, FileText, Files, Plus, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   FinishingProgressive,
@@ -29,7 +29,7 @@ interface Props {
   onDescricaoChange?: (v: string) => void;
 }
 
-type FaceKey = "frente" | "fv" | "mix" | "fv_pb";
+type FaceKey = "frente" | "fv";
 
 const isA4 = (size: string | null | undefined) =>
   /^\s*a4\s*$|21[.,]?0?.*29[.,]?7|29[.,]?7.*21[.,]?0?/i.test(size || "");
@@ -39,12 +39,11 @@ const isCouche210 = (
   gram: string | null | undefined,
 ) => /couch/i.test(paperType || "") && /210/.test(gram || "");
 
-/** Devolve uma cópia do item com o `side` desejado para o engine aplicar o multiplicador. */
-const withSide = (it: PrintingCatalogItem, side: "Frente" | "F/V"): PrintingCatalogItem => {
-  const cur = (it.side || "").toUpperCase();
-  if (side === "F/V" && cur !== "F/V") return { ...it, side: "F/V" };
-  if (side === "Frente" && cur === "F/V") return { ...it, side: "Frente" };
-  return it;
+const sideMatches = (itemSide: string | null | undefined, face: FaceKey) => {
+  const s = (itemSide || "").toUpperCase().trim();
+  if (face === "fv") return s === "F/V";
+  // "frente" — aceita apenas itens marcados como "Frente" (Só Frente)
+  return s === "FRENTE" || s === "" || s === "SÓ FRENTE" || s === "SO FRENTE";
 };
 
 export function CertificateForm({
@@ -63,7 +62,6 @@ export function CertificateForm({
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
-  const [selectedPbId, setSelectedPbId] = useState<string | null>(null);
 
   const { steps } = useProductKitProcesses("certificado");
   const { hourRate } = useHourRate();
@@ -92,8 +90,8 @@ export function CertificateForm({
   const fixedProcs = useMemo(() => procs.filter((p) => p.link_type === "fixed"), [procs]);
   const optionalProcs = useMemo(() => procs.filter((p) => p.link_type === "optional"), [procs]);
 
-  // Candidatos — separados por modo
-  const colorItems = useMemo(
+  // Todos os itens Couchê 210g A4 color (qualquer lado) — usado p/ detectar disponibilidade
+  const allColorItems = useMemo(
     () =>
       items.filter(
         (it) =>
@@ -103,59 +101,31 @@ export function CertificateForm({
       ),
     [items],
   );
-  const pbItems = useMemo(
-    () =>
-      items.filter(
-        (it) =>
-          isCouche210(it.paper_type, it.grammage) &&
-          isA4(it.size) &&
-          (it.equipment_mode || "color") === "pb",
-      ),
-    [items],
+
+  // Itens filtrados pelo lado escolhido
+  const colorItems = useMemo(
+    () => allColorItems.filter((it) => sideMatches(it.side, face)),
+    [allColorItems, face],
   );
 
-  const hasPb = pbItems.length > 0;
+  // Reset seleção quando muda o lado e o item selecionado não pertence ao novo lado
+  useEffect(() => {
+    if (selectedColorId && !colorItems.find((c) => c.id === selectedColorId)) {
+      setSelectedColorId(null);
+    }
+  }, [colorItems, selectedColorId]);
 
-  const wantSide: "Frente" | "F/V" = face === "frente" || face === "mix" ? "Frente" : "F/V";
-
-  const colorBase: PrintingCatalogItem | null = useMemo(() => {
+  const primaryItem: PrintingCatalogItem | null = useMemo(() => {
     if (colorItems.length === 0) return null;
     if (selectedColorId) {
       const s = colorItems.find((c) => c.id === selectedColorId);
       if (s) return s;
     }
-    const exact = colorItems.find(
-      (c) => (c.side || "").toLowerCase() === wantSide.toLowerCase(),
-    );
-    return exact ?? colorItems[0];
-  }, [colorItems, selectedColorId, wantSide]);
-
-  const pbBase: PrintingCatalogItem | null = useMemo(() => {
-    if (pbItems.length === 0) return null;
-    if (selectedPbId) {
-      const s = pbItems.find((c) => c.id === selectedPbId);
-      if (s) return s;
-    }
-    // No mix, o verso PB é Frente; em fv_pb queremos F/V.
-    const pbWantSide: "Frente" | "F/V" = face === "fv_pb" ? "F/V" : "Frente";
-    const exact = pbItems.find(
-      (c) => (c.side || "").toLowerCase() === pbWantSide.toLowerCase(),
-    );
-    return exact ?? pbItems[0];
-  }, [pbItems, selectedPbId, face]);
-
-  // Item efetivo principal por face (usado para gravar catalog_item_id, printer_cat, etc.)
-  const primaryItem: PrintingCatalogItem | null = useMemo(() => {
-    if (face === "fv_pb") return pbBase ? withSide(pbBase, "F/V") : null;
-    if (!colorBase) return null;
-    if (face === "fv") return withSide(colorBase, "F/V");
-    // frente e mix usam o color como item principal (verso PB entra como custo extra)
-    return withSide(colorBase, "Frente");
-  }, [face, colorBase, pbBase]);
+    return colorItems[0];
+  }, [colorItems, selectedColorId]);
 
   const sheets = qtd; // 1 cert = 1 folha A4
 
-  // Pricing principal
   const pricingPrimary = useMemo(
     () =>
       primaryItem && sheets > 0
@@ -164,23 +134,8 @@ export function CertificateForm({
     [primaryItem, tiers, sheets],
   );
 
-  // Pricing do verso PB para o mix (Frente PB, soma ao principal color Frente)
-  const pricingMixPb = useMemo(() => {
-    if (face !== "mix" || !pbBase || sheets <= 0) return null;
-    return pricePerSheet(withSide(pbBase, "Frente"), tiers, sheets);
-  }, [face, pbBase, tiers, sheets]);
-
-  const baseSellingPerSheet = useMemo(() => {
-    const a = pricingPrimary?.sellingPrice ?? 0;
-    const b = pricingMixPb?.sellingPrice ?? 0;
-    return a + b;
-  }, [pricingPrimary, pricingMixPb]);
-
-  const baseCostPerSheet = useMemo(() => {
-    const a = pricingPrimary?.baseCost ?? 0;
-    const b = pricingMixPb?.baseCost ?? 0;
-    return a + b;
-  }, [pricingPrimary, pricingMixPb]);
+  const baseSellingPerSheet = pricingPrimary?.sellingPrice ?? 0;
+  const baseCostPerSheet = pricingPrimary?.baseCost ?? 0;
 
   const procCost = (minutes: number) => {
     const m = Number.isFinite(minutes) ? minutes : 0;
@@ -251,13 +206,6 @@ export function CertificateForm({
     });
   }, [procs]);
 
-  // Se usuário escolher face PB mas não houver item PB, força fallback para frente
-  useEffect(() => {
-    if ((face === "fv_pb" || face === "mix") && !hasPb) {
-      setFace("frente");
-    }
-  }, [face, hasPb]);
-
   const selectedProcs = useMemo(
     () => procs.filter((p) => finEnabled[p.key]),
     [procs, finEnabled],
@@ -273,14 +221,11 @@ export function CertificateForm({
   const precoPorUnidade = qtd > 0 ? totalGeral / qtd : 0;
 
   const canAdd =
-    !!primaryItem && qtd > 0 && sheets > 0 && baseSellingPerSheet > 0 &&
-    (face !== "mix" || !!pbBase);
+    !!primaryItem && qtd > 0 && sheets > 0 && baseSellingPerSheet > 0;
 
   const faceLabelMap: Record<FaceKey, string> = {
-    frente: "Frente",
-    fv: "Frente e Verso",
-    mix: "Frente color + Verso PB",
-    fv_pb: "Frente e Verso PB",
+    frente: "Só Frente",
+    fv: "Frente x Verso",
   };
 
   const submit = async () => {
@@ -352,33 +297,21 @@ export function CertificateForm({
     icon: typeof FileText;
     title: string;
     hint: string;
-    requiresPb?: boolean;
   }[] = [
-    { key: "frente", icon: FileText, title: "Frente", hint: "1 face colorida" },
-    { key: "fv", icon: Files, title: "Frente e Verso", hint: "2 faces coloridas · custo ~2x" },
-    {
-      key: "mix",
-      icon: FileText,
-      title: "F color + V P&B",
-      hint: "Frente colorida, verso em preto e branco",
-      requiresPb: true,
-    },
-    {
-      key: "fv_pb",
-      icon: FileMinus,
-      title: "Frente e Verso (P&B)",
-      hint: "2 faces preto e branco · custo ~2x",
-      requiresPb: true,
-    },
+    { key: "frente", icon: FileText, title: "Só Frente", hint: "1 face colorida" },
+    { key: "fv", icon: Files, title: "Frente x Verso", hint: "2 faces coloridas" },
   ];
+
+  const emptyMsg =
+    face === "frente"
+      ? "Nenhum item de impressão Couchê 210g A4 Só Frente cadastrado."
+      : "Nenhum item de impressão Couchê 210g A4 Frente x Verso cadastrado.";
 
   return (
     <div className="space-y-5 flex-1 flex flex-col">
       {colorItems.length === 0 && !loading && (
         <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-4 text-center">
-          <p className="text-xs text-muted-foreground">
-            Nenhum item de impressão <strong>Couchê 210g</strong> em <strong>A4</strong> (color) cadastrado.
-          </p>
+          <p className="text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: emptyMsg.replace(/(Couchê 210g|Só Frente|Frente x Verso|A4)/g, '<strong>$1</strong>') }} />
           <a
             href="/preco-impressao"
             target="_blank"
@@ -390,32 +323,26 @@ export function CertificateForm({
         </div>
       )}
 
-      <Field label="Face de impressão">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-md border border-border bg-muted/30 p-0.5">
+      <Field label="Lados de Impressão">
+        <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-muted/30 p-0.5">
           {faceOptions.map((opt) => {
             const Icon = opt.icon;
             const selected = face === opt.key;
-            const disabled = !!opt.requiresPb && !hasPb;
             return (
               <button
                 key={opt.key}
                 type="button"
-                disabled={disabled}
-                onClick={() => !disabled && setFace(opt.key)}
+                onClick={() => setFace(opt.key)}
                 aria-pressed={selected}
-                title={
-                  disabled
-                    ? "Cadastre um item Couchê 210g A4 PB para liberar esta opção"
-                    : `${opt.title} — ${opt.hint}`
-                }
+                title={`${opt.title} — ${opt.hint}`}
                 className={cn(
                   "inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-sm text-xs font-medium transition-all",
-                  disabled && "opacity-50 cursor-not-allowed text-muted-foreground",
-                  !disabled && selected && "bg-background text-foreground shadow-sm ring-1 ring-border",
-                  !disabled && !selected && "text-muted-foreground hover:text-foreground hover:bg-background/60",
+                  selected
+                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/60",
                 )}
               >
-                <Icon className={cn("h-3.5 w-3.5 shrink-0", !disabled && selected && "text-primary")} />
+                <Icon className={cn("h-3.5 w-3.5 shrink-0", selected && "text-primary")} />
                 <span className="truncate">{opt.title}</span>
               </button>
             );
@@ -423,9 +350,8 @@ export function CertificateForm({
         </div>
       </Field>
 
-      {/* Header — uma ou duas linhas (color + PB no mix) */}
       {primaryItem && (
-        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 space-y-1.5">
+        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5">
           <div className="flex items-center gap-3">
             <Printer className="h-4 w-4 text-primary shrink-0" />
             <div className="flex-1 min-w-0">
@@ -437,15 +363,7 @@ export function CertificateForm({
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[11px] text-muted-foreground">
                   {primaryItem.category_name}
-                  {(primaryItem.equipment_mode || "color") === "pb" ? " (PB)" : ""}
                 </span>
-                {(face === "fv" || face === "fv_pb") &&
-                  (face === "fv" ? colorBase : pbBase) &&
-                  ((face === "fv" ? colorBase!.side : pbBase!.side) || "").toUpperCase() !== "F/V" && (
-                    <Badge variant="outline" className="h-4 text-[10px] px-1.5">
-                      F/V calculado (2×)
-                    </Badge>
-                  )}
                 {pricingPrimary?.tierLabel && (
                   <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
                     {pricingPrimary.tierLabel}
@@ -453,12 +371,12 @@ export function CertificateForm({
                 )}
               </div>
             </div>
-            {face !== "fv_pb" && colorItems.length > 1 && (
+            {colorItems.length > 1 && (
               <select
-                value={selectedColorId ?? colorBase?.id ?? ""}
+                value={selectedColorId ?? primaryItem.id}
                 onChange={(e) => setSelectedColorId(e.target.value)}
                 className="h-7 text-xs rounded-md border border-border bg-background px-2"
-                title="Mais de um Couchê 210g A4 color cadastrado"
+                title="Mais de um Couchê 210g A4 cadastrado para este lado"
               >
                 {colorItems.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -467,42 +385,7 @@ export function CertificateForm({
                 ))}
               </select>
             )}
-            {face === "fv_pb" && pbItems.length > 1 && (
-              <select
-                value={selectedPbId ?? pbBase?.id ?? ""}
-                onChange={(e) => setSelectedPbId(e.target.value)}
-                className="h-7 text-xs rounded-md border border-border bg-background px-2"
-                title="Mais de um Couchê 210g A4 PB cadastrado"
-              >
-                {pbItems.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.category_name} · {c.side}
-                  </option>
-                ))}
-              </select>
-            )}
           </div>
-          {face === "mix" && pbBase && (
-            <div className="flex items-center gap-3 pl-7">
-              <span className="text-[11px] text-muted-foreground">
-                + verso PB: <span className="text-foreground">{pbBase.category_name}</span>
-                {pricingMixPb?.tierLabel ? ` · ${pricingMixPb.tierLabel}` : ""}
-              </span>
-              {pbItems.length > 1 && (
-                <select
-                  value={selectedPbId ?? pbBase.id}
-                  onChange={(e) => setSelectedPbId(e.target.value)}
-                  className="h-6 text-[11px] rounded-md border border-border bg-background px-1.5 ml-auto"
-                >
-                  {pbItems.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.category_name} · {c.side}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
         </div>
       )}
 
