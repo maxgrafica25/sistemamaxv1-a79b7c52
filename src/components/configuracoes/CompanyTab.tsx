@@ -66,6 +66,11 @@ export default function CompanyTab({ isAdmin }: Props) {
       toast.error("Número de WhatsApp inválido. Inclua DDD + número.");
       return;
     }
+    const baseUrlTrim = form.public_base_url.trim().replace(/\/+$/, "");
+    if (baseUrlTrim && !/^https:\/\/.+/i.test(baseUrlTrim)) {
+      toast.error("A URL pública deve começar com https://");
+      return;
+    }
     setSaving(true);
     const validityNum = Math.max(1, Math.floor(Number(form.default_quote_validity_days) || 15));
     const payload = {
@@ -75,6 +80,7 @@ export default function CompanyTab({ isAdmin }: Props) {
       email: form.email.trim() || null,
       address: form.address.trim() || null,
       default_quote_validity_days: validityNum,
+      public_base_url: baseUrlTrim || null,
     };
     let error;
     if (id) {
