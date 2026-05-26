@@ -323,6 +323,37 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         </div>
       )}
 
+      {/* Face — chips compactos (antes do papel) */}
+      <Field label="Face de impressão">
+        <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-muted/30 p-0.5">
+          {([
+            { key: "frente", icon: FileText, title: "Frente", hint: "1 face de impressão" },
+            { key: "fv", icon: Files, title: "F/V", hint: "Frente e Verso · custo ~2x" },
+          ] as const).map((opt) => {
+            const Icon = opt.icon;
+            const selected = face === opt.key;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setFace(opt.key)}
+                aria-pressed={selected}
+                title={`${opt.title} — ${opt.hint}`}
+                className={cn(
+                  "inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-sm text-xs font-medium transition-all",
+                  selected
+                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/60",
+                )}
+              >
+                <Icon className={cn("h-3.5 w-3.5 shrink-0", selected && "text-primary")} />
+                <span className="truncate">{opt.title}</span>
+              </button>
+            );
+          })}
+        </div>
+      </Field>
+
       {catalog && (
         <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3">
           <Printer className="h-4 w-4 text-primary shrink-0" />
@@ -377,37 +408,6 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
           }}
           className="h-9"
         />
-      </Field>
-
-      {/* Face — cards selecionáveis */}
-      <Field label="Face de impressão">
-        <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-muted/30 p-0.5">
-          {([
-            { key: "frente", icon: FileText, title: "Frente", hint: "1 face de impressão" },
-            { key: "fv", icon: Files, title: "F/V", hint: "Frente e Verso · custo ~2x" },
-          ] as const).map((opt) => {
-            const Icon = opt.icon;
-            const selected = face === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setFace(opt.key)}
-                aria-pressed={selected}
-                title={`${opt.title} — ${opt.hint}`}
-                className={cn(
-                  "inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-sm text-xs font-medium transition-all",
-                  selected
-                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/60",
-                )}
-              >
-                <Icon className={cn("h-3.5 w-3.5 shrink-0", selected && "text-primary")} />
-                <span className="truncate">{opt.title}</span>
-              </button>
-            );
-          })}
-        </div>
       </Field>
 
       {/* Layout editável (colapsado) — no topo por UX, antes do resumo/preço */}
