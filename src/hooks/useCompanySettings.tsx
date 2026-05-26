@@ -50,7 +50,7 @@ export function CompanySettingsProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     const { data: row } = await supabase
       .from("company_settings")
-      .select("id, company_name, whatsapp_number, whatsapp_display, email, address, logo_url, default_quote_validity_days, default_tax_rate, default_loss_margin")
+      .select("id, company_name, whatsapp_number, whatsapp_display, email, address, logo_url, default_quote_validity_days, default_tax_rate, default_loss_margin, public_base_url")
       .limit(1)
       .maybeSingle();
     if (row) {
@@ -65,6 +65,7 @@ export function CompanySettingsProvider({ children }: { children: ReactNode }) {
         defaultQuoteValidityDays: (row as any).default_quote_validity_days ?? 15,
         defaultTaxRate: Number((row as any).default_tax_rate ?? 6),
         defaultLossMargin: Number((row as any).default_loss_margin ?? 3),
+        publicBaseUrl: (row as any).public_base_url ?? "",
       });
     }
     setLoading(false);
