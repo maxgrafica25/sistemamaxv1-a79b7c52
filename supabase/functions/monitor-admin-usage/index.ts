@@ -17,6 +17,13 @@ const BASELINE_WINDOW_HOURS = 24;   // baseline = últimas 24h
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (!isServiceRoleRequest(req) && !isCronSecretRequest(req)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
 
   const supabase = getAdminClient({
     fnName: "monitor-admin-usage",
