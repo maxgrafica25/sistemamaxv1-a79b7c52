@@ -18,17 +18,33 @@ export interface QuotePdfData {
   value: number;
 }
 
+const escapeHtml = (s: unknown) =>
+  String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 export function generateQuotePdf(q: QuotePdfData) {
-  const html = `<html><head><title>Orçamento ${q.quote_number}</title>
+  const numberSafe = escapeHtml(q.quote_number);
+  const clientSafe = escapeHtml(q.client);
+  const productSafe = escapeHtml(q.product);
+  const dateSafe = escapeHtml(
+    new Date(q.date).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+  );
+  const valueSafe = escapeHtml(formatBRL(q.value));
+  const html = `<html><head><title>Orçamento ${numberSafe}</title>
     <style>body{font-family:Arial;padding:40px;color:#333}h1{border-bottom:2px solid #ddd;padding-bottom:10px}.total{font-size:24px;font-weight:bold;text-align:right;margin-top:30px}</style></head>
-    <body><h1>Orçamento Nº ${q.quote_number}</h1>
-    <p><strong>Cliente:</strong> ${q.client}</p>
-    <p><strong>Produto:</strong> ${q.product}</p>
-    <p><strong>Data:</strong> ${new Date(q.date).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
-    <div class="total">VALOR: ${formatBRL(q.value)}</div></body></html>`;
+    <body><h1>Orçamento Nº ${numberSafe}</h1>
+    <p><strong>Cliente:</strong> ${clientSafe}</p>
+    <p><strong>Produto:</strong> ${productSafe}</p>
+    <p><strong>Data:</strong> ${dateSafe}</p>
+    <div class="total">VALOR: ${valueSafe}</div></body></html>`;
   const w = window.open("", "_blank");
   if (w) { w.document.write(html); w.document.close(); w.print(); }
 }
+
 
 export interface QuoteWhatsAppData {
   quoteNumber: string;
