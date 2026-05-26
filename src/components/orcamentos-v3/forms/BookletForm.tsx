@@ -73,8 +73,8 @@ export function BookletForm({
   const controlledDescricao = onDescricaoChange !== undefined;
   const [bookletPages, setBookletPages] = useState<number>(0);
   const [bookletUnits, setBookletUnits] = useState<number>(0);
-  const [sideChoice, setSideChoice] = useState<"Frente" | "F/V">(
-    defaultPaperHint?.side === "F/V" ? "F/V" : "F/V",
+  const [sideChoice, setSideChoice] = useState<SideChoice>(
+    defaultPaperHint?.side === "Frente" ? "Frente" : "F/V",
   );
   const duplex = sideChoice === "F/V";
   const [pulse, setPulse] = useState(false);
