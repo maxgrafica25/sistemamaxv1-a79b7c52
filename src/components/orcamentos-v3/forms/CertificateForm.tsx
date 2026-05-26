@@ -432,12 +432,20 @@ export function CertificateForm({
               <p className="text-sm font-medium truncate">
                 {primaryItem.paper_type}
                 {primaryItem.grammage ? ` ${primaryItem.grammage}` : ""} — {primaryItem.size}
+                {primaryItem.side ? ` · ${primaryItem.side}` : ""}
               </p>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[11px] text-muted-foreground">
                   {primaryItem.category_name}
                   {(primaryItem.equipment_mode || "color") === "pb" ? " (PB)" : ""}
                 </span>
+                {(face === "fv" || face === "fv_pb") &&
+                  (face === "fv" ? colorBase : pbBase) &&
+                  ((face === "fv" ? colorBase!.side : pbBase!.side) || "").toUpperCase() !== "F/V" && (
+                    <Badge variant="outline" className="h-4 text-[10px] px-1.5">
+                      F/V calculado (2×)
+                    </Badge>
+                  )}
                 {pricingPrimary?.tierLabel && (
                   <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
                     {pricingPrimary.tierLabel}
