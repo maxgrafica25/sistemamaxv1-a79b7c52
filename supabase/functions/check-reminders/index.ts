@@ -10,7 +10,10 @@ function advanceDate(iso: string, recurrence: string): string {
   return d.toISOString();
 }
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
+  if (!isServiceRoleRequest(req) && !isCronSecretRequest(req)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
   try {
     const supabase = getAdminClient({
       fnName: "check-reminders",
