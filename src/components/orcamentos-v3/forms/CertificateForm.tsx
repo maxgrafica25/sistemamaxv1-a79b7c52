@@ -116,14 +116,19 @@ export function CertificateForm({
 
   const hasPb = pbItems.length > 0;
 
+  const wantSide: "Frente" | "F/V" = face === "frente" || face === "mix" ? "Frente" : "F/V";
+
   const colorBase: PrintingCatalogItem | null = useMemo(() => {
     if (colorItems.length === 0) return null;
     if (selectedColorId) {
       const s = colorItems.find((c) => c.id === selectedColorId);
       if (s) return s;
     }
-    return colorItems[0];
-  }, [colorItems, selectedColorId]);
+    const exact = colorItems.find(
+      (c) => (c.side || "").toLowerCase() === wantSide.toLowerCase(),
+    );
+    return exact ?? colorItems[0];
+  }, [colorItems, selectedColorId, wantSide]);
 
   const pbBase: PrintingCatalogItem | null = useMemo(() => {
     if (pbItems.length === 0) return null;
@@ -131,8 +136,13 @@ export function CertificateForm({
       const s = pbItems.find((c) => c.id === selectedPbId);
       if (s) return s;
     }
-    return pbItems[0];
-  }, [pbItems, selectedPbId]);
+    // No mix, o verso PB é Frente; em fv_pb queremos F/V.
+    const pbWantSide: "Frente" | "F/V" = face === "fv_pb" ? "F/V" : "Frente";
+    const exact = pbItems.find(
+      (c) => (c.side || "").toLowerCase() === pbWantSide.toLowerCase(),
+    );
+    return exact ?? pbItems[0];
+  }, [pbItems, selectedPbId, face]);
 
   // Item efetivo principal por face (usado para gravar catalog_item_id, printer_cat, etc.)
   const primaryItem: PrintingCatalogItem | null = useMemo(() => {
