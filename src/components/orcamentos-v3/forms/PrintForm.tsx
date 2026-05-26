@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Check, CreditCard, FileText, Plus, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import PrintingItemSearch, {
   type PrintingCatalogItem,
 } from "@/components/orcamentos-v3/shared/PrintingItemSearch";
@@ -52,6 +53,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
   const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers, settings } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [sideChoice, setSideChoice] = useState<"Frente" | "F/V">(
     defaultPaperHint?.side === "F/V" ? "F/V" : "Frente",
   );
@@ -401,20 +403,90 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
       )}
 
 
-      {!catalog && (
-        <div
-          key={substrateLabel}
-          className="space-y-2 animate-in fade-in slide-in-from-left-1 duration-300"
-        >
-          <h3 className={cn(
-            "text-sm font-semibold inline-flex items-center gap-1.5",
-            substrateLabel !== "Papel" ? "text-primary" : "text-foreground",
-          )}>
-            <span className={substrateLabel !== "Papel" ? "text-primary" : "text-muted-foreground"}>
-              {substrateLabel === "Papel" ? <FileText className="h-3.5 w-3.5" /> : <CreditCard className="h-3.5 w-3.5" />}
+      {/* Cabeçalho do papel — altura constante; abre modal para escolher/trocar */}
+      <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3 flex-nowrap">
+        {catalog && effectiveCatalog ? (
+          <>
+            <Printer className="h-4 w-4 text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">
+                {catalog.paper_type}
+                {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size} {effectiveCatalog.side}
+              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[11px] text-muted-foreground truncate">
+                  {catalog.category_name}
+                </span>
+                {pricing?.tierLabel && (
+                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5 whitespace-nowrap shrink-0">
+                    {pricing.tierLabel}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <span className={substrateLabel !== "Papel" ? "text-primary shrink-0" : "text-muted-foreground shrink-0"}>
+              {substrateLabel === "Papel" ? <FileText className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
             </span>
-            {substrateLabel}
-          </h3>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">
+                Selecionar {substrateLabel.toLowerCase()}
+              </p>
+              <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                Escolha um item do catálogo para calcular o preço
+              </p>
+            </div>
+          </>
+        )}
+        <div className="ml-auto inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs shrink-0">
+          <button
+            type="button"
+            onClick={() => setSideChoice("Frente")}
+            className={cn(
+              "px-2.5 py-1 rounded-sm font-medium transition-colors",
+              (effectiveCatalog?.side ?? sideChoice) === "Frente"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+            title="Imprimir só na frente"
+          >
+            Frente
+          </button>
+          <button
+            type="button"
+            onClick={() => setSideChoice("F/V")}
+            className={cn(
+              "px-2.5 py-1 rounded-sm font-medium transition-colors",
+              (effectiveCatalog?.side ?? sideChoice) === "F/V"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+            title="Frente e verso (custo ~2x)"
+          >
+            F/V
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="shrink-0 inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+        >
+          {catalog ? "Trocar" : "Escolher"}
+        </button>
+      </div>
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="inline-flex items-center gap-1.5">
+              <span className={substrateLabel !== "Papel" ? "text-primary" : "text-muted-foreground"}>
+                {substrateLabel === "Papel" ? <FileText className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
+              </span>
+              Selecionar {substrateLabel.toLowerCase()}
+            </DialogTitle>
+          </DialogHeader>
 
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
@@ -430,7 +502,6 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground",
                 )}
-                title="Imprimir só na frente"
               >
                 Frente
               </button>
@@ -443,7 +514,6 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground",
                 )}
-                title="Frente e verso (custo ~2x)"
               >
                 F/V
               </button>
@@ -454,7 +524,10 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
             items={filteredItems}
             markupTiers={tiers}
             globalSettings={settings}
-            onSelect={(it) => setCatalog(it)}
+            onSelect={(it) => {
+              setCatalog(it);
+              setPickerOpen(false);
+            }}
             placeholder={`Buscar ${substrateLabel.toLowerCase()} (nome, tamanho, impressora)...`}
             defaultCategory={(() => {
               if (!suggestedPapers?.length) return null;
@@ -475,69 +548,8 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
           {loading && (
             <p className="text-[11px] text-muted-foreground mt-1">Carregando catálogo…</p>
           )}
-        </div>
-      )}
-
-
-      {catalog && effectiveCatalog && (
-        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3 flex-nowrap">
-          <Printer className="h-4 w-4 text-primary shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
-              {catalog.paper_type}
-              {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size} {effectiveCatalog.side}
-            </p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[11px] text-muted-foreground truncate">
-                {catalog.category_name}
-              </span>
-              {pricing?.tierLabel && (
-                <Badge variant="secondary" className="h-4 text-[10px] px-1.5 whitespace-nowrap shrink-0">
-                  {pricing.tierLabel}
-                </Badge>
-              )}
-            </div>
-          </div>
-          <div className="ml-auto inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs shrink-0">
-            <button
-              type="button"
-              onClick={() => setSideChoice("Frente")}
-              className={cn(
-                "px-2.5 py-1 rounded-sm font-medium transition-colors",
-                effectiveCatalog.side === "Frente"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              title="Imprimir só na frente"
-            >
-              Frente
-            </button>
-            <button
-              type="button"
-              onClick={() => setSideChoice("F/V")}
-              className={cn(
-                "px-2.5 py-1 rounded-sm font-medium transition-colors",
-                effectiveCatalog.side === "F/V"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              title="Frente e verso (custo ~2x)"
-            >
-              F/V
-            </button>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setCatalog(null);
-              setSideChoice("Frente");
-            }}
-            className="shrink-0 inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
-          >
-            Trocar
-          </button>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
 
       <div className="grid grid-cols-2 gap-4">

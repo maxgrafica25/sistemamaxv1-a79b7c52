@@ -1,57 +1,44 @@
 ## Problema
 
-No preset **Tags**, ao abrir o formulário o papel "Couche 300 — A4 F/V" é selecionado automaticamente (Print 1). Ao clicar em **Frente**, a seleção é desfeita e o usuário volta para a tela de busca de papel (Print 2). O esperado é apenas alternar o lado mantendo o mesmo papel.
+Hoje, ao clicar em **Trocar** (ou quando ainda não há papel selecionado), o cabeçalho compacto some e dá lugar a um bloco grande com título "Papel", toggle Frente/F/V, chips de categoria e busca. Isso desloca todo o restante do formulário (Quantidade, Faixas, Acabamentos), causando a sensação de "layout pulando".
 
-## Causa
+## Solução
 
-`src/components/orcamentos-v3/forms/PrintForm.tsx` (linhas 223‑228) tem um `useEffect` que zera `catalog` sempre que o usuário escolhe "Frente" e o item selecionado é uma linha de catálogo cadastrada como `F/V`:
+Transformar o picker de papel em **modal (Dialog)** que abre por cima, sem alterar o layout da página.
 
-```ts
-if (catalog && sideChoice === "Frente" && catalog.side === "F/V") {
-  setCatalog(null);
-}
-```
+### Comportamento
 
-Isso conflita com `effectiveCatalog` (linhas 212‑216), que já aplica o `sideChoice` por cima do item escolhido (ajustando custo via `pricePerSheet`). O reset força o usuário a re-selecionar o papel.
+- **Sem papel selecionado:** mostrar um cabeçalho compacto único na mesma altura do cabeçalho atual com papel selecionado:
+  - Ícone Printer + texto "Selecionar papel" (ou "Selecionar adesivo", conforme `substrateLabel`)
+  - Toggle Frente / F/V à direita (mantém estado mesmo sem seleção)
+  - Botão primário **"Escolher"** que abre o modal
+  - Se houver `suggestedPapers` (preset), abrir o modal automaticamente na primeira renderização (preservando UX dos presets), mas o layout do formulário já fica com a linha do cabeçalho ocupando a mesma altura
+- **Com papel selecionado:** cabeçalho atual permanece igual; **Trocar** passa a abrir o modal (em vez de limpar e re-renderizar o bloco grande)
+- **Dentro do modal:**
+  - Título "Selecionar papel" / "Selecionar adesivo"
+  - Toggle Frente/F/V (espelha o estado externo)
+  - `PrintingItemSearch` com os mesmos chips (Todos / Comum / Especial / Adesivo) e busca
+  - Ao escolher um item: `setCatalog(it)` + fecha o modal
 
-## Correção
+### Arquivo
 
-Substituir o efeito por uma lógica que, ao trocar de lado, **tenta encontrar uma variante equivalente no catálogo com o lado desejado** (mesmo `paper_type` + `grammage` + `size`):
+- `src/components/orcamentos-v3/forms/PrintForm.tsx`
+  - Adicionar estado `pickerOpen` (boolean)
+  - Substituir o bloco `{!catalog && (...)}` (linhas 404–479) por um cabeçalho compacto com botão "Escolher"
+  - Envolver o conteúdo do picker em `<Dialog open={pickerOpen} onOpenChange={setPickerOpen}>` usando `DialogContent` já presente no design system (shadcn)
+  - Trocar `onClick` do botão **Trocar** (linhas 529–538): em vez de `setCatalog(null)`, apenas `setPickerOpen(true)` (mantém papel atual até escolher outro; se o usuário fechar o modal sem escolher, nada muda)
+  - Em `onSelect` do `PrintingItemSearch`: `setCatalog(it); setPickerOpen(false);`
+  - Auto-abrir o modal quando `!catalog` e houver `suggestedPapers` (efeito único)
 
-- Se existir variante com o novo lado → `setCatalog(variante)`.
-- Se não existir → manter `catalog` atual; `effectiveCatalog` já aplica o override de lado e o cálculo de preço (F/V dobra custo, Frente reduz à base).
+### Fora de escopo
 
-Comportamento simétrico em ambos os sentidos (Frente → F/V e F/V → Frente). Nenhuma alteração na lógica de preço ou no catálogo.
+- Lógica de preço, multiplicadores F/V, faixas, presets de produto
+- Outros forms (BookletForm, BusinessCardForm, etc.) — só PrintForm, que é o que aparece nos presets afetados (Tags, Etiqueta, Adesivo, Personalizado de papel)
 
-### Edit pontual
+### Verificação
 
-`src/components/orcamentos-v3/forms/PrintForm.tsx` ~linhas 223‑228:
-
-```ts
-useEffect(() => {
-  if (!catalog) return;
-  if (catalog.side === sideChoice) return;
-  const sibling = items.find(
-    (it) =>
-      it.paper_type === catalog.paper_type &&
-      (it.grammage || "") === (catalog.grammage || "") &&
-      it.size === catalog.size &&
-      it.side === sideChoice,
-  );
-  if (sibling) setCatalog(sibling);
-  // senão: mantém catalog; effectiveCatalog cuida do override.
-}, [sideChoice, catalog, items]);
-```
-
-## Fora do escopo
-
-- Lógica de preço, multiplicadores F/V, tiers.
-- Outros presets (BusinessCard, Certificate, Booklet).
-- Layout/posicionamento do header (já corrigido).
-
-## Verificação
-
-1. Abrir orçamento → escolher preset **Tags** → confirmar que abre com "Couche 300 — A4 F/V" selecionado.
-2. Clicar **Frente** → seleção deve permanecer (mesmo papel, lado Frente, preço recalculado).
-3. Clicar **F/V** → volta para F/V sem perder o item.
-4. Testar também no preset **Cartão de Visita** / **Certificados** (que também usam hint F/V) para confirmar simetria.
+1. Abrir preset **Tags** → cabeçalho mostra "Couche 300 — A3 F/V" + toggle + Trocar (sem mudança).
+2. Clicar **Trocar** → abre modal por cima; layout abaixo (Quantidade, Faixas) não se move.
+3. Escolher outro papel → modal fecha, cabeçalho atualiza, sem salto.
+4. Em "Personalizado" sem papel pré-selecionado → cabeçalho compacto com botão "Escolher"; clicar abre o modal.
+5. Toggle Frente/F/V continua funcionando dentro e fora do modal (sincronizado).
