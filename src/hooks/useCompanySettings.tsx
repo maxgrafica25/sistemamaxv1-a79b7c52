@@ -12,6 +12,7 @@ export interface CompanySettings {
   defaultQuoteValidityDays: number;
   defaultTaxRate: number;
   defaultLossMargin: number;
+  publicBaseUrl: string;
 }
 
 interface CompanySettingsContextValue extends CompanySettings {
@@ -30,6 +31,7 @@ const EMPTY: CompanySettings = {
   defaultQuoteValidityDays: 15,
   defaultTaxRate: 6,
   defaultLossMargin: 3,
+  publicBaseUrl: "",
 };
 
 const CompanySettingsContext = createContext<CompanySettingsContextValue>({
