@@ -1,6 +1,12 @@
 // Edge Function: gcal-sync-worker
 // Processa fila gcal_sync_queue. Cron a cada 1min.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { isServiceRoleRequest, isCronSecretRequest } from "../_shared/admin-client.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
