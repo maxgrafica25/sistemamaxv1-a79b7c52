@@ -82,6 +82,48 @@ export function BookletForm({
       .catch(() => setPrintFinishings([]));
   }, []);
 
+  // Auto-pick do papel padrão (uma vez) quando o preset define defaultPaperHint.
+  const didAutoPickPaper = useRef(false);
+  useEffect(() => {
+    if (didAutoPickPaper.current) return;
+    if (!defaultPaperHint?.name) return;
+    if (!items || items.length === 0) return;
+    const wantName = normalizeText(defaultPaperHint.name);
+    const wantGram = normalizeText(defaultPaperHint.grammage);
+    const wantSide = (defaultPaperHint.side || "").toLowerCase();
+    const candidates = items.filter((it) => {
+      const okName = wantName ? normalizeText(it.paper_type).includes(wantName) : true;
+      const okGram = wantGram ? normalizeText(it.grammage).includes(wantGram) : true;
+      return okName && okGram;
+    });
+    if (candidates.length === 0) return;
+    const exactSide = wantSide
+      ? candidates.find((c) => (c.side || "").toLowerCase() === wantSide)
+      : undefined;
+    setCatalog(exactSide ?? candidates[0]);
+    if (wantSide === "f/v") setSideChoice("F/V");
+    else if (wantSide === "frente") setSideChoice("Frente");
+    didAutoPickPaper.current = true;
+  }, [items, defaultPaperHint]);
+
+  // Pré-marcação dos acabamentos sugeridos do preset (uma única vez).
+  const didPreselectFinishings = useRef(false);
+  useEffect(() => {
+    if (didPreselectFinishings.current) return;
+    if (!preselectedFinishings || preselectedFinishings.length === 0) return;
+    if (!printFinishings || printFinishings.length === 0) return;
+    const wanted = new Set(preselectedFinishings.map((s) => s.toLowerCase()));
+    const next: Record<string, boolean> = {};
+    for (const f of printFinishings) {
+      if (wanted.has(f.id) || wanted.has(f.name.toLowerCase())) {
+        next[f.id] = true;
+      }
+    }
+    if (Object.keys(next).length === 0) return;
+    setFinEnabled((m) => ({ ...m, ...next }));
+    didPreselectFinishings.current = true;
+  }, [printFinishings, preselectedFinishings]);
+
   // Folhas físicas = páginas-folha por apostila × nº apostilas.
   // (Se F/V, cada folha = 2 lados; o miolo é cobrado por folha física impressa.)
   const physicalSheets = Math.max(
