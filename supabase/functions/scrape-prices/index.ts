@@ -695,10 +695,23 @@ async function scrapeMany(urls: string[]): Promise<ScrapeResult[]> {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  // Auth gate: aceitar service role (cron), CRON_SECRET, ou admin autenticado.
+  const isInternal = isServiceRoleRequest(req) || isCronSecretRequest(req);
+  if (!isInternal) {
+    const adminUid = await getAdminUserId(req);
+    if (!adminUid) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+  }
+
   const supabase = getAdminClient({
     fnName: "scrape-prices",
     reason: "Persistir resultados de scraping em sites_monitorados/site_precos_tiers (chamadas sem JWT de usuário)",
   });
+
 
   try {
     const rawBody = await req.json().catch(() => ({}));
