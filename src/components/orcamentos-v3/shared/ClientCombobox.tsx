@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { buildWaWebUrl } from "@/lib/quotes/whatsapp";
 
 export interface ClientOption {
   id: string;
@@ -409,9 +410,9 @@ function ClientDetailsDialog({
 
   const openWhats = () => {
     if (!data?.telefone) return;
-    const digits = data.telefone.replace(/\D/g, "");
-    const phone = digits.startsWith("55") ? digits : `55${digits}`;
-    window.open(`https://wa.me/${phone}`, "_blank");
+    const url = buildWaWebUrl("", data.telefone);
+    if (!url) { toast.error("Telefone inválido"); return; }
+    window.open(url, "_blank");
   };
 
   return (
