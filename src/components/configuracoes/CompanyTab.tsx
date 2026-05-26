@@ -30,7 +30,7 @@ interface Props {
 }
 
 export default function CompanyTab({ isAdmin }: Props) {
-  const { id, companyName, whatsappNumber, email, address, defaultQuoteValidityDays, loading, refresh } =
+  const { id, companyName, whatsappNumber, email, address, defaultQuoteValidityDays, publicBaseUrl, loading, refresh } =
     useCompanySettings();
 
   const [form, setForm] = useState({
@@ -39,6 +39,7 @@ export default function CompanyTab({ isAdmin }: Props) {
     email: "",
     address: "",
     default_quote_validity_days: "15",
+    public_base_url: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -50,9 +51,10 @@ export default function CompanyTab({ isAdmin }: Props) {
         email,
         address,
         default_quote_validity_days: String(defaultQuoteValidityDays ?? 15),
+        public_base_url: publicBaseUrl,
       });
     }
-  }, [loading, companyName, whatsappNumber, email, address, defaultQuoteValidityDays]);
+  }, [loading, companyName, whatsappNumber, email, address, defaultQuoteValidityDays, publicBaseUrl]);
 
   const whatsappDigits = sanitizePhone(form.whatsapp_raw);
   const whatsappPretty = formatPhoneDisplay(whatsappDigits);
