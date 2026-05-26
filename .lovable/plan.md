@@ -1,28 +1,31 @@
-# Problema
-
-Quando você copia o link de um orçamento dentro do editor do Lovable (preview), o `copyPublicQuoteLink` usa `window.location.origin`, que vira algo como `https://id-preview--....lovable.app/p/0123`. Ao abrir esse link, o cliente cai na tela de **Login do Lovable** (foi o que apareceu no print) porque URLs de preview são protegidas.
-
-O link público correto é o do app publicado: `https://sistemamaxv1.lovable.app/p/0123` (ou, no futuro, um domínio próprio).
-
-# Solução
-
-Permitir configurar uma "URL pública do app" em **Configurações → Empresa** e usar essa URL como base de todos os links compartilhados com o cliente. Quando vazio, cai em `window.location.origin` (comportamento atual).
-
 ## Mudanças
 
-1. **Banco** — adicionar coluna `public_base_url text` em `company_settings` (nullable, sem default).
-2. **Configurações → Empresa** (`CompanyTab.tsx`) — novo campo "URL pública do sistema (para links de orçamento)" com placeholder `https://sistemamaxv1.lovable.app`. Validar que começa com `https://` e remover barra final ao salvar.
-3. **Hook `useCompanySettings`** — já carrega tudo da tabela, só expor o novo campo.
-4. **Helper `buildPublicQuoteUrl(quoteNumber, baseUrl?)`** em `src/lib/quotes/quick-actions.ts`:
-   - Se `baseUrl` informado → usa ele.
-   - Senão, se `window.location.hostname` contém `lovable.app`, `lovableproject.com` ou `id-preview--` → mostra `toast.error` orientando configurar a URL pública e **não copia** (evita enviar link quebrado por engano).
-   - Caso contrário (domínio próprio em produção) → usa `window.location.origin`.
-5. **Call sites** — atualizar `copyPublicQuoteLink` para receber `baseUrl` opcional. Os dois locais que chamam (`OrcamentosV3.tsx`, `NewQuoteFormV3.tsx`) e o `EngagementPopover.tsx` passam `companySettings.public_base_url`.
-6. **Configuração inicial** — após aplicar a migração, preencher automaticamente `public_base_url = 'https://sistemamaxv1.lovable.app'` para a empresa atual via SQL na mesma migração (assim já funciona sem clique).
+### 1. Renomear label (visual, em todos os orçamentos)
+Trocar o título `Face de impressão` → `Lados de Impressão` em:
+- `src/components/orcamentos-v3/forms/BusinessCardForm.tsx` (linha 327)
+- `src/components/orcamentos-v3/forms/CertificateForm.tsx` (linha 393)
 
-## Fora de escopo
+(Estes são os únicos dois formulários do V3 que exibem esse título — os demais módulos não têm seletor de face.)
 
-- Não mexer no roteamento, na RPC `get_public_quote` nem na página `ClientViewerV3`.
-- Não criar domínio próprio — só preparar a configuração para quando você adicionar um.
+### 2. Certificado — apenas "Só Frente" e "Frente x Verso"
 
-Posso aplicar?
+Em `CertificateForm.tsx`:
+
+- Reduzir `FaceKey` para `"frente" | "fv"` (remover `mix` e `fv_pb`).
+- `faceOptions` passa a ter apenas 2 chips: **Só Frente** e **Frente x Verso** (grid `grid-cols-2`).
+- Remover toda a lógica relacionada a PB: `pbItems`, `pbBase`, `hasPb`, `selectedPbId`, `pricingMixPb`, o seletor de PB no header, a linha "+ verso PB" e o `useEffect` de fallback para PB.
+- `faceLabelMap` fica `{ frente: "Só Frente", fv: "Frente x Verso" }`.
+- `defaultDesc` passa a usar esses rótulos.
+
+### 3. Filtro de papel por lado (Certificado)
+
+Hoje `colorItems` inclui todos os itens Couchê 210g A4 color (qualquer `side`) e usa `withSide(...)` para forçar o lado escolhido. Novo comportamento:
+
+- Quando `face === "frente"`: `colorItems` filtra somente itens com `side` "Frente" (Só Frente), ignorando os F/V.
+- Quando `face === "fv"`: `colorItems` filtra somente itens com `side` "F/V".
+- Se não houver item cadastrado para o lado escolhido, mostrar o aviso atual ("Nenhum item Couchê 210g A4 cadastrado") com texto adaptado ao lado, e desabilitar o botão Adicionar (já é o comportamento natural quando `primaryItem` é null).
+- Remover o uso de `withSide(...)` no Certificado, já que o item escolhido já é do lado correto. Remover também o badge "F/V calculado (2×)".
+
+### Fora do escopo
+- Nenhuma mudança em backend, RPC, RLS, tipos do Supabase, pricing engine ou `BusinessCardForm` além do rename do label.
+- O termo "side" interno (`Frente` / `F/V`) usado em payloads e no engine continua igual — somente o rótulo visível muda.

@@ -324,7 +324,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
       )}
 
       {/* Face — chips compactos (antes do papel) */}
-      <Field label="Face de impressão">
+      <Field label="Lados de Impressão">
         <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-muted/30 p-0.5">
           {([
             { key: "frente", icon: FileText, title: "Frente", hint: "1 face de impressão" },
