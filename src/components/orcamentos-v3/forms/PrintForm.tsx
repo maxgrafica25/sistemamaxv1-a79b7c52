@@ -469,7 +469,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
       </div>
 
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl sm:max-w-3xl min-h-[520px]">
           <DialogHeader>
             <DialogTitle className="inline-flex items-center gap-1.5">
               <span className={substrateLabel !== "Papel" ? "text-primary" : "text-muted-foreground"}>
