@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Anon can read receipts of own quote" ON public.quote_approval_receipts;
