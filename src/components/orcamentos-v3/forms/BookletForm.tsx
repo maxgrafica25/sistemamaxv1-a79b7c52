@@ -2,7 +2,7 @@
 // Encadernação (Kit Espiral/Wire-O/Grampo) é tratada como acabamento agregado
 // (mão-de-obra avulsa) — pode ser adicionada via aba "Mão-de-obra" enquanto a
 // integração total com spiral-selector é portada em fase posterior.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
