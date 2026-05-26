@@ -545,6 +545,7 @@ export type Database = {
           email: string | null
           id: string
           logo_url: string | null
+          public_base_url: string | null
           updated_at: string
           whatsapp_display: string | null
           whatsapp_number: string
@@ -559,6 +560,7 @@ export type Database = {
           email?: string | null
           id?: string
           logo_url?: string | null
+          public_base_url?: string | null
           updated_at?: string
           whatsapp_display?: string | null
           whatsapp_number?: string
@@ -573,6 +575,7 @@ export type Database = {
           email?: string | null
           id?: string
           logo_url?: string | null
+          public_base_url?: string | null
           updated_at?: string
           whatsapp_display?: string | null
           whatsapp_number?: string

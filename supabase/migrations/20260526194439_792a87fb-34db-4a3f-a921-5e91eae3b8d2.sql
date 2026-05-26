@@ -1,0 +1,2 @@
+ALTER TABLE public.company_settings ADD COLUMN IF NOT EXISTS public_base_url text;
+UPDATE public.company_settings SET public_base_url = 'https://sistemamaxv1.lovable.app' WHERE public_base_url IS NULL;

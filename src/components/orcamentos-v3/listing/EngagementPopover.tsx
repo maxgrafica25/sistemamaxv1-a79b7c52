@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { buildPublicQuoteUrl } from "@/lib/quotes/quick-actions";
 import { EngagementBadge } from "./EngagementBadge";
 import {
   buildFollowUpMessage,
@@ -147,8 +149,14 @@ export function EngagementPopover({
   const tempLabel = temperatureLabel(temp);
   const isHotOrLive = temp === "hot" || temp === "live";
 
+  const { publicBaseUrl } = useCompanySettings();
+
   const handleCopyLink = () => {
-    const url = `${window.location.origin}/p/${quoteNumber}`;
+    const url = buildPublicQuoteUrl(quoteNumber, publicBaseUrl);
+    if (!url) {
+      toast.error("Configure a URL pública em Configurações → Empresa.");
+      return;
+    }
     navigator.clipboard.writeText(url);
     toast.success("Link de rastreamento copiado!");
   };

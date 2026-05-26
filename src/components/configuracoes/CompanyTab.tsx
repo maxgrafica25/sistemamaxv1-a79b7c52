@@ -30,7 +30,7 @@ interface Props {
 }
 
 export default function CompanyTab({ isAdmin }: Props) {
-  const { id, companyName, whatsappNumber, email, address, defaultQuoteValidityDays, loading, refresh } =
+  const { id, companyName, whatsappNumber, email, address, defaultQuoteValidityDays, publicBaseUrl, loading, refresh } =
     useCompanySettings();
 
   const [form, setForm] = useState({
@@ -39,6 +39,7 @@ export default function CompanyTab({ isAdmin }: Props) {
     email: "",
     address: "",
     default_quote_validity_days: "15",
+    public_base_url: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -50,9 +51,10 @@ export default function CompanyTab({ isAdmin }: Props) {
         email,
         address,
         default_quote_validity_days: String(defaultQuoteValidityDays ?? 15),
+        public_base_url: publicBaseUrl,
       });
     }
-  }, [loading, companyName, whatsappNumber, email, address, defaultQuoteValidityDays]);
+  }, [loading, companyName, whatsappNumber, email, address, defaultQuoteValidityDays, publicBaseUrl]);
 
   const whatsappDigits = sanitizePhone(form.whatsapp_raw);
   const whatsappPretty = formatPhoneDisplay(whatsappDigits);
@@ -64,6 +66,11 @@ export default function CompanyTab({ isAdmin }: Props) {
       toast.error("Número de WhatsApp inválido. Inclua DDD + número.");
       return;
     }
+    const baseUrlTrim = form.public_base_url.trim().replace(/\/+$/, "");
+    if (baseUrlTrim && !/^https:\/\/.+/i.test(baseUrlTrim)) {
+      toast.error("A URL pública deve começar com https://");
+      return;
+    }
     setSaving(true);
     const validityNum = Math.max(1, Math.floor(Number(form.default_quote_validity_days) || 15));
     const payload = {
@@ -73,6 +80,7 @@ export default function CompanyTab({ isAdmin }: Props) {
       email: form.email.trim() || null,
       address: form.address.trim() || null,
       default_quote_validity_days: validityNum,
+      public_base_url: baseUrlTrim || null,
     };
     let error;
     if (id) {
@@ -192,6 +200,21 @@ export default function CompanyTab({ isAdmin }: Props) {
             />
             <p className="text-xs text-muted-foreground">
               Valor sugerido ao criar um novo orçamento. O vendedor pode ajustar caso a caso (ex.: licitação 60 dias).
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="public_base_url">URL pública do sistema (para links de orçamento)</Label>
+            <Input
+              id="public_base_url"
+              value={form.public_base_url}
+              onChange={(e) => setForm((f) => ({ ...f, public_base_url: e.target.value }))}
+              placeholder="https://sistemamaxv1.lovable.app"
+              disabled={!isAdmin}
+            />
+            <p className="text-xs text-muted-foreground">
+              Endereço público usado para gerar os links <code>/p/...</code> enviados ao cliente.
+              Sem isso, links copiados do editor caem na tela de login do Lovable.
             </p>
           </div>
 
