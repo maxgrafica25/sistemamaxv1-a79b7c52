@@ -339,7 +339,7 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
               <Button
                 variant="ghost" size="icon" className="h-8 w-8"
                 title="Copiar link público"
-                onClick={() => copyPublicQuoteLink(editMeta.quote_number)}
+                onClick={() => copyPublicQuoteLink(editMeta.quote_number, publicBaseUrl)}
               >
                 <Link2 className="h-3.5 w-3.5" />
               </Button>
