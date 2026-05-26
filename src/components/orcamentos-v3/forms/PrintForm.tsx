@@ -220,12 +220,22 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     [effectiveCatalog, tiers, quantidade],
   );
 
-  // Se o usuário voltar para "Frente" mas o catálogo selecionado é F/V, força nova seleção.
+  // Ao trocar de lado, tenta achar uma variante equivalente no catálogo (mesmo
+  // papel + gramatura + tamanho) com o lado escolhido. Se não existir, mantém
+  // o item atual — effectiveCatalog aplica o override de lado e pricePerSheet
+  // ajusta o custo (F/V dobra; Frente usa base).
   useEffect(() => {
-    if (catalog && sideChoice === "Frente" && catalog.side === "F/V") {
-      setCatalog(null);
-    }
-  }, [sideChoice, catalog]);
+    if (!catalog) return;
+    if (catalog.side === sideChoice) return;
+    const sibling = items.find(
+      (it) =>
+        it.paper_type === catalog.paper_type &&
+        (it.grammage || "") === (catalog.grammage || "") &&
+        it.size === catalog.size &&
+        it.side === sideChoice,
+    );
+    if (sibling) setCatalog(sibling);
+  }, [sideChoice, catalog, items]);
 
   // Filtra catálogo conforme o lado escolhido (esconde F/V quando "Frente").
   const filteredItems = useMemo(

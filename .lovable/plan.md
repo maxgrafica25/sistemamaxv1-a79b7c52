@@ -1,25 +1,57 @@
-# Fix: botões deslocam ao trocar Frente ↔ F/V (preset Tags e demais que usam PrintForm)
+## Problema
+
+No preset **Tags**, ao abrir o formulário o papel "Couche 300 — A4 F/V" é selecionado automaticamente (Print 1). Ao clicar em **Frente**, a seleção é desfeita e o usuário volta para a tela de busca de papel (Print 2). O esperado é apenas alternar o lado mantendo o mesmo papel.
 
 ## Causa
-No header do papel selecionado em `PrintForm.tsx` (linhas ~472–530), a linha usa `flex items-center gap-3 flex-wrap`. Ao alternar Frente/F/V:
 
-- O texto do título muda de comprimento (`...A4 Frente` → `...A4 F/V`).
-- O `pricing.tierLabel` (badge) costuma mudar de faixa quando o custo dobra, virando uma string mais longa/curta.
-- O cluster da direita (toggle Frente|F/V + botão "Trocar") não tem âncora fixa, então o `flex-wrap` quebra/realinha — produzindo o "pulo" relatado.
+`src/components/orcamentos-v3/forms/PrintForm.tsx` (linhas 223‑228) tem um `useEffect` que zera `catalog` sempre que o usuário escolhe "Frente" e o item selecionado é uma linha de catálogo cadastrada como `F/V`:
 
-## Mudança (apenas visual, escopo mínimo)
-Arquivo único: `src/components/orcamentos-v3/forms/PrintForm.tsx`, bloco do header do catálogo (linhas ~472–530).
+```ts
+if (catalog && sideChoice === "Frente" && catalog.side === "F/V") {
+  setCatalog(null);
+}
+```
 
-1. Trocar `flex-wrap` por layout estável: a linha principal não quebra; o cluster da direita fica ancorado com `ml-auto shrink-0`.
-2. Garantir `shrink-0` no toggle (Frente|F/V) e no botão "Trocar" para nunca serem empurrados.
-3. Reservar largura mínima previsível no slot do badge `tierLabel` (`min-w-[3.5rem] inline-flex justify-center` ou simplesmente `whitespace-nowrap`) para que a troca de faixa não realinhe o restante.
-4. Manter o título com `truncate` (já existe) — a área de texto absorve qualquer variação via `flex-1 min-w-0`.
-5. Em telas estreitas onde antes quebrava, permitir wrap só do bloco de texto (não do cluster de ações) usando `flex-nowrap` no container e `flex-wrap` apenas internamente, se necessário.
+Isso conflita com `effectiveCatalog` (linhas 212‑216), que já aplica o `sideChoice` por cima do item escolhido (ajustando custo via `pricePerSheet`). O reset força o usuário a re-selecionar o papel.
+
+## Correção
+
+Substituir o efeito por uma lógica que, ao trocar de lado, **tenta encontrar uma variante equivalente no catálogo com o lado desejado** (mesmo `paper_type` + `grammage` + `size`):
+
+- Se existir variante com o novo lado → `setCatalog(variante)`.
+- Se não existir → manter `catalog` atual; `effectiveCatalog` já aplica o override de lado e o cálculo de preço (F/V dobra custo, Frente reduz à base).
+
+Comportamento simétrico em ambos os sentidos (Frente → F/V e F/V → Frente). Nenhuma alteração na lógica de preço ou no catálogo.
+
+### Edit pontual
+
+`src/components/orcamentos-v3/forms/PrintForm.tsx` ~linhas 223‑228:
+
+```ts
+useEffect(() => {
+  if (!catalog) return;
+  if (catalog.side === sideChoice) return;
+  const sibling = items.find(
+    (it) =>
+      it.paper_type === catalog.paper_type &&
+      (it.grammage || "") === (catalog.grammage || "") &&
+      it.size === catalog.size &&
+      it.side === sideChoice,
+  );
+  if (sibling) setCatalog(sibling);
+  // senão: mantém catalog; effectiveCatalog cuida do override.
+}, [sideChoice, catalog, items]);
+```
 
 ## Fora do escopo
-- Não mexer em lógica de preço, catálogo, presets ou outros forms (BusinessCard/Certificate/Booklet).
-- Não alterar comportamento de toggle nem multiplicador F/V.
+
+- Lógica de preço, multiplicadores F/V, tiers.
+- Outros presets (BusinessCard, Certificate, Booklet).
+- Layout/posicionamento do header (já corrigido).
 
 ## Verificação
-- Abrir preset Tags → selecionar papel → clicar várias vezes em Frente/F/V e confirmar que toggle e botão "Trocar" permanecem fixos na mesma posição.
-- Conferir em viewport ~1336px e em ~600px (mobile) que o cluster da direita continua estável.
+
+1. Abrir orçamento → escolher preset **Tags** → confirmar que abre com "Couche 300 — A4 F/V" selecionado.
+2. Clicar **Frente** → seleção deve permanecer (mesmo papel, lado Frente, preço recalculado).
+3. Clicar **F/V** → volta para F/V sem perder o item.
+4. Testar também no preset **Cartão de Visita** / **Certificados** (que também usam hint F/V) para confirmar simetria.
