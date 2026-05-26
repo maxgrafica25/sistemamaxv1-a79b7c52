@@ -321,3 +321,247 @@ function QuickCreateClientDialog({
     </Dialog>
   );
 }
+
+interface ClientFull {
+  id: string;
+  nome: string;
+  empresa: string | null;
+  cnpj: string | null;
+  telefone: string | null;
+  email: string | null;
+  endereco: string | null;
+  numero: string | null;
+  complemento: string | null;
+  cep: string | null;
+  municipio: string | null;
+  estado: string | null;
+  tipo: string | null;
+  tags: string[] | null;
+  observacoes: string | null;
+  created_at: string | null;
+}
+
+interface QuoteStat {
+  total: number;
+  approved: number;
+  pending: number;
+  lastDate: string | null;
+}
+
+function ClientDetailsDialog({
+  clientId,
+  open,
+  onOpenChange,
+}: {
+  clientId: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const [data, setData] = useState<ClientFull | null>(null);
+  const [stats, setStats] = useState<QuoteStat | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      const { data: c } = await supabase
+        .from("clients")
+        .select("id, nome, empresa, cnpj, telefone, email, endereco, numero, complemento, cep, municipio, estado, tipo, tags, observacoes, created_at")
+        .eq("id", clientId)
+        .maybeSingle();
+      if (cancelled) return;
+      setData((c as ClientFull) ?? null);
+
+      const { data: qs } = await supabase
+        .from("quotes")
+        .select("status, created_at")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (cancelled) return;
+      if (Array.isArray(qs)) {
+        const total = qs.length;
+        const approved = qs.filter((q: any) => q.status === "approved" || q.status === "partial").length;
+        const pending = qs.filter((q: any) => q.status === "pending").length;
+        const lastDate = qs[0]?.created_at ?? null;
+        setStats({ total, approved, pending, lastDate });
+      } else {
+        setStats(null);
+      }
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [open, clientId]);
+
+  const copy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => toast.success(`${label} copiado`));
+  };
+
+  const enderecoLinha = data
+    ? [
+        [data.endereco, data.numero].filter(Boolean).join(", "),
+        data.complemento,
+        [data.cep, [data.municipio, data.estado].filter(Boolean).join("/")].filter(Boolean).join(" · "),
+      ].filter(Boolean).join(" — ")
+    : "";
+
+  const openWhats = () => {
+    if (!data?.telefone) return;
+    const digits = data.telefone.replace(/\D/g, "");
+    const phone = digits.startsWith("55") ? digits : `55${digits}`;
+    window.open(`https://wa.me/${phone}`, "_blank");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <User className="h-4 w-4 text-primary" />
+            <span className="truncate">{data?.nome || "Cliente"}</span>
+            {data?.tipo && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                {data.tipo}
+              </Badge>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+
+        {loading && !data ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">Carregando...</div>
+        ) : !data ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">Cliente não encontrado</div>
+        ) : (
+          <div className="space-y-4 text-sm">
+            <section className="space-y-2">
+              <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Contato</h4>
+              <div className="grid grid-cols-1 gap-2">
+                <FieldRow
+                  label="Telefone"
+                  value={data.telefone}
+                  actions={
+                    data.telefone ? (
+                      <>
+                        <IconAction title="Copiar" onClick={() => copy(data.telefone!, "Telefone")}>
+                          <Copy className="h-3.5 w-3.5" />
+                        </IconAction>
+                        <IconAction title="WhatsApp" onClick={openWhats}>
+                          <MessageCircle className="h-3.5 w-3.5 text-green-600" />
+                        </IconAction>
+                      </>
+                    ) : null
+                  }
+                />
+                <FieldRow
+                  label="E-mail"
+                  value={data.email}
+                  actions={
+                    data.email ? (
+                      <IconAction title="Copiar" onClick={() => copy(data.email!, "E-mail")}>
+                        <Copy className="h-3.5 w-3.5" />
+                      </IconAction>
+                    ) : null
+                  }
+                />
+              </div>
+            </section>
+
+            {(data.empresa || data.cnpj) && (
+              <section className="space-y-2">
+                <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Empresa</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <FieldRow label="Empresa" value={data.empresa} />
+                  <FieldRow label="CNPJ" value={data.cnpj} />
+                </div>
+              </section>
+            )}
+
+            {enderecoLinha && (
+              <section className="space-y-2">
+                <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Endereço</h4>
+                <div className="text-foreground">{enderecoLinha}</div>
+              </section>
+            )}
+
+            {data.tags && data.tags.length > 0 && (
+              <section className="space-y-2">
+                <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tags</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {data.tags.map((t) => (
+                    <Badge key={t} variant="outline" className="text-[10px]">{t}</Badge>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {data.observacoes && (
+              <section className="space-y-2">
+                <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Observações</h4>
+                <div className="whitespace-pre-wrap text-foreground">{data.observacoes}</div>
+              </section>
+            )}
+
+            {stats && stats.total > 0 && (
+              <section className="space-y-2 border-t pt-3">
+                <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Histórico</h4>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <Stat label="Orçamentos" value={String(stats.total)} />
+                  <Stat label="Aprovados" value={String(stats.approved)} />
+                  <Stat label="Pendentes" value={String(stats.pending)} />
+                </div>
+                {stats.lastDate && (
+                  <div className="text-xs text-muted-foreground text-center">
+                    Último em {new Date(stats.lastDate).toLocaleDateString("pt-BR")}
+                  </div>
+                )}
+              </section>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Fechar</Button>
+          <Button
+            variant="outline"
+            onClick={() => window.open(`/cadastros?clienteId=${clientId}`, "_blank")}
+            className="gap-1.5"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Editar cadastro
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function FieldRow({ label, value, actions }: { label: string; value: string | null; actions?: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2">
+      <div className="flex-1 min-w-0">
+        <div className="text-[11px] text-muted-foreground">{label}</div>
+        <div className="text-foreground truncate">{value || <span className="text-muted-foreground">—</span>}</div>
+      </div>
+      {actions && <div className="flex items-center gap-0.5 shrink-0 mt-3">{actions}</div>}
+    </div>
+  );
+}
+
+function IconAction({ children, title, onClick }: { children: React.ReactNode; title: string; onClick: () => void }) {
+  return (
+    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" title={title} onClick={onClick}>
+      {children}
+    </Button>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-muted/30 py-2">
+      <div className="text-lg font-semibold text-foreground tabular-nums">{value}</div>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+    </div>
+  );
+}
