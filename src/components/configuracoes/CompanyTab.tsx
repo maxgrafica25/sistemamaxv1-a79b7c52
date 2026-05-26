@@ -203,6 +203,21 @@ export default function CompanyTab({ isAdmin }: Props) {
             </p>
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="public_base_url">URL pública do sistema (para links de orçamento)</Label>
+            <Input
+              id="public_base_url"
+              value={form.public_base_url}
+              onChange={(e) => setForm((f) => ({ ...f, public_base_url: e.target.value }))}
+              placeholder="https://sistemamaxv1.lovable.app"
+              disabled={!isAdmin}
+            />
+            <p className="text-xs text-muted-foreground">
+              Endereço público usado para gerar os links <code>/p/...</code> enviados ao cliente.
+              Sem isso, links copiados do editor caem na tela de login do Lovable.
+            </p>
+          </div>
+
           {isAdmin && (
             <div className="pt-2">
               <Button onClick={handleSave} disabled={saving || loading} className="gap-2">
