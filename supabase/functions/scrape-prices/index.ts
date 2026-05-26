@@ -10,7 +10,7 @@
 // =====================================================================
 import * as cheerio from "npm:cheerio@1.0.0";
 import { z } from "https://esm.sh/zod@3.23.8";
-import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
+import { getAdminClient, logAdminOperation, isServiceRoleRequest, isCronSecretRequest, getAdminUserId } from "../_shared/admin-client.ts";
 
 const BodySchema = z.union([
   z.object({ site_id: z.string().uuid() }),
