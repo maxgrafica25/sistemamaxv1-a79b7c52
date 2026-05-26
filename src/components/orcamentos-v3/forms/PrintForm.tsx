@@ -537,7 +537,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
             inputMode="numeric"
             min={1}
             value={quantidade === 0 ? "" : quantidade}
-            placeholder="Ex: 100"
+            placeholder="Ex: 1000"
             onChange={(e) => {
               const raw = e.target.value;
               if (raw === "") {
