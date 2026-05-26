@@ -361,11 +361,17 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
             <p className="text-sm font-medium truncate">
               {catalog.paper_type}
               {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size}
+              {effectiveItem?.side ? ` · ${effectiveItem.side}` : ""}
             </p>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-[11px] text-muted-foreground">
                 {catalog.category_name}
               </span>
+              {face === "fv" && (catalog.side || "").toUpperCase() !== "F/V" && (
+                <Badge variant="outline" className="h-4 text-[10px] px-1.5">
+                  F/V calculado (2×)
+                </Badge>
+              )}
               {pricing?.tierLabel && (
                 <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
                   {pricing.tierLabel}
