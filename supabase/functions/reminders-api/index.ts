@@ -205,8 +205,7 @@ Deno.serve(async (req) => {
         .select("id")
         .maybeSingle();
       if (error) {
-        console.error("[reminders-api] cancel error:", error, "id:", idParsed.data);
-        return jsonResponse({ error: error.message }, 500);
+        return jsonResponse(sanitizeError(error, "reminders-api/cancel"), 500);
       }
       if (!cancelled) {
         console.warn("[reminders-api] cancel not found / already cancelled id:", idParsed.data);
