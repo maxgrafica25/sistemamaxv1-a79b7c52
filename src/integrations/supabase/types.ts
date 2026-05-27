@@ -5306,6 +5306,8 @@ export type Database = {
       }
       is_financeiro_user: { Args: { _user_id: string }; Returns: boolean }
       is_profile_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_tenant_admin: { Args: { _empresa_id: string }; Returns: boolean }
+      is_tenant_financeiro: { Args: { _empresa_id: string }; Returns: boolean }
       list_users_admin: {
         Args: never
         Returns: {
