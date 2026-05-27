@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/PageHeader";
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
+import { stepSchema, stepGroupSchema, zodErrorsToMap } from "@/lib/schemas/cadastros";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
