@@ -121,9 +121,12 @@ export default function ClientViewer() {
 
 
   const loadData = async () => {
+    if (!routeToken) {
+      setNotFound(true);
+      return;
+    }
     const { data, error } = await supabase.rpc("get_public_quote", {
-      p_quote_number: routeQuoteNumber ?? null,
-      p_quote_id: routeId ?? null,
+      p_token: routeToken,
     });
 
     if (error || !data) {
@@ -146,7 +149,7 @@ export default function ClientViewer() {
 
 
   useEffect(() => {
-    if (!routeId && !routeQuoteNumber) return;
+    if (!routeToken) return;
     let active = true;
     (async () => {
       setLoading(true);
@@ -158,7 +161,7 @@ export default function ClientViewer() {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeId, routeQuoteNumber]);
+  }, [routeToken]);
 
   // Dispara "viewed" assim que sabemos o quote.id real
   useEffect(() => {
