@@ -51,8 +51,8 @@ Deno.serve(async (req) => {
     .gte("created_at", baselineSince);
 
   if (baseErr) {
-    console.error("[monitor-admin-usage] baseline fetch failed:", baseErr.message);
-    return new Response(JSON.stringify({ error: baseErr.message }), {
+  if (baseErr) {
+    return new Response(JSON.stringify(sanitizeError(baseErr, "monitor-admin-usage/baseline")), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
