@@ -1117,14 +1117,14 @@ export type Database = {
             foreignKeyName: "cv_quote_items_material_id_fkey"
             columns: ["material_id"]
             isOneToOne: false
-            referencedRelation: "legacy_cv_materials"
+            referencedRelation: "cv_calc_midias"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "cv_quote_items_printer_id_fkey"
             columns: ["printer_id"]
             isOneToOne: false
-            referencedRelation: "legacy_cv_printers"
+            referencedRelation: "cv_calc_impressoes"
             referencedColumns: ["id"]
           },
           {
