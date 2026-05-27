@@ -307,9 +307,11 @@ export default function DespesasFixas() {
                           <TableRow key={i}>
                             <TableCell>
                               <Input value={sal.name} onChange={e => updateSalary(i, "name", e.target.value)} placeholder="Ex: Funcionário 1..." />
+                              {salaryErrors[i]?.name && <p className="text-xs text-destructive mt-1">{salaryErrors[i].name}</p>}
                             </TableCell>
                             <TableCell>
                               <Input type="number" step="0.01" value={sal.salary || ""} onChange={e => updateSalary(i, "salary", parseFloat(e.target.value) || 0)} />
+                              {salaryErrors[i]?.salary && <p className="text-xs text-destructive mt-1">{salaryErrors[i].salary}</p>}
                             </TableCell>
                             <TableCell>
                               <Switch checked={sal.is_production} onCheckedChange={v => updateSalary(i, "is_production", v)} />
