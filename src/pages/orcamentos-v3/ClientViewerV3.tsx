@@ -83,7 +83,7 @@ const formatDate = (iso: string) =>
 // Status badge agora vem do componente compartilhado QuoteStatusBadge.
 
 export default function ClientViewer() {
-  const { id: routeId, quoteNumber: routeQuoteNumber } = useParams<{ id?: string; quoteNumber?: string }>();
+  const { token: routeToken } = useParams<{ token: string }>();
   const [quote, setQuote] = useState<QuoteRow | null>(null);
   const [materials, setMaterials] = useState<MaterialRow[]>([]);
   const [labor, setLabor] = useState<LaborRow[]>([]);
