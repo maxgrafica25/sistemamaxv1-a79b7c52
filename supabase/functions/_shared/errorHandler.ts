@@ -74,3 +74,32 @@ export function sanitizeError(
     request_id: requestId,
   };
 }
+
+/**
+ * Valida o header Origin contra ALLOWED_ORIGINS.
+ * - Sem Origin (server-to-server / cron) → passa (retorna null).
+ * - ALLOWED_ORIGINS vazio → modo compat, passa (retorna null) com warning.
+ * - Origin presente e não listado → retorna Response 403 pronta.
+ * - Origin listado (ou allowlist contém "*") → passa (retorna null).
+ *
+ * Uso típico no início do handler (após OPTIONS):
+ *   const blocked = validateOrigin(req, corsHeaders);
+ *   if (blocked) return blocked;
+ */
+export function validateOrigin(
+  req: Request,
+  corsHeaders: Record<string, string>,
+): Response | null {
+  const origin = req.headers.get("origin");
+  if (!origin) return null;
+  if (ALLOWED_ORIGINS.length === 0) return null;
+  if (ALLOWED_ORIGINS.includes("*") || ALLOWED_ORIGINS.includes(origin)) return null;
+  console.warn(`[validateOrigin] origem bloqueada: ${origin}`);
+  return new Response(
+    JSON.stringify({ error: "Origem não permitida" }),
+    {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    },
+  );
+}
