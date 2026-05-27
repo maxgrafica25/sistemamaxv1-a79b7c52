@@ -269,10 +269,16 @@ function EtapasTab() {
               <div className="space-y-2">
                 <Label>Descrição da Etapa</Label>
                 <Input placeholder="Ex: Preparação de arquivo" value={description} onChange={(e) => setDescription(e.target.value)} />
+                {stepValidation.errors.description && (
+                  <p className="text-xs text-destructive">{stepValidation.errors.description}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Tempo Estimado (minutos)</Label>
                 <Input type="number" placeholder="Ex: 15" value={timeMinutes} onChange={(e) => setTimeMinutes(e.target.value)} />
+                {stepValidation.errors.time_minutes && (
+                  <p className="text-xs text-destructive">{stepValidation.errors.time_minutes}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Categoria do Processo</Label>
