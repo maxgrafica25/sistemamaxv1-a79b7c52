@@ -78,7 +78,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), {
+    const payload = sanitizeError(e, "google-oauth-init", {
+      publicMessage: "Falha ao iniciar autenticação Google",
+    });
+    return new Response(JSON.stringify(payload), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
