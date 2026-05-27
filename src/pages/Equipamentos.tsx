@@ -328,7 +328,7 @@ export default function Equipamentos() {
       printer_type: equipType,
       description: equipDesc,
     });
-    if (!parsed.success) { setEquipErrors(zodErrorsToMap(parsed)); return; }
+    if (!parsed.success) { setEquipErrors(zodErrorsToMap(parsed.error)); return; }
     setEquipErrors({});
     if (!requireAdmin(editingEquip ? "atualizar equipamento" : "cadastrar equipamento")) return;
     const payload = {
@@ -393,7 +393,7 @@ export default function Equipamentos() {
       price: Number(consPrice),
       yield_pages: Number(consYield),
     });
-    if (!parsed.success) { setConsErrors(zodErrorsToMap(parsed)); return; }
+    if (!parsed.success) { setConsErrors(zodErrorsToMap(parsed.error)); return; }
     setConsErrors({});
     if (!requireAdmin(editingCons ? "atualizar consumível" : "cadastrar consumível")) return;
     const newPrice = parsed.data.price;
