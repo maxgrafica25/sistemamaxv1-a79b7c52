@@ -89,7 +89,52 @@ export default function DespesasFixas() {
   const totalHoursMonth = productionEmployeeCount * capacity.hours_per_month;
   const hourlyRate = totalHoursMonth > 0 ? totalFixedCosts / totalHoursMonth : 0;
 
-  // CRUD
+  // ─── Etapa 4b: validação Zod por linha ────────────────────────────────
+  const expenseErrors = useMemo(
+    () => expenses.map(e => {
+      const r = expenseRowSchema.safeParse(e);
+      if (r.success) return {} as Record<string, string>;
+      const m: Record<string, string> = {};
+      r.error.issues.forEach(i => { const k = String(i.path[0] ?? ""); if (!m[k]) m[k] = i.message; });
+      return m;
+    }),
+    [expenses]
+  );
+  const salaryErrors = useMemo(
+    () => salaries.map(s => {
+      const r = salaryRowSchema.safeParse(s);
+      if (r.success) return {} as Record<string, string>;
+      const m: Record<string, string> = {};
+      r.error.issues.forEach(i => { const k = String(i.path[0] ?? ""); if (!m[k]) m[k] = i.message; });
+      return m;
+    }),
+    [salaries]
+  );
+  const equipmentErrors = useMemo(
+    () => equipment.map(eq => {
+      const r = equipmentDepRowSchema.safeParse(eq);
+      if (r.success) return {} as Record<string, string>;
+      const m: Record<string, string> = {};
+      r.error.issues.forEach(i => { const k = String(i.path[0] ?? ""); if (!m[k]) m[k] = i.message; });
+      return m;
+    }),
+    [equipment]
+  );
+  const capacityErrors = useMemo(() => {
+    const r = capacitySchema.safeParse({ hours_per_month: capacity.hours_per_month });
+    if (r.success) return {} as Record<string, string>;
+    const m: Record<string, string> = {};
+    r.error.issues.forEach(i => { const k = String(i.path[0] ?? ""); if (!m[k]) m[k] = i.message; });
+    return m;
+  }, [capacity.hours_per_month]);
+  const formValid = useMemo(
+    () =>
+      expenseErrors.every(m => Object.keys(m).length === 0) &&
+      salaryErrors.every(m => Object.keys(m).length === 0) &&
+      equipmentErrors.every(m => Object.keys(m).length === 0) &&
+      Object.keys(capacityErrors).length === 0,
+    [expenseErrors, salaryErrors, equipmentErrors, capacityErrors]
+  );
   const addExpense = () => setExpenses([...expenses, { name: "", value: 0 }]);
   const requestRemove = (name: string, fn: () => void) => {
     setConfirmItemName(name); setConfirmAction(() => fn); setConfirmOpen(true);
