@@ -25,6 +25,8 @@ import type { EngagementEventType } from "@/lib/quotes/tracking";
 interface Props {
   quoteId: string;
   quoteNumber: string;
+  /** UUID público do orçamento — usado para gerar o link de rastreamento (Migration 6). */
+  publicToken: string | null | undefined;
   clientName: string;
   clientPhone?: string | null;
   /** Stats já agregados pela lista (visualizados sem abrir o popover) */
@@ -109,6 +111,7 @@ const deviceLabel = (meta: Record<string, unknown>): string | null => {
 export function EngagementPopover({
   quoteId,
   quoteNumber,
+  publicToken,
   clientName,
   clientPhone,
   stats: stripStats,
@@ -152,9 +155,13 @@ export function EngagementPopover({
   const { publicBaseUrl } = useCompanySettings();
 
   const handleCopyLink = () => {
-    const url = buildPublicQuoteUrl(quoteNumber, publicBaseUrl);
+    const url = buildPublicQuoteUrl(publicToken, publicBaseUrl);
     if (!url) {
-      toast.error("Configure a URL pública em Configurações → Empresa.");
+      toast.error(
+        publicToken
+          ? "Configure a URL pública em Configurações → Empresa."
+          : "Orçamento sem token público disponível.",
+      );
       return;
     }
     navigator.clipboard.writeText(url);

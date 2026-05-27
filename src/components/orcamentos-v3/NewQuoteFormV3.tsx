@@ -53,7 +53,7 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
   const [active, setActive] = useState<V3Category>("print");
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [loadingEdit, setLoadingEdit] = useState(isEditing);
-  const [editMeta, setEditMeta] = useState<{ quote_number: string; status: string } | null>(null);
+  const [editMeta, setEditMeta] = useState<{ quote_number: string; public_token: string | null; status: string } | null>(null);
   const [previewNumber, setPreviewNumber] = useState<string | null>(null);
   const [checklistAnswers, setChecklistAnswers] = useState<{ pergunta: string; resposta: string }[]>([]);
   const { settings: globalSettings, loading: globalLoading } = useGlobalSettings();
@@ -121,7 +121,7 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
         const loaded = await loadQuoteV3(editingQuoteId);
         if (cancelled) return;
         setState(loaded.state);
-        setEditMeta({ quote_number: loaded.quote_number, status: loaded.status });
+        setEditMeta({ quote_number: loaded.quote_number, public_token: loaded.public_token, status: loaded.status });
         if (loaded.is_locked) {
           toast.error("Esta versão foi substituída", {
             description: "Abra a versão mais recente para editar.",
@@ -331,7 +331,7 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
               <Button
                 variant="ghost" size="icon" className="h-8 w-8"
                 title="Copiar link público"
-                onClick={() => copyPublicQuoteLink(editMeta.quote_number, publicBaseUrl)}
+                onClick={() => copyPublicQuoteLink(editMeta.public_token, publicBaseUrl)}
               >
                 <Link2 className="h-3.5 w-3.5" />
               </Button>
