@@ -1891,16 +1891,45 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
 
     if (!resposta) resposta = "Não consegui finalizar a resposta. Tente novamente.";
 
+    // L5 — Redação de PII na saída
+    // Mascara por padrão. Libera somente quando a pergunta cita 1 registro específico
+    // E a resposta não parece dump (≥3 PIIs do mesmo tipo).
+    const allowUnmask = shouldUnmaskPII(pergunta) && !looksLikePIIDump(resposta);
+    const { text: respostaFinal, count: piiCount } = allowUnmask
+      ? { text: resposta, count: 0 }
+      : redactPII(resposta);
+
+    // Persiste resposta do assistente no banco (próximo turno reconstrói daqui)
+    await admin.from("assistente_mensagens").insert({
+      user_id: userData.user.id,
+      role: "assistant",
+      content: respostaFinal.slice(0, 8000),
+    });
+
+    // L6 — Auditoria (sem prompt cru; só hash + metadados)
+    const perguntaHash = await sha256Hex(pergunta);
+    await admin.from("assistente_auditoria").insert({
+      user_id: userData.user.id,
+      pergunta_hash: perguntaHash,
+      pergunta_chars: pergunta.length,
+      suspicious: turnSuspicious,
+      pii_redacted_count: piiCount,
+      tools_called: toolsCalled,
+      latency_ms: Date.now() - turnStartMs,
+    });
+
+    // Log enxuto (sem conteúdo da pergunta nem da resposta)
     console.log(JSON.stringify({
       type: "turn_summary",
-      user_id: userData.user.id,
-      pergunta: pergunta.slice(0, 200),
+      user_hash: perguntaHash.slice(0, 8),
       tools_called: toolsCalled,
-      operations: opResults,
-      resposta_preview: resposta.slice(0, 300),
+      operations_count: opResults.length,
+      suspicious: turnSuspicious,
+      pii_redacted: piiCount,
+      latency_ms: Date.now() - turnStartMs,
     }));
 
-    return new Response(JSON.stringify({ resposta }), {
+    return new Response(JSON.stringify({ resposta: respostaFinal }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
