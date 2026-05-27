@@ -5203,6 +5203,24 @@ export type Database = {
           },
         ]
       }
+      tenant_enforcement_whitelist: {
+        Row: {
+          created_at: string
+          reason: string
+          table_name: string
+        }
+        Insert: {
+          created_at?: string
+          reason: string
+          table_name: string
+        }
+        Update: {
+          created_at?: string
+          reason?: string
+          table_name?: string
+        }
+        Relationships: []
+      }
       user_google_tokens: {
         Row: {
           access_token: string
