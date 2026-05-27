@@ -54,14 +54,14 @@ export default function AssistenteButton() {
     const pergunta = (override ?? input).trim();
     if (!pergunta || loading) return;
     const novaUser: Msg = { role: "user", content: pergunta, timestamp: Date.now() };
-    const historico = messages.slice(-10);
     setMessages((prev) => [...prev, novaUser]);
     setInput("");
     setLoading(true);
 
     try {
+      // Histórico é persistido e reconstruído no servidor (anti-spoof).
       const { data, error } = await supabase.functions.invoke("assistente-virtual", {
-        body: { pergunta, historico },
+        body: { pergunta },
       });
 
       if (error) {
