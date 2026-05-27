@@ -28,6 +28,10 @@ interface AdminOnlyProps {
 /**
  * Esconde ou desabilita conteúdo para usuários sem permissão admin/financeiro.
  *
+ * NOTA (Etapa 4): este componente é apenas UX (esconde botões). Para proteger
+ * uma página inteira contra acesso direto via URL, use `RoleProtectedRoute`
+ * em `App.tsx` — esse é o guard de fato (espelha o RLS server-side).
+ *
  * Exemplo (esconder):
  *   <AdminOnly><Button>Excluir</Button></AdminOnly>
  *

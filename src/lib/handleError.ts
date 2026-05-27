@@ -79,13 +79,13 @@ export function handleError(
     friendly = `Sem permissão para ${context}. Esta ação é restrita aos usuários do Financeiro (Juliano ou Marcelle).`;
   } else if (isAdminOnlyError(message)) {
     // Erro custom do banco que já menciona admin
-    friendly = `Sem permissão para ${context}. ${message}`;
+    friendly = `Sem permissão para ${context}. ${sanitizeForDisplay(message)}`;
   } else if (/duplicate key|already exists/i.test(message)) {
     friendly = "Esse registro já existe.";
   } else if (/foreign key|violates foreign key/i.test(message)) {
     friendly = `Não foi possível ${context}: existem registros vinculados que precisam ser removidos antes.`;
   } else {
-    friendly = `Falha ao ${context}: ${message}`;
+    friendly = `Falha ao ${context}: ${sanitizeForDisplay(message)}`;
   }
 
   toast.error(friendly);
