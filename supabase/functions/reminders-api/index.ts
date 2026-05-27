@@ -4,7 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "https://esm.sh/zod@3.23.8";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
-import { corsHeadersFor, sanitizeError } from "../_shared/errorHandler.ts";
+import { corsHeadersFor, sanitizeError, validateOrigin } from "../_shared/errorHandler.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -27,6 +27,8 @@ Deno.serve(async (req) => {
     });
 
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const originBlock = validateOrigin(req, corsHeaders);
+  if (originBlock) return originBlock;
 
   try {
     const authHeader = req.headers.get("Authorization");
