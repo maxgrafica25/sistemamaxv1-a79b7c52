@@ -416,6 +416,7 @@ export default function DespesasFixas() {
                     <div className="space-y-2">
                       <Label>Horas / Mês por Pessoa</Label>
                       <Input type="number" step="1" value={capacity.hours_per_month || ""} onChange={e => setCapacity({ ...capacity, hours_per_month: parseFloat(e.target.value) || 0 })} />
+                      {capacityErrors.hours_per_month && <p className="text-xs text-destructive mt-1">{capacityErrors.hours_per_month}</p>}
                     </div>
                   </div>
                   <div className="mt-4 rounded-lg bg-muted/50 p-3 text-sm max-w-xl">
