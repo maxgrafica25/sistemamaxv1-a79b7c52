@@ -75,14 +75,30 @@ export async function trackEvent(
   const meta = { ...parseUA(), ...extra };
   const ua = typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 500) : null;
 
+  const visitorId = getVisitorId();
+
   try {
-    await supabase.rpc("register_quote_event", {
-      p_public_token: publicToken,
-      p_event_type: eventType,
-      p_metadata: meta,
-      p_user_agent: ua,
-      p_visitor_id: getVisitorId(),
-    });
+    const calls: Promise<unknown>[] = [
+      supabase.rpc("register_quote_event", {
+        p_public_token: publicToken,
+        p_event_type: eventType,
+        p_metadata: meta,
+        p_user_agent: ua,
+        p_visitor_id: visitorId,
+      }),
+    ];
+
+    // view_count / last_viewed_at agora vivem em register_quote_view (token + rate-limit).
+    if (eventType === "viewed") {
+      calls.push(
+        supabase.rpc("register_quote_view", {
+          p_public_token: publicToken,
+          p_visitor_id: visitorId,
+        }),
+      );
+    }
+
+    await Promise.allSettled(calls);
   } catch (e) {
     // tracking nunca deve interromper a UX
     console.warn("[tracking] failed", eventType, e);
