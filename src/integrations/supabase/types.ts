@@ -4264,6 +4264,33 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          identifier: string
+          request_count: number
+          window_start: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          identifier: string
+          request_count?: number
+          window_start?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          identifier?: string
+          request_count?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
       reading_alerts_sent: {
         Row: {
           alerted_at: string
@@ -5281,6 +5308,15 @@ export type Database = {
       backup_get_realtime_publication: { Args: never; Returns: Json }
       backup_get_tables: { Args: never; Returns: Json }
       backup_get_triggers: { Args: never; Returns: Json }
+      check_rate_limit: {
+        Args: {
+          p_action: string
+          p_identifier: string
+          p_max_requests: number
+          p_window_seconds: number
+        }
+        Returns: boolean
+      }
       create_quote_version: { Args: { p_quote_id: string }; Returns: string }
       create_receivable_from_order: {
         Args: { p_installments: Json; p_order_id: string }
@@ -5338,7 +5374,7 @@ export type Database = {
         Args: {
           p_event_type: string
           p_metadata?: Json
-          p_quote_id: string
+          p_public_token: string
           p_user_agent?: string
           p_visitor_id?: string
         }
