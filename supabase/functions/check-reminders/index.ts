@@ -1,6 +1,7 @@
 // SERVICE ROLE: necessária — cria notifications para múltiplos usuários
 // (bypass RLS user_id = auth.uid()). Cliente via wrapper auditado.
 import { getAdminClient, logAdminOperation, isServiceRoleRequest, isCronSecretRequest } from "../_shared/admin-client.ts";
+import { sanitizeError } from "../_shared/errorHandler.ts";
 
 function advanceDate(iso: string, recurrence: string): string {
   const d = new Date(iso);
@@ -29,8 +30,10 @@ Deno.serve(async (req) => {
       .lte("remind_at", nowIso);
 
     if (error) {
-      console.error("Error fetching reminders:", error);
-      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+      const payload = sanitizeError(error, "check-reminders:fetch", {
+        publicMessage: "Falha ao buscar lembretes",
+      });
+      return new Response(JSON.stringify(payload), { status: 500 });
     }
 
     if (!dueReminders || dueReminders.length === 0) {
@@ -129,7 +132,9 @@ Deno.serve(async (req) => {
       { status: 200 },
     );
   } catch (err) {
-    console.error("Unexpected error:", err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+    const payload = sanitizeError(err, "check-reminders", {
+      publicMessage: "Falha ao processar lembretes",
+    });
+    return new Response(JSON.stringify(payload), { status: 500 });
   }
 });

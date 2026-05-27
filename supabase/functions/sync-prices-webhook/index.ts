@@ -7,6 +7,7 @@
 // Cliente via wrapper auditado (_shared/admin-client).
 import { z } from "https://esm.sh/zod@3.23.8";
 import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
+import { sanitizeError } from "../_shared/errorHandler.ts";
 
 const TierSchema = z.object({
   quantidade: z.number().int().positive().max(1_000_000),
@@ -27,16 +28,27 @@ const corsHeaders = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  // Etapa 3.5 (item 11) — guard hard: o webhook NÃO pode operar sem o secret de
+  // worker provisionado. Mesmo chamadas internas via service-role ficam bloqueadas,
+  // porque o endpoint existe exclusivamente para o coletor externo (VPS Playwright).
+  const VPS_TOKEN = Deno.env.get("VPS_WORKER_TOKEN");
+  if (!VPS_TOKEN) {
+    console.error("[sync-prices-webhook] VPS_WORKER_TOKEN ausente — endpoint indisponível");
+    return new Response(
+      JSON.stringify({ success: false, error: "Serviço temporariamente indisponível" }),
+      { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const VPS_TOKEN = Deno.env.get("VPS_WORKER_TOKEN");
 
     // Auth: aceita service-role (chamada interna) ou bearer VPS_WORKER_TOKEN
     const auth = req.headers.get("Authorization") || "";
     const token = auth.replace(/^Bearer\s+/i, "");
     const isInternal = token === SERVICE_ROLE;
-    const isVps = VPS_TOKEN && token === VPS_TOKEN;
+    const isVps = token === VPS_TOKEN;
     if (!isInternal && !isVps) {
       return new Response(JSON.stringify({ success: false, error: "Não autorizado" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -132,9 +144,10 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erro desconhecido";
-    console.error("sync-prices-webhook:", msg);
-    return new Response(JSON.stringify({ success: false, error: msg }), {
+    const payload = sanitizeError(err, "sync-prices-webhook", {
+      publicMessage: "Falha ao processar coleta de preços",
+    });
+    return new Response(JSON.stringify({ success: false, ...payload }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
