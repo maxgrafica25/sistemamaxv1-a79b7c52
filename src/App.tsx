@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { CompanySettingsProvider } from "@/hooks/useCompanySettings";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import RoleProtectedRoute from "@/components/RoleProtectedRoute";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
@@ -65,7 +66,7 @@ const App = () => (
                 <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/pedidos" element={<Pedidos />} />
-                  <Route path="/financeiro/receber" element={<ContasReceber />} />
+                  <Route path="/financeiro/receber" element={<RoleProtectedRoute requires="financeiro"><ContasReceber /></RoleProtectedRoute>} />
                   <Route path="/orcamentos" element={<OrcamentosV3 />} />
                   <Route path="/orcamentos/novo" element={<Navigate to="/orcamentos-v3/novo" replace />} />
                   <Route path="/orcamentos-v3/novo" element={<NewQuoteV3 />} />
@@ -83,13 +84,13 @@ const App = () => (
                   <Route path="/cadastros-cv" element={<CadastrosCV />} />
                   <Route path="/processos-producao" element={<ProcessosProducao />} />
                   <Route path="/despesas-fixas" element={<DespesasFixas />} />
-                  <Route path="/configuracoes" element={<Configuracoes />} />
-                  <Route path="/auditoria" element={<Auditoria />} />
-                  <Route path="/monitoramento" element={<Monitoramento />} />
+                  <Route path="/configuracoes" element={<RoleProtectedRoute requires="admin"><Configuracoes /></RoleProtectedRoute>} />
+                  <Route path="/auditoria" element={<RoleProtectedRoute requires="admin"><Auditoria /></RoleProtectedRoute>} />
+                  <Route path="/monitoramento" element={<RoleProtectedRoute requires="admin"><Monitoramento /></RoleProtectedRoute>} />
                   <Route path="/produtos" element={<Produtos />} />
                   <Route path="/presets-orcamento" element={<QuotePresets />} />
                   <Route path="/chat" element={<Chat />} />
-                  <Route path="/usuarios" element={<Usuarios />} />
+                  <Route path="/usuarios" element={<RoleProtectedRoute requires="admin"><Usuarios /></RoleProtectedRoute>} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
