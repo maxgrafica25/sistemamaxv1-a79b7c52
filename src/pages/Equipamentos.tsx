@@ -40,6 +40,7 @@ import MaintenanceRequestsTab from "@/components/equipamentos/MaintenanceRequest
 import EquipmentDashboardTab from "@/components/equipamentos/EquipmentDashboardTab";
 import PriceHistoryGlobalTab from "@/components/equipamentos/PriceHistoryGlobalTab";
 import PageLoader from "@/components/PageLoader";
+import { equipmentSchema, consumableSchema, zodErrorsToMap } from "@/lib/schemas/cadastros";
 
 // ─── Types ───────────────────────────────────────────────────────────
 interface Equipment {
@@ -161,6 +162,27 @@ export default function Equipamentos() {
   const [consName, setConsName] = useState("");
   const [consPrice, setConsPrice] = useState("0");
   const [consYield, setConsYield] = useState("1");
+
+  // Etapa 4b — erros de validação Zod inline
+  const [equipErrors, setEquipErrors] = useState<Record<string, string>>({});
+  const [consErrors, setConsErrors] = useState<Record<string, string>>({});
+
+  const equipFormValid = useMemo(
+    () => equipmentSchema.safeParse({
+      name: equipName,
+      printer_type: equipType,
+      description: equipDesc,
+    }).success,
+    [equipName, equipType, equipDesc],
+  );
+  const consFormValid = useMemo(
+    () => consumableSchema.safeParse({
+      name: consName,
+      price: Number(consPrice),
+      yield_pages: Number(consYield),
+    }).success,
+    [consName, consPrice, consYield],
+  );
 
 
   // ─── Data loading ──────────────────────────────────────────────────
@@ -285,6 +307,7 @@ export default function Equipamentos() {
 
   // ─── Equipment CRUD ────────────────────────────────────────────────
   const openEquipDialog = (eq?: Equipment) => {
+    setEquipErrors({});
     if (eq) {
       setEditingEquip(eq);
       setEquipName(eq.name);
@@ -300,20 +323,29 @@ export default function Equipamentos() {
   };
 
   const saveEquipment = async () => {
-    if (!equipName.trim()) return toast.error("Nome obrigatório");
+    const parsed = equipmentSchema.safeParse({
+      name: equipName,
+      printer_type: equipType,
+      description: equipDesc,
+    });
+    if (!parsed.success) { setEquipErrors(zodErrorsToMap(parsed.error)); return; }
+    setEquipErrors({});
     if (!requireAdmin(editingEquip ? "atualizar equipamento" : "cadastrar equipamento")) return;
+    const payload = {
+      name: parsed.data.name,
+      description: parsed.data.description ? parsed.data.description : null,
+      printer_type: parsed.data.printer_type,
+    };
     if (editingEquip) {
-      const { error } = await supabase.from("equipments").update({
-        name: equipName, description: equipDesc || null, printer_type: equipType,
-      }).eq("id", editingEquip.id);
+      const { error } = await supabase.from("equipments").update(payload).eq("id", editingEquip.id);
       if (error) return handleError(error, "atualizar equipamento");
-      await logAudit({ action: "edição", entity_type: "Equipamento", entity_id: editingEquip.id, entity_name: equipName });
+      await logAudit({ action: "edição", entity_type: "Equipamento", entity_id: editingEquip.id, entity_name: payload.name });
     } else {
       const { data, error } = await supabase.from("equipments").insert({
-        name: equipName, description: equipDesc || null, printer_type: equipType, sort_order: equipments.length,
+        ...payload, sort_order: equipments.length,
       }).select("id").single();
       if (error) return handleError(error, "cadastrar equipamento");
-      await logAudit({ action: "criação", entity_type: "Equipamento", entity_id: data?.id, entity_name: equipName });
+      await logAudit({ action: "criação", entity_type: "Equipamento", entity_id: data?.id, entity_name: payload.name });
     }
     setShowEquipDialog(false);
     toast.success("Equipamento salvo!");
@@ -340,6 +372,7 @@ export default function Equipamentos() {
 
   // ─── Consumable CRUD with price history ───────────────────────────
   const openConsDialog = (cons?: Consumable) => {
+    setConsErrors({});
     if (cons) {
       setEditingCons(cons);
       setConsName(cons.name);
@@ -355,10 +388,16 @@ export default function Equipamentos() {
   };
 
   const saveConsumable = async () => {
-    if (!consName.trim()) return toast.error("Nome obrigatório");
+    const parsed = consumableSchema.safeParse({
+      name: consName,
+      price: Number(consPrice),
+      yield_pages: Number(consYield),
+    });
+    if (!parsed.success) { setConsErrors(zodErrorsToMap(parsed.error)); return; }
+    setConsErrors({});
     if (!requireAdmin(editingCons ? "atualizar consumível" : "cadastrar consumível")) return;
-    const newPrice = Number(consPrice);
-    const newYield = Number(consYield);
+    const newPrice = parsed.data.price;
+    const newYield = parsed.data.yield_pages;
 
     if (editingCons) {
       if (editingCons.price !== newPrice || editingCons.yield_pages !== newYield) {
@@ -372,16 +411,16 @@ export default function Equipamentos() {
         if (histErr) return handleError(histErr, "registrar histórico de preço");
       }
       const { error } = await supabase.from("equipment_consumables").update({
-        name: consName, price: newPrice, yield_pages: newYield,
+        name: parsed.data.name, price: newPrice, yield_pages: newYield,
       }).eq("id", editingCons.id);
       if (error) return handleError(error, "atualizar consumível");
-      await logAudit({ action: "edição", entity_type: "Consumível", entity_id: editingCons.id, entity_name: `${consName} (${activeEq?.name})` });
+      await logAudit({ action: "edição", entity_type: "Consumível", entity_id: editingCons.id, entity_name: `${parsed.data.name} (${activeEq?.name})` });
     } else {
       const { data, error } = await supabase.from("equipment_consumables").insert({
-        equipment_id: activeEquipment, name: consName, price: newPrice, yield_pages: newYield, sort_order: activeConsumables.length,
+        equipment_id: activeEquipment, name: parsed.data.name, price: newPrice, yield_pages: newYield, sort_order: activeConsumables.length,
       }).select("id").single();
       if (error) return handleError(error, "cadastrar consumível");
-      await logAudit({ action: "criação", entity_type: "Consumível", entity_id: data?.id, entity_name: `${consName} (${activeEq?.name})` });
+      await logAudit({ action: "criação", entity_type: "Consumível", entity_id: data?.id, entity_name: `${parsed.data.name} (${activeEq?.name})` });
     }
     setShowConsDialog(false);
     toast.success("Consumível salvo!");
@@ -871,7 +910,8 @@ export default function Equipamentos() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Nome</Label>
-              <Input value={equipName} onChange={(e) => setEquipName(e.target.value)} placeholder="Ex: Xerox 252 Color" />
+              <Input value={equipName} onChange={(e) => setEquipName(e.target.value)} placeholder="Ex: Xerox 252 Color" maxLength={120} />
+              {equipErrors.name && <p className="text-xs text-destructive">{equipErrors.name}</p>}
             </div>
             <div className="space-y-2">
               <Label>Tipo de Impressora</Label>
@@ -884,15 +924,17 @@ export default function Equipamentos() {
                   <SelectItem value="other">Outro</SelectItem>
                 </SelectContent>
               </Select>
+              {equipErrors.printer_type && <p className="text-xs text-destructive">{equipErrors.printer_type}</p>}
             </div>
             <div className="space-y-2">
               <Label>Descrição (opcional)</Label>
-              <Input value={equipDesc} onChange={(e) => setEquipDesc(e.target.value)} placeholder="Ex: Impressora laser colorida A3" />
+              <Input value={equipDesc} onChange={(e) => setEquipDesc(e.target.value)} placeholder="Ex: Impressora laser colorida A3" maxLength={500} />
+              {equipErrors.description && <p className="text-xs text-destructive">{equipErrors.description}</p>}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEquipDialog(false)}>Cancelar</Button>
-            <Button onClick={saveEquipment}>Salvar</Button>
+            <Button onClick={saveEquipment} disabled={!equipFormValid}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -911,7 +953,8 @@ export default function Equipamentos() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Nome</Label>
-              <Input value={consName} onChange={(e) => setConsName(e.target.value)} placeholder={isRibbon ? "Ex: Ribbon, Cartão PVC, Depreciação" : "Ex: Toner Preto"} />
+              <Input value={consName} onChange={(e) => setConsName(e.target.value)} placeholder={isRibbon ? "Ex: Ribbon, Cartão PVC, Depreciação" : "Ex: Toner Preto"} maxLength={120} />
+              {consErrors.name && <p className="text-xs text-destructive">{consErrors.name}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -931,6 +974,7 @@ export default function Equipamentos() {
                   </TooltipProvider>
                 </div>
                 <Input type="number" step="0.01" value={consPrice} onChange={(e) => setConsPrice(e.target.value)} />
+                {consErrors.price && <p className="text-xs text-destructive">{consErrors.price}</p>}
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5">
@@ -951,6 +995,7 @@ export default function Equipamentos() {
                   )}
                 </div>
                 <Input type="number" step="1" value={consYield} onChange={(e) => setConsYield(e.target.value)} />
+                {consErrors.yield_pages && <p className="text-xs text-destructive">{consErrors.yield_pages}</p>}
               </div>
             </div>
             {Number(consYield) > 0 && (
@@ -982,7 +1027,7 @@ export default function Equipamentos() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConsDialog(false)}>Cancelar</Button>
-            <Button onClick={saveConsumable}>Salvar</Button>
+            <Button onClick={saveConsumable} disabled={!consFormValid}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
