@@ -1136,6 +1136,42 @@ export type Database = {
           },
         ]
       }
+      empresas: {
+        Row: {
+          cnpj: string | null
+          created_at: string
+          data_criacao: string
+          gateway_customer_id: string | null
+          id: string
+          nome: string
+          plano: string | null
+          status_assinatura: string
+          updated_at: string
+        }
+        Insert: {
+          cnpj?: string | null
+          created_at?: string
+          data_criacao?: string
+          gateway_customer_id?: string | null
+          id?: string
+          nome: string
+          plano?: string | null
+          status_assinatura?: string
+          updated_at?: string
+        }
+        Update: {
+          cnpj?: string | null
+          created_at?: string
+          data_criacao?: string
+          gateway_customer_id?: string | null
+          id?: string
+          nome?: string
+          plano?: string | null
+          status_assinatura?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       equipment_consumables: {
         Row: {
           created_at: string
@@ -2836,6 +2872,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           display_name: string
+          empresa_id: string
           id: string
           is_active: boolean
           is_financeiro: boolean
@@ -2847,6 +2884,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name: string
+          empresa_id: string
           id?: string
           is_active?: boolean
           is_financeiro?: boolean
@@ -2858,6 +2896,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name?: string
+          empresa_id?: string
           id?: string
           is_active?: boolean
           is_financeiro?: boolean
@@ -2865,7 +2904,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quote_approval_receipts: {
         Row: {
@@ -4354,6 +4401,7 @@ export type Database = {
         Args: { p_installments: Json; p_order_id: string }
         Returns: string
       }
+      current_empresa_id: { Args: never; Returns: string }
       delete_quotes_bulk: { Args: { p_ids: string[] }; Returns: Json }
       detectar_duplicatas_categorias: {
         Args: { _destino: string; _origem: string }
@@ -4364,6 +4412,7 @@ export type Database = {
           produto: string
         }[]
       }
+      empresa_ativa: { Args: { _empresa_id: string }; Returns: boolean }
       enqueue_recurring_reminders: { Args: never; Returns: number }
       get_public_quote: {
         Args: { p_quote_id?: string; p_quote_number?: string }
