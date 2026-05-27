@@ -161,6 +161,36 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
+    // L1: rate-limit por usuário (20/5min, 200/dia) via RPC server-side
+    const { data: rlData } = await admin.rpc("assistente_check_rate_limit", {
+      p_user_id: userData.user.id,
+    });
+    if (rlData && rlData.allowed === false) {
+      return new Response(
+        JSON.stringify({
+          error: "rate_limited",
+          resposta: "Você fez muitas perguntas em pouco tempo. Aguarde alguns minutos antes de continuar.",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // L2: histórico vem do BANCO, nunca do client (anti-spoof de turnos)
+    const { data: histDbRaw } = await admin
+      .from("assistente_mensagens")
+      .select("role,content")
+      .eq("user_id", userData.user.id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    const historico = (histDbRaw ?? []).reverse() as Array<{ role: "user" | "assistant"; content: string }>;
+
+    // Persiste a pergunta do usuário ANTES de chamar o LLM
+    await admin.from("assistente_mensagens").insert({
+      user_id: userData.user.id,
+      role: "user",
+      content: pergunta,
+    });
+
     // Helper para retornar shape compatível com .data quando pulamos um fetch
     const empty = Promise.resolve({ data: [] as any[] });
 
