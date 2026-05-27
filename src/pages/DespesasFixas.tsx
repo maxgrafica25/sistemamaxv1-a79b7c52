@@ -18,6 +18,12 @@ import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
 import PageLoader from "@/components/PageLoader";
 import { DotTabs } from "@/components/ui/dot-tabs";
+import {
+  expenseRowSchema,
+  salaryRowSchema,
+  equipmentDepRowSchema,
+  capacitySchema,
+} from "@/lib/schemas/cadastros";
 
 interface Expense { id?: string; name: string; value: number; }
 interface Salary { id?: string; name: string; salary: number; is_production: boolean; }
@@ -83,7 +89,52 @@ export default function DespesasFixas() {
   const totalHoursMonth = productionEmployeeCount * capacity.hours_per_month;
   const hourlyRate = totalHoursMonth > 0 ? totalFixedCosts / totalHoursMonth : 0;
 
-  // CRUD
+  // ─── Etapa 4b: validação Zod por linha ────────────────────────────────
+  const expenseErrors = useMemo(
+    () => expenses.map(e => {
+      const r = expenseRowSchema.safeParse(e);
+      if (r.success) return {} as Record<string, string>;
+      const m: Record<string, string> = {};
+      r.error.issues.forEach(i => { const k = String(i.path[0] ?? ""); if (!m[k]) m[k] = i.message; });
+      return m;
+    }),
+    [expenses]
+  );
+  const salaryErrors = useMemo(
+    () => salaries.map(s => {
+      const r = salaryRowSchema.safeParse(s);
+      if (r.success) return {} as Record<string, string>;
+      const m: Record<string, string> = {};
+      r.error.issues.forEach(i => { const k = String(i.path[0] ?? ""); if (!m[k]) m[k] = i.message; });
+      return m;
+    }),
+    [salaries]
+  );
+  const equipmentErrors = useMemo(
+    () => equipment.map(eq => {
+      const r = equipmentDepRowSchema.safeParse(eq);
+      if (r.success) return {} as Record<string, string>;
+      const m: Record<string, string> = {};
+      r.error.issues.forEach(i => { const k = String(i.path[0] ?? ""); if (!m[k]) m[k] = i.message; });
+      return m;
+    }),
+    [equipment]
+  );
+  const capacityErrors = useMemo(() => {
+    const r = capacitySchema.safeParse({ hours_per_month: capacity.hours_per_month });
+    if (r.success) return {} as Record<string, string>;
+    const m: Record<string, string> = {};
+    r.error.issues.forEach(i => { const k = String(i.path[0] ?? ""); if (!m[k]) m[k] = i.message; });
+    return m;
+  }, [capacity.hours_per_month]);
+  const formValid = useMemo(
+    () =>
+      expenseErrors.every(m => Object.keys(m).length === 0) &&
+      salaryErrors.every(m => Object.keys(m).length === 0) &&
+      equipmentErrors.every(m => Object.keys(m).length === 0) &&
+      Object.keys(capacityErrors).length === 0,
+    [expenseErrors, salaryErrors, equipmentErrors, capacityErrors]
+  );
   const addExpense = () => setExpenses([...expenses, { name: "", value: 0 }]);
   const requestRemove = (name: string, fn: () => void) => {
     setConfirmItemName(name); setConfirmAction(() => fn); setConfirmOpen(true);
@@ -207,9 +258,11 @@ export default function DespesasFixas() {
                           <TableRow key={i}>
                             <TableCell>
                               <Input value={exp.name} onChange={e => updateExpense(i, "name", e.target.value)} placeholder="Ex: Aluguel, Internet..." />
+                              {expenseErrors[i]?.name && <p className="text-xs text-destructive mt-1">{expenseErrors[i].name}</p>}
                             </TableCell>
                             <TableCell>
                               <Input type="number" step="0.01" value={exp.value || ""} onChange={e => updateExpense(i, "value", parseFloat(e.target.value) || 0)} />
+                              {expenseErrors[i]?.value && <p className="text-xs text-destructive mt-1">{expenseErrors[i].value}</p>}
                             </TableCell>
                             <TableCell>
                               <Button size="icon" variant="ghost" onClick={() => requestRemove(exp.name || "Despesa", () => removeExpense(i))} className="text-destructive hover:text-destructive">
@@ -254,9 +307,11 @@ export default function DespesasFixas() {
                           <TableRow key={i}>
                             <TableCell>
                               <Input value={sal.name} onChange={e => updateSalary(i, "name", e.target.value)} placeholder="Ex: Funcionário 1..." />
+                              {salaryErrors[i]?.name && <p className="text-xs text-destructive mt-1">{salaryErrors[i].name}</p>}
                             </TableCell>
                             <TableCell>
                               <Input type="number" step="0.01" value={sal.salary || ""} onChange={e => updateSalary(i, "salary", parseFloat(e.target.value) || 0)} />
+                              {salaryErrors[i]?.salary && <p className="text-xs text-destructive mt-1">{salaryErrors[i].salary}</p>}
                             </TableCell>
                             <TableCell>
                               <Switch checked={sal.is_production} onCheckedChange={v => updateSalary(i, "is_production", v)} />
@@ -311,10 +366,22 @@ export default function DespesasFixas() {
                       <TableBody>
                         {depreciationItems.map((eq, i) => (
                           <TableRow key={i}>
-                            <TableCell><Input value={eq.name} onChange={e => updateEquipment(i, "name", e.target.value)} placeholder="Ex: Plotter..." /></TableCell>
-                            <TableCell><Input type="number" step="0.01" value={eq.purchase_value || ""} onChange={e => updateEquipment(i, "purchase_value", parseFloat(e.target.value) || 0)} /></TableCell>
-                            <TableCell><Input type="number" value={eq.useful_life_months || ""} onChange={e => updateEquipment(i, "useful_life_months", parseInt(e.target.value) || 0)} /></TableCell>
-                            <TableCell><Input type="number" step="0.01" value={eq.residual_value || ""} onChange={e => updateEquipment(i, "residual_value", parseFloat(e.target.value) || 0)} /></TableCell>
+                            <TableCell>
+                              <Input value={eq.name} onChange={e => updateEquipment(i, "name", e.target.value)} placeholder="Ex: Plotter..." />
+                              {equipmentErrors[i]?.name && <p className="text-xs text-destructive mt-1">{equipmentErrors[i].name}</p>}
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" step="0.01" value={eq.purchase_value || ""} onChange={e => updateEquipment(i, "purchase_value", parseFloat(e.target.value) || 0)} />
+                              {equipmentErrors[i]?.purchase_value && <p className="text-xs text-destructive mt-1">{equipmentErrors[i].purchase_value}</p>}
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" value={eq.useful_life_months || ""} onChange={e => updateEquipment(i, "useful_life_months", parseInt(e.target.value) || 0)} />
+                              {equipmentErrors[i]?.useful_life_months && <p className="text-xs text-destructive mt-1">{equipmentErrors[i].useful_life_months}</p>}
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" step="0.01" value={eq.residual_value || ""} onChange={e => updateEquipment(i, "residual_value", parseFloat(e.target.value) || 0)} />
+                              {equipmentErrors[i]?.residual_value && <p className="text-xs text-destructive mt-1">{equipmentErrors[i].residual_value}</p>}
+                            </TableCell>
                             <TableCell className="font-medium text-sm">{formatCurrency(eq.monthly)}</TableCell>
                             <TableCell>
                               <Button size="icon" variant="ghost" onClick={() => requestRemove(eq.name || "Equipamento", () => removeEquipment(i))} className="text-destructive hover:text-destructive">
@@ -349,6 +416,7 @@ export default function DespesasFixas() {
                     <div className="space-y-2">
                       <Label>Horas / Mês por Pessoa</Label>
                       <Input type="number" step="1" value={capacity.hours_per_month || ""} onChange={e => setCapacity({ ...capacity, hours_per_month: parseFloat(e.target.value) || 0 })} />
+                      {capacityErrors.hours_per_month && <p className="text-xs text-destructive mt-1">{capacityErrors.hours_per_month}</p>}
                     </div>
                   </div>
                   <div className="mt-4 rounded-lg bg-muted/50 p-3 text-sm max-w-xl">
@@ -366,7 +434,7 @@ export default function DespesasFixas() {
       {/* Floating save button */}
       <div className="fixed bottom-6 right-6 z-50">
         <AdminOnly mode="disable" action="salvar despesas fixas">
-          <Button size="lg" onClick={handleSave} disabled={saving || !isAdmin} className="gap-2 shadow-lg rounded-full px-6">
+          <Button size="lg" onClick={handleSave} disabled={saving || !isAdmin || !formValid} className="gap-2 shadow-lg rounded-full px-6">
             {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
             Salvar Tudo
           </Button>

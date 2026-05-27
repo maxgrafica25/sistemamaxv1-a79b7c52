@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/PageHeader";
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
+import { stepSchema, stepGroupSchema, zodErrorsToMap } from "@/lib/schemas/cadastros";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -206,6 +207,18 @@ function EtapasTab() {
     setIsDialogOpen(true);
   };
 
+  const stepValidation = useMemo(() => {
+    const time = parseFloat(timeMinutes);
+    const parsed = stepSchema.safeParse({
+      description,
+      time_minutes: Number.isFinite(time) ? time : NaN,
+    });
+    return {
+      valid: parsed.success,
+      errors: parsed.success ? {} : zodErrorsToMap(parsed.error),
+    };
+  }, [description, timeMinutes]);
+
   const { requireAdmin } = usePermissionGuard();
 
   const saveStep = async () => {
@@ -256,10 +269,16 @@ function EtapasTab() {
               <div className="space-y-2">
                 <Label>Descrição da Etapa</Label>
                 <Input placeholder="Ex: Preparação de arquivo" value={description} onChange={(e) => setDescription(e.target.value)} />
+                {stepValidation.errors.description && (
+                  <p className="text-xs text-destructive">{stepValidation.errors.description}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Tempo Estimado (minutos)</Label>
                 <Input type="number" placeholder="Ex: 15" value={timeMinutes} onChange={(e) => setTimeMinutes(e.target.value)} />
+                {stepValidation.errors.time_minutes && (
+                  <p className="text-xs text-destructive">{stepValidation.errors.time_minutes}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Categoria do Processo</Label>
@@ -292,7 +311,7 @@ function EtapasTab() {
                   Quando preenchido, o orçamento mostra o passo-a-passo do grupo dentro desta etapa.
                 </p>
               </div>
-              <Button onClick={saveStep} className="w-full">{editingStep ? "Salvar Alterações" : "Criar Etapa"}</Button>
+              <Button onClick={saveStep} disabled={!stepValidation.valid} className="w-full">{editingStep ? "Salvar Alterações" : "Criar Etapa"}</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -420,6 +439,17 @@ function GruposTab() {
 
   const { requireAdmin } = usePermissionGuard();
 
+  const groupValidation = useMemo(() => {
+    const parsed = stepGroupSchema.safeParse({
+      name: groupName,
+      steps_count: groupSteps.length,
+    });
+    return {
+      valid: parsed.success,
+      errors: parsed.success ? {} : zodErrorsToMap(parsed.error),
+    };
+  }, [groupName, groupSteps.length]);
+
   const saveGroup = async () => {
     if (!requireAdmin(editingGroup ? "editar grupo" : "criar grupo")) return;
     if (!groupName.trim()) { toast.error("Digite um nome para o grupo"); return; }
@@ -485,6 +515,9 @@ function GruposTab() {
               <div className="space-y-2">
                 <Label>Nome do Grupo *</Label>
                 <Input placeholder="Ex: Impressão Digital A3" value={groupName} onChange={(e) => setGroupName(e.target.value)} />
+                {groupValidation.errors.name && (
+                  <p className="text-xs text-destructive">{groupValidation.errors.name}</p>
+                )}
               </div>
               <Separator />
               <div className="space-y-4">
@@ -523,6 +556,9 @@ function GruposTab() {
                     Selecione uma etapa acima para adicionar ao grupo.
                   </p>
                 )}
+                {groupValidation.errors.steps_count && (
+                  <p className="text-xs text-destructive">{groupValidation.errors.steps_count}</p>
+                )}
 
                 {groupSteps.map((s, idx) => {
                   const ps = stepById.get(s.production_step_id);
@@ -541,7 +577,7 @@ function GruposTab() {
 
               <div className="flex gap-3 pt-4">
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1">Cancelar</Button>
-                <Button onClick={saveGroup} className="flex-1">{editingGroup ? "Atualizar Grupo" : "Criar Grupo"}</Button>
+                <Button onClick={saveGroup} disabled={!groupValidation.valid} className="flex-1">{editingGroup ? "Atualizar Grupo" : "Criar Grupo"}</Button>
               </div>
             </div>
           </DialogContent>

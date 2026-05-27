@@ -155,6 +155,15 @@ export const stepGroupSchema = z.object({
   steps_count: z.number().int().min(1, "Adicione ao menos uma etapa ao grupo"),
 });
 
+export const stepSchema = z.object({
+  description: z.string().trim().min(2, "Descrição obrigatória").max(200, "Descrição muito longa"),
+  time_minutes: z
+    .number({ invalid_type_error: "Tempo inválido" })
+    .int("Use número inteiro")
+    .positive("Tempo deve ser maior que zero")
+    .max(10_000, "Tempo acima do limite"),
+});
+
 // ─── Helper genérico: extrai dict { field: firstError } a partir de um ZodError ─
 export function zodErrorsToMap(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
