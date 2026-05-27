@@ -138,6 +138,7 @@ async function processItem(admin: any, item: any): Promise<void> {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (!isServiceRoleRequest(req) && !isCronSecretRequest(req)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -154,7 +155,9 @@ Deno.serve(async (req) => {
     .order("created_at", { ascending: true })
     .limit(BATCH_SIZE);
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify(sanitizeError(error, "gcal-sync-worker/fetch")), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   let ok = 0, failed = 0;
