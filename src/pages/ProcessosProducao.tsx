@@ -311,7 +311,7 @@ function EtapasTab() {
                   Quando preenchido, o orçamento mostra o passo-a-passo do grupo dentro desta etapa.
                 </p>
               </div>
-              <Button onClick={saveStep} className="w-full">{editingStep ? "Salvar Alterações" : "Criar Etapa"}</Button>
+              <Button onClick={saveStep} disabled={!stepValidation.valid} className="w-full">{editingStep ? "Salvar Alterações" : "Criar Etapa"}</Button>
             </div>
           </DialogContent>
         </Dialog>
