@@ -574,7 +574,7 @@ function GruposTab() {
 
               <div className="flex gap-3 pt-4">
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1">Cancelar</Button>
-                <Button onClick={saveGroup} className="flex-1">{editingGroup ? "Atualizar Grupo" : "Criar Grupo"}</Button>
+                <Button onClick={saveGroup} disabled={!groupValidation.valid} className="flex-1">{editingGroup ? "Atualizar Grupo" : "Criar Grupo"}</Button>
               </div>
             </div>
           </DialogContent>
