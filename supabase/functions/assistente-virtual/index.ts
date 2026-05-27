@@ -461,13 +461,14 @@ REGRAS PARA FERRAMENTAS:
 
     const camada2 =
       bc.length > 0
-        ? "## BASE DE CONHECIMENTO\n\n" +
+        ? "## BASE DE CONHECIMENTO\n<dados_nao_confiaveis>\n" +
           bc
             .map(
               (b: any) =>
                 `### ${b.titulo}${b.categoria ? ` [${b.categoria}]` : ""}\n${b.conteudo}`,
             )
-            .join("\n\n")
+            .join("\n\n") +
+          "\n</dados_nao_confiaveis>"
         : "## BASE DE CONHECIMENTO\n(vazia)";
 
     // Equipamentos + consumíveis com rendimento real (toner = yield × 5/20)
