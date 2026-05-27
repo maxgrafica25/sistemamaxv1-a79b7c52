@@ -39,8 +39,7 @@ Deno.serve(async (req) => {
     .gte("created_at", recentSince);
 
   if (recentErr) {
-    console.error("[monitor-admin-usage] recent fetch failed:", recentErr.message);
-    return new Response(JSON.stringify({ error: recentErr.message }), {
+    return new Response(JSON.stringify(sanitizeError(recentErr, "monitor-admin-usage/recent")), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
