@@ -51,6 +51,16 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
+    // Rate limit por usuário: 120 ops/min (mais agressivo para escrita)
+    const isWrite = req.method === "POST" || req.method === "DELETE" || req.method === "PATCH";
+    const rl = await checkRateLimit(
+      `user:${userId}`,
+      isWrite ? "reminders_api_write" : "reminders_api_read",
+      isWrite ? 60 : 240,
+      60,
+    );
+    if (!rl.allowed) return rateLimitResponse(corsHeaders);
+
     const url = new URL(req.url);
 
     // GET /conflicts: detectar lembretes próximos a um horário proposto
