@@ -515,6 +515,9 @@ function GruposTab() {
               <div className="space-y-2">
                 <Label>Nome do Grupo *</Label>
                 <Input placeholder="Ex: Impressão Digital A3" value={groupName} onChange={(e) => setGroupName(e.target.value)} />
+                {groupValidation.errors.name && (
+                  <p className="text-xs text-destructive">{groupValidation.errors.name}</p>
+                )}
               </div>
               <Separator />
               <div className="space-y-4">
