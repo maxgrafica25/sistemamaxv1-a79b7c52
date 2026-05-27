@@ -6,16 +6,14 @@
 // notifications para múltiplos usuários (bypass user_id = auth.uid()).
 import { getAdminClient, isServiceRoleRequest, isCronSecretRequest } from "../_shared/admin-client.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeadersFor, sanitizeError } from "../_shared/errorHandler.ts";
 
 const ANOMALY_MULTIPLIER = 3;
 const RECENT_WINDOW_MIN = 60;       // janela "atual" = última hora
 const BASELINE_WINDOW_HOURS = 24;   // baseline = últimas 24h
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (!isServiceRoleRequest(req) && !isCronSecretRequest(req)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
