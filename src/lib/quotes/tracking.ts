@@ -55,15 +55,15 @@ export function parseUA(): { device_type: "Mobile" | "Desktop"; os: string; brow
  * - A RPC do servidor descarta automaticamente se houver auth.uid() (equipe interna).
  */
 export async function trackEvent(
-  quoteId: string | undefined,
+  publicToken: string | undefined | null,
   eventType: EngagementEventType,
   extra: Record<string, unknown> = {},
 ): Promise<void> {
-  if (!quoteId) return;
+  if (!publicToken) return;
 
   if (eventType === "viewed") {
     try {
-      const k = `qv2_view_${quoteId}`;
+      const k = `qv2_view_${publicToken}`;
       const last = Number(sessionStorage.getItem(k) || "0");
       if (Date.now() - last < VIEW_THROTTLE_MS) return;
       sessionStorage.setItem(k, String(Date.now()));
@@ -77,7 +77,7 @@ export async function trackEvent(
 
   try {
     await supabase.rpc("register_quote_event", {
-      p_quote_id: quoteId,
+      p_public_token: publicToken,
       p_event_type: eventType,
       p_metadata: meta,
       p_user_agent: ua,
