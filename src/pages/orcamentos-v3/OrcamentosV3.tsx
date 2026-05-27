@@ -39,6 +39,7 @@ import PageLoader from "@/components/PageLoader";
 interface QuoteRow {
   id: string;
   quote_number: string;
+  public_token: string;
   client: string;
   client_phone: string | null;
   product: string;
