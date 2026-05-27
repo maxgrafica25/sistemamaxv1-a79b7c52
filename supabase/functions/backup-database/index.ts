@@ -4,6 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "https://esm.sh/zod@3.23.8";
 import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
 
 const FormatSchema = z.enum(["sql", "json"]).catch("sql");
 
