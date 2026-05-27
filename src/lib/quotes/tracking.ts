@@ -79,22 +79,25 @@ export async function trackEvent(
 
   try {
     const calls: Promise<unknown>[] = [
-      supabase.rpc("register_quote_event", {
-        p_public_token: publicToken,
-        p_event_type: eventType,
-        p_metadata: meta,
-        p_user_agent: ua,
-        p_visitor_id: visitorId,
-      }),
-    ];
-
-    // view_count / last_viewed_at agora vivem em register_quote_view (token + rate-limit).
-    if (eventType === "viewed") {
-      calls.push(
-        supabase.rpc("register_quote_view", {
+      Promise.resolve(
+        supabase.rpc("register_quote_event", {
           p_public_token: publicToken,
+          p_event_type: eventType,
+          p_metadata: meta,
+          p_user_agent: ua,
           p_visitor_id: visitorId,
         }),
+      ),
+    ];
+
+    if (eventType === "viewed") {
+      calls.push(
+        Promise.resolve(
+          supabase.rpc("register_quote_view", {
+            p_public_token: publicToken,
+            p_visitor_id: visitorId,
+          }),
+        ),
       );
     }
 
