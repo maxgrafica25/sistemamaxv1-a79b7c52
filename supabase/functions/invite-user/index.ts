@@ -48,6 +48,12 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Rate limit: 10 convites por hora por admin (e 20 por IP)
+    const rlUser = await checkRateLimit(`user:${userData.user.id}`, "invite_user", 10, 3600);
+    if (!rlUser.allowed) return rateLimitResponse(corsHeaders);
+    const rlIp = await checkRateLimit(`ip:${clientIdentifier(req)}`, "invite_user_ip", 20, 3600);
+    if (!rlIp.allowed) return rateLimitResponse(corsHeaders);
+
     // 2) Verifica se é admin
     const { data: isAdmin, error: roleErr } = await userClient.rpc("is_profile_admin", {
       _user_id: userData.user.id,
