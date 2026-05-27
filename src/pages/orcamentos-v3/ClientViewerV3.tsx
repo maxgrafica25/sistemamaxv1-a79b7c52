@@ -477,7 +477,7 @@ export default function ClientViewer() {
   return (
     <div className="min-h-screen bg-muted/30 pb-32">
       <ViewerHeader
-        quoteId={quote.id}
+        publicToken={routeToken}
         quoteNumber={
           quote.version > 1
             ? `${quote.quote_number} · v${quote.version}`
@@ -936,7 +936,7 @@ export default function ClientViewer() {
       {/* Sticky bar — só aparece se há algo pra fazer */}
       {!quote.is_locked && (hasAnyPending || showOptionsMode) && (
         <StickyApprovalBar
-          quoteId={quote.id}
+          publicToken={routeToken}
           quoteNumber={quote.quote_number}
           optionLabel={showOptionsMode ? selectedOption?.label : undefined}
           ctaEnabled={
