@@ -262,16 +262,8 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
       });
       return;
     }
-    // Pergunta "Tem arte pronta?" agora é única por orçamento.
-    const hasArtRequiringItem = state.items.some((it) => requiresArt(it));
-    if (hasArtRequiringItem && !state.art_status) {
-      toast.warning("Responda 'Tem arte pronta?' antes de salvar.");
-      return;
-    }
-    if (state.art_status === "terceirizada" && (!state.art_terceirizada_value || state.art_terceirizada_value <= 0)) {
-      toast.warning("Informe o valor da arte terceirizada.");
-      return;
-    }
+    // Pergunta "Tem arte pronta?" foi removida do fluxo — itens seguem sem custo de arte por padrão.
+
 
     // Popup do checklist antes do save (se habilitado e houver itens CV).
     const hasCV = state.items.some((it) => it.kind === "cv");
