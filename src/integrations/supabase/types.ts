@@ -239,6 +239,66 @@ export type Database = {
           },
         ]
       }
+      assistente_auditoria: {
+        Row: {
+          created_at: string
+          id: string
+          latency_ms: number | null
+          pergunta_chars: number
+          pergunta_hash: string
+          pii_redacted_count: number
+          suspicious: boolean
+          tools_called: string[] | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          latency_ms?: number | null
+          pergunta_chars?: number
+          pergunta_hash: string
+          pii_redacted_count?: number
+          suspicious?: boolean
+          tools_called?: string[] | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          latency_ms?: number | null
+          pergunta_chars?: number
+          pergunta_hash?: string
+          pii_redacted_count?: number
+          suspicious?: boolean
+          tools_called?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      assistente_mensagens: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -4276,6 +4336,10 @@ export type Database = {
           approved_count: number
           total_value: number
         }[]
+      }
+      assistente_check_rate_limit: {
+        Args: { p_max_5min?: number; p_max_day?: number; p_user_id: string }
+        Returns: Json
       }
       backup_get_cron_jobs: { Args: never; Returns: Json }
       backup_get_foreign_keys: { Args: never; Returns: Json }
