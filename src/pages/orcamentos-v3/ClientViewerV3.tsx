@@ -165,11 +165,11 @@ export default function ClientViewer() {
 
   // Dispara "viewed" assim que sabemos o quote.id real
   useEffect(() => {
-    if (quote?.id) void trackEvent(quote.id, "viewed");
+    if (quote?.id) void trackEvent(routeToken, "viewed");
   }, [quote?.id]);
 
   // Scroll depth (1x por sessão, listener passive)
-  useScrollDepthTracking(quote?.id);
+  useScrollDepthTracking(routeToken);
 
   const options: QuoteOption[] = useMemo(
     () => (quote ? parseOptions(quote.options) : []),
@@ -230,12 +230,12 @@ export default function ClientViewer() {
     const t = setTimeout(() => {
       const prev = lastConfirmedOptionRef.current;
       if (prev && prev.id !== opt.id) {
-        void trackEvent(quote.id, "option_deselected", {
+        void trackEvent(routeToken, "option_deselected", {
           option_id: prev.id,
           option_label: prev.label,
         });
       }
-      void trackEvent(quote.id, "option_selected", {
+      void trackEvent(routeToken, "option_selected", {
         option_id: opt.id,
         option_label: opt.label,
       });
@@ -367,7 +367,7 @@ export default function ClientViewer() {
       if (willBeChecked) {
         const t = setTimeout(() => {
           pendingTimersRef.current.delete(itemId);
-          void trackEvent(quote?.id, "item_selected", {
+          void trackEvent(routeToken, "item_selected", {
             item_id: itemId,
             item_label: label,
             tier_group_id: item?.tier_group_id ?? null,
@@ -379,7 +379,7 @@ export default function ClientViewer() {
       } else if (sentSelectedRef.current.has(itemId)) {
         const t = setTimeout(() => {
           pendingTimersRef.current.delete(itemId);
-          void trackEvent(quote?.id, "item_deselected", {
+          void trackEvent(routeToken, "item_deselected", {
             item_id: itemId,
             item_label: label,
           });
@@ -972,7 +972,7 @@ export default function ClientViewer() {
         title={shareDialog.title}
         helper={shareDialog.helper}
         onShared={() => {
-          if (quote?.id) void trackEvent(quote.id, "whatsapp_share");
+          if (quote?.id) void trackEvent(routeToken, "whatsapp_share");
         }}
       />
 
