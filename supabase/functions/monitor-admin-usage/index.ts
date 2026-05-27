@@ -6,16 +6,14 @@
 // notifications para múltiplos usuários (bypass user_id = auth.uid()).
 import { getAdminClient, isServiceRoleRequest, isCronSecretRequest } from "../_shared/admin-client.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeadersFor, sanitizeError } from "../_shared/errorHandler.ts";
 
 const ANOMALY_MULTIPLIER = 3;
 const RECENT_WINDOW_MIN = 60;       // janela "atual" = última hora
 const BASELINE_WINDOW_HOURS = 24;   // baseline = últimas 24h
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (!isServiceRoleRequest(req) && !isCronSecretRequest(req)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -41,8 +39,7 @@ Deno.serve(async (req) => {
     .gte("created_at", recentSince);
 
   if (recentErr) {
-    console.error("[monitor-admin-usage] recent fetch failed:", recentErr.message);
-    return new Response(JSON.stringify({ error: recentErr.message }), {
+    return new Response(JSON.stringify(sanitizeError(recentErr, "monitor-admin-usage/recent")), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -54,8 +51,8 @@ Deno.serve(async (req) => {
     .gte("created_at", baselineSince);
 
   if (baseErr) {
-    console.error("[monitor-admin-usage] baseline fetch failed:", baseErr.message);
-    return new Response(JSON.stringify({ error: baseErr.message }), {
+  if (baseErr) {
+    return new Response(JSON.stringify(sanitizeError(baseErr, "monitor-admin-usage/baseline")), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

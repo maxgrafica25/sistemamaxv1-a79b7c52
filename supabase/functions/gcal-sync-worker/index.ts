@@ -2,11 +2,7 @@
 // Processa fila gcal_sync_queue. Cron a cada 1min.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { isServiceRoleRequest, isCronSecretRequest } from "../_shared/admin-client.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeadersFor, sanitizeError } from "../_shared/errorHandler.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -142,6 +138,7 @@ async function processItem(admin: any, item: any): Promise<void> {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (!isServiceRoleRequest(req) && !isCronSecretRequest(req)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -158,7 +155,9 @@ Deno.serve(async (req) => {
     .order("created_at", { ascending: true })
     .limit(BATCH_SIZE);
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify(sanitizeError(error, "gcal-sync-worker/fetch")), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   let ok = 0, failed = 0;
@@ -178,6 +177,6 @@ Deno.serve(async (req) => {
   }
 
   return new Response(JSON.stringify({ processed: ok, failed, total: items?.length || 0 }), {
-    headers: { "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });

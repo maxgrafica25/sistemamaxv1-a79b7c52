@@ -4,13 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "https://esm.sh/zod@3.23.8";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-};
+import { corsHeadersFor, sanitizeError } from "../_shared/errorHandler.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -24,14 +18,14 @@ const CreateSchema = z.object({
   category: z.string().max(50).optional().default("assistente"),
 });
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
+  const jsonResponse = (body: unknown, status = 200): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -102,8 +96,7 @@ Deno.serve(async (req) => {
 
       const { data, error } = await q;
       if (error) {
-        console.error("[reminders-api] conflicts error:", error);
-        return jsonResponse({ error: error.message }, 500);
+        return jsonResponse(sanitizeError(error, "reminders-api/conflicts"), 500);
       }
       return jsonResponse({ conflicts: data ?? [] }, 200);
     }
@@ -154,8 +147,7 @@ Deno.serve(async (req) => {
         .single();
 
       if (error) {
-        console.error("[reminders-api] insert error:", error);
-        return jsonResponse({ error: error.message }, 500);
+        return jsonResponse(sanitizeError(error, "reminders-api/insert"), 500);
       }
       return jsonResponse({ reminder: data }, 201);
     }
@@ -182,8 +174,7 @@ Deno.serve(async (req) => {
 
       const { data, error } = await q;
       if (error) {
-        console.error("[reminders-api] list error:", error);
-        return jsonResponse({ error: error.message }, 500);
+        return jsonResponse(sanitizeError(error, "reminders-api/list"), 500);
       }
       return jsonResponse({ reminders: data ?? [] }, 200);
     }
@@ -214,8 +205,7 @@ Deno.serve(async (req) => {
         .select("id")
         .maybeSingle();
       if (error) {
-        console.error("[reminders-api] cancel error:", error, "id:", idParsed.data);
-        return jsonResponse({ error: error.message }, 500);
+        return jsonResponse(sanitizeError(error, "reminders-api/cancel"), 500);
       }
       if (!cancelled) {
         console.warn("[reminders-api] cancel not found / already cancelled id:", idParsed.data);
@@ -229,10 +219,6 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ error: "Método não suportado" }, 405);
   } catch (e) {
-    console.error("[reminders-api] error:", e);
-    return jsonResponse(
-      { error: e instanceof Error ? e.message : "Erro desconhecido" },
-      500,
-    );
+    return jsonResponse(sanitizeError(e, "reminders-api"), 500);
   }
 });
