@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
           .maybeSingle(),
       ]);
 
-    console.log(`[assistente-virtual] modo=${isAgendaOnly ? "agenda" : "completo"} pergunta="${pergunta.slice(0, 80)}"`);
+    console.log(`[assistente-virtual] modo=${isAgendaOnly ? "agenda" : "completo"} pergunta_chars=${pergunta.length}`);
 
     const gcalConnected = !!gcalRes?.data;
     const gcalEmail = (gcalRes?.data as any)?.email_google ?? null;
