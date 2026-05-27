@@ -174,8 +174,7 @@ Deno.serve(async (req) => {
 
       const { data, error } = await q;
       if (error) {
-        console.error("[reminders-api] list error:", error);
-        return jsonResponse({ error: error.message }, 500);
+        return jsonResponse(sanitizeError(error, "reminders-api/list"), 500);
       }
       return jsonResponse({ reminders: data ?? [] }, 200);
     }
