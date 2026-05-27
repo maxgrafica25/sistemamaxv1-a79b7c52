@@ -207,6 +207,18 @@ function EtapasTab() {
     setIsDialogOpen(true);
   };
 
+  const stepValidation = useMemo(() => {
+    const time = parseFloat(timeMinutes);
+    const parsed = stepSchema.safeParse({
+      description,
+      time_minutes: Number.isFinite(time) ? time : NaN,
+    });
+    return {
+      valid: parsed.success,
+      errors: parsed.success ? {} : zodErrorsToMap(parsed.error),
+    };
+  }, [description, timeMinutes]);
+
   const { requireAdmin } = usePermissionGuard();
 
   const saveStep = async () => {
