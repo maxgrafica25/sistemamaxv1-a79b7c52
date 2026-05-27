@@ -366,10 +366,22 @@ export default function DespesasFixas() {
                       <TableBody>
                         {depreciationItems.map((eq, i) => (
                           <TableRow key={i}>
-                            <TableCell><Input value={eq.name} onChange={e => updateEquipment(i, "name", e.target.value)} placeholder="Ex: Plotter..." /></TableCell>
-                            <TableCell><Input type="number" step="0.01" value={eq.purchase_value || ""} onChange={e => updateEquipment(i, "purchase_value", parseFloat(e.target.value) || 0)} /></TableCell>
-                            <TableCell><Input type="number" value={eq.useful_life_months || ""} onChange={e => updateEquipment(i, "useful_life_months", parseInt(e.target.value) || 0)} /></TableCell>
-                            <TableCell><Input type="number" step="0.01" value={eq.residual_value || ""} onChange={e => updateEquipment(i, "residual_value", parseFloat(e.target.value) || 0)} /></TableCell>
+                            <TableCell>
+                              <Input value={eq.name} onChange={e => updateEquipment(i, "name", e.target.value)} placeholder="Ex: Plotter..." />
+                              {equipmentErrors[i]?.name && <p className="text-xs text-destructive mt-1">{equipmentErrors[i].name}</p>}
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" step="0.01" value={eq.purchase_value || ""} onChange={e => updateEquipment(i, "purchase_value", parseFloat(e.target.value) || 0)} />
+                              {equipmentErrors[i]?.purchase_value && <p className="text-xs text-destructive mt-1">{equipmentErrors[i].purchase_value}</p>}
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" value={eq.useful_life_months || ""} onChange={e => updateEquipment(i, "useful_life_months", parseInt(e.target.value) || 0)} />
+                              {equipmentErrors[i]?.useful_life_months && <p className="text-xs text-destructive mt-1">{equipmentErrors[i].useful_life_months}</p>}
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" step="0.01" value={eq.residual_value || ""} onChange={e => updateEquipment(i, "residual_value", parseFloat(e.target.value) || 0)} />
+                              {equipmentErrors[i]?.residual_value && <p className="text-xs text-destructive mt-1">{equipmentErrors[i].residual_value}</p>}
+                            </TableCell>
                             <TableCell className="font-medium text-sm">{formatCurrency(eq.monthly)}</TableCell>
                             <TableCell>
                               <Button size="icon" variant="ghost" onClick={() => requestRemove(eq.name || "Equipamento", () => removeEquipment(i))} className="text-destructive hover:text-destructive">
