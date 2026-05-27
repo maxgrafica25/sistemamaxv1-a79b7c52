@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "https://esm.sh/zod@3.23.8";
 import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
+import { validateOrigin } from "../_shared/errorHandler.ts";
 
 const FormatSchema = z.enum(["sql", "json"]).catch("sql");
 
@@ -94,6 +95,8 @@ function topoSortTables(tables: string[], fks: any[]): { ordered: string[]; defe
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const originBlock = validateOrigin(req, corsHeaders);
+  if (originBlock) return originBlock;
 
   // 1) Auth: valida admin via JWT
   const authHeader = req.headers.get("Authorization");
