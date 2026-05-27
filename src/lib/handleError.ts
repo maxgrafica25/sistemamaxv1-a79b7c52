@@ -28,6 +28,25 @@ const isAdminOnlyError = (msg: string) =>
 const isFinanceiroOnlyError = (msg: string) =>
   /financeiro/i.test(msg);
 
+// Etapa 4 — sanitização: remove paths internos, stacks, refs Postgres
+// e mensagens contendo "supabase"/"postgres" antes de exibir ao usuário.
+const TECHNICAL_LEAK_PATTERNS = [
+  /\bat\s+[\w$.<>]+\s*\([^)]*\)/g,         // stack frames "at fn (file:line)"
+  /\/[\w./-]+\.(?:ts|tsx|js|jsx):\d+/g,    // paths com linha
+  /\b(?:supabase|postgres(?:ql)?|pg|pgrst)\b[^.]{0,40}/gi,
+  /\b[A-Z0-9_]{2,}_(?:ERROR|EXCEPTION)\b/g, // códigos tipo FOO_BAR_ERROR
+];
+
+const sanitizeForDisplay = (msg: string): string => {
+  let cleaned = msg;
+  for (const re of TECHNICAL_LEAK_PATTERNS) cleaned = cleaned.replace(re, "");
+  cleaned = cleaned.replace(/\s{2,}/g, " ").trim();
+  // Se sobrou pouco/nada útil, devolve genérico
+  if (cleaned.length < 8) return "ocorreu um erro inesperado";
+  return cleaned;
+};
+
+
 /**
  * Trata erro de operação Supabase/async com feedback visível ao usuário.
  * @param error  Erro retornado por supabase ou catch
