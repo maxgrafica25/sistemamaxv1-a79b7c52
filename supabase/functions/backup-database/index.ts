@@ -124,6 +124,10 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Rate limit: backups são pesados — 3 por hora por admin
+  const rl = await checkRateLimit(`user:${userId}`, "backup_database", 3, 3600);
+  if (!rl.allowed) return rateLimitResponse(corsHeaders);
+
   // 2) Service-role client APÓS validação
   const admin = getAdminClient({
     fnName: "backup-database",
