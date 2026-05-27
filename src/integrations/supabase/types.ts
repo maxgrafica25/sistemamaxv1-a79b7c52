@@ -36,7 +36,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           order_id?: string | null
           status?: string
@@ -94,7 +94,7 @@ export type Database = {
           amount?: number
           created_at?: string
           due_date: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           installment_number?: number
           notes?: string | null
@@ -184,7 +184,7 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           external_email?: string | null
           id?: string
           name: string
@@ -235,7 +235,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           fornecedor_nome?: string | null
           id?: string
           lida?: boolean
@@ -295,7 +295,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           latency_ms?: number | null
           pergunta_chars?: number
@@ -339,7 +339,7 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           role: string
           user_id: string
@@ -439,7 +439,7 @@ export type Database = {
           categoria?: string | null
           conteudo: string
           criado_em?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           titulo: string
         }
@@ -474,7 +474,7 @@ export type Database = {
         }
         Insert: {
           channel_id: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           joined_at?: string
           role?: string
@@ -523,7 +523,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
-          empresa_id: string
+          empresa_id?: string
           id?: string
           is_archived?: boolean
           linked_quote_id?: string | null
@@ -587,7 +587,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           drive_folder_url?: string | null
-          empresa_id: string
+          empresa_id?: string
           frequencia_dias?: number
           id?: string
           nome: string
@@ -666,7 +666,7 @@ export type Database = {
           created_at?: string
           email: string
           empresa?: string | null
-          empresa_id: string
+          empresa_id?: string
           endereco?: string | null
           estado?: string | null
           id?: string
@@ -734,7 +734,7 @@ export type Database = {
           default_quote_validity_days?: number
           default_tax_rate?: number
           email?: string | null
-          empresa_id: string
+          empresa_id?: string
           id?: string
           logo_url?: string | null
           public_base_url?: string | null
@@ -787,7 +787,7 @@ export type Database = {
           change_date?: string | null
           consumable_id: string
           created_at?: string | null
-          empresa_id: string
+          empresa_id?: string
           id?: string
           invoice_ref?: string | null
           notes?: string | null
@@ -848,7 +848,7 @@ export type Database = {
           consumo_tipo?: string
           created_at?: string
           descricao?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           production_step_id?: string | null
           sort_order?: number
@@ -905,7 +905,7 @@ export type Database = {
         Insert: {
           acabamento_id: string
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           sort_order?: number
           tipo_midia: string
           updated_at?: string
@@ -954,7 +954,7 @@ export type Database = {
           consumo_qty?: number
           consumo_tipo?: string
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           sort_order?: number
           supply_id: string
@@ -1029,7 +1029,7 @@ export type Database = {
           custo_mt2?: number
           custo_perimetro?: number
           custo_unidade?: number
-          empresa_id: string
+          empresa_id?: string
           extra_cost_fixo?: number
           extra_cost_mt2?: number
           extra_cost_perimetro?: number
@@ -1097,7 +1097,7 @@ export type Database = {
           valor_minimo: number
         }
         Insert: {
-          empresa_id: string
+          empresa_id?: string
           id?: string
           sangria_adesivo_mm?: number
           sangria_chapa_mm?: number
@@ -1151,7 +1151,7 @@ export type Database = {
           created_at?: string
           custo_fixo?: number
           custo_mt2?: number
-          empresa_id: string
+          empresa_id?: string
           id?: string
           largura_max_cm?: number | null
           lucro_fixo?: number
@@ -1207,7 +1207,7 @@ export type Database = {
           created_at?: string
           custo_fixo?: number
           custo_mt2?: number
-          empresa_id: string
+          empresa_id?: string
           id?: string
           lucro_fixo?: number
           lucro_mt2?: number
@@ -1277,7 +1277,7 @@ export type Database = {
           area_total_m2?: number
           art_status?: string | null
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           finishes_json?: Json
           id?: string
           largura_cm?: number
@@ -1407,7 +1407,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           equipment_id: string
           id?: string
           mode?: string
@@ -1459,7 +1459,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           name: string
           purchase_value?: number
@@ -1512,7 +1512,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date?: string
-          empresa_id: string
+          empresa_id?: string
           equipment_id: string
           hours_spent?: number
           id?: string
@@ -1573,7 +1573,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
-          empresa_id: string
+          empresa_id?: string
           id?: string
           name: string
           printer_type?: string
@@ -1615,7 +1615,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           finishing_id: string
           id?: string
           label: string
@@ -1678,7 +1678,7 @@ export type Database = {
           auto_format_multiplier?: boolean
           category?: string
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           is_active?: boolean
           name: string
@@ -1739,7 +1739,7 @@ export type Database = {
         Insert: {
           created_at?: string
           default_value?: number
-          empresa_id: string
+          empresa_id?: string
           id?: string
           name: string
           sort_order?: number
@@ -1855,7 +1855,7 @@ export type Database = {
         }
         Insert: {
           criado_em?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           site_id: string
           valor: number
@@ -1897,7 +1897,7 @@ export type Database = {
         }
         Insert: {
           criado_em?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           quantidade: number
           site_id: string
@@ -2088,7 +2088,7 @@ export type Database = {
           attachments?: string[] | null
           created_at?: string
           description: string
-          empresa_id: string
+          empresa_id?: string
           equipment_id: string
           id?: string
           requested_by: string
@@ -2138,7 +2138,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           name: string
           updated_at?: string
@@ -2178,7 +2178,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           fixed_cost_pct?: number
           id?: string
           label: string
@@ -2247,7 +2247,7 @@ export type Database = {
           consumo_tipo?: string
           created_at?: string
           description: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           material_group_id: string
           quantity?: number
@@ -2309,7 +2309,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           is_kit?: boolean
           labor_hour_rate_manual?: number
@@ -2359,7 +2359,7 @@ export type Database = {
         Insert: {
           created_at?: string
           emoji: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           message_id: string
           user_id: string
@@ -2399,7 +2399,7 @@ export type Database = {
         }
         Insert: {
           channel_id: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           last_read_at?: string
           user_id: string
@@ -2450,7 +2450,7 @@ export type Database = {
           content?: string
           created_at?: string
           deleted_at?: string | null
-          empresa_id: string
+          empresa_id?: string
           id?: string
           is_edited?: boolean
           parent_message_id?: string | null
@@ -2506,7 +2506,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           name: string
           updated_at?: string
@@ -2547,7 +2547,7 @@ export type Database = {
         Insert: {
           created_at?: string
           due_date?: string | null
-          empresa_id: string
+          empresa_id?: string
           id?: string
           is_read?: boolean
           message: string
@@ -2596,7 +2596,7 @@ export type Database = {
         Insert: {
           contact?: string | null
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           freight_price?: number
           id?: string
           pack_price?: number
@@ -2659,7 +2659,7 @@ export type Database = {
           category?: string
           contact?: string | null
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           freight_price?: number
           grammage?: string | null
           id?: string
@@ -2717,7 +2717,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           fee_pct?: number
           id?: string
           method: string
@@ -2755,7 +2755,7 @@ export type Database = {
         Insert: {
           channel_id: string
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           message_id: string
           pinned_by: string
@@ -2857,7 +2857,7 @@ export type Database = {
           counter?: number
           created_at?: string
           date?: string
-          empresa_id: string
+          empresa_id?: string
           equipment_id?: string | null
           id?: string
           notes?: string | null
@@ -2933,7 +2933,7 @@ export type Database = {
         Insert: {
           code?: string | null
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           equipment_id?: string | null
           equipment_mode?: string
           fv_exception?: boolean
@@ -3015,7 +3015,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           item_id: string
           label?: string | null
@@ -3081,7 +3081,7 @@ export type Database = {
           alternative_group?: string | null
           auto_select_default?: boolean
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           item_type: string
           kit_id: string
@@ -3137,7 +3137,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           kit_id: string
           preset_id: string
         }
@@ -3187,7 +3187,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
-          empresa_id: string
+          empresa_id?: string
           id?: string
           is_active?: boolean
           name: string
@@ -3233,7 +3233,7 @@ export type Database = {
           created_by?: string | null
           date?: string
           description?: string
-          empresa_id: string
+          empresa_id?: string
           equipment_id: string
           error_type?: string
           id?: string
@@ -3284,7 +3284,7 @@ export type Database = {
         Insert: {
           color?: string
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           is_system?: boolean
           name: string
@@ -3327,7 +3327,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           step_group_id?: string | null
           step_type?: string
@@ -3372,7 +3372,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           hours_per_month?: number
           id?: string
           production_employees?: number
@@ -3412,7 +3412,7 @@ export type Database = {
           categoria?: string | null
           created_at?: string
           dimensoes?: string | null
-          empresa_id: string
+          empresa_id?: string
           gramatura?: string | null
           id?: string
           nome_canonico: string
@@ -3509,7 +3509,7 @@ export type Database = {
           approver_ip?: string | null
           approver_name: string
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           items_snapshot?: Json
           quote_id: string
@@ -3560,7 +3560,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           question_id: string
           quote_id: string
           resposta_bool?: boolean | null
@@ -3618,7 +3618,7 @@ export type Database = {
           ativo?: boolean
           categoria?: string
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           hint?: string | null
           id?: string
           labor_custo_fixo?: number
@@ -3674,7 +3674,7 @@ export type Database = {
           area_max_m2?: number | null
           area_min_m2?: number | null
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           familia_acab?: string[]
           id?: string
           question_id: string
@@ -3723,7 +3723,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           event_type: string
           id?: string
           ip_hash?: string | null
@@ -3772,7 +3772,7 @@ export type Database = {
         }
         Insert: {
           description: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           is_optional?: boolean
           parent_item_id?: string | null
@@ -3862,7 +3862,7 @@ export type Database = {
           catalog_source?: string | null
           custom_name?: string | null
           description: string
-          empresa_id: string
+          empresa_id?: string
           generated_title?: string | null
           grammage?: string | null
           height_mm?: number | null
@@ -3974,7 +3974,7 @@ export type Database = {
           altura_cm?: number | null
           ativo?: boolean
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           form_tipo?: string | null
           icone?: string
           id?: string
@@ -4042,7 +4042,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           interval_days?: number
           is_active?: boolean
@@ -4091,7 +4091,7 @@ export type Database = {
         Insert: {
           cost?: number
           description: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           quote_id: string
           sort_order?: number
@@ -4172,7 +4172,7 @@ export type Database = {
           date?: string
           discount_type?: string | null
           discount_value?: number | null
-          empresa_id: string
+          empresa_id?: string
           freight_type_id?: string | null
           freight_value?: number
           hidden_extras_value?: number
@@ -4280,7 +4280,7 @@ export type Database = {
           alerted_on?: string
           channel?: string
           days_overdue: number
-          empresa_id: string
+          empresa_id?: string
           equipment_id: string
           gap_start_date: string
           id?: string
@@ -4328,7 +4328,7 @@ export type Database = {
         Insert: {
           carga_cor?: string | null
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           equipment_id?: string | null
           id?: string
           impresso_em?: string
@@ -4415,7 +4415,7 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
-          empresa_id: string
+          empresa_id?: string
           event_at?: string | null
           gcal_synced_at?: string | null
           google_event_id?: string | null
@@ -4469,7 +4469,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           is_production?: boolean
           name: string
@@ -4502,7 +4502,7 @@ export type Database = {
           year: number
         }
         Insert: {
-          empresa_id: string
+          empresa_id?: string
           last_number?: number
           year: number
         }
@@ -4536,7 +4536,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           line_total?: number
           order_id: string
@@ -4586,7 +4586,7 @@ export type Database = {
         Insert: {
           changed_at?: string
           changed_by?: string | null
-          empresa_id: string
+          empresa_id?: string
           from_status?: string | null
           id?: string
           note?: string | null
@@ -4652,7 +4652,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           delivery_date?: string | null
-          empresa_id: string
+          empresa_id?: string
           id?: string
           internal_notes?: string | null
           order_number: string
@@ -4728,7 +4728,7 @@ export type Database = {
           ativo?: boolean
           atualizado_em?: string
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           preco_anterior?: number | null
           preco_total?: number
@@ -4796,7 +4796,7 @@ export type Database = {
           codigo_externo?: string | null
           config_coleta?: Json
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           fornecedor_nome?: string | null
           id?: string
           intervalo_check_horas?: number
@@ -4866,7 +4866,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           production_step_id: string
           sort_order?: number
@@ -4914,7 +4914,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           name: string
           updated_at?: string
@@ -4952,7 +4952,7 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           email: string
-          empresa_id: string
+          empresa_id?: string
           endereco?: string | null
           id?: string
           nome: string
@@ -5002,7 +5002,7 @@ export type Database = {
           contato?: string
           created_at?: string
           data?: string
-          empresa_id: string
+          empresa_id?: string
           finalidade?: string
           fornecedor?: string
           id?: string
@@ -5057,7 +5057,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           id?: string
           label: string
           manual_price: number
@@ -5114,7 +5114,7 @@ export type Database = {
           contato?: string
           created_at?: string
           data?: string
-          empresa_id: string
+          empresa_id?: string
           fornecedor?: string
           id?: string
           produto: string
@@ -5169,7 +5169,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          empresa_id: string
+          empresa_id?: string
           file_name: string
           file_type?: string | null
           fornecedor_nome?: string | null
