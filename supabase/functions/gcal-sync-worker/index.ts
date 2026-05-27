@@ -2,7 +2,7 @@
 // Processa fila gcal_sync_queue. Cron a cada 1min.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { isServiceRoleRequest, isCronSecretRequest } from "../_shared/admin-client.ts";
-import { corsHeadersFor, sanitizeError } from "../_shared/errorHandler.ts";
+import { corsHeadersFor, sanitizeError, validateOrigin } from "../_shared/errorHandler.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -140,6 +140,8 @@ async function processItem(admin: any, item: any): Promise<void> {
 Deno.serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const originBlock = validateOrigin(req, corsHeaders);
+  if (originBlock) return originBlock;
   if (!isServiceRoleRequest(req) && !isCronSecretRequest(req)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,

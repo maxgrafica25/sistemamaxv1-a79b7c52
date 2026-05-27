@@ -26,6 +26,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { zipSync, strToU8, type Zippable } from "https://esm.sh/fflate@0.8.2";
 import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
+import { validateOrigin } from "../_shared/errorHandler.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -70,6 +71,8 @@ const EDGE_FUNCTIONS = [
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const originBlock = validateOrigin(req, corsHeaders);
+  if (originBlock) return originBlock;
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const authHeader = req.headers.get("Authorization");
