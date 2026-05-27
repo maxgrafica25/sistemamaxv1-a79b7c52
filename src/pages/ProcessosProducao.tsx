@@ -439,6 +439,17 @@ function GruposTab() {
 
   const { requireAdmin } = usePermissionGuard();
 
+  const groupValidation = useMemo(() => {
+    const parsed = stepGroupSchema.safeParse({
+      name: groupName,
+      steps_count: groupSteps.length,
+    });
+    return {
+      valid: parsed.success,
+      errors: parsed.success ? {} : zodErrorsToMap(parsed.error),
+    };
+  }, [groupName, groupSteps.length]);
+
   const saveGroup = async () => {
     if (!requireAdmin(editingGroup ? "editar grupo" : "criar grupo")) return;
     if (!groupName.trim()) { toast.error("Digite um nome para o grupo"); return; }
