@@ -58,9 +58,10 @@ const App = () => (
               <Routes>
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/view-quote/:id" element={<ClientViewerV3 />} />
-                <Route path="/p/:quoteNumber" element={<ClientViewerV3 />} />
-                <Route path="/view-quote-v2/:id" element={<Navigate to="/" replace />} />
+                <Route path="/p/:token" element={<ClientViewerV3 />} />
+                {/* Rotas antigas — invalidadas pela Migration 6 (links sequenciais permitiam enumeração). */}
+                <Route path="/view-quote/:id" element={<NotFound />} />
+                <Route path="/view-quote-v2/:id" element={<NotFound />} />
                 <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/pedidos" element={<Pedidos />} />

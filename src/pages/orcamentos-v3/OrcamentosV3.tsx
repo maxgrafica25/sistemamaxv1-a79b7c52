@@ -39,6 +39,7 @@ import PageLoader from "@/components/PageLoader";
 interface QuoteRow {
   id: string;
   quote_number: string;
+  public_token: string;
   client: string;
   client_phone: string | null;
   product: string;
@@ -143,7 +144,7 @@ export default function OrcamentosV3() {
     const [quotesRes] = await Promise.all([
       supabase
         .from("quotes")
-        .select("id, quote_number, client, client_phone, product, value, status, date, created_at, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id, last_partial_seen_at, tags")
+        .select("id, quote_number, public_token, client, client_phone, product, value, status, date, created_at, view_count, last_viewed_at, is_template, options, version, is_locked, parent_quote_id, last_partial_seen_at, tags")
         .order("created_at", { ascending: false }),
       refreshStats(),
       refreshAggregates(),

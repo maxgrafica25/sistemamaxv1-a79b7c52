@@ -4151,6 +4151,7 @@ export type Database = {
           payment_method: string | null
           product: string
           profit_margin: string | null
+          public_token: string
           quote_number: string
           recurring_id: string | null
           rejection_reason: string | null
@@ -4188,6 +4189,7 @@ export type Database = {
           payment_method?: string | null
           product: string
           profit_margin?: string | null
+          public_token?: string
           quote_number: string
           recurring_id?: string | null
           rejection_reason?: string | null
@@ -4225,6 +4227,7 @@ export type Database = {
           payment_method?: string | null
           product?: string
           profit_margin?: string | null
+          public_token?: string
           quote_number?: string
           recurring_id?: string | null
           rejection_reason?: string | null
@@ -5296,10 +5299,7 @@ export type Database = {
       }
       empresa_ativa: { Args: { _empresa_id: string }; Returns: boolean }
       enqueue_recurring_reminders: { Args: never; Returns: number }
-      get_public_quote: {
-        Args: { p_quote_id?: string; p_quote_number?: string }
-        Returns: Json
-      }
+      get_public_quote: { Args: { p_token: string }; Returns: Json }
       is_channel_creator: {
         Args: { _channel_id: string; _user_id: string }
         Returns: boolean
