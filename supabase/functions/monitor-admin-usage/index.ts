@@ -53,7 +53,6 @@ Deno.serve(async (req) => {
     .gte("created_at", baselineSince);
 
   if (baseErr) {
-  if (baseErr) {
     return new Response(JSON.stringify(sanitizeError(baseErr, "monitor-admin-usage/baseline")), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
