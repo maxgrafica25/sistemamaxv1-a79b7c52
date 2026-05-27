@@ -1343,7 +1343,7 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
           if (!explicitCancelKeywordsRegex.test(pergunta)) {
             console.log(JSON.stringify({
               type: "guard_block_cancelled_lookup",
-              pergunta_preview: pergunta.slice(0, 120),
+              pergunta_chars: pergunta.length,
               reason: "no_cancel_keyword_in_user_question",
             }));
             return {
@@ -1675,7 +1675,7 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
         console.log(JSON.stringify({
           type: "guard_force_cancelled_lookup",
           iter,
-          pergunta_preview: pergunta.slice(0, 120),
+          pergunta_chars: pergunta.length,
         }));
         // Calcula janela ampla padrão (−30d / +90d) em offset −03:00, caso o modelo precise.
         const nowMs = Date.now();
@@ -1704,7 +1704,7 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
         console.log(JSON.stringify({
           type: "guard_force_create_after_lead_time",
           iter,
-          pergunta_preview: pergunta.slice(0, 80),
+          pergunta_chars: pergunta.length,
           tools_called: toolsCalled,
         }));
         messages.push({
