@@ -5,11 +5,11 @@ import { trackEvent } from "./tracking";
  * Dispara `scroll_depth` UMA ÚNICA vez por sessão, quando o usuário
  * chega a >= 90% do scroll da página. Listener com passive: true.
  */
-export function useScrollDepthTracking(quoteId: string | undefined) {
+export function useScrollDepthTracking(publicToken: string | undefined) {
   useEffect(() => {
-    if (!quoteId) return;
+    if (!publicToken) return;
 
-    const key = `qv2_scroll_${quoteId}`;
+    const key = `qv2_scroll_${publicToken}`;
     try {
       if (sessionStorage.getItem(key)) return;
     } catch {
@@ -29,7 +29,7 @@ export function useScrollDepthTracking(quoteId: string | undefined) {
         } catch {
           /* ignore */
         }
-        void trackEvent(quoteId, "scroll_depth", { scroll_pct: Math.round(pct) });
+        void trackEvent(publicToken, "scroll_depth", { scroll_pct: Math.round(pct) });
         window.removeEventListener("scroll", onScroll);
       }
     };
@@ -39,5 +39,5 @@ export function useScrollDepthTracking(quoteId: string | undefined) {
     onScroll();
 
     return () => window.removeEventListener("scroll", onScroll);
-  }, [quoteId]);
+  }, [publicToken]);
 }

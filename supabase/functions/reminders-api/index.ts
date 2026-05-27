@@ -3,6 +3,7 @@
 // JWT validado em código; RLS da tabela garante isolamento por user_id.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "https://esm.sh/zod@3.23.8";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,6 +50,16 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Token inválido" }, 401);
     }
     const userId = userData.user.id;
+
+    // Rate limit por usuário: 120 ops/min (mais agressivo para escrita)
+    const isWrite = req.method === "POST" || req.method === "DELETE" || req.method === "PATCH";
+    const rl = await checkRateLimit(
+      `user:${userId}`,
+      isWrite ? "reminders_api_write" : "reminders_api_read",
+      isWrite ? 60 : 240,
+      60,
+    );
+    if (!rl.allowed) return rateLimitResponse(corsHeaders);
 
     const url = new URL(req.url);
 

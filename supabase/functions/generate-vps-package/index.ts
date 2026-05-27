@@ -25,6 +25,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { zipSync, strToU8, type Zippable } from "https://esm.sh/fflate@0.8.2";
 import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,6 +83,11 @@ Deno.serve(async (req) => {
 
   const { data: isAdmin } = await userClient.rpc("is_profile_admin", { _user_id: userData.user.id });
   if (!isAdmin) return json({ error: "Forbidden: admin required" }, 403);
+
+  // Rate limit: gerar pacote VPS é muito pesado — 2 por hora por admin
+  const rl = await checkRateLimit(`user:${userData.user.id}`, "generate_vps_package", 2, 3600);
+  if (!rl.allowed) return rateLimitResponse(corsHeaders);
+
 
   const admin = getAdminClient({
     fnName: "generate-vps-package",

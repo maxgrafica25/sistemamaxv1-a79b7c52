@@ -2,6 +2,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "https://esm.sh/zod@3.23.8";
+import { checkRateLimit, clientIdentifier, rateLimitResponse } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,6 +47,12 @@ Deno.serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    // Rate limit: 10 convites por hora por admin (e 20 por IP)
+    const rlUser = await checkRateLimit(`user:${userData.user.id}`, "invite_user", 10, 3600);
+    if (!rlUser.allowed) return rateLimitResponse(corsHeaders);
+    const rlIp = await checkRateLimit(`ip:${clientIdentifier(req)}`, "invite_user_ip", 20, 3600);
+    if (!rlIp.allowed) return rateLimitResponse(corsHeaders);
 
     // 2) Verifica se é admin
     const { data: isAdmin, error: roleErr } = await userClient.rpc("is_profile_admin", {

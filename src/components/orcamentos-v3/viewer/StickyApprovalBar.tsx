@@ -7,7 +7,7 @@ import { buildAdjustMessage, buildApprovalMessage, buildWaUrl } from "@/lib/quot
 import { trackEvent } from "@/lib/quotes/tracking";
 
 interface Props {
-  quoteId?: string;
+  publicToken?: string;
   quoteNumber: string;
   optionLabel?: string;
   ctaEnabled: boolean;
@@ -27,7 +27,7 @@ const formatBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function StickyApprovalBar({
-  quoteId,
+  publicToken,
   quoteNumber,
   optionLabel,
   ctaEnabled,
@@ -41,7 +41,7 @@ export function StickyApprovalBar({
   submitting = false,
 }: Props) {
   const handleWaShare = () => {
-    void trackEvent(quoteId, "whatsapp_share");
+    void trackEvent(publicToken, "whatsapp_share");
   };
   const { whatsappNumber, companyName, loading } = useCompanySettings();
   const { profile } = useAuth();

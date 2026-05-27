@@ -4,6 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "https://esm.sh/zod@3.23.8";
 import { getAdminClient, logAdminOperation } from "../_shared/admin-client.ts";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rate-limit.ts";
 
 const FormatSchema = z.enum(["sql", "json"]).catch("sql");
 
@@ -122,6 +123,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
+  // Rate limit: backups são pesados — 3 por hora por admin
+  const rl = await checkRateLimit(`user:${userId}`, "backup_database", 3, 3600);
+  if (!rl.allowed) return rateLimitResponse(corsHeaders);
 
   // 2) Service-role client APÓS validação
   const admin = getAdminClient({
