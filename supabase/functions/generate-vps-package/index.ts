@@ -84,6 +84,11 @@ Deno.serve(async (req) => {
   const { data: isAdmin } = await userClient.rpc("is_profile_admin", { _user_id: userData.user.id });
   if (!isAdmin) return json({ error: "Forbidden: admin required" }, 403);
 
+  // Rate limit: gerar pacote VPS é muito pesado — 2 por hora por admin
+  const rl = await checkRateLimit(`user:${userData.user.id}`, "generate_vps_package", 2, 3600);
+  if (!rl.allowed) return rateLimitResponse(corsHeaders);
+
+
   const admin = getAdminClient({
     fnName: "generate-vps-package",
     reason: "Generate self-hosting package for VPS migration (admin-initiated)",
