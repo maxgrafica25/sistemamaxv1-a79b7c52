@@ -6,6 +6,7 @@ import { DEFAULT_STATE, type V3QuoteState } from "../types";
 export interface LoadedQuoteV3 {
   state: V3QuoteState;
   quote_number: string;
+  public_token: string | null;
   is_locked: boolean;
   status: string;
 }
@@ -13,7 +14,7 @@ export interface LoadedQuoteV3 {
 export async function loadQuoteV3(quoteId: string): Promise<LoadedQuoteV3> {
   const { data, error } = await supabase
     .from("quotes")
-    .select("id, quote_number, status, is_locked, v3_payload, client, client_id, product, profit_margin")
+    .select("id, quote_number, public_token, status, is_locked, v3_payload, client, client_id, product, profit_margin")
     .eq("id", quoteId)
     .maybeSingle();
 
@@ -45,6 +46,7 @@ export async function loadQuoteV3(quoteId: string): Promise<LoadedQuoteV3> {
   return {
     state,
     quote_number: (data as any).quote_number,
+    public_token: (data as any).public_token ?? null,
     is_locked: !!(data as any).is_locked,
     status: (data as any).status ?? "pending",
   };

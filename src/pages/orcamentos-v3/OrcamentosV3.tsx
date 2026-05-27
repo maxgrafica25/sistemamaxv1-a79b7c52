@@ -253,8 +253,8 @@ export default function OrcamentosV3() {
     });
   };
 
-  const handleCopyPublicLink = (quoteNumber: string) => {
-    copyPublicQuoteLink(quoteNumber, publicBaseUrl);
+  const handleCopyPublicLink = (publicToken: string) => {
+    copyPublicQuoteLink(publicToken, publicBaseUrl);
   };
 
   const handleGeneratePDF = (q: QuoteRow) => {
@@ -477,9 +477,11 @@ export default function OrcamentosV3() {
                         const isV3 = Array.isArray(q.tags) && q.tags.includes("v3");
                         if (isV3) {
                           navigate(`/orcamentos-v3/${q.id}/editar`);
+                        } else if (q.public_token) {
+                          // Orçamento legado V2: abre só leitura no viewer público via token UUID.
+                          navigate(`/p/${q.public_token}`);
                         } else {
-                          // Orçamento legado V2: abre só leitura no viewer público.
-                          navigate(`/p/${q.quote_number}`);
+                          toast.error("Orçamento sem link público disponível.");
                         }
                       }}
 
@@ -533,6 +535,7 @@ export default function OrcamentosV3() {
                         <EngagementPopover
                           quoteId={q.id}
                           quoteNumber={q.quote_number}
+                          publicToken={q.public_token}
                           clientName={q.client}
                           clientPhone={q.client_phone}
                           stats={qStats}
@@ -553,7 +556,7 @@ export default function OrcamentosV3() {
                           <Button
                             variant="ghost" size="icon" className="h-8 w-8"
                             title="Copiar link público"
-                            onClick={() => handleCopyPublicLink(q.quote_number)}
+                            onClick={() => handleCopyPublicLink(q.public_token)}
                           >
                             <Link2 className="h-3.5 w-3.5" />
                           </Button>
