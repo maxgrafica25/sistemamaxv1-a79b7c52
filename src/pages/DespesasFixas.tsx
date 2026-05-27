@@ -434,7 +434,7 @@ export default function DespesasFixas() {
       {/* Floating save button */}
       <div className="fixed bottom-6 right-6 z-50">
         <AdminOnly mode="disable" action="salvar despesas fixas">
-          <Button size="lg" onClick={handleSave} disabled={saving || !isAdmin} className="gap-2 shadow-lg rounded-full px-6">
+          <Button size="lg" onClick={handleSave} disabled={saving || !isAdmin || !formValid} className="gap-2 shadow-lg rounded-full px-6">
             {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
             Salvar Tudo
           </Button>
