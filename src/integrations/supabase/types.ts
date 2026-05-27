@@ -5380,7 +5380,10 @@ export type Database = {
         }
         Returns: undefined
       }
-      register_quote_view: { Args: { quote_id: string }; Returns: undefined }
+      register_quote_view: {
+        Args: { p_public_token: string; p_visitor_id?: string }
+        Returns: undefined
+      }
     }
     Enums: {
       finishing_pricing_model: "per_sheet" | "per_unit"
