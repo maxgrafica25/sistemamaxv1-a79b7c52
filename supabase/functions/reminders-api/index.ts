@@ -96,8 +96,7 @@ Deno.serve(async (req) => {
 
       const { data, error } = await q;
       if (error) {
-        console.error("[reminders-api] conflicts error:", error);
-        return jsonResponse({ error: error.message }, 500);
+        return jsonResponse(sanitizeError(error, "reminders-api/conflicts"), 500);
       }
       return jsonResponse({ conflicts: data ?? [] }, 200);
     }
