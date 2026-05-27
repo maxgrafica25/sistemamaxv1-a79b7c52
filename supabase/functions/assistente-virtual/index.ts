@@ -39,21 +39,70 @@ const realYieldPages = (c: { name: string; yield_pages: number }): number => {
 };
 
 const BodySchema = z.object({
-  pergunta: z.string().min(1).max(4000),
-  historico: z
-    .array(
-      z.object({
-        role: z.enum(["user", "assistant"]),
-        content: z.string().max(8000),
-      }),
-    )
-    .max(20)
-    .default([]),
+  pergunta: z.string().min(1).max(2000),
+  // historico aceito por compatibilidade mas IGNORADO — fonte da verdade é o banco
+  historico: z.array(z.any()).optional(),
 });
 
 function fmtBRL(n: number | null | undefined): string {
   if (n === null || n === undefined || isNaN(Number(n))) return "—";
   return "R$ " + Number(n).toFixed(2).replace(".", ",");
+}
+
+// ===== L1 — sanitização e detecção de prompt injection =====
+function sanitizeInput(s: string): string {
+  // Remove control chars exceto \n (\u000A) e \t (\u0009)
+  return s.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim();
+}
+const INJECTION_PATTERNS = [
+  /ignore\s+(all\s+)?(previous|prior|above)\s+(instructions|prompts|rules)/i,
+  /disregard\s+(all\s+)?(previous|prior|above)/i,
+  /<\|im_start\|>|<\|im_end\|>|<\/?system>/i,
+  /reveal\s+(your\s+)?(system\s+)?prompt/i,
+  /esque[çc]a\s+(as\s+|todas\s+as\s+)?(instru[çc][õo]es|regras)\s+(anteriores|acima)/i,
+  /ignore\s+(as\s+|todas\s+as\s+)?(instru[çc][õo]es|regras)\s+(anteriores|acima)/i,
+  /me\s+(mostre|d[êe]|envie)\s+(o\s+)?(seu\s+)?(system\s+)?prompt/i,
+];
+function isSuspicious(s: string): boolean {
+  return INJECTION_PATTERNS.some((re) => re.test(s));
+}
+
+// ===== L5 — máscara de PII =====
+const PII_CPF   = /\b(\d{3})\.?\d{3}\.?\d{3}-?(\d{2})\b/g;
+const PII_CNPJ  = /\b(\d{2})\.?\d{3}\.?\d{3}\/?\d{4}-?(\d{2})\b/g;
+const PII_EMAIL = /\b([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*@([A-Za-z0-9.-]+\.[A-Za-z]{2,})\b/g;
+const PII_PHONE = /(\(?\d{2}\)?\s?)9?\d{4}[-\s]?(\d{4})\b/g;
+const PII_CEP   = /\b(\d{5})-?\d{3}\b/g;
+
+function redactPII(text: string): { text: string; count: number } {
+  if (!text) return { text: "", count: 0 };
+  let count = 0;
+  let out = text;
+  out = out.replace(PII_CPF,   (_m, a, b) => { count++; return `${a}.***.***-${b}`; });
+  out = out.replace(PII_CNPJ,  (_m, a, b) => { count++; return `${a}.***.***/****-${b}`; });
+  out = out.replace(PII_EMAIL, (_m, a, d) => { count++; return `${a}***@${d}`; });
+  out = out.replace(PII_PHONE, (_m, ddd, last4) => { count++; return `${ddd.trim()} ****-${last4}`; });
+  out = out.replace(PII_CEP,   (_m, a) => { count++; return `${a}-***`; });
+  return { text: out, count };
+}
+// Libera PII completa SOMENTE quando a pergunta cita explicitamente um único registro
+// ("o cpf do João Silva"). Bloqueia listagens em massa.
+function shouldUnmaskPII(pergunta: string): boolean {
+  const lower = pergunta.toLowerCase();
+  if (/\b(todos|todas|listar|liste|listagem|lista de|cada|exporta|exportar|relat[óo]rio)\b/.test(lower)) return false;
+  return /\b(o|qual\s+o|me\s+(diz|d[êe])\s+o)\s+(cpf|cnpj|e-?mail|telefone|celular|endere[çc]o|cep)\s+(do|da|de|do\s+sr|da\s+sra)\s+\S+/i.test(lower);
+}
+// Se a resposta tiver ≥3 itens do mesmo tipo PII, bloqueia dump (mascara mesmo se unmask=true)
+function looksLikePIIDump(text: string): boolean {
+  const countMatches = (re: RegExp) => (text.match(re) || []).length;
+  return countMatches(PII_CPF) >= 3 || countMatches(PII_CNPJ) >= 3 ||
+         countMatches(PII_EMAIL) >= 3 || countMatches(PII_PHONE) >= 3;
+}
+
+async function sha256Hex(s: string): Promise<string> {
+  const buf = new TextEncoder().encode(s);
+  const hash = await crypto.subtle.digest("SHA-256", buf);
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 Deno.serve(async (req) => {
