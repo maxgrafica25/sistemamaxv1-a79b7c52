@@ -6,6 +6,7 @@
 // wrapper auditado (_shared/admin-client).
 
 import { getAdminClient, logAdminOperation, isServiceRoleRequest, isCronSecretRequest } from "../_shared/admin-client.ts";
+import { sanitizeError } from "../_shared/errorHandler.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,9 +39,11 @@ Deno.serve(async (req) => {
     .eq("ativo", true);
 
   if (error) {
-    console.error("[scrape-prices-cron] failed to load sites", error);
+    const payload = sanitizeError(error, "scrape-prices-cron:list_sites", {
+      publicMessage: "Falha ao listar sites monitorados",
+    });
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, ...payload }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }

@@ -4,6 +4,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { isServiceRoleRequest, isCronSecretRequest } from "../_shared/admin-client.ts";
+import { sanitizeError } from "../_shared/errorHandler.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -308,10 +309,12 @@ Deno.serve(async (req) => {
       JSON.stringify({ ok: true, gaps: gaps.length, ...result }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
-  } catch (err: any) {
-    console.error("[check-overdue-readings] error:", err);
+  } catch (err) {
+    const payload = sanitizeError(err, "check-overdue-readings", {
+      publicMessage: "Falha ao verificar leituras atrasadas",
+    });
     return new Response(
-      JSON.stringify({ ok: false, error: String(err?.message ?? err) }),
+      JSON.stringify({ ok: false, ...payload }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }

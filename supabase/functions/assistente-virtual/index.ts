@@ -6,7 +6,7 @@
 // JWT é validado em código via getClaims() (verify_jwt = true por padrão).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "https://esm.sh/zod@3.23.8";
-import { validateOrigin } from "../_shared/errorHandler.ts";
+import { validateOrigin, sanitizeError } from "../_shared/errorHandler.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1937,9 +1937,11 @@ ${eqLines.length > 0 ? eqLines.slice(0, 8).join("\n") : "(nenhum equipamento cad
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("[assistente-virtual] error:", e);
+    const payload = sanitizeError(e, "assistente-virtual", {
+      publicMessage: "Falha ao processar pergunta do assistente",
+    });
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }),
+      JSON.stringify(payload),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }

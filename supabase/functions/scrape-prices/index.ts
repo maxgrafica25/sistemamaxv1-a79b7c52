@@ -11,6 +11,7 @@
 import * as cheerio from "npm:cheerio@1.0.0";
 import { z } from "https://esm.sh/zod@3.23.8";
 import { getAdminClient, logAdminOperation, isServiceRoleRequest, isCronSecretRequest, getAdminUserId } from "../_shared/admin-client.ts";
+import { sanitizeError } from "../_shared/errorHandler.ts";
 
 const BodySchema = z.union([
   z.object({ site_id: z.string().uuid() }),
@@ -857,9 +858,10 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erro desconhecido";
-    console.error("scrape-prices:", msg);
-    return new Response(JSON.stringify({ success: false, error: msg }), {
+    const payload = sanitizeError(err, "scrape-prices", {
+      publicMessage: "Falha ao executar coleta de preços",
+    });
+    return new Response(JSON.stringify({ success: false, ...payload }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
