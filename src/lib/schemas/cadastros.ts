@@ -155,10 +155,10 @@ export const stepGroupSchema = z.object({
   steps_count: z.number().int().min(1, "Adicione ao menos uma etapa ao grupo"),
 });
 
-// ─── Helper genérico: extrai dict { field: firstError } a partir do issues ─
-export function zodErrorsToMap<T>(result: z.SafeParseError<T>): Record<string, string> {
+// ─── Helper genérico: extrai dict { field: firstError } a partir de um ZodError ─
+export function zodErrorsToMap(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const issue of result.error.issues) {
+  for (const issue of error.issues) {
     const key = issue.path.join(".") || "_root";
     if (!out[key]) out[key] = issue.message;
   }
