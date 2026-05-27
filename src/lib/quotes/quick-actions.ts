@@ -27,15 +27,24 @@ export function resolvePublicBaseUrl(configuredBaseUrl?: string | null): string 
   return window.location.origin;
 }
 
-export function buildPublicQuoteUrl(quoteNumber: string, configuredBaseUrl?: string | null): string | null {
+/**
+ * Constrói o link público do orçamento usando o `public_token` (UUID).
+ * Desde a Migration 6, links sequenciais pelo `quote_number` não funcionam mais
+ * (eram adivinháveis e permitiam vazamento entre clientes).
+ */
+export function buildPublicQuoteUrl(publicToken: string | null | undefined, configuredBaseUrl?: string | null): string | null {
   const base = resolvePublicBaseUrl(configuredBaseUrl);
-  if (!base) return null;
-  return `${base}/p/${quoteNumber}`;
+  if (!base || !publicToken) return null;
+  return `${base}/p/${publicToken}`;
 }
 
-export function copyPublicQuoteLink(quoteNumber: string, configuredBaseUrl?: string | null) {
-  const url = buildPublicQuoteUrl(quoteNumber, configuredBaseUrl);
+export function copyPublicQuoteLink(publicToken: string | null | undefined, configuredBaseUrl?: string | null) {
+  const url = buildPublicQuoteUrl(publicToken, configuredBaseUrl);
   if (!url) {
+    if (!publicToken) {
+      toast.error("Salve o orçamento antes de copiar o link público.");
+      return;
+    }
     toast.error(
       "Configure a URL pública do sistema em Configurações → Empresa para gerar links de orçamento.",
     );
