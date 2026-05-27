@@ -147,8 +147,7 @@ Deno.serve(async (req) => {
         .single();
 
       if (error) {
-        console.error("[reminders-api] insert error:", error);
-        return jsonResponse({ error: error.message }, 500);
+        return jsonResponse(sanitizeError(error, "reminders-api/insert"), 500);
       }
       return jsonResponse({ reminder: data }, 201);
     }
