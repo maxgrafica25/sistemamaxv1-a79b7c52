@@ -556,6 +556,9 @@ function GruposTab() {
                     Selecione uma etapa acima para adicionar ao grupo.
                   </p>
                 )}
+                {groupValidation.errors.steps_count && (
+                  <p className="text-xs text-destructive">{groupValidation.errors.steps_count}</p>
+                )}
 
                 {groupSteps.map((s, idx) => {
                   const ps = stepById.get(s.production_step_id);
