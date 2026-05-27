@@ -138,7 +138,18 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-    const { pergunta, historico } = parsed.data;
+    const { pergunta: perguntaRaw } = parsed.data;
+    // L1: sanitiza control chars e detecta padrões de injection
+    const pergunta = sanitizeInput(perguntaRaw);
+    if (!pergunta) {
+      return new Response(JSON.stringify({ error: "Pergunta vazia após sanitização." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const turnSuspicious = isSuspicious(pergunta);
+
+    // Início do turno (para latência de auditoria)
+    const turnStartMs = Date.now();
 
     // ⚡ Classificação de intenção: se for só sobre agenda/lembretes, pulamos o fetch
     // de tabelas de produção/preços (centenas de registros) → resposta muito mais rápida.
