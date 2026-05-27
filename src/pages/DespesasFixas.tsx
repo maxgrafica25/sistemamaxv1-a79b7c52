@@ -258,9 +258,11 @@ export default function DespesasFixas() {
                           <TableRow key={i}>
                             <TableCell>
                               <Input value={exp.name} onChange={e => updateExpense(i, "name", e.target.value)} placeholder="Ex: Aluguel, Internet..." />
+                              {expenseErrors[i]?.name && <p className="text-xs text-destructive mt-1">{expenseErrors[i].name}</p>}
                             </TableCell>
                             <TableCell>
                               <Input type="number" step="0.01" value={exp.value || ""} onChange={e => updateExpense(i, "value", parseFloat(e.target.value) || 0)} />
+                              {expenseErrors[i]?.value && <p className="text-xs text-destructive mt-1">{expenseErrors[i].value}</p>}
                             </TableCell>
                             <TableCell>
                               <Button size="icon" variant="ghost" onClick={() => requestRemove(exp.name || "Despesa", () => removeExpense(i))} className="text-destructive hover:text-destructive">
