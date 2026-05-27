@@ -7,14 +7,14 @@ import { trackEvent } from "@/lib/quotes/tracking";
 interface Props {
   quoteNumber: string;
   status: ReactNode;
-  quoteId?: string;
+  publicToken?: string;
 }
 
-export function ViewerHeader({ quoteNumber, status, quoteId }: Props) {
+export function ViewerHeader({ quoteNumber, status, publicToken }: Props) {
   const [copied, setCopied] = useState(false);
 
   const handlePrint = () => {
-    void trackEvent(quoteId, "printed");
+    void trackEvent(publicToken, "printed");
     window.print();
   };
 
@@ -23,7 +23,7 @@ export function ViewerHeader({ quoteNumber, status, quoteId }: Props) {
       await navigator.clipboard.writeText(window.location.href);
       setCopied(true);
       toast.success("Link copiado!");
-      void trackEvent(quoteId, "link_copied");
+      void trackEvent(publicToken, "link_copied");
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error("Não foi possível copiar o link.");
