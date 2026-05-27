@@ -219,10 +219,6 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ error: "Método não suportado" }, 405);
   } catch (e) {
-    console.error("[reminders-api] error:", e);
-    return jsonResponse(
-      { error: e instanceof Error ? e.message : "Erro desconhecido" },
-      500,
-    );
+    return jsonResponse(sanitizeError(e, "reminders-api"), 500);
   }
 });
