@@ -1511,6 +1511,7 @@ export default function MateriasPrimas() {
                   value={margemPct}
                   onChange={(e) => setMargemPct(e.target.value)}
                 />
+                {supplyErrors.margem_pct && <p className="text-xs text-destructive">{supplyErrors.margem_pct}</p>}
                 {quantidade && valor && parseFloat(quantidade) > 0 && parseFloat(margemPct) > 0 && (
                   <div className="text-xs text-muted-foreground">
                     Custo {formatCurrency(parseFloat(valor) / parseFloat(quantidade))} + {parseFloat(margemPct).toFixed(0)}% ={" "}
@@ -1522,8 +1523,15 @@ export default function MateriasPrimas() {
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4 items-end">
-                <div className="space-y-2"><Label>Data Cotação</Label><DatePickerField value={data} onChange={setData} /></div>
-                <div className="space-y-2"><Label>Contato</Label><Input placeholder="Nome" value={contato} onChange={(e) => setContato(e.target.value)} /></div>
+                <div className="space-y-2">
+                  <Label>Data Cotação</Label>
+                  <DatePickerField value={data} onChange={setData} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Contato</Label>
+                  <Input placeholder="Nome" value={contato} onChange={(e) => setContato(e.target.value)} />
+                  {supplyErrors.contato && <p className="text-xs text-destructive">{supplyErrors.contato}</p>}
+                </div>
               </div>
               <div className="rounded-md border p-3 space-y-2">
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">Visível em quais módulos?</Label>
@@ -1537,11 +1545,12 @@ export default function MateriasPrimas() {
                     <span className="text-sm">Comunicação Visual</span>
                   </label>
                 </div>
+                {supplyErrors.modulos && <p className="text-xs text-destructive">{supplyErrors.modulos}</p>}
               </div>
             </div>
             <DialogFooter className="gap-2 pt-4">
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={saveMaterial}>{editingMaterial ? "Atualizar" : "Cadastrar"}</Button>
+              <Button onClick={saveMaterial} disabled={!supplyFormValid}>{editingMaterial ? "Atualizar" : "Cadastrar"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
