@@ -166,9 +166,33 @@ export default function Auth() {
     }
 
     setLoading(true);
+
+    // Backend brute force check
+    try {
+      const { data: checkData, error: checkError } = await supabase.functions.invoke('check-login-attempts', {
+        body: { email: trimmedEmail }
+      });
+
+      if (checkError || (checkData && checkData.error)) {
+        const errorMsg = checkError?.message || checkData?.error;
+        toast.error(errorMsg || "Muitas tentativas. Tente novamente em 15 minutos.");
+        setLoading(false);
+        return;
+      }
+    } catch (e) {
+      console.error("Erro ao verificar tentativas:", e);
+      // Fallback to local check if function fails
+    }
+
     const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
     
+    // Record attempt result in background via Edge Function
+    supabase.functions.invoke('check-login-attempts', {
+      body: { email: trimmedEmail, success: !error }
+    }).catch(err => console.error("Erro ao registrar tentativa:", err));
+    
     if (error) {
+
       const newCount = (attemptsData.count || 0) + 1;
       let lockoutUntil = null;
       
