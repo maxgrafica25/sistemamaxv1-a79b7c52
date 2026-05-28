@@ -87,8 +87,9 @@ export function handleError(
   }
   // 4. Fallback para outros erros
   else {
-    friendly = "Ocorreu um erro ao processar a operação. Tente novamente.";
+    friendly = "Ocorreu um erro ao salvar. Tente novamente.";
   }
+
 
   toast.error(friendly);
 }
