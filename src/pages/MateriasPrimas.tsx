@@ -1447,24 +1447,42 @@ export default function MateriasPrimas() {
           <DialogContent className="sm:max-w-lg">
             <DialogHeader><DialogTitle>{editingMaterial ? "Editar Suprimento" : "Novo Suprimento"}</DialogTitle></DialogHeader>
             <div className="space-y-4 pt-2">
-              <div className="space-y-2"><Label>Produto *</Label><Input placeholder="Nome do produto" value={produto} onChange={(e) => setProduto(e.target.value)} /></div>
+              <div className="space-y-2">
+                <Label>Produto *</Label>
+                <Input placeholder="Nome do produto" value={produto} onChange={(e) => setProduto(e.target.value)} />
+                {supplyErrors.produto && <p className="text-xs text-destructive">{supplyErrors.produto}</p>}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Finalidade</Label>
                   <Select value={finalidade} onValueChange={setFinalidade}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{FINALIDADES_SUPRIMENTO.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent></Select>
+                  {supplyErrors.finalidade && <p className="text-xs text-destructive">{supplyErrors.finalidade}</p>}
                 </div>
-                <div className="space-y-2"><Label>Fornecedor</Label><SupplierCombobox value={fornecedor} onChange={setFornecedor} onSelectSupplier={(s) => { setFornecedor(s.nome); if (!contato) setContato(s.empresa || ""); }} /></div>
+                <div className="space-y-2">
+                  <Label>Fornecedor</Label>
+                  <SupplierCombobox value={fornecedor} onChange={setFornecedor} onSelectSupplier={(s) => { setFornecedor(s.nome); if (!contato) setContato(s.empresa || ""); }} />
+                  {supplyErrors.fornecedor && <p className="text-xs text-destructive">{supplyErrors.fornecedor}</p>}
+                </div>
               </div>
               <div className="grid grid-cols-[1fr_140px_1fr] gap-4">
-                <div className="space-y-2"><Label>Quantidade *</Label><Input type="number" step="0.01" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} /></div>
+                <div className="space-y-2">
+                  <Label>Quantidade *</Label>
+                  <Input type="number" step="0.01" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} />
+                  {supplyErrors.quantidade && <p className="text-xs text-destructive">{supplyErrors.quantidade}</p>}
+                </div>
                 <div className="space-y-2">
                   <Label>Unidade *</Label>
                   <Select value={unidade} onValueChange={setUnidade}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{UNIDADES_MEDIDA.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
                   </Select>
+                  {supplyErrors.unidade && <p className="text-xs text-destructive">{supplyErrors.unidade}</p>}
                 </div>
-                <div className="space-y-2"><Label>Valor Total (R$) *</Label><Input type="number" step="0.01" value={valor} onChange={(e) => setValor(e.target.value)} /></div>
+                <div className="space-y-2">
+                  <Label>Valor Total (R$) *</Label>
+                  <Input type="number" step="0.01" value={valor} onChange={(e) => setValor(e.target.value)} />
+                  {supplyErrors.valor && <p className="text-xs text-destructive">{supplyErrors.valor}</p>}
+                </div>
               </div>
               {quantidade && valor && parseFloat(quantidade) > 0 && (
                 <div className="rounded-lg bg-muted p-3 text-center">
