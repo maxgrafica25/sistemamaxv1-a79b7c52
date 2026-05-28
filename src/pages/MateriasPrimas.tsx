@@ -211,6 +211,45 @@ export default function MateriasPrimas() {
   const [pkgPacks, setPkgPacks] = useState("1");
   const [pkgSheetsPerPack, setPkgSheetsPerPack] = useState("500");
 
+  // ── Validation Errors (Zod) ──
+  const paperErrors = useMemo(() => {
+    const res = paperSchema.safeParse({
+      name: paperName,
+      grammage: paperGrammage,
+      sheet_qty: Number(paperSheetQty),
+      pack_price: Number(paperPackPrice),
+      freight_total: Number(paperFreightTotal),
+      freight_divide_by: Number(paperFreightDivideBy),
+      supplier: paperSupplier,
+      contact: paperContact,
+      purchase_sheet_w: paperPurchaseSheetW.trim() ? Number(paperPurchaseSheetW) : null,
+      purchase_sheet_h: paperPurchaseSheetH.trim() ? Number(paperPurchaseSheetH) : null,
+    });
+    return res.success ? {} : zodErrorsToMap(res.error);
+  }, [paperName, paperGrammage, paperSheetQty, paperPackPrice, paperFreightTotal, paperFreightDivideBy, paperSupplier, paperContact, paperPurchaseSheetW, paperPurchaseSheetH]);
+
+  const paperFormValid = useMemo(() => Object.keys(paperErrors).length === 0, [paperErrors]);
+
+  const supplyErrors = useMemo(() => {
+    const modulos: ("grafica" | "cv")[] = [];
+    if (moduloGrafica) modulos.push("grafica");
+    if (moduloCv) modulos.push("cv");
+
+    const res = supplySchema.safeParse({
+      produto,
+      quantidade: Number(quantidade),
+      valor: Number(valor),
+      margem_pct: Number(margemPct),
+      fornecedor,
+      contato,
+      modulos
+    });
+    return res.success ? {} : zodErrorsToMap(res.error);
+  }, [produto, quantidade, valor, margemPct, fornecedor, contato, moduloGrafica, moduloCv]);
+
+  const supplyFormValid = useMemo(() => Object.keys(supplyErrors).length === 0, [supplyErrors]);
+
+
   // Quando em modo embalagem, sincroniza Qtd. Folhas = caixas × pacotes × folhas/pct
   useEffect(() => {
     if (!pkgMode) return;
