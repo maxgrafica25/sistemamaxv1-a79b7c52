@@ -10,7 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { handleError } from "@/lib/handleError";
 import { buildWaWebUrl } from "@/lib/quotes/whatsapp";
+
 
 export interface ClientOption {
   id: string;
@@ -270,7 +272,7 @@ function QuickCreateClientDialog({
       .single();
     setSaving(false);
     if (error || !data) {
-      toast.error("Erro ao cadastrar cliente: " + (error?.message ?? ""));
+      handleError(error, "cadastrar cliente");
       return;
     }
     toast.success("Cliente cadastrado!");
