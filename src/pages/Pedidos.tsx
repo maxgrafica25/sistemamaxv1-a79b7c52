@@ -59,7 +59,7 @@ export default function Pedidos() {
       .from("sales_orders")
       .select("*")
       .order("created_at", { ascending: false });
-    if (error) toast.error("Erro ao carregar pedidos.");
+    if (error) handleError(error, "carregar pedidos");
     setOrders((data ?? []) as SalesOrder[]);
     setLoading(false);
   }, []);

@@ -10,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { logAuthEvent } from "@/lib/audit";
 import { handleError } from "@/lib/handleError";
 
-
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 72;
 
@@ -228,7 +227,7 @@ export default function ResetPassword() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo 8 caracteres"
                 minLength={MIN_PASSWORD_LENGTH}
                 maxLength={MAX_PASSWORD_LENGTH}
                 autoComplete="new-password"
