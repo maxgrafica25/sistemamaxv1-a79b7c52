@@ -35,6 +35,8 @@ import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
 import { SupplyTiersDrawer } from "@/components/materias-primas/SupplyTiersDrawer";
 import { DotTabs } from "@/components/ui/dot-tabs";
+import { paperSchema, supplySchema, zodErrorsToMap } from "@/lib/schemas/cadastros";
+
 
 // ─── Types ───────────────────────────────────────────────────────────
 type ActiveTab = "suprimento" | "papel";
@@ -209,6 +211,45 @@ export default function MateriasPrimas() {
   const [pkgPacks, setPkgPacks] = useState("1");
   const [pkgSheetsPerPack, setPkgSheetsPerPack] = useState("500");
 
+  // ── Validation Errors (Zod) ──
+  const paperErrors = useMemo(() => {
+    const res = paperSchema.safeParse({
+      name: paperName,
+      grammage: paperGrammage,
+      sheet_qty: Number(paperSheetQty),
+      pack_price: Number(paperPackPrice),
+      freight_total: Number(paperFreightTotal),
+      freight_divide_by: Number(paperFreightDivideBy),
+      supplier: paperSupplier,
+      contact: paperContact,
+      purchase_sheet_w: paperPurchaseSheetW.trim() ? Number(paperPurchaseSheetW) : null,
+      purchase_sheet_h: paperPurchaseSheetH.trim() ? Number(paperPurchaseSheetH) : null,
+    });
+    return res.success ? {} : zodErrorsToMap(res.error);
+  }, [paperName, paperGrammage, paperSheetQty, paperPackPrice, paperFreightTotal, paperFreightDivideBy, paperSupplier, paperContact, paperPurchaseSheetW, paperPurchaseSheetH]);
+
+  const paperFormValid = useMemo(() => Object.keys(paperErrors).length === 0, [paperErrors]);
+
+  const supplyErrors = useMemo(() => {
+    const modulos: ("grafica" | "cv")[] = [];
+    if (moduloGrafica) modulos.push("grafica");
+    if (moduloCv) modulos.push("cv");
+
+    const res = supplySchema.safeParse({
+      produto,
+      quantidade: Number(quantidade),
+      valor: Number(valor),
+      margem_pct: Number(margemPct),
+      fornecedor,
+      contato,
+      modulos
+    });
+    return res.success ? {} : zodErrorsToMap(res.error);
+  }, [produto, quantidade, valor, margemPct, fornecedor, contato, moduloGrafica, moduloCv]);
+
+  const supplyFormValid = useMemo(() => Object.keys(supplyErrors).length === 0, [supplyErrors]);
+
+
   // Quando em modo embalagem, sincroniza Qtd. Folhas = caixas × pacotes × folhas/pct
   useEffect(() => {
     if (!pkgMode) return;
@@ -382,8 +423,8 @@ export default function MateriasPrimas() {
   const isUpdateMode = !!selectedExistingPaper;
 
   const savePaper = async () => {
-    if (!paperName.trim() || !paperSheetQty || !paperPackPrice) {
-      toast.error("Preencha Nome, Qtd. Folhas e Preço do Pacote");
+    if (!paperFormValid) {
+      toast.error("Corrija os erros no formulário antes de salvar");
       return;
     }
     if (!requireAdmin(editingPaper ? "atualizar papel" : "cadastrar papel")) return;
@@ -499,7 +540,10 @@ export default function MateriasPrimas() {
     setIsPaperDialogOpen(true);
   };
   const saveMaterial = async () => {
-    if (!produto.trim() || !quantidade || !valor) { toast.error("Preencha Produto, Quantidade e Valor"); return; }
+    if (!supplyFormValid) {
+      toast.error("Corrija os erros no formulário antes de salvar");
+      return;
+    }
     if (!requireAdmin(editingMaterial ? "atualizar suprimento" : "cadastrar suprimento")) return;
     const qtd = parseFloat(quantidade); const val = parseFloat(valor);
     const unitario = qtd > 0 ? val / qtd : 0;
@@ -508,7 +552,6 @@ export default function MateriasPrimas() {
     const modulo: string[] = [];
     if (moduloGrafica) modulo.push("grafica");
     if (moduloCv) modulo.push("cv");
-    if (modulo.length === 0) { toast.error("Selecione ao menos um módulo"); return; }
     const saveData = {
       produto,
       finalidade,
@@ -1182,6 +1225,7 @@ export default function MateriasPrimas() {
                     onSelectPaper={handleSelectExistingPaper}
                     disabled={!!editingPaper && !!selectedExistingPaper}
                   />
+                  {paperErrors.name && <p className="text-xs text-destructive">{paperErrors.name}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>Gramatura</Label>
@@ -1191,6 +1235,7 @@ export default function MateriasPrimas() {
                     onChange={(e) => setPaperGrammage(e.target.value)}
                     disabled={isUpdateMode}
                   />
+                  {paperErrors.grammage && <p className="text-xs text-destructive">{paperErrors.grammage}</p>}
                 </div>
               </div>
 
@@ -1247,6 +1292,7 @@ export default function MateriasPrimas() {
                           value={paperPurchaseSheetW}
                           onChange={(e) => setPaperPurchaseSheetW(e.target.value)}
                         />
+                        {paperErrors.purchase_sheet_w && <p className="text-xs text-destructive">{paperErrors.purchase_sheet_w}</p>}
                       </div>
                       <div>
                         <Label className="text-xs">Altura (mm)</Label>
@@ -1257,6 +1303,7 @@ export default function MateriasPrimas() {
                           value={paperPurchaseSheetH}
                           onChange={(e) => setPaperPurchaseSheetH(e.target.value)}
                         />
+                        {paperErrors.purchase_sheet_h && <p className="text-xs text-destructive">{paperErrors.purchase_sheet_h}</p>}
                       </div>
                     </div>
                   </div>
@@ -1341,10 +1388,12 @@ export default function MateriasPrimas() {
                     readOnly={pkgMode}
                     className={pkgMode ? "bg-muted/40" : undefined}
                   />
+                  {paperErrors.sheet_qty && <p className="text-xs text-destructive">{paperErrors.sheet_qty}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>{pkgMode ? "Preço total da compra (R$) *" : "Preço do Pacote (R$) *"}</Label>
                   <Input type="number" step="0.01" placeholder="0,00" value={paperPackPrice} onChange={(e) => setPaperPackPrice(e.target.value)} autoFocus={isUpdateMode} />
+                  {paperErrors.pack_price && <p className="text-xs text-destructive">{paperErrors.pack_price}</p>}
                 </div>
               </div>
 
@@ -1361,53 +1410,19 @@ export default function MateriasPrimas() {
                   <div className="space-y-1.5">
                     <Label className="text-xs">Valor total do frete (R$)</Label>
                     <Input type="number" step="0.01" placeholder="0,00" value={paperFreightTotal} onChange={(e) => setPaperFreightTotal(e.target.value)} />
+                    {paperErrors.freight_total && <p className="text-xs text-destructive">{paperErrors.freight_total}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Dividir entre quantos itens?</Label>
                     <Input type="number" min="1" placeholder="1" value={paperFreightDivideBy} onChange={(e) => setPaperFreightDivideBy(e.target.value)} />
+                    {paperErrors.freight_divide_by && <p className="text-xs text-destructive">{paperErrors.freight_divide_by}</p>}
                   </div>
                 </div>
-                {Number(paperFreightTotal) > 0 && Number(paperSheetQty) > 0 && (
-                  <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2 space-y-0.5">
-                    <div className="flex justify-between">
-                      <span>Frete por item</span>
-                      <span className="font-medium text-foreground">{formatCurrency(Number(paperFreightTotal) / (Number(paperFreightDivideBy) || 1))}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>{paperIsCutSize ? "Frete por folha" : "Frete por folha (66×96)"}</span>
-                      <span className="font-medium text-foreground">{fmt4(computedFreightPerSheet)}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Auto-calc preview */}
-              {paperSheetQty && paperPackPrice && Number(paperSheetQty) > 0 && (
-                <div className="rounded-lg bg-muted p-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">{paperIsCutSize ? "Custo por folha" : "Preço por folha (66×96)"}</span>
-                    <span className="font-semibold">{fmt4(Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet)}</span>
-                  </div>
-                  {!paperIsCutSize && (
-                    <>
-                      <div className="border-t border-border pt-2 flex justify-between text-sm">
-                        <span className="text-muted-foreground">Preço A4 <span className="text-xs">(÷ 9)</span></span>
-                        <span className="font-bold text-primary">{fmt4((Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet) / 9)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Preço A3+ / SRA3 <span className="text-xs">(÷ 4)</span></span>
-                        <span className="font-bold text-primary">{fmt4((Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet) / 4)}</span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Supplier & Date */}
-              <div className="grid grid-cols-3 gap-4 items-end">
+...
                 <div className="space-y-2">
                   <Label>Fornecedor</Label>
                   <SupplierCombobox value={paperSupplier} onChange={setPaperSupplier} onSelectSupplier={(s) => { setPaperSupplier(s.nome); if (!paperContact) setPaperContact(s.empresa || ""); }} />
+                  {paperErrors.supplier && <p className="text-xs text-destructive">{paperErrors.supplier}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>Data Cotação</Label>
@@ -1416,12 +1431,13 @@ export default function MateriasPrimas() {
                 <div className="space-y-2">
                   <Label>Contato</Label>
                   <Input placeholder="Nome" value={paperContact} onChange={(e) => setPaperContact(e.target.value)} />
+                  {paperErrors.contact && <p className="text-xs text-destructive">{paperErrors.contact}</p>}
                 </div>
               </div>
             </div>
             <DialogFooter className="gap-2 pt-4">
               <Button variant="outline" onClick={() => setIsPaperDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={savePaper}>{isUpdateMode ? "Atualizar Preço" : editingPaper ? "Atualizar" : "Cadastrar"}</Button>
+              <Button onClick={savePaper} disabled={!paperFormValid}>{isUpdateMode ? "Atualizar Preço" : editingPaper ? "Atualizar" : "Cadastrar"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1431,24 +1447,42 @@ export default function MateriasPrimas() {
           <DialogContent className="sm:max-w-lg">
             <DialogHeader><DialogTitle>{editingMaterial ? "Editar Suprimento" : "Novo Suprimento"}</DialogTitle></DialogHeader>
             <div className="space-y-4 pt-2">
-              <div className="space-y-2"><Label>Produto *</Label><Input placeholder="Nome do produto" value={produto} onChange={(e) => setProduto(e.target.value)} /></div>
+              <div className="space-y-2">
+                <Label>Produto *</Label>
+                <Input placeholder="Nome do produto" value={produto} onChange={(e) => setProduto(e.target.value)} />
+                {supplyErrors.produto && <p className="text-xs text-destructive">{supplyErrors.produto}</p>}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Finalidade</Label>
                   <Select value={finalidade} onValueChange={setFinalidade}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{FINALIDADES_SUPRIMENTO.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent></Select>
+                  {supplyErrors.finalidade && <p className="text-xs text-destructive">{supplyErrors.finalidade}</p>}
                 </div>
-                <div className="space-y-2"><Label>Fornecedor</Label><SupplierCombobox value={fornecedor} onChange={setFornecedor} onSelectSupplier={(s) => { setFornecedor(s.nome); if (!contato) setContato(s.empresa || ""); }} /></div>
+                <div className="space-y-2">
+                  <Label>Fornecedor</Label>
+                  <SupplierCombobox value={fornecedor} onChange={setFornecedor} onSelectSupplier={(s) => { setFornecedor(s.nome); if (!contato) setContato(s.empresa || ""); }} />
+                  {supplyErrors.fornecedor && <p className="text-xs text-destructive">{supplyErrors.fornecedor}</p>}
+                </div>
               </div>
               <div className="grid grid-cols-[1fr_140px_1fr] gap-4">
-                <div className="space-y-2"><Label>Quantidade *</Label><Input type="number" step="0.01" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} /></div>
+                <div className="space-y-2">
+                  <Label>Quantidade *</Label>
+                  <Input type="number" step="0.01" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} />
+                  {supplyErrors.quantidade && <p className="text-xs text-destructive">{supplyErrors.quantidade}</p>}
+                </div>
                 <div className="space-y-2">
                   <Label>Unidade *</Label>
                   <Select value={unidade} onValueChange={setUnidade}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{UNIDADES_MEDIDA.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
                   </Select>
+                  {supplyErrors.unidade && <p className="text-xs text-destructive">{supplyErrors.unidade}</p>}
                 </div>
-                <div className="space-y-2"><Label>Valor Total (R$) *</Label><Input type="number" step="0.01" value={valor} onChange={(e) => setValor(e.target.value)} /></div>
+                <div className="space-y-2">
+                  <Label>Valor Total (R$) *</Label>
+                  <Input type="number" step="0.01" value={valor} onChange={(e) => setValor(e.target.value)} />
+                  {supplyErrors.valor && <p className="text-xs text-destructive">{supplyErrors.valor}</p>}
+                </div>
               </div>
               {quantidade && valor && parseFloat(quantidade) > 0 && (
                 <div className="rounded-lg bg-muted p-3 text-center">
@@ -1477,6 +1511,7 @@ export default function MateriasPrimas() {
                   value={margemPct}
                   onChange={(e) => setMargemPct(e.target.value)}
                 />
+                {supplyErrors.margem_pct && <p className="text-xs text-destructive">{supplyErrors.margem_pct}</p>}
                 {quantidade && valor && parseFloat(quantidade) > 0 && parseFloat(margemPct) > 0 && (
                   <div className="text-xs text-muted-foreground">
                     Custo {formatCurrency(parseFloat(valor) / parseFloat(quantidade))} + {parseFloat(margemPct).toFixed(0)}% ={" "}
@@ -1488,8 +1523,15 @@ export default function MateriasPrimas() {
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4 items-end">
-                <div className="space-y-2"><Label>Data Cotação</Label><DatePickerField value={data} onChange={setData} /></div>
-                <div className="space-y-2"><Label>Contato</Label><Input placeholder="Nome" value={contato} onChange={(e) => setContato(e.target.value)} /></div>
+                <div className="space-y-2">
+                  <Label>Data Cotação</Label>
+                  <DatePickerField value={data} onChange={setData} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Contato</Label>
+                  <Input placeholder="Nome" value={contato} onChange={(e) => setContato(e.target.value)} />
+                  {supplyErrors.contato && <p className="text-xs text-destructive">{supplyErrors.contato}</p>}
+                </div>
               </div>
               <div className="rounded-md border p-3 space-y-2">
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">Visível em quais módulos?</Label>
@@ -1503,11 +1545,12 @@ export default function MateriasPrimas() {
                     <span className="text-sm">Comunicação Visual</span>
                   </label>
                 </div>
+                {supplyErrors.modulos && <p className="text-xs text-destructive">{supplyErrors.modulos}</p>}
               </div>
             </div>
             <DialogFooter className="gap-2 pt-4">
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={saveMaterial}>{editingMaterial ? "Atualizar" : "Cadastrar"}</Button>
+              <Button onClick={saveMaterial} disabled={!supplyFormValid}>{editingMaterial ? "Atualizar" : "Cadastrar"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
