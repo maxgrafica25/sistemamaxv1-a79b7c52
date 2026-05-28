@@ -4182,6 +4182,7 @@ export type Database = {
           status: string
           tags: string[]
           updated_at: string
+          user_id: string | null
           v3_payload: Json | null
           validity: string | null
           value: number
@@ -4220,6 +4221,7 @@ export type Database = {
           status?: string
           tags?: string[]
           updated_at?: string
+          user_id?: string | null
           v3_payload?: Json | null
           validity?: string | null
           value?: number
@@ -4258,6 +4260,7 @@ export type Database = {
           status?: string
           tags?: string[]
           updated_at?: string
+          user_id?: string | null
           v3_payload?: Json | null
           validity?: string | null
           value?: number

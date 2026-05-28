@@ -120,6 +120,14 @@ export function NewQuoteFormV3({ onCancel, onSave, editingQuoteId }: Props) {
       try {
         const loaded = await loadQuoteV3(editingQuoteId);
         if (cancelled) return;
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && loaded.user_id && loaded.user_id !== user.id) {
+          toast.error("Você não tem permissão para acessar este orçamento.");
+          onCancel();
+          return;
+        }
+
         setState(loaded.state);
         setEditMeta({ quote_number: loaded.quote_number, public_token: loaded.public_token, status: loaded.status });
         if (loaded.is_locked) {

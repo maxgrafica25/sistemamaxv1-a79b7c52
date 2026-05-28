@@ -9,12 +9,13 @@ export interface LoadedQuoteV3 {
   public_token: string | null;
   is_locked: boolean;
   status: string;
+  user_id: string | null;
 }
 
 export async function loadQuoteV3(quoteId: string): Promise<LoadedQuoteV3> {
   const { data, error } = await supabase
     .from("quotes")
-    .select("id, quote_number, public_token, status, is_locked, v3_payload, client, client_id, product, profit_margin")
+    .select("id, quote_number, public_token, status, is_locked, v3_payload, client, client_id, product, profit_margin, user_id")
     .eq("id", quoteId)
     .maybeSingle();
 
@@ -49,5 +50,6 @@ export async function loadQuoteV3(quoteId: string): Promise<LoadedQuoteV3> {
     public_token: (data as any).public_token ?? null,
     is_locked: !!(data as any).is_locked,
     status: (data as any).status ?? "pending",
+    user_id: (data as any).user_id ?? null,
   };
 }
