@@ -540,7 +540,10 @@ export default function MateriasPrimas() {
     setIsPaperDialogOpen(true);
   };
   const saveMaterial = async () => {
-    if (!produto.trim() || !quantidade || !valor) { toast.error("Preencha Produto, Quantidade e Valor"); return; }
+    if (!supplyFormValid) {
+      toast.error("Corrija os erros no formulário antes de salvar");
+      return;
+    }
     if (!requireAdmin(editingMaterial ? "atualizar suprimento" : "cadastrar suprimento")) return;
     const qtd = parseFloat(quantidade); const val = parseFloat(valor);
     const unitario = qtd > 0 ? val / qtd : 0;
@@ -549,7 +552,6 @@ export default function MateriasPrimas() {
     const modulo: string[] = [];
     if (moduloGrafica) modulo.push("grafica");
     if (moduloCv) modulo.push("cv");
-    if (modulo.length === 0) { toast.error("Selecione ao menos um módulo"); return; }
     const saveData = {
       produto,
       finalidade,
