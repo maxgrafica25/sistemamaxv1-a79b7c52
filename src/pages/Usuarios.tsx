@@ -59,8 +59,9 @@ export default function Usuarios() {
     setLoading(true);
     const { data, error } = await supabase.rpc("list_users_admin");
     if (error) {
-      toast.error("Erro ao carregar usuários", { description: error.message });
+      handleError(error, "carregar usuários");
       setRows([]);
+
     } else {
       setRows((data ?? []) as UserRow[]);
     }
@@ -164,7 +165,8 @@ export default function Usuarios() {
         description: `Um novo e-mail foi enviado para ${user.email}.`,
       });
     } catch (e: any) {
-      toast.error("Falha ao reenviar", { description: e?.message ?? "Tente novamente." });
+      handleError(e, "reenviar convite");
+
     } finally {
       setActingUserId(null);
     }

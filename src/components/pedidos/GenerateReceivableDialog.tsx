@@ -8,6 +8,7 @@ import { Plus, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { handleError } from "@/lib/handleError";
 import {
   PAYMENT_TERM_OPTIONS, PAYMENT_METHOD_OPTIONS,
   generateInstallments, type InstallmentDraft, formatBRL,
@@ -78,7 +79,7 @@ export function GenerateReceivableDialog({
       onCreated?.(data as string);
       onOpenChange(false);
     } catch (err: any) {
-      toast.error(err.message ?? "Erro ao gerar conta.");
+      handleError(err, "gerar conta");
     } finally {
       setSaving(false);
     }

@@ -10,6 +10,8 @@ import { Plus, Trash2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { handleError } from "@/lib/handleError";
+
 import { PAYMENT_TERM_OPTIONS, PAYMENT_METHOD_OPTIONS, formatBRL } from "@/lib/erp/payment-terms";
 
 interface OrderItemDraft {
@@ -179,7 +181,8 @@ export function OrderEditorDialog({ open, onOpenChange, orderId, initialFromQuot
       onSaved?.(savedId!);
       onOpenChange(false);
     } catch (err: any) {
-      toast.error(err.message ?? "Erro ao salvar.");
+      handleError(err, "salvar pedido");
+
     } finally {
       setSaving(false);
     }

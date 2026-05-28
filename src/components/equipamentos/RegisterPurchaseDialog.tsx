@@ -12,7 +12,9 @@ import { Trophy, TrendingUp, TrendingDown, Minus, Calculator } from "lucide-reac
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/lib/audit";
+import { handleError } from "@/lib/handleError";
 import ConsumableSupplierCombobox from "./ConsumableSupplierCombobox";
+
 
 interface EquipmentLite {
   id: string;
@@ -170,7 +172,7 @@ export default function RegisterPurchaseDialog({
       onSaved?.();
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e.message || "Erro ao registrar compra");
+      handleError(e, "registrar compra");
     } finally {
       setSaving(false);
     }

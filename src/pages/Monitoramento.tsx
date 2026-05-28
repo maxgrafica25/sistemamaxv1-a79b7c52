@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { DotTabs } from "@/components/ui/dot-tabs";
 import { toast } from "sonner";
+import { handleError } from "@/lib/handleError";
+
 import { TrendingUp, TrendingDown, RefreshCw, Plus, Trash2, ExternalLink, Trophy, AlertTriangle, Wifi, WifiOff, Layers, Target, Flame, ShoppingCart, Sparkles, BookOpen } from "lucide-react";
 import NovoSiteDialog from "@/components/monitoramento/NovoSiteDialog";
 import CatalogoProdutosDialog from "@/components/monitoramento/CatalogoProdutosDialog";
@@ -574,7 +576,7 @@ export default function Monitoramento() {
   const handleDelete = async (s: Site) => {
     if (!confirm(`Excluir "${s.nome_produto}"? Histórico e alertas relacionados também serão removidos.`)) return;
     const { error } = await supabase.from("sites_monitorados").delete().eq("id", s.id);
-    if (error) return toast.error(`Falha ao excluir: ${error.message}`);
+    if (error) return handleError(error, "excluir site");
     setSites((prev) => prev.filter((x) => x.id !== s.id));
     toast.success("Site removido");
   };
@@ -601,7 +603,7 @@ export default function Monitoramento() {
       await syncSite(siteId);
       toast.success("Sincronização concluída");
     } catch (e: any) {
-      toast.error(e.message || "Falha ao sincronizar");
+      handleError(e, "sincronizar site");
     } finally {
       setSyncingId(null);
     }
@@ -1248,7 +1250,7 @@ export default function Monitoramento() {
                   fornecedor_nome: site.fornecedor_nome,
                 });
                 if (insErr) {
-                  toast.error("Erro ao gerar alerta de teste: " + insErr.message);
+                  handleError(insErr, "gerar alerta de teste");
                   return;
                 }
                 toast.success("Alerta de teste gerado");

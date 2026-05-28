@@ -59,7 +59,7 @@ export default function Pedidos() {
       .from("sales_orders")
       .select("*")
       .order("created_at", { ascending: false });
-    if (error) toast.error("Erro ao carregar pedidos.");
+    if (error) handleError(error, "carregar pedidos");
     setOrders((data ?? []) as SalesOrder[]);
     setLoading(false);
   }, []);
@@ -233,7 +233,7 @@ export default function Pedidos() {
                             <DropdownMenuItem
                               onClick={async () => {
                                 try { await generateProductionOrderPdf({ orderId: o.id }); toast.success("OP gerada."); }
-                                catch (e: any) { toast.error(e.message ?? "Erro ao gerar OP."); }
+                                catch (e: any) { handleError(e, "gerar OP"); }
                               }}
                             >
                               <Printer className="h-3.5 w-3.5 mr-2" /> Imprimir OP

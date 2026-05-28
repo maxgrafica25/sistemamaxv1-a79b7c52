@@ -23,7 +23,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Search, Loader2, Save, AlertTriangle, CheckCircle2, XCircle, ExternalLink, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
+import { handleError } from "@/lib/handleError";
 import ProductPicker from "./ProductPicker";
+
 
 type Props = {
   open: boolean;
@@ -186,7 +188,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
       const ok = got.filter((r) => r.prices.length).length;
       toast.success(`${ok}/${got.length} URL(s) com tiers encontrados`);
     } catch (e: any) {
-      toast.error(e?.message || "Erro ao buscar preços");
+      handleError(e, "buscar preços");
     } finally {
       setTesting(false);
     }
@@ -279,7 +281,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
         );
       }
     } catch (e: any) {
-      toast.error(e?.message || "Erro ao salvar");
+      handleError(e, "salvar site");
     } finally {
       setSaving(false);
     }
@@ -315,9 +317,10 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
       .in("url_completa", candidateUrls);
 
     if (dupErr) {
-      toast.error("Erro ao verificar duplicatas: " + dupErr.message);
+      handleError(dupErr, "verificar duplicatas");
       return;
     }
+
 
     const dupList: DuplicadoInfo[] = (existentes || []).map((e: any) => ({
       url: e.url_completa,
