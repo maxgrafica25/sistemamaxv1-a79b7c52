@@ -423,8 +423,8 @@ export default function MateriasPrimas() {
   const isUpdateMode = !!selectedExistingPaper;
 
   const savePaper = async () => {
-    if (!paperName.trim() || !paperSheetQty || !paperPackPrice) {
-      toast.error("Preencha Nome, Qtd. Folhas e Preço do Pacote");
+    if (!paperFormValid) {
+      toast.error("Corrija os erros no formulário antes de salvar");
       return;
     }
     if (!requireAdmin(editingPaper ? "atualizar papel" : "cadastrar papel")) return;
