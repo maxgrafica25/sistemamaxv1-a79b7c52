@@ -9,6 +9,8 @@ import { Loader2, ArrowLeft, ShieldCheck, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logAuthEvent } from "@/lib/audit";
+import { handleError } from "@/lib/handleError";
+
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL_LENGTH = 255;
@@ -112,7 +114,8 @@ export default function Auth() {
     if (!validatePassword(password)) { toast.error(`Senha deve ter entre ${MIN_PASSWORD_LENGTH} e ${MAX_PASSWORD_LENGTH} caracteres`); return; }
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (error) toast.error(error.message);
+    if (error) handleError(error, "realizar login");
+
     setLoading(false);
   };
 
@@ -129,11 +132,13 @@ export default function Auth() {
       options: { data: { display_name: trimmedName } },
     });
     if (error) {
-      const msg = /pwned|leaked|compromised/i.test(error.message)
-        ? "Esta senha apareceu em vazamentos públicos. Escolha outra mais forte."
-        : error.message;
-      toast.error(msg);
+      if (/pwned|leaked|compromised/i.test(error.message)) {
+        toast.error("Esta senha apareceu em vazamentos públicos. Escolha outra mais forte.");
+      } else {
+        handleError(error, "criar conta");
+      }
     }
+
     else toast.success("Conta criada! Você já está logado.");
     setLoading(false);
   };

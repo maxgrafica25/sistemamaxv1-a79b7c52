@@ -35,6 +35,8 @@ import { copyPublicQuoteLink, generateQuotePdf, openWhatsAppForClient } from "@/
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { QuoteStatusBadge } from "@/components/orcamentos-v3/shared/QuoteStatusBadge";
 import PageLoader from "@/components/PageLoader";
+import { handleError } from "@/lib/handleError";
+
 
 interface QuoteRow {
   id: string;
@@ -220,25 +222,31 @@ export default function OrcamentosV3() {
   }, [fetchQuotes, refreshStats, refreshAggregates]);
 
   const handleApprove = async (id: string) => {
-    await supabase.from("quotes").update({ status: "approved" }).eq("id", id);
+    const { error } = await supabase.from("quotes").update({ status: "approved" }).eq("id", id);
+    if (error) return handleError(error, "aprovar orçamento");
     toast.success("Orçamento aprovado!");
     fetchQuotes();
   };
 
+
   const handleReject = async (id: string) => {
     const reason = window.prompt("Motivo da recusa:");
     if (!reason) return;
-    await supabase
+    const { error } = await supabase
       .from("quotes")
       .update({ status: "rejected", rejection_reason: reason })
       .eq("id", id);
+    if (error) return handleError(error, "recusar orçamento");
+
     toast.success("Orçamento recusado");
     fetchQuotes();
   };
 
   const handleToggleTemplate = async (q: QuoteRow) => {
     const newVal = !q.is_template;
-    await supabase.from("quotes").update({ is_template: newVal }).eq("id", q.id);
+    const { error } = await supabase.from("quotes").update({ is_template: newVal }).eq("id", q.id);
+    if (error) return handleError(error, "alterar modelo");
+
     toast.success(newVal ? "Salvo como modelo pronto" : "Removido dos modelos prontos");
     fetchQuotes();
   };

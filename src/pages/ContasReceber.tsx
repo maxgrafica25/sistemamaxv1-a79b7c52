@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Receipt, Loader2, CheckCircle2, ShieldAlert, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { handleError } from "@/lib/handleError";
+
 import { useIsFinanceiro } from "@/hooks/useIsFinanceiro";
 import { useNavigate } from "react-router-dom";
 import { formatBRL, methodLabel, PAYMENT_METHOD_OPTIONS } from "@/lib/erp/payment-terms";
@@ -126,7 +128,7 @@ export default function ContasReceber() {
       })
       .eq("id", paying.id);
     setSavingPay(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { handleError(error, "registrar baixa"); return; }
     toast.success("Baixa registrada.");
     setPayOpen(false);
   };
