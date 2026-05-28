@@ -1292,6 +1292,7 @@ export default function MateriasPrimas() {
                           value={paperPurchaseSheetW}
                           onChange={(e) => setPaperPurchaseSheetW(e.target.value)}
                         />
+                        {paperErrors.purchase_sheet_w && <p className="text-xs text-destructive">{paperErrors.purchase_sheet_w}</p>}
                       </div>
                       <div>
                         <Label className="text-xs">Altura (mm)</Label>
@@ -1302,6 +1303,7 @@ export default function MateriasPrimas() {
                           value={paperPurchaseSheetH}
                           onChange={(e) => setPaperPurchaseSheetH(e.target.value)}
                         />
+                        {paperErrors.purchase_sheet_h && <p className="text-xs text-destructive">{paperErrors.purchase_sheet_h}</p>}
                       </div>
                     </div>
                   </div>
