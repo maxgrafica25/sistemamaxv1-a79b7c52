@@ -122,8 +122,12 @@ export async function saveQuoteV3(
       .maybeSingle();
     const validity = String((companyRow as any)?.default_quote_validity_days ?? 15);
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuário não autenticado.");
+
     const payload = {
       quote_number,
+      user_id: user.id,
       client: state.cliente.nome.trim(),
       client_id: state.cliente.id,
       product: state.assunto.trim() || "Orçamento rápido (V3)",
