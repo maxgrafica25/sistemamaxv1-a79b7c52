@@ -186,7 +186,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
       const ok = got.filter((r) => r.prices.length).length;
       toast.success(`${ok}/${got.length} URL(s) com tiers encontrados`);
     } catch (e: any) {
-      toast.error(e?.message || "Erro ao buscar preços");
+      handleError(e, "buscar preços");
     } finally {
       setTesting(false);
     }
@@ -279,7 +279,7 @@ export default function NovoSiteDialog({ open, onOpenChange, onCreated, categori
         );
       }
     } catch (e: any) {
-      toast.error(e?.message || "Erro ao salvar");
+      handleError(e, "salvar site");
     } finally {
       setSaving(false);
     }

@@ -90,7 +90,7 @@ export default function CompanyTab({ isAdmin }: Props) {
     }
     setSaving(false);
     if (error) {
-      toast.error(`Erro ao salvar: ${error.message}`);
+      handleError(error, "salvar configurações da empresa");
       return;
     }
     toast.success("Dados da empresa atualizados!");
