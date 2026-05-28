@@ -170,7 +170,7 @@ export default function RegisterPurchaseDialog({
       onSaved?.();
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e.message || "Erro ao registrar compra");
+      handleError(e, "registrar compra");
     } finally {
       setSaving(false);
     }

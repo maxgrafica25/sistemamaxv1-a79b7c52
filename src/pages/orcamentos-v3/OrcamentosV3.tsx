@@ -346,7 +346,7 @@ export default function OrcamentosV3() {
       setConfirmDeleteOpen(false);
       fetchQuotes();
     } catch (e: any) {
-      toast.error(e.message || "Erro ao excluir orçamentos");
+      handleError(e, "excluir orçamentos");
     } finally {
       setDeleting(false);
     }

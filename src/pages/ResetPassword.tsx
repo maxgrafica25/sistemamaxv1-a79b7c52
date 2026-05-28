@@ -141,7 +141,7 @@ export default function ResetPassword() {
       } else if (isHibp) {
         toast.error("Esta senha apareceu em vazamentos públicos. Escolha outra mais forte.");
       } else {
-        toast.error(error.message);
+        handleError(error, "redefinir senha");
       }
     } else {
       // Sucesso — registra log e dispara e-mail de confirmação (se já configurado)
