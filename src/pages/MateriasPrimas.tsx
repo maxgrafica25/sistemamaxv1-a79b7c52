@@ -35,6 +35,8 @@ import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
 import { SupplyTiersDrawer } from "@/components/materias-primas/SupplyTiersDrawer";
 import { DotTabs } from "@/components/ui/dot-tabs";
+import { paperSchema, supplySchema, zodErrorsToMap } from "@/lib/schemas/cadastros";
+
 
 // ─── Types ───────────────────────────────────────────────────────────
 type ActiveTab = "suprimento" | "papel";
