@@ -78,7 +78,8 @@ export function GenerateReceivableDialog({
       onCreated?.(data as string);
       onOpenChange(false);
     } catch (err: any) {
-      toast.error(err.message ?? "Erro ao gerar conta.");
+      handleError(err, "gerar conta");
+
     } finally {
       setSaving(false);
     }

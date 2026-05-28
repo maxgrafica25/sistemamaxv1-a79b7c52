@@ -63,7 +63,8 @@ export default function FreightTypesCard({ isAdmin }: Props) {
     setSavingId(id);
     const { error } = await supabase.from("freight_types").update(patch).eq("id", id);
     setSavingId(null);
-    if (error) return toast.error(error.message);
+    if (error) return handleError(error, "excluir frete");
+
     setRows((p) => p.map((r) => (r.id === id ? { ...r, ...patch } : r)));
     if (originals.current[id]) {
       originals.current[id] = { ...originals.current[id], ...patch };
@@ -73,7 +74,8 @@ export default function FreightTypesCard({ isAdmin }: Props) {
 
   const remove = async (id: string) => {
     const { error } = await supabase.from("freight_types").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return handleError(error, "salvar frete");
+
     setRows((p) => p.filter((r) => r.id !== id));
   };
 

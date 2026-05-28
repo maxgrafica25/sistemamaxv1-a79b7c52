@@ -67,7 +67,7 @@ export default function GerenciarCategoriasDialog({
       _destino: destino,
     });
     if (error) {
-      toast.error("Erro ao verificar duplicatas: " + error.message);
+      handleError(error, "verificar duplicatas");
       return [];
     }
     return ((data ?? []) as any[]).map((r) => ({
@@ -107,7 +107,7 @@ export default function GerenciarCategoriasDialog({
       .update({ categoria: novo }, { count: "exact" })
       .eq("categoria", oldName);
     setBusy(false);
-    if (error) return toast.error("Erro ao renomear: " + error.message);
+    if (error) return handleError(error, "renomear categoria");
     toast.success(`Categoria renomeada · ${count ?? 0} sites atualizados`);
     setEditingName(null);
     onChanged();
@@ -121,7 +121,7 @@ export default function GerenciarCategoriasDialog({
       .update({ categoria: destino }, { count: "exact" })
       .eq("categoria", origem);
     setBusy(false);
-    if (error) return toast.error("Erro ao mover: " + error.message);
+    if (error) return handleError(error, "mover sites");
     const dupCount = duplicates?.length ?? 0;
     if (dupCount > 0) {
       toast.success(`${count ?? 0} sites movidos · ${dupCount} duplicata(s) criada(s) — revise no Comparativo`);
@@ -179,7 +179,7 @@ export default function GerenciarCategoriasDialog({
       .eq("categoria", deleting.nome);
     if (selErr) {
       setBusy(false);
-      return toast.error("Erro ao buscar sites: " + selErr.message);
+      return handleError(selErr, "buscar sites");
     }
     const ids = (siteIds || []).map((s) => s.id);
     if (ids.length > 0) {
@@ -194,7 +194,7 @@ export default function GerenciarCategoriasDialog({
       .delete({ count: "exact" })
       .eq("categoria", deleting.nome);
     setBusy(false);
-    if (error) return toast.error("Erro ao excluir: " + error.message);
+    if (error) return handleError(error, "excluir sites");
     toast.success(`Categoria "${deleting.nome}" excluída · ${count ?? 0} sites removidos`);
     onCategoriaRemoved?.(deleting.nome);
     setConfirmHardDelete(false);
