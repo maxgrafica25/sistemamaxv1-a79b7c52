@@ -1388,10 +1388,12 @@ export default function MateriasPrimas() {
                     readOnly={pkgMode}
                     className={pkgMode ? "bg-muted/40" : undefined}
                   />
+                  {paperErrors.sheet_qty && <p className="text-xs text-destructive">{paperErrors.sheet_qty}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>{pkgMode ? "Preço total da compra (R$) *" : "Preço do Pacote (R$) *"}</Label>
                   <Input type="number" step="0.01" placeholder="0,00" value={paperPackPrice} onChange={(e) => setPaperPackPrice(e.target.value)} autoFocus={isUpdateMode} />
+                  {paperErrors.pack_price && <p className="text-xs text-destructive">{paperErrors.pack_price}</p>}
                 </div>
               </div>
 
