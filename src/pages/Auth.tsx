@@ -18,6 +18,10 @@ const MAX_NAME_LENGTH = 100;
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 72;
 const COOLDOWN_SECONDS = 60;
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+const LOCKOUT_MS = LOCKOUT_MINUTES * 60 * 1000;
+
 
 /**
  * Retorna a URL pública estável do app.
@@ -44,6 +48,8 @@ export default function Auth() {
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [lockoutRemaining, setLockoutRemaining] = useState<number | null>(null);
+
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -66,6 +72,41 @@ export default function Auth() {
     }, 1000);
     return () => clearInterval(timer);
   }, [cooldown]);
+  
+  // Lockout timer
+  useEffect(() => {
+    if (!email || !validateEmail(email)) {
+      setLockoutRemaining(null);
+      return;
+    }
+
+    const checkLockout = () => {
+      const attemptsData = localStorage.getItem(`login_attempts_${email.trim()}`);
+      if (!attemptsData) {
+        setLockoutRemaining(null);
+        return;
+      }
+
+      const { lockoutUntil } = JSON.parse(attemptsData);
+      if (lockoutUntil) {
+        const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000 / 60);
+        if (remaining > 0) {
+          setLockoutRemaining(remaining);
+        } else {
+          // Lockout expired, but keep the count for now or clear if desired
+          // Actually, if we are here, we should check if we should reset it
+          setLockoutRemaining(null);
+        }
+      } else {
+        setLockoutRemaining(null);
+      }
+    };
+
+    checkLockout();
+    const interval = setInterval(checkLockout, 10000); // Check every 10 seconds
+    return () => clearInterval(interval);
+  }, [email]);
+
 
   const validateEmail = (email: string): boolean => {
     if (!email || email.length > MAX_EMAIL_LENGTH) return false;
@@ -110,14 +151,49 @@ export default function Auth() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateEmail(email)) { toast.error("E-mail inválido"); return; }
+    const trimmedEmail = email.trim();
+    if (!validateEmail(trimmedEmail)) { toast.error("E-mail inválido"); return; }
     if (!validatePassword(password)) { toast.error(`Senha deve ter entre ${MIN_PASSWORD_LENGTH} e ${MAX_PASSWORD_LENGTH} caracteres`); return; }
+
+    // Check brute force lockout
+    const attemptsKey = `login_attempts_${trimmedEmail}`;
+    const attemptsData = JSON.parse(localStorage.getItem(attemptsKey) || '{"count": 0}');
+    
+    if (attemptsData.lockoutUntil && attemptsData.lockoutUntil > Date.now()) {
+      const remaining = Math.ceil((attemptsData.lockoutUntil - Date.now()) / 1000 / 60);
+      toast.error(`Muitas tentativas incorretas. Aguarde ${remaining} minutos antes de tentar novamente.`);
+      return;
+    }
+
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (error) handleError(error, "realizar login");
+    const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
+    
+    if (error) {
+      const newCount = (attemptsData.count || 0) + 1;
+      let lockoutUntil = null;
+      
+      if (newCount >= MAX_LOGIN_ATTEMPTS) {
+        lockoutUntil = Date.now() + LOCKOUT_MS;
+        const remaining = Math.ceil(LOCKOUT_MS / 1000 / 60);
+        toast.error(`Muitas tentativas incorretas. Aguarde ${remaining} minutos antes de tentar novamente.`);
+        setLockoutRemaining(remaining);
+      } else {
+        handleError(error, "realizar login");
+      }
+      
+      localStorage.setItem(attemptsKey, JSON.stringify({
+        count: newCount,
+        lockoutUntil
+      }));
+    } else {
+      // Success: clear attempts
+      localStorage.removeItem(attemptsKey);
+      setLockoutRemaining(null);
+    }
 
     setLoading(false);
   };
+
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -239,9 +315,13 @@ export default function Auth() {
                     <Label>Senha</Label>
                     <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" maxLength={MAX_PASSWORD_LENGTH} autoComplete="current-password" />
                   </div>
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Entrar
+                  <Button type="submit" className="w-full" disabled={loading || (lockoutRemaining !== null && lockoutRemaining > 0)}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {lockoutRemaining !== null && lockoutRemaining > 0 
+                      ? `Bloqueado (${lockoutRemaining} min)` 
+                      : "Entrar"}
                   </Button>
+
                   <Button
                     type="button"
                     variant="link"

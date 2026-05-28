@@ -156,7 +156,14 @@ export default function ResetPassword() {
       } catch (e) {
         console.warn("[notify-password-changed] envio falhou", e);
       }
+      
+      // Clear brute force attempts for this user
+      if (userEmail) {
+        localStorage.removeItem(`login_attempts_${userEmail}`);
+      }
+      
       setSuccess(true);
+
       toast.success("Senha redefinida com sucesso!");
       setTimeout(() => navigate("/"), 2000);
     }
