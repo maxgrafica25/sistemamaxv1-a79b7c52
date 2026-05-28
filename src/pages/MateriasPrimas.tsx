@@ -1410,53 +1410,19 @@ export default function MateriasPrimas() {
                   <div className="space-y-1.5">
                     <Label className="text-xs">Valor total do frete (R$)</Label>
                     <Input type="number" step="0.01" placeholder="0,00" value={paperFreightTotal} onChange={(e) => setPaperFreightTotal(e.target.value)} />
+                    {paperErrors.freight_total && <p className="text-xs text-destructive">{paperErrors.freight_total}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Dividir entre quantos itens?</Label>
                     <Input type="number" min="1" placeholder="1" value={paperFreightDivideBy} onChange={(e) => setPaperFreightDivideBy(e.target.value)} />
+                    {paperErrors.freight_divide_by && <p className="text-xs text-destructive">{paperErrors.freight_divide_by}</p>}
                   </div>
                 </div>
-                {Number(paperFreightTotal) > 0 && Number(paperSheetQty) > 0 && (
-                  <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2 space-y-0.5">
-                    <div className="flex justify-between">
-                      <span>Frete por item</span>
-                      <span className="font-medium text-foreground">{formatCurrency(Number(paperFreightTotal) / (Number(paperFreightDivideBy) || 1))}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>{paperIsCutSize ? "Frete por folha" : "Frete por folha (66×96)"}</span>
-                      <span className="font-medium text-foreground">{fmt4(computedFreightPerSheet)}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Auto-calc preview */}
-              {paperSheetQty && paperPackPrice && Number(paperSheetQty) > 0 && (
-                <div className="rounded-lg bg-muted p-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">{paperIsCutSize ? "Custo por folha" : "Preço por folha (66×96)"}</span>
-                    <span className="font-semibold">{fmt4(Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet)}</span>
-                  </div>
-                  {!paperIsCutSize && (
-                    <>
-                      <div className="border-t border-border pt-2 flex justify-between text-sm">
-                        <span className="text-muted-foreground">Preço A4 <span className="text-xs">(÷ 9)</span></span>
-                        <span className="font-bold text-primary">{fmt4((Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet) / 9)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Preço A3+ / SRA3 <span className="text-xs">(÷ 4)</span></span>
-                        <span className="font-bold text-primary">{fmt4((Number(paperPackPrice) / Number(paperSheetQty) + computedFreightPerSheet) / 4)}</span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Supplier & Date */}
-              <div className="grid grid-cols-3 gap-4 items-end">
+...
                 <div className="space-y-2">
                   <Label>Fornecedor</Label>
                   <SupplierCombobox value={paperSupplier} onChange={setPaperSupplier} onSelectSupplier={(s) => { setPaperSupplier(s.nome); if (!paperContact) setPaperContact(s.empresa || ""); }} />
+                  {paperErrors.supplier && <p className="text-xs text-destructive">{paperErrors.supplier}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>Data Cotação</Label>
@@ -1465,12 +1431,13 @@ export default function MateriasPrimas() {
                 <div className="space-y-2">
                   <Label>Contato</Label>
                   <Input placeholder="Nome" value={paperContact} onChange={(e) => setPaperContact(e.target.value)} />
+                  {paperErrors.contact && <p className="text-xs text-destructive">{paperErrors.contact}</p>}
                 </div>
               </div>
             </div>
             <DialogFooter className="gap-2 pt-4">
               <Button variant="outline" onClick={() => setIsPaperDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={savePaper}>{isUpdateMode ? "Atualizar Preço" : editingPaper ? "Atualizar" : "Cadastrar"}</Button>
+              <Button onClick={savePaper} disabled={!paperFormValid}>{isUpdateMode ? "Atualizar Preço" : editingPaper ? "Atualizar" : "Cadastrar"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
