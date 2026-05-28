@@ -20,7 +20,9 @@ import {
 import { Pencil, ArrowRightLeft, Trash2, Check, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { handleError } from "@/lib/handleError";
 import ConfirmDialog from "@/components/ConfirmDialog";
+
 
 type CategoriaInfo = { nome: string; count: number };
 

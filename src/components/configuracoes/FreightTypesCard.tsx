@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Truck, Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { handleError } from "@/lib/handleError";
 
 interface Row {
   id: string;
@@ -50,7 +51,7 @@ export default function FreightTypesCard({ isAdmin }: Props) {
       default_value: v,
       sort_order: sort,
     });
-    if (error) return toast.error(error.message);
+    if (error) return handleError(error, "salvar frete");
     setName("");
     setVal("");
     toast.success("Tipo de frete adicionado");
@@ -63,7 +64,7 @@ export default function FreightTypesCard({ isAdmin }: Props) {
     setSavingId(id);
     const { error } = await supabase.from("freight_types").update(patch).eq("id", id);
     setSavingId(null);
-    if (error) return handleError(error, "excluir frete");
+    if (error) return handleError(error, "atualizar frete");
 
     setRows((p) => p.map((r) => (r.id === id ? { ...r, ...patch } : r)));
     if (originals.current[id]) {
@@ -74,7 +75,7 @@ export default function FreightTypesCard({ isAdmin }: Props) {
 
   const remove = async (id: string) => {
     const { error } = await supabase.from("freight_types").delete().eq("id", id);
-    if (error) return handleError(error, "salvar frete");
+    if (error) return handleError(error, "excluir frete");
 
     setRows((p) => p.filter((r) => r.id !== id));
   };
