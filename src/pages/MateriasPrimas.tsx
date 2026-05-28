@@ -1225,6 +1225,7 @@ export default function MateriasPrimas() {
                     onSelectPaper={handleSelectExistingPaper}
                     disabled={!!editingPaper && !!selectedExistingPaper}
                   />
+                  {paperErrors.name && <p className="text-xs text-destructive">{paperErrors.name}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>Gramatura</Label>
@@ -1234,6 +1235,7 @@ export default function MateriasPrimas() {
                     onChange={(e) => setPaperGrammage(e.target.value)}
                     disabled={isUpdateMode}
                   />
+                  {paperErrors.grammage && <p className="text-xs text-destructive">{paperErrors.grammage}</p>}
                 </div>
               </div>
 
