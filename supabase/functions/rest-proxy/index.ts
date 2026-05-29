@@ -29,9 +29,16 @@ serve(async (req) => {
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
+      let errorData;
+      try {
+        errorData = await response.json()
+      } catch {
+        errorData = {}
+      }
       
-      // Sanitize the error response
+      console.log(`Intercepted error ${response.status}:`, JSON.stringify(errorData))
+
+      // Sanitize the error response to prevent schema leakage
       const sanitizedError = {
         code: errorData.code || 'API_ERROR',
         message: 'Requisição inválida ou recurso não encontrado',
@@ -39,11 +46,18 @@ serve(async (req) => {
         details: null
       }
 
-      // Specific handling for common PostgREST errors to be slightly more helpful without leaking
+      // Slightly more helpful messages for known codes without leaking schema names
       if (errorData.code === 'PGRST116') {
         sanitizedError.message = 'Recurso não encontrado'
       } else if (errorData.code === '23505') {
         sanitizedError.message = 'Registro já existe'
+      } else if (errorData.code === 'PGRST205') {
+        sanitizedError.message = 'Tabela não encontrada'
+      } else if (errorData.code === 'PGRST202') {
+        sanitizedError.message = 'Função não encontrada'
+      } else if (errorData.message && !errorData.message.includes('public.')) {
+        // Only keep the original message if it doesn't seem to contain internal references
+        sanitizedError.message = errorData.message
       }
 
       return new Response(JSON.stringify(sanitizedError), {
