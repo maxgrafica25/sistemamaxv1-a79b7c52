@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, Shield, Settings, Info, Loader2, Save, RotateCcw } from "lucide-react";
+import { Search, Filter, Shield, Settings, Info, Loader2, Save, RotateCcw, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
