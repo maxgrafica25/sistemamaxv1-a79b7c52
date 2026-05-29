@@ -212,6 +212,7 @@ export default function Configuracoes() {
             { key: "geral", label: "Geral" },
             { key: "integracoes", label: "Integrações" },
             ...(isAdmin ? [{ key: "conhecimento", label: "Base de Conhecimento" }] : []),
+            ...(isAdmin ? [{ key: "permissoes", label: "Permissões & Segurança" }] : []),
             ...(isAdmin ? [{ key: "backup", label: "Backup & Exportação" }] : []),
             ...(isAdmin ? [{ key: "vps", label: "Migração / VPS" }] : []),
           ]}
