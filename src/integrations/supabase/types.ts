@@ -5561,6 +5561,10 @@ export type Database = {
           total_value: number
         }[]
       }
+      are_users_same_company: {
+        Args: { user_a: string; user_b: string }
+        Returns: boolean
+      }
       assistente_check_rate_limit: {
         Args: { p_max_5min?: number; p_max_day?: number; p_user_id: string }
         Returns: Json
