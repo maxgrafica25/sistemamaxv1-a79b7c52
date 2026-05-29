@@ -37,3 +37,6 @@ verify_jwt = false
 
 [functions.rate-limit-login]
 verify_jwt = false
+
+[functions.rest-proxy]
+verify_jwt = false
