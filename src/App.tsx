@@ -42,6 +42,7 @@ import Pedidos from "./pages/Pedidos";
 import ContasReceber from "./pages/ContasReceber";
 import CalculadoraEtiquetas from "./pages/CalculadoraEtiquetas";
 import Acabamentos from "./pages/Acabamentos";
+import Permissoes from "./pages/configuracoes/Permissoes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
