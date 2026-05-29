@@ -392,6 +392,30 @@ export type Database = {
         }
         Relationships: []
       }
+      auth_attempts: {
+        Row: {
+          created_at: string | null
+          id: string
+          identifier: string
+          ip_address: string
+          successful: boolean
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          identifier: string
+          ip_address: string
+          successful: boolean
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          identifier?: string
+          ip_address?: string
+          successful?: boolean
+        }
+        Relationships: []
+      }
       backup_runs: {
         Row: {
           created_at: string
@@ -5588,6 +5612,7 @@ export type Database = {
         Returns: boolean
       }
       is_financeiro_user: { Args: { _user_id: string }; Returns: boolean }
+      is_ip_blocked: { Args: { p_ip_address: string }; Returns: boolean }
       is_profile_admin: { Args: { _user_id: string }; Returns: boolean }
       is_tenant_admin: { Args: { _empresa_id: string }; Returns: boolean }
       is_tenant_financeiro: { Args: { _empresa_id: string }; Returns: boolean }
@@ -5618,7 +5643,11 @@ export type Database = {
       }
       next_order_number: { Args: never; Returns: string }
       record_auth_attempt: {
-        Args: { p_email: string; p_ip_address: string; p_is_success: boolean }
+        Args: {
+          p_identifier: string
+          p_ip_address: string
+          p_successful: boolean
+        }
         Returns: undefined
       }
       register_quote_event: {
