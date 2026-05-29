@@ -165,54 +165,34 @@ export default function Auth() {
       return;
     }
 
-    setLoading(true);
-
-    // Backend brute force check
     try {
-      const { data: checkData, error: checkError } = await supabase.functions.invoke('check-login-attempts', {
-        body: { email: trimmedEmail }
+      const { data, error } = await supabase.functions.invoke('rate-limit-login', {
+        body: { email: trimmedEmail, password }
       });
 
-      if (checkError || (checkData && checkData.error)) {
-        const errorMsg = checkError?.message || checkData?.error;
-        toast.error(errorMsg || "Muitas tentativas. Tente novamente em 15 minutos.");
+      if (error || (data && data.error)) {
+        const errorMsg = error?.message || data?.error;
+        if (errorMsg.includes('attempts') || errorMsg.includes('429')) {
+          toast.error("Muitas tentativas. Tente novamente em 15 minutos.");
+          setLockoutRemaining(15);
+        } else {
+          toast.error(errorMsg || "Erro ao realizar login");
+        }
         setLoading(false);
         return;
       }
-    } catch (e) {
-      console.error("Erro ao verificar tentativas:", e);
-      // Fallback to local check if function fails
-    }
 
-    const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
-    
-    // Record attempt result in background via Edge Function
-    supabase.functions.invoke('check-login-attempts', {
-      body: { email: trimmedEmail, success: !error }
-    }).catch(err => console.error("Erro ao registrar tentativa:", err));
-    
-    if (error) {
-
-      const newCount = (attemptsData.count || 0) + 1;
-      let lockoutUntil = null;
-      
-      if (newCount >= MAX_LOGIN_ATTEMPTS) {
-        lockoutUntil = Date.now() + LOCKOUT_MS;
-        const remaining = Math.ceil(LOCKOUT_MS / 1000 / 60);
-        toast.error(`Muitas tentativas incorretas. Aguarde ${remaining} minutos antes de tentar novamente.`);
-        setLockoutRemaining(remaining);
-      } else {
-        handleError(error, "realizar login");
+      // Se sucesso, o data contém a sessão. O onAuthStateChange no useEffect cuidará do redirecionamento.
+      // Mas para garantir uma transição imediata:
+      if (data?.session) {
+        localStorage.removeItem(attemptsKey);
+        navigate("/");
       }
-      
-      localStorage.setItem(attemptsKey, JSON.stringify({
-        count: newCount,
-        lockoutUntil
-      }));
-    } else {
-      // Success: clear attempts
-      localStorage.removeItem(attemptsKey);
-      setLockoutRemaining(null);
+    } catch (e: any) {
+      console.error("Erro no login:", e);
+      toast.error("Ocorreu um erro ao processar seu login.");
+    } finally {
+      setLoading(false);
     }
 
     setLoading(false);
