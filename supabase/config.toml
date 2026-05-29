@@ -34,3 +34,6 @@ verify_jwt = false
 
 [functions.gcal-sync-worker]
 verify_jwt = false
+
+[functions.rate-limit-login]
+verify_jwt = false
