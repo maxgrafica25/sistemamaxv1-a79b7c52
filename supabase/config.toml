@@ -1,5 +1,9 @@
 project_id = "nxkmxslugblhsyohrrvm"
 
+[auth]
+jwt_expiry = 900
+
+
 [functions.scrape-prices-cron]
 verify_jwt = false
 
