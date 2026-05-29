@@ -1845,6 +1845,38 @@ export type Database = {
         }
         Relationships: []
       }
+      grupos: {
+        Row: {
+          created_at: string | null
+          descricao: string | null
+          empresa_id: string | null
+          id: string
+          nome: string
+        }
+        Insert: {
+          created_at?: string | null
+          descricao?: string | null
+          empresa_id?: string | null
+          id?: string
+          nome: string
+        }
+        Update: {
+          created_at?: string | null
+          descricao?: string | null
+          empresa_id?: string | null
+          id?: string
+          nome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grupos_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historico_precos: {
         Row: {
           criado_em: string
@@ -2763,6 +2795,142 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permissoes_disponiveis: {
+        Row: {
+          categoria: string
+          chave: string
+          created_at: string | null
+          descricao_amigavel: string
+          empresa_id: string | null
+          id: string
+        }
+        Insert: {
+          categoria: string
+          chave: string
+          created_at?: string | null
+          descricao_amigavel: string
+          empresa_id?: string | null
+          id?: string
+        }
+        Update: {
+          categoria?: string
+          chave?: string
+          created_at?: string | null
+          descricao_amigavel?: string
+          empresa_id?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permissoes_disponiveis_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permissoes_grupo: {
+        Row: {
+          created_at: string | null
+          empresa_id: string | null
+          grupo_id: string
+          habilitada: boolean | null
+          id: string
+          permissao_chave: string
+        }
+        Insert: {
+          created_at?: string | null
+          empresa_id?: string | null
+          grupo_id: string
+          habilitada?: boolean | null
+          id?: string
+          permissao_chave: string
+        }
+        Update: {
+          created_at?: string | null
+          empresa_id?: string | null
+          grupo_id?: string
+          habilitada?: boolean | null
+          id?: string
+          permissao_chave?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permissoes_grupo_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permissoes_grupo_grupo_id_fkey"
+            columns: ["grupo_id"]
+            isOneToOne: false
+            referencedRelation: "grupos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permissoes_grupo_permissao_chave_fkey"
+            columns: ["permissao_chave"]
+            isOneToOne: false
+            referencedRelation: "permissoes_disponiveis"
+            referencedColumns: ["chave"]
+          },
+        ]
+      }
+      permissoes_usuario: {
+        Row: {
+          created_at: string | null
+          empresa_id: string | null
+          habilitada: boolean | null
+          id: string
+          origem: string | null
+          permissao_chave: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          empresa_id?: string | null
+          habilitada?: boolean | null
+          id?: string
+          origem?: string | null
+          permissao_chave: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          empresa_id?: string | null
+          habilitada?: boolean | null
+          id?: string
+          origem?: string | null
+          permissao_chave?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permissoes_usuario_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permissoes_usuario_permissao_chave_fkey"
+            columns: ["permissao_chave"]
+            isOneToOne: false
+            referencedRelation: "permissoes_disponiveis"
+            referencedColumns: ["chave"]
+          },
+          {
+            foreignKeyName: "permissoes_usuario_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -5311,6 +5479,52 @@ export type Database = {
         }
         Relationships: []
       }
+      usuario_grupos: {
+        Row: {
+          created_at: string | null
+          empresa_id: string | null
+          grupo_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          empresa_id?: string | null
+          grupo_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          empresa_id?: string | null
+          grupo_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usuario_grupos_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usuario_grupos_grupo_id_fkey"
+            columns: ["grupo_id"]
+            isOneToOne: false
+            referencedRelation: "grupos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usuario_grupos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -5410,6 +5624,10 @@ export type Database = {
       register_quote_view: {
         Args: { p_public_token: string; p_visitor_id?: string }
         Returns: undefined
+      }
+      verificar_permissao: {
+        Args: { p_permissao_chave: string; p_user_id: string }
+        Returns: boolean
       }
     }
     Enums: {

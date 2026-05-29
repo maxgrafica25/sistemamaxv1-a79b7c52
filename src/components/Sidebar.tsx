@@ -76,6 +76,7 @@ const NAV_GROUPS: NavGroup[] = [
       { name: "Produtos Ref.", href: "/produtos", icon: BookOpen, adminOnly: true },
       { name: "Produtos Favoritos", href: "/presets-orcamento", icon: Wand2, adminOnly: true },
       { name: "Auditoria", href: "/auditoria", icon: Shield, adminOnly: true },
+      { name: "Permissões", href: "/configuracoes/permissoes", icon: Shield, adminOnly: true },
       { name: "Usuários", href: "/usuarios", icon: UserCog, adminOnly: true },
       { name: "Configurações", href: "/configuracoes", icon: Settings },
     ],

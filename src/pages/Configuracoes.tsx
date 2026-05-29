@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/PageHeader";
 import { useState, useEffect, useCallback } from "react";
 import GoogleCalendarCard from "@/components/configuracoes/GoogleCalendarCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,7 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { DotTabs } from "@/components/ui/dot-tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Save, Info, Loader2, Cog, Download, FileJson, FileCode, RefreshCw, AlertTriangle, Database, FolderArchive } from "lucide-react";
+import { Save, Info, Loader2, Cog, Download, FileJson, FileCode, RefreshCw, AlertTriangle, Database, FolderArchive, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
@@ -212,6 +212,7 @@ export default function Configuracoes() {
             { key: "geral", label: "Geral" },
             { key: "integracoes", label: "Integrações" },
             ...(isAdmin ? [{ key: "conhecimento", label: "Base de Conhecimento" }] : []),
+            ...(isAdmin ? [{ key: "permissoes", label: "Permissões & Segurança" }] : []),
             ...(isAdmin ? [{ key: "backup", label: "Backup & Exportação" }] : []),
             ...(isAdmin ? [{ key: "vps", label: "Migração / VPS" }] : []),
           ]}
@@ -222,6 +223,37 @@ export default function Configuracoes() {
 
         <TabsContent value="empresa" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0">
           <CompanyTab isAdmin={isAdmin} />
+        </TabsContent>
+
+        <TabsContent value="permissoes" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0">
+          <Card className="shadow-card border-primary/20 bg-primary/5">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <ShieldAlert className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Gestão Avançada de Permissões</CardTitle>
+                  <CardDescription>Configure o que cada colaborador ou setor pode acessar no sistema.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                O novo sistema de permissões permite definir regras por <strong>Grupos (Setores)</strong> ou 
+                <strong>Individualmente</strong> por usuário. A hierarquia garante que permissões individuais 
+                sempre tenham prioridade sobre as do grupo.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Link to="/configuracoes/permissoes" className="flex-1">
+                  <Button className="w-full gap-2 py-6 text-lg">
+                    <ShieldAlert className="h-5 w-5" />
+                    Abrir Painel de Permissões
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="geral" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0 space-y-4">
