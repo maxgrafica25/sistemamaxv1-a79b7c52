@@ -3,6 +3,19 @@ project_id = "nxkmxslugblhsyohrrvm"
 [auth]
 jwt_expiry = 900
 
+[auth.rate_limit]
+email_sent = 60
+otp_sent = 30
+token_refresh = 5
+challenge_response = 5
+verify = 5
+anonymous_sign_ins = 5
+
+[auth.security]
+brute_force_detection = true
+max_login_attempts = 5
+lockout_duration = 900
+
 
 [functions.scrape-prices-cron]
 verify_jwt = false
