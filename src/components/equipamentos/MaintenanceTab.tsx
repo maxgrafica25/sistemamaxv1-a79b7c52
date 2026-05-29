@@ -241,10 +241,11 @@ export default function MaintenanceTab({ equipmentId, equipmentName, printerType
       }
       const ext = file.name.split(".").pop();
       const path = `${equipmentId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from("maintenance-attachments").upload(path, file);
-      if (error) { handleError(error, `enviar ${file.name}`); continue; }
-      const { data: urlData } = supabase.storage.from("maintenance-attachments").getPublicUrl(path);
-      newUrls.push(urlData.publicUrl);
+      const { error: uploadError } = await supabase.storage.from("maintenance-attachments").upload(path, file);
+      if (uploadError) { handleError(uploadError, `enviar ${file.name}`); continue; }
+      const { data: signData, error: signError } = await supabase.storage.from("maintenance-attachments").createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signError) { handleError(signError, `gerar link para ${file.name}`); continue; }
+      newUrls.push(signData.signedUrl);
     }
     setAttachments((prev) => [...prev, ...newUrls]);
     setUploading(false);
