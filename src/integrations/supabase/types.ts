@@ -5576,7 +5576,9 @@ export type Database = {
       }
       empresa_ativa: { Args: { _empresa_id: string }; Returns: boolean }
       enqueue_recurring_reminders: { Args: never; Returns: number }
+      get_my_empresa_id: { Args: never; Returns: string }
       get_public_quote: { Args: { p_token: string }; Returns: Json }
+      is_admin: { Args: never; Returns: boolean }
       is_channel_creator: {
         Args: { _channel_id: string; _user_id: string }
         Returns: boolean
