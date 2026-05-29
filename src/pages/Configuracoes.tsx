@@ -11,7 +11,7 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { DotTabs } from "@/components/ui/dot-tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Save, Info, Loader2, Cog, Download, FileJson, FileCode, RefreshCw, AlertTriangle, Database, FolderArchive } from "lucide-react";
+import { Save, Info, Loader2, Cog, Download, FileJson, FileCode, RefreshCw, AlertTriangle, Database, FolderArchive, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
