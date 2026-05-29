@@ -14,10 +14,15 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     
-    // Get the original path (e.g., /rest/v1/profiles)
     const url = new URL(req.url)
-    const path = url.pathname.replace('/rest-proxy', '/rest/v1')
-    const targetUrl = `${supabaseUrl}${path}${url.search}`
+    // Extract the sub-path after /rest-proxy
+    const proxyPath = '/rest-proxy'
+    const index = url.pathname.indexOf(proxyPath)
+    const subPath = index !== -1 ? url.pathname.substring(index + proxyPath.length) : url.pathname
+    
+    // Ensure subPath doesn't double up on /rest/v1 if it already contains it
+    const cleanSubPath = subPath.startsWith('/rest/v1') ? subPath.substring(8) : subPath
+    const targetUrl = `${supabaseUrl}/rest/v1${cleanSubPath}${url.search}`
 
     const headers = new Headers(req.headers)
     headers.set('apikey', supabaseAnonKey)
@@ -36,27 +41,23 @@ serve(async (req) => {
         errorData = {}
       }
       
-      console.log(`Intercepted error ${response.status}:`, JSON.stringify(errorData))
+      console.log(`Intercepted error ${response.status} (Code: ${errorData.code}):`, JSON.stringify(errorData))
 
       // Sanitize the error response to prevent schema leakage
       const sanitizedError = {
         code: errorData.code || 'API_ERROR',
-        message: 'Requisição inválida ou recurso não encontrado',
+        message: 'Requisição inválida ou erro interno',
         hint: null,
         details: null
       }
 
-      // Slightly more helpful messages for known codes without leaking schema names
-      if (errorData.code === 'PGRST116') {
+      // Specific messages for known codes as requested
+      if (errorData.code === 'PGRST205' || errorData.code === 'PGRST202' || errorData.code === 'PGRST116') {
         sanitizedError.message = 'Recurso não encontrado'
       } else if (errorData.code === '23505') {
-        sanitizedError.message = 'Registro já existe'
-      } else if (errorData.code === 'PGRST205') {
-        sanitizedError.message = 'Tabela não encontrada'
-      } else if (errorData.code === 'PGRST202') {
-        sanitizedError.message = 'Função não encontrada'
-      } else if (errorData.message && !errorData.message.includes('public.')) {
-        // Only keep the original message if it doesn't seem to contain internal references
+        sanitizedError.message = 'Este registro já existe'
+      } else if (errorData.message && !errorData.message.includes('public.') && !errorData.message.includes('schema')) {
+        // Only keep original message if it's safe and not one of the restricted ones
         sanitizedError.message = errorData.message
       }
 
@@ -73,6 +74,7 @@ serve(async (req) => {
     })
 
   } catch (error) {
+    console.error('Proxy error:', error)
     return new Response(JSON.stringify({ error: 'Erro interno no proxy de segurança' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
