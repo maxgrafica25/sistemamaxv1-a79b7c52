@@ -5549,6 +5549,10 @@ export type Database = {
       backup_get_realtime_publication: { Args: never; Returns: Json }
       backup_get_tables: { Args: never; Returns: Json }
       backup_get_triggers: { Args: never; Returns: Json }
+      check_auth_rate_limit: {
+        Args: { p_ip_address: string }
+        Returns: boolean
+      }
       check_rate_limit: {
         Args: {
           p_action: string
@@ -5613,6 +5617,10 @@ export type Database = {
         Returns: string
       }
       next_order_number: { Args: never; Returns: string }
+      record_auth_attempt: {
+        Args: { p_email: string; p_ip_address: string; p_is_success: boolean }
+        Returns: undefined
+      }
       register_quote_event: {
         Args: {
           p_event_type: string
