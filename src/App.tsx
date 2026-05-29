@@ -85,7 +85,8 @@ const App = () => (
                   <Route path="/cadastros-cv" element={<CadastrosCV />} />
                   <Route path="/processos-producao" element={<ProcessosProducao />} />
                   <Route path="/despesas-fixas" element={<DespesasFixas />} />
-                  <Route path="/configuracoes" element={<RoleProtectedRoute requires="admin"><Configuracoes /></RoleProtectedRoute>} />
+                   <Route path="/configuracoes" element={<RoleProtectedRoute requires="admin"><Configuracoes /></RoleProtectedRoute>} />
+                  <Route path="/configuracoes/permissoes" element={<RoleProtectedRoute requires="admin"><Permissoes /></RoleProtectedRoute>} />
                   <Route path="/auditoria" element={<RoleProtectedRoute requires="admin"><Auditoria /></RoleProtectedRoute>} />
                   <Route path="/monitoramento" element={<RoleProtectedRoute requires="admin"><Monitoramento /></RoleProtectedRoute>} />
                   <Route path="/produtos" element={<Produtos />} />
