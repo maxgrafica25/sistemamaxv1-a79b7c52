@@ -36,14 +36,21 @@ export default function ChatInput({ channelId, replyTo, onClearReply, onSent }: 
     }
     setUploading(true);
     const path = `${user.id}/${Date.now()}-${file.name}`;
-    const { error } = await supabase.storage.from("chat-attachments").upload(path, file);
-    if (error) {
-      handleError(error, "enviar arquivo");
+    const { error: uploadError } = await supabase.storage.from("chat-attachments").upload(path, file);
+    if (uploadError) {
+      handleError(uploadError, "enviar arquivo");
+      setUploading(true);
+      return;
+    }
+    // Para buckets privados, precisamos de uma URL assinada. 
+    // Usamos uma validade longa (1 ano) para a URL persistida na mensagem.
+    const { data: signData, error: signError } = await supabase.storage.from("chat-attachments").createSignedUrl(path, 60 * 60 * 24 * 365);
+    if (signError) {
+      handleError(signError, "gerar link do arquivo");
       setUploading(false);
       return;
     }
-    const { data: urlData } = supabase.storage.from("chat-attachments").getPublicUrl(path);
-    setAttachment({ url: urlData.publicUrl, name: file.name });
+    setAttachment({ url: signData.signedUrl, name: file.name });
     setUploading(false);
   };
 

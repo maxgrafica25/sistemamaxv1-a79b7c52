@@ -95,10 +95,12 @@ export default function MaintenanceRequestsTab({ equipmentId, equipmentName }: P
     for (const file of files) {
       const ext = file.name.split(".").pop();
       const path = `${equipmentId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from("maintenance-attachments").upload(path, file);
-      if (!error) {
-        const { data: urlData } = supabase.storage.from("maintenance-attachments").getPublicUrl(path);
-        attachmentUrls.push(urlData.publicUrl);
+      const { error: uploadError } = await supabase.storage.from("maintenance-attachments").upload(path, file);
+      if (!uploadError) {
+        const { data: signData, error: signError } = await supabase.storage.from("maintenance-attachments").createSignedUrl(path, 60 * 60 * 24 * 365);
+        if (!signError) {
+          attachmentUrls.push(signData.signedUrl);
+        }
       }
     }
 

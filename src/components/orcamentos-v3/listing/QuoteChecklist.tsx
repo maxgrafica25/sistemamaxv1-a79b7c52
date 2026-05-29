@@ -214,9 +214,13 @@ export function QuoteChecklist({
     try {
       const ext = file.name.split(".").pop() || "jpg";
       const path = `${quoteId ?? "draft"}/${q.id}-${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from("quote-attachments").upload(path, file, { upsert: true });
-      if (error) throw error;
-      setAns(q.id, { resposta_url: path });
+      const { error: uploadError } = await supabase.storage.from("quote-attachments").upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      
+      const { data: signData, error: signError } = await supabase.storage.from("quote-attachments").createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signError) throw signError;
+      
+      setAns(q.id, { resposta_url: signData.signedUrl });
       toast.success("Foto enviada");
     } catch (e: any) {
       toast.error("Falha no upload: " + e.message);
