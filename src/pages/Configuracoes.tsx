@@ -225,6 +225,37 @@ export default function Configuracoes() {
           <CompanyTab isAdmin={isAdmin} />
         </TabsContent>
 
+        <TabsContent value="permissoes" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0">
+          <Card className="shadow-card border-primary/20 bg-primary/5">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <ShieldAlert className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Gestão Avançada de Permissões</CardTitle>
+                  <CardDescription>Configure o que cada colaborador ou setor pode acessar no sistema.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                O novo sistema de permissões permite definir regras por <strong>Grupos (Setores)</strong> ou 
+                <strong>Individualmente</strong> por usuário. A hierarquia garante que permissões individuais 
+                sempre tenham prioridade sobre as do grupo.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Link to="/configuracoes/permissoes" className="flex-1">
+                  <Button className="w-full gap-2 py-6 text-lg">
+                    <ShieldAlert className="h-5 w-5" />
+                    Abrir Painel de Permissões
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="geral" className="flex-1 min-h-0 overflow-y-auto pr-1 mt-0 space-y-4">
           <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
             <Card className="shadow-card">
