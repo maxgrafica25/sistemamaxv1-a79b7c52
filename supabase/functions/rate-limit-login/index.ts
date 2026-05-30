@@ -24,7 +24,7 @@ serve(async (req) => {
 
     // Check rate limit
     const { data: isBlocked, error: checkError } = await supabaseAdmin
-      .rpc('is_ip_blocked', { p_ip_address: clientIp })
+      .rpc('is_auth_blocked', { p_ip_address: clientIp, p_identifier: email })
 
     if (checkError) {
       console.error('[RateLimit] Error checking if blocked:', checkError)
