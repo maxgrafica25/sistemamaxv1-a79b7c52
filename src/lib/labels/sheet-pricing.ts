@@ -284,14 +284,14 @@ export function useFolhaPricing(
   });
   const [finishingIsAuto, setFinishingIsAuto] = useState(false);
 
-  // Quando troca o `size`, recarrega escolha salva
+  // Quando troca o `size`, recarrega escolha salva (ou reseta se skipInitialLoad for true)
   useEffect(() => {
     const c = loadChoices()[size];
-    setPrintingIdState(c?.printingId ?? null);
-    setFinishingIdState(c?.finishingId ?? null);
+    setPrintingIdState(skipInitialLoad ? null : (c?.printingId ?? null));
+    setFinishingIdState(skipInitialLoad ? null : (c?.finishingId ?? null));
     setPaperKindState(c?.paperKind ?? "adesivo");
     setFinishingIsAuto(false);
-  }, [size]);
+  }, [size, skipInitialLoad]);
 
   // Garante que paperKind seja um disponível
   useEffect(() => {
