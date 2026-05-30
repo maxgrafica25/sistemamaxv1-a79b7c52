@@ -5,28 +5,12 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 /**
- * Redireciona chamadas REST para a Edge Function de proxy por segurança.
- * Filtra para evitar que chamadas de Auth/Storage sejam interceptadas.
+ * Por enquanto, desativamos o redirecionamento para o rest-proxy para diagnosticar
+ * se o erro 'Failed to fetch' é causado por limitações de rede ou pela Edge Function.
+ * Chamadas REST voltarão a ser diretas temporariamente.
  */
 const customFetch = async (url: string, options: RequestInit = {}) => {
-  const restUrl = `${SUPABASE_URL}/rest/v1/`;
-  
-  if (url.startsWith(restUrl)) {
-    const proxyUrl = `${SUPABASE_URL}/functions/v1/rest-proxy/`;
-    const subPath = url.substring(restUrl.length);
-    const finalUrl = `${proxyUrl}${subPath}`;
-    
-    console.log('[proxy-client] Redirecting:', subPath.split('?')[0]);
-    
-    try {
-      const response = await fetch(finalUrl, options);
-      return response;
-    } catch (err) {
-      console.error('[proxy-client] Network error:', err);
-      throw err;
-    }
-  }
-  
+  // Chamada direta para o Supabase REST
   return fetch(url, options);
 };
 
