@@ -598,14 +598,16 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
 
       <Field label="Acabamento">
         <Select
-          value={folha.selectedFinishing.id}
+          value={folha.selectedFinishing.id || "__none__"}
           onValueChange={(v) => folha.setFinishingId(v as string)}
         >
           <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {folha.finishingOptions.map((f) => (
-              <SelectItem key={f.id} value={f.id}>{f.label ?? f.name}</SelectItem>
-            ))}
+            {folha.finishingOptions
+              .filter(f => !f.id || f.category === "none" || /adesiv/i.test(f.name) || /recorte/i.test(f.name))
+              .map((f) => (
+                <SelectItem key={f.id || "__none__"} value={f.id || "__none__"}>{f.label ?? f.name}</SelectItem>
+              ))}
           </SelectContent>
         </Select>
       </Field>
