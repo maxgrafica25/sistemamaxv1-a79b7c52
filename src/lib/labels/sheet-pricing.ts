@@ -275,9 +275,11 @@ export function useFolhaPricing(
     return loadChoices()[size]?.paperKind ?? "adesivo";
   });
   const [printingId, setPrintingIdState] = useState<string | null>(() => {
+    if (skipInitialLoad) return null;
     return loadChoices()[size]?.printingId ?? null;
   });
   const [finishingId, setFinishingIdState] = useState<string | null>(() => {
+    if (skipInitialLoad) return null;
     return loadChoices()[size]?.finishingId ?? null;
   });
   const [finishingIsAuto, setFinishingIsAuto] = useState(false);
