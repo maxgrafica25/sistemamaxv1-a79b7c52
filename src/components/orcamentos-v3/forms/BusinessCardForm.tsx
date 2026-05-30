@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import { FinishingProgressive, type FinishingDef, type FinishingSubItem } from "../shared/FinishingProgressive";
 import { supabase } from "@/integrations/supabase/client";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
-import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
 import { iconFor } from "../shared/presetIcons";
 import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
 import { SideChoiceToggle, type SideChoice } from "../shared/SideChoiceToggle";
@@ -65,22 +64,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
-  const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
-
-  const { presets: cardPresets, reload: reloadPresets } = useQuotePresets("impressao");
-  // Filtra apenas os que são do tipo 'print' ou 'label' (favoritos de cartões/tags)
-  const filteredPresets = useMemo(() => 
-    cardPresets.filter(p => p.form_tipo === "print" || p.form_tipo === "label"),
-  [cardPresets]);
-
-  const applyPreset = (p: QuotePreset) => {
-    setActivePresetId(p.id);
-    if (p.quantidade_padrao != null) setQtdCartoes(p.quantidade_padrao);
-    if (p.side_default === "F/V" || p.side_default === "Frente") {
-      setFace(p.side_default as SideChoice);
-    }
-  };
 
   // Acabamentos do Cartão de Visita: vêm do Kit de Produto ativo cadastrado
   // em Insumos → Kits de Produto (product_kind = "cartao_visita").
@@ -354,60 +338,24 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         </div>
       )}
 
-      {/* Chips: Personalizado + favoritos + Salvar preset */}
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            setActivePresetId(null);
-            setFace("Frente");
-          }}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
-            !activePresetId
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
-          )}
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          Personalizado
-        </button>
-        {filteredPresets.map((p) => {
-          const active = p.id === activePresetId;
-          const Icon = iconFor(p.icone);
-          return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => applyPreset(p)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
-                active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {p.nome}
-            </button>
-          );
-        })}
-        {!activePresetId && catalog && (
+      {/* Chips de Salvar preset (favoritos são gerenciados pelo pai para evitar repetição) */}
+      {catalog && (
+        <div className="flex justify-end">
           <Button
             type="button"
             size="sm"
             variant="ghost"
             onClick={() => setSaveOpen(true)}
-            className="h-7 text-xs text-muted-foreground hover:text-primary ml-auto"
+            className="h-7 text-xs text-muted-foreground hover:text-primary"
             title="Salva a configuração atual como um botão rápido em favoritos"
           >
             <Star className="h-3.5 w-3.5" />
             Salvar como favorito
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
-      {!activePresetId && catalog && (
+      {catalog && (
         <SavePresetDialog
           open={saveOpen}
           onOpenChange={setSaveOpen}
@@ -421,7 +369,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
               { label: "Papel", value: `${catalog.paper_type} ${catalog.grammage}` }
             ]
           }}
-          onSaved={reloadPresets}
+          onSaved={() => {}}
         />
       )}
 

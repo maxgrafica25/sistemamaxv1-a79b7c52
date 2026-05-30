@@ -80,16 +80,12 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
   );
 
 
-  const selectedPreset: QuotePreset | undefined = selectedPresetId && selectedPresetId !== BUILTIN_BUSINESS_CARD_ID
+  const selectedPreset: QuotePreset | undefined = selectedPresetId
     ? presets.find((p) => p.id === selectedPresetId)
     : undefined;
-  const isBusinessCard = selectedPresetId === BUILTIN_BUSINESS_CARD_ID;
-  const treatAsBusinessCard = isBusinessCard || (!!selectedPreset && isBusinessCardName(selectedPreset.nome));
+  const treatAsBusinessCard = !!selectedPreset && isBusinessCardName(selectedPreset.nome);
   const treatAsCertificate = !!selectedPreset && isCertificateName(selectedPreset.nome);
-  const hasUserBusinessCardPreset = useMemo(
-    () => presets.some((p) => isBusinessCardName(p.nome)),
-    [presets],
-  );
+  
   const formTipo: "print" | "booklet" | "label" = selectedPreset?.form_tipo ?? "print";
   const isCustom = !selectedPresetId;
 
@@ -200,21 +196,6 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
           <Pencil className="h-3.5 w-3.5" />
           Personalizado
         </button>
-        {!hasUserBusinessCardPreset && (
-          <button
-            type="button"
-            onClick={() => setSelectedPresetId(BUILTIN_BUSINESS_CARD_ID)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-              isBusinessCard
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
-            )}
-          >
-            <CreditCard className="h-3.5 w-3.5" />
-            Cartão de Visita
-          </button>
-        )}
         {presets.map((p) => {
           const Icon = iconFor(p.icone);
           const active = p.id === selectedPresetId;
