@@ -375,7 +375,9 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
     setTimeout(() => setPulse(false), 600);
   };
 
-  const sizeLabel = isRound ? `Ø${(diameter / 10).toLocaleString("pt-BR")}cm` : `${(labelW / 10).toLocaleString("pt-BR")}×${(labelH / 10).toLocaleString("pt-BR")}cm`;
+  const sizeLabel = isRound 
+    ? `Ø${((Number(diameter) || 0) / 10).toLocaleString("pt-BR")}cm` 
+    : `${((Number(labelW) || 0) / 10).toLocaleString("pt-BR")}×${((Number(labelH) || 0) / 10).toLocaleString("pt-BR")}cm`;
 
   return (
     <div className="space-y-5 flex-1 flex flex-col">
@@ -384,7 +386,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
           <Input
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
-            placeholder={`Padrão: Etiqueta ${sizeLabel} — ${quantidade} un`}
+            placeholder={`Padrão: Etiqueta ${sizeLabel} — ${quantidade || 0} un`}
             className="h-9"
           />
         </Field>
