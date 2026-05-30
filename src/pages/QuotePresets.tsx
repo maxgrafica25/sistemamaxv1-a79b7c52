@@ -159,7 +159,7 @@ export default function QuotePresets() {
   const fetchAll = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from("quote_presets" as never)
+      .from("quote_presets")
       .select("*")
       .order("modulo")
       .order("ordem");
@@ -230,14 +230,14 @@ export default function QuotePresets() {
     setBusy(true);
     if (editing) {
       const { error } = await supabase
-        .from("quote_presets" as never)
-        .update(payload as never)
+        .from("quote_presets")
+        .update(payload)
         .eq("id", editing.id);
       setBusy(false);
       if (error) return handleError(error, "atualizar preset");
       toast.success("Preset atualizado!");
     } else {
-      const { error } = await supabase.from("quote_presets" as never).insert(payload as never);
+      const { error } = await supabase.from("quote_presets").insert(payload);
       setBusy(false);
       if (error) return handleError(error, "criar preset");
       toast.success("Preset criado!");
@@ -249,7 +249,7 @@ export default function QuotePresets() {
   const handleDelete = async (p: QuotePreset) => {
     if (!requireAdmin("excluir preset")) return;
     if (!confirm(`Excluir o preset "${p.nome}"?`)) return;
-    const { error } = await supabase.from("quote_presets" as never).delete().eq("id", p.id);
+    const { error } = await supabase.from("quote_presets").delete().eq("id", p.id);
     if (error) return handleError(error, "excluir preset");
     toast.success("Excluído");
     await fetchAll();
