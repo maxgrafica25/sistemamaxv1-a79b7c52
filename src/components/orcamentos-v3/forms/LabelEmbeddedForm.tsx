@@ -282,8 +282,8 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
     });
     if (pr.totalPrice <= 0) return null;
     const fin = folha.selectedFinishing;
-    const w = isRound ? diameter : labelW;
-    const h = isRound ? diameter : labelH;
+    const w = Number(isRound ? diameter : labelW) || 0;
+    const h = Number(isRound ? diameter : labelH) || 0;
     return {
       id: genId(),
       kind: "label",
@@ -292,7 +292,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
       labelW_mm: w,
       labelH_mm: h,
       shape,
-      label_diameter_mm: isRound ? diameter : undefined,
+      label_diameter_mm: isRound ? (Number(diameter) || 0) : undefined,
       quantidade: q,
       sheet_size: sheetId,
       printing_item_id: folha.selectedPrinting.id,
