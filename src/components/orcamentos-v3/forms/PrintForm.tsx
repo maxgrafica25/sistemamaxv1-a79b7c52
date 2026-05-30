@@ -419,8 +419,10 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
       )}
 
 
-      {/* Lado de impressão — sempre visível antes do papel */}
-      <SideChoiceToggle value={sideChoice} onChange={changeSide} />
+      {/* Lado de impressão — visível apenas se não for Adesivo ou similar */}
+      {(!substrateLabel.toLowerCase().includes("adesivo") && !catalog?.paper_type.toLowerCase().includes("adesivo")) && (
+        <SideChoiceToggle value={sideChoice} onChange={changeSide} />
+      )}
 
       {/* Cabeçalho do papel — altura constante; abre modal para escolher/trocar */}
       <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3 flex-nowrap">
