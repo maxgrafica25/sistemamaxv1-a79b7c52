@@ -176,50 +176,58 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
       <button
         key={item.id}
         onClick={() => handleSelect(item)}
-        className="group flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors border-b last:border-0"
+        className="group flex w-full items-center gap-4 px-4 py-3.5 text-left transition-all hover:bg-primary/5 active:scale-[0.98]"
       >
-        <Printer className="h-4 w-4 text-muted-foreground shrink-0" />
+        <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+          <Printer className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+        </div>
+        
         <div className="flex-1 min-w-0">
-          <p className="font-medium truncate">
-            {item.paper_type} {item.grammage && `${item.grammage}`} — {item.size} {item.side}
-          </p>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-xs text-muted-foreground group-hover:text-white/80">{item.category_name}</span>
+          <div className="flex items-baseline gap-2">
+            <p className="font-bold text-sm text-foreground truncate">
+              {item.paper_type} {item.grammage && `${item.grammage}`}
+            </p>
+            <span className="text-[10px] font-medium text-muted-foreground uppercase bg-muted px-1.5 py-0.5 rounded">
+              {item.size} · {item.side}
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[11px] font-medium text-primary/80">{item.category_name}</span>
             {item.equipment_name && (
-              <Badge variant="outline" className="text-[10px] h-4 px-1.5">
-                {item.equipment_name}{item.equipment_mode === "pb" ? " (PB)" : ""}
-              </Badge>
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                via {item.equipment_name}{item.equipment_mode === "pb" ? " (PB)" : ""}
+              </span>
             )}
             {tierLabel && (
-              <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{tierLabel}</Badge>
+              <Badge variant="secondary" className="text-[9px] h-3.5 px-1 uppercase tracking-tighter">{tierLabel}</Badge>
             )}
           </div>
+
           {item.linkedPaper ? (
-            <div className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground/80 group-hover:text-white truncate">
-              <Link2 className="h-3 w-3 shrink-0 text-primary group-hover:text-white" />
-              <span className="truncate">
-                <span className="text-muted-foreground group-hover:text-white/80">vinculado a:</span>{" "}
-                <span className="font-medium">
-                  {item.linkedPaper.name}
-                  {item.linkedPaper.grammage ? ` ${item.linkedPaper.grammage}` : ""}
-                </span>
-                <span className="text-muted-foreground group-hover:text-white/80"> · {item.linkedPaper.packaging_label} · </span>
-                <span className="font-medium">R$ {item.linkedPaper.unit_cost.toFixed(4)}/fl</span>
+            <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground/90 bg-muted/30 px-2 py-1 rounded-md w-fit max-w-full">
+              <Link2 className="h-3 w-3 shrink-0 text-primary/60" />
+              <span className="truncate leading-none">
+                Estoque: <span className="font-semibold text-foreground/70">{item.linkedPaper.name} {item.linkedPaper.grammage ?? ""}</span>
+                <span className="mx-1 opacity-30">|</span>
+                <span className="font-medium">R$ {item.linkedPaper.unit_cost.toFixed(2)}/fl</span>
               </span>
             </div>
           ) : (
-            <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 group-hover:text-white truncate">
+            <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-amber-600/80 italic">
               <AlertTriangle className="h-3 w-3 shrink-0" />
-              sem papel vinculado em Matérias-Primas
+              Papel não vinculado ao estoque
             </div>
           )}
         </div>
-        <div className="text-right shrink-0">
-          <span className="text-sm font-semibold text-primary group-hover:text-white">
-            R$ {sellingPrice.toFixed(2)}/folha
-          </span>
+
+        <div className="text-right shrink-0 border-l border-border/50 pl-4">
+          <div className="text-sm font-black text-primary">
+            R$ {sellingPrice.toFixed(2)}
+            <span className="text-[10px] font-normal text-muted-foreground ml-0.5">/fl</span>
+          </div>
           {sellingPrice !== baseCost && (
-            <p className="text-[10px] text-muted-foreground group-hover:text-white/80">custo: R$ {baseCost.toFixed(2)}</p>
+            <p className="text-[9px] font-medium text-muted-foreground/60 uppercase">Custo: {baseCost.toFixed(2)}</p>
           )}
         </div>
       </button>
@@ -229,7 +237,7 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
   return (
     <div ref={containerRef} className="relative flex-1">
       {/* Chips de categoria */}
-      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+      <div className="flex flex-wrap items-center gap-1.5 mb-3">
         {chips.map((c) => {
           const active = categoryFilter === c.key;
           const disabled = c.key !== "all" && c.count === 0;
@@ -240,16 +248,19 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
               disabled={disabled}
               onClick={() => setCategoryFilter(c.key)}
               className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-all",
                 active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
-                disabled && "opacity-40 cursor-not-allowed",
+                  ? "border-primary bg-primary text-primary-foreground shadow-sm scale-105"
+                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30 hover:bg-muted/50",
+                disabled && "opacity-30 cursor-not-allowed",
               )}
             >
               {c.label}
-              <span className={cn("text-[10px]", active ? "text-primary-foreground/80" : "text-muted-foreground/70")}>
-                · {c.count}
+              <span className={cn(
+                "flex items-center justify-center rounded-full h-4 min-w-[16px] px-1 text-[9px] font-black",
+                active ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+              )}>
+                {c.count}
               </span>
             </button>
           );
