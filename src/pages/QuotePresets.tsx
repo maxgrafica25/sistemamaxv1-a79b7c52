@@ -159,7 +159,7 @@ export default function QuotePresets() {
   const fetchAll = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from("quote_presets" as never)
+      .from("quote_presets")
       .select("*")
       .order("modulo")
       .order("ordem");
