@@ -35,12 +35,17 @@ export function useQuotePresets(modulo: "cv" | "impressao") {
 
   const reload = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("quote_presets" as never)
+    const { data, error } = await supabase
+      .from("quote_presets")
       .select("*")
       .eq("ativo", true)
       .in("modulo", [modulo, "ambos"])
       .order("ordem");
+    
+    if (error) {
+      console.error("[useQuotePresets] error loading presets:", error);
+      return;
+    }
     setPresets(((data as unknown) as QuotePreset[]) ?? []);
     setLoading(false);
   }, [modulo]);
@@ -49,13 +54,19 @@ export function useQuotePresets(modulo: "cv" | "impressao") {
     let cancel = false;
     (async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from("quote_presets" as never)
+      const { data, error } = await supabase
+        .from("quote_presets")
         .select("*")
         .eq("ativo", true)
         .in("modulo", [modulo, "ambos"])
         .order("ordem");
+      
       if (cancel) return;
+      if (error) {
+        console.error("[useQuotePresets] effect error loading presets:", error);
+        setLoading(false);
+        return;
+      }
       setPresets(((data as unknown) as QuotePreset[]) ?? []);
       setLoading(false);
     })();

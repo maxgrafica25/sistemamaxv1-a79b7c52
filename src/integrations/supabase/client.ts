@@ -4,26 +4,29 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// Custom fetch to redirect ONLY REST calls to the proxy
+/**
+ * Redireciona chamadas REST para a Edge Function de proxy por segurança.
+ * Filtra para evitar que chamadas de Auth/Storage sejam interceptadas.
+ */
 const customFetch = async (url: string, options: RequestInit = {}) => {
   const restUrl = `${SUPABASE_URL}/rest/v1/`;
   
-  // Only redirect if it's a REST API call
   if (url.startsWith(restUrl)) {
     const proxyUrl = `${SUPABASE_URL}/functions/v1/rest-proxy/`;
-    // Ensure we correctly append the subpath and query parameters
     const subPath = url.substring(restUrl.length);
     const finalUrl = `${proxyUrl}${subPath}`;
     
-    console.log('[supabase-client] Proxying REST call:', {
-      original: url,
-      proxied: finalUrl
-    });
+    console.log('[proxy-client] Redirecting:', subPath.split('?')[0]);
     
-    return fetch(finalUrl, options);
+    try {
+      const response = await fetch(finalUrl, options);
+      return response;
+    } catch (err) {
+      console.error('[proxy-client] Network error:', err);
+      throw err;
+    }
   }
   
-  // For all other calls (auth, storage, etc.), use default fetch
   return fetch(url, options);
 };
 
