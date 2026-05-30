@@ -390,19 +390,6 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
         </Field>
       )}
 
-      <div className="flex items-start justify-between gap-3">
-        <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 flex items-center gap-2 flex-1">
-          <Tag className="h-4 w-4 text-primary" />
-          <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-wide text-primary/80 font-semibold">
-              Modo Etiqueta — Plotter (SignMaster)
-            </p>
-            <p className="text-[11px] text-muted-foreground">
-              Margens 7mm + gap 3mm + marcas ARMS. Mesmo cálculo da calculadora completa.
-            </p>
-          </div>
-        </div>
-      </div>
 
       <Field label="Folha">
         <ToggleGroup
