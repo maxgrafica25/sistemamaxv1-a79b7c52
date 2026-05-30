@@ -249,7 +249,7 @@ export default function QuotePresets() {
   const handleDelete = async (p: QuotePreset) => {
     if (!requireAdmin("excluir preset")) return;
     if (!confirm(`Excluir o preset "${p.nome}"?`)) return;
-    const { error } = await supabase.from("quote_presets" as never).delete().eq("id", p.id);
+    const { error } = await supabase.from("quote_presets").delete().eq("id", p.id);
     if (error) return handleError(error, "excluir preset");
     toast.success("Excluído");
     await fetchAll();
