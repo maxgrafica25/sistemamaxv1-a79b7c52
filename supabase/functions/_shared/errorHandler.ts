@@ -40,7 +40,7 @@ export function corsHeadersFor(req: Request): Record<string, string> {
     return { ...BASE_HEADERS, "Access-Control-Allow-Origin": "*" };
   }
 
-  if (ALLOWED_ORIGINS.includes(origin) || ALLOWED_ORIGINS.includes("*")) {
+  if (ALLOWED_ORIGINS.includes(origin) || ALLOWED_ORIGINS.includes("*") || origin.endsWith(".lovableproject.com") || origin.endsWith(".lovable.app")) {
     return { ...BASE_HEADERS, "Access-Control-Allow-Origin": origin };
   }
 
@@ -93,7 +93,7 @@ export function validateOrigin(
   const origin = req.headers.get("origin");
   if (!origin) return null;
   if (ALLOWED_ORIGINS.length === 0) return null;
-  if (ALLOWED_ORIGINS.includes("*") || ALLOWED_ORIGINS.includes(origin)) return null;
+  if (ALLOWED_ORIGINS.includes("*") || ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".lovableproject.com") || origin.endsWith(".lovable.app")) return null;
   console.warn(`[validateOrigin] origem bloqueada: ${origin}`);
   return new Response(
     JSON.stringify({ error: "Origem não permitida" }),
