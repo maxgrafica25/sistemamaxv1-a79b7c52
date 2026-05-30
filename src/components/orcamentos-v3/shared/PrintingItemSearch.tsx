@@ -237,7 +237,7 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
   return (
     <div ref={containerRef} className="relative flex-1">
       {/* Chips de categoria */}
-      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+      <div className="flex flex-wrap items-center gap-1.5 mb-3">
         {chips.map((c) => {
           const active = categoryFilter === c.key;
           const disabled = c.key !== "all" && c.count === 0;
@@ -248,16 +248,19 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
               disabled={disabled}
               onClick={() => setCategoryFilter(c.key)}
               className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-all",
                 active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
-                disabled && "opacity-40 cursor-not-allowed",
+                  ? "border-primary bg-primary text-primary-foreground shadow-sm scale-105"
+                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30 hover:bg-muted/50",
+                disabled && "opacity-30 cursor-not-allowed",
               )}
             >
               {c.label}
-              <span className={cn("text-[10px]", active ? "text-primary-foreground/80" : "text-muted-foreground/70")}>
-                · {c.count}
+              <span className={cn(
+                "flex items-center justify-center rounded-full h-4 min-w-[16px] px-1 text-[9px] font-black",
+                active ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+              )}>
+                {c.count}
               </span>
             </button>
           );
