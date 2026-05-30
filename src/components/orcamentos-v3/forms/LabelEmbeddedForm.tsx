@@ -470,10 +470,15 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
               type="number"
               min={0.5}
               step={0.1}
-              value={(diameter / 10).toString()}
+              value={diameter === "" ? "" : (diameter / 10).toString()}
               onChange={(e) => {
-                const cm = Number(e.target.value) || 0;
-                setDiameter(Math.max(1, Math.round(cm * 10)));
+                const val = e.target.value;
+                if (val === "") {
+                  setDiameter("");
+                } else {
+                  const cm = Number(val) || 0;
+                  setDiameter(Math.max(1, Math.round(cm * 10)));
+                }
               }}
               className="h-9"
             />
@@ -483,7 +488,10 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
               type="number"
               min={1}
               value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 0))}
+              onChange={(e) => {
+                const val = e.target.value;
+                setQuantidade(val === "" ? "" : Math.max(1, Number(val) || 0));
+              }}
               className="h-9"
             />
           </Field>
