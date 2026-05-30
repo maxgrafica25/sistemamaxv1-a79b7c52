@@ -402,11 +402,6 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
             </p>
           </div>
         </div>
-        <Button asChild variant="ghost" size="sm" className="shrink-0">
-          <Link to="/etiquetas" target="_blank">
-            <ExternalLink className="h-3.5 w-3.5 mr-1" /> Calc. completa
-          </Link>
-        </Button>
       </div>
 
       <Field label="Folha">
