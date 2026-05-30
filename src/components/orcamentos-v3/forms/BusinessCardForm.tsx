@@ -8,11 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChevronDown, FileText, Files, Plus, Printer, Settings2 } from "lucide-react";
+import { Check, ChevronDown, Files, Plus, Printer, Settings2, Pencil, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FinishingProgressive, type FinishingDef, type FinishingSubItem } from "../shared/FinishingProgressive";
 import { supabase } from "@/integrations/supabase/client";
 import { useV3Catalog, pricePerSheet } from "../shared/useV3Catalog";
+import { useQuotePresets, type QuotePreset } from "../shared/useQuotePresets";
+import { iconFor } from "../shared/presetIcons";
+import { SavePresetDialog, type SavePresetPayload } from "../shared/SavePresetDialog";
+import { SideChoiceToggle, type SideChoice } from "../shared/SideChoiceToggle";
 import { fmtBRL } from "../shared/pricing";
 import { genId, type V3PrintItem } from "../types";
 import { useProductKitProcesses } from "../shared/useProductKitProcesses";
@@ -50,16 +54,33 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const { loading, items, tiers } = useV3Catalog();
 
   const [descricaoLocal, setDescricaoLocal] = useState("");
+  const [descricaoManual, setDescricaoManual] = useState("");
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
 
   const [qtdCartoes, setQtdCartoes] = useState(0);
-  const [face, setFace] = useState<"frente" | "fv">("frente");
+  const [face, setFace] = useState<SideChoice>("Frente");
   const [layout, setLayout] = useState(DEFAULTS);
   const [layoutOpen, setLayoutOpen] = useState(false);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
+  const [saveOpen, setSaveOpen] = useState(false);
+
+  const { presets: cardPresets, reload: reloadPresets } = useQuotePresets("impressao");
+  // Filtra apenas os que são do tipo 'print' ou 'label' (favoritos de cartões/tags)
+  const filteredPresets = useMemo(() => 
+    cardPresets.filter(p => p.form_tipo === "print" || p.form_tipo === "label"),
+  [cardPresets]);
+
+  const applyPreset = (p: QuotePreset) => {
+    setActivePresetId(p.id);
+    if (p.quantidade_padrao != null) setQtdCartoes(p.quantidade_padrao);
+    if (p.side_default === "F/V" || p.side_default === "Frente") {
+      setFace(p.side_default as SideChoice);
+    }
+  };
 
   // Acabamentos do Cartão de Visita: vêm do Kit de Produto ativo cadastrado
   // em Insumos → Kits de Produto (product_kind = "cartao_visita").
@@ -110,7 +131,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
       const sel = couche300Sra3.find((c) => c.id === selectedCatalogId);
       if (sel) return sel;
     }
-    const wantSide = face === "fv" ? "F/V" : "Frente";
+    const wantSide = face === "F/V" ? "F/V" : "Frente";
     const exact = couche300Sra3.find((c) => (c.side || "").toLowerCase() === wantSide.toLowerCase());
     return exact ?? couche300Sra3[0];
   }, [couche300Sra3, selectedCatalogId, face]);
@@ -127,10 +148,10 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const effectiveItem: PrintingCatalogItem | null = useMemo(() => {
     if (!catalog) return null;
     const isCatalogFV = (catalog.side || "").toUpperCase() === "F/V";
-    if (face === "fv" && !isCatalogFV) {
+    if (face === "F/V" && !isCatalogFV) {
       return { ...catalog, side: "F/V" };
     }
-    if (face === "frente" && isCatalogFV) {
+    if (face === "Frente" && isCatalogFV) {
       return { ...catalog, side: "Frente" };
     }
     return catalog;
@@ -274,31 +295,31 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
     });
     const flatLabels = selectedProcs.flatMap(expandNames);
     const extra = finishingExtraPerSheet;
-    const faceLabel = face === "fv" ? "Frente e Verso" : "Frente";
+    const faceLabel = face === "F/V" ? "Frente e Verso" : "Frente";
     const defaultDesc = `Cartão de visita ${layout.cardW / 10}×${layout.cardH / 10}cm — Couchê 300g ${faceLabel} (${qtdCartoes} un)`;
     const item: V3PrintItem = {
       id: genId(),
       kind: "print",
-      descricao: descricao.trim() || defaultDesc,
+      descricao: (onDescricaoChange ? descricao : (descricaoManual || defaultDesc)).trim(),
       quantidade: sheets,
       tier_group_id: null,
       catalog_item_id: effectiveItem.id,
       paper_type: effectiveItem.paper_type,
       grammage: effectiveItem.grammage,
       size: effectiveItem.size,
-      side: face === "fv" ? "F/V" : "Frente",
+      side: face === "F/V" ? "F/V" : "Frente",
       printer_category_id: effectiveItem.printer_category_id,
       markup_group_id: effectiveItem.markup_group_id,
       valor_unitario: pricing.sellingPrice + extra,
       custo_unitario: pricing.baseCost + extra,
       formato: null,
       cores: null,
-      face: face === "fv" ? "fv" : "frente",
+      face: face === "F/V" ? "fv" : "frente",
       finishings: flatLabels,
       finishing_selections: sel,
     };
     onAdd(item);
-    setDescricao("");
+    setDescricaoManual("");
     setFinEnabled({});
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
@@ -306,6 +327,16 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
 
   return (
     <div className="space-y-5 flex-1 flex flex-col">
+      {!onDescricaoChange && (
+        <Field label="Descrição (opcional)">
+          <Input
+            value={descricaoManual}
+            onChange={(e) => setDescricaoManual(e.target.value)}
+            placeholder="Ex: Cartão de Visita - Design Novo"
+            className="h-9"
+          />
+        </Field>
+      )}
       {/* Catálogo selecionado / vazio */}
       {couche300Sra3.length === 0 && !loading && (
         <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-4 text-center">
@@ -323,36 +354,79 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
         </div>
       )}
 
-      {/* Face — chips compactos (antes do papel) */}
-      <Field label="Lados de Impressão">
-        <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-muted/30 p-0.5">
-          {([
-            { key: "frente", icon: FileText, title: "Frente", hint: "1 face de impressão" },
-            { key: "fv", icon: Files, title: "F/V", hint: "Frente e Verso · custo ~2x" },
-          ] as const).map((opt) => {
-            const Icon = opt.icon;
-            const selected = face === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setFace(opt.key)}
-                aria-pressed={selected}
-                title={`${opt.title} — ${opt.hint}`}
-                className={cn(
-                  "inline-flex items-center justify-center gap-1.5 h-8 px-2 rounded-sm text-xs font-medium transition-all",
-                  selected
-                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/60",
-                )}
-              >
-                <Icon className={cn("h-3.5 w-3.5 shrink-0", selected && "text-primary")} />
-                <span className="truncate">{opt.title}</span>
-              </button>
-            );
-          })}
-        </div>
-      </Field>
+      {/* Chips: Personalizado + favoritos + Salvar preset */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setActivePresetId(null);
+            setFace("Frente");
+          }}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
+            !activePresetId
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+          )}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          Personalizado
+        </button>
+        {filteredPresets.map((p) => {
+          const active = p.id === activePresetId;
+          const Icon = iconFor(p.icone);
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => applyPreset(p)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-foreground/30",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {p.nome}
+            </button>
+          );
+        })}
+        {!activePresetId && catalog && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setSaveOpen(true)}
+            className="h-7 text-xs text-muted-foreground hover:text-primary ml-auto"
+            title="Salva a configuração atual como um botão rápido em favoritos"
+          >
+            <Star className="h-3.5 w-3.5" />
+            Salvar como favorito
+          </Button>
+        )}
+      </div>
+
+      {!activePresetId && catalog && (
+        <SavePresetDialog
+          open={saveOpen}
+          onOpenChange={setSaveOpen}
+          payload={{
+            modulo: "impressao",
+            form_tipo: "print",
+            papel_inclui: [catalog.paper_type],
+            quantidade_atual: qtdCartoes,
+            resumo: [
+              { label: "Formato", value: "Cartão de Visita" },
+              { label: "Papel", value: `${catalog.paper_type} ${catalog.grammage}` }
+            ]
+          }}
+          onSaved={reloadPresets}
+        />
+      )}
+
+      {/* Lado de impressão — sempre visível antes do papel */}
+      <SideChoiceToggle value={face} onChange={setFace} />
 
       {catalog && (
         <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3">
@@ -367,7 +441,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
               <span className="text-[11px] text-muted-foreground">
                 {catalog.category_name}
               </span>
-              {face === "fv" && (catalog.side || "").toUpperCase() !== "F/V" && (
+              {face === "F/V" && (catalog.side || "").toUpperCase() !== "F/V" && (
                 <Badge variant="outline" className="h-4 text-[10px] px-1.5">
                   F/V calculado (2×)
                 </Badge>
