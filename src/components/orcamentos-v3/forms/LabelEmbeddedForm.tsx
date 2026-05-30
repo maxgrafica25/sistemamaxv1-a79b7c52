@@ -60,11 +60,11 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
   const controlledDescricao = onDescricaoChange !== undefined;
-  const [labelW, setLabelW] = useState<number | "">(50);
-  const [labelH, setLabelH] = useState<number | "">(30);
+  const [labelW, setLabelW] = useState<number | "">("");
+  const [labelH, setLabelH] = useState<number | "">("");
   const [shape, setShape] = useState<LabelShape>("redondo");
-  const [diameter, setDiameter] = useState<number | "">(50);
-  const [quantidade, setQuantidade] = useState<number | "">(500);
+  const [diameter, setDiameter] = useState<number | "">("");
+  const [quantidade, setQuantidade] = useState<number | "">("");
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [sheetId, setSheetId] = useState<string>("SRA3");
   const [pulse, setPulse] = useState(false);
@@ -125,7 +125,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
 
   // Aproveitamento: SignMaster para redondas, computeLabelLayout p/ retangulares.
   const smLayout = useMemo(
-    () => computeSignmasterLayout({ sheetW: sheet.width, sheetH: sheet.height, labelDiameter: diameter }),
+    () => computeSignmasterLayout({ sheetW: sheet.width, sheetH: sheet.height, labelDiameter: Number(diameter) || 0 }),
     [sheet, diameter],
   );
   const rectLayout = useMemo(
@@ -133,8 +133,8 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
       computeLabelLayout({
         sheetW: sheet.width,
         sheetH: sheet.height,
-        labelW,
-        labelH,
+        labelW: Number(labelW) || 0,
+        labelH: Number(labelH) || 0,
         marginTop: M,
         marginBottom: M,
         marginLeft: M,
@@ -153,7 +153,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
     () =>
       computeSheetPricing({
         pricePerSheet: folha.total,
-        qtyRequested: quantidade,
+        qtyRequested: Number(quantidade) || 0,
         perSheet,
       }),
     [folha.total, quantidade, perSheet],
