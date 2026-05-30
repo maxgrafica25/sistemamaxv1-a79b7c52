@@ -25,10 +25,21 @@ Deno.serve(async (req) => {
     const url = new URL(req.url)
     const proxyPath = '/rest-proxy'
     const index = url.pathname.indexOf(proxyPath)
-    const subPath = index !== -1 ? url.pathname.substring(index + proxyPath.length) : url.pathname
+    let subPath = index !== -1 ? url.pathname.substring(index + proxyPath.length) : url.pathname
     
-    const cleanSubPath = subPath.startsWith('/rest/v1') ? subPath.substring(8) : subPath
-    const targetUrl = `${SUPABASE_URL}/rest/v1${cleanSubPath}${url.search}`
+    // Remove prefix if present
+    if (subPath.startsWith('/rest/v1')) {
+      subPath = subPath.substring(8)
+    }
+
+    // Ensure it starts with a single slash
+    subPath = '/' + subPath.replace(/^\/+/, '')
+    
+    // Reconstruct target URL safely
+    const targetUrl = new URL(`rest/v1${subPath}`, SUPABASE_URL)
+    targetUrl.search = url.search
+    
+    console.log(`Proxying ${req.method} to: ${targetUrl.toString()}`)
 
     const headers = new Headers(req.headers)
     headers.set('apikey', SUPABASE_ANON_KEY)
