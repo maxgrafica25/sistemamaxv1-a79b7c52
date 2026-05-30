@@ -5611,12 +5611,15 @@ export type Database = {
       get_my_empresa_id: { Args: never; Returns: string }
       get_public_quote: { Args: { p_token: string }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
+      is_auth_blocked: {
+        Args: { p_identifier: string; p_ip_address: string }
+        Returns: boolean
+      }
       is_channel_creator: {
         Args: { _channel_id: string; _user_id: string }
         Returns: boolean
       }
       is_financeiro_user: { Args: { _user_id: string }; Returns: boolean }
-      is_ip_blocked: { Args: { p_ip_address: string }; Returns: boolean }
       is_profile_admin: { Args: { _user_id: string }; Returns: boolean }
       is_tenant_admin: { Args: { _empresa_id: string }; Returns: boolean }
       is_tenant_financeiro: { Args: { _empresa_id: string }; Returns: boolean }
