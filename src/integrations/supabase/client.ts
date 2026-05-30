@@ -11,7 +11,15 @@ const customFetch = async (url: string, options: RequestInit = {}) => {
   // Only redirect if it's a REST API call
   if (url.startsWith(restUrl)) {
     const proxyUrl = `${SUPABASE_URL}/functions/v1/rest-proxy/`;
-    const finalUrl = url.replace(restUrl, proxyUrl);
+    // Ensure we correctly append the subpath and query parameters
+    const subPath = url.substring(restUrl.length);
+    const finalUrl = `${proxyUrl}${subPath}`;
+    
+    console.log('[supabase-client] Proxying REST call:', {
+      original: url,
+      proxied: finalUrl
+    });
+    
     return fetch(finalUrl, options);
   }
   
