@@ -24,13 +24,23 @@ Deno.serve(async (req) => {
     
     const url = new URL(req.url)
     console.log(`Incoming request: ${req.method} ${req.url}`)
-    console.log(`Parsed Pathname: ${url.pathname}`)
-    console.log(`Parsed Search: ${url.search}`)
     
     const proxyPath = '/rest-proxy'
     const index = url.pathname.indexOf(proxyPath)
     let subPath = index !== -1 ? url.pathname.substring(index + proxyPath.length) : url.pathname
     
+    // Handle cases where query params are encoded in the pathname (e.g., %3F instead of ?)
+    let search = url.search
+    if (subPath.includes('%3F')) {
+      const parts = subPath.split('%3F')
+      subPath = parts[0]
+      search = '?' + parts[1] + (search ? '&' + search.substring(1) : '')
+    } else if (subPath.includes('?')) {
+      const parts = subPath.split('?')
+      subPath = parts[0]
+      search = '?' + parts[1] + (search ? '&' + search.substring(1) : '')
+    }
+
     // Remove prefix if present
     if (subPath.startsWith('/rest/v1')) {
       subPath = subPath.substring(8)
@@ -39,11 +49,10 @@ Deno.serve(async (req) => {
     // Ensure it starts with a single slash
     subPath = '/' + subPath.replace(/^\/+/, '')
     
-    // Reconstruct target URL safely
-    const targetUrl = new URL(`rest/v1${subPath}`, SUPABASE_URL)
-    targetUrl.search = url.search
+    // Reconstruct target URL
+    const targetUrl = `${SUPABASE_URL}/rest/v1${subPath}${search}`
     
-    console.log(`Proxying ${req.method} to: ${targetUrl.toString()}`)
+    console.log(`Proxying ${req.method} to: ${targetUrl}`)
 
     const headers = new Headers(req.headers)
     headers.set('apikey', SUPABASE_ANON_KEY)
