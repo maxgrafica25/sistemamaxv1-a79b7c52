@@ -33,14 +33,14 @@ Deno.serve(async (req) => {
     // Garante que subPath comece com /
     if (!subPath.startsWith('/')) subPath = '/' + subPath
     
-    // Se a query string estiver codificada no subPath (ex: %3F em vez de ?), separa-a.
-    // Isso acontece em alguns ambientes de edge runtime.
+    // Decodifica %3F se o navegador/cliente tiver codificado a query string no path
+    if (subPath.includes('%3F')) {
+      subPath = decodeURIComponent(subPath)
+    }
+
+    // Separa path e query se estiverem juntos
     let search = url.search
-    if (!search && subPath.includes('%3F')) {
-      const parts = subPath.split('%3F')
-      subPath = parts[0]
-      search = '?' + parts[1]
-    } else if (!search && subPath.includes('?')) {
+    if (!search && subPath.includes('?')) {
       const parts = subPath.split('?')
       subPath = parts[0]
       search = '?' + parts[1]
@@ -51,10 +51,10 @@ Deno.serve(async (req) => {
       subPath = subPath.substring(8)
     }
 
-    // Reconstrói a URL de destino (REST)
+    // Reconstrói a URL de destino (REST) garantindo que seja uma URL absoluta válida
     const targetUrl = new URL(`rest/v1${subPath}${search}`, SUPABASE_URL).toString()
     
-    console.log(`[proxy] ${req.method} URL=${req.url} -> ${targetUrl}`)
+    console.log(`[proxy] ${req.method} -> ${targetUrl}`)
 
     const headers = new Headers(req.headers)
     headers.set('apikey', SUPABASE_ANON_KEY)
@@ -65,6 +65,17 @@ Deno.serve(async (req) => {
       body: req.body,
     })
 
+    const responseHeaders = new Headers(corsHeaders)
+    responseHeaders.set('Content-Type', 'application/json')
+    
+    // Repassa headers importantes da resposta original (ex: count do PostgREST)
+    if (response.headers.has('Content-Range')) {
+      responseHeaders.set('Content-Range', response.headers.get('Content-Range')!)
+    }
+    if (response.headers.has('Preference-Applied')) {
+      responseHeaders.set('Preference-Applied', response.headers.get('Preference-Applied')!)
+    }
+
     if (!response.ok) {
       const errorText = await response.text()
       let errorData
@@ -74,7 +85,7 @@ Deno.serve(async (req) => {
         errorData = { message: errorText }
       }
       
-      console.log(`[proxy] Intercepted error ${response.status}:`, JSON.stringify(errorData))
+      console.log(`[proxy] Error ${response.status}:`, JSON.stringify(errorData))
 
       const sanitizedError = {
         code: errorData.code || 'API_ERROR',
@@ -95,14 +106,14 @@ Deno.serve(async (req) => {
 
       return new Response(JSON.stringify(sanitizedError), {
         status: response.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: responseHeaders,
       })
     }
 
     const data = await response.text()
     return new Response(data, {
       status: response.status,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: responseHeaders,
     })
 
   } catch (error) {
