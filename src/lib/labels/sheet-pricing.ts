@@ -335,7 +335,7 @@ export function useFolhaPricing(
 
   // Auto-vinculação: ao mudar o papel, aplica escolha manual prévia OU heurística.
   useEffect(() => {
-    if (!selectedPrinting) return;
+    if (!selectedPrinting || skipInitialLoad) return;
     if (finishingOptions.length <= 1) return; // só "Sem acabamento" disponível
     const choices = loadChoices();
     const manualMap = choices[size]?.finishingByPrinting ?? {};
@@ -351,7 +351,7 @@ export function useFolhaPricing(
     setFinishingIsAuto(true);
     saveChoice(size, selectedPrinting.id, auto);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPrinting?.id, finishingOptions.length, size]);
+  }, [selectedPrinting?.id, finishingOptions.length, size, skipInitialLoad]);
 
   const persistKindAndPrinting = (kind: PaperKind, pid: string | null) => {
     if (typeof window === "undefined") return;
