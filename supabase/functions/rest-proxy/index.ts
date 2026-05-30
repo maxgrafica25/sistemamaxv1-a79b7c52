@@ -21,40 +21,27 @@ Deno.serve(async (req) => {
   if (blocked) return blocked
 
   try {
-    
     const url = new URL(req.url)
-    console.log(`Incoming request URL: ${req.url}`)
-    
     const proxyPath = '/rest-proxy'
     const index = url.pathname.indexOf(proxyPath)
-    let subPath = index !== -1 ? url.pathname.substring(index + proxyPath.length) : url.pathname
     
-    console.log(`Initial subPath: ${subPath}, search: ${url.search}`)
-    
-    // Handle cases where query params are encoded in the pathname (e.g., %3F instead of ?)
-    let search = url.search
-    if (subPath.includes('%3F')) {
-      const parts = subPath.split('%3F')
-      subPath = parts[0]
-      search = '?' + parts[1] + (search ? '&' + search.substring(1) : '')
-    } else if (subPath.includes('?')) {
-      const parts = subPath.split('?')
-      subPath = parts[0]
-      search = '?' + parts[1] + (search ? '&' + search.substring(1) : '')
-    }
+    // Extrai o subPath ignorando o prefixo do proxy
+    let subPath = index !== -1 
+      ? url.pathname.substring(index + proxyPath.length) 
+      : url.pathname
 
-    // Remove prefix if present
-    if (subPath.startsWith('/rest/v1')) {
+    // Garante que subPath comece com /
+    if (!subPath.startsWith('/')) subPath = '/' + subPath
+    
+    // Remove o prefixo /rest/v1 redundante se vier do cliente
+    if (subPath.startsWith('/rest/v1/')) {
       subPath = subPath.substring(8)
     }
 
-    // Ensure it starts with a single slash
-    subPath = '/' + subPath.replace(/^\/+/, '')
+    // Reconstrói a URL de destino (REST)
+    const targetUrl = new URL(`rest/v1${subPath}${url.search}`, SUPABASE_URL).toString()
     
-    // Reconstruct target URL
-    const targetUrl = `${SUPABASE_URL}/rest/v1${subPath}${search}`
-    
-    console.log(`Proxying ${req.method} to: ${targetUrl}`)
+    console.log(`[proxy] ${req.method} ${url.pathname}${url.search} -> ${targetUrl}`)
 
     const headers = new Headers(req.headers)
     headers.set('apikey', SUPABASE_ANON_KEY)
@@ -66,24 +53,23 @@ Deno.serve(async (req) => {
     })
 
     if (!response.ok) {
-      let errorData;
+      const errorText = await response.text()
+      let errorData
       try {
-        errorData = await response.json()
+        errorData = JSON.parse(errorText)
       } catch {
-        errorData = {}
+        errorData = { message: errorText }
       }
       
-      console.log(`Intercepted error ${response.status} (Code: ${errorData.code}):`, JSON.stringify(errorData))
+      console.log(`[proxy] Intercepted error ${response.status}:`, JSON.stringify(errorData))
 
-      // Sanitize the error response completely as requested
       const sanitizedError = {
         code: errorData.code || 'API_ERROR',
-        message: 'Requisição inválida', // Default generic message
+        message: 'Requisição inválida (Proxy)',
         hint: null,
         details: null
       }
 
-      // Specific generic messages for known codes
       if (errorData.code === 'PGRST205' || errorData.code === 'PGRST202' || errorData.code === 'PGRST116') {
         sanitizedError.message = 'Recurso não encontrado'
       } else if (errorData.code === '23505') {
