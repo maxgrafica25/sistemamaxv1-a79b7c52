@@ -167,7 +167,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
   const shrink = perSheet > 0
     ? (isRound
         ? findSignmasterShrinkOpportunity(
-            { sheetW: sheet.width, sheetH: sheet.height, labelDiameter: diameter },
+            { sheetW: sheet.width, sheetH: sheet.height, labelDiameter: Number(diameter) || 0 },
             perSheet,
             pricing.sheetsNeeded || 1,
           )
@@ -175,8 +175,8 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
             {
               sheetW: sheet.width,
               sheetH: sheet.height,
-              labelW,
-              labelH,
+              labelW: Number(labelW) || 0,
+              labelH: Number(labelH) || 0,
               marginTop: M,
               marginBottom: M,
               marginLeft: M,
@@ -191,15 +191,15 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
   const grow = perSheet > 0
     ? (isRound
         ? findSignmasterGrowOpportunity(
-            { sheetW: sheet.width, sheetH: sheet.height, labelDiameter: diameter },
+            { sheetW: sheet.width, sheetH: sheet.height, labelDiameter: Number(diameter) || 0 },
             perSheet,
           )
         : findGrowOpportunity(
             {
               sheetW: sheet.width,
               sheetH: sheet.height,
-              labelW,
-              labelH,
+              labelW: Number(labelW) || 0,
+              labelH: Number(labelH) || 0,
               marginTop: M,
               marginBottom: M,
               marginLeft: M,
@@ -233,7 +233,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
   }, [shape, labelW, labelH, diameter, sheetId, quantidade]);
 
   const canAdd =
-    !!folha.selectedPrinting && quantidade > 0 && perSheet > 0 && pricing.totalPrice > 0;
+    !!folha.selectedPrinting && (Number(quantidade) || 0) > 0 && perSheet > 0 && pricing.totalPrice > 0;
 
   // Hints dos acabamentos (mesmo padrão do PrintForm)
   const finishes = useMemo<FinishingDef[]>(
