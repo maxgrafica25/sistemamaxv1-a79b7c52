@@ -181,6 +181,7 @@ export function useFolhaPricing(
   size: string,
   sheetsQty?: number,
   finishingSize?: string,
+  skipInitialLoad?: boolean,
 ): UseFolhaPricingResult {
   const finishingSizeKey = finishingSize ?? size;
   // Para papel adesivo, A3 e SRA3 são intercambiáveis (mesma folha física no plotter).
@@ -274,9 +275,11 @@ export function useFolhaPricing(
     return loadChoices()[size]?.paperKind ?? "adesivo";
   });
   const [printingId, setPrintingIdState] = useState<string | null>(() => {
+    if (skipInitialLoad) return null;
     return loadChoices()[size]?.printingId ?? null;
   });
   const [finishingId, setFinishingIdState] = useState<string | null>(() => {
+    if (skipInitialLoad) return null;
     return loadChoices()[size]?.finishingId ?? null;
   });
   const [finishingIsAuto, setFinishingIsAuto] = useState(false);
@@ -303,7 +306,7 @@ export function useFolhaPricing(
     [eligiblePrintingOptions, paperKind],
   );
   useEffect(() => {
-    if (printingOptions.length === 0) return;
+    if (printingOptions.length === 0 || skipInitialLoad) return;
     if (!printingId || !printingOptions.some((p) => p.id === printingId)) {
       const choices = loadChoices();
       const lastForKind = choices[size]?.printingByKind?.[paperKind];
@@ -312,7 +315,7 @@ export function useFolhaPricing(
         : printingOptions[0].id;
       setPrintingIdState(fallback);
     }
-  }, [printingOptions, printingId, paperKind, size]);
+  }, [printingOptions, printingId, paperKind, size, skipInitialLoad]);
 
   useEffect(() => {
     if (finishingOptions.length === 0) return;
@@ -332,7 +335,7 @@ export function useFolhaPricing(
 
   // Auto-vinculação: ao mudar o papel, aplica escolha manual prévia OU heurística.
   useEffect(() => {
-    if (!selectedPrinting) return;
+    if (!selectedPrinting || skipInitialLoad) return;
     if (finishingOptions.length <= 1) return; // só "Sem acabamento" disponível
     const choices = loadChoices();
     const manualMap = choices[size]?.finishingByPrinting ?? {};
@@ -348,7 +351,7 @@ export function useFolhaPricing(
     setFinishingIsAuto(true);
     saveChoice(size, selectedPrinting.id, auto);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPrinting?.id, finishingOptions.length, size]);
+  }, [selectedPrinting?.id, finishingOptions.length, size, skipInitialLoad]);
 
   const persistKindAndPrinting = (kind: PaperKind, pid: string | null) => {
     if (typeof window === "undefined") return;
