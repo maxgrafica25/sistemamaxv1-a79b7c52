@@ -306,7 +306,7 @@ export function useFolhaPricing(
     [eligiblePrintingOptions, paperKind],
   );
   useEffect(() => {
-    if (printingOptions.length === 0) return;
+    if (printingOptions.length === 0 || skipInitialLoad) return;
     if (!printingId || !printingOptions.some((p) => p.id === printingId)) {
       const choices = loadChoices();
       const lastForKind = choices[size]?.printingByKind?.[paperKind];
@@ -315,7 +315,7 @@ export function useFolhaPricing(
         : printingOptions[0].id;
       setPrintingIdState(fallback);
     }
-  }, [printingOptions, printingId, paperKind, size]);
+  }, [printingOptions, printingId, paperKind, size, skipInitialLoad]);
 
   useEffect(() => {
     if (finishingOptions.length === 0) return;
