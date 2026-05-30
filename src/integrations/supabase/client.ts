@@ -6,17 +6,18 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 // Custom fetch to redirect REST calls to the proxy
 const customFetch = async (url: string, options: RequestInit = {}) => {
-  let finalUrl = url;
+  // Determine the correct REST endpoint URL
+  const restUrl = `${SUPABASE_URL}/rest/v1/`;
   
-  // If the request is to the REST endpoint, redirect it to the proxy
-  if (url.includes('/rest/v1/')) {
-    // Determine the base URL dynamically to handle environment differences
-    const baseUrl = SUPABASE_URL.endsWith('/') ? SUPABASE_URL : `${SUPABASE_URL}/`;
-    finalUrl = url.replace(`${baseUrl}rest/v1/`, `${baseUrl}functions/v1/rest-proxy/`);
+  if (url.startsWith(restUrl)) {
+    // Redirect to rest-proxy edge function
+    const proxyUrl = `${SUPABASE_URL}/functions/v1/rest-proxy/`;
+    const finalUrl = url.replace(restUrl, proxyUrl);
     console.debug('Redirecting REST call to proxy:', finalUrl);
+    return fetch(finalUrl, options);
   }
   
-  return fetch(finalUrl, options);
+  return fetch(url, options);
 };
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
