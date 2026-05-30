@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "https://esm.sh/zod@3.23.8";
 import { checkRateLimit, clientIdentifier, rateLimitResponse } from "../_shared/rate-limit.ts";
 import { validateOrigin } from "../_shared/errorHandler.ts";
+import { getUserEmpresaId } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -51,6 +52,15 @@ Deno.serve(async (req) => {
       );
     }
 
+    // 1.5) Obter empresa_id do admin para vincular o novo usuário
+    const empresaId = await getUserEmpresaId(authHeader);
+    if (!empresaId) {
+      return new Response(JSON.stringify({ error: "Sua empresa não foi identificada" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Rate limit: 10 convites por hora por admin (e 20 por IP)
     const rlUser = await checkRateLimit(`user:${userData.user.id}`, "invite_user", 10, 3600);
     if (!rlUser.allowed) return rateLimitResponse(corsHeaders);
@@ -86,7 +96,7 @@ Deno.serve(async (req) => {
 
     // 5) Envia convite (Supabase cria o usuário em auth.users e dispara o email)
     const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
-      data: { display_name },
+      data: { display_name, empresa_id: empresaId },
       redirectTo: redirect_to,
     });
 
@@ -107,7 +117,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < 5 && !updated; i++) {
       const { error: upErr, count } = await admin
         .from("profiles")
-        .update({ display_name, role, is_active: true }, { count: "exact" })
+        .update({ display_name, role, is_active: true, empresa_id: empresaId }, { count: "exact" })
         .eq("user_id", newUserId);
       if (!upErr && (count ?? 0) > 0) {
         updated = true;
@@ -123,6 +133,7 @@ Deno.serve(async (req) => {
         display_name,
         role,
         is_active: true,
+        empresa_id: empresaId,
       });
     }
 
@@ -133,6 +144,7 @@ Deno.serve(async (req) => {
       entity_id: newUserId,
       entity_name: display_name,
       details: `Convite enviado para ${email} com perfil "${role}" por ${userData.user.email}`,
+      empresa_id: empresaId,
     });
 
     return new Response(

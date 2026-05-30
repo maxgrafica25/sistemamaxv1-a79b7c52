@@ -3,8 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev https://*.googleusercontent.com; connect-src 'self' https://*.supabase.co https://*.google.com; frame-ancestors 'none';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://*.google.com https://*.supabase.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev https://*.googleusercontent.com; connect-src 'self' https://*.supabase.co https://*.google.com; frame-ancestors 'none';">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>Max</title>
     <meta name="description" content="Max Sistema26 is a virtual assistant application that manages reminders and integrates with Google Calendar.">
@@ -23,17 +24,7 @@
   <meta name="twitter:title" content="Max">
   <meta property="og:description" content="Max Sistema26 is a virtual assistant application that manages reminders and integrates with Google Calendar.">
   <meta name="twitter:description" content="Max Sistema26 is a virtual assistant application that manages reminders and integrates with Google Calendar.">
-    <script>
-      // Anti-FOUC: aplica tema antes do React montar
-      (function () {
-        try {
-          var stored = localStorage.getItem('max-theme');
-          var theme = stored || 'system';
-          var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-          if (isDark) document.documentElement.classList.add('dark');
-        } catch (e) {}
-      })();
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
 
   <body>

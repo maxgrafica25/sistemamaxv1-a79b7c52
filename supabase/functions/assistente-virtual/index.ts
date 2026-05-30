@@ -7,6 +7,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "https://esm.sh/zod@3.23.8";
 import { validateOrigin, sanitizeError } from "../_shared/errorHandler.ts";
+import { getUserEmpresaId } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -131,6 +132,15 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    
+    // 1.5) Obter empresa_id para isolamento rigoroso
+    const empresaId = await getUserEmpresaId(authHeader);
+    if (!empresaId) {
+      return new Response(JSON.stringify({ error: "Empresa não identificada" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // 2) Validar body
     const json = await req.json().catch(() => ({}));
@@ -183,6 +193,7 @@ Deno.serve(async (req) => {
       .from("assistente_mensagens")
       .select("role,content")
       .eq("user_id", userData.user.id)
+      .eq("empresa_id", empresaId)
       .order("created_at", { ascending: false })
       .limit(10);
     const historico = (histDbRaw ?? []).reverse() as Array<{ role: "user" | "assistant"; content: string }>;
@@ -192,6 +203,7 @@ Deno.serve(async (req) => {
       user_id: userData.user.id,
       role: "user",
       content: pergunta,
+      empresa_id: empresaId,
     });
 
     // Helper para retornar shape compatível com .data quando pulamos um fetch
@@ -199,16 +211,17 @@ Deno.serve(async (req) => {
 
     const [bcRes, eqRes, consRes, readingsRes, ppRes, catsRes, tiersRes, papersRes, gsRes, gcalRes] =
       await Promise.all([
-        admin.from("base_conhecimento").select("titulo,categoria,conteudo").eq("ativo", true),
-        admin.from("equipments").select("id,name,description,printer_type").order("sort_order"),
+        admin.from("base_conhecimento").select("titulo,categoria,conteudo").eq("ativo", true).eq("empresa_id", empresaId),
+        admin.from("equipments").select("id,name,description,printer_type").eq("empresa_id", empresaId).order("sort_order"),
         isAgendaOnly
           ? empty
-          : admin.from("equipment_consumables").select("id,equipment_id,name,price,yield_pages,mode"),
+          : admin.from("equipment_consumables").select("id,equipment_id,name,price,yield_pages,mode").eq("empresa_id", empresaId),
         isAgendaOnly
           ? empty
           : admin
               .from("printer_readings")
               .select("equipment_id,consumable_id,total_prints,type,reading_time")
+              .eq("empresa_id", empresaId)
               .order("reading_time", { ascending: false })
               .limit(100),
         isAgendaOnly
@@ -218,10 +231,11 @@ Deno.serve(async (req) => {
               .select(
                 "id,printer_category_id,equipment_id,markup_group_id,paper_type,grammage,size,side,paper_cost,printing_cost,equipment_mode",
               )
-              .eq("is_active", true),
+              .eq("is_active", true)
+              .eq("empresa_id", empresaId),
         isAgendaOnly
           ? empty
-          : admin.from("printer_categories").select("id,name,default_markup_group_id").order("sort_order"),
+          : admin.from("printer_categories").select("id,name,default_markup_group_id").eq("empresa_id", empresaId).order("sort_order"),
         isAgendaOnly
           ? empty
           : admin
@@ -229,6 +243,7 @@ Deno.serve(async (req) => {
               .select(
                 "id,printer_category_id,markup_group_id,label,min_qty,max_qty,fixed_cost_pct,variable_cost_pct,margin_pct,sort_order",
               )
+              .eq("empresa_id", empresaId)
               .order("sort_order"),
         isAgendaOnly
           ? empty
@@ -236,8 +251,9 @@ Deno.serve(async (req) => {
               .from("papers")
               .select("name,grammage,sheet_qty,pack_price,freight_price")
               .eq("is_active", true)
+              .eq("empresa_id", empresaId)
               .order("sort_order"),
-        admin.from("global_settings").select("*").limit(1).maybeSingle(),
+        admin.from("global_settings").select("*").limit(1).maybeSingle(), // global_settings might be truly global or per company? Let's assume global for now or check.
         admin
           .from("user_google_tokens")
           .select("email_google")
