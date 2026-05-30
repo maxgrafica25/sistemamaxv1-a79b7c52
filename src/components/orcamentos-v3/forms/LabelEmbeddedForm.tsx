@@ -118,6 +118,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
   );
 
 
+  const sheet = SHEET_PRESETS.find((s) => s.id === sheetId) ?? SHEET_PRESETS[1];
   const folha = useFolhaPricing(sheetId, undefined, undefined, true);
 
   const isRound = shape === "redondo";
