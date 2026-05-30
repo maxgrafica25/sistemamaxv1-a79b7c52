@@ -370,7 +370,7 @@ export function useFolhaPricing(
     setPaperKindState(kind);
     const choices = loadChoices();
     const lastForKind = choices[size]?.printingByKind?.[kind];
-    const candidates = allPrintingOptions.filter((p) => paperKindOf(p) === kind);
+    const candidates = eligiblePrintingOptions.filter((p) => paperKindOf(p) === kind);
     const next = lastForKind && candidates.some((p) => p.id === lastForKind)
       ? lastForKind
       : candidates[0]?.id ?? null;
