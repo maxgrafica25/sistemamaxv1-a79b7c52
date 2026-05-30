@@ -1,8 +1,9 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { corsHeadersFor, validateOrigin } from "../_shared/errorHandler.ts"
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+
+const BASE_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -10,14 +11,16 @@ const corsHeaders = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
+  const corsHeaders = { ...corsHeadersFor(req), ...BASE_HEADERS }
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const blocked = validateOrigin(req, corsHeaders)
+  if (blocked) return blocked
+
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     
     const url = new URL(req.url)
     const proxyPath = '/rest-proxy'
@@ -25,10 +28,10 @@ serve(async (req) => {
     const subPath = index !== -1 ? url.pathname.substring(index + proxyPath.length) : url.pathname
     
     const cleanSubPath = subPath.startsWith('/rest/v1') ? subPath.substring(8) : subPath
-    const targetUrl = `${supabaseUrl}/rest/v1${cleanSubPath}${url.search}`
+    const targetUrl = `${SUPABASE_URL}/rest/v1${cleanSubPath}${url.search}`
 
     const headers = new Headers(req.headers)
-    headers.set('apikey', supabaseAnonKey)
+    headers.set('apikey', SUPABASE_ANON_KEY)
 
     const response = await fetch(targetUrl, {
       method: req.method,
