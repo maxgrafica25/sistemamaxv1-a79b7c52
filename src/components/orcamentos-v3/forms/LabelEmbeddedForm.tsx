@@ -464,7 +464,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
       </Field>
 
       {isRound ? (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <Field label="Diâmetro (cm)">
             <Input
               type="number"
@@ -483,93 +483,46 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
               className="h-9"
             />
           </Field>
-          <Field label="Quantidade">
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Largura (cm)">
             <Input
               type="number"
-              min={1}
-              value={quantidade}
+              min={0.5}
+              step={0.1}
+              value={labelW === "" ? "" : (labelW / 10).toString()}
               onChange={(e) => {
                 const val = e.target.value;
-                setQuantidade(val === "" ? "" : Math.max(1, Number(val) || 0));
+                if (val === "") {
+                  setLabelW("");
+                } else {
+                  const cm = Number(val) || 0;
+                  setLabelW(Math.max(1, Math.round(cm * 10)));
+                }
+              }}
+              className="h-9"
+            />
+          </Field>
+          <Field label="Altura (cm)">
+            <Input
+              type="number"
+              min={0.5}
+              step={0.1}
+              value={labelH === "" ? "" : (labelH / 10).toString()}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "") {
+                  setLabelH("");
+                } else {
+                  const cm = Number(val) || 0;
+                  setLabelH(Math.max(1, Math.round(cm * 10)));
+                }
               }}
               className="h-9"
             />
           </Field>
         </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Largura (cm)">
-              <Input
-                type="number"
-                min={0.5}
-                step={0.1}
-                value={labelW === "" ? "" : (labelW / 10).toString()}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "") {
-                    setLabelW("");
-                  } else {
-                    const cm = Number(val) || 0;
-                    setLabelW(Math.max(1, Math.round(cm * 10)));
-                  }
-                }}
-                className="h-9"
-              />
-            </Field>
-            <Field label="Altura (cm)">
-              <Input
-                type="number"
-                min={0.5}
-                step={0.1}
-                value={labelH === "" ? "" : (labelH / 10).toString()}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "") {
-                    setLabelH("");
-                  } else {
-                    const cm = Number(val) || 0;
-                    setLabelH(Math.max(1, Math.round(cm * 10)));
-                  }
-                }}
-                className="h-9"
-              />
-            </Field>
-          </div>
-
-          <Field label="Quantidade de etiquetas">
-            <Input
-              type="number"
-              min={1}
-              value={quantidade}
-              onChange={(e) => {
-                const val = e.target.value;
-                setQuantidade(val === "" ? "" : Math.max(1, Number(val) || 0));
-              }}
-              className="h-9"
-            />
-          </Field>
-        </>
-      )}
-
-
-      {onAddTiers && (
-        <TierFaixasPanel
-          currentQty={Number(quantidade) || 0}
-          disabled={!folha.selectedPrinting || perSheet <= 0}
-          onExtrasChange={setExtraTiers}
-          compute={(q) => {
-            const pr = computeSheetPricing({
-              pricePerSheet: folha.total,
-              qtyRequested: q,
-              perSheet,
-            });
-            return {
-              custo_total: sheetCost * pr.sheetsNeeded,
-              preco_total: pr.totalPrice,
-            };
-          }}
-        />
       )}
 
       <Field label="Papel / Impressão">
@@ -596,21 +549,36 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
         )}
       </Field>
 
-      <Field label="Acabamento">
-        <Select
-          value={folha.selectedFinishing.id || "__none__"}
-          onValueChange={(v) => folha.setFinishingId(v as string)}
-        >
-          <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {folha.finishingOptions
-              .filter(f => !f.id || f.category === "none" || /adesiv/i.test(f.name) || /recorte/i.test(f.name))
-              .map((f) => (
-                <SelectItem key={f.id || "__none__"} value={f.id || "__none__"}>{f.label ?? f.name}</SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
-      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Acabamento">
+          <Select
+            value={folha.selectedFinishing.id || "__none__"}
+            onValueChange={(v) => folha.setFinishingId(v as string)}
+          >
+            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {folha.finishingOptions
+                .filter(f => !f.id || f.category === "none" || /adesiv/i.test(f.name) || /recorte/i.test(f.name))
+                .map((f) => (
+                  <SelectItem key={f.id || "__none__"} value={f.id || "__none__"}>{f.label ?? f.name}</SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field label="Quantidade">
+          <Input
+            type="number"
+            min={1}
+            value={quantidade}
+            onChange={(e) => {
+              const val = e.target.value;
+              setQuantidade(val === "" ? "" : Math.max(1, Number(val) || 0));
+            }}
+            className="h-9"
+          />
+        </Field>
+      </div>
 
       {perSheet > 0 && (
         <div className="rounded-md border border-border/60 bg-background px-3 py-2.5 space-y-1">
