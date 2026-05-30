@@ -60,11 +60,11 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
   const controlledDescricao = onDescricaoChange !== undefined;
-  const [labelW, setLabelW] = useState(50);
-  const [labelH, setLabelH] = useState(30);
+  const [labelW, setLabelW] = useState<number | "">("");
+  const [labelH, setLabelH] = useState<number | "">("");
   const [shape, setShape] = useState<LabelShape>("redondo");
-  const [diameter, setDiameter] = useState(50);
-  const [quantidade, setQuantidade] = useState(500);
+  const [diameter, setDiameter] = useState<number | "">("");
+  const [quantidade, setQuantidade] = useState<number | "">("");
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [sheetId, setSheetId] = useState<string>("SRA3");
   const [pulse, setPulse] = useState(false);
@@ -125,7 +125,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
 
   // Aproveitamento: SignMaster para redondas, computeLabelLayout p/ retangulares.
   const smLayout = useMemo(
-    () => computeSignmasterLayout({ sheetW: sheet.width, sheetH: sheet.height, labelDiameter: diameter }),
+    () => computeSignmasterLayout({ sheetW: sheet.width, sheetH: sheet.height, labelDiameter: Number(diameter) || 0 }),
     [sheet, diameter],
   );
   const rectLayout = useMemo(
@@ -133,8 +133,8 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
       computeLabelLayout({
         sheetW: sheet.width,
         sheetH: sheet.height,
-        labelW,
-        labelH,
+        labelW: Number(labelW) || 0,
+        labelH: Number(labelH) || 0,
         marginTop: M,
         marginBottom: M,
         marginLeft: M,
@@ -153,7 +153,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
     () =>
       computeSheetPricing({
         pricePerSheet: folha.total,
-        qtyRequested: quantidade,
+        qtyRequested: Number(quantidade) || 0,
         perSheet,
       }),
     [folha.total, quantidade, perSheet],
@@ -167,7 +167,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
   const shrink = perSheet > 0
     ? (isRound
         ? findSignmasterShrinkOpportunity(
-            { sheetW: sheet.width, sheetH: sheet.height, labelDiameter: diameter },
+            { sheetW: sheet.width, sheetH: sheet.height, labelDiameter: Number(diameter) || 0 },
             perSheet,
             pricing.sheetsNeeded || 1,
           )
@@ -175,8 +175,8 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
             {
               sheetW: sheet.width,
               sheetH: sheet.height,
-              labelW,
-              labelH,
+              labelW: Number(labelW) || 0,
+              labelH: Number(labelH) || 0,
               marginTop: M,
               marginBottom: M,
               marginLeft: M,
@@ -191,15 +191,15 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
   const grow = perSheet > 0
     ? (isRound
         ? findSignmasterGrowOpportunity(
-            { sheetW: sheet.width, sheetH: sheet.height, labelDiameter: diameter },
+            { sheetW: sheet.width, sheetH: sheet.height, labelDiameter: Number(diameter) || 0 },
             perSheet,
           )
         : findGrowOpportunity(
             {
               sheetW: sheet.width,
               sheetH: sheet.height,
-              labelW,
-              labelH,
+              labelW: Number(labelW) || 0,
+              labelH: Number(labelH) || 0,
               marginTop: M,
               marginBottom: M,
               marginLeft: M,
@@ -233,7 +233,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
   }, [shape, labelW, labelH, diameter, sheetId, quantidade]);
 
   const canAdd =
-    !!folha.selectedPrinting && quantidade > 0 && perSheet > 0 && pricing.totalPrice > 0;
+    !!folha.selectedPrinting && (Number(quantidade) || 0) > 0 && perSheet > 0 && pricing.totalPrice > 0;
 
   // Hints dos acabamentos (mesmo padrão do PrintForm)
   const finishes = useMemo<FinishingDef[]>(
@@ -282,8 +282,8 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
     });
     if (pr.totalPrice <= 0) return null;
     const fin = folha.selectedFinishing;
-    const w = isRound ? diameter : labelW;
-    const h = isRound ? diameter : labelH;
+    const w = Number(isRound ? diameter : labelW) || 0;
+    const h = Number(isRound ? diameter : labelH) || 0;
     return {
       id: genId(),
       kind: "label",
@@ -292,7 +292,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
       labelW_mm: w,
       labelH_mm: h,
       shape,
-      label_diameter_mm: isRound ? diameter : undefined,
+      label_diameter_mm: isRound ? (Number(diameter) || 0) : undefined,
       quantidade: q,
       sheet_size: sheetId,
       printing_item_id: folha.selectedPrinting.id,
@@ -332,10 +332,10 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
 
   const submit = () => {
     if (!canAdd) return;
-    const it = buildItem(quantidade);
+    const it = buildItem(Number(quantidade) || 0);
     if (!it) return;
     const cleanExtras = [...new Set(extraTiers)]
-      .filter((q) => q > 0 && q !== quantidade)
+      .filter((q) => q > 0 && q !== (Number(quantidade) || 0))
       .sort((a, b) => a - b);
 
     const bundleId = `bnd_${genId()}`;
@@ -375,7 +375,9 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
     setTimeout(() => setPulse(false), 600);
   };
 
-  const sizeLabel = isRound ? `Ø${(diameter / 10).toLocaleString("pt-BR")}cm` : `${(labelW / 10).toLocaleString("pt-BR")}×${(labelH / 10).toLocaleString("pt-BR")}cm`;
+  const sizeLabel = isRound 
+    ? `Ø${((Number(diameter) || 0) / 10).toLocaleString("pt-BR")}cm` 
+    : `${((Number(labelW) || 0) / 10).toLocaleString("pt-BR")}×${((Number(labelH) || 0) / 10).toLocaleString("pt-BR")}cm`;
 
   return (
     <div className="space-y-5 flex-1 flex flex-col">
@@ -384,7 +386,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
           <Input
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
-            placeholder={`Padrão: Etiqueta ${sizeLabel} — ${quantidade} un`}
+            placeholder={`Padrão: Etiqueta ${sizeLabel} — ${quantidade || 0} un`}
             className="h-9"
           />
         </Field>
@@ -468,10 +470,15 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
               type="number"
               min={0.5}
               step={0.1}
-              value={(diameter / 10).toString()}
+              value={diameter === "" ? "" : (diameter / 10).toString()}
               onChange={(e) => {
-                const cm = Number(e.target.value) || 0;
-                setDiameter(Math.max(1, Math.round(cm * 10)));
+                const val = e.target.value;
+                if (val === "") {
+                  setDiameter("");
+                } else {
+                  const cm = Number(val) || 0;
+                  setDiameter(Math.max(1, Math.round(cm * 10)));
+                }
               }}
               className="h-9"
             />
@@ -481,7 +488,10 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
               type="number"
               min={1}
               value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 0))}
+              onChange={(e) => {
+                const val = e.target.value;
+                setQuantidade(val === "" ? "" : Math.max(1, Number(val) || 0));
+              }}
               className="h-9"
             />
           </Field>
@@ -494,10 +504,15 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
                 type="number"
                 min={0.5}
                 step={0.1}
-                value={(labelW / 10).toString()}
+                value={labelW === "" ? "" : (labelW / 10).toString()}
                 onChange={(e) => {
-                  const cm = Number(e.target.value) || 0;
-                  setLabelW(Math.max(1, Math.round(cm * 10)));
+                  const val = e.target.value;
+                  if (val === "") {
+                    setLabelW("");
+                  } else {
+                    const cm = Number(val) || 0;
+                    setLabelW(Math.max(1, Math.round(cm * 10)));
+                  }
                 }}
                 className="h-9"
               />
@@ -507,10 +522,15 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
                 type="number"
                 min={0.5}
                 step={0.1}
-                value={(labelH / 10).toString()}
+                value={labelH === "" ? "" : (labelH / 10).toString()}
                 onChange={(e) => {
-                  const cm = Number(e.target.value) || 0;
-                  setLabelH(Math.max(1, Math.round(cm * 10)));
+                  const val = e.target.value;
+                  if (val === "") {
+                    setLabelH("");
+                  } else {
+                    const cm = Number(val) || 0;
+                    setLabelH(Math.max(1, Math.round(cm * 10)));
+                  }
                 }}
                 className="h-9"
               />
@@ -522,7 +542,10 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
               type="number"
               min={1}
               value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value) || 0))}
+              onChange={(e) => {
+                const val = e.target.value;
+                setQuantidade(val === "" ? "" : Math.max(1, Number(val) || 0));
+              }}
               className="h-9"
             />
           </Field>
@@ -532,7 +555,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
 
       {onAddTiers && (
         <TierFaixasPanel
-          currentQty={quantidade}
+          currentQty={Number(quantidade) || 0}
           disabled={!folha.selectedPrinting || perSheet <= 0}
           onExtrasChange={setExtraTiers}
           compute={(q) => {
@@ -575,14 +598,16 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
 
       <Field label="Acabamento">
         <Select
-          value={folha.selectedFinishing.id}
+          value={folha.selectedFinishing.id || "__none__"}
           onValueChange={(v) => folha.setFinishingId(v as string)}
         >
           <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {folha.finishingOptions.map((f) => (
-              <SelectItem key={f.id} value={f.id}>{f.label ?? f.name}</SelectItem>
-            ))}
+            {folha.finishingOptions
+              .filter(f => !f.id || f.category === "none" || /adesiv/i.test(f.name) || /recorte/i.test(f.name))
+              .map((f) => (
+                <SelectItem key={f.id || "__none__"} value={f.id || "__none__"}>{f.label ?? f.name}</SelectItem>
+              ))}
           </SelectContent>
         </Select>
       </Field>
