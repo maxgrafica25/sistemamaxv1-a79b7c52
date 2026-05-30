@@ -10,7 +10,9 @@ const customFetch = async (url: string, options: RequestInit = {}) => {
   
   // If the request is to the REST endpoint, redirect it to the proxy
   if (url.includes('/rest/v1/')) {
-    finalUrl = url.replace('/rest/v1/', '/functions/v1/rest-proxy/');
+    // Determine the base URL dynamically to handle environment differences
+    const baseUrl = SUPABASE_URL.endsWith('/') ? SUPABASE_URL : `${SUPABASE_URL}/`;
+    finalUrl = url.replace(`${baseUrl}rest/v1/`, `${baseUrl}functions/v1/rest-proxy/`);
     console.debug('Redirecting REST call to proxy:', finalUrl);
   }
   
