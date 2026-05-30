@@ -256,14 +256,15 @@ export function useFolhaPricing(
   const allPrintingOptions = printingQ.data ?? [];
   const finishingOptions = finishingQ.data ?? [NO_FINISHING];
 
-  // Itens elegíveis: adesivo aceita A3↔SRA3; outros tipos exigem o tamanho exato.
-  const eligiblePrintingOptions = useMemo(
-    () =>
-      allPrintingOptions.filter((p) =>
-        paperKindOf(p) === "adesivo" ? true : p.size === size,
-      ),
-    [allPrintingOptions, size],
-  );
+  // Itens elegíveis: adesivo e papel aceitam A3↔SRA3; outros tamanhos exigem o tamanho exato.
+  const eligiblePrintingOptions = useMemo(() => {
+    const isA3Variant = (s: string) => s === "A3" || s === "SRA3";
+    return allPrintingOptions.filter((p) => {
+      if (p.size === size) return true;
+      if (isA3Variant(p.size) && isA3Variant(size)) return true;
+      return false;
+    });
+  }, [allPrintingOptions, size]);
 
   const availableKinds: PaperKind[] = useMemo(() => {
     const set = new Set<PaperKind>();
