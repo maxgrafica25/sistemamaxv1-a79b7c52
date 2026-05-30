@@ -230,8 +230,8 @@ export default function QuotePresets() {
     setBusy(true);
     if (editing) {
       const { error } = await supabase
-        .from("quote_presets" as never)
-        .update(payload as never)
+        .from("quote_presets")
+        .update(payload)
         .eq("id", editing.id);
       setBusy(false);
       if (error) return handleError(error, "atualizar preset");
