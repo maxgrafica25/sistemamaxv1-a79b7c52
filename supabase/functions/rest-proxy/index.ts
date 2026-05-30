@@ -33,15 +33,28 @@ Deno.serve(async (req) => {
     // Garante que subPath comece com /
     if (!subPath.startsWith('/')) subPath = '/' + subPath
     
-    // Remove o prefixo /rest/v1 redundante se vier do cliente
+    // Se a query string estiver codificada no subPath (ex: %3F em vez de ?), separa-a.
+    // Isso acontece em alguns ambientes de edge runtime.
+    let search = url.search
+    if (!search && subPath.includes('%3F')) {
+      const parts = subPath.split('%3F')
+      subPath = parts[0]
+      search = '?' + parts[1]
+    } else if (!search && subPath.includes('?')) {
+      const parts = subPath.split('?')
+      subPath = parts[0]
+      search = '?' + parts[1]
+    }
+
+    // Remove o prefixo /rest/v1/ redundante se vier do cliente
     if (subPath.startsWith('/rest/v1/')) {
       subPath = subPath.substring(8)
     }
 
     // Reconstrói a URL de destino (REST)
-    const targetUrl = new URL(`rest/v1${subPath}${url.search}`, SUPABASE_URL).toString()
+    const targetUrl = new URL(`rest/v1${subPath}${search}`, SUPABASE_URL).toString()
     
-    console.log(`[proxy] ${req.method} ${url.pathname}${url.search} -> ${targetUrl}`)
+    console.log(`[proxy] ${req.method} URL=${req.url} -> ${targetUrl}`)
 
     const headers = new Headers(req.headers)
     headers.set('apikey', SUPABASE_ANON_KEY)
