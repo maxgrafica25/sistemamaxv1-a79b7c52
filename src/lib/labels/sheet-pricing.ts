@@ -181,6 +181,7 @@ export function useFolhaPricing(
   size: string,
   sheetsQty?: number,
   finishingSize?: string,
+  skipInitialLoad?: boolean,
 ): UseFolhaPricingResult {
   const finishingSizeKey = finishingSize ?? size;
   // Para papel adesivo, A3 e SRA3 são intercambiáveis (mesma folha física no plotter).
