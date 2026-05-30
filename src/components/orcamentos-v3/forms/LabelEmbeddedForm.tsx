@@ -555,7 +555,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
 
       {onAddTiers && (
         <TierFaixasPanel
-          currentQty={quantidade}
+          currentQty={Number(quantidade) || 0}
           disabled={!folha.selectedPrinting || perSheet <= 0}
           onExtrasChange={setExtraTiers}
           compute={(q) => {
