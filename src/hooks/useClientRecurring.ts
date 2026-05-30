@@ -29,7 +29,7 @@ export function useClientRecurring(clientId: string | null | undefined) {
     }
     setLoading(true);
     const { data } = await supabase
-      .from("client_recurring_products" as never)
+      .from("client_recurring_products")
       .select("*")
       .eq("client_id", clientId)
       .eq("ativo", true)
