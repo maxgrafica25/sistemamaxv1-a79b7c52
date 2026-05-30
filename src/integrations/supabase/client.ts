@@ -11,7 +11,7 @@ const customFetch = async (url: string, options: RequestInit = {}) => {
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   global: {
-    fetch: customFetch,
+    // fetch: customFetch,
   },
   auth: {
     storage: localStorage,
