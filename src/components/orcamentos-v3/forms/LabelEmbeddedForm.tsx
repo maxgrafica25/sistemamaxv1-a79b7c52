@@ -332,10 +332,10 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
 
   const submit = () => {
     if (!canAdd) return;
-    const it = buildItem(quantidade);
+    const it = buildItem(Number(quantidade) || 0);
     if (!it) return;
     const cleanExtras = [...new Set(extraTiers)]
-      .filter((q) => q > 0 && q !== quantidade)
+      .filter((q) => q > 0 && q !== (Number(quantidade) || 0))
       .sort((a, b) => a - b);
 
     const bundleId = `bnd_${genId()}`;
