@@ -54,6 +54,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const { loading, items, tiers } = useV3Catalog();
 
   const [descricaoLocal, setDescricaoLocal] = useState("");
+  const [descricaoManual, setDescricaoManual] = useState("");
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
 
