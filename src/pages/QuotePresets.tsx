@@ -237,7 +237,7 @@ export default function QuotePresets() {
       if (error) return handleError(error, "atualizar preset");
       toast.success("Preset atualizado!");
     } else {
-      const { error } = await supabase.from("quote_presets" as never).insert(payload as never);
+      const { error } = await supabase.from("quote_presets").insert(payload);
       setBusy(false);
       if (error) return handleError(error, "criar preset");
       toast.success("Preset criado!");
