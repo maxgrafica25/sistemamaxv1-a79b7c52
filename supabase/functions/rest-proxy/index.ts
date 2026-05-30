@@ -23,6 +23,10 @@ Deno.serve(async (req) => {
   try {
     
     const url = new URL(req.url)
+    console.log(`Incoming request: ${req.method} ${req.url}`)
+    console.log(`Parsed Pathname: ${url.pathname}`)
+    console.log(`Parsed Search: ${url.search}`)
+    
     const proxyPath = '/rest-proxy'
     const index = url.pathname.indexOf(proxyPath)
     let subPath = index !== -1 ? url.pathname.substring(index + proxyPath.length) : url.pathname
