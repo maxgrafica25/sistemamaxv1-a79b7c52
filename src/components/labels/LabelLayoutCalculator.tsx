@@ -1009,7 +1009,11 @@ export function LabelLayoutCalculator({
                 <NumInput
                   value={toDisplay(labelW, config.unit)}
                   step={unitStep(config.unit)}
-                  onChange={(v) => setLabelW(fromDisplay(v, config.unit))}
+                  onChange={(v) => {
+                    const mm = fromDisplay(v, config.unit);
+                    setLabelW(mm);
+                    if (shape === "quadrado") setLabelH(mm);
+                  }}
                 />
               </div>
               <div className="space-y-1.5">
@@ -1017,7 +1021,11 @@ export function LabelLayoutCalculator({
                 <NumInput
                   value={toDisplay(labelH, config.unit)}
                   step={unitStep(config.unit)}
-                  onChange={(v) => setLabelH(fromDisplay(v, config.unit))}
+                  onChange={(v) => {
+                    const mm = fromDisplay(v, config.unit);
+                    setLabelH(mm);
+                    if (shape === "quadrado") setLabelW(mm);
+                  }}
                 />
               </div>
             </div>
