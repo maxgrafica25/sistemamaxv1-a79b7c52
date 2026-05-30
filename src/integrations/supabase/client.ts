@@ -5,19 +5,11 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 /**
- * Por enquanto, desativamos o redirecionamento para o rest-proxy para diagnosticar
- * se o erro 'Failed to fetch' é causado por limitações de rede ou pela Edge Function.
- * Chamadas REST voltarão a ser diretas temporariamente.
+ * Cliente Supabase com fetch padrão.
+ * Removemos temporariamente a camada de rest-proxy para garantir o funcionamento estável
+ * dos presets e orçamentos enquanto investigamos problemas de rede.
  */
-const customFetch = async (url: string, options: RequestInit = {}) => {
-  // Chamada direta para o Supabase REST
-  return fetch(url, options);
-};
-
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  global: {
-    fetch: customFetch,
-  },
   auth: {
     storage: localStorage,
     persistSession: true,
