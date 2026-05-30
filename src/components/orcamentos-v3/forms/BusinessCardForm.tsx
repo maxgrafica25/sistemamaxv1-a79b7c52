@@ -299,7 +299,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
     const item: V3PrintItem = {
       id: genId(),
       kind: "print",
-      descricao: descricao.trim() || defaultDesc,
+      descricao: (onDescricaoChange ? descricao : (descricaoManual || defaultDesc)).trim(),
       quantidade: sheets,
       tier_group_id: null,
       catalog_item_id: effectiveItem.id,
@@ -318,7 +318,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
       finishing_selections: sel,
     };
     onAdd(item);
-    setDescricao("");
+    setDescricaoManual("");
     setFinEnabled({});
     setPulse(true);
     setTimeout(() => setPulse(false), 600);
@@ -326,6 +326,16 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
 
   return (
     <div className="space-y-5 flex-1 flex flex-col">
+      {!onDescricaoChange && (
+        <Field label="Descrição (opcional)">
+          <Input
+            value={descricaoManual}
+            onChange={(e) => setDescricaoManual(e.target.value)}
+            placeholder="Ex: Cartão de Visita - Design Novo"
+            className="h-9"
+          />
+        </Field>
+      )}
       {/* Catálogo selecionado / vazio */}
       {couche300Sra3.length === 0 && !loading && (
         <div className="rounded-md border border-dashed border-border bg-muted/20 px-3 py-4 text-center">
