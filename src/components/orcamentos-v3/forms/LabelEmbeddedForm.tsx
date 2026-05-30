@@ -60,11 +60,11 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
   const controlledDescricao = onDescricaoChange !== undefined;
-  const [labelW, setLabelW] = useState(50);
-  const [labelH, setLabelH] = useState(30);
+  const [labelW, setLabelW] = useState<number | "">(50);
+  const [labelH, setLabelH] = useState<number | "">(30);
   const [shape, setShape] = useState<LabelShape>("redondo");
-  const [diameter, setDiameter] = useState(50);
-  const [quantidade, setQuantidade] = useState(500);
+  const [diameter, setDiameter] = useState<number | "">(50);
+  const [quantidade, setQuantidade] = useState<number | "">(500);
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [sheetId, setSheetId] = useState<string>("SRA3");
   const [pulse, setPulse] = useState(false);
