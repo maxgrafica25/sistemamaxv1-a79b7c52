@@ -381,62 +381,87 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
       {/* Lado de impressão — sempre visível antes do papel */}
       <SideChoiceToggle value={face} onChange={setFace} />
 
-      {/* Lado de impressão — sempre visível antes do papel */}
-      <SideChoiceToggle value={face} onChange={setFace} />
-
-      {catalog && (
-        <div className="space-y-3">
-          <div 
-            onClick={() => setIsPaperSearchOpen(!isPaperSearchOpen)}
-            className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors group"
-          >
-            <Printer className="h-4 w-4 text-primary shrink-0 group-hover:scale-110 transition-transform" />
+      {/* Papel selecionado */}
+      <div className="rounded-md border border-border bg-muted/20 px-4 py-3.5 flex items-center gap-4">
+        {catalog ? (
+          <>
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Printer className="h-5 w-5 text-primary" />
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">
-                {catalog.paper_type}
-                {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size}
-                {effectiveItem?.side ? ` · ${effectiveItem.side}` : ""}
+              <p className="text-sm font-bold text-foreground truncate">
+                {catalog.paper_type} {catalog.grammage && `${catalog.grammage}`}
               </p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[11px] text-muted-foreground">
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase bg-muted px-1.5 py-0.5 rounded leading-none">
+                  {catalog.size} · {effectiveItem?.side || catalog.side}
+                </span>
+                <span className="text-[11px] font-medium text-primary/80 truncate">
                   {catalog.category_name}
                 </span>
-                {face === "F/V" && (catalog.side || "").toUpperCase() !== "F/V" && (
-                  <Badge variant="outline" className="h-4 text-[10px] px-1.5">
-                    F/V calculado (2×)
-                  </Badge>
-                )}
                 {pricing?.tierLabel && (
-                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
+                  <Badge variant="secondary" className="h-3.5 text-[9px] px-1 uppercase tracking-tighter">
                     {pricing.tierLabel}
                   </Badge>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button size="icon" variant="ghost" className="h-7 w-7">
-                <Search className="h-3.5 w-3.5 text-muted-foreground" />
-              </Button>
+          </>
+        ) : (
+          <>
+            <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+              <Printer className="h-5 w-5 text-muted-foreground" />
             </div>
-          </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate text-muted-foreground">
+                Selecionar papel
+              </p>
+              <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">
+                Escolha um item do catálogo para calcular o preço
+              </p>
+            </div>
+          </>
+        )}
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="ml-auto shrink-0 inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+        >
+          {catalog ? "Trocar" : "Escolher"}
+        </button>
+      </div>
 
-          {isPaperSearchOpen && (
-            <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-              <PrintingItemSearch
-                items={items}
-                markupTiers={tiers}
-                globalSettings={settings}
-                inline
-                onSelect={(item) => {
-                  setSelectedCatalogId(item.id);
-                  setIsPaperSearchOpen(false);
-                }}
-                placeholder="Trocar papel do cartão..."
-              />
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="max-w-3xl w-[95vw] h-[90vh] sm:h-[80vh] flex flex-col p-0 overflow-hidden gap-0">
+          <DialogHeader className="px-6 py-4 border-b bg-muted/20 shrink-0">
+            <div className="flex items-center justify-between gap-4">
+              <DialogTitle className="inline-flex items-center gap-2 text-base">
+                <Printer className="h-4 w-4 text-primary" />
+                Selecionar papel
+              </DialogTitle>
+              
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-background/50 px-2 py-1 rounded border border-border/50">
+                <Info className="h-3 w-3" />
+                Lado: <span className="font-bold text-primary uppercase">{face}</span>
+              </div>
             </div>
-          )}
-        </div>
-      )}
+          </DialogHeader>
+
+          <div className="flex-1 overflow-hidden flex flex-col p-6 pt-4">
+            <PrintingItemSearch
+              items={items}
+              markupTiers={tiers}
+              globalSettings={settings}
+              inline
+              onSelect={(item) => {
+                setSelectedCatalogId(item.id);
+                setPickerOpen(false);
+              }}
+              placeholder="Trocar papel do cartão..."
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Quantidade */}
       <Field label="Quantidade (cartões)">
