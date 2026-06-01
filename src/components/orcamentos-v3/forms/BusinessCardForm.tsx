@@ -24,7 +24,8 @@ import {
   calcCardsPerSheet,
   sheetsNeeded,
 } from "@/lib/orcamentos-v3/business-card-yield";
-import type { PrintingCatalogItem } from "@/components/orcamentos-v3/shared/PrintingItemSearch";
+import PrintingItemSearch, { type PrintingCatalogItem, type MarkupTier } from "@/components/orcamentos-v3/shared/PrintingItemSearch";
+import { useGlobalPricingSettings } from "../shared/useGlobalPricingSettings";
 
 interface Props {
   onAdd: (item: V3PrintItem) => void;
