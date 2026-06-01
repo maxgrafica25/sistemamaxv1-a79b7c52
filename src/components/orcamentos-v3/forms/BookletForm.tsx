@@ -68,6 +68,7 @@ export function BookletForm({
   const { hourlyRate } = useV3HourlyRate();
   const { loading, items, tiers } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [descricaoLocal, setDescricaoLocal] = useState("");
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
