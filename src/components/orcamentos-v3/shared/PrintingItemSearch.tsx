@@ -250,7 +250,7 @@ export default function PrintingItemSearch({
   };
 
   return (
-    <div ref={containerRef} className="relative flex-1">
+    <div ref={containerRef} className="relative flex-1 flex flex-col overflow-hidden">
       {/* Chips de categoria */}
       <div className="flex flex-wrap items-center gap-1.5 mb-3">
         {chips.map((c) => {
