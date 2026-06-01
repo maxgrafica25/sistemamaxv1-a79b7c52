@@ -188,11 +188,23 @@ export default function Auth() {
         return;
       }
 
-      // Se sucesso, o data contém a sessão. O onAuthStateChange no useEffect cuidará do redirecionamento.
-      // Mas para garantir uma transição imediata:
-      if (data?.session) {
+      // Edge function autenticou via admin client; precisamos persistir a sessão no client do browser
+      const session = data?.session;
+      if (session?.access_token && session?.refresh_token) {
+        const { error: setErr } = await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+        if (setErr) {
+          console.error("Erro ao definir sessão:", setErr);
+          setLoginError("Não foi possível iniciar a sessão. Tente novamente.");
+          setLoading(false);
+          return;
+        }
         localStorage.removeItem(attemptsKey);
         navigate("/");
+      } else {
+        setLoginError("Resposta inesperada do servidor. Tente novamente.");
       }
     } catch (e: unknown) {
       console.error("Erro no login:", e);
