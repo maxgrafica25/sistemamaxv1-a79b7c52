@@ -165,6 +165,8 @@ export default function Auth() {
       return;
     }
 
+    setLoading(true);
+
     try {
       const { data, error } = await supabase.functions.invoke('rate-limit-login', {
         body: { email: trimmedEmail, password }
@@ -175,6 +177,8 @@ export default function Auth() {
         if (errorMsg.includes('attempts') || errorMsg.includes('429')) {
           toast.error("Muitas tentativas. Tente novamente em 15 minutos.");
           setLockoutRemaining(15);
+        } else if (errorMsg.includes('Invalid login credentials')) {
+          toast.error("E-mail ou senha incorretos.");
         } else {
           toast.error(errorMsg || "Erro ao realizar login");
         }
@@ -194,8 +198,6 @@ export default function Auth() {
     } finally {
       setLoading(false);
     }
-
-    setLoading(false);
   };
 
 
