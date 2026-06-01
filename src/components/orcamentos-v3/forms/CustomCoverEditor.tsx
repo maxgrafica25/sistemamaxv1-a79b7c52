@@ -31,6 +31,7 @@ export function CustomCoverEditor({ units, slotLabel, onChange, onDone }: Props)
   const { items, tiers } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
   const [sideChoice, setSideChoice] = useState<"Frente" | "F/V">("Frente");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const duplex = sideChoice === "F/V";
   const [finishings, setFinishings] = useState<FinishingItem[]>([]);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
