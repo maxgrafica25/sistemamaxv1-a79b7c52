@@ -165,6 +165,8 @@ export default function Auth() {
       return;
     }
 
+    setLoading(true);
+
     try {
       const { data, error } = await supabase.functions.invoke('rate-limit-login', {
         body: { email: trimmedEmail, password }
@@ -175,6 +177,8 @@ export default function Auth() {
         if (errorMsg.includes('attempts') || errorMsg.includes('429')) {
           toast.error("Muitas tentativas. Tente novamente em 15 minutos.");
           setLockoutRemaining(15);
+        } else if (errorMsg.includes('Invalid login credentials')) {
+          toast.error("E-mail ou senha incorretos.");
         } else {
           toast.error(errorMsg || "Erro ao realizar login");
         }
@@ -194,8 +198,6 @@ export default function Auth() {
     } finally {
       setLoading(false);
     }
-
-    setLoading(false);
   };
 
 
@@ -266,6 +268,7 @@ export default function Auth() {
                           placeholder="seu@email.com"
                           maxLength={MAX_EMAIL_LENGTH}
                           autoComplete="email"
+                          disabled={loading}
                         />
                       </div>
                       <Button type="submit" className="w-full" disabled={loading}>
@@ -313,11 +316,11 @@ export default function Auth() {
                 <form onSubmit={handleLogin} className="space-y-4 pt-4">
                   <div className="space-y-2">
                     <Label>E-mail</Label>
-                    <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" maxLength={MAX_EMAIL_LENGTH} autoComplete="email" />
+                    <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" maxLength={MAX_EMAIL_LENGTH} autoComplete="email" disabled={loading} />
                   </div>
                   <div className="space-y-2">
                     <Label>Senha</Label>
-                    <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" maxLength={MAX_PASSWORD_LENGTH} autoComplete="current-password" />
+                    <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" maxLength={MAX_PASSWORD_LENGTH} autoComplete="current-password" disabled={loading} />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading || (lockoutRemaining !== null && lockoutRemaining > 0)}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -341,15 +344,15 @@ export default function Auth() {
               <form onSubmit={handleSignup} className="space-y-4 pt-4">
                 <div className="space-y-2">
                   <Label>Nome</Label>
-                  <Input value={displayName} onChange={e => setDisplayName(e.target.value)} required placeholder="Seu nome completo" maxLength={MAX_NAME_LENGTH} autoComplete="name" />
+                  <Input value={displayName} onChange={e => setDisplayName(e.target.value)} required placeholder="Seu nome completo" maxLength={MAX_NAME_LENGTH} autoComplete="name" disabled={loading} />
                 </div>
                 <div className="space-y-2">
                   <Label>E-mail</Label>
-                  <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" maxLength={MAX_EMAIL_LENGTH} autoComplete="email" />
+                  <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" maxLength={MAX_EMAIL_LENGTH} autoComplete="email" disabled={loading} />
                 </div>
                 <div className="space-y-2">
                   <Label>Senha</Label>
-                  <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={MIN_PASSWORD_LENGTH} maxLength={MAX_PASSWORD_LENGTH} placeholder="Mínimo 8 caracteres" autoComplete="new-password" />
+                  <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={MIN_PASSWORD_LENGTH} maxLength={MAX_PASSWORD_LENGTH} placeholder="Mínimo 8 caracteres" autoComplete="new-password" disabled={loading} />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Criar Conta
