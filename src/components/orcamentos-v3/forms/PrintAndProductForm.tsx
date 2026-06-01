@@ -154,7 +154,9 @@ export function PrintAndProductForm({ onAdd, onAddMany, onAddTiers, defaultMargi
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
-    return /crach/.test(norm) ? "Cartão PVC" : "Papel";
+    if (/crach/.test(norm)) return "Cartão PVC";
+    if (/adesivo/.test(norm)) return "Adesivo";
+    return "Papel";
   }, [selectedPreset]);
 
   return (
