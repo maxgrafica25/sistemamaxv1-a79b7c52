@@ -194,7 +194,7 @@ export default function Auth() {
         localStorage.removeItem(attemptsKey);
         navigate("/");
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Erro no login:", e);
       setLoginError("Não foi possível entrar agora. Verifique sua conexão e tente novamente.");
     } finally {
