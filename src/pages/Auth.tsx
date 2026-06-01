@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ArrowLeft, ShieldCheck, Mail } from "lucide-react";
+import { Loader2, ArrowLeft, ShieldCheck, Mail, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logAuthEvent } from "@/lib/audit";
@@ -43,6 +43,7 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [loginError, setLoginError] = useState("");
 
   // Recovery mode state
   const [recoveryMode, setRecoveryMode] = useState(false);
@@ -151,9 +152,10 @@ export default function Auth() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginError("");
     const trimmedEmail = email.trim();
-    if (!validateEmail(trimmedEmail)) { toast.error("E-mail inválido"); return; }
-    if (!validatePassword(password)) { toast.error(`Senha deve ter entre ${MIN_PASSWORD_LENGTH} e ${MAX_PASSWORD_LENGTH} caracteres`); return; }
+    if (!validateEmail(trimmedEmail)) { setLoginError("Informe um e-mail válido para entrar."); return; }
+    if (!validatePassword(password)) { setLoginError("Senha inválida. Verifique a senha digitada e tente novamente."); return; }
 
     // Check brute force lockout
     const attemptsKey = `login_attempts_${trimmedEmail}`;
@@ -161,7 +163,7 @@ export default function Auth() {
     
     if (attemptsData.lockoutUntil && attemptsData.lockoutUntil > Date.now()) {
       const remaining = Math.ceil((attemptsData.lockoutUntil - Date.now()) / 1000 / 60);
-      toast.error(`Muitas tentativas incorretas. Aguarde ${remaining} minutos antes de tentar novamente.`);
+      setLoginError(`Muitas tentativas incorretas. Aguarde ${remaining} minutos antes de tentar novamente.`);
       return;
     }
 
@@ -177,12 +179,10 @@ export default function Auth() {
         console.error("Erro retornado:", errorMsg);
         
         if (errorMsg.includes('attempts') || errorMsg.includes('429')) {
-          toast.error("Muitas tentativas. Tente novamente em 15 minutos.");
+          setLoginError("Muitas tentativas incorretas. Tente novamente em 15 minutos.");
           setLockoutRemaining(15);
-        } else if (errorMsg.includes('Invalid login credentials') || errorMsg.toLowerCase().includes('invalid')) {
-          toast.error("E-mail ou senha incorretos.");
         } else {
-          toast.error("E-mail ou senha incorretos."); // Fallback amigável
+          setLoginError("E-mail ou senha incorretos. Confira os dados ou use “Esqueci minha senha”.");
         }
         setLoading(false);
         return;
@@ -196,7 +196,7 @@ export default function Auth() {
       }
     } catch (e: any) {
       console.error("Erro no login:", e);
-      toast.error("Ocorreu um erro ao processar seu login.");
+      setLoginError("Não foi possível entrar agora. Verifique sua conexão e tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -318,12 +318,18 @@ export default function Auth() {
                 <form onSubmit={handleLogin} className="space-y-4 pt-4">
                   <div className="space-y-2">
                     <Label>E-mail</Label>
-                    <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" maxLength={MAX_EMAIL_LENGTH} autoComplete="email" disabled={loading} />
+                    <Input type="email" value={email} onChange={e => { setEmail(e.target.value); setLoginError(""); }} required placeholder="seu@email.com" maxLength={MAX_EMAIL_LENGTH} autoComplete="email" disabled={loading} aria-invalid={!!loginError} />
                   </div>
                   <div className="space-y-2">
                     <Label>Senha</Label>
-                    <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" maxLength={MAX_PASSWORD_LENGTH} autoComplete="current-password" disabled={loading} />
+                    <Input type="password" value={password} onChange={e => { setPassword(e.target.value); setLoginError(""); }} required placeholder="••••••••" maxLength={MAX_PASSWORD_LENGTH} autoComplete="current-password" disabled={loading} aria-invalid={!!loginError} className={loginError ? "border-destructive focus-visible:ring-destructive" : undefined} />
                   </div>
+                  {loginError && (
+                    <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive" role="alert" aria-live="assertive">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>{loginError}</span>
+                    </div>
+                  )}
                   <Button type="submit" className="w-full" disabled={loading || (lockoutRemaining !== null && lockoutRemaining > 0)}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {lockoutRemaining !== null && lockoutRemaining > 0 
