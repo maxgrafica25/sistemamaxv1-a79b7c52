@@ -294,8 +294,8 @@ export default function PrintingItemSearch({
       </div>
       {isOpen && (
         <div className={cn(
-          "z-50 mt-2 w-full rounded-md border bg-popover shadow-lg overflow-auto",
-          inline ? "relative shadow-none border-border/50 max-h-[400px]" : "absolute shadow-lg max-h-80"
+          "z-50 mt-2 w-full rounded-md border bg-popover overflow-auto",
+          inline ? "relative shadow-none border-border/50 max-h-[500px]" : "absolute shadow-lg max-h-80"
         )}>
           {filtered.length > 0 ? (
             grouped ? (
