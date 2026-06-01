@@ -124,10 +124,13 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     didPickDefaultRef.current = true;
     setCatalog(picked);
     // Respeita o lado pedido pelo preset mesmo quando não há variante exata no catálogo.
-    if (defaultPaperHint.side === "F/V" || defaultPaperHint.side === "Frente") {
+    // Se for adesivo, força sempre Frente.
+    if (substrateLabel === "Adesivo") {
+      setSideChoice("Frente");
+    } else if (defaultPaperHint.side === "F/V" || defaultPaperHint.side === "Frente") {
       setSideChoice(defaultPaperHint.side);
     }
-  }, [defaultPaperHint, items, catalog]);
+  }, [defaultPaperHint, items, catalog, substrateLabel]);
 
   // Pré-marca acabamentos sugeridos pelo preset (uma vez).
   const didPreselectFinRef = useRef(false);
