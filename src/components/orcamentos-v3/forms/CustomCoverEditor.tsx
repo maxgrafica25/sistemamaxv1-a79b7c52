@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Check, Info, Printer, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import PrintingItemSearch, {
   type PrintingCatalogItem,
@@ -30,6 +31,7 @@ export function CustomCoverEditor({ units, slotLabel, onChange, onDone }: Props)
   const { items, tiers } = useV3Catalog();
   const [catalog, setCatalog] = useState<PrintingCatalogItem | null>(null);
   const [sideChoice, setSideChoice] = useState<"Frente" | "F/V">("Frente");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const duplex = sideChoice === "F/V";
   const [finishings, setFinishings] = useState<FinishingItem[]>([]);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
@@ -102,11 +104,12 @@ export function CustomCoverEditor({ units, slotLabel, onChange, onDone }: Props)
     <div className="mt-2 ml-6 p-2.5 rounded-md border border-border bg-background space-y-2.5">
       <div>
         <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
-          Papel da {slotLabel.toLowerCase()} (ex.: Couchê 300g)
+          Papel da {slotLabel.toLowerCase()}
         </Label>
-        <div className="mt-1 flex items-center gap-2 mb-1.5">
+        
+        <div className="mt-1 flex items-center gap-2 mb-2">
           <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-            Lado de impressão
+            Lado
           </span>
           <div className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-[11px]">
             <button
@@ -138,26 +141,80 @@ export function CustomCoverEditor({ units, slotLabel, onChange, onDone }: Props)
             </button>
           </div>
         </div>
-        <div className="mt-1">
-          <PrintingItemSearch
-            items={sideChoice === "Frente" ? items.filter((it) => it.side !== "F/V") : items}
-            markupTiers={tiers}
-            globalSettings={{
-              invoice_pct: 0,
-              collection_pct: 0,
-              waste_pct: 0,
-              default_margin_pct: 20,
-            }}
-            onSelect={setCatalog}
-          />
+
+        {/* Papel selecionado */}
+        <div className="rounded-md border border-border bg-muted/20 px-3 py-2 flex items-center gap-3">
+          {catalog ? (
+            <>
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Printer className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-bold text-foreground truncate">
+                  {catalog.paper_type} {catalog.grammage && `${catalog.grammage}`}
+                </p>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {catalog.size} · {catalog.side === "F/V" ? "F/V" : sideChoice} · {catalog.category_name}
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                <Printer className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium truncate text-muted-foreground leading-none">
+                  Selecionar papel
+                </p>
+              </div>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="ml-auto shrink-0 inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+          >
+            {catalog ? "Trocar" : "Escolher"}
+          </button>
         </div>
-        {catalog && (
-          <p className="text-[10.5px] text-muted-foreground mt-1 truncate">
-            {catalog.paper_type}
-            {catalog.grammage ? ` ${catalog.grammage}` : ""} · {catalog.size} ·{" "}
-            {catalog.side === "F/V" ? "F/V" : sideChoice}
-          </p>
-        )}
+
+        <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+          <DialogContent className="max-w-3xl w-[95vw] h-[90vh] sm:h-[80vh] flex flex-col p-0 overflow-hidden gap-0">
+            <DialogHeader className="px-6 py-4 border-b bg-muted/20 shrink-0">
+              <div className="flex items-center justify-between gap-4">
+                <DialogTitle className="inline-flex items-center gap-2 text-base">
+                  <Printer className="h-4 w-4 text-primary" />
+                  Papel da {slotLabel.toLowerCase()}
+                </DialogTitle>
+                
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-background/50 px-2 py-1 rounded border border-border/50">
+                  <Info className="h-3 w-3" />
+                  Lado: <span className="font-bold text-primary uppercase">{sideChoice}</span>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-hidden flex flex-col p-6 pt-4">
+              <PrintingItemSearch
+                items={sideChoice === "Frente" ? items.filter((it) => it.side !== "F/V") : items}
+                markupTiers={tiers}
+                globalSettings={{
+                  invoice_pct: 0,
+                  collection_pct: 0,
+                  waste_pct: 0,
+                  default_margin_pct: 20,
+                }}
+                inline
+                onSelect={(it) => {
+                  setCatalog(it);
+                  setPickerOpen(false);
+                }}
+                placeholder="Buscar papel..."
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
 

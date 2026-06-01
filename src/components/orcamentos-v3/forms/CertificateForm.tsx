@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Check, FileText, Files, Plus, Printer } from "lucide-react";
+import { Check, FileText, Files, Plus, Printer, Search, Info } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import PrintingItemSearch from "@/components/orcamentos-v3/shared/PrintingItemSearch";
 import {
   FinishingProgressive,
   type FinishingDef,
@@ -62,6 +64,7 @@ export function CertificateForm({
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const { steps } = useProductKitProcesses("certificado");
   const { hourRate } = useHourRate();
@@ -350,44 +353,89 @@ export function CertificateForm({
         </div>
       </Field>
 
-      {primaryItem && (
-        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5">
-          <div className="flex items-center gap-3">
-            <Printer className="h-4 w-4 text-primary shrink-0" />
+      {/* Papel selecionado */}
+      <div className="rounded-md border border-border bg-muted/20 px-4 py-3.5 flex items-center gap-4">
+        {primaryItem ? (
+          <>
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Printer className="h-5 w-5 text-primary" />
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">
-                {primaryItem.paper_type}
-                {primaryItem.grammage ? ` ${primaryItem.grammage}` : ""} — {primaryItem.size}
-                {primaryItem.side ? ` · ${primaryItem.side}` : ""}
+              <p className="text-sm font-bold text-foreground truncate">
+                {primaryItem.paper_type} {primaryItem.grammage && `${primaryItem.grammage}`}
               </p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[11px] text-muted-foreground">
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase bg-muted px-1.5 py-0.5 rounded leading-none">
+                  {primaryItem.size} · {primaryItem.side || (face === "frente" ? "Frente" : "F/V")}
+                </span>
+                <span className="text-[11px] font-medium text-primary/80 truncate">
                   {primaryItem.category_name}
                 </span>
                 {pricingPrimary?.tierLabel && (
-                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
+                  <Badge variant="secondary" className="h-3.5 text-[9px] px-1 uppercase tracking-tighter">
                     {pricingPrimary.tierLabel}
                   </Badge>
                 )}
               </div>
             </div>
-            {colorItems.length > 1 && (
-              <select
-                value={selectedColorId ?? primaryItem.id}
-                onChange={(e) => setSelectedColorId(e.target.value)}
-                className="h-7 text-xs rounded-md border border-border bg-background px-2"
-                title="Mais de um Couchê 210g A4 cadastrado para este lado"
-              >
-                {colorItems.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.category_name} · {c.side}
-                  </option>
-                ))}
-              </select>
+          </>
+        ) : (
+          <>
+            <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+              <Printer className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate text-muted-foreground">
+                Selecionar papel
+              </p>
+              <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">
+                Escolha o papel no catálogo
+              </p>
+            </div>
+          </>
+        )}
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="ml-auto shrink-0 inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+        >
+          {primaryItem ? "Trocar" : "Escolher"}
+        </button>
+      </div>
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="max-w-3xl w-[95vw] h-[90vh] sm:h-[80vh] flex flex-col p-0 overflow-hidden gap-0">
+          <DialogHeader className="px-6 py-4 border-b bg-muted/20 shrink-0">
+            <div className="flex items-center justify-between gap-4">
+              <DialogTitle className="inline-flex items-center gap-2 text-base">
+                <Printer className="h-4 w-4 text-primary" />
+                Selecionar papel
+              </DialogTitle>
+              
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-background/50 px-2 py-1 rounded border border-border/50">
+                <Info className="h-3 w-3" />
+                Lado: <span className="font-bold text-primary uppercase">{faceLabelMap[face]}</span>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-hidden flex flex-col p-6 pt-4">
+            <PrintingItemSearch
+              items={colorItems}
+              markupTiers={tiers}
+              inline
+              onSelect={(it) => {
+                setSelectedColorId(it.id);
+                setPickerOpen(false);
+              }}
+              placeholder="Buscar papel do certificado..."
+            />
+            {loading && (
+              <p className="text-[11px] text-muted-foreground mt-2 animate-pulse">Carregando catálogo de papéis…</p>
             )}
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       <Field label="Quantidade (certificados)">
         <Input
