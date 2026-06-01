@@ -35,8 +35,8 @@ Deno.serve(async (req) => {
     if (isBlocked) {
       console.log(`[RateLimit] IP ${clientIp} is BLOCKED`)
       return new Response(
-        JSON.stringify({ error: 'Too many failed attempts. Please try again in 15 minutes.' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'too_many_attempts' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -63,8 +63,8 @@ Deno.serve(async (req) => {
     if (authError) {
       console.log(`[RateLimit] Auth failed for ${email}: ${authError.message}`)
       return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'invalid_credentials' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
