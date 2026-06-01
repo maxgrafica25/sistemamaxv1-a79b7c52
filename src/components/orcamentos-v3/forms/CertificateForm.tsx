@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, FileText, Files, Plus, Printer, Search, Info } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import PrintingItemSearch from "@/components/orcamentos-v3/shared/PrintingItemSearch";
 import {
   FinishingProgressive,
   type FinishingDef,
