@@ -124,10 +124,13 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     didPickDefaultRef.current = true;
     setCatalog(picked);
     // Respeita o lado pedido pelo preset mesmo quando não há variante exata no catálogo.
-    if (defaultPaperHint.side === "F/V" || defaultPaperHint.side === "Frente") {
+    // Se for adesivo, força sempre Frente.
+    if (substrateLabel === "Adesivo") {
+      setSideChoice("Frente");
+    } else if (defaultPaperHint.side === "F/V" || defaultPaperHint.side === "Frente") {
       setSideChoice(defaultPaperHint.side);
     }
-  }, [defaultPaperHint, items, catalog]);
+  }, [defaultPaperHint, items, catalog, substrateLabel]);
 
   // Pré-marca acabamentos sugeridos pelo preset (uma vez).
   const didPreselectFinRef = useRef(false);
@@ -245,13 +248,21 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     if (sibling) setCatalog(sibling);
   }, [sideChoice, catalog, items]);
 
-  // Filtra catálogo conforme o lado escolhido.
+  // Filtra catálogo conforme o lado escolhido e o tipo de substrato.
   // - "Frente": esconde itens cadastrados como F/V.
-  // - "F/V":    mostra apenas itens F/V, mais os marcados como exceção F/V (ex.: Sulfite 75g A4).
-  const filteredItems = useMemo(
-    () => filterItemsBySideChoice(items, sideChoice),
-    [items, sideChoice],
-  );
+  // - "F/V":    mostra apenas itens F/V, mais os marcados como exceção F/V.
+  // - Se substrateLabel for "Adesivo", filtra apenas itens que contenham "adesivo" no nome ou categoria.
+  const filteredItems = useMemo(() => {
+    let base = filterItemsBySideChoice(items, sideChoice);
+    if (substrateLabel === "Adesivo") {
+      base = base.filter(
+        (it) =>
+          it.paper_category === "adesivo" ||
+          (it.paper_type || "").toLowerCase().includes("adesivo"),
+      );
+    }
+    return base;
+  }, [items, sideChoice, substrateLabel]);
 
   // Trocar o lado: se o papel atual deixar de ser compatível, limpa a seleção.
   const changeSide = (next: SideChoice) => {
@@ -500,6 +511,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
               }}
               placeholder={`Buscar ${substrateLabel.toLowerCase()} (nome, tamanho, impressora)...`}
               defaultCategory={(() => {
+                if (substrateLabel === "Adesivo") return "adesivo";
                 if (!suggestedPapers?.length) return null;
                 const wanted = new Set(suggestedPapers.map((s) => s.trim().toLowerCase()));
                 const cats = new Set<string>();
