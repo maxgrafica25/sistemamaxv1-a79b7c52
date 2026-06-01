@@ -50,7 +50,7 @@ const isCouche300 = (paperType: string | null | undefined, gram: string | null |
   /couch/i.test(paperType || "") && /300/.test(gram || "");
 
 export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoChange }: Props) {
-  const { loading, items, tiers } = useV3Catalog();
+  const { loading, items, tiers, settings } = useV3Catalog();
 
   const [descricaoLocal, setDescricaoLocal] = useState("");
   const [descricaoManual, setDescricaoManual] = useState("");
