@@ -360,7 +360,7 @@ export function BookletForm({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-foreground truncate">
-                {catalog.paper_type} {catalog.grammage && `${catalog.grammage}`}
+                {catalog.paper_type} {catalog.grammage && `${catalog.grammage}g`}
               </p>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase bg-muted px-1.5 py-0.5 rounded leading-none">
