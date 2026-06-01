@@ -63,6 +63,7 @@ export function CertificateForm({
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const { steps } = useProductKitProcesses("certificado");
   const { hourRate } = useHourRate();
