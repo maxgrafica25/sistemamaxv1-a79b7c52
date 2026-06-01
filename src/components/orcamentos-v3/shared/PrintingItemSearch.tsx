@@ -63,6 +63,8 @@ interface PrintingItemSearchProps {
   placeholder?: string;
   /** Pré-seleção opcional do chip de categoria (vindo de um produto favorito). */
   defaultCategory?: PaperCategory | null;
+  /** Se true, a lista de resultados aparece fixa no fluxo do layout em vez de um dropdown absoluto. */
+  inline?: boolean;
 }
 
 const roundUp5 = (v: number) => Math.round(v * 10) / 10;
@@ -82,11 +84,24 @@ const calcSellingPrice = (baseCost: number, tier: MarkupTier, _globals?: { invoi
   return Math.round((baseCost / divisor) * 10) / 10;
 };
 
-export default function PrintingItemSearch({ items, onSelect, markupTiers, globalSettings, placeholder, defaultCategory }: PrintingItemSearchProps) {
+export default function PrintingItemSearch({ 
+  items, 
+  onSelect, 
+  markupTiers, 
+  globalSettings, 
+  placeholder, 
+  defaultCategory,
+  inline 
+}: PrintingItemSearchProps) {
   const [search, setSearch] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(inline || false);
   const [categoryFilter, setCategoryFilter] = useState<"all" | PaperCategory>("all");
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Mantém aberto se for inline
+  useEffect(() => {
+    if (inline) setIsOpen(true);
+  }, [inline]);
 
   // Aplica pré-seleção quando muda (ex.: usuário troca de favorito).
   useEffect(() => {
