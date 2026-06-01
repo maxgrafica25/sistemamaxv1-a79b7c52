@@ -260,8 +260,6 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     }
     return base;
   }, [items, sideChoice, substrateLabel]);
-    [items, sideChoice],
-  );
 
   // Trocar o lado: se o papel atual deixar de ser compatível, limpa a seleção.
   const changeSide = (next: SideChoice) => {
