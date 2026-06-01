@@ -471,49 +471,54 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
       </div>
 
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-        <DialogContent className="max-w-3xl sm:max-w-3xl min-h-[520px]">
-          <DialogHeader>
-            <DialogTitle className="inline-flex items-center gap-1.5">
-              <span className={substrateLabel !== "Papel" ? "text-primary" : "text-muted-foreground"}>
-                {substrateLabel === "Papel" ? <FileText className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
-              </span>
-              Selecionar {substrateLabel.toLowerCase()}
-            </DialogTitle>
+        <DialogContent className="max-w-3xl w-[95vw] h-[90vh] sm:h-[80vh] flex flex-col p-0 overflow-hidden gap-0">
+          <DialogHeader className="px-6 py-4 border-b bg-muted/20 shrink-0">
+            <div className="flex items-center justify-between gap-4">
+              <DialogTitle className="inline-flex items-center gap-2 text-base">
+                <span className={substrateLabel !== "Papel" ? "text-primary" : "text-muted-foreground"}>
+                  {substrateLabel === "Papel" ? <FileText className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
+                </span>
+                Selecionar {substrateLabel.toLowerCase()}
+              </DialogTitle>
+              
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-background/50 px-2 py-1 rounded border border-border/50">
+                <Info className="h-3 w-3" />
+                Lado: <span className="font-bold text-primary uppercase">{sideChoice}</span>
+              </div>
+            </div>
           </DialogHeader>
 
-          <div className="text-[11px] text-muted-foreground -mt-1">
-            Filtrando por lado: <span className="font-medium text-foreground">{sideChoice}</span>
+          <div className="flex-1 overflow-hidden flex flex-col p-6 pt-4">
+            <PrintingItemSearch
+              items={filteredItems}
+              markupTiers={tiers}
+              globalSettings={settings}
+              inline
+              onSelect={(it) => {
+                setCatalog(it);
+                setPickerOpen(false);
+              }}
+              placeholder={`Buscar ${substrateLabel.toLowerCase()} (nome, tamanho, impressora)...`}
+              defaultCategory={(() => {
+                if (!suggestedPapers?.length) return null;
+                const wanted = new Set(suggestedPapers.map((s) => s.trim().toLowerCase()));
+                const cats = new Set<string>();
+                for (const it of items) {
+                  if (!it.paper_category) continue;
+                  if (wanted.has((it.paper_type || "").trim().toLowerCase())) cats.add(it.paper_category);
+                }
+                if (cats.size === 1) {
+                  const only = [...cats][0];
+                  if (only === "comum" || only === "especial" || only === "adesivo") return only;
+                }
+                return null;
+              })()}
+            />
+
+            {loading && (
+              <p className="text-[11px] text-muted-foreground mt-2 animate-pulse">Carregando catálogo de papéis…</p>
+            )}
           </div>
-
-
-          <PrintingItemSearch
-            items={filteredItems}
-            markupTiers={tiers}
-            globalSettings={settings}
-            onSelect={(it) => {
-              setCatalog(it);
-              setPickerOpen(false);
-            }}
-            placeholder={`Buscar ${substrateLabel.toLowerCase()} (nome, tamanho, impressora)...`}
-            defaultCategory={(() => {
-              if (!suggestedPapers?.length) return null;
-              const wanted = new Set(suggestedPapers.map((s) => s.trim().toLowerCase()));
-              const cats = new Set<string>();
-              for (const it of items) {
-                if (!it.paper_category) continue;
-                if (wanted.has((it.paper_type || "").trim().toLowerCase())) cats.add(it.paper_category);
-              }
-              if (cats.size === 1) {
-                const only = [...cats][0];
-                if (only === "comum" || only === "especial" || only === "adesivo") return only;
-              }
-              return null;
-            })()}
-          />
-
-          {loading && (
-            <p className="text-[11px] text-muted-foreground mt-1">Carregando catálogo…</p>
-          )}
         </DialogContent>
       </Dialog>
 
