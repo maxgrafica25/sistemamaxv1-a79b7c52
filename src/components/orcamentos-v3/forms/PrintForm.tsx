@@ -245,11 +245,21 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
     if (sibling) setCatalog(sibling);
   }, [sideChoice, catalog, items]);
 
-  // Filtra catálogo conforme o lado escolhido.
+  // Filtra catálogo conforme o lado escolhido e o tipo de substrato.
   // - "Frente": esconde itens cadastrados como F/V.
-  // - "F/V":    mostra apenas itens F/V, mais os marcados como exceção F/V (ex.: Sulfite 75g A4).
-  const filteredItems = useMemo(
-    () => filterItemsBySideChoice(items, sideChoice),
+  // - "F/V":    mostra apenas itens F/V, mais os marcados como exceção F/V.
+  // - Se substrateLabel for "Adesivo", filtra apenas itens que contenham "adesivo" no nome ou categoria.
+  const filteredItems = useMemo(() => {
+    let base = filterItemsBySideChoice(items, sideChoice);
+    if (substrateLabel === "Adesivo") {
+      base = base.filter(
+        (it) =>
+          it.paper_category === "adesivo" ||
+          (it.paper_type || "").toLowerCase().includes("adesivo"),
+      );
+    }
+    return base;
+  }, [items, sideChoice, substrateLabel]);
     [items, sideChoice],
   );
 
