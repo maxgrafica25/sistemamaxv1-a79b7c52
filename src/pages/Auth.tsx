@@ -173,14 +173,16 @@ export default function Auth() {
       });
 
       if (error || (data && data.error)) {
-        const errorMsg = error?.message || data?.error;
+        const errorMsg = error?.message || data?.error || "";
+        console.error("Erro retornado:", errorMsg);
+        
         if (errorMsg.includes('attempts') || errorMsg.includes('429')) {
           toast.error("Muitas tentativas. Tente novamente em 15 minutos.");
           setLockoutRemaining(15);
-        } else if (errorMsg.includes('Invalid login credentials')) {
+        } else if (errorMsg.includes('Invalid login credentials') || errorMsg.toLowerCase().includes('invalid')) {
           toast.error("E-mail ou senha incorretos.");
         } else {
-          toast.error(errorMsg || "Erro ao realizar login");
+          toast.error("E-mail ou senha incorretos."); // Fallback amigável
         }
         setLoading(false);
         return;
