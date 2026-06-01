@@ -380,44 +380,59 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
       {/* Lado de impressão — sempre visível antes do papel */}
       <SideChoiceToggle value={face} onChange={setFace} />
 
+      {/* Lado de impressão — sempre visível antes do papel */}
+      <SideChoiceToggle value={face} onChange={setFace} />
+
       {catalog && (
-        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3">
-          <Printer className="h-4 w-4 text-primary shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
-              {catalog.paper_type}
-              {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size}
-              {effectiveItem?.side ? ` · ${effectiveItem.side}` : ""}
-            </p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[11px] text-muted-foreground">
-                {catalog.category_name}
-              </span>
-              {face === "F/V" && (catalog.side || "").toUpperCase() !== "F/V" && (
-                <Badge variant="outline" className="h-4 text-[10px] px-1.5">
-                  F/V calculado (2×)
-                </Badge>
-              )}
-              {pricing?.tierLabel && (
-                <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
-                  {pricing.tierLabel}
-                </Badge>
-              )}
+        <div className="space-y-3">
+          <div 
+            onClick={() => setIsPaperSearchOpen(!isPaperSearchOpen)}
+            className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors group"
+          >
+            <Printer className="h-4 w-4 text-primary shrink-0 group-hover:scale-110 transition-transform" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">
+                {catalog.paper_type}
+                {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size}
+                {effectiveItem?.side ? ` · ${effectiveItem.side}` : ""}
+              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[11px] text-muted-foreground">
+                  {catalog.category_name}
+                </span>
+                {face === "F/V" && (catalog.side || "").toUpperCase() !== "F/V" && (
+                  <Badge variant="outline" className="h-4 text-[10px] px-1.5">
+                    F/V calculado (2×)
+                  </Badge>
+                )}
+                {pricing?.tierLabel && (
+                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
+                    {pricing.tierLabel}
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="icon" variant="ghost" className="h-7 w-7">
+                <Search className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
             </div>
           </div>
-          {couche300Sra3.length > 1 && (
-            <select
-              value={selectedCatalogId ?? catalog.id}
-              onChange={(e) => setSelectedCatalogId(e.target.value)}
-              className="h-7 text-xs rounded-md border border-border bg-background px-2"
-              title="Mais de um Couchê 300g SRA3 cadastrado"
-            >
-              {couche300Sra3.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.category_name} · {c.side}
-                </option>
-              ))}
-            </select>
+
+          {isPaperSearchOpen && (
+            <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+              <PrintingItemSearch
+                items={items}
+                markupTiers={tiers}
+                globalSettings={settings}
+                inline
+                onSelect={(item) => {
+                  setSelectedCatalogId(item.id);
+                  setIsPaperSearchOpen(false);
+                }}
+                placeholder="Trocar papel do cartão..."
+              />
+            </div>
           )}
         </div>
       )}
