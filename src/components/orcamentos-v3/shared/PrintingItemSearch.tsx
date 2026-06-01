@@ -63,6 +63,8 @@ interface PrintingItemSearchProps {
   placeholder?: string;
   /** Pré-seleção opcional do chip de categoria (vindo de um produto favorito). */
   defaultCategory?: PaperCategory | null;
+  /** Se true, a lista de resultados aparece fixa no fluxo do layout em vez de um dropdown absoluto. */
+  inline?: boolean;
 }
 
 const roundUp5 = (v: number) => Math.round(v * 10) / 10;
@@ -82,11 +84,24 @@ const calcSellingPrice = (baseCost: number, tier: MarkupTier, _globals?: { invoi
   return Math.round((baseCost / divisor) * 10) / 10;
 };
 
-export default function PrintingItemSearch({ items, onSelect, markupTiers, globalSettings, placeholder, defaultCategory }: PrintingItemSearchProps) {
+export default function PrintingItemSearch({ 
+  items, 
+  onSelect, 
+  markupTiers, 
+  globalSettings, 
+  placeholder, 
+  defaultCategory,
+  inline 
+}: PrintingItemSearchProps) {
   const [search, setSearch] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(inline || false);
   const [categoryFilter, setCategoryFilter] = useState<"all" | PaperCategory>("all");
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Mantém aberto se for inline
+  useEffect(() => {
+    if (inline) setIsOpen(true);
+  }, [inline]);
 
   // Aplica pré-seleção quando muda (ex.: usuário troca de favorito).
   useEffect(() => {
@@ -235,7 +250,7 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
   };
 
   return (
-    <div ref={containerRef} className="relative flex-1">
+    <div ref={containerRef} className="relative flex-1 flex flex-col overflow-hidden">
       {/* Chips de categoria */}
       <div className="flex flex-wrap items-center gap-1.5 mb-3">
         {chips.map((c) => {
@@ -278,7 +293,10 @@ export default function PrintingItemSearch({ items, onSelect, markupTiers, globa
         />
       </div>
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-80 overflow-auto">
+        <div className={cn(
+          "z-50 mt-2 w-full rounded-md border bg-popover overflow-auto flex-1",
+          inline ? "relative shadow-none border-border/50 min-h-[300px]" : "absolute shadow-lg max-h-80"
+        )}>
           {filtered.length > 0 ? (
             grouped ? (
               grouped.map((g) => (
