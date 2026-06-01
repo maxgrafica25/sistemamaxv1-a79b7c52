@@ -442,8 +442,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
             <Printer className="h-4 w-4 text-primary shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">
-                {catalog.paper_type}
-                {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size} {effectiveCatalog.side}
+                {catalog.paper_type}{catalog.grammage ? ` ${catalog.grammage}g` : ""} — {catalog.size} {effectiveCatalog.side}
               </p>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[11px] text-muted-foreground truncate">
