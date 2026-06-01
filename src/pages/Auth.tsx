@@ -268,6 +268,7 @@ export default function Auth() {
                           placeholder="seu@email.com"
                           maxLength={MAX_EMAIL_LENGTH}
                           autoComplete="email"
+                          disabled={loading}
                         />
                       </div>
                       <Button type="submit" className="w-full" disabled={loading}>
