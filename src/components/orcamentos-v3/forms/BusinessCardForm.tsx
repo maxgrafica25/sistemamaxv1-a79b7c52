@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChevronDown, Files, Plus, Printer, Settings2, Pencil, Star } from "lucide-react";
+import { Check, ChevronDown, Files, Plus, Printer, Settings2, Pencil, Star, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FinishingProgressive, type FinishingDef, type FinishingSubItem } from "../shared/FinishingProgressive";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,7 +24,7 @@ import {
   calcCardsPerSheet,
   sheetsNeeded,
 } from "@/lib/orcamentos-v3/business-card-yield";
-import type { PrintingCatalogItem } from "@/components/orcamentos-v3/shared/PrintingItemSearch";
+import PrintingItemSearch, { type PrintingCatalogItem, type MarkupTier } from "@/components/orcamentos-v3/shared/PrintingItemSearch";
 
 interface Props {
   onAdd: (item: V3PrintItem) => void;
@@ -50,7 +50,7 @@ const isCouche300 = (paperType: string | null | undefined, gram: string | null |
   /couch/i.test(paperType || "") && /300/.test(gram || "");
 
 export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoChange }: Props) {
-  const { loading, items, tiers } = useV3Catalog();
+  const { loading, items, tiers, settings } = useV3Catalog();
 
   const [descricaoLocal, setDescricaoLocal] = useState("");
   const [descricaoManual, setDescricaoManual] = useState("");
@@ -64,6 +64,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
+  const [isPaperSearchOpen, setIsPaperSearchOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
 
   // Acabamentos do Cartão de Visita: vêm do Kit de Produto ativo cadastrado
@@ -110,15 +111,18 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
 
   // Tenta achar variante exata por face; senão usa qualquer um e o engine multiplica F/V.
   const catalog: PrintingCatalogItem | null = useMemo(() => {
-    if (couche300Sra3.length === 0) return null;
+    if (items.length === 0) return null;
     if (selectedCatalogId) {
-      const sel = couche300Sra3.find((c) => c.id === selectedCatalogId);
+      const sel = items.find((c) => c.id === selectedCatalogId);
       if (sel) return sel;
     }
-    const wantSide = face === "F/V" ? "F/V" : "Frente";
-    const exact = couche300Sra3.find((c) => (c.side || "").toLowerCase() === wantSide.toLowerCase());
-    return exact ?? couche300Sra3[0];
-  }, [couche300Sra3, selectedCatalogId, face]);
+    if (couche300Sra3.length > 0) {
+      const wantSide = face === "F/V" ? "F/V" : "Frente";
+      const exact = couche300Sra3.find((c) => (c.side || "").toLowerCase() === wantSide.toLowerCase());
+      return exact ?? couche300Sra3[0];
+    }
+    return items[0];
+  }, [items, couche300Sra3, selectedCatalogId, face]);
 
   // Aproveitamento
   const yieldRes = useMemo(() => calcCardsPerSheet(layout), [layout]);
@@ -376,44 +380,59 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
       {/* Lado de impressão — sempre visível antes do papel */}
       <SideChoiceToggle value={face} onChange={setFace} />
 
+      {/* Lado de impressão — sempre visível antes do papel */}
+      <SideChoiceToggle value={face} onChange={setFace} />
+
       {catalog && (
-        <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3">
-          <Printer className="h-4 w-4 text-primary shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
-              {catalog.paper_type}
-              {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size}
-              {effectiveItem?.side ? ` · ${effectiveItem.side}` : ""}
-            </p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[11px] text-muted-foreground">
-                {catalog.category_name}
-              </span>
-              {face === "F/V" && (catalog.side || "").toUpperCase() !== "F/V" && (
-                <Badge variant="outline" className="h-4 text-[10px] px-1.5">
-                  F/V calculado (2×)
-                </Badge>
-              )}
-              {pricing?.tierLabel && (
-                <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
-                  {pricing.tierLabel}
-                </Badge>
-              )}
+        <div className="space-y-3">
+          <div 
+            onClick={() => setIsPaperSearchOpen(!isPaperSearchOpen)}
+            className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors group"
+          >
+            <Printer className="h-4 w-4 text-primary shrink-0 group-hover:scale-110 transition-transform" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">
+                {catalog.paper_type}
+                {catalog.grammage ? ` ${catalog.grammage}` : ""} — {catalog.size}
+                {effectiveItem?.side ? ` · ${effectiveItem.side}` : ""}
+              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[11px] text-muted-foreground">
+                  {catalog.category_name}
+                </span>
+                {face === "F/V" && (catalog.side || "").toUpperCase() !== "F/V" && (
+                  <Badge variant="outline" className="h-4 text-[10px] px-1.5">
+                    F/V calculado (2×)
+                  </Badge>
+                )}
+                {pricing?.tierLabel && (
+                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">
+                    {pricing.tierLabel}
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="icon" variant="ghost" className="h-7 w-7">
+                <Search className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
             </div>
           </div>
-          {couche300Sra3.length > 1 && (
-            <select
-              value={selectedCatalogId ?? catalog.id}
-              onChange={(e) => setSelectedCatalogId(e.target.value)}
-              className="h-7 text-xs rounded-md border border-border bg-background px-2"
-              title="Mais de um Couchê 300g SRA3 cadastrado"
-            >
-              {couche300Sra3.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.category_name} · {c.side}
-                </option>
-              ))}
-            </select>
+
+          {isPaperSearchOpen && (
+            <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+              <PrintingItemSearch
+                items={items}
+                markupTiers={tiers}
+                globalSettings={settings}
+                inline
+                onSelect={(item) => {
+                  setSelectedCatalogId(item.id);
+                  setIsPaperSearchOpen(false);
+                }}
+                placeholder="Trocar papel do cartão..."
+              />
+            </div>
           )}
         </div>
       )}
