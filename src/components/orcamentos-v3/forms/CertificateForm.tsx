@@ -362,7 +362,7 @@ export function CertificateForm({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-foreground truncate">
-                {primaryItem.paper_type} {primaryItem.grammage && `${primaryItem.grammage}`}
+                {primaryItem.paper_type} {primaryItem.grammage && `${primaryItem.grammage}g`}
               </p>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-[10px] font-medium text-muted-foreground uppercase bg-muted px-1.5 py-0.5 rounded leading-none">

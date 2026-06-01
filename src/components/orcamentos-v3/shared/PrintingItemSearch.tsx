@@ -200,7 +200,7 @@ export default function PrintingItemSearch({
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
             <p className="font-bold text-sm text-foreground truncate">
-              {item.paper_type} {item.grammage && `${item.grammage}`}
+              {item.paper_type} {item.grammage && `${item.grammage}g`}
             </p>
             <span className="text-[10px] font-medium text-muted-foreground uppercase bg-muted px-1.5 py-0.5 rounded">
               {item.size} · {item.side}

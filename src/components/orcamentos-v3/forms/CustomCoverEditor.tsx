@@ -151,7 +151,7 @@ export function CustomCoverEditor({ units, slotLabel, onChange, onDone }: Props)
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-bold text-foreground truncate">
-                  {catalog.paper_type} {catalog.grammage && `${catalog.grammage}`}
+                  {catalog.paper_type} {catalog.grammage && `${catalog.grammage}g`}
                 </p>
                 <p className="text-[10px] text-muted-foreground truncate">
                   {catalog.size} · {catalog.side === "F/V" ? "F/V" : sideChoice} · {catalog.category_name}
