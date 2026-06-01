@@ -178,11 +178,11 @@ export default function Auth() {
         const errorMsg = error?.message || data?.error || "";
         console.error("Erro retornado:", errorMsg);
         
-        if (errorMsg.includes('attempts') || errorMsg.includes('429')) {
+        if (errorMsg.includes('too_many_attempts') || errorMsg.includes('attempts') || errorMsg.includes('429')) {
           setLoginError("Muitas tentativas incorretas. Tente novamente em 15 minutos.");
           setLockoutRemaining(15);
         } else {
-          setLoginError("E-mail ou senha incorretos. Confira os dados ou use “Esqueci minha senha”.");
+          setLoginError("Senha incorreta ou e-mail não cadastrado. Confira os dados e tente novamente.");
         }
         setLoading(false);
         return;
@@ -316,20 +316,23 @@ export default function Auth() {
                 </div>
               ) : (
                 <form onSubmit={handleLogin} className="space-y-4 pt-4">
+                  {loginError && (
+                    <div className="flex items-start gap-3 rounded-md border-2 border-destructive bg-destructive/15 px-4 py-3 text-sm font-semibold text-destructive shadow-sm" role="alert" aria-live="assertive">
+                      <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+                      <div className="space-y-1">
+                        <p>Não foi possível entrar</p>
+                        <p className="font-medium">{loginError}</p>
+                      </div>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label>E-mail</Label>
-                    <Input type="email" value={email} onChange={e => { setEmail(e.target.value); setLoginError(""); }} required placeholder="seu@email.com" maxLength={MAX_EMAIL_LENGTH} autoComplete="email" disabled={loading} aria-invalid={!!loginError} />
+                    <Input type="email" value={email} onChange={e => { setEmail(e.target.value); setLoginError(""); }} required placeholder="seu@email.com" maxLength={MAX_EMAIL_LENGTH} autoComplete="email" disabled={loading} aria-invalid={!!loginError} className={loginError ? "border-destructive focus-visible:ring-destructive" : undefined} />
                   </div>
                   <div className="space-y-2">
                     <Label>Senha</Label>
                     <Input type="password" value={password} onChange={e => { setPassword(e.target.value); setLoginError(""); }} required placeholder="••••••••" maxLength={MAX_PASSWORD_LENGTH} autoComplete="current-password" disabled={loading} aria-invalid={!!loginError} className={loginError ? "border-destructive focus-visible:ring-destructive" : undefined} />
                   </div>
-                  {loginError && (
-                    <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive" role="alert" aria-live="assertive">
-                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                      <span>{loginError}</span>
-                    </div>
-                  )}
                   <Button type="submit" className="w-full" disabled={loading || (lockoutRemaining !== null && lockoutRemaining > 0)}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {lockoutRemaining !== null && lockoutRemaining > 0 
