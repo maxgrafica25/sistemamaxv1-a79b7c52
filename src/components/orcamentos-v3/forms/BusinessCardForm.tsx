@@ -64,6 +64,7 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
   const [pulse, setPulse] = useState(false);
   const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
+  const [isPaperSearchOpen, setIsPaperSearchOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
 
   // Acabamentos do Cartão de Visita: vêm do Kit de Produto ativo cadastrado
