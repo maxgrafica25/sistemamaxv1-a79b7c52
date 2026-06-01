@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChevronDown, Files, Plus, Printer, Settings2, Pencil, Star } from "lucide-react";
+import { Check, ChevronDown, Files, Plus, Printer, Settings2, Pencil, Star, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FinishingProgressive, type FinishingDef, type FinishingSubItem } from "../shared/FinishingProgressive";
 import { supabase } from "@/integrations/supabase/client";
