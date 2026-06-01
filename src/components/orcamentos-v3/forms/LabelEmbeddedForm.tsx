@@ -60,15 +60,16 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
   const descricao = descricaoProp ?? descricaoLocal;
   const setDescricao = onDescricaoChange ?? setDescricaoLocal;
   const controlledDescricao = onDescricaoChange !== undefined;
-  const [labelW, setLabelW] = useState<number | "">("");
-  const [labelH, setLabelH] = useState<number | "">("");
-  const [shape, setShape] = useState<LabelShape>("redondo");
+  const [labelW, setLabelW] = useState<number | "">(100);
+  const [labelH, setLabelH] = useState<number | "">(100);
+  const [shape, setShape] = useState<LabelShape>("quadrado");
   const [diameter, setDiameter] = useState<number | "">("");
   const [quantidade, setQuantidade] = useState<number | "">("");
   const [extraTiers, setExtraTiers] = useState<number[]>([]);
   const [sheetId, setSheetId] = useState<string>("SRA3");
   const [pulse, setPulse] = useState(false);
   const [finEnabled, setFinEnabled] = useState<Record<string, boolean>>({});
+  const [didInitPaper, setDidInitPaper] = useState(false);
 
   // Catálogo unificado de acabamentos (contexto: etiqueta)
   const [labelFinishings, setLabelFinishings] = useState<FinishingItem[]>([]);
@@ -119,7 +120,29 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
 
 
   const sheet = SHEET_PRESETS.find((s) => s.id === sheetId) ?? SHEET_PRESETS[1];
-  const folha = useFolhaPricing(sheetId, undefined, undefined, true);
+  const folha = useFolhaPricing(sheetId, undefined, undefined, false);
+
+  // Auto-seleciona Couchê 300g SRa3 como padrão para Tags (quando não for adesivo)
+  useEffect(() => {
+    if (didInitPaper) return;
+    if (folha.isLoading || folha.allPrintingOptions.length === 0) return;
+
+    const options = folha.allPrintingOptions;
+    const isTag = descricao.toLowerCase().includes("tag");
+    const isAdesivo = folha.paperKind === "adesivo";
+
+    if (isTag && !isAdesivo && sheetId === "SRA3") {
+      const target = options.find(o => 
+        /couch[ée]/i.test(o.paper_type) && 
+        o.grammage?.toString() === "300" &&
+        o.size === "SRA3"
+      );
+      if (target) {
+        folha.setPrintingId(target.id);
+        setDidInitPaper(true);
+      }
+    }
+  }, [folha.isLoading, folha.allPrintingOptions, descricao, folha.paperKind, sheetId, didInitPaper]);
 
   const isRound = shape === "redondo";
 
@@ -480,6 +503,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
                   setDiameter(Math.max(1, Math.round(cm * 10)));
                 }
               }}
+              placeholder="Ex: 5"
               className="h-9"
             />
           </Field>
@@ -525,12 +549,24 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
         </div>
       )}
 
+      <Field label="Tipo de Papel">
+        <ToggleGroup
+          type="single"
+          value={folha.paperKind}
+          onValueChange={(v) => v && folha.setPaperKind(v as any)}
+          className="justify-start"
+        >
+          <ToggleGroupItem value="adesivo" className="h-9 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary">Adesivo</ToggleGroupItem>
+          <ToggleGroupItem value="papel" className="h-9 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary">Papel Comum (Tag)</ToggleGroupItem>
+        </ToggleGroup>
+      </Field>
+
       <Field label="Papel / Impressão">
         {folha.isLoading ? (
           <p className="text-[11px] text-muted-foreground">Carregando opções de impressão…</p>
         ) : folha.printingOptions.length === 0 ? (
           <p className="text-[11px] text-muted-foreground">
-            Nenhum papel cadastrado para folha {sheetId}. Cadastre em Preço de Impressão.
+            Nenhum papel {folha.paperKind} cadastrado para folha {sheetId}. Cadastre em Preço de Impressão.
           </p>
         ) : (
           <Select
@@ -575,6 +611,7 @@ export function LabelEmbeddedForm({ onAdd, onAddMany, onAddTiers, descricao: des
               const val = e.target.value;
               setQuantidade(val === "" ? "" : Math.max(1, Number(val) || 0));
             }}
+            placeholder="Ex: 100"
             className="h-9"
           />
         </Field>
