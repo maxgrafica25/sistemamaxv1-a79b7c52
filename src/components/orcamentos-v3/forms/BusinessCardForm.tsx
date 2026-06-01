@@ -111,15 +111,18 @@ export function BusinessCardForm({ onAdd, descricao: descricaoProp, onDescricaoC
 
   // Tenta achar variante exata por face; senão usa qualquer um e o engine multiplica F/V.
   const catalog: PrintingCatalogItem | null = useMemo(() => {
-    if (couche300Sra3.length === 0) return null;
+    if (items.length === 0) return null;
     if (selectedCatalogId) {
-      const sel = couche300Sra3.find((c) => c.id === selectedCatalogId);
+      const sel = items.find((c) => c.id === selectedCatalogId);
       if (sel) return sel;
     }
-    const wantSide = face === "F/V" ? "F/V" : "Frente";
-    const exact = couche300Sra3.find((c) => (c.side || "").toLowerCase() === wantSide.toLowerCase());
-    return exact ?? couche300Sra3[0];
-  }, [couche300Sra3, selectedCatalogId, face]);
+    if (couche300Sra3.length > 0) {
+      const wantSide = face === "F/V" ? "F/V" : "Frente";
+      const exact = couche300Sra3.find((c) => (c.side || "").toLowerCase() === wantSide.toLowerCase());
+      return exact ?? couche300Sra3[0];
+    }
+    return items[0];
+  }, [items, couche300Sra3, selectedCatalogId, face]);
 
   // Aproveitamento
   const yieldRes = useMemo(() => calcCardsPerSheet(layout), [layout]);
