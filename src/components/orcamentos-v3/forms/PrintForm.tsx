@@ -508,6 +508,7 @@ export function PrintForm({ onAdd, onAddMany, onAddTiers, onSelectionChange, des
               }}
               placeholder={`Buscar ${substrateLabel.toLowerCase()} (nome, tamanho, impressora)...`}
               defaultCategory={(() => {
+                if (substrateLabel === "Adesivo") return "adesivo";
                 if (!suggestedPapers?.length) return null;
                 const wanted = new Set(suggestedPapers.map((s) => s.trim().toLowerCase()));
                 const cats = new Set<string>();
