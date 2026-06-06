@@ -5608,6 +5608,7 @@ export type Database = {
       }
       empresa_ativa: { Args: { _empresa_id: string }; Returns: boolean }
       enqueue_recurring_reminders: { Args: never; Returns: number }
+      exec_sql: { Args: { sql_query: string }; Returns: Json }
       get_my_empresa_id: { Args: never; Returns: string }
       get_public_quote: { Args: { p_token: string }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }

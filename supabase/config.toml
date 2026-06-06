@@ -40,3 +40,10 @@ verify_jwt = false
 
 [functions.rest-proxy]
 verify_jwt = false
+
+[functions.migrate-sql]
+verify_jwt = false
+
+[functions.painel-migracao]
+verify_jwt = false
+
