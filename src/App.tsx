@@ -12,6 +12,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import PainelMigracao from "./pages/PainelMigracao";
 import Chat from "./pages/Chat";
 import AssistenteButton from "@/components/assistente/AssistenteButton";
 import CommandPalette from "@/components/CommandPalette";
@@ -60,6 +61,7 @@ const App = () => (
               <Routes>
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/painel-migracao" element={<PainelMigracao />} />
                 <Route path="/p/:token" element={<ClientViewerV3 />} />
                 {/* Rotas antigas — invalidadas pela Migration 6 (links sequenciais permitiam enumeração). */}
                 <Route path="/view-quote/:id" element={<NotFound />} />
