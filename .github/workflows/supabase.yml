@@ -1,0 +1,38 @@
+name: Supabase (banco e funções)
+
+# Aplica as migrações do banco e publica as Edge Functions no projeto sistema-max.
+# As chaves ficam em Settings > Secrets and variables > Actions.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**"
+      - ".github/workflows/supabase.yml"
+
+concurrency:
+  group: supabase-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_ID: drjbbpvmxtejmxxilmey
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Ligar ao projeto
+        run: supabase link --project-ref "$PROJECT_ID"
+
+      - name: Aplicar migrações do banco
+        run: supabase db push --include-all
+
+      - name: Publicar Edge Functions
+        run: supabase functions deploy --use-api --project-ref "$PROJECT_ID"
