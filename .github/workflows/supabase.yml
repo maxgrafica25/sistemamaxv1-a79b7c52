@@ -34,9 +34,9 @@ jobs:
       - name: Aplicar migrações do banco
         run: |
           set -o pipefail
-          if ! supabase db push --include-all 2>&1 | tee push.log; then
+          if ! supabase db push --include-all --yes 2>&1 | tee push.log; then
             # Mostra o fim do erro como anotação (aparece no resumo da execução)
-            tail -n 25 push.log | sed 's/^/::error::/'
+            tail -n 40 push.log | sed 's/^/::error::/'
             exit 1
           fi
 
