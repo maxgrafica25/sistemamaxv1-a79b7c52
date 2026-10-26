@@ -32,7 +32,13 @@ jobs:
         run: supabase link --project-ref "$PROJECT_ID"
 
       - name: Aplicar migrações do banco
-        run: supabase db push --include-all
+        run: |
+          set -o pipefail
+          if ! supabase db push --include-all 2>&1 | tee push.log; then
+            # Mostra o fim do erro como anotação (aparece no resumo da execução)
+            tail -n 25 push.log | sed 's/^/::error::/'
+            exit 1
+          fi
 
       - name: Publicar Edge Functions
         run: supabase functions deploy --use-api --project-ref "$PROJECT_ID"
