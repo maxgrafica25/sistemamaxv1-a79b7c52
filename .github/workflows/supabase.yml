@@ -36,7 +36,8 @@ jobs:
           set -o pipefail
           if ! supabase db push --include-all --yes 2>&1 | tee push.log; then
             # Mostra o fim do erro como anotação (aparece no resumo da execução)
-            tail -n 40 push.log | sed 's/^/::error::/'
+            # O GitHub mostra no máximo 10 anotações por etapa: só as linhas do erro
+            { grep -iE 'error|erro|hint|detail|applying|at statement' push.log | tail -n 7; tail -n 3 push.log; } | sed 's/^/::error::/'
             exit 1
           fi
 
