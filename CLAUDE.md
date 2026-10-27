@@ -16,6 +16,12 @@ Criado no Lovable e migrado em 27/10/2026 para infraestrutura própria. **Não e
 - React + Vite + TypeScript + shadcn, Supabase JS. Multi-empresa (`empresa_id`, RLS). Tipos do banco em `src/integrations/supabase/types.ts`.
 - As migrações antigas do Lovable estavam incompletas (faltava a coluna `equipment_consumables.mode`); conferir novas mudanças num Postgres local com a imagem `supabase/postgres` antes do push.
 
+## Regras de preço (decididas com o Juliano em 27/10/2026)
+- Valor da hora = (despesas mensais + salários × 1,45 + depreciação do que NÃO tem contador) ÷ (pessoas × horas/mês). Máquinas com contador (impressoras, plotters de recorte) têm depreciação e manutenção **só** no custo por página em Equipamentos, para não cobrar duas vezes.
+- Custo por página: rendimento do fabricante (5%); só toner/tinta (`scales_with_coverage`) multiplicam pela cobertura (20% = ×4). Itens C/M/Y são `mode = 'color_only'`.
+- Despesas de venda (`global_settings`): imposto 10% (`invoice_pct`; `tax_pct` = 0 para não somar duas vezes), perda 5% (monitorar com as perdas registradas), cobrança 7%, lucro 33%. Preço = custo ÷ 0,45.
+- As faixas de mark-up do Preço Impressão (`markup_tiers`, com 40% de custo fixo) são do método antigo e ainda precisam ser revistas.
+
 ## Pendências (27/10/2026)
 - Tela "Hoje" (`src/pages/Dashboard.tsx`) mostra números de exemplo fixos no código.
 - Segredos das Edge Functions ainda não configurados no Supabase novo (Gemini `GOOGLE_API_KEY`, Google Calendar OAuth, `BROWSERLESS_API_KEY`, `CRON_SECRET`); cron jobs do Lovable não migrados.
