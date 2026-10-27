@@ -1,0 +1,25 @@
+name: Build das telas
+
+# Confere se a imagem do frontend (Dockerfile) compila, do mesmo jeito que o Railway faz.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "supabase/**"
+      - "docs/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build da imagem
+        run: |
+          set -o pipefail
+          if ! docker build --progress=plain \
+              --build-arg VITE_SUPABASE_URL=https://drjbbpvmxtejmxxilmey.supabase.co \
+              --build-arg VITE_SUPABASE_PUBLISHABLE_KEY=teste -t telas . 2>&1 | tee build.log; then
+            { grep -iE 'error' build.log | tail -n 8; tail -n 2 build.log; } | sed 's/^/::error::/'
+            exit 1
+          fi

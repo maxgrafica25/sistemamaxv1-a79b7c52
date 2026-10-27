@@ -28,4 +28,6 @@ README.md
 Dockerfile
 .dockerignore
 docker-compose.yml
-docker
+docker/*
+# O Dockerfile do frontend usa esta configuração do Nginx
+!docker/nginx.conf
