@@ -1425,6 +1425,7 @@ export type Database = {
           mode: string
           name: string
           price: number
+          scales_with_coverage: boolean
           sort_order: number
           updated_at: string
           yield_pages: number
@@ -1437,6 +1438,7 @@ export type Database = {
           mode?: string
           name: string
           price?: number
+          scales_with_coverage?: boolean
           sort_order?: number
           updated_at?: string
           yield_pages?: number
@@ -1449,6 +1451,7 @@ export type Database = {
           mode?: string
           name?: string
           price?: number
+          scales_with_coverage?: boolean
           sort_order?: number
           updated_at?: string
           yield_pages?: number

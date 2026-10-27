@@ -40,6 +40,8 @@ import MaintenanceRequestsTab from "@/components/equipamentos/MaintenanceRequest
 import EquipmentDashboardTab from "@/components/equipamentos/EquipmentDashboardTab";
 import PriceHistoryGlobalTab from "@/components/equipamentos/PriceHistoryGlobalTab";
 import PageLoader from "@/components/PageLoader";
+import { Switch } from "@/components/ui/switch";
+import { consumableCost, equipmentCost } from "@/lib/equipmentCost";
 import { equipmentSchema, consumableSchema, zodErrorsToMap } from "@/lib/schemas/cadastros";
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -59,6 +61,7 @@ interface Consumable {
   yield_pages: number;
   sort_order: number;
   mode: string;
+  scales_with_coverage: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -162,6 +165,8 @@ export default function Equipamentos() {
   const [consName, setConsName] = useState("");
   const [consPrice, setConsPrice] = useState("0");
   const [consYield, setConsYield] = useState("1");
+  const [consScales, setConsScales] = useState(true);
+  const [consColorOnly, setConsColorOnly] = useState(false);
 
   // Etapa 4b — erros de validação Zod inline
   const [equipErrors, setEquipErrors] = useState<Record<string, string>>({});
@@ -262,6 +267,7 @@ export default function Equipamentos() {
       return sum + c.price / c.yield_pages;
     }, 0);
   }, [activeConsumables]);
+  const productionCostPerPage = useMemo(() => equipmentCost(activeConsumables, 20), [activeConsumables]);
   // Cost calculations for different coverage scenarios
   const isRibbon = activeEq?.printer_type === "ribbon";
 
@@ -271,8 +277,8 @@ export default function Equipamentos() {
     const sharedCons = activeConsumables.filter(c => c.mode !== "color_only");
     const allCons = activeConsumables;
 
-    const calcCost = (items: Consumable[], coverage: number) =>
-      items.reduce((sum, c) => c.yield_pages > 0 ? sum + (c.price / c.yield_pages) * coverage : sum, 0);
+    // coverage: 1 = cobertura do fabricante (5%), 4 = produção (20%)
+    const calcCost = (items: Consumable[], coverage: number) => equipmentCost(items, coverage * 5);
 
     if (isRibbonType) {
       // Ribbon: custo direto sem cobertura (preço/rendimento)
@@ -378,11 +384,15 @@ export default function Equipamentos() {
       setConsName(cons.name);
       setConsPrice(String(cons.price));
       setConsYield(String(cons.yield_pages));
+      setConsScales(cons.scales_with_coverage !== false);
+      setConsColorOnly(cons.mode === "color_only");
     } else {
       setEditingCons(null);
       setConsName("");
       setConsPrice("0");
       setConsYield("1");
+      setConsScales(true);
+      setConsColorOnly(false);
     }
     setShowConsDialog(true);
   };
@@ -412,12 +422,14 @@ export default function Equipamentos() {
       }
       const { error } = await supabase.from("equipment_consumables").update({
         name: parsed.data.name, price: newPrice, yield_pages: newYield,
+        scales_with_coverage: consScales, mode: consColorOnly ? "color_only" : "shared",
       }).eq("id", editingCons.id);
       if (error) return handleError(error, "atualizar consumível");
       await logAudit({ action: "edição", entity_type: "Consumível", entity_id: editingCons.id, entity_name: `${parsed.data.name} (${activeEq?.name})` });
     } else {
       const { data, error } = await supabase.from("equipment_consumables").insert({
         equipment_id: activeEquipment, name: parsed.data.name, price: newPrice, yield_pages: newYield, sort_order: activeConsumables.length,
+        scales_with_coverage: consScales, mode: consColorOnly ? "color_only" : "shared",
       }).select("id").single();
       if (error) return handleError(error, "cadastrar consumível");
       await logAudit({ action: "criação", entity_type: "Consumível", entity_id: data?.id, entity_name: `${parsed.data.name} (${activeEq?.name})` });
@@ -598,7 +610,7 @@ export default function Equipamentos() {
                     <div className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                       <span className="text-base leading-none">💡</span>
                       <span>
-                        Orçamentos baseados no <strong className="text-foreground">Custo de Produção (20% de cobertura)</strong>. O rendimento cadastrado segue o padrão do fabricante (5%).
+                        Orçamentos baseados no <strong className="text-foreground">Custo de Produção (20% de cobertura)</strong>. O rendimento cadastrado segue o padrão do fabricante (5%); só toner e tinta são multiplicados pela cobertura.
                       </span>
                     </div>
                   )}
@@ -611,7 +623,7 @@ export default function Equipamentos() {
                     ) : (
                       <>
                         <span className="opacity-70">Fabricante (5%): <strong className="text-foreground/80">{fmt4(costPerPage)}</strong></span>
-                        <span>Produção (20%): <strong className="text-primary">{fmt4(costPerPage * 4)}</strong></span>
+                        <span>Produção (20%): <strong className="text-primary">{fmt4(productionCostPerPage)}</strong></span>
                       </>
                     )}
                   </div>
@@ -705,7 +717,7 @@ export default function Equipamentos() {
                                   </TableCell>
                                   <TableCell className="text-right">—</TableCell>
                                   <TableCell className="text-right">—</TableCell>
-                                  <TableCell className="text-right font-mono font-bold text-primary text-base">{fmt4(costPerPage * 4)}</TableCell>
+                                  <TableCell className="text-right font-mono font-bold text-primary text-base">{fmt4(productionCostPerPage)}</TableCell>
                                   <TableCell className="text-right">
                                     <Badge className="font-mono text-xs">Ativo</Badge>
                                   </TableCell>
@@ -810,7 +822,7 @@ export default function Equipamentos() {
                                 <div className="px-4 pb-4 space-y-1.5">
                                   <div className="border-t border-border/50 pt-2" />
                                   {sc.items.map(c => {
-                                    const cpp = c.yield_pages > 0 ? (c.price / c.yield_pages) * sc.multiplier : 0;
+                                    const cpp = consumableCost(c, sc.multiplier * 5);
                                     return (
                                       <div key={c.id} className="flex items-center justify-between text-xs">
                                         <div className="flex items-center gap-1.5">
@@ -988,7 +1000,7 @@ export default function Equipamentos() {
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs text-xs">
-                          Informe o valor que consta na embalagem (cobertura 5%). O sistema converterá automaticamente para 20% nos cálculos de venda.
+                          Informe o valor que consta na embalagem (cobertura 5%). Se o item varia com a cobertura, o sistema converte para 20% nos cálculos de venda.
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -998,6 +1010,26 @@ export default function Equipamentos() {
                 {consErrors.yield_pages && <p className="text-xs text-destructive">{consErrors.yield_pages}</p>}
               </div>
             </div>
+            {!isRibbon && (
+              <div className="space-y-3 rounded-lg border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <Label>Varia com a cobertura</Label>
+                    <p className="text-xs text-muted-foreground">Ligue para toner e tinta. Fusor, belt, cilindro, revelador, manutenção e depreciação custam o mesmo por página.</p>
+                  </div>
+                  <Switch checked={consScales} onCheckedChange={setConsScales} />
+                </div>
+                {activeEq?.printer_type === "color" && (
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <Label>Só nas impressões coloridas</Label>
+                      <p className="text-xs text-muted-foreground">Ex.: toner, revelador e cilindro ciano, magenta e amarelo. Fica fora do custo preto e branco.</p>
+                    </div>
+                    <Switch checked={consColorOnly} onCheckedChange={setConsColorOnly} />
+                  </div>
+                )}
+              </div>
+            )}
             {Number(consYield) > 0 && (
               <div className="rounded-lg bg-muted/50 p-3">
                 {isRibbon ? (
@@ -1013,7 +1045,7 @@ export default function Equipamentos() {
                     </div>
                     <div className="flex justify-between text-sm mt-1">
                       <span className="text-muted-foreground">Custo/Página (20%)</span>
-                      <span className="font-semibold font-mono">{fmt4((Number(consPrice) / Number(consYield)) * 4)}</span>
+                      <span className="font-semibold font-mono">{fmt4(consumableCost({ price: Number(consPrice), yield_pages: Number(consYield), scales_with_coverage: consScales }, 20))}</span>
                     </div>
                   </>
                 )}

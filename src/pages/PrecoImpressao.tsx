@@ -34,6 +34,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { equipmentCost } from "@/lib/equipmentCost";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
@@ -63,7 +64,7 @@ interface PrintingPriceItem {
   fv_exception?: boolean;
 }
 interface Equipment { id: string; name: string; printer_type: string; }
-interface EquipmentConsumable { equipment_id: string; price: number; yield_pages: number; mode: string; }
+interface EquipmentConsumable { equipment_id: string; price: number; yield_pages: number; mode: string; scales_with_coverage: boolean; }
 interface PaperRecord {
   id: string; name: string; grammage: string | null;
   sheet_qty: number; pack_price: number; freight_price: number;
@@ -197,7 +198,7 @@ export default function PrecoImpressao() {
       supabase.from("markup_tiers").select("id, printer_category_id, markup_group_id, label, min_qty, max_qty, fixed_cost_pct, variable_cost_pct, margin_pct, sort_order").order("sort_order"),
       supabase.from("printing_price_items").select("*").order("sort_order"),
       supabase.from("equipments").select("id, name, printer_type").order("sort_order"),
-      supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode"),
+      supabase.from("equipment_consumables").select("equipment_id, price, yield_pages, mode, scales_with_coverage"),
       supabase.from("papers").select("id, name, grammage, sheet_qty, pack_price, freight_price").eq("is_active", true).order("sort_order"),
       supabase.from("markup_groups").select("id, name").order("name"),
       supabase.from("global_settings").select("*").limit(1).single(),
@@ -237,8 +238,7 @@ export default function PrecoImpressao() {
     const cons = equipConsumables.filter(c =>
       c.equipment_id === equipmentId && (usePB ? c.mode === "shared" : true)
     );
-    const baseCost = cons.reduce((sum, c) => c.yield_pages <= 0 ? sum : sum + c.price / c.yield_pages, 0);
-    return baseCost * (coverage / 5);
+    return equipmentCost(cons, coverage);
   };
 
   const getEquipmentName = (id: string) => equipments.find(e => e.id === id)?.name || "—";
