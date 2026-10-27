@@ -8,7 +8,7 @@ Criado no Lovable e migrado em 27/10/2026 para infraestrutura própria. **Não e
 
 ## Onde roda
 - **Banco/Auth/Storage/Edge Functions:** Supabase próprio, projeto `sistema-max` (ref `drjbbpvmxtejmxxilmey`, São Paulo), organização "Micro Saas Max Grafica" (plano Free). Não mexer na organização "Sistema GRP".
-- **Telas:** Railway, projeto `efficient-courage` (o mesmo da Júlia), serviço `sistemamaxv1-a79b7c52`, build pelo `Dockerfile` (Nginx). Variáveis: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `PORT=80`. Endereço: https://sistemamaxv1-a79b7c52-production.up.railway.app
+- **Telas:** Railway, projeto `efficient-courage` (o mesmo da Júlia), serviço `sistemamaxv1-a79b7c52`, build pelo `Dockerfile` (Nginx). Variáveis: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `PORT=80`. Endereço: **https://sistema.maxgraficadigital.com.br** (DNS na Cloudflare, CNAME `sistema` com proxy laranja; Site URL do Supabase Auth já aponta para ele). Endereço técnico: https://sistemamaxv1-a79b7c52-production.up.railway.app
 - **Deploy:** push na `main` → Railway publica as telas; `.github/workflows/supabase.yml` aplica migrações e publica as Edge Functions (secrets `SUPABASE_ACCESS_TOKEN` e `SUPABASE_DB_PASSWORD`). `.github/workflows/build.yml` confere se o Docker compila.
 - Admin: `profiles.role = 'admin'`. O gatilho `prevent_role_escalation_trigger` desfaz em silêncio mudanças de papel feitas por quem não é admin (inclusive pelo SQL Editor).
 
@@ -18,6 +18,5 @@ Criado no Lovable e migrado em 27/10/2026 para infraestrutura própria. **Não e
 
 ## Pendências (27/10/2026)
 - Tela "Hoje" (`src/pages/Dashboard.tsx`) mostra números de exemplo fixos no código.
-- Chrome mostra aviso "Perigoso" no domínio do Railway: usar domínio próprio (ver onde está o maxgraficadigital.com.br).
 - Segredos das Edge Functions ainda não configurados no Supabase novo (Gemini `GOOGLE_API_KEY`, Google Calendar OAuth, `BROWSERLESS_API_KEY`, `CRON_SECRET`); cron jobs do Lovable não migrados.
 - Próximo: cadastros de preço (despesas fixas/valor hora, papéis, impressão, processos) a partir da planilha "Formação de Preço de Venda Impressões" e depois ligar a Júlia aos orçamentos.
