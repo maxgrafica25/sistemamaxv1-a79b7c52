@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, ClipboardList, Users, Package, Cpu, Factory,
   Receipt, Calculator, TrendingUp, BookOpen, MessageSquare, Settings, Shield,
-  FilePlus2, Wrench, Sparkles, Printer, Droplet, Flame, Sun, Moon, Monitor,
+  FilePlus2, Wrench, Sparkles, Printer, Droplet, Flame, Sun, Moon, Monitor, Tags,
 } from "lucide-react";
 
 interface Equipment { id: string; name: string }
@@ -27,6 +27,7 @@ const NAV_ITEMS = [
   { label: "Equipamentos", path: "/equipamentos", icon: Cpu },
   { label: "Produção", path: "/processos-producao", icon: Factory },
   { label: "Despesas Fixas", path: "/despesas-fixas", icon: Receipt },
+  { label: "Tabela de Preços", path: "/tabela-precos", icon: Tags },
   { label: "Preço Impressão", path: "/preco-impressao", icon: Calculator },
   { label: "Monitoramento", path: "/monitoramento", icon: TrendingUp },
   { label: "Catálogo Produtos", path: "/produtos", icon: BookOpen },

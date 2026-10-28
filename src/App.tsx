@@ -24,6 +24,7 @@ import ProcessosProducao from "./pages/ProcessosProducao";
 import Configuracoes from "./pages/Configuracoes";
 import DespesasFixas from "./pages/DespesasFixas";
 import PrecoImpressao from "./pages/PrecoImpressao";
+import TabelaPrecos from "./pages/TabelaPrecos";
 import Equipamentos from "./pages/Equipamentos";
 import Auditoria from "./pages/Auditoria";
 import Monitoramento from "./pages/Monitoramento";
@@ -76,6 +77,7 @@ const App = () => (
                   <Route path="/orcamentos-v3/:id/editar" element={<NewQuoteV3 />} />
 
                   <Route path="/preco-impressao" element={<PrecoImpressao />} />
+                  <Route path="/tabela-precos" element={<RoleProtectedRoute requires="admin"><TabelaPrecos /></RoleProtectedRoute>} />
                   <Route path="/calculadora-etiquetas" element={<CalculadoraEtiquetas />} />
                   <Route path="/acabamentos" element={<Navigate to="/processos-producao?tab=acabamentos" replace />} />
                   <Route path="/equipamentos" element={<Equipamentos />} />

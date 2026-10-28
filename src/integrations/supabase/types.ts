@@ -3011,6 +3011,209 @@ export type Database = {
           },
         ]
       }
+      price_table_categories: {
+        Row: {
+          calc_type: string
+          color_mode: string | null
+          created_at: string
+          default_tiers: Json
+          empresa_id: string
+          equipment_id: string | null
+          group_name: string
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          calc_type?: string
+          color_mode?: string | null
+          created_at?: string
+          default_tiers?: Json
+          empresa_id?: string
+          equipment_id?: string | null
+          group_name?: string
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          calc_type?: string
+          color_mode?: string | null
+          created_at?: string
+          default_tiers?: Json
+          empresa_id?: string
+          equipment_id?: string | null
+          group_name?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_table_categories_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_table_categories_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_table_tiers: {
+        Row: {
+          created_at: string
+          empresa_id: string
+          id: string
+          max_qty: number | null
+          min_qty: number
+          price: number
+          price_table_id: string
+          sort_order: number
+          tiny_sku: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          max_qty?: number | null
+          min_qty?: number
+          price?: number
+          price_table_id: string
+          sort_order?: number
+          tiny_sku?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          max_qty?: number | null
+          min_qty?: number
+          price?: number
+          price_table_id?: string
+          sort_order?: number
+          tiny_sku?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_table_tiers_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_table_tiers_price_table_id_fkey"
+            columns: ["price_table_id"]
+            isOneToOne: false
+            referencedRelation: "price_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_tables: {
+        Row: {
+          calc_type: string
+          category_id: string
+          color_mode: string | null
+          created_at: string
+          empresa_id: string
+          equipment_id: string | null
+          extra_cost: number
+          id: string
+          is_active: boolean
+          material_cost: number
+          minutes_per_unit: number
+          name: string
+          notes: string | null
+          paper_id: string | null
+          sheet_size: string
+          sides: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          calc_type?: string
+          category_id: string
+          color_mode?: string | null
+          created_at?: string
+          empresa_id?: string
+          equipment_id?: string | null
+          extra_cost?: number
+          id?: string
+          is_active?: boolean
+          material_cost?: number
+          minutes_per_unit?: number
+          name: string
+          notes?: string | null
+          paper_id?: string | null
+          sheet_size?: string
+          sides?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          calc_type?: string
+          category_id?: string
+          color_mode?: string | null
+          created_at?: string
+          empresa_id?: string
+          equipment_id?: string | null
+          extra_cost?: number
+          id?: string
+          is_active?: boolean
+          material_cost?: number
+          minutes_per_unit?: number
+          name?: string
+          notes?: string | null
+          paper_id?: string | null
+          sheet_size?: string
+          sides?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_tables_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "price_table_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_tables_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_tables_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_tables_paper_id_fkey"
+            columns: ["paper_id"]
+            isOneToOne: false
+            referencedRelation: "papers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       printer_categories: {
         Row: {
           created_at: string
