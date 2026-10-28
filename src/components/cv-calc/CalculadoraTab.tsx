@@ -29,6 +29,8 @@ type Item = {
   midiaId: string;
   impressaoId: string;
   acabamentoId: string;
+  /** Segundo acabamento opcional (ex.: aplicação + corte e laminação na mesma placa). */
+  acabamento2Id?: string;
   kitId: string;
   /** Nome customizado pelo usuário (sobrescreve a sugestão automática). */
   nomeOverride?: string;
@@ -211,12 +213,17 @@ export default function CalculadoraTab() {
       const midia = midias.find((m) => m.id === it.midiaId) ?? null;
       const impressao = impressoes.find((i) => i.id === it.impressaoId) ?? null;
       const acabamento = acabamentos.find((a) => a.id === it.acabamentoId) ?? null;
+      const acabamento2 = it.acabamento2Id && it.acabamento2Id !== it.acabamentoId
+        ? acabamentos.find((a) => a.id === it.acabamento2Id) ?? null
+        : null;
+      const aplicados = [acabamento, acabamento2].filter((a): a is Acabamento => !!a);
       const kit = kits.find((k) => k.id === it.kitId) ?? null;
       const res = calcular({
         largura_cm: it.largura,
         altura_cm: it.altura,
         quantidade: it.quantidade,
-        midia, impressao, acabamento,
+        midia, impressao,
+        acabamentos: aplicados.map((a) => ({ acabamento: a })),
         acabamentos_pool: acabamentos,
         valor_minimo: valorMinimo,
         sangrias_mm: sangrias,
@@ -226,7 +233,7 @@ export default function CalculadoraTab() {
       const kitRes: KitPriceResult | null = kit
         ? calcKitPrice(kit, { largura_cm: it.largura, altura_cm: it.altura, quantidade: it.quantidade }, kitGlobals)
         : null;
-      const tipoInfo = detectarTipoProduto(midia, acabamento ? [acabamento] : []);
+      const tipoInfo = detectarTipoProduto(midia, aplicados);
       const nomeFinal = it.nomeOverride?.trim() || tipoInfo.nome;
       return { item: it, midia, kit, res, kitRes, tipoInfo, nomeFinal };
     });
@@ -404,6 +411,9 @@ function ItemCard({
     if (item.acabamentoId && !acabamentosCompat.some((a) => a.id === item.acabamentoId)) {
       onChange({ acabamentoId: "" });
     }
+    if (item.acabamento2Id && !acabamentosCompat.some((a) => a.id === item.acabamento2Id)) {
+      onChange({ acabamento2Id: "" });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipo]);
 
@@ -557,6 +567,28 @@ function ItemCard({
             </Select>
           </div>
         </div>
+
+        {midia && item.acabamentoId && (
+          <div>
+            <Label className="text-xs">2º acabamento (opcional — ex.: laminação)</Label>
+            <Select
+              value={item.acabamento2Id || "none"}
+              onValueChange={(v) => onChange({ acabamento2Id: v === "none" ? "" : v })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Nenhum" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhum</SelectItem>
+                {acabamentosCompat
+                  .filter((a) => a.id !== item.acabamentoId)
+                  .map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {kits.length > 0 && (
           <div>
