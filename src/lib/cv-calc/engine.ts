@@ -105,6 +105,8 @@ export interface MarkupSettings {
   credit_card_pct: number;
   collection_fee_pct: number;
   default_margin_pct: number;
+  /** Perda (%) — entra só no lucro real, não no preço manual. */
+  waste_pct?: number;
 }
 
 /** Acabamento aplicado pode ter quantidade customizada de unidades. */
@@ -408,8 +410,13 @@ export function calcular(input: CalcInput): CalcResult {
   const valor_total = Math.ceil(Math.round(com_minimo * 100) / 100 - 1e-9);
   const valor_unitario = qtd > 0 ? valor_total / qtd : valor_total;
   const custo_total = custo_midia + custo_impressao + custo_acabamento;
-  const lucro_liquido = subtotal - custo_total;
-  const margem_pct = subtotal > 0 ? (lucro_liquido / subtotal) * 100 : 0;
+  // Lucro real: o que sobra do valor cobrado depois de imposto, cartão/cobrança e perda.
+  const m = input.markup;
+  const deducoes_pct = m
+    ? safe(m.tax_pct) + safe(m.invoice_pct) + safe(m.credit_card_pct) + safe(m.collection_fee_pct) + safe(m.waste_pct)
+    : 0;
+  const lucro_liquido = valor_total * (1 - deducoes_pct / 100) - custo_total;
+  const margem_pct = valor_total > 0 ? (lucro_liquido / valor_total) * 100 : 0;
 
   return {
     area_m2: area,

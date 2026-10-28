@@ -79,7 +79,7 @@ export default function CalculadoraTab() {
         supabase.from("cv_calc_impressoes" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_acabamentos" as never).select("*").eq("ativo", true).order("sort_order"),
         supabase.from("cv_calc_config" as never).select("valor_minimo, sangria_adesivo_mm, sangria_lona_mm, sangria_chapa_mm, sangria_outro_mm").maybeSingle(),
-        supabase.from("global_settings" as never).select("tax_pct, invoice_pct, credit_card_pct, collection_fee_pct, default_margin_pct").maybeSingle(),
+        supabase.from("global_settings" as never).select("tax_pct, invoice_pct, credit_card_pct, collection_fee_pct, default_margin_pct, waste_pct").maybeSingle(),
         supabase.from("cv_calc_acabamento_recipe_items" as never).select("acabamento_id, supply_id, consumo_qty, consumo_tipo"),
         supabase.from("supplies").select("id, valor_unitario"),
         supabase.from("material_groups").select("id, name, pricing_mode, labor_minutes, margin_pct, modulo, is_kit").eq("is_kit", true).contains("modulo", ["cv"]).order("name"),
@@ -367,10 +367,13 @@ interface ItemCardProps {
   onRemove: () => void;
 }
 
+/** Abaixo disso o orçamento de comunicação visual fica com lucro baixo (decisão da gestão, 28/10/2026). */
+const LUCRO_MINIMO_CV_PCT = 25;
+
 function ItemCard({
   index, item, midia, res, kit, kitRes, tipoInfo, nomeFinal,
   midias, impressoes, acabamentos, kits,
-  isAdmin: _isAdmin, canRemove, onChange, onClone, onRemove,
+  isAdmin, canRemove, onChange, onClone, onRemove,
 }: ItemCardProps) {
   const tipo = midia?.tipo_midia ?? null;
   const impressoesCompat = tipo
@@ -468,6 +471,14 @@ function ItemCard({
           )}
         </div>
         <div className="flex items-center gap-3 shrink-0">
+          {isAdmin && res.valor_total > 0 && (
+            <span
+              className={`text-[11px] tabular-nums ${res.margem_pct < LUCRO_MINIMO_CV_PCT ? "text-destructive font-semibold" : "text-muted-foreground"}`}
+              title="Lucro real: valor cobrado menos custos, imposto, cartão e perda"
+            >
+              {res.margem_pct < LUCRO_MINIMO_CV_PCT ? "⚠ " : ""}lucro {res.margem_pct.toFixed(0)}%
+            </span>
+          )}
           <span className="text-sm font-semibold text-primary tabular-nums">
             {formatBRL(res.valor_total + (kitRes?.precoVenda ?? 0))}
           </span>

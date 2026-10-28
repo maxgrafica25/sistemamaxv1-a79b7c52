@@ -129,6 +129,7 @@ export function useV3CVCatalog(): V3CVCatalog {
         credit_card_pct: Number(s.credit_card_pct ?? 0),
         collection_fee_pct: Number(s.collection_fee_pct ?? 0),
         default_margin_pct: Number(s.default_margin_pct ?? 0),
+        waste_pct: Number(s.waste_pct ?? 0),
       };
 
       setState({
