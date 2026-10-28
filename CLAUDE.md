@@ -21,7 +21,7 @@ Criado no Lovable e migrado em 27/10/2026 para infraestrutura própria. **Não e
 - Custo por página: rendimento do fabricante (5%); só toner/tinta (`scales_with_coverage`) multiplicam pela cobertura (20% = ×4). Itens C/M/Y são `mode = 'color_only'`.
 - Despesas de venda (`global_settings`): imposto 10% (`invoice_pct`; `tax_pct` = 0 para não somar duas vezes), perda 5% (monitorar com as perdas registradas), cobrança 7%, lucro 33%. Preço = custo ÷ 0,45.
   - Imposto: contador estima 8–10% (Simples); Juliano fixou 10%. Cobrança 7% = taxa do parcelamento em até 3x sem juros, oferecido em todo pedido. Tabela sempre no cenário regularizado (com nota e cartão); parte das vendas hoje sai sem nota/no Pix, o que vira folga de caixa, não base de preço.
-  - Estratégia de preço proposta (falta calibrar): preço de tabela pelo mercado + piso calculado (custo + tempo ÷ 0,45) + desconto por quantidade pela fórmula taxa de preparação + preço por folha + pedido mínimo + desconto no Pix. Aguardando: tempo médio de preparação, exportação de pedidos do Tiny, preços de concorrentes, % do desconto no Pix.
+  - Estratégia de preço proposta (falta calibrar): preço de tabela pelo mercado + piso calculado (custo + tempo ÷ 0,45) + desconto por quantidade pela fórmula taxa de preparação + preço por folha + pedido mínimo + desconto no Pix. Decidido em 28/10: desconto no Pix 5%; tempo médio de preparação por pedido 2,5 min (≈ R$ 2,04 de custo). Aguardando: exportação de pedidos do Tiny e pesquisa de preços de concorrentes (cliente oculto).
 - As faixas de mark-up do Preço Impressão (`markup_tiers`, com 40% de custo fixo) são do método antigo e ainda precisam ser revistas.
 
 ## Pendências (27/10/2026)
