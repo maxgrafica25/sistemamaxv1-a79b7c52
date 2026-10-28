@@ -33,6 +33,9 @@ Criado no Lovable e migrado em 27/10/2026 para infraestrutura própria. **Não e
 - Planilha atual de orçamento CV ("Orçamentos Adesivos, Lonas, Placas e Magnetos"): preço = custo + "lucro" fixo em R$ por m²; sem imposto/cartão/perda explícitos; valor mínimo R$ 35. Placa PS grande não tem cadastro próprio (só "PVC" a R$ 26/m²).
 
 ## Pendências (atualizado 28/10/2026)
+- Balcão — decidido em 28/10: **sem pedido mínimo**; 1 cópia P&B não passa de R$ 1,00 (prejuízo aceito para manter o cliente na loja); currículo colorido fica a R$ 1,00 (SKU 1154, ajuda a quem busca emprego). Sulfite 75 g comprado na **Kgepel** (preço atual ainda não informado; o custo usado é de jan/2024).
+  - Tabelas do Tiny (por unidade): P&B Sulfite 75 A4 (SKU 359x) 1–50 R$ 1,00 · 51–300 R$ 0,50 · 301–1000 R$ 0,40 · >1000 R$ 0,30. Color Sulfite 75 A4 (154x) 1–20 R$ 3,40 · 21–100 R$ 2,60 · 101–300 R$ 2,10 · >300 R$ 1,70. Color Couché 210 A4 (266x) 4,00 · 3,00 · 2,50 · 2,00 (mesmas faixas). Todas acima do piso (custo + preparação) ÷ 0,45, exceto pedidos de 1–6 cópias P&B e 1 cópia colorida.
+  - Proposta para o degrau entre faixas: o total nunca fica abaixo do total máximo da faixa anterior (ex.: P&B 51–100 = R$ 50). No Tiny: lançar na faixa anterior com desconto até o teto. Aguardando OK do Juliano.
 - Ajuste do balcão (impressão laser): degrau do P&B (R$ 1,00 até 50 → R$ 0,50 a partir de 51), pedido mínimo, desconto 5% no Pix; rever `markup_tiers` (40% de custo fixo, método antigo). Dados de vendas: 91% dos pedidos coloridos têm até 20 un; ~55% do faturamento do Tiny está em itens sem cadastro (provavelmente CV).
 - Faturamento médio (Tiny, 12 meses): R$ 58,6 mil/mês; custos fixos ~R$ 35,9 mil/mês.
 - Pesquisa de concorrentes (cliente oculto) — roteiro de 9 itens já passado ao Juliano; calibrar balcão e CV (ex.: PS 3 mm está em ~36% de lucro, meta 40%).
