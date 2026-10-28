@@ -32,7 +32,12 @@ Criado no Lovable e migrado em 27/10/2026 para infraestrutura própria. **Não e
 - Placas (migração `20261028150000_cv_placas_composicao.sql`): custo da chapa inclui o adesivo impresso (R$ 14,19/m²); "Aplicação do adesivo + corte" = 5 min + 2 min/m de contorno + 8 min/m² (11 placas PS 2 mm 30×42 em 50 min); laminação = adesivo transparente + 5 min/m². Calculadora tem 2º acabamento opcional. Valor do minuto na planilha de tempos do Juliano: R$ 0,87 (sistema: R$ 0,81).
 - Planilha atual de orçamento CV ("Orçamentos Adesivos, Lonas, Placas e Magnetos"): preço = custo + "lucro" fixo em R$ por m²; sem imposto/cartão/perda explícitos; valor mínimo R$ 35. Placa PS grande não tem cadastro próprio (só "PVC" a R$ 26/m²).
 
-## Pendências (27/10/2026)
+## Pendências (atualizado 28/10/2026)
+- Ajuste do balcão (impressão laser): degrau do P&B (R$ 1,00 até 50 → R$ 0,50 a partir de 51), pedido mínimo, desconto 5% no Pix; rever `markup_tiers` (40% de custo fixo, método antigo). Dados de vendas: 91% dos pedidos coloridos têm até 20 un; ~55% do faturamento do Tiny está em itens sem cadastro (provavelmente CV).
+- Faturamento médio (Tiny, 12 meses): R$ 58,6 mil/mês; custos fixos ~R$ 35,9 mil/mês.
+- Pesquisa de concorrentes (cliente oculto) — roteiro de 9 itens já passado ao Juliano; calibrar balcão e CV (ex.: PS 3 mm está em ~36% de lucro, meta 40%).
 - Tela "Hoje" (`src/pages/Dashboard.tsx`) mostra números de exemplo fixos no código.
+- Marcelle (sócia, gestão) ainda não tem usuário no sistema; o lucro na calculadora CV só aparece para `role = 'admin'`.
 - Segredos das Edge Functions ainda não configurados no Supabase novo (Gemini `GOOGLE_API_KEY`, Google Calendar OAuth, `BROWSERLESS_API_KEY`, `CRON_SECRET`); cron jobs do Lovable não migrados.
-- Próximo: cadastros de preço (despesas fixas/valor hora, papéis, impressão, processos) a partir da planilha "Formação de Preço de Venda Impressões" e depois ligar a Júlia aos orçamentos.
+- Ligar a Júlia (repo `maxgrafica25/julia`) aos orçamentos do sistema.
+- Revisão dos cadastros do Tiny (produtos padronizados, CV lançado como item avulso).
