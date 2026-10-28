@@ -29,6 +29,7 @@ Criado no Lovable e migrado em 27/10/2026 para infraestrutura própria. **Não e
 - Volume comprado em ~12,6 meses: ~742 m² de lona + ~546 m² de adesivo + ~49 m² de perfurado ≈ 105 m²/mês (≈ 95 m² impressos/mês descontando sobra).
 - Signstar (ecosolvente): tinta R$ 220/L; software estima 3,6–4,7 ml/m² (usar ~6 ml/m² com limpezas ≈ R$ 1,30/m²); velocidade ~4,6 m²/h (360×720) e ~7,7 m²/h (360×360). Depreciação (R$ 65 mil − 10 mil)/60 = R$ 917/mês ÷ ~95 m² ≈ R$ 9,60/m² — máquina usada ~20 h/mês (muita capacidade ociosa).
 - Decisão 28/10: manter os preços de venda da planilha CV (já dão ~40% de lucro real) e meta CV = 40%, piso 25% (aviso na calculadora, só admin). Migração `20261028120000_cv_custos_reais_notas.sql` pôs custos reais e criou Placa PS 2/3 mm (preço = PVC + R$ 40/m²). Lucro real no engine desconta imposto + cartão + perda.
+- Placas (migração `20261028150000_cv_placas_composicao.sql`): custo da chapa inclui o adesivo impresso (R$ 14,19/m²); "Aplicação do adesivo + corte" = 5 min + 2 min/m de contorno + 8 min/m² (11 placas PS 2 mm 30×42 em 50 min); laminação = adesivo transparente + 5 min/m². Calculadora tem 2º acabamento opcional. Valor do minuto na planilha de tempos do Juliano: R$ 0,87 (sistema: R$ 0,81).
 - Planilha atual de orçamento CV ("Orçamentos Adesivos, Lonas, Placas e Magnetos"): preço = custo + "lucro" fixo em R$ por m²; sem imposto/cartão/perda explícitos; valor mínimo R$ 35. Placa PS grande não tem cadastro próprio (só "PVC" a R$ 26/m²).
 
 ## Pendências (27/10/2026)
