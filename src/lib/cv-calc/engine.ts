@@ -411,9 +411,9 @@ export function calcular(input: CalcInput): CalcResult {
   const valor_unitario = qtd > 0 ? valor_total / qtd : valor_total;
   const custo_total = custo_midia + custo_impressao + custo_acabamento;
   // Lucro real: o que sobra do valor cobrado depois de imposto, cartão/cobrança e perda.
-  const m = input.markup;
-  const deducoes_pct = m
-    ? safe(m.tax_pct) + safe(m.invoice_pct) + safe(m.credit_card_pct) + safe(m.collection_fee_pct) + safe(m.waste_pct)
+  const mk = input.markup;
+  const deducoes_pct = mk
+    ? safe(mk.tax_pct) + safe(mk.invoice_pct) + safe(mk.credit_card_pct) + safe(mk.collection_fee_pct) + safe(mk.waste_pct)
     : 0;
   const lucro_liquido = valor_total * (1 - deducoes_pct / 100) - custo_total;
   const margem_pct = valor_total > 0 ? (lucro_liquido / valor_total) * 100 : 0;
