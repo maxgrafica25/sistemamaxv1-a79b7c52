@@ -24,6 +24,12 @@ Criado no Lovable e migrado em 27/10/2026 para infraestrutura própria. **Não e
   - Estratégia de preço proposta (falta calibrar): preço de tabela pelo mercado + piso calculado (custo + tempo ÷ 0,45) + desconto por quantidade pela fórmula taxa de preparação + preço por folha + pedido mínimo + desconto no Pix. Decidido em 28/10: desconto no Pix 5%; tempo médio de preparação por pedido 2,5 min (≈ R$ 2,04 de custo). Aguardando: exportação de pedidos do Tiny e pesquisa de preços de concorrentes (cliente oculto).
 - As faixas de mark-up do Preço Impressão (`markup_tiers`, com 40% de custo fixo) são do método antigo e ainda precisam ser revistas.
 
+## Comunicação visual — custos levantados em 28/10/2026 (NF-e da Bluebird, out/2025–out/2026, 32 notas)
+- Mídias (rolos de 50 m): lona 440 g brilho R$ 8,40–8,60/m², fosca R$ 8,80–8,90/m²; adesivo Ritrama M80 1,05 m R$ 660–690/cx (~R$ 12,60–13,10/m²), 1,26 m R$ 793–818/cx; perfurado MPI R$ 14,50–15,90/m²; vinil MPX transparente R$ 15,90–17,90/m linear; PS branco 2 mm R$ 76/chapa 2×1 (R$ 38/m²), 3 mm R$ 100–120/chapa (R$ 50–60/m²); PVC expandido 3 mm R$ 87/chapa 1,22×2,44 (~R$ 29/m², placas pequenas); bastão 1,05 R$ 2,40, 1,50 R$ 3,50; ponteira R$ 0,23–0,26.
+- Volume comprado em ~12,6 meses: ~742 m² de lona + ~546 m² de adesivo + ~49 m² de perfurado ≈ 105 m²/mês (≈ 95 m² impressos/mês descontando sobra).
+- Signstar (ecosolvente): tinta R$ 220/L; software estima 3,6–4,7 ml/m² (usar ~6 ml/m² com limpezas ≈ R$ 1,30/m²); velocidade ~4,6 m²/h (360×720) e ~7,7 m²/h (360×360). Depreciação (R$ 65 mil − 10 mil)/60 = R$ 917/mês ÷ ~95 m² ≈ R$ 9,60/m² — máquina usada ~20 h/mês (muita capacidade ociosa).
+- Planilha atual de orçamento CV ("Orçamentos Adesivos, Lonas, Placas e Magnetos"): preço = custo + "lucro" fixo em R$ por m²; sem imposto/cartão/perda explícitos; valor mínimo R$ 35. Placa PS grande não tem cadastro próprio (só "PVC" a R$ 26/m²).
+
 ## Pendências (27/10/2026)
 - Tela "Hoje" (`src/pages/Dashboard.tsx`) mostra números de exemplo fixos no código.
 - Segredos das Edge Functions ainda não configurados no Supabase novo (Gemini `GOOGLE_API_KEY`, Google Calendar OAuth, `BROWSERLESS_API_KEY`, `CRON_SECRET`); cron jobs do Lovable não migrados.
