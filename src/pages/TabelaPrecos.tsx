@@ -22,6 +22,9 @@ import {
   PREP_MINUTES,
   fmtMoney,
   formatTierRanges,
+  itemAttributes,
+  matchesSearch,
+  orderTotal,
   minUnitPrice,
   parseTierRanges,
   prepCost,
@@ -32,6 +35,7 @@ import {
   type CalcType,
   type ColorMode,
   type EquipmentInput,
+  type ItemAttributes,
   type PaperCostInput,
   type PriceSettings,
   type PriceTableItem,
@@ -74,6 +78,24 @@ interface Paper extends PaperCostInput {
 
 const GROUP_ORDER = ["Impressões", "Serviços de balcão", "Personalizados"];
 const NONE = "__none__";
+const ALL = "__all__";
+
+type FilterKey = keyof ItemAttributes | "status";
+const FILTERS: { key: FilterKey; label: string }[] = [
+  { key: "paper", label: "Papel" },
+  { key: "grammage", label: "Gramatura" },
+  { key: "size", label: "Tamanho" },
+  { key: "color", label: "Cor" },
+  { key: "sides", label: "Lados" },
+  { key: "status", label: "Situação" },
+];
+const STATUS_LABELS: Record<string, string> = {
+  abaixo: "Lucro abaixo da meta (2 un ou mais)",
+  sem_custo: "Falta custo",
+  erro: "Faixa com erro ou papel sem custo",
+};
+const EMPTY_FILTERS: Record<FilterKey, string> = { paper: "", grammage: "", size: "", color: "", sides: "", status: "" };
+const sortOptions = (a: string, b: string) => a.localeCompare(b, "pt-BR", { numeric: true });
 
 const parseNum = (v: string) => {
   const n = Number(String(v).replace(/\./g, "").replace(",", "."));
@@ -105,6 +127,8 @@ export default function TabelaPrecos() {
 
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<Record<FilterKey, string>>(EMPTY_FILTERS);
+  const [qtyText, setQtyText] = useState("");
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
 
   const [itemDialog, setItemDialog] = useState<{ item: Partial<Item>; tiers: DraftTier[] } | null>(null);
@@ -177,13 +201,66 @@ export default function TabelaPrecos() {
     if (!selectedCat && categories.length) setSelectedCat(categories[0].id);
   }, [categories, selectedCat]);
 
+  // Características (papel, gramatura…) e situação de cada item, para os filtros.
+  const facets = useMemo(() => {
+    const m = new Map<string, Record<FilterKey, string[]>>();
+    for (const item of items) {
+      const a = itemAttributes(item);
+      const list = tiersByItem.get(item.id) || [];
+      const cost = unitCost(item, { papers, equipments, minuteRate });
+      const status: string[] = [];
+      if (cost.missing) status.push("sem_custo");
+      else if (list.some((t) => t.min_qty >= 2 && (realProfitPct(t.price, t.min_qty, cost.total, { feesPct, targetPct, minuteRate }) ?? 1) < targetPct)) status.push("abaixo");
+      const tierErrors = tierProblems(list).some((p) => !p.message.startsWith("Degrau"));
+      if (tierErrors || (item.calc_type === "impressao" && cost.paper <= 0)) status.push("erro");
+      m.set(item.id, {
+        paper: a.paper ? [a.paper] : [],
+        grammage: a.grammage ? [a.grammage] : [],
+        size: a.size ? [a.size] : [],
+        color: a.color ? [a.color] : [],
+        sides: a.sides ? [a.sides] : [],
+        status,
+      });
+    }
+    return m;
+  }, [items, tiersByItem, papers, equipments, minuteRate, feesPct, targetPct]);
+
+  const filtering = !!search.trim() || Object.values(filters).some(Boolean);
+
+  const passes = (item: Item, skip?: FilterKey) => {
+    const f = facets.get(item.id);
+    for (const { key } of FILTERS) {
+      if (key === skip || !filters[key]) continue;
+      if (!f?.[key].includes(filters[key])) return false;
+    }
+    const q = search.trim();
+    return !q || matchesSearch(item.name, q) || (tiersByItem.get(item.id) || []).some((t) => t.tiny_sku?.includes(q));
+  };
+
+  // Opções de cada filtro com quantos itens sobram se escolhida (considerando os outros filtros).
+  const filterOptions = useMemo(() => {
+    const out = {} as Record<FilterKey, [string, number][]>;
+    for (const { key } of FILTERS) {
+      const counts = new Map<string, number>();
+      for (const item of items) {
+        if (!passes(item, key)) continue;
+        for (const v of facets.get(item.id)?.[key] || []) counts.set(v, (counts.get(v) || 0) + 1);
+      }
+      out[key] = Array.from(counts.entries()).sort((a, b) => sortOptions(a[0], b[0]));
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, facets, filters, search, tiersByItem]);
+
   const visibleItems = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const list = q
-      ? items.filter((i) => i.name.toLowerCase().includes(q) || (tiersByItem.get(i.id) || []).some((t) => t.tiny_sku?.includes(q)))
-      : items.filter((i) => i.category_id === selectedCat);
+    const list = filtering ? items.filter((i) => passes(i)) : items.filter((i) => i.category_id === selectedCat);
     return [...list].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { numeric: true }));
-  }, [items, search, selectedCat, tiersByItem]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, filtering, filters, search, selectedCat, tiersByItem, facets]);
+
+  const qty = Math.max(0, Math.floor(parseNum(qtyText) || 0));
+  const clearFilters = () => { setSearch(""); setFilters(EMPTY_FILTERS); };
+  const pickCategory = (id: string) => { setSelectedCat(id); clearFilters(); };
 
   const countByCat = useMemo(() => {
     const m = new Map<string, number>();
@@ -381,7 +458,7 @@ export default function TabelaPrecos() {
         <aside className="md:w-64 shrink-0 space-y-3">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar nome ou SKU" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 pr-8" />
+            <Input placeholder="Buscar: couche 300 a3, SKU…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 pr-8" />
             {search && (
               <button className="absolute right-2 top-2.5 text-muted-foreground" onClick={() => setSearch("")} aria-label="Limpar busca">
                 <X className="h-4 w-4" />
@@ -389,7 +466,7 @@ export default function TabelaPrecos() {
             )}
           </div>
           <div className="md:hidden">
-            <Select value={selectedCat || undefined} onValueChange={(v) => { setSelectedCat(v); setSearch(""); }}>
+            <Select value={selectedCat || undefined} onValueChange={pickCategory}>
               <SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger>
               <SelectContent>
                 {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.group_name} · {c.name} ({countByCat.get(c.id) || 0})</SelectItem>)}
@@ -402,8 +479,8 @@ export default function TabelaPrecos() {
               {g.cats.map((c) => (
                 <button
                   key={c.id}
-                  onClick={() => { setSelectedCat(c.id); setSearch(""); }}
-                  className={`w-full flex items-center justify-between rounded-md px-2 py-1.5 text-sm text-left hover:bg-muted ${!search && selectedCat === c.id ? "bg-primary/10 text-primary font-medium" : ""}`}
+                  onClick={() => pickCategory(c.id)}
+                  className={`w-full flex items-center justify-between rounded-md px-2 py-1.5 text-sm text-left hover:bg-muted ${!filtering && selectedCat === c.id ? "bg-primary/10 text-primary font-medium" : ""}`}
                 >
                   <span className="truncate">{c.name}</span>
                   <span className="text-xs text-muted-foreground">{countByCat.get(c.id) || 0}</span>
@@ -418,11 +495,45 @@ export default function TabelaPrecos() {
 
         {/* Itens */}
         <main className="flex-1 min-w-0 space-y-3">
+          <div className="rounded-lg border bg-card p-3 space-y-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
+              {FILTERS.map(({ key, label }) => (
+                <div key={key} className={key === "status" ? "col-span-2 sm:col-span-1 lg:col-span-2" : ""}>
+                  <Label className="text-xs text-muted-foreground">{label}</Label>
+                  <Select value={filters[key] || ALL} onValueChange={(v) => setFilters((f) => ({ ...f, [key]: v === ALL ? "" : v }))}>
+                    <SelectTrigger className={`h-9 ${filters[key] ? "border-primary text-primary" : ""}`}><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL}>Todos</SelectItem>
+                      {filterOptions[key].map(([v, n]) => (
+                        <SelectItem key={v} value={v}>{key === "status" ? STATUS_LABELS[v] : v} ({n})</SelectItem>
+                      ))}
+                      {filters[key] && !filterOptions[key].some(([v]) => v === filters[key]) && (
+                        <SelectItem value={filters[key]}>{key === "status" ? STATUS_LABELS[filters[key]] : filters[key]} (0)</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-3 flex-wrap text-sm">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="sim-qty" className="whitespace-nowrap">Simular quantidade</Label>
+                <Input id="sim-qty" inputMode="numeric" placeholder="ex.: 70" className="h-8 w-24" value={qtyText} onChange={(e) => setQtyText(e.target.value)} />
+                {qtyText && <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setQtyText("")}><X className="h-4 w-4" /></Button>}
+              </div>
+              {filtering && (
+                <Button variant="outline" size="sm" className="h-8 ml-auto" onClick={clearFilters}>
+                  <X className="h-4 w-4 mr-1" /> Limpar filtros
+                </Button>
+              )}
+            </div>
+          </div>
+
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <h2 className="text-lg font-semibold">
-              {search ? `Busca: "${search}" (${visibleItems.length})` : currentCat?.name}
+              {filtering ? `${visibleItems.length} ${visibleItems.length === 1 ? "item encontrado" : "itens encontrados"} em todas as categorias` : currentCat?.name}
             </h2>
-            {!search && currentCat && (
+            {!filtering && currentCat && (
               <div className="flex gap-2">
                 <Button variant="ghost" size="sm" onClick={() => openCategory(currentCat)}><Pencil className="h-4 w-4 mr-1" /> Categoria</Button>
                 {!countByCat.get(currentCat.id) && (
@@ -434,7 +545,7 @@ export default function TabelaPrecos() {
           </div>
 
           {visibleItems.length === 0 && (
-            <p className="text-sm text-muted-foreground py-8 text-center">Nenhum item aqui ainda.</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">{filtering ? "Nenhum item com esses filtros." : "Nenhum item aqui ainda."}</p>
           )}
 
           {visibleItems.map((item) => {
@@ -452,7 +563,7 @@ export default function TabelaPrecos() {
                   <div className="min-w-0">
                     <p className="font-medium leading-tight">{item.name}</p>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {search && <Badge variant="outline">{categories.find((c) => c.id === item.category_id)?.name}</Badge>}
+                      {filtering && <Badge variant="outline">{categories.find((c) => c.id === item.category_id)?.name}</Badge>}
                       {item.calc_type === "impressao" && (
                         <>
                           {eq && <Badge variant="secondary">{eq.name}</Badge>}
@@ -463,6 +574,12 @@ export default function TabelaPrecos() {
                       )}
                     </div>
                     {item.notes && <p className="text-xs text-muted-foreground mt-1">{item.notes}</p>}
+                    {qty > 0 && list.length > 0 && (
+                      <p className="text-sm mt-1.5">
+                        <strong>{qty} un = {fmtMoney(orderTotal(list, qty))}</strong>
+                        <span className="text-muted-foreground"> ({fmtMoney(orderTotal(list, qty) / qty)} cada)</span>
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <HoverCard>
@@ -503,7 +620,7 @@ export default function TabelaPrecos() {
                           const profit = cost.missing ? null : realProfitPct(t.price, t.min_qty, cost.total, settings);
                           const min = cost.missing ? null : minUnitPrice(t.min_qty, cost.total, settings);
                           return (
-                            <TableRow key={t.id}>
+                            <TableRow key={t.id} className={qty > 0 && qty >= t.min_qty && (t.max_qty === null || qty <= t.max_qty) ? "bg-primary/10 hover:bg-primary/10" : ""}>
                               <TableCell className="py-1.5">{tierLabel(t)}</TableCell>
                               <TableCell className="py-1.5 font-mono text-xs">{t.tiny_sku || "—"}</TableCell>
                               <TableCell className="py-1">

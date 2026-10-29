@@ -178,3 +178,42 @@ export const formatTierRanges = (tiers: Pick<PriceTier, "min_qty" | "max_qty">[]
   tiers.map((t) => (t.max_qty === null ? `${t.min_qty}+` : t.min_qty === t.max_qty ? `${t.min_qty}` : `${t.min_qty}-${t.max_qty}`)).join(", ");
 
 export const fmtMoney = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+// ─── Filtros e busca ─────────────────────────────────────────────────
+
+/** Minúsculas e sem acento, para comparar "couchê" com "couche". */
+export const normalize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/** Todas as palavras da busca aparecem no texto, em qualquer ordem ("couche 300 a3"). */
+export const matchesSearch = (text: string, query: string) => {
+  const t = normalize(text);
+  return normalize(query).split(/\s+/).filter(Boolean).every((w) => t.includes(w));
+};
+
+// Ordem importa: o primeiro que aparecer no nome vence ("Vinil Adesivo" é vinil, não adesivo).
+const PAPER_KEYS: [string, string][] = [
+  ["envelope", "Envelope"], ["colorplus", "Colorplus"], ["vinil", "Vinil"], ["transfer", "Transfer"],
+  ["pvc", "PVC"], ["autocopiativo", "Autocopiativo"], ["couche", "Couchê"], ["sulfite", "Sulfite"],
+  ["reciclato", "Reciclato"], ["cartolina", "Cartolina"], ["kraft", "Kraft"], ["superbond", "Superbond"],
+  ["verge", "Vergê"], ["supremo", "Supremo"], ["adesivo", "Adesivo"],
+];
+
+export interface ItemAttributes {
+  paper: string | null;
+  grammage: string | null;
+  size: string | null;
+  color: "Colorida" | "P&B" | null;
+  sides: "Só frente" | "Frente e verso" | null;
+}
+
+/** Características do item tiradas do nome (que vem do Tiny) e dos campos de impressão. */
+export const itemAttributes = (item: Pick<PriceTableItem, "calc_type" | "color_mode" | "sheet_size" | "sides"> & { name: string }): ItemAttributes => {
+  const n = normalize(item.name);
+  const paper = PAPER_KEYS.find(([k]) => n.includes(k))?.[1] ?? null;
+  const g = n.match(/(\d{2,3})\s*g(?:r|rs|ramas)?\b/);
+  const isPrint = item.calc_type === "impressao";
+  const size = isPrint ? item.sheet_size : n.match(/\ba[345]\b/)?.[0].toUpperCase() ?? null;
+  const color = isPrint ? (item.color_mode === "pb" ? "P&B" : "Colorida") : null;
+  const sides = isPrint ? (item.sides === 2 ? "Frente e verso" : "Só frente") : null;
+  return { paper, grammage: g ? `${g[1]}g` : null, size, color, sides };
+};
