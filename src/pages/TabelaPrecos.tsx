@@ -20,6 +20,7 @@ import { handleError } from "@/lib/handleError";
 import { useV3HourlyRate } from "@/components/orcamentos-v3/shared/useV3HourlyRate";
 import {
   PREP_MINUTES,
+  chainTiers,
   fmtMoney,
   formatTierRanges,
   itemAttributes,
@@ -300,14 +301,14 @@ export default function TabelaPrecos() {
         minutes_per_unit: 0,
         notes: null,
       },
-      tiers: (ranges.length ? ranges : [{ min_qty: 1, max_qty: null }]).map((r) => ({ _key: newKey(), min_qty: r.min_qty, max_qty: r.max_qty, price: 0, tiny_sku: null })),
+      tiers: chainTiers((ranges.length ? ranges : [{ min_qty: 1, max_qty: null }]).map((r) => ({ _key: newKey(), min_qty: r.min_qty, max_qty: r.max_qty, price: 0, tiny_sku: null }))),
     });
   };
 
   const editItem = (item: Item, copy = false) => {
     setItemDialog({
       item: copy ? { ...item, id: undefined, name: `${item.name} (cópia)` } : { ...item },
-      tiers: (tiersByItem.get(item.id) || []).map((t) => ({ ...t, _key: newKey(), id: copy ? undefined : t.id, tiny_sku: copy ? null : t.tiny_sku })),
+      tiers: chainTiers((tiersByItem.get(item.id) || []).map((t) => ({ ...t, _key: newKey(), id: copy ? undefined : t.id, tiny_sku: copy ? null : t.tiny_sku }))),
     });
   };
 
@@ -316,13 +317,13 @@ export default function TabelaPrecos() {
     const { item, tiers: draftTiers } = itemDialog;
     if (!item.name?.trim()) return toast.error("Dê um nome ao item");
     if (!item.category_id) return toast.error("Escolha a categoria");
-    const clean = draftTiers.map((t, i) => ({
+    const clean = chainTiers(draftTiers.map((t, i) => ({
       min_qty: Number(t.min_qty) || 1,
       max_qty: t.max_qty === null || t.max_qty === undefined || String(t.max_qty) === "" ? null : Number(t.max_qty),
       price: Number(t.price) || 0,
       tiny_sku: t.tiny_sku?.toString().trim() || null,
       sort_order: i,
-    }));
+    })));
     if (!clean.length) return toast.error("Inclua pelo menos uma faixa");
     if (clean.some((t) => t.max_qty !== null && t.max_qty < t.min_qty)) return toast.error("Há faixa com 'até' menor que 'de'");
 
@@ -809,7 +810,9 @@ function ItemDialog({
 }) {
   const { item, tiers } = state;
   const set = (v: Partial<Item>) => onChange({ item: { ...item, ...v }, tiers });
-  const setTier = (i: number, v: Partial<Tier>) => onChange({ item, tiers: tiers.map((t, k) => (k === i ? { ...t, ...v } : t)) });
+  // O "De" de cada faixa segue o "Até" da anterior; só o da primeira é digitado.
+  const setTiers = (list: DraftTier[]) => onChange({ item, tiers: chainTiers(list as (DraftTier & Pick<Tier, "min_qty" | "max_qty">)[]) });
+  const setTier = (i: number, v: Partial<Tier>) => setTiers(tiers.map((t, k) => (k === i ? { ...t, ...v } : t)));
   const cost = unitCost(
     {
       calc_type: item.calc_type || "manual",
@@ -832,7 +835,7 @@ function ItemDialog({
   const addTier = () => {
     const last = tiers[tiers.length - 1];
     const start = last ? (last.max_qty ? Number(last.max_qty) + 1 : Number(last.min_qty || 1) + 1) : 1;
-    onChange({ item, tiers: [...tiers, { _key: newKey(), min_qty: start, max_qty: null, price: 0, tiny_sku: null }] });
+    setTiers([...tiers, { _key: newKey(), min_qty: start, max_qty: null, price: 0, tiny_sku: null }]);
   };
 
   return (
@@ -945,14 +948,14 @@ function ItemDialog({
                     const min = cost.missing ? null : minUnitPrice(minQ, cost.total, settings);
                     return (
                       <TableRow key={t._key}>
-                        <TableCell className="py-1"><Input className="h-8 w-20" inputMode="numeric" value={t.min_qty ?? ""} onChange={(e) => setTier(i, { min_qty: parseNum(e.target.value) || 1 })} /></TableCell>
+                        <TableCell className="py-1"><Input className="h-8 w-20" inputMode="numeric" value={t.min_qty ?? ""} disabled={i > 0} title={i > 0 ? "Começa logo depois do 'até' da faixa anterior" : undefined} onChange={(e) => setTier(i, { min_qty: parseNum(e.target.value) || 1 })} /></TableCell>
                         <TableCell className="py-1"><Input className="h-8 w-24" inputMode="numeric" value={t.max_qty ?? ""} onChange={(e) => setTier(i, { max_qty: e.target.value.trim() === "" ? null : parseNum(e.target.value) || null })} /></TableCell>
                         <TableCell className="py-1"><Input className="h-8 w-24" inputMode="decimal" defaultValue={String(t.price ?? 0).replace(".", ",")} onChange={(e) => setTier(i, { price: parseDecimal(e.target.value) || 0 })} /></TableCell>
                         <TableCell className="py-1"><Input className="h-8 w-28" value={t.tiny_sku ?? ""} onChange={(e) => setTier(i, { tiny_sku: e.target.value })} /></TableCell>
                         <TableCell className={`py-1 text-right font-medium ${profitClass(profit, settings.targetPct)}`}>{pct(profit)}</TableCell>
                         <TableCell className="py-1 text-right text-muted-foreground">{min === null ? "—" : fmtMoney(min)}</TableCell>
                         <TableCell className="py-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onChange({ item, tiers: tiers.filter((_, k) => k !== i) })} aria-label="Remover faixa"><X className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setTiers(tiers.filter((_, k) => k !== i))} aria-label="Remover faixa"><X className="h-4 w-4" /></Button>
                         </TableCell>
                       </TableRow>
                     );

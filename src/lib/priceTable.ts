@@ -217,3 +217,12 @@ export const itemAttributes = (item: Pick<PriceTableItem, "calc_type" | "color_m
   const sides = isPrint ? (item.sides === 2 ? "Frente e verso" : "Só frente") : null;
   return { paper, grammage: g ? `${g[1]}g` : null, size, color, sides };
 };
+
+/** Encadeia as faixas: cada uma começa logo depois do "até" da anterior (sem buraco nem sobreposição). */
+export const chainTiers = <T extends Pick<PriceTier, "min_qty" | "max_qty">>(tiers: T[]): T[] =>
+  tiers.reduce<T[]>((out, t, i) => {
+    const prev = out[i - 1];
+    const min = prev ? (prev.max_qty !== null && prev.max_qty !== undefined ? prev.max_qty + 1 : prev.min_qty + 1) : t.min_qty;
+    out.push({ ...t, min_qty: min }); // "até" menor que o "de" fica como está (a pessoa pode estar digitando)
+    return out;
+  }, []);

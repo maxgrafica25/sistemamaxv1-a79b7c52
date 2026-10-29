@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  chainTiers,
   itemAttributes,
   matchesSearch,
   minUnitPrice,
@@ -110,5 +111,15 @@ describe("filtros da tabela de preços", () => {
   it("busca por palavras em qualquer ordem e sem acento", () => {
     expect(matchesSearch("Impressão Color Laser A3 Couchê 300g", "couche 300 a3")).toBe(true);
     expect(matchesSearch("Impressão Color Laser A3 Couchê 300g", "couche a4")).toBe(false);
+  });
+});
+
+describe("faixas encadeadas", () => {
+  it("cada faixa começa logo depois do 'até' da anterior", () => {
+    expect(chainTiers([
+      { min_qty: 1, max_qty: 100 }, { min_qty: 51, max_qty: 300 }, { min_qty: 999, max_qty: null },
+    ])).toEqual([
+      { min_qty: 1, max_qty: 100 }, { min_qty: 101, max_qty: 300 }, { min_qty: 301, max_qty: null },
+    ]);
   });
 });
