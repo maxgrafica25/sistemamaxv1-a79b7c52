@@ -1219,6 +1219,7 @@ export type Database = {
           custo_mt2: number
           empresa_id: string
           id: string
+          largura_rolo_cm: number | null
           lucro_fixo: number
           lucro_mt2: number
           nome: string
@@ -1233,6 +1234,7 @@ export type Database = {
           custo_mt2?: number
           empresa_id?: string
           id?: string
+          largura_rolo_cm?: number | null
           lucro_fixo?: number
           lucro_mt2?: number
           nome: string
@@ -1247,6 +1249,7 @@ export type Database = {
           custo_mt2?: number
           empresa_id?: string
           id?: string
+          largura_rolo_cm?: number | null
           lucro_fixo?: number
           lucro_mt2?: number
           nome?: string

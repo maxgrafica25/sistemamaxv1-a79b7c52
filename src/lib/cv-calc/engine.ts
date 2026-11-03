@@ -22,6 +22,28 @@ export interface Midia {
   lucro_mt2: number;
   custo_fixo: number;
   lucro_fixo: number;
+  /** Largura do rolo (cm). Quando preenchida, a mídia é cobrada pela largura
+   *  inteira do rolo × comprimento usado (a sobra do corte entra no preço). */
+  largura_rolo_cm?: number | null;
+}
+
+/**
+ * Área de rolo gasta por peça (m²): peça inteira (sem emenda) atravessada no rolo,
+ * no sentido que gasta menos; se nenhum lado couber, faixas emendadas.
+ * Ex.: 300×180 cm em rolo de 190 cm → 1,90 × 3,00 = 5,70 m².
+ */
+export function areaRoloPorPeca(largura_cm: number, altura_cm: number, rolo_cm: number): number {
+  if (!(rolo_cm > 0) || !(largura_cm > 0) || !(altura_cm > 0)) return (largura_cm * altura_cm) / 10_000;
+  // Peça inteira (sem emenda) sempre que um dos lados cabe na largura do rolo.
+  const inteiras = [largura_cm, altura_cm].filter((d) => d <= rolo_cm + 1e-9);
+  if (inteiras.length > 0) {
+    const atravessado = Math.max(...inteiras); // o maior lado que cabe → gasta menos comprimento
+    const comprimento = atravessado === largura_cm ? altura_cm : largura_cm;
+    return (rolo_cm * comprimento) / 10_000;
+  }
+  const gasto = (atravessado: number, comprimento: number) =>
+    Math.ceil(atravessado / rolo_cm - 1e-9) * rolo_cm * comprimento;
+  return Math.min(gasto(largura_cm, altura_cm), gasto(altura_cm, largura_cm)) / 10_000;
 }
 
 export interface Impressao {
@@ -160,6 +182,8 @@ export interface AcabamentoResult {
 
 export interface CalcResult {
   area_m2: number;
+  /** Área cobrada da mídia (= área da peça, ou largura do rolo × comprimento). */
+  area_midia_m2: number;
   perim_m: number;
   /** Acabamento principal efetivo (após seleção automática de bastão) — modo simples. */
   acabamento_efetivo: Acabamento | null;
@@ -334,10 +358,12 @@ export function calcular(input: CalcInput): CalcResult {
 
   // ── Mídia ─────────────────────────────────────────
   const m = input.midia;
+  const rolo_cm = safe(m?.largura_rolo_cm);
+  const area_midia = rolo_cm > 0 ? areaRoloPorPeca(largura, altura, rolo_cm) * qtd : area;
   const preco_midia = m
-    ? (m.custo_mt2 + m.lucro_mt2) * area + m.custo_fixo + m.lucro_fixo
+    ? (m.custo_mt2 + m.lucro_mt2) * area_midia + m.custo_fixo + m.lucro_fixo
     : 0;
-  const custo_midia = m ? m.custo_mt2 * area + m.custo_fixo : 0;
+  const custo_midia = m ? m.custo_mt2 * area_midia + m.custo_fixo : 0;
 
   // ── Impressão ────────────────────────────────────
   const i = input.impressao;
@@ -420,6 +446,7 @@ export function calcular(input: CalcInput): CalcResult {
 
   return {
     area_m2: area,
+    area_midia_m2: area_midia,
     perim_m,
     acabamento_efetivo,
     info_bastao,

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   calcular,
   selecionarBastao,
+  areaRoloPorPeca,
   type Midia,
   type Impressao,
   type Acabamento,
@@ -163,5 +164,39 @@ describe("Sangria por tipo de mídia (planilha AK15)", () => {
       sangrias_mm: { adesivo: 0 },
     });
     expect(r.area_m2).toBeCloseTo(0.36, 4);
+  });
+});
+
+describe("mídia cobrada pela largura do rolo", () => {
+  const lonaTerceirizado: Midia = {
+    id: "mt", nome: "Lona Sem Impressão (Terceirizado)", tipo_midia: "lona",
+    custo_mt2: 10, lucro_mt2: 10, custo_fixo: 0, lucro_fixo: 0, largura_rolo_cm: 190,
+  };
+  const base = { midia: lonaTerceirizado, impressao: null, valor_minimo: 35 };
+
+  it("areaRoloPorPeca escolhe o sentido que gasta menos rolo", () => {
+    expect(areaRoloPorPeca(300, 180, 190)).toBeCloseTo(5.7, 6);
+    expect(areaRoloPorPeca(180, 300, 190)).toBeCloseTo(5.7, 6);
+    // 3 × 1 m: peça inteira (1,90 × 3,00), nunca duas faixas emendadas
+    expect(areaRoloPorPeca(300, 100, 190)).toBeCloseTo(5.7, 6);
+    // os dois lados cabem: atravessa o maior (1,90 × 1,00)
+    expect(areaRoloPorPeca(100, 150, 190)).toBeCloseTo(1.9, 6);
+    // não cabe em nenhum sentido: 2 faixas de 190 × 250
+    expect(areaRoloPorPeca(300, 250, 190)).toBeCloseTo(9.5, 6);
+  });
+
+  it("2 lonas 3 × 1,8 m = 11,4 m² × R$ 20 = R$ 228", () => {
+    const r = calcular({ ...base, largura_cm: 300, altura_cm: 180, quantidade: 2 });
+    expect(r.area_m2).toBeCloseTo(10.8, 6);
+    expect(r.area_midia_m2).toBeCloseTo(11.4, 6);
+    expect(r.valor_total).toBe(228);
+    expect(r.custo_total).toBeCloseTo(114, 6);
+  });
+
+  it("sem largura de rolo continua cobrando só a área da peça", () => {
+    const r = calcular({ ...base, midia: { ...lonaTerceirizado, largura_rolo_cm: null },
+      largura_cm: 300, altura_cm: 180, quantidade: 2 });
+    expect(r.area_midia_m2).toBeCloseTo(10.8, 6);
+    expect(r.valor_total).toBe(216);
   });
 });
