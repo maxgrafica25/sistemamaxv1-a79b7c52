@@ -383,7 +383,9 @@ function ItemCard({
   isAdmin, canRemove, onChange, onClone, onRemove,
 }: ItemCardProps) {
   const tipo = midia?.tipo_midia ?? null;
-  const impressoesCompat = tipo
+  const impressoesCompat = midia?.sem_impressao_separada
+    ? []
+    : tipo
     ? impressoes.filter((i) => i.tipos_midia_compativeis.includes(tipo))
     : impressoes;
   const acabamentosCompat = filterAndSortForMidia(acabamentos, tipo);
@@ -541,9 +543,9 @@ function ItemCard({
 
           <div>
             <Label className="text-xs">Impressão</Label>
-            <Select value={item.impressaoId} onValueChange={(v) => onChange({ impressaoId: v })} disabled={!midia}>
+            <Select value={item.impressaoId} onValueChange={(v) => onChange({ impressaoId: v })} disabled={!midia || !!midia.sem_impressao_separada}>
               <SelectTrigger>
-                <SelectValue placeholder={midia ? "Selecione" : "Escolha a mídia"} />
+                <SelectValue placeholder={!midia ? "Escolha a mídia" : midia.sem_impressao_separada ? "Já no preço da mídia" : "Selecione"} />
               </SelectTrigger>
               <SelectContent>
                 {impressoesCompat.map((i) => (

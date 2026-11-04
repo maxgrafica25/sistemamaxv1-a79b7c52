@@ -1223,6 +1223,7 @@ export type Database = {
           lucro_fixo: number
           lucro_mt2: number
           nome: string
+          sem_impressao_separada: boolean
           sort_order: number
           tipo_midia: string
           updated_at: string
@@ -1238,6 +1239,7 @@ export type Database = {
           lucro_fixo?: number
           lucro_mt2?: number
           nome: string
+          sem_impressao_separada?: boolean
           sort_order?: number
           tipo_midia: string
           updated_at?: string
@@ -1253,6 +1255,7 @@ export type Database = {
           lucro_fixo?: number
           lucro_mt2?: number
           nome?: string
+          sem_impressao_separada?: boolean
           sort_order?: number
           tipo_midia?: string
           updated_at?: string

@@ -200,3 +200,16 @@ describe("mídia cobrada pela largura do rolo", () => {
     expect(r.valor_total).toBe(216);
   });
 });
+
+describe("mídia com impressão já no preço (terceirizado)", () => {
+  const lonaImpressaTerc: Midia = {
+    id: "mti", nome: "Lona Impressa (Terceirizado)", tipo_midia: "lona",
+    custo_mt2: 22.3, lucro_mt2: 22.7, custo_fixo: 0, lucro_fixo: 0, sem_impressao_separada: true,
+  };
+  it("ignora a impressão escolhida: 1 × 1 m = R$ 45", () => {
+    const r = calcular({ largura_cm: 100, altura_cm: 100, quantidade: 1,
+      midia: lonaImpressaTerc, impressao: solventeAlta, valor_minimo: 35 });
+    expect(r.preco_impressao).toBe(0);
+    expect(r.valor_total).toBe(45);
+  });
+});
