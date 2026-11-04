@@ -574,6 +574,11 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
         <span className="text-muted-foreground">Área total</span>
         <span className="font-semibold tabular-nums">
           {(result?.area_m2 ?? 0).toFixed(2).replace(".", ",")} m²
+          {result && result.area_midia_m2 > result.area_m2 + 1e-6 && (
+            <span className="ml-2 text-amber-600 text-xs">
+              · cobrado {result.area_midia_m2.toFixed(2).replace(".", ",")} m² (largura do rolo)
+            </span>
+          )}
           {result?.emenda_impressao && (
             <span className="ml-2 text-amber-600 text-xs">· com emenda</span>
           )}

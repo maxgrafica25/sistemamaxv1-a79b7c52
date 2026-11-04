@@ -30,13 +30,14 @@ interface Row {
   lucro_mt2: number;
   custo_fixo: number;
   lucro_fixo: number;
+  largura_rolo_cm: number | null;
   ativo: boolean;
   sort_order: number;
 }
 
 const empty: Omit<Row, "id"> = {
   nome: "", tipo_midia: "lona", custo_mt2: 0, lucro_mt2: 0,
-  custo_fixo: 0, lucro_fixo: 0, ativo: true, sort_order: 0,
+  custo_fixo: 0, lucro_fixo: 0, largura_rolo_cm: null, ativo: true, sort_order: 0,
 };
 
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -194,6 +195,15 @@ export default function MidiasTab() {
               <div>
                 <Label>Lucro fixo (R$)</Label>
                 <Input type="number" step="0.01" value={form.lucro_fixo} onChange={(e) => setForm({ ...form, lucro_fixo: +e.target.value || 0 })} />
+              </div>
+              <div className="col-span-2">
+                <Label>Cobrar pela largura do rolo (cm)</Label>
+                <Input type="number" step="1" placeholder="vazio = cobra só a área da peça"
+                  value={form.largura_rolo_cm ?? ""}
+                  onChange={(e) => setForm({ ...form, largura_rolo_cm: e.target.value === "" ? null : (+e.target.value || null) })} />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Preenchido: cobra largura do rolo × comprimento (a sobra do corte entra no preço).
+                </p>
               </div>
               <div>
                 <Label>Ordem</Label>
