@@ -49,5 +49,5 @@ Criado no Lovable e migrado em 27/10/2026 para infraestrutura própria. **Não e
 - Tela "Hoje" (`src/pages/Dashboard.tsx`) mostra números de exemplo fixos no código.
 - Marcelle (sócia, gestão) ainda não tem usuário no sistema; o lucro na calculadora CV só aparece para `role = 'admin'`.
 - Segredos das Edge Functions ainda não configurados no Supabase novo (Gemini `GOOGLE_API_KEY`, Google Calendar OAuth, `BROWSERLESS_API_KEY`, `CRON_SECRET`); cron jobs do Lovable não migrados.
-- Ligar a Júlia (repo `maxgrafica25/julia`) aos orçamentos do sistema.
+- Ligar a Júlia (repo `maxgrafica25/julia`) aos orçamentos do sistema. **Feito em parte (04/11/2026):** a Júlia calcula comunicação visual lendo a Calculadora CV daqui (`app/sistema_max.py` no repo da Júlia, porta do `src/lib/cv-calc/engine.ts`; chave secreta do Supabase em `SISTEMA_SUPABASE_CHAVE` no Railway da Júlia). **Ao mudar o engine da Calculadora CV, mudar também o `app/sistema_max.py` da Júlia.**
 - Revisão dos cadastros do Tiny (produtos padronizados, CV lançado como item avulso).
