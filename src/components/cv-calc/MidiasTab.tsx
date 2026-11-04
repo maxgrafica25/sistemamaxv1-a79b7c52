@@ -31,13 +31,14 @@ interface Row {
   custo_fixo: number;
   lucro_fixo: number;
   largura_rolo_cm: number | null;
+  sem_impressao_separada: boolean;
   ativo: boolean;
   sort_order: number;
 }
 
 const empty: Omit<Row, "id"> = {
   nome: "", tipo_midia: "lona", custo_mt2: 0, lucro_mt2: 0,
-  custo_fixo: 0, lucro_fixo: 0, largura_rolo_cm: null, ativo: true, sort_order: 0,
+  custo_fixo: 0, lucro_fixo: 0, largura_rolo_cm: null, sem_impressao_separada: false, ativo: true, sort_order: 0,
 };
 
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -204,6 +205,10 @@ export default function MidiasTab() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   Preenchido: cobra largura do rolo × comprimento (a sobra do corte entra no preço).
                 </p>
+              </div>
+              <div className="col-span-2 flex items-center gap-2">
+                <Switch checked={form.sem_impressao_separada} onCheckedChange={(v) => setForm({ ...form, sem_impressao_separada: v })} />
+                <Label>Preço já inclui a impressão (ou é vendida sem impressão) — não somar impressão</Label>
               </div>
               <div>
                 <Label>Ordem</Label>

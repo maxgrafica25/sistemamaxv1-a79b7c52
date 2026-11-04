@@ -25,6 +25,9 @@ export interface Midia {
   /** Largura do rolo (cm). Quando preenchida, a mídia é cobrada pela largura
    *  inteira do rolo × comprimento usado (a sobra do corte entra no preço). */
   largura_rolo_cm?: number | null;
+  /** Preço da mídia já fechado quanto à impressão (impressão inclusa, ou lona
+   *  vendida sem impressão): a impressão escolhida é ignorada. */
+  sem_impressao_separada?: boolean;
 }
 
 /**
@@ -366,7 +369,7 @@ export function calcular(input: CalcInput): CalcResult {
   const custo_midia = m ? m.custo_mt2 * area_midia + m.custo_fixo : 0;
 
   // ── Impressão ────────────────────────────────────
-  const i = input.impressao;
+  const i = input.midia?.sem_impressao_separada ? null : input.impressao;
   const preco_impressao = i
     ? (i.custo_mt2 + i.lucro_mt2) * area + i.custo_fixo + i.lucro_fixo
     : 0;

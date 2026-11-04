@@ -865,6 +865,7 @@ export type Database = {
           sort_order: number
           time_minutes: number
           updated_at: string
+          validado: boolean
         }
         Insert: {
           acabamento_id: string
@@ -878,6 +879,7 @@ export type Database = {
           sort_order?: number
           time_minutes?: number
           updated_at?: string
+          validado?: boolean
         }
         Update: {
           acabamento_id?: string
@@ -891,6 +893,7 @@ export type Database = {
           sort_order?: number
           time_minutes?: number
           updated_at?: string
+          validado?: boolean
         }
         Relationships: [
           {
@@ -1223,6 +1226,7 @@ export type Database = {
           lucro_fixo: number
           lucro_mt2: number
           nome: string
+          sem_impressao_separada: boolean
           sort_order: number
           tipo_midia: string
           updated_at: string
@@ -1238,6 +1242,7 @@ export type Database = {
           lucro_fixo?: number
           lucro_mt2?: number
           nome: string
+          sem_impressao_separada?: boolean
           sort_order?: number
           tipo_midia: string
           updated_at?: string
@@ -1253,6 +1258,7 @@ export type Database = {
           lucro_fixo?: number
           lucro_mt2?: number
           nome?: string
+          sem_impressao_separada?: boolean
           sort_order?: number
           tipo_midia?: string
           updated_at?: string
