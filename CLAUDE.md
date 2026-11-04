@@ -8,7 +8,8 @@ Criado no Lovable e migrado em 27/10/2026 para infraestrutura própria. **Não e
 
 ## Onde roda
 - **Banco/Auth/Storage/Edge Functions:** Supabase próprio, projeto `sistema-max` (ref `drjbbpvmxtejmxxilmey`, São Paulo), organização "Micro Saas Max Grafica" (plano Free). Não mexer na organização "Sistema GRP".
-- **Telas:** Railway, projeto `efficient-courage` (o mesmo da Júlia), serviço `sistemamaxv1-a79b7c52`, build pelo `Dockerfile` (Nginx). Variáveis: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `PORT=80`. Endereço: **https://sistema.maxgraficadigital.com.br** (DNS na Cloudflare, CNAME `sistema` com proxy laranja; Site URL do Supabase Auth já aponta para ele). Endereço técnico: https://sistemamaxv1-a79b7c52-production.up.railway.app
+- **Telas:** Railway, projeto **Max Grafica** (antigo `efficient-courage`; o mesmo da Júlia), serviço `sistemamaxv1-a79b7c52`, build pelo `Dockerfile` (Nginx). Variáveis: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `PORT=80`. Endereço: **https://sistema.maxgraficadigital.com.br** (DNS na Cloudflare, CNAME `sistema` com proxy laranja; Site URL do Supabase Auth já aponta para ele). Endereço técnico: https://sistemamaxv1-a79b7c52-production.up.railway.app
+- Menu → Administração → **Dashboard da Júlia** (só admin, nova aba) abre https://julia.maxgraficadigital.com.br/dashboard (login próprio da Júlia, usuário `gestao`).
 - **Deploy:** push na `main` → Railway publica as telas; `.github/workflows/supabase.yml` aplica migrações e publica as Edge Functions (secrets `SUPABASE_ACCESS_TOKEN` e `SUPABASE_DB_PASSWORD`). `.github/workflows/build.yml` confere se o Docker compila.
 - Admin: `profiles.role = 'admin'`. O gatilho `prevent_role_escalation_trigger` desfaz em silêncio mudanças de papel feitas por quem não é admin (inclusive pelo SQL Editor).
 
