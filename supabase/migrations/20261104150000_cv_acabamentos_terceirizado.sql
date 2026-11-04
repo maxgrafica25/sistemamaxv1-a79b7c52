@@ -1,8 +1,9 @@
 -- Acabamentos para terceirizados (04/11/2026). Preço = custo ÷ 0,62: tira imposto (10%) e cartão (7%)
 -- da regra normal; mantém perda 5% + lucro 33% (markup_override_pct = 38).
--- Materiais (extra_cost_*): bastão 1,05 R$ 2,40 · 1,50 R$ 3,50 · 2,05 R$ 4,80 (estimado) · ponteira R$ 0,25 ·
--- cordinha R$ 0,50/banner (estimado) · fita dupla face 12 mm R$ 107 / 360 m = R$ 0,30/m ·
--- ilhós (R$ 145 + 45 frete)/1000 = R$ 0,19, a cada 30 cm = R$ 0,63/m · corda da bainha R$ 0,30/m (estimado).
+-- Materiais (extra_cost_*), por banner: 2 bastões (1,05 R$ 2,40 · 1,50 R$ 3,50 pelas NF-e 2025/26; 2,05 23 mm R$ 6,40, Bluebird 07/2023)
+-- + 4 ponteiras R$ 0,25 + cordinha (fitilho PP R$ 85/300 m = R$ 0,28/m; 1,5 / 2,0 / 2,5 m) + 4 grampos R$ 0,015.
+-- Bainha: fita dupla face 12 mm R$ 107 / 360 m = R$ 0,30/m (uma tira em todo o contorno) +
+-- ilhós (R$ 145 + 45 frete)/1000 = R$ 0,19, a cada 30 cm = R$ 0,63/m + corda (fitilho) R$ 0,28/m.
 -- Tempos (labor items) tirados das anotações do Juliano; ficam "Estimado" até ele medir e validar.
 ALTER TABLE public.cv_calc_acabamento_labor_items
   ADD COLUMN IF NOT EXISTS validado boolean NOT NULL DEFAULT false;
@@ -17,12 +18,12 @@ BEGIN
 
   FOR ac IN
     SELECT * FROM (VALUES
-      ('Banner até 1,05 m – bastão, cordinha e ponteiras (Terceirizado)', 'outro',        6.30, 0.00, 'banner', 200),
-      ('Banner até 1,50 m – bastão, cordinha e ponteiras (Terceirizado)', 'outro',        8.50, 0.00, 'banner', 201),
-      ('Banner até 2,05 m – bastão, cordinha e ponteiras (Terceirizado)', 'outro',       11.10, 0.00, 'banner', 202),
-      ('Faixa – bastão nas laterais, cordinha e ponteiras (Terceirizado)', 'faixa',       6.30, 0.00, 'faixa',  203),
+      ('Banner até 1,05 m – bastão, cordinha e ponteiras (Terceirizado)', 'outro',        6.28, 0.00, 'banner', 200),
+      ('Banner até 1,50 m – bastão, cordinha e ponteiras (Terceirizado)', 'outro',        8.62, 0.00, 'banner', 201),
+      ('Banner até 2,05 m – bastão, cordinha e ponteiras (Terceirizado)', 'outro',       14.56, 0.00, 'banner', 202),
+      ('Faixa – bastão nas laterais, cordinha e ponteiras (Terceirizado)', 'faixa',       6.42, 0.00, 'faixa',  203),
       ('Bainha e Ilhós a cada 30 cm (Terceirizado)',                      'bainha_ilhos', 0.00, 0.93, 'bainha', 204),
-      ('Bainha com Corda e Ilhós a cada 30 cm (Terceirizado)',            'bainha_ilhos', 0.00, 1.23, 'bainha', 205)
+      ('Bainha com Corda e Ilhós a cada 30 cm (Terceirizado)',            'bainha_ilhos', 0.00, 1.21, 'bainha', 205)
     ) AS v(nome, familia, por_unidade, por_metro, tipo, ordem)
   LOOP
     CONTINUE WHEN EXISTS (SELECT 1 FROM public.cv_calc_acabamentos x WHERE x.nome = ac.nome AND x.empresa_id = emp);

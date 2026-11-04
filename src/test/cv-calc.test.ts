@@ -223,7 +223,7 @@ describe("acabamentos de terceirizado (custo ÷ 0,62)", () => {
     pricing_mode: "recipe", markup_override_pct: 38,
   };
   const banner105: Acabamento = { ...base, id: "b", nome: "Banner até 1,05 m (Terceirizado)", familia: "outro",
-    extra_cost_unidade: 6.3, labor: [
+    extra_cost_unidade: 6.28, labor: [
       { descricao: "Refile", time_minutes: 1.6, consumo_tipo: "por_mt2", consumo_qty: 1 },
       { descricao: "Solda", time_minutes: 2.1, consumo_tipo: "por_peca", consumo_qty: 1 },
       { descricao: "Bastão", time_minutes: 2.8, consumo_tipo: "por_peca", consumo_qty: 1 },
@@ -238,8 +238,8 @@ describe("acabamentos de terceirizado (custo ÷ 0,62)", () => {
     calcular({ largura_cm: l, altura_cm: a, quantidade: 1, midia: lona, impressao: null,
       acabamentos: [{ acabamento: ac }], valor_minimo: 0, hourRate }).preco_acabamento;
 
-  it("banner 90×120: (6,30 + 6,63 min × 0,81) ÷ 0,62 ≈ R$ 18,90", () => {
-    expect(acab(banner105, 90, 120)).toBeCloseTo(18.9, 1);
+  it("banner 90×120: (6,28 + 6,63 min × 0,81) ÷ 0,62 ≈ R$ 18,80", () => {
+    expect(acab(banner105, 90, 120)).toBeCloseTo(18.8, 1);
   });
   it("lona 300×180 com bainha e ilhós ≈ R$ 93", () => {
     expect(acab(bainha, 300, 180)).toBeGreaterThan(90);
