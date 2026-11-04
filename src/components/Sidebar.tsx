@@ -1,7 +1,7 @@
 import {
   Home, Users, Package, Settings, Factory, Receipt, Calculator, Cpu, Shield,
   ClipboardList, MessageSquare, TrendingUp, BookOpen, PanelLeftClose, PanelLeftOpen, X,
-  Megaphone, UserCog, LogOut, ShoppingCart, Wallet, Ruler, Scissors, Wand2, Tags,
+  Megaphone, UserCog, LogOut, ShoppingCart, Wallet, Ruler, Scissors, Wand2, Tags, Bot, ExternalLink,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,12 @@ interface NavItem {
   badge?: string;
   adminOnly?: boolean;
   financeiroOnly?: boolean;
+  /** Endereço de outro sistema: abre numa nova aba. */
+  external?: boolean;
 }
+
+// Dashboard da Júlia (assistente do WhatsApp, repo maxgrafica25/julia): login próprio (usuário "gestao").
+const JULIA_DASHBOARD_URL = "https://julia.maxgraficadigital.com.br/dashboard";
 
 interface NavGroup {
   label: string;
@@ -73,6 +78,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Administração",
     items: [
+      { name: "Dashboard da Júlia", href: JULIA_DASHBOARD_URL, icon: Bot, adminOnly: true, external: true },
       { name: "Monitoramento", href: "/monitoramento", icon: TrendingUp, adminOnly: true },
       { name: "Produtos Ref.", href: "/produtos", icon: BookOpen, adminOnly: true },
       { name: "Produtos Favoritos", href: "/presets-orcamento", icon: Wand2, adminOnly: true },
@@ -166,7 +172,29 @@ export default function Sidebar({ collapsed, toggleCollapsed, mobileOpen, closeM
                   <div className="mx-auto mb-1 h-px w-6 bg-sidebar-border" />
                 )}
                 {group.items.map((item) => {
-                  const link = (
+                  const link = item.external ? (
+                    <a
+                      key={item.name}
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={closeMobile}
+                      className={cn(
+                        "group relative flex items-center rounded-md text-sm font-medium transition-colors",
+                        collapsed ? "h-10 w-10 mx-auto justify-center" : "gap-3 px-3 py-2",
+                        "text-sidebar-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-accent-foreground",
+                      )}
+                      aria-label={`${item.name} (abre em nova aba)`}
+                    >
+                      <item.icon className="h-[18px] w-[18px] shrink-0" />
+                      {!collapsed && (
+                        <span className="flex flex-1 items-center justify-between gap-2 min-w-0">
+                          <span className="truncate">{item.name}</span>
+                          <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                        </span>
+                      )}
+                    </a>
+                  ) : (
                     <NavLink
                       key={item.name}
                       to={item.href}
