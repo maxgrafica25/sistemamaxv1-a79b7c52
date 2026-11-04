@@ -865,6 +865,7 @@ export type Database = {
           sort_order: number
           time_minutes: number
           updated_at: string
+          validado: boolean
         }
         Insert: {
           acabamento_id: string
@@ -878,6 +879,7 @@ export type Database = {
           sort_order?: number
           time_minutes?: number
           updated_at?: string
+          validado?: boolean
         }
         Update: {
           acabamento_id?: string
@@ -891,6 +893,7 @@ export type Database = {
           sort_order?: number
           time_minutes?: number
           updated_at?: string
+          validado?: boolean
         }
         Relationships: [
           {

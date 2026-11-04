@@ -90,6 +90,8 @@ interface LaborRow {
   consumo_tipo: "fixo" | "por_peca" | "por_perimetro_m" | "por_mt2" | "por_largura_m" | "por_altura_m";
   consumo_qty: number;
   sort_order: number;
+  /** Tempo medido e confirmado pelo Juliano (senão é estimativa). */
+  validado: boolean;
 }
 
 interface ProductionStep {
@@ -173,13 +175,14 @@ export default function AcabamentosTab() {
   const loadLabor = async (acabamentoId: string) => {
     const { data } = await supabase
       .from("cv_calc_acabamento_labor_items" as never)
-      .select("id, production_step_id, descricao, time_minutes, consumo_tipo, consumo_qty, sort_order")
+      .select("id, production_step_id, descricao, time_minutes, consumo_tipo, consumo_qty, sort_order, validado")
       .eq("acabamento_id", acabamentoId)
       .order("sort_order");
     setLabor(((data as LaborRow[]) ?? []).map((r) => ({
       ...r,
       time_minutes: Number(r.time_minutes),
       consumo_qty: Number(r.consumo_qty),
+      validado: !!r.validado,
     })));
   };
 
@@ -219,6 +222,7 @@ export default function AcabamentosTab() {
     consumo_tipo: "por_mt2",
     consumo_qty: 1,
     sort_order: r.length,
+    validado: false,
   }]);
   const patchLaborRow = (idx: number, patch: Partial<LaborRow>) =>
     setLabor((r) => r.map((x, i) => {
@@ -319,6 +323,7 @@ export default function AcabamentosTab() {
               consumo_tipo: l.consumo_tipo,
               consumo_qty: l.consumo_qty,
               sort_order: i,
+              validado: l.validado,
             })));
           if (lErr) return handleError(lErr, "salvar mão-de-obra");
         }
@@ -654,8 +659,14 @@ export default function AcabamentosTab() {
                               onClick={() => removeLaborRow(idx)}>
                               <X className="h-4 w-4" />
                             </Button>
-                            <div className="col-span-5 -mt-1 text-[10px] text-muted-foreground">
-                              ≈ {brl(custoLinha)} por unidade da escala @ {brl(hourRate)}/h
+                            <div className="col-span-5 -mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                              <span>≈ {brl(custoLinha)} por unidade da escala @ {brl(hourRate)}/h</span>
+                              <label className="ml-auto flex items-center gap-1.5">
+                                <Switch checked={l.validado} onCheckedChange={(v) => patchLaborRow(idx, { validado: v })} />
+                                {l.validado
+                                  ? <Badge className="bg-emerald-500/15 text-emerald-700 text-[10px]">Validado</Badge>
+                                  : <Badge variant="outline" className="text-[10px] text-amber-600">Estimado</Badge>}
+                              </label>
                             </div>
                           </div>
                         );
