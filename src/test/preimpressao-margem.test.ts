@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { deflateSync } from "node:zlib";
-import { PDFDocument, degrees, rgb } from "pdf-lib";
+import { PDFArray, PDFDocument, PDFRawStream, decodePDFRawStream, degrees, rgb, type PDFPage } from "pdf-lib";
 import {
   PT_POR_CM,
   chunkPng,
@@ -17,9 +17,20 @@ import {
   origemRotacionada,
   planejarImagem,
   processarPdf,
+  retangulosLinhaCorte,
 } from "@/lib/preimpressao/margem";
 
 const cm = (pt: number) => pt / PT_POR_CM;
+
+/** Texto do(s) content stream(s) da página. */
+function conteudoPagina(p: PDFPage): string {
+  const c = p.node.Contents();
+  const refs = c instanceof PDFArray ? c.asArray() : [c];
+  return refs
+    .map((ref) => p.doc.context.lookup(ref))
+    .map((st) => (st instanceof PDFRawStream ? new TextDecoder("latin1").decode(decodePDFRawStream(st).decode()) : ""))
+    .join("\n");
+}
 
 async function pdfCom(wCm: number, hCm: number, rotate = 0): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -91,6 +102,41 @@ describe("margens", () => {
     expect(detectarTipo(png(1, 1), "x.bin")).toBe("png");
     expect(detectarTipo(jpg(1, 1, 3), "x")).toBe("jpg");
     expect(detectarTipo(new Uint8Array([0x52, 0x49, 0x46, 0x46]), "arte.CDR")).toBe("cdr");
+  });
+});
+
+describe("linha de corte (borda de fora, área a mais sem preenchimento)", () => {
+  it("banner: linha de 1 só no topo e na base, pela largura toda", () => {
+    const m = margensPara("banner", 10);
+    expect(retangulosLinhaCorte(80, 140, m, 0.1)).toEqual([
+      { x: 0, y: 139.9, w: 80, h: 0.1 },
+      { x: 0, y: 0, w: 80, h: 0.1 },
+    ]);
+    // canvas: y cresce para baixo
+    expect(retangulosLinhaCorte(800, 1400, margensPara("banner", 100), 4, true)).toEqual([
+      { x: 0, y: 0, w: 800, h: 4 },
+      { x: 0, y: 1396, w: 800, h: 4 },
+    ]);
+  });
+
+  it("faixa: só nas laterais; todos: 4 lados; nunca mais grossa que a margem", () => {
+    expect(retangulosLinhaCorte(320, 70, margensPara("faixa", 10), 0.1)).toEqual([
+      { x: 0, y: 0, w: 0.1, h: 70 },
+      { x: 319.9, y: 0, w: 0.1, h: 70 },
+    ]);
+    expect(retangulosLinhaCorte(10, 10, margensPara("todos", 1), 0.1)).toHaveLength(4);
+    expect(retangulosLinhaCorte(10, 10, margensPara("todos", 0.05), 0.1)[0].h).toBe(0.05);
+  });
+
+  it("no PDF a área a mais não é pintada: só retângulos de 1 mm em K50", async () => {
+    const r = await processarPdf(await pdfCom(80, 120), margensPara("banner", 10));
+    const pagina = conteudoPagina((await PDFDocument.load(r.bytes)).getPage(0));
+    expect(pagina).toBeTruthy();
+    const umMm = (0.1 * PT_POR_CM).toString();
+    // as duas linhas (topo e base) têm 1 mm de altura; nenhuma faixa de 10 cm
+    expect(pagina.split("0 0 0 0.5 k").length - 1).toBe(2);
+    expect(pagina).toContain(umMm);
+    expect(pagina).not.toContain((10 * PT_POR_CM).toString() + " l");
   });
 });
 

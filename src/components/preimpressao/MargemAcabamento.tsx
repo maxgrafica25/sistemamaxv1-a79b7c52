@@ -1,5 +1,6 @@
 // Pré-impressão → ferramenta "Margem de acabamento".
-// Acrescenta faixas K50 FORA da arte de banners/faixas de lona para marcar o corte.
+// Aumenta a página FORA da arte de banners/faixas de lona: área a mais em branco
+// e uma linha K50 de 1 mm na borda de fora para marcar o corte.
 // Tudo no navegador: os arquivos nunca saem do computador.
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -341,11 +342,11 @@ export default function MargemAcabamento() {
           </div>
 
           <div className="space-y-2">
-            <Label>Cor da faixa</Label>
+            <Label>Linha de corte</Label>
             <div className="flex items-center gap-2 h-10">
-              <span className="h-8 w-8 rounded border border-border shrink-0" style={{ background: "#808080" }} aria-hidden />
+              <span className="h-8 w-8 rounded border border-border shrink-0 bg-white" style={{ boxShadow: "inset 0 3px 0 #808080" }} aria-hidden />
               <span className="text-sm">
-                CMYK C0 M0 Y0 K50 <span className="text-muted-foreground">(fixa)</span>
+                CMYK K50 · 1 mm na borda de fora <span className="text-muted-foreground">(área a mais em branco)</span>
               </span>
             </div>
           </div>

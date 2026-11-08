@@ -1,8 +1,10 @@
 // Pré-impressão → "Margem de acabamento".
 //
 // Banners e faixas de lona chegam em PDF/PNG/JPG já no tamanho final (1:1).
-// Aqui a página é AUMENTADA com faixas preto 50% (CMYK 0/0/0/50) FORA da arte,
-// para marcar onde cortar a lona. A arte não muda de tamanho.
+// Aqui a página é AUMENTADA FORA da arte: a área a mais fica sem preenchimento
+// (branca/transparente) e só uma linha fina preto 50% (CMYK 0/0/0/50, 1 mm) na
+// borda de fora marca onde cortar a lona (decidido com o Juliano em 08/11/2026).
+// A arte não muda de tamanho.
 //
 // Tudo roda no navegador: nenhum arquivo é enviado para servidor.
 // Este módulo é só lógica pura (sem React, sem canvas), para poder ser testado.
@@ -23,8 +25,10 @@ export const PECAS: { key: Peca; label: string }[] = [
 export const PT_POR_CM = 72 / 2.54;
 /** Maior lado de página que o Acrobat aceita: 200 pol = 508 cm. */
 export const LIMITE_ACROBAT_CM = 508;
-/** Cor da faixa em telas/PNG/JPG (equivalente RGB do K50). */
-export const COR_FAIXA_RGB = "#808080";
+/** Cor da linha de corte em PNG/JPG (equivalente RGB do K50). */
+export const COR_LINHA_RGB = "#808080";
+/** Espessura da linha de corte, na borda de fora da área a mais. */
+export const ESPESSURA_LINHA_MM = 1;
 /** Limites seguros do canvas dos navegadores. */
 export const CANVAS_MAX_LADO = 32767;
 export const CANVAS_MAX_PIXELS = 250_000_000;
@@ -411,14 +415,38 @@ export function normalizarRotacao(angulo: number): 0 | 90 | 180 | 270 {
   return r as 0 | 90 | 180 | 270;
 }
 
-function desenharFaixas(page: PDFPage, W: number, H: number, mPt: Margens) {
-  const r = (x: number, y: number, width: number, height: number) => {
-    if (width > 0 && height > 0) page.drawRectangle({ x, y, width, height, color: K50, borderWidth: 0 });
-  };
-  r(0, H - mPt.top, W, mPt.top);
-  r(0, 0, W, mPt.bottom);
-  r(0, 0, mPt.left, H);
-  r(W - mPt.right, 0, mPt.right, H);
+export interface Retangulo {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Retângulos da linha de corte: uma linha de espessura `esp` na BORDA DE FORA de
+ * cada lado que ganhou margem (a área entre a linha e a arte fica sem preenchimento).
+ * Unidades livres (pt ou px). `origemEmCima` = sistema do canvas (y cresce para baixo);
+ * senão sistema do PDF (y cresce para cima). Se a margem for menor que a linha,
+ * a linha fica com a largura da margem (nunca invade a arte).
+ */
+export function retangulosLinhaCorte(W: number, H: number, m: Margens, esp: number, origemEmCima = false): Retangulo[] {
+  const out: Retangulo[] = [];
+  const t = Math.min(esp, m.top);
+  const b = Math.min(esp, m.bottom);
+  const l = Math.min(esp, m.left);
+  const r = Math.min(esp, m.right);
+  if (t > 0) out.push({ x: 0, y: origemEmCima ? 0 : H - t, w: W, h: t });
+  if (b > 0) out.push({ x: 0, y: origemEmCima ? H - b : 0, w: W, h: b });
+  if (l > 0) out.push({ x: 0, y: 0, w: l, h: H });
+  if (r > 0) out.push({ x: W - r, y: 0, w: r, h: H });
+  return out;
+}
+
+function desenharLinhaCorte(page: PDFPage, W: number, H: number, mPt: Margens) {
+  const esp = (ESPESSURA_LINHA_MM / 10) * PT_POR_CM;
+  for (const q of retangulosLinhaCorte(W, H, mPt, esp)) {
+    page.drawRectangle({ x: q.x, y: q.y, width: q.w, height: q.h, color: K50, borderWidth: 0 });
+  }
 }
 
 function emPt(m: Margens): Margens {
@@ -455,7 +483,7 @@ export async function processarPdf(bytes: Uint8Array, m: Margens): Promise<Resul
     const nova = out.addPage([W, H]);
     const o = origemRotacionada(rot, w, h, mPt.left, mPt.bottom);
     nova.drawPage(emb, { x: o.x, y: o.y, width: w, height: h, rotate: degrees(-rot) });
-    desenharFaixas(nova, W, H, mPt);
+    desenharLinhaCorte(nova, W, H, mPt);
 
     paginas.push({
       antes: { w: visW / PT_POR_CM, h: visH / PT_POR_CM },
@@ -472,7 +500,7 @@ export async function processarPdf(bytes: Uint8Array, m: Margens): Promise<Resul
 
 /**
  * Gera um PDF com a imagem ORIGINAL embutida (sem recomprimir o JPG) no tamanho
- * real pelo DPI, mais as faixas K50. Usado para JPG CMYK e para "Sempre PDF".
+ * real pelo DPI, mais a linha de corte K50. Usado para JPG CMYK e para "Sempre PDF".
  */
 export async function imagemParaPdf(bytes: Uint8Array, info: InfoImagem, m: Margens, dpi: number): Promise<ResultadoPdf> {
   const out = await PDFDocument.create();
@@ -486,7 +514,7 @@ export async function imagemParaPdf(bytes: Uint8Array, info: InfoImagem, m: Marg
   const H = hPt + mPt.top + mPt.bottom;
   const page = out.addPage([W, H]);
   page.drawImage(img, { x: mPt.left, y: mPt.bottom, width: wPt, height: hPt });
-  desenharFaixas(page, W, H, mPt);
+  desenharLinhaCorte(page, W, H, mPt);
   const pag = { antes: { w: wPt / PT_POR_CM, h: hPt / PT_POR_CM }, depois: { w: W / PT_POR_CM, h: H / PT_POR_CM } };
   return { bytes: await out.save(), paginas: [pag], passaLimite: passaLimiteAcrobat(pag.depois) };
 }
