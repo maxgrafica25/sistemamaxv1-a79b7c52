@@ -5,11 +5,12 @@
 
 import type { ComponentType } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Printer, Scissors, type LucideIcon } from "lucide-react";
+import { Hash, Printer, Scissors, type LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { PageContainer } from "@/components/PageContainer";
 import { DotTabs } from "@/components/ui/dot-tabs";
 import MargemAcabamento from "@/components/preimpressao/MargemAcabamento";
+import NumeracaoTaloes from "@/components/preimpressao/NumeracaoTaloes";
 
 interface Ferramenta {
   key: string;
@@ -24,6 +25,12 @@ const FERRAMENTAS: Ferramenta[] = [
     label: "Margem de acabamento",
     icon: Scissors,
     Componente: MargemAcabamento,
+  },
+  {
+    key: "numeracao",
+    label: "Numeração de talões",
+    icon: Hash,
+    Componente: NumeracaoTaloes,
   },
 ];
 
