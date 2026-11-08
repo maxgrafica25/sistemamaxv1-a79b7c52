@@ -29,6 +29,7 @@ const NAV_ITEMS = [
   { label: "Despesas Fixas", path: "/despesas-fixas", icon: Receipt },
   { label: "Tabela de Preços", path: "/tabela-precos", icon: Tags },
   { label: "Preço Impressão", path: "/preco-impressao", icon: Calculator },
+  { label: "Pré-impressão", path: "/pre-impressao", icon: Printer },
   { label: "Monitoramento", path: "/monitoramento", icon: TrendingUp },
   { label: "Catálogo Produtos", path: "/produtos", icon: BookOpen },
   { label: "Chat Interno", path: "/chat", icon: MessageSquare },
