@@ -4,17 +4,13 @@
 // Tudo no navegador: os arquivos nunca saem do computador.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Download, FileArchive, Loader2, Lock, Trash2, Upload } from "lucide-react";
+import type { ReactNode } from "react";
+import { AlertTriangle, ArrowRight, Download, FileArchive, Loader2, Lock, Minus, Plus, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import {
   LIMITE_ACROBAT_CM,
-  PECAS,
   detectarTipo,
   dpiEfetivo,
   formatarAntesDepois,
@@ -49,7 +45,7 @@ function lerConfig(): Config {
     if (!raw) return CONFIG_PADRAO;
     const c = JSON.parse(raw) as Partial<Config>;
     return {
-      peca: PECAS.some((p) => p.key === c.peca) ? (c.peca as Peca) : CONFIG_PADRAO.peca,
+      peca: PECAS_UI.some((p) => p.key === c.peca) ? (c.peca as Peca) : CONFIG_PADRAO.peca,
       cm: typeof c.cm === "string" && c.cm.trim() ? c.cm : CONFIG_PADRAO.cm,
       saida: c.saida === "pdf" ? "pdf" : "mesmo",
     };
@@ -293,129 +289,156 @@ export default function MargemAcabamento() {
     }
   };
 
+
+  const carregando = items.some((i) => i.status === "processando");
+  const mudarCm = (delta: number) =>
+    setConfig((c) => {
+      const atual = cmValido(c.cm) ?? 0;
+      const novo = Math.min(MAX_CM, Math.max(0.5, Math.round((atual + delta) * 10) / 10));
+      return { ...c, cm: String(novo).replace(".", ",") };
+    });
+
   return (
-    <div className="space-y-4">
-      {/* Configuração */}
-      <Card>
-        <CardContent className="pt-6 grid gap-5 md:grid-cols-[auto_auto_auto_1fr] md:items-end">
-          <div className="space-y-2">
-            <Label>Peça</Label>
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              value={config.peca}
-              onValueChange={(v) => v && setConfig((c) => ({ ...c, peca: v as Peca }))}
-              className="justify-start flex-wrap"
+    <div className="grid gap-6 lg:grid-cols-[minmax(300px,380px)_1fr] items-start">
+      {/* ── Ajustes ───────────────────────────────────────────── */}
+      <section className="rounded-3xl border border-border/60 bg-card p-6 shadow-sm space-y-6 lg:sticky lg:top-4">
+        <PreviaMargem peca={config.peca} cm={cmNum} />
+
+        <Campo titulo="Peça" ajuda={PECAS_UI.find((p) => p.key === config.peca)?.ajuda}>
+          <Segmentado
+            valor={config.peca}
+            opcoes={PECAS_UI.map((p) => ({ valor: p.key, rotulo: p.titulo }))}
+            onChange={(v) => setConfig((c) => ({ ...c, peca: v }))}
+          />
+        </Campo>
+
+        <Campo titulo="Medida da área a mais">
+          <div className="flex items-center gap-2">
+            <BotaoRedondo rotulo="Diminuir 1 cm" onClick={() => mudarCm(-1)}>
+              <Minus className="h-4 w-4" />
+            </BotaoRedondo>
+            <div
+              className={cn(
+                "flex h-11 flex-1 items-center justify-center rounded-full bg-muted/60 px-4 ring-1 ring-transparent focus-within:ring-primary/40",
+                cmNum === null && "ring-destructive/60",
+              )}
             >
-              {PECAS.map((p) => (
-                <ToggleGroupItem key={p.key} value={p.key} className="text-xs sm:text-sm">
-                  {p.label}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="margem-cm">Medida (cm)</Label>
-            <Input
-              id="margem-cm"
-              inputMode="decimal"
-              className={cn("w-24", cmNum === null && "border-destructive")}
-              value={config.cm}
-              onChange={(e) => setConfig((c) => ({ ...c, cm: e.target.value }))}
-            />
-            {cmNum === null && <p className="text-xs text-destructive">Digite uma medida entre 0 e {MAX_CM} cm.</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label>Salvar como</Label>
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              value={config.saida}
-              onValueChange={(v) => v && setConfig((c) => ({ ...c, saida: v as Saida }))}
-              className="justify-start flex-wrap"
-            >
-              <ToggleGroupItem value="mesmo" className="text-xs sm:text-sm">Mesmo formato do arquivo</ToggleGroupItem>
-              <ToggleGroupItem value="pdf" className="text-xs sm:text-sm">Sempre PDF</ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Linha de corte</Label>
-            <div className="flex items-center gap-2 h-10">
-              <span className="h-8 w-8 rounded border border-border shrink-0 bg-white" style={{ boxShadow: "inset 0 3px 0 #808080" }} aria-hidden />
-              <span className="text-sm">
-                CMYK K50 · 1 mm na borda de fora <span className="text-muted-foreground">(área a mais em branco)</span>
-              </span>
+              <input
+                id="margem-cm"
+                aria-label="Medida em centímetros"
+                inputMode="decimal"
+                className="w-16 bg-transparent text-center text-lg font-semibold tabular-nums outline-none"
+                value={config.cm}
+                onChange={(e) => setConfig((c) => ({ ...c, cm: e.target.value }))}
+              />
+              <span className="text-sm text-muted-foreground">cm</span>
             </div>
+            <BotaoRedondo rotulo="Aumentar 1 cm" onClick={() => mudarCm(1)}>
+              <Plus className="h-4 w-4" />
+            </BotaoRedondo>
           </div>
-        </CardContent>
-      </Card>
+          {cmNum === null && <p className="mt-2 text-xs text-destructive">Digite uma medida entre 0 e {MAX_CM} cm.</p>}
+        </Campo>
 
-      {/* Área de arrastar e soltar */}
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setArrastando(true);
-        }}
-        onDragLeave={() => setArrastando(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setArrastando(false);
-          void adicionar(e.dataTransfer.files);
-        }}
-        className={cn(
-          "rounded-lg border-2 border-dashed p-8 text-center transition-colors",
-          arrastando ? "border-primary bg-primary/5" : "border-border",
-        )}
-      >
-        <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
-        <p className="mt-2 text-sm font-medium">Arraste aqui os arquivos do banner ou da faixa (PDF, PNG ou JPG)</p>
-        <p className="text-xs text-muted-foreground">Pode soltar vários de uma vez. A arte precisa estar no tamanho final (escala 1:1).</p>
-        <Button type="button" variant="outline" className="mt-4" onClick={() => inputRef.current?.click()}>
-          Escolher arquivos
-        </Button>
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          accept=".pdf,.png,.jpg,.jpeg,.cdr,application/pdf,image/png,image/jpeg"
-          className="hidden"
-          onChange={(e) => {
-            if (e.target.files) void adicionar(e.target.files);
-            e.target.value = "";
+        <Campo titulo="Salvar como">
+          <Segmentado
+            valor={config.saida}
+            opcoes={[
+              { valor: "mesmo" as Saida, rotulo: "Mesmo formato" },
+              { valor: "pdf" as Saida, rotulo: "Sempre PDF" },
+            ]}
+            onChange={(v) => setConfig((c) => ({ ...c, saida: v }))}
+          />
+        </Campo>
+
+        <div className="flex items-center gap-3 rounded-2xl bg-muted/50 px-4 py-3">
+          <span className="relative h-8 w-8 shrink-0 rounded-lg bg-background ring-1 ring-border" aria-hidden>
+            <span className="absolute inset-x-1 top-1 h-[2px] rounded-full bg-[#808080]" />
+            <span className="absolute inset-x-1 bottom-1 h-[2px] rounded-full bg-[#808080]" />
+          </span>
+          <div className="text-xs leading-relaxed">
+            <p className="font-medium text-foreground">Linha de corte K50 · 1 mm</p>
+            <p className="text-muted-foreground">Na borda de fora. A área a mais fica em branco.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Arquivos ──────────────────────────────────────────── */}
+      <section className="space-y-4 min-w-0">
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setArrastando(true);
           }}
-        />
-        <p className="mt-4 text-xs text-muted-foreground">
-          Arquivo do Corel (.cdr)? Exporte como PDF antes (Arquivo → Exportar… → PDF).
-        </p>
-        <p className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground">
-          <Lock className="h-3 w-3" /> Os arquivos são processados aqui no seu computador. Nada é enviado para a internet.
-        </p>
-      </div>
+          onDragLeave={() => setArrastando(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setArrastando(false);
+            void adicionar(e.dataTransfer.files);
+          }}
+          className={cn(
+            "rounded-3xl border-2 border-dashed text-center transition-all duration-200",
+            items.length ? "px-6 py-6" : "px-6 py-16",
+            arrastando ? "border-primary bg-primary/5 scale-[1.01]" : "border-border/70 bg-muted/30 hover:bg-muted/50",
+          )}
+        >
+          <div
+            className={cn(
+              "mx-auto flex items-center justify-center rounded-full bg-background shadow-sm ring-1 ring-border/60",
+              items.length ? "h-10 w-10" : "h-14 w-14",
+            )}
+          >
+            <Upload className={cn("text-primary", items.length ? "h-4 w-4" : "h-6 w-6")} />
+          </div>
+          <p className={cn("mt-4 font-semibold tracking-tight", items.length ? "text-base" : "text-xl")}>
+            {items.length ? "Solte mais arquivos aqui" : "Solte os arquivos do banner ou da faixa"}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">PDF, PNG ou JPG no tamanho final (1:1). Vários de uma vez.</p>
+          <Button type="button" className="mt-5 rounded-full px-6" onClick={() => inputRef.current?.click()}>
+            Escolher arquivos
+          </Button>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            accept=".pdf,.png,.jpg,.jpeg,.cdr,application/pdf,image/png,image/jpeg"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) void adicionar(e.target.files);
+              e.target.value = "";
+            }}
+          />
+          {!items.length && (
+            <div className="mx-auto mt-8 max-w-md space-y-1 text-xs text-muted-foreground">
+              <p>Arquivo do Corel (.cdr)? Exporte como PDF antes (Arquivo → Exportar… → PDF).</p>
+              <p className="flex items-center justify-center gap-1">
+                <Lock className="h-3 w-3" /> Tudo é feito aqui no seu computador. Nada é enviado para a internet.
+              </p>
+            </div>
+          )}
+        </div>
 
-      {/* Resultados */}
-      {items.length > 0 && (
-        <Card>
-          <CardContent className="pt-6 space-y-3">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <h2 className="text-sm font-semibold">
-                Arquivos ({prontos.length} de {items.length} prontos)
-              </h2>
+        {items.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap px-1">
+              <p className="text-sm text-muted-foreground">
+                {carregando && <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" />}
+                <span className="font-medium text-foreground">{prontos.length}</span> de {items.length}{" "}
+                {items.length === 1 ? "arquivo pronto" : "arquivos prontos"}
+              </p>
               <div className="flex gap-2">
+                <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setItems([])}>
+                  Limpar
+                </Button>
                 {prontos.length > 1 && (
-                  <Button size="sm" onClick={baixarTodos} disabled={zipando}>
+                  <Button size="sm" className="rounded-full" onClick={baixarTodos} disabled={zipando}>
                     {zipando ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileArchive className="h-4 w-4" />}
                     Baixar todos (.zip)
                   </Button>
                 )}
-                <Button size="sm" variant="ghost" onClick={() => setItems([])}>
-                  Limpar lista
-                </Button>
               </div>
             </div>
-            <ul className="divide-y divide-border">
+            <ul className="space-y-3">
               {items.map((it) => (
                 <LinhaArquivo
                   key={it.id}
@@ -425,50 +448,182 @@ export default function MargemAcabamento() {
                 />
               ))}
             </ul>
-          </CardContent>
-        </Card>
-      )}
+            <p className="flex items-center justify-center gap-1 pt-2 text-xs text-muted-foreground">
+              <Lock className="h-3 w-3" /> Tudo é feito aqui no seu computador. Nada é enviado para a internet.
+            </p>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: Status }) {
-  if (status === "processando")
-    return (
-      <Badge variant="secondary" className="gap-1">
-        <Loader2 className="h-3 w-3 animate-spin" /> Processando
-      </Badge>
-    );
-  if (status === "pronto") return <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">Pronto</Badge>;
-  if (status === "falta_medida") return <Badge className="bg-amber-500 hover:bg-amber-500 text-white">Falta a medida</Badge>;
-  return <Badge variant="destructive">Erro</Badge>;
+// ─── Peças de interface ─────────────────────────────────────────────
+
+const PECAS_UI: { key: Peca; titulo: string; ajuda: string }[] = [
+  { key: "banner", titulo: "Banner", ajuda: "Área a mais em cima e embaixo." },
+  { key: "faixa", titulo: "Faixa", ajuda: "Área a mais nas laterais." },
+  { key: "todos", titulo: "Todos os lados", ajuda: "Área a mais em volta toda." },
+];
+
+function Campo({ titulo, ajuda, children }: { titulo: string; ajuda?: string; children: ReactNode }) {
+  return (
+    <div>
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{titulo}</p>
+      {children}
+      {ajuda && <p className="mt-2 text-xs text-muted-foreground">{ajuda}</p>}
+    </div>
+  );
+}
+
+/** Controle segmentado no estilo iOS/Material: trilho cinza e opção escolhida em "pílula" branca. */
+function Segmentado<T extends string>({
+  valor,
+  opcoes,
+  onChange,
+}: {
+  valor: T;
+  opcoes: { valor: T; rotulo: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div role="radiogroup" className="flex rounded-full bg-muted/70 p-1">
+      {opcoes.map((o) => {
+        const ativo = o.valor === valor;
+        return (
+          <button
+            key={o.valor}
+            type="button"
+            role="radio"
+            aria-checked={ativo}
+            onClick={() => onChange(o.valor)}
+            className={cn(
+              "flex-1 rounded-full px-3 py-2 text-sm font-medium transition-all duration-200 whitespace-nowrap",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+              ativo ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {o.rotulo}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function BotaoRedondo({ rotulo, onClick, children }: { rotulo: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-label={rotulo}
+      onClick={onClick}
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted/60 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Desenho ao vivo: onde entra a área a mais e a linha de corte (fora de escala). */
+function PreviaMargem({ peca, cm }: { peca: Peca; cm: number | null }) {
+  const arte = peca === "faixa" ? { w: 150, h: 54 } : peca === "banner" ? { w: 92, h: 112 } : { w: 104, h: 96 };
+  const m = 16;
+  const mt = peca === "faixa" ? 0 : m;
+  const ml = peca === "banner" ? 0 : m;
+  const W = arte.w + 2 * ml;
+  const H = arte.h + 2 * mt;
+  const x0 = (200 - W) / 2;
+  const y0 = (160 - H) / 2;
+  const t = { transition: "all 300ms cubic-bezier(.2,.8,.2,1)" } as const;
+  const linha = "#808080";
+  const rotulo = cm === null ? "?" : `${String(cm).replace(".", ",")} cm`;
+  return (
+    <div className="rounded-2xl bg-gradient-to-b from-muted/60 to-muted/20 p-3">
+      <svg viewBox="0 0 200 160" className="mx-auto w-full max-w-[320px] h-auto" role="img" aria-label="Prévia da área a mais e da linha de corte">
+        {/* página final */}
+        <rect x={x0} y={y0} width={W} height={H} rx="2" fill="#fff" style={{ ...t, filter: "drop-shadow(0 1px 2px rgb(0 0 0 / .12))" }} />
+        {/* arte */}
+        <rect x={x0 + ml} y={y0 + mt} width={arte.w} height={arte.h} rx="1" className="fill-primary/20 stroke-primary/40" strokeWidth="0.75" style={t} />
+        <text x={100} y={y0 + mt + arte.h / 2 + 4} textAnchor="middle" className="fill-primary text-[11px] font-semibold" style={t}>
+          Arte
+        </text>
+        {/* linhas de corte na borda de fora */}
+        {mt > 0 && (
+          <>
+            <rect x={x0} y={y0} width={W} height={1.6} fill={linha} style={t} />
+            <rect x={x0} y={y0 + H - 1.6} width={W} height={1.6} fill={linha} style={t} />
+          </>
+        )}
+        {ml > 0 && (
+          <>
+            <rect x={x0} y={y0} width={1.6} height={H} fill={linha} style={t} />
+            <rect x={x0 + W - 1.6} y={y0} width={1.6} height={H} fill={linha} style={t} />
+          </>
+        )}
+        {/* cota da medida */}
+        {mt > 0 ? (
+          <g style={t}>
+            <line x1={x0 + W + 7} y1={y0} x2={x0 + W + 7} y2={y0 + mt} stroke="currentColor" className="text-muted-foreground" strokeWidth="0.75" />
+            <text x={x0 + W + 11} y={y0 + mt / 2 + 3} className="fill-muted-foreground text-[8px] font-medium">{rotulo}</text>
+          </g>
+        ) : (
+          <g style={t}>
+            <line x1={x0} y1={y0 + H + 7} x2={x0 + ml} y2={y0 + H + 7} stroke="currentColor" className="text-muted-foreground" strokeWidth="0.75" />
+            <text x={x0} y={y0 + H + 17} className="fill-muted-foreground text-[8px] font-medium">{rotulo}</text>
+          </g>
+        )}
+      </svg>
+    </div>
+  );
+}
+
+function StatusPonto({ status }: { status: Status }) {
+  const mapa: Record<Status, { cor: string; texto: string }> = {
+    processando: { cor: "bg-muted-foreground animate-pulse", texto: "Processando" },
+    pronto: { cor: "bg-emerald-500", texto: "Pronto" },
+    falta_medida: { cor: "bg-amber-500", texto: "Falta a medida" },
+    erro: { cor: "bg-destructive", texto: "Erro" },
+  };
+  const s = mapa[status];
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className={cn("h-2 w-2 rounded-full", s.cor)} />
+      {s.texto}
+    </span>
+  );
 }
 
 function LinhaArquivo({ item, onLargura, onRemover }: { item: Item; onLargura: (v: string) => void; onRemover: () => void }) {
   const imagem = item.tipo === "png" || item.tipo === "jpg";
   const info = item.info;
   const larguraArquivo = info?.dpi ? (info.larguraPx / info.dpi) * 2.54 : null;
+  const [antes, depois] = item.medidas ? item.medidas.split(" → ") : [];
   return (
-    <li className="flex gap-3 py-3 items-start">
-      <div className="h-20 w-20 shrink-0 rounded border border-border bg-muted/40 flex items-center justify-center overflow-hidden">
+    <li className="group flex flex-wrap sm:flex-nowrap items-start gap-3 sm:gap-4 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
+      <div
+        className="flex h-16 w-16 sm:h-20 sm:w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl ring-1 ring-border/60"
+        style={{ background: "repeating-conic-gradient(hsl(var(--muted)) 0 25%, transparent 0 50%) 0 0 / 12px 12px" }}
+      >
         {item.thumb ? (
-          <img src={item.thumb} alt="" className="max-h-full max-w-full object-contain" />
+          <img src={item.thumb} alt="" className="max-h-full max-w-full object-contain drop-shadow-sm" />
         ) : item.status === "processando" ? (
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         ) : (
-          <span className="text-[10px] uppercase text-muted-foreground">{item.tipo === "desconhecido" ? "?" : item.tipo}</span>
+          <span className="text-[10px] font-semibold uppercase text-muted-foreground">{item.tipo === "desconhecido" ? "?" : item.tipo}</span>
         )}
       </div>
 
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm truncate max-w-full" title={item.nome}>{item.nome}</span>
-          <StatusBadge status={item.status} />
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="truncate text-sm font-semibold tracking-tight max-w-full" title={item.nome}>{item.nome}</span>
+          <StatusPonto status={item.status} />
         </div>
-        {item.medidas && (
-          <p className="text-sm tabular-nums">
-            {item.medidas}
-            {item.paginas && item.paginas > 1 && <span className="text-muted-foreground"> · {item.paginas} páginas</span>}
+        {antes && (
+          <p className="flex flex-wrap items-center gap-x-2 text-sm tabular-nums">
+            <span className="text-muted-foreground">{antes}</span>
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="font-medium">{depois}</span>
+            {item.paginas && item.paginas > 1 && <span className="text-muted-foreground">· {item.paginas} páginas</span>}
           </p>
         )}
         {info && (
@@ -477,39 +632,55 @@ function LinhaArquivo({ item, onLargura, onRemover }: { item: Item; onLargura: (
             {info.cmyk && " · CMYK"}
           </p>
         )}
-        {item.erro && <p className={cn("text-xs", item.status === "erro" ? "text-destructive" : "text-amber-700 dark:text-amber-400")}>{item.erro}</p>}
+        {item.erro && (
+          <p className={cn("text-xs", item.status === "erro" ? "text-destructive" : "text-amber-700 dark:text-amber-400")}>{item.erro}</p>
+        )}
         {item.avisos.map((a) => (
-          <p key={a} className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1">
-            <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" /> {a}
+          <p key={a} className="flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" /> {a}
           </p>
         ))}
         {imagem && info && (
-          <div className="flex items-center gap-2 pt-1">
-            <Label htmlFor={`larg-${item.id}`} className="text-xs font-normal whitespace-nowrap">
-              {info.dpi ? "Corrigir largura real (cm)" : "Largura real do banner (cm)"}
-            </Label>
-            <Input
-              id={`larg-${item.id}`}
-              inputMode="decimal"
-              className={cn("h-8 w-24 text-sm", item.status === "falta_medida" && "border-amber-500")}
-              placeholder={larguraArquivo ? larguraArquivo.toFixed(1).replace(".", ",") : "ex.: 90"}
-              value={item.larguraCm}
-              onChange={(e) => onLargura(e.target.value)}
-            />
-          </div>
+          <label className="flex w-fit items-center gap-2 pt-1 text-xs text-muted-foreground">
+            {info.dpi ? "Corrigir largura real" : "Largura real do banner"}
+            <span
+              className={cn(
+                "flex h-8 items-center rounded-full bg-muted/60 pr-3 ring-1 ring-transparent focus-within:ring-primary/40",
+                item.status === "falta_medida" && "ring-amber-500",
+              )}
+            >
+              <Input
+                inputMode="decimal"
+                className="h-8 w-20 border-0 bg-transparent text-center text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                placeholder={larguraArquivo ? larguraArquivo.toFixed(1).replace(".", ",") : "ex.: 90"}
+                value={item.larguraCm}
+                onChange={(e) => onLargura(e.target.value)}
+              />
+              cm
+            </span>
+          </label>
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-1 shrink-0">
+      <div className="flex w-full sm:w-auto shrink-0 items-center justify-end gap-1">
+        {item.status !== "erro" && (
         <Button
           size="sm"
+          className="rounded-full"
           disabled={item.status !== "pronto" || !item.resultado}
           onClick={() => item.resultado && baixarBlob(item.resultado.blob, item.resultado.nome)}
         >
           <Download className="h-4 w-4" /> Baixar
         </Button>
-        <Button size="sm" variant="ghost" onClick={onRemover} aria-label={`Remover ${item.nome}`}>
-          <Trash2 className="h-4 w-4" />
+        )}
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-9 w-9 rounded-full text-muted-foreground opacity-70 hover:opacity-100"
+          onClick={onRemover}
+          aria-label={`Remover ${item.nome}`}
+        >
+          {item.status === "erro" ? <X className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
         </Button>
       </div>
     </li>

@@ -15,7 +15,6 @@ interface Ferramenta {
   key: string;
   label: string;
   icon: LucideIcon;
-  descricao: string;
   Componente: ComponentType;
 }
 
@@ -24,8 +23,6 @@ const FERRAMENTAS: Ferramenta[] = [
     key: "margem-acabamento",
     label: "Margem de acabamento",
     icon: Scissors,
-    descricao:
-      "Aumenta a página de banners e faixas de lona fora da arte. A área a mais fica em branco, com uma linha fina (preto 50%, 1 mm) na borda de fora marcando o corte. A arte não muda de tamanho.",
     Componente: MargemAcabamento,
   },
 ];
@@ -47,7 +44,6 @@ export default function PreImpressao() {
         value={atual.key}
         onChange={(key) => setParams({ tab: key }, { replace: true })}
       />
-      <p className="text-sm text-muted-foreground">{atual.descricao}</p>
       <Componente />
     </PageContainer>
   );
