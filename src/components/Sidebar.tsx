@@ -1,7 +1,7 @@
 import {
   Home, Users, Package, Settings, Factory, Receipt, Calculator, Cpu, Shield,
   ClipboardList, MessageSquare, TrendingUp, BookOpen, PanelLeftClose, PanelLeftOpen, X,
-  Megaphone, UserCog, LogOut, ShoppingCart, Wallet, Ruler, Scissors, Wand2, Tags, Bot, ExternalLink,
+  Megaphone, UserCog, LogOut, ShoppingCart, Wallet, Ruler, Scissors, Wand2, Tags, Bot, ExternalLink, Printer,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -48,6 +48,12 @@ const NAV_GROUPS: NavGroup[] = [
       { name: "Pedidos", href: "/pedidos", icon: ShoppingCart },
       { name: "Orçamentos", href: "/orcamentos", icon: ClipboardList },
       { name: "Chat Interno", href: "/chat", icon: MessageSquare },
+    ],
+  },
+  {
+    label: "Produção",
+    items: [
+      { name: "Pré-impressão", href: "/pre-impressao", icon: Printer },
     ],
   },
   {

@@ -2,6 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { CompanySettingsProvider } from "@/hooks/useCompanySettings";
@@ -46,6 +47,10 @@ import CalculadoraEtiquetas from "./pages/CalculadoraEtiquetas";
 import Acabamentos from "./pages/Acabamentos";
 import Permissoes from "./pages/configuracoes/Permissoes";
 import NotFound from "./pages/NotFound";
+import PageLoader from "@/components/PageLoader";
+
+// Pré-impressão carrega sob demanda (pdf-lib, pdf.js e jszip só baixam quando alguém abre a página).
+const PreImpressao = lazy(() => import("./pages/PreImpressao"));
 
 const queryClient = new QueryClient();
 
@@ -78,6 +83,7 @@ const App = () => (
 
                   <Route path="/preco-impressao" element={<PrecoImpressao />} />
                   <Route path="/tabela-precos" element={<RoleProtectedRoute requires="admin"><TabelaPrecos /></RoleProtectedRoute>} />
+                  <Route path="/pre-impressao" element={<Suspense fallback={<PageLoader />}><PreImpressao /></Suspense>} />
                   <Route path="/calculadora-etiquetas" element={<CalculadoraEtiquetas />} />
                   <Route path="/acabamentos" element={<Navigate to="/processos-producao?tab=acabamentos" replace />} />
                   <Route path="/equipamentos" element={<Equipamentos />} />
