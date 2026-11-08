@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { PDFArray, PDFDocument, PDFRawStream, decodePDFRawStream, degrees, rgb, type PDFPage } from "pdf-lib";
 import { PT_POR_CM } from "@/lib/preimpressao/margem";
 import {
+  aproveitamento,
   arteEmPe,
   encaixarNaFolha,
   formatarNumero,
@@ -11,6 +12,8 @@ import {
   paginaDaVia,
   planejarNumeracao,
   pontoNaFolha,
+  sangriaDoPdf,
+  tamanhoFinal,
   type ConfigNumeracao,
 } from "@/lib/preimpressao/numeracao";
 
@@ -46,6 +49,7 @@ const base: ConfigNumeracao = {
   linhas: 2,
   margemMm: 5,
   espacoMm: 0,
+  sangriaMm: 0,
   marcasCorte: true,
   inicio: 1,
   taloes: 8,
@@ -136,6 +140,34 @@ describe("encaixe na folha", () => {
   it("página de cada via", () => {
     expect([0, 1, 2].map((v) => paginaDaVia(v, 1))).toEqual([0, 0, 0]);
     expect([0, 1, 2].map((v) => paginaDaVia(v, 2))).toEqual([0, 1, 1]);
+  });
+});
+
+describe("padrão da Max: folha 32,8 × 47,8, sangria 3 mm, borda 0,6 mm", () => {
+  const mm = (v: number) => (v / 10) * PT_POR_CM;
+
+  it("talão 10×14 (arte 10,6×14,6 com sangria) → 9 por folha (3 × 3), sangrias encostadas", () => {
+    const e = encaixarNaFolha(cm(32.8), cm(47.8), cm(10.6), cm(14.6), mm(0.6), 0);
+    expect([e.colunas, e.linhas, e.celulas[0].rot]).toEqual([3, 3, 0]);
+    // vizinhos encostados (espaço 0)
+    const [a, b] = e.celulas;
+    expect(b.x - (a.x + a.w)).toBeCloseTo(0, 6);
+    // nada a menos de 0,6 mm da beirada
+    for (const c of e.celulas) {
+      expect(c.x).toBeGreaterThanOrEqual(mm(0.6) - 1e-6);
+      expect(c.y).toBeGreaterThanOrEqual(mm(0.6) - 1e-6);
+    }
+    expect(tamanhoFinal({ w: cm(10.6), h: cm(14.6) }, mm(3)).w).toBeCloseTo(cm(10), 6);
+    // 9 × (10 × 14) ÷ (32,8 × 47,8) ≈ 80,4%
+    expect(aproveitamento(e, mm(3))).toBeCloseTo((9 * 140) / (32.8 * 47.8), 4);
+  });
+
+  it("lê a sangria da TrimBox do PDF", async () => {
+    const d = await PDFDocument.create();
+    const p = d.addPage([cm(10.6), cm(14.6)]);
+    p.setTrimBox(mm(3), mm(3), cm(10), cm(14));
+    expect(await sangriaDoPdf(await d.save())).toBe(3);
+    expect(await sangriaDoPdf(await arte(10, 14))).toBeNull();
   });
 });
 

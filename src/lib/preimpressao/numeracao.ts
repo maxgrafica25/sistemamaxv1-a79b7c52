@@ -172,6 +172,8 @@ export interface ConfigNumeracao {
   linhas: number;
   margemMm: number;
   espacoMm: number;
+  /** Sangria que a arte JÁ TRAZ em cada lado (mm). O corte fica essa medida para dentro. */
+  sangriaMm: number;
   marcasCorte: boolean;
   inicio: number;
   taloes: number;
@@ -207,6 +209,28 @@ export async function arteEmPe(bytes: Uint8Array): Promise<Uint8Array> {
   return r.bytes;
 }
 
+/**
+ * Sangria gravada no PDF (Corel/Illustrator gravam a TrimBox ao exportar com sangria):
+ * diferença entre a área visível (CropBox) e a de corte (TrimBox), em mm, quando é igual
+ * nos 4 lados. null = o PDF não informa.
+ */
+export async function sangriaDoPdf(bytes: Uint8Array): Promise<number | null> {
+  try {
+    const doc = await PDFDocument.load(bytes, { updateMetadata: false });
+    const p = doc.getPage(0);
+    if (!p.node.TrimBox()) return null;
+    const c = p.getCropBox();
+    const t = p.getTrimBox();
+    const lados = [t.x - c.x, t.y - c.y, c.x + c.width - (t.x + t.width), c.y + c.height - (t.y + t.height)].map((v) => v / PT_POR_MM);
+    if (lados.some((v) => v < 0.05)) return null;
+    const media = lados.reduce((a, b) => a + b, 0) / 4;
+    if (lados.some((v) => Math.abs(v - media) > 0.2)) return null;
+    return Math.round(media * 10) / 10;
+  } catch {
+    return null;
+  }
+}
+
 /** Tamanho (pt) da 1ª página já em pé. */
 export async function tamanhoArte(bytesEmPe: Uint8Array): Promise<{ w: number; h: number; paginas: number }> {
   const doc = await PDFDocument.load(bytesEmPe);
@@ -226,37 +250,71 @@ function desenharNumero(page: PDFPage, font: PDFFont, c: Celula, pos: PosicaoNum
   page.drawText(texto, { x: o.x, y: o.y, size, font, color: CORES[cfg.cor], rotate: degrees(rot) });
 }
 
-/** Marcas de corte no lado de fora da grade (só quando a margem tem espaço). */
-function desenharMarcas(page: PDFPage, e: Encaixe) {
+/**
+ * Marcas de corte no lado de fora da grade, alinhadas com a LINHA DE CORTE de cada
+ * talão (sangria para dentro). Só desenha onde sobra espaço entre a grade e a beirada.
+ */
+function desenharMarcas(page: PDFPage, e: Encaixe, sangria: number) {
   if (!e.celulas.length) return;
   const xs = new Set<number>();
   const ys = new Set<number>();
   for (const c of e.celulas) {
     const cw = c.rot ? c.h : c.w;
     const ch = c.rot ? c.w : c.h;
-    xs.add(+c.x.toFixed(3)).add(+(c.x + cw).toFixed(3));
-    ys.add(+c.y.toFixed(3)).add(+(c.y + ch).toFixed(3));
+    xs.add(+(c.x + sangria).toFixed(3)).add(+(c.x + cw - sangria).toFixed(3));
+    ys.add(+(c.y + sangria).toFixed(3)).add(+(c.y + ch - sangria).toFixed(3));
   }
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
+  const g = limitesGrade(e);
   const afast = 1 * PT_POR_MM;
-  const comp = 4 * PT_POR_MM;
+  const MAX = 4 * PT_POR_MM;
+  const MIN = 1.5 * PT_POR_MM;
   const linha = (x1: number, y1: number, x2: number, y2: number) =>
     page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: 0.25, color: PRETO });
-  if (minY - afast - comp >= 0 && maxY + afast + comp <= e.folhaH) {
+  // Comprimento da marca: até 4 mm, encurtando para caber no espaço livre (mínimo 1,5 mm)
+  const vert = Math.min(MAX, g.y0 - afast, e.folhaH - g.y1 - afast);
+  const horiz = Math.min(MAX, g.x0 - afast, e.folhaW - g.x1 - afast);
+  if (vert >= MIN) {
     for (const x of xs) {
-      linha(x, maxY + afast, x, maxY + afast + comp);
-      linha(x, minY - afast, x, minY - afast - comp);
+      linha(x, g.y1 + afast, x, g.y1 + afast + vert);
+      linha(x, g.y0 - afast, x, g.y0 - afast - vert);
     }
   }
-  if (minX - afast - comp >= 0 && maxX + afast + comp <= e.folhaW) {
+  if (horiz >= MIN) {
     for (const y of ys) {
-      linha(minX - afast, y, minX - afast - comp, y);
-      linha(maxX + afast, y, maxX + afast + comp, y);
+      linha(g.x0 - afast, y, g.x0 - afast - horiz, y);
+      linha(g.x1 + afast, y, g.x1 + afast + horiz, y);
     }
   }
+}
+
+/** Retângulo ocupado pela grade de talões (com sangria). */
+export function limitesGrade(e: Encaixe): { x0: number; y0: number; x1: number; y1: number } {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const c of e.celulas) {
+    const cw = c.rot ? c.h : c.w;
+    const ch = c.rot ? c.w : c.h;
+    x0 = Math.min(x0, c.x);
+    y0 = Math.min(y0, c.y);
+    x1 = Math.max(x1, c.x + cw);
+    y1 = Math.max(y1, c.y + ch);
+  }
+  return { x0, y0, x1, y1 };
+}
+
+/** Tamanho final do talão (sem a sangria). */
+export function tamanhoFinal(arte: { w: number; h: number }, sangriaPt: number): { w: number; h: number } {
+  return { w: arte.w - 2 * sangriaPt, h: arte.h - 2 * sangriaPt };
+}
+
+/** Aproveitamento da folha: área final (sem sangria) dos talões ÷ área da folha, de 0 a 1. */
+export function aproveitamento(e: Encaixe, sangriaPt: number): number {
+  if (!e.celulas.length) return 0;
+  const c = e.celulas[0];
+  const f = tamanhoFinal(c, sangriaPt);
+  return (Math.max(0, f.w) * Math.max(0, f.h) * e.celulas.length) / (e.folhaW * e.folhaH);
 }
 
 export const LIMITE_FOLHAS = 10_000;
@@ -307,14 +365,16 @@ export async function gerarNumeracao(bytesEmPe: Uint8Array, cfg: ConfigNumeracao
         const texto = formatarNumero(n, cfg.digitos, cfg.prefixo);
         for (const pos of cfg.posicoes) desenharNumero(page, font, c, pos, texto, cfg);
       });
-      if (cfg.modo === "solto" && cfg.marcasCorte) desenharMarcas(page, encaixe);
+      if (cfg.modo === "solto" && cfg.marcasCorte) desenharMarcas(page, encaixe, cfg.sangriaMm * PT_POR_MM);
     }
     vias.push(await out.save());
   }
   return { vias, plano, encaixe, porFolha: K };
 }
 
+/** Folhas de impressão. A primeira é a padrão da Max Gráfica (32,8 × 47,8 cm). */
 export const FOLHAS_PADRAO: { key: string; rotulo: string; wCm: number; hCm: number }[] = [
+  { key: "32.8x47.8", rotulo: "32,8 × 47,8", wCm: 32.8, hCm: 47.8 },
   { key: "a4", rotulo: "A4", wCm: 21, hCm: 29.7 },
   { key: "a3", rotulo: "A3", wCm: 29.7, hCm: 42 },
   { key: "sra3", rotulo: "SRA3", wCm: 32, hCm: 45 },

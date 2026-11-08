@@ -9,13 +9,16 @@ import { cn } from "@/lib/utils";
 import { PT_POR_CM, detectarTipo } from "@/lib/preimpressao/margem";
 import {
   FOLHAS_PADRAO,
+  aproveitamento,
   arteEmPe,
   calcularEncaixe,
   formatarNumero,
   gerarNumeracao,
   numeroNaPosicao,
   planejarNumeracao,
+  sangriaDoPdf,
   tamanhoArte,
+  tamanhoFinal,
   type Celula,
   type ConfigNumeracao,
   type CorNumero,
@@ -31,13 +34,17 @@ type Modo = "solto" | "montado";
 
 interface Config {
   modo: Modo;
-  folha: string; // a4 | a3 | sra3 | 33x48 | outra
+  folha: string; // 32.8x47.8 | a4 | a3 | sra3 | 33x48 | outra
   folhaW: string;
   folhaH: string;
   colunas: string;
   linhas: string;
+  /** Solto: borda da folha até a sangria. */
   margem: string;
+  /** Montada: margem da página até a grade. */
+  margemMontada: string;
   espaco: string;
+  sangria: string;
   marcasCorte: boolean;
   inicio: string;
   taloes: string;
@@ -51,16 +58,19 @@ interface Config {
   ordemInvertida: boolean;
 }
 
-const CONFIG_KEY = "preimpressao.numeracao.config.v1";
+// v2 (08/11): padrão da Max Gráfica — folha 32,8 × 47,8, sangria 3 mm, borda 0,6 mm
+const CONFIG_KEY = "preimpressao.numeracao.config.v2";
 const PADRAO: Config = {
   modo: "solto",
-  folha: "a4",
+  folha: "32.8x47.8",
   folhaW: "21",
   folhaH: "29,7",
   colunas: "2",
   linhas: "2",
-  margem: "5",
+  margem: "0,6",
+  margemMontada: "0",
   espaco: "0",
+  sangria: "3",
   marcasCorte: true,
   inicio: "1",
   taloes: "10",
@@ -121,7 +131,11 @@ function validar(c: Config): Validado {
     folhaH,
     colunas: chk("colunas", entre(c.colunas, 1, 20, true), "1 a 20"),
     linhas: chk("linhas", entre(c.linhas, 1, 20, true), "1 a 20"),
-    margemMm: chk("margem", entre(c.margem, 0, 50), "0 a 50 mm"),
+    margemMm:
+      c.modo === "solto"
+        ? chk("margem", entre(c.margem, 0, 50), "0 a 50 mm")
+        : chk("margemMontada", entre(c.margemMontada, 0, 50), "0 a 50 mm"),
+    sangriaMm: c.modo === "solto" ? chk("sangria", entre(c.sangria, 0, 20), "0 a 20 mm") : 0,
     espacoMm: chk("espaco", entre(c.espaco, 0, 50), "0 a 50 mm"),
     marcasCorte: c.marcasCorte,
     inicio: chk("inicio", entre(c.inicio, 0, 99_999_999, true), "Número inteiro"),
@@ -147,6 +161,8 @@ interface Arte {
   h: number;
   paginas: number;
   imagem: string;
+  /** Sangria gravada no PDF (TrimBox), em mm. */
+  sangriaPdf: number | null;
 }
 
 interface Resultado {
@@ -216,7 +232,9 @@ export default function NumeracaoTaloes() {
       const emPe = await arteEmPe(bytes);
       const t = await tamanhoArte(emPe);
       const imagem = await renderizarPaginaPdf(emPe, 0, 1400);
-      setArte({ nome: f.name, emPe, w: t.w, h: t.h, paginas: t.paginas, imagem });
+      const sangriaPdf = await sangriaDoPdf(bytes);
+      if (sangriaPdf !== null) setConfig((c) => ({ ...c, sangria: String(sangriaPdf).replace(".", ",") }));
+      setArte({ nome: f.name, emPe, w: t.w, h: t.h, paginas: t.paginas, imagem, sangriaPdf });
     } catch (e) {
       setArte(null);
       setErroArte(e instanceof Error ? e.message : "Não consegui abrir o arquivo.");
@@ -379,15 +397,37 @@ export default function NumeracaoTaloes() {
             </Campo>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <Mini rotulo={config.modo === "solto" ? "Margem da folha (mm)" : "Margem da página (mm)"} valor={config.margem} onChange={(v) => set("margem", v)} erro={erros.margem} />
-            <Mini rotulo="Espaço entre talões (mm)" valor={config.espaco} onChange={(v) => set("espaco", v)} erro={erros.espaco} />
-          </div>
+          {config.modo === "solto" ? (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+              <Mini
+                rotulo="Sangria da arte (mm)"
+                valor={config.sangria}
+                onChange={(v) => set("sangria", v)}
+                erro={erros.sangria}
+                ajuda={arte?.sangriaPdf != null ? "Lida do PDF" : "Já incluída no PDF, por lado"}
+              />
+              <Mini rotulo="Borda da folha (mm)" valor={config.margem} onChange={(v) => set("margem", v)} erro={erros.margem} ajuda="Da beirada até a sangria" />
+              <Mini
+                rotulo="Espaço entre talões (mm)"
+                valor={config.espaco}
+                onChange={(v) => set("espaco", v)}
+                erro={erros.espaco}
+                ajuda="0 = sangrias encostadas"
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <Mini rotulo="Margem da página (mm)" valor={config.margemMontada} onChange={(v) => set("margemMontada", v)} erro={erros.margemMontada} />
+              <Mini rotulo="Espaço entre talões (mm)" valor={config.espaco} onChange={(v) => set("espaco", v)} erro={erros.espaco} />
+            </div>
+          )}
 
           {config.modo === "solto" && (
             <Chave ligado={config.marcasCorte} onChange={(v) => set("marcasCorte", v)}>
               <span className="font-medium">Marcas de corte</span>
-              <span className="block text-xs text-muted-foreground">Tracinhos na margem da folha, onde passar a guilhotina.</span>
+              <span className="block text-xs text-muted-foreground">
+                Tracinhos na linha de corte, onde sobrar espaço na beirada da folha.
+              </span>
             </Chave>
           )}
         </Painel>
@@ -512,14 +552,27 @@ export default function NumeracaoTaloes() {
           {arte && cfg && encaixe && plano ? (
             <>
               <div className="flex flex-wrap items-start gap-5">
-                {config.modo === "solto" && <EsquemaFolha encaixe={encaixe} plano={plano} cfg={cfg} />}
+                {config.modo === "solto" && <EsquemaFolha encaixe={encaixe} plano={plano} cfg={cfg} sangriaPt={cfg.sangriaMm * (PT_POR_CM / 10)} />}
                 <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-3 text-sm min-w-[220px]">
                   <Dado rotulo="Talões por folha" valor={`${encaixe.celulas.length}${config.modo === "solto" ? ` (${encaixe.colunas} × ${encaixe.linhas})` : ""}`} />
                   <Dado rotulo="Folhas por via" valor={plano.folhas.toLocaleString("pt-BR")} />
                   <Dado rotulo="Numeração" valor={`${formatarNumero(plano.primeiro, cfg.digitos)} a ${formatarNumero(plano.ultimo, cfg.digitos)}`} />
                   <Dado rotulo="Total de folhas" valor={`${(plano.folhas * cfg.vias).toLocaleString("pt-BR")} (${cfg.vias} ${cfg.vias === 1 ? "via" : "vias"})`} />
                   {config.modo === "solto" && (
-                    <Dado rotulo="Folha" valor={`${fmtCm(encaixe.folhaW)} × ${fmtCm(encaixe.folhaH)} cm${encaixe.celulas[0].rot ? " · arte deitada" : ""}`} />
+                    <>
+                      <Dado rotulo="Folha" valor={`${fmtCm(encaixe.folhaW)} × ${fmtCm(encaixe.folhaH)} cm${encaixe.celulas[0].rot ? " · arte deitada" : ""}`} />
+                      <Dado
+                        rotulo="Tamanho final do talão"
+                        valor={(() => {
+                          const f = tamanhoFinal(arte, cfg.sangriaMm * (PT_POR_CM / 10));
+                          return `${fmtCm(f.w)} × ${fmtCm(f.h)} cm`;
+                        })()}
+                      />
+                      <Dado
+                        rotulo="Aproveitamento da folha"
+                        valor={`${Math.round(aproveitamento(encaixe, cfg.sangriaMm * (PT_POR_CM / 10)) * 100)}%`}
+                      />
+                    </>
                   )}
                   <Dado rotulo="Cada monte" valor={`${plano.taloesPorMonte} ${plano.taloesPorMonte === 1 ? "talão" : "talões"}`} />
                 </dl>
@@ -641,7 +694,17 @@ function Dado({ rotulo, valor }: { rotulo: string; valor: string }) {
 }
 
 /** Desenho da folha com os talões e o primeiro número de cada monte. */
-function EsquemaFolha({ encaixe, plano, cfg }: { encaixe: Encaixe; plano: ReturnType<typeof planejarNumeracao>; cfg: ConfigNumeracao }) {
+function EsquemaFolha({
+  encaixe,
+  plano,
+  cfg,
+  sangriaPt,
+}: {
+  encaixe: Encaixe;
+  plano: ReturnType<typeof planejarNumeracao>;
+  cfg: ConfigNumeracao;
+  sangriaPt: number;
+}) {
   const escala = 150 / Math.max(encaixe.folhaW, encaixe.folhaH);
   const W = encaixe.folhaW * escala;
   const H = encaixe.folhaH * escala;
@@ -656,7 +719,17 @@ function EsquemaFolha({ encaixe, plano, cfg }: { encaixe: Encaixe; plano: Return
         const n = numeroNaPosicao(plano, j, 0, cfg.taloes, cfg.jogos, cfg.inicio);
         return (
           <g key={j}>
-            <rect x={x} y={y} width={cw} height={ch} className={n === null ? "fill-muted" : "fill-primary/15 stroke-primary/40"} strokeWidth={0.6} />
+            <rect x={x} y={y} width={cw} height={ch} className={n === null ? "fill-muted" : "fill-primary/10"} />
+            {sangriaPt > 0 && cw > 2 * sangriaPt * escala && (
+              <rect
+                x={x + sangriaPt * escala}
+                y={y + sangriaPt * escala}
+                width={cw - 2 * sangriaPt * escala}
+                height={ch - 2 * sangriaPt * escala}
+                className={n === null ? "fill-none stroke-muted-foreground/30" : "fill-primary/15 stroke-primary/50"}
+                strokeWidth={0.5}
+              />
+            )}
             {n !== null && (
               <text x={x + cw / 2} y={y + ch / 2 + 3} textAnchor="middle" className="fill-primary text-[8px] font-semibold">
                 {formatarNumero(n, cfg.digitos)}
