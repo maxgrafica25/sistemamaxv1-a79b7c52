@@ -2,7 +2,9 @@
 // A lógica de medidas/DPI/PDF fica em ./margem.ts (testada).
 
 import {
-  COR_FAIXA_RGB,
+  COR_LINHA_RGB,
+  ESPESSURA_LINHA_MM,
+  retangulosLinhaCorte,
   gravarDpiJpg,
   gravarDpiPng,
   type InfoImagem,
@@ -12,7 +14,7 @@ import {
 const MSG_SEMPRE_PDF =
   "Imagem grande demais para o navegador gerar em PNG/JPG. Escolha \"Sempre PDF\" em \"Salvar como\".";
 
-/** Gera PNG/JPG com as faixas cinza (#808080) fora da arte, com o DPI regravado. */
+/** Gera PNG/JPG com a área a mais em branco e a linha de corte cinza (#808080), com o DPI regravado. */
 export async function imagemMesmoFormato(arquivo: Blob, info: InfoImagem, plano: PlanoImagem): Promise<Blob> {
   if (!plano.cabeNoCanvas) throw new Error(MSG_SEMPRE_PDF);
 
@@ -36,11 +38,10 @@ export async function imagemMesmoFormato(arquivo: Blob, info: InfoImagem, plano:
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, W, H);
     }
-    ctx.fillStyle = COR_FAIXA_RGB;
-    if (top) ctx.fillRect(0, 0, W, top);
-    if (bottom) ctx.fillRect(0, H - bottom, W, bottom);
-    if (left) ctx.fillRect(0, 0, left, H);
-    if (right) ctx.fillRect(W - right, 0, right, H);
+    // Área a mais sem preenchimento (JPG: branco; PNG: transparente) + linha de corte na borda de fora
+    const espPx = Math.max(1, Math.round((ESPESSURA_LINHA_MM / 25.4) * plano.dpi));
+    ctx.fillStyle = COR_LINHA_RGB;
+    for (const q of retangulosLinhaCorte(W, H, { top, bottom, left, right }, espPx, true)) ctx.fillRect(q.x, q.y, q.w, q.h);
     ctx.drawImage(bmp, left, top, info.larguraPx, info.alturaPx);
 
     const tipo = info.tipo === "jpg" ? "image/jpeg" : "image/png";

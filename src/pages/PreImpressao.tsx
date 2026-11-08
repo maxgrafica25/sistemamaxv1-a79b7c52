@@ -25,7 +25,7 @@ const FERRAMENTAS: Ferramenta[] = [
     label: "Margem de acabamento",
     icon: Scissors,
     descricao:
-      "Aumenta a página de banners e faixas de lona com faixas preto 50% fora da arte, para marcar o corte. A arte não muda de tamanho.",
+      "Aumenta a página de banners e faixas de lona fora da arte. A área a mais fica em branco, com uma linha fina (preto 50%, 1 mm) na borda de fora marcando o corte. A arte não muda de tamanho.",
     Componente: MargemAcabamento,
   },
 ];
