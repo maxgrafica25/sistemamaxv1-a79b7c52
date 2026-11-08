@@ -4,9 +4,9 @@
 // Tudo no navegador: os arquivos nunca saem do computador.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
 import { AlertTriangle, ArrowRight, Download, FileArchive, Loader2, Lock, Minus, Plus, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BotaoRedondo, Campo, Segmentado } from "./ui";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
@@ -465,64 +465,6 @@ const PECAS_UI: { key: Peca; titulo: string; ajuda: string }[] = [
   { key: "faixa", titulo: "Faixa", ajuda: "Área a mais nas laterais." },
   { key: "todos", titulo: "Todos os lados", ajuda: "Área a mais em volta toda." },
 ];
-
-function Campo({ titulo, ajuda, children }: { titulo: string; ajuda?: string; children: ReactNode }) {
-  return (
-    <div>
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{titulo}</p>
-      {children}
-      {ajuda && <p className="mt-2 text-xs text-muted-foreground">{ajuda}</p>}
-    </div>
-  );
-}
-
-/** Controle segmentado no estilo iOS/Material: trilho cinza e opção escolhida em "pílula" branca. */
-function Segmentado<T extends string>({
-  valor,
-  opcoes,
-  onChange,
-}: {
-  valor: T;
-  opcoes: { valor: T; rotulo: string }[];
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div role="radiogroup" className="flex rounded-full bg-muted/70 p-1">
-      {opcoes.map((o) => {
-        const ativo = o.valor === valor;
-        return (
-          <button
-            key={o.valor}
-            type="button"
-            role="radio"
-            aria-checked={ativo}
-            onClick={() => onChange(o.valor)}
-            className={cn(
-              "flex-1 rounded-full px-3 py-2 text-sm font-medium transition-all duration-200 whitespace-nowrap",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-              ativo ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {o.rotulo}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function BotaoRedondo({ rotulo, onClick, children }: { rotulo: string; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-label={rotulo}
-      onClick={onClick}
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted/60 text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-    >
-      {children}
-    </button>
-  );
-}
 
 /** Desenho ao vivo: onde entra a área a mais e a linha de corte (fora de escala). */
 function PreviaMargem({ peca, cm }: { peca: Peca; cm: number | null }) {

@@ -103,16 +103,16 @@ function carregarPdfJs(): Promise<PdfJs> {
   return pdfjsPromise;
 }
 
-/** Miniatura da 1ª página de um PDF (data URL). */
-export async function miniaturaPdf(bytes: Uint8Array): Promise<string> {
+/** Desenha uma página do PDF numa imagem (data URL) com o maior lado = `maiorLadoPx`. */
+export async function renderizarPaginaPdf(bytes: Uint8Array, pagina = 0, maiorLadoPx = TAM_MINIATURA): Promise<string> {
   const pdfjs = await carregarPdfJs();
   // pdf.js transfere o buffer para o worker: passa uma cópia
   const tarefa = pdfjs.getDocument({ data: bytes.slice() });
   const doc = await tarefa.promise;
   try {
-    const page = await doc.getPage(1);
+    const page = await doc.getPage(pagina + 1);
     const vp1 = page.getViewport({ scale: 1 });
-    const viewport = page.getViewport({ scale: TAM_MINIATURA / Math.max(vp1.width, vp1.height) });
+    const viewport = page.getViewport({ scale: maiorLadoPx / Math.max(vp1.width, vp1.height) });
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(viewport.width));
     canvas.height = Math.max(1, Math.round(viewport.height));
@@ -123,6 +123,11 @@ export async function miniaturaPdf(bytes: Uint8Array): Promise<string> {
   } finally {
     await tarefa.destroy();
   }
+}
+
+/** Miniatura da 1ª página de um PDF (data URL). */
+export function miniaturaPdf(bytes: Uint8Array): Promise<string> {
+  return renderizarPaginaPdf(bytes, 0, TAM_MINIATURA);
 }
 
 export function baixarBlob(blob: Blob, nome: string) {
