@@ -183,6 +183,22 @@ export default function NumeracaoTaloes() {
   const [arrastando, setArrastando] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // No computador as duas colunas ocupam a altura que sobra da tela, cada uma com a sua
+  // barra de rolagem: rolar os ajustes não tira a pré-visualização da tela.
+  const gradeRef = useRef<HTMLDivElement>(null);
+  const [alturaTela, setAlturaTela] = useState(700);
+  useEffect(() => {
+    const medir = () => {
+      const el = gradeRef.current;
+      if (!el) return;
+      const topo = el.getBoundingClientRect().top;
+      setAlturaTela(Math.max(520, Math.round(window.innerHeight - Math.max(0, topo) - 16)));
+    };
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  }, []);
+
   useEffect(() => {
     try {
       window.localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
@@ -281,9 +297,14 @@ export default function NumeracaoTaloes() {
   const amostraNumero = cfg ? formatarNumero(cfg.inicio, cfg.digitos, cfg.prefixo) : "Nº 0001";
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(320px,400px)_1fr] items-start">
+    <div
+      ref={gradeRef}
+      className="grid gap-6 lg:grid-cols-[minmax(320px,400px)_1fr] lg:h-[var(--altura-ferramenta)]"
+      style={{ ["--altura-ferramenta" as string]: `${alturaTela}px` }}
+    >
       {/* ── Ajustes ───────────────────────────────────────────── */}
-      <div className="space-y-6">
+      {/* Esquerda: ajustes com barra de rolagem própria (a pré-visualização não sai da tela) */}
+      <div className="space-y-6 lg:h-full lg:overflow-y-auto lg:pr-2 lg:pb-2 [scrollbar-gutter:stable]">
         <Painel className="space-y-6">
           <Campo titulo={config.modo === "solto" ? "Envie a arte" : "Envie o PDF montado"}>
             <div
@@ -503,7 +524,7 @@ export default function NumeracaoTaloes() {
       </div>
 
       {/* ── Pré-visualização e resultado (fica fixo enquanto rola os ajustes) ── */}
-      <div className="space-y-6 min-w-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pb-1">
+      <div className="space-y-6 min-w-0 lg:h-full lg:overflow-y-auto lg:pb-2">
         <Painel className="space-y-4">
           <div>
             <h3 className="text-base font-semibold tracking-tight">Pré-visualização</h3>
@@ -564,22 +585,10 @@ export default function NumeracaoTaloes() {
                       />
                     </>
                   )}
-                  <Dado rotulo="Cada monte" valor={`${plano.taloesPorMonte} ${plano.taloesPorMonte === 1 ? "talão" : "talões"}`} />
+                  <Dado rotulo="Cada monte" valor={`${plano.folhas.toLocaleString("pt-BR")} números`} />
                 </dl>
               </div>
-              {plano.espacosVazios > 0 && (
-                <p className="flex items-start gap-1 rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                  <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-                  <span>
-                    {plano.espacosVazios} {plano.espacosVazios === 1 ? "espaço de talão fica" : "espaços de talão ficam"} em branco no fim
-                    (a quantidade não divide certo pelos {encaixe.celulas.length} da folha). Com{" "}
-                    <button type="button" className="font-semibold underline" onClick={() => set("taloes", String(cfg.taloes + plano.espacosVazios))}>
-                      {cfg.taloes + plano.espacosVazios} talões
-                    </button>{" "}
-                    são as mesmas {plano.folhas.toLocaleString("pt-BR")} folhas.
-                  </span>
-                </p>
-              )}
+              <Montes plano={plano} porFolha={encaixe.celulas.length} cfg={cfg} />
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -595,11 +604,17 @@ export default function NumeracaoTaloes() {
 
           {erroGerar && <p className="text-sm text-destructive">{erroGerar}</p>}
 
+          <p className="flex items-center justify-center gap-1  text-xs text-muted-foreground">
+            <Lock className="h-3 w-3" /> Tudo é feito aqui no seu computador. Nada é enviado para a internet.
+          </p>
           {!resultado ? (
-            <Button size="lg" className="w-full rounded-full" disabled={!arte || !cfg || !encaixe || gerando} onClick={gerar}>
-              {gerando ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {gerando ? "Gerando PDF…" : "Gerar PDF numerado"}
-            </Button>
+            // Fica preso no rodapé da coluna da direita enquanto ela rola
+            <div className="sticky bottom-0 z-10 -mx-6 -mb-6 rounded-b-3xl bg-card/95 px-6 pb-6 pt-3 backdrop-blur">
+              <Button size="lg" className="w-full rounded-full" disabled={!arte || !cfg || !encaixe || gerando} onClick={gerar}>
+                {gerando ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {gerando ? "Gerando PDF…" : "Gerar PDF numerado"}
+              </Button>
+            </div>
           ) : (
             <div className="space-y-3">
               {resultado.amostra && (
@@ -631,9 +646,6 @@ export default function NumeracaoTaloes() {
               )}
             </div>
           )}
-          <p className="flex items-center justify-center gap-1 pt-1 text-xs text-muted-foreground">
-            <Lock className="h-3 w-3" /> Tudo é feito aqui no seu computador. Nada é enviado para a internet.
-          </p>
         </Painel>
       </div>
     </div>
@@ -671,6 +683,40 @@ function Mini({
       />
       {(erro || ajuda) && <span className={cn("mt-1 block text-[11px]", erro ? "text-destructive" : "text-muted-foreground")}>{erro ?? ajuda}</span>}
     </label>
+  );
+}
+
+/** Lista dos montes (posições da folha) com a faixa de números de cada um. */
+function Montes({ plano, porFolha, cfg }: { plano: ReturnType<typeof planejarNumeracao>; porFolha: number; cfg: ConfigNumeracao }) {
+  const montes: string[] = [];
+  for (let j = 0; j < porFolha; j++) {
+    const ini = numeroNaPosicao(plano, j, 0, cfg.taloes, cfg.jogos, cfg.inicio);
+    if (ini === null) break;
+    const fim = Math.min(plano.ultimo, ini + plano.folhas - 1);
+    montes.push(`${formatarNumero(ini, cfg.digitos)}–${formatarNumero(fim, cfg.digitos)}`);
+  }
+  return (
+    <div className="space-y-2 rounded-2xl bg-muted/40 px-4 py-3 text-xs">
+      <p className="font-medium text-foreground">Depois de cortar a pilha, cada monte fica assim:</p>
+      <ol className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums text-muted-foreground">
+        {montes.map((m, i) => (
+          <li key={i}>
+            <span className="font-semibold text-foreground">{i + 1}.</span> {m}
+          </li>
+        ))}
+      </ol>
+      {plano.talaoDividido && (
+        <p className="text-muted-foreground">
+          Empilhe os montes na ordem (1 em cima do 2, e assim por diante) e separe os talões a cada {cfg.jogos} folhas.
+        </p>
+      )}
+      {plano.espacosVazios > 0 && (
+        <p className="flex items-start gap-1 text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+          {plano.espacosVazios} {plano.espacosVazios === 1 ? "espaço fica" : "espaços ficam"} em branco nas últimas folhas (sobra da divisão).
+        </p>
+      )}
+    </div>
   );
 }
 
