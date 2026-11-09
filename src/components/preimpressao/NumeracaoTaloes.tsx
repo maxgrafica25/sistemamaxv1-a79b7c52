@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { PT_POR_CM, detectarTipo } from "@/lib/preimpressao/margem";
 import {
   FOLHAS_PADRAO,
+  FOLHA_PADRAO,
   aproveitamento,
   arteEmPe,
   calcularEncaixe,
@@ -34,9 +35,7 @@ type Modo = "solto" | "montado";
 
 interface Config {
   modo: Modo;
-  folha: string; // 32.8x47.8 | a4 | a3 | sra3 | 33x48 | outra
-  folhaW: string;
-  folhaH: string;
+  folha: string; // a4 | sra3 | 32.8x47.8 (Formatão)
   colunas: string;
   linhas: string;
   /** Solto: borda da folha até a sangria. */
@@ -63,8 +62,6 @@ const CONFIG_KEY = "preimpressao.numeracao.config.v2";
 const PADRAO: Config = {
   modo: "solto",
   folha: "32.8x47.8",
-  folhaW: "21",
-  folhaH: "29,7",
   colunas: "2",
   linhas: "2",
   margem: "0,6",
@@ -117,16 +114,10 @@ function validar(c: Config): Validado {
     if (v === null) erros[campo] = msg;
     return v ?? 0;
   };
-  let folhaW = 0;
-  let folhaH = 0;
-  const padrao = FOLHAS_PADRAO.find((f) => f.key === c.folha);
-  if (padrao) {
-    folhaW = padrao.wCm * PT_POR_CM;
-    folhaH = padrao.hCm * PT_POR_CM;
-  } else {
-    folhaW = chk("folhaW", entre(c.folhaW, 5, 200), "5 a 200 cm") * PT_POR_CM;
-    folhaH = chk("folhaH", entre(c.folhaH, 5, 200), "5 a 200 cm") * PT_POR_CM;
-  }
+  // Só A4, SRA3 e Formatão; valor antigo salvo (A3, 33×48, outra) cai no Formatão
+  const folha = FOLHAS_PADRAO.find((f) => f.key === c.folha) ?? FOLHAS_PADRAO.find((f) => f.key === FOLHA_PADRAO)!;
+  const folhaW = folha.wCm * PT_POR_CM;
+  const folhaH = folha.hCm * PT_POR_CM;
   const cfg: ConfigNumeracao = {
     modo: c.modo,
     folhaW,
@@ -294,7 +285,7 @@ export default function NumeracaoTaloes() {
       {/* ── Ajustes ───────────────────────────────────────────── */}
       <div className="space-y-6">
         <Painel className="space-y-6">
-          <Campo titulo={config.modo === "solto" ? "Arte do talão" : "PDF montado"}>
+          <Campo titulo={config.modo === "solto" ? "Envie a arte" : "Envie o PDF montado"}>
             <div
               onDragOver={(e) => {
                 e.preventDefault();
@@ -352,7 +343,7 @@ export default function NumeracaoTaloes() {
             <>
               <Campo titulo="Folha de impressão">
                 <div className="flex flex-wrap gap-2">
-                  {[...FOLHAS_PADRAO.map((f) => ({ key: f.key, rotulo: f.rotulo })), { key: "outra", rotulo: "Outra" }].map((f) => (
+                  {FOLHAS_PADRAO.map((f) => (
                     <button
                       key={f.key}
                       type="button"
@@ -363,15 +354,10 @@ export default function NumeracaoTaloes() {
                       )}
                     >
                       {f.rotulo}
+                      {f.detalhe && <span className="ml-1 text-xs opacity-70">{f.detalhe}</span>}
                     </button>
                   ))}
                 </div>
-                {config.folha === "outra" && (
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    <Mini rotulo="Largura (cm)" valor={config.folhaW} onChange={(v) => set("folhaW", v)} erro={erros.folhaW} />
-                    <Mini rotulo="Altura (cm)" valor={config.folhaH} onChange={(v) => set("folhaH", v)} erro={erros.folhaH} />
-                  </div>
-                )}
                 <p className="mt-2 text-xs text-muted-foreground">O sistema calcula quantas cabem e monta a folha sozinho.</p>
               </Campo>
 
@@ -470,23 +456,7 @@ export default function NumeracaoTaloes() {
             />
           </Campo>
 
-          <Chave ligado={config.ordemInvertida} onChange={(v) => set("ordemInvertida", v)}>
-            <span className="font-medium">Ordem invertida</span>
-            <span className="block text-xs text-muted-foreground">Começa pela última folha (para impressoras que empilham ao contrário).</span>
-          </Chave>
-        </Painel>
-      </div>
-
-      {/* ── Prévia e resultado ─────────────────────────────────── */}
-      <div className="space-y-6 min-w-0">
-        <Painel className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 className="text-base font-semibold tracking-tight">Onde vai o número</h3>
-              <p className="text-xs text-muted-foreground">
-                {arte ? `Clique ou arraste na arte para posicionar o Número ${ativa + 1}.` : "Escolha a arte para ver a prévia."}
-              </p>
-            </div>
+          <Campo titulo="Posição do número" ajuda="Clique ou arraste na pré-visualização para posicionar o número escolhido. Use ↻ para deixar em pé.">
             <div className="flex flex-wrap items-center gap-2">
               {config.posicoes.map((p, i) => (
                 <span
@@ -523,6 +493,23 @@ export default function NumeracaoTaloes() {
                 </button>
               )}
             </div>
+          </Campo>
+
+          <Chave ligado={config.ordemInvertida} onChange={(v) => set("ordemInvertida", v)}>
+            <span className="font-medium">Ordem invertida</span>
+            <span className="block text-xs text-muted-foreground">Começa pela última folha (para impressoras que empilham ao contrário).</span>
+          </Chave>
+        </Painel>
+      </div>
+
+      {/* ── Pré-visualização e resultado (fica fixo enquanto rola os ajustes) ── */}
+      <div className="space-y-6 min-w-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pb-1">
+        <Painel className="space-y-4">
+          <div>
+            <h3 className="text-base font-semibold tracking-tight">Pré-visualização</h3>
+            <p className="text-xs text-muted-foreground">
+              {arte ? `Clique ou arraste na arte para posicionar o Número ${ativa + 1}.` : "Envie a arte para ver a pré-visualização."}
+            </p>
           </div>
 
           {arte ? (
@@ -556,7 +543,7 @@ export default function NumeracaoTaloes() {
             <>
               <div className="flex flex-wrap items-start gap-5">
                 {config.modo === "solto" && <EsquemaFolha encaixe={encaixe} plano={plano} cfg={cfg} sangriaPt={cfg.sangriaMm * (PT_POR_CM / 10)} />}
-                <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-3 text-sm min-w-[220px]">
+                <dl className="grid flex-1 grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-3 text-sm min-w-[220px]">
                   <Dado rotulo="Artes por folha" valor={`${encaixe.celulas.length}${config.modo === "solto" ? ` (${encaixe.colunas} × ${encaixe.linhas})` : ""}`} />
                   <Dado rotulo="Folhas por via" valor={plano.folhas.toLocaleString("pt-BR")} />
                   <Dado rotulo="Numeração" valor={`${formatarNumero(plano.primeiro, cfg.digitos)} a ${formatarNumero(plano.ultimo, cfg.digitos)}`} />
@@ -708,7 +695,7 @@ function EsquemaFolha({
   cfg: ConfigNumeracao;
   sangriaPt: number;
 }) {
-  const escala = 150 / Math.max(encaixe.folhaW, encaixe.folhaH);
+  const escala = 120 / Math.max(encaixe.folhaW, encaixe.folhaH);
   const W = encaixe.folhaW * escala;
   const H = encaixe.folhaH * escala;
   return (
@@ -814,7 +801,7 @@ function PreviaClicavel({
     <div
       ref={ref}
       className="relative mx-auto cursor-crosshair touch-none select-none overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-border/60"
-      style={{ aspectRatio: `${arte.w} / ${arte.h}`, width: `min(100%, calc(65vh * ${(arte.w / arte.h).toFixed(4)}))` }}
+      style={{ aspectRatio: `${arte.w} / ${arte.h}`, width: `min(100%, calc(42vh * ${(arte.w / arte.h).toFixed(4)}))` }}
       onPointerDown={(e) => {
         arrastando.current = true;
         (e.target as Element).setPointerCapture?.(e.pointerId);

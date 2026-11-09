@@ -372,11 +372,10 @@ export async function gerarNumeracao(bytesEmPe: Uint8Array, cfg: ConfigNumeracao
   return { vias, plano, encaixe, porFolha: K };
 }
 
-/** Folhas de impressão. A primeira é a padrão da Max Gráfica (32,8 × 47,8 cm). */
-export const FOLHAS_PADRAO: { key: string; rotulo: string; wCm: number; hCm: number }[] = [
-  { key: "32.8x47.8", rotulo: "32,8 × 47,8", wCm: 32.8, hCm: 47.8 },
+/** Folhas de impressão da Max Gráfica (decidido com o Juliano em 09/11). Padrão: Formatão. */
+export const FOLHAS_PADRAO: { key: string; rotulo: string; detalhe?: string; wCm: number; hCm: number }[] = [
   { key: "a4", rotulo: "A4", wCm: 21, hCm: 29.7 },
-  { key: "a3", rotulo: "A3", wCm: 29.7, hCm: 42 },
   { key: "sra3", rotulo: "SRA3", wCm: 32, hCm: 45 },
-  { key: "33x48", rotulo: "33 × 48", wCm: 33, hCm: 48 },
+  { key: "32.8x47.8", rotulo: "Formatão", detalhe: "32,8 × 47,8", wCm: 32.8, hCm: 47.8 },
 ];
+export const FOLHA_PADRAO = "32.8x47.8";
