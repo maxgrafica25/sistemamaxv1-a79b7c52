@@ -1,5 +1,5 @@
 // Pré-impressão → ferramenta "Numeração de talões e blocos".
-// Arte em PDF (1 talão por página ou já montada) → PDF de impressão numerado em
+// Arte em PDF (uma arte por página ou várias artes já montadas na página) → PDF de impressão numerado em
 // corte e empilha, um arquivo por via. Tudo no navegador.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { PT_POR_CM, detectarTipo } from "@/lib/preimpressao/margem";
 import {
   FOLHAS_PADRAO,
+  FOLHA_PADRAO,
   aproveitamento,
   arteEmPe,
   calcularEncaixe,
@@ -34,9 +35,7 @@ type Modo = "solto" | "montado";
 
 interface Config {
   modo: Modo;
-  folha: string; // 32.8x47.8 | a4 | a3 | sra3 | 33x48 | outra
-  folhaW: string;
-  folhaH: string;
+  folha: string; // a4 | sra3 | 32.8x47.8 (Formatão)
   colunas: string;
   linhas: string;
   /** Solto: borda da folha até a sangria. */
@@ -63,8 +62,6 @@ const CONFIG_KEY = "preimpressao.numeracao.config.v2";
 const PADRAO: Config = {
   modo: "solto",
   folha: "32.8x47.8",
-  folhaW: "21",
-  folhaH: "29,7",
   colunas: "2",
   linhas: "2",
   margem: "0,6",
@@ -90,6 +87,8 @@ function lerConfig(): Config {
     if (!raw) return PADRAO;
     const c = { ...PADRAO, ...(JSON.parse(raw) as Partial<Config>) };
     if (!Array.isArray(c.posicoes) || !c.posicoes.length) c.posicoes = PADRAO.posicoes;
+    // Caminho principal sempre: enviar uma arte e o sistema monta. "Já montado" é exceção.
+    c.modo = "solto";
     return c;
   } catch {
     return PADRAO;
@@ -115,16 +114,10 @@ function validar(c: Config): Validado {
     if (v === null) erros[campo] = msg;
     return v ?? 0;
   };
-  let folhaW = 0;
-  let folhaH = 0;
-  const padrao = FOLHAS_PADRAO.find((f) => f.key === c.folha);
-  if (padrao) {
-    folhaW = padrao.wCm * PT_POR_CM;
-    folhaH = padrao.hCm * PT_POR_CM;
-  } else {
-    folhaW = chk("folhaW", entre(c.folhaW, 5, 200), "5 a 200 cm") * PT_POR_CM;
-    folhaH = chk("folhaH", entre(c.folhaH, 5, 200), "5 a 200 cm") * PT_POR_CM;
-  }
+  // Só A4, SRA3 e Formatão; valor antigo salvo (A3, 33×48, outra) cai no Formatão
+  const folha = FOLHAS_PADRAO.find((f) => f.key === c.folha) ?? FOLHAS_PADRAO.find((f) => f.key === FOLHA_PADRAO)!;
+  const folhaW = folha.wCm * PT_POR_CM;
+  const folhaH = folha.hCm * PT_POR_CM;
   const cfg: ConfigNumeracao = {
     modo: c.modo,
     folhaW,
@@ -292,7 +285,7 @@ export default function NumeracaoTaloes() {
       {/* ── Ajustes ───────────────────────────────────────────── */}
       <div className="space-y-6">
         <Painel className="space-y-6">
-          <Campo titulo="Arte do talão">
+          <Campo titulo={config.modo === "solto" ? "Envie a arte" : "Envie o PDF montado"}>
             <div
               onDragOver={(e) => {
                 e.preventDefault();
@@ -322,8 +315,10 @@ export default function NumeracaoTaloes() {
                   </>
                 ) : (
                   <>
-                    <p className="text-sm font-semibold">Solte o PDF aqui</p>
-                    <p className="text-xs text-muted-foreground">Se o PDF tiver uma página por via, cada via usa a sua.</p>
+                    <p className="text-sm font-semibold">{config.modo === "solto" ? "Solte o PDF de uma arte" : "Solte o PDF montado"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {config.modo === "solto" ? "Um talão só, com sangria." : "Folha pronta, com marcas de corte."} Pode ter uma página por via.
+                    </p>
                   </>
                 )}
               </div>
@@ -344,46 +339,61 @@ export default function NumeracaoTaloes() {
             {erroArte && <p className="mt-2 text-xs text-destructive">{erroArte}</p>}
           </Campo>
 
-          <Campo
-            titulo="Como a arte chegou"
-            ajuda={config.modo === "solto" ? "O sistema monta quantos talões couberem na folha." : "A página já tem vários talões; informe a grade."}
-          >
-            <Segmentado
-              valor={config.modo}
-              opcoes={[
-                { valor: "solto" as Modo, rotulo: "1 talão por página" },
-                { valor: "montado" as Modo, rotulo: "Já montada" },
-              ]}
-              onChange={(v) => set("modo", v)}
-            />
-          </Campo>
-
           {config.modo === "solto" ? (
-            <Campo titulo="Folha de impressão">
-              <div className="flex flex-wrap gap-2">
-                {[...FOLHAS_PADRAO.map((f) => ({ key: f.key, rotulo: f.rotulo })), { key: "outra", rotulo: "Outra" }].map((f) => (
-                  <button
-                    key={f.key}
-                    type="button"
-                    onClick={() => set("folha", f.key)}
-                    className={cn(
-                      "rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                      config.folha === f.key ? "bg-foreground text-background" : "bg-muted/70 text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {f.rotulo}
-                  </button>
-                ))}
-              </div>
-              {config.folha === "outra" && (
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <Mini rotulo="Largura (cm)" valor={config.folhaW} onChange={(v) => set("folhaW", v)} erro={erros.folhaW} />
-                  <Mini rotulo="Altura (cm)" valor={config.folhaH} onChange={(v) => set("folhaH", v)} erro={erros.folhaH} />
+            <>
+              <Campo titulo="Folha de impressão">
+                <div className="flex flex-wrap gap-2">
+                  {FOLHAS_PADRAO.map((f) => (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => set("folha", f.key)}
+                      className={cn(
+                        "rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                        config.folha === f.key ? "bg-foreground text-background" : "bg-muted/70 text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {f.rotulo}
+                      {f.detalhe && <span className="ml-1 text-xs opacity-70">{f.detalhe}</span>}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </Campo>
+                <p className="mt-2 text-xs text-muted-foreground">O sistema calcula quantas cabem e monta a folha sozinho.</p>
+              </Campo>
+
+              <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+                <Mini
+                  rotulo="Sangria da arte (mm)"
+                  valor={config.sangria}
+                  onChange={(v) => set("sangria", v)}
+                  erro={erros.sangria}
+                  ajuda={arte?.sangriaPdf != null ? "Lida do PDF" : "Já incluída no PDF, por lado"}
+                />
+                <Mini rotulo="Borda da folha (mm)" valor={config.margem} onChange={(v) => set("margem", v)} erro={erros.margem} ajuda="Da beirada até a sangria" />
+                <Mini
+                  rotulo="Espaço entre artes (mm)"
+                  valor={config.espaco}
+                  onChange={(v) => set("espaco", v)}
+                  erro={erros.espaco}
+                  ajuda="0 = sangrias encostadas"
+                />
+              </div>
+
+              <Chave ligado={config.marcasCorte} onChange={(v) => set("marcasCorte", v)}>
+                <span className="font-medium">Marcas de corte</span>
+                <span className="block text-xs text-muted-foreground">
+                  Tracinhos na linha de corte, onde sobrar espaço na beirada da folha.
+                </span>
+              </Chave>
+            </>
           ) : (
-            <Campo titulo="Grade da arte montada">
+            <div className="space-y-4 rounded-2xl bg-muted/40 p-4">
+              <div>
+                <p className="text-sm font-semibold">PDF já montado: só numerar</p>
+                <p className="text-xs text-muted-foreground">
+                  A folha é usada do jeito que veio (com as suas marcas de corte). Informe quantas artes tem nela.
+                </p>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="mb-1 text-xs text-muted-foreground">Colunas</p>
@@ -393,43 +403,22 @@ export default function NumeracaoTaloes() {
                   <p className="mb-1 text-xs text-muted-foreground">Linhas</p>
                   <Passo rotulo="linhas" valor={config.linhas} onChange={(v) => set("linhas", v)} min={1} max={20} invalido={!!erros.linhas} largura="w-8" />
                 </div>
+                <Mini rotulo="Margem da página (mm)" valor={config.margemMontada} onChange={(v) => set("margemMontada", v)} erro={erros.margemMontada} />
+                <Mini rotulo="Espaço entre artes (mm)" valor={config.espaco} onChange={(v) => set("espaco", v)} erro={erros.espaco} />
               </div>
-            </Campo>
-          )}
-
-          {config.modo === "solto" ? (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-4">
-              <Mini
-                rotulo="Sangria da arte (mm)"
-                valor={config.sangria}
-                onChange={(v) => set("sangria", v)}
-                erro={erros.sangria}
-                ajuda={arte?.sangriaPdf != null ? "Lida do PDF" : "Já incluída no PDF, por lado"}
-              />
-              <Mini rotulo="Borda da folha (mm)" valor={config.margem} onChange={(v) => set("margem", v)} erro={erros.margem} ajuda="Da beirada até a sangria" />
-              <Mini
-                rotulo="Espaço entre talões (mm)"
-                valor={config.espaco}
-                onChange={(v) => set("espaco", v)}
-                erro={erros.espaco}
-                ajuda="0 = sangrias encostadas"
-              />
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <Mini rotulo="Margem da página (mm)" valor={config.margemMontada} onChange={(v) => set("margemMontada", v)} erro={erros.margemMontada} />
-              <Mini rotulo="Espaço entre talões (mm)" valor={config.espaco} onChange={(v) => set("espaco", v)} erro={erros.espaco} />
             </div>
           )}
 
-          {config.modo === "solto" && (
-            <Chave ligado={config.marcasCorte} onChange={(v) => set("marcasCorte", v)}>
-              <span className="font-medium">Marcas de corte</span>
-              <span className="block text-xs text-muted-foreground">
-                Tracinhos na linha de corte, onde sobrar espaço na beirada da folha.
-              </span>
-            </Chave>
-          )}
+          {/* Opção secundária: PDF já montado */}
+          <button
+            type="button"
+            onClick={() => set("modo", config.modo === "solto" ? "montado" : "solto")}
+            className="w-full text-center text-xs font-medium text-primary hover:underline"
+          >
+            {config.modo === "solto"
+              ? "Já tenho o PDF montado na folha e só quero numerar"
+              : "← Voltar: enviar uma arte e o sistema monta a folha"}
+          </button>
         </Painel>
 
         <Painel className="space-y-6">
@@ -467,23 +456,7 @@ export default function NumeracaoTaloes() {
             />
           </Campo>
 
-          <Chave ligado={config.ordemInvertida} onChange={(v) => set("ordemInvertida", v)}>
-            <span className="font-medium">Ordem invertida</span>
-            <span className="block text-xs text-muted-foreground">Começa pela última folha (para impressoras que empilham ao contrário).</span>
-          </Chave>
-        </Painel>
-      </div>
-
-      {/* ── Prévia e resultado ─────────────────────────────────── */}
-      <div className="space-y-6 min-w-0">
-        <Painel className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 className="text-base font-semibold tracking-tight">Onde vai o número</h3>
-              <p className="text-xs text-muted-foreground">
-                {arte ? `Clique ou arraste na arte para posicionar o Número ${ativa + 1}.` : "Escolha a arte para ver a prévia."}
-              </p>
-            </div>
+          <Campo titulo="Posição do número" ajuda="Clique ou arraste na pré-visualização para posicionar o número escolhido. Use ↻ para deixar em pé.">
             <div className="flex flex-wrap items-center gap-2">
               {config.posicoes.map((p, i) => (
                 <span
@@ -520,6 +493,23 @@ export default function NumeracaoTaloes() {
                 </button>
               )}
             </div>
+          </Campo>
+
+          <Chave ligado={config.ordemInvertida} onChange={(v) => set("ordemInvertida", v)}>
+            <span className="font-medium">Ordem invertida</span>
+            <span className="block text-xs text-muted-foreground">Começa pela última folha (para impressoras que empilham ao contrário).</span>
+          </Chave>
+        </Painel>
+      </div>
+
+      {/* ── Pré-visualização e resultado (fica fixo enquanto rola os ajustes) ── */}
+      <div className="space-y-6 min-w-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pb-1">
+        <Painel className="space-y-4">
+          <div>
+            <h3 className="text-base font-semibold tracking-tight">Pré-visualização</h3>
+            <p className="text-xs text-muted-foreground">
+              {arte ? `Clique ou arraste na arte para posicionar o Número ${ativa + 1}.` : "Envie a arte para ver a pré-visualização."}
+            </p>
           </div>
 
           {arte ? (
@@ -553,8 +543,8 @@ export default function NumeracaoTaloes() {
             <>
               <div className="flex flex-wrap items-start gap-5">
                 {config.modo === "solto" && <EsquemaFolha encaixe={encaixe} plano={plano} cfg={cfg} sangriaPt={cfg.sangriaMm * (PT_POR_CM / 10)} />}
-                <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-3 text-sm min-w-[220px]">
-                  <Dado rotulo="Talões por folha" valor={`${encaixe.celulas.length}${config.modo === "solto" ? ` (${encaixe.colunas} × ${encaixe.linhas})` : ""}`} />
+                <dl className="grid flex-1 grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-3 text-sm min-w-[220px]">
+                  <Dado rotulo="Artes por folha" valor={`${encaixe.celulas.length}${config.modo === "solto" ? ` (${encaixe.colunas} × ${encaixe.linhas})` : ""}`} />
                   <Dado rotulo="Folhas por via" valor={plano.folhas.toLocaleString("pt-BR")} />
                   <Dado rotulo="Numeração" valor={`${formatarNumero(plano.primeiro, cfg.digitos)} a ${formatarNumero(plano.ultimo, cfg.digitos)}`} />
                   <Dado rotulo="Total de folhas" valor={`${(plano.folhas * cfg.vias).toLocaleString("pt-BR")} (${cfg.vias} ${cfg.vias === 1 ? "via" : "vias"})`} />
@@ -705,7 +695,7 @@ function EsquemaFolha({
   cfg: ConfigNumeracao;
   sangriaPt: number;
 }) {
-  const escala = 150 / Math.max(encaixe.folhaW, encaixe.folhaH);
+  const escala = 120 / Math.max(encaixe.folhaW, encaixe.folhaH);
   const W = encaixe.folhaW * escala;
   const H = encaixe.folhaH * escala;
   return (
@@ -811,7 +801,7 @@ function PreviaClicavel({
     <div
       ref={ref}
       className="relative mx-auto cursor-crosshair touch-none select-none overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-border/60"
-      style={{ aspectRatio: `${arte.w} / ${arte.h}`, width: `min(100%, calc(65vh * ${(arte.w / arte.h).toFixed(4)}))` }}
+      style={{ aspectRatio: `${arte.w} / ${arte.h}`, width: `min(100%, calc(42vh * ${(arte.w / arte.h).toFixed(4)}))` }}
       onPointerDown={(e) => {
         arrastando.current = true;
         (e.target as Element).setPointerCapture?.(e.pointerId);
