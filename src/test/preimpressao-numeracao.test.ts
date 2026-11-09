@@ -73,7 +73,7 @@ describe("número", () => {
 describe("corte e empilha", () => {
   it("8 talões de 50 em 4 por folha → 100 folhas, montes em sequência", () => {
     const p = planejarNumeracao(4, 8, 50, 1);
-    expect(p).toMatchObject({ taloesPorMonte: 2, folhas: 100, posicoesVazias: 0, espacosVazios: 0, primeiro: 1, ultimo: 400 });
+    expect(p).toMatchObject({ folhas: 100, posicoesVazias: 0, espacosVazios: 0, talaoDividido: false, primeiro: 1, ultimo: 400 });
     // folha 1: 1, 101, 201, 301
     expect([0, 1, 2, 3].map((j) => numeroNaPosicao(p, j, 0, 8, 50, 1))).toEqual([1, 101, 201, 301]);
     // última folha: 100, 200, 300, 400
@@ -97,15 +97,21 @@ describe("corte e empilha", () => {
     expect(vistos.sort((a, b) => a - b)).toEqual(Array.from({ length: B * F }, (_, i) => 1001 + i));
   });
 
-  it("talões que não dividem certo deixam posições em branco no fim", () => {
-    const p = planejarNumeracao(4, 5, 50, 1); // 2 por monte → montes 0,1,2 (o 3º com 1 talão), monte 4 vazio
-    expect(p.folhas).toBe(100);
-    expect(p.posicoesVazias).toBe(1);
-    expect(p.espacosVazios).toBe(3); // 4 montes × 2 = 8 espaços, 5 talões
-    expect(planejarNumeracao(4, 10, 50, 1)).toMatchObject({ folhas: 150, posicoesVazias: 0, espacosVazios: 2 });
-    expect(numeroNaPosicao(p, 3, 0, 5, 50, 1)).toBeNull();
-    expect(numeroNaPosicao(p, 2, 50, 5, 50, 1)).toBeNull(); // 3º monte só tem 1 talão
-    expect(numeroNaPosicao(p, 2, 49, 5, 50, 1)).toBe(250);
+  it("2 talões de 50 em 4 por folha → 25 folhas, as 4 posições usadas (caso do Juliano em 09/11)", () => {
+    const p = planejarNumeracao(4, 2, 50, 1);
+    expect(p).toMatchObject({ folhas: 25, posicoesVazias: 0, espacosVazios: 0, talaoDividido: true, ultimo: 100 });
+    expect([0, 1, 2, 3].map((j) => numeroNaPosicao(p, j, 0, 2, 50, 1))).toEqual([1, 26, 51, 76]);
+    expect([0, 1, 2, 3].map((j) => numeroNaPosicao(p, j, 24, 2, 50, 1))).toEqual([25, 50, 75, 100]);
+  });
+
+  it("quando não divide certo, sobra só no fim do último monte", () => {
+    const p = planejarNumeracao(4, 5, 50, 1); // 250 números ÷ 4 → 63 folhas
+    expect(p).toMatchObject({ folhas: 63, posicoesVazias: 0, espacosVazios: 2 });
+    expect(numeroNaPosicao(p, 3, 60, 5, 50, 1)).toBe(250);
+    expect(numeroNaPosicao(p, 3, 61, 5, 50, 1)).toBeNull();
+    expect(numeroNaPosicao(p, 3, 62, 5, 50, 1)).toBeNull();
+    // menos números que posições: posições vazias
+    expect(planejarNumeracao(9, 1, 5, 1)).toMatchObject({ folhas: 1, posicoesVazias: 4 });
   });
 });
 

@@ -21,40 +21,43 @@ export function formatarNumero(n: number, digitos: number, prefixo = ""): string
 // ─── Corte e empilha ────────────────────────────────────────────────
 
 export interface PlanoNumeracao {
-  /** Talões por monte (por posição na folha). */
-  taloesPorMonte: number;
-  /** Folhas por via. */
+  /** Folhas por via = números em cada monte (posição da folha). */
   folhas: number;
-  /** Posições da folha que ficam sem talão nenhum (montes vazios). */
+  /** Posições da folha que ficam sem número nenhum (só quando há menos números que posições). */
   posicoesVazias: number;
-  /** Espaços de talão em branco somando todos os montes (talões que caberiam sem aumentar as folhas). */
+  /** Espaços em branco no fim do último monte (K × folhas − total de números). */
   espacosVazios: number;
+  /** Algum talão fica dividido entre dois montes (é só empilhar os montes na ordem). */
+  talaoDividido: boolean;
   primeiro: number;
   ultimo: number;
 }
 
 /**
- * porFolha = talões lado a lado na folha (K); taloes = quantidade de talões (B);
- * jogos = números por talão (F); inicio = primeiro número.
- * Cada posição j da folha recebe um monte de `taloesPorMonte` talões inteiros, em sequência.
+ * Corte e empilha com SEQUÊNCIA CONTÍNUA (regra corrigida em 09/11 com o Juliano):
+ * o total de números (talões × jogos) é dividido igualmente entre as K posições da
+ * folha. Monte j = números [inicio + j·folhas, inicio + (j+1)·folhas). Depois de
+ * cortar, empilhar os montes na ordem 1, 2, 3… dá a sequência inteira; separar os
+ * talões a cada `jogos` folhas. Ex.: 2 talões de 50 em 4 por folha → 25 folhas,
+ * montes 1–25, 26–50, 51–75, 76–100 (antes ficavam 2 posições vazias e 50 folhas).
  */
 export function planejarNumeracao(porFolha: number, taloes: number, jogos: number, inicio: number): PlanoNumeracao {
   const K = Math.max(1, Math.floor(porFolha));
   const B = Math.max(1, Math.floor(taloes));
   const F = Math.max(1, Math.floor(jogos));
-  const tpm = Math.ceil(B / K);
-  const montesUsados = Math.ceil(B / tpm);
+  const total = B * F;
+  const folhas = Math.ceil(total / K);
   return {
-    taloesPorMonte: tpm,
-    folhas: tpm * F,
-    posicoesVazias: K - montesUsados,
-    espacosVazios: K * tpm - B,
+    folhas,
+    posicoesVazias: K - Math.ceil(total / folhas),
+    espacosVazios: K * folhas - total,
+    talaoDividido: folhas % F !== 0,
     primeiro: inicio,
-    ultimo: inicio + B * F - 1,
+    ultimo: inicio + total - 1,
   };
 }
 
-/** Número impresso na posição j da folha s (0 = primeira), ou null se ali não há talão. */
+/** Número impresso na posição j da folha s (0 = primeira), ou null se ali fica em branco. */
 export function numeroNaPosicao(
   plano: PlanoNumeracao,
   j: number,
@@ -63,10 +66,9 @@ export function numeroNaPosicao(
   jogos: number,
   inicio: number,
 ): number | null {
-  const F = Math.max(1, Math.floor(jogos));
-  const talao = j * plano.taloesPorMonte + Math.floor(s / F);
-  if (talao >= Math.max(1, Math.floor(taloes))) return null;
-  return inicio + j * plano.taloesPorMonte * F + s;
+  const total = Math.max(1, Math.floor(taloes)) * Math.max(1, Math.floor(jogos));
+  const indice = j * plano.folhas + s;
+  return indice < total ? inicio + indice : null;
 }
 
 // ─── Encaixe na folha ───────────────────────────────────────────────
