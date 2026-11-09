@@ -1,5 +1,5 @@
 // Pré-impressão → ferramenta "Numeração de talões e blocos".
-// Arte em PDF (1 talão por página ou já montada) → PDF de impressão numerado em
+// Arte em PDF (uma arte por página ou várias artes já montadas na página) → PDF de impressão numerado em
 // corte e empilha, um arquivo por via. Tudo no navegador.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -345,14 +345,14 @@ export default function NumeracaoTaloes() {
           </Campo>
 
           <Campo
-            titulo="Como a arte chegou"
-            ajuda={config.modo === "solto" ? "O sistema monta quantos talões couberem na folha." : "A página já tem vários talões; informe a grade."}
+            titulo="Como está montada a arte"
+            ajuda={config.modo === "solto" ? "O sistema calcula quantas artes cabem na folha e monta sozinho." : "O PDF já vem com várias artes na página; informe quantas colunas e linhas."}
           >
             <Segmentado
               valor={config.modo}
               opcoes={[
-                { valor: "solto" as Modo, rotulo: "1 talão por página" },
-                { valor: "montado" as Modo, rotulo: "Já montada" },
+                { valor: "solto" as Modo, rotulo: "Uma arte por página" },
+                { valor: "montado" as Modo, rotulo: "Várias na página" },
               ]}
               onChange={(v) => set("modo", v)}
             />
@@ -383,7 +383,7 @@ export default function NumeracaoTaloes() {
               )}
             </Campo>
           ) : (
-            <Campo titulo="Grade da arte montada">
+            <Campo titulo="Quantas artes tem na página">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="mb-1 text-xs text-muted-foreground">Colunas</p>
@@ -408,7 +408,7 @@ export default function NumeracaoTaloes() {
               />
               <Mini rotulo="Borda da folha (mm)" valor={config.margem} onChange={(v) => set("margem", v)} erro={erros.margem} ajuda="Da beirada até a sangria" />
               <Mini
-                rotulo="Espaço entre talões (mm)"
+                rotulo="Espaço entre artes (mm)"
                 valor={config.espaco}
                 onChange={(v) => set("espaco", v)}
                 erro={erros.espaco}
@@ -418,7 +418,7 @@ export default function NumeracaoTaloes() {
           ) : (
             <div className="grid grid-cols-2 gap-3">
               <Mini rotulo="Margem da página (mm)" valor={config.margemMontada} onChange={(v) => set("margemMontada", v)} erro={erros.margemMontada} />
-              <Mini rotulo="Espaço entre talões (mm)" valor={config.espaco} onChange={(v) => set("espaco", v)} erro={erros.espaco} />
+              <Mini rotulo="Espaço entre artes (mm)" valor={config.espaco} onChange={(v) => set("espaco", v)} erro={erros.espaco} />
             </div>
           )}
 
@@ -554,7 +554,7 @@ export default function NumeracaoTaloes() {
               <div className="flex flex-wrap items-start gap-5">
                 {config.modo === "solto" && <EsquemaFolha encaixe={encaixe} plano={plano} cfg={cfg} sangriaPt={cfg.sangriaMm * (PT_POR_CM / 10)} />}
                 <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-3 text-sm min-w-[220px]">
-                  <Dado rotulo="Talões por folha" valor={`${encaixe.celulas.length}${config.modo === "solto" ? ` (${encaixe.colunas} × ${encaixe.linhas})` : ""}`} />
+                  <Dado rotulo="Artes por folha" valor={`${encaixe.celulas.length}${config.modo === "solto" ? ` (${encaixe.colunas} × ${encaixe.linhas})` : ""}`} />
                   <Dado rotulo="Folhas por via" valor={plano.folhas.toLocaleString("pt-BR")} />
                   <Dado rotulo="Numeração" valor={`${formatarNumero(plano.primeiro, cfg.digitos)} a ${formatarNumero(plano.ultimo, cfg.digitos)}`} />
                   <Dado rotulo="Total de folhas" valor={`${(plano.folhas * cfg.vias).toLocaleString("pt-BR")} (${cfg.vias} ${cfg.vias === 1 ? "via" : "vias"})`} />
