@@ -22,6 +22,45 @@ export interface ConfigMontagem {
   /** Páginas do PDF em pares: 1 = frente, 2 = verso, 3 = frente do 2º modelo… */
   frenteVerso: boolean;
   virada: Virada;
+  /**
+   * "repetir" = a mesma arte enche a folha (cartão, panfleto);
+   * "diferentes" = cada página do PDF ocupa um lugar da folha (convites com nome,
+   * certificados, cartões de pessoas diferentes…).
+   */
+  conteudo?: Conteudo;
+  /** Só "diferentes": ordem das páginas na folha. */
+  ordem?: Ordem;
+}
+
+export type Conteudo = "repetir" | "diferentes";
+/** "folha" = 1, 2, 3… em cada folha; "empilha" = corte e empilha (cada monte sai em sequência). */
+export type Ordem = "folha" | "empilha";
+
+/**
+ * Páginas diferentes: quantas folhas e quais peças ficam em branco.
+ * `pecas` = páginas do PDF (ou pares frente/verso).
+ */
+export function planejarDiferentes(porFolha: number, paginas: number, frenteVerso: boolean): { pecas: number; folhas: number; vazias: number } {
+  const K = Math.max(1, Math.floor(porFolha));
+  const pecas = frenteVerso ? Math.ceil(Math.max(1, paginas) / 2) : Math.max(1, paginas);
+  const folhas = Math.ceil(pecas / K);
+  return { pecas, folhas, vazias: folhas * K - pecas };
+}
+
+/** Peça (0 = primeira) que vai na posição j da folha s, ou null se fica em branco. */
+export function pecaNaPosicao(ordem: Ordem, j: number, s: number, porFolha: number, folhas: number, pecas: number): number | null {
+  const n = ordem === "empilha" ? j * folhas + s : s * porFolha + j;
+  return n < pecas ? n : null;
+}
+
+/**
+ * Posição, no VERSO, que fica nas costas da posição j da frente:
+ * virando pelos lados troca as colunas; de baixo para cima troca as linhas.
+ */
+export function posicaoNoVerso(j: number, colunas: number, linhas: number, virada: Virada): number {
+  const r = Math.floor(j / colunas);
+  const c = j % colunas;
+  return virada === "lateral" ? r * colunas + (colunas - 1 - c) : (linhas - 1 - r) * colunas + c;
 }
 
 /**
@@ -67,12 +106,15 @@ export interface ResultadoMontagem {
 }
 
 export const LIMITE_MODELOS = 200;
+export const LIMITE_PAGINAS_DIFERENTES = 2000;
 
 /** `bytesEmPe` = arte já passada por `arteEmPe` (sem /Rotate). */
 export async function gerarMontagem(bytesEmPe: Uint8Array, cfg: ConfigMontagem): Promise<ResultadoMontagem> {
   const fonte = await PDFDocument.load(bytesEmPe);
   const total = fonte.getPageCount();
-  if (total > LIMITE_MODELOS) throw new Error(`O PDF tem ${total} páginas: o máximo é ${LIMITE_MODELOS}.`);
+  const diferentes = cfg.conteudo === "diferentes";
+  const limite = diferentes ? LIMITE_PAGINAS_DIFERENTES : LIMITE_MODELOS;
+  if (total > limite) throw new Error(`O PDF tem ${total} páginas: o máximo é ${limite}.`);
   const p0 = fonte.getPage(0);
   const encaixe = encaixeMontagem(cfg, { w: p0.getWidth(), h: p0.getHeight() });
   if (!encaixe.celulas.length) throw new Error("A arte não cabe na folha escolhida.");
@@ -90,7 +132,30 @@ export async function gerarMontagem(bytesEmPe: Uint8Array, cfg: ConfigMontagem):
     if (cfg.marcasCorte) desenharMarcas(page, encaixe, sangria);
   };
 
-  if (cfg.frenteVerso) {
+  if (diferentes) {
+    const K = encaixe.celulas.length;
+    const plano = planejarDiferentes(K, total, cfg.frenteVerso);
+    const ordem = cfg.ordem ?? "folha";
+    const giroVerso = giroDoVerso(rot, cfg.virada);
+    for (let s = 0; s < plano.folhas; s++) {
+      const frente = out.addPage([encaixe.folhaW, encaixe.folhaH]);
+      const verso = cfg.frenteVerso ? out.addPage([encaixe.folhaW, encaixe.folhaH]) : null;
+      encaixe.celulas.forEach((c, j) => {
+        const peca = pecaNaPosicao(ordem, j, s, K, plano.folhas, plano.pecas);
+        if (peca === null) return;
+        const pagFrente = cfg.frenteVerso ? peca * 2 : peca;
+        desenharArteNaCelula(frente, artes[pagFrente], c, rot);
+        if (verso && pagFrente + 1 < total) {
+          const cv = encaixe.celulas[posicaoNoVerso(j, encaixe.colunas, encaixe.linhas, cfg.virada)];
+          desenharArteNaCelula(verso, artes[pagFrente + 1], cv, giroVerso);
+        }
+      });
+      if (cfg.marcasCorte) {
+        desenharMarcas(frente, encaixe, sangria);
+        if (verso) desenharMarcas(verso, encaixe, sangria);
+      }
+    }
+  } else if (cfg.frenteVerso) {
     for (let i = 0; i < total; i += 2) {
       folha(i, rot);
       if (i + 1 < total) folha(i + 1, giroDoVerso(rot, cfg.virada));

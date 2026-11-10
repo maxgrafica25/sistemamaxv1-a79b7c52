@@ -112,3 +112,59 @@ export function tamanhoComGiro(t: { w: number; h: number }, giro: Giro): { w: nu
   const cm = (v: number) => v / PT_POR_CM;
   return giro % 180 === 0 ? { w: cm(t.w), h: cm(t.h) } : { w: cm(t.h), h: cm(t.w) };
 }
+
+// ─── Páginas em branco ───────────────────────────────────────────────
+
+/** Fração da página (0–1) com "tinta": pixels mais escuros que o papel branco. */
+export interface Tinta {
+  /** Página inteira. */
+  total: number;
+  /** Sem as faixas de cima e de baixo (onde ficam cabeçalho e número de página). */
+  miolo: number;
+}
+
+/** Faixa de cima e de baixo ignorada na opção "ignorar cabeçalho e rodapé". */
+export const FAIXA_CABECALHO_RODAPE = 0.08;
+/**
+ * Até 0,01% da página com tinta (meia dúzia de pontinhos) ainda conta como em branco.
+ * Apertado de propósito: uma frase curta ou um número de página já passa de 0,03%, e
+ * apagar uma página com conteúdo é pior do que deixar uma em branco passar.
+ */
+export const LIMITE_BRANCO = 0.0001;
+/** Pixel "com tinta" = luminosidade abaixo disso (0–255). Papel levemente cinza continua branco. */
+export const TOLERANCIA_BRANCO = 235;
+/** Borda de 2% ignorada (sombra de escaner, marca de dobra). */
+const BORDA_IGNORADA = 0.02;
+
+/** Mede a tinta de uma imagem RGBA (o que o canvas devolve). Pixel transparente conta como branco. */
+export function tintaDaImagem(rgba: ArrayLike<number>, w: number, h: number): Tinta {
+  const bx = Math.floor(w * BORDA_IGNORADA);
+  const by = Math.floor(h * BORDA_IGNORADA);
+  const faixa = Math.floor(h * FAIXA_CABECALHO_RODAPE);
+  let total = 0;
+  let miolo = 0;
+  let areaTotal = 0;
+  let areaMiolo = 0;
+  for (let y = by; y < h - by; y++) {
+    const noMiolo = y >= faixa && y < h - faixa;
+    for (let x = bx; x < w - bx; x++) {
+      const i = (y * w + x) * 4;
+      const a = rgba[i + 3] / 255;
+      // mistura com fundo branco e calcula a luminosidade
+      const lum = 0.299 * (rgba[i] * a + 255 * (1 - a)) + 0.587 * (rgba[i + 1] * a + 255 * (1 - a)) + 0.114 * (rgba[i + 2] * a + 255 * (1 - a));
+      const tinta = lum < TOLERANCIA_BRANCO;
+      areaTotal++;
+      if (tinta) total++;
+      if (noMiolo) {
+        areaMiolo++;
+        if (tinta) miolo++;
+      }
+    }
+  }
+  return { total: areaTotal ? total / areaTotal : 0, miolo: areaMiolo ? miolo / areaMiolo : 0 };
+}
+
+/** A página está em branco? `ignorarFaixas` desconsidera cabeçalho e rodapé (número de página). */
+export function paginaEmBranco(t: Tinta, ignorarFaixas: boolean, limite = LIMITE_BRANCO): boolean {
+  return (ignorarFaixas ? t.miolo : t.total) <= limite;
+}

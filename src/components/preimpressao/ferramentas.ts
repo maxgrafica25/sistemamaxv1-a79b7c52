@@ -33,7 +33,7 @@ export const GRUPOS: GrupoFerramentas[] = [
       {
         key: "montagem",
         nome: "Montagem de impressos",
-        descricao: "Monta cartões, panfletos e etiquetas na folha, com o melhor aproveitamento e marcas de corte.",
+        descricao: "Monta cartões, panfletos, etiquetas e convites diferentes na folha, com frente e verso e marcas de corte.",
         entrada: "PDF de uma arte",
         icon: LayoutGrid,
         Componente: lazy(() => import("./MontagemImpressos")),
@@ -83,7 +83,7 @@ export const GRUPOS: GrupoFerramentas[] = [
       {
         key: "organizar",
         nome: "Organizar PDF",
-        descricao: "Junta, separa, gira e reordena páginas, e transforma imagens em PDF.",
+        descricao: "Junta, separa, gira e reordena páginas, acha e tira páginas em branco e transforma imagens em PDF.",
         entrada: "PDFs e imagens",
         icon: Files,
         Componente: lazy(() => import("./OrganizarPdf")),
