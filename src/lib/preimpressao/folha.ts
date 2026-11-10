@@ -4,7 +4,7 @@
 // marcas de corte e aproveitamento. Lógica pura (sem React/canvas), testável.
 
 import { PDFDocument, cmyk, degrees, type PDFEmbeddedPage, type PDFPage } from "pdf-lib";
-import { PT_POR_CM, detectarTipo, processarPdf } from "./margem";
+import { PT_POR_CM, detectarTipo, dpiEfetivo, lerInfoImagem, processarPdf, type InfoImagem } from "./margem";
 
 export const PT_POR_MM = PT_POR_CM / 10;
 const PRETO = cmyk(0, 0, 0, 1);
@@ -171,16 +171,124 @@ export interface ArteAberta {
   paginas: number;
   /** Sangria gravada no PDF (TrimBox), em mm; null = o arquivo não informa. */
   sangriaPdf: number | null;
+  /** As páginas não têm todas o mesmo tamanho (a 1ª manda; as outras são ajustadas a ela). */
+  tamanhosDiferentes?: boolean;
 }
 
-/** Abre o PDF de uma arte para as ferramentas de montagem (erros já em português simples). */
-export async function abrirArte(bytes: Uint8Array, nome: string): Promise<ArteAberta> {
+/** Converte EPS em PDF (feito no navegador; vem de ./eps). */
+export type ConversorEps = (bytes: Uint8Array) => Promise<Uint8Array>;
+
+/** Um arquivo enviado para virar arte. `larguraCm` = largura real digitada (só imagens). */
+export interface EntradaArte {
+  nome: string;
+  bytes: Uint8Array;
+  larguraCm?: number | null;
+}
+
+export interface DetalheArquivo {
+  nome: string;
+  tipo: "pdf" | "png" | "jpg" | "eps" | "desconhecido";
+  paginas: number;
+  /** Tamanho da 1ª página (pt); null quando falta a largura (imagem sem DPI). */
+  w: number | null;
+  h: number | null;
+  /** Só imagens: resolução usada (do arquivo ou calculada pela largura digitada) e a do arquivo. */
+  dpi: number | null;
+  dpiArquivo: number | null;
+  /** Imagem sem DPI gravado e sem largura digitada: não dá para saber o tamanho. */
+  precisaLargura: boolean;
+  erro?: string;
+}
+
+/** Página única de PDF com a imagem no tamanho real (sem recomprimir). */
+async function imagemEmPdf(bytes: Uint8Array, info: InfoImagem, dpi: number): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const img = info.tipo === "jpg" ? await doc.embedJpg(bytes) : await doc.embedPng(bytes);
+  const w = (info.larguraPx / dpi) * 72;
+  const h = (info.alturaPx / dpi) * 72;
+  doc.addPage([w, h]).drawImage(img, { x: 0, y: 0, width: w, height: h });
+  return doc.save();
+}
+
+/**
+ * Junta vários arquivos (PDF, PNG, JPG, EPS) em uma só arte, na ordem recebida:
+ * cada página vira uma página da arte (ex.: arquivo 1 = frente, arquivo 2 = verso).
+ * Retorna `arte: null` se algum arquivo deu erro ou falta a largura de uma imagem;
+ * os `detalhes` explicam cada arquivo.
+ */
+export async function montarArte(
+  entradas: EntradaArte[],
+  converterEps?: ConversorEps,
+): Promise<{ arte: ArteAberta | null; detalhes: DetalheArquivo[] }> {
+  const detalhes: DetalheArquivo[] = [];
+  const pdfs: Uint8Array[] = [];
+  let sangriaPdf: number | null = null;
+  let ok = true;
+
+  for (const e of entradas) {
+    const base: DetalheArquivo = { nome: e.nome, tipo: "desconhecido", paginas: 0, w: null, h: null, dpi: null, dpiArquivo: null, precisaLargura: false };
+    try {
+      let bytes = e.bytes;
+      let tipo = detectarTipo(bytes, e.nome);
+      if (tipo === "cdr") throw new Error("Arquivo do Corel (.cdr): no CorelDRAW use Arquivo → Exportar… → PDF e envie o PDF.");
+      if (tipo === "desconhecido") throw new Error("Formato não suportado. Envie PDF, PNG, JPG ou EPS.");
+      if (tipo === "eps") {
+        if (!converterEps) throw new Error("Este arquivo é EPS: exporte como PDF no Corel ou no Illustrator.");
+        bytes = await converterEps(bytes);
+        tipo = "pdf";
+        base.tipo = "eps";
+      } else base.tipo = tipo;
+
+      if (tipo === "pdf") {
+        const emPe = await arteEmPe(bytes);
+        const t = await tamanhoArte(emPe);
+        if (sangriaPdf === null && pdfs.length === 0) sangriaPdf = await sangriaDoPdf(bytes);
+        pdfs.push(emPe);
+        detalhes.push({ ...base, paginas: t.paginas, w: t.w, h: t.h });
+      } else {
+        const info = lerInfoImagem(bytes, tipo);
+        const dpi = dpiEfetivo(info, e.larguraCm);
+        if (!dpi) {
+          ok = false;
+          detalhes.push({ ...base, paginas: 1, dpiArquivo: info.dpi, precisaLargura: true });
+          continue;
+        }
+        const pdf = await imagemEmPdf(bytes, info, dpi);
+        const t = await tamanhoArte(pdf);
+        pdfs.push(pdf);
+        detalhes.push({ ...base, paginas: 1, w: t.w, h: t.h, dpi, dpiArquivo: info.dpi });
+      }
+    } catch (err) {
+      ok = false;
+      detalhes.push({ ...base, erro: err instanceof Error ? err.message : "Não consegui abrir o arquivo." });
+    }
+  }
+  if (!ok || pdfs.length === 0) return { arte: null, detalhes };
+
+  let emPe = pdfs[0];
+  if (pdfs.length > 1) {
+    const out = await PDFDocument.create();
+    for (const bytes of pdfs) {
+      const src = await PDFDocument.load(bytes);
+      for (const p of await out.copyPages(src, src.getPageIndices())) out.addPage(p);
+    }
+    emPe = await out.save();
+  }
+  const doc = await PDFDocument.load(emPe);
+  const paginas = doc.getPages();
+  const t0 = paginas[0];
+  const tamanhosDiferentes = paginas.some((p) => Math.abs(p.getWidth() - t0.getWidth()) > 1 || Math.abs(p.getHeight() - t0.getHeight()) > 1);
+  const nome = entradas.length === 1 ? entradas[0].nome : `${entradas[0].nome.replace(/\.[^.]+$/, "")} + ${entradas.length - 1}`;
+  return { arte: { nome, emPe, w: t0.getWidth(), h: t0.getHeight(), paginas: paginas.length, sangriaPdf, tamanhosDiferentes }, detalhes };
+}
+
+/** Abre UM arquivo PDF (ou EPS) para as ferramentas de montagem (erros já em português simples). */
+export async function abrirArte(bytes: Uint8Array, nome: string, converterEps?: ConversorEps): Promise<ArteAberta> {
   const tipo = detectarTipo(bytes, nome);
-  if (tipo === "cdr") throw new Error("Arquivo do Corel (.cdr): no CorelDRAW use Arquivo → Exportar… → PDF e envie o PDF.");
-  if (tipo !== "pdf") throw new Error("Envie a arte em PDF.");
-  const emPe = await arteEmPe(bytes);
-  const t = await tamanhoArte(emPe);
-  return { nome, emPe, w: t.w, h: t.h, paginas: t.paginas, sangriaPdf: await sangriaDoPdf(bytes) };
+  if (tipo === "png" || tipo === "jpg") throw new Error("Envie a arte em PDF ou EPS (para imagem use a Montagem de impressos).");
+  const { arte, detalhes } = await montarArte([{ nome, bytes }], converterEps);
+  if (!arte) throw new Error(detalhes[0]?.erro ?? "Não consegui abrir o arquivo.");
+  return arte;
 }
 
 /** "21,1 × 14,9 cm" a partir de pontos. */

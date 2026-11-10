@@ -1,20 +1,23 @@
 // Pré-impressão → ferramenta "Montagem de impressos".
-// Uma arte em PDF (com sangria) → folha de impressão montada com quantas couberem,
-// marcas de corte e verso alinhado. Tudo no navegador.
+// Uma arte (PDF, PNG, JPG ou EPS, com sangria; frente e verso em um PDF ou em dois arquivos)
+// → folha de impressão montada com quantas couberem, marcas de corte e verso alinhado.
+// Tudo no navegador.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, Loader2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { PT_POR_CM } from "@/lib/preimpressao/margem";
 import {
   FOLHAS_PADRAO,
   FOLHA_PADRAO,
   PT_POR_MM,
-  abrirArte,
   aproveitamento,
   formatarCm,
+  montarArte,
   tamanhoFinal,
   type ArteAberta,
+  type DetalheArquivo,
 } from "@/lib/preimpressao/folha";
 import {
   encaixeMontagem,
@@ -26,7 +29,7 @@ import {
   type Ordem,
   type Virada,
 } from "@/lib/preimpressao/montagem";
-import { baixarBlob } from "@/lib/preimpressao/navegador";
+import { baixarBlob, converterEps } from "@/lib/preimpressao/navegador";
 import {
   Campo,
   Chave,
@@ -57,6 +60,19 @@ interface Config {
   ordem: Ordem;
 }
 
+/** Arquivo enviado (guardado inteiro na memória; nada sai do computador). */
+interface Entrada {
+  id: string;
+  nome: string;
+  bytes: Uint8Array;
+  /** Largura real da arte em cm (só imagens): corrige ou informa o tamanho. */
+  larguraTxt: string;
+}
+
+const MAX_ARQUIVOS = 20;
+let seq = 0;
+const novoId = () => `e${Date.now().toString(36)}${(seq++).toString(36)}`;
+
 // Padrão da Max: Formatão, sangria 3 mm, borda 0,6 mm, sangrias encostadas
 const PADRAO: Config = {
   folha: FOLHA_PADRAO,
@@ -73,32 +89,56 @@ const PADRAO: Config = {
 
 export default function MontagemImpressos() {
   const [config, set] = useConfigSalva("preimpressao.montagem.config.v1", PADRAO);
+  const [entradas, setEntradas] = useState<Entrada[]>([]);
+  const [detalhes, setDetalhes] = useState<DetalheArquivo[]>([]);
   const [arte, setArte] = useState<ArteAberta | null>(null);
-  const [carregando, setCarregando] = useState(false);
-  const [erroArte, setErroArte] = useState<string | null>(null);
+  const [lendo, setLendo] = useState(false);
   const [saida, setSaida] = useState<{ bytes: Uint8Array; paginas: number } | null>(null);
   const [gerando, setGerando] = useState(false);
   const [erroGerar, setErroGerar] = useState<string | null>(null);
 
-  const carregar = useCallback(
-    async (files: File[]) => {
-      const f = files[0];
-      if (!f) return;
-      setCarregando(true);
-      setErroArte(null);
-      try {
-        const a = await abrirArte(new Uint8Array(await f.arrayBuffer()), f.name);
-        if (a.sangriaPdf !== null) set("sangria", String(a.sangriaPdf).replace(".", ","));
-        setArte(a);
-      } catch (e) {
-        setArte(null);
-        setErroArte(e instanceof Error ? e.message : "Não consegui abrir o arquivo.");
-      } finally {
-        setCarregando(false);
-      }
-    },
-    [set],
-  );
+  const adicionar = useCallback(async (files: File[]) => {
+    const novas: Entrada[] = [];
+    for (const f of files) novas.push({ id: novoId(), nome: f.name, bytes: new Uint8Array(await f.arrayBuffer()), larguraTxt: "" });
+    setEntradas((prev) => [...prev, ...novas].slice(0, MAX_ARQUIVOS));
+  }, []);
+
+  const mudarLargura = (id: string, v: string) => setEntradas((p) => p.map((e) => (e.id === id ? { ...e, larguraTxt: v } : e)));
+  const remover = (id: string) => setEntradas((p) => p.filter((e) => e.id !== id));
+  const mover = (i: number, d: number) =>
+    setEntradas((p) => {
+      const j = i + d;
+      if (j < 0 || j >= p.length) return p;
+      const n = [...p];
+      [n[i], n[j]] = [n[j], n[i]];
+      return n;
+    });
+
+  // Junta os arquivos em uma arte sempre que a lista (ou uma largura digitada) muda
+  useEffect(() => {
+    if (!entradas.length) {
+      setArte(null);
+      setDetalhes([]);
+      return;
+    }
+    let vivo = true;
+    setLendo(true);
+    const t = setTimeout(async () => {
+      const r = await montarArte(
+        entradas.map((e) => ({ nome: e.nome, bytes: e.bytes, larguraCm: numeroEntre(e.larguraTxt, 0.5, 5000) })),
+        converterEps,
+      );
+      if (!vivo) return;
+      setDetalhes(r.detalhes);
+      setArte(r.arte);
+      if (r.arte?.sangriaPdf != null) set("sangria", String(r.arte.sangriaPdf).replace(".", ","));
+      setLendo(false);
+    }, 300);
+    return () => {
+      vivo = false;
+      clearTimeout(t);
+    };
+  }, [entradas, set]);
 
   const sangria = numeroEntre(config.sangria, 0, 20);
   const margem = numeroEntre(config.margem, 0, 50);
@@ -170,14 +210,40 @@ export default function MontagemImpressos() {
         <>
           <Painel className="space-y-6">
             <Campo titulo="Envie a arte">
+              {entradas.length > 0 && (
+                <ul className="mb-3 space-y-2">
+                  {entradas.map((e, i) => (
+                    <LinhaArquivo
+                      key={e.id}
+                      entrada={e}
+                      detalhe={detalhes.find((d, k) => k === i && d.nome === e.nome) ?? detalhes[i]}
+                      rotulo={entradas.length === 2 && frenteVerso ? (i === 0 ? "Frente" : "Verso") : String(i + 1)}
+                      primeiro={i === 0}
+                      ultimo={i === entradas.length - 1}
+                      onLargura={(v) => mudarLargura(e.id, v)}
+                      onRemover={() => remover(e.id)}
+                      onMover={(d) => mover(i, d)}
+                    />
+                  ))}
+                </ul>
+              )}
               <SoltarArquivo
-                titulo="Solte o PDF de uma arte"
-                dica="Com sangria. Várias páginas: você escolhe se é frente e verso ou peças diferentes."
-                arquivo={arte ? { nome: arte.nome, detalhe: `${formatarCm(arte.w, arte.h)} · ${arte.paginas} ${arte.paginas === 1 ? "página" : "páginas"}` } : null}
-                carregando={carregando}
-                erro={erroArte}
-                onArquivos={(f) => void carregar(f)}
+                titulo={entradas.length ? "Adicionar arquivo" : "Solte a arte: PDF, PNG, JPG ou EPS"}
+                dica={
+                  entradas.length
+                    ? "Ex.: o verso. Entram na ordem da lista."
+                    : "Com sangria. Frente e verso: um PDF de 2 páginas ou os dois arquivos (frente primeiro)."
+                }
+                carregando={lendo}
+                aceita=".pdf,.png,.jpg,.jpeg,.eps,.cdr,application/pdf,image/png,image/jpeg,application/postscript"
+                multiplo
+                onArquivos={(f) => void adicionar(f)}
               />
+              {arte?.tamanhosDiferentes && (
+                <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                  As páginas não têm o mesmo tamanho. A primeira manda; as outras serão ajustadas a ela.
+                </p>
+              )}
             </Campo>
 
             <Campo titulo="Folha de impressão" ajuda="O sistema calcula quantas cabem e monta a folha sozinho.">
@@ -333,5 +399,79 @@ export default function MontagemImpressos() {
         </Button>
       }
     />
+  );
+}
+
+function LinhaArquivo({
+  entrada,
+  detalhe,
+  rotulo,
+  primeiro,
+  ultimo,
+  onLargura,
+  onRemover,
+  onMover,
+}: {
+  entrada: Entrada;
+  detalhe?: DetalheArquivo;
+  rotulo: string;
+  primeiro: boolean;
+  ultimo: boolean;
+  onLargura: (v: string) => void;
+  onRemover: () => void;
+  onMover: (delta: number) => void;
+}) {
+  const imagem = detalhe?.tipo === "png" || detalhe?.tipo === "jpg";
+  const acao = "flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30";
+  const larguraInvalida = entrada.larguraTxt.trim() !== "" && numeroEntre(entrada.larguraTxt, 0.5, 5000) === null;
+  return (
+    <li className="rounded-2xl bg-muted/40 p-3">
+      <div className="flex items-center gap-2">
+        <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-foreground/80 px-2 text-[11px] font-semibold text-background">{rotulo}</span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium" title={entrada.nome}>{entrada.nome}</p>
+          {detalhe && !detalhe.erro && (
+            <p className="text-xs text-muted-foreground">
+              {detalhe.tipo === "eps" ? "EPS · " : detalhe.tipo === "pdf" ? "" : `${detalhe.tipo.toUpperCase()} · `}
+              {detalhe.w !== null && detalhe.h !== null ? `${formatarCm(detalhe.w, detalhe.h)} · ` : ""}
+              {detalhe.paginas} {detalhe.paginas === 1 ? "página" : "páginas"}
+              {imagem && detalhe.dpi ? ` · ${Math.round(detalhe.dpi)} dpi` : ""}
+            </p>
+          )}
+          {!detalhe && <p className="text-xs text-muted-foreground">Lendo…</p>}
+        </div>
+        <button type="button" className={acao} disabled={primeiro} aria-label={`Subir ${entrada.nome}`} onClick={() => onMover(-1)}>
+          <ArrowUp className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" className={acao} disabled={ultimo} aria-label={`Descer ${entrada.nome}`} onClick={() => onMover(1)}>
+          <ArrowDown className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" className={acao} aria-label={`Remover ${entrada.nome}`} onClick={onRemover}>
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      {detalhe?.erro && <p className="mt-2 text-xs text-destructive">{detalhe.erro}</p>}
+      {imagem && (
+        <label className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          {detalhe?.precisaLargura ? "Largura real da arte (cm)" : "Corrigir largura real (cm)"}
+          <span
+            className={cn(
+              "flex h-8 items-center rounded-full bg-background px-3 ring-1 ring-transparent focus-within:ring-primary/40",
+              (detalhe?.precisaLargura || larguraInvalida) && "ring-amber-500",
+            )}
+          >
+            <input
+              inputMode="decimal"
+              aria-label={`Largura real de ${entrada.nome} em centímetros`}
+              className="w-20 bg-transparent text-center text-sm font-semibold tabular-nums outline-none"
+              placeholder={detalhe?.dpiArquivo ? "do arquivo" : "ex.: 9,1"}
+              value={entrada.larguraTxt}
+              onChange={(e) => onLargura(e.target.value)}
+            />
+          </span>
+          {detalhe?.precisaLargura && <span className="basis-full text-amber-700 dark:text-amber-400">Este arquivo não informa o tamanho. Digite a largura da arte, com a sangria.</span>}
+        </label>
+      )}
+    </li>
   );
 }

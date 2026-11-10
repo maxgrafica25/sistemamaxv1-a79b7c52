@@ -246,6 +246,9 @@ export function miniaturaPdf(bytes: Uint8Array): Promise<string> {
   return renderizarPaginaPdf(bytes, 0, TAM_MINIATURA);
 }
 
+/** EPS → PDF (Ghostscript no navegador, baixado só na primeira vez que alguém usa). */
+export const converterEps = (bytes: Uint8Array): Promise<Uint8Array> => import("./eps").then((m) => m.epsParaPdf(bytes));
+
 export function baixarBlob(blob: Blob, nome: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

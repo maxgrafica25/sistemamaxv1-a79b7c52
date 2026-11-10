@@ -10,7 +10,7 @@ import { ChevronLeft, ChevronRight, Download, FileArchive, FileX2, Loader2, Rota
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LIMITE_PAGINAS, abrirFonte, montarPdf, nomeDaPagina, paginaEmBranco, tamanhoComGiro, type Fonte, type Giro, type Tinta } from "@/lib/preimpressao/organizar";
-import { baixarBlob, baixarZip, medirTintaDoPdf, miniaturaImagem, miniaturasDoPdf } from "@/lib/preimpressao/navegador";
+import { baixarBlob, baixarZip, converterEps, medirTintaDoPdf, miniaturaImagem, miniaturasDoPdf } from "@/lib/preimpressao/navegador";
 import { Chave, NotaPrivacidade } from "./ui";
 
 interface Cartao {
@@ -52,7 +52,7 @@ export default function OrganizarPdf() {
     const novosErros: string[] = [];
     for (const f of files) {
       try {
-        const fonte = await abrirFonte(novoId("f"), f.name, new Uint8Array(await f.arrayBuffer()));
+        const fonte = await abrirFonte(novoId("f"), f.name, new Uint8Array(await f.arrayBuffer()), converterEps);
         setFontes((prev) => [...prev, fonte]);
         setCartoes((prev) => [...prev, ...fonte.paginas.map((_, i) => ({ id: novoId("c"), fonte: fonte.id, pagina: i, giro: 0 as Giro }))]);
         // miniaturas em segundo plano
@@ -204,7 +204,7 @@ export default function OrganizarPdf() {
           {abrindo ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <Upload className={cn("text-primary", vazio ? "h-6 w-6" : "h-4 w-4")} />}
         </div>
         <p className={cn("mt-3 font-semibold tracking-tight", vazio ? "text-xl" : "text-base")}>{vazio ? "Solte aqui os PDFs e as imagens" : "Solte mais arquivos aqui"}</p>
-        <p className="mt-1 text-sm text-muted-foreground">PDF, PNG ou JPG. Vários de uma vez: entram na ordem em que você soltar.</p>
+        <p className="mt-1 text-sm text-muted-foreground">PDF, PNG, JPG ou EPS. Vários de uma vez: entram na ordem em que você soltar.</p>
         <Button type="button" className="mt-4 rounded-full px-6" onClick={() => inputRef.current?.click()}>
           Escolher arquivos
         </Button>
@@ -212,7 +212,7 @@ export default function OrganizarPdf() {
           ref={inputRef}
           type="file"
           multiple
-          accept=".pdf,.png,.jpg,.jpeg,.cdr,application/pdf,image/png,image/jpeg"
+          accept=".pdf,.png,.jpg,.jpeg,.eps,.cdr,application/pdf,image/png,image/jpeg,application/postscript"
           className="hidden"
           onChange={(e) => {
             if (e.target.files) void adicionar(Array.from(e.target.files));

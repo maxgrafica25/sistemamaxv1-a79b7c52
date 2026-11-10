@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { PT_POR_CM } from "@/lib/preimpressao/margem";
 import { FOLHAS_PADRAO, FOLHA_PADRAO, abrirArte, formatarCm, type ArteAberta } from "@/lib/preimpressao/folha";
 import { gerarLivreto, type ConfigLivreto, type ResultadoLivreto } from "@/lib/preimpressao/livreto";
-import { baixarBlob } from "@/lib/preimpressao/navegador";
+import { baixarBlob, converterEps } from "@/lib/preimpressao/navegador";
 import { Campo, Chave, Dado, DuasColunas, Mini, NotaPrivacidade, Painel, PreviaPdf, SoltarArquivo } from "./ui";
 import { numeroEntre, useConfigSalva } from "./uteis";
 
@@ -40,7 +40,7 @@ export default function Livreto() {
       setCarregando(true);
       setErroArte(null);
       try {
-        const a = await abrirArte(new Uint8Array(await f.arrayBuffer()), f.name);
+        const a = await abrirArte(new Uint8Array(await f.arrayBuffer()), f.name, converterEps);
         set("sangria", a.sangriaPdf !== null ? String(a.sangriaPdf).replace(".", ",") : "0");
         setArte(a);
       } catch (e) {

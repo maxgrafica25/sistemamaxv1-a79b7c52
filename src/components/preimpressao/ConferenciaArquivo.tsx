@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { detectarTipo, lerInfoImagem } from "@/lib/preimpressao/margem";
 import { analisarPdf, relatorioImagem, relatorioPdf, veredito, type Achado, type Nivel } from "@/lib/preimpressao/conferencia";
-import { menorResolucaoDoPdf, miniaturaImagem, miniaturaPdf } from "@/lib/preimpressao/navegador";
+import { converterEps, menorResolucaoDoPdf, miniaturaImagem, miniaturaPdf } from "@/lib/preimpressao/navegador";
 import { NotaPrivacidade } from "./ui";
 
 interface Item {
@@ -28,10 +28,13 @@ async function conferir(file: File): Promise<Pick<Item, "achados" | "tipo">> {
   const tipo = detectarTipo(bytes, file.name);
   if (tipo === "cdr") throw new Error("Arquivo do Corel (.cdr) não pode ser lido aqui. No CorelDRAW use Arquivo → Exportar… → PDF e envie o PDF.");
   if (tipo === "desconhecido") throw new Error("Formato não suportado. Envie PDF, PNG ou JPG.");
-  if (tipo === "pdf") {
-    const a = await analisarPdf(bytes);
-    const ppi = a.imagens.length ? await menorResolucaoDoPdf(bytes).catch(() => null) : null;
-    return { tipo, achados: relatorioPdf(a, ppi) };
+  if (tipo === "pdf" || tipo === "eps") {
+    const pdf = tipo === "eps" ? await converterEps(bytes) : bytes;
+    const a = await analisarPdf(pdf);
+    const ppi = a.imagens.length ? await menorResolucaoDoPdf(pdf).catch(() => null) : null;
+    const achados = relatorioPdf(a, ppi);
+    if (tipo === "eps") achados.unshift({ nivel: "info", titulo: "Arquivo EPS", detalhe: "Lido como PDF para a conferência." });
+    return { tipo, achados };
   }
   return { tipo, achados: relatorioImagem(lerInfoImagem(bytes, tipo)) };
 }
@@ -51,10 +54,11 @@ export default function ConferenciaArquivo() {
         const r = await conferir(file);
         atualizar(id, { ...r, status: "pronto" });
         // miniatura em segundo plano
-        if (r.tipo === "pdf") {
+        if (r.tipo === "pdf" || r.tipo === "eps") {
           void file
             .arrayBuffer()
-            .then((b) => miniaturaPdf(new Uint8Array(b)))
+            .then((b) => (r.tipo === "eps" ? converterEps(new Uint8Array(b)) : new Uint8Array(b)))
+            .then((b) => miniaturaPdf(b))
             .then((thumb) => atualizar(id, { thumb }))
             .catch(() => undefined);
         } else {
