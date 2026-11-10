@@ -15,6 +15,7 @@ import {
   margensPara,
   nomeResultado,
   origemRotacionada,
+  posicoesIlhos,
   planejarImagem,
   processarPdf,
   retangulosLinhaCorte,
@@ -128,15 +129,43 @@ describe("linha de corte (borda de fora, área a mais sem preenchimento)", () =>
     expect(retangulosLinhaCorte(10, 10, margensPara("todos", 0.05), 0.1)[0].h).toBe(0.05);
   });
 
-  it("no PDF a área a mais não é pintada: só retângulos de 1 mm em K50", async () => {
+  it("no PDF a área a mais não é pintada: só retângulos de 0,5 mm em K50", async () => {
     const r = await processarPdf(await pdfCom(80, 120), margensPara("banner", 10));
     const pagina = conteudoPagina((await PDFDocument.load(r.bytes)).getPage(0));
     expect(pagina).toBeTruthy();
-    const umMm = (0.1 * PT_POR_CM).toString();
-    // as duas linhas (topo e base) têm 1 mm de altura; nenhuma faixa de 10 cm
+    const meioMm = (0.05 * PT_POR_CM).toString();
+    // as duas linhas (topo e base) têm 0,5 mm de altura; nenhuma faixa de 10 cm
     expect(pagina.split("0 0 0 0.5 k").length - 1).toBe(2);
-    expect(pagina).toContain(umMm);
+    expect(pagina).toContain(meioMm);
     expect(pagina).not.toContain((10 * PT_POR_CM).toString() + " l");
+  });
+});
+
+describe("marcas de ilhós", () => {
+  it("lona 300×100 cm, a cada 30 cm, 2,5 cm da borda → 28 ilhós, cantos incluídos", () => {
+    const pts = posicoesIlhos(300, 100, 30, 2.5);
+    expect(pts).toHaveLength(28);
+    for (const c of [[2.5, 2.5], [297.5, 2.5], [2.5, 97.5], [297.5, 97.5]]) {
+      expect(pts.some((p) => Math.abs(p.x - c[0]) < 1e-9 && Math.abs(p.y - c[1]) < 1e-9)).toBe(true);
+    }
+    // vizinhos no lado de baixo nunca passam de 30 cm
+    const baixo = pts.filter((p) => p.y === 2.5).map((p) => p.x).sort((a, b) => a - b);
+    baixo.forEach((x, i) => i && expect(x - baixo[i - 1]).toBeLessThanOrEqual(30 + 1e-9));
+    expect(baixo).toHaveLength(11);
+  });
+
+  it("peça pequena: só os 4 cantos; menor que o recuo: nenhum", () => {
+    expect(posicoesIlhos(20, 20, 30, 2.5)).toHaveLength(4);
+    expect(posicoesIlhos(4, 20, 30, 2.5)).toHaveLength(0);
+  });
+
+  it("no PDF as marcas ficam sobre a arte e o tamanho não muda", async () => {
+    const sem = await processarPdf(await pdfCom(80, 120), margensPara("todos", 10));
+    const com = await processarPdf(await pdfCom(80, 120), margensPara("todos", 10), { espacamentoCm: 30, recuoCm: 2.5 });
+    expect(com.paginas[0].depois).toEqual(sem.paginas[0].depois);
+    const txt = conteudoPagina((await PDFDocument.load(com.bytes)).getPage(0));
+    // 80 → 3 vãos (4 ilhós), 120 → 4 vãos: 2×4 + 2×3 = 14 ilhós, 2 círculos cada; K100 no ponto central
+    expect(txt.split("0 0 0 1 k").length - 1).toBe(14);
   });
 });
 

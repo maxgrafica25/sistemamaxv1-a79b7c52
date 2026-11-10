@@ -3,19 +3,23 @@
 
 import {
   COR_LINHA_RGB,
+  DIAMETRO_MARCA_ILHOS_MM,
   ESPESSURA_LINHA_MM,
   retangulosLinhaCorte,
   gravarDpiJpg,
   gravarDpiPng,
+  posicoesIlhos,
+  type Ilhos,
   type InfoImagem,
   type PlanoImagem,
 } from "./margem";
+import { resolucoesDaPagina } from "./conferencia";
 
 const MSG_SEMPRE_PDF =
   "Imagem grande demais para o navegador gerar em PNG/JPG. Escolha \"Sempre PDF\" em \"Salvar como\".";
 
 /** Gera PNG/JPG com a área a mais em branco e a linha de corte cinza (#808080), com o DPI regravado. */
-export async function imagemMesmoFormato(arquivo: Blob, info: InfoImagem, plano: PlanoImagem): Promise<Blob> {
+export async function imagemMesmoFormato(arquivo: Blob, info: InfoImagem, plano: PlanoImagem, ilhos?: Ilhos | null): Promise<Blob> {
   if (!plano.cabeNoCanvas) throw new Error(MSG_SEMPRE_PDF);
 
   let bmp: ImageBitmap;
@@ -43,6 +47,26 @@ export async function imagemMesmoFormato(arquivo: Blob, info: InfoImagem, plano:
     ctx.fillStyle = COR_LINHA_RGB;
     for (const q of retangulosLinhaCorte(W, H, { top, bottom, left, right }, espPx, true)) ctx.fillRect(q.x, q.y, q.w, q.h);
     ctx.drawImage(bmp, left, top, info.larguraPx, info.alturaPx);
+    if (ilhos) {
+      // Marcas de ilhós sobre a arte: disco branco com contorno e ponto preto no centro
+      const pxPorCm = plano.dpi / 2.54;
+      const r = Math.max(2, ((DIAMETRO_MARCA_ILHOS_MM / 20) * pxPorCm));
+      for (const p of posicoesIlhos(info.larguraPx, info.alturaPx, ilhos.espacamentoCm * pxPorCm, ilhos.recuoCm * pxPorCm)) {
+        const cx = left + p.x;
+        const cy = top + p.y;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.lineWidth = Math.max(1, r / 8);
+        ctx.strokeStyle = "#000000";
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, Math.max(1, r / 4), 0, Math.PI * 2);
+        ctx.fillStyle = "#000000";
+        ctx.fill();
+      }
+    }
 
     const tipo = info.tipo === "jpg" ? "image/jpeg" : "image/png";
     const blob = await new Promise<Blob | null>((res) => {
@@ -120,6 +144,64 @@ export async function renderizarPaginaPdf(bytes: Uint8Array, pagina = 0, maiorLa
     if (!ctx) throw new Error("canvas indisponível");
     await page.render({ canvas, canvasContext: ctx, viewport }).promise;
     return canvas.toDataURL("image/png");
+  } finally {
+    await tarefa.destroy();
+  }
+}
+
+/**
+ * Menor resolução efetiva (ppi) entre as imagens do PDF, no tamanho em que foram
+ * colocadas na página. Confere até `maxPaginas` páginas. null = sem imagens medidas.
+ */
+export async function menorResolucaoDoPdf(bytes: Uint8Array, maxPaginas = 30): Promise<number | null> {
+  const pdfjs = await carregarPdfJs();
+  const O = pdfjs.OPS;
+  const OPS = {
+    save: O.save,
+    restore: O.restore,
+    transform: O.transform,
+    paintFormXObjectBegin: O.paintFormXObjectBegin,
+    paintFormXObjectEnd: O.paintFormXObjectEnd,
+    imagens: [O.paintImageXObject, O.paintInlineImageXObject, O.paintImageXObjectRepeat].filter((n) => typeof n === "number"),
+  };
+  const tarefa = pdfjs.getDocument({ data: bytes.slice() });
+  const doc = await tarefa.promise;
+  try {
+    let menor: number | null = null;
+    for (let i = 1; i <= Math.min(doc.numPages, maxPaginas); i++) {
+      const page = await doc.getPage(i);
+      const ops = await page.getOperatorList();
+      for (const ppi of resolucoesDaPagina(ops.fnArray, ops.argsArray, OPS)) menor = menor === null ? ppi : Math.min(menor, ppi);
+      page.cleanup();
+    }
+    return menor;
+  } finally {
+    await tarefa.destroy();
+  }
+}
+
+/**
+ * Miniaturas de TODAS as páginas de um PDF, abrindo o arquivo uma vez só.
+ * `aCada` é chamado quando cada página fica pronta (para a tela ir preenchendo).
+ */
+export async function miniaturasDoPdf(bytes: Uint8Array, maiorLadoPx: number, aCada: (pagina: number, url: string) => void): Promise<void> {
+  const pdfjs = await carregarPdfJs();
+  const tarefa = pdfjs.getDocument({ data: bytes.slice() });
+  const doc = await tarefa.promise;
+  try {
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const vp1 = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: maiorLadoPx / Math.max(vp1.width, vp1.height) });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(viewport.width));
+      canvas.height = Math.max(1, Math.round(viewport.height));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) continue;
+      await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+      aCada(i - 1, canvas.toDataURL("image/jpeg", 0.8));
+      page.cleanup();
+    }
   } finally {
     await tarefa.destroy();
   }

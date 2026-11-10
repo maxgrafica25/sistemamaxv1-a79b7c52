@@ -27,7 +27,7 @@ import {
   type PosicaoNumero,
 } from "@/lib/preimpressao/numeracao";
 import { baixarBlob, baixarZip, renderizarPaginaPdf } from "@/lib/preimpressao/navegador";
-import { Campo, Chave, Painel, Passo, Segmentado } from "./ui";
+import { Campo, Chave, Dado, DuasColunas, Mini, Painel, Passo, Segmentado, SeletorFolha, SoltarArquivo } from "./ui";
 
 // ─── Configuração (guardada no navegador) ────────────────────────────
 
@@ -180,24 +180,6 @@ export default function NumeracaoTaloes() {
   const [gerando, setGerando] = useState(false);
   const [erroGerar, setErroGerar] = useState<string | null>(null);
   const [resultado, setResultado] = useState<Resultado | null>(null);
-  const [arrastando, setArrastando] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // No computador as duas colunas ocupam a altura que sobra da tela, cada uma com a sua
-  // barra de rolagem: rolar os ajustes não tira a pré-visualização da tela.
-  const gradeRef = useRef<HTMLDivElement>(null);
-  const [alturaTela, setAlturaTela] = useState(700);
-  useEffect(() => {
-    const medir = () => {
-      const el = gradeRef.current;
-      if (!el) return;
-      const topo = el.getBoundingClientRect().top;
-      setAlturaTela(Math.max(520, Math.round(window.innerHeight - Math.max(0, topo) - 16)));
-    };
-    medir();
-    window.addEventListener("resize", medir);
-    return () => window.removeEventListener("resize", medir);
-  }, []);
 
   useEffect(() => {
     try {
@@ -297,88 +279,25 @@ export default function NumeracaoTaloes() {
   const amostraNumero = cfg ? formatarNumero(cfg.inicio, cfg.digitos, cfg.prefixo) : "Nº 0001";
 
   return (
-    <div
-      ref={gradeRef}
-      className="grid gap-6 lg:grid-cols-[minmax(320px,400px)_1fr] lg:h-[var(--altura-ferramenta)]"
-      style={{ ["--altura-ferramenta" as string]: `${alturaTela}px` }}
-    >
-      {/* ── Ajustes ───────────────────────────────────────────── */}
-      {/* Esquerda: ajustes com barra de rolagem própria (a pré-visualização não sai da tela) */}
-      <div className="space-y-6 lg:h-full lg:overflow-y-auto lg:pr-2 lg:pb-2 [scrollbar-gutter:stable]">
+    <DuasColunas
+      esquerda={
+        <>
         <Painel className="space-y-6">
           <Campo titulo={config.modo === "solto" ? "Envie a arte" : "Envie o PDF montado"}>
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setArrastando(true);
-              }}
-              onDragLeave={() => setArrastando(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setArrastando(false);
-                void carregar(e.dataTransfer.files);
-              }}
-              className={cn(
-                "flex items-center gap-3 rounded-2xl border-2 border-dashed p-4 transition-colors",
-                arrastando ? "border-primary bg-primary/5" : "border-border/70 bg-muted/30",
-              )}
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background shadow-sm ring-1 ring-border/60">
-                {carregando ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : arte ? <FileText className="h-4 w-4 text-primary" /> : <Upload className="h-4 w-4 text-primary" />}
-              </div>
-              <div className="min-w-0 flex-1">
-                {arte ? (
-                  <>
-                    <p className="truncate text-sm font-semibold" title={arte.nome}>{arte.nome}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {fmtCm(arte.w)} × {fmtCm(arte.h)} cm · {arte.paginas} {arte.paginas === 1 ? "página" : "páginas"}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm font-semibold">{config.modo === "solto" ? "Solte o PDF de uma arte" : "Solte o PDF montado"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {config.modo === "solto" ? "Um talão só, com sangria." : "Folha pronta, com marcas de corte."} Pode ter uma página por via.
-                    </p>
-                  </>
-                )}
-              </div>
-              <Button size="sm" variant={arte ? "ghost" : "default"} className="rounded-full" onClick={() => inputRef.current?.click()}>
-                {arte ? "Trocar" : "Escolher"}
-              </Button>
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".pdf,application/pdf,.cdr"
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files) void carregar(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-            </div>
-            {erroArte && <p className="mt-2 text-xs text-destructive">{erroArte}</p>}
+            <SoltarArquivo
+              titulo={config.modo === "solto" ? "Solte o PDF de uma arte" : "Solte o PDF montado"}
+              dica={`${config.modo === "solto" ? "Um talão só, com sangria." : "Folha pronta, com marcas de corte."} Pode ter uma página por via.`}
+              arquivo={arte ? { nome: arte.nome, detalhe: `${fmtCm(arte.w)} × ${fmtCm(arte.h)} cm · ${arte.paginas} ${arte.paginas === 1 ? "página" : "páginas"}` } : null}
+              carregando={carregando}
+              erro={erroArte}
+              onArquivos={(f) => void carregar(f)}
+            />
           </Campo>
 
           {config.modo === "solto" ? (
             <>
               <Campo titulo="Folha de impressão">
-                <div className="flex flex-wrap gap-2">
-                  {FOLHAS_PADRAO.map((f) => (
-                    <button
-                      key={f.key}
-                      type="button"
-                      onClick={() => set("folha", f.key)}
-                      className={cn(
-                        "rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                        config.folha === f.key ? "bg-foreground text-background" : "bg-muted/70 text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {f.rotulo}
-                      {f.detalhe && <span className="ml-1 text-xs opacity-70">{f.detalhe}</span>}
-                    </button>
-                  ))}
-                </div>
+                <SeletorFolha valor={FOLHAS_PADRAO.some((f) => f.key === config.folha) ? config.folha : FOLHA_PADRAO} onChange={(k) => set("folha", k)} />
                 <p className="mt-2 text-xs text-muted-foreground">O sistema calcula quantas cabem e monta a folha sozinho.</p>
               </Campo>
 
@@ -521,10 +440,10 @@ export default function NumeracaoTaloes() {
             <span className="block text-xs text-muted-foreground">Começa pela última folha (para impressoras que empilham ao contrário).</span>
           </Chave>
         </Painel>
-      </div>
-
-      {/* ── Pré-visualização e resultado (fica fixo enquanto rola os ajustes) ── */}
-      <div className="space-y-6 min-w-0 lg:h-full lg:overflow-y-auto lg:pb-2">
+        </>
+      }
+      direita={
+        <>
         <Painel className="space-y-4">
           <div>
             <h3 className="text-base font-semibold tracking-tight">Pré-visualização</h3>
@@ -607,15 +526,7 @@ export default function NumeracaoTaloes() {
           <p className="flex items-center justify-center gap-1  text-xs text-muted-foreground">
             <Lock className="h-3 w-3" /> Tudo é feito aqui no seu computador. Nada é enviado para a internet.
           </p>
-          {!resultado ? (
-            // Fica preso no rodapé da coluna da direita enquanto ela rola
-            <div className="sticky bottom-0 z-10 -mx-6 -mb-6 rounded-b-3xl bg-card/95 px-6 pb-6 pt-3 backdrop-blur">
-              <Button size="lg" className="w-full rounded-full" disabled={!arte || !cfg || !encaixe || gerando} onClick={gerar}>
-                {gerando ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {gerando ? "Gerando PDF…" : "Gerar PDF numerado"}
-              </Button>
-            </div>
-          ) : (
+          {resultado && (
             <div className="space-y-3">
               {resultado.amostra && (
                 <div className="rounded-2xl bg-muted/30 p-3">
@@ -647,44 +558,22 @@ export default function NumeracaoTaloes() {
             </div>
           )}
         </Painel>
-      </div>
-    </div>
+        </>
+      }
+      rodape={
+        !resultado ? (
+              <Button size="lg" className="w-full rounded-full" disabled={!arte || !cfg || !encaixe || gerando} onClick={gerar}>
+                {gerando ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {gerando ? "Gerando PDF…" : "Gerar PDF numerado"}
+              </Button>
+            
+        ) : undefined
+      }
+    />
   );
 }
 
 // ─── Peças da tela ───────────────────────────────────────────────────
-
-function Mini({
-  rotulo,
-  valor,
-  onChange,
-  erro,
-  ajuda,
-  texto,
-}: {
-  rotulo: string;
-  valor: string;
-  onChange: (v: string) => void;
-  erro?: string;
-  ajuda?: string;
-  texto?: boolean;
-}) {
-  return (
-    <label className="block min-w-0">
-      <span className="mb-1 block text-xs text-muted-foreground">{rotulo}</span>
-      <input
-        inputMode={texto ? "text" : "decimal"}
-        value={valor}
-        onChange={(e) => onChange(e.target.value)}
-        className={cn(
-          "h-11 w-full rounded-full bg-muted/60 px-4 text-sm font-semibold tabular-nums outline-none ring-1 ring-transparent focus:ring-primary/40",
-          erro && "ring-destructive/60",
-        )}
-      />
-      {(erro || ajuda) && <span className={cn("mt-1 block text-[11px]", erro ? "text-destructive" : "text-muted-foreground")}>{erro ?? ajuda}</span>}
-    </label>
-  );
-}
 
 /** Lista dos montes (posições da folha) com a faixa de números de cada um. */
 function Montes({ plano, porFolha, cfg }: { plano: ReturnType<typeof planejarNumeracao>; porFolha: number; cfg: ConfigNumeracao }) {
@@ -716,15 +605,6 @@ function Montes({ plano, porFolha, cfg }: { plano: ReturnType<typeof planejarNum
           {plano.espacosVazios} {plano.espacosVazios === 1 ? "espaço fica" : "espaços ficam"} em branco nas últimas folhas (sobra da divisão).
         </p>
       )}
-    </div>
-  );
-}
-
-function Dado({ rotulo, valor }: { rotulo: string; valor: string }) {
-  return (
-    <div>
-      <dt className="text-xs text-muted-foreground">{rotulo}</dt>
-      <dd className="font-semibold tabular-nums">{valor}</dd>
     </div>
   );
 }

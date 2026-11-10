@@ -2,7 +2,7 @@
 //
 // Banners e faixas de lona chegam em PDF/PNG/JPG já no tamanho final (1:1).
 // Aqui a página é AUMENTADA FORA da arte: a área a mais fica sem preenchimento
-// (branca/transparente) e só uma linha fina preto 50% (CMYK 0/0/0/50, 1 mm) na
+// (branca/transparente) e só uma linha fina preto 50% (CMYK 0/0/0/50, 0,5 mm) na
 // borda de fora marca onde cortar a lona (decidido com o Juliano em 08/11/2026).
 // A arte não muda de tamanho.
 //
@@ -27,8 +27,8 @@ export const PT_POR_CM = 72 / 2.54;
 export const LIMITE_ACROBAT_CM = 508;
 /** Cor da linha de corte em PNG/JPG (equivalente RGB do K50). */
 export const COR_LINHA_RGB = "#808080";
-/** Espessura da linha de corte, na borda de fora da área a mais. */
-export const ESPESSURA_LINHA_MM = 1;
+/** Espessura da linha de corte, na borda de fora da área a mais (0,5 mm, pedido do Juliano em 10/11; antes 1 mm). */
+export const ESPESSURA_LINHA_MM = 0.5;
 /** Limites seguros do canvas dos navegadores. */
 export const CANVAS_MAX_LADO = 32767;
 export const CANVAS_MAX_PIXELS = 250_000_000;
@@ -449,12 +449,58 @@ function desenharLinhaCorte(page: PDFPage, W: number, H: number, mPt: Margens) {
   }
 }
 
+// ─── Marcas de ilhós ─────────────────────────────────────────────────
+
+/** Marcas de ilhós em volta da arte (medidas em cm). */
+export interface Ilhos {
+  /** Distância máxima entre dois ilhós (padrão da Max: 30 cm). */
+  espacamentoCm: number;
+  /** Distância do centro do ilhós até a borda da arte. */
+  recuoCm: number;
+}
+
+export const ILHOS_PADRAO: Ilhos = { espacamentoCm: 30, recuoCm: 2.5 };
+/** Diâmetro da marca (disco branco com ponto preto no centro, visível em qualquer fundo). */
+export const DIAMETRO_MARCA_ILHOS_MM = 5;
+
+/**
+ * Centros dos ilhós em todo o contorno de uma peça w × h (qualquer unidade, a
+ * mesma de `espacamento` e `recuo`; origem num canto): um em cada canto e os
+ * demais divididos por igual em cada lado, sem passar do espaçamento máximo.
+ */
+export function posicoesIlhos(w: number, h: number, espacamento: number, recuo: number): { x: number; y: number }[] {
+  const vaoX = w - 2 * recuo;
+  const vaoY = h - 2 * recuo;
+  if (!(espacamento > 0) || vaoX <= 0 || vaoY <= 0) return [];
+  const nx = Math.max(1, Math.ceil(vaoX / espacamento - 1e-9));
+  const ny = Math.max(1, Math.ceil(vaoY / espacamento - 1e-9));
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i <= nx; i++) {
+    const x = recuo + (vaoX * i) / nx;
+    pts.push({ x, y: recuo }, { x, y: h - recuo });
+  }
+  for (let j = 1; j < ny; j++) {
+    const y = recuo + (vaoY * j) / ny;
+    pts.push({ x: recuo, y }, { x: w - recuo, y });
+  }
+  return pts;
+}
+
+function desenharIlhos(page: PDFPage, x0: number, y0: number, wPt: number, hPt: number, ilhos?: Ilhos | null) {
+  if (!ilhos) return;
+  const r = ((DIAMETRO_MARCA_ILHOS_MM / 2) * PT_POR_CM) / 10;
+  for (const p of posicoesIlhos(wPt, hPt, ilhos.espacamentoCm * PT_POR_CM, ilhos.recuoCm * PT_POR_CM)) {
+    page.drawCircle({ x: x0 + p.x, y: y0 + p.y, size: r, color: cmyk(0, 0, 0, 0), borderColor: cmyk(0, 0, 0, 1), borderWidth: 0.5 });
+    page.drawCircle({ x: x0 + p.x, y: y0 + p.y, size: r / 4, color: cmyk(0, 0, 0, 1) });
+  }
+}
+
 function emPt(m: Margens): Margens {
   return { top: m.top * PT_POR_CM, bottom: m.bottom * PT_POR_CM, left: m.left * PT_POR_CM, right: m.right * PT_POR_CM };
 }
 
 /** Acrescenta as faixas em todas as páginas do PDF. O resultado continua vetorial. */
-export async function processarPdf(bytes: Uint8Array, m: Margens): Promise<ResultadoPdf> {
+export async function processarPdf(bytes: Uint8Array, m: Margens, ilhos?: Ilhos | null): Promise<ResultadoPdf> {
   let src: PDFDocument;
   try {
     src = await PDFDocument.load(bytes, { updateMetadata: false });
@@ -484,6 +530,7 @@ export async function processarPdf(bytes: Uint8Array, m: Margens): Promise<Resul
     const o = origemRotacionada(rot, w, h, mPt.left, mPt.bottom);
     nova.drawPage(emb, { x: o.x, y: o.y, width: w, height: h, rotate: degrees(-rot) });
     desenharLinhaCorte(nova, W, H, mPt);
+    desenharIlhos(nova, mPt.left, mPt.bottom, visW, visH, ilhos);
 
     paginas.push({
       antes: { w: visW / PT_POR_CM, h: visH / PT_POR_CM },
@@ -502,7 +549,13 @@ export async function processarPdf(bytes: Uint8Array, m: Margens): Promise<Resul
  * Gera um PDF com a imagem ORIGINAL embutida (sem recomprimir o JPG) no tamanho
  * real pelo DPI, mais a linha de corte K50. Usado para JPG CMYK e para "Sempre PDF".
  */
-export async function imagemParaPdf(bytes: Uint8Array, info: InfoImagem, m: Margens, dpi: number): Promise<ResultadoPdf> {
+export async function imagemParaPdf(
+  bytes: Uint8Array,
+  info: InfoImagem,
+  m: Margens,
+  dpi: number,
+  ilhos?: Ilhos | null,
+): Promise<ResultadoPdf> {
   const out = await PDFDocument.create();
   out.setProducer("Sistema Max · Pré-impressão");
   out.setCreator("Sistema Max · Margem de acabamento");
@@ -515,6 +568,7 @@ export async function imagemParaPdf(bytes: Uint8Array, info: InfoImagem, m: Marg
   const page = out.addPage([W, H]);
   page.drawImage(img, { x: mPt.left, y: mPt.bottom, width: wPt, height: hPt });
   desenharLinhaCorte(page, W, H, mPt);
+  desenharIlhos(page, mPt.left, mPt.bottom, wPt, hPt, ilhos);
   const pag = { antes: { w: wPt / PT_POR_CM, h: hPt / PT_POR_CM }, depois: { w: W / PT_POR_CM, h: H / PT_POR_CM } };
   return { bytes: await out.save(), paginas: [pag], passaLimite: passaLimiteAcrobat(pag.depois) };
 }
