@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { deflateSync } from "node:zlib";
 import { PDFDocument, StandardFonts, degrees } from "pdf-lib";
 import { PT_POR_CM, chunkPng } from "@/lib/preimpressao/margem";
-import { abrirFonte, montarPdf, nomeDaPagina, tamanhoComGiro } from "@/lib/preimpressao/organizar";
+import { abrirFonte, montarPdf, nomeDaPagina, paginaEmBranco, tamanhoComGiro, tintaDaImagem } from "@/lib/preimpressao/organizar";
 
 const cm = (v: number) => v * PT_POR_CM;
 
@@ -108,5 +108,50 @@ describe("nomes e tamanhos", () => {
     const t = tamanhoComGiro({ w: cm(21), h: cm(29.7) }, 90);
     expect(t.w).toBeCloseTo(29.7, 5);
     expect(t.h).toBeCloseTo(21, 5);
+  });
+});
+
+describe("páginas em branco", () => {
+  const W = 100;
+  const H = 140;
+  /** Imagem branca; `desenhar` pinta retângulos pretos [x, y, w, h]. */
+  function imagem(retangulos: [number, number, number, number][] = [], fundo = 255): Uint8ClampedArray {
+    const d = new Uint8ClampedArray(W * H * 4).fill(fundo);
+    for (let i = 3; i < d.length; i += 4) d[i] = 255;
+    for (const [x0, y0, w, h] of retangulos)
+      for (let y = y0; y < y0 + h; y++)
+        for (let x = x0; x < x0 + w; x++) {
+          const i = (y * W + x) * 4;
+          d[i] = d[i + 1] = d[i + 2] = 0;
+        }
+    return d;
+  }
+
+  it("página toda branca ou levemente cinza (papel) está em branco", () => {
+    expect(paginaEmBranco(tintaDaImagem(imagem(), W, H), false)).toBe(true);
+    expect(paginaEmBranco(tintaDaImagem(imagem([], 245), W, H), false)).toBe(true);
+  });
+
+  it("um pontinho solto ainda é branco; uma frase curta, não", () => {
+    expect(paginaEmBranco(tintaDaImagem(imagem([[50, 70, 1, 1]]), W, H), false)).toBe(true);
+    expect(paginaEmBranco(tintaDaImagem(imagem([[10, 30, 30, 2]]), W, H), false)).toBe(false);
+    expect(paginaEmBranco(tintaDaImagem(imagem([[10, 30, 80, 6]]), W, H), false)).toBe(false);
+  });
+
+  it("sombra na borda do escaner é ignorada", () => {
+    expect(paginaEmBranco(tintaDaImagem(imagem([[0, 0, 100, 2], [0, 0, 2, 140]]), W, H), false)).toBe(true);
+  });
+
+  it("número de página no rodapé: conta como branco só com 'ignorar cabeçalho e rodapé'", () => {
+    const t = tintaDaImagem(imagem([[40, 130, 20, 5]]), W, H);
+    expect(paginaEmBranco(t, false)).toBe(false);
+    expect(paginaEmBranco(t, true)).toBe(true);
+    // conteúdo no meio nunca é ignorado
+    expect(paginaEmBranco(tintaDaImagem(imagem([[10, 60, 80, 8]]), W, H), true)).toBe(false);
+  });
+
+  it("transparente conta como branco", () => {
+    const d = new Uint8ClampedArray(W * H * 4); // tudo 0, inclusive alfa
+    expect(paginaEmBranco(tintaDaImagem(d, W, H), false)).toBe(true);
   });
 });

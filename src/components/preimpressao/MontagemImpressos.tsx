@@ -16,7 +16,16 @@ import {
   tamanhoFinal,
   type ArteAberta,
 } from "@/lib/preimpressao/folha";
-import { encaixeMontagem, gerarMontagem, planejarMontagem, type ConfigMontagem, type Virada } from "@/lib/preimpressao/montagem";
+import {
+  encaixeMontagem,
+  gerarMontagem,
+  planejarDiferentes,
+  planejarMontagem,
+  type ConfigMontagem,
+  type Conteudo,
+  type Ordem,
+  type Virada,
+} from "@/lib/preimpressao/montagem";
 import { baixarBlob } from "@/lib/preimpressao/navegador";
 import {
   Campo,
@@ -43,6 +52,9 @@ interface Config {
   frenteVerso: boolean;
   virada: Virada;
   quantidade: string;
+  /** "repetir" = a mesma arte enche a folha; "diferentes" = cada página do PDF é uma peça. */
+  conteudo: Conteudo;
+  ordem: Ordem;
 }
 
 // Padrão da Max: Formatão, sangria 3 mm, borda 0,6 mm, sangrias encostadas
@@ -55,6 +67,8 @@ const PADRAO: Config = {
   frenteVerso: true,
   virada: "lateral",
   quantidade: "1000",
+  conteudo: "repetir",
+  ordem: "folha",
 };
 
 export default function MontagemImpressos() {
@@ -92,6 +106,7 @@ export default function MontagemImpressos() {
   const quantidade = numeroEntre(config.quantidade, 1, 10_000_000, true);
   const folha = FOLHAS_PADRAO.find((f) => f.key === config.folha) ?? FOLHAS_PADRAO.find((f) => f.key === FOLHA_PADRAO)!;
   const temVerso = !!arte && arte.paginas >= 2;
+  const diferentes = temVerso && config.conteudo === "diferentes";
   const frenteVerso = temVerso && config.frenteVerso;
 
   const cfg: ConfigMontagem | null = useMemo(
@@ -107,13 +122,16 @@ export default function MontagemImpressos() {
             marcasCorte: config.marcasCorte,
             frenteVerso,
             virada: config.virada,
+            conteudo: diferentes ? "diferentes" : "repetir",
+            ordem: config.ordem,
           },
-    [sangria, margem, espaco, folha, config.marcasCorte, config.virada, frenteVerso],
+    [sangria, margem, espaco, folha, config.marcasCorte, config.virada, frenteVerso, diferentes, config.ordem],
   );
 
   const encaixe = useMemo(() => (arte && cfg ? encaixeMontagem(cfg, arte) : null), [arte, cfg]);
   const cabe = !!encaixe && encaixe.celulas.length > 0;
-  const plano = cabe && arte && quantidade !== null ? planejarMontagem(encaixe.celulas.length, quantidade, arte.paginas, frenteVerso) : null;
+  const plano = !diferentes && cabe && arte && quantidade !== null ? planejarMontagem(encaixe.celulas.length, quantidade, arte.paginas, frenteVerso) : null;
+  const planoDif = diferentes && cabe && arte ? planejarDiferentes(encaixe.celulas.length, arte.paginas, frenteVerso) : null;
 
   // A folha é leve de gerar: refaz sozinha a cada ajuste, depois de uma pausa
   useEffect(() => {
@@ -154,7 +172,7 @@ export default function MontagemImpressos() {
             <Campo titulo="Envie a arte">
               <SoltarArquivo
                 titulo="Solte o PDF de uma arte"
-                dica="Uma arte só, com sangria. Com 2 páginas, a 2ª é o verso."
+                dica="Com sangria. Várias páginas: você escolhe se é frente e verso ou peças diferentes."
                 arquivo={arte ? { nome: arte.nome, detalhe: `${formatarCm(arte.w, arte.h)} · ${arte.paginas} ${arte.paginas === 1 ? "página" : "páginas"}` } : null}
                 carregando={carregando}
                 erro={erroArte}
@@ -176,7 +194,9 @@ export default function MontagemImpressos() {
               />
               <Mini rotulo="Borda da folha (mm)" valor={config.margem} onChange={(v) => set("margem", v)} erro={margem === null ? "0 a 50 mm" : undefined} ajuda="Da beirada até a sangria" />
               <Mini rotulo="Espaço entre artes (mm)" valor={config.espaco} onChange={(v) => set("espaco", v)} erro={espaco === null ? "0 a 50 mm" : undefined} ajuda="0 = sangrias encostadas" />
-              <Mini rotulo="Quantidade (unidades)" valor={config.quantidade} onChange={(v) => set("quantidade", v)} erro={quantidade === null ? "Número inteiro" : undefined} ajuda="Para calcular as folhas" />
+              {!diferentes && (
+                <Mini rotulo="Quantidade (unidades)" valor={config.quantidade} onChange={(v) => set("quantidade", v)} erro={quantidade === null ? "Número inteiro" : undefined} ajuda="Para calcular as folhas" />
+              )}
             </div>
 
             <Chave ligado={config.marcasCorte} onChange={(v) => set("marcasCorte", v)}>
@@ -187,12 +207,44 @@ export default function MontagemImpressos() {
 
           {temVerso && (
             <Painel className="space-y-6">
+              <Campo
+                titulo="O que tem no PDF"
+                ajuda={diferentes ? "Cada página (ou par de páginas) ocupa um lugar da folha, sem repetir." : "A mesma arte se repete até encher a folha."}
+              >
+                <Segmentado
+                  valor={config.conteudo}
+                  opcoes={[
+                    { valor: "repetir" as Conteudo, rotulo: "Mesma arte repetida" },
+                    { valor: "diferentes" as Conteudo, rotulo: "Páginas diferentes" },
+                  ]}
+                  onChange={(v) => set("conteudo", v)}
+                />
+              </Campo>
+              {diferentes && (
+                <Campo
+                  titulo="Ordem na folha"
+                  ajuda={config.ordem === "folha" ? "Folha 1: páginas 1, 2, 3… Folha 2: as seguintes." : "Depois de cortar a pilha, cada monte já sai em sequência."}
+                >
+                  <Segmentado
+                    valor={config.ordem}
+                    opcoes={[
+                      { valor: "folha" as Ordem, rotulo: "Em sequência" },
+                      { valor: "empilha" as Ordem, rotulo: "Corte e empilha" },
+                    ]}
+                    onChange={(v) => set("ordem", v)}
+                  />
+                </Campo>
+              )}
               <Chave ligado={config.frenteVerso} onChange={(v) => set("frenteVerso", v)}>
                 <span className="font-medium">Frente e verso</span>
                 <span className="block text-xs text-muted-foreground">
                   {config.frenteVerso
-                    ? "Página 1 = frente, página 2 = verso (e assim por diante)."
-                    : "Desligado: cada página do PDF é um modelo diferente, só frente."}
+                    ? diferentes
+                      ? "Páginas em pares: 1ª = frente, 2ª = verso de cada peça."
+                      : "Página 1 = frente, página 2 = verso (e assim por diante)."
+                    : diferentes
+                      ? "Desligado: cada página é uma peça só frente."
+                      : "Desligado: cada página do PDF é um modelo diferente, só frente."}
                 </span>
               </Chave>
               {config.frenteVerso && (
@@ -237,6 +289,13 @@ export default function MontagemImpressos() {
                 <Dado rotulo="Aproveitamento da folha" valor={`${Math.round(aproveitamento(encaixe, sangriaPt) * 100)}%`} />
                 <Dado rotulo="Tamanho final" valor={formatarCm(final.w, final.h)} />
                 <Dado rotulo="Folha" valor={`${formatarCm(encaixe.folhaW, encaixe.folhaH)}${encaixe.celulas[0].rot ? " · arte deitada" : ""}`} />
+                {planoDif && (
+                  <>
+                    <Dado rotulo="Peças no PDF" valor={planoDif.pecas.toLocaleString("pt-BR")} />
+                    <Dado rotulo="Folhas a imprimir" valor={`${planoDif.folhas.toLocaleString("pt-BR")}${frenteVerso ? " (frente e verso)" : ""}`} />
+                    <Dado rotulo="Lugares em branco" valor={planoDif.vazias.toLocaleString("pt-BR")} />
+                  </>
+                )}
                 {plano && (
                   <>
                     <Dado

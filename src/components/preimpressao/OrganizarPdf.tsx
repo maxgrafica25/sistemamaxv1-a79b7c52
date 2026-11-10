@@ -6,12 +6,12 @@ import { useCallback, useRef, useState } from "react";
 import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronLeft, ChevronRight, Download, FileArchive, Loader2, RotateCw, Upload, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, FileArchive, FileX2, Loader2, RotateCw, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LIMITE_PAGINAS, abrirFonte, montarPdf, nomeDaPagina, tamanhoComGiro, type Fonte, type Giro } from "@/lib/preimpressao/organizar";
-import { baixarBlob, baixarZip, miniaturaImagem, miniaturasDoPdf } from "@/lib/preimpressao/navegador";
-import { NotaPrivacidade } from "./ui";
+import { LIMITE_PAGINAS, abrirFonte, montarPdf, nomeDaPagina, paginaEmBranco, tamanhoComGiro, type Fonte, type Giro, type Tinta } from "@/lib/preimpressao/organizar";
+import { baixarBlob, baixarZip, medirTintaDoPdf, miniaturaImagem, miniaturasDoPdf } from "@/lib/preimpressao/navegador";
+import { Chave, NotaPrivacidade } from "./ui";
 
 interface Cartao {
   /** Identidade do cartão na tela (a mesma página pode ser enviada duas vezes). */
@@ -34,6 +34,13 @@ export default function OrganizarPdf() {
   const [salvando, setSalvando] = useState<"pdf" | "zip" | null>(null);
   const [arrastando, setArrastando] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Páginas em branco: medida de cada página (guardada por arquivo/página) e o resultado da busca
+  const tintas = useRef(new Map<string, Tinta>());
+  const [procurando, setProcurando] = useState<{ pagina: number; total: number } | null>(null);
+  /** null = ainda não procurou; senão, ids dos cartões marcados como "em branco" (editável). */
+  const [brancas, setBrancas] = useState<Set<string> | null>(null);
+  const [ignorarFaixas, setIgnorarFaixas] = useState(false);
   const sensores = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -65,6 +72,63 @@ export default function OrganizarPdf() {
     setAbrindo(false);
   }, []);
 
+  const marcarBrancas = useCallback(
+    (lista: Cartao[], ignorar: boolean) => {
+      const novas = new Set<string>();
+      for (const c of lista) {
+        const t = tintas.current.get(`${c.fonte}:${c.pagina}`);
+        if (t && paginaEmBranco(t, ignorar)) novas.add(c.id);
+      }
+      setBrancas(novas);
+    },
+    [],
+  );
+
+  const procurarBrancas = async () => {
+    setErros([]);
+    try {
+      const pdfs = fontes.filter((f) => f.tipo === "pdf" && cartoes.some((c) => c.fonte === f.id));
+      let feitas = 0;
+      const total = pdfs.reduce((n, f) => n + f.paginas.length, 0);
+      setProcurando({ pagina: 0, total });
+      for (const f of pdfs) {
+        if (f.paginas.every((_, i) => tintas.current.has(`${f.id}:${i}`))) {
+          feitas += f.paginas.length;
+          continue;
+        }
+        const base = feitas;
+        const medidas = await medirTintaDoPdf(f.bytes, (p) => setProcurando({ pagina: base + p, total }));
+        medidas.forEach((t, i) => tintas.current.set(`${f.id}:${i}`, t));
+        feitas += f.paginas.length;
+      }
+      marcarBrancas(cartoes, ignorarFaixas);
+    } catch (e) {
+      setErros([e instanceof Error ? e.message : "Não consegui conferir as páginas."]);
+    } finally {
+      setProcurando(null);
+    }
+  };
+
+  const mudarIgnorarFaixas = (v: boolean) => {
+    setIgnorarFaixas(v);
+    if (brancas) marcarBrancas(cartoes, v);
+  };
+
+  const manterPagina = (id: string) =>
+    setBrancas((b) => {
+      if (!b) return b;
+      const n = new Set(b);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const removerBrancas = () => {
+    if (!brancas) return;
+    setCartoes((c) => c.filter((x) => !brancas.has(x.id)));
+    setBrancas(null);
+  };
+
   const mover = (de: number, para: number) => setCartoes((c) => (para < 0 || para >= c.length ? c : arrayMove(c, de, para)));
   const girar = (id: string) => setCartoes((c) => c.map((x) => (x.id === id ? { ...x, giro: ((x.giro + 90) % 360) as Giro } : x)));
   const remover = (id: string) => setCartoes((c) => c.filter((x) => x.id !== id));
@@ -74,6 +138,8 @@ export default function OrganizarPdf() {
     setCartoes([]);
     setThumbs({});
     setErros([]);
+    tintas.current.clear();
+    setBrancas(null);
   };
 
   const aoSoltar = (e: DragEndEvent) => {
@@ -175,6 +241,10 @@ export default function OrganizarPdf() {
               <Button size="sm" variant="ghost" className="rounded-full" onClick={limpar}>
                 Limpar
               </Button>
+              <Button size="sm" variant="ghost" className="rounded-full" disabled={!!procurando} onClick={() => void procurarBrancas()}>
+                {procurando ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileX2 className="h-4 w-4" />}
+                {procurando ? `Conferindo ${procurando.pagina}/${procurando.total}` : "Achar páginas em branco"}
+              </Button>
               <Button size="sm" variant="ghost" className="rounded-full" onClick={girarTodas}>
                 <RotateCw className="h-4 w-4" /> Girar todas
               </Button>
@@ -190,6 +260,40 @@ export default function OrganizarPdf() {
           </div>
           {demais && <p className="text-sm text-destructive">São {cartoes.length} páginas: o máximo é {LIMITE_PAGINAS}. Remova algumas.</p>}
 
+          {brancas && (
+            <div className="space-y-3 rounded-2xl border border-amber-300/60 bg-amber-50 p-4 dark:border-amber-800/60 dark:bg-amber-950/30">
+              {brancas.size > 0 ? (
+                <>
+                  <p className="text-sm">
+                    <span className="font-semibold">
+                      Achei {brancas.size} {brancas.size === 1 ? "página em branco" : "páginas em branco"}:
+                    </span>{" "}
+                    <span className="tabular-nums text-muted-foreground">
+                      {cartoes.flatMap((c, i) => (brancas.has(c.id) ? [i + 1] : [])).join(", ")}
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">Elas estão marcadas abaixo. Clique em "Em branco" no cartão para manter uma página.</p>
+                </>
+              ) : (
+                <p className="text-sm font-medium">Nenhuma página em branco. Está tudo certo.</p>
+              )}
+              <Chave ligado={ignorarFaixas} onChange={mudarIgnorarFaixas}>
+                <span className="font-medium">Ignorar cabeçalho e rodapé</span>
+                <span className="block text-xs text-muted-foreground">Páginas só com número ou título no alto ou embaixo contam como em branco.</span>
+              </Chave>
+              <div className="flex flex-wrap gap-2">
+                {brancas.size > 0 && (
+                  <Button size="sm" className="rounded-full" onClick={removerBrancas}>
+                    Remover {brancas.size === 1 ? "a página" : `as ${brancas.size} páginas`}
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setBrancas(null)}>
+                  Fechar
+                </Button>
+              </div>
+            </div>
+          )}
+
           <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={aoSoltar}>
             <SortableContext items={cartoes.map((c) => c.id)} strategy={rectSortingStrategy}>
               <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
@@ -203,6 +307,8 @@ export default function OrganizarPdf() {
                       numero={i + 1}
                       fonte={f}
                       thumb={thumbs[`${c.fonte}:${c.pagina}`]}
+                      emBranco={brancas?.has(c.id) ?? false}
+                      onManter={() => manterPagina(c.id)}
                       primeiro={i === 0}
                       ultimo={i === cartoes.length - 1}
                       onGirar={() => girar(c.id)}
@@ -226,6 +332,8 @@ function CartaoPagina({
   numero,
   fonte,
   thumb,
+  emBranco,
+  onManter,
   primeiro,
   ultimo,
   onGirar,
@@ -236,6 +344,8 @@ function CartaoPagina({
   numero: number;
   fonte: Fonte;
   thumb?: string;
+  emBranco: boolean;
+  onManter: () => void;
   primeiro: boolean;
   ultimo: boolean;
   onGirar: () => void;
@@ -249,7 +359,11 @@ function CartaoPagina({
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn("rounded-2xl border border-border/60 bg-card p-2 shadow-sm", isDragging && "z-20 opacity-80 shadow-lg ring-2 ring-primary/40")}
+      className={cn(
+        "rounded-2xl border border-border/60 bg-card p-2 shadow-sm",
+        emBranco && "border-amber-400 ring-2 ring-amber-300",
+        isDragging && "z-20 opacity-80 shadow-lg ring-2 ring-primary/40",
+      )}
     >
       <div
         {...attributes}
@@ -269,6 +383,17 @@ function CartaoPagina({
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         )}
         <span className="absolute left-1.5 top-1.5 rounded-full bg-foreground/80 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-background">{numero}</span>
+        {emBranco && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={onManter}
+            title="Clique para manter esta página"
+            className="absolute bottom-1.5 left-1.5 right-1.5 rounded-full bg-amber-500 px-2 py-1 text-[11px] font-semibold text-white shadow hover:bg-amber-600"
+          >
+            Em branco · manter?
+          </button>
+        )}
       </div>
       <p className="mt-2 truncate px-1 text-xs font-medium" title={fonte.nome}>
         {fonte.nome}

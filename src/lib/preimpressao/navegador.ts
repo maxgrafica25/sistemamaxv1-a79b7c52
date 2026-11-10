@@ -14,6 +14,7 @@ import {
   type PlanoImagem,
 } from "./margem";
 import { resolucoesDaPagina } from "./conferencia";
+import { tintaDaImagem, type Tinta } from "./organizar";
 
 const MSG_SEMPRE_PDF =
   "Imagem grande demais para o navegador gerar em PNG/JPG. Escolha \"Sempre PDF\" em \"Salvar como\".";
@@ -175,6 +176,39 @@ export async function menorResolucaoDoPdf(bytes: Uint8Array, maxPaginas = 30): P
       page.cleanup();
     }
     return menor;
+  } finally {
+    await tarefa.destroy();
+  }
+}
+
+/**
+ * Mede a "tinta" de cada página de um PDF (para achar páginas em branco). Cada página é
+ * desenhada pequena (maior lado 300 px) sobre fundo branco; `aCada` informa o andamento.
+ */
+export async function medirTintaDoPdf(bytes: Uint8Array, aCada?: (pagina: number, total: number) => void): Promise<Tinta[]> {
+  const pdfjs = await carregarPdfJs();
+  const tarefa = pdfjs.getDocument({ data: bytes.slice() });
+  const doc = await tarefa.promise;
+  try {
+    const out: Tinta[] = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const vp1 = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: 300 / Math.max(vp1.width, vp1.height) });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(viewport.width));
+      canvas.height = Math.max(1, Math.round(viewport.height));
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) throw new Error("canvas indisponível");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvas, canvasContext: ctx, viewport, background: "rgb(255,255,255)" }).promise;
+      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      out.push(tintaDaImagem(img.data, canvas.width, canvas.height));
+      page.cleanup();
+      aCada?.(i, doc.numPages);
+    }
+    return out;
   } finally {
     await tarefa.destroy();
   }
