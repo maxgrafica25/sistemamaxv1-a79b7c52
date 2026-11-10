@@ -16,6 +16,9 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { handleError } from "@/lib/handleError";
 import PageLoader from "@/components/PageLoader";
 import { DotTabs } from "@/components/ui/dot-tabs";
+import { EtiquetaChip, SeletorEtiquetas } from "@/components/atendimentos/pecas";
+import { salvarEtiquetasDoCliente, type Etiqueta } from "@/lib/crm/dados";
+import { cn } from "@/lib/utils";
 
 interface Cadastro {
   id: string;
@@ -65,6 +68,12 @@ export default function Cadastros() {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
 
+  // Etiquetas de cliente (CRM): "Recorrente", "Prioridade"… criadas em Atendimentos → Configurar
+  const [etiquetas, setEtiquetas] = useState<Etiqueta[]>([]);
+  const [etiquetasPorCliente, setEtiquetasPorCliente] = useState<Record<string, string[]>>({});
+  const [etiquetasForm, setEtiquetasForm] = useState<string[]>([]);
+  const [filtroEtiqueta, setFiltroEtiqueta] = useState<string | null>(null);
+
   // Confirm delete
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -74,6 +83,15 @@ export default function Cadastros() {
     setLoading(true);
     const { data } = await supabase.from("clients").select("*").order("created_at", { ascending: false });
     if (data) setCadastros(data as unknown as Cadastro[]);
+    const { data: ets } = await supabase.from("crm_etiquetas").select("*").order("sort_order").order("nome");
+    setEtiquetas(ets ?? []);
+    const mapa: Record<string, string[]> = {};
+    for (let de = 0; ; de += 1000) {
+      const { data: pag } = await supabase.from("client_etiquetas").select("client_id, etiqueta_id").order("id").range(de, de + 999);
+      for (const x of pag ?? []) (mapa[x.client_id] ??= []).push(x.etiqueta_id);
+      if (!pag || pag.length < 1000) break;
+    }
+    setEtiquetasPorCliente(mapa);
     setLoading(false);
   };
 
@@ -84,7 +102,7 @@ export default function Cadastros() {
     setNome(""); setEmail(""); setTelefone(""); setEmpresa("");
     setTipo("cliente"); setCnpj(""); setEndereco("");
     setNumero(""); setComplemento(""); setCep(""); setMunicipio(""); setEstado("");
-    setObservacoes(""); setTags([]); setTagInput("");
+    setObservacoes(""); setTags([]); setTagInput(""); setEtiquetasForm([]);
     setIsDialogOpen(true);
   };
 
@@ -96,6 +114,7 @@ export default function Cadastros() {
     setNumero(c.numero || ""); setComplemento(c.complemento || "");
     setCep(c.cep || ""); setMunicipio(c.municipio || ""); setEstado(c.estado || "");
     setObservacoes(c.observacoes || ""); setTags(c.tags || []); setTagInput("");
+    setEtiquetasForm(etiquetasPorCliente[c.id] ?? []);
     setIsDialogOpen(true);
   };
 
@@ -130,11 +149,13 @@ export default function Cadastros() {
     if (editing) {
       const { error } = await supabase.from("clients").update(payload as any).eq("id", editing.id);
       if (error) return handleError(error, "atualizar cadastro");
+      await salvarEtiquetasDoCliente(editing.id, etiquetasPorCliente[editing.id] ?? [], etiquetasForm);
       await logAudit({ action: "edição", entity_type: "Cadastro", entity_id: editing.id, entity_name: nome, details: `Tipo: ${tipo}` });
       toast.success("Cadastro atualizado!");
     } else {
       const { data, error } = await supabase.from("clients").insert(payload as any).select("id").single();
       if (error) return handleError(error, "criar cadastro");
+      if (data?.id && etiquetasForm.length) await salvarEtiquetasDoCliente(data.id, [], etiquetasForm);
       await logAudit({ action: "criação", entity_type: "Cadastro", entity_id: data?.id, entity_name: nome, details: `Tipo: ${tipo}` });
       toast.success("Cadastro criado!");
     }
@@ -161,11 +182,13 @@ export default function Cadastros() {
   const filtered = cadastros.filter((c) => {
     if (activeTab === "clientes" && c.tipo !== "cliente" && c.tipo !== "ambos") return false;
     if (activeTab === "fornecedores" && c.tipo !== "fornecedor" && c.tipo !== "ambos") return false;
+    if (filtroEtiqueta && !(etiquetasPorCliente[c.id] ?? []).includes(filtroEtiqueta)) return false;
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
       return c.nome.toLowerCase().includes(s) ||
         (c.email || "").toLowerCase().includes(s) ||
         (c.empresa || "").toLowerCase().includes(s) ||
+        (c.telefone || "").toLowerCase().includes(s) ||
         (c.tags || []).some(t => t.toLowerCase().includes(s));
     }
     return true;
@@ -210,6 +233,30 @@ export default function Cadastros() {
             <Input placeholder="Buscar por nome, email, empresa ou tag..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
           </div>
 
+          {etiquetas.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Etiquetas:</span>
+              {etiquetas.map((e) => {
+                const total = Object.values(etiquetasPorCliente).filter((ids) => ids.includes(e.id)).length;
+                const ativo = filtroEtiqueta === e.id;
+                return (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={() => setFiltroEtiqueta(ativo ? null : e.id)}
+                    className={cn("rounded-full transition-opacity", filtroEtiqueta && !ativo && "opacity-40 hover:opacity-80", ativo && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
+                    title={ativo ? "Tirar o filtro" : `Mostrar só clientes com a etiqueta ${e.nome}`}
+                  >
+                    <EtiquetaChip etiqueta={{ ...e, nome: `${e.nome} (${total})` }} className="px-2.5 py-1 text-xs" />
+                  </button>
+                );
+              })}
+              {filtroEtiqueta && (
+                <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setFiltroEtiqueta(null)}>mostrar todos</button>
+              )}
+            </div>
+          )}
+
           <Card>
             <CardContent className="pt-4">
               {filtered.length === 0 ? (
@@ -223,7 +270,7 @@ export default function Cadastros() {
                       <TableHead>Telefone</TableHead>
                       <TableHead>Vendedor/Contato</TableHead>
                       <TableHead>Município</TableHead>
-                      <TableHead>Tags</TableHead>
+                      <TableHead>Etiquetas</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -245,6 +292,10 @@ export default function Cadastros() {
                         <TableCell>{c.municipio || "-"}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
+                            {(etiquetasPorCliente[c.id] ?? []).map(id => {
+                              const e = etiquetas.find(x => x.id === id);
+                              return e ? <EtiquetaChip key={id} etiqueta={e} /> : null;
+                            })}
                             {(c.tags || []).slice(0, 3).map(t => (
                               <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>
                             ))}
@@ -363,6 +414,20 @@ export default function Cadastros() {
                 </select>
               </div>
             </div>
+
+            {tipo !== "fornecedor" && (
+              <div className="space-y-2">
+                <Label>Etiquetas do cliente</Label>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {etiquetasForm.map(id => {
+                    const e = etiquetas.find(x => x.id === id);
+                    return e ? <EtiquetaChip key={id} etiqueta={e} /> : null;
+                  })}
+                  <SeletorEtiquetas etiquetas={etiquetas} selecionadas={etiquetasForm} onChange={setEtiquetasForm} />
+                </div>
+                <p className="text-xs text-muted-foreground">Aparecem nos atendimentos deste cliente. “Prioridade” passa o cliente na frente na fila.</p>
+              </div>
+            )}
 
             {/* Supplier-only fields */}
             {showSupplierFields && (
