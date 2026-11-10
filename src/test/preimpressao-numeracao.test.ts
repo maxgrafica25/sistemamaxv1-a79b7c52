@@ -55,8 +55,8 @@ const base: ConfigNumeracao = {
   sangriaMm: 0,
   marcasCorte: true,
   inicio: 1,
-  taloes: 8,
-  jogos: 50,
+  fim: 400,
+  porBloco: 50,
   vias: 2,
   digitos: 4,
   prefixo: "Nº ",
@@ -74,24 +74,31 @@ describe("número", () => {
 });
 
 describe("corte e empilha", () => {
+  it("numeração solta (rifa): de 0501 a 0600 em 4 por folha, sem blocos", () => {
+    const p = planejarNumeracao(4, 501, 600);
+    expect(p).toMatchObject({ folhas: 25, primeiro: 501, ultimo: 600, blocoDividido: false, espacosVazios: 0 });
+    expect([0, 1, 2, 3].map((j) => numeroNaPosicao(p, j, 0))).toEqual([501, 526, 551, 576]);
+    expect(numeroNaPosicao(p, 3, 24)).toBe(600);
+  });
+
   it("8 talões de 50 em 4 por folha → 100 folhas, montes em sequência", () => {
-    const p = planejarNumeracao(4, 8, 50, 1);
-    expect(p).toMatchObject({ folhas: 100, posicoesVazias: 0, espacosVazios: 0, talaoDividido: false, primeiro: 1, ultimo: 400 });
+    const p = planejarNumeracao(4, 1, 400, 50);
+    expect(p).toMatchObject({ folhas: 100, posicoesVazias: 0, espacosVazios: 0, blocoDividido: false, primeiro: 1, ultimo: 400 });
     // folha 1: 1, 101, 201, 301
-    expect([0, 1, 2, 3].map((j) => numeroNaPosicao(p, j, 0, 8, 50, 1))).toEqual([1, 101, 201, 301]);
+    expect([0, 1, 2, 3].map((j) => numeroNaPosicao(p, j, 0))).toEqual([1, 101, 201, 301]);
     // última folha: 100, 200, 300, 400
-    expect([0, 1, 2, 3].map((j) => numeroNaPosicao(p, j, 99, 8, 50, 1))).toEqual([100, 200, 300, 400]);
+    expect([0, 1, 2, 3].map((j) => numeroNaPosicao(p, j, 99))).toEqual([100, 200, 300, 400]);
   });
 
   it("cada monte cortado fica em sequência sem buracos nem repetição", () => {
     const B = 10;
     const F = 25;
-    const p = planejarNumeracao(4, B, F, 1001);
+    const p = planejarNumeracao(4, 1001, 1000 + B * F, F);
     const vistos: number[] = [];
     for (let j = 0; j < 4; j++) {
       const monte: number[] = [];
       for (let s = 0; s < p.folhas; s++) {
-        const n = numeroNaPosicao(p, j, s, B, F, 1001);
+        const n = numeroNaPosicao(p, j, s);
         if (n !== null) monte.push(n);
       }
       monte.forEach((n, i) => i && expect(n).toBe(monte[i - 1] + 1));
@@ -101,20 +108,20 @@ describe("corte e empilha", () => {
   });
 
   it("2 talões de 50 em 4 por folha → 25 folhas, as 4 posições usadas (caso do Juliano em 09/11)", () => {
-    const p = planejarNumeracao(4, 2, 50, 1);
-    expect(p).toMatchObject({ folhas: 25, posicoesVazias: 0, espacosVazios: 0, talaoDividido: true, ultimo: 100 });
-    expect([0, 1, 2, 3].map((j) => numeroNaPosicao(p, j, 0, 2, 50, 1))).toEqual([1, 26, 51, 76]);
-    expect([0, 1, 2, 3].map((j) => numeroNaPosicao(p, j, 24, 2, 50, 1))).toEqual([25, 50, 75, 100]);
+    const p = planejarNumeracao(4, 1, 100, 50);
+    expect(p).toMatchObject({ folhas: 25, posicoesVazias: 0, espacosVazios: 0, blocoDividido: true, ultimo: 100 });
+    expect([0, 1, 2, 3].map((j) => numeroNaPosicao(p, j, 0))).toEqual([1, 26, 51, 76]);
+    expect([0, 1, 2, 3].map((j) => numeroNaPosicao(p, j, 24))).toEqual([25, 50, 75, 100]);
   });
 
   it("quando não divide certo, sobra só no fim do último monte", () => {
-    const p = planejarNumeracao(4, 5, 50, 1); // 250 números ÷ 4 → 63 folhas
+    const p = planejarNumeracao(4, 1, 250, 50); // 250 números ÷ 4 → 63 folhas
     expect(p).toMatchObject({ folhas: 63, posicoesVazias: 0, espacosVazios: 2 });
-    expect(numeroNaPosicao(p, 3, 60, 5, 50, 1)).toBe(250);
-    expect(numeroNaPosicao(p, 3, 61, 5, 50, 1)).toBeNull();
-    expect(numeroNaPosicao(p, 3, 62, 5, 50, 1)).toBeNull();
+    expect(numeroNaPosicao(p, 3, 60)).toBe(250);
+    expect(numeroNaPosicao(p, 3, 61)).toBeNull();
+    expect(numeroNaPosicao(p, 3, 62)).toBeNull();
     // menos números que posições: posições vazias
-    expect(planejarNumeracao(9, 1, 5, 1)).toMatchObject({ folhas: 1, posicoesVazias: 4 });
+    expect(planejarNumeracao(9, 1, 5)).toMatchObject({ folhas: 1, posicoesVazias: 4 });
   });
 });
 
@@ -206,8 +213,8 @@ describe("PDF numerado", () => {
       ...base,
       modo: "montado",
       margemMm: 0,
-      taloes: 4,
-      jogos: 10,
+      fim: 40,
+      porBloco: 10,
       posicao: { x: 0.05, y: 0.5, girar: true },
     };
     const r = await gerarNumeracao(await arteEmPe(await arte(21, 29.7, 2)), cfg);
@@ -233,7 +240,7 @@ describe("PDF numerado", () => {
 
 describe("um número só por talão", () => {
   it("cada número aparece exatamente uma vez na folha e nenhum se repete no arquivo", async () => {
-    const r = await gerarNumeracao(await arteEmPe(await arte(10, 14)), { ...base, vias: 1, taloes: 8, jogos: 50 });
+    const r = await gerarNumeracao(await arteEmPe(await arte(10, 14)), { ...base, vias: 1, fim: 400 });
     const doc = await PDFDocument.load(r.vias[0]);
     const vistos = new Map<string, number>();
     for (let i = 0; i < doc.getPageCount(); i++) {

@@ -40,9 +40,9 @@ export const GRUPOS: GrupoFerramentas[] = [
       },
       {
         key: "numeracao",
-        nome: "Numeração de talões",
-        descricao: "Numera talões e blocos em corte e empilha, com uma via por arquivo.",
-        entrada: "PDF de um talão",
+        nome: "Numeração",
+        descricao: "Numera talões, blocos, rifas e ingressos, já montados na folha para cortar e empilhar.",
+        entrada: "PDF de uma arte",
         icon: Hash,
         Componente: lazy(() => import("./NumeracaoTaloes")),
       },

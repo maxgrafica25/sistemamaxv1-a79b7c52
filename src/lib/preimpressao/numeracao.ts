@@ -1,4 +1,4 @@
-// Pré-impressão → "Numeração de talões e blocos".
+// Pré-impressão → "Numeração" (talões, blocos, rifas, ingressos…).
 //
 // Recebe a arte do talão em PDF (1 talão por página, ou já montada com vários
 // na folha) e gera o PDF de impressão com a numeração em CORTE E EMPILHA:
@@ -36,48 +36,41 @@ export interface PlanoNumeracao {
   posicoesVazias: number;
   /** Espaços em branco no fim do último monte (K × folhas − total de números). */
   espacosVazios: number;
-  /** Algum talão fica dividido entre dois montes (é só empilhar os montes na ordem). */
-  talaoDividido: boolean;
+  /** Algum bloco fica dividido entre dois montes (é só empilhar os montes na ordem). */
+  blocoDividido: boolean;
   primeiro: number;
   ultimo: number;
 }
 
 /**
  * Corte e empilha com SEQUÊNCIA CONTÍNUA (regra corrigida em 09/11 com o Juliano):
- * o total de números (talões × jogos) é dividido igualmente entre as K posições da
- * folha. Monte j = números [inicio + j·folhas, inicio + (j+1)·folhas). Depois de
- * cortar, empilhar os montes na ordem 1, 2, 3… dá a sequência inteira; separar os
- * talões a cada `jogos` folhas. Ex.: 2 talões de 50 em 4 por folha → 25 folhas,
- * montes 1–25, 26–50, 51–75, 76–100 (antes ficavam 2 posições vazias e 50 folhas).
+ * os números de `primeiro` a `ultimo` são divididos igualmente entre as K posições da
+ * folha. Monte j = números [primeiro + j·folhas, primeiro + (j+1)·folhas). Depois de
+ * cortar, empilhar os montes na ordem 1, 2, 3… dá a sequência inteira; se for bloco
+ * ou talão, separar a cada `porBloco` folhas. Ex.: 0001 a 0100 em 4 por folha → 25
+ * folhas, montes 1–25, 26–50, 51–75, 76–100. Serve para talões, blocos, rifas, ingressos…
  */
-export function planejarNumeracao(porFolha: number, taloes: number, jogos: number, inicio: number): PlanoNumeracao {
+export function planejarNumeracao(porFolha: number, primeiro: number, ultimo: number, porBloco?: number | null): PlanoNumeracao {
   const K = Math.max(1, Math.floor(porFolha));
-  const B = Math.max(1, Math.floor(taloes));
-  const F = Math.max(1, Math.floor(jogos));
-  const total = B * F;
+  const ini = Math.floor(primeiro);
+  const fim = Math.max(ini, Math.floor(ultimo));
+  const total = fim - ini + 1;
   const folhas = Math.ceil(total / K);
+  const bloco = porBloco && porBloco > 0 ? Math.floor(porBloco) : null;
   return {
     folhas,
     posicoesVazias: K - Math.ceil(total / folhas),
     espacosVazios: K * folhas - total,
-    talaoDividido: folhas % F !== 0,
-    primeiro: inicio,
-    ultimo: inicio + total - 1,
+    blocoDividido: bloco !== null && folhas % bloco !== 0,
+    primeiro: ini,
+    ultimo: fim,
   };
 }
 
 /** Número impresso na posição j da folha s (0 = primeira), ou null se ali fica em branco. */
-export function numeroNaPosicao(
-  plano: PlanoNumeracao,
-  j: number,
-  s: number,
-  taloes: number,
-  jogos: number,
-  inicio: number,
-): number | null {
-  const total = Math.max(1, Math.floor(taloes)) * Math.max(1, Math.floor(jogos));
-  const indice = j * plano.folhas + s;
-  return indice < total ? inicio + indice : null;
+export function numeroNaPosicao(plano: PlanoNumeracao, j: number, s: number): number | null {
+  const n = plano.primeiro + j * plano.folhas + s;
+  return n <= plano.ultimo ? n : null;
 }
 
 // ─── Geração do PDF ─────────────────────────────────────────────────
@@ -134,9 +127,11 @@ export interface ConfigNumeracao {
   /** Sangria que a arte JÁ TRAZ em cada lado (mm). O corte fica essa medida para dentro. */
   sangriaMm: number;
   marcasCorte: boolean;
+  /** Primeiro e último número impressos. */
   inicio: number;
-  taloes: number;
-  jogos: number;
+  fim: number;
+  /** Números em cada bloco/talão (só para orientar a separação); null = numeração solta (rifa, ingresso). */
+  porBloco: number | null;
   vias: number;
   digitos: number;
   prefixo: string;
@@ -194,7 +189,7 @@ export async function gerarNumeracao(bytesEmPe: Uint8Array, cfg: ConfigNumeracao
   if (!K || encaixe.celulas[0].w <= 0 || encaixe.celulas[0].h <= 0) {
     throw new Error(cfg.modo === "solto" ? "A arte não cabe na folha escolhida." : "Colunas, linhas ou margem não batem com a página.");
   }
-  const plano = planejarNumeracao(K, cfg.taloes, cfg.jogos, cfg.inicio);
+  const plano = planejarNumeracao(K, cfg.inicio, cfg.fim, cfg.porBloco);
   if (plano.folhas > LIMITE_FOLHAS) throw new Error(`São ${plano.folhas} folhas por via: divida o pedido (máximo ${LIMITE_FOLHAS}).`);
 
   const vias: Uint8Array[] = [];
@@ -202,7 +197,7 @@ export async function gerarNumeracao(bytesEmPe: Uint8Array, cfg: ConfigNumeracao
   for (let via = 0; via < nVias; via++) {
     const out = await PDFDocument.create();
     out.setProducer("Sistema Max · Pré-impressão");
-    out.setCreator("Sistema Max · Numeração de talões");
+    out.setCreator("Sistema Max · Numeração");
     out.setTitle(`Numeração ${formatarNumero(plano.primeiro, cfg.digitos)}–${formatarNumero(plano.ultimo, cfg.digitos)} · via ${via + 1}`);
     const [arte] = await out.embedPdf(bytesEmPe, [paginaDaVia(via, totalPaginas)]);
     const font = await out.embedFont(StandardFonts.HelveticaBold);
@@ -212,8 +207,8 @@ export async function gerarNumeracao(bytesEmPe: Uint8Array, cfg: ConfigNumeracao
       const page = out.addPage([encaixe.folhaW, encaixe.folhaH]);
       if (cfg.modo === "montado") page.drawPage(arte, { x: 0, y: 0 });
       encaixe.celulas.forEach((c, j) => {
-        const n = numeroNaPosicao(plano, j, s, cfg.taloes, cfg.jogos, cfg.inicio);
-        if (n === null) return; // posição sem talão: fica em branco
+        const n = numeroNaPosicao(plano, j, s);
+        if (n === null) return; // posição sem número: fica em branco
         if (cfg.modo === "solto") {
           desenharArteNaCelula(page, arte, c);
         }

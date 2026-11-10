@@ -1,4 +1,4 @@
-// Pré-impressão → ferramenta "Numeração de talões e blocos".
+// Pré-impressão → ferramenta "Numeração" (talões, blocos, rifas, ingressos…).
 // Arte em PDF (uma arte por página ou várias artes já montadas na página) → PDF de impressão numerado em
 // corte e empilha, um arquivo por via. Tudo no navegador.
 
@@ -49,8 +49,10 @@ interface Config {
   sangria: string;
   marcasCorte: boolean;
   inicio: string;
-  taloes: string;
-  jogos: string;
+  /** Último número impresso. */
+  fim: string;
+  /** Números em cada bloco/talão; vazio = numeração solta (rifa, ingresso). */
+  porBloco: string;
   vias: number;
   digitos: string;
   prefixo: string;
@@ -75,8 +77,8 @@ const PADRAO: Config = {
   sangria: "3",
   marcasCorte: true,
   inicio: "1",
-  taloes: "10",
-  jogos: "50",
+  fim: "500",
+  porBloco: "50",
   vias: 2,
   digitos: "4",
   prefixo: "Nº ",
@@ -90,7 +92,7 @@ function lerConfig(): Config {
   try {
     const raw = window.localStorage.getItem(CONFIG_KEY);
     if (!raw) return PADRAO;
-    const salvo = JSON.parse(raw) as Partial<Config> & { posicoes?: PosicaoNumero[] };
+    const salvo = JSON.parse(raw) as Partial<Config> & { posicoes?: PosicaoNumero[]; taloes?: string; jogos?: string };
     const c = { ...PADRAO, ...salvo };
     // Versões antigas guardavam até 3 lugares para o número (davam número repetido): fica só o primeiro
     const antigo = Array.isArray(salvo.posicoes) ? salvo.posicoes[0] : undefined;
@@ -101,7 +103,17 @@ function lerConfig(): Config {
         : PADRAO.posicao;
     // A cor antiga era "vermelho"/"preto" (texto); agora é "#RRGGBB" e o padrão é preto
     c.cor = corValida(salvo.cor) ?? COR_PADRAO;
-    delete (c as { posicoes?: unknown }).posicoes;
+    // Versões antigas pediam "quantidade de talões × jogos": vira último número e números por bloco
+    if (salvo.fim === undefined && salvo.taloes && salvo.jogos) {
+      const ini = Number.parseInt(String(salvo.inicio ?? "1"), 10);
+      const t = Number.parseInt(salvo.taloes, 10);
+      const j = Number.parseInt(salvo.jogos, 10);
+      if ([ini, t, j].every(Number.isFinite)) {
+        c.fim = String(ini + t * j - 1);
+        c.porBloco = String(j);
+      }
+    }
+    for (const velho of ["posicoes", "taloes", "jogos"]) delete (c as Record<string, unknown>)[velho];
     // Caminho principal sempre: enviar uma arte e o sistema monta. "Já montado" é exceção.
     c.modo = "solto";
     return c;
@@ -147,8 +159,11 @@ function validar(c: Config): Validado {
     espacoMm: chk("espaco", entre(c.espaco, 0, 50), "0 a 50 mm"),
     marcasCorte: c.marcasCorte,
     inicio: chk("inicio", entre(c.inicio, 0, 99_999_999, true), "Número inteiro"),
-    taloes: chk("taloes", entre(c.taloes, 1, 100_000, true), "Pelo menos 1"),
-    jogos: chk("jogos", entre(c.jogos, 1, 10_000, true), "Pelo menos 1"),
+    fim: chk("fim", (() => {
+      const ini = entre(c.inicio, 0, 99_999_999, true);
+      return entre(c.fim, ini ?? 0, 99_999_999, true);
+    })(), "Igual ou maior que o primeiro"),
+    porBloco: c.porBloco.trim() === "" ? null : chk("porBloco", entre(c.porBloco, 1, 10_000, true), "Número inteiro, ou vazio"),
     vias: c.vias,
     digitos: chk("digitos", entre(c.digitos, 1, 10, true), "1 a 10"),
     prefixo: c.prefixo,
@@ -219,7 +234,7 @@ export default function NumeracaoTaloes() {
   }, [arte, cfg]);
 
   const plano = useMemo(
-    () => (encaixe && cfg ? planejarNumeracao(encaixe.celulas.length, cfg.taloes, cfg.jogos, cfg.inicio) : null),
+    () => (encaixe && cfg ? planejarNumeracao(encaixe.celulas.length, cfg.inicio, cfg.fim, cfg.porBloco) : null),
     [encaixe, cfg],
   );
 
@@ -232,7 +247,7 @@ export default function NumeracaoTaloes() {
       const bytes = new Uint8Array(await f.arrayBuffer());
       const tipo = detectarTipo(bytes, f.name);
       if (tipo === "cdr") throw new Error("Arquivo do Corel (.cdr): no CorelDRAW use Arquivo → Exportar… → PDF e envie o PDF.");
-      if (tipo !== "pdf") throw new Error("Envie a arte do talão em PDF.");
+      if (tipo !== "pdf") throw new Error("Envie a arte em PDF.");
       const emPe = await arteEmPe(bytes);
       const t = await tamanhoArte(emPe);
       const imagem = await renderizarPaginaPdf(emPe, 0, 1400);
@@ -288,7 +303,7 @@ export default function NumeracaoTaloes() {
           <Campo titulo={config.modo === "solto" ? "Envie a arte" : "Envie o PDF montado"}>
             <SoltarArquivo
               titulo={config.modo === "solto" ? "Solte o PDF de uma arte" : "Solte o PDF montado"}
-              dica={`${config.modo === "solto" ? "Um talão só, com sangria." : "Folha pronta, com marcas de corte."} Pode ter uma página por via.`}
+              dica={`${config.modo === "solto" ? "Uma arte só, com sangria." : "Folha pronta, com marcas de corte."} Pode ter uma página por via.`}
               arquivo={arte ? { nome: arte.nome, detalhe: `${fmtCm(arte.w)} × ${fmtCm(arte.h)} cm · ${arte.paginas} ${arte.paginas === 1 ? "página" : "páginas"}` } : null}
               carregando={carregando}
               erro={erroArte}
@@ -366,17 +381,24 @@ export default function NumeracaoTaloes() {
         <Painel className="space-y-6">
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-x-3 gap-y-5">
-              <Mini rotulo="Começa no número" valor={config.inicio} onChange={(v) => set("inicio", v)} erro={erros.inicio} ajuda="Primeiro número impresso" />
+              <Mini rotulo="Primeiro número" valor={config.inicio} onChange={(v) => set("inicio", v)} erro={erros.inicio} />
+              <Mini rotulo="Último número" valor={config.fim} onChange={(v) => set("fim", v)} erro={erros.fim} />
+              <Mini rotulo="Números por bloco" valor={config.porBloco} onChange={(v) => set("porBloco", v)} erro={erros.porBloco} ajuda="Deixe vazio se não for bloco" />
               <Mini rotulo="Dígitos" valor={config.digitos} onChange={(v) => set("digitos", v)} erro={erros.digitos} ajuda={`Ex.: ${amostraNumero}`} />
-              <Mini rotulo="Quantidade de talões" valor={config.taloes} onChange={(v) => set("taloes", v)} erro={erros.taloes} ajuda="Quantos blocos vão ser feitos" />
-              <Mini rotulo="Jogos por talão" valor={config.jogos} onChange={(v) => set("jogos", v)} erro={erros.jogos} ajuda="Números (folhas) em cada bloco" />
             </div>
             {cfg && (
               <p className="rounded-2xl bg-muted/50 px-4 py-2.5 text-xs text-muted-foreground">
-                {cfg.taloes.toLocaleString("pt-BR")} {cfg.taloes === 1 ? "talão" : "talões"} × {cfg.jogos.toLocaleString("pt-BR")} jogos ={" "}
-                <span className="font-semibold text-foreground">{(cfg.taloes * cfg.jogos).toLocaleString("pt-BR")} números</span>, de{" "}
-                <span className="font-semibold text-foreground tabular-nums">{formatarNumero(cfg.inicio, cfg.digitos, cfg.prefixo)}</span> a{" "}
-                <span className="font-semibold text-foreground tabular-nums">{formatarNumero(cfg.inicio + cfg.taloes * cfg.jogos - 1, cfg.digitos, cfg.prefixo)}</span>
+                <span className="font-semibold text-foreground">{(cfg.fim - cfg.inicio + 1).toLocaleString("pt-BR")} números</span>
+                {cfg.porBloco ? (
+                  <>
+                    {" "}
+                    = {Math.floor((cfg.fim - cfg.inicio + 1) / cfg.porBloco).toLocaleString("pt-BR")}{" "}
+                    {Math.floor((cfg.fim - cfg.inicio + 1) / cfg.porBloco) === 1 ? "bloco" : "blocos"} de {cfg.porBloco}
+                    {(cfg.fim - cfg.inicio + 1) % cfg.porBloco ? ` + 1 de ${(cfg.fim - cfg.inicio + 1) % cfg.porBloco}` : ""}
+                  </>
+                ) : (
+                  " soltos (sem bloco)"
+                )}
               </p>
             )}
           </div>
@@ -440,7 +462,7 @@ export default function NumeracaoTaloes() {
               textos={(j) => {
                 if (!cfg) return amostraNumero;
                 if (config.modo === "solto" || !plano) return amostraNumero;
-                const n = numeroNaPosicao(plano, j, 0, cfg.taloes, cfg.jogos, cfg.inicio);
+                const n = numeroNaPosicao(plano, j, 0);
                 return n === null ? null : formatarNumero(n, cfg.digitos, cfg.prefixo);
               }}
               posicao={config.posicao}
@@ -469,7 +491,7 @@ export default function NumeracaoTaloes() {
                     <>
                       <Dado rotulo="Folha" valor={`${fmtCm(encaixe.folhaW)} × ${fmtCm(encaixe.folhaH)} cm${encaixe.celulas[0].rot ? " · arte deitada" : ""}`} />
                       <Dado
-                        rotulo="Tamanho final do talão"
+                        rotulo="Tamanho final"
                         valor={(() => {
                           const f = tamanhoFinal(arte, cfg.sangriaMm * (PT_POR_CM / 10));
                           return `${fmtCm(f.w)} × ${fmtCm(f.h)} cm`;
@@ -556,7 +578,7 @@ export default function NumeracaoTaloes() {
 function Montes({ plano, porFolha, cfg }: { plano: ReturnType<typeof planejarNumeracao>; porFolha: number; cfg: ConfigNumeracao }) {
   const montes: string[] = [];
   for (let j = 0; j < porFolha; j++) {
-    const ini = numeroNaPosicao(plano, j, 0, cfg.taloes, cfg.jogos, cfg.inicio);
+    const ini = numeroNaPosicao(plano, j, 0);
     if (ini === null) break;
     const fim = Math.min(plano.ultimo, ini + plano.folhas - 1);
     montes.push(`${formatarNumero(ini, cfg.digitos)}–${formatarNumero(fim, cfg.digitos)}`);
@@ -571,11 +593,10 @@ function Montes({ plano, porFolha, cfg }: { plano: ReturnType<typeof planejarNum
           </li>
         ))}
       </ol>
-      {plano.talaoDividido && (
-        <p className="text-muted-foreground">
-          Empilhe os montes na ordem (1 em cima do 2, e assim por diante) e separe os talões a cada {cfg.jogos} folhas.
-        </p>
-      )}
+      <p className="text-muted-foreground">
+        Empilhe os montes na ordem (1 em cima do 2, e assim por diante)
+        {cfg.porBloco ? ` e separe os blocos a cada ${cfg.porBloco} folhas.` : "."}
+      </p>
       {plano.espacosVazios > 0 && (
         <p className="flex items-start gap-1 text-amber-700 dark:text-amber-400">
           <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
@@ -586,7 +607,7 @@ function Montes({ plano, porFolha, cfg }: { plano: ReturnType<typeof planejarNum
   );
 }
 
-/** Desenho da folha com os talões e o primeiro número de cada monte. */
+/** Desenho da folha com as artes e o primeiro número de cada monte. */
 function EsquemaFolha({
   encaixe,
   plano,
@@ -609,7 +630,7 @@ function EsquemaFolha({
         const ch = (c.rot ? c.w : c.h) * escala;
         const x = c.x * escala;
         const y = H - c.y * escala - ch;
-        const n = numeroNaPosicao(plano, j, 0, cfg.taloes, cfg.jogos, cfg.inicio);
+        const n = numeroNaPosicao(plano, j, 0);
         return (
           <g key={j}>
             <rect x={x} y={y} width={cw} height={ch} className={n === null ? "fill-muted" : "fill-primary/10"} />
@@ -712,7 +733,7 @@ function PreviaClicavel({
       onPointerUp={() => (arrastando.current = false)}
       onPointerCancel={() => (arrastando.current = false)}
     >
-      <img src={arte.imagem} alt="Arte do talão" draggable={false} className="absolute inset-0 h-full w-full" />
+      <img src={arte.imagem} alt="Arte enviada" draggable={false} className="absolute inset-0 h-full w-full" />
       {celulas.length > 1 &&
         celulas.map((c, j) => <div key={`g${j}`} className="pointer-events-none absolute border border-dashed border-primary/50" style={caixa(c)} />)}
       {largura > 0 &&
