@@ -1,12 +1,12 @@
 // Pré-impressão → ferramenta "Margem de acabamento".
 // Aumenta a página FORA da arte de banners/faixas de lona: área a mais em branco
-// e uma linha K50 de 1 mm na borda de fora para marcar o corte.
+// e uma linha K50 de 0,5 mm na borda de fora para marcar o corte.
 // Tudo no navegador: os arquivos nunca saem do computador.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, ArrowRight, Download, FileArchive, Loader2, Lock, Minus, Plus, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BotaoRedondo, Campo, Segmentado } from "./ui";
+import { BotaoRedondo, Campo, Chave, Mini, Segmentado } from "./ui";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
@@ -19,7 +19,9 @@ import {
   margensPara,
   nomeResultado,
   planejarImagem,
+  posicoesIlhos,
   processarPdf,
+  type Ilhos,
   type InfoImagem,
   type Peca,
   type TipoArquivo,
@@ -34,10 +36,14 @@ interface Config {
   peca: Peca;
   cm: string;
   saida: Saida;
+  /** Marcar a posição dos ilhós sobre a arte. */
+  ilhos: boolean;
+  ilhosEspaco: string;
+  ilhosRecuo: string;
 }
 
 const CONFIG_KEY = "preimpressao.margem-acabamento.config.v1";
-const CONFIG_PADRAO: Config = { peca: "banner", cm: "10", saida: "mesmo" };
+const CONFIG_PADRAO: Config = { peca: "banner", cm: "10", saida: "mesmo", ilhos: false, ilhosEspaco: "30", ilhosRecuo: "2,5" };
 
 function lerConfig(): Config {
   try {
@@ -48,6 +54,9 @@ function lerConfig(): Config {
       peca: PECAS_UI.some((p) => p.key === c.peca) ? (c.peca as Peca) : CONFIG_PADRAO.peca,
       cm: typeof c.cm === "string" && c.cm.trim() ? c.cm : CONFIG_PADRAO.cm,
       saida: c.saida === "pdf" ? "pdf" : "mesmo",
+      ilhos: c.ilhos === true,
+      ilhosEspaco: typeof c.ilhosEspaco === "string" && c.ilhosEspaco.trim() ? c.ilhosEspaco : CONFIG_PADRAO.ilhosEspaco,
+      ilhosRecuo: typeof c.ilhosRecuo === "string" && c.ilhosRecuo.trim() ? c.ilhosRecuo : CONFIG_PADRAO.ilhosRecuo,
     };
   } catch {
     return CONFIG_PADRAO;
@@ -59,6 +68,11 @@ function numero(s: string): number {
 }
 
 const MAX_CM = 500;
+function faixa(s: string, min: number, max: number): number | null {
+  const v = numero(s);
+  return Number.isFinite(v) && v >= min && v <= max ? v : null;
+}
+
 function cmValido(s: string): number | null {
   const v = numero(s);
   return Number.isFinite(v) && v > 0 && v <= MAX_CM ? v : null;
@@ -109,13 +123,13 @@ async function prepararItem(file: File): Promise<Item> {
 }
 
 /** Processa um item com a configuração atual. Retorna só os campos que mudam. */
-async function processarItem(item: Item, cfg: { peca: Peca; cm: number; saida: Saida }): Promise<Partial<Item>> {
+async function processarItem(item: Item, cfg: { peca: Peca; cm: number; saida: Saida; ilhos: Ilhos | null }): Promise<Partial<Item>> {
   const m = margensPara(cfg.peca, cfg.cm);
   const avisos: string[] = [];
   const limite = `Passa de ${LIMITE_ACROBAT_CM} cm de lado: o Acrobat não abre páginas maiores (o RIP pode abrir).`;
 
   if (item.tipo === "pdf" && item.bytes) {
-    const r = await processarPdf(item.bytes, m);
+    const r = await processarPdf(item.bytes, m, cfg.ilhos);
     if (r.passaLimite) avisos.push(limite);
     const blob = new Blob([r.bytes], { type: "application/pdf" });
     const thumb = await miniaturaPdf(r.bytes).catch(() => undefined);
@@ -155,13 +169,13 @@ async function processarItem(item: Item, cfg: { peca: Peca; cm: number; saida: S
   if (info.cmyk && cfg.saida !== "pdf") avisos.push("JPG em CMYK: salvo como PDF para manter as cores.");
 
   if (emPdf) {
-    const r = await imagemParaPdf(item.bytes, info, m, dpi);
+    const r = await imagemParaPdf(item.bytes, info, m, dpi, cfg.ilhos);
     const blob = new Blob([r.bytes], { type: "application/pdf" });
     const thumb = await miniaturaPdf(r.bytes).catch(() => undefined);
     return { status: "pronto", erro: undefined, avisos, medidas, paginas: 1, resultado: { blob, nome: nomeResultado(item.nome, "pdf") }, thumb };
   }
 
-  const blob = await imagemMesmoFormato(item.file, info, plano);
+  const blob = await imagemMesmoFormato(item.file, info, plano, cfg.ilhos);
   const thumb = await miniaturaImagem(blob, plano.larguraFinalPx, plano.alturaFinalPx).catch(() => undefined);
   return { status: "pronto", erro: undefined, avisos, medidas, paginas: 1, resultado: { blob, nome: nomeResultado(item.nome) }, thumb };
 }
@@ -203,8 +217,22 @@ export default function MargemAcabamento() {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   }, []);
 
-  const cfgRef = useRef({ peca: config.peca, cm: cmAplicado, saida: config.saida });
-  cfgRef.current = { peca: config.peca, cm: cmAplicado, saida: config.saida };
+  // Ilhós: medidas válidas (espaçamento 5–200 cm, recuo 0,5–20 cm); inválidas = não processa
+  const ilhosEspaco = faixa(config.ilhosEspaco, 5, 200);
+  const ilhosRecuo = faixa(config.ilhosRecuo, 0.5, 20);
+  const ilhosInvalido = config.ilhos && (ilhosEspaco === null || ilhosRecuo === null);
+  const ilhosChave = config.ilhos && !ilhosInvalido ? `${ilhosEspaco}|${ilhosRecuo}` : "";
+  const [ilhosAplicado, setIlhosAplicado] = useState(ilhosChave);
+  useEffect(() => {
+    const t = setTimeout(() => setIlhosAplicado(ilhosChave), 400);
+    return () => clearTimeout(t);
+  }, [ilhosChave]);
+  const ilhosCfg: Ilhos | null = ilhosAplicado
+    ? { espacamentoCm: Number(ilhosAplicado.split("|")[0]), recuoCm: Number(ilhosAplicado.split("|")[1]) }
+    : null;
+
+  const cfgRef = useRef({ peca: config.peca, cm: cmAplicado, saida: config.saida, ilhos: ilhosCfg });
+  cfgRef.current = { peca: config.peca, cm: cmAplicado, saida: config.saida, ilhos: ilhosCfg };
 
   const agendar = useCallback(
     (id: string) => {
@@ -221,7 +249,7 @@ export default function MargemAcabamento() {
         if (!item || cfg.cm === null) return;
         let patch: Partial<Item>;
         try {
-          patch = await processarItem(item, { peca: cfg.peca, cm: cfg.cm, saida: cfg.saida });
+          patch = await processarItem(item, { peca: cfg.peca, cm: cfg.cm, saida: cfg.saida, ilhos: cfg.ilhos });
         } catch (e) {
           patch = {
             status: "erro",
@@ -239,7 +267,7 @@ export default function MargemAcabamento() {
   // Mudou a configuração → reprocessa tudo que já está carregado
   useEffect(() => {
     for (const it of itemsRef.current) agendar(it.id);
-  }, [config.peca, config.saida, cmAplicado, agendar]);
+  }, [config.peca, config.saida, cmAplicado, ilhosAplicado, agendar]);
 
   const adicionar = useCallback(
     async (files: FileList | File[]) => {
@@ -302,7 +330,7 @@ export default function MargemAcabamento() {
     <div className="grid gap-6 lg:grid-cols-[minmax(300px,380px)_1fr] items-start">
       {/* ── Ajustes ───────────────────────────────────────────── */}
       <section className="rounded-3xl border border-border/60 bg-card p-6 shadow-sm space-y-6 lg:sticky lg:top-4">
-        <PreviaMargem peca={config.peca} cm={cmNum} />
+        <PreviaMargem peca={config.peca} cm={cmNum} ilhos={config.ilhos} />
 
         <Campo titulo="Peça" ajuda={PECAS_UI.find((p) => p.key === config.peca)?.ajuda}>
           <Segmentado
@@ -351,13 +379,38 @@ export default function MargemAcabamento() {
           />
         </Campo>
 
+        <div className="space-y-3">
+          <Chave ligado={config.ilhos} onChange={(v) => setConfig((c) => ({ ...c, ilhos: v }))}>
+            <span className="font-medium">Marcar ilhós</span>
+            <span className="block text-xs text-muted-foreground">Pontinhos sobre a arte, em toda a volta, onde furar.</span>
+          </Chave>
+          {config.ilhos && (
+            <div className="grid grid-cols-2 gap-3">
+              <Mini
+                rotulo="Um a cada (cm)"
+                valor={config.ilhosEspaco}
+                onChange={(v) => setConfig((c) => ({ ...c, ilhosEspaco: v }))}
+                erro={ilhosEspaco === null ? "5 a 200 cm" : undefined}
+                ajuda="No máximo; divide por igual"
+              />
+              <Mini
+                rotulo="Distância da borda (cm)"
+                valor={config.ilhosRecuo}
+                onChange={(v) => setConfig((c) => ({ ...c, ilhosRecuo: v }))}
+                erro={ilhosRecuo === null ? "0,5 a 20 cm" : undefined}
+                ajuda="Da borda da arte ao centro"
+              />
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center gap-3 rounded-2xl bg-muted/50 px-4 py-3">
           <span className="relative h-8 w-8 shrink-0 rounded-lg bg-background ring-1 ring-border" aria-hidden>
             <span className="absolute inset-x-1 top-1 h-[2px] rounded-full bg-[#808080]" />
             <span className="absolute inset-x-1 bottom-1 h-[2px] rounded-full bg-[#808080]" />
           </span>
           <div className="text-xs leading-relaxed">
-            <p className="font-medium text-foreground">Linha de corte K50 · 1 mm</p>
+            <p className="font-medium text-foreground">Linha de corte K50 · 0,5 mm</p>
             <p className="text-muted-foreground">Na borda de fora. A área a mais fica em branco.</p>
           </div>
         </div>
@@ -467,8 +520,8 @@ const PECAS_UI: { key: Peca; titulo: string; ajuda: string }[] = [
 ];
 
 /** Desenho ao vivo: onde entra a área a mais e a linha de corte (fora de escala). */
-function PreviaMargem({ peca, cm }: { peca: Peca; cm: number | null }) {
-  const arte = peca === "faixa" ? { w: 150, h: 54 } : peca === "banner" ? { w: 92, h: 112 } : { w: 104, h: 96 };
+function PreviaMargem({ peca, cm, ilhos }: { peca: Peca; cm: number | null; ilhos?: boolean }) {
+  const arte = peca === "faixa" ? { w: 150, h: 54 } : peca === "banner" ? { w: 92, h: 112 } : { w: 92, h: 88 };
   const m = 16;
   const mt = peca === "faixa" ? 0 : m;
   const ml = peca === "banner" ? 0 : m;
@@ -489,6 +542,11 @@ function PreviaMargem({ peca, cm }: { peca: Peca; cm: number | null }) {
         <text x={100} y={y0 + mt + arte.h / 2 + 4} textAnchor="middle" className="fill-primary text-[11px] font-semibold" style={t}>
           Arte
         </text>
+        {/* marcas de ilhós sobre a arte */}
+        {ilhos &&
+          posicoesIlhos(arte.w, arte.h, 26, 7).map((p, i) => (
+            <circle key={i} cx={x0 + ml + p.x} cy={y0 + mt + p.y} r="2.2" fill="#fff" stroke="#111" strokeWidth="0.7" style={t} />
+          ))}
         {/* linhas de corte na borda de fora */}
         {mt > 0 && (
           <>
