@@ -402,3 +402,69 @@ export function PreviaPdf({
     </div>
   );
 }
+
+/**
+ * Escolha de cor em bolinhas: as cores da gráfica (já com a tinta CMYK certa) e
+ * "Outra cor" para qualquer cor. Mostra a tinta que vai para a impressão.
+ */
+export function SeletorCor({
+  valor,
+  sugestoes,
+  onChange,
+  tinta,
+}: {
+  valor: string;
+  sugestoes: { nome: string; hex: string }[];
+  onChange: (hex: string) => void;
+  /** Texto com a tinta, ex.: "C 0 · M 100 · Y 100 · K 0". */
+  tinta?: string;
+}) {
+  const ehSugestao = sugestoes.some((c) => c.hex === valor);
+  const atual = sugestoes.find((c) => c.hex === valor)?.nome ?? "Cor personalizada";
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Cor do número">
+        {sugestoes.map((c) => (
+          <button
+            key={c.hex}
+            type="button"
+            role="radio"
+            aria-checked={valor === c.hex}
+            aria-label={c.nome}
+            title={c.nome}
+            onClick={() => onChange(c.hex)}
+            className={cn(
+              "h-9 w-9 rounded-full ring-offset-2 ring-offset-card transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+              valor === c.hex ? "ring-2 ring-primary" : "ring-1 ring-border hover:ring-2 hover:ring-primary/40",
+            )}
+            style={{ background: c.hex }}
+          />
+        ))}
+        <label
+          title="Outra cor"
+          className={cn(
+            "relative flex h-9 cursor-pointer items-center gap-2 rounded-full bg-muted/70 pl-1 pr-3 text-xs font-medium text-muted-foreground ring-offset-2 ring-offset-card transition-shadow focus-within:ring-2 focus-within:ring-primary/60 hover:text-foreground",
+            !ehSugestao && "ring-2 ring-primary",
+          )}
+        >
+          <span
+            className="h-7 w-7 rounded-full ring-1 ring-border"
+            style={{ background: ehSugestao ? "conic-gradient(#e30613, #ffd400, #009640, #0066b3, #8a2be2, #e30613)" : valor }}
+          />
+          Outra cor
+          <input
+            type="color"
+            aria-label="Escolher outra cor"
+            value={valor}
+            onChange={(e) => onChange(e.target.value.toLowerCase())}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          />
+        </label>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">{atual}</span>
+        {tinta ? ` · ${tinta}` : ""}
+      </p>
+    </div>
+  );
+}
