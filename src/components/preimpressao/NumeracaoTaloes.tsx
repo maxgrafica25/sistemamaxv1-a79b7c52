@@ -3,16 +3,20 @@
 // corte e empilha, um arquivo por via. Tudo no navegador.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Download, FileArchive, FileText, Loader2, Lock, Plus, RotateCw, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, Download, FileArchive, FileText, Loader2, Lock, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PT_POR_CM, detectarTipo } from "@/lib/preimpressao/margem";
 import {
+  COR_PADRAO,
+  CORES_PADRAO,
   FOLHAS_PADRAO,
   FOLHA_PADRAO,
   aproveitamento,
   arteEmPe,
   calcularEncaixe,
+  cmykDaCor,
+  corValida,
   formatarNumero,
   gerarNumeracao,
   numeroNaPosicao,
@@ -22,12 +26,11 @@ import {
   tamanhoFinal,
   type Celula,
   type ConfigNumeracao,
-  type CorNumero,
   type Encaixe,
   type PosicaoNumero,
 } from "@/lib/preimpressao/numeracao";
 import { baixarBlob, baixarZip, renderizarPaginaPdf } from "@/lib/preimpressao/navegador";
-import { Campo, Chave, Dado, DuasColunas, Mini, Painel, Passo, Segmentado, SeletorFolha, SoltarArquivo } from "./ui";
+import { Campo, Chave, Dado, DuasColunas, Mini, Painel, Passo, Segmentado, SeletorCor, SeletorFolha, SoltarArquivo } from "./ui";
 
 // ─── Configuração (guardada no navegador) ────────────────────────────
 
@@ -52,8 +55,10 @@ interface Config {
   digitos: string;
   prefixo: string;
   tamanho: string;
-  cor: CorNumero;
-  posicoes: PosicaoNumero[];
+  /** "#RRGGBB"; padrão preto. */
+  cor: string;
+  /** Um só lugar para o número. */
+  posicao: PosicaoNumero;
   ordemInvertida: boolean;
 }
 
@@ -76,8 +81,8 @@ const PADRAO: Config = {
   digitos: "4",
   prefixo: "Nº ",
   tamanho: "12",
-  cor: "vermelho",
-  posicoes: [{ x: 0.85, y: 0.08, girar: false }],
+  cor: COR_PADRAO,
+  posicao: { x: 0.85, y: 0.08, girar: false },
   ordemInvertida: false,
 };
 
@@ -85,8 +90,18 @@ function lerConfig(): Config {
   try {
     const raw = window.localStorage.getItem(CONFIG_KEY);
     if (!raw) return PADRAO;
-    const c = { ...PADRAO, ...(JSON.parse(raw) as Partial<Config>) };
-    if (!Array.isArray(c.posicoes) || !c.posicoes.length) c.posicoes = PADRAO.posicoes;
+    const salvo = JSON.parse(raw) as Partial<Config> & { posicoes?: PosicaoNumero[] };
+    const c = { ...PADRAO, ...salvo };
+    // Versões antigas guardavam até 3 lugares para o número (davam número repetido): fica só o primeiro
+    const antigo = Array.isArray(salvo.posicoes) ? salvo.posicoes[0] : undefined;
+    const p = salvo.posicao ?? antigo;
+    c.posicao =
+      p && typeof p.x === "number" && typeof p.y === "number"
+        ? { x: Math.min(1, Math.max(0, p.x)), y: Math.min(1, Math.max(0, p.y)), girar: p.girar === true }
+        : PADRAO.posicao;
+    // A cor antiga era "vermelho"/"preto" (texto); agora é "#RRGGBB" e o padrão é preto
+    c.cor = corValida(salvo.cor) ?? COR_PADRAO;
+    delete (c as { posicoes?: unknown }).posicoes;
     // Caminho principal sempre: enviar uma arte e o sistema monta. "Já montado" é exceção.
     c.modo = "solto";
     return c;
@@ -139,7 +154,7 @@ function validar(c: Config): Validado {
     prefixo: c.prefixo,
     tamanhoPt: chk("tamanho", entre(c.tamanho, 4, 72), "4 a 72 pt"),
     cor: c.cor,
-    posicoes: c.posicoes,
+    posicao: c.posicao,
     ordemInvertida: c.ordemInvertida,
   };
   return { cfg: Object.keys(erros).length ? null : cfg, erros };
@@ -167,7 +182,6 @@ interface Resultado {
   amostra?: string;
 }
 
-const MAX_POSICOES = 3;
 
 const fmtCm = (pt: number) => (pt / PT_POR_CM).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
 
@@ -176,7 +190,6 @@ export default function NumeracaoTaloes() {
   const [arte, setArte] = useState<Arte | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erroArte, setErroArte] = useState<string | null>(null);
-  const [ativa, setAtiva] = useState(0);
   const [gerando, setGerando] = useState(false);
   const [erroGerar, setErroGerar] = useState<string | null>(null);
   const [resultado, setResultado] = useState<Resultado | null>(null);
@@ -234,18 +247,7 @@ export default function NumeracaoTaloes() {
     }
   }, []);
 
-  const moverPosicao = (i: number, pos: Partial<PosicaoNumero>) =>
-    setConfig((c) => ({ ...c, posicoes: c.posicoes.map((p, k) => (k === i ? { ...p, ...pos } : p)) }));
-
-  const adicionarPosicao = () => {
-    setConfig((c) => ({ ...c, posicoes: [...c.posicoes, { x: 0.5, y: 0.5, girar: false }] }));
-    setAtiva(config.posicoes.length);
-  };
-
-  const removerPosicao = (i: number) => {
-    setConfig((c) => ({ ...c, posicoes: c.posicoes.filter((_, k) => k !== i) }));
-    setAtiva(0);
-  };
+  const moverPosicao = (pos: Partial<PosicaoNumero>) => setConfig((c) => ({ ...c, posicao: { ...c.posicao, ...pos } }));
 
   const gerar = async () => {
     if (!arte || !cfg) return;
@@ -362,11 +364,21 @@ export default function NumeracaoTaloes() {
         </Painel>
 
         <Painel className="space-y-6">
-          <div className="grid grid-cols-2 gap-x-3 gap-y-5">
-            <Mini rotulo="Começa no número" valor={config.inicio} onChange={(v) => set("inicio", v)} erro={erros.inicio} />
-            <Mini rotulo="Quantidade de talões" valor={config.taloes} onChange={(v) => set("taloes", v)} erro={erros.taloes} />
-            <Mini rotulo="Jogos por talão" valor={config.jogos} onChange={(v) => set("jogos", v)} erro={erros.jogos} ajuda="Números em cada talão" />
-            <Mini rotulo="Dígitos" valor={config.digitos} onChange={(v) => set("digitos", v)} erro={erros.digitos} ajuda={`Ex.: ${amostraNumero}`} />
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-5">
+              <Mini rotulo="Começa no número" valor={config.inicio} onChange={(v) => set("inicio", v)} erro={erros.inicio} ajuda="Primeiro número impresso" />
+              <Mini rotulo="Dígitos" valor={config.digitos} onChange={(v) => set("digitos", v)} erro={erros.digitos} ajuda={`Ex.: ${amostraNumero}`} />
+              <Mini rotulo="Quantidade de talões" valor={config.taloes} onChange={(v) => set("taloes", v)} erro={erros.taloes} ajuda="Quantos blocos vão ser feitos" />
+              <Mini rotulo="Jogos por talão" valor={config.jogos} onChange={(v) => set("jogos", v)} erro={erros.jogos} ajuda="Números (folhas) em cada bloco" />
+            </div>
+            {cfg && (
+              <p className="rounded-2xl bg-muted/50 px-4 py-2.5 text-xs text-muted-foreground">
+                {cfg.taloes.toLocaleString("pt-BR")} {cfg.taloes === 1 ? "talão" : "talões"} × {cfg.jogos.toLocaleString("pt-BR")} jogos ={" "}
+                <span className="font-semibold text-foreground">{(cfg.taloes * cfg.jogos).toLocaleString("pt-BR")} números</span>, de{" "}
+                <span className="font-semibold text-foreground tabular-nums">{formatarNumero(cfg.inicio, cfg.digitos, cfg.prefixo)}</span> a{" "}
+                <span className="font-semibold text-foreground tabular-nums">{formatarNumero(cfg.inicio + cfg.taloes * cfg.jogos - 1, cfg.digitos, cfg.prefixo)}</span>
+              </p>
+            )}
           </div>
 
           <Campo titulo="Vias de cada número">
@@ -386,53 +398,22 @@ export default function NumeracaoTaloes() {
           </div>
 
           <Campo titulo="Cor do número">
-            <Segmentado
+            <SeletorCor
               valor={config.cor}
-              opcoes={[
-                { valor: "vermelho" as CorNumero, rotulo: "Vermelho" },
-                { valor: "preto" as CorNumero, rotulo: "Preto" },
-              ]}
-              onChange={(v) => set("cor", v)}
+              sugestoes={CORES_PADRAO}
+              onChange={(hex) => set("cor", hex)}
+              tinta={(() => {
+                const [c, m, y, k] = cmykDaCor(config.cor);
+                return `Tinta: C ${c} · M ${m} · Y ${y} · K ${k}`;
+              })()}
             />
           </Campo>
 
-          <Campo titulo="Posição do número" ajuda="Clique ou arraste na pré-visualização para posicionar o número escolhido. Use ↻ para deixar em pé.">
-            <div className="flex flex-wrap items-center gap-2">
-              {config.posicoes.map((p, i) => (
-                <span
-                  key={i}
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full py-1 pl-3 pr-1 text-xs font-medium transition-colors",
-                    i === ativa ? "bg-primary text-primary-foreground" : "bg-muted/70 text-muted-foreground",
-                  )}
-                >
-                  <button type="button" onClick={() => setAtiva(i)}>Número {i + 1}</button>
-                  <button
-                    type="button"
-                    title="Girar (em pé / deitado)"
-                    aria-label={`Girar número ${i + 1}`}
-                    onClick={() => moverPosicao(i, { girar: !p.girar })}
-                    className={cn("rounded-full p-1", p.girar && "bg-black/15")}
-                  >
-                    <RotateCw className="h-3 w-3" />
-                  </button>
-                  {config.posicoes.length > 1 && (
-                    <button type="button" aria-label={`Remover número ${i + 1}`} onClick={() => removerPosicao(i)} className="rounded-full p-1">
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </span>
-              ))}
-              {config.posicoes.length < MAX_POSICOES && (
-                <button
-                  type="button"
-                  onClick={adicionarPosicao}
-                  className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-                >
-                  <Plus className="h-3 w-3" /> Outro lugar
-                </button>
-              )}
-            </div>
+          <Campo titulo="Posição do número" ajuda="Clique ou arraste na pré-visualização para escolher onde fica o número.">
+            <Chave ligado={config.posicao.girar} onChange={(v) => moverPosicao({ girar: v })}>
+              <span className="font-medium">Número em pé</span>
+              <span className="block text-xs text-muted-foreground">Gira o número para ler de lado (bom para canhoto).</span>
+            </Chave>
           </Campo>
 
           <Chave ligado={config.ordemInvertida} onChange={(v) => set("ordemInvertida", v)}>
@@ -448,7 +429,7 @@ export default function NumeracaoTaloes() {
           <div>
             <h3 className="text-base font-semibold tracking-tight">Pré-visualização</h3>
             <p className="text-xs text-muted-foreground">
-              {arte ? `Clique ou arraste na arte para posicionar o Número ${ativa + 1}.` : "Envie a arte para ver a pré-visualização."}
+              {arte ? "Clique ou arraste na arte para escolher onde fica o número." : "Envie a arte para ver a pré-visualização."}
             </p>
           </div>
 
@@ -462,14 +443,10 @@ export default function NumeracaoTaloes() {
                 const n = numeroNaPosicao(plano, j, 0, cfg.taloes, cfg.jogos, cfg.inicio);
                 return n === null ? null : formatarNumero(n, cfg.digitos, cfg.prefixo);
               }}
-              posicoes={config.posicoes}
-              ativa={ativa}
+              posicao={config.posicao}
               tamanhoPt={cfg?.tamanhoPt ?? 12}
               cor={config.cor}
-              onMover={(i, pos) => {
-                setAtiva(i);
-                moverPosicao(i, pos);
-              }}
+              onMover={moverPosicao}
             />
           ) : (
             <div className="flex aspect-[4/3] items-center justify-center rounded-2xl bg-muted/30 text-sm text-muted-foreground">
@@ -663,8 +640,7 @@ function PreviaClicavel({
   arte,
   celulas,
   textos,
-  posicoes,
-  ativa,
+  posicao,
   tamanhoPt,
   cor,
   onMover,
@@ -672,11 +648,10 @@ function PreviaClicavel({
   arte: Arte;
   celulas: Celula[];
   textos: (j: number) => string | null;
-  posicoes: PosicaoNumero[];
-  ativa: number;
+  posicao: PosicaoNumero;
   tamanhoPt: number;
-  cor: CorNumero;
-  onMover: (i: number, pos: Partial<PosicaoNumero>) => void;
+  cor: string;
+  onMover: (pos: Partial<PosicaoNumero>) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [largura, setLargura] = useState(0);
@@ -718,10 +693,10 @@ function PreviaClicavel({
     }
     const b = caixa(melhor);
     const clamp = (v: number) => Math.min(1, Math.max(0, v));
-    onMover(ativa, { x: clamp((px - b.left) / b.width), y: clamp((py - b.top) / b.height) });
+    onMover({ x: clamp((px - b.left) / b.width), y: clamp((py - b.top) / b.height) });
   };
 
-  const corTexto = cor === "vermelho" ? "#e30613" : "#111";
+  const corTexto = corValida(cor) ?? COR_PADRAO;
 
   return (
     <div
@@ -745,25 +720,22 @@ function PreviaClicavel({
           const t = textos(j);
           if (t === null) return null;
           const b = caixa(c);
-          return posicoes.map((p, i) => (
+          return (
             <span
-              key={`${j}-${i}`}
-              className={cn(
-                "pointer-events-none absolute whitespace-nowrap font-bold leading-none",
-                i === ativa && "rounded-[3px] outline outline-2 outline-offset-2 outline-primary/70",
-              )}
+              key={j}
+              className="pointer-events-none absolute whitespace-nowrap rounded-[3px] font-bold leading-none outline outline-2 outline-offset-2 outline-primary/60"
               style={{
-                left: b.left + p.x * b.width,
-                top: b.top + p.y * b.height,
+                left: b.left + posicao.x * b.width,
+                top: b.top + posicao.y * b.height,
                 fontSize: Math.max(4, tamanhoPt * escala),
                 fontFamily: "Helvetica, Arial, sans-serif",
                 color: corTexto,
-                transform: `translate(-50%, -50%)${p.girar ? " rotate(-90deg)" : ""}`,
+                transform: `translate(-50%, -50%)${posicao.girar ? " rotate(-90deg)" : ""}`,
               }}
             >
               {t}
             </span>
-          ));
+          );
         })}
     </div>
   );

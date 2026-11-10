@@ -2,8 +2,11 @@ import { describe, it, expect } from "vitest";
 import { PDFArray, PDFDocument, PDFRawStream, decodePDFRawStream, degrees, rgb, type PDFPage } from "pdf-lib";
 import { PT_POR_CM } from "@/lib/preimpressao/margem";
 import {
+  COR_PADRAO,
   aproveitamento,
   arteEmPe,
+  cmykDaCor,
+  corValida,
   encaixarNaFolha,
   formatarNumero,
   gerarNumeracao,
@@ -58,8 +61,8 @@ const base: ConfigNumeracao = {
   digitos: 4,
   prefixo: "Nº ",
   tamanhoPt: 14,
-  cor: "vermelho",
-  posicoes: [{ x: 0.85, y: 0.1, girar: false }],
+  cor: "#e30613",
+  posicao: { x: 0.85, y: 0.1, girar: false },
   ordemInvertida: false,
 };
 
@@ -198,23 +201,20 @@ describe("PDF numerado", () => {
     expect(conteudo(doc.getPage(0))).toContain(hex("Nº 0100"));
   });
 
-  it("arte já montada 2×2 com 2 páginas (1 por via) e duas posições do número", async () => {
+  it("arte já montada 2×2 com 2 páginas (1 por via), número em pé", async () => {
     const cfg: ConfigNumeracao = {
       ...base,
       modo: "montado",
       margemMm: 0,
       taloes: 4,
       jogos: 10,
-      posicoes: [
-        { x: 0.8, y: 0.1, girar: false },
-        { x: 0.05, y: 0.5, girar: true },
-      ],
+      posicao: { x: 0.05, y: 0.5, girar: true },
     };
     const r = await gerarNumeracao(await arteEmPe(await arte(21, 29.7, 2)), cfg);
     const doc = await PDFDocument.load(r.vias[1]);
     expect(doc.getPageCount()).toBe(10);
     const txt = conteudo(doc.getPage(0));
-    expect(txt.split(hex("Nº 0001")).length - 1).toBe(2);
+    expect(txt.split(hex("Nº 0001")).length - 1).toBe(1); // cada número aparece uma vez só
     expect(txt).toContain(hex("Nº 0031"));
   });
 
@@ -228,6 +228,50 @@ describe("PDF numerado", () => {
   it("erros amigáveis", async () => {
     const emPe = await arteEmPe(await arte(40, 40));
     await expect(gerarNumeracao(emPe, base)).rejects.toThrow("não cabe");
-    await expect(gerarNumeracao(await arteEmPe(await arte(10, 14)), { ...base, posicoes: [] })).rejects.toThrow("Clique na prévia");
+  });
+});
+
+describe("um número só por talão", () => {
+  it("cada número aparece exatamente uma vez na folha e nenhum se repete no arquivo", async () => {
+    const r = await gerarNumeracao(await arteEmPe(await arte(10, 14)), { ...base, vias: 1, taloes: 8, jogos: 50 });
+    const doc = await PDFDocument.load(r.vias[0]);
+    const vistos = new Map<string, number>();
+    for (let i = 0; i < doc.getPageCount(); i++) {
+      for (const m of conteudo(doc.getPage(i)).matchAll(/<([0-9A-F]+)> Tj/g)) vistos.set(m[1], (vistos.get(m[1]) ?? 0) + 1);
+    }
+    expect(vistos.size).toBe(400);
+    expect([...vistos.values()].every((n) => n === 1)).toBe(true);
+  });
+});
+
+describe("cor do número", () => {
+  it("preto é o padrão e usa só a tinta preta (K100)", async () => {
+    expect(COR_PADRAO).toBe("#000000");
+    expect(cmykDaCor("#000000")).toEqual([0, 0, 0, 100]);
+    const r = await gerarNumeracao(await arteEmPe(await arte(10, 14)), { ...base, vias: 1, cor: COR_PADRAO });
+    const txt = conteudo((await PDFDocument.load(r.vias[0])).getPage(0));
+    expect(txt).toContain("0 0 0 1 k");
+    expect(txt).not.toContain("0 1 1 0 k");
+  });
+
+  it("cores sugeridas têm tinta fixa; qualquer outra cor é convertida de RGB", () => {
+    expect(cmykDaCor("#e30613")).toEqual([0, 100, 100, 0]);
+    expect(cmykDaCor("#E30613")).toEqual([0, 100, 100, 0]); // maiúsculas
+    expect(cmykDaCor("#ffffff")).toEqual([0, 0, 0, 0]);
+    expect(cmykDaCor("#ff0000")).toEqual([0, 100, 100, 0]);
+    expect(cmykDaCor("#808080")).toEqual([0, 0, 0, 50]);
+    expect(cmykDaCor("isso não é cor")).toEqual([0, 0, 0, 100]); // inválida cai no preto
+  });
+
+  it("cor escolhida vai para o PDF", async () => {
+    const r = await gerarNumeracao(await arteEmPe(await arte(10, 14)), { ...base, vias: 1, cor: "#0066b3" });
+    expect(conteudo((await PDFDocument.load(r.vias[0])).getPage(0))).toContain("1 0.6 0 0 k");
+  });
+
+  it("valida o formato #RRGGBB", () => {
+    expect(corValida("#00FF7f")).toBe("#00ff7f");
+    expect(corValida("vermelho")).toBeNull();
+    expect(corValida("#fff")).toBeNull();
+    expect(corValida(undefined)).toBeNull();
   });
 });

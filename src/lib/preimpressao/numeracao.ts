@@ -90,7 +90,36 @@ export interface PosicaoNumero {
   girar: boolean;
 }
 
-export type CorNumero = "preto" | "vermelho";
+/**
+ * Cores sugeridas para o número, já com a tinta (CMYK, 0–100) que vai para a impressão.
+ * A primeira (preto) é o padrão. Qualquer outra cor escolhida é convertida de RGB.
+ */
+export const CORES_PADRAO: { nome: string; hex: string; cmyk: [number, number, number, number] }[] = [
+  { nome: "Preto", hex: "#000000", cmyk: [0, 0, 0, 100] },
+  { nome: "Vermelho", hex: "#e30613", cmyk: [0, 100, 100, 0] },
+  { nome: "Azul", hex: "#0066b3", cmyk: [100, 60, 0, 0] },
+  { nome: "Verde", hex: "#009640", cmyk: [100, 0, 100, 0] },
+];
+export const COR_PADRAO = CORES_PADRAO[0].hex;
+
+/** "#RRGGBB" válido (minúsculas) ou null. */
+export function corValida(hex: unknown): string | null {
+  return typeof hex === "string" && /^#[0-9a-f]{6}$/i.test(hex.trim()) ? hex.trim().toLowerCase() : null;
+}
+
+/** Tinta (CMYK, 0–100) de uma cor: as sugeridas têm valor fixo; as outras vêm da conversão simples de RGB. */
+export function cmykDaCor(hex: string): [number, number, number, number] {
+  const h = corValida(hex) ?? COR_PADRAO;
+  const fixa = CORES_PADRAO.find((c) => c.hex === h);
+  if (fixa) return fixa.cmyk;
+  const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(h.slice(i, i + 2), 16) / 255);
+  const k = 1 - Math.max(r, g, b);
+  if (k >= 1) return [0, 0, 0, 100];
+  const c = (1 - r - k) / (1 - k);
+  const m = (1 - g - k) / (1 - k);
+  const y = (1 - b - k) / (1 - k);
+  return [c, m, y, k].map((v) => Math.round(v * 100)) as [number, number, number, number];
+}
 
 export interface ConfigNumeracao {
   modo: "solto" | "montado";
@@ -112,8 +141,10 @@ export interface ConfigNumeracao {
   digitos: number;
   prefixo: string;
   tamanhoPt: number;
-  cor: CorNumero;
-  posicoes: PosicaoNumero[];
+  /** Cor do número em "#RRGGBB" (padrão: preto). */
+  cor: string;
+  /** Onde vai o número (um só lugar). */
+  posicao: PosicaoNumero;
   ordemInvertida: boolean;
 }
 
@@ -125,7 +156,6 @@ export interface ResultadoNumeracao {
   porFolha: number;
 }
 
-const CORES = { preto: cmyk(0, 0, 0, 1), vermelho: cmyk(0, 1, 1, 0) };
 
 /** Página da arte usada em cada via: página k se existir, senão a última. */
 export function paginaDaVia(via: number, totalPaginas: number): number {
@@ -141,7 +171,7 @@ function desenharNumero(page: PDFPage, font: PDFFont, c: Celula, pos: PosicaoNum
   const origemArte = pos.girar ? { u: u + k, v: v - tw / 2 } : { u: u - tw / 2, v: v - k };
   const o = pontoNaFolha(c, origemArte.u, origemArte.v);
   const rot = (pos.girar ? 90 : 0) + c.rot;
-  page.drawText(texto, { x: o.x, y: o.y, size, font, color: CORES[cfg.cor], rotate: degrees(rot) });
+  page.drawText(texto, { x: o.x, y: o.y, size, font, color: cmyk(...cmykDaCor(cfg.cor).map((v) => v / 100) as [number, number, number, number]), rotate: degrees(rot) });
 }
 
 export const LIMITE_FOLHAS = 10_000;
@@ -164,7 +194,6 @@ export async function gerarNumeracao(bytesEmPe: Uint8Array, cfg: ConfigNumeracao
   if (!K || encaixe.celulas[0].w <= 0 || encaixe.celulas[0].h <= 0) {
     throw new Error(cfg.modo === "solto" ? "A arte não cabe na folha escolhida." : "Colunas, linhas ou margem não batem com a página.");
   }
-  if (!cfg.posicoes.length) throw new Error("Clique na prévia para escolher onde vai o número.");
   const plano = planejarNumeracao(K, cfg.taloes, cfg.jogos, cfg.inicio);
   if (plano.folhas > LIMITE_FOLHAS) throw new Error(`São ${plano.folhas} folhas por via: divida o pedido (máximo ${LIMITE_FOLHAS}).`);
 
@@ -189,7 +218,7 @@ export async function gerarNumeracao(bytesEmPe: Uint8Array, cfg: ConfigNumeracao
           desenharArteNaCelula(page, arte, c);
         }
         const texto = formatarNumero(n, cfg.digitos, cfg.prefixo);
-        for (const pos of cfg.posicoes) desenharNumero(page, font, c, pos, texto, cfg);
+        desenharNumero(page, font, c, cfg.posicao, texto, cfg);
       });
       if (cfg.modo === "solto" && cfg.marcasCorte) desenharMarcas(page, encaixe, cfg.sangriaMm * PT_POR_MM);
     }
