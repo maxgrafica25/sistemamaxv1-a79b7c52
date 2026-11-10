@@ -26,7 +26,7 @@ import {
   type Peca,
   type TipoArquivo,
 } from "@/lib/preimpressao/margem";
-import { baixarBlob, baixarZip, imagemMesmoFormato, miniaturaImagem, miniaturaPdf } from "@/lib/preimpressao/navegador";
+import { baixarBlob, baixarZip, converterEps, imagemMesmoFormato, miniaturaImagem, miniaturaPdf } from "@/lib/preimpressao/navegador";
 
 // ─── Configuração (guardada no navegador) ────────────────────────────
 
@@ -109,11 +109,16 @@ const novoId = () => `f${Date.now().toString(36)}${(seq++).toString(36)}`;
 async function prepararItem(file: File): Promise<Item> {
   const base: Item = { id: novoId(), nome: file.name, file, tipo: "desconhecido", larguraCm: "", status: "processando", avisos: [] };
   try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const tipo = detectarTipo(bytes, file.name);
+    let bytes = new Uint8Array(await file.arrayBuffer());
+    let tipo = detectarTipo(bytes, file.name);
     if (tipo === "cdr") return { ...base, tipo, status: "erro", erro: MSG_CDR };
     if (tipo === "desconhecido")
-      return { ...base, tipo, status: "erro", erro: "Formato não suportado. Envie PDF, PNG ou JPG." };
+      return { ...base, tipo, status: "erro", erro: "Formato não suportado. Envie PDF, PNG, JPG ou EPS." };
+    if (tipo === "eps") {
+      // EPS vira PDF (vetor e cores mantidos) e segue como PDF
+      bytes = await converterEps(bytes);
+      tipo = "pdf";
+    }
     if (tipo === "pdf") return { ...base, tipo, bytes };
     const info = lerInfoImagem(bytes, tipo);
     return { ...base, tipo, bytes, info };
@@ -446,7 +451,7 @@ export default function MargemAcabamento() {
           <p className={cn("mt-4 font-semibold tracking-tight", items.length ? "text-base" : "text-xl")}>
             {items.length ? "Solte mais arquivos aqui" : "Solte os arquivos do banner ou da faixa"}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">PDF, PNG ou JPG no tamanho final (1:1). Vários de uma vez.</p>
+          <p className="mt-1 text-sm text-muted-foreground">PDF, PNG, JPG ou EPS no tamanho final (1:1). Vários de uma vez.</p>
           <Button type="button" className="mt-5 rounded-full px-6" onClick={() => inputRef.current?.click()}>
             Escolher arquivos
           </Button>
@@ -454,7 +459,7 @@ export default function MargemAcabamento() {
             ref={inputRef}
             type="file"
             multiple
-            accept=".pdf,.png,.jpg,.jpeg,.cdr,application/pdf,image/png,image/jpeg"
+            accept=".pdf,.png,.jpg,.jpeg,.eps,.cdr,application/pdf,image/png,image/jpeg,application/postscript"
             className="hidden"
             onChange={(e) => {
               if (e.target.files) void adicionar(e.target.files);

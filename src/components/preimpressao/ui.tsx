@@ -265,7 +265,7 @@ export function SoltarArquivo({
   arquivo,
   carregando,
   erro,
-  aceita = ".pdf,application/pdf,.cdr",
+  aceita = ".pdf,application/pdf,.eps,.cdr",
   multiplo,
   onArquivos,
 }: {

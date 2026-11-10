@@ -84,7 +84,7 @@ export function nomeResultado(nomeOriginal: string, extSaida?: string): string {
 
 // ─── Tipo do arquivo ─────────────────────────────────────────────────
 
-export type TipoArquivo = "pdf" | "png" | "jpg" | "cdr" | "desconhecido";
+export type TipoArquivo = "pdf" | "png" | "jpg" | "eps" | "cdr" | "desconhecido";
 
 export function detectarTipo(bytes: Uint8Array, nome: string): TipoArquivo {
   const ext = nome.toLowerCase().split(".").pop() ?? "";
@@ -94,6 +94,9 @@ export function detectarTipo(bytes: Uint8Array, nome: string): TipoArquivo {
   if (ext === "pdf" && latin1(bytes.subarray(0, 1024)).includes("%PDF")) return "pdf";
   if (bytes.length >= 8 && PNG_SIG.every((b, i) => bytes[i] === b)) return "png";
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "jpg";
+  // EPS: PostScript encapsulado (%!PS-Adobe… EPSF) ou o binário "DOS EPS" (C5 D0 D3 C6)
+  if (bytes.length >= 4 && bytes[0] === 0xc5 && bytes[1] === 0xd0 && bytes[2] === 0xd3 && bytes[3] === 0xc6) return "eps";
+  if (latin1(bytes.subarray(0, 32)).startsWith("%!PS-Adobe") && (/EPSF/i.test(latin1(bytes.subarray(0, 512))) || ext === "eps")) return "eps";
   // CorelDRAW: RIFF....CDR?
   if (bytes.length >= 12 && latin1(bytes.subarray(0, 4)) === "RIFF" && latin1(bytes.subarray(8, 11)).toUpperCase() === "CDR") return "cdr";
   return "desconhecido";

@@ -39,10 +39,16 @@ function tamanhoImagemPt(info: InfoImagem): { w: number; h: number } {
 }
 
 /** Lê um arquivo enviado e descobre as páginas (erros em português simples). */
-export async function abrirFonte(id: string, nome: string, bytes: Uint8Array): Promise<Fonte> {
-  const tipo = detectarTipo(bytes, nome);
+export async function abrirFonte(id: string, nome: string, bytesOriginais: Uint8Array, converterEps?: (b: Uint8Array) => Promise<Uint8Array>): Promise<Fonte> {
+  let bytes = bytesOriginais;
+  let tipo = detectarTipo(bytes, nome);
+  if (tipo === "eps") {
+    if (!converterEps) throw new Error("Arquivo EPS: exporte como PDF no Corel ou no Illustrator.");
+    bytes = await converterEps(bytes);
+    tipo = "pdf";
+  }
   if (tipo === "cdr") throw new Error("Arquivo do Corel (.cdr): exporte como PDF antes (Arquivo → Exportar… → PDF).");
-  if (tipo === "desconhecido") throw new Error("Formato não suportado. Envie PDF, PNG ou JPG.");
+  if (tipo === "desconhecido") throw new Error("Formato não suportado. Envie PDF, PNG, JPG ou EPS.");
   if (tipo === "pdf") {
     let doc: PDFDocument;
     try {

@@ -29,7 +29,7 @@ import {
   type Encaixe,
   type PosicaoNumero,
 } from "@/lib/preimpressao/numeracao";
-import { baixarBlob, baixarZip, renderizarPaginaPdf } from "@/lib/preimpressao/navegador";
+import { baixarBlob, baixarZip, converterEps, renderizarPaginaPdf } from "@/lib/preimpressao/navegador";
 import { Campo, Chave, Dado, DuasColunas, Mini, Painel, Passo, Segmentado, SeletorCor, SeletorFolha, SoltarArquivo } from "./ui";
 
 // ─── Configuração (guardada no navegador) ────────────────────────────
@@ -244,10 +244,14 @@ export default function NumeracaoTaloes() {
     setCarregando(true);
     setErroArte(null);
     try {
-      const bytes = new Uint8Array(await f.arrayBuffer());
-      const tipo = detectarTipo(bytes, f.name);
+      let bytes = new Uint8Array(await f.arrayBuffer());
+      let tipo = detectarTipo(bytes, f.name);
       if (tipo === "cdr") throw new Error("Arquivo do Corel (.cdr): no CorelDRAW use Arquivo → Exportar… → PDF e envie o PDF.");
-      if (tipo !== "pdf") throw new Error("Envie a arte em PDF.");
+      if (tipo === "eps") {
+        bytes = await converterEps(bytes);
+        tipo = "pdf";
+      }
+      if (tipo !== "pdf") throw new Error("Envie a arte em PDF ou EPS.");
       const emPe = await arteEmPe(bytes);
       const t = await tamanhoArte(emPe);
       const imagem = await renderizarPaginaPdf(emPe, 0, 1400);
