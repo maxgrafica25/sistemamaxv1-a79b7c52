@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { AlertTriangle, Copy, Info, Pencil, Plus, Search, Tags, Trash2, X } from "lucide-react";
+import { AlertTriangle, Copy, Info, Loader2, Pencil, Plus, RefreshCw, Search, Tags, Trash2, Upload, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -43,6 +44,16 @@ import {
   type PriceTier,
   type SheetSize,
 } from "@/lib/priceTable";
+import {
+  buscarPrecosTiny,
+  compararFaixa,
+  enviarPrecosTiny,
+  podeEnviar,
+  skusEmConflito,
+  type ComparacaoTiny,
+  type PrecosTiny,
+  type ResultadoEnvio,
+} from "@/lib/tinyPrecos";
 
 interface Category {
   id: string;
@@ -96,6 +107,7 @@ const STATUS_LABELS: Record<string, string> = {
   abaixo: "Lucro abaixo da meta (2 un ou mais)",
   sem_custo: "Falta custo",
   erro: "Faixa com erro ou papel sem custo",
+  tiny_diferente: "Preço diferente do Tiny",
 };
 const EMPTY_FILTERS: Record<FilterKey, string> = { process: "", paper: "", grammage: "", size: "", color: "", sides: "", status: "" };
 const sortOptions = (a: string, b: string) => a.localeCompare(b, "pt-BR", { numeric: true });
@@ -137,6 +149,11 @@ export default function TabelaPrecos() {
   const [itemDialog, setItemDialog] = useState<{ item: Partial<Item>; tiers: DraftTier[] } | null>(null);
   const [catDialog, setCatDialog] = useState<{ cat: Partial<Category>; ranges: string } | null>(null);
   const [confirm, setConfirm] = useState<{ title: string; description: string; action: () => void } | null>(null);
+  // Preços do Tiny (lidos pela Júlia) e envio manual de preços para o Tiny.
+  const [tiny, setTiny] = useState<PrecosTiny | null>(null);
+  const [tinyErro, setTinyErro] = useState<string | null>(null);
+  const [tinyCarregando, setTinyCarregando] = useState(false);
+  const [envio, setEnvio] = useState<LinhaEnvio[] | null>(null);
 
   const minuteRate = hourlyRate / 60;
   const settings: PriceSettings = { feesPct, targetPct, minuteRate };
@@ -180,6 +197,38 @@ export default function TabelaPrecos() {
 
   useEffect(() => { load(); }, []);
 
+  const carregarTiny = async (atualizar = false) => {
+    setTinyCarregando(true);
+    try {
+      setTiny(await buscarPrecosTiny(atualizar));
+      setTinyErro(null);
+    } catch (e) {
+      setTinyErro((e as Error).message);
+    } finally {
+      setTinyCarregando(false);
+    }
+  };
+  useEffect(() => { carregarTiny(); }, []);
+
+  // SKU usado em mais de uma faixa com preços diferentes não pode ser enviado (o Tiny guarda um preço por SKU).
+  const conflitos = useMemo(() => skusEmConflito(tiers), [tiers]);
+  const compararTiny = (t: Tier): ComparacaoTiny | null => (tiny ? compararFaixa(t, tiny.produtos, conflitos) : null);
+  const linhasParaEnviar = (lista: Item[], marcado = true): LinhaEnvio[] => {
+    if (!tiny) return [];
+    const out: LinhaEnvio[] = [];
+    const vistos = new Set<string>();
+    for (const item of lista) {
+      for (const t of tiersByItem.get(item.id) || []) {
+        const c = compararFaixa(t, tiny.produtos, conflitos);
+        const sku = (t.tiny_sku || "").trim();
+        if (!podeEnviar(c, t.price) || vistos.has(sku)) continue;
+        vistos.add(sku);
+        out.push({ sku, item: item.name, faixa: tierLabel(t), atual: c.precoTiny, novo: t.price, marcado });
+      }
+    }
+    return out;
+  };
+
   const tiersByItem = useMemo(() => {
     const m = new Map<string, Tier[]>();
     for (const t of tiers) {
@@ -216,6 +265,7 @@ export default function TabelaPrecos() {
       else if (list.some((t) => t.min_qty >= 2 && (realProfitPct(t.price, t.min_qty, cost.total, { feesPct, targetPct, minuteRate }) ?? 1) < targetPct)) status.push("abaixo");
       const tierErrors = tierProblems(list).some((p) => !p.message.startsWith("Degrau"));
       if (tierErrors || (item.calc_type === "impressao" && cost.paper <= 0)) status.push("erro");
+      if (tiny && list.some((t) => podeEnviar(compararFaixa(t, tiny.produtos, conflitos), t.price))) status.push("tiny_diferente");
       m.set(item.id, {
         process: a.process ? [a.process] : [],
         paper: a.paper ? [a.paper] : [],
@@ -227,7 +277,7 @@ export default function TabelaPrecos() {
       });
     }
     return m;
-  }, [items, tiersByItem, papers, equipments, minuteRate, feesPct, targetPct]);
+  }, [items, tiersByItem, papers, equipments, minuteRate, feesPct, targetPct, tiny, conflitos]);
 
   const filtering = !!search.trim() || Object.values(filters).some(Boolean);
 
@@ -460,6 +510,28 @@ export default function TabelaPrecos() {
         </HoverCard>
       </div>
 
+      <div className="flex items-center gap-2 flex-wrap rounded-lg border bg-card px-3 py-2 text-sm">
+        <span className="font-medium">Preços do Tiny:</span>
+        {tinyCarregando && !tiny ? (
+          <span className="text-muted-foreground inline-flex items-center gap-1"><Loader2 className="h-3.5 w-3.5 animate-spin" /> buscando pela Júlia…</span>
+        ) : tinyErro ? (
+          <span className="text-amber-700 dark:text-amber-400 inline-flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" /> {tinyErro}</span>
+        ) : tiny ? (
+          <span className="text-muted-foreground">lidos às {new Date(tiny.lido_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} (a coluna "Tiny" mostra o preço de lá)</span>
+        ) : null}
+        <Button variant="ghost" size="sm" className="h-8" disabled={tinyCarregando} onClick={() => carregarTiny(true)}>
+          <RefreshCw className={`h-4 w-4 mr-1 ${tinyCarregando ? "animate-spin" : ""}`} /> Atualizar do Tiny
+        </Button>
+        {tiny && (() => {
+          const n = linhasParaEnviar(visibleItems).length;
+          return n > 0 ? (
+            <Button variant="outline" size="sm" className="h-8 ml-auto" onClick={() => setEnvio(linhasParaEnviar(visibleItems, false))}>
+              <Upload className="h-4 w-4 mr-1" /> Enviar ao Tiny os {n} preços diferentes {filtering || !todas ? "desta lista" : ""}
+            </Button>
+          ) : null;
+        })()}
+      </div>
+
       <div className="flex flex-col md:flex-row gap-4">
         {/* Categorias */}
         <aside className="md:w-64 shrink-0 space-y-3">
@@ -626,6 +698,11 @@ export default function TabelaPrecos() {
                         <p className="text-xs text-muted-foreground">+ {fmtMoney(prepCost(minuteRate))} de preparação por pedido</p>
                       </HoverCardContent>
                     </HoverCard>
+                    {tiny && linhasParaEnviar([item]).length > 0 && (
+                      <Button variant="outline" size="sm" className="h-8 mr-1" onClick={() => setEnvio(linhasParaEnviar([item]))}>
+                        <Upload className="h-4 w-4 mr-1" /> Enviar ao Tiny
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => editItem(item)} aria-label="Editar"><Pencil className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => editItem(item, true)} aria-label="Duplicar"><Copy className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteItem(item)} aria-label="Excluir"><Trash2 className="h-4 w-4" /></Button>
@@ -639,6 +716,7 @@ export default function TabelaPrecos() {
                           <TableHead className="h-8">Faixa (un)</TableHead>
                           <TableHead className="h-8">SKU Tiny</TableHead>
                           <TableHead className="h-8 w-28">Preço/un</TableHead>
+                          <TableHead className="h-8">Tiny</TableHead>
                           <TableHead className="h-8 text-right">Lucro real</TableHead>
                           <TableHead className="h-8 text-right">Preço mínimo</TableHead>
                         </TableRow>
@@ -661,6 +739,7 @@ export default function TabelaPrecos() {
                                   onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                                 />
                               </TableCell>
+                              <TableCell className="py-1.5 whitespace-nowrap"><CelulaTiny c={compararTiny(t)} carregando={tinyCarregando} /></TableCell>
                               <TableCell className={`py-1.5 text-right font-medium ${profitClass(profit, targetPct)}`}>
                                 {pct(profit)}
                                 <span className="text-xs text-muted-foreground font-normal ml-1">({t.min_qty} un)</span>
@@ -706,6 +785,21 @@ export default function TabelaPrecos() {
           })}
         </main>
       </div>
+
+      {envio && (
+        <EnviarTinyDialog
+          linhas={envio}
+          onChange={setEnvio}
+          onEnviado={(res) => {
+            setTiny((atual) => {
+              if (!atual) return atual;
+              const produtos = { ...atual.produtos };
+              for (const r of res) if (r.ok && produtos[r.sku]) produtos[r.sku] = { ...produtos[r.sku], preco: r.preco ?? produtos[r.sku].preco };
+              return { ...atual, produtos };
+            });
+          }}
+        />
+      )}
 
       {itemDialog && (
         <ItemDialog
@@ -1001,6 +1095,142 @@ function ItemDialog({
         <DialogFooter>
           <Button variant="outline" onClick={() => onChange(null)}>Cancelar</Button>
           <Button onClick={onSave}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Preços do Tiny ──────────────────────────────────────────────────
+
+interface LinhaEnvio {
+  sku: string;
+  item: string;
+  faixa: string;
+  atual: number | null;
+  novo: number;
+  marcado: boolean;
+  resultado?: ResultadoEnvio;
+}
+
+function CelulaTiny({ c, carregando }: { c: ComparacaoTiny | null; carregando: boolean }) {
+  if (!c) return <span className="text-muted-foreground">{carregando ? "…" : "—"}</span>;
+  switch (c.situacao) {
+    case "igual":
+      return <span className="text-emerald-600 dark:text-emerald-400">{fmtMoney(c.precoTiny!)} ✓</span>;
+    case "diferente":
+      return <span className="text-amber-600 dark:text-amber-400 font-medium" title="Preço do Tiny diferente do sistema">{fmtMoney(c.precoTiny!)} ≠</span>;
+    case "sem_preco":
+      return <span className="text-amber-600 dark:text-amber-400">sem preço</span>;
+    case "nao_achado":
+      return <span className="text-xs text-muted-foreground" title="Esse SKU não existe no Tiny ou está inativo">SKU não achado</span>;
+    case "conflito":
+      return (
+        <span className="text-xs text-red-600 dark:text-red-400" title="Esse SKU está em mais de uma faixa com preços diferentes; o Tiny guarda um só preço por SKU. Corrija o SKU no item.">
+          {c.precoTiny !== null ? fmtMoney(c.precoTiny) + " · " : ""}SKU repetido
+        </span>
+      );
+    default:
+      return <span className="text-muted-foreground">—</span>;
+  }
+}
+
+function EnviarTinyDialog({
+  linhas,
+  onChange,
+  onEnviado,
+}: {
+  linhas: LinhaEnvio[];
+  onChange: (l: LinhaEnvio[] | null) => void;
+  onEnviado: (r: ResultadoEnvio[]) => void;
+}) {
+  const [enviando, setEnviando] = useState(false);
+  const [feitos, setFeitos] = useState(0);
+  const marcadas = linhas.filter((l) => l.marcado && !l.resultado?.ok);
+  const terminou = linhas.some((l) => l.resultado);
+  const todasMarcadas = linhas.every((l) => l.marcado);
+
+  const enviar = async () => {
+    setEnviando(true);
+    setFeitos(0);
+    const res = await enviarPrecosTiny(marcadas.map((l) => ({ sku: l.sku, preco: l.novo })), setFeitos);
+    const porSku = new Map(res.map((r) => [r.sku, r]));
+    onChange(linhas.map((l) => (porSku.has(l.sku) ? { ...l, resultado: porSku.get(l.sku) } : l)));
+    onEnviado(res);
+    setEnviando(false);
+    const ok = res.filter((r) => r.ok).length;
+    if (ok === res.length) toast.success(`${ok} ${ok === 1 ? "preço atualizado" : "preços atualizados"} no Tiny`);
+    else toast.error(`${res.length - ok} de ${res.length} preços não foram atualizados. Veja o motivo na lista.`);
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && !enviando && onChange(null)}>
+      <DialogContent className="w-[95vw] max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Enviar preços ao Tiny</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Confira e desmarque o que não quer mudar. Só o <strong>preço de venda</strong> de cada SKU é trocado no Tiny; nada muda no sistema. Não gera custo.
+        </p>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="h-8 w-8">
+                  <Checkbox
+                    checked={todasMarcadas}
+                    disabled={enviando}
+                    onCheckedChange={(v) => onChange(linhas.map((l) => ({ ...l, marcado: !!v })))}
+                    aria-label="Marcar todos"
+                  />
+                </TableHead>
+                <TableHead className="h-8">Item</TableHead>
+                <TableHead className="h-8">SKU</TableHead>
+                <TableHead className="h-8 text-right">No Tiny</TableHead>
+                <TableHead className="h-8 text-right">Novo (sistema)</TableHead>
+                {terminou && <TableHead className="h-8">Resultado</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {linhas.map((l, i) => (
+                <TableRow key={l.sku}>
+                  <TableCell className="py-1.5">
+                    <Checkbox
+                      checked={l.marcado}
+                      disabled={enviando || l.resultado?.ok}
+                      onCheckedChange={(v) => onChange(linhas.map((x, j) => (j === i ? { ...x, marcado: !!v } : x)))}
+                      aria-label={`Enviar ${l.sku}`}
+                    />
+                  </TableCell>
+                  <TableCell className="py-1.5">
+                    <span className="block leading-tight">{l.item}</span>
+                    <span className="text-xs text-muted-foreground">Faixa {l.faixa}</span>
+                  </TableCell>
+                  <TableCell className="py-1.5 font-mono text-xs">{l.sku}</TableCell>
+                  <TableCell className="py-1.5 text-right text-muted-foreground">{l.atual === null ? "sem preço" : fmtMoney(l.atual)}</TableCell>
+                  <TableCell className="py-1.5 text-right font-medium">{fmtMoney(l.novo)}</TableCell>
+                  {terminou && (
+                    <TableCell className="py-1.5 text-xs">
+                      {l.resultado ? (
+                        l.resultado.ok ? <span className="text-emerald-600">Atualizado ✓</span> : <span className="text-red-600">{l.resultado.erro}</span>
+                      ) : "—"}
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        {enviando && (
+          <p className="text-sm text-muted-foreground inline-flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Enviando… {feitos} de {marcadas.length}
+            {marcadas.length > 25 && " (o Tiny aceita 30 mudanças por minuto; pode levar alguns minutos)"}
+          </p>
+        )}
+        <DialogFooter>
+          <Button variant="outline" disabled={enviando} onClick={() => onChange(null)}>{terminou ? "Fechar" : "Cancelar"}</Button>
+          <Button disabled={enviando || marcadas.length === 0} onClick={enviar}>
+            <Upload className="h-4 w-4 mr-1" />
+            {marcadas.length === 0 ? (terminou ? "Tudo enviado" : "Marque o que enviar") : `Enviar ${marcadas.length} ${marcadas.length === 1 ? "preço" : "preços"} ao Tiny`}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
