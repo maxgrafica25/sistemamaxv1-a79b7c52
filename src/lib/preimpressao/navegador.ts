@@ -113,7 +113,7 @@ type PdfJs = typeof import("pdfjs-dist");
 let pdfjsPromise: Promise<PdfJs> | null = null;
 
 /** pdf.js só é baixado quando alguém abre um PDF nesta ferramenta. */
-function carregarPdfJs(): Promise<PdfJs> {
+export function carregarPdfJs(): Promise<PdfJs> {
   if (!pdfjsPromise) {
     pdfjsPromise = Promise.all([import("pdfjs-dist"), import("pdfjs-dist/build/pdf.worker.min.mjs?url")]).then(
       ([pdfjs, worker]) => {

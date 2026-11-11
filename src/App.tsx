@@ -15,6 +15,7 @@ import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import PainelMigracao from "./pages/PainelMigracao";
 import Chat from "./pages/Chat";
+const Atendimentos = lazy(() => import("./pages/Atendimentos"));
 import AssistenteButton from "@/components/assistente/AssistenteButton";
 import CommandPalette from "@/components/CommandPalette";
 import { CommandPaletteProvider } from "@/hooks/useCommandPalette";
@@ -102,6 +103,7 @@ const App = () => (
                   <Route path="/produtos" element={<Produtos />} />
                   <Route path="/presets-orcamento" element={<QuotePresets />} />
                   <Route path="/chat" element={<Chat />} />
+                  <Route path="/atendimentos" element={<Suspense fallback={<PageLoader />}><Atendimentos /></Suspense>} />
                   <Route path="/usuarios" element={<RoleProtectedRoute requires="admin"><Usuarios /></RoleProtectedRoute>} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
