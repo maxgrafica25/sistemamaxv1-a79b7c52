@@ -9,6 +9,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCommandPalette } from "@/hooks/useCommandPalette";
 import { useUrgentAlerts } from "@/hooks/useUrgentAlerts";
+import { useSomentePreImpressao } from "@/hooks/useSomentePreImpressao";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
 ];
 
 export default function CommandPalette() {
+  const somentePreImpressao = useSomentePreImpressao();
   const { open, setOpen } = useCommandPalette();
   const navigate = useNavigate();
   const { setTheme } = useTheme();
@@ -71,6 +73,9 @@ export default function CommandPalette() {
   const run = (action: () => void) => { close(); setTimeout(action, 50); };
   const goTo = (path: string) => run(() => navigate(path));
   const openJulia = () => run(() => window.dispatchEvent(new CustomEvent("open-assistente")));
+
+  // Perfil Pré-impressão: sem paleta (ela leva a outras áreas do sistema).
+  if (somentePreImpressao) return null;
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>

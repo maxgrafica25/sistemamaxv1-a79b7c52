@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/PageHeader";
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { UserCog, UserPlus, Mail, ShieldCheck, ShieldOff, UserX, UserCheck, RefreshCw, Loader2, LogOut, Home } from "lucide-react";
+import { UserCog, UserPlus, Mail, ShieldCheck, ShieldOff, UserX, UserCheck, RefreshCw, Loader2, LogOut, Home, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,10 +25,12 @@ interface UserRow {
   last_sign_in_at: string | null;
   email_confirmed_at: string | null;
   created_at: string;
+  somente_pre_impressao?: boolean;
 }
 
 type ConfirmAction =
   | { kind: "toggle-role"; user: UserRow; nextRole: "admin" | "colaborador" }
+  | { kind: "toggle-pre"; user: UserRow; next: boolean }
   | { kind: "toggle-active"; user: UserRow; nextActive: boolean }
   | null;
 
@@ -63,7 +65,19 @@ export default function Usuarios() {
       setRows([]);
 
     } else {
-      setRows((data ?? []) as UserRow[]);
+      // list_users_admin não traz a marca "só Pré-impressão": busca em profiles e junta.
+      const { data: flags } = await supabase
+        .from("profiles")
+        .select("user_id, somente_pre_impressao");
+      const flagMap = new Map(
+        (flags ?? []).map((f) => [f.user_id, f.somente_pre_impressao === true]),
+      );
+      setRows(
+        ((data ?? []) as UserRow[]).map((u) => ({
+          ...u,
+          somente_pre_impressao: flagMap.get(u.user_id) ?? false,
+        })),
+      );
     }
     setLoading(false);
   }, []);
@@ -124,6 +138,35 @@ export default function Usuarios() {
       details: `Perfil alterado para "${nextRole}" por ${profile?.display_name ?? "admin"}`,
     });
     toast.success(`${user.display_name ?? "Usuário"} agora é ${nextRole === "admin" ? "Administrador" : "Colaborador"}.`);
+    load();
+  };
+
+  const handleTogglePre = async (user: UserRow, next: boolean) => {
+    setActingUserId(user.user_id);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ somente_pre_impressao: next })
+      .eq("user_id", user.user_id);
+
+    setActingUserId(null);
+    setConfirm(null);
+
+    if (error) {
+      handleError(error, "alterar acesso do usuário");
+      return;
+    }
+    await supabase.from("audit_logs").insert({
+      action: "change_user_role",
+      entity_type: "profile",
+      entity_id: user.user_id,
+      entity_name: user.display_name ?? user.email ?? user.user_id,
+      details: `Acesso ${next ? "restrito à Pré-impressão" : "completo de Colaborador"} definido por ${profile?.display_name ?? "admin"}`,
+    });
+    toast.success(
+      next
+        ? `${user.display_name ?? "Usuário"} agora vê só a Pré-impressão.`
+        : `${user.display_name ?? "Usuário"} voltou ao acesso completo de Colaborador.`,
+    );
     load();
   };
 
@@ -232,6 +275,8 @@ export default function Usuarios() {
                         <Badge className="bg-primary/15 text-primary hover:bg-primary/20 border-primary/20">
                           Administrador
                         </Badge>
+                      ) : u.somente_pre_impressao ? (
+                        <Badge variant="secondary">Pré-impressão</Badge>
                       ) : (
                         <Badge variant="secondary">Colaborador</Badge>
                       )}
@@ -294,6 +339,28 @@ export default function Usuarios() {
                             </TooltipContent>
                           </Tooltip>
 
+                          {u.role !== "admin" && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon" variant={u.somente_pre_impressao ? "secondary" : "ghost"}
+                                  disabled={acting || isMe}
+                                  onClick={() => setConfirm({
+                                    kind: "toggle-pre", user: u, next: !u.somente_pre_impressao,
+                                  })}
+                                  aria-label={u.somente_pre_impressao ? "Liberar acesso completo" : "Restringir à Pré-impressão"}
+                                >
+                                  <Printer className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {u.somente_pre_impressao
+                                  ? "Só Pré-impressão (clique para liberar acesso completo)"
+                                  : "Restringir à Pré-impressão"}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -343,6 +410,10 @@ export default function Usuarios() {
         title={
           confirm?.kind === "toggle-role"
             ? `Alterar perfil de ${confirm.user.display_name ?? "usuário"}?`
+            : confirm?.kind === "toggle-pre"
+              ? (confirm.next
+                  ? `Restringir ${confirm.user.display_name ?? "usuário"} à Pré-impressão?`
+                  : `Liberar acesso completo para ${confirm.user.display_name ?? "usuário"}?`)
             : confirm?.kind === "toggle-active"
               ? (confirm.nextActive ? "Reativar este usuário?" : "Desativar este usuário?")
               : undefined
@@ -350,6 +421,10 @@ export default function Usuarios() {
         description={
           confirm?.kind === "toggle-role"
             ? `O perfil será alterado para "${confirm.nextRole === "admin" ? "Administrador" : "Colaborador"}". A mudança vale no próximo carregamento de página do usuário.`
+            : confirm?.kind === "toggle-pre"
+              ? (confirm.next
+                  ? "A pessoa verá apenas o módulo Pré-impressão no menu e será levada para ele ao tentar abrir qualquer outra página. Vale no próximo carregamento de página dela."
+                  : "A pessoa voltará a ver todos os módulos liberados ao perfil Colaborador.")
             : confirm?.kind === "toggle-active"
               ? (confirm.nextActive
                   ? "O usuário voltará a aparecer normalmente. Ele continuará com o mesmo perfil que tinha antes."
@@ -357,13 +432,14 @@ export default function Usuarios() {
               : undefined
         }
         confirmText={
-          confirm?.kind === "toggle-role" ? "Confirmar alteração" :
+          confirm?.kind === "toggle-role" || confirm?.kind === "toggle-pre" ? "Confirmar alteração" :
           confirm?.kind === "toggle-active" && confirm.nextActive ? "Reativar" :
           "Desativar"
         }
         onConfirm={() => {
           if (!confirm) return;
           if (confirm.kind === "toggle-role") handleToggleRole(confirm.user);
+          else if (confirm.kind === "toggle-pre") handleTogglePre(confirm.user, confirm.next);
           else handleToggleActive(confirm.user);
         }}
       />
