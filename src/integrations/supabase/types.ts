@@ -4209,6 +4209,7 @@ export type Database = {
           is_active: boolean
           is_financeiro: boolean
           role: string
+          somente_pre_impressao: boolean
           updated_at: string
           user_id: string
         }
@@ -4221,6 +4222,7 @@ export type Database = {
           is_active?: boolean
           is_financeiro?: boolean
           role?: string
+          somente_pre_impressao?: boolean
           updated_at?: string
           user_id: string
         }
@@ -4233,6 +4235,7 @@ export type Database = {
           is_active?: boolean
           is_financeiro?: boolean
           role?: string
+          somente_pre_impressao?: boolean
           updated_at?: string
           user_id?: string
         }

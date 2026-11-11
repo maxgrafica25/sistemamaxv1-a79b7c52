@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsFinanceiro } from "@/hooks/useIsFinanceiro";
+import { useSomentePreImpressao } from "@/hooks/useSomentePreImpressao";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 function initialsOf(name?: string | null) {
@@ -109,11 +110,14 @@ export default function Sidebar({ collapsed, toggleCollapsed, mobileOpen, closeM
   const isFinanceiro = useIsFinanceiro();
   const navigate = useNavigate();
   const isAdmin = profile?.role === "admin";
+  const somentePreImpressao = useSomentePreImpressao();
 
   const visibleGroups = NAV_GROUPS
     .map((g) => ({
       ...g,
       items: g.items.filter((i) => {
+        // Perfil Pré-impressão: só esse módulo aparece no menu.
+        if (somentePreImpressao) return i.href === "/pre-impressao";
         if (i.adminOnly && !isAdmin) return false;
         if (i.financeiroOnly && !isFinanceiro) return false;
         return true;
@@ -270,7 +274,7 @@ export default function Sidebar({ collapsed, toggleCollapsed, mobileOpen, closeM
                   {profile.display_name}
                 </div>
                 <div className="text-[11px] text-sidebar-foreground/60 truncate">
-                  {profile.role === "admin" ? "Administrador" : "Colaborador"}
+                  {profile.role === "admin" ? "Administrador" : somentePreImpressao ? "Pré-impressão" : "Colaborador"}
                 </div>
               </div>
             </div>

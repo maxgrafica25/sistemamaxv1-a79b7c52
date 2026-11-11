@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import { useSomentePreImpressao } from "@/hooks/useSomentePreImpressao";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { AssistenteMensagem } from "./AssistenteMensagem";
@@ -19,6 +20,7 @@ const HIDDEN_ROUTE_PATTERNS = [/^\/orcamentos-v3\/novo$/, /^\/orcamentos-v3\/[^/
 
 export default function AssistenteButton() {
   const { user } = useAuth();
+  const somentePreImpressao = useSomentePreImpressao();
   const { pathname } = useLocation();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -47,6 +49,7 @@ export default function AssistenteButton() {
   }, [open]);
 
   if (!user) return null;
+  if (somentePreImpressao) return null;
   if (HIDDEN_ROUTES.includes(pathname)) return null;
   if (HIDDEN_ROUTE_PATTERNS.some((re) => re.test(pathname))) return null;
 

@@ -1,9 +1,10 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Menu, Search, LogOut, Settings as SettingsIcon, User as UserIcon } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 import Sidebar from "./Sidebar";
 import ThemeToggle from "./ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
+import { useSomentePreImpressao } from "@/hooks/useSomentePreImpressao";
 import { useSidebarState } from "@/hooks/useSidebarState";
 import { useCommandPalette } from "@/hooks/useCommandPalette";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -33,6 +34,13 @@ export default function Layout() {
   };
   const { collapsed, toggleCollapsed, mobileOpen, openMobile, closeMobile } = useSidebarState();
   const { setOpen: setPaletteOpen } = useCommandPalette();
+  const somentePreImpressao = useSomentePreImpressao();
+  const { pathname } = useLocation();
+
+  // Perfil Pré-impressão: qualquer endereço fora da Pré-impressão volta para ela.
+  if (somentePreImpressao && !pathname.startsWith("/pre-impressao")) {
+    return <Navigate to="/pre-impressao" replace />;
+  }
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -54,22 +62,24 @@ export default function Layout() {
             <Menu className="h-5 w-5" />
           </button>
 
-          {/* Botão "Buscar..." abre Command Palette */}
-          <button
-            onClick={() => setPaletteOpen(true)}
-            className="group flex flex-1 max-w-md items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            aria-label="Abrir paleta de comandos"
-          >
-            <Search className="h-4 w-4" />
-            <span className="flex-1 text-left">Buscar ou executar comando…</span>
-            <kbd className="pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-              <span className="text-xs">⌘</span>K
-            </kbd>
-          </button>
+          {/* Botão "Buscar..." abre Command Palette (não existe no perfil Pré-impressão) */}
+          {!somentePreImpressao && (
+            <button
+              onClick={() => setPaletteOpen(true)}
+              className="group flex flex-1 max-w-md items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              aria-label="Abrir paleta de comandos"
+            >
+              <Search className="h-4 w-4" />
+              <span className="flex-1 text-left">Buscar ou executar comando…</span>
+              <kbd className="pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <span className="text-xs">⌘</span>K
+              </kbd>
+            </button>
+          )}
 
           <div className="ml-auto flex items-center gap-1.5">
             <ThemeToggle />
-            <NotificationBell />
+            {!somentePreImpressao && <NotificationBell />}
             {profile && (
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -95,7 +105,9 @@ export default function Layout() {
                             Admin
                           </Badge>
                         ) : (
-                          <Badge variant="secondary" className="text-[10px] py-0">Colaborador</Badge>
+                          <Badge variant="secondary" className="text-[10px] py-0">
+                            {somentePreImpressao ? "Pré-impressão" : "Colaborador"}
+                          </Badge>
                         )}
                       </div>
                       {user?.email && (
@@ -104,11 +116,15 @@ export default function Layout() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/configuracoes")}>
-                    <SettingsIcon className="h-4 w-4 mr-2" />
-                    Configurações
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  {!somentePreImpressao && (
+                    <>
+                      <DropdownMenuItem onClick={() => navigate("/configuracoes")}>
+                        <SettingsIcon className="h-4 w-4 mr-2" />
+                        Configurações
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem
                     onClick={handleSignOut}
                     className="text-destructive focus:text-destructive focus:bg-destructive/10"
