@@ -19,10 +19,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Collapsible, CollapsibleContent, CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  Plus, Trash2, Edit2, Printer, Cpu, Gauge, ClipboardList, History, Wrench, AlertTriangle, MailWarning, BarChart3, ChevronDown, HelpCircle,
+  Plus, Trash2, Edit2, Printer, Cpu, Gauge, ClipboardList, History, Wrench, AlertTriangle, MailWarning, BarChart3, HelpCircle, type LucideIcon,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -41,7 +38,7 @@ import EquipmentDashboardTab from "@/components/equipamentos/EquipmentDashboardT
 import PriceHistoryGlobalTab from "@/components/equipamentos/PriceHistoryGlobalTab";
 import PageLoader from "@/components/PageLoader";
 import { Switch } from "@/components/ui/switch";
-import { consumableCost, equipmentCost } from "@/lib/equipmentCost";
+import { consumableCost, corNoPb, custosDaMaquina, pareceColorida, type CustosDaMaquina } from "@/lib/equipmentCost";
 import { equipmentSchema, consumableSchema, zodErrorsToMap } from "@/lib/schemas/cadastros";
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -80,55 +77,47 @@ const roundUp10 = (v: number) => Math.round(v * 10) / 10;
 const fmtRound = (v: number) =>
   roundUp10(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-// Visual config per printer type for better distinction
-const printerTypeConfig: Record<string, { label: string; shortLabel: string; color: string; bgClass: string; borderClass: string; iconBg: string }> = {
-  pb: {
-    label: "Preto e Branco",
-    shortLabel: "PB",
-    color: "hsl(220 13% 46%)",
-    bgClass: "bg-slate-100 dark:bg-slate-800",
-    borderClass: "border-slate-400",
-    iconBg: "bg-slate-500",
-  },
-  color: {
-    label: "Color",
-    shortLabel: "Color",
-    color: "hsl(262 83% 58%)",
-    bgClass: "bg-violet-50 dark:bg-violet-950",
-    borderClass: "border-violet-400",
-    iconBg: "bg-violet-500",
-  },
-  ribbon: {
-    label: "Ribbon",
-    shortLabel: "Ribbon",
-    color: "hsl(172 66% 40%)",
-    bgClass: "bg-teal-50 dark:bg-teal-950",
-    borderClass: "border-teal-400",
-    iconBg: "bg-teal-500",
-  },
-  other: {
-    label: "Outro",
-    shortLabel: "Outro",
-    color: "hsl(38 92% 50%)",
-    bgClass: "bg-amber-50 dark:bg-amber-950",
-    borderClass: "border-amber-400",
-    iconBg: "bg-amber-500",
-  },
+// Tipos de máquina: toda colorida também imprime preto e branco.
+const TIPOS: Record<string, { nome: string; curto: string; grupo: string; ponto: string; ordem: number }> = {
+  color: { nome: "Colorida", curto: "colorida", grupo: "Coloridas (fazem P&B também)", ponto: "bg-violet-500", ordem: 0 },
+  pb: { nome: "Preto e branco", curto: "P&B", grupo: "Só preto e branco", ponto: "bg-slate-500", ordem: 1 },
+  ribbon: { nome: "Ribbon (cartões)", curto: "ribbon", grupo: "Ribbon (cartões)", ponto: "bg-teal-500", ordem: 2 },
+  other: { nome: "Outro", curto: "outro", grupo: "Outros (plotter, recorte…)", ponto: "bg-amber-500", ordem: 3 },
 };
+const tipoInfo = (t: string | null | undefined) => TIPOS[t || "other"] || TIPOS.other;
 
-const getTypeConfig = (t: string) => printerTypeConfig[t] || printerTypeConfig.other;
+const abas = (tipo: string): { valor: string; nome: string; icone: LucideIcon }[] => [
+  { valor: "consumiveis", nome: "Custos e consumíveis", icone: Gauge },
+  ...(tipo === "pb" || tipo === "color" || tipo === "ribbon" ? [{ valor: "contadores", nome: "Contadores", icone: ClipboardList }] : []),
+  { valor: "historico", nome: "Histórico de preços", icone: History },
+  { valor: "manutencoes", nome: "Manutenções", icone: Wrench },
+  { valor: "perdas", nome: "Perdas", icone: AlertTriangle },
+  { valor: "solicitacoes", nome: "Solicitar manutenção", icone: MailWarning },
+  { valor: "dashboard", nome: "Painel", icone: BarChart3 },
+];
 
-const printerTypeBadge = (t: string) => {
-  const config = getTypeConfig(t);
+function Aviso({ children }: { children: React.ReactNode }) {
   return (
-    <Badge 
-      className="text-[10px] font-bold uppercase tracking-wider text-white border-0"
-      style={{ backgroundColor: config.color }}
-    >
-      {config.shortLabel}
-    </Badge>
+    <div className="flex items-start gap-2 rounded-2xl border border-amber-300/70 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+      <div className="leading-relaxed">{children}</div>
+    </div>
   );
-};
+}
+
+function CustoTile({ titulo, valor, detalhe, destaque }: { titulo: string; valor: number; detalhe: string; destaque?: boolean }) {
+  return (
+    <div className={`rounded-2xl border p-4 ${destaque ? "bg-primary/5 border-primary/30" : "bg-card"}`}>
+      <p className="text-sm text-muted-foreground">{titulo}</p>
+      <p className={`text-3xl font-semibold tracking-tight tabular-nums mt-1 ${destaque ? "text-primary" : ""}`}>{fmt4(valor)}</p>
+      <p className="text-xs text-muted-foreground mt-1">{detalhe}</p>
+    </div>
+  );
+}
+
+function Chip({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${className || ""}`}>{children}</span>;
+}
 
 // ─── Component ───────────────────────────────────────────────────────
 export default function Equipamentos() {
@@ -192,7 +181,6 @@ export default function Equipamentos() {
 
   // ─── Data loading ──────────────────────────────────────────────────
   const fetchAll = async () => {
-    setLoading(true);
     const [eqRes, consRes] = await Promise.all([
       supabase.from("equipments").select("*").order("sort_order"),
       supabase.from("equipment_consumables").select("*").order("sort_order"),
@@ -261,55 +249,55 @@ export default function Equipamentos() {
     [consumables, activeEquipment]
   );
 
-  const costPerPage = useMemo(() => {
-    return activeConsumables.reduce((sum, c) => {
-      if (c.yield_pages <= 0) return sum;
-      return sum + c.price / c.yield_pages;
-    }, 0);
-  }, [activeConsumables]);
-  const productionCostPerPage = useMemo(() => equipmentCost(activeConsumables, 20), [activeConsumables]);
-  // Cost calculations for different coverage scenarios
   const isRibbon = activeEq?.printer_type === "ribbon";
+  const custosPorMaquina = useMemo(() => {
+    const m = new Map<string, CustosDaMaquina>();
+    for (const e of equipments) m.set(e.id, custosDaMaquina(e.printer_type, consumables.filter((c) => c.equipment_id === e.id)));
+    return m;
+  }, [equipments, consumables]);
+  const custosAtivos: CustosDaMaquina = custosPorMaquina.get(activeEquipment) ?? custosDaMaquina(activeEq?.printer_type, []);
 
-  const costScenarios = useMemo(() => {
-    const isColor = activeEq?.printer_type === "color";
-    const isRibbonType = activeEq?.printer_type === "ribbon";
-    const sharedCons = activeConsumables.filter(c => c.mode !== "color_only");
-    const allCons = activeConsumables;
+  const resumoCusto = (e: Equipment) => {
+    const c = custosPorMaquina.get(e.id);
+    if (!c || !consumables.some((x) => x.equipment_id === e.id)) return "sem consumíveis";
+    if (c.direto !== null) return `${fmt4(c.direto)} por impressão`;
+    if (c.colorida !== null) return `Colorida ${fmt4(c.colorida)} · P&B ${fmt4(c.pb ?? 0)}`;
+    return `${e.printer_type === "other" ? "Por uso" : "P&B"} ${fmt4(c.pb ?? 0)}`;
+  };
 
-    // coverage: 1 = cobertura do fabricante (5%), 4 = produção (20%)
-    const calcCost = (items: Consumable[], coverage: number) => equipmentCost(items, coverage * 5);
+  const grupos = useMemo(() => {
+    const tipos = Array.from(new Set(equipments.map((e) => (TIPOS[e.printer_type] ? e.printer_type : "other"))));
+    tipos.sort((a, b) => tipoInfo(a).ordem - tipoInfo(b).ordem);
+    return tipos.map((t) => ({
+      tipo: t,
+      titulo: tipoInfo(t).grupo,
+      itens: equipments.filter((e) => (TIPOS[e.printer_type] ? e.printer_type : "other") === t),
+    }));
+  }, [equipments]);
 
-    if (isRibbonType) {
-      // Ribbon: custo direto sem cobertura (preço/rendimento)
-      const directCost = allCons.reduce((sum, c) => c.yield_pages > 0 ? sum + c.price / c.yield_pages : sum, 0);
-      return {
-        isColor: false,
-        isRibbon: true,
-        directCost,
-        color5: 0, color20: 0, pb5: 0, pb20: 0,
-      };
-    }
+  const escolherMaquina = (id: string) => {
+    setActiveEquipment(id);
+    const eq = equipments.find((e) => e.id === id);
+    if (!abas(eq?.printer_type || "").some((a) => a.valor === activeSubTab)) setActiveSubTab("consumiveis");
+  };
 
-    if (isColor) {
-      return {
-        isColor: true, isRibbon: false,
-        color5: calcCost(allCons, 1),
-        color20: calcCost(allCons, 4),
-        pb5: calcCost(sharedCons, 1),
-        pb20: calcCost(sharedCons, 4),
-        directCost: 0,
-      };
-    } else {
-      return {
-        isColor: false, isRibbon: false,
-        color5: 0, color20: 0,
-        pb5: calcCost(allCons, 1),
-        pb20: calcCost(allCons, 4),
-        directCost: 0,
-      };
-    }
-  }, [activeConsumables, activeEq]);
+  const marcarComoColorida = async (eq: Equipment) => {
+    if (!requireAdmin("editar equipamento")) return;
+    const { error } = await supabase.from("equipments").update({ printer_type: "color" }).eq("id", eq.id);
+    if (error) return handleError(error, "marcar como colorida");
+    await logAudit({ action: "edição", entity_type: "Equipamento", entity_id: eq.id, entity_name: `${eq.name} (tipo: colorida)` });
+    toast.success(`${eq.name} agora é colorida`);
+    fetchAll();
+  };
+
+  const marcarSoColorida = async (itens: Consumable[]) => {
+    if (!requireAdmin("editar consumível") || !itens.length) return;
+    const { error } = await supabase.from("equipment_consumables").update({ mode: "color_only" }).in("id", itens.map((c) => c.id));
+    if (error) return handleError(error, "marcar consumíveis");
+    await logAudit({ action: "edição", entity_type: "Consumível", entity_id: itens[0].id, entity_name: `${itens.map((c) => c.name).join(", ")}: só colorida (${activeEq?.name})` });
+    toast.success("Pronto: o custo P&B não inclui mais essas cores");
+    fetchAll();
+  };
 
   // ─── Equipment CRUD ────────────────────────────────────────────────
   const openEquipDialog = (eq?: Equipment) => {
@@ -461,7 +449,7 @@ export default function Equipamentos() {
   return (
     <div className="p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6 max-w-[1400px] mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <PageHeader icon={Cpu} title="Cadastro de Equipamentos" description="Registre impressoras, consumíveis, acompanhe contadores e evolução de preços" />
         <AdminOnly mode="disable" action="cadastrar equipamento">
           <Button onClick={() => openEquipDialog()} size="sm" className="gap-1.5">
@@ -471,11 +459,11 @@ export default function Equipamentos() {
       </div>
 
       {/* Top mode toggle */}
-      <div className="inline-flex items-center rounded-lg border bg-muted/40 p-1 gap-1">
+      <div className="inline-flex items-center rounded-full bg-muted/60 p-1 gap-1">
         <button
           type="button"
           onClick={() => setTopMode("equipments")}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+          className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5 ${
             topMode === "equipments"
               ? "bg-background shadow-sm text-foreground"
               : "text-muted-foreground hover:text-foreground"
@@ -487,14 +475,14 @@ export default function Equipamentos() {
           type="button"
           onClick={() => setTopMode("price-history")}
           title="Visão gerencial de todas as compras e fornecedores"
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+          className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5 ${
             topMode === "price-history"
               ? "bg-background shadow-sm text-foreground"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <History className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Compras (Global)</span>
+          <span className="hidden sm:inline">Compras de todas as máquinas</span>
           <span className="sm:hidden">Global</span>
         </button>
       </div>
@@ -521,178 +509,199 @@ export default function Equipamentos() {
           </CardContent>
         </Card>
       ) : (
-        <Tabs value={activeEquipment} onValueChange={(v) => { setActiveEquipment(v); setActiveSubTab("consumiveis"); }}>
-          {/* Tab list — visually distinct per printer type */}
-          <div className="flex items-center gap-3 overflow-x-auto pb-1">
-            <TabsList className="bg-muted/60 h-auto p-1 gap-1">
-              {equipments.map((eq) => {
-                const config = getTypeConfig(eq.printer_type);
-                const isActive = activeEquipment === eq.id;
-                return (
-                  <TabsTrigger 
-                    key={eq.id} 
-                    value={eq.id} 
-                    className="gap-2 text-xs sm:text-sm py-2.5 px-4 data-[state=active]:shadow-md relative"
-                    style={isActive ? { 
-                      borderBottom: `3px solid ${config.color}`,
-                      backgroundColor: `${config.color}12`,
-                    } : {}}
-                  >
-                    <div 
-                      className="h-2.5 w-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: isActive ? config.color : 'hsl(var(--muted-foreground) / 0.4)' }}
-                    />
-                    <div className="text-left">
-                      <span className="font-medium block leading-tight">{eq.name}</span>
-                      {eq.description && (
-                        <span className="text-[10px] text-muted-foreground block leading-tight">{eq.description}</span>
-                      )}
-                    </div>
-                    {isActive && printerTypeBadge(eq.printer_type)}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-            <AdminOnly mode="disable" action="editar equipamento">
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => {
-                const eq = equipments.find((e) => e.id === activeEquipment);
-                if (eq) openEquipDialog(eq);
-              }}>
-                <Edit2 className="h-3.5 w-3.5" />
-              </Button>
-            </AdminOnly>
-            <AdminOnly mode="disable" action="excluir equipamento">
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
-                onClick={() => { if (activeEquipment) requestDeleteEquip(activeEquipment); }}>
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </AdminOnly>
-          </div>
+        <div className="flex flex-col md:flex-row gap-4 lg:gap-6">
+          {/* Lista de máquinas */}
+          <aside className="md:w-72 shrink-0 space-y-3">
+            <div className="md:hidden">
+              <Select value={activeEquipment} onValueChange={escolherMaquina}>
+                <SelectTrigger><SelectValue placeholder="Escolha a máquina" /></SelectTrigger>
+                <SelectContent>
+                  {equipments.map((e) => <SelectItem key={e.id} value={e.id}>{e.name} · {tipoInfo(e.printer_type).curto}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {grupos.map((g) => (
+              <div key={g.tipo} className="hidden md:block">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-2 mb-1">{g.titulo}</p>
+                <div className="space-y-1">
+                  {g.itens.map((e) => {
+                    const ativo = e.id === activeEquipment;
+                    return (
+                      <button
+                        key={e.id}
+                        onClick={() => escolherMaquina(e.id)}
+                        className={`w-full text-left rounded-xl px-3 py-2.5 border transition-colors ${ativo ? "border-primary bg-primary/10 shadow-sm" : "border-transparent hover:bg-muted"}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2 w-2 rounded-full shrink-0 ${tipoInfo(e.printer_type).ponto}`} />
+                          <span className={`text-sm truncate ${ativo ? "font-semibold text-primary" : "font-medium"}`}>{e.name}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 pl-4">{resumoCusto(e)}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </aside>
 
-          {equipments.map((eq) => {
-            const config = getTypeConfig(eq.printer_type);
-            return (
-            <TabsContent key={eq.id} value={eq.id} className="space-y-4 mt-4">
-              {/* Sub-tabs */}
+          {/* Máquina escolhida */}
+          {activeEq && (
+            <main className="flex-1 min-w-0 space-y-4">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-xl font-semibold tracking-tight">{activeEq.name}</h2>
+                    <Badge variant="secondary" className="rounded-full gap-1.5">
+                      <span className={`h-1.5 w-1.5 rounded-full ${tipoInfo(activeEq.printer_type).ponto}`} />
+                      {tipoInfo(activeEq.printer_type).nome}
+                    </Badge>
+                  </div>
+                  {activeEq.description && <p className="text-sm text-muted-foreground mt-0.5">{activeEq.description}</p>}
+                </div>
+                <div className="flex gap-1">
+                  <AdminOnly mode="disable" action="editar equipamento">
+                    <Button variant="outline" size="sm" className="rounded-full" onClick={() => openEquipDialog(activeEq)}>
+                      <Edit2 className="h-3.5 w-3.5 mr-1" /> Editar máquina
+                    </Button>
+                  </AdminOnly>
+                  <AdminOnly mode="disable" action="excluir equipamento">
+                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:text-destructive" onClick={() => requestDeleteEquip(activeEq.id)} aria-label="Excluir máquina">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AdminOnly>
+                </div>
+              </div>
+
               <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
-                <TabsList className="bg-muted/40">
-                  <TabsTrigger value="consumiveis" className="gap-1.5 text-xs">
-                    <Gauge className="h-3.5 w-3.5" /> Consumíveis
-                  </TabsTrigger>
-                  {(eq.printer_type === "pb" || eq.printer_type === "color" || eq.printer_type === "ribbon") && (
-                    <TabsTrigger value="contadores" className="gap-1.5 text-xs">
-                      <ClipboardList className="h-3.5 w-3.5" /> Contadores
-                    </TabsTrigger>
-                  )}
-                  <TabsTrigger value="historico" className="gap-1.5 text-xs">
-                    <History className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Histórico desta Máquina</span>
-                    <span className="sm:hidden">Esta Máquina</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="manutencoes" className="gap-1.5 text-xs">
-                    <Wrench className="h-3.5 w-3.5" /> Manutenções
-                  </TabsTrigger>
-                  <TabsTrigger value="perdas" className="gap-1.5 text-xs">
-                    <AlertTriangle className="h-3.5 w-3.5" /> Perdas
-                  </TabsTrigger>
-                  <TabsTrigger value="solicitacoes" className="gap-1.5 text-xs">
-                    <MailWarning className="h-3.5 w-3.5" /> Solicitar Manutenção
-                  </TabsTrigger>
-                  <TabsTrigger value="dashboard" className="gap-1.5 text-xs">
-                    <BarChart3 className="h-3.5 w-3.5" /> Dashboard
-                  </TabsTrigger>
-                </TabsList>
+                <div>
+                  <TabsList className="h-auto rounded-2xl bg-muted/60 p-1 gap-1 flex-wrap justify-start">
+                    {abas(activeEq.printer_type).map((a) => (
+                      <TabsTrigger key={a.valor} value={a.valor} className="rounded-full px-3.5 py-1.5 text-xs sm:text-sm gap-1.5 data-[state=active]:shadow-sm">
+                        <a.icone className="h-3.5 w-3.5" /> {a.nome}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </div>
 
-                {/* ── Consumíveis Tab ── */}
-                <TabsContent value="consumiveis" className="space-y-6 mt-4">
-                  {/* Coverage info banner */}
-                  {!isRibbon && (
-                    <div className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                      <span className="text-base leading-none">💡</span>
-                      <span>
-                        Orçamentos baseados no <strong className="text-foreground">Custo de Produção (20% de cobertura)</strong>. O rendimento cadastrado segue o padrão do fabricante (5%); só toner e tinta são multiplicados pela cobertura.
-                      </span>
-                    </div>
+                {/* ── Custos e consumíveis ── */}
+                <TabsContent value="consumiveis" className="space-y-4 mt-4">
+                  {pareceColorida(activeEq.printer_type, activeConsumables) && (
+                    <Aviso>
+                      Esta máquina tem tintas/toners de cor, mas está cadastrada como <strong>{tipoInfo(activeEq.printer_type).nome}</strong>.
+                      Por isso aparece só um custo, somando todas as cores.
+                      <AdminOnly mode="disable" action="editar equipamento">
+                        <Button size="sm" variant="outline" className="ml-2 h-7 rounded-full" onClick={() => marcarComoColorida(activeEq)}>Marcar como colorida</Button>
+                      </AdminOnly>
+                    </Aviso>
+                  )}
+                  {corNoPb(activeEq.printer_type, activeConsumables).length > 0 && (
+                    <Aviso>
+                      {corNoPb(activeEq.printer_type, activeConsumables).map((c) => c.name).join(", ")} {corNoPb(activeEq.printer_type, activeConsumables).length === 1 ? "está entrando" : "estão entrando"} no custo preto e branco.
+                      <AdminOnly mode="disable" action="editar consumível">
+                        <Button size="sm" variant="outline" className="ml-2 h-7 rounded-full" onClick={() => marcarSoColorida(corNoPb(activeEq.printer_type, activeConsumables) as Consumable[])}>Usar só na colorida</Button>
+                      </AdminOnly>
+                    </Aviso>
                   )}
 
-                  {/* Summary line */}
-                  <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm text-muted-foreground px-1">
-                    <span><strong className="text-foreground">{activeConsumables.length}</strong> consumíveis</span>
-                    {isRibbon ? (
-                      <span>Custo/impressão: <strong className="text-foreground">{fmt4(costPerPage)}</strong></span>
+                  {/* Custos por página */}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {custosAtivos.direto !== null ? (
+                      <CustoTile titulo="Custo por impressão" valor={custosAtivos.direto} detalhe="Cartão/ribbon: preço ÷ rendimento. Frente e verso = 2 impressões." destaque />
                     ) : (
                       <>
-                        <span className="opacity-70">Fabricante (5%): <strong className="text-foreground/80">{fmt4(costPerPage)}</strong></span>
-                        <span>Produção (20%): <strong className="text-primary">{fmt4(productionCostPerPage)}</strong></span>
+                        {custosAtivos.colorida !== null && (
+                          <CustoTile titulo="Página colorida" valor={custosAtivos.colorida} detalhe={`Pelo fabricante (5%): ${fmt4(custosAtivos.fabricanteColorida ?? 0)}`} destaque />
+                        )}
+                        <CustoTile
+                          titulo={activeEq.printer_type === "other" ? "Custo por uso" : "Página preto e branco"}
+                          valor={custosAtivos.pb ?? 0}
+                          detalhe={`Pelo fabricante (5%): ${fmt4(custosAtivos.fabricantePb ?? 0)}`}
+                          destaque={custosAtivos.colorida === null}
+                        />
                       </>
                     )}
                   </div>
+                  {custosAtivos.direto === null && (
+                    <p className="text-xs text-muted-foreground px-1">
+                      Custos com <strong>20% de cobertura</strong> (o que vai para os orçamentos). O rendimento é o da embalagem (5%); só tinta e toner aumentam com a cobertura.
+                      {custosAtivos.colorida !== null && " A página preto e branco usa só o que está marcado para as duas."}
+                    </p>
+                  )}
 
-                  {/* Consumables table */}
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-3">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Gauge className="h-4 w-4" style={{ color: config.color }} />
-                        Consumíveis — {eq.name}
-                      </CardTitle>
+                  {/* Consumíveis */}
+                  <Card className="rounded-2xl">
+                    <CardHeader className="flex flex-row items-center justify-between py-3 px-4 space-y-0">
+                      <CardTitle className="text-base">Consumíveis <span className="text-muted-foreground font-normal text-sm">({activeConsumables.length})</span></CardTitle>
                       <AdminOnly mode="disable" action="cadastrar consumível">
-                        <Button onClick={() => openConsDialog()} size="sm" variant="outline" className="gap-1.5">
-                          <Plus className="h-3.5 w-3.5" /> Consumível
+                        <Button onClick={() => openConsDialog()} size="sm" className="rounded-full gap-1.5">
+                          <Plus className="h-3.5 w-3.5" /> Adicionar
                         </Button>
                       </AdminOnly>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-0 pb-2">
                       {activeConsumables.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-6">
-                          Adicione consumíveis como Toner, Revelador, Cilindro, Fusão, Belt, Manutenção, Depreciação...
+                        <p className="text-sm text-muted-foreground text-center py-8 px-4">
+                          Adicione o que a máquina gasta: {isRibbon ? "ribbon, cartão, depreciação…" : "toner ou tinta de cada cor, cilindro, fusor, manutenção, depreciação…"}
                         </p>
                       ) : (
                         <div className="overflow-x-auto">
                           <Table>
                             <TableHeader>
-                              <TableRow>
-                                <TableHead>Consumível</TableHead>
-                                <TableHead className="text-right">Preço (R$)</TableHead>
-                                <TableHead className="text-right">Rendimento</TableHead>
-                                <TableHead className="text-right">Custo/Página</TableHead>
-                                <TableHead className="text-right">
-                                  <div className="inline-flex items-center gap-1 justify-end">
-                                    % Custo
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
-                                      </TooltipTrigger>
-                                      <TooltipContent side="top" className="max-w-xs">
-                                        Participação deste consumível no custo total por página. Soma = 100%.
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </div>
-                                </TableHead>
-                                <TableHead className="w-[80px]" />
+                              <TableRow className="hover:bg-transparent">
+                                <TableHead className="pl-4">Consumível</TableHead>
+                                <TableHead className="text-right">Preço</TableHead>
+                                <TableHead className="text-right">Rende</TableHead>
+                                {custosAtivos.direto !== null ? (
+                                  <TableHead className="text-right">Por impressão</TableHead>
+                                ) : (
+                                  <>
+                                    {custosAtivos.colorida !== null && <TableHead className="text-right">Colorida</TableHead>}
+                                    <TableHead className="text-right">{custosAtivos.colorida !== null ? "P&B" : "Por página"}</TableHead>
+                                  </>
+                                )}
+                                <TableHead className="w-[84px]" />
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {activeConsumables.map((c) => {
-                                const cpp = c.yield_pages > 0 ? c.price / c.yield_pages : 0;
-                                const pctOfTotal = costPerPage > 0 ? (cpp / costPerPage) * 100 : 0;
+                                const porPagina = custosAtivos.direto !== null ? (c.yield_pages > 0 ? c.price / c.yield_pages : 0) : consumableCost(c, 20);
                                 return (
                                   <TableRow key={c.id}>
-                                    <TableCell className="font-medium">{c.name}</TableCell>
-                                    <TableCell className="text-right font-mono text-sm">{fmt(c.price)}</TableCell>
-                                    <TableCell className="text-right font-mono text-sm">{fmtNum(c.yield_pages)}</TableCell>
-                                    <TableCell className="text-right font-mono text-sm">{fmt4(cpp)}</TableCell>
-                                    <TableCell className="text-right">
-                                      <Badge variant="outline" className="font-mono text-xs">{pctOfTotal.toFixed(1)}%</Badge>
+                                    <TableCell className="pl-4">
+                                      <span className="font-medium">{c.name}</span>
+                                      {custosAtivos.direto === null && (
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                          {custosAtivos.colorida !== null && (
+                                            c.mode === "color_only"
+                                              ? <Chip className="bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300">Só colorida</Chip>
+                                              : <Chip className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">Colorida e P&B</Chip>
+                                          )}
+                                          <Chip className="bg-muted text-muted-foreground">{c.scales_with_coverage === false ? "Custo fixo por página" : "Varia com a cobertura"}</Chip>
+                                        </div>
+                                      )}
                                     </TableCell>
-                                    <TableCell>
-                                      <div className="flex gap-1 justify-end">
+                                    <TableCell className="text-right tabular-nums">{fmt(c.price)}</TableCell>
+                                    <TableCell className="text-right tabular-nums text-muted-foreground">{fmtNum(c.yield_pages)} {isRibbon ? "impr." : "pág."}</TableCell>
+                                    {custosAtivos.direto !== null ? (
+                                      <TableCell className="text-right tabular-nums">{fmt4(porPagina)}</TableCell>
+                                    ) : (
+                                      <>
+                                        {custosAtivos.colorida !== null && <TableCell className="text-right tabular-nums">{fmt4(porPagina)}</TableCell>}
+                                        <TableCell className="text-right tabular-nums">
+                                          {custosAtivos.colorida !== null && c.mode === "color_only" ? <span className="text-muted-foreground">—</span> : fmt4(porPagina)}
+                                        </TableCell>
+                                      </>
+                                    )}
+                                    <TableCell className="pr-3">
+                                      <div className="flex gap-0.5 justify-end">
                                         <AdminOnly mode="disable" action="editar consumível">
-                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openConsDialog(c)}>
+                                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => openConsDialog(c)} aria-label={`Editar ${c.name}`}>
                                             <Edit2 className="h-3.5 w-3.5" />
                                           </Button>
                                         </AdminOnly>
                                         <AdminOnly mode="disable" action="excluir consumível">
-                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => requestDeleteCons(c.id, c.name)}>
+                                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive" onClick={() => requestDeleteCons(c.id, c.name)} aria-label={`Excluir ${c.name}`}>
                                             <Trash2 className="h-3.5 w-3.5" />
                                           </Button>
                                         </AdminOnly>
@@ -701,216 +710,59 @@ export default function Equipamentos() {
                                   </TableRow>
                                 );
                               })}
-                              <TableRow className="bg-muted/30 font-semibold opacity-80">
-                                <TableCell>TOTAL (Fabricante 5%)</TableCell>
-                                <TableCell className="text-right">—</TableCell>
-                                <TableCell className="text-right">—</TableCell>
-                                <TableCell className="text-right font-mono">{fmt4(costPerPage)}</TableCell>
-                                <TableCell className="text-right"><Badge variant="outline" className="font-mono text-xs">100%</Badge></TableCell>
+                              <TableRow className="bg-muted/40 hover:bg-muted/40 font-semibold">
+                                <TableCell className="pl-4" colSpan={3}>Total por {isRibbon ? "impressão" : "página"}</TableCell>
+                                {custosAtivos.direto !== null ? (
+                                  <TableCell className="text-right tabular-nums text-primary">{fmt4(custosAtivos.direto)}</TableCell>
+                                ) : (
+                                  <>
+                                    {custosAtivos.colorida !== null && <TableCell className="text-right tabular-nums text-primary">{fmt4(custosAtivos.colorida)}</TableCell>}
+                                    <TableCell className="text-right tabular-nums text-primary">{fmt4(custosAtivos.pb ?? 0)}</TableCell>
+                                  </>
+                                )}
                                 <TableCell />
                               </TableRow>
-                              {!isRibbon && (
-                                <TableRow className="bg-primary/5 border-t-2 border-primary/30">
-                                  <TableCell className="font-bold text-primary">
-                                    TOTAL DE PRODUÇÃO (20%)
-                                    <span className="ml-2 text-[10px] font-normal text-muted-foreground">usado nos orçamentos</span>
-                                  </TableCell>
-                                  <TableCell className="text-right">—</TableCell>
-                                  <TableCell className="text-right">—</TableCell>
-                                  <TableCell className="text-right font-mono font-bold text-primary text-base">{fmt4(productionCostPerPage)}</TableCell>
-                                  <TableCell className="text-right">
-                                    <Badge className="font-mono text-xs">Ativo</Badge>
-                                  </TableCell>
-                                  <TableCell />
-                                </TableRow>
-                              )}
                             </TableBody>
                           </Table>
                         </div>
                       )}
                     </CardContent>
                   </Card>
-
-                  {/* Coverage comparison with consumable breakdown */}
-                  {activeConsumables.length > 0 && (() => {
-                    const sharedCons = activeConsumables.filter(c => c.mode !== "color_only");
-                    const allCons = activeConsumables;
-                    const colorOnlyCons = activeConsumables.filter(c => c.mode === "color_only");
-
-                    // Ribbon: single card with direct cost
-                    if (costScenarios.isRibbon) {
-                      return (
-                        <div className="grid gap-3 grid-cols-1 max-w-md">
-                          <Collapsible>
-                            <Card className="border-teal-300 dark:border-teal-700 bg-teal-50/50 dark:bg-teal-950/30">
-                              <CollapsibleTrigger className="w-full text-left">
-                                <CardContent className="p-4">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Custo por Impressão</p>
-                                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                                  </div>
-                                  <p className="text-xl font-bold text-foreground">{fmt4(costScenarios.directCost)}</p>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                                    {allCons.length} consumíve{allCons.length === 1 ? 'l' : 'is'} • Custo direto (sem cobertura)
-                                  </p>
-                                </CardContent>
-                              </CollapsibleTrigger>
-                              <CollapsibleContent>
-                                <div className="px-4 pb-4 space-y-1.5">
-                                  <div className="border-t border-border/50 pt-2" />
-                                  {allCons.map(c => {
-                                    const cpp = c.yield_pages > 0 ? c.price / c.yield_pages : 0;
-                                    return (
-                                      <div key={c.id} className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-1.5">
-                                          <div className="h-1.5 w-1.5 rounded-full bg-teal-500" />
-                                          <span className="text-muted-foreground">{c.name}</span>
-                                        </div>
-                                        <span className="font-mono text-foreground">{fmt4(cpp)}</span>
-                                      </div>
-                                    );
-                                  })}
-                                  <div className="pt-1.5 border-t border-border/30 mt-1.5">
-                                    <p className="text-[10px] text-muted-foreground italic">
-                                      F/V conta como 2 impressões (2× custo)
-                                    </p>
-                                  </div>
-                                </div>
-                              </CollapsibleContent>
-                            </Card>
-                          </Collapsible>
-                        </div>
-                      );
-                    }
-
-                    const scenarios = costScenarios.isColor
-                      ? [
-                          { label: "FABRICANTE • COLOR", subtitle: "Referência teórica",   isProduction: false, value: costScenarios.color5,  items: allCons,    multiplier: 1, dotColor: "bg-violet-400" },
-                          { label: "PRODUÇÃO • COLOR",   subtitle: "Valor de orçamento",   isProduction: true,  value: costScenarios.color20, items: allCons,    multiplier: 4, dotColor: "bg-violet-500" },
-                          { label: "FABRICANTE • PB",    subtitle: "Referência teórica",   isProduction: false, value: costScenarios.pb5,     items: sharedCons, multiplier: 1, dotColor: "bg-slate-400" },
-                          { label: "PRODUÇÃO • PB",      subtitle: "Valor de orçamento",   isProduction: true,  value: costScenarios.pb20,    items: sharedCons, multiplier: 4, dotColor: "bg-slate-500" },
-                        ]
-                      : [
-                          { label: "FABRICANTE • PB", subtitle: "Referência teórica", isProduction: false, value: costScenarios.pb5,  items: allCons, multiplier: 1, dotColor: "bg-slate-400" },
-                          { label: "PRODUÇÃO • PB",   subtitle: "Valor de orçamento", isProduction: true,  value: costScenarios.pb20, items: allCons, multiplier: 4, dotColor: "bg-slate-500" },
-                        ];
-
-                    return (
-                      <div className={`grid gap-3 ${costScenarios.isColor ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
-                        {scenarios.map((sc) => (
-                          <Collapsible key={sc.label}>
-                            <Card className={sc.isProduction
-                              ? "border-primary/60 shadow-sm bg-primary/5"
-                              : "opacity-60 border-border bg-muted/20"
-                            }>
-                              <CollapsibleTrigger className="w-full text-left">
-                                <CardContent className="p-4">
-                                  <div className="flex items-center justify-between mb-1 gap-2">
-                                    <p className={`text-[10px] uppercase tracking-widest font-semibold truncate ${sc.isProduction ? 'text-primary' : 'text-muted-foreground'}`}>{sc.label}</p>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      {sc.isProduction && (
-                                        <Badge variant="default" className="text-[9px] h-4 px-1.5 leading-none">Ativo</Badge>
-                                      )}
-                                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                                    </div>
-                                  </div>
-                                  <p className={`text-xl font-bold ${sc.isProduction ? 'text-primary' : 'text-foreground'}`}>{fmtRound(sc.value)}</p>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5">{sc.subtitle} · {sc.items.length} consumíve{sc.items.length === 1 ? 'l' : 'is'}</p>
-                                </CardContent>
-                              </CollapsibleTrigger>
-                              <CollapsibleContent>
-                                <div className="px-4 pb-4 space-y-1.5">
-                                  <div className="border-t border-border/50 pt-2" />
-                                  {sc.items.map(c => {
-                                    const cpp = consumableCost(c, sc.multiplier * 5);
-                                    return (
-                                      <div key={c.id} className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-1.5">
-                                          <div className={`h-1.5 w-1.5 rounded-full ${sc.dotColor}`} />
-                                          <span className="text-muted-foreground">{c.name}</span>
-                                        </div>
-                                        <span className="font-mono text-foreground">{fmt4(cpp)}</span>
-                                      </div>
-                                    );
-                                  })}
-                                  {costScenarios.isColor && sc.label.includes("PB") && colorOnlyCons.length > 0 && (
-                                    <div className="pt-1 border-t border-border/30">
-                                      <p className="text-[10px] text-muted-foreground italic">
-                                        Excluídos: {colorOnlyCons.map(c => c.name).join(", ")}
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                              </CollapsibleContent>
-                            </Card>
-                          </Collapsible>
-                        ))}
-                      </div>
-                    );
-                  })()}
                 </TabsContent>
 
-                {/* ── Contadores Tab ── */}
                 <TabsContent value="contadores" className="mt-4">
                   <PrinterReadingsTab
-                    equipmentId={eq.id}
-                    equipmentName={eq.name}
-                    printerType={eq.printer_type}
-                    autoOpenQuick={autoOpenQuickFor === eq.id}
-                    autoOpenToner={autoOpenTonerFor === eq.id}
+                    key={activeEq.id}
+                    equipmentId={activeEq.id}
+                    equipmentName={activeEq.name}
+                    printerType={activeEq.printer_type}
+                    autoOpenQuick={autoOpenQuickFor === activeEq.id}
+                    autoOpenToner={autoOpenTonerFor === activeEq.id}
                     onAutoOpenHandled={() => {
                       setAutoOpenQuickFor(null);
                       setAutoOpenTonerFor(null);
                     }}
                   />
                 </TabsContent>
-
-                {/* ── Histórico de Preços Tab ── */}
                 <TabsContent value="historico" className="mt-4">
-                  <ConsumablePriceHistoryTab
-                    equipmentId={eq.id}
-                    equipmentName={eq.name}
-                    consumables={activeConsumables}
-                  />
+                  <ConsumablePriceHistoryTab key={activeEq.id} equipmentId={activeEq.id} equipmentName={activeEq.name} consumables={activeConsumables} />
                 </TabsContent>
-
-                {/* ── Manutenções Tab ── */}
                 <TabsContent value="manutencoes" className="mt-4">
-                  <MaintenanceTab
-                    equipmentId={eq.id}
-                    equipmentName={eq.name}
-                    printerType={eq.printer_type}
-                  />
+                  <MaintenanceTab key={activeEq.id} equipmentId={activeEq.id} equipmentName={activeEq.name} printerType={activeEq.printer_type} />
                 </TabsContent>
-
-                {/* ── Perdas Tab ── */}
                 <TabsContent value="perdas" className="mt-4">
-                  <ProductionLossesTab
-                    equipmentId={eq.id}
-                    equipmentName={eq.name}
-                  />
+                  <ProductionLossesTab key={activeEq.id} equipmentId={activeEq.id} equipmentName={activeEq.name} />
                 </TabsContent>
-
-                {/* ── Solicitações de Manutenção Tab ── */}
                 <TabsContent value="solicitacoes" className="mt-4">
-                  <MaintenanceRequestsTab
-                    equipmentId={eq.id}
-                    equipmentName={eq.name}
-                  />
+                  <MaintenanceRequestsTab key={activeEq.id} equipmentId={activeEq.id} equipmentName={activeEq.name} />
                 </TabsContent>
-
-                {/* ── Dashboard Tab ── */}
                 <TabsContent value="dashboard" className="mt-4">
-                  <EquipmentDashboardTab
-                    equipmentId={eq.id}
-                    equipmentName={eq.name}
-                  />
+                  <EquipmentDashboardTab key={activeEq.id} equipmentId={activeEq.id} equipmentName={activeEq.name} />
                 </TabsContent>
               </Tabs>
-            </TabsContent>
-            );
-          })}
-        </Tabs>
+            </main>
+          )}
+        </div>
       )}
 
       {/* ─── Equipment Dialog ─────────────────────────────────────────── */}
@@ -926,14 +778,14 @@ export default function Equipamentos() {
               {equipErrors.name && <p className="text-xs text-destructive">{equipErrors.name}</p>}
             </div>
             <div className="space-y-2">
-              <Label>Tipo de Impressora</Label>
+              <Label>Tipo de máquina</Label>
               <Select value={equipType} onValueChange={setEquipType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pb">Preto e Branco (PB)</SelectItem>
-                  <SelectItem value="color">Color</SelectItem>
-                  <SelectItem value="ribbon">Ribbon (custo direto)</SelectItem>
-                  <SelectItem value="other">Outro</SelectItem>
+                  <SelectItem value="color">Colorida (faz P&B também)</SelectItem>
+                  <SelectItem value="pb">Só preto e branco</SelectItem>
+                  <SelectItem value="ribbon">Ribbon / cartões (custo por impressão)</SelectItem>
+                  <SelectItem value="other">Outro (plotter, recorte…)</SelectItem>
                 </SelectContent>
               </Select>
               {equipErrors.printer_type && <p className="text-xs text-destructive">{equipErrors.printer_type}</p>}
@@ -1022,8 +874,8 @@ export default function Equipamentos() {
                 {activeEq?.printer_type === "color" && (
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <Label>Só nas impressões coloridas</Label>
-                      <p className="text-xs text-muted-foreground">Ex.: toner, revelador e cilindro ciano, magenta e amarelo. Fica fora do custo preto e branco.</p>
+                      <Label>Só na página colorida</Label>
+                      <p className="text-xs text-muted-foreground">Ligue para ciano, magenta e amarelo (toner/tinta, revelador, cilindro). Desligado = entra na colorida e no preto e branco (preto, fusor, manutenção, depreciação…).</p>
                     </div>
                     <Switch checked={consColorOnly} onCheckedChange={setConsColorOnly} />
                   </div>
