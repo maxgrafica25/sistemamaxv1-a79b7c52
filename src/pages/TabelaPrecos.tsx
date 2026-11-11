@@ -1173,6 +1173,13 @@ function EnviarTinyDialog({
   const enviar = async () => {
     setEnviando(true);
     setFeitos(0);
+    // Sem o histórico funcionando, não envia (o preço antigo do Tiny precisa ficar guardado).
+    const { error: semHistorico } = await supabase.from("tiny_preco_historico").select("id").limit(1);
+    if (semHistorico) {
+      setEnviando(false);
+      toast.error("O histórico de envios ainda não está pronto no banco. Nada foi enviado ao Tiny; tente de novo mais tarde.");
+      return;
+    }
     const res = await enviarPrecosTiny(marcadas.map((l) => ({ sku: l.sku, preco: l.novo })), setFeitos);
     const porSku = new Map(res.map((r) => [r.sku, r]));
     // Histórico permanente: guarda o preço que estava no Tiny antes de cada envio.
