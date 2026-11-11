@@ -6016,6 +6016,59 @@ export type Database = {
         }
         Relationships: []
       }
+      tiny_preco_historico: {
+        Row: {
+          created_at: string
+          empresa_id: string
+          erro: string | null
+          faixa: string | null
+          id: string
+          item: string | null
+          ok: boolean
+          preco_antes: number | null
+          preco_novo: number
+          sku: string
+          user_id: string | null
+          usuario: string | null
+        }
+        Insert: {
+          created_at?: string
+          empresa_id?: string
+          erro?: string | null
+          faixa?: string | null
+          id?: string
+          item?: string | null
+          ok: boolean
+          preco_antes?: number | null
+          preco_novo: number
+          sku: string
+          user_id?: string | null
+          usuario?: string | null
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string
+          erro?: string | null
+          faixa?: string | null
+          id?: string
+          item?: string | null
+          ok?: boolean
+          preco_antes?: number | null
+          preco_novo?: number
+          sku?: string
+          user_id?: string | null
+          usuario?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tiny_preco_historico_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_google_tokens: {
         Row: {
           access_token: string

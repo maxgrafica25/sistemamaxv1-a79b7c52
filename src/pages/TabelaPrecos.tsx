@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { AlertTriangle, Copy, Info, Loader2, Pencil, Plus, RefreshCw, Search, Tags, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, Copy, History, Info, Loader2, Pencil, Plus, RefreshCw, Search, Tags, Trash2, Upload, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -154,6 +154,7 @@ export default function TabelaPrecos() {
   const [tinyErro, setTinyErro] = useState<string | null>(null);
   const [tinyCarregando, setTinyCarregando] = useState(false);
   const [envio, setEnvio] = useState<LinhaEnvio[] | null>(null);
+  const [historico, setHistorico] = useState(false);
 
   const minuteRate = hourlyRate / 60;
   const settings: PriceSettings = { feesPct, targetPct, minuteRate };
@@ -517,10 +518,22 @@ export default function TabelaPrecos() {
         ) : tinyErro ? (
           <span className="text-amber-700 dark:text-amber-400 inline-flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" /> {tinyErro}</span>
         ) : tiny ? (
-          <span className="text-muted-foreground">lidos às {new Date(tiny.lido_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} (a coluna "Tiny" mostra o preço de lá)</span>
+          <span className="text-muted-foreground">
+            lidos às {new Date(tiny.lido_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} — só leitura: nada muda no Tiny sem você clicar em "Enviar" e confirmar
+          </span>
         ) : null}
-        <Button variant="ghost" size="sm" className="h-8" disabled={tinyCarregando} onClick={() => carregarTiny(true)}>
-          <RefreshCw className={`h-4 w-4 mr-1 ${tinyCarregando ? "animate-spin" : ""}`} /> Atualizar do Tiny
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8"
+          disabled={tinyCarregando}
+          onClick={() => carregarTiny(true)}
+          title="Busca de novo os preços que estão no Tiny agora. Não muda nada, nem no Tiny nem no sistema."
+        >
+          <RefreshCw className={`h-4 w-4 mr-1 ${tinyCarregando ? "animate-spin" : ""}`} /> Reler preços do Tiny
+        </Button>
+        <Button variant="ghost" size="sm" className="h-8" onClick={() => setHistorico(true)}>
+          <History className="h-4 w-4 mr-1" /> Histórico de envios
         </Button>
         {tiny && (() => {
           const n = linhasParaEnviar(visibleItems).length;
@@ -798,6 +811,13 @@ export default function TabelaPrecos() {
               return { ...atual, produtos };
             });
           }}
+        />
+      )}
+
+      {historico && (
+        <HistoricoTinyDialog
+          onClose={() => setHistorico(false)}
+          onVoltar={(l) => { setHistorico(false); setEnvio([l]); }}
         />
       )}
 
@@ -1155,6 +1175,25 @@ function EnviarTinyDialog({
     setFeitos(0);
     const res = await enviarPrecosTiny(marcadas.map((l) => ({ sku: l.sku, preco: l.novo })), setFeitos);
     const porSku = new Map(res.map((r) => [r.sku, r]));
+    // Histórico permanente: guarda o preço que estava no Tiny antes de cada envio.
+    const { data: sessao } = await supabase.auth.getSession();
+    const { error: errHist } = await supabase.from("tiny_preco_historico").insert(
+      marcadas.filter((l) => porSku.has(l.sku)).map((l) => {
+        const r = porSku.get(l.sku)!;
+        return {
+          sku: l.sku,
+          item: l.item,
+          faixa: l.faixa,
+          preco_antes: r.ok ? (r.preco_antes ?? l.atual) : l.atual,
+          preco_novo: l.novo,
+          ok: r.ok,
+          erro: r.ok ? null : r.erro ?? null,
+          user_id: sessao.session?.user.id ?? null,
+          usuario: sessao.session?.user.email ?? null,
+        };
+      }),
+    );
+    if (errHist) handleError(errHist, "guardar o histórico do envio");
     onChange(linhas.map((l) => (porSku.has(l.sku) ? { ...l, resultado: porSku.get(l.sku) } : l)));
     onEnviado(res);
     setEnviando(false);
@@ -1168,7 +1207,7 @@ function EnviarTinyDialog({
       <DialogContent className="w-[95vw] max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Enviar preços ao Tiny</DialogTitle></DialogHeader>
         <p className="text-sm text-muted-foreground">
-          Confira e desmarque o que não quer mudar. Só o <strong>preço de venda</strong> de cada SKU é trocado no Tiny; nada muda no sistema. Não gera custo.
+          Confira e desmarque o que não quer mudar. Só o <strong>preço de venda</strong> de cada SKU é trocado no Tiny; nada muda no sistema. O preço que está no Tiny agora fica guardado no <strong>Histórico de envios</strong>, de onde dá para voltar. Não gera custo.
         </p>
         <div className="overflow-x-auto">
           <Table>
@@ -1185,7 +1224,7 @@ function EnviarTinyDialog({
                 <TableHead className="h-8">Item</TableHead>
                 <TableHead className="h-8">SKU</TableHead>
                 <TableHead className="h-8 text-right">No Tiny</TableHead>
-                <TableHead className="h-8 text-right">Novo (sistema)</TableHead>
+                <TableHead className="h-8 text-right">Vai ficar</TableHead>
                 {terminou && <TableHead className="h-8">Resultado</TableHead>}
               </TableRow>
             </TableHeader>
@@ -1232,6 +1271,102 @@ function EnviarTinyDialog({
             {marcadas.length === 0 ? (terminou ? "Tudo enviado" : "Marque o que enviar") : `Enviar ${marcadas.length} ${marcadas.length === 1 ? "preço" : "preços"} ao Tiny`}
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface RegistroHistorico {
+  id: string;
+  sku: string;
+  item: string | null;
+  faixa: string | null;
+  preco_antes: number | null;
+  preco_novo: number;
+  ok: boolean;
+  erro: string | null;
+  usuario: string | null;
+  created_at: string;
+}
+
+function HistoricoTinyDialog({ onClose, onVoltar }: { onClose: () => void; onVoltar: (l: LinhaEnvio) => void }) {
+  const [linhas, setLinhas] = useState<RegistroHistorico[] | null>(null);
+  const [busca, setBusca] = useState("");
+  useEffect(() => {
+    supabase
+      .from("tiny_preco_historico")
+      .select("id, sku, item, faixa, preco_antes, preco_novo, ok, erro, usuario, created_at")
+      .order("created_at", { ascending: false })
+      .limit(500)
+      .then(({ data, error }) => {
+        if (error) handleError(error, "carregar o histórico");
+        setLinhas((data || []) as RegistroHistorico[]);
+      });
+  }, []);
+  const q = busca.trim();
+  const visiveis = (linhas || []).filter((l) => !q || l.sku.includes(q) || matchesSearch(l.item || "", q));
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Histórico de envios ao Tiny</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Cada preço enviado fica guardado aqui com o valor que estava no Tiny antes. "Voltar" abre a conferência para devolver o preço antigo ao Tiny.
+        </p>
+        <Input placeholder="Buscar por item ou SKU" value={busca} onChange={(e) => setBusca(e.target.value)} className="h-9" />
+        {linhas === null ? (
+          <p className="text-sm text-muted-foreground py-6 text-center"><Loader2 className="h-4 w-4 animate-spin inline mr-1" /> Carregando…</p>
+        ) : visiveis.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">Nenhum envio registrado{q ? " com essa busca" : " ainda"}.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="h-8">Quando</TableHead>
+                  <TableHead className="h-8">Item</TableHead>
+                  <TableHead className="h-8">SKU</TableHead>
+                  <TableHead className="h-8 text-right">Antes</TableHead>
+                  <TableHead className="h-8 text-right">Enviado</TableHead>
+                  <TableHead className="h-8">Quem</TableHead>
+                  <TableHead className="h-8" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visiveis.map((l) => (
+                  <TableRow key={l.id}>
+                    <TableCell className="py-1.5 text-xs whitespace-nowrap">
+                      {new Date(l.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    </TableCell>
+                    <TableCell className="py-1.5">
+                      <span className="block leading-tight">{l.item || "—"}</span>
+                      {l.faixa && <span className="text-xs text-muted-foreground">Faixa {l.faixa}</span>}
+                    </TableCell>
+                    <TableCell className="py-1.5 font-mono text-xs">{l.sku}</TableCell>
+                    <TableCell className="py-1.5 text-right text-muted-foreground">{l.preco_antes === null ? "—" : fmtMoney(Number(l.preco_antes))}</TableCell>
+                    <TableCell className="py-1.5 text-right font-medium">
+                      {fmtMoney(Number(l.preco_novo))}
+                      {!l.ok && <span className="block text-xs text-red-600 font-normal">não foi: {l.erro}</span>}
+                    </TableCell>
+                    <TableCell className="py-1.5 text-xs text-muted-foreground">{l.usuario || "—"}</TableCell>
+                    <TableCell className="py-1.5">
+                      {l.ok && l.preco_antes !== null && Number(l.preco_antes) > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7"
+                          onClick={() => onVoltar({ sku: l.sku, item: l.item || l.sku, faixa: l.faixa || "—", atual: Number(l.preco_novo), novo: Number(l.preco_antes), marcado: true })}
+                        >
+                          Voltar
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        <DialogFooter><Button variant="outline" onClick={onClose}>Fechar</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   );
