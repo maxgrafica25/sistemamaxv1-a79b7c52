@@ -50,14 +50,14 @@ describe("tabela de preços", () => {
   it("custo = papel + máquina × cliques (A3 e frente e verso dobram a máquina)", () => {
     const ctx = { papers: [], equipments: [ricoh, xerox], minuteRate: s.minuteRate };
     const pb = unitCost(base, ctx);
-    expect(pb.machine).toBeCloseTo(220 / 30000 + 2100 / 80000, 5);
+    expect(pb.machine).toBeCloseTo((220 / 30000) * 4 + 2100 / 80000, 5); // P&B também com 20% de cobertura
     const a3fv = unitCost({ ...base, sheet_size: "A3", sides: 2 }, ctx);
     expect(a3fv.machine).toBeCloseTo(pb.machine * 4, 5);
-    // colorida usa 20% de cobertura (toner ×4) e todas as cores; P&B só os itens "shared"
+    // colorida e P&B com 20% de cobertura (toner ×4); P&B sem os itens "só colorida"
     const color = unitCost({ ...base, equipment_id: "xerox", color_mode: "color" }, ctx);
     expect(color.machine).toBeCloseTo((700 / 35000) * 4 * 2, 5);
     const xeroxPb = unitCost({ ...base, equipment_id: "xerox" }, ctx);
-    expect(xeroxPb.machine).toBeCloseTo(700 / 35000, 5);
+    expect(xeroxPb.machine).toBeCloseTo((700 / 35000) * 4, 5);
   });
 
   it("serviço manual = material + minutos × valor do minuto", () => {

@@ -34,7 +34,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { equipmentCost } from "@/lib/equipmentCost";
+import { equipmentCost, COBERTURA_PRODUCAO } from "@/lib/equipmentCost";
 import { handleError } from "@/lib/handleError";
 import { usePermissionGuard } from "@/lib/permissions";
 import { AdminOnly } from "@/components/AdminOnly";
@@ -234,11 +234,12 @@ export default function PrecoImpressao() {
 
     const isColorPrinter = eq?.printer_type === 'color';
     const usePB = forcePB ?? categoryCoverage <= 5;
-    const coverage = isColorPrinter ? 20 : 5;
+    // Cobertura de produção sempre 20% (decidido com o Juliano em 11/11/2026), colorida e P&B.
+    // P&B numa máquina colorida usa só o que não é "só colorida".
     const cons = equipConsumables.filter(c =>
-      c.equipment_id === equipmentId && (usePB ? c.mode === "shared" : true)
+      c.equipment_id === equipmentId && (usePB && isColorPrinter ? c.mode !== "color_only" : true)
     );
-    return equipmentCost(cons, coverage);
+    return equipmentCost(cons, COBERTURA_PRODUCAO);
   };
 
   const getEquipmentName = (id: string) => equipments.find(e => e.id === id)?.name || "—";
@@ -837,7 +838,7 @@ export default function PrecoImpressao() {
                       <Calculator className="h-4 w-4 text-accent" />
                       Tabela de Preços
                       <Badge variant={isColorCategory(cat.name) ? "default" : "secondary"} className="text-[10px] gap-1 ml-2">
-                        Cobertura {coveragePct}%
+                        {isColorCategory(cat.name) ? "Colorida" : "P&B"} · cobertura {COBERTURA_PRODUCAO}%
                       </Badge>
                     </CardTitle>
                     <div className="flex gap-2 items-center">

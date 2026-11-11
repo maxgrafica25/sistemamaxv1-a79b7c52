@@ -1,6 +1,6 @@
 // Cálculos da Tabela de Preços: custo por unidade, lucro real de cada faixa e preço mínimo.
 // Lucro real = venda − taxas sobre a venda (imposto + cartão + perda) − custo das unidades − preparação do pedido.
-import { equipmentCost, type ConsumableCostInput } from "@/lib/equipmentCost";
+import { COBERTURA_PRODUCAO, entraNoPb, equipmentCost, type ConsumableCostInput } from "@/lib/equipmentCost";
 
 /** Tempo médio de preparação de um pedido (atender, abrir o arquivo, conferir) — decidido em 28/10/2026. */
 export const PREP_MINUTES = 2.5;
@@ -66,11 +66,11 @@ export const paperSheetCost = (p: PaperCostInput, size: SheetSize): number => {
   return size === "A3" ? a4 * 2 : a4;
 };
 
-/** Custo da máquina por página A4 de um lado (colorida 20% de cobertura, P&B 5%). */
+/** Custo da máquina por página A4 de um lado: sempre 20% de cobertura (11/11/2026); P&B sem os itens "só colorida". */
 export const machinePageCost = (eq: EquipmentInput, mode: ColorMode | null): number => {
   if (eq.printer_type === "ribbon") return equipmentCost(eq.consumables.map((c) => ({ ...c, scales_with_coverage: false })), 5);
-  if (mode === "pb") return equipmentCost(eq.consumables.filter((c) => c.mode === "shared"), 5);
-  return equipmentCost(eq.consumables, 20);
+  if (mode === "pb") return equipmentCost(eq.consumables.filter(entraNoPb), COBERTURA_PRODUCAO);
+  return equipmentCost(eq.consumables, COBERTURA_PRODUCAO);
 };
 
 export interface UnitCost {
