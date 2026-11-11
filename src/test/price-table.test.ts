@@ -100,12 +100,13 @@ describe("filtros da tabela de preços", () => {
   const print = { calc_type: "impressao" as const, color_mode: "color" as const, sheet_size: "A3" as const, sides: 2 };
   it("tira papel, gramatura, tamanho, cor e lados do item", () => {
     expect(itemAttributes({ ...print, name: "Impressão Color Laser A3 Couchê 300g Frente x Verso" })).toEqual({
-      paper: "Couchê", grammage: "300g", size: "A3", color: "Colorida", sides: "Frente e verso",
+      process: "Laser", paper: "Couchê", grammage: "300g", size: "A3", color: "Colorida", sides: "Frente e verso",
     });
     expect(itemAttributes({ ...print, name: "Impressão color em Vinil Adesivo A4" }).paper).toBe("Vinil");
     expect(itemAttributes({ ...print, name: "Impressão PB ENVELOPE OFÍCIO - 11,4X22,9cm" }).paper).toBe("Envelope");
     const servico = itemAttributes({ calc_type: "manual", color_mode: null, sheet_size: "A4", sides: 1, name: "Plastificação A3 0.5mm" });
-    expect(servico).toEqual({ paper: null, grammage: null, size: "A3", color: null, sides: null });
+    expect(servico).toEqual({ process: null, paper: null, grammage: null, size: "A3", color: null, sides: null });
+    expect(itemAttributes({ ...print, name: "Impressão Color Inkjet A4 Sulfite 75g" }).process).toBe("Jato de tinta");
   });
 
   it("busca por palavras em qualquer ordem e sem acento", () => {

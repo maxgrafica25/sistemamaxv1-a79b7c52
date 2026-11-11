@@ -199,6 +199,7 @@ const PAPER_KEYS: [string, string][] = [
 ];
 
 export interface ItemAttributes {
+  process: "Laser" | "Jato de tinta" | null;
   paper: string | null;
   grammage: string | null;
   size: string | null;
@@ -215,7 +216,8 @@ export const itemAttributes = (item: Pick<PriceTableItem, "calc_type" | "color_m
   const size = isPrint ? item.sheet_size : n.match(/\ba[345]\b/)?.[0].toUpperCase() ?? null;
   const color = isPrint ? (item.color_mode === "pb" ? "P&B" : "Colorida") : null;
   const sides = isPrint ? (item.sides === 2 ? "Frente e verso" : "Só frente") : null;
-  return { paper, grammage: g ? `${g[1]}g` : null, size, color, sides };
+  const process = /inkjet|jato/.test(n) ? "Jato de tinta" : /laser/.test(n) ? "Laser" : null;
+  return { process, paper, grammage: g ? `${g[1]}g` : null, size, color, sides };
 };
 
 /** Encadeia as faixas: cada uma começa logo depois do "até" da anterior (sem buraco nem sobreposição). */

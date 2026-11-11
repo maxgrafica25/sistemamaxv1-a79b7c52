@@ -80,9 +80,11 @@ interface Paper extends PaperCostInput {
 const GROUP_ORDER = ["Impressões", "Serviços de balcão", "Personalizados"];
 const NONE = "__none__";
 const ALL = "__all__";
+const TODAS = "__todas__"; // "Todas as categorias" na lista da esquerda
 
 type FilterKey = keyof ItemAttributes | "status";
 const FILTERS: { key: FilterKey; label: string }[] = [
+  { key: "process", label: "Impressão" },
   { key: "paper", label: "Papel" },
   { key: "grammage", label: "Gramatura" },
   { key: "size", label: "Tamanho" },
@@ -95,7 +97,7 @@ const STATUS_LABELS: Record<string, string> = {
   sem_custo: "Falta custo",
   erro: "Faixa com erro ou papel sem custo",
 };
-const EMPTY_FILTERS: Record<FilterKey, string> = { paper: "", grammage: "", size: "", color: "", sides: "", status: "" };
+const EMPTY_FILTERS: Record<FilterKey, string> = { process: "", paper: "", grammage: "", size: "", color: "", sides: "", status: "" };
 const sortOptions = (a: string, b: string) => a.localeCompare(b, "pt-BR", { numeric: true });
 
 const parseNum = (v: string) => {
@@ -215,6 +217,7 @@ export default function TabelaPrecos() {
       const tierErrors = tierProblems(list).some((p) => !p.message.startsWith("Degrau"));
       if (tierErrors || (item.calc_type === "impressao" && cost.paper <= 0)) status.push("erro");
       m.set(item.id, {
+        process: a.process ? [a.process] : [],
         paper: a.paper ? [a.paper] : [],
         grammage: a.grammage ? [a.grammage] : [],
         size: a.size ? [a.size] : [],
@@ -228,7 +231,10 @@ export default function TabelaPrecos() {
 
   const filtering = !!search.trim() || Object.values(filters).some(Boolean);
 
+  const todas = selectedCat === TODAS;
+  // Filtros e busca valem dentro da categoria selecionada (ou em todas, se escolhido "Todas as categorias").
   const passes = (item: Item, skip?: FilterKey) => {
+    if (!todas && item.category_id !== selectedCat) return false;
     const f = facets.get(item.id);
     for (const { key } of FILTERS) {
       if (key === skip || !filters[key]) continue;
@@ -251,17 +257,17 @@ export default function TabelaPrecos() {
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, facets, filters, search, tiersByItem]);
+  }, [items, facets, filters, search, tiersByItem, selectedCat]);
 
   const visibleItems = useMemo(() => {
-    const list = filtering ? items.filter((i) => passes(i)) : items.filter((i) => i.category_id === selectedCat);
+    const list = items.filter((i) => passes(i));
     return [...list].sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { numeric: true }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, filtering, filters, search, selectedCat, tiersByItem, facets]);
 
   const qty = Math.max(0, Math.floor(parseNum(qtyText) || 0));
   const clearFilters = () => { setSearch(""); setFilters(EMPTY_FILTERS); };
-  const pickCategory = (id: string) => { setSelectedCat(id); clearFilters(); };
+  const pickCategory = (id: string) => setSelectedCat(id); // mantém os filtros: passam a valer na categoria escolhida
 
   const countByCat = useMemo(() => {
     const m = new Map<string, number>();
@@ -470,10 +476,18 @@ export default function TabelaPrecos() {
             <Select value={selectedCat || undefined} onValueChange={pickCategory}>
               <SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger>
               <SelectContent>
+                <SelectItem value={TODAS}>Todas as categorias ({items.length})</SelectItem>
                 {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.group_name} · {c.name} ({countByCat.get(c.id) || 0})</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
+          <button
+            onClick={() => pickCategory(TODAS)}
+            className={`hidden md:flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-left border-l-4 ${todas ? "border-primary bg-primary text-primary-foreground font-semibold" : "border-transparent hover:bg-muted"}`}
+          >
+            <span>Todas as categorias</span>
+            <span className={`text-xs ${todas ? "" : "text-muted-foreground"}`}>{items.length}</span>
+          </button>
           {groups.map((g) => (
             <div key={g.name} className="hidden md:block">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-2 mb-1">{g.name}</p>
@@ -481,10 +495,10 @@ export default function TabelaPrecos() {
                 <button
                   key={c.id}
                   onClick={() => pickCategory(c.id)}
-                  className={`w-full flex items-center justify-between rounded-md px-2 py-1.5 text-sm text-left hover:bg-muted ${!filtering && selectedCat === c.id ? "bg-primary/10 text-primary font-medium" : ""}`}
+                  className={`w-full flex items-center justify-between rounded-md px-2 py-1.5 text-sm text-left border-l-4 ${selectedCat === c.id ? "border-primary bg-primary text-primary-foreground font-semibold" : "border-transparent hover:bg-muted"}`}
                 >
                   <span className="truncate">{c.name}</span>
-                  <span className="text-xs text-muted-foreground">{countByCat.get(c.id) || 0}</span>
+                  <span className={`text-xs ${selectedCat === c.id ? "" : "text-muted-foreground"}`}>{countByCat.get(c.id) || 0}</span>
                 </button>
               ))}
             </div>
@@ -497,7 +511,15 @@ export default function TabelaPrecos() {
         {/* Itens */}
         <main className="flex-1 min-w-0 space-y-3">
           <div className="rounded-lg border bg-card p-3 space-y-2">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
+            <p className="text-sm">
+              Filtrando em: <strong className="text-primary">{todas ? "todas as categorias" : currentCat?.name}</strong>
+              {!todas && (
+                <button className="ml-2 underline text-muted-foreground hover:text-foreground" onClick={() => pickCategory(TODAS)}>
+                  buscar em todas
+                </button>
+              )}
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2">
               {FILTERS.map(({ key, label }) => (
                 <div key={key} className={key === "status" ? "col-span-2 sm:col-span-1 lg:col-span-2" : ""}>
                   <Label className="text-xs text-muted-foreground">{label}</Label>
@@ -532,9 +554,14 @@ export default function TabelaPrecos() {
 
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <h2 className="text-lg font-semibold">
-              {filtering ? `${visibleItems.length} ${visibleItems.length === 1 ? "item encontrado" : "itens encontrados"} em todas as categorias` : currentCat?.name}
+              {todas ? "Todas as categorias" : currentCat?.name}
+              {filtering && (
+                <span className="text-sm font-normal text-muted-foreground ml-2">
+                  · {visibleItems.length} {visibleItems.length === 1 ? "item encontrado" : "itens encontrados"}
+                </span>
+              )}
             </h2>
-            {!filtering && currentCat && (
+            {!todas && currentCat && (
               <div className="flex gap-2">
                 <Button variant="ghost" size="sm" onClick={() => openCategory(currentCat)}><Pencil className="h-4 w-4 mr-1" /> Categoria</Button>
                 {!countByCat.get(currentCat.id) && (
@@ -564,7 +591,7 @@ export default function TabelaPrecos() {
                   <div className="min-w-0">
                     <p className="font-medium leading-tight">{item.name}</p>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {filtering && <Badge variant="outline">{categories.find((c) => c.id === item.category_id)?.name}</Badge>}
+                      {todas && <Badge variant="outline">{categories.find((c) => c.id === item.category_id)?.name}</Badge>}
                       {item.calc_type === "impressao" && (
                         <>
                           {eq && <Badge variant="secondary">{eq.name}</Badge>}
