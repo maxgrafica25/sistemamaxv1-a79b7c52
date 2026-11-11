@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   calcular,
   selecionarBastao,
+  areaRoloPorPeca,
   type Midia,
   type Impressao,
   type Acabamento,
@@ -163,5 +164,85 @@ describe("Sangria por tipo de mídia (planilha AK15)", () => {
       sangrias_mm: { adesivo: 0 },
     });
     expect(r.area_m2).toBeCloseTo(0.36, 4);
+  });
+});
+
+describe("mídia cobrada pela largura do rolo", () => {
+  const lonaTerceirizado: Midia = {
+    id: "mt", nome: "Lona Sem Impressão (Terceirizado)", tipo_midia: "lona",
+    custo_mt2: 10, lucro_mt2: 10, custo_fixo: 0, lucro_fixo: 0, largura_rolo_cm: 190,
+  };
+  const base = { midia: lonaTerceirizado, impressao: null, valor_minimo: 35 };
+
+  it("areaRoloPorPeca escolhe o sentido que gasta menos rolo", () => {
+    expect(areaRoloPorPeca(300, 180, 190)).toBeCloseTo(5.7, 6);
+    expect(areaRoloPorPeca(180, 300, 190)).toBeCloseTo(5.7, 6);
+    // 3 × 1 m: peça inteira (1,90 × 3,00), nunca duas faixas emendadas
+    expect(areaRoloPorPeca(300, 100, 190)).toBeCloseTo(5.7, 6);
+    // os dois lados cabem: atravessa o maior (1,90 × 1,00)
+    expect(areaRoloPorPeca(100, 150, 190)).toBeCloseTo(1.9, 6);
+    // não cabe em nenhum sentido: 2 faixas de 190 × 250
+    expect(areaRoloPorPeca(300, 250, 190)).toBeCloseTo(9.5, 6);
+  });
+
+  it("2 lonas 3 × 1,8 m = 11,4 m² × R$ 20 = R$ 228", () => {
+    const r = calcular({ ...base, largura_cm: 300, altura_cm: 180, quantidade: 2 });
+    expect(r.area_m2).toBeCloseTo(10.8, 6);
+    expect(r.area_midia_m2).toBeCloseTo(11.4, 6);
+    expect(r.valor_total).toBe(228);
+    expect(r.custo_total).toBeCloseTo(114, 6);
+  });
+
+  it("sem largura de rolo continua cobrando só a área da peça", () => {
+    const r = calcular({ ...base, midia: { ...lonaTerceirizado, largura_rolo_cm: null },
+      largura_cm: 300, altura_cm: 180, quantidade: 2 });
+    expect(r.area_midia_m2).toBeCloseTo(10.8, 6);
+    expect(r.valor_total).toBe(216);
+  });
+});
+
+describe("mídia com impressão já no preço (terceirizado)", () => {
+  const lonaImpressaTerc: Midia = {
+    id: "mti", nome: "Lona Impressa (Terceirizado)", tipo_midia: "lona",
+    custo_mt2: 22.3, lucro_mt2: 22.7, custo_fixo: 0, lucro_fixo: 0, sem_impressao_separada: true,
+  };
+  it("ignora a impressão escolhida: 1 × 1 m = R$ 45", () => {
+    const r = calcular({ largura_cm: 100, altura_cm: 100, quantidade: 1,
+      midia: lonaImpressaTerc, impressao: solventeAlta, valor_minimo: 35 });
+    expect(r.preco_impressao).toBe(0);
+    expect(r.valor_total).toBe(45);
+  });
+});
+
+describe("acabamentos de terceirizado (custo ÷ 0,62)", () => {
+  const lona: Midia = { id: "l", nome: "Lona Impressa (Terceirizado)", tipo_midia: "lona",
+    custo_mt2: 22.3, lucro_mt2: 22.7, custo_fixo: 0, lucro_fixo: 0, sem_impressao_separada: true };
+  const base: Omit<Acabamento, "id" | "nome" | "familia"> = {
+    tipos_midia_compativeis: ["lona"], custo_fixo: 0, lucro_fixo: 0, custo_mt2: 0, lucro_mt2: 0,
+    custo_perimetro: 0, lucro_perimetro: 0, custo_unidade: 0, lucro_unidade: 0, largura_max_cm: null,
+    pricing_mode: "recipe", markup_override_pct: 38,
+  };
+  const banner105: Acabamento = { ...base, id: "b", nome: "Banner até 1,05 m (Terceirizado)", familia: "outro",
+    extra_cost_unidade: 6.28, labor: [
+      { descricao: "Refile", time_minutes: 1.6, consumo_tipo: "por_mt2", consumo_qty: 1 },
+      { descricao: "Solda", time_minutes: 2.1, consumo_tipo: "por_peca", consumo_qty: 1 },
+      { descricao: "Bastão", time_minutes: 2.8, consumo_tipo: "por_peca", consumo_qty: 1 },
+    ] };
+  const bainha: Acabamento = { ...base, id: "bi", nome: "Bainha e Ilhós (Terceirizado)", familia: "bainha_ilhos",
+    extra_cost_perimetro: 0.93, labor: [
+      { descricao: "Refile", time_minutes: 1.6, consumo_tipo: "por_mt2", consumo_qty: 1 },
+      { descricao: "Bainha + ilhós", time_minutes: 5.4, consumo_tipo: "por_perimetro_m", consumo_qty: 1 },
+    ] };
+  const hourRate = 48.6; // R$ 0,81/min
+  const acab = (ac: Acabamento, l: number, a: number) =>
+    calcular({ largura_cm: l, altura_cm: a, quantidade: 1, midia: lona, impressao: null,
+      acabamentos: [{ acabamento: ac }], valor_minimo: 0, hourRate }).preco_acabamento;
+
+  it("banner 90×120: (6,28 + 6,63 min × 0,81) ÷ 0,62 ≈ R$ 18,80", () => {
+    expect(acab(banner105, 90, 120)).toBeCloseTo(18.8, 1);
+  });
+  it("lona 300×180 com bainha e ilhós ≈ R$ 93", () => {
+    expect(acab(bainha, 300, 180)).toBeGreaterThan(90);
+    expect(acab(bainha, 300, 180)).toBeLessThan(96);
   });
 });

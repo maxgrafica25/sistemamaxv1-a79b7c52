@@ -123,6 +123,7 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
   // Impressoras compatíveis com a mídia selecionada
   const impressoesCompat = useMemo(() => {
     if (!midia) return cat.impressoes;
+    if (midia.sem_impressao_separada) return [];
     return cat.impressoes.filter((i) =>
       !i.tipos_midia_compativeis?.length ||
       i.tipos_midia_compativeis.includes(midia.tipo_midia),
@@ -489,7 +490,9 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
         <Field label="Resolução de impressão">
           {impressoesCompat.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Nenhuma resolução compatível disponível
+              {midia.sem_impressao_separada
+                ? "Impressão já definida no preço desta mídia"
+                : "Nenhuma resolução compatível disponível"}
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
@@ -574,6 +577,11 @@ export function CVForm({ onAdd, onAddTiers }: Props) {
         <span className="text-muted-foreground">Área total</span>
         <span className="font-semibold tabular-nums">
           {(result?.area_m2 ?? 0).toFixed(2).replace(".", ",")} m²
+          {result && result.area_midia_m2 > result.area_m2 + 1e-6 && (
+            <span className="ml-2 text-amber-600 text-xs">
+              · cobrado {result.area_midia_m2.toFixed(2).replace(".", ",")} m² (largura do rolo)
+            </span>
+          )}
           {result?.emenda_impressao && (
             <span className="ml-2 text-amber-600 text-xs">· com emenda</span>
           )}

@@ -14,6 +14,334 @@ export type Database = {
   }
   public: {
     Tables: {
+      atendimento_mensagens: {
+        Row: {
+          anexo_nome: string | null
+          anexo_path: string | null
+          atendimento_id: string
+          conteudo: string
+          created_at: string
+          empresa_id: string
+          id: string
+          tipo: string
+          user_id: string | null
+        }
+        Insert: {
+          anexo_nome?: string | null
+          anexo_path?: string | null
+          atendimento_id: string
+          conteudo?: string
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          tipo?: string
+          user_id?: string | null
+        }
+        Update: {
+          anexo_nome?: string | null
+          anexo_path?: string | null
+          atendimento_id?: string
+          conteudo?: string
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          tipo?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atendimento_mensagens_atendimento_id_fkey"
+            columns: ["atendimento_id"]
+            isOneToOne: false
+            referencedRelation: "atendimentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimento_mensagens_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      atendimentos: {
+        Row: {
+          aguardando_desde: string | null
+          arquivado_em: string | null
+          canal: string
+          client_id: string | null
+          contato_nome: string | null
+          created_at: string
+          created_by: string | null
+          empresa_id: string
+          etapa_id: string
+          id: string
+          quote_id: string | null
+          responsavel_id: string | null
+          retorno_em: string | null
+          retorno_nota: string | null
+          sales_order_id: string | null
+          titulo: string
+          ultima_atividade_em: string
+          updated_at: string
+        }
+        Insert: {
+          aguardando_desde?: string | null
+          arquivado_em?: string | null
+          canal?: string
+          client_id?: string | null
+          contato_nome?: string | null
+          created_at?: string
+          created_by?: string | null
+          empresa_id?: string
+          etapa_id: string
+          id?: string
+          quote_id?: string | null
+          responsavel_id?: string | null
+          retorno_em?: string | null
+          retorno_nota?: string | null
+          sales_order_id?: string | null
+          titulo?: string
+          ultima_atividade_em?: string
+          updated_at?: string
+        }
+        Update: {
+          aguardando_desde?: string | null
+          arquivado_em?: string | null
+          canal?: string
+          client_id?: string | null
+          contato_nome?: string | null
+          created_at?: string
+          created_by?: string | null
+          empresa_id?: string
+          etapa_id?: string
+          id?: string
+          quote_id?: string | null
+          responsavel_id?: string | null
+          retorno_em?: string | null
+          retorno_nota?: string | null
+          sales_order_id?: string | null
+          titulo?: string
+          ultima_atividade_em?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atendimentos_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "crm_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_etiquetas: {
+        Row: {
+          client_id: string
+          created_at: string
+          empresa_id: string
+          etiqueta_id: string
+          id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          empresa_id?: string
+          etiqueta_id: string
+          id?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          empresa_id?: string
+          etiqueta_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_etiquetas_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_etiquetas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_etiquetas_etiqueta_id_fkey"
+            columns: ["etiqueta_id"]
+            isOneToOne: false
+            referencedRelation: "crm_etiquetas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_etapas: {
+        Row: {
+          cor: string
+          created_at: string
+          empresa_id: string
+          id: string
+          is_archived: boolean
+          is_final: boolean
+          nome: string
+          retorno_auto_dias: number | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          cor?: string
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          is_archived?: boolean
+          is_final?: boolean
+          nome: string
+          retorno_auto_dias?: number | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          cor?: string
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          is_archived?: boolean
+          is_final?: boolean
+          nome?: string
+          retorno_auto_dias?: number | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_etapas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_etiquetas: {
+        Row: {
+          cor: string
+          created_at: string
+          empresa_id: string
+          id: string
+          nome: string
+          prioridade: boolean
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          cor?: string
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          nome: string
+          prioridade?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          cor?: string
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          nome?: string
+          prioridade?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_etiquetas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_modelos_mensagem: {
+        Row: {
+          atalho: string
+          created_at: string
+          empresa_id: string
+          id: string
+          is_active: boolean
+          sort_order: number
+          texto: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          atalho: string
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          texto: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          atalho?: string
+          created_at?: string
+          empresa_id?: string
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          texto?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_modelos_mensagem_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts_receivable: {
         Row: {
           category: string
@@ -865,6 +1193,7 @@ export type Database = {
           sort_order: number
           time_minutes: number
           updated_at: string
+          validado: boolean
         }
         Insert: {
           acabamento_id: string
@@ -878,6 +1207,7 @@ export type Database = {
           sort_order?: number
           time_minutes?: number
           updated_at?: string
+          validado?: boolean
         }
         Update: {
           acabamento_id?: string
@@ -891,6 +1221,7 @@ export type Database = {
           sort_order?: number
           time_minutes?: number
           updated_at?: string
+          validado?: boolean
         }
         Relationships: [
           {
@@ -1219,9 +1550,11 @@ export type Database = {
           custo_mt2: number
           empresa_id: string
           id: string
+          largura_rolo_cm: number | null
           lucro_fixo: number
           lucro_mt2: number
           nome: string
+          sem_impressao_separada: boolean
           sort_order: number
           tipo_midia: string
           updated_at: string
@@ -1233,9 +1566,11 @@ export type Database = {
           custo_mt2?: number
           empresa_id?: string
           id?: string
+          largura_rolo_cm?: number | null
           lucro_fixo?: number
           lucro_mt2?: number
           nome: string
+          sem_impressao_separada?: boolean
           sort_order?: number
           tipo_midia: string
           updated_at?: string
@@ -1247,9 +1582,11 @@ export type Database = {
           custo_mt2?: number
           empresa_id?: string
           id?: string
+          largura_rolo_cm?: number | null
           lucro_fixo?: number
           lucro_mt2?: number
           nome?: string
+          sem_impressao_separada?: boolean
           sort_order?: number
           tipo_midia?: string
           updated_at?: string
@@ -3872,6 +4209,7 @@ export type Database = {
           is_active: boolean
           is_financeiro: boolean
           role: string
+          somente_pre_impressao: boolean
           updated_at: string
           user_id: string
         }
@@ -3884,6 +4222,7 @@ export type Database = {
           is_active?: boolean
           is_financeiro?: boolean
           role?: string
+          somente_pre_impressao?: boolean
           updated_at?: string
           user_id: string
         }
@@ -3896,6 +4235,7 @@ export type Database = {
           is_active?: boolean
           is_financeiro?: boolean
           role?: string
+          somente_pre_impressao?: boolean
           updated_at?: string
           user_id?: string
         }

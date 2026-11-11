@@ -383,7 +383,9 @@ function ItemCard({
   isAdmin, canRemove, onChange, onClone, onRemove,
 }: ItemCardProps) {
   const tipo = midia?.tipo_midia ?? null;
-  const impressoesCompat = tipo
+  const impressoesCompat = midia?.sem_impressao_separada
+    ? []
+    : tipo
     ? impressoes.filter((i) => i.tipos_midia_compativeis.includes(tipo))
     : impressoes;
   const acabamentosCompat = filterAndSortForMidia(acabamentos, tipo);
@@ -541,9 +543,9 @@ function ItemCard({
 
           <div>
             <Label className="text-xs">Impressão</Label>
-            <Select value={item.impressaoId} onValueChange={(v) => onChange({ impressaoId: v })} disabled={!midia}>
+            <Select value={item.impressaoId} onValueChange={(v) => onChange({ impressaoId: v })} disabled={!midia || !!midia.sem_impressao_separada}>
               <SelectTrigger>
-                <SelectValue placeholder={midia ? "Selecione" : "Escolha a mídia"} />
+                <SelectValue placeholder={!midia ? "Escolha a mídia" : midia.sem_impressao_separada ? "Já no preço da mídia" : "Selecione"} />
               </SelectTrigger>
               <SelectContent>
                 {impressoesCompat.map((i) => (
@@ -625,6 +627,11 @@ function ItemCard({
             {res.area_m2 > 0 && (
               <span className="tabular-nums">
                 {res.area_m2.toFixed(2)} m² · {res.perim_m.toFixed(2)} m
+              </span>
+            )}
+            {res.area_midia_m2 > res.area_m2 + 1e-6 && (
+              <span className="tabular-nums text-amber-600 dark:text-amber-400">
+                cobrado {res.area_midia_m2.toFixed(2)} m² (largura do rolo)
               </span>
             )}
             {res.emenda_impressao && (
@@ -709,6 +716,9 @@ function ResumoItem({
       {open && (
         <div className="border-t bg-muted/30 px-2.5 py-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
           <Mini label="Área" value={`${res.area_m2.toFixed(2)} m²`} />
+          {res.area_midia_m2 > res.area_m2 + 1e-6 && (
+            <Mini label="Área cobrada (rolo)" value={`${res.area_midia_m2.toFixed(2)} m²`} />
+          )}
           <Mini label="Perímetro" value={`${res.perim_m.toFixed(2)} m`} />
           <Mini label="Mídia" value={formatBRL(res.preco_midia)} />
           <Mini label="Impressão" value={formatBRL(res.preco_impressao)} />

@@ -9,6 +9,7 @@ interface Profile {
   avatar_url: string | null;
   role: string;
   is_financeiro: boolean;
+  somente_pre_impressao: boolean;
 }
 
 interface AuthCtx {
@@ -55,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("id, user_id, display_name, avatar_url, role, is_financeiro")
+      .select("id, user_id, display_name, avatar_url, role, is_financeiro, somente_pre_impressao")
       .eq("user_id", userId)
       .single();
     if (data) setProfile(data as Profile);

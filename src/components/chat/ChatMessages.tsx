@@ -8,6 +8,29 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { VisualizadorPdf, type PdfParaAbrir } from "@/components/shared/VisualizadorPdf";
+import { renovarLink } from "@/lib/anexos";
+
+/** Imagem do chat: se o link guardado venceu, gera um novo sozinho. */
+function ImagemAnexo({ url, nome }: { url: string; nome: string | null }) {
+  const [src, setSrc] = useState(url);
+  const tentou = useRef(false);
+  return (
+    <a href={src} target="_blank" rel="noopener noreferrer" className="mt-1 block">
+      <img
+        src={src}
+        alt={nome || "Imagem"}
+        onError={() => {
+          if (tentou.current) return;
+          tentou.current = true;
+          void renovarLink(url).then((novo) => { if (novo !== url) setSrc(novo); });
+        }}
+        className="max-w-[240px] max-h-[180px] rounded-lg border border-border object-cover"
+      />
+      <span className="text-[10px] text-muted-foreground mt-0.5 block">{nome}</span>
+    </a>
+  );
+}
 
 interface Message {
   id: string;
@@ -37,6 +60,7 @@ export default function ChatMessages({ messages, onReply, onRefresh }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [pdf, setPdf] = useState<PdfParaAbrir | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -162,41 +186,31 @@ export default function ChatMessages({ messages, onReply, onRefresh }: Props) {
                   const isPdf = /\.pdf$/i.test(name);
 
                   if (isImage) {
-                    return (
-                      <a href={msg.attachment_url!} target="_blank" rel="noopener noreferrer" className="mt-1 block">
-                        <img
-                          src={msg.attachment_url!}
-                          alt={msg.attachment_name || "Imagem"}
-                          className="max-w-[240px] max-h-[180px] rounded-lg border border-border object-cover"
-                        />
-                        <span className="text-[10px] text-muted-foreground mt-0.5 block">{msg.attachment_name}</span>
-                      </a>
-                    );
+                    return <ImagemAnexo url={msg.attachment_url!} nome={msg.attachment_name} />;
                   }
 
                   if (isPdf) {
                     return (
-                      <a
-                        href={msg.attachment_url!}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => setPdf({ nome: msg.attachment_name || "Documento.pdf", obterUrl: () => renovarLink(msg.attachment_url!) })}
+                        title="Abrir o PDF aqui no sistema"
                         className="mt-1 inline-flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs hover:bg-muted transition-colors"
                       >
                         <span className="flex h-8 w-8 items-center justify-center rounded bg-red-100 text-red-600 text-[10px] font-bold">PDF</span>
                         <span className="truncate max-w-[180px]">{msg.attachment_name || "Documento PDF"}</span>
-                      </a>
+                      </button>
                     );
                   }
 
                   return (
-                    <a
-                      href={msg.attachment_url!}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => void renovarLink(msg.attachment_url!).then((u) => window.open(u, "_blank", "noopener,noreferrer"))}
                       className="mt-1 inline-flex items-center gap-1.5 rounded bg-muted px-2 py-1 text-xs text-primary hover:underline"
                     >
                       📎 {msg.attachment_name || "Anexo"}
-                    </a>
+                    </button>
                   );
                 })()}
 
@@ -260,6 +274,7 @@ export default function ChatMessages({ messages, onReply, onRefresh }: Props) {
         );
       })}
       <div ref={bottomRef} />
+      <VisualizadorPdf arquivo={pdf} onClose={() => setPdf(null)} />
     </div>
   );
 }
