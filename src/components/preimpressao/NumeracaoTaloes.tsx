@@ -10,6 +10,7 @@ import { PT_POR_CM, detectarTipo } from "@/lib/preimpressao/margem";
 import { SANGRIA_PADRAO_MM } from "@/lib/preimpressao/folha";
 import { AjudaTamanhoFinal } from "./AjudaTamanhoFinal";
 import { useSangriaAutomatica } from "./sangriaAuto";
+import { PreviaArteComGuias } from "./PreviaArte";
 import { SangriaBloco } from "./SangriaBloco";
 import {
   COR_PADRAO,
@@ -207,6 +208,7 @@ const fmtCm = (pt: number) => (pt / PT_POR_CM).toLocaleString("pt-BR", { maximum
 export default function NumeracaoTaloes() {
   const [config, setConfig] = useState<Config>(lerConfig);
   const [arteOriginal, setArte] = useState<Arte | null>(null);
+  const [abaPrevia, setAbaPrevia] = useState<"numero" | "arte">("numero");
   const [carregando, setCarregando] = useState(false);
   const [erroArte, setErroArte] = useState<string | null>(null);
   const [gerando, setGerando] = useState(false);
@@ -251,6 +253,8 @@ export default function NumeracaoTaloes() {
         : arteOriginal,
     [config.modo, sa.criar, sa.arteEfetiva, imagemSangria, arteOriginal],
   );
+
+  const mostrarArte = config.modo === "solto" && !!arteOriginal && abaPrevia === "arte";
 
   // Qualquer mudança invalida o PDF já gerado
   useEffect(() => {
@@ -350,12 +354,9 @@ export default function NumeracaoTaloes() {
             <SangriaBloco
               sa={sa}
               sangriaTxt={config.sangria}
-              sangriaMm={entre(config.sangria, 0, 20)}
               onSangria={(v) => set("sangria", v)}
               sangriaPdf={arteOriginal.sangriaPdf}
-              paginas={arteOriginal.paginas}
               nomeBase={arteOriginal.nome.replace(/\.[^.]+$/, "")}
-              larguraArte={arteOriginal}
             />
           )}
 
@@ -501,11 +502,28 @@ export default function NumeracaoTaloes() {
           <div>
             <h3 className="text-base font-semibold tracking-tight">Pré-visualização</h3>
             <p className="text-xs text-muted-foreground">
-              {arte ? "Clique ou arraste na arte para escolher onde fica o número." : "Envie a arte para ver a pré-visualização."}
+              {!arte
+                ? "Envie a arte para ver a pré-visualização."
+                : mostrarArte
+                  ? "A arte com a linha de corte e a margem de segurança do texto."
+                  : "Clique ou arraste na arte para escolher onde fica o número."}
             </p>
           </div>
 
-          {arte ? (
+          {config.modo === "solto" && arteOriginal && (
+            <Segmentado<"numero" | "arte">
+              valor={abaPrevia}
+              opcoes={[
+                { valor: "numero" as const, rotulo: "Posição do número" },
+                { valor: "arte" as const, rotulo: "Arte e sangria" },
+              ]}
+              onChange={setAbaPrevia}
+            />
+          )}
+
+          {mostrarArte ? (
+            <PreviaArteComGuias arte={arte} sangriaMm={entre(config.sangria, 0, 20)} sa={sa} ocupado={sa.gerando} />
+          ) : arte ? (
             <PreviaClicavel
               arte={arte}
               celulas={config.modo === "montado" && encaixe ? encaixe.celulas : [{ x: 0, y: 0, w: arte.w, h: arte.h, rot: 0 }]}
