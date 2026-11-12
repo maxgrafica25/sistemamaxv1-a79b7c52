@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { PDFDocument } from "pdf-lib";
+import { deflateSync } from "node:zlib";
+import { PDFDocument, rgb } from "pdf-lib";
+import { chunkPng } from "@/lib/preimpressao/margem";
 import { PT_POR_MM } from "@/lib/preimpressao/folha";
-import { diaDaSemana, fasesDaLua, feriadosNacionais, gerarMiolo, miolosEmA4, pascoa, planejarPaginas, todosOsFeriados } from "@/lib/preimpressao/agenda";
+import { diaDaSemana, fasesDaLua, feriadosNacionais, gerarCapas, gerarMiolo, miolosEmA4, pascoa, planejarPaginas, semanasDoAno, todosOsFeriados, type Imagem } from "@/lib/preimpressao/agenda";
 
 describe("Páscoa e feriados nacionais", () => {
   it("Páscoa de 2025, 2026 e 2027", () => {
@@ -110,4 +112,92 @@ describe("gerar o PDF", () => {
     expect(a4.getPage(0).getWidth()).toBeCloseTo(297 * PT_POR_MM, 1);
     expect(a4.getPage(0).getHeight()).toBeCloseTo(210 * PT_POR_MM, 1);
   }, 60000);
+});
+
+function pngMini(w: number, h: number): Imagem {
+  const sig = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const ihdr = new Uint8Array(13);
+  const dv = new DataView(ihdr.buffer);
+  dv.setUint32(0, w);
+  dv.setUint32(4, h);
+  ihdr.set([8, 2, 0, 0, 0], 8);
+  const linhas = new Uint8Array(h * (1 + w * 3));
+  for (let y = 0; y < h; y++) for (let x = 0; x < w * 3; x++) linhas[y * (1 + w * 3) + 1 + x] = (x * 7 + y * 13) % 256;
+  const partes = [sig, chunkPng("IHDR", ihdr), chunkPng("IDAT", new Uint8Array(deflateSync(linhas))), chunkPng("IEND", new Uint8Array(0))];
+  const bytes = new Uint8Array(partes.reduce((t, x) => t + x.length, 0));
+  let o = 0;
+  for (const x of partes) {
+    bytes.set(x, o);
+    o += x.length;
+  }
+  return { bytes, tipo: "png", w, h };
+}
+
+describe("modelo semanal e páginas do cliente", () => {
+  it("semanas de segunda a domingo: a 1ª começa na quinta (1º de janeiro de 2026) e todo dia aparece uma vez", () => {
+    const s = semanasDoAno(2026);
+    expect(s[0].dias.map((d) => (d ? `${d.dia}/${d.mes}` : null))).toEqual([null, null, null, "1/1", "2/1", "3/1", "4/1"]);
+    expect(s[0].mes).toBe(1);
+    expect(s.flatMap((x) => x.dias).filter(Boolean)).toHaveLength(365);
+    expect(s[s.length - 1].dias.some((d) => d === null)).toBe(true); // a última semana passa de 31/12
+  });
+
+  it("semanal: planejamento na página da direita (ímpar), duas páginas por semana, total par", () => {
+    const p = planejarPaginas(2026, null, { modelo: "semanal" });
+    p.paginaDoMes.forEach((i) => expect((i + 1) % 2).toBe(1));
+    const semanas = p.paginas.filter((x) => x.tipo === "semana");
+    expect(semanas).toHaveLength(2 * semanasDoAno(2026).length);
+    expect(semanas[0]).toMatchObject({ lado: "esq" });
+    expect(semanas[1]).toMatchObject({ lado: "dir" });
+    expect(p.paginas.length % 2).toBe(0);
+  });
+
+  it("páginas do cliente entram no início, antes de um mês e no fim, sem estragar a regra do planejamento", () => {
+    const p = planejarPaginas(2026, null, { extras: [{ posicao: "inicio", paginas: 3 }, { posicao: 3, paginas: 2 }, { posicao: "fim", paginas: 1 }] });
+    const idx = (item: number) => p.paginas.map((x, i) => (x.tipo === "extra" && x.item === item ? i : -1)).filter((i) => i >= 0);
+    expect(idx(0)).toEqual([5, 6, 7]);
+    expect(idx(1)).toHaveLength(2);
+    expect(idx(1)[0]).toBeLessThan(p.paginaDoMes[2]);
+    expect(idx(1)[0]).toBeGreaterThan(p.paginaDoMes[1]);
+    expect(idx(2)[0]).toBeGreaterThan(p.paginaDoMes[11]);
+    p.paginaDoMes.forEach((i) => expect((i + 1) % 2).toBe(0));
+    expect(p.paginas.length % 2).toBe(0);
+  });
+});
+
+describe("gerar com a identidade do cliente", () => {
+  it("logo, rodapé, marca-d'água (logo e texto), páginas do cliente, semanal e horas diferentes", async () => {
+    const outro = await PDFDocument.create();
+    outro.addPage([400, 600]).drawRectangle({ x: 20, y: 20, width: 100, height: 100, color: rgb(0.2, 0.4, 0.8) });
+    const logo = pngMini(60, 30);
+    const base = {
+      ano: 2027,
+      capa: "PLANNER",
+      regionais: [],
+      identidade: { logo, rodape: "Padaria do João · (51) 99999-9999", logoNaCapa: true, logoNoVerso: true, rodapeEmTodas: true },
+      extras: [
+        { nome: "tabela.pdf", bytes: await outro.save(), tipo: "pdf" as const, posicao: "inicio" as const, paginas: 1 },
+        { nome: "mapa.png", bytes: pngMini(50, 80).bytes, tipo: "png" as const, posicao: 6, paginas: 1 },
+      ],
+    };
+    const a = await gerarMiolo({ ...base, marcaDagua: { ativa: true, tipo: "logo", logo, opacidade: 0.08, escala: 50, onde: "todas" }, horaInicio: 7, horaFim: 20, estiloDia: "linhas", semanaComeca: "seg", destaque: true, luas: false });
+    const da = await PDFDocument.load(a.bytes);
+    expect(da.getPageCount()).toBe(a.plano.paginas.length);
+    expect(a.plano.paginas.filter((x) => x.tipo === "extra")).toHaveLength(2);
+    const b = await gerarMiolo({ ...base, modelo: "semanal", marcaDagua: { ativa: true, tipo: "texto", texto: "PADARIA DO JOÃO", opacidade: 0.06, escala: 70, onde: "dias" } });
+    const db = await PDFDocument.load(b.bytes);
+    expect(db.getPageCount()).toBe(b.plano.paginas.length);
+    expect(b.plano.paginas.some((x) => x.tipo === "semana")).toBe(true);
+  }, 60000);
+
+  it("capa e contracapa: 2 páginas A5 com sangria de 1,5 mm e TrimBox no tamanho final", async () => {
+    const bytes = await gerarCapas({ ano: 2027, titulo: "AGENDA", cor: "#16325c", linha1: "Padaria do João", linha2: "Sabor de todo dia", contato: "(51) 99999-9999\n@padariadojoao", logo: pngMini(60, 30), usarLogo: true });
+    const d = await PDFDocument.load(bytes);
+    expect(d.getPageCount()).toBe(2);
+    const p = d.getPage(0);
+    expect(p.getWidth() / PT_POR_MM).toBeCloseTo(151, 1);
+    expect(p.getHeight() / PT_POR_MM).toBeCloseTo(213, 1);
+    expect(p.getTrimBox().width / PT_POR_MM).toBeCloseTo(148, 1);
+    expect(p.getTrimBox().x / PT_POR_MM).toBeCloseTo(1.5, 1);
+  }, 30000);
 });

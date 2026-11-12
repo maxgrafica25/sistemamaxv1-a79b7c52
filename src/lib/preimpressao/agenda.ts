@@ -5,8 +5,9 @@
 // Tudo calculado e desenhado no navegador (pdf-lib), sem IA e sem custo. Feriados nacionais entram
 // sempre; feriados regionais são acrescentados pela pessoa.
 
-import { LineCapStyle, PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import { PT_POR_MM } from "./folha";
+import { LineCapStyle, PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
+import { PT_POR_MM, SANGRIA_PADRAO_MM } from "./folha";
+import { planejarTamanho } from "./redimensionar";
 
 // ─── Datas, feriados e fases da lua ──────────────────────────────────
 
@@ -180,7 +181,114 @@ export function fasesDaLua(ano: number): { mes: number; dia: number; fase: FaseL
   return out;
 }
 
+// ─── Opções do miolo ─────────────────────────────────────────────────
+
+/** Imagem já pronta para entrar no PDF (PNG ou JPG) e o tamanho dela em pixels. */
+export interface Imagem {
+  bytes: Uint8Array;
+  tipo: "png" | "jpg";
+  w: number;
+  h: number;
+}
+
+export type PosicaoExtra = "inicio" | "fim" | number;
+
+/** Páginas do cliente (PDF ou imagem) que entram no miolo: no início, no fim ou antes de um mês (1–12). */
+export interface Extra {
+  nome: string;
+  bytes: Uint8Array;
+  tipo: "pdf" | "png" | "jpg";
+  posicao: PosicaoExtra;
+  paginas: number;
+}
+
+export interface Identidade {
+  logo: Imagem | null;
+  /** Uma linha: nome, telefone, Instagram… */
+  rodape: string;
+  logoNaCapa: boolean;
+  logoNoVerso: boolean;
+  rodapeEmTodas: boolean;
+}
+
+export interface MarcaDagua {
+  ativa: boolean;
+  tipo: "logo" | "texto";
+  texto: string;
+  logo: Imagem | null;
+  /** 0,02 a 0,3 (quanto menor, mais clara). */
+  opacidade: number;
+  /** Largura em % da página. */
+  escala: number;
+  onde: "todas" | "dias";
+}
+
+export interface ConfigAgenda {
+  ano: number;
+  /** Palavra da capa (padrão AGENDA). */
+  capa: string;
+  /** Feriados regionais/municipais da pessoa; os nacionais entram sempre. */
+  regionais: Feriado[];
+  /** Total de páginas (par); vazio = só o necessário. */
+  total?: number | null;
+  /** diario = uma página por dia; semanal = a semana em duas páginas. */
+  modelo?: "diario" | "semanal";
+  /** horas = linhas com as horas; linhas = pautado liso. */
+  estiloDia?: "horas" | "linhas";
+  horaInicio?: number;
+  horaFim?: number;
+  /** Começo da semana nos calendários pequenos. */
+  semanaComeca?: "dom" | "seg";
+  luas?: boolean;
+  /** Domingos e feriados com o número em cinza. */
+  destaque?: boolean;
+  identidade?: Partial<Identidade>;
+  marcaDagua?: Partial<MarcaDagua>;
+  extras?: Extra[];
+}
+
+interface Cfg {
+  ano: number;
+  capa: string;
+  regionais: Feriado[];
+  total: number | null;
+  modelo: "diario" | "semanal";
+  estiloDia: "horas" | "linhas";
+  horaInicio: number;
+  horaFim: number;
+  semanaComeca: "dom" | "seg";
+  luas: boolean;
+  destaque: boolean;
+  identidade: Identidade;
+  marcaDagua: MarcaDagua;
+  extras: Extra[];
+}
+
+const limitar = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+
+function normalizar(c: ConfigAgenda): Cfg {
+  const horaInicio = limitar(Math.round(c.horaInicio ?? 8), 5, 21);
+  return {
+    ano: c.ano,
+    capa: c.capa,
+    regionais: c.regionais,
+    total: c.total ?? null,
+    modelo: c.modelo ?? "diario",
+    estiloDia: c.estiloDia ?? "horas",
+    horaInicio,
+    horaFim: limitar(Math.round(c.horaFim ?? 18), horaInicio + 1, 23),
+    semanaComeca: c.semanaComeca ?? "dom",
+    luas: c.luas ?? true,
+    destaque: c.destaque ?? false,
+    identidade: { logo: null, rodape: "", logoNaCapa: true, logoNoVerso: true, rodapeEmTodas: true, ...c.identidade },
+    marcaDagua: { ativa: false, tipo: "texto", texto: "", logo: null, opacidade: 0.08, escala: 60, onde: "todas", ...c.marcaDagua },
+    extras: c.extras ?? [],
+  };
+}
+
 // ─── Plano de páginas ────────────────────────────────────────────────
+
+export type Dia = { mes: number; dia: number } | null;
 
 export type TipoPagina =
   | { tipo: "capa" }
@@ -191,7 +299,9 @@ export type TipoPagina =
   | { tipo: "planejamento"; mes: number }
   | { tipo: "dia"; mes: number; dia: number }
   | { tipo: "fimDeSemana"; mes: number; sabado: number | null; domingo: number | null }
-  | { tipo: "anotacoes" };
+  | { tipo: "semana"; mes: number; dias: Dia[]; lado: "esq" | "dir" }
+  | { tipo: "anotacoes" }
+  | { tipo: "extra"; item: number; pagina: number };
 
 export interface Plano {
   paginas: TipoPagina[];
@@ -201,20 +311,61 @@ export interface Plano {
   minimo: number;
 }
 
+/** Semanas de segunda a domingo do ano; cada uma pertence ao mês da segunda-feira (a 1ª semana, a janeiro). */
+export function semanasDoAno(ano: number): { mes: number; dias: Dia[] }[] {
+  const jan1 = Date.UTC(ano, 0, 1);
+  const volta = (new Date(jan1).getUTCDay() + 6) % 7;
+  const out: { mes: number; dias: Dia[] }[] = [];
+  for (let ini = jan1 - volta * 86400000; ini <= Date.UTC(ano, 11, 31); ini += 7 * 86400000) {
+    const dias: Dia[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(ini + i * 86400000);
+      dias.push(d.getUTCFullYear() === ano ? { mes: d.getUTCMonth() + 1, dia: d.getUTCDate() } : null);
+    }
+    const seg = dias[0];
+    out.push({ mes: seg ? seg.mes : 1, dias });
+  }
+  return out;
+}
+
 /**
  * Ordem das páginas, como no miolo impresso: capa, verso em branco, dados pessoais, calendário do ano,
- * calendários do ano anterior e seguinte; depois, por mês, o planejamento (sempre na página da esquerda,
- * no verso da folha), uma página por dia da semana e uma por sábado + domingo; no fim, anotações.
- * `total` (par) completa com páginas de anotações; menor que o mínimo vale o mínimo.
+ * calendários do ano anterior e seguinte; depois, por mês, o planejamento e os dias; no fim, anotações.
+ * No modelo diário o planejamento fica na página da esquerda (par) e cada dia da semana tem uma página,
+ * com sábado + domingo juntos. No semanal o planejamento fica na da direita e cada semana ocupa duas páginas.
+ * Páginas do cliente (`extras`) entram no início, no fim ou antes de um mês. `total` (par) completa com
+ * páginas de anotações; menor que o mínimo vale o mínimo.
  */
-export function planejarPaginas(ano: number, total?: number | null): Plano {
+export function planejarPaginas(
+  ano: number,
+  total?: number | null,
+  opc: { modelo?: "diario" | "semanal"; extras?: { posicao: PosicaoExtra; paginas: number }[] } = {},
+): Plano {
+  const semanal = opc.modelo === "semanal";
+  const extras = opc.extras ?? [];
   const paginas: TipoPagina[] = [{ tipo: "capa" }, { tipo: "branca" }, { tipo: "dados" }, { tipo: "calendarioAno" }, { tipo: "calendariosVizinhos" }];
+  const inserirExtras = (pos: PosicaoExtra) =>
+    extras.forEach((e, item) => {
+      if (e.posicao !== pos) return;
+      for (let pagina = 0; pagina < e.paginas; pagina++) paginas.push({ tipo: "extra", item, pagina });
+    });
+  inserirExtras("inicio");
+  const semanas = semanal ? semanasDoAno(ano) : [];
   const paginaDoMes: number[] = [];
   for (let mes = 1; mes <= 12; mes++) {
-    // o planejamento cai na página da esquerda (número par): completa com anotações se preciso
-    if ((paginas.length + 1) % 2 !== 0) paginas.push({ tipo: "anotacoes" });
+    inserirExtras(mes);
+    // número da página do planejamento: par (esquerda) no diário, ímpar (direita) no semanal
+    const alvo = semanal ? 1 : 0;
+    if ((paginas.length + 1) % 2 !== alvo) paginas.push({ tipo: "anotacoes" });
     paginaDoMes.push(paginas.length);
     paginas.push({ tipo: "planejamento", mes });
+    if (semanal) {
+      for (const s of semanas.filter((x) => x.mes === mes)) {
+        paginas.push({ tipo: "semana", mes, dias: s.dias, lado: "esq" });
+        paginas.push({ tipo: "semana", mes, dias: s.dias, lado: "dir" });
+      }
+      continue;
+    }
     const n = diasNoMes(ano, mes);
     for (let dia = 1; dia <= n; dia++) {
       const sem = diaDaSemana(ano, mes, dia);
@@ -230,6 +381,7 @@ export function planejarPaginas(ano: number, total?: number | null): Plano {
       }
     }
   }
+  inserirExtras("fim");
   if (paginas.length % 2 !== 0) paginas.push({ tipo: "anotacoes" });
   const minimo = paginas.length;
   const alvo = total && total > minimo ? total + (total % 2) : minimo;
@@ -245,11 +397,35 @@ const MARGEM_INTERNA = 14; // lado da encadernação
 const MARGEM_EXTERNA = 8;
 const PRETO = rgb(0.07, 0.07, 0.07);
 const CINZA = rgb(0.55, 0.55, 0.55);
+const CINZA_ESCURO = rgb(0.42, 0.42, 0.42);
 const CINZA_CLARO = rgb(0.78, 0.78, 0.78);
 
+type Peso = "leve" | "normal" | "negrito" | "extra";
+
 interface Fontes {
+  leve: PDFFont;
   normal: PDFFont;
   negrito: PDFFont;
+  extra: PDFFont;
+}
+
+/** Fontes embutidas vindas do navegador (Montserrat); sem elas o PDF usa Helvetica. */
+export interface FontesExternas {
+  fontkit: unknown;
+  leve: Uint8Array;
+  normal: Uint8Array;
+  negrito: Uint8Array;
+  extra: Uint8Array;
+}
+
+interface Contexto {
+  cfg: Cfg;
+  feriados: Feriado[];
+  luas: { mes: number; dia: number; fase: FaseLua }[];
+  f: Fontes;
+  /** Fator de tamanho do texto (Montserrat é mais larga que Helvetica). */
+  k: number;
+  logo: PDFImage | null;
 }
 
 /** Uma página sendo desenhada (medidas em mm a partir do canto superior esquerdo). */
@@ -260,12 +436,16 @@ class Folha {
   readonly dir: number;
   constructor(
     readonly page: PDFPage,
-    readonly f: Fontes,
+    readonly ctx: Contexto,
     numero: number,
   ) {
     this.recto = numero % 2 === 1;
     this.esq = this.recto ? MARGEM_INTERNA : MARGEM_EXTERNA;
     this.dir = W - (this.recto ? MARGEM_EXTERNA : MARGEM_INTERNA);
+  }
+
+  get ano() {
+    return this.ctx.cfg.ano;
   }
 
   private Y(y: number) {
@@ -275,16 +455,22 @@ class Folha {
     return x * PT_POR_MM;
   }
 
-  texto(s: string, x: number, y: number, tamanho: number, o: { negrito?: boolean; alinhar?: "e" | "c" | "d"; cor?: ReturnType<typeof rgb> } = {}) {
-    const fonte = o.negrito ? this.f.negrito : this.f.normal;
-    const w = fonte.widthOfTextAtSize(s, tamanho) / PT_POR_MM;
+  fonte(peso: Peso = "normal") {
+    return this.ctx.f[peso];
+  }
+
+  texto(s: string, x: number, y: number, tamanho: number, o: { peso?: Peso; negrito?: boolean; alinhar?: "e" | "c" | "d"; cor?: ReturnType<typeof rgb> } = {}) {
+    const peso: Peso = o.peso ?? (o.negrito ? "negrito" : "normal");
+    const t = tamanho * this.ctx.k;
+    const w = this.fonte(peso).widthOfTextAtSize(s, t) / PT_POR_MM;
     const xi = o.alinhar === "d" ? x - w : o.alinhar === "c" ? x - w / 2 : x;
-    this.page.drawText(s, { x: this.X(xi), y: this.Y(y), size: tamanho, font: fonte, color: o.cor ?? PRETO });
+    this.page.drawText(s, { x: this.X(xi), y: this.Y(y), size: t, font: this.fonte(peso), color: o.cor ?? PRETO });
     return w;
   }
 
-  largura(s: string, tamanho: number, negrito = false) {
-    return (negrito ? this.f.negrito : this.f.normal).widthOfTextAtSize(s, tamanho) / PT_POR_MM;
+  largura(s: string, tamanho: number, peso: Peso | boolean = "normal") {
+    const p: Peso = peso === true ? "negrito" : peso === false ? "normal" : peso;
+    return this.fonte(p).widthOfTextAtSize(s, tamanho * this.ctx.k) / PT_POR_MM;
   }
 
   linha(x1: number, y1: number, x2: number, y2: number, espessura = 0.5, cor = PRETO) {
@@ -293,6 +479,7 @@ class Folha {
 
   /** Grade de pontinhos (uma linha tracejada com pontas redondas por fileira). */
   pontos(x1: number, y1: number, x2: number, y2: number, passo = 2.2) {
+    if (x2 <= x1) return;
     for (let y = y1; y <= y2 + 0.01; y += passo) {
       this.page.drawLine({
         start: { x: this.X(x1), y: this.Y(y) },
@@ -317,18 +504,22 @@ class Folha {
     this.page.drawRectangle({ x: this.X(x), y: this.Y(y + h), width: w * PT_POR_MM, height: h * PT_POR_MM, color: rgb(1, 1, 1) });
   }
 
+  imagem(img: PDFImage, x: number, y: number, w: number, h: number, opacidade = 1) {
+    this.page.drawImage(img, { x: this.X(x), y: this.Y(y + h), width: w * PT_POR_MM, height: h * PT_POR_MM, opacity: opacidade });
+  }
+
   /** Cabeçalho "PLANEJAMENTO **JANEIRO**": pontos do lado da encadernação, título do lado de fora. */
   titulo(leve: string, forte: string, y = 14, tamanho = 12) {
-    const w1 = this.largura(leve + " ", tamanho);
-    const w2 = this.largura(forte, tamanho, true);
+    const w1 = this.largura(leve ? leve + " " : "", tamanho, "leve");
+    const w2 = this.largura(forte, tamanho, "negrito");
     if (this.recto) {
       const x0 = this.dir - w1 - w2;
-      this.texto(leve + " ", x0, y, tamanho);
-      this.texto(forte, x0 + w1, y, tamanho, { negrito: true });
+      if (leve) this.texto(leve + " ", x0, y, tamanho, { peso: "leve" });
+      this.texto(forte, x0 + w1, y, tamanho, { peso: "negrito" });
       this.pontos(this.esq, y - 6, x0 - 3, y + 1);
     } else {
-      this.texto(leve + " ", this.esq, y, tamanho);
-      this.texto(forte, this.esq + w1, y, tamanho, { negrito: true });
+      if (leve) this.texto(leve + " ", this.esq, y, tamanho, { peso: "leve" });
+      this.texto(forte, this.esq + w1, y, tamanho, { peso: "negrito" });
       this.pontos(this.esq + w1 + w2 + 3, y - 6, this.dir, y + 1);
     }
   }
@@ -338,30 +529,31 @@ function ehFeriado(feriados: Feriado[], mes: number, dia: number) {
   return feriados.some((f) => f.mes === mes && f.dia === dia);
 }
 
-/** Um mês em grade (D S T Q Q S S), com os feriados circulados. */
+/** Um mês em grade (D S T Q Q S S ou S T Q Q S S D), com os feriados circulados. */
 function mesEmGrade(
   fo: Folha,
-  ano: number,
   mes: number,
   x: number,
   y: number,
   largura: number,
-  feriados: Feriado[],
-  o: { nome?: boolean; tamNome?: number; tamNum?: number; passo?: number; tamSem?: number } = {},
+  o: { nome?: boolean; tamNome?: number; tamNum?: number; passo?: number; tamSem?: number; ano?: number; semFeriados?: boolean } = {},
 ) {
+  const ano = o.ano ?? fo.ano;
   const tamNome = o.tamNome ?? 8;
   const tamNum = o.tamNum ?? 7;
   const tamSem = o.tamSem ?? 7;
   const passo = o.passo ?? 4;
   const celula = largura / 7;
+  const seg = fo.ctx.cfg.semanaComeca === "seg";
   let yy = y;
   if (o.nome !== false) {
     fo.texto(MESES[mes - 1], x + largura / 2, yy, tamNome, { alinhar: "c" });
     yy += passo * 1.25;
   }
-  ["D", "S", "T", "Q", "Q", "S", "S"].forEach((s, i) => fo.texto(s, x + celula * (i + 0.5), yy, tamSem, { negrito: true, alinhar: "c" }));
+  const letras = seg ? ["S", "T", "Q", "Q", "S", "S", "D"] : ["D", "S", "T", "Q", "Q", "S", "S"];
+  letras.forEach((s, i) => fo.texto(s, x + celula * (i + 0.5), yy, tamSem, { peso: "negrito", alinhar: "c" }));
   yy += passo * 1.05;
-  const primeiro = diaDaSemana(ano, mes, 1);
+  const primeiro = (diaDaSemana(ano, mes, 1) + (seg ? 6 : 0)) % 7;
   const n = diasNoMes(ano, mes);
   for (let d = 1; d <= n; d++) {
     const pos = primeiro + d - 1;
@@ -370,26 +562,98 @@ function mesEmGrade(
     const cx = x + celula * (col + 0.5);
     const cy = yy + lin * passo;
     fo.texto(String(d), cx, cy, tamNum, { alinhar: "c" });
-    if (ehFeriado(feriados, mes, d)) fo.circulo(cx, cy - tamNum * 0.17, Math.min(celula * 0.5, passo * 0.62));
+    if (!o.semFeriados && ehFeriado(fo.ctx.feriados, mes, d)) fo.circulo(cx, cy - tamNum * 0.17, Math.min(celula * 0.5, passo * 0.62));
   }
 }
 
-function desenharCapa(fo: Folha, ano: number, texto: string) {
+function desenharCapa(fo: Folha) {
+  const { cfg, k } = fo.ctx;
   const tam = 54;
-  const leve = texto.toUpperCase();
-  const w1 = fo.largura(leve, tam);
-  const w2 = fo.largura(String(ano), tam, true);
+  const leve = (cfg.capa || "AGENDA").toUpperCase();
+  const w1 = fo.largura(leve, tam, "leve");
+  const w2 = fo.largura(String(cfg.ano), tam, "extra");
   const total = w1 + w2;
   const base = fo.dir - 1; // linha de base do texto girado: o corpo das letras fica à esquerda dela
   const y0 = (H + total) / 2; // começa embaixo e lê para cima
-  const rotaciona = (s: string, y: number, negrito: boolean) =>
-    fo.page.drawText(s, { x: base * PT_POR_MM, y: (H - y) * PT_POR_MM, size: tam, font: negrito ? fo.f.negrito : fo.f.normal, color: PRETO, rotate: degrees(90) });
-  rotaciona(leve, y0, false);
-  rotaciona(String(ano), y0 - w1, true);
-  const alturaLetra = tam * 0.72 / PT_POR_MM;
+  const rotaciona = (s: string, y: number, peso: Peso) =>
+    fo.page.drawText(s, { x: base * PT_POR_MM, y: (H - y) * PT_POR_MM, size: tam * k, font: fo.fonte(peso), color: PRETO, rotate: degrees(90) });
+  rotaciona(leve, y0, "leve");
+  rotaciona(String(cfg.ano), y0 - w1, "extra");
+  const alturaLetra = (tam * k * 0.72) / PT_POR_MM;
   const xi = base - alturaLetra;
   fo.pontos(xi, 5, fo.dir, y0 - total - 4, 2.2);
   fo.pontos(xi, y0 + 4, fo.dir, H - 5, 2.2);
+  // logo do cliente no canto de baixo, do lado da encadernação
+  const logo = fo.ctx.logo;
+  const id = cfg.identidade;
+  if (logo && id.logo && id.logoNaCapa) {
+    const largura = Math.min(44, xi - fo.esq - 8);
+    const alt = largura * (id.logo.h / id.logo.w);
+    fo.imagem(logo, fo.esq, H - 14 - alt, largura, alt);
+  }
+}
+
+function desenharVersoDaCapa(fo: Folha) {
+  const { cfg } = fo.ctx;
+  const id = cfg.identidade;
+  const logo = fo.ctx.logo;
+  const cx = (fo.esq + fo.dir) / 2;
+  if (logo && id.logo && id.logoNoVerso) {
+    const largura = Math.min(70, id.logo.w / id.logo.h > 2.2 ? 70 : 46);
+    const alt = largura * (id.logo.h / id.logo.w);
+    fo.imagem(logo, cx - largura / 2, 88 - alt / 2, largura, alt);
+    if (id.rodape.trim()) fo.texto(id.rodape.trim(), cx, 88 + alt / 2 + 9, 7, { alinhar: "c", cor: CINZA_ESCURO });
+  } else if (id.logoNoVerso && id.rodape.trim()) {
+    fo.texto(id.rodape.trim(), cx, 100, 8, { alinhar: "c", cor: CINZA_ESCURO });
+  }
+}
+
+/** Logo e/ou texto de contato na base de cada página. */
+function rodapeIdentidade(fo: Folha) {
+  const id = fo.ctx.cfg.identidade;
+  if (!id.rodapeEmTodas) return;
+  const logo = fo.ctx.logo;
+  const texto = id.rodape.trim();
+  if (!logo && !texto) return;
+  const altLogo = 4.2;
+  const wLogo = logo && id.logo ? altLogo * (id.logo.w / id.logo.h) : 0;
+  const wTexto = texto ? fo.largura(texto, 5.6) : 0;
+  const total = wLogo + (logo && texto ? 2 : 0) + wTexto;
+  let x = (fo.esq + fo.dir) / 2 - total / 2;
+  const yBase = 205.4;
+  if (logo && id.logo) {
+    fo.imagem(logo, x, yBase - 3.4, wLogo, altLogo);
+    x += wLogo + 2;
+  }
+  if (texto) fo.texto(texto, x, yBase, 5.6, { cor: CINZA_ESCURO });
+}
+
+/** Marca-d'água no centro da página (por baixo de tudo). */
+function marcaDagua(fo: Folha, marcaImg: PDFImage | null) {
+  const m = fo.ctx.cfg.marcaDagua;
+  if (!m.ativa) return;
+  const op = limitar(m.opacidade, 0.02, 0.4);
+  const largura = (limitar(m.escala, 10, 100) / 100) * W;
+  const cx = W / 2;
+  const cy = H / 2;
+  if (m.tipo === "logo" && marcaImg && m.logo) {
+    const alt = largura * (m.logo.h / m.logo.w);
+    fo.imagem(marcaImg, cx - largura / 2, cy - alt / 2, largura, alt, op);
+    return;
+  }
+  const t = m.texto.trim();
+  if (m.tipo !== "texto" || !t) return;
+  const fonte = fo.fonte("negrito");
+  const w1 = fonte.widthOfTextAtSize(t, 100) / PT_POR_MM; // largura em mm a 100 pt
+  const ang = 35;
+  // o texto na diagonal ocupa, na horizontal, cos(ang) da largura: ajusta para caber em `largura`
+  const tam = Math.min(100, ((largura / Math.cos(rad(ang))) / w1) * 100);
+  const w = fonte.widthOfTextAtSize(t, tam) / PT_POR_MM;
+  const h = (tam * 0.7) / PT_POR_MM;
+  // ponto de partida do texto girado para o centro dele ficar no centro da página (y de baixo para cima)
+  const x0 = cx - (w / 2) * Math.cos(rad(ang)) + (h / 2) * Math.sin(rad(ang));
+  const y0 = H - cy - (w / 2) * Math.sin(rad(ang)) - (h / 2) * Math.cos(rad(ang));
+  fo.page.drawText(t, { x: x0 * PT_POR_MM, y: y0 * PT_POR_MM, size: tam, font: fonte, color: PRETO, opacity: op, rotate: degrees(ang) });
 }
 
 function campos(fo: Folha, y: number, linhas: ([string] | [string, string])[], passo = 6.9) {
@@ -420,12 +684,12 @@ function desenharDados(fo: Folha) {
   campos(fo, y + 14, [["Emergência, avisar"], ["Telefone", "Convênio Médico"], ["Grupo Sanguíneo", "Fator RH"], ["Alergias"], ["Medicamentos"], ["Veículo", "Placa"], ["Seguro", "Telefone"]]);
 }
 
-function desenharCalendarioAno(fo: Folha, ano: number, feriados: Feriado[]) {
-  // título
-  fo.texto("CALENDÁRIO", fo.esq, 12, 11);
-  const wt = fo.largura("CALENDÁRIO ", 11);
-  fo.texto(String(ano), fo.esq + wt, 12, 11, { negrito: true });
-  fo.pontos(fo.esq + wt + fo.largura(String(ano), 11, true) + 3, 6.5, fo.dir, 13);
+function desenharCalendarioAno(fo: Folha) {
+  const ano = fo.ano;
+  fo.texto("CALENDÁRIO", fo.esq, 12, 11, { peso: "leve" });
+  const wt = fo.largura("CALENDÁRIO ", 11, "leve");
+  fo.texto(String(ano), fo.esq + wt, 12, 11, { peso: "negrito" });
+  fo.pontos(fo.esq + wt + fo.largura(String(ano), 11, "negrito") + 3, 6.5, fo.dir, 13);
   const colW = (fo.dir - fo.esq) / 3;
   const linhaH = 34.5;
   for (let m = 1; m <= 12; m++) {
@@ -433,17 +697,17 @@ function desenharCalendarioAno(fo: Folha, ano: number, feriados: Feriado[]) {
     const lin = Math.floor((m - 1) / 3);
     const x = fo.esq + col * colW;
     const y = 24 + lin * linhaH;
-    mesEmGrade(fo, ano, m, x + 1.5, y, colW - 3, feriados, { tamNome: 8, tamNum: 6.8, passo: 3.9, tamSem: 6.8 });
+    mesEmGrade(fo, m, x + 1.5, y, colW - 3, { tamNome: 8, tamNum: 6.8, passo: 3.9, tamSem: 6.8 });
     if (col > 0) fo.linha(x, y - 4, x, y + 28, 0.4);
     if (col === 0 && lin > 0) fo.linha(fo.esq, y - 4.6, fo.dir, y - 4.6, 0.4);
   }
-  // lista de feriados
+  const feriados = fo.ctx.feriados;
   const yl = 168;
-  fo.texto("FERIADOS E DIAS SANTIFICADOS", fo.esq, yl, 8.5);
-  fo.pontos(fo.esq + fo.largura("FERIADOS E DIAS SANTIFICADOS ", 8.5) + 2, yl - 4.5, fo.dir, yl + 0.5, 1.8);
+  fo.texto("FERIADOS E DIAS SANTIFICADOS", fo.esq, yl, 8.5, { peso: "leve" });
+  fo.pontos(fo.esq + fo.largura("FERIADOS E DIAS SANTIFICADOS ", 8.5, "leve") + 2, yl - 4.5, fo.dir, yl + 0.5, 1.8);
   const colunas = 3;
   const porColuna = Math.ceil(feriados.length / colunas);
-  const passo = Math.min(4.6, 28 / Math.max(porColuna, 1));
+  const passo = Math.min(4.6, 25 / Math.max(porColuna, 1));
   const tam = Math.min(6.3, passo * 1.35);
   feriados.forEach((fer, i) => {
     const c = Math.floor(i / porColuna);
@@ -455,7 +719,8 @@ function desenharCalendarioAno(fo: Folha, ano: number, feriados: Feriado[]) {
   });
 }
 
-function desenharVizinhos(fo: Folha, ano: number) {
+function desenharVizinhos(fo: Folha) {
+  const ano = fo.ano;
   [ano - 1, ano + 1].forEach((a, i) => {
     const y0 = 12 + i * 100;
     fo.titulo("CALENDÁRIO", String(a), y0, 11);
@@ -465,7 +730,7 @@ function desenharVizinhos(fo: Folha, ano: number) {
       const lin = Math.floor((m - 1) / 4);
       const x = fo.esq + col * colW;
       const y = y0 + 11 + lin * 27.5;
-      mesEmGrade(fo, a, m, x + 1, y, colW - 2, [], { tamNome: 6.8, tamNum: 5.6, passo: 3.1, tamSem: 5.6 });
+      mesEmGrade(fo, m, x + 1, y, colW - 2, { ano: a, semFeriados: true, tamNome: 6.8, tamNum: 5.6, passo: 3.1, tamSem: 5.6 });
       if (col > 0) fo.linha(x, y - 3.5, x, y + 21, 0.35);
     }
   });
@@ -485,81 +750,98 @@ function icone(fo: Folha, cx: number, cy: number, fase: FaseLua) {
   }
 }
 
-function desenharPlanejamento(fo: Folha, ano: number, mes: number, feriados: Feriado[], luas: { mes: number; dia: number; fase: FaseLua }[]) {
+function desenharPlanejamento(fo: Folha, mes: number) {
+  const { cfg, feriados, luas } = fo.ctx;
+  const ano = cfg.ano;
   fo.titulo("PLANEJAMENTO", MESES[mes - 1], 13);
-  const doMes = luas.filter((l) => l.mes === mes);
-  doMes.forEach((l, i) => {
-    const cx = fo.esq + 3 + i * 8.5;
-    icone(fo, cx, 24.5, l.fase);
-    fo.texto(String(l.dia).padStart(2, "0"), cx, 30, 6.3, { alinhar: "c" });
-  });
-  const xDiv = fo.esq + 3 + Math.max(doMes.length, 4) * 8.5 + 1;
-  fo.linha(xDiv, 20, xDiv, 31, 0.5);
+  let xTexto = fo.esq;
+  if (cfg.luas) {
+    const doMes = luas.filter((l) => l.mes === mes);
+    doMes.forEach((l, i) => {
+      const cx = fo.esq + 3 + i * 8.5;
+      icone(fo, cx, 24.5, l.fase);
+      fo.texto(String(l.dia).padStart(2, "0"), cx, 30, 6.3, { alinhar: "c" });
+    });
+    const xDiv = fo.esq + 3 + Math.max(doMes.length, 4) * 8.5 + 1;
+    fo.linha(xDiv, 20, xDiv, 31, 0.5);
+    xTexto = xDiv + 3;
+  }
   feriados
     .filter((f) => f.mes === mes)
     .slice(0, 3)
-    .forEach((f, i) => fo.texto(`${String(f.dia).padStart(2, "0")} ${MESES_CURTOS[mes - 1]}  ${f.nome}`, xDiv + 3, 24.5 + i * 3.6, 6.3));
+    .forEach((f, i) => fo.texto(`${String(f.dia).padStart(2, "0")} ${MESES_CURTOS[mes - 1]}  ${f.nome}`, xTexto, 24.5 + i * 3.6, 6.3));
   const n = diasNoMes(ano, mes);
   const colW = (fo.dir - fo.esq) / 4;
-  const linhaH = 20.8;
+  const linhaH = 20.3;
   for (let d = 1; d <= n; d++) {
     const col = (d - 1) % 4;
     const lin = Math.floor((d - 1) / 4);
     const x = fo.esq + col * colW;
     const y = 36 + lin * linhaH;
-    fo.texto(String(d).padStart(2, "0"), x + 0.5, y + 4, 8);
-    fo.texto(SEMANA_CURTA[diaDaSemana(ano, mes, d)], x + 0.5 + fo.largura(String(d).padStart(2, "0") + " ", 8), y + 4, 5.2);
+    const sem = diaDaSemana(ano, mes, d);
+    const cor = cfg.destaque && (sem === 0 || ehFeriado(feriados, mes, d)) ? CINZA_ESCURO : PRETO;
+    fo.texto(String(d).padStart(2, "0"), x + 0.5, y + 4, 8, { cor });
+    fo.texto(SEMANA_CURTA[sem], x + 0.5 + fo.largura(String(d).padStart(2, "0") + " ", 8), y + 4, 5.2, { cor });
     fo.linha(x, y + linhaH - 0.4, x + colW - 0.5, y + linhaH - 0.4, 0.5);
     fo.linha(x + colW - 0.5, y + 7, x + colW - 0.5, y + linhaH - 0.4, 0.5);
   }
 }
 
 /** Cabeçalho de um dia: pontos, mês, dia da semana por extenso e o número grande. */
-function cabecalhoDia(fo: Folha, ano: number, mes: number, dia: number, y0: number) {
+function cabecalhoDia(fo: Folha, mes: number, dia: number, y0: number) {
+  const { cfg, feriados } = fo.ctx;
+  const sem = diaDaSemana(cfg.ano, mes, dia);
+  const cor = cfg.destaque && (sem === 0 || ehFeriado(feriados, mes, dia)) ? CINZA_ESCURO : PRETO;
   const num = String(dia).padStart(2, "0");
   const tamNum = 30;
-  const wNum = fo.largura(num, tamNum, true);
-  const sem = SEMANA_LONGA[diaDaSemana(ano, mes, dia)];
-  const wMes = fo.largura(MESES[mes - 1], 11, true);
-  const wSem = fo.largura(sem, 6.2);
+  const wNum = fo.largura(num, tamNum, "extra");
+  const nomeSem = SEMANA_LONGA[sem];
+  const wMes = fo.largura(MESES[mes - 1], 11, "negrito");
+  const wSem = fo.largura(nomeSem, 6.2);
   const wTexto = Math.max(wMes, wSem);
   const yBase = y0 + 11;
   if (fo.recto) {
     const xNum = fo.dir - wNum;
-    fo.texto(num, xNum, yBase, tamNum, { negrito: true });
+    fo.texto(num, xNum, yBase, tamNum, { peso: "extra", cor });
     const xDiv = xNum - 2.8;
     fo.linha(xDiv, y0, xDiv, y0 + 12.5, 0.6);
-    fo.texto(MESES[mes - 1], xDiv - 2.5, y0 + 6.5, 11, { negrito: true, alinhar: "d" });
-    fo.texto(sem, xDiv - 2.5, y0 + 11, 6.2, { alinhar: "d" });
+    fo.texto(MESES[mes - 1], xDiv - 2.5, y0 + 6.5, 11, { peso: "negrito", alinhar: "d" });
+    fo.texto(nomeSem, xDiv - 2.5, y0 + 11, 6.2, { alinhar: "d" });
     fo.pontos(fo.esq, y0, xDiv - 2.5 - wTexto - 3, y0 + 12);
   } else {
-    fo.texto(num, fo.esq, yBase, tamNum, { negrito: true });
+    fo.texto(num, fo.esq, yBase, tamNum, { peso: "extra", cor });
     const xDiv = fo.esq + wNum + 2.8;
     fo.linha(xDiv, y0, xDiv, y0 + 12.5, 0.6);
-    fo.texto(MESES[mes - 1], xDiv + 2.5, y0 + 6.5, 11, { negrito: true });
-    fo.texto(sem, xDiv + 2.5, y0 + 11, 6.2);
+    fo.texto(MESES[mes - 1], xDiv + 2.5, y0 + 6.5, 11, { peso: "negrito" });
+    fo.texto(nomeSem, xDiv + 2.5, y0 + 11, 6.2);
     fo.pontos(xDiv + 2.5 + wTexto + 3, y0, fo.dir, y0 + 12);
   }
 }
 
-function horas(fo: Folha, yInicio: number, de: number, ate: number) {
-  const passo = 14;
+/** Linhas do dia: com as horas (08h…) ou pautado liso. `pitch` = distância entre horas. */
+function linhasDoDia(fo: Folha, yInicio: number, de: number, ate: number, pitch: number) {
+  if (fo.ctx.cfg.estiloDia === "linhas") {
+    const n = ate - de + 1;
+    const fim = yInicio + (n - 1) * pitch + pitch / 2;
+    for (let y = yInicio; y <= fim + 0.01; y += pitch / 2) fo.linha(fo.esq, y, fo.dir, y, y === yInicio ? 0.5 : 0.35, y === yInicio ? PRETO : CINZA_CLARO);
+    return;
+  }
   for (let h = de; h <= ate; h++) {
-    const y = yInicio + (h - de) * passo;
+    const y = yInicio + (h - de) * pitch;
     fo.texto(String(h).padStart(2, "0") + "h", fo.esq, y - 0.8, 7);
     fo.linha(fo.esq + 6.5, y, fo.dir, y, 0.5);
-    fo.linha(fo.esq, y + passo / 2, fo.dir, y + passo / 2, 0.3, CINZA_CLARO);
+    fo.linha(fo.esq, y + pitch / 2, fo.dir, y + pitch / 2, 0.3, CINZA_CLARO);
   }
 }
 
-function rodape(fo: Folha, ano: number, mes: number, feriados: Feriado[]) {
-  const y = 181;
+function rodapeDoDia(fo: Folha, mes: number) {
+  const y = 176;
   const larguraMini = 34;
   const xMini = fo.recto ? fo.esq : fo.dir - larguraMini;
   const xBox = fo.recto ? fo.esq + larguraMini + 4 : fo.esq;
   const wBox = fo.dir - fo.esq - larguraMini - 4;
-  mesEmGrade(fo, ano, mes, xMini, y + 2, larguraMini, feriados, { tamNome: 6.3, tamNum: 5.2, passo: 3.1, tamSem: 5.2 });
-  fo.retangulo(xBox, y, wBox, 24, 0.5);
+  mesEmGrade(fo, mes, xMini, y + 2, larguraMini, { tamNome: 6.3, tamNum: 5.2, passo: 2.9, tamSem: 5.2 });
+  fo.retangulo(xBox, y, wBox, 22, 0.5);
   const t = "ANOTAÇÕES";
   const wt = fo.largura(t, 6.5) + 3;
   const xt = fo.recto ? fo.dir - wt - 2 : xBox + 2;
@@ -567,47 +849,83 @@ function rodape(fo: Folha, ano: number, mes: number, feriados: Feriado[]) {
   fo.texto(t, xt + 1.5, y + 0.9, 6.5);
 }
 
-function anotarFeriado(fo: Folha, feriados: Feriado[], mes: number, dia: number, y: number) {
-  const f = feriados.find((x) => x.mes === mes && x.dia === dia);
+function anotarFeriado(fo: Folha, mes: number, dia: number, y: number) {
+  const f = fo.ctx.feriados.find((x) => x.mes === mes && x.dia === dia);
   if (!f) return;
   fo.texto(f.nome, fo.recto ? fo.dir : fo.esq, y, 6.3, { alinhar: fo.recto ? "d" : "e", cor: CINZA });
 }
 
-function desenharDia(fo: Folha, ano: number, mes: number, dia: number, feriados: Feriado[]) {
-  cabecalhoDia(fo, ano, mes, dia, 9);
-  anotarFeriado(fo, feriados, mes, dia, 24);
-  horas(fo, 29, 8, 18);
-  rodape(fo, ano, mes, feriados);
+function desenharDia(fo: Folha, mes: number, dia: number) {
+  const { cfg } = fo.ctx;
+  cabecalhoDia(fo, mes, dia, 9);
+  anotarFeriado(fo, mes, dia, 24);
+  const n = cfg.horaFim - cfg.horaInicio + 1;
+  const pitch = Math.min(14, (171 - 29) / (n - 1 + 0.5));
+  linhasDoDia(fo, 29, cfg.horaInicio, cfg.horaFim, pitch);
+  rodapeDoDia(fo, mes);
 }
 
-function desenharFimDeSemana(fo: Folha, ano: number, mes: number, sabado: number | null, domingo: number | null, feriados: Feriado[]) {
+function desenharFimDeSemana(fo: Folha, mes: number, sabado: number | null, domingo: number | null) {
+  const { cfg } = fo.ctx;
   if (sabado !== null && domingo !== null) {
-    cabecalhoDia(fo, ano, mes, sabado, 9);
-    anotarFeriado(fo, feriados, mes, sabado, 24);
-    horas(fo, 29, 8, 12);
-    cabecalhoDia(fo, ano, mes, domingo, 95);
-    anotarFeriado(fo, feriados, mes, domingo, 110);
-    horas(fo, 115, 8, 12);
-    rodape(fo, ano, mes, feriados);
+    const ate = Math.min(cfg.horaFim, cfg.horaInicio + 4);
+    cabecalhoDia(fo, mes, sabado, 9);
+    anotarFeriado(fo, mes, sabado, 24);
+    linhasDoDia(fo, 29, cfg.horaInicio, ate, 13.2);
+    cabecalhoDia(fo, mes, domingo, 93);
+    anotarFeriado(fo, mes, domingo, 108);
+    linhasDoDia(fo, 113, cfg.horaInicio, ate, 13.2);
+    rodapeDoDia(fo, mes);
   } else {
     // sábado ou domingo sozinho (virada de mês): página inteira
-    desenharDia(fo, ano, mes, (sabado ?? domingo) as number, feriados);
+    desenharDia(fo, mes, (sabado ?? domingo) as number);
   }
 }
 
-function desenharAnotacoes(fo: Folha, titulo = "ANOTAÇÕES") {
-  fo.titulo("", titulo, 13);
-  for (let y = 26; y <= 200; y += 7.5) fo.linha(fo.esq, y, fo.dir, y, 0.35, CINZA);
+/** Bloco de um dia na agenda semanal: número, dia da semana e linhas para escrever. */
+function blocoDia(fo: Folha, d: Dia, x: number, y: number, w: number, h: number) {
+  if (!d) return;
+  const { cfg, feriados } = fo.ctx;
+  const sem = diaDaSemana(cfg.ano, d.mes, d.dia);
+  const cor = cfg.destaque && (sem === 0 || ehFeriado(feriados, d.mes, d.dia)) ? CINZA_ESCURO : PRETO;
+  const num = String(d.dia).padStart(2, "0");
+  fo.texto(num, x, y + 5.5, 12, { peso: "extra", cor });
+  const wn = fo.largura(num, 12, "extra");
+  fo.texto(`${SEMANA_LONGA[sem]} · ${MESES[d.mes - 1].slice(0, 3)}`, x + wn + 2, y + 5.5, 6.3);
+  const fer = feriados.find((f) => f.mes === d.mes && f.dia === d.dia);
+  if (fer && w > 60) fo.texto(fer.nome, x + w, y + 5.5, 6, { alinhar: "d", cor: CINZA });
+  fo.linha(x, y + 7.5, x + w, y + 7.5, 0.6);
+  for (let yy = y + 14.5; yy < y + h - 1; yy += 7) fo.linha(x, yy, x + w, yy, 0.3, CINZA_CLARO);
 }
 
-export interface ConfigAgenda {
-  ano: number;
-  /** Palavra da capa (padrão AGENDA). */
-  capa: string;
-  /** Feriados regionais/municipais da pessoa; os nacionais entram sempre. */
-  regionais: Feriado[];
-  /** Total de páginas (par); vazio = só o necessário. */
-  total?: number | null;
+function desenharSemana(fo: Folha, mes: number, dias: Dia[], lado: "esq" | "dir") {
+  // 1ª semana do ano começando no meio (ex.: quinta): a página da esquerda ficaria sem nenhum dia, vira anotações
+  if (lado === "esq" && dias.slice(0, 3).every((d) => !d)) {
+    desenharAnotacoes(fo);
+    return;
+  }
+  const validos = dias.filter((d): d is { mes: number; dia: number } => !!d);
+  const a = validos[0];
+  const b = validos[validos.length - 1];
+  const periodo = `${String(a.dia).padStart(2, "0")} ${MESES_CURTOS[a.mes - 1].toUpperCase()} – ${String(b.dia).padStart(2, "0")} ${MESES_CURTOS[b.mes - 1].toUpperCase()}`;
+  fo.titulo("SEMANA", periodo, 13, 11);
+  void mes;
+  const largura = fo.dir - fo.esq;
+  const altura = 56;
+  if (lado === "esq") {
+    for (let i = 0; i < 3; i++) blocoDia(fo, dias[i], fo.esq, 22 + i * (altura + 2), largura, altura);
+  } else {
+    blocoDia(fo, dias[3], fo.esq, 22, largura, altura);
+    blocoDia(fo, dias[4], fo.esq, 22 + altura + 2, largura, altura);
+    const meio = (largura - 4) / 2;
+    blocoDia(fo, dias[5], fo.esq, 22 + 2 * (altura + 2), meio, altura);
+    blocoDia(fo, dias[6], fo.esq + meio + 4, 22 + 2 * (altura + 2), meio, altura);
+  }
+}
+
+function desenharAnotacoes(fo: Folha) {
+  fo.titulo("", "ANOTAÇÕES", 13);
+  for (let y = 26; y <= 200; y += 7.5) fo.linha(fo.esq, y, fo.dir, y, 0.35, CINZA);
 }
 
 export interface Miolo {
@@ -615,49 +933,119 @@ export interface Miolo {
   bytes: Uint8Array;
   plano: Plano;
   feriados: Feriado[];
+  /** Fonte usada (Montserrat quando as fontes foram carregadas). */
+  fonte: "montserrat" | "helvetica";
 }
 
+async function embutirImagem(doc: PDFDocument, img: Imagem): Promise<PDFImage> {
+  return img.tipo === "jpg" ? doc.embedJpg(img.bytes) : doc.embedPng(img.bytes);
+}
+
+async function criarFontes(doc: PDFDocument, externas?: FontesExternas | null): Promise<{ f: Fontes; k: number; nome: "montserrat" | "helvetica" }> {
+  if (externas) {
+    try {
+      doc.registerFontkit(externas.fontkit as never);
+      const [leve, normal, negrito, extra] = await Promise.all([
+        doc.embedFont(externas.leve, { subset: true }),
+        doc.embedFont(externas.normal, { subset: true }),
+        doc.embedFont(externas.negrito, { subset: true }),
+        doc.embedFont(externas.extra, { subset: true }),
+      ]);
+      return { f: { leve, normal, negrito, extra }, k: 0.9, nome: "montserrat" };
+    } catch {
+      /* fonte não abriu: segue com a Helvetica */
+    }
+  }
+  const normal = await doc.embedFont(StandardFonts.Helvetica);
+  const negrito = await doc.embedFont(StandardFonts.HelveticaBold);
+  return { f: { leve: normal, normal, negrito, extra: negrito }, k: 1, nome: "helvetica" };
+}
+
+type ExtraEmbutido = { tipo: "pdf"; paginas: (Awaited<ReturnType<PDFDocument["embedPage"]>> | null)[] } | { tipo: "imagem"; img: PDFImage };
+
 /** Gera o miolo em A5. */
-export async function gerarMiolo(c: ConfigAgenda): Promise<Miolo> {
-  const feriados = todosOsFeriados(c.ano, c.regionais);
-  const luas = fasesDaLua(c.ano);
-  const plano = planejarPaginas(c.ano, c.total);
+export async function gerarMiolo(entrada: ConfigAgenda, externas?: FontesExternas | null): Promise<Miolo> {
+  const cfg = normalizar(entrada);
+  const feriados = todosOsFeriados(cfg.ano, cfg.regionais);
+  const luas = fasesDaLua(cfg.ano);
+  const plano = planejarPaginas(cfg.ano, cfg.total, { modelo: cfg.modelo, extras: cfg.extras.map((e) => ({ posicao: e.posicao, paginas: e.paginas })) });
   const doc = await PDFDocument.create();
-  const f: Fontes = { normal: await doc.embedFont(StandardFonts.Helvetica), negrito: await doc.embedFont(StandardFonts.HelveticaBold) };
+  const { f, k, nome } = await criarFontes(doc, externas);
+  const logo = cfg.identidade.logo ? await embutirImagem(doc, cfg.identidade.logo) : null;
+  const marcaImg = cfg.marcaDagua.ativa && cfg.marcaDagua.tipo === "logo" && cfg.marcaDagua.logo ? await embutirImagem(doc, cfg.marcaDagua.logo) : null;
+  const extras: ExtraEmbutido[] = [];
+  for (const e of cfg.extras) {
+    if (e.tipo === "pdf") {
+      const origem = await PDFDocument.load(e.bytes);
+      const paginas = [];
+      for (const p of origem.getPages()) paginas.push(p.node.Contents() ? await doc.embedPage(p) : null);
+      extras.push({ tipo: "pdf", paginas });
+    } else {
+      extras.push({ tipo: "imagem", img: e.tipo === "jpg" ? await doc.embedJpg(e.bytes) : await doc.embedPng(e.bytes) });
+    }
+  }
+  const ctx: Contexto = { cfg, feriados, luas, f, k, logo };
+  const larguraPt = W * PT_POR_MM;
+  const alturaPt = H * PT_POR_MM;
+  const semMarca = new Set(["capa", "branca", "extra"]);
+  const comRodape = new Set(["dados", "calendarioAno", "calendariosVizinhos", "planejamento", "dia", "fimDeSemana", "semana", "anotacoes"]);
+  const marcaSoDias = new Set(["dia", "fimDeSemana", "semana", "anotacoes"]);
   plano.paginas.forEach((p, i) => {
-    const page = doc.addPage([W * PT_POR_MM, H * PT_POR_MM]);
-    const fo = new Folha(page, f, i + 1);
+    const page = doc.addPage([larguraPt, alturaPt]);
+    const fo = new Folha(page, ctx, i + 1);
+    if (!semMarca.has(p.tipo) && (cfg.marcaDagua.onde === "todas" || marcaSoDias.has(p.tipo))) marcaDagua(fo, marcaImg);
     switch (p.tipo) {
       case "capa":
-        desenharCapa(fo, c.ano, c.capa || "AGENDA");
+        desenharCapa(fo);
+        break;
+      case "branca":
+        desenharVersoDaCapa(fo);
         break;
       case "dados":
         desenharDados(fo);
         break;
       case "calendarioAno":
-        desenharCalendarioAno(fo, c.ano, feriados);
+        desenharCalendarioAno(fo);
         break;
       case "calendariosVizinhos":
-        desenharVizinhos(fo, c.ano);
+        desenharVizinhos(fo);
         break;
       case "planejamento":
-        desenharPlanejamento(fo, c.ano, p.mes, feriados, luas);
+        desenharPlanejamento(fo, p.mes);
         break;
       case "dia":
-        desenharDia(fo, c.ano, p.mes, p.dia, feriados);
+        desenharDia(fo, p.mes, p.dia);
         break;
       case "fimDeSemana":
-        desenharFimDeSemana(fo, c.ano, p.mes, p.sabado, p.domingo, feriados);
+        desenharFimDeSemana(fo, p.mes, p.sabado, p.domingo);
+        break;
+      case "semana":
+        desenharSemana(fo, p.mes, p.dias, p.lado);
         break;
       case "anotacoes":
         desenharAnotacoes(fo);
         break;
+      case "extra": {
+        const e = extras[p.item];
+        if (e.tipo === "pdf") {
+          const ep = e.paginas[p.pagina];
+          if (ep) {
+            const pl = planejarTamanho(ep.width, ep.height, larguraPt, alturaPt, "caber", false);
+            page.drawPage(ep, { x: pl.destX, y: pl.destY, xScale: pl.escala, yScale: pl.escala });
+          }
+        } else {
+          const s = Math.min(larguraPt / e.img.width, alturaPt / e.img.height);
+          page.drawImage(e.img, { x: (larguraPt - e.img.width * s) / 2, y: (alturaPt - e.img.height * s) / 2, width: e.img.width * s, height: e.img.height * s });
+        }
+        break;
+      }
       default:
         break;
     }
+    if (comRodape.has(p.tipo)) rodapeIdentidade(fo);
   });
-  doc.setTitle(`Miolo de agenda ${c.ano}`);
-  return { bytes: await doc.save(), plano, feriados };
+  doc.setTitle(`Miolo de agenda ${cfg.ano}`);
+  return { bytes: await doc.save(), plano, feriados, fonte: nome };
 }
 
 /**
@@ -679,4 +1067,76 @@ export async function miolosEmA4(a5: Uint8Array): Promise<Uint8Array> {
     page.drawPage(p, { x: A4W / 2 + x0, y: 0 });
   }
   return saida.save();
+}
+
+// ─── Capa e contracapa ───────────────────────────────────────────────
+
+export interface ConfigCapa {
+  ano: number;
+  titulo: string;
+  /** Cor de fundo, "#rrggbb". */
+  cor: string;
+  linha1: string;
+  linha2: string;
+  /** Contato na contracapa (uma linha por linha de texto). */
+  contato: string;
+  logo: Imagem | null;
+  usarLogo: boolean;
+}
+
+export function corParaRgb(hex: string): [number, number, number] {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  const v = m ? Number.parseInt(m[1], 16) : 0x202020;
+  return [((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255];
+}
+
+/** Capa e contracapa em A5, com sangria (TrimBox no tamanho final), prontas para a Montagem de impressos. */
+export async function gerarCapas(c: ConfigCapa, externas?: FontesExternas | null): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const { f, k } = await criarFontes(doc, externas);
+  const b = SANGRIA_PADRAO_MM;
+  const [r, g, bl] = corParaRgb(c.cor);
+  const claro = 0.299 * r + 0.587 * g + 0.114 * bl > 0.6;
+  const cor = claro ? rgb(0.1, 0.1, 0.1) : rgb(1, 1, 1);
+  const logo = c.usarLogo && c.logo ? await embutirImagem(doc, c.logo) : null;
+  const pw = (W + 2 * b) * PT_POR_MM;
+  const ph = (H + 2 * b) * PT_POR_MM;
+  const texto = (page: PDFPage, s: string, y: number, tam: number, peso: Peso, opacidade = 1) => {
+    if (!s.trim()) return;
+    const t = tam * k;
+    const w = f[peso].widthOfTextAtSize(s, t) / PT_POR_MM;
+    page.drawText(s, { x: (b + W / 2 - w / 2) * PT_POR_MM, y: (H + b - y) * PT_POR_MM, size: t, font: f[peso], color: cor, opacity: opacidade });
+  };
+  const desenharLogo = (page: PDFPage, larguraMm: number, centroY: number) => {
+    if (!logo || !c.logo) return 0;
+    const alt = larguraMm * (c.logo.h / c.logo.w);
+    page.drawImage(logo, { x: (b + W / 2 - larguraMm / 2) * PT_POR_MM, y: (H + b - centroY - alt / 2) * PT_POR_MM, width: larguraMm * PT_POR_MM, height: alt * PT_POR_MM });
+    return alt;
+  };
+  const fundo = (page: PDFPage) => page.drawRectangle({ x: 0, y: 0, width: pw, height: ph, color: rgb(r, g, bl) });
+  const caixas = (page: PDFPage) => {
+    page.setTrimBox(b * PT_POR_MM, b * PT_POR_MM, W * PT_POR_MM, H * PT_POR_MM);
+    page.setBleedBox(0, 0, pw, ph);
+  };
+
+  const capa = doc.addPage([pw, ph]);
+  fundo(capa);
+  desenharLogo(capa, Math.min(76, 0.6 * W), 52);
+  texto(capa, (c.titulo || "AGENDA").toUpperCase(), 118, 36, "leve");
+  texto(capa, String(c.ano), 143, 62, "extra");
+  capa.drawLine({ start: { x: (b + W / 2 - 15) * PT_POR_MM, y: (H + b - 156) * PT_POR_MM }, end: { x: (b + W / 2 + 15) * PT_POR_MM, y: (H + b - 156) * PT_POR_MM }, thickness: 1, color: cor });
+  texto(capa, c.linha1, 178, 14, "negrito");
+  texto(capa, c.linha2, 187, 9, "normal", 0.85);
+  caixas(capa);
+
+  const contra = doc.addPage([pw, ph]);
+  fundo(contra);
+  const alt = desenharLogo(contra, 52, 78);
+  c.contato
+    .split("\n")
+    .slice(0, 6)
+    .forEach((l, i) => texto(contra, l, 78 + alt / 2 + 16 + i * 6.5, 8.5, "normal", 0.9));
+  caixas(contra);
+  doc.setTitle(`Capa e contracapa ${c.ano}`);
+  return doc.save();
 }
