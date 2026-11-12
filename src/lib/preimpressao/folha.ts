@@ -368,3 +368,47 @@ export function aproveitamento(e: Encaixe, sangriaPt: number): number {
   return (Math.max(0, f.w) * Math.max(0, f.h) * e.celulas.length) / (e.folhaW * e.folhaH);
 }
 
+
+// ─── Orientação: que sangria / tamanho de arte dá o tamanho final desejado ───
+
+export type OrientacaoTamanho =
+  /** A sangria atual já dá o tamanho desejado. */
+  | { tipo: "ok" }
+  /** A arte serve; é só usar esta sangria (mm por lado). */
+  | { tipo: "usar"; sangriaMm: number }
+  /** Largura e altura pedem sangrias diferentes: a arte não tem sangria igual nos 4 lados. */
+  | { tipo: "incoerente"; sangriaLarguraMm: number; sangriaAlturaMm: number }
+  /** A arte é menor que o tamanho desejado: não dá para cortar assim. */
+  | { tipo: "menor" };
+
+/** Tamanho da arte (cm) que dá o tamanho final desejado com uma sangria por lado. */
+export function arteParaTamanho(finalWcm: number, finalHcm: number, sangriaMm: number): { w: number; h: number } {
+  return { w: finalWcm + (2 * sangriaMm) / 10, h: finalHcm + (2 * sangriaMm) / 10 };
+}
+
+/**
+ * Compara a arte (pt) com o tamanho final que a pessoa quer (cm) e diz o que fazer.
+ * Aceita o tamanho desejado em pé ou deitado (vale o que fecha melhor). Tolerância de 0,15 mm.
+ */
+export function orientarTamanhoFinal(
+  arte: { w: number; h: number },
+  desejadoWcm: number,
+  desejadoHcm: number,
+  sangriaAtualMm: number,
+): OrientacaoTamanho {
+  const mm = (pt: number) => pt / PT_POR_MM;
+  const opcoes = [
+    { sw: (mm(arte.w) - desejadoWcm * 10) / 2, sh: (mm(arte.h) - desejadoHcm * 10) / 2 },
+    { sw: (mm(arte.w) - desejadoHcm * 10) / 2, sh: (mm(arte.h) - desejadoWcm * 10) / 2 },
+  ];
+  const iguais = opcoes.filter((o) => Math.abs(o.sw - o.sh) <= 0.15);
+  if (iguais.length) {
+    const o = iguais[0];
+    const s = Math.round(((o.sw + o.sh) / 2) * 10) / 10;
+    if (s < 0) return { tipo: "menor" };
+    return Math.abs(s - sangriaAtualMm) <= 0.05 ? { tipo: "ok" } : { tipo: "usar", sangriaMm: s };
+  }
+  const o = opcoes[0];
+  if (o.sw < 0 && o.sh < 0) return { tipo: "menor" };
+  return { tipo: "incoerente", sangriaLarguraMm: Math.round(o.sw * 10) / 10, sangriaAlturaMm: Math.round(o.sh * 10) / 10 };
+}

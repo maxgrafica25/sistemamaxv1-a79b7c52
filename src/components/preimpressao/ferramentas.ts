@@ -7,7 +7,7 @@
 // Regra: tudo roda no navegador, sem servidor e sem custo (ver CLAUDE.md).
 
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
-import { BookOpen, FileSearch, Files, Hash, LayoutGrid, Maximize, Scissors, type LucideIcon } from "lucide-react";
+import { BookOpen, FileSearch, Files, Hash, LayoutGrid, Scissors, type LucideIcon } from "lucide-react";
 
 export interface Ferramenta {
   key: string;
@@ -33,18 +33,10 @@ export const GRUPOS: GrupoFerramentas[] = [
       {
         key: "montagem",
         nome: "Montagem de impressos",
-        descricao: "Monta cartões, panfletos, etiquetas e convites diferentes na folha, com frente e verso e marcas de corte.",
-        entrada: "PDF de uma arte",
+        descricao: "Monta cartões, panfletos, etiquetas e convites diferentes na folha, com frente e verso e marcas de corte. Cria a sangria se a arte não tiver.",
+        entrada: "PDF, PNG, JPG ou EPS",
         icon: LayoutGrid,
         Componente: lazy(() => import("./MontagemImpressos")),
-      },
-      {
-        key: "sangria",
-        nome: "Sangria automática",
-        descricao: "Cria a sangria de artes que chegaram sem ela e mostra a margem de segurança para o texto não ser cortado.",
-        entrada: "PDF, PNG, JPG ou EPS",
-        icon: Maximize,
-        Componente: lazy(() => import("./SangriaAutomatica")),
       },
       {
         key: "numeracao",

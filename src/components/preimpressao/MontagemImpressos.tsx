@@ -45,7 +45,10 @@ import {
   SeletorFolha,
   SoltarArquivo,
 } from "./ui";
+import { AjudaTamanhoFinal } from "./AjudaTamanhoFinal";
 import { LinhaArquivo } from "./EntradasArte";
+import { useSangriaAutomatica } from "./sangriaAuto";
+import { SangriaBloco } from "./SangriaBloco";
 import { numeroEntre, useConfigSalva, useEntradasArte } from "./uteis";
 
 interface Config {
@@ -78,7 +81,7 @@ const PADRAO: Config = {
 
 export default function MontagemImpressos() {
   const [config, set] = useConfigSalva("preimpressao.montagem.config.v2", PADRAO);
-  const { entradas, detalhes, arte, lendo, adicionar, mudarLargura, remover, mover } = useEntradasArte();
+  const { entradas, detalhes, arte: arteOriginal, lendo, adicionar, mudarLargura, remover, mover } = useEntradasArte();
   const [avancado, setAvancado] = useState(false);
   const [saida, setSaida] = useState<{ bytes: Uint8Array; paginas: number } | null>(null);
   const [gerando, setGerando] = useState(false);
@@ -86,10 +89,13 @@ export default function MontagemImpressos() {
 
   // Arte com sangria gravada no PDF (TrimBox): usa o valor lido
   useEffect(() => {
-    if (arte?.sangriaPdf != null) set("sangria", String(arte.sangriaPdf).replace(".", ","));
-  }, [arte, set]);
+    if (arteOriginal?.sangriaPdf != null) set("sangria", String(arteOriginal.sangriaPdf).replace(".", ","));
+  }, [arteOriginal, set]);
 
   const sangria = numeroEntre(config.sangria, 0, 20);
+  // Arte sem sangria: o sistema cria e a Montagem passa a usar a arte já com a sangria
+  const sa = useSangriaAutomatica(arteOriginal, sangria);
+  const arte = sa.arteEfetiva;
   const margem = numeroEntre(config.margem, 0, 50);
   const espaco = numeroEntre(config.espaco, 0, 50);
   const quantidade = numeroEntre(config.quantidade, 1, 10_000_000, true);
@@ -185,7 +191,7 @@ export default function MontagemImpressos() {
                     ? "Ex.: o verso. Entram na ordem da lista."
                     : "Com sangria. Frente e verso: um PDF de 2 páginas ou os dois arquivos (frente primeiro)."
                 }
-                carregando={lendo}
+                carregando={lendo || sa.preparando}
                 aceita=".pdf,.png,.jpg,.jpeg,.eps,.cdr,application/pdf,image/png,image/jpeg,application/postscript"
                 multiplo
                 onArquivos={(f) => void adicionar(f)}
@@ -196,6 +202,19 @@ export default function MontagemImpressos() {
                 </p>
               )}
             </Campo>
+
+            {arteOriginal && (
+              <SangriaBloco
+                sa={sa}
+                sangriaTxt={config.sangria}
+                sangriaMm={sangria}
+                onSangria={(v) => set("sangria", v)}
+                sangriaPdf={arteOriginal.sangriaPdf}
+                paginas={arteOriginal.paginas}
+                nomeBase={arteOriginal.nome.replace(/\.[^.]+$/, "")}
+                larguraArte={arteOriginal}
+              />
+            )}
 
             <Campo titulo="Folha de impressão" ajuda="O sistema calcula quantas cabem e monta a folha sozinho.">
               <SeletorFolha valor={folha.key} onChange={(k) => set("folha", k)} />
@@ -237,13 +256,15 @@ export default function MontagemImpressos() {
                     Só mexa aqui se a sua arte fugir do padrão da Max (sangria de 1,5 mm, borda de 0,6 mm, artes encostadas).
                   </p>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+                    {!sa.criar && (
                     <Mini
-                      rotulo="Sangria da arte (mm)"
-                      valor={config.sangria}
-                      onChange={(v) => set("sangria", v)}
-                      erro={sangria === null ? "0 a 20 mm" : undefined}
-                      ajuda={arte?.sangriaPdf != null ? "Lida do PDF" : "Já incluída na arte, por lado"}
-                    />
+                        rotulo="Sangria da arte (mm)"
+                        valor={config.sangria}
+                        onChange={(v) => set("sangria", v)}
+                        erro={sangria === null ? "0 a 20 mm" : undefined}
+                        ajuda={arte?.sangriaPdf != null ? "Lida do PDF" : "Já incluída na arte, por lado"}
+                      />
+                    )}
                     <Mini rotulo="Borda da folha (mm)" valor={config.margem} onChange={(v) => set("margem", v)} erro={margem === null ? "0 a 50 mm" : undefined} ajuda="Da beirada até a sangria" />
                     <Mini rotulo="Espaço entre artes (mm)" valor={config.espaco} onChange={(v) => set("espaco", v)} erro={espaco === null ? "0 a 50 mm" : undefined} ajuda="0 = sangrias encostadas" />
                   </div>
@@ -373,6 +394,13 @@ export default function MontagemImpressos() {
                     ? "Confira os campos marcados em vermelho."
                     : "A arte não cabe na folha escolhida. Escolha uma folha maior ou diminua a borda."}
               </p>
+            )}
+            {arte && !sa.criar && (
+              <AjudaTamanhoFinal
+                arte={arte}
+                sangriaMm={sangria}
+                onUsarSangria={(v) => set("sangria", String(v).replace(".", ","))}
+              />
             )}
             {erroGerar && <p className="text-sm text-destructive">{erroGerar}</p>}
             <NotaPrivacidade />
