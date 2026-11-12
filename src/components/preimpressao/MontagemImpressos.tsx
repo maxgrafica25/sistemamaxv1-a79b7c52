@@ -4,7 +4,7 @@
 // Tudo no navegador.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Download, Loader2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Download, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PT_POR_CM } from "@/lib/preimpressao/margem";
@@ -93,6 +93,7 @@ export default function MontagemImpressos() {
   const [detalhes, setDetalhes] = useState<DetalheArquivo[]>([]);
   const [arte, setArte] = useState<ArteAberta | null>(null);
   const [lendo, setLendo] = useState(false);
+  const [avancado, setAvancado] = useState(false);
   const [saida, setSaida] = useState<{ bytes: Uint8Array; paginas: number } | null>(null);
   const [gerando, setGerando] = useState(false);
   const [erroGerar, setErroGerar] = useState<string | null>(null);
@@ -148,6 +149,8 @@ export default function MontagemImpressos() {
   const temVerso = !!arte && arte.paginas >= 2;
   const diferentes = temVerso && config.conteudo === "diferentes";
   const frenteVerso = temVerso && config.frenteVerso;
+
+  const invalidoAvancado = sangria === null || margem === null || espaco === null;
 
   const cfg: ConfigMontagem | null = useMemo(
     () =>
@@ -250,25 +253,66 @@ export default function MontagemImpressos() {
               <SeletorFolha valor={folha.key} onChange={(k) => set("folha", k)} />
             </Campo>
 
-            <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+            {!diferentes && (
               <Mini
-                rotulo="Sangria da arte (mm)"
-                valor={config.sangria}
-                onChange={(v) => set("sangria", v)}
-                erro={sangria === null ? "0 a 20 mm" : undefined}
-                ajuda={arte?.sangriaPdf != null ? "Lida do PDF" : "Já incluída no PDF, por lado"}
+                rotulo="Quantidade (unidades)"
+                valor={config.quantidade}
+                onChange={(v) => set("quantidade", v)}
+                erro={quantidade === null ? "Número inteiro" : undefined}
+                ajuda="Para calcular as folhas"
               />
-              <Mini rotulo="Borda da folha (mm)" valor={config.margem} onChange={(v) => set("margem", v)} erro={margem === null ? "0 a 50 mm" : undefined} ajuda="Da beirada até a sangria" />
-              <Mini rotulo="Espaço entre artes (mm)" valor={config.espaco} onChange={(v) => set("espaco", v)} erro={espaco === null ? "0 a 50 mm" : undefined} ajuda="0 = sangrias encostadas" />
-              {!diferentes && (
-                <Mini rotulo="Quantidade (unidades)" valor={config.quantidade} onChange={(v) => set("quantidade", v)} erro={quantidade === null ? "Número inteiro" : undefined} ajuda="Para calcular as folhas" />
-              )}
-            </div>
+            )}
 
             <Chave ligado={config.marcasCorte} onChange={(v) => set("marcasCorte", v)}>
               <span className="font-medium">Marcas de corte</span>
               <span className="block text-xs text-muted-foreground">Tracinhos na linha de corte, onde sobrar espaço na beirada da folha.</span>
             </Chave>
+
+            <div className="rounded-2xl bg-muted/50">
+              <button
+                type="button"
+                aria-expanded={avancado || invalidoAvancado}
+                onClick={() => setAvancado((v) => !v)}
+                className="flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                <span className="min-w-0">
+                  <span className="font-medium">Ajustes da folha</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Sangria {config.sangria || "—"} mm · Borda {config.margem || "—"} mm · Espaço {config.espaco || "—"} mm
+                  </span>
+                </span>
+                <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", (avancado || invalidoAvancado) && "rotate-180")} />
+              </button>
+              {(avancado || invalidoAvancado) && (
+                <div className="space-y-4 px-4 pb-4">
+                  <p className="text-xs text-muted-foreground">
+                    Só mexa aqui se a sua arte fugir do padrão da Max (sangria de 3 mm, borda de 0,6 mm, artes encostadas).
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+                    <Mini
+                      rotulo="Sangria da arte (mm)"
+                      valor={config.sangria}
+                      onChange={(v) => set("sangria", v)}
+                      erro={sangria === null ? "0 a 20 mm" : undefined}
+                      ajuda={arte?.sangriaPdf != null ? "Lida do PDF" : "Já incluída na arte, por lado"}
+                    />
+                    <Mini rotulo="Borda da folha (mm)" valor={config.margem} onChange={(v) => set("margem", v)} erro={margem === null ? "0 a 50 mm" : undefined} ajuda="Da beirada até a sangria" />
+                    <Mini rotulo="Espaço entre artes (mm)" valor={config.espaco} onChange={(v) => set("espaco", v)} erro={espaco === null ? "0 a 50 mm" : undefined} ajuda="0 = sangrias encostadas" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      set("sangria", PADRAO.sangria);
+                      set("margem", PADRAO.margem);
+                      set("espaco", PADRAO.espaco);
+                    }}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    Voltar ao padrão da Max
+                  </button>
+                </div>
+              )}
+            </div>
           </Painel>
 
           {temVerso && (
