@@ -104,3 +104,19 @@ export const compararFaixa = (f: FaixaComSku, produtos: Record<string, ProdutoTi
 
 /** O que pode ser enviado ao Tiny: preço do sistema diferente (ou Tiny sem preço), SKU achado e sem conflito. */
 export const podeEnviar = (c: ComparacaoTiny, preco: number) => (c.situacao === "diferente" || c.situacao === "sem_preco") && preco > 0;
+
+// ─── Vendas reais (últimos 90 dias), baixadas pela Júlia aos poucos ──
+
+export interface VendasTiny {
+  inicio: string;
+  fim: string;
+  dias: number;
+  /** Pedidos válidos no período e quantos já tiveram os itens baixados. */
+  pedidos: number;
+  pedidos_lidos: number;
+  atualizado_em: string | null;
+  /** Por SKU: [quantidade, valor unitário cobrado, parte do pedido]. */
+  skus: Record<string, [number, number, number][]>;
+}
+
+export const buscarVendasTiny = () => chamarJulia<VendasTiny>("/api/tiny/vendas");

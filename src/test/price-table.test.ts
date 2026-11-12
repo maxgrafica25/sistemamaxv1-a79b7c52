@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   chainTiers,
+  mergeSales,
+  qtyForProfit,
+  salesSummary,
+  tierProfitRange,
   itemAttributes,
   matchesSearch,
   minUnitPrice,
@@ -122,5 +126,33 @@ describe("faixas encadeadas", () => {
     ])).toEqual([
       { min_qty: 1, max_qty: 100 }, { min_qty: 101, max_qty: 300 }, { min_qty: 301, max_qty: null },
     ]);
+  });
+});
+
+describe("lucro dentro da faixa e nas vendas reais", () => {
+  // Impressão PB Inkjet A4 Sulfite 75g: custo ≈ R$ 0,085, faixa 1 a 50 a R$ 0,60
+  const c = 0.085;
+  it("mostra o lucro do começo ao fim da faixa e de quantas unidades bate a meta", () => {
+    const r = tierProfitRange({ min_qty: 1, max_qty: 50, price: 0.6 }, c, s);
+    expect(r.from!).toBeLessThan(-2.5);
+    expect(r.to!).toBeCloseTo((30 * 0.78 - 50 * c - 2.04) / 30, 2);
+    expect(qtyForProfit(0.6, c, s, 0)).toBe(6); // a partir de 6 cópias não dá prejuízo
+    expect(qtyForProfit(0.6, c, s, 0.33)).toBe(12);
+    expect(realProfitPct(0.6, 12, c, s)!).toBeGreaterThanOrEqual(0.33);
+    expect(realProfitPct(0.6, 11, c, s)!).toBeLessThan(0.33);
+    expect(qtyForProfit(0.1, c, s, 0.33)).toBeNull(); // preço abaixo do custo: nunca
+    const aberta = tierProfitRange({ min_qty: 1001, max_qty: null, price: 0.2 }, c, s);
+    expect(aberta.to!).toBeCloseTo((0.2 * 0.78 - c) / 0.2, 6);
+  });
+
+  it("soma o lucro das vendas reais, dividindo a preparação entre os itens do pedido", () => {
+    const v = salesSummary([[1, 0.6, 1], [20, 0.6, 0.5]], c, s);
+    expect(v.orders).toBe(2);
+    expect(v.units).toBe(21);
+    expect(v.revenue).toBeCloseTo(12.6);
+    const esperado = (0.6 * 0.78 - c - 2.04) + (12 * 0.78 - 20 * c - 2.04 * 0.5);
+    expect(v.profit).toBeCloseTo(esperado, 6);
+    expect(v.lossOrders).toBe(1);
+    expect(mergeSales([v, v]).profitPct).toBeCloseTo(v.profitPct!, 9);
   });
 });

@@ -23,6 +23,10 @@ import {
   PREP_MINUTES,
   chainTiers,
   fmtMoney,
+  mergeSales,
+  qtyForProfit,
+  salesSummary,
+  tierProfitRange,
   formatTierRanges,
   itemAttributes,
   matchesSearch,
@@ -42,10 +46,12 @@ import {
   type PriceSettings,
   type PriceTableItem,
   type PriceTier,
+  type SalesSummary,
   type SheetSize,
 } from "@/lib/priceTable";
 import {
   buscarPrecosTiny,
+  buscarVendasTiny,
   compararFaixa,
   enviarPrecosTiny,
   podeEnviar,
@@ -53,6 +59,7 @@ import {
   type ComparacaoTiny,
   type PrecosTiny,
   type ResultadoEnvio,
+  type VendasTiny,
 } from "@/lib/tinyPrecos";
 
 interface Category {
@@ -108,6 +115,7 @@ const STATUS_LABELS: Record<string, string> = {
   sem_custo: "Falta custo",
   erro: "Faixa com erro ou papel sem custo",
   tiny_diferente: "Preço diferente do Tiny",
+  prejuizo_real: "Lucro abaixo da meta nas vendas reais",
 };
 const EMPTY_FILTERS: Record<FilterKey, string> = { process: "", paper: "", grammage: "", size: "", color: "", sides: "", status: "" };
 const sortOptions = (a: string, b: string) => a.localeCompare(b, "pt-BR", { numeric: true });
@@ -155,6 +163,7 @@ export default function TabelaPrecos() {
   const [tinyCarregando, setTinyCarregando] = useState(false);
   const [envio, setEnvio] = useState<LinhaEnvio[] | null>(null);
   const [historico, setHistorico] = useState(false);
+  const [vendas, setVendas] = useState<VendasTiny | null>(null);
 
   const minuteRate = hourlyRate / 60;
   const settings: PriceSettings = { feesPct, targetPct, minuteRate };
@@ -210,6 +219,28 @@ export default function TabelaPrecos() {
     }
   };
   useEffect(() => { carregarTiny(); }, []);
+  useEffect(() => { buscarVendasTiny().then(setVendas).catch(() => setVendas(null)); }, []);
+
+  // Vendas reais (90 dias) de cada faixa, pelo SKU do Tiny.
+  const vendasDaFaixa = (t: Tier, custo: number): SalesSummary | null => {
+    const sku = (t.tiny_sku || "").trim();
+    const linhas = sku && vendas?.skus[sku];
+    return linhas && linhas.length ? salesSummary(linhas, custo, settings) : null;
+  };
+  const vendasDoItem = (item: Item): SalesSummary | null => {
+    const cost = unitCost(item, ctx);
+    if (cost.missing) return null;
+    const vistos = new Set<string>();
+    const lista: SalesSummary[] = [];
+    for (const t of tiersByItem.get(item.id) || []) {
+      const sku = (t.tiny_sku || "").trim();
+      if (!sku || vistos.has(sku)) continue;
+      vistos.add(sku);
+      const v = vendasDaFaixa(t, cost.total);
+      if (v) lista.push(v);
+    }
+    return lista.length ? mergeSales(lista) : null;
+  };
 
   // SKU usado em mais de uma faixa com preços diferentes não pode ser enviado (o Tiny guarda um preço por SKU).
   const conflitos = useMemo(() => skusEmConflito(tiers), [tiers]);
@@ -267,6 +298,8 @@ export default function TabelaPrecos() {
       const tierErrors = tierProblems(list).some((p) => !p.message.startsWith("Degrau"));
       if (tierErrors || (item.calc_type === "impressao" && cost.paper <= 0)) status.push("erro");
       if (tiny && list.some((t) => podeEnviar(compararFaixa(t, tiny.produtos, conflitos), t.price))) status.push("tiny_diferente");
+      const vReal = vendasDoItem(item);
+      if (vReal && vReal.profitPct !== null && vReal.profitPct < targetPct) status.push("prejuizo_real");
       m.set(item.id, {
         process: a.process ? [a.process] : [],
         paper: a.paper ? [a.paper] : [],
@@ -278,8 +311,10 @@ export default function TabelaPrecos() {
       });
     }
     return m;
-  }, [items, tiersByItem, papers, equipments, minuteRate, feesPct, targetPct, tiny, conflitos]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, tiersByItem, papers, equipments, minuteRate, feesPct, targetPct, tiny, conflitos, vendas]);
 
+  const temVendas = !!vendas && vendas.pedidos_lidos > 0;
   const filtering = !!search.trim() || Object.values(filters).some(Boolean);
 
   const todas = selectedCat === TODAS;
@@ -503,7 +538,8 @@ export default function TabelaPrecos() {
             <span className="inline-flex items-center gap-1 cursor-help underline decoration-dotted">Como ler <Info className="h-3.5 w-3.5" /></span>
           </HoverCardTrigger>
           <HoverCardContent className="w-96 text-sm space-y-2">
-            <p><strong>Lucro real</strong> = o que sobra de um pedido com a quantidade do início da faixa, depois de tirar as taxas, o custo das unidades e a preparação do pedido.</p>
+            <p><strong>Lucro real na faixa</strong> = o que sobra do pedido depois de tirar as taxas, o custo das unidades e a preparação do pedido, do menor ao maior pedido da faixa (ex.: "−275% → 57%" = 1 un dá prejuízo, 50 un dão 57%). Embaixo: a partir de quantas unidades bate a meta.</p>
+            <p><strong>Vendas</strong> = o que foi vendido de verdade no Tiny nos últimos 90 dias, pelo SKU, e o lucro real dessas vendas com o custo de hoje.</p>
             <p><span className="text-emerald-600 font-medium">Verde</span>: atinge a meta. <span className="text-amber-600 font-medium">Amarelo</span>: lucro abaixo da meta. <span className="text-red-600 font-medium">Vermelho</span>: prejuízo.</p>
             <p><strong>Preço mínimo</strong> = menor preço por unidade que atinge a meta nessa quantidade.</p>
             <p>Para mudar um preço, clique nele, digite o novo valor e saia do campo — salva sozinho.</p>
@@ -532,6 +568,13 @@ export default function TabelaPrecos() {
         >
           <RefreshCw className={`h-4 w-4 mr-1 ${tinyCarregando ? "animate-spin" : ""}`} /> Reler preços do Tiny
         </Button>
+        {vendas && vendas.pedidos > 0 && (
+          <span className="text-muted-foreground">
+            Vendas: {vendas.pedidos_lidos < vendas.pedidos
+              ? <>baixando do Tiny ({vendas.pedidos_lidos.toLocaleString("pt-BR")} de {vendas.pedidos.toLocaleString("pt-BR")} pedidos, termina sozinho)</>
+              : <>{vendas.pedidos.toLocaleString("pt-BR")} pedidos dos últimos {vendas.dias} dias</>}
+          </span>
+        )}
         <Button variant="ghost" size="sm" className="h-8" onClick={() => setHistorico(true)}>
           <History className="h-4 w-4 mr-1" /> Histórico de envios
         </Button>
@@ -687,6 +730,15 @@ export default function TabelaPrecos() {
                       )}
                     </div>
                     {item.notes && <p className="text-xs text-muted-foreground mt-1">{item.notes}</p>}
+                    {(() => {
+                      const v = temVendas ? vendasDoItem(item) : null;
+                      return v ? (
+                        <p className="text-xs text-muted-foreground mt-1.5">
+                          Últimos {vendas!.dias} dias: {v.orders} {v.orders === 1 ? "venda" : "vendas"} · {fmtMoney(v.revenue)} · lucro{" "}
+                          <strong className={profitClass(v.profitPct, targetPct)}>{fmtMoney(v.profit)} ({pct(v.profitPct)})</strong>
+                        </p>
+                      ) : null;
+                    })()}
                     {qty > 0 && list.length > 0 && (
                       <p className="text-sm mt-1.5">
                         <strong>{qty} un = {fmtMoney(orderTotal(list, qty))}</strong>
@@ -727,21 +779,22 @@ export default function TabelaPrecos() {
                       <TableHeader>
                         <TableRow>
                           <TableHead className="h-8">Faixa (un)</TableHead>
-                          <TableHead className="h-8">SKU Tiny</TableHead>
                           <TableHead className="h-8 w-28">Preço/un</TableHead>
                           <TableHead className="h-8">Tiny</TableHead>
-                          <TableHead className="h-8 text-right">Lucro real</TableHead>
+                          <TableHead className="h-8 text-right">Lucro real na faixa</TableHead>
+                          {temVendas && <TableHead className="h-8 text-right">Vendas ({vendas!.dias} dias)</TableHead>}
                           <TableHead className="h-8 text-right">Preço mínimo</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {list.map((t) => {
-                          const profit = cost.missing ? null : realProfitPct(t.price, t.min_qty, cost.total, settings);
                           const min = cost.missing ? null : minUnitPrice(t.min_qty, cost.total, settings);
                           return (
                             <TableRow key={t.id} className={qty > 0 && qty >= t.min_qty && (t.max_qty === null || qty <= t.max_qty) ? "bg-primary/10 hover:bg-primary/10" : ""}>
-                              <TableCell className="py-1.5">{tierLabel(t)}</TableCell>
-                              <TableCell className="py-1.5 font-mono text-xs">{t.tiny_sku || "—"}</TableCell>
+                              <TableCell className="py-1.5 leading-tight">
+                                <span className="whitespace-nowrap">{tierLabel(t)}</span>
+                                <span className="block text-[11px] text-muted-foreground font-mono">{t.tiny_sku ? `SKU ${t.tiny_sku}` : "sem SKU"}</span>
+                              </TableCell>
                               <TableCell className="py-1">
                                 <Input
                                   inputMode="decimal"
@@ -753,10 +806,14 @@ export default function TabelaPrecos() {
                                 />
                               </TableCell>
                               <TableCell className="py-1.5 whitespace-nowrap"><CelulaTiny c={compararTiny(t)} carregando={tinyCarregando} /></TableCell>
-                              <TableCell className={`py-1.5 text-right font-medium ${profitClass(profit, targetPct)}`}>
-                                {pct(profit)}
-                                <span className="text-xs text-muted-foreground font-normal ml-1">({t.min_qty} un)</span>
+                              <TableCell className="py-1.5 text-right">
+                                {cost.missing ? <span className="text-muted-foreground">—</span> : <LucroFaixa t={t} custo={cost.total} settings={settings} />}
                               </TableCell>
+                              {temVendas && (
+                                <TableCell className="py-1.5 text-right">
+                                  <VendasCelula v={cost.missing ? null : vendasDaFaixa(t, cost.total)} meta={targetPct} />
+                                </TableCell>
+                              )}
                               <TableCell className="py-1.5 text-right text-muted-foreground">{min === null ? "—" : fmtMoney(min)}</TableCell>
                             </TableRow>
                           );
@@ -1376,5 +1433,54 @@ function HistoricoTinyDialog({ onClose, onVoltar }: { onClose: () => void; onVol
         <DialogFooter><Button variant="outline" onClick={onClose}>Fechar</Button></DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ─── Lucro na faixa e vendas reais ───────────────────────────────────
+
+function LucroFaixa({ t, custo, settings }: { t: Tier; custo: number; settings: PriceSettings }) {
+  const { from, to } = tierProfitRange(t, custo, settings);
+  const meta = settings.targetPct;
+  const aPartir = from !== null && from < meta ? qtyForProfit(t.price, custo, settings, meta) : null;
+  const dentro = aPartir !== null && (t.max_qty === null || aPartir <= t.max_qty);
+  const igual = pct(from) === pct(to);
+  return (
+    <div className="leading-tight">
+      <span className={`font-medium tabular-nums ${profitClass(from, meta)}`}>{pct(from)}</span>
+      {!igual && (
+        <>
+          <span className="text-muted-foreground mx-1">→</span>
+          <span className={`font-medium tabular-nums ${profitClass(to, meta)}`}>{pct(to)}</span>
+        </>
+      )}
+      {from !== null && from < meta && (
+        <span className="block text-[11px] text-muted-foreground">
+          {dentro ? `meta a partir de ${aPartir!.toLocaleString("pt-BR")} un` : "não chega à meta"}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function VendasCelula({ v, meta }: { v: SalesSummary | null; meta: number }) {
+  if (!v) return <span className="text-muted-foreground">—</span>;
+  return (
+    <HoverCard openDelay={150}>
+      <HoverCardTrigger asChild>
+        <span className="cursor-help leading-tight inline-block">
+          <span className={`font-medium tabular-nums ${profitClass(v.profitPct, meta)}`}>{pct(v.profitPct)}</span>
+          <span className="block text-[11px] text-muted-foreground">{v.orders} {v.orders === 1 ? "venda" : "vendas"}</span>
+        </span>
+      </HoverCardTrigger>
+      <HoverCardContent className="w-64 text-sm space-y-1">
+        <div className="flex justify-between"><span className="text-muted-foreground">Vendas</span><span>{v.orders}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Unidades</span><span>{v.units.toLocaleString("pt-BR")}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Média por venda</span><span>{(v.units / v.orders).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} un</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Faturado</span><span>{fmtMoney(v.revenue)}</span></div>
+        <div className="flex justify-between font-medium"><span>Lucro real</span><span className={profitClass(v.profitPct, meta)}>{fmtMoney(v.profit)}</span></div>
+        {v.lossOrders > 0 && <p className="text-xs text-amber-700 dark:text-amber-400 pt-1">{v.lossOrders} {v.lossOrders === 1 ? "venda deu" : "vendas deram"} prejuízo</p>}
+        <p className="text-xs text-muted-foreground pt-1">Com o custo de hoje e o preço que foi cobrado (com desconto).</p>
+      </HoverCardContent>
+    </HoverCard>
   );
 }

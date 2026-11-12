@@ -228,3 +228,57 @@ export const chainTiers = <T extends Pick<PriceTier, "min_qty" | "max_qty">>(tie
     out.push({ ...t, min_qty: min }); // "até" menor que o "de" fica como está (a pessoa pode estar digitando)
     return out;
   }, []);
+
+// ─── Lucro dentro da faixa e nas vendas reais ────────────────────────
+
+/** Menor quantidade em que o pedido atinge `target` de lucro real (null = nunca, nesse preço). */
+export const qtyForProfit = (price: number, cost: number, s: PriceSettings, target: number): number | null => {
+  const porUnidade = price * (1 - s.feesPct - target) - cost;
+  if (price <= 0 || porUnidade <= 0) return null;
+  return Math.max(1, Math.ceil(prepCost(s.minuteRate) / porUnidade - 1e-9));
+};
+
+/** Lucro real no começo e no fim da faixa (faixa sem fim = pedido muito grande, quando a preparação já não pesa). */
+export const tierProfitRange = (t: Pick<PriceTier, "min_qty" | "max_qty" | "price">, cost: number, s: PriceSettings) => {
+  const from = realProfitPct(t.price, t.min_qty, cost, s);
+  const to = t.max_qty === null
+    ? (t.price > 0 ? (t.price * (1 - s.feesPct) - cost) / t.price : null)
+    : realProfitPct(t.price, t.max_qty, cost, s);
+  return { from, to };
+};
+
+/** Linha vendida no Tiny: [quantidade, valor unitário cobrado, parte do pedido (para dividir a preparação)]. */
+export type SaleLine = [number, number, number];
+
+export interface SalesSummary {
+  orders: number;
+  units: number;
+  revenue: number;
+  profit: number;
+  /** Lucro ÷ faturamento (null sem vendas). */
+  profitPct: number | null;
+  lossOrders: number;
+}
+
+/** Lucro real das vendas: o que entrou − taxas − custo das unidades − preparação (dividida entre os itens do pedido). */
+export const salesSummary = (lines: SaleLine[], cost: number, s: PriceSettings): SalesSummary => {
+  const prep = prepCost(s.minuteRate);
+  let units = 0, revenue = 0, profit = 0, lossOrders = 0;
+  for (const [q, v, parte] of lines) {
+    const rev = q * v;
+    const p = rev * (1 - s.feesPct) - cost * q - prep * parte;
+    units += q;
+    revenue += rev;
+    profit += p;
+    if (p < 0) lossOrders++;
+  }
+  return { orders: lines.length, units, revenue, profit, profitPct: revenue > 0 ? profit / revenue : null, lossOrders };
+};
+
+export const mergeSales = (list: SalesSummary[]): SalesSummary => {
+  const out = list.reduce(
+    (a, b) => ({ orders: a.orders + b.orders, units: a.units + b.units, revenue: a.revenue + b.revenue, profit: a.profit + b.profit, profitPct: null, lossOrders: a.lossOrders + b.lossOrders }),
+    { orders: 0, units: 0, revenue: 0, profit: 0, profitPct: null, lossOrders: 0 } as SalesSummary,
+  );
+  return { ...out, profitPct: out.revenue > 0 ? out.profit / out.revenue : null };
+};
