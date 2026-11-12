@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { PT_POR_CM, detectarTipo } from "@/lib/preimpressao/margem";
 import { SANGRIA_PADRAO_MM } from "@/lib/preimpressao/folha";
 import { AjudaTamanhoFinal } from "./AjudaTamanhoFinal";
+import { useSangriaAutomatica } from "./sangriaAuto";
+import { SangriaBloco } from "./SangriaBloco";
 import {
   COR_PADRAO,
   CORES_PADRAO,
@@ -204,7 +206,7 @@ const fmtCm = (pt: number) => (pt / PT_POR_CM).toLocaleString("pt-BR", { maximum
 
 export default function NumeracaoTaloes() {
   const [config, setConfig] = useState<Config>(lerConfig);
-  const [arte, setArte] = useState<Arte | null>(null);
+  const [arteOriginal, setArte] = useState<Arte | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erroArte, setErroArte] = useState<string | null>(null);
   const [gerando, setGerando] = useState(false);
@@ -219,15 +221,42 @@ export default function NumeracaoTaloes() {
     }
   }, [config]);
 
+  const set = <K extends keyof Config>(k: K, v: Config[K]) => setConfig((c) => ({ ...c, [k]: v }));
+
+  const { cfg, erros } = useMemo(() => validar(config), [config]);
+
+  // Arte sem sangria (só no caminho padrão): o sistema cria e a Numeração usa a arte já com a sangria
+  const sa = useSangriaAutomatica(config.modo === "solto" ? arteOriginal : null, entre(config.sangria, 0, 20));
+  const [imagemSangria, setImagemSangria] = useState<{ emPe: Uint8Array; imagem: string } | null>(null);
+  useEffect(() => {
+    const e = sa.arteEfetiva;
+    if (!sa.criar || !e) {
+      setImagemSangria(null);
+      return;
+    }
+    let vivo = true;
+    renderizarPaginaPdf(e.emPe, 0, 1400)
+      .then((imagem) => vivo && setImagemSangria({ emPe: e.emPe, imagem }))
+      .catch(() => vivo && setImagemSangria(null));
+    return () => {
+      vivo = false;
+    };
+  }, [sa.criar, sa.arteEfetiva]);
+  const arte: Arte | null = useMemo(
+    () =>
+      config.modo === "solto" && sa.criar
+        ? sa.arteEfetiva && imagemSangria && imagemSangria.emPe === sa.arteEfetiva.emPe
+          ? { ...sa.arteEfetiva, imagem: imagemSangria.imagem }
+          : null
+        : arteOriginal,
+    [config.modo, sa.criar, sa.arteEfetiva, imagemSangria, arteOriginal],
+  );
+
   // Qualquer mudança invalida o PDF já gerado
   useEffect(() => {
     setResultado(null);
     setErroGerar(null);
   }, [config, arte]);
-
-  const set = <K extends keyof Config>(k: K, v: Config[K]) => setConfig((c) => ({ ...c, [k]: v }));
-
-  const { cfg, erros } = useMemo(() => validar(config), [config]);
 
   const encaixe: Encaixe | null = useMemo(() => {
     if (!arte || !cfg) return null;
@@ -311,11 +340,24 @@ export default function NumeracaoTaloes() {
               titulo={config.modo === "solto" ? "Solte o PDF de uma arte" : "Solte o PDF montado"}
               dica={`${config.modo === "solto" ? "Uma arte só, com sangria." : "Folha pronta, com marcas de corte."} Pode ter uma página por via.`}
               arquivo={arte ? { nome: arte.nome, detalhe: `${fmtCm(arte.w)} × ${fmtCm(arte.h)} cm · ${arte.paginas} ${arte.paginas === 1 ? "página" : "páginas"}` } : null}
-              carregando={carregando}
+              carregando={carregando || sa.preparando}
               erro={erroArte}
               onArquivos={(f) => void carregar(f)}
             />
           </Campo>
+
+          {config.modo === "solto" && arteOriginal && (
+            <SangriaBloco
+              sa={sa}
+              sangriaTxt={config.sangria}
+              sangriaMm={entre(config.sangria, 0, 20)}
+              onSangria={(v) => set("sangria", v)}
+              sangriaPdf={arteOriginal.sangriaPdf}
+              paginas={arteOriginal.paginas}
+              nomeBase={arteOriginal.nome.replace(/\.[^.]+$/, "")}
+              larguraArte={arteOriginal}
+            />
+          )}
 
           {config.modo === "solto" ? (
             <>
@@ -325,13 +367,15 @@ export default function NumeracaoTaloes() {
               </Campo>
 
               <div className="grid grid-cols-2 gap-x-3 gap-y-4">
-                <Mini
-                  rotulo="Sangria da arte (mm)"
-                  valor={config.sangria}
-                  onChange={(v) => set("sangria", v)}
-                  erro={erros.sangria}
-                  ajuda={arte?.sangriaPdf != null ? "Lida do PDF" : "Já incluída no PDF, por lado"}
-                />
+                {!sa.criar && (
+                  <Mini
+                    rotulo="Sangria da arte (mm)"
+                    valor={config.sangria}
+                    onChange={(v) => set("sangria", v)}
+                    erro={erros.sangria}
+                    ajuda={arte?.sangriaPdf != null ? "Lida do PDF" : "Já incluída no PDF, por lado"}
+                  />
+                )}
                 <Mini rotulo="Borda da folha (mm)" valor={config.margem} onChange={(v) => set("margem", v)} erro={erros.margem} ajuda="Da beirada até a sangria" />
                 <Mini
                   rotulo="Espaço entre artes (mm)"
@@ -526,7 +570,7 @@ export default function NumeracaoTaloes() {
             </p>
           )}
 
-          {arte && config.modo === "solto" && (
+          {arte && config.modo === "solto" && !sa.criar && (
             <AjudaTamanhoFinal arte={arte} sangriaMm={entre(config.sangria, 0, 20)} onUsarSangria={(v) => set("sangria", String(v).replace(".", ","))} />
           )}
 
