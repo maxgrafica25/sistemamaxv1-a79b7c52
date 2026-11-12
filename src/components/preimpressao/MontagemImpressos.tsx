@@ -48,6 +48,7 @@ import {
 import { AjudaTamanhoFinal } from "./AjudaTamanhoFinal";
 import { LinhaArquivo } from "./EntradasArte";
 import { useSangriaAutomatica } from "./sangriaAuto";
+import { PreviaArteComGuias, type AbaPrevia } from "./PreviaArte";
 import { SangriaBloco } from "./SangriaBloco";
 import { numeroEntre, useConfigSalva, useEntradasArte } from "./uteis";
 
@@ -83,6 +84,7 @@ export default function MontagemImpressos() {
   const [config, set] = useConfigSalva("preimpressao.montagem.config.v2", PADRAO);
   const { entradas, detalhes, arte: arteOriginal, lendo, adicionar, mudarLargura, remover, mover } = useEntradasArte();
   const [avancado, setAvancado] = useState(false);
+  const [aba, setAba] = useState<AbaPrevia>("folha");
   const [saida, setSaida] = useState<{ bytes: Uint8Array; paginas: number } | null>(null);
   const [gerando, setGerando] = useState(false);
   const [erroGerar, setErroGerar] = useState<string | null>(null);
@@ -207,12 +209,9 @@ export default function MontagemImpressos() {
               <SangriaBloco
                 sa={sa}
                 sangriaTxt={config.sangria}
-                sangriaMm={sangria}
                 onSangria={(v) => set("sangria", v)}
                 sangriaPdf={arteOriginal.sangriaPdf}
-                paginas={arteOriginal.paginas}
                 nomeBase={arteOriginal.nome.replace(/\.[^.]+$/, "")}
-                larguraArte={arteOriginal}
               />
             )}
 
@@ -350,15 +349,35 @@ export default function MontagemImpressos() {
           <Painel className="space-y-4">
             <div>
               <h3 className="text-base font-semibold tracking-tight">Pré-visualização</h3>
-              <p className="text-xs text-muted-foreground">{arte ? "É exatamente a folha que vai ser baixada." : "Envie a arte para ver a folha montada."}</p>
+              <p className="text-xs text-muted-foreground">
+                {!arte
+                  ? "Envie a arte para ver a folha montada."
+                  : aba === "folha"
+                    ? "É exatamente a folha que vai ser baixada."
+                    : "A arte com a linha de corte e a margem de segurança do texto."}
+              </p>
             </div>
-            <PreviaPdf
-              bytes={saida?.bytes ?? null}
-              paginas={saida?.paginas ?? 0}
-              ocupado={gerando}
-              rotulos={frenteVerso ? (i) => (i % 2 === 0 ? "Frente" : "Verso") : undefined}
-              vazio={arte && !cabe ? "A arte não cabe nesta folha" : "A pré-visualização aparece aqui"}
-            />
+            {arteOriginal && (
+              <Segmentado<AbaPrevia>
+                valor={aba}
+                opcoes={[
+                  { valor: "folha" as AbaPrevia, rotulo: "Folha montada" },
+                  { valor: "arte" as AbaPrevia, rotulo: "Arte e sangria" },
+                ]}
+                onChange={setAba}
+              />
+            )}
+            {aba === "arte" && arteOriginal ? (
+              <PreviaArteComGuias arte={arte} sangriaMm={sangria} sa={sa} ocupado={sa.gerando} />
+            ) : (
+              <PreviaPdf
+                bytes={saida?.bytes ?? null}
+                paginas={saida?.paginas ?? 0}
+                ocupado={gerando}
+                rotulos={frenteVerso ? (i) => (i % 2 === 0 ? "Frente" : "Verso") : undefined}
+                vazio={arte && !cabe ? "A arte não cabe nesta folha" : "A pré-visualização aparece aqui"}
+              />
+            )}
           </Painel>
 
           <Painel className="space-y-4">

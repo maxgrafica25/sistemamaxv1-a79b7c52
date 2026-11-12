@@ -7,7 +7,7 @@
 // Regra: tudo roda no navegador, sem servidor e sem custo (ver CLAUDE.md).
 
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
-import { BookOpen, FileSearch, Files, Hash, LayoutGrid, Scissors, type LucideIcon } from "lucide-react";
+import { BookOpen, CalendarDays, Crop, FileSearch, Files, Hash, LayoutGrid, Scissors, type LucideIcon } from "lucide-react";
 
 export interface Ferramenta {
   key: string;
@@ -37,6 +37,14 @@ export const GRUPOS: GrupoFerramentas[] = [
         entrada: "PDF, PNG, JPG ou EPS",
         icon: LayoutGrid,
         Componente: lazy(() => import("./MontagemImpressos")),
+      },
+      {
+        key: "agenda",
+        nome: "Miolo de agenda",
+        descricao: "Gera o miolo da agenda do ano em A5 (ou A4 com 2 por folha): calendário, fases da lua, feriados nacionais e os da sua região.",
+        entrada: "Só escolher o ano",
+        icon: CalendarDays,
+        Componente: lazy(() => import("./MioloAgenda")),
       },
       {
         key: "numeracao",
@@ -79,6 +87,14 @@ export const GRUPOS: GrupoFerramentas[] = [
         entrada: "PDF, PNG ou JPG",
         icon: FileSearch,
         Componente: lazy(() => import("./ConferenciaArquivo")),
+      },
+      {
+        key: "redimensionar",
+        nome: "Redimensionar e cortar",
+        descricao: "Muda o tamanho das páginas (A5, A4, medida livre), corta margens ou tira a folga branca, sem refazer a arte.",
+        entrada: "PDF, PNG, JPG ou EPS",
+        icon: Crop,
+        Componente: lazy(() => import("./RedimensionarPdf")),
       },
       {
         key: "organizar",
