@@ -15,6 +15,17 @@ import {
 } from "./margem";
 import { resolucoesDaPagina } from "./conferencia";
 import { tintaDaImagem, type Tinta } from "./organizar";
+import { PT_POR_MM } from "./folha";
+import {
+  conferirMargemSeguranca,
+  expandirPixels,
+  faixasDaSangria,
+  type ConferenciaMargem,
+  type Cor,
+  type FornecedorFaixas,
+  type ModoSangria,
+  type Pixels,
+} from "./sangria";
 
 const MSG_SEMPRE_PDF =
   "Imagem grande demais para o navegador gerar em PNG/JPG. Escolha \"Sempre PDF\" em \"Salvar como\".";
@@ -278,4 +289,79 @@ export async function baixarZip(arquivos: { nome: string; blob: Blob }[], nomeZi
   }
   const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
   baixarBlob(blob, nomeZip);
+}
+
+// ─── Sangria automática (canvas) ────────────────────────────────────
+
+/** Desenha uma página do PDF sobre fundo branco e devolve os pixels (escala = pixels por ponto). */
+export async function pixelsDaPagina(bytes: Uint8Array, pagina: number, escala: number): Promise<Pixels> {
+  const pdfjs = await carregarPdfJs();
+  const tarefa = pdfjs.getDocument({ data: bytes.slice() });
+  const doc = await tarefa.promise;
+  try {
+    const page = await doc.getPage(pagina + 1);
+    const viewport = page.getViewport({ scale: escala });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(viewport.width));
+    canvas.height = Math.max(1, Math.round(viewport.height));
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) throw new Error("canvas indisponível");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvas, canvasContext: ctx, viewport, background: "rgb(255,255,255)" }).promise;
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    page.cleanup();
+    return { w: canvas.width, h: canvas.height, data: img.data };
+  } finally {
+    await tarefa.destroy();
+  }
+}
+
+async function pngDePixels(px: Pixels): Promise<Uint8Array> {
+  const canvas = document.createElement("canvas");
+  canvas.width = px.w;
+  canvas.height = px.h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas indisponível");
+  ctx.putImageData(new ImageData(new Uint8ClampedArray(px.data), px.w, px.h), 0, 0);
+  const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, "image/png"));
+  if (!blob) throw new Error("Imagem grande demais para o navegador. Tente uma arte menor.");
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+/** Limite de pixels do maior lado ao desenhar a arte para tirar a faixa (≈ 300 dpi até A3). */
+const MAX_LADO_PX = 3600;
+const PX_POR_PT_300DPI = 300 / 72;
+
+/** Faixas da sangria de cada página: desenha a arte, expande as bordas e codifica em PNG. */
+export function fornecedorDeFaixas(emPe: Uint8Array, sangriaMm: number, modo: ModoSangria, cor: Cor): FornecedorFaixas {
+  return async (pagina, wPt, hPt) => {
+    const escala = Math.min(PX_POR_PT_300DPI, MAX_LADO_PX / Math.max(wPt, hPt));
+    const px = await pixelsDaPagina(emPe, pagina, escala);
+    const b = Math.max(1, Math.round(sangriaMm * PT_POR_MM * escala));
+    const f = faixasDaSangria(expandirPixels(px, b, modo, cor), b);
+    const [topo, base, esquerda, direita] = await Promise.all([f.topo, f.base, f.esquerda, f.direita].map(pngDePixels));
+    return { topo, base, esquerda, direita };
+  };
+}
+
+/** Confere a margem de segurança de cada página (até `maxPaginas`). */
+export async function conferirMargensDoPdf(bytes: Uint8Array, margemMm: number, maxPaginas = 20): Promise<ConferenciaMargem[]> {
+  const pdfjs = await carregarPdfJs();
+  const tarefa = pdfjs.getDocument({ data: bytes.slice() });
+  const doc = await tarefa.promise;
+  try {
+    const out: ConferenciaMargem[] = [];
+    for (let i = 0; i < Math.min(doc.numPages, maxPaginas); i++) {
+      const page = await doc.getPage(i + 1);
+      const vp1 = page.getViewport({ scale: 1 });
+      page.cleanup();
+      const escala = Math.min(150 / 72, 1800 / Math.max(vp1.width, vp1.height));
+      const px = await pixelsDaPagina(bytes, i, escala);
+      out.push(conferirMargemSeguranca(px, escala * PT_POR_MM, margemMm));
+    }
+    return out;
+  } finally {
+    await tarefa.destroy();
+  }
 }
