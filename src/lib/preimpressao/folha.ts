@@ -17,6 +17,8 @@ export const FOLHAS_PADRAO: { key: string; rotulo: string; detalhe?: string; wCm
   { key: "sra3", rotulo: "SRA3", wCm: 32, hCm: 45 },
   { key: "32.8x47.8", rotulo: "Formatão", detalhe: "32,8 × 47,8", wCm: 32.8, hCm: 47.8 },
 ];
+/** Sangria padrão da Max (mm por lado), decidida com o Juliano em 12/11/2026 (antes 3 mm). */
+export const SANGRIA_PADRAO_MM = 1.5;
 export const FOLHA_PADRAO = "32.8x47.8";
 
 

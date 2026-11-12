@@ -12,6 +12,7 @@ import {
   FOLHAS_PADRAO,
   FOLHA_PADRAO,
   PT_POR_MM,
+  SANGRIA_PADRAO_MM,
   aproveitamento,
   formatarCm,
   montarArte,
@@ -61,10 +62,10 @@ interface Config {
   ordem: Ordem;
 }
 
-// Padrão da Max: Formatão, sangria 3 mm, borda 0,6 mm, sangrias encostadas
+// Padrão da Max: Formatão, sangria 1,5 mm, borda 0,6 mm, sangrias encostadas
 const PADRAO: Config = {
   folha: FOLHA_PADRAO,
-  sangria: "3",
+  sangria: String(SANGRIA_PADRAO_MM).replace(".", ","),
   margem: "0,6",
   espaco: "0",
   marcasCorte: true,
@@ -76,7 +77,7 @@ const PADRAO: Config = {
 };
 
 export default function MontagemImpressos() {
-  const [config, set] = useConfigSalva("preimpressao.montagem.config.v1", PADRAO);
+  const [config, set] = useConfigSalva("preimpressao.montagem.config.v2", PADRAO);
   const { entradas, detalhes, arte, lendo, adicionar, mudarLargura, remover, mover } = useEntradasArte();
   const [avancado, setAvancado] = useState(false);
   const [saida, setSaida] = useState<{ bytes: Uint8Array; paginas: number } | null>(null);
@@ -233,7 +234,7 @@ export default function MontagemImpressos() {
               {(avancado || invalidoAvancado) && (
                 <div className="space-y-4 px-4 pb-4">
                   <p className="text-xs text-muted-foreground">
-                    Só mexa aqui se a sua arte fugir do padrão da Max (sangria de 3 mm, borda de 0,6 mm, artes encostadas).
+                    Só mexa aqui se a sua arte fugir do padrão da Max (sangria de 1,5 mm, borda de 0,6 mm, artes encostadas).
                   </p>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-4">
                     <Mini

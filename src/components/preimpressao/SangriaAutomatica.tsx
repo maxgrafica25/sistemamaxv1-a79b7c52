@@ -7,11 +7,10 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { PT_POR_MM, formatarCm } from "@/lib/preimpressao/folha";
+import { PT_POR_MM, SANGRIA_PADRAO_MM, formatarCm } from "@/lib/preimpressao/folha";
 import { baixarBlob, conferirMargensDoPdf, fornecedorDeFaixas, renderizarPaginaPdf } from "@/lib/preimpressao/navegador";
 import {
   MARGEM_SEGURANCA_PADRAO_MM,
-  SANGRIA_PADRAO_MM,
   corDeHex,
   gerarComSangria,
   type ConferenciaMargem,
@@ -30,7 +29,7 @@ interface Config {
 }
 
 const PADRAO: Config = {
-  sangria: String(SANGRIA_PADRAO_MM),
+  sangria: String(SANGRIA_PADRAO_MM).replace(".", ","),
   modo: "espelhar",
   cor: "#ffffff",
   margem: String(MARGEM_SEGURANCA_PADRAO_MM),
@@ -147,7 +146,7 @@ export default function SangriaAutomatica() {
               {grande && <p className="mt-2 text-xs text-destructive">Máximo de {MAX_PAGINAS} páginas por vez.</p>}
             </Campo>
 
-            <Campo titulo="Sangria" ajuda="Quanto a arte cresce em cada lado. O padrão da gráfica é 3 mm.">
+            <Campo titulo="Sangria" ajuda="Quanto a arte cresce em cada lado. O padrão da gráfica é 1,5 mm.">
               <Passo valor={config.sangria} onChange={(v) => set("sangria", v)} passo={0.5} min={1} max={10} sufixo="mm" rotulo="sangria" invalido={sangria === null} />
             </Campo>
 

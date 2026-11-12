@@ -7,7 +7,7 @@
 
 import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFRawStream, PDFRef, PDFStream, decodePDFRawStream, type PDFObject } from "pdf-lib";
 import { PT_POR_CM, normalizarRotacao, type InfoImagem } from "./margem";
-import { PT_POR_MM } from "./folha";
+import { PT_POR_MM, SANGRIA_PADRAO_MM } from "./folha";
 
 export type Nivel = "ok" | "info" | "atencao" | "problema";
 
@@ -307,15 +307,15 @@ export function relatorioPdf(a: AnalisePdf, ppiMenor: number | null): Achado[] {
   if (a.sangriaMm !== null) {
     const f = { w: t.w - 2 * a.sangriaMm * PT_POR_MM, h: t.h - 2 * a.sangriaMm * PT_POR_MM };
     out.push(
-      a.sangriaMm >= 2.9
+      a.sangriaMm >= SANGRIA_PADRAO_MM - 0.1
         ? { nivel: "ok", titulo: `Sangria de ${String(a.sangriaMm).replace(".", ",")} mm`, detalhe: `Tamanho final depois do corte: ${cm1(f.w)} × ${cm1(f.h)} cm.` }
-        : { nivel: "atencao", titulo: `Sangria de só ${String(a.sangriaMm).replace(".", ",")} mm`, detalhe: "O padrão da gráfica é 3 mm por lado." },
+        : { nivel: "atencao", titulo: `Sangria de só ${String(a.sangriaMm).replace(".", ",")} mm`, detalhe: `O padrão da gráfica é ${String(SANGRIA_PADRAO_MM).replace(".", ",")} mm por lado.` },
     );
   } else {
     out.push({
       nivel: "info",
       titulo: "Sangria não informada no arquivo",
-      detalhe: "Se a arte vai até a borda, confira se o tamanho acima já inclui 3 mm a mais por lado.",
+      detalhe: `Se a arte vai até a borda, confira se o tamanho acima já inclui ${String(SANGRIA_PADRAO_MM).replace(".", ",")} mm a mais por lado.`,
     });
   }
 
@@ -363,7 +363,7 @@ export function relatorioImagem(info: InfoImagem): Achado[] {
       ? { nivel: "ok", titulo: "Cores em CMYK" }
       : { nivel: "atencao", titulo: "Cores em RGB", detalhe: info.tipo === "png" ? "PNG é sempre RGB: as cores podem mudar um pouco na impressão." : "As cores podem mudar um pouco na impressão (o ideal é CMYK)." },
   );
-  out.push({ nivel: "info", titulo: "Sangria", detalhe: "Imagem não informa sangria: confira se o tamanho já inclui 3 mm a mais por lado, se a arte vai até a borda." });
+  out.push({ nivel: "info", titulo: "Sangria", detalhe: `Imagem não informa sangria: confira se o tamanho já inclui ${String(SANGRIA_PADRAO_MM).replace(".", ",")} mm a mais por lado, se a arte vai até a borda.` });
   return out;
 }
 

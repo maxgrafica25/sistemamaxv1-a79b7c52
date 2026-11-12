@@ -7,6 +7,7 @@ import { AlertTriangle, Download, FileArchive, FileText, Loader2, Lock, Trash2, 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PT_POR_CM, detectarTipo } from "@/lib/preimpressao/margem";
+import { SANGRIA_PADRAO_MM } from "@/lib/preimpressao/folha";
 import {
   COR_PADRAO,
   CORES_PADRAO,
@@ -64,8 +65,8 @@ interface Config {
   ordemInvertida: boolean;
 }
 
-// v2 (08/11): padrão da Max Gráfica — folha 32,8 × 47,8, sangria 3 mm, borda 0,6 mm
-const CONFIG_KEY = "preimpressao.numeracao.config.v2";
+// v3 (12/11): padrão da Max Gráfica — folha 32,8 × 47,8, sangria 1,5 mm, borda 0,6 mm
+const CONFIG_KEY = "preimpressao.numeracao.config.v3";
 const PADRAO: Config = {
   modo: "solto",
   folha: "32.8x47.8",
@@ -74,7 +75,7 @@ const PADRAO: Config = {
   margem: "0,6",
   margemMontada: "0",
   espaco: "0",
-  sangria: "3",
+  sangria: String(SANGRIA_PADRAO_MM).replace(".", ","),
   marcasCorte: true,
   inicio: "1",
   fim: "500",

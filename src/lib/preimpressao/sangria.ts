@@ -1,5 +1,5 @@
 // Pré-impressão → "Sangria automática".
-// Arte que chegou SEM sangria ganha uma faixa em volta (padrão 3 mm) feita só com as
+// Arte que chegou SEM sangria ganha uma faixa em volta (padrão 1,5 mm) feita só com as
 // bordas da própria arte: espelhando, esticando o último pixel ou com uma cor sólida.
 // A arte original continua intacta (vetorial, no PDF); só a faixa nova é imagem.
 // Também confere se tem coisa colada na borda (margem de segurança do texto).
@@ -7,12 +7,12 @@
 // em canvas e o PDF ficam no ./navegador e aqui embaixo.
 
 import { PDFDocument } from "pdf-lib";
-import { PT_POR_MM } from "./folha";
+import { PT_POR_MM, SANGRIA_PADRAO_MM } from "./folha";
 
 export type ModoSangria = "espelhar" | "esticar" | "cor";
 
-/** Padrões da Max (decididos com o Juliano em 12/11/2026). */
-export const SANGRIA_PADRAO_MM = 3;
+/** Padrões da Max (decididos com o Juliano em 12/11/2026). A sangria padrão fica em ./folha. */
+export { SANGRIA_PADRAO_MM };
 /** Distância mínima entre o texto/logo e a linha de corte. */
 export const MARGEM_SEGURANCA_PADRAO_MM = 3;
 
