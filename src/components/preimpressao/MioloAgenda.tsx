@@ -8,14 +8,15 @@ import { ChevronDown, Download, Loader2, Plus, X } from "lucide-react";
 import { PDFDocument } from "pdf-lib";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { MESES_CURTOS, gerarCapas, gerarMiolo, miolosEmA4, type Feriado, type FontesExternas, type Imagem, type Miolo, type PosicaoExtra } from "@/lib/preimpressao/agenda";
+import { MESES_CURTOS, gerarCapas, gerarMiolo, miolosEmA4, type ElementoCapa, type Feriado, type PosicaoElemento, type FontesExternas, type Imagem, type Miolo, type PosicaoExtra } from "@/lib/preimpressao/agenda";
 import { bytesParaDataUrl, carregarFontes, corDeFundoDaLogo, dataUrlParaBytes, prepararImagem, silhuetaDaLogo } from "@/lib/preimpressao/agendaNavegador";
 import { detectarTipo } from "@/lib/preimpressao/margem";
 import { baixarBlob } from "@/lib/preimpressao/navegador";
+import { PosicaoElementos, PreviaCapaEditavel } from "./AgendaCapaEditor";
 import { AgendaExtras, type ExtraUI } from "./AgendaExtras";
 import { AgendaIdentidade, AgendaLogo, AgendaMarcaDagua } from "./AgendaIdentidade";
 import { AgendaModelos } from "./AgendaModelos";
-import { configPadrao, type ConfigAgendaUI, type ModoAgenda, type Saida } from "./agendaConfig";
+import { configPadrao, elementoDaPagina, type ConfigAgendaUI, type ModoAgenda, type Saida } from "./agendaConfig";
 import { Campo, Chave, Dado, DuasColunas, Mini, NotaPrivacidade, Painel, Passo, PreviaPdf, SeletorCor, Segmentado } from "./ui";
 import { numeroEntre, useConfigSalva } from "./uteis";
 
@@ -90,6 +91,7 @@ export default function MioloAgenda() {
   const [gerando, setGerando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [pagina, setPagina] = useState(0);
+  const [selCapa, setSelCapa] = useState<ElementoCapa>("capaLogo");
   const [novaData, setNovaData] = useState("");
   const [novoNome, setNovoNome] = useState("");
 
@@ -213,7 +215,7 @@ export default function MioloAgenda() {
   }, [modo, fontesProntas, chaveMiolo, horasInvalidas, totalInvalido]);
 
   // Capa e contracapa
-  const chaveCapa = JSON.stringify([ano, config.capa, config.capaCor, config.capaLinha1, config.capaLinha2, config.capaContato, config.capaUsarLogo, logoChave, fontes ? 1 : 0]);
+  const chaveCapa = JSON.stringify([ano, config.capa, config.capaCor, config.capaLinha1, config.capaLinha2, config.capaContato, config.capaUsarLogo, config.capaLayout, logoChave, fontes ? 1 : 0]);
   useEffect(() => {
     if (modo !== "capa" || !fontesProntas || ano === null) return;
     setErro(null);
@@ -222,7 +224,7 @@ export default function MioloAgenda() {
     const t = setTimeout(async () => {
       try {
         const b = await gerarCapas(
-          { ano, titulo: config.capa, cor: config.capaCor, linha1: config.capaLinha1, linha2: config.capaLinha2, contato: config.capaContato, logo: logoImg, usarLogo: config.capaUsarLogo },
+          { ano, titulo: config.capa, cor: config.capaCor, linha1: config.capaLinha1, linha2: config.capaLinha2, contato: config.capaContato, logo: logoImg, usarLogo: config.capaUsarLogo, layout: config.capaLayout },
           fontes,
         );
         if (vivo) setCapas(b);
@@ -313,6 +315,10 @@ export default function MioloAgenda() {
   const bytes = modo === "capa" ? capas : bytesMiolo;
   const paginas = modo === "capa" ? 2 : (miolo?.plano.paginas.length ?? 0);
   const atual = Math.min(pagina, Math.max(0, paginas - 1));
+
+  const paginaCapa: 0 | 1 = atual >= 1 ? 1 : 0;
+  const elementoAtivo = elementoDaPagina(paginaCapa, selCapa);
+  const mudarElemento = (e: ElementoCapa, p: Partial<PosicaoElemento>) => set("capaLayout", { ...config.capaLayout, [e]: { ...config.capaLayout[e], ...p } });
 
   const atalhos = useMemo(() => {
     if (modo !== "miolo" || !miolo) return [];
@@ -532,6 +538,7 @@ export default function MioloAgenda() {
               <Mini rotulo="Frase ou slogan (opcional)" valor={config.capaLinha2} onChange={(v) => set("capaLinha2", v.slice(0, 48))} texto />
             </div>
           </Campo>
+          <PosicaoElementos layout={config.capaLayout} pagina={paginaCapa} selecionado={elementoAtivo} onSelecionar={setSelCapa} onMudar={mudarElemento} />
           <Campo titulo="Contracapa" ajuda="Uma linha por informação (telefone, Instagram, endereço…). Até 6 linhas.">
             <textarea
               aria-label="Contato na contracapa"
@@ -554,7 +561,7 @@ export default function MioloAgenda() {
           <Painel className="space-y-4">
             <div>
               <h3 className="text-base font-semibold tracking-tight">Pré-visualização</h3>
-              <p className="text-xs text-muted-foreground">{modo === "miolo" ? "É o PDF que vai ser baixado. Use as setas ou os atalhos para passear pelo miolo." : "Capa e contracapa em A5, com sangria. Use as setas para ver as duas."}</p>
+              <p className="text-xs text-muted-foreground">{modo === "miolo" ? "É o PDF que vai ser baixado. Use as setas ou os atalhos para passear pelo miolo." : "Escolha o elemento à esquerda e clique ou arraste aqui para mudar de lugar."}</p>
             </div>
             {atalhos.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
@@ -565,15 +572,22 @@ export default function MioloAgenda() {
                 ))}
               </div>
             )}
-            <PreviaPdf
-              bytes={bytes}
-              paginas={paginas}
-              ocupado={gerando}
-              pagina={atual}
-              onPagina={setPagina}
-              rotulos={modo === "capa" ? (i) => (i === 0 ? "Capa" : "Contracapa") : undefined}
-              vazio={gerando ? "Montando…" : "Confira os campos marcados em vermelho"}
-            />
+            {modo === "capa" ? (
+              <PreviaCapaEditavel
+                bytes={capas}
+                pagina={paginaCapa}
+                onPagina={(p) => {
+                  setPagina(p);
+                  setSelCapa((s) => elementoDaPagina(p, s));
+                }}
+                layout={config.capaLayout}
+                selecionado={elementoAtivo}
+                onMover={(e, p) => mudarElemento(e, p)}
+                ocupado={gerando}
+              />
+            ) : (
+              <PreviaPdf bytes={bytes} paginas={paginas} ocupado={gerando} pagina={atual} onPagina={setPagina} vazio={gerando ? "Montando…" : "Confira os campos marcados em vermelho"} />
+            )}
           </Painel>
 
           <Painel className="space-y-4">

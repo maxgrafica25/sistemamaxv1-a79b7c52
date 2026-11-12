@@ -1,6 +1,6 @@
 // Configuração do "Miolo de agenda" (o que fica salvo no navegador) e modelos salvos por cliente.
 
-import { type Feriado } from "@/lib/preimpressao/agenda";
+import { ELEMENTOS_CAPA, LAYOUT_CAPA_PADRAO, layoutCapaValido, type ElementoCapa, type Feriado, type LayoutCapa } from "@/lib/preimpressao/agenda";
 
 /** Logo guardada no navegador como data URL (já reduzida). */
 export interface ImagemSalva {
@@ -46,6 +46,8 @@ export interface ConfigAgendaUI {
   capaLinha2: string;
   capaContato: string;
   capaUsarLogo: boolean;
+  /** Posição e tamanho de cada elemento da capa e da contracapa. */
+  capaLayout: LayoutCapa;
 }
 
 /** Ano da próxima agenda: a partir de setembro já se prepara o ano seguinte. */
@@ -85,6 +87,7 @@ export function configPadrao(): ConfigAgendaUI {
     capaLinha2: "",
     capaContato: "",
     capaUsarLogo: true,
+    capaLayout: structuredClone(LAYOUT_CAPA_PADRAO),
   };
 }
 
@@ -138,9 +141,17 @@ export function modeloDeArquivo(json: unknown): Partial<ModeloAgenda> | null {
     if (k === "logo") {
       const l = v as ImagemSalva | null;
       if (l === null || (typeof l === "object" && typeof l.dataUrl === "string" && l.dataUrl.startsWith("data:image/") && typeof l.w === "number" && typeof l.h === "number")) out[k] = l;
+    } else if (k === "capaLayout") {
+      if (v && typeof v === "object") out[k] = layoutCapaValido(v as Partial<Record<string, never>>);
     } else if (k === "regionais") {
       if (Array.isArray(v)) out[k] = v.filter((f) => f && typeof f.dia === "number" && typeof f.mes === "number" && typeof f.nome === "string").slice(0, 12);
     } else if (typeof v === typeof padrao[k]) out[k] = v;
   }
   return Object.keys(out).length ? (out as Partial<ModeloAgenda>) : null;
+}
+
+/** Elemento que aparece na página: o primeiro da lista se o escolhido é da outra página. */
+export function elementoDaPagina(pagina: 0 | 1, atual: ElementoCapa): ElementoCapa {
+  const daPagina = ELEMENTOS_CAPA.filter((e) => e.pagina === pagina);
+  return daPagina.some((e) => e.chave === atual) ? atual : daPagina[0].chave;
 }

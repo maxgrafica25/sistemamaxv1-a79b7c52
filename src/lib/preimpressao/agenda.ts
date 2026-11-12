@@ -1071,6 +1071,48 @@ export async function miolosEmA4(a5: Uint8Array): Promise<Uint8Array> {
 
 // ─── Capa e contracapa ───────────────────────────────────────────────
 
+/** Elementos da capa (e da contracapa) que a pessoa pode mover e redimensionar. */
+export type ElementoCapa = "capaLogo" | "capaTitulo" | "capaNome" | "capaSlogan" | "contraLogo" | "contraContato";
+
+/** Posição do centro do elemento em % da página final (sem a sangria) e tamanho em % do padrão. */
+export interface PosicaoElemento {
+  x: number;
+  y: number;
+  tam: number;
+}
+
+export type LayoutCapa = Record<ElementoCapa, PosicaoElemento>;
+
+export const ELEMENTOS_CAPA: { chave: ElementoCapa; rotulo: string; pagina: 0 | 1 }[] = [
+  { chave: "capaLogo", rotulo: "Logo", pagina: 0 },
+  { chave: "capaTitulo", rotulo: "Título e ano", pagina: 0 },
+  { chave: "capaNome", rotulo: "Nome do cliente", pagina: 0 },
+  { chave: "capaSlogan", rotulo: "Slogan", pagina: 0 },
+  { chave: "contraLogo", rotulo: "Logo", pagina: 1 },
+  { chave: "contraContato", rotulo: "Contato", pagina: 1 },
+];
+
+export const LAYOUT_CAPA_PADRAO: LayoutCapa = {
+  capaLogo: { x: 50, y: 24.8, tam: 100 },
+  capaTitulo: { x: 50, y: 61.9, tam: 100 },
+  capaNome: { x: 50, y: 83.3, tam: 100 },
+  capaSlogan: { x: 50, y: 88.6, tam: 100 },
+  contraLogo: { x: 50, y: 37.1, tam: 100 },
+  contraContato: { x: 50, y: 60, tam: 100 },
+};
+
+/** Completa e limita um layout vindo da tela ou de um arquivo (x e y de 0 a 100, tamanho de 30 a 300%). */
+export function layoutCapaValido(l?: Partial<Record<ElementoCapa, Partial<PosicaoElemento>>> | null): LayoutCapa {
+  const out = {} as LayoutCapa;
+  for (const e of ELEMENTOS_CAPA) {
+    const padrao = LAYOUT_CAPA_PADRAO[e.chave];
+    const v = l?.[e.chave];
+    const num = (n: unknown, d: number, min: number, max: number) => (typeof n === "number" && Number.isFinite(n) ? limitar(n, min, max) : d);
+    out[e.chave] = { x: num(v?.x, padrao.x, 0, 100), y: num(v?.y, padrao.y, 0, 100), tam: num(v?.tam, padrao.tam, 30, 300) };
+  }
+  return out;
+}
+
 export interface ConfigCapa {
   ano: number;
   titulo: string;
@@ -1082,6 +1124,8 @@ export interface ConfigCapa {
   contato: string;
   logo: Imagem | null;
   usarLogo: boolean;
+  /** Onde fica cada elemento (padrão: LAYOUT_CAPA_PADRAO). */
+  layout?: Partial<Record<ElementoCapa, Partial<PosicaoElemento>>> | null;
 }
 
 export function corParaRgb(hex: string): [number, number, number] {
@@ -1095,22 +1139,30 @@ export async function gerarCapas(c: ConfigCapa, externas?: FontesExternas | null
   const doc = await PDFDocument.create();
   const { f, k } = await criarFontes(doc, externas);
   const b = SANGRIA_PADRAO_MM;
+  const lay = layoutCapaValido(c.layout);
   const [r, g, bl] = corParaRgb(c.cor);
   const claro = 0.299 * r + 0.587 * g + 0.114 * bl > 0.6;
   const cor = claro ? rgb(0.1, 0.1, 0.1) : rgb(1, 1, 1);
   const logo = c.usarLogo && c.logo ? await embutirImagem(doc, c.logo) : null;
   const pw = (W + 2 * b) * PT_POR_MM;
   const ph = (H + 2 * b) * PT_POR_MM;
-  const texto = (page: PDFPage, s: string, y: number, tam: number, peso: Peso, opacidade = 1) => {
+  // posições em mm a partir do canto de cima/esquerda da página (com a sangria)
+  const X = (pct: number) => b + (W * pct) / 100;
+  const Y = (pct: number) => b + (H * pct) / 100;
+  const yPdf = (mmDeCima: number) => (H + 2 * b - mmDeCima) * PT_POR_MM;
+  /** Texto centrado em xMm com a linha de base em baseMm (a partir do topo). */
+  const texto = (page: PDFPage, s: string, xMm: number, baseMm: number, tam: number, peso: Peso, opacidade = 1) => {
     if (!s.trim()) return;
     const t = tam * k;
     const w = f[peso].widthOfTextAtSize(s, t) / PT_POR_MM;
-    page.drawText(s, { x: (b + W / 2 - w / 2) * PT_POR_MM, y: (H + b - y) * PT_POR_MM, size: t, font: f[peso], color: cor, opacity: opacidade });
+    page.drawText(s, { x: (xMm - w / 2) * PT_POR_MM, y: yPdf(baseMm), size: t, font: f[peso], color: cor, opacity: opacidade });
   };
-  const desenharLogo = (page: PDFPage, larguraMm: number, centroY: number) => {
+  /** Meia altura (mm) das letras de um texto de `tam` pontos: para o centro do texto ficar no ponto escolhido. */
+  const meia = (tam: number) => (0.35 * tam * k) / PT_POR_MM;
+  const desenharLogo = (page: PDFPage, larguraMm: number, xMm: number, yMm: number) => {
     if (!logo || !c.logo) return 0;
     const alt = larguraMm * (c.logo.h / c.logo.w);
-    page.drawImage(logo, { x: (b + W / 2 - larguraMm / 2) * PT_POR_MM, y: (H + b - centroY - alt / 2) * PT_POR_MM, width: larguraMm * PT_POR_MM, height: alt * PT_POR_MM });
+    page.drawImage(logo, { x: (xMm - larguraMm / 2) * PT_POR_MM, y: yPdf(yMm + alt / 2), width: larguraMm * PT_POR_MM, height: alt * PT_POR_MM });
     return alt;
   };
   const fundo = (page: PDFPage) => page.drawRectangle({ x: 0, y: 0, width: pw, height: ph, color: rgb(r, g, bl) });
@@ -1121,21 +1173,29 @@ export async function gerarCapas(c: ConfigCapa, externas?: FontesExternas | null
 
   const capa = doc.addPage([pw, ph]);
   fundo(capa);
-  desenharLogo(capa, Math.min(76, 0.6 * W), 52);
-  texto(capa, (c.titulo || "AGENDA").toUpperCase(), 118, 36, "leve");
-  texto(capa, String(c.ano), 143, 62, "extra");
-  capa.drawLine({ start: { x: (b + W / 2 - 15) * PT_POR_MM, y: (H + b - 156) * PT_POR_MM }, end: { x: (b + W / 2 + 15) * PT_POR_MM, y: (H + b - 156) * PT_POR_MM }, thickness: 1, color: cor });
-  texto(capa, c.linha1, 178, 14, "negrito");
-  texto(capa, c.linha2, 187, 9, "normal", 0.85);
+  desenharLogo(capa, Math.min(76, 0.6 * W) * (lay.capaLogo.tam / 100), X(lay.capaLogo.x), Y(lay.capaLogo.y));
+  {
+    const s = lay.capaTitulo.tam / 100;
+    const cx = X(lay.capaTitulo.x);
+    const cy = Y(lay.capaTitulo.y);
+    texto(capa, (c.titulo || "AGENDA").toUpperCase(), cx, cy - 12 * s, 36 * s, "leve");
+    texto(capa, String(c.ano), cx, cy + 13 * s, 62 * s, "extra");
+    capa.drawLine({ start: { x: (cx - 15 * s) * PT_POR_MM, y: yPdf(cy + 26 * s) }, end: { x: (cx + 15 * s) * PT_POR_MM, y: yPdf(cy + 26 * s) }, thickness: 1, color: cor });
+  }
+  texto(capa, c.linha1, X(lay.capaNome.x), Y(lay.capaNome.y) + meia(14 * (lay.capaNome.tam / 100)), 14 * (lay.capaNome.tam / 100), "negrito");
+  texto(capa, c.linha2, X(lay.capaSlogan.x), Y(lay.capaSlogan.y) + meia(9 * (lay.capaSlogan.tam / 100)), 9 * (lay.capaSlogan.tam / 100), "normal", 0.85);
   caixas(capa);
 
   const contra = doc.addPage([pw, ph]);
   fundo(contra);
-  const alt = desenharLogo(contra, 52, 78);
-  c.contato
-    .split("\n")
-    .slice(0, 6)
-    .forEach((l, i) => texto(contra, l, 78 + alt / 2 + 16 + i * 6.5, 8.5, "normal", 0.9));
+  desenharLogo(contra, 52 * (lay.contraLogo.tam / 100), X(lay.contraLogo.x), Y(lay.contraLogo.y));
+  {
+    const s = lay.contraContato.tam / 100;
+    const linhas = c.contato.split("\n").slice(0, 6);
+    const passo = 6.5 * s;
+    const primeira = Y(lay.contraContato.y) - ((linhas.length - 1) * passo) / 2 + meia(8.5 * s);
+    linhas.forEach((l, i) => texto(contra, l, X(lay.contraContato.x), primeira + i * passo, 8.5 * s, "normal", 0.9));
+  }
   caixas(contra);
   doc.setTitle(`Capa e contracapa ${c.ano}`);
   return doc.save();

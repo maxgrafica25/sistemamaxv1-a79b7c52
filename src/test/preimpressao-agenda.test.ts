@@ -201,3 +201,37 @@ describe("gerar com a identidade do cliente", () => {
     expect(p.getTrimBox().x / PT_POR_MM).toBeCloseTo(1.5, 1);
   }, 30000);
 });
+
+import { LAYOUT_CAPA_PADRAO, layoutCapaValido } from "@/lib/preimpressao/agenda";
+
+describe("posição dos elementos da capa", () => {
+  it("completa com o padrão e limita valores fora da faixa", () => {
+    expect(layoutCapaValido(null)).toEqual(LAYOUT_CAPA_PADRAO);
+    const l = layoutCapaValido({ capaLogo: { x: 150, y: -20, tam: 5 }, capaNome: { y: 70 } });
+    expect(l.capaLogo).toEqual({ x: 100, y: 0, tam: 30 });
+    expect(l.capaNome).toEqual({ x: 50, y: 70, tam: 100 });
+    expect(l.contraContato).toEqual(LAYOUT_CAPA_PADRAO.contraContato);
+  });
+
+  it("a capa é gerada com os elementos em outros lugares e tamanhos", async () => {
+    const bytes = await gerarCapas({
+      ano: 2027,
+      titulo: "AGENDA",
+      cor: "#ffffff",
+      linha1: "Padaria do João",
+      linha2: "Sabor de todo dia",
+      contato: "(51) 99999-9999\n@padaria\nCharqueadas - RS\nAv. Principal, 100",
+      logo: pngMini(60, 30),
+      usarLogo: true,
+      layout: {
+        capaLogo: { x: 20, y: 10, tam: 50 },
+        capaTitulo: { x: 70, y: 40, tam: 150 },
+        capaNome: { x: 30, y: 90, tam: 120 },
+        contraContato: { x: 25, y: 85, tam: 80 },
+        contraLogo: { x: 80, y: 15, tam: 200 },
+      },
+    });
+    const d = await PDFDocument.load(bytes);
+    expect(d.getPageCount()).toBe(2);
+  }, 30000);
+});
