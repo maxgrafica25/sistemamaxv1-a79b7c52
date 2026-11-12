@@ -7,7 +7,7 @@
 // Regra: tudo roda no navegador, sem servidor e sem custo (ver CLAUDE.md).
 
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
-import { BookOpen, FileSearch, Files, Hash, LayoutGrid, Scissors, type LucideIcon } from "lucide-react";
+import { BookOpen, Crop, FileSearch, Files, Hash, LayoutGrid, Scissors, type LucideIcon } from "lucide-react";
 
 export interface Ferramenta {
   key: string;
@@ -79,6 +79,14 @@ export const GRUPOS: GrupoFerramentas[] = [
         entrada: "PDF, PNG ou JPG",
         icon: FileSearch,
         Componente: lazy(() => import("./ConferenciaArquivo")),
+      },
+      {
+        key: "redimensionar",
+        nome: "Redimensionar e cortar",
+        descricao: "Muda o tamanho das páginas (A5, A4, medida livre), corta margens ou tira a folga branca, sem refazer a arte.",
+        entrada: "PDF, PNG, JPG ou EPS",
+        icon: Crop,
+        Componente: lazy(() => import("./RedimensionarPdf")),
       },
       {
         key: "organizar",

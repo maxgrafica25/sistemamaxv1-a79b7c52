@@ -16,6 +16,7 @@ import {
 import { resolucoesDaPagina } from "./conferencia";
 import { tintaDaImagem, type Tinta } from "./organizar";
 import { PT_POR_MM } from "./folha";
+import { caixaDeTinta, type CaixaConteudo } from "./redimensionar";
 import {
   conferirMargemSeguranca,
   expandirPixels,
@@ -359,6 +360,35 @@ export async function conferirMargensDoPdf(bytes: Uint8Array, margemMm: number, 
       const escala = Math.min(150 / 72, 1800 / Math.max(vp1.width, vp1.height));
       const px = await pixelsDaPagina(bytes, i, escala);
       out.push(conferirMargemSeguranca(px, escala * PT_POR_MM, margemMm));
+    }
+    return out;
+  } finally {
+    await tarefa.destroy();
+  }
+}
+
+/** Caixa do conteúdo (fração da página) de cada página do PDF, para tirar a folga branca. */
+export async function caixasDoConteudoDoPdf(bytes: Uint8Array, aCada?: (pagina: number, total: number) => void): Promise<(CaixaConteudo | null)[]> {
+  const pdfjs = await carregarPdfJs();
+  const tarefa = pdfjs.getDocument({ data: bytes.slice() });
+  const doc = await tarefa.promise;
+  try {
+    const out: (CaixaConteudo | null)[] = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const vp1 = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: 1200 / Math.max(vp1.width, vp1.height) });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(viewport.width));
+      canvas.height = Math.max(1, Math.round(viewport.height));
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) throw new Error("canvas indisponível");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvas, canvasContext: ctx, viewport, background: "rgb(255,255,255)" }).promise;
+      out.push(caixaDeTinta(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height));
+      page.cleanup();
+      aCada?.(i, doc.numPages);
     }
     return out;
   } finally {
