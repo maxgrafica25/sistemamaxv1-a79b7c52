@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PT_POR_CM, detectarTipo } from "@/lib/preimpressao/margem";
 import { SANGRIA_PADRAO_MM } from "@/lib/preimpressao/folha";
+import { AjudaTamanhoFinal } from "./AjudaTamanhoFinal";
 import {
   COR_PADRAO,
   CORES_PADRAO,
@@ -523,6 +524,10 @@ export default function NumeracaoTaloes() {
                     ? "A arte não cabe na folha escolhida. Escolha uma folha maior ou diminua a margem."
                     : "Colunas, linhas ou margem não batem com a página."}
             </p>
+          )}
+
+          {arte && config.modo === "solto" && (
+            <AjudaTamanhoFinal arte={arte} sangriaMm={entre(config.sangria, 0, 20)} onUsarSangria={(v) => set("sangria", String(v).replace(".", ","))} />
           )}
 
           {erroGerar && <p className="text-sm text-destructive">{erroGerar}</p>}

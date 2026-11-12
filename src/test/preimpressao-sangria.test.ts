@@ -163,3 +163,30 @@ describe("PDF com sangria", () => {
     expect(await sangriaDoPdf(out)).toBe(3);
   });
 });
+
+import { arteParaTamanho, orientarTamanhoFinal } from "@/lib/preimpressao/folha";
+
+describe("orientar o tamanho final desejado", () => {
+  const arte = { w: 9.1 * PT_POR_CM, h: 5.3 * PT_POR_CM };
+
+  it("cartão 9,1 × 5,3 que deve sair 8,5 × 4,7: usar sangria de 3 mm (e já está certo se o campo é 3)", () => {
+    expect(orientarTamanhoFinal(arte, 8.5, 4.7, 1.5)).toEqual({ tipo: "usar", sangriaMm: 3 });
+    expect(orientarTamanhoFinal(arte, 8.5, 4.7, 3)).toEqual({ tipo: "ok" });
+  });
+
+  it("aceita o tamanho desejado deitado ou em pé", () => {
+    expect(orientarTamanhoFinal(arte, 4.7, 8.5, 1.5)).toEqual({ tipo: "usar", sangriaMm: 3 });
+  });
+
+  it("medida que não fecha: mostra as duas sangrias; arte menor que o pedido: avisa", () => {
+    const r = orientarTamanhoFinal(arte, 8.5, 5, 3);
+    expect(r).toEqual({ tipo: "incoerente", sangriaLarguraMm: 3, sangriaAlturaMm: 1.5 });
+    expect(orientarTamanhoFinal(arte, 10, 6, 3)).toEqual({ tipo: "menor" });
+  });
+
+  it("tamanho de arte necessário para um final e uma sangria", () => {
+    const a = arteParaTamanho(8.5, 4.7, 1.5);
+    expect(a.w).toBeCloseTo(8.8, 6);
+    expect(a.h).toBeCloseTo(5, 6);
+  });
+});

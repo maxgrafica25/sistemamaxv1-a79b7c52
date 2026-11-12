@@ -45,6 +45,7 @@ import {
   SeletorFolha,
   SoltarArquivo,
 } from "./ui";
+import { AjudaTamanhoFinal } from "./AjudaTamanhoFinal";
 import { LinhaArquivo } from "./EntradasArte";
 import { numeroEntre, useConfigSalva, useEntradasArte } from "./uteis";
 
@@ -373,6 +374,13 @@ export default function MontagemImpressos() {
                     ? "Confira os campos marcados em vermelho."
                     : "A arte não cabe na folha escolhida. Escolha uma folha maior ou diminua a borda."}
               </p>
+            )}
+            {arte && (
+              <AjudaTamanhoFinal
+                arte={arte}
+                sangriaMm={sangria}
+                onUsarSangria={(v) => set("sangria", String(v).replace(".", ","))}
+              />
             )}
             {erroGerar && <p className="text-sm text-destructive">{erroGerar}</p>}
             <NotaPrivacidade />
