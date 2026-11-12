@@ -341,14 +341,21 @@ export function PreviaPdf({
   rotulos,
   vazio = "A pré-visualização aparece aqui",
   ocupado,
+  pagina: paginaControlada,
+  onPagina,
 }: {
   bytes: Uint8Array | null;
   paginas: number;
   rotulos?: (i: number) => string;
   vazio?: string;
   ocupado?: boolean;
+  /** Opcional: a tela controla qual página aparece (a partir de 0). */
+  pagina?: number;
+  onPagina?: (n: number) => void;
 }) {
-  const [pagina, setPagina] = useState(0);
+  const [paginaInterna, setPaginaInterna] = useState(0);
+  const pagina = paginaControlada ?? paginaInterna;
+  const setPagina = onPagina ?? setPaginaInterna;
   const [img, setImg] = useState<string | null>(null);
   const [desenhando, setDesenhando] = useState(false);
   const atual = Math.min(pagina, Math.max(0, paginas - 1));
