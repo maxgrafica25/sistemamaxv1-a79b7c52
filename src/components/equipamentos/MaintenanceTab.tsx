@@ -150,6 +150,7 @@ export default function MaintenanceTab({ equipmentId, equipmentName, printerType
         .from("equipment_maintenances")
         .select("technician")
         .eq("equipment_id", equipmentId)
+        .neq("technician", "Não informado") // a Júlia usa isso quando ninguém disse quem fez o serviço
         .order("date", { ascending: false })
         .limit(1)
         .maybeSingle(),

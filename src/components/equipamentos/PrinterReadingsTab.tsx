@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ViaWhatsApp } from "./ViaWhatsApp";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -120,6 +121,7 @@ interface Reading {
   counter: number;
   notes: string | null;
   consumable_id: string | null;
+  origem?: string | null;
 }
 
 interface Consumable {
@@ -972,9 +974,10 @@ export default function PrinterReadingsTab({ equipmentId, equipmentName, printer
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <User className="h-3 w-3 text-muted-foreground" />
                       {r.operator_name || "—"}
+                      {r.origem === "julia" && <ViaWhatsApp />}
                     </div>
                   </TableCell>
                   {printerType === "pb" ? (

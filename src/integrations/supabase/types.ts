@@ -1864,6 +1864,7 @@ export type Database = {
           id: string
           maintenance_type: string
           notes: string | null
+          origem: string
           replaced_parts: string | null
           service_description: string
           technician: string
@@ -1882,6 +1883,7 @@ export type Database = {
           id?: string
           maintenance_type?: string
           notes?: string | null
+          origem?: string
           replaced_parts?: string | null
           service_description?: string
           technician?: string
@@ -1900,6 +1902,7 @@ export type Database = {
           id?: string
           maintenance_type?: string
           notes?: string | null
+          origem?: string
           replaced_parts?: string | null
           service_description?: string
           technician?: string
@@ -3603,6 +3606,7 @@ export type Database = {
           id: string
           notes: string | null
           operator_name: string | null
+          origem: string
           printer_model: string
           reading_time: string | null
           total_prints: number | null
@@ -3621,6 +3625,7 @@ export type Database = {
           id?: string
           notes?: string | null
           operator_name?: string | null
+          origem?: string
           printer_model: string
           reading_time?: string | null
           total_prints?: number | null
@@ -3639,6 +3644,7 @@ export type Database = {
           id?: string
           notes?: string | null
           operator_name?: string | null
+          origem?: string
           printer_model?: string
           reading_time?: string | null
           total_prints?: number | null

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Wrench, Shield, ChevronDown, Copy, Edit2, Trash2, Paperclip, FileVideo, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ViaWhatsApp } from "./ViaWhatsApp";
 
 export interface TimelineRecord {
   id: string;
@@ -17,6 +18,7 @@ export interface TimelineRecord {
   service_description: string;
   notes: string | null;
   attachments: string[] | null;
+  origem?: string | null;
 }
 
 interface Props {
@@ -102,7 +104,10 @@ export default function MaintenanceTimeline({ records, hasCounter, onCopy, onEdi
                     <Icon className="h-3.5 w-3.5" />
                   </div>
                   <span className="text-xs font-mono text-muted-foreground w-10 shrink-0">{fmtDateShort(r.date)}</span>
-                  <span className="text-sm font-medium text-foreground truncate min-w-0 flex-1">{r.technician}</span>
+                  <span className="text-sm font-medium text-foreground truncate min-w-0 flex-1">
+                    {r.technician}
+                    {r.origem === "julia" && <ViaWhatsApp className="ml-2 align-middle" />}
+                  </span>
                   {primary && (
                     <span className="hidden sm:inline text-xs text-muted-foreground truncate max-w-[180px]">
                       {primary}
