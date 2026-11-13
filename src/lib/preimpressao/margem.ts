@@ -10,7 +10,6 @@
 // Este módulo é só lógica pura (sem React, sem canvas), para poder ser testado.
 
 import { PDFDocument, StandardFonts, cmyk, degrees, type PDFFont, type PDFPage } from "pdf-lib";
-import { soSuportados } from "./cracha";
 
 // ─── Medidas ─────────────────────────────────────────────────────────
 
@@ -565,6 +564,20 @@ export function posicaoDoPedido(W: number, H: number, m: Margens, larguraTexto: 
     return { x, y: Math.max(0, topo - larguraTexto), rot: 90 };
   }
   return null;
+}
+
+/** Tira do texto o que a Helvetica não sabe desenhar (emoji, letras raras), para não dar erro no PDF. */
+function soSuportados(fonte: PDFFont, texto: string): string {
+  const ok = new Set(fonte.getCharacterSet());
+  let out = "";
+  for (const ch of texto.normalize("NFC")) {
+    if (ok.has(ch.codePointAt(0) as number)) out += ch;
+    else {
+      const base = ch.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (base && base !== ch && [...base].every((b) => ok.has(b.codePointAt(0) as number))) out += base;
+    }
+  }
+  return out.replace(/\s+/g, " ").trim();
 }
 
 function desenharPedido(page: PDFPage, W: number, H: number, mPt: Margens, pedido: PedidoMarca | null | undefined, fonte: PDFFont | null) {
