@@ -9,7 +9,7 @@
 // Regra: tudo roda no navegador, sem servidor e sem custo (ver CLAUDE.md).
 
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
-import { BookOpen, CalendarDays, Camera, Contact, Crop, FileSearch, Files, Hash, IdCard, LayoutGrid, Scissors, type LucideIcon } from "lucide-react";
+import { BookOpen, CalendarDays, Camera, Contact, Crop, FileSearch, Files, Hash, IdCard, Images, LayoutGrid, Scissors, type LucideIcon } from "lucide-react";
 
 export interface Ferramenta {
   key: string;
@@ -34,6 +34,15 @@ export const GRUPOS: GrupoFerramentas[] = [
   {
     titulo: "Fotos e identificação",
     ferramentas: [
+      {
+        key: "impressao-fotos",
+        nome: "Impressão de fotos",
+        descricao: "Imprime as fotos do cliente na medida que ele quiser (10×15, 15×20, 20×30 ou outra), em pé ou deitada, encaixadas nas folhas com marcas de corte. Escreve um texto na foto se pedirem.",
+        entrada: "Fotos JPG, PNG ou WebP",
+        palavras: "foto revelação 10x15 15x20 15x10 20x15 20x30 papel fotográfico balcão imprimir fotos cliente texto na foto legenda aproveitamento",
+        icon: Images,
+        Componente: lazy(() => import("./ImpressaoFotos")),
+      },
       {
         key: "foto-3x4",
         nome: "Fotos 3×4",

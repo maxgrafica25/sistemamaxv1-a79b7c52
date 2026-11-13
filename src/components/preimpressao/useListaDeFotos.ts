@@ -17,6 +17,10 @@ export interface ItemFoto {
   ajuste: AjusteFoto;
   /** Filtro só desta foto; "padrao" = o filtro geral. */
   filtro: FiltroFoto | "padrao";
+  /** Medida só desta foto (Impressão de fotos); "padrao" = a medida geral. */
+  medida: string;
+  /** Em pé ou deitada só nesta foto; "padrao" = a orientação geral. */
+  orient: "padrao" | "auto" | "retrato" | "paisagem";
 }
 
 let seq = 0;
@@ -44,7 +48,7 @@ export function useListaDeFotos() {
         const foto = await lerFoto(f);
         const url = URL.createObjectURL(new Blob([foto.bytes], { type: foto.tipo || "image/jpeg" }));
         urls.current.push(url);
-        novos.push({ id: novoId(), foto, url, qtd: 1, legenda: "", ajuste: AJUSTE_PADRAO, filtro: "padrao" });
+        novos.push({ id: novoId(), foto, url, qtd: 1, legenda: "", ajuste: AJUSTE_PADRAO, filtro: "padrao", medida: "padrao", orient: "padrao" });
       } catch {
         falhas++;
       }

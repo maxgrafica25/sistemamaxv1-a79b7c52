@@ -9,6 +9,8 @@ export function LinhaDeFoto({
   item,
   placeholderLegenda,
   comLegenda = true,
+  rotuloLegenda,
+  medidas,
   onMudar,
   onRemover,
   onEnquadrar,
@@ -17,6 +19,10 @@ export function LinhaDeFoto({
   /** Texto cinza da legenda (o que vale se ficar vazia). */
   placeholderLegenda?: string;
   comLegenda?: boolean;
+  /** Nome do campo de texto (padrão: "Legenda"). */
+  rotuloLegenda?: string;
+  /** Se vier, mostra a escolha da medida e da orientação desta foto. */
+  medidas?: { valor: string; rotulo: string }[];
   onMudar: (p: Partial<ItemFoto>) => void;
   onRemover: () => void;
   onEnquadrar: () => void;
@@ -38,9 +44,37 @@ export function LinhaDeFoto({
             value={item.legenda}
             onChange={(e) => onMudar({ legenda: e.target.value.slice(0, 60) })}
             placeholder={placeholderLegenda || "Legenda (opcional)"}
-            aria-label={`Legenda de ${item.foto.nome}`}
+            aria-label={`${rotuloLegenda ?? "Legenda"} de ${item.foto.nome}`}
             className="h-8 w-full rounded-full bg-muted/60 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           />
+        )}
+        {medidas && (
+          <div className="flex flex-wrap items-center gap-1">
+            <select
+              value={item.medida}
+              aria-label={`Medida de ${item.foto.nome}`}
+              onChange={(e) => onMudar({ medida: e.target.value })}
+              className="h-7 rounded-full bg-muted/70 px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <option value="padrao">Medida geral</option>
+              {medidas.map((m) => (
+                <option key={m.valor} value={m.valor}>
+                  {m.rotulo}
+                </option>
+              ))}
+            </select>
+            <select
+              value={item.orient}
+              aria-label={`Orientação de ${item.foto.nome}`}
+              onChange={(e) => onMudar({ orient: e.target.value as ItemFoto["orient"] })}
+              className="h-7 rounded-full bg-muted/70 px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <option value="padrao">Orientação geral</option>
+              <option value="auto">Automática</option>
+              <option value="retrato">Em pé</option>
+              <option value="paisagem">Deitada</option>
+            </select>
+          </div>
         )}
         <div className="flex flex-wrap items-center justify-between gap-1">
           <div className="flex items-center gap-1">
