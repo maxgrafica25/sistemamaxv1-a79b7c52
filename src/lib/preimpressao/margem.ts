@@ -501,7 +501,7 @@ function desenharIlhos(page: PDFPage, x0: number, y0: number, wPt: number, hPt: 
 // ─── Número do pedido no acabamento ─────────────────────────────────
 
 /** Onde o texto começa e como fica. */
-export type LadoPedido = "esquerda" | "centro" | "direita";
+export type LadoPedido = "esquerda" | "direita";
 /** De onde vem o texto: digitado em cada arquivo, nome do arquivo ou só o 1º número do nome. */
 export type FontePedido = "digitado" | "nome" | "numero";
 
@@ -529,39 +529,48 @@ export function textoDoPedido(nomeArquivo: string, digitado: string, fonte: Font
   return m ? limpo(m[0]) : "";
 }
 
+/** Altura da letra maiúscula, em relação ao tamanho da fonte (Helvetica). */
+const ALTURA_LETRA = 0.72;
+/** Distância do número até as bordas da página (pedido do Juliano em 13/11: 2 cm). */
+export const PEDIDO_DISTANCIA_CM = 2;
+
 /** A área a mais tem altura (ou largura) para escrever o número? `m` em cm. */
 export function espacoParaPedido(m: Margens, tamPt: number): boolean {
-  const preciso = (tamPt * 2.4) / PT_POR_CM;
-  return m.top >= preciso || m.left >= preciso;
+  const preciso = (tamPt * ALTURA_LETRA * 1.6) / PT_POR_CM;
+  return m.top >= preciso || m.left >= preciso || m.right >= preciso;
 }
 
 export interface PosicaoPedido {
-  /** Início da linha de base do texto (sistema do PDF: y cresce para cima). */
+  /** Origem do texto (sistema do PDF: y cresce para cima). */
   x: number;
   y: number;
-  /** 90 = texto de baixo para cima (na lateral, quando não há margem em cima). */
-  rot: 0 | 90;
+  /** 180 = de cabeça para baixo (em cima); 270 = de cima para baixo (na lateral, quando não há margem em cima). */
+  rot: 180 | 270;
 }
 
 /**
- * Onde escrever o número: no meio da área a mais de CIMA (esquerda, centro ou direita); se a peça é
- * faixa (sem área em cima), na lateral esquerda, de baixo para cima, perto do topo. Todas as medidas na
- * mesma unidade (pt ou px); `cm` = quantas unidades tem 1 cm. null = não há espaço.
+ * Onde escrever o número: no CANTO de cima da área a mais, a 2 cm das bordas da página, de cabeça para
+ * baixo (esquerda ou direita). Se a peça é faixa (sem área em cima), vai na lateral correspondente, a 2 cm
+ * do topo e da borda, lido de cima para baixo. Se a área a mais for pequena, a distância diminui para o
+ * texto caber. Medidas na mesma unidade (pt ou px); `cm` = quantas unidades tem 1 cm. null = não há espaço.
  */
 export function posicaoDoPedido(W: number, H: number, m: Margens, larguraTexto: number, tam: number, lado: LadoPedido, cm: number): PosicaoPedido | null {
-  const preciso = tam * 2.4;
-  if (m.top >= preciso) {
-    const y = H - m.top / 2 - tam * 0.35;
-    const xMin = m.left + cm;
-    const xMax = W - m.right - cm - larguraTexto;
-    let x = lado === "esquerda" ? xMin : lado === "direita" ? xMax : (W - larguraTexto) / 2;
-    if (xMax < xMin) x = (W - larguraTexto) / 2;
-    return { x: Math.max(0, x), y, rot: 0 };
+  const letra = tam * ALTURA_LETRA;
+  const dist = (margem: number) => Math.min(PEDIDO_DISTANCIA_CM * cm, Math.max(0.2 * cm, (margem - letra) / 2));
+  if (m.top >= letra * 1.6) {
+    const dTopo = dist(m.top);
+    const dLado = Math.min(PEDIDO_DISTANCIA_CM * cm, Math.max(0, (W - larguraTexto) / 2));
+    // girado 180°: a origem fica na ponta direita do texto e as letras descem abaixo da linha de base
+    const x = lado === "esquerda" ? dLado + larguraTexto : W - dLado;
+    return { x, y: H - dTopo, rot: 180 };
   }
-  if (m.left >= preciso) {
-    const x = m.left / 2 + tam * 0.35;
-    const topo = H - m.top - cm;
-    return { x, y: Math.max(0, topo - larguraTexto), rot: 90 };
+  const margemLado = lado === "esquerda" ? m.left : m.right;
+  if (margemLado >= letra * 1.6) {
+    const dLado = dist(margemLado);
+    const dTopo = Math.min(PEDIDO_DISTANCIA_CM * cm, Math.max(0, (H - larguraTexto) / 2));
+    // girado 270°: o texto desce a partir da origem e as letras ficam à direita da linha de base
+    const x = lado === "esquerda" ? dLado : W - dLado - letra;
+    return { x, y: H - dTopo, rot: 270 };
   }
   return null;
 }
@@ -587,7 +596,7 @@ function desenharPedido(page: PDFPage, W: number, H: number, mPt: Margens, pedid
   const tw = fonte.widthOfTextAtSize(texto, pedido.tamPt);
   const pos = posicaoDoPedido(W, H, mPt, tw, pedido.tamPt, pedido.lado, PT_POR_CM);
   if (!pos) return;
-  page.drawText(texto, { x: pos.x, y: pos.y, size: pedido.tamPt, font: fonte, color: K50, rotate: pos.rot === 90 ? degrees(90) : undefined });
+  page.drawText(texto, { x: pos.x, y: pos.y, size: pedido.tamPt, font: fonte, color: K50, rotate: degrees(pos.rot) });
 }
 
 function emPt(m: Margens): Margens {

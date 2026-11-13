@@ -94,7 +94,7 @@ export async function imagemMesmoFormato(arquivo: Blob, info: InfoImagem, plano:
         ctx.fillStyle = COR_LINHA_RGB;
         ctx.textBaseline = "alphabetic";
         ctx.translate(pos.x, H - pos.y);
-        if (pos.rot === 90) ctx.rotate(-Math.PI / 2);
+        ctx.rotate(pos.rot === 180 ? Math.PI : Math.PI / 2);
         ctx.fillText(pedido.texto, 0, 0);
         ctx.restore();
       }
