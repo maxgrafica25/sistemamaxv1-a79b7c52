@@ -64,9 +64,9 @@ export const GRUPOS: GrupoFerramentas[] = [
       {
         key: "crachas",
         nome: "Crachás",
-        descricao: "Faz crachás com nome, cargo, setor e foto de cada pessoa, direto de uma lista do Excel, prontos para a Fargo C50 (frente, verso e prova).",
-        entrada: "Lista do Excel e fotos",
-        palavras: "cracha credencial identificação evento fargo cartão pvc dados variáveis",
+        descricao: "Crachás para a Fargo C50: imprime a arte pronta do cliente (Canva, Corel), ou usa o modelo da empresa e troca foto, nome, cargo e outros dados de uma ou de várias pessoas.",
+        entrada: "Arte pronta, ou foto e dados",
+        palavras: "cracha credencial identificação evento fargo cartão pvc dados variáveis canva corel arte pronta modelo tipo sanguíneo aso admissão",
         icon: IdCard,
         Componente: lazy(() => import("./Crachas")),
       },

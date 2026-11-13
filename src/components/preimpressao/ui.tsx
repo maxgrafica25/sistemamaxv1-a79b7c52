@@ -151,7 +151,7 @@ export function Painel({ className, children }: { className?: string; children: 
  * cada uma com a sua barra de rolagem (rolar os ajustes não tira a prévia da tela).
  * No celular vira uma coluna só.
  */
-export function DuasColunas({ esquerda, direita, rodape }: { esquerda: ReactNode; direita: ReactNode; rodape?: ReactNode }) {
+export function DuasColunas({ esquerda, direita, rodape, larguraEsquerda = "minmax(320px,400px)" }: { esquerda: ReactNode; direita: ReactNode; rodape?: ReactNode; /** Largura da coluna de ajustes no computador (padrão 320–400 px; telas com tabela pedem mais). */ larguraEsquerda?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [altura, setAltura] = useState(700);
   useEffect(() => {
@@ -168,8 +168,8 @@ export function DuasColunas({ esquerda, direita, rodape }: { esquerda: ReactNode
   return (
     <div
       ref={ref}
-      className="grid gap-6 lg:grid-cols-[minmax(320px,400px)_1fr] lg:grid-rows-[minmax(0,1fr)] lg:h-[var(--altura-ferramenta)]"
-      style={{ ["--altura-ferramenta" as string]: `${altura}px` }}
+      className="grid gap-6 lg:grid-cols-[var(--largura-esquerda)_1fr] lg:grid-rows-[minmax(0,1fr)] lg:h-[var(--altura-ferramenta)]"
+      style={{ ["--altura-ferramenta" as string]: `${altura}px`, ["--largura-esquerda" as string]: larguraEsquerda }}
     >
       <div className="min-h-0 space-y-6 lg:h-full lg:overflow-y-auto lg:pr-2 lg:pb-2 [scrollbar-gutter:stable]">{esquerda}</div>
       {/* Direita: o conteúdo rola e o rodapé (botão principal) fica sempre visível embaixo */}

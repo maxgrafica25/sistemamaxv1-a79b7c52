@@ -85,3 +85,20 @@ export async function arteParaModelo(f: Fundo): Promise<{ dataUrl: string; tipo:
 export function fundoDeModelo(a: { dataUrl: string; tipo: "png" | "jpg"; w: number; h: number }): Fundo {
   return { tipo: "imagem", img: { bytes: dataUrlParaBytes(a.dataUrl), tipo: a.tipo, w: a.w, h: a.h } };
 }
+
+/** Lê uma arte pronta: PDF (todas as páginas, vetor mantido), PNG ou JPG. */
+export async function lerArtePronta(file: File): Promise<import("./crachaPronta").ArtePronta> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const t = detectarTipo(bytes, file.name);
+  const id = `a${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  if (t === "pdf") {
+    const doc = await PDFDocument.load(bytes);
+    const p = doc.getPage(0);
+    return { id, nome: file.name, tipo: "pdf", bytes, paginas: doc.getPageCount(), aspecto: p.getWidth() / p.getHeight(), copias: 1 };
+  }
+  if (t === "png" || t === "jpg") {
+    const img = await prepararImagem(bytes, file.name, 3600);
+    return { id, nome: file.name, tipo: "imagem", img, paginas: 1, aspecto: img.w / img.h, px: { w: img.w, h: img.h }, copias: 1 };
+  }
+  throw new Error(`“${file.name}”: envie a arte em PDF, PNG ou JPG. Se vier do Canva, baixe como PDF ou PNG.`);
+}
