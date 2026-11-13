@@ -8,8 +8,10 @@ import {
   retangulosLinhaCorte,
   gravarDpiJpg,
   gravarDpiPng,
+  posicaoDoPedido,
   posicoesIlhos,
   type Ilhos,
+  type PedidoMarca,
   type InfoImagem,
   type PlanoImagem,
 } from "./margem";
@@ -32,7 +34,7 @@ const MSG_SEMPRE_PDF =
   "Imagem grande demais para o navegador gerar em PNG/JPG. Escolha \"Sempre PDF\" em \"Salvar como\".";
 
 /** Gera PNG/JPG com a área a mais em branco e a linha de corte cinza (#808080), com o DPI regravado. */
-export async function imagemMesmoFormato(arquivo: Blob, info: InfoImagem, plano: PlanoImagem, ilhos?: Ilhos | null): Promise<Blob> {
+export async function imagemMesmoFormato(arquivo: Blob, info: InfoImagem, plano: PlanoImagem, ilhos?: Ilhos | null, pedido?: PedidoMarca | null): Promise<Blob> {
   if (!plano.cabeNoCanvas) throw new Error(MSG_SEMPRE_PDF);
 
   let bmp: ImageBitmap;
@@ -78,6 +80,23 @@ export async function imagemMesmoFormato(arquivo: Blob, info: InfoImagem, plano:
         ctx.arc(cx, cy, Math.max(1, r / 4), 0, Math.PI * 2);
         ctx.fillStyle = "#000000";
         ctx.fill();
+      }
+    }
+
+    if (pedido?.texto) {
+      // Número do pedido: bem pequeno, cinza 50%, na área a mais (o sistema de y aqui cresce para baixo)
+      const tamPx = Math.max(6, (pedido.tamPt / 72) * plano.dpi);
+      ctx.font = `${tamPx}px Helvetica, Arial, sans-serif`;
+      const tw = ctx.measureText(pedido.texto).width;
+      const pos = posicaoDoPedido(W, H, { top, bottom, left, right }, tw, tamPx, pedido.lado, plano.dpi / 2.54);
+      if (pos) {
+        ctx.save();
+        ctx.fillStyle = COR_LINHA_RGB;
+        ctx.textBaseline = "alphabetic";
+        ctx.translate(pos.x, H - pos.y);
+        if (pos.rot === 90) ctx.rotate(-Math.PI / 2);
+        ctx.fillText(pedido.texto, 0, 0);
+        ctx.restore();
       }
     }
 

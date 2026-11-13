@@ -17,8 +17,11 @@ import {
   origemRotacionada,
   posicoesIlhos,
   planejarImagem,
+  espacoParaPedido,
+  posicaoDoPedido,
   processarPdf,
   retangulosLinhaCorte,
+  textoDoPedido,
 } from "@/lib/preimpressao/margem";
 
 const cm = (pt: number) => pt / PT_POR_CM;
@@ -299,5 +302,59 @@ describe("JPG", () => {
     const p = (await PDFDocument.load(r.bytes)).getPage(0);
     expect(cm(p.getWidth())).toBeCloseTo(60, 1);
     expect(cm(p.getHeight())).toBeCloseTo(110, 1);
+  });
+});
+
+describe("número do pedido no acabamento", () => {
+  it("o texto vem do que foi digitado, do nome do arquivo ou do 1º número do nome", () => {
+    expect(textoDoPedido("banner-final.pdf", " 4521 ", "nome")).toBe("4521");
+    expect(textoDoPedido("4521 - Maria Silva (lona 3x1).pdf", "", "nome")).toBe("4521 - Maria Silva (lona 3x1)");
+    expect(textoDoPedido("Pedido 4521 - Maria.pdf", "", "numero")).toBe("4521");
+    expect(textoDoPedido("OS 12/2026 final.jpg", "", "numero")).toBe("12/2026");
+    expect(textoDoPedido("sem numero.pdf", "", "numero")).toBe("");
+    expect(textoDoPedido("4521.pdf", "", "digitado")).toBe("");
+    expect(textoDoPedido("x.pdf", "a".repeat(100), "digitado")).toHaveLength(40);
+  });
+
+  it("banner: fica no meio da área a mais de cima; esquerda/direita respeitam 1 cm", () => {
+    const m = margensPara("banner", 10);
+    const mPt = { top: m.top * PT_POR_CM, bottom: m.bottom * PT_POR_CM, left: 0, right: 0 };
+    const W = 80 * PT_POR_CM;
+    const H = 140 * PT_POR_CM;
+    const c = posicaoDoPedido(W, H, mPt, 30, 5, "centro", PT_POR_CM);
+    expect(c?.rot).toBe(0);
+    expect(c?.x).toBeCloseTo((W - 30) / 2, 3);
+    expect(c?.y).toBeGreaterThan(H - mPt.top);
+    expect(c?.y).toBeLessThan(H);
+    expect(posicaoDoPedido(W, H, mPt, 30, 5, "esquerda", PT_POR_CM)?.x).toBeCloseTo(PT_POR_CM, 3);
+    expect(posicaoDoPedido(W, H, mPt, 30, 5, "direita", PT_POR_CM)?.x).toBeCloseTo(W - PT_POR_CM - 30, 3);
+  });
+
+  it("faixa (sem área em cima): lateral esquerda, de baixo para cima, perto do topo; sem espaço = null", () => {
+    const m = margensPara("faixa", 10);
+    const mPt = { top: 0, bottom: 0, left: m.left * PT_POR_CM, right: m.right * PT_POR_CM };
+    const W = 520 * PT_POR_CM;
+    const H = 80 * PT_POR_CM;
+    const p = posicaoDoPedido(W, H, mPt, 40, 5, "centro", PT_POR_CM);
+    expect(p?.rot).toBe(90);
+    expect(p!.x).toBeLessThan(mPt.left);
+    expect(p!.y + 40).toBeCloseTo(H - PT_POR_CM, 3);
+    expect(posicaoDoPedido(200, 200, { top: 0.1, bottom: 0.1, left: 0, right: 0 }, 30, 5, "centro", 28)).toBeNull();
+    expect(espacoParaPedido(margensPara("banner", 10), 5)).toBe(true);
+    expect(espacoParaPedido(margensPara("banner", 0.2), 5)).toBe(false);
+    expect(espacoParaPedido(margensPara("faixa", 5), 5)).toBe(true);
+  });
+
+  it("PDF e imagem em PDF recebem o texto em cinza 50% (K 0,5) dentro da área a mais", async () => {
+    const pedido = { texto: "PED 4521", tamPt: 5, lado: "centro" as const };
+    const r = await processarPdf(await pdfCom(80, 120), margensPara("banner", 10), null, pedido);
+    const p = (await PDFDocument.load(r.bytes)).getPage(0);
+    const c = conteudoPagina(p);
+    expect(c).toContain("Tj");
+    expect(c).toMatch(/0 0 0 0\.5 k/);
+    const r0 = await processarPdf(await pdfCom(80, 120), margensPara("banner", 10));
+    expect(conteudoPagina((await PDFDocument.load(r0.bytes)).getPage(0))).not.toContain("Tj");
+    const faixa = await processarPdf(await pdfCom(300, 80), margensPara("faixa", 10), null, pedido);
+    expect(conteudoPagina((await PDFDocument.load(faixa.bytes)).getPage(0))).toContain("Tj");
   });
 });
