@@ -380,8 +380,8 @@ export default function EmendaAdesivo() {
             <Passo valor={cfg.sobreposicao} onChange={(v) => set("sobreposicao", v)} passo={0.5} min={0.5} max={20} sufixo="cm" rotulo="sobreposição" invalido={sobre === null} />
           </div>
           <Chave ligado={cfg.guias} onChange={(v) => set("guias", v)}>
-            <span className="font-medium">Guia e número da parte na sobreposição</span>
-            <span className="block text-xs text-muted-foreground">Uma linha pontilhada e “PARTE 1/3” em cinza 50%, só na faixa que a parte seguinte cobre (some depois de colar).</span>
+            <span className="font-medium">Escrever o número da parte (“PARTE 1/3”)</span>
+            <span className="block text-xs text-muted-foreground">Texto legível, preto com contorno branco (aparece em fundo escuro), de pé, a 0,5 cm da borda da direita e da de cima. Fica na faixa que a parte seguinte cobre (na última parte, na sobra de borda), e ajuda o instalador a identificar cada parte.</span>
           </Chave>
         </div>
       </Campo>
@@ -487,7 +487,7 @@ export default function EmendaAdesivo() {
           <p className="font-medium text-foreground">Como colar</p>
           <ol className="list-decimal space-y-1 pl-4">
             <li>Imprima as partes no rolo de {plano.rolo} cm, sem escala, e numere pelo nome do arquivo ou pela página.</li>
-            <li>Cole a parte 1. A parte 2 vai <span className="font-medium text-foreground">por cima</span>, cobrindo a faixa de {formatarCm(sobre ?? 2)} da parte 1 (onde está a linha pontilhada).</li>
+            <li>Cole a parte 1. A parte 2 vai <span className="font-medium text-foreground">por cima</span>, cobrindo a faixa de {formatarCm(sobre ?? 2)} da parte 1 (onde está escrito o número da parte, que some debaixo da parte seguinte).</li>
             <li>Siga assim até a última parte. A arte da faixa coberta é a mesma da parte de cima, então a emenda fecha sem falha.</li>
             {plano.corte === "linhas" && <li>Neste rolo as partes são faixas da arte (a arte sai girada 90° em cada página): cole da parte 1 (topo da arte) para baixo.</li>}
           </ol>
