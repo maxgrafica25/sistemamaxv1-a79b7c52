@@ -9,7 +9,7 @@
 // Tudo roda no navegador: nenhum arquivo é enviado para servidor.
 // Este módulo é só lógica pura (sem React, sem canvas), para poder ser testado.
 
-import { PDFDocument, cmyk, degrees, type PDFPage } from "pdf-lib";
+import { PDFDocument, StandardFonts, cmyk, degrees, type PDFFont, type PDFPage } from "pdf-lib";
 
 // ─── Medidas ─────────────────────────────────────────────────────────
 
@@ -498,12 +498,104 @@ function desenharIlhos(page: PDFPage, x0: number, y0: number, wPt: number, hPt: 
   }
 }
 
+// ─── Número do pedido no acabamento ─────────────────────────────────
+
+/** Onde o texto começa e como fica. */
+export type LadoPedido = "esquerda" | "centro" | "direita";
+/** De onde vem o texto: digitado em cada arquivo, nome do arquivo ou só o 1º número do nome. */
+export type FontePedido = "digitado" | "nome" | "numero";
+
+/** Número do pedido escrito bem pequeno, em cinza 50%, na área a mais (a que fica atrás do banner). */
+export interface PedidoMarca {
+  texto: string;
+  /** Tamanho da letra em pontos (padrão 5 pt: bem pequeno). */
+  tamPt: number;
+  lado: LadoPedido;
+}
+
+export const PEDIDO_TAM_PADRAO_PT = 5;
+export const PEDIDO_TAM_MIN_PT = 3;
+export const PEDIDO_TAM_MAX_PT = 14;
+export const PEDIDO_MAX_LETRAS = 40;
+
+/** O texto do pedido de um arquivo: o digitado, o nome do arquivo (sem extensão) ou o 1º número do nome. */
+export function textoDoPedido(nomeArquivo: string, digitado: string, fonte: FontePedido): string {
+  const limpo = (t: string) => t.replace(/\s+/g, " ").trim().slice(0, PEDIDO_MAX_LETRAS);
+  if (digitado.trim()) return limpo(digitado);
+  if (fonte === "digitado") return "";
+  const base = nomeArquivo.replace(/\.[a-z0-9]{2,5}$/i, "");
+  if (fonte === "nome") return limpo(base);
+  const m = /\d[\d.\-/]*\d|\d/.exec(base);
+  return m ? limpo(m[0]) : "";
+}
+
+/** A área a mais tem altura (ou largura) para escrever o número? `m` em cm. */
+export function espacoParaPedido(m: Margens, tamPt: number): boolean {
+  const preciso = (tamPt * 2.4) / PT_POR_CM;
+  return m.top >= preciso || m.left >= preciso;
+}
+
+export interface PosicaoPedido {
+  /** Início da linha de base do texto (sistema do PDF: y cresce para cima). */
+  x: number;
+  y: number;
+  /** 90 = texto de baixo para cima (na lateral, quando não há margem em cima). */
+  rot: 0 | 90;
+}
+
+/**
+ * Onde escrever o número: no meio da área a mais de CIMA (esquerda, centro ou direita); se a peça é
+ * faixa (sem área em cima), na lateral esquerda, de baixo para cima, perto do topo. Todas as medidas na
+ * mesma unidade (pt ou px); `cm` = quantas unidades tem 1 cm. null = não há espaço.
+ */
+export function posicaoDoPedido(W: number, H: number, m: Margens, larguraTexto: number, tam: number, lado: LadoPedido, cm: number): PosicaoPedido | null {
+  const preciso = tam * 2.4;
+  if (m.top >= preciso) {
+    const y = H - m.top / 2 - tam * 0.35;
+    const xMin = m.left + cm;
+    const xMax = W - m.right - cm - larguraTexto;
+    let x = lado === "esquerda" ? xMin : lado === "direita" ? xMax : (W - larguraTexto) / 2;
+    if (xMax < xMin) x = (W - larguraTexto) / 2;
+    return { x: Math.max(0, x), y, rot: 0 };
+  }
+  if (m.left >= preciso) {
+    const x = m.left / 2 + tam * 0.35;
+    const topo = H - m.top - cm;
+    return { x, y: Math.max(0, topo - larguraTexto), rot: 90 };
+  }
+  return null;
+}
+
+/** Tira do texto o que a Helvetica não sabe desenhar (emoji, letras raras), para não dar erro no PDF. */
+function soSuportados(fonte: PDFFont, texto: string): string {
+  const ok = new Set(fonte.getCharacterSet());
+  let out = "";
+  for (const ch of texto.normalize("NFC")) {
+    if (ok.has(ch.codePointAt(0) as number)) out += ch;
+    else {
+      const base = ch.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (base && base !== ch && [...base].every((b) => ok.has(b.codePointAt(0) as number))) out += base;
+    }
+  }
+  return out.replace(/\s+/g, " ").trim();
+}
+
+function desenharPedido(page: PDFPage, W: number, H: number, mPt: Margens, pedido: PedidoMarca | null | undefined, fonte: PDFFont | null) {
+  if (!pedido || !fonte) return;
+  const texto = soSuportados(fonte, pedido.texto);
+  if (!texto) return;
+  const tw = fonte.widthOfTextAtSize(texto, pedido.tamPt);
+  const pos = posicaoDoPedido(W, H, mPt, tw, pedido.tamPt, pedido.lado, PT_POR_CM);
+  if (!pos) return;
+  page.drawText(texto, { x: pos.x, y: pos.y, size: pedido.tamPt, font: fonte, color: K50, rotate: pos.rot === 90 ? degrees(90) : undefined });
+}
+
 function emPt(m: Margens): Margens {
   return { top: m.top * PT_POR_CM, bottom: m.bottom * PT_POR_CM, left: m.left * PT_POR_CM, right: m.right * PT_POR_CM };
 }
 
 /** Acrescenta as faixas em todas as páginas do PDF. O resultado continua vetorial. */
-export async function processarPdf(bytes: Uint8Array, m: Margens, ilhos?: Ilhos | null): Promise<ResultadoPdf> {
+export async function processarPdf(bytes: Uint8Array, m: Margens, ilhos?: Ilhos | null, pedido?: PedidoMarca | null): Promise<ResultadoPdf> {
   let src: PDFDocument;
   try {
     src = await PDFDocument.load(bytes, { updateMetadata: false });
@@ -516,6 +608,7 @@ export async function processarPdf(bytes: Uint8Array, m: Margens, ilhos?: Ilhos 
   out.setProducer("Sistema Max · Pré-impressão");
   out.setCreator("Sistema Max · Margem de acabamento");
   const mPt = emPt(m);
+  const fontePedido = pedido?.texto ? await out.embedFont(StandardFonts.Helvetica) : null;
   const paginas: PaginaResultado[] = [];
 
   for (const page of src.getPages()) {
@@ -534,6 +627,7 @@ export async function processarPdf(bytes: Uint8Array, m: Margens, ilhos?: Ilhos 
     nova.drawPage(emb, { x: o.x, y: o.y, width: w, height: h, rotate: degrees(-rot) });
     desenharLinhaCorte(nova, W, H, mPt);
     desenharIlhos(nova, mPt.left, mPt.bottom, visW, visH, ilhos);
+    desenharPedido(nova, W, H, mPt, pedido, fontePedido);
 
     paginas.push({
       antes: { w: visW / PT_POR_CM, h: visH / PT_POR_CM },
@@ -558,6 +652,7 @@ export async function imagemParaPdf(
   m: Margens,
   dpi: number,
   ilhos?: Ilhos | null,
+  pedido?: PedidoMarca | null,
 ): Promise<ResultadoPdf> {
   const out = await PDFDocument.create();
   out.setProducer("Sistema Max · Pré-impressão");
@@ -572,6 +667,7 @@ export async function imagemParaPdf(
   page.drawImage(img, { x: mPt.left, y: mPt.bottom, width: wPt, height: hPt });
   desenharLinhaCorte(page, W, H, mPt);
   desenharIlhos(page, mPt.left, mPt.bottom, wPt, hPt, ilhos);
+  desenharPedido(page, W, H, mPt, pedido, pedido?.texto ? await out.embedFont(StandardFonts.Helvetica) : null);
   const pag = { antes: { w: wPt / PT_POR_CM, h: hPt / PT_POR_CM }, depois: { w: W / PT_POR_CM, h: H / PT_POR_CM } };
   return { bytes: await out.save(), paginas: [pag], passaLimite: passaLimiteAcrobat(pag.depois) };
 }

@@ -11,8 +11,12 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
   LIMITE_ACROBAT_CM,
+  PEDIDO_TAM_MAX_PT,
+  PEDIDO_TAM_MIN_PT,
+  PEDIDO_TAM_PADRAO_PT,
   detectarTipo,
   dpiEfetivo,
+  espacoParaPedido,
   formatarAntesDepois,
   imagemParaPdf,
   lerInfoImagem,
@@ -20,9 +24,13 @@ import {
   nomeResultado,
   planejarImagem,
   posicoesIlhos,
+  textoDoPedido,
   processarPdf,
+  type FontePedido,
   type Ilhos,
   type InfoImagem,
+  type LadoPedido,
+  type PedidoMarca,
   type Peca,
   type TipoArquivo,
 } from "@/lib/preimpressao/margem";
@@ -40,10 +48,15 @@ interface Config {
   ilhos: boolean;
   ilhosEspaco: string;
   ilhosRecuo: string;
+  /** Escrever o número do pedido (bem pequeno, cinza 50%) na área a mais. */
+  pedido: boolean;
+  pedidoFonte: FontePedido;
+  pedidoTam: string;
+  pedidoLado: LadoPedido;
 }
 
 const CONFIG_KEY = "preimpressao.margem-acabamento.config.v1";
-const CONFIG_PADRAO: Config = { peca: "banner", cm: "10", saida: "mesmo", ilhos: false, ilhosEspaco: "30", ilhosRecuo: "2,5" };
+const CONFIG_PADRAO: Config = { peca: "banner", cm: "10", saida: "mesmo", ilhos: false, ilhosEspaco: "30", ilhosRecuo: "2,5", pedido: false, pedidoFonte: "digitado", pedidoTam: String(PEDIDO_TAM_PADRAO_PT), pedidoLado: "centro" };
 
 function lerConfig(): Config {
   try {
@@ -57,6 +70,10 @@ function lerConfig(): Config {
       ilhos: c.ilhos === true,
       ilhosEspaco: typeof c.ilhosEspaco === "string" && c.ilhosEspaco.trim() ? c.ilhosEspaco : CONFIG_PADRAO.ilhosEspaco,
       ilhosRecuo: typeof c.ilhosRecuo === "string" && c.ilhosRecuo.trim() ? c.ilhosRecuo : CONFIG_PADRAO.ilhosRecuo,
+      pedido: c.pedido === true,
+      pedidoFonte: c.pedidoFonte === "nome" || c.pedidoFonte === "numero" ? c.pedidoFonte : "digitado",
+      pedidoTam: typeof c.pedidoTam === "string" && c.pedidoTam.trim() ? c.pedidoTam : CONFIG_PADRAO.pedidoTam,
+      pedidoLado: c.pedidoLado === "esquerda" || c.pedidoLado === "direita" ? c.pedidoLado : "centro",
     };
   } catch {
     return CONFIG_PADRAO;
@@ -91,6 +108,8 @@ interface Item {
   info?: InfoImagem;
   /** Largura real digitada pelo usuário (texto do campo). */
   larguraCm: string;
+  /** Número do pedido digitado para este arquivo. */
+  pedido: string;
   status: Status;
   erro?: string;
   avisos: string[];
@@ -107,7 +126,7 @@ let seq = 0;
 const novoId = () => `f${Date.now().toString(36)}${(seq++).toString(36)}`;
 
 async function prepararItem(file: File): Promise<Item> {
-  const base: Item = { id: novoId(), nome: file.name, file, tipo: "desconhecido", larguraCm: "", status: "processando", avisos: [] };
+  const base: Item = { id: novoId(), nome: file.name, file, tipo: "desconhecido", larguraCm: "", pedido: "", status: "processando", avisos: [] };
   try {
     let bytes = new Uint8Array(await file.arrayBuffer());
     let tipo = detectarTipo(bytes, file.name);
@@ -128,13 +147,27 @@ async function prepararItem(file: File): Promise<Item> {
 }
 
 /** Processa um item com a configuração atual. Retorna só os campos que mudam. */
-async function processarItem(item: Item, cfg: { peca: Peca; cm: number; saida: Saida; ilhos: Ilhos | null }): Promise<Partial<Item>> {
+interface PedidoCfg {
+  fonte: FontePedido;
+  tamPt: number;
+  lado: LadoPedido;
+}
+
+async function processarItem(item: Item, cfg: { peca: Peca; cm: number; saida: Saida; ilhos: Ilhos | null; pedido: PedidoCfg | null }): Promise<Partial<Item>> {
   const m = margensPara(cfg.peca, cfg.cm);
   const avisos: string[] = [];
+  // Número do pedido (o digitado, o nome do arquivo ou o 1º número do nome)
+  let pedido: PedidoMarca | null = null;
+  if (cfg.pedido) {
+    const texto = textoDoPedido(item.nome, item.pedido, cfg.pedido.fonte);
+    if (!texto) avisos.push("Sem número do pedido neste arquivo. Digite o número no campo “Pedido”.");
+    else if (!espacoParaPedido(m, cfg.pedido.tamPt)) avisos.push("A área a mais é pequena demais para escrever o número do pedido.");
+    else pedido = { texto, tamPt: cfg.pedido.tamPt, lado: cfg.pedido.lado };
+  }
   const limite = `Passa de ${LIMITE_ACROBAT_CM} cm de lado: o Acrobat não abre páginas maiores (o RIP pode abrir).`;
 
   if (item.tipo === "pdf" && item.bytes) {
-    const r = await processarPdf(item.bytes, m, cfg.ilhos);
+    const r = await processarPdf(item.bytes, m, cfg.ilhos, pedido);
     if (r.passaLimite) avisos.push(limite);
     const blob = new Blob([r.bytes], { type: "application/pdf" });
     const thumb = await miniaturaPdf(r.bytes).catch(() => undefined);
@@ -174,13 +207,13 @@ async function processarItem(item: Item, cfg: { peca: Peca; cm: number; saida: S
   if (info.cmyk && cfg.saida !== "pdf") avisos.push("JPG em CMYK: salvo como PDF para manter as cores.");
 
   if (emPdf) {
-    const r = await imagemParaPdf(item.bytes, info, m, dpi, cfg.ilhos);
+    const r = await imagemParaPdf(item.bytes, info, m, dpi, cfg.ilhos, pedido);
     const blob = new Blob([r.bytes], { type: "application/pdf" });
     const thumb = await miniaturaPdf(r.bytes).catch(() => undefined);
     return { status: "pronto", erro: undefined, avisos, medidas, paginas: 1, resultado: { blob, nome: nomeResultado(item.nome, "pdf") }, thumb };
   }
 
-  const blob = await imagemMesmoFormato(item.file, info, plano, cfg.ilhos);
+  const blob = await imagemMesmoFormato(item.file, info, plano, cfg.ilhos, pedido);
   const thumb = await miniaturaImagem(blob, plano.larguraFinalPx, plano.alturaFinalPx).catch(() => undefined);
   return { status: "pronto", erro: undefined, avisos, medidas, paginas: 1, resultado: { blob, nome: nomeResultado(item.nome) }, thumb };
 }
@@ -236,8 +269,20 @@ export default function MargemAcabamento() {
     ? { espacamentoCm: Number(ilhosAplicado.split("|")[0]), recuoCm: Number(ilhosAplicado.split("|")[1]) }
     : null;
 
-  const cfgRef = useRef({ peca: config.peca, cm: cmAplicado, saida: config.saida, ilhos: ilhosCfg });
-  cfgRef.current = { peca: config.peca, cm: cmAplicado, saida: config.saida, ilhos: ilhosCfg };
+  // Número do pedido: tamanho da letra válido (3 a 14 pt); inválido = não escreve
+  const pedidoTam = faixa(config.pedidoTam, PEDIDO_TAM_MIN_PT, PEDIDO_TAM_MAX_PT);
+  const pedidoChave = config.pedido && pedidoTam !== null ? `${config.pedidoFonte}|${pedidoTam}|${config.pedidoLado}` : "";
+  const [pedidoAplicado, setPedidoAplicado] = useState(pedidoChave);
+  useEffect(() => {
+    const t = setTimeout(() => setPedidoAplicado(pedidoChave), 400);
+    return () => clearTimeout(t);
+  }, [pedidoChave]);
+  const pedidoCfg: PedidoCfg | null = pedidoAplicado
+    ? { fonte: pedidoAplicado.split("|")[0] as FontePedido, tamPt: Number(pedidoAplicado.split("|")[1]), lado: pedidoAplicado.split("|")[2] as LadoPedido }
+    : null;
+
+  const cfgRef = useRef({ peca: config.peca, cm: cmAplicado, saida: config.saida, ilhos: ilhosCfg, pedido: pedidoCfg });
+  cfgRef.current = { peca: config.peca, cm: cmAplicado, saida: config.saida, ilhos: ilhosCfg, pedido: pedidoCfg };
 
   const agendar = useCallback(
     (id: string) => {
@@ -254,7 +299,7 @@ export default function MargemAcabamento() {
         if (!item || cfg.cm === null) return;
         let patch: Partial<Item>;
         try {
-          patch = await processarItem(item, { peca: cfg.peca, cm: cfg.cm, saida: cfg.saida, ilhos: cfg.ilhos });
+          patch = await processarItem(item, { peca: cfg.peca, cm: cfg.cm, saida: cfg.saida, ilhos: cfg.ilhos, pedido: cfg.pedido });
         } catch (e) {
           patch = {
             status: "erro",
@@ -272,7 +317,7 @@ export default function MargemAcabamento() {
   // Mudou a configuração → reprocessa tudo que já está carregado
   useEffect(() => {
     for (const it of itemsRef.current) agendar(it.id);
-  }, [config.peca, config.saida, cmAplicado, ilhosAplicado, agendar]);
+  }, [config.peca, config.saida, cmAplicado, ilhosAplicado, pedidoAplicado, agendar]);
 
   const adicionar = useCallback(
     async (files: FileList | File[]) => {
@@ -308,6 +353,18 @@ export default function MargemAcabamento() {
     );
   };
 
+  // Número do pedido digitado → reprocessa aquele arquivo depois de uma pausa
+  const aoDigitarPedido = (id: string, valor: string) => {
+    itemsRef.current = itemsRef.current.map((i) => (i.id === id ? { ...i, pedido: valor } : i));
+    atualizar(id, { pedido: valor });
+    const t = timersLargura.current.get(`p${id}`);
+    if (t) clearTimeout(t);
+    timersLargura.current.set(
+      `p${id}`,
+      setTimeout(() => agendar(id), 500),
+    );
+  };
+
   const prontos = items.filter((i) => i.status === "pronto" && i.resultado);
 
   const baixarTodos = async () => {
@@ -335,7 +392,7 @@ export default function MargemAcabamento() {
     <div className="grid gap-6 lg:grid-cols-[minmax(300px,380px)_1fr] items-start">
       {/* ── Ajustes ───────────────────────────────────────────── */}
       <section className="rounded-3xl border border-border/60 bg-card p-6 shadow-sm space-y-6 lg:sticky lg:top-4">
-        <PreviaMargem peca={config.peca} cm={cmNum} ilhos={config.ilhos} />
+        <PreviaMargem peca={config.peca} cm={cmNum} ilhos={config.ilhos} pedido={config.pedido} />
 
         <Campo titulo="Peça" ajuda={PECAS_UI.find((p) => p.key === config.peca)?.ajuda}>
           <Segmentado
@@ -405,6 +462,48 @@ export default function MargemAcabamento() {
                 erro={ilhosRecuo === null ? "0,5 a 20 cm" : undefined}
                 ajuda="Da borda da arte ao centro"
               />
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <Chave ligado={config.pedido} onChange={(v) => setConfig((c) => ({ ...c, pedido: v }))}>
+            <span className="font-medium">Número do pedido no acabamento</span>
+            <span className="block text-xs text-muted-foreground">Bem pequeno, em cinza 50%, na área a mais (atrás do banner), para a expedição achar o banner certo.</span>
+          </Chave>
+          {config.pedido && (
+            <div className="space-y-3">
+              <div>
+                <p className="mb-1 text-xs text-muted-foreground">De onde vem o número</p>
+                <Segmentado
+                  valor={config.pedidoFonte}
+                  opcoes={[
+                    { valor: "digitado" as FontePedido, rotulo: "Digitar" },
+                    { valor: "nome" as FontePedido, rotulo: "Nome do arquivo" },
+                    { valor: "numero" as FontePedido, rotulo: "1º número" },
+                  ]}
+                  onChange={(v: FontePedido) => setConfig((c) => ({ ...c, pedidoFonte: v }))}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {config.pedidoFonte === "digitado" ? "Digite o número em cada arquivo da lista (campo “Pedido”)." : "Em cada arquivo você ainda pode digitar outro número no campo “Pedido”."}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Mini rotulo="Tamanho da letra (pt)" valor={config.pedidoTam} onChange={(v) => setConfig((c) => ({ ...c, pedidoTam: v }))} erro={pedidoTam === null ? "3 a 14 pt" : undefined} ajuda="5 pt = bem pequeno" />
+                <div>
+                  <p className="mb-1 text-xs text-muted-foreground">Posição</p>
+                  <Segmentado
+                    valor={config.pedidoLado}
+                    opcoes={[
+                      { valor: "esquerda" as LadoPedido, rotulo: "Esq." },
+                      { valor: "centro" as LadoPedido, rotulo: "Meio" },
+                      { valor: "direita" as LadoPedido, rotulo: "Dir." },
+                    ]}
+                    onChange={(v: LadoPedido) => setConfig((c) => ({ ...c, pedidoLado: v }))}
+                  />
+                </div>
+              </div>
+              {config.peca === "faixa" && <p className="text-xs text-muted-foreground">Na faixa não há área em cima: o número vai na lateral esquerda, de baixo para cima, perto do topo.</p>}
             </div>
           )}
         </div>
@@ -501,6 +600,9 @@ export default function MargemAcabamento() {
                 <LinhaArquivo
                   key={it.id}
                   item={it}
+                  pedidoAtivo={config.pedido}
+                  pedidoSugestao={config.pedido && config.pedidoFonte !== "digitado" ? textoDoPedido(it.nome, "", config.pedidoFonte) : ""}
+                  onPedido={(v) => aoDigitarPedido(it.id, v)}
                   onLargura={(v) => aoDigitarLargura(it.id, v)}
                   onRemover={() => remover(it.id)}
                 />
@@ -525,7 +627,7 @@ const PECAS_UI: { key: Peca; titulo: string; ajuda: string }[] = [
 ];
 
 /** Desenho ao vivo: onde entra a área a mais e a linha de corte (fora de escala). */
-function PreviaMargem({ peca, cm, ilhos }: { peca: Peca; cm: number | null; ilhos?: boolean }) {
+function PreviaMargem({ peca, cm, ilhos, pedido }: { peca: Peca; cm: number | null; ilhos?: boolean; pedido?: boolean }) {
   const arte = peca === "faixa" ? { w: 150, h: 54 } : peca === "banner" ? { w: 92, h: 112 } : { w: 92, h: 88 };
   const m = 16;
   const mt = peca === "faixa" ? 0 : m;
@@ -551,6 +653,17 @@ function PreviaMargem({ peca, cm, ilhos }: { peca: Peca; cm: number | null; ilho
         {ilhos &&
           posicoesIlhos(arte.w, arte.h, 26, 7).map((p, i) => (
             <circle key={i} cx={x0 + ml + p.x} cy={y0 + mt + p.y} r="2.2" fill="#fff" stroke="#111" strokeWidth="0.7" style={t} />
+          ))}
+        {/* número do pedido: bem pequeno, cinza, na área a mais de cima (faixa: na lateral) */}
+        {pedido &&
+          (mt > 0 ? (
+            <text x={100} y={y0 + mt / 2 + 1.5} textAnchor="middle" fontSize="4" fill="#808080" style={t}>
+              Pedido 12345
+            </text>
+          ) : (
+            <text transform={`translate(${x0 + ml / 2 + 1.5} ${y0 + H - 6}) rotate(-90)`} fontSize="4" fill="#808080" style={t}>
+              Pedido 12345
+            </text>
           ))}
         {/* linhas de corte na borda de fora */}
         {mt > 0 && (
@@ -598,7 +711,21 @@ function StatusPonto({ status }: { status: Status }) {
   );
 }
 
-function LinhaArquivo({ item, onLargura, onRemover }: { item: Item; onLargura: (v: string) => void; onRemover: () => void }) {
+function LinhaArquivo({
+  item,
+  pedidoAtivo,
+  pedidoSugestao,
+  onPedido,
+  onLargura,
+  onRemover,
+}: {
+  item: Item;
+  pedidoAtivo: boolean;
+  pedidoSugestao: string;
+  onPedido: (v: string) => void;
+  onLargura: (v: string) => void;
+  onRemover: () => void;
+}) {
   const imagem = item.tipo === "png" || item.tipo === "jpg";
   const info = item.info;
   const larguraArquivo = info?.dpi ? (info.larguraPx / info.dpi) * 2.54 : null;
@@ -645,6 +772,19 @@ function LinhaArquivo({ item, onLargura, onRemover }: { item: Item; onLargura: (
             <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" /> {a}
           </p>
         ))}
+        {pedidoAtivo && (
+          <label className="flex w-fit items-center gap-2 pt-1 text-xs text-muted-foreground">
+            Pedido
+            <Input
+              className="h-8 w-40 rounded-full border-0 bg-muted/60 px-3 text-sm shadow-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              placeholder={pedidoSugestao || "nº do pedido"}
+              maxLength={40}
+              value={item.pedido}
+              onChange={(e) => onPedido(e.target.value)}
+              aria-label={`Número do pedido de ${item.nome}`}
+            />
+          </label>
+        )}
         {imagem && info && (
           <label className="flex w-fit items-center gap-2 pt-1 text-xs text-muted-foreground">
             {info.dpi ? "Corrigir largura real" : "Largura real do banner"}
