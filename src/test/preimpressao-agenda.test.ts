@@ -324,3 +324,48 @@ describe("páginas de abertura do cliente e cor de destaque", () => {
     expect(m.bytes.length).toBeGreaterThan(1000);
   }, 60000);
 });
+
+import { qrModulos, urlWhatsApp } from "@/lib/preimpressao/agenda";
+import { MENSAGENS_SUGERIDAS, qrDaConfig, configPadrao } from "@/components/preimpressao/agendaConfig";
+
+describe("mensagem do mês e QR Code", () => {
+  it("endereço do WhatsApp: aceita com ou sem 55 e com máscara; recusa número curto", () => {
+    expect(urlWhatsApp("(51) 99999-9999")).toBe("https://wa.me/5551999999999");
+    expect(urlWhatsApp("+55 51 3333-4444", "Olá! Vi a agenda.")).toBe("https://wa.me/555133334444?text=Ol%C3%A1!%20Vi%20a%20agenda.");
+    expect(urlWhatsApp("99999-9999")).toBeNull();
+    expect(urlWhatsApp("")).toBeNull();
+  });
+
+  it("QR Code: matriz quadrada com os 3 quadros de posição nos cantos", () => {
+    const m = qrModulos("https://wa.me/5551999999999");
+    const n = m.length;
+    expect(n).toBeGreaterThanOrEqual(21);
+    expect(m.every((l) => l.length === n)).toBe(true);
+    // quadro de posição: 7 × 7 com o contorno todo escuro
+    for (const [r0, c0] of [[0, 0], [0, n - 7], [n - 7, 0]]) {
+      for (let i = 0; i < 7; i++) {
+        expect(m[r0][c0 + i]).toBe(true);
+        expect(m[r0 + 6][c0 + i]).toBe(true);
+        expect(m[r0 + i][c0]).toBe(true);
+        expect(m[r0 + i][c0 + 6]).toBe(true);
+      }
+    }
+  });
+
+  it("da configuração: WhatsApp, link com ou sem https, desligado ou inválido", () => {
+    const base = { ...configPadrao(), qrAtivo: true };
+    expect(qrDaConfig({ ...base, qrTipo: "whatsapp", qrNumero: "(51) 99999-9999", qrMensagem: "" })).toEqual({ url: "https://wa.me/5551999999999", rotulo: "Chame no WhatsApp" });
+    expect(qrDaConfig({ ...base, qrTipo: "link", qrLink: "www.maxgraficadigital.com.br", qrRotulo: "Nosso site" })).toEqual({ url: "https://www.maxgraficadigital.com.br", rotulo: "Nosso site" });
+    expect(qrDaConfig({ ...base, qrTipo: "link", qrLink: "semponto" })).toBeNull();
+    expect(qrDaConfig({ ...base, qrAtivo: false, qrNumero: "(51) 99999-9999" })).toBeNull();
+    expect(MENSAGENS_SUGERIDAS).toHaveLength(12);
+  });
+
+  it("gera o miolo e as capas com mensagens, QR no verso e QR na contracapa", async () => {
+    const url = "https://wa.me/5551999999999";
+    const m = await gerarMiolo({ ano: 2027, capa: "AGENDA", regionais: [], mensagens: MENSAGENS_SUGERIDAS, pessoa: "Ana Paula", qr: { url, rotulo: "Chame no WhatsApp", noVerso: true } });
+    expect(m.bytes.length).toBeGreaterThan(1000);
+    const capas = await gerarCapas({ ano: 2027, titulo: "AGENDA", cor: "#16325c", linha1: "Max", linha2: "", contato: "(51) 99999-9999", logo: null, usarLogo: false, qr: { url, rotulo: "Chame no WhatsApp" }, layout: { contraQr: { x: 30, y: 70, tam: 120 } } });
+    expect((await PDFDocument.load(capas)).getPageCount()).toBe(2);
+  }, 60000);
+});

@@ -5,6 +5,7 @@
 // Tudo calculado e desenhado no navegador (pdf-lib), sem IA e sem custo. Feriados nacionais entram
 // sempre; feriados regionais são acrescentados pela pessoa.
 
+import QRCode from "qrcode";
 import { LineCapStyle, PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import { PT_POR_MM, SANGRIA_PADRAO_MM } from "./folha";
 import { planejarTamanho } from "./redimensionar";
@@ -120,6 +121,61 @@ export function datasEspeciaisValidas(ano: number, datas?: DataEspecial[] | null
     out.push({ mes: d.mes, dia: d.dia, nome, icone: icones.has(d.icone) ? d.icone : "estrela" });
   }
   return out.sort((a, b) => a.mes - b.mes || a.dia - b.dia).slice(0, MAX_DATAS_ESPECIAIS);
+}
+
+// ─── QR Code ─────────────────────────────────────────────────────────
+
+/** Módulos de um QR Code (true = quadradinho escuro), com correção de erro média. */
+export function qrModulos(texto: string): boolean[][] {
+  const q = QRCode.create(texto, { errorCorrectionLevel: "M" });
+  const n = q.modules.size;
+  return Array.from({ length: n }, (_, r) => Array.from({ length: n }, (_, c) => !!q.modules.get(r, c)));
+}
+
+/** Endereço do WhatsApp (wa.me) a partir do número com DDD (com ou sem 55); null se o número não parece válido. */
+export function urlWhatsApp(numero: string, mensagem = ""): string | null {
+  let d = numero.replace(/\D/g, "");
+  if (d.length === 10 || d.length === 11) d = "55" + d;
+  if (!(d.length === 12 || d.length === 13) || !d.startsWith("55")) return null;
+  const msg = mensagem.trim();
+  return `https://wa.me/${d}${msg ? `?text=${encodeURIComponent(msg)}` : ""}`;
+}
+
+/** QR Code que a agenda imprime: o endereço e o texto que vai embaixo. */
+export interface QrAgenda {
+  url: string;
+  rotulo: string;
+}
+
+/**
+ * Desenha o QR Code num quadrado de `tamMm` (já com a margem branca de 4 módulos).
+ * x, y = canto de cima/esquerda em mm; alturaPaginaMm = altura da página. Junta módulos vizinhos numa fileira só.
+ */
+function desenharQr(page: PDFPage, texto: string, x: number, y: number, tamMm: number, alturaPaginaMm: number) {
+  const m = qrModulos(texto);
+  const n = m.length;
+  const mod = tamMm / (n + 8);
+  const px = (v: number) => v * PT_POR_MM;
+  page.drawRectangle({ x: px(x), y: px(alturaPaginaMm - y - tamMm), width: px(tamMm), height: px(tamMm), color: rgb(1, 1, 1) });
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; ) {
+      if (!m[r][c]) {
+        c++;
+        continue;
+      }
+      let fim = c;
+      while (fim + 1 < n && m[r][fim + 1]) fim++;
+      page.drawRectangle({
+        x: px(x + (c + 4) * mod),
+        y: px(alturaPaginaMm - y - (r + 5) * mod),
+        width: px((fim - c + 1) * mod),
+        height: px(mod),
+        color: rgb(0, 0, 0),
+        borderWidth: 0,
+      });
+      c = fim + 1;
+    }
+  }
 }
 
 export type FaseLua = "nova" | "crescente" | "cheia" | "minguante";
@@ -300,6 +356,10 @@ export interface ConfigAgenda {
   datas?: DataEspecial[];
   /** Páginas de abertura do cliente (texto, foto e texto, ou lista). */
   aberturas?: Abertura[];
+  /** Uma mensagem para cada mês (12 textos, de janeiro a dezembro), no alto do planejamento. */
+  mensagens?: string[];
+  /** QR Code no verso da capa (url e texto embaixo); null = sem QR. */
+  qr?: (QrAgenda & { noVerso: boolean }) | null;
   /** Cor de destaque "#rrggbb" (pontinhos, círculos, ícones, ano na capa e, com "destaque", domingos e feriados); vazio = só preto. */
   corDestaque?: string | null;
   /** Nome da pessoa dona desta agenda (aparece na capa do miolo, no verso da capa e em "Nome:"). */
@@ -324,6 +384,8 @@ interface Cfg {
   datas: DataEspecial[];
   pessoa: string;
   aberturas: Abertura[];
+  mensagens: string[];
+  qr: (QrAgenda & { noVerso: boolean }) | null;
   /** Cor de destaque (0–1) ou null. */
   acento: [number, number, number] | null;
 }
@@ -349,6 +411,8 @@ function normalizar(c: ConfigAgenda): Cfg {
     extras: c.extras ?? [],
     datas: datasEspeciaisValidas(c.ano, c.datas),
     pessoa: (c.pessoa ?? "").trim().slice(0, 40),
+    mensagens: Array.from({ length: 12 }, (_, i) => (c.mensagens?.[i] ?? "").trim().replace(/\s+/g, " ").slice(0, 90)),
+    qr: c.qr && c.qr.url.trim() ? { url: c.qr.url.trim(), rotulo: (c.qr.rotulo ?? "").trim().slice(0, 40), noVerso: c.qr.noVerso !== false } : null,
     aberturas: (c.aberturas ?? []).filter((a) => a.titulo.trim() || a.texto.trim()).slice(0, MAX_ABERTURAS),
     acento: c.corDestaque && /^#[0-9a-f]{6}$/i.test(c.corDestaque.trim()) ? corParaRgb(c.corDestaque) : null,
   };
@@ -741,10 +805,17 @@ function desenharVersoDaCapa(fo: Folha) {
   } else if (id.logoNoVerso && id.rodape.trim()) {
     fo.texto(id.rodape.trim(), cx, 100, 8, { alinhar: "c", cor: CINZA_ESCURO });
   }
+  const qr = cfg.qr && cfg.qr.noVerso ? cfg.qr : null;
+  if (qr) {
+    const tam = 34;
+    desenharQr(fo.page, qr.url, cx - tam / 2, 116, tam, H);
+    if (qr.rotulo) fo.texto(caber(fo, qr.rotulo, 7, fo.dir - fo.esq), cx, 116 + tam + 4.5, 7, { alinhar: "c", cor: CINZA_ESCURO });
+  }
   if (cfg.pessoa) {
-    fo.texto("ESTA AGENDA É DE", cx, 150, 6.5, { alinhar: "c", peso: "leve", cor: CINZA_ESCURO });
-    fo.texto(caber(fo, cfg.pessoa, 14, fo.dir - fo.esq), cx, 158, 14, { alinhar: "c", peso: "negrito" });
-    fo.linha(cx - 25, 161.5, cx + 25, 161.5, 0.4, CINZA);
+    const y = qr ? 186 : 150;
+    fo.texto("ESTA AGENDA É DE", cx, y, 6.5, { alinhar: "c", peso: "leve", cor: CINZA_ESCURO });
+    fo.texto(caber(fo, cfg.pessoa, 14, fo.dir - fo.esq), cx, y + 8, 14, { alinhar: "c", peso: "negrito" });
+    fo.linha(cx - 25, y + 11.5, cx + 25, y + 11.5, 0.4, CINZA);
   }
 }
 
@@ -904,6 +975,8 @@ function desenharPlanejamento(fo: Folha, mes: number) {
   const { cfg, feriados, luas } = fo.ctx;
   const ano = cfg.ano;
   fo.titulo("PLANEJAMENTO", MESES[mes - 1], 13);
+  const mensagem = cfg.mensagens[mes - 1];
+  if (mensagem) fo.texto(caber(fo, `“${mensagem}”`, 7.5, fo.dir - fo.esq), fo.esq, 19.3, 7.5, { peso: "leve", cor: CINZA_ESCURO });
   let xTexto = fo.esq;
   if (cfg.luas) {
     const doMes = luas.filter((l) => l.mes === mes);
@@ -1338,7 +1411,7 @@ export async function miolosEmA4(a5: Uint8Array): Promise<Uint8Array> {
 // ─── Capa e contracapa ───────────────────────────────────────────────
 
 /** Elementos da capa (e da contracapa) que a pessoa pode mover e redimensionar. */
-export type ElementoCapa = "capaLogo" | "capaTitulo" | "capaNome" | "capaSlogan" | "contraLogo" | "contraContato";
+export type ElementoCapa = "capaLogo" | "capaTitulo" | "capaNome" | "capaSlogan" | "contraLogo" | "contraContato" | "contraQr";
 
 /** Posição do centro do elemento em % da página final (sem a sangria) e tamanho em % do padrão. */
 export interface PosicaoElemento {
@@ -1356,6 +1429,7 @@ export const ELEMENTOS_CAPA: { chave: ElementoCapa; rotulo: string; pagina: 0 | 
   { chave: "capaSlogan", rotulo: "Slogan", pagina: 0 },
   { chave: "contraLogo", rotulo: "Logo", pagina: 1 },
   { chave: "contraContato", rotulo: "Contato", pagina: 1 },
+  { chave: "contraQr", rotulo: "QR Code", pagina: 1 },
 ];
 
 export const LAYOUT_CAPA_PADRAO: LayoutCapa = {
@@ -1365,6 +1439,7 @@ export const LAYOUT_CAPA_PADRAO: LayoutCapa = {
   capaSlogan: { x: 50, y: 88.6, tam: 100 },
   contraLogo: { x: 50, y: 37.1, tam: 100 },
   contraContato: { x: 50, y: 60, tam: 100 },
+  contraQr: { x: 50, y: 80, tam: 100 },
 };
 
 /** Completa e limita um layout vindo da tela ou de um arquivo (x e y de 0 a 100, tamanho de 30 a 300%). */
@@ -1390,6 +1465,8 @@ export interface ConfigCapa {
   contato: string;
   logo: Imagem | null;
   usarLogo: boolean;
+  /** QR Code na contracapa (url e texto embaixo); null = sem QR. */
+  qr?: QrAgenda | null;
   /** Onde fica cada elemento (padrão: LAYOUT_CAPA_PADRAO). */
   layout?: Partial<Record<ElementoCapa, Partial<PosicaoElemento>>> | null;
 }
@@ -1461,6 +1538,12 @@ export async function gerarCapas(c: ConfigCapa, externas?: FontesExternas | null
     const passo = 6.5 * s;
     const primeira = Y(lay.contraContato.y) - ((linhas.length - 1) * passo) / 2 + meia(8.5 * s);
     linhas.forEach((l, i) => texto(contra, l, X(lay.contraContato.x), primeira + i * passo, 8.5 * s, "normal", 0.9));
+  }
+  if (c.qr && c.qr.url.trim()) {
+    const s = lay.contraQr.tam / 100;
+    const tam = 38 * s;
+    desenharQr(contra, c.qr.url.trim(), X(lay.contraQr.x) - tam / 2, Y(lay.contraQr.y) - tam / 2, tam, H + 2 * b);
+    texto(contra, (c.qr.rotulo ?? "").trim().slice(0, 40), X(lay.contraQr.x), Y(lay.contraQr.y) + tam / 2 + 5 * s, 8 * s, "normal", 0.95);
   }
   caixas(contra);
   doc.setTitle(`Capa e contracapa ${c.ano}`);

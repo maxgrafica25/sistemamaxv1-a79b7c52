@@ -8,7 +8,7 @@ import { Check, ChevronDown, Circle, Diamond, Download, Heart, Loader2, Plus, St
 import { PDFDocument } from "pdf-lib";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { FOTO_ABERTURA_MM, ICONES_DATA, MAX_DATAS_ESPECIAIS, MESES_CURTOS, gerarCapas, gerarMiolo, miolosEmA4, type ConfigAgenda, type ConfigCapa, type DataEspecial, type ElementoCapa, type Feriado, type IconeData, type PosicaoElemento, type FontesExternas, type Imagem, type Miolo, type PosicaoExtra } from "@/lib/preimpressao/agenda";
+import { FOTO_ABERTURA_MM, ICONES_DATA, MAX_DATAS_ESPECIAIS, MESES, MESES_CURTOS, gerarCapas, gerarMiolo, miolosEmA4, type ConfigAgenda, type ConfigCapa, type DataEspecial, type ElementoCapa, type Feriado, type IconeData, type PosicaoElemento, type FontesExternas, type Imagem, type Miolo, type PosicaoExtra } from "@/lib/preimpressao/agenda";
 import { bytesParaDataUrl, carregarFontes, corDeFundoDaLogo, cortarImagem, dataUrlParaBytes, prepararImagem, silhuetaDaLogo } from "@/lib/preimpressao/agendaNavegador";
 import { detectarTipo } from "@/lib/preimpressao/margem";
 import { baixarBlob, baixarZip } from "@/lib/preimpressao/navegador";
@@ -17,7 +17,7 @@ import { AgendaAberturas } from "./AgendaAberturas";
 import { AgendaExtras, type ExtraUI } from "./AgendaExtras";
 import { AgendaIdentidade, AgendaLogo, AgendaMarcaDagua } from "./AgendaIdentidade";
 import { AgendaModelos } from "./AgendaModelos";
-import { NOMES_DE_EXEMPLO, configPadrao, elementoDaPagina, nomeDeArquivo, nomesDoLote, type ConfigAgendaUI, type ModoAgenda, type Saida } from "./agendaConfig";
+import { MENSAGENS_SUGERIDAS, NOMES_DE_EXEMPLO, configPadrao, elementoDaPagina, nomeDeArquivo, nomesDoLote, qrDaConfig, type ConfigAgendaUI, type ModoAgenda, type Saida } from "./agendaConfig";
 import { Campo, Chave, Dado, DuasColunas, Mini, NotaPrivacidade, Painel, Passo, PreviaPdf, SeletorCor, Segmentado } from "./ui";
 import { numeroEntre, useConfigSalva } from "./uteis";
 
@@ -124,6 +124,9 @@ export default function MioloAgenda() {
   const nomeOk = novoNome.trim().length > 0;
   const logoImg = useMemo(() => imagemDe(config.logo), [config.logo]);
 
+  const qrFinal = qrDaConfig(config);
+  const qrInvalido = config.qrAtivo && !qrFinal;
+
   /** Configuração do miolo para a biblioteca (com o nome da pessoa, se houver). */
   const montarConfig = (pessoa: string): ConfigAgenda => ({
     ano: ano ?? config.ano,
@@ -150,6 +153,8 @@ export default function MioloAgenda() {
     extras: extras.map((e) => ({ nome: e.nome, bytes: e.bytes, tipo: e.tipo, posicao: e.posicao, paginas: e.paginas })),
     datas: config.datas,
     pessoa,
+    mensagens: config.mensagens,
+    qr: qrFinal ? { ...qrFinal, noVerso: config.qrNoVerso } : null,
     aberturas: config.aberturas.map((a) => ({ titulo: a.titulo, texto: a.texto, modelo: a.modelo, foto: imagemDe(a.foto), posicao: a.posicao })),
     corDestaque: config.acentoAtivo ? config.acentoCor : null,
   });
@@ -164,6 +169,7 @@ export default function MioloAgenda() {
     logo: logoImg,
     usarLogo: config.capaUsarLogo,
     layout: config.capaLayout,
+    qr: qrFinal,
   });
 
   useEffect(() => {
@@ -211,6 +217,9 @@ export default function MioloAgenda() {
     config.aberturas.map((a) => [a.titulo, a.texto, a.modelo, a.posicao, a.foto ? a.foto.dataUrl.length : 0]),
     config.acentoAtivo,
     config.acentoCor,
+    config.mensagens,
+    qrFinal,
+    config.qrNoVerso,
     logoChave,
     config.rodape,
     config.logoNaCapa,
@@ -257,7 +266,7 @@ export default function MioloAgenda() {
   }, [modo, fontesProntas, chaveMiolo, horasInvalidas, totalInvalido]);
 
   // Capa e contracapa
-  const chaveCapa = JSON.stringify([ano, config.capa, config.capaCor, config.capaLinha1, config.capaLinha2, config.capaContato, config.capaUsarLogo, config.capaLayout, config.pessoa, logoChave, fontes ? 1 : 0]);
+  const chaveCapa = JSON.stringify([ano, config.capa, config.capaCor, config.capaLinha1, config.capaLinha2, config.capaContato, config.capaUsarLogo, config.capaLayout, config.pessoa, qrFinal, logoChave, fontes ? 1 : 0]);
   useEffect(() => {
     if (modo !== "capa" || !fontesProntas || ano === null) return;
     setErro(null);
@@ -495,8 +504,64 @@ export default function MioloAgenda() {
         {erroLote && <p className="text-xs text-destructive">{erroLote}</p>}
       </Bloco>
 
+      <Bloco titulo="QR Code" resumo={qrFinal ? (config.qrTipo === "whatsapp" ? "WhatsApp" : "Link do site") : qrInvalido ? "Confira os dados" : "Desligado"}>
+        <Chave ligado={config.qrAtivo} onChange={(v) => set("qrAtivo", v)}>
+          <span className="font-medium">QR Code na contracapa</span>
+          <span className="block text-xs text-muted-foreground">Quem aponta o celular abre o seu WhatsApp ou o seu site.</span>
+        </Chave>
+        {config.qrAtivo && (
+          <div className="space-y-4">
+            <Segmentado
+              valor={config.qrTipo}
+              opcoes={[
+                { valor: "whatsapp" as const, rotulo: "WhatsApp" },
+                { valor: "link" as const, rotulo: "Link do site" },
+              ]}
+              onChange={(v) => set("qrTipo", v)}
+            />
+            {config.qrTipo === "whatsapp" ? (
+              <>
+                <Mini rotulo="Número com DDD" valor={config.qrNumero} onChange={(v) => set("qrNumero", v.slice(0, 20))} texto erro={config.qrNumero.trim() && !qrFinal ? "Confira o número (DDD + número)" : undefined} ajuda="Ex.: (51) 99999-9999" />
+                <Mini rotulo="Mensagem que já vem escrita (opcional)" valor={config.qrMensagem} onChange={(v) => set("qrMensagem", v.slice(0, 120))} texto />
+              </>
+            ) : (
+              <Mini rotulo="Endereço do site" valor={config.qrLink} onChange={(v) => set("qrLink", v.slice(0, 200))} texto erro={config.qrLink.trim() && !qrFinal ? "Confira o endereço" : undefined} ajuda="Ex.: www.maxgraficadigital.com.br" />
+            )}
+            <Mini rotulo="Texto embaixo do QR (opcional)" valor={config.qrRotulo} onChange={(v) => set("qrRotulo", v.slice(0, 40))} texto ajuda={config.qrTipo === "whatsapp" ? "Padrão: Chame no WhatsApp" : "Padrão: Visite nosso site"} />
+            <Chave ligado={config.qrNoVerso} onChange={(v) => set("qrNoVerso", v)}>
+              <span className="font-medium">Também no verso da capa do miolo</span>
+            </Chave>
+            <p className="text-xs text-muted-foreground">A posição na contracapa é escolhida na aba "Capa e contracapa". Teste lendo o QR com o celular antes de imprimir.</p>
+          </div>
+        )}
+      </Bloco>
+
       {modo === "miolo" ? (
         <>
+          <Bloco titulo="Mensagem do mês" resumo={config.mensagens.filter((m) => m.trim()).length ? `${config.mensagens.filter((m) => m.trim()).length} de 12 preenchidas` : "Nenhuma"}>
+            <Campo titulo="Uma frase para cada mês" ajuda="Aparece no alto do planejamento de cada mês, entre aspas. Até 90 letras.">
+              <div className="space-y-3">
+                {MESES.map((m, i) => (
+                  <Mini
+                    key={m}
+                    rotulo={m.charAt(0) + m.slice(1).toLowerCase()}
+                    valor={config.mensagens[i] ?? ""}
+                    onChange={(v) => set("mensagens", config.mensagens.map((x, j) => (j === i ? v.slice(0, 90) : x)))}
+                    texto
+                  />
+                ))}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-4 text-xs font-medium text-primary">
+                <button type="button" className="hover:underline" onClick={() => set("mensagens", [...MENSAGENS_SUGERIDAS])}>
+                  Preencher com sugestões
+                </button>
+                <button type="button" className="hover:underline" onClick={() => set("mensagens", Array.from({ length: 12 }, () => ""))}>
+                  Limpar
+                </button>
+              </div>
+            </Campo>
+          </Bloco>
+
           <Bloco titulo="Logo, contato e marca-d'água" resumo={resumoIdentidade}>
             <AgendaLogo config={config} set={set} onArquivos={(f) => void carregarLogo(f)} carregando={lendoLogo} erro={erroLogo} />
             <AgendaIdentidade config={config} set={set} />

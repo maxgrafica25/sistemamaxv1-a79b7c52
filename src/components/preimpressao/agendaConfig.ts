@@ -1,6 +1,6 @@
 // Configuração do "Miolo de agenda" (o que fica salvo no navegador) e modelos salvos por cliente.
 
-import { ELEMENTOS_CAPA, LAYOUT_CAPA_PADRAO, datasEspeciaisValidas, layoutCapaValido, type DataEspecial, type ElementoCapa, type Feriado, type LayoutCapa, type PosicaoExtra } from "@/lib/preimpressao/agenda";
+import { ELEMENTOS_CAPA, LAYOUT_CAPA_PADRAO, datasEspeciaisValidas, layoutCapaValido, urlWhatsApp, type DataEspecial, type ElementoCapa, type Feriado, type LayoutCapa, type PosicaoExtra, type QrAgenda } from "@/lib/preimpressao/agenda";
 
 /** Logo guardada no navegador como data URL (já reduzida). */
 export interface ImagemSalva {
@@ -86,6 +86,16 @@ export interface ConfigAgendaUI {
   /** Cor de destaque no miolo (pontinhos, círculos, ícones, ano na capa, domingos e feriados). */
   acentoAtivo: boolean;
   acentoCor: string;
+  /** Uma mensagem por mês (janeiro a dezembro), no alto do planejamento. */
+  mensagens: string[];
+  /** QR Code (WhatsApp ou site) no verso da capa do miolo e na contracapa. */
+  qrAtivo: boolean;
+  qrTipo: "whatsapp" | "link";
+  qrNumero: string;
+  qrMensagem: string;
+  qrLink: string;
+  qrRotulo: string;
+  qrNoVerso: boolean;
 }
 
 /** Ano da próxima agenda: a partir de setembro já se prepara o ano seguinte. */
@@ -133,6 +143,14 @@ export function configPadrao(): ConfigAgendaUI {
     aberturas: [],
     acentoAtivo: false,
     acentoCor: "#1d4ed8",
+    mensagens: Array.from({ length: 12 }, () => ""),
+    qrAtivo: false,
+    qrTipo: "whatsapp",
+    qrNumero: "",
+    qrMensagem: "Olá! Vi a agenda de vocês.",
+    qrLink: "",
+    qrRotulo: "",
+    qrNoVerso: true,
   };
 }
 
@@ -191,6 +209,8 @@ export function modeloDeArquivo(json: unknown): Partial<ModeloAgenda> | null {
       if (l === null || (typeof l === "object" && typeof l.dataUrl === "string" && l.dataUrl.startsWith("data:image/") && typeof l.w === "number" && typeof l.h === "number")) out[k] = l;
     } else if (k === "capaLayout") {
       if (v && typeof v === "object") out[k] = layoutCapaValido(v as Partial<Record<string, never>>);
+    } else if (k === "mensagens") {
+      if (Array.isArray(v)) out[k] = Array.from({ length: 12 }, (_, i) => (typeof v[i] === "string" ? (v[i] as string).slice(0, 90) : ""));
     } else if (k === "aberturas") {
       if (Array.isArray(v)) {
         out[k] = v
@@ -252,3 +272,31 @@ export const NOMES_DE_EXEMPLO = [
   "Patrícia Gomes",
   "Rafael Mendes",
 ].join("\n");
+
+/** QR Code da configuração: o endereço e o texto embaixo; null se estiver desligado ou o número/endereço não servir. */
+export function qrDaConfig(c: Pick<ConfigAgendaUI, "qrAtivo" | "qrTipo" | "qrNumero" | "qrMensagem" | "qrLink" | "qrRotulo">): QrAgenda | null {
+  if (!c.qrAtivo) return null;
+  if (c.qrTipo === "whatsapp") {
+    const url = urlWhatsApp(c.qrNumero, c.qrMensagem);
+    return url ? { url, rotulo: c.qrRotulo.trim() || "Chame no WhatsApp" } : null;
+  }
+  const bruto = c.qrLink.trim();
+  if (!bruto || !/\./.test(bruto)) return null;
+  return { url: /^https?:\/\//i.test(bruto) ? bruto : `https://${bruto}`, rotulo: c.qrRotulo.trim() || "Visite nosso site" };
+}
+
+/** Mensagens de exemplo para os 12 meses (texto original, curto e sem assunto polêmico). */
+export const MENSAGENS_SUGERIDAS = [
+  "Comece o ano com um passo de cada vez.",
+  "Pequenas decisões de hoje constroem o resultado de amanhã.",
+  "Quem planeja com carinho colhe com folga.",
+  "Organização é o caminho mais curto para o descanso.",
+  "Cada dia bem vivido é um passo a mais rumo ao que importa.",
+  "Metade do ano é história: o que falta ainda cabe no tempo.",
+  "Pare um minuto: agradecer também é produtividade.",
+  "Persistência vence quando o talento descansa.",
+  "Chegou a primavera: hora de florescer o que você plantou.",
+  "Foco no que importa, calma no que não depende de você.",
+  "O ano está acabando, mas ainda dá tempo de surpreender.",
+  "Feche o ano com gratidão e abra o próximo com coragem.",
+];
