@@ -9,7 +9,7 @@
 // Regra: tudo roda no navegador, sem servidor e sem custo (ver CLAUDE.md).
 
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
-import { BookOpen, CalendarDays, Camera, Contact, Crop, FileSearch, Files, Hash, IdCard, Images, LayoutGrid, Scissors, type LucideIcon } from "lucide-react";
+import { BookOpen, CalendarDays, Camera, Contact, Crop, FileSearch, Files, Hash, IdCard, Images, Ruler, LayoutGrid, Scissors, type LucideIcon } from "lucide-react";
 
 export interface Ferramenta {
   key: string;
@@ -129,6 +129,15 @@ export const GRUPOS: GrupoFerramentas[] = [
         palavras: "banner faixa lona ilhós bainha acabamento",
         icon: Scissors,
         Componente: lazy(() => import("./MargemAcabamento")),
+      },
+      {
+        key: "emenda",
+        nome: "Emenda de adesivo",
+        descricao: "Fatia uma arte grande em partes que cabem no rolo, com sobreposição para colar, e sugere o rolo que melhor aproveita.",
+        entrada: "PDF, PNG, JPG ou EPS inteiro",
+        palavras: "adesivo vinil rolo emendar emenda cortar partes fatiar sobreposição grande formato plotter parede painel fachada vitrine",
+        icon: Ruler,
+        Componente: lazy(() => import("./EmendaAdesivo")),
       },
     ],
   },

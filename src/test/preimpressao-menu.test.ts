@@ -6,7 +6,7 @@ describe("menu da Pré-impressão", () => {
     const keys = FERRAMENTAS.map((f) => f.key);
     expect(new Set(keys).size).toBe(keys.length);
     expect(GRUPOS.every((g) => g.ferramentas.length > 0)).toBe(true);
-    expect(keys).toEqual(expect.arrayContaining(["impressao-fotos", "foto-3x4", "polaroid", "crachas", "montagem", "agenda"]));
+    expect(keys).toEqual(expect.arrayContaining(["impressao-fotos", "foto-3x4", "polaroid", "crachas", "montagem", "agenda", "emenda"]));
   });
   it("a busca acha por nome, sem acento e por palavras do balcão", () => {
     expect(buscarFerramentas("foto 3x4").map((f) => f.key)).toContain("foto-3x4");
@@ -16,6 +16,7 @@ describe("menu da Pré-impressão", () => {
     expect(buscarFerramentas("revelação").map((f) => f.key)).toContain("impressao-fotos");
     expect(buscarFerramentas("cartão de visita").map((f) => f.key)).toContain("montagem");
     expect(buscarFerramentas("banner").map((f) => f.key)).toContain("margem-acabamento");
+    expect(buscarFerramentas("emendar adesivo").map((f) => f.key)).toContain("emenda");
     expect(buscarFerramentas("xyzxyz")).toEqual([]);
     expect(buscarFerramentas("   ")).toEqual([]);
   });
