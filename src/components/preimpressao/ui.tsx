@@ -475,3 +475,26 @@ export function SeletorCor({
     </div>
   );
 }
+
+/** Escolha em pílulas que quebram em várias linhas (quando o controle segmentado ficaria apertado). */
+export function Pilulas<T extends string>({ valor, opcoes, onChange }: { valor: T; opcoes: { valor: T; rotulo: string }[]; onChange: (v: T) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2" role="radiogroup">
+      {opcoes.map((o) => (
+        <button
+          key={o.valor}
+          type="button"
+          role="radio"
+          aria-checked={valor === o.valor}
+          onClick={() => onChange(o.valor)}
+          className={cn(
+            "rounded-full px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+            valor === o.valor ? "bg-foreground text-background" : "bg-muted/70 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {o.rotulo}
+        </button>
+      ))}
+    </div>
+  );
+}

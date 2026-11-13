@@ -4,7 +4,7 @@
 // páginas do cliente, modelo semanal, capa e contracapa e modelos salvos. Tudo no navegador, sem custo.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, Circle, Diamond, Download, Heart, Loader2, Plus, Star, X, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Info, Circle, Diamond, Download, Heart, Loader2, Plus, Star, X, type LucideIcon } from "lucide-react";
 import { PDFDocument } from "pdf-lib";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -140,6 +140,8 @@ export default function MioloAgenda() {
     semanaComeca: config.semanaComeca,
     luas: config.luas,
     destaque: config.destaque,
+    estiloCabecalho: config.estiloCabecalho,
+    marcadores: config.marcadores,
     identidade: { logo: logoImg, rodape: config.rodape, logoNaCapa: config.logoNaCapa, logoNoVerso: config.logoNoVerso, rodapeEmTodas: config.rodapeEmTodas },
     marcaDagua: {
       ativa: config.marcaAtiva,
@@ -212,6 +214,8 @@ export default function MioloAgenda() {
     config.semanaComeca,
     config.luas,
     config.destaque,
+    config.estiloCabecalho,
+    config.marcadores,
     config.datas,
     config.pessoa,
     config.aberturas.map((a) => [a.titulo, a.texto, a.modelo, a.posicao, a.foto ? a.foto.dataUrl.length : 0]),
@@ -763,6 +767,21 @@ export default function MioloAgenda() {
               <span className="font-medium">Fases da lua</span>
               <span className="block text-xs text-muted-foreground">No planejamento do mês.</span>
             </Chave>
+            <Campo titulo="Enfeite dos cabeçalhos">
+              <Segmentado
+                valor={config.estiloCabecalho}
+                opcoes={[
+                  { valor: "pontos" as const, rotulo: "Pontinhos" },
+                  { valor: "linha" as const, rotulo: "Linha" },
+                  { valor: "limpo" as const, rotulo: "Limpo" },
+                ]}
+                onChange={(v) => set("estiloCabecalho", v)}
+              />
+            </Campo>
+            <Chave ligado={config.marcadores} onChange={(v) => set("marcadores", v)}>
+              <span className="font-medium">Selos nos dias (★ ♥ ✓)</span>
+              <span className="block text-xs text-muted-foreground">Três desenhos vazados em cada dia para a pessoa marcar à mão. Só no modelo diário.</span>
+            </Chave>
             <Chave ligado={config.destaque} onChange={(v) => set("destaque", v)}>
               <span className="font-medium">Domingos e feriados em destaque</span>
               <span className="block text-xs text-muted-foreground">O número do dia fica em cinza, ou na cor de destaque se ela estiver ligada.</span>
@@ -921,6 +940,17 @@ export default function MioloAgenda() {
                   <Dado rotulo="Feriados no ano" valor={miolo.feriados.length} />
                 </dl>
                 {config.saida === "a4" && <p className="text-xs text-muted-foreground">Cada folha A4 rende 2 miolos.</p>}
+                <div className="space-y-2 rounded-2xl border px-4 py-3 text-sm">
+                  <p className="font-medium">Conferência final</p>
+                  <ul className="space-y-1.5">
+                    {miolo.conferencia.map((c, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs">
+                        {c.nivel === "ok" ? <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" /> : c.nivel === "atencao" ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" /> : <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-600" />}
+                        <span className={c.nivel === "atencao" ? "text-foreground" : "text-muted-foreground"}>{c.texto}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
                 <div className="space-y-2 rounded-2xl bg-muted/50 px-4 py-3 text-xs text-muted-foreground">
                   <p className="font-medium text-foreground">Como imprimir</p>
                   {config.saida === "a5" ? (

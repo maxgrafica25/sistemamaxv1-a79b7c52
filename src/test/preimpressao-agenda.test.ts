@@ -369,3 +369,44 @@ describe("mensagem do mês e QR Code", () => {
     expect((await PDFDocument.load(capas)).getPageCount()).toBe(2);
   }, 60000);
 });
+
+describe("estilos de cabeçalho, selos e conferência final", () => {
+  const base = { ano: 2027, capa: "AGENDA", regionais: [] };
+
+  it("gera os três estilos de cabeçalho e os selos nos dias, nos dois modelos", async () => {
+    for (const estiloCabecalho of ["pontos", "linha", "limpo"] as const) {
+      for (const modelo of ["diario", "semanal"] as const) {
+        const m = await gerarMiolo({ ...base, modelo, estiloCabecalho, marcadores: true, corDestaque: "#cc2222" });
+        expect((await PDFDocument.load(m.bytes)).getPageCount()).toBe(m.plano.paginas.length);
+      }
+    }
+  }, 120000);
+
+  it("a conferência fica verde quando está tudo certo", async () => {
+    const m = await gerarMiolo(base);
+    expect(m.conferencia.some((i) => i.nivel === "atencao")).toBe(false);
+    expect(m.conferencia.at(-1)).toEqual({ nivel: "ok", texto: "Nenhum problema encontrado." });
+  }, 60000);
+
+  it("a conferência avisa de logo pequena, marca-d'água forte, total menor que o necessário e texto cortado", async () => {
+    const pequena: Imagem = { bytes: new Uint8Array(), tipo: "png", w: 120, h: 80 };
+    const longo = "palavra ".repeat(400);
+    const m = await gerarMiolo({
+      ...base,
+      total: 100,
+      corDestaque: "#cc2222",
+      identidade: { logo: null },
+      marcaDagua: { ativa: true, tipo: "texto", texto: "MAX", opacidade: 0.3 },
+      aberturas: [{ titulo: "Sobre nós", modelo: "texto", texto: longo, posicao: "inicio" }] as never,
+      mensagens: ["x".repeat(90), ...Array(11).fill("")],
+    });
+    const textos = m.conferencia.filter((i) => i.nivel === "atencao").map((i) => i.texto).join("|");
+    expect(textos).toContain("Você pediu 100 páginas");
+    expect(textos).toContain("marca-d'água está forte");
+    expect(textos).toContain("Sobre nós");
+    expect(m.conferencia.some((i) => i.nivel === "info")).toBe(true);
+    const so = conferirMiolo({ ...base, identidade: { logo: pequena } } as never, m.plano);
+    expect(so.some((i) => i.texto.includes("A logo é pequena"))).toBe(true);
+  }, 60000);
+});
+import { conferirMiolo } from "@/lib/preimpressao/agenda";
