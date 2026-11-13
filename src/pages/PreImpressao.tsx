@@ -5,37 +5,84 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Clock, Lock, Printer, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clock, Lock, Printer, Search, Star, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { PageContainer } from "@/components/PageContainer";
 import PageLoader from "@/components/PageLoader";
-import { FERRAMENTAS, GRUPOS, buscarFerramentas, lerRecentes, marcarRecente, type Ferramenta } from "@/components/preimpressao/ferramentas";
+import { FERRAMENTAS, GRUPOS, buscarFerramentas, favoritasPrimeiro, ferramentasFavoritas, lerRecentes, marcarRecente, type Ferramenta } from "@/components/preimpressao/ferramentas";
+import { useFavoritos } from "@/components/preimpressao/useFavoritos";
+import { cn } from "@/lib/utils";
 
-function Cartao({ f }: { f: Ferramenta }) {
+/** Estrela de favorita (no canto do cartão e no cabeçalho da ferramenta). */
+function Estrela({ ligada, nome, onClick, className }: { ligada: boolean; nome: string; onClick: () => void; className?: string }) {
   return (
-    <Link
-      to={`/pre-impressao?tab=${f.key}`}
-      className="group flex gap-4 rounded-3xl border border-border/60 bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+    <button
+      type="button"
+      aria-pressed={ligada}
+      aria-label={ligada ? `Tirar ${nome} dos favoritos` : `Favoritar ${nome}`}
+      title={ligada ? "Tirar dos favoritos" : "Favoritar: fica no topo da lista"}
+      onClick={onClick}
+      className={cn(
+        "flex h-9 w-9 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+        ligada ? "text-amber-500 hover:bg-amber-50" : "text-muted-foreground/60 hover:bg-muted hover:text-foreground",
+        className,
+      )}
     >
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-        <f.icon className="h-6 w-6" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center justify-between gap-2">
-          <span className="text-base font-semibold tracking-tight">{f.nome}</span>
-          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+      <Star className={cn("h-5 w-5 transition-transform", ligada && "fill-current")} />
+    </button>
+  );
+}
+
+function Cartao({ f, favorita, onFavoritar, compacto }: { f: Ferramenta; favorita: boolean; onFavoritar: () => void; compacto?: boolean }) {
+  if (compacto) {
+    // Favoritas: só o ícone e o nome, para o topo da página ficar curto
+    return (
+      <div className="group relative">
+        <Link
+          to={`/pre-impressao?tab=${f.key}`}
+          className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card px-4 py-3 pr-12 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <f.icon className="h-5 w-5" />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold tracking-tight">{f.nome}</span>
+            <span className="block truncate text-xs text-muted-foreground">{f.entrada}</span>
+          </span>
+        </Link>
+        <Estrela ligada={favorita} nome={f.nome} onClick={onFavoritar} className="absolute right-1.5 top-1/2 -translate-y-1/2" />
+      </div>
+    );
+  }
+  return (
+    <div className="group relative">
+      <Link
+        to={`/pre-impressao?tab=${f.key}`}
+        className="flex gap-4 rounded-3xl border border-border/60 bg-card p-5 pr-14 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      >
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <f.icon className="h-6 w-6" />
         </span>
-        <span className="mt-1 block text-sm text-muted-foreground">{f.descricao}</span>
-        <span className="mt-3 inline-block rounded-full bg-muted/70 px-2.5 py-0.5 text-xs text-muted-foreground">{f.entrada}</span>
-      </span>
-    </Link>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center justify-between gap-2">
+            <span className="text-base font-semibold tracking-tight">{f.nome}</span>
+            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+          </span>
+          <span className="mt-1 block text-sm text-muted-foreground">{f.descricao}</span>
+          <span className="mt-3 inline-block rounded-full bg-muted/70 px-2.5 py-0.5 text-xs text-muted-foreground">{f.entrada}</span>
+        </span>
+      </Link>
+      <Estrela ligada={favorita} nome={f.nome} onClick={onFavoritar} className="absolute right-3 top-3" />
+    </div>
   );
 }
 
 function Inicio() {
   const [busca, setBusca] = useState("");
-  const recentes = useMemo(() => lerRecentes(3), []);
-  const achadas = useMemo(() => buscarFerramentas(busca), [busca]);
+  const { favoritos, ehFavorita, alternar, usuario } = useFavoritos();
+  const recentes = useMemo(() => lerRecentes(3, usuario), [usuario]);
+  const achadas = useMemo(() => favoritasPrimeiro(buscarFerramentas(busca), favoritos), [busca, favoritos]);
+  const favoritas = useMemo(() => ferramentasFavoritas(favoritos), [favoritos]);
   const buscando = busca.trim().length > 0;
 
   return (
@@ -62,7 +109,7 @@ function Inicio() {
         achadas.length ? (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {achadas.map((f) => (
-              <Cartao key={f.key} f={f} />
+              <Cartao key={f.key} f={f} favorita={ehFavorita(f.key)} onFavoritar={() => alternar(f.key)} />
             ))}
           </div>
         ) : (
@@ -70,6 +117,20 @@ function Inicio() {
         )
       ) : (
         <div className="space-y-8">
+          <section className="space-y-3" aria-label="Favoritas">
+            <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> Favoritas
+            </h2>
+            {favoritas.length ? (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {favoritas.map((f) => (
+                  <Cartao key={f.key} f={f} favorita compacto onFavoritar={() => alternar(f.key)} />
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-3xl border border-dashed border-border/70 p-5 text-sm text-muted-foreground">Toque na ★ de uma ferramenta para ela ficar aqui no topo, só para você.</p>
+            )}
+          </section>
           {recentes.length > 0 && (
             <section className="space-y-3">
               <h2 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -90,7 +151,7 @@ function Inicio() {
               <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{g.titulo}</h2>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {g.ferramentas.map((f) => (
-                  <Cartao key={f.key} f={f} />
+                  <Cartao key={f.key} f={f} favorita={ehFavorita(f.key)} onFavoritar={() => alternar(f.key)} />
                 ))}
               </div>
             </section>
@@ -107,10 +168,11 @@ function Inicio() {
 export default function PreImpressao() {
   const [params] = useSearchParams();
   const atual = FERRAMENTAS.find((f) => f.key === params.get("tab"));
+  const { ehFavorita, alternar, usuario } = useFavoritos();
 
   useEffect(() => {
-    if (atual) marcarRecente(atual.key);
-  }, [atual]);
+    if (atual) marcarRecente(atual.key, usuario);
+  }, [atual, usuario]);
 
   if (!atual) return <Inicio />;
 
@@ -127,6 +189,7 @@ export default function PreImpressao() {
         <h1 className="flex items-center gap-2 text-xl font-bold text-foreground">
           <atual.icon className="h-5 w-5 shrink-0 text-primary" />
           {atual.nome}
+          <Estrela ligada={ehFavorita(atual.key)} nome={atual.nome} onClick={() => alternar(atual.key)} className="-ml-1 h-8 w-8" />
         </h1>
         <p className="basis-full text-sm text-muted-foreground lg:basis-auto">{atual.descricao}</p>
       </div>
