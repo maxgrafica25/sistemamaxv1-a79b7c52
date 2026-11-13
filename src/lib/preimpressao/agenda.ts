@@ -5,6 +5,7 @@
 // Tudo calculado e desenhado no navegador (pdf-lib), sem IA e sem custo. Feriados nacionais entram
 // sempre; feriados regionais são acrescentados pela pessoa.
 
+import QRCode from "qrcode";
 import { LineCapStyle, PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import { PT_POR_MM, SANGRIA_PADRAO_MM } from "./folha";
 import { planejarTamanho } from "./redimensionar";
@@ -86,6 +87,95 @@ function ordenarFeriados(l: Feriado[]): Feriado[] {
 export function todosOsFeriados(ano: number, regionais: Feriado[]): Feriado[] {
   const extras = regionais.filter((f) => f.mes >= 1 && f.mes <= 12 && f.dia >= 1 && f.dia <= diasNoMes(ano, f.mes) && f.nome.trim() !== "");
   return ordenarFeriados([...feriadosNacionais(ano), ...extras.map((f) => ({ ...f, nome: f.nome.trim() }))]);
+}
+
+/** Ícones das datas do cliente (aniversário da empresa, campanhas…). */
+export type IconeData = "estrela" | "coracao" | "losango" | "ponto" | "visto";
+
+export const ICONES_DATA: { chave: IconeData; rotulo: string }[] = [
+  { chave: "estrela", rotulo: "Estrela" },
+  { chave: "coracao", rotulo: "Coração" },
+  { chave: "losango", rotulo: "Losango" },
+  { chave: "ponto", rotulo: "Bolinha" },
+  { chave: "visto", rotulo: "Visto" },
+];
+
+/** Data do cliente (não é feriado): aparece com um ícone no calendário, no planejamento e no dia. */
+export interface DataEspecial extends Feriado {
+  icone: IconeData;
+}
+
+export const MAX_DATAS_ESPECIAIS = 12;
+
+/** Datas do cliente válidas no ano (data existente, nome preenchido, ícone conhecido), em ordem e sem repetir. */
+export function datasEspeciaisValidas(ano: number, datas?: DataEspecial[] | null): DataEspecial[] {
+  const icones = new Set<string>(ICONES_DATA.map((i) => i.chave));
+  const vistas = new Set<string>();
+  const out: DataEspecial[] = [];
+  for (const d of datas ?? []) {
+    const nome = (d.nome ?? "").trim().slice(0, 30);
+    if (!nome || !(d.mes >= 1 && d.mes <= 12) || !(d.dia >= 1 && d.dia <= diasNoMes(ano, d.mes))) continue;
+    const chave = `${d.mes}-${d.dia}-${nome}`;
+    if (vistas.has(chave)) continue;
+    vistas.add(chave);
+    out.push({ mes: d.mes, dia: d.dia, nome, icone: icones.has(d.icone) ? d.icone : "estrela" });
+  }
+  return out.sort((a, b) => a.mes - b.mes || a.dia - b.dia).slice(0, MAX_DATAS_ESPECIAIS);
+}
+
+// ─── QR Code ─────────────────────────────────────────────────────────
+
+/** Módulos de um QR Code (true = quadradinho escuro), com correção de erro média. */
+export function qrModulos(texto: string): boolean[][] {
+  const q = QRCode.create(texto, { errorCorrectionLevel: "M" });
+  const n = q.modules.size;
+  return Array.from({ length: n }, (_, r) => Array.from({ length: n }, (_, c) => !!q.modules.get(r, c)));
+}
+
+/** Endereço do WhatsApp (wa.me) a partir do número com DDD (com ou sem 55); null se o número não parece válido. */
+export function urlWhatsApp(numero: string, mensagem = ""): string | null {
+  let d = numero.replace(/\D/g, "");
+  if (d.length === 10 || d.length === 11) d = "55" + d;
+  if (!(d.length === 12 || d.length === 13) || !d.startsWith("55")) return null;
+  const msg = mensagem.trim();
+  return `https://wa.me/${d}${msg ? `?text=${encodeURIComponent(msg)}` : ""}`;
+}
+
+/** QR Code que a agenda imprime: o endereço e o texto que vai embaixo. */
+export interface QrAgenda {
+  url: string;
+  rotulo: string;
+}
+
+/**
+ * Desenha o QR Code num quadrado de `tamMm` (já com a margem branca de 4 módulos).
+ * x, y = canto de cima/esquerda em mm; alturaPaginaMm = altura da página. Junta módulos vizinhos numa fileira só.
+ */
+function desenharQr(page: PDFPage, texto: string, x: number, y: number, tamMm: number, alturaPaginaMm: number) {
+  const m = qrModulos(texto);
+  const n = m.length;
+  const mod = tamMm / (n + 8);
+  const px = (v: number) => v * PT_POR_MM;
+  page.drawRectangle({ x: px(x), y: px(alturaPaginaMm - y - tamMm), width: px(tamMm), height: px(tamMm), color: rgb(1, 1, 1) });
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; ) {
+      if (!m[r][c]) {
+        c++;
+        continue;
+      }
+      let fim = c;
+      while (fim + 1 < n && m[r][fim + 1]) fim++;
+      page.drawRectangle({
+        x: px(x + (c + 4) * mod),
+        y: px(alturaPaginaMm - y - (r + 5) * mod),
+        width: px((fim - c + 1) * mod),
+        height: px(mod),
+        color: rgb(0, 0, 0),
+        borderWidth: 0,
+      });
+      c = fim + 1;
+    }
+  }
 }
 
 export type FaseLua = "nova" | "crescente" | "cheia" | "minguante";
@@ -202,6 +292,23 @@ export interface Extra {
   paginas: number;
 }
 
+/**
+ * Página de abertura do cliente, feita pelo sistema: "Quem somos", "Nossos produtos", cardápio…
+ * texto = título + parágrafos; foto = foto no alto (já cortada na proporção) + texto; lista = itens
+ * "nome | preço" (linha que começa com # é um subtítulo).
+ */
+export interface Abertura {
+  titulo: string;
+  texto: string;
+  modelo: "texto" | "foto" | "lista";
+  foto: Imagem | null;
+  posicao: PosicaoExtra;
+}
+
+export const MAX_ABERTURAS = 3;
+/** Largura × altura (mm) da área da foto na página de abertura: a foto deve ser cortada nessa proporção. */
+export const FOTO_ABERTURA_MM = { w: 126, h: 80 };
+
 export interface Identidade {
   logo: Imagem | null;
   /** Uma linha: nome, telefone, Instagram… */
@@ -245,6 +352,18 @@ export interface ConfigAgenda {
   identidade?: Partial<Identidade>;
   marcaDagua?: Partial<MarcaDagua>;
   extras?: Extra[];
+  /** Datas do cliente, com ícone. */
+  datas?: DataEspecial[];
+  /** Páginas de abertura do cliente (texto, foto e texto, ou lista). */
+  aberturas?: Abertura[];
+  /** Uma mensagem para cada mês (12 textos, de janeiro a dezembro), no alto do planejamento. */
+  mensagens?: string[];
+  /** QR Code no verso da capa (url e texto embaixo); null = sem QR. */
+  qr?: (QrAgenda & { noVerso: boolean }) | null;
+  /** Cor de destaque "#rrggbb" (pontinhos, círculos, ícones, ano na capa e, com "destaque", domingos e feriados); vazio = só preto. */
+  corDestaque?: string | null;
+  /** Nome da pessoa dona desta agenda (aparece na capa do miolo, no verso da capa e em "Nome:"). */
+  pessoa?: string;
 }
 
 interface Cfg {
@@ -262,6 +381,13 @@ interface Cfg {
   identidade: Identidade;
   marcaDagua: MarcaDagua;
   extras: Extra[];
+  datas: DataEspecial[];
+  pessoa: string;
+  aberturas: Abertura[];
+  mensagens: string[];
+  qr: (QrAgenda & { noVerso: boolean }) | null;
+  /** Cor de destaque (0–1) ou null. */
+  acento: [number, number, number] | null;
 }
 
 const limitar = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -283,6 +409,12 @@ function normalizar(c: ConfigAgenda): Cfg {
     identidade: { logo: null, rodape: "", logoNaCapa: true, logoNoVerso: true, rodapeEmTodas: true, ...c.identidade },
     marcaDagua: { ativa: false, tipo: "texto", texto: "", logo: null, opacidade: 0.08, escala: 60, onde: "todas", ...c.marcaDagua },
     extras: c.extras ?? [],
+    datas: datasEspeciaisValidas(c.ano, c.datas),
+    pessoa: (c.pessoa ?? "").trim().slice(0, 40),
+    mensagens: Array.from({ length: 12 }, (_, i) => (c.mensagens?.[i] ?? "").trim().replace(/\s+/g, " ").slice(0, 90)),
+    qr: c.qr && c.qr.url.trim() ? { url: c.qr.url.trim(), rotulo: (c.qr.rotulo ?? "").trim().slice(0, 40), noVerso: c.qr.noVerso !== false } : null,
+    aberturas: (c.aberturas ?? []).filter((a) => a.titulo.trim() || a.texto.trim()).slice(0, MAX_ABERTURAS),
+    acento: c.corDestaque && /^#[0-9a-f]{6}$/i.test(c.corDestaque.trim()) ? corParaRgb(c.corDestaque) : null,
   };
 }
 
@@ -301,7 +433,8 @@ export type TipoPagina =
   | { tipo: "fimDeSemana"; mes: number; sabado: number | null; domingo: number | null }
   | { tipo: "semana"; mes: number; dias: Dia[]; lado: "esq" | "dir" }
   | { tipo: "anotacoes" }
-  | { tipo: "extra"; item: number; pagina: number };
+  | { tipo: "extra"; item: number; pagina: number }
+  | { tipo: "abertura"; item: number };
 
 export interface Plano {
   paginas: TipoPagina[];
@@ -339,16 +472,22 @@ export function semanasDoAno(ano: number): { mes: number; dias: Dia[] }[] {
 export function planejarPaginas(
   ano: number,
   total?: number | null,
-  opc: { modelo?: "diario" | "semanal"; extras?: { posicao: PosicaoExtra; paginas: number }[] } = {},
+  opc: { modelo?: "diario" | "semanal"; extras?: { posicao: PosicaoExtra; paginas: number }[]; aberturas?: { posicao: PosicaoExtra }[] } = {},
 ): Plano {
   const semanal = opc.modelo === "semanal";
   const extras = opc.extras ?? [];
   const paginas: TipoPagina[] = [{ tipo: "capa" }, { tipo: "branca" }, { tipo: "dados" }, { tipo: "calendarioAno" }, { tipo: "calendariosVizinhos" }];
-  const inserirExtras = (pos: PosicaoExtra) =>
+  const aberturas = opc.aberturas ?? [];
+  const inserirExtras = (pos: PosicaoExtra) => {
+    // as páginas de abertura (feitas pelo sistema) vêm antes das páginas enviadas pelo cliente
+    aberturas.forEach((a, item) => {
+      if (a.posicao === pos) paginas.push({ tipo: "abertura", item });
+    });
     extras.forEach((e, item) => {
       if (e.posicao !== pos) return;
       for (let pagina = 0; pagina < e.paginas; pagina++) paginas.push({ tipo: "extra", item, pagina });
     });
+  };
   inserirExtras("inicio");
   const semanas = semanal ? semanasDoAno(ano) : [];
   const paginaDoMes: number[] = [];
@@ -426,6 +565,8 @@ interface Contexto {
   /** Fator de tamanho do texto (Montserrat é mais larga que Helvetica). */
   k: number;
   logo: PDFImage | null;
+  /** Cor de destaque (ou preto quando não há). */
+  acento: ReturnType<typeof rgb>;
 }
 
 /** Uma página sendo desenhada (medidas em mm a partir do canto superior esquerdo). */
@@ -485,7 +626,7 @@ class Folha {
         start: { x: this.X(x1), y: this.Y(y) },
         end: { x: this.X(x2), y: this.Y(y) },
         thickness: 0.8,
-        color: PRETO,
+        color: this.ctx.acento,
         lineCap: LineCapStyle.Round,
         dashArray: [0.01, passo * PT_POR_MM],
       });
@@ -493,7 +634,7 @@ class Folha {
   }
 
   circulo(cx: number, cy: number, r: number, espessura = 0.45) {
-    this.page.drawCircle({ x: this.X(cx), y: this.Y(cy), size: r * PT_POR_MM, borderWidth: espessura, borderColor: PRETO });
+    this.page.drawCircle({ x: this.X(cx), y: this.Y(cy), size: r * PT_POR_MM, borderWidth: espessura, borderColor: this.ctx.acento });
   }
 
   retangulo(x: number, y: number, w: number, h: number, espessura = 0.5) {
@@ -523,6 +664,53 @@ class Folha {
       this.pontos(this.esq + w1 + w2 + 3, y - 6, this.dir, y + 1);
     }
   }
+}
+
+/** Ícone de uma data do cliente, centrado em (cx, cy) mm, com raio r mm. */
+function iconeData(fo: Folha, tipo: IconeData, cx: number, cy: number, r: number) {
+  const x = cx * PT_POR_MM;
+  const y = (H - cy) * PT_POR_MM;
+  const R = r * PT_POR_MM;
+  const cor = fo.ctx.acento;
+  const preenche = (d: string) => fo.page.drawSvgPath(d, { x, y, scale: R, color: cor, borderWidth: 0 });
+  if (tipo === "ponto") {
+    fo.page.drawCircle({ x, y, size: R * 0.85, color: cor });
+  } else if (tipo === "losango") {
+    preenche("M 0 -1 L 0.75 0 L 0 1 L -0.75 0 Z");
+  } else if (tipo === "coracao") {
+    preenche("M 0 -0.35 C -0.5 -1 -1.25 -0.05 0 0.95 C 1.25 -0.05 0.5 -1 0 -0.35 Z");
+  } else if (tipo === "estrela") {
+    const pts = Array.from({ length: 10 }, (_, i) => {
+      const a = rad(-90 + i * 36);
+      const raio = i % 2 === 0 ? 1 : 0.42;
+      return `${(Math.cos(a) * raio).toFixed(3)} ${(Math.sin(a) * raio).toFixed(3)}`;
+    });
+    preenche(`M ${pts.join(" L ")} Z`);
+  } else {
+    const t = Math.max(0.5, R * 0.32);
+    const ponto = (dx: number, dy: number) => ({ x: x + dx * R, y: y - dy * R });
+    fo.page.drawLine({ start: ponto(-0.8, 0), end: ponto(-0.25, -0.6), thickness: t, color: cor, lineCap: LineCapStyle.Round });
+    fo.page.drawLine({ start: ponto(-0.25, -0.6), end: ponto(0.9, 0.7), thickness: t, color: cor, lineCap: LineCapStyle.Round });
+  }
+}
+
+/** Cor do número do dia: preto; em domingo/feriado com "destaque", a cor de destaque (ou cinza se não há). */
+function corDoDia(fo: Folha, destacar: boolean) {
+  if (!destacar) return PRETO;
+  return fo.ctx.cfg.acento ? fo.ctx.acento : CINZA_ESCURO;
+}
+
+/** Datas do cliente de um dia. */
+function datasDoDia(fo: Folha, mes: number, dia: number) {
+  return fo.ctx.cfg.datas.filter((d) => d.mes === mes && d.dia === dia);
+}
+
+/** Corta o texto (com "…") para caber em `maxMm`. */
+function caber(fo: Folha, s: string, tam: number, maxMm: number) {
+  if (fo.largura(s, tam) <= maxMm) return s;
+  let t = s;
+  while (t.length > 1 && fo.largura(t + "…", tam) > maxMm) t = t.slice(0, -1);
+  return t.trimEnd() + "…";
 }
 
 function ehFeriado(feriados: Feriado[], mes: number, dia: number) {
@@ -563,6 +751,10 @@ function mesEmGrade(
     const cy = yy + lin * passo;
     fo.texto(String(d), cx, cy, tamNum, { alinhar: "c" });
     if (!o.semFeriados && ehFeriado(fo.ctx.feriados, mes, d)) fo.circulo(cx, cy - tamNum * 0.17, Math.min(celula * 0.5, passo * 0.62));
+    if (!o.semFeriados) {
+      const ds = datasDoDia(fo, mes, d);
+      if (ds.length) iconeData(fo, ds[0].icone, cx + celula * 0.4, cy - tamNum * 0.36, Math.min(1, passo * 0.27));
+    }
   }
 }
 
@@ -575,10 +767,10 @@ function desenharCapa(fo: Folha) {
   const total = w1 + w2;
   const base = fo.dir - 1; // linha de base do texto girado: o corpo das letras fica à esquerda dela
   const y0 = (H + total) / 2; // começa embaixo e lê para cima
-  const rotaciona = (s: string, y: number, peso: Peso) =>
-    fo.page.drawText(s, { x: base * PT_POR_MM, y: (H - y) * PT_POR_MM, size: tam * k, font: fo.fonte(peso), color: PRETO, rotate: degrees(90) });
+  const rotaciona = (s: string, y: number, peso: Peso, cor = PRETO) =>
+    fo.page.drawText(s, { x: base * PT_POR_MM, y: (H - y) * PT_POR_MM, size: tam * k, font: fo.fonte(peso), color: cor, rotate: degrees(90) });
   rotaciona(leve, y0, "leve");
-  rotaciona(String(cfg.ano), y0 - w1, "extra");
+  rotaciona(String(cfg.ano), y0 - w1, "extra", fo.ctx.acento);
   const alturaLetra = (tam * k * 0.72) / PT_POR_MM;
   const xi = base - alturaLetra;
   fo.pontos(xi, 5, fo.dir, y0 - total - 4, 2.2);
@@ -590,6 +782,13 @@ function desenharCapa(fo: Folha) {
     const largura = Math.min(44, xi - fo.esq - 8);
     const alt = largura * (id.logo.h / id.logo.w);
     fo.imagem(logo, fo.esq, H - 14 - alt, largura, alt);
+  }
+  // nome da pessoa dona da agenda, no canto de baixo (acima da logo, se houver)
+  if (cfg.pessoa) {
+    const largura = Math.min(44, xi - fo.esq - 8);
+    const altLogo = logo && id.logo && id.logoNaCapa ? largura * (id.logo.h / id.logo.w) + 5 : 0;
+    const nome = caber(fo, cfg.pessoa, 9, xi - fo.esq - 6);
+    fo.texto(nome, fo.esq, H - 14 - altLogo, 9, { peso: "negrito" });
   }
 }
 
@@ -605,6 +804,18 @@ function desenharVersoDaCapa(fo: Folha) {
     if (id.rodape.trim()) fo.texto(id.rodape.trim(), cx, 88 + alt / 2 + 9, 7, { alinhar: "c", cor: CINZA_ESCURO });
   } else if (id.logoNoVerso && id.rodape.trim()) {
     fo.texto(id.rodape.trim(), cx, 100, 8, { alinhar: "c", cor: CINZA_ESCURO });
+  }
+  const qr = cfg.qr && cfg.qr.noVerso ? cfg.qr : null;
+  if (qr) {
+    const tam = 34;
+    desenharQr(fo.page, qr.url, cx - tam / 2, 116, tam, H);
+    if (qr.rotulo) fo.texto(caber(fo, qr.rotulo, 7, fo.dir - fo.esq), cx, 116 + tam + 4.5, 7, { alinhar: "c", cor: CINZA_ESCURO });
+  }
+  if (cfg.pessoa) {
+    const y = qr ? 186 : 150;
+    fo.texto("ESTA AGENDA É DE", cx, y, 6.5, { alinhar: "c", peso: "leve", cor: CINZA_ESCURO });
+    fo.texto(caber(fo, cfg.pessoa, 14, fo.dir - fo.esq), cx, y + 8, 14, { alinhar: "c", peso: "negrito" });
+    fo.linha(cx - 25, y + 11.5, cx + 25, y + 11.5, 0.4, CINZA);
   }
 }
 
@@ -656,7 +867,7 @@ function marcaDagua(fo: Folha, marcaImg: PDFImage | null) {
   fo.page.drawText(t, { x: x0 * PT_POR_MM, y: y0 * PT_POR_MM, size: tam, font: fonte, color: PRETO, opacity: op, rotate: degrees(ang) });
 }
 
-function campos(fo: Folha, y: number, linhas: ([string] | [string, string])[], passo = 6.9) {
+function campos(fo: Folha, y: number, linhas: ([string] | [string, string])[], passo = 6.9, preencher: Record<string, string> = {}) {
   const meio = (fo.esq + fo.dir) / 2 + 2;
   let yy = y;
   for (const l of linhas) {
@@ -664,6 +875,8 @@ function campos(fo: Folha, y: number, linhas: ([string] | [string, string])[], p
       fo.texto(l[0] + ":", fo.esq, yy, 6.5);
       const x0 = fo.esq + fo.largura(l[0] + ": ", 6.5);
       fo.linha(x0, yy + 0.6, fo.dir, yy + 0.6, 0.45);
+      const valor = preencher[l[0]];
+      if (valor) fo.texto(caber(fo, valor, 8, fo.dir - x0 - 2), x0 + 1.5, yy - 0.1, 8, { peso: "negrito" });
     } else {
       fo.texto(l[0] + ":", fo.esq, yy, 6.5);
       fo.linha(fo.esq + fo.largura(l[0] + ": ", 6.5), yy + 0.6, meio - 1, yy + 0.6, 0.45);
@@ -677,7 +890,7 @@ function campos(fo: Folha, y: number, linhas: ([string] | [string, string])[], p
 
 function desenharDados(fo: Folha) {
   fo.titulo("DADOS", "PESSOAIS", 13);
-  let y = campos(fo, 22, [["Nome"], ["RG", "CPF"], ["Endereço"], ["Bairro", "CEP"], ["Cidade", "Estado"], ["Tel.", "Cel."], ["Outro"]]);
+  let y = campos(fo, 22, [["Nome"], ["RG", "CPF"], ["Endereço"], ["Bairro", "CEP"], ["Cidade", "Estado"], ["Tel.", "Cel."], ["Outro"]], 6.9, { Nome: fo.ctx.cfg.pessoa });
   fo.titulo("DADOS", "PROFISSIONAIS", y + 5);
   y = campos(fo, y + 14, [["Empresa"], ["CNPJ", "Insc. Estadual"], ["Endereço"], ["Complemento", "CEP"], ["Cidade", "Estado"], ["Telefone", "Whatsapp"], ["E-mail", "Site"], ["Facebook", "Instagram"]]);
   fo.titulo("EM CASO DE", "EMERGÊNCIA", y + 5);
@@ -701,21 +914,29 @@ function desenharCalendarioAno(fo: Folha) {
     if (col > 0) fo.linha(x, y - 4, x, y + 28, 0.4);
     if (col === 0 && lin > 0) fo.linha(fo.esq, y - 4.6, fo.dir, y - 4.6, 0.4);
   }
-  const feriados = fo.ctx.feriados;
   const yl = 168;
-  fo.texto("FERIADOS E DIAS SANTIFICADOS", fo.esq, yl, 8.5, { peso: "leve" });
-  fo.pontos(fo.esq + fo.largura("FERIADOS E DIAS SANTIFICADOS ", 8.5, "leve") + 2, yl - 4.5, fo.dir, yl + 0.5, 1.8);
-  const colunas = 3;
-  const porColuna = Math.ceil(feriados.length / colunas);
-  const passo = Math.min(4.6, 25 / Math.max(porColuna, 1));
+  const itens: { mes: number; dia: number; nome: string; icone?: IconeData }[] = [...fo.ctx.feriados, ...fo.ctx.cfg.datas].sort((x, z) => x.mes - z.mes || x.dia - z.dia);
+  const temData = fo.ctx.cfg.datas.length > 0;
+  fo.texto(temData ? "FERIADOS, DIAS SANTIFICADOS E DATAS ESPECIAIS" : "FERIADOS E DIAS SANTIFICADOS", fo.esq, yl, 8.5, { peso: "leve" });
+  const wTit = fo.largura(temData ? "FERIADOS, DIAS SANTIFICADOS E DATAS ESPECIAIS " : "FERIADOS E DIAS SANTIFICADOS ", 8.5, "leve");
+  fo.pontos(fo.esq + wTit + 2, yl - 4.5, fo.dir, yl + 0.5, 1.8);
+  // 3 colunas; se passar de 10 linhas, 4 colunas
+  let colunas = 3;
+  if (Math.ceil(itens.length / 3) > 9) colunas = 4;
+  const larguraCol = (fo.dir - fo.esq) / colunas;
+  const porColuna = Math.ceil(itens.length / colunas);
+  const passo = Math.min(4.6, 29 / Math.max(porColuna, 1));
   const tam = Math.min(6.3, passo * 1.35);
-  feriados.forEach((fer, i) => {
+  const deslocData = colunas === 3 ? 12 : 9.5;
+  itens.forEach((it, i) => {
     const c = Math.floor(i / porColuna);
     const r = i % porColuna;
-    const x = fo.esq + c * colW;
+    const x = fo.esq + c * larguraCol;
     const y = yl + 6 + r * passo;
-    fo.texto(String(fer.dia).padStart(2, "0") + " " + MESES_CURTOS[fer.mes - 1], x, y, tam);
-    fo.texto(fer.nome, x + 12, y, tam);
+    const recuo = it.icone ? 2.6 : 0;
+    if (it.icone) iconeData(fo, it.icone, x + 1, y - tam * 0.12, Math.min(0.9, passo * 0.28));
+    fo.texto(String(it.dia).padStart(2, "0") + " " + MESES_CURTOS[it.mes - 1], x + recuo, y, tam);
+    fo.texto(caber(fo, it.nome, tam, larguraCol - deslocData - recuo - 1.5), x + deslocData + recuo, y, tam);
   });
 }
 
@@ -754,6 +975,8 @@ function desenharPlanejamento(fo: Folha, mes: number) {
   const { cfg, feriados, luas } = fo.ctx;
   const ano = cfg.ano;
   fo.titulo("PLANEJAMENTO", MESES[mes - 1], 13);
+  const mensagem = cfg.mensagens[mes - 1];
+  if (mensagem) fo.texto(caber(fo, `“${mensagem}”`, 7.5, fo.dir - fo.esq), fo.esq, 19.3, 7.5, { peso: "leve", cor: CINZA_ESCURO });
   let xTexto = fo.esq;
   if (cfg.luas) {
     const doMes = luas.filter((l) => l.mes === mes);
@@ -766,10 +989,13 @@ function desenharPlanejamento(fo: Folha, mes: number) {
     fo.linha(xDiv, 20, xDiv, 31, 0.5);
     xTexto = xDiv + 3;
   }
-  feriados
-    .filter((f) => f.mes === mes)
-    .slice(0, 3)
-    .forEach((f, i) => fo.texto(`${String(f.dia).padStart(2, "0")} ${MESES_CURTOS[mes - 1]}  ${f.nome}`, xTexto, 24.5 + i * 3.6, 6.3));
+  const doMesTexto: { dia: number; nome: string; icone?: IconeData }[] = [...feriados.filter((f) => f.mes === mes), ...cfg.datas.filter((d) => d.mes === mes)].sort((a, b) => a.dia - b.dia);
+  doMesTexto.slice(0, 4).forEach((f, i) => {
+    const y = 23.2 + i * 3.4;
+    const recuo = f.icone ? 2.8 : 0;
+    if (f.icone) iconeData(fo, f.icone, xTexto + 1, y - 0.8, 0.9);
+    fo.texto(caber(fo, `${String(f.dia).padStart(2, "0")} ${MESES_CURTOS[mes - 1]}  ${f.nome}`, 6.3, fo.dir - xTexto - recuo), xTexto + recuo, y, 6.3);
+  });
   const n = diasNoMes(ano, mes);
   const colW = (fo.dir - fo.esq) / 4;
   const linhaH = 20.3;
@@ -779,9 +1005,11 @@ function desenharPlanejamento(fo: Folha, mes: number) {
     const x = fo.esq + col * colW;
     const y = 36 + lin * linhaH;
     const sem = diaDaSemana(ano, mes, d);
-    const cor = cfg.destaque && (sem === 0 || ehFeriado(feriados, mes, d)) ? CINZA_ESCURO : PRETO;
+    const cor = corDoDia(fo, cfg.destaque && (sem === 0 || ehFeriado(feriados, mes, d)));
     fo.texto(String(d).padStart(2, "0"), x + 0.5, y + 4, 8, { cor });
     fo.texto(SEMANA_CURTA[sem], x + 0.5 + fo.largura(String(d).padStart(2, "0") + " ", 8), y + 4, 5.2, { cor });
+    const ds = cfg.datas.filter((x) => x.mes === mes && x.dia === d);
+    if (ds.length) iconeData(fo, ds[0].icone, x + colW - 3.6, y + 2.8, 1.4);
     fo.linha(x, y + linhaH - 0.4, x + colW - 0.5, y + linhaH - 0.4, 0.5);
     fo.linha(x + colW - 0.5, y + 7, x + colW - 0.5, y + linhaH - 0.4, 0.5);
   }
@@ -791,7 +1019,7 @@ function desenharPlanejamento(fo: Folha, mes: number) {
 function cabecalhoDia(fo: Folha, mes: number, dia: number, y0: number) {
   const { cfg, feriados } = fo.ctx;
   const sem = diaDaSemana(cfg.ano, mes, dia);
-  const cor = cfg.destaque && (sem === 0 || ehFeriado(feriados, mes, dia)) ? CINZA_ESCURO : PRETO;
+  const cor = corDoDia(fo, cfg.destaque && (sem === 0 || ehFeriado(feriados, mes, dia)));
   const num = String(dia).padStart(2, "0");
   const tamNum = 30;
   const wNum = fo.largura(num, tamNum, "extra");
@@ -849,10 +1077,21 @@ function rodapeDoDia(fo: Folha, mes: number) {
   fo.texto(t, xt + 1.5, y + 0.9, 6.5);
 }
 
+/** Nome do feriado e das datas do cliente do dia, em cinza, abaixo do cabeçalho (com o ícone da data). */
 function anotarFeriado(fo: Folha, mes: number, dia: number, y: number) {
   const f = fo.ctx.feriados.find((x) => x.mes === mes && x.dia === dia);
-  if (!f) return;
-  fo.texto(f.nome, fo.recto ? fo.dir : fo.esq, y, 6.3, { alinhar: fo.recto ? "d" : "e", cor: CINZA });
+  const ds = datasDoDia(fo, mes, dia);
+  if (!f && !ds.length) return;
+  const texto = caber(fo, [f?.nome, ...ds.map((d) => d.nome)].filter(Boolean).join(" · "), 6.3, fo.dir - fo.esq - 5);
+  const w = fo.largura(texto, 6.3);
+  const recuo = ds.length ? 3 : 0;
+  if (fo.recto) {
+    fo.texto(texto, fo.dir, y, 6.3, { alinhar: "d", cor: CINZA_ESCURO });
+    if (ds.length) iconeData(fo, ds[0].icone, fo.dir - w - 1.8, y - 0.9, 1);
+  } else {
+    if (ds.length) iconeData(fo, ds[0].icone, fo.esq + 1, y - 0.9, 1);
+    fo.texto(texto, fo.esq + recuo, y, 6.3, { cor: CINZA_ESCURO });
+  }
 }
 
 function desenharDia(fo: Folha, mes: number, dia: number) {
@@ -887,13 +1126,20 @@ function blocoDia(fo: Folha, d: Dia, x: number, y: number, w: number, h: number)
   if (!d) return;
   const { cfg, feriados } = fo.ctx;
   const sem = diaDaSemana(cfg.ano, d.mes, d.dia);
-  const cor = cfg.destaque && (sem === 0 || ehFeriado(feriados, d.mes, d.dia)) ? CINZA_ESCURO : PRETO;
+  const cor = corDoDia(fo, cfg.destaque && (sem === 0 || ehFeriado(feriados, d.mes, d.dia)));
   const num = String(d.dia).padStart(2, "0");
   fo.texto(num, x, y + 5.5, 12, { peso: "extra", cor });
   const wn = fo.largura(num, 12, "extra");
   fo.texto(`${SEMANA_LONGA[sem]} · ${MESES[d.mes - 1].slice(0, 3)}`, x + wn + 2, y + 5.5, 6.3);
   const fer = feriados.find((f) => f.mes === d.mes && f.dia === d.dia);
-  if (fer && w > 60) fo.texto(fer.nome, x + w, y + 5.5, 6, { alinhar: "d", cor: CINZA });
+  const ds = cfg.datas.filter((e) => e.mes === d.mes && e.dia === d.dia);
+  if ((fer || ds.length) && w > 60) {
+    const txt = caber(fo, [fer?.nome, ...ds.map((e) => e.nome)].filter(Boolean).join(" · "), 6, w - wn - 38);
+    fo.texto(txt, x + w, y + 5.5, 6, { alinhar: "d", cor: CINZA_ESCURO });
+    if (ds.length) iconeData(fo, ds[0].icone, x + w - fo.largura(txt, 6) - 1.8, y + 4.6, 1);
+  } else if (ds.length) {
+    iconeData(fo, ds[0].icone, x + w - 1.5, y + 3.5, 1.3);
+  }
   fo.linha(x, y + 7.5, x + w, y + 7.5, 0.6);
   for (let yy = y + 14.5; yy < y + h - 1; yy += 7) fo.linha(x, yy, x + w, yy, 0.3, CINZA_CLARO);
 }
@@ -921,6 +1167,90 @@ function desenharSemana(fo: Folha, mes: number, dias: Dia[], lado: "esq" | "dir"
     blocoDia(fo, dias[5], fo.esq, 22 + 2 * (altura + 2), meio, altura);
     blocoDia(fo, dias[6], fo.esq + meio + 4, 22 + 2 * (altura + 2), meio, altura);
   }
+}
+
+/** Quebra o texto em linhas que cabem em `maxMm`; "\n" separa parágrafos (linha vazia = respiro). */
+function quebrarLinhas(fo: Folha, texto: string, tam: number, maxMm: number, peso: Peso = "normal"): string[] {
+  const out: string[] = [];
+  for (const par of texto.split(/\r?\n/)) {
+    if (!par.trim()) {
+      out.push("");
+      continue;
+    }
+    let atual = "";
+    for (const pal of par.trim().split(/\s+/)) {
+      const teste = atual ? `${atual} ${pal}` : pal;
+      if (atual && fo.largura(teste, tam, peso) > maxMm) {
+        out.push(atual);
+        atual = pal;
+      } else atual = teste;
+    }
+    if (atual) out.push(atual);
+  }
+  return out;
+}
+
+/** Página de abertura do cliente: título no padrão das outras páginas e texto, foto e texto, ou lista com preços. */
+function desenharAbertura(fo: Folha, ab: Abertura, foto: PDFImage | null) {
+  const titulo = ab.titulo.trim().toUpperCase();
+  if (titulo) {
+    const partes = titulo.split(/\s+/);
+    const forte = partes.length > 1 ? partes[partes.length - 1] : partes[0];
+    const leve = partes.length > 1 ? partes.slice(0, -1).join(" ") : "";
+    fo.titulo(leve, forte, 14, 12);
+  }
+  const largura = fo.dir - fo.esq;
+  const fim = 192;
+  let y = 30;
+  if (ab.modelo === "foto" && foto && ab.foto) {
+    const alt = Math.min(largura * (ab.foto.h / ab.foto.w), 95);
+    fo.imagem(foto, fo.esq, y, largura, alt);
+    y += alt + 9;
+  }
+  if (ab.modelo === "lista") {
+    for (const bruta of ab.texto.split(/\r?\n/)) {
+      const linha = bruta.trim();
+      if (!linha) {
+        y += 3.5;
+        continue;
+      }
+      if (y > fim) break;
+      if (linha.startsWith("#")) {
+        const sub = linha.replace(/^#+\s*/, "").toUpperCase();
+        y += 2;
+        fo.texto(caber(fo, sub, 8, largura), fo.esq, y, 8, { peso: "negrito" });
+        fo.linha(fo.esq, y + 1.5, fo.dir, y + 1.5, 0.5);
+        y += 7;
+        continue;
+      }
+      const [nome, preco] = linha.split("|").map((x) => x.trim());
+      const wPreco = preco ? fo.largura(preco, 9, "negrito") : 0;
+      const nomeCabe = caber(fo, nome, 9, largura - wPreco - 8);
+      const wNome = fo.largura(nomeCabe, 9);
+      fo.texto(nomeCabe, fo.esq, y, 9);
+      if (preco) {
+        fo.texto(preco, fo.dir, y, 9, { peso: "negrito", alinhar: "d" });
+        const ini = fo.esq + wNome + 2;
+        const fimLinha = fo.dir - wPreco - 2;
+        if (fimLinha > ini) fo.page.drawLine({ start: { x: ini * PT_POR_MM, y: (H - y + 0.8) * PT_POR_MM }, end: { x: fimLinha * PT_POR_MM, y: (H - y + 0.8) * PT_POR_MM }, thickness: 0.5, color: CINZA, lineCap: LineCapStyle.Round, dashArray: [0.01, 1.4 * PT_POR_MM] });
+      }
+      y += 7;
+    }
+    return;
+  }
+  const paragrafos = ab.texto.split(/\r?\n\s*\r?\n/).filter((x) => x.trim());
+  paragrafos.forEach((par, i) => {
+    const lead = i === 0 && paragrafos.length > 1;
+    const tam = lead ? 11.5 : 9.5;
+    const entre = lead ? 6 : 5.2;
+    const linhas = quebrarLinhas(fo, par.replace(/\r?\n/g, " "), tam, largura, lead ? "leve" : "normal");
+    for (const l of linhas) {
+      if (y > fim) return;
+      fo.texto(l, fo.esq, y, tam, { peso: lead ? "leve" : "normal" });
+      y += entre;
+    }
+    y += 3.5;
+  });
 }
 
 function desenharAnotacoes(fo: Folha) {
@@ -968,7 +1298,11 @@ export async function gerarMiolo(entrada: ConfigAgenda, externas?: FontesExterna
   const cfg = normalizar(entrada);
   const feriados = todosOsFeriados(cfg.ano, cfg.regionais);
   const luas = fasesDaLua(cfg.ano);
-  const plano = planejarPaginas(cfg.ano, cfg.total, { modelo: cfg.modelo, extras: cfg.extras.map((e) => ({ posicao: e.posicao, paginas: e.paginas })) });
+  const plano = planejarPaginas(cfg.ano, cfg.total, {
+    modelo: cfg.modelo,
+    extras: cfg.extras.map((e) => ({ posicao: e.posicao, paginas: e.paginas })),
+    aberturas: cfg.aberturas.map((a) => ({ posicao: a.posicao })),
+  });
   const doc = await PDFDocument.create();
   const { f, k, nome } = await criarFontes(doc, externas);
   const logo = cfg.identidade.logo ? await embutirImagem(doc, cfg.identidade.logo) : null;
@@ -984,11 +1318,13 @@ export async function gerarMiolo(entrada: ConfigAgenda, externas?: FontesExterna
       extras.push({ tipo: "imagem", img: e.tipo === "jpg" ? await doc.embedJpg(e.bytes) : await doc.embedPng(e.bytes) });
     }
   }
-  const ctx: Contexto = { cfg, feriados, luas, f, k, logo };
+  const fotosAbertura: (PDFImage | null)[] = [];
+  for (const a of cfg.aberturas) fotosAbertura.push(a.modelo === "foto" && a.foto ? await embutirImagem(doc, a.foto) : null);
+  const ctx: Contexto = { cfg, feriados, luas, f, k, logo, acento: cfg.acento ? rgb(cfg.acento[0], cfg.acento[1], cfg.acento[2]) : PRETO };
   const larguraPt = W * PT_POR_MM;
   const alturaPt = H * PT_POR_MM;
   const semMarca = new Set(["capa", "branca", "extra"]);
-  const comRodape = new Set(["dados", "calendarioAno", "calendariosVizinhos", "planejamento", "dia", "fimDeSemana", "semana", "anotacoes"]);
+  const comRodape = new Set(["dados", "calendarioAno", "calendariosVizinhos", "planejamento", "dia", "fimDeSemana", "semana", "anotacoes", "abertura"]);
   const marcaSoDias = new Set(["dia", "fimDeSemana", "semana", "anotacoes"]);
   plano.paginas.forEach((p, i) => {
     const page = doc.addPage([larguraPt, alturaPt]);
@@ -1024,6 +1360,9 @@ export async function gerarMiolo(entrada: ConfigAgenda, externas?: FontesExterna
         break;
       case "anotacoes":
         desenharAnotacoes(fo);
+        break;
+      case "abertura":
+        desenharAbertura(fo, cfg.aberturas[p.item], fotosAbertura[p.item]);
         break;
       case "extra": {
         const e = extras[p.item];
@@ -1071,6 +1410,50 @@ export async function miolosEmA4(a5: Uint8Array): Promise<Uint8Array> {
 
 // ─── Capa e contracapa ───────────────────────────────────────────────
 
+/** Elementos da capa (e da contracapa) que a pessoa pode mover e redimensionar. */
+export type ElementoCapa = "capaLogo" | "capaTitulo" | "capaNome" | "capaSlogan" | "contraLogo" | "contraContato" | "contraQr";
+
+/** Posição do centro do elemento em % da página final (sem a sangria) e tamanho em % do padrão. */
+export interface PosicaoElemento {
+  x: number;
+  y: number;
+  tam: number;
+}
+
+export type LayoutCapa = Record<ElementoCapa, PosicaoElemento>;
+
+export const ELEMENTOS_CAPA: { chave: ElementoCapa; rotulo: string; pagina: 0 | 1 }[] = [
+  { chave: "capaLogo", rotulo: "Logo", pagina: 0 },
+  { chave: "capaTitulo", rotulo: "Título e ano", pagina: 0 },
+  { chave: "capaNome", rotulo: "Nome do cliente", pagina: 0 },
+  { chave: "capaSlogan", rotulo: "Slogan", pagina: 0 },
+  { chave: "contraLogo", rotulo: "Logo", pagina: 1 },
+  { chave: "contraContato", rotulo: "Contato", pagina: 1 },
+  { chave: "contraQr", rotulo: "QR Code", pagina: 1 },
+];
+
+export const LAYOUT_CAPA_PADRAO: LayoutCapa = {
+  capaLogo: { x: 50, y: 24.8, tam: 100 },
+  capaTitulo: { x: 50, y: 61.9, tam: 100 },
+  capaNome: { x: 50, y: 83.3, tam: 100 },
+  capaSlogan: { x: 50, y: 88.6, tam: 100 },
+  contraLogo: { x: 50, y: 37.1, tam: 100 },
+  contraContato: { x: 50, y: 60, tam: 100 },
+  contraQr: { x: 50, y: 80, tam: 100 },
+};
+
+/** Completa e limita um layout vindo da tela ou de um arquivo (x e y de 0 a 100, tamanho de 30 a 300%). */
+export function layoutCapaValido(l?: Partial<Record<ElementoCapa, Partial<PosicaoElemento>>> | null): LayoutCapa {
+  const out = {} as LayoutCapa;
+  for (const e of ELEMENTOS_CAPA) {
+    const padrao = LAYOUT_CAPA_PADRAO[e.chave];
+    const v = l?.[e.chave];
+    const num = (n: unknown, d: number, min: number, max: number) => (typeof n === "number" && Number.isFinite(n) ? limitar(n, min, max) : d);
+    out[e.chave] = { x: num(v?.x, padrao.x, 0, 100), y: num(v?.y, padrao.y, 0, 100), tam: num(v?.tam, padrao.tam, 30, 300) };
+  }
+  return out;
+}
+
 export interface ConfigCapa {
   ano: number;
   titulo: string;
@@ -1082,6 +1465,10 @@ export interface ConfigCapa {
   contato: string;
   logo: Imagem | null;
   usarLogo: boolean;
+  /** QR Code na contracapa (url e texto embaixo); null = sem QR. */
+  qr?: QrAgenda | null;
+  /** Onde fica cada elemento (padrão: LAYOUT_CAPA_PADRAO). */
+  layout?: Partial<Record<ElementoCapa, Partial<PosicaoElemento>>> | null;
 }
 
 export function corParaRgb(hex: string): [number, number, number] {
@@ -1095,22 +1482,30 @@ export async function gerarCapas(c: ConfigCapa, externas?: FontesExternas | null
   const doc = await PDFDocument.create();
   const { f, k } = await criarFontes(doc, externas);
   const b = SANGRIA_PADRAO_MM;
+  const lay = layoutCapaValido(c.layout);
   const [r, g, bl] = corParaRgb(c.cor);
   const claro = 0.299 * r + 0.587 * g + 0.114 * bl > 0.6;
   const cor = claro ? rgb(0.1, 0.1, 0.1) : rgb(1, 1, 1);
   const logo = c.usarLogo && c.logo ? await embutirImagem(doc, c.logo) : null;
   const pw = (W + 2 * b) * PT_POR_MM;
   const ph = (H + 2 * b) * PT_POR_MM;
-  const texto = (page: PDFPage, s: string, y: number, tam: number, peso: Peso, opacidade = 1) => {
+  // posições em mm a partir do canto de cima/esquerda da página (com a sangria)
+  const X = (pct: number) => b + (W * pct) / 100;
+  const Y = (pct: number) => b + (H * pct) / 100;
+  const yPdf = (mmDeCima: number) => (H + 2 * b - mmDeCima) * PT_POR_MM;
+  /** Texto centrado em xMm com a linha de base em baseMm (a partir do topo). */
+  const texto = (page: PDFPage, s: string, xMm: number, baseMm: number, tam: number, peso: Peso, opacidade = 1) => {
     if (!s.trim()) return;
     const t = tam * k;
     const w = f[peso].widthOfTextAtSize(s, t) / PT_POR_MM;
-    page.drawText(s, { x: (b + W / 2 - w / 2) * PT_POR_MM, y: (H + b - y) * PT_POR_MM, size: t, font: f[peso], color: cor, opacity: opacidade });
+    page.drawText(s, { x: (xMm - w / 2) * PT_POR_MM, y: yPdf(baseMm), size: t, font: f[peso], color: cor, opacity: opacidade });
   };
-  const desenharLogo = (page: PDFPage, larguraMm: number, centroY: number) => {
+  /** Meia altura (mm) das letras de um texto de `tam` pontos: para o centro do texto ficar no ponto escolhido. */
+  const meia = (tam: number) => (0.35 * tam * k) / PT_POR_MM;
+  const desenharLogo = (page: PDFPage, larguraMm: number, xMm: number, yMm: number) => {
     if (!logo || !c.logo) return 0;
     const alt = larguraMm * (c.logo.h / c.logo.w);
-    page.drawImage(logo, { x: (b + W / 2 - larguraMm / 2) * PT_POR_MM, y: (H + b - centroY - alt / 2) * PT_POR_MM, width: larguraMm * PT_POR_MM, height: alt * PT_POR_MM });
+    page.drawImage(logo, { x: (xMm - larguraMm / 2) * PT_POR_MM, y: yPdf(yMm + alt / 2), width: larguraMm * PT_POR_MM, height: alt * PT_POR_MM });
     return alt;
   };
   const fundo = (page: PDFPage) => page.drawRectangle({ x: 0, y: 0, width: pw, height: ph, color: rgb(r, g, bl) });
@@ -1121,21 +1516,35 @@ export async function gerarCapas(c: ConfigCapa, externas?: FontesExternas | null
 
   const capa = doc.addPage([pw, ph]);
   fundo(capa);
-  desenharLogo(capa, Math.min(76, 0.6 * W), 52);
-  texto(capa, (c.titulo || "AGENDA").toUpperCase(), 118, 36, "leve");
-  texto(capa, String(c.ano), 143, 62, "extra");
-  capa.drawLine({ start: { x: (b + W / 2 - 15) * PT_POR_MM, y: (H + b - 156) * PT_POR_MM }, end: { x: (b + W / 2 + 15) * PT_POR_MM, y: (H + b - 156) * PT_POR_MM }, thickness: 1, color: cor });
-  texto(capa, c.linha1, 178, 14, "negrito");
-  texto(capa, c.linha2, 187, 9, "normal", 0.85);
+  desenharLogo(capa, Math.min(76, 0.6 * W) * (lay.capaLogo.tam / 100), X(lay.capaLogo.x), Y(lay.capaLogo.y));
+  {
+    const s = lay.capaTitulo.tam / 100;
+    const cx = X(lay.capaTitulo.x);
+    const cy = Y(lay.capaTitulo.y);
+    texto(capa, (c.titulo || "AGENDA").toUpperCase(), cx, cy - 12 * s, 36 * s, "leve");
+    texto(capa, String(c.ano), cx, cy + 13 * s, 62 * s, "extra");
+    capa.drawLine({ start: { x: (cx - 15 * s) * PT_POR_MM, y: yPdf(cy + 26 * s) }, end: { x: (cx + 15 * s) * PT_POR_MM, y: yPdf(cy + 26 * s) }, thickness: 1, color: cor });
+  }
+  texto(capa, c.linha1, X(lay.capaNome.x), Y(lay.capaNome.y) + meia(14 * (lay.capaNome.tam / 100)), 14 * (lay.capaNome.tam / 100), "negrito");
+  texto(capa, c.linha2, X(lay.capaSlogan.x), Y(lay.capaSlogan.y) + meia(9 * (lay.capaSlogan.tam / 100)), 9 * (lay.capaSlogan.tam / 100), "normal", 0.85);
   caixas(capa);
 
   const contra = doc.addPage([pw, ph]);
   fundo(contra);
-  const alt = desenharLogo(contra, 52, 78);
-  c.contato
-    .split("\n")
-    .slice(0, 6)
-    .forEach((l, i) => texto(contra, l, 78 + alt / 2 + 16 + i * 6.5, 8.5, "normal", 0.9));
+  desenharLogo(contra, 52 * (lay.contraLogo.tam / 100), X(lay.contraLogo.x), Y(lay.contraLogo.y));
+  {
+    const s = lay.contraContato.tam / 100;
+    const linhas = c.contato.split("\n").slice(0, 6);
+    const passo = 6.5 * s;
+    const primeira = Y(lay.contraContato.y) - ((linhas.length - 1) * passo) / 2 + meia(8.5 * s);
+    linhas.forEach((l, i) => texto(contra, l, X(lay.contraContato.x), primeira + i * passo, 8.5 * s, "normal", 0.9));
+  }
+  if (c.qr && c.qr.url.trim()) {
+    const s = lay.contraQr.tam / 100;
+    const tam = 38 * s;
+    desenharQr(contra, c.qr.url.trim(), X(lay.contraQr.x) - tam / 2, Y(lay.contraQr.y) - tam / 2, tam, H + 2 * b);
+    texto(contra, (c.qr.rotulo ?? "").trim().slice(0, 40), X(lay.contraQr.x), Y(lay.contraQr.y) + tam / 2 + 5 * s, 8 * s, "normal", 0.95);
+  }
   caixas(contra);
   doc.setTitle(`Capa e contracapa ${c.ano}`);
   return doc.save();

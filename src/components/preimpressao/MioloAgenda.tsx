@@ -3,19 +3,21 @@
 // com feriados nacionais sempre e regionais acrescentados pela pessoa, logo e contato do cliente, marca-d'água,
 // páginas do cliente, modelo semanal, capa e contracapa e modelos salvos. Tudo no navegador, sem custo.
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ChevronDown, Download, Loader2, Plus, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Check, ChevronDown, Circle, Diamond, Download, Heart, Loader2, Plus, Star, X, type LucideIcon } from "lucide-react";
 import { PDFDocument } from "pdf-lib";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { MESES_CURTOS, gerarCapas, gerarMiolo, miolosEmA4, type Feriado, type FontesExternas, type Imagem, type Miolo, type PosicaoExtra } from "@/lib/preimpressao/agenda";
-import { bytesParaDataUrl, carregarFontes, corDeFundoDaLogo, dataUrlParaBytes, prepararImagem, silhuetaDaLogo } from "@/lib/preimpressao/agendaNavegador";
+import { FOTO_ABERTURA_MM, ICONES_DATA, MAX_DATAS_ESPECIAIS, MESES, MESES_CURTOS, gerarCapas, gerarMiolo, miolosEmA4, type ConfigAgenda, type ConfigCapa, type DataEspecial, type ElementoCapa, type Feriado, type IconeData, type PosicaoElemento, type FontesExternas, type Imagem, type Miolo, type PosicaoExtra } from "@/lib/preimpressao/agenda";
+import { bytesParaDataUrl, carregarFontes, corDeFundoDaLogo, cortarImagem, dataUrlParaBytes, prepararImagem, silhuetaDaLogo } from "@/lib/preimpressao/agendaNavegador";
 import { detectarTipo } from "@/lib/preimpressao/margem";
-import { baixarBlob } from "@/lib/preimpressao/navegador";
+import { baixarBlob, baixarZip } from "@/lib/preimpressao/navegador";
+import { PosicaoElementos, PreviaCapaEditavel } from "./AgendaCapaEditor";
+import { AgendaAberturas } from "./AgendaAberturas";
 import { AgendaExtras, type ExtraUI } from "./AgendaExtras";
 import { AgendaIdentidade, AgendaLogo, AgendaMarcaDagua } from "./AgendaIdentidade";
 import { AgendaModelos } from "./AgendaModelos";
-import { configPadrao, type ConfigAgendaUI, type ModoAgenda, type Saida } from "./agendaConfig";
+import { MENSAGENS_SUGERIDAS, NOMES_DE_EXEMPLO, configPadrao, elementoDaPagina, nomeDeArquivo, nomesDoLote, qrDaConfig, type ConfigAgendaUI, type ModoAgenda, type Saida } from "./agendaConfig";
 import { Campo, Chave, Dado, DuasColunas, Mini, NotaPrivacidade, Painel, Passo, PreviaPdf, SeletorCor, Segmentado } from "./ui";
 import { numeroEntre, useConfigSalva } from "./uteis";
 
@@ -23,6 +25,14 @@ const SUGESTOES: Feriado[] = [{ dia: 20, mes: 9, nome: "Revolução Farroupilha 
 const MAX_REGIONAIS = 12;
 const MAX_EXTRAS = 6;
 const MAX_PAGINAS_EXTRAS = 40;
+const CORES_DESTAQUE = [
+  { nome: "Azul", hex: "#1d4ed8" },
+  { nome: "Vermelho", hex: "#dc2626" },
+  { nome: "Verde", hex: "#15803d" },
+  { nome: "Laranja", hex: "#ea580c" },
+  { nome: "Roxo", hex: "#7c3aed" },
+  { nome: "Rosa", hex: "#db2777" },
+];
 const CORES_CAPA = [
   { nome: "Grafite", hex: "#1f1f1f" },
   { nome: "Azul-marinho", hex: "#16325c" },
@@ -33,6 +43,8 @@ const CORES_CAPA = [
 ];
 
 const doisDigitos = (n: number) => String(n).padStart(2, "0");
+
+const ICONE_TELA: Record<IconeData, LucideIcon> = { estrela: Star, coracao: Heart, losango: Diamond, ponto: Circle, visto: Check };
 
 /** "20/09" → { dia, mes }; null se não for uma data. */
 function lerDiaMes(t: string): { dia: number; mes: number } | null {
@@ -90,16 +102,75 @@ export default function MioloAgenda() {
   const [gerando, setGerando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [pagina, setPagina] = useState(0);
+  const [selCapa, setSelCapa] = useState<ElementoCapa>("capaLogo");
   const [novaData, setNovaData] = useState("");
   const [novoNome, setNovoNome] = useState("");
+  const [novaDataEsp, setNovaDataEsp] = useState("");
+  const [novoNomeEsp, setNovoNomeEsp] = useState("");
+  const [novoIcone, setNovoIcone] = useState<IconeData>("estrela");
+  const [lote, setLote] = useState<{ feitos: number; total: number; atual: string } | null>(null);
+  const [erroLote, setErroLote] = useState<string | null>(null);
+  const cancelarLote = useRef(false);
+  const [fotoCarregando, setFotoCarregando] = useState<string | null>(null);
+  const [erroAbertura, setErroAbertura] = useState<string | null>(null);
 
   const ano = numeroEntre(String(config.ano), 2000, 2200, true);
   const total = config.total.trim() === "" ? null : numeroEntre(config.total, 2, 2000, true);
   const totalInvalido = config.total.trim() !== "" && total === null;
   const horasInvalidas = config.horaFim <= config.horaInicio;
   const dataLida = lerDiaMes(novaData);
+  const dataEspLida = lerDiaMes(novaDataEsp);
+  const nomesLote = useMemo(() => nomesDoLote(config.nomes), [config.nomes]);
   const nomeOk = novoNome.trim().length > 0;
   const logoImg = useMemo(() => imagemDe(config.logo), [config.logo]);
+
+  const qrFinal = qrDaConfig(config);
+  const qrInvalido = config.qrAtivo && !qrFinal;
+
+  /** Configuração do miolo para a biblioteca (com o nome da pessoa, se houver). */
+  const montarConfig = (pessoa: string): ConfigAgenda => ({
+    ano: ano ?? config.ano,
+    capa: config.capa.trim() || "AGENDA",
+    regionais: config.regionais,
+    total,
+    modelo: config.modelo,
+    estiloDia: config.estiloDia,
+    horaInicio: config.horaInicio,
+    horaFim: config.horaFim,
+    semanaComeca: config.semanaComeca,
+    luas: config.luas,
+    destaque: config.destaque,
+    identidade: { logo: logoImg, rodape: config.rodape, logoNaCapa: config.logoNaCapa, logoNoVerso: config.logoNoVerso, rodapeEmTodas: config.rodapeEmTodas },
+    marcaDagua: {
+      ativa: config.marcaAtiva,
+      tipo: config.marcaTipo,
+      texto: config.marcaTexto,
+      logo: marcaLogo,
+      opacidade: config.marcaOpacidade / 100,
+      escala: config.marcaEscala,
+      onde: config.marcaOnde,
+    },
+    extras: extras.map((e) => ({ nome: e.nome, bytes: e.bytes, tipo: e.tipo, posicao: e.posicao, paginas: e.paginas })),
+    datas: config.datas,
+    pessoa,
+    mensagens: config.mensagens,
+    qr: qrFinal ? { ...qrFinal, noVerso: config.qrNoVerso } : null,
+    aberturas: config.aberturas.map((a) => ({ titulo: a.titulo, texto: a.texto, modelo: a.modelo, foto: imagemDe(a.foto), posicao: a.posicao })),
+    corDestaque: config.acentoAtivo ? config.acentoCor : null,
+  });
+
+  const montarCapa = (nome: string): ConfigCapa => ({
+    ano: ano ?? config.ano,
+    titulo: config.capa,
+    cor: config.capaCor,
+    linha1: nome,
+    linha2: config.capaLinha2,
+    contato: config.capaContato,
+    logo: logoImg,
+    usarLogo: config.capaUsarLogo,
+    layout: config.capaLayout,
+    qr: qrFinal,
+  });
 
   useEffect(() => {
     let vivo = true;
@@ -141,6 +212,14 @@ export default function MioloAgenda() {
     config.semanaComeca,
     config.luas,
     config.destaque,
+    config.datas,
+    config.pessoa,
+    config.aberturas.map((a) => [a.titulo, a.texto, a.modelo, a.posicao, a.foto ? a.foto.dataUrl.length : 0]),
+    config.acentoAtivo,
+    config.acentoCor,
+    config.mensagens,
+    qrFinal,
+    config.qrNoVerso,
     logoChave,
     config.rodape,
     config.logoNaCapa,
@@ -168,33 +247,7 @@ export default function MioloAgenda() {
     setGerando(true);
     const t = setTimeout(async () => {
       try {
-        const m = await gerarMiolo(
-          {
-            ano,
-            capa: config.capa.trim() || "AGENDA",
-            regionais: config.regionais,
-            total,
-            modelo: config.modelo,
-            estiloDia: config.estiloDia,
-            horaInicio: config.horaInicio,
-            horaFim: config.horaFim,
-            semanaComeca: config.semanaComeca,
-            luas: config.luas,
-            destaque: config.destaque,
-            identidade: { logo: logoImg, rodape: config.rodape, logoNaCapa: config.logoNaCapa, logoNoVerso: config.logoNoVerso, rodapeEmTodas: config.rodapeEmTodas },
-            marcaDagua: {
-              ativa: config.marcaAtiva,
-              tipo: config.marcaTipo,
-              texto: config.marcaTexto,
-              logo: marcaLogo,
-              opacidade: config.marcaOpacidade / 100,
-              escala: config.marcaEscala,
-              onde: config.marcaOnde,
-            },
-            extras: extras.map((e) => ({ nome: e.nome, bytes: e.bytes, tipo: e.tipo, posicao: e.posicao, paginas: e.paginas })),
-          },
-          fontes,
-        );
+        const m = await gerarMiolo(montarConfig(config.pessoa), fontes);
         if (vivo) setMiolo(m);
       } catch (e) {
         if (vivo) {
@@ -213,7 +266,7 @@ export default function MioloAgenda() {
   }, [modo, fontesProntas, chaveMiolo, horasInvalidas, totalInvalido]);
 
   // Capa e contracapa
-  const chaveCapa = JSON.stringify([ano, config.capa, config.capaCor, config.capaLinha1, config.capaLinha2, config.capaContato, config.capaUsarLogo, logoChave, fontes ? 1 : 0]);
+  const chaveCapa = JSON.stringify([ano, config.capa, config.capaCor, config.capaLinha1, config.capaLinha2, config.capaContato, config.capaUsarLogo, config.capaLayout, config.pessoa, qrFinal, logoChave, fontes ? 1 : 0]);
   useEffect(() => {
     if (modo !== "capa" || !fontesProntas || ano === null) return;
     setErro(null);
@@ -221,10 +274,7 @@ export default function MioloAgenda() {
     setGerando(true);
     const t = setTimeout(async () => {
       try {
-        const b = await gerarCapas(
-          { ano, titulo: config.capa, cor: config.capaCor, linha1: config.capaLinha1, linha2: config.capaLinha2, contato: config.capaContato, logo: logoImg, usarLogo: config.capaUsarLogo },
-          fontes,
-        );
+        const b = await gerarCapas(montarCapa(config.capaLinha1 || config.pessoa), fontes);
         if (vivo) setCapas(b);
       } catch (e) {
         if (vivo) {
@@ -314,6 +364,74 @@ export default function MioloAgenda() {
   const paginas = modo === "capa" ? 2 : (miolo?.plano.paginas.length ?? 0);
   const atual = Math.min(pagina, Math.max(0, paginas - 1));
 
+  const paginaCapa: 0 | 1 = atual >= 1 ? 1 : 0;
+  const elementoAtivo = elementoDaPagina(paginaCapa, selCapa);
+  const mudarElemento = (e: ElementoCapa, p: Partial<PosicaoElemento>) => set("capaLayout", { ...config.capaLayout, [e]: { ...config.capaLayout[e], ...p } });
+
+  const carregarFotoAbertura = async (id: string, files: File[]) => {
+    const f = files[0];
+    if (!f) return;
+    setFotoCarregando(id);
+    setErroAbertura(null);
+    try {
+      const img = await prepararImagem(new Uint8Array(await f.arrayBuffer()), f.name, 1600);
+      const cortada = await cortarImagem(img, FOTO_ABERTURA_MM.w / FOTO_ABERTURA_MM.h, 1100);
+      set("aberturas", config.aberturas.map((a) => (a.id === id ? { ...a, foto: { dataUrl: bytesParaDataUrl(cortada.bytes, cortada.tipo), w: cortada.w, h: cortada.h, tipo: cortada.tipo } } : a)));
+    } catch (e) {
+      setErroAbertura(e instanceof Error ? e.message : "Não consegui abrir a imagem.");
+    } finally {
+      setFotoCarregando(null);
+    }
+  };
+
+  const adicionarData = (d: DataEspecial) => {
+    if (config.datas.length >= MAX_DATAS_ESPECIAIS) return;
+    set("datas", [...config.datas, d].sort((a, b) => a.mes - b.mes || a.dia - b.dia));
+  };
+
+  /** Uma agenda (miolo e/ou capa) para cada nome da lista, tudo num .zip. */
+  const gerarLote = async () => {
+    if (!nomesLote.length || ano === null || totalInvalido || horasInvalidas) return;
+    cancelarLote.current = false;
+    setErroLote(null);
+    const arquivos: { nome: string; blob: Blob }[] = [];
+    const capasPdf: Uint8Array[] = [];
+    try {
+      for (let i = 0; i < nomesLote.length; i++) {
+        if (cancelarLote.current) break;
+        const nome = nomesLote[i];
+        setLote({ feitos: i, total: nomesLote.length, atual: nome });
+        await new Promise((r) => setTimeout(r, 20)); // deixa a tela mostrar o andamento
+        const arq = `${doisDigitos(i + 1)}_${nomeDeArquivo(nome)}`;
+        if (config.lote !== "capa") {
+          const m = await gerarMiolo(montarConfig(nome), fontes);
+          const b = config.saida === "a4" ? await miolosEmA4(m.bytes) : m.bytes;
+          arquivos.push({ nome: `Miolo_${ano}_${arq}.pdf`, blob: new Blob([b], { type: "application/pdf" }) });
+        }
+        if (config.lote !== "miolo") {
+          const c = await gerarCapas(montarCapa(nome), fontes);
+          capasPdf.push(c);
+          arquivos.push({ nome: `Capa_${ano}_${arq}.pdf`, blob: new Blob([c], { type: "application/pdf" }) });
+        }
+      }
+      if (cancelarLote.current) return;
+      if (capasPdf.length > 1) {
+        // todas as capas num PDF só, para imprimir de uma vez
+        const junto = await PDFDocument.create();
+        for (const c of capasPdf) {
+          const doc = await PDFDocument.load(c);
+          for (const pg of await junto.copyPages(doc, doc.getPageIndices())) junto.addPage(pg);
+        }
+        arquivos.push({ nome: `Capas_todas_${ano}.pdf`, blob: new Blob([await junto.save()], { type: "application/pdf" }) });
+      }
+      await baixarZip(arquivos, `Agendas_${ano}.zip`);
+    } catch (e) {
+      setErroLote(e instanceof Error ? e.message : "Não consegui gerar as agendas.");
+    } finally {
+      setLote(null);
+    }
+  };
+
   const atalhos = useMemo(() => {
     if (modo !== "miolo" || !miolo) return [];
     return [{ rotulo: "Capa", pagina: 0 }, { rotulo: "Dados", pagina: 2 }, { rotulo: "Calendário", pagina: 3 }, ...miolo.plano.paginaDoMes.map((p, i) => ({ rotulo: MESES_CURTOS[i], pagina: p }))];
@@ -345,8 +463,105 @@ export default function MioloAgenda() {
 
       <Mini rotulo="Palavra da capa" valor={config.capa} onChange={(v) => set("capa", v.slice(0, 12))} texto ajuda="Até 12 letras. Padrão: AGENDA" />
 
+      <Bloco titulo="Nome na agenda e lote de nomes" resumo={nomesLote.length ? `${nomesLote.length} nome${nomesLote.length > 1 ? "s" : ""} na lista` : config.pessoa.trim() || "Sem nome"}>
+        <Mini rotulo="Nome desta agenda (opcional)" valor={config.pessoa} onChange={(v) => set("pessoa", v.slice(0, 40))} texto ajuda="Aparece na capa do miolo, no verso da capa e em “Nome:” dos dados pessoais." />
+        <Campo titulo="Uma agenda para cada nome" ajuda={nomesLote.length ? `${nomesLote.length} nome${nomesLote.length > 1 ? "s" : ""} (no máximo 100). Cada miolo leva de 1 a 2 segundos.` : "Um nome por linha. Sai um arquivo para cada pessoa, tudo num .zip."}>
+          <textarea
+            aria-label="Lista de nomes"
+            rows={6}
+            value={config.nomes}
+            onChange={(e) => set("nomes", e.target.value.slice(0, 6000))}
+            className="w-full resize-none rounded-2xl bg-background/70 px-4 py-3 text-sm outline-none ring-1 ring-transparent focus:ring-primary/40"
+          />
+          <button type="button" className="mt-2 text-xs font-medium text-primary hover:underline" onClick={() => set("nomes", NOMES_DE_EXEMPLO)}>
+            Usar nomes de exemplo
+          </button>
+        </Campo>
+        <Segmentado
+          valor={config.lote}
+          opcoes={[
+            { valor: "ambos" as const, rotulo: "Miolo e capa" },
+            { valor: "miolo" as const, rotulo: "Só miolo" },
+            { valor: "capa" as const, rotulo: "Só capa" },
+          ]}
+          onChange={(v) => set("lote", v)}
+        />
+        {lote ? (
+          <div className="space-y-2 rounded-2xl bg-background/70 px-4 py-3 text-sm">
+            <p className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" /> Gerando {Math.min(lote.feitos + 1, lote.total)} de {lote.total}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">{lote.atual}</p>
+            <Button size="sm" variant="secondary" className="rounded-full" onClick={() => (cancelarLote.current = true)}>
+              Cancelar
+            </Button>
+          </div>
+        ) : (
+          <Button className="w-full rounded-full" disabled={!nomesLote.length || ano === null || totalInvalido || horasInvalidas || !fontesProntas} onClick={() => void gerarLote()}>
+            <Download className="h-4 w-4" /> Gerar {nomesLote.length || ""} agenda{nomesLote.length === 1 ? "" : "s"} (.zip)
+          </Button>
+        )}
+        {erroLote && <p className="text-xs text-destructive">{erroLote}</p>}
+      </Bloco>
+
+      <Bloco titulo="QR Code" resumo={qrFinal ? (config.qrTipo === "whatsapp" ? "WhatsApp" : "Link do site") : qrInvalido ? "Confira os dados" : "Desligado"}>
+        <Chave ligado={config.qrAtivo} onChange={(v) => set("qrAtivo", v)}>
+          <span className="font-medium">QR Code na contracapa</span>
+          <span className="block text-xs text-muted-foreground">Quem aponta o celular abre o seu WhatsApp ou o seu site.</span>
+        </Chave>
+        {config.qrAtivo && (
+          <div className="space-y-4">
+            <Segmentado
+              valor={config.qrTipo}
+              opcoes={[
+                { valor: "whatsapp" as const, rotulo: "WhatsApp" },
+                { valor: "link" as const, rotulo: "Link do site" },
+              ]}
+              onChange={(v) => set("qrTipo", v)}
+            />
+            {config.qrTipo === "whatsapp" ? (
+              <>
+                <Mini rotulo="Número com DDD" valor={config.qrNumero} onChange={(v) => set("qrNumero", v.slice(0, 20))} texto erro={config.qrNumero.trim() && !qrFinal ? "Confira o número (DDD + número)" : undefined} ajuda="Ex.: (51) 99999-9999" />
+                <Mini rotulo="Mensagem que já vem escrita (opcional)" valor={config.qrMensagem} onChange={(v) => set("qrMensagem", v.slice(0, 120))} texto />
+              </>
+            ) : (
+              <Mini rotulo="Endereço do site" valor={config.qrLink} onChange={(v) => set("qrLink", v.slice(0, 200))} texto erro={config.qrLink.trim() && !qrFinal ? "Confira o endereço" : undefined} ajuda="Ex.: www.maxgraficadigital.com.br" />
+            )}
+            <Mini rotulo="Texto embaixo do QR (opcional)" valor={config.qrRotulo} onChange={(v) => set("qrRotulo", v.slice(0, 40))} texto ajuda={config.qrTipo === "whatsapp" ? "Padrão: Chame no WhatsApp" : "Padrão: Visite nosso site"} />
+            <Chave ligado={config.qrNoVerso} onChange={(v) => set("qrNoVerso", v)}>
+              <span className="font-medium">Também no verso da capa do miolo</span>
+            </Chave>
+            <p className="text-xs text-muted-foreground">A posição na contracapa é escolhida na aba "Capa e contracapa". Teste lendo o QR com o celular antes de imprimir.</p>
+          </div>
+        )}
+      </Bloco>
+
       {modo === "miolo" ? (
         <>
+          <Bloco titulo="Mensagem do mês" resumo={config.mensagens.filter((m) => m.trim()).length ? `${config.mensagens.filter((m) => m.trim()).length} de 12 preenchidas` : "Nenhuma"}>
+            <Campo titulo="Uma frase para cada mês" ajuda="Aparece no alto do planejamento de cada mês, entre aspas. Até 90 letras.">
+              <div className="space-y-3">
+                {MESES.map((m, i) => (
+                  <Mini
+                    key={m}
+                    rotulo={m.charAt(0) + m.slice(1).toLowerCase()}
+                    valor={config.mensagens[i] ?? ""}
+                    onChange={(v) => set("mensagens", config.mensagens.map((x, j) => (j === i ? v.slice(0, 90) : x)))}
+                    texto
+                  />
+                ))}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-4 text-xs font-medium text-primary">
+                <button type="button" className="hover:underline" onClick={() => set("mensagens", [...MENSAGENS_SUGERIDAS])}>
+                  Preencher com sugestões
+                </button>
+                <button type="button" className="hover:underline" onClick={() => set("mensagens", Array.from({ length: 12 }, () => ""))}>
+                  Limpar
+                </button>
+              </div>
+            </Campo>
+          </Bloco>
+
           <Bloco titulo="Logo, contato e marca-d'água" resumo={resumoIdentidade}>
             <AgendaLogo config={config} set={set} onArquivos={(f) => void carregarLogo(f)} carregando={lendoLogo} erro={erroLogo} />
             <AgendaIdentidade config={config} set={set} />
@@ -413,6 +628,84 @@ export default function MioloAgenda() {
             </Campo>
           </Bloco>
 
+          <Bloco titulo="Datas do cliente" resumo={config.datas.length ? `${config.datas.length} data${config.datas.length > 1 ? "s" : ""} com ícone` : "Nenhuma"}>
+            <Campo titulo="Datas especiais" ajuda="Aniversário da empresa, campanhas, entregas… Aparecem com um ícone no calendário, no planejamento do mês e na página do dia.">
+              {config.datas.length > 0 && (
+                <ul className="mb-3 space-y-2">
+                  {config.datas.map((d) => {
+                    const Icone = ICONE_TELA[d.icone];
+                    return (
+                      <li key={`${d.mes}-${d.dia}-${d.nome}`} className="flex items-center gap-2 rounded-2xl bg-background/70 px-3 py-2 text-sm">
+                        <Icone className="h-4 w-4 shrink-0 text-primary" />
+                        <span className="tabular-nums text-muted-foreground">
+                          {doisDigitos(d.dia)} {MESES_CURTOS[d.mes - 1]}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate" title={d.nome}>
+                          {d.nome}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`Remover ${d.nome}`}
+                          className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                          onClick={() => set("datas", config.datas.filter((x) => x !== d))}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {config.datas.length < MAX_DATAS_ESPECIAIS ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-[6.5rem_1fr] gap-x-3">
+                    <Mini rotulo="Dia/mês" valor={novaDataEsp} onChange={setNovaDataEsp} texto erro={novaDataEsp && !dataEspLida ? "Ex.: 14/03" : undefined} />
+                    <Mini rotulo="Nome da data" valor={novoNomeEsp} onChange={(v) => setNovoNomeEsp(v.slice(0, 30))} texto />
+                  </div>
+                  <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Ícone da data">
+                    {ICONES_DATA.map((i) => {
+                      const Icone = ICONE_TELA[i.chave];
+                      return (
+                        <button
+                          key={i.chave}
+                          type="button"
+                          role="radio"
+                          aria-checked={novoIcone === i.chave}
+                          aria-label={`Ícone ${i.rotulo}`}
+                          title={i.rotulo}
+                          onClick={() => setNovoIcone(i.chave)}
+                          className={cn("flex h-9 w-9 items-center justify-center rounded-full transition-colors", novoIcone === i.chave ? "bg-foreground text-background" : "bg-background/70 text-muted-foreground hover:text-foreground")}
+                        >
+                          <Icone className="h-4 w-4" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="rounded-full"
+                    disabled={!dataEspLida || !novoNomeEsp.trim()}
+                    onClick={() => {
+                      if (!dataEspLida) return;
+                      adicionarData({ ...dataEspLida, nome: novoNomeEsp.trim(), icone: novoIcone });
+                      setNovaDataEsp("");
+                      setNovoNomeEsp("");
+                    }}
+                  >
+                    <Plus className="h-4 w-4" /> Adicionar data
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Máximo de {MAX_DATAS_ESPECIAIS} datas.</p>
+              )}
+            </Campo>
+          </Bloco>
+
+          <Bloco titulo="Páginas de abertura" resumo={config.aberturas.length ? `${config.aberturas.length} página${config.aberturas.length > 1 ? "s" : ""}` : "Nenhuma"}>
+            <AgendaAberturas aberturas={config.aberturas} onChange={(l) => set("aberturas", l)} onFoto={(id, f) => void carregarFotoAbertura(id, f)} fotoCarregando={fotoCarregando} erro={erroAbertura} />
+          </Bloco>
+
           <Bloco titulo="Páginas do cliente" resumo={extras.length ? `${extras.length} arquivo${extras.length > 1 ? "s" : ""} · ${nExtras} página${nExtras > 1 ? "s" : ""}` : "Nenhuma"}>
             <AgendaExtras
               extras={extras}
@@ -471,9 +764,32 @@ export default function MioloAgenda() {
               <span className="block text-xs text-muted-foreground">No planejamento do mês.</span>
             </Chave>
             <Chave ligado={config.destaque} onChange={(v) => set("destaque", v)}>
-              <span className="font-medium">Domingos e feriados em cinza</span>
-              <span className="block text-xs text-muted-foreground">O número do dia fica mais clarinho.</span>
+              <span className="font-medium">Domingos e feriados em destaque</span>
+              <span className="block text-xs text-muted-foreground">O número do dia fica em cinza, ou na cor de destaque se ela estiver ligada.</span>
             </Chave>
+            <Chave ligado={config.acentoAtivo} onChange={(v) => set("acentoAtivo", v)}>
+              <span className="font-medium">Cor de destaque</span>
+              <span className="block text-xs text-muted-foreground">Pontinhos, círculos dos feriados, ícones e o ano na capa. Para impressão colorida; no preto e branco deixe desligada.</span>
+            </Chave>
+            {config.acentoAtivo && (
+              <div className="space-y-2 pl-1">
+                <SeletorCor valor={config.acentoCor} sugestoes={CORES_DESTAQUE} onChange={(hex) => set("acentoCor", hex)} />
+                {logoImg && (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-primary hover:underline"
+                    onClick={() =>
+                      void corDeFundoDaLogo(logoImg).then((hex) => {
+                        if (hex) set("acentoCor", hex);
+                        else setErroLogo("A logo não tem um fundo de uma cor só.");
+                      })
+                    }
+                  >
+                    Usar a cor da logo
+                  </button>
+                )}
+              </div>
+            )}
           </Bloco>
 
           <Campo titulo="Total de páginas" ajuda={miolo ? `O miolo precisa de ${miolo.plano.minimo} páginas. Se você pedir mais, o resto vira páginas de anotações no final.` : "Deixe vazio para só o necessário."}>
@@ -532,6 +848,7 @@ export default function MioloAgenda() {
               <Mini rotulo="Frase ou slogan (opcional)" valor={config.capaLinha2} onChange={(v) => set("capaLinha2", v.slice(0, 48))} texto />
             </div>
           </Campo>
+          <PosicaoElementos layout={config.capaLayout} pagina={paginaCapa} selecionado={elementoAtivo} onSelecionar={setSelCapa} onMudar={mudarElemento} />
           <Campo titulo="Contracapa" ajuda="Uma linha por informação (telefone, Instagram, endereço…). Até 6 linhas.">
             <textarea
               aria-label="Contato na contracapa"
@@ -554,7 +871,7 @@ export default function MioloAgenda() {
           <Painel className="space-y-4">
             <div>
               <h3 className="text-base font-semibold tracking-tight">Pré-visualização</h3>
-              <p className="text-xs text-muted-foreground">{modo === "miolo" ? "É o PDF que vai ser baixado. Use as setas ou os atalhos para passear pelo miolo." : "Capa e contracapa em A5, com sangria. Use as setas para ver as duas."}</p>
+              <p className="text-xs text-muted-foreground">{modo === "miolo" ? "É o PDF que vai ser baixado. Use as setas ou os atalhos para passear pelo miolo." : "Escolha o elemento à esquerda e clique ou arraste aqui para mudar de lugar."}</p>
             </div>
             {atalhos.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
@@ -565,15 +882,22 @@ export default function MioloAgenda() {
                 ))}
               </div>
             )}
-            <PreviaPdf
-              bytes={bytes}
-              paginas={paginas}
-              ocupado={gerando}
-              pagina={atual}
-              onPagina={setPagina}
-              rotulos={modo === "capa" ? (i) => (i === 0 ? "Capa" : "Contracapa") : undefined}
-              vazio={gerando ? "Montando…" : "Confira os campos marcados em vermelho"}
-            />
+            {modo === "capa" ? (
+              <PreviaCapaEditavel
+                bytes={capas}
+                pagina={paginaCapa}
+                onPagina={(p) => {
+                  setPagina(p);
+                  setSelCapa((s) => elementoDaPagina(p, s));
+                }}
+                layout={config.capaLayout}
+                selecionado={elementoAtivo}
+                onMover={(e, p) => mudarElemento(e, p)}
+                ocupado={gerando}
+              />
+            ) : (
+              <PreviaPdf bytes={bytes} paginas={paginas} ocupado={gerando} pagina={atual} onPagina={setPagina} vazio={gerando ? "Montando…" : "Confira os campos marcados em vermelho"} />
+            )}
           </Painel>
 
           <Painel className="space-y-4">

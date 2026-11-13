@@ -61,6 +61,26 @@ export async function prepararImagem(bytes: Uint8Array, nome: string, maxLado = 
   return { bytes: await canvasParaBytes(c, t), tipo: t, w, h };
 }
 
+/** Corta a imagem no centro na proporção `aspecto` (largura ÷ altura) e reduz para no máximo `maxLado` px. */
+export async function cortarImagem(img: Imagem, aspecto: number, maxLado = 1100): Promise<Imagem> {
+  const bmp = await decodificar(img.bytes, img.tipo);
+  let sw = bmp.width;
+  let sh = bmp.height;
+  if (sw / sh > aspecto) sw = Math.round(sh * aspecto);
+  else sh = Math.round(sw / aspecto);
+  const sx = Math.round((bmp.width - sw) / 2);
+  const sy = Math.round((bmp.height - sh) / 2);
+  const f = Math.min(1, maxLado / Math.max(sw, sh));
+  const w = Math.max(1, Math.round(sw * f));
+  const h = Math.max(1, Math.round(sh * f));
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  c.getContext("2d")?.drawImage(bmp, sx, sy, sw, sh, 0, 0, w, h);
+  bmp.close();
+  return { bytes: await canvasParaBytes(c, img.tipo), tipo: img.tipo, w, h };
+}
+
 /**
  * Cor do fundo de uma imagem: a que mais aparece ao longo das bordas (4 lados, um pouco para dentro,
  * ignorando cantos arredondados e transparências). null = a borda não tem uma cor dominante (foto,

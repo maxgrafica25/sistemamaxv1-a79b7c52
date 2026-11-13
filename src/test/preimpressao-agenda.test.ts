@@ -201,3 +201,171 @@ describe("gerar com a identidade do cliente", () => {
     expect(p.getTrimBox().x / PT_POR_MM).toBeCloseTo(1.5, 1);
   }, 30000);
 });
+
+import { LAYOUT_CAPA_PADRAO, layoutCapaValido } from "@/lib/preimpressao/agenda";
+
+describe("posição dos elementos da capa", () => {
+  it("completa com o padrão e limita valores fora da faixa", () => {
+    expect(layoutCapaValido(null)).toEqual(LAYOUT_CAPA_PADRAO);
+    const l = layoutCapaValido({ capaLogo: { x: 150, y: -20, tam: 5 }, capaNome: { y: 70 } });
+    expect(l.capaLogo).toEqual({ x: 100, y: 0, tam: 30 });
+    expect(l.capaNome).toEqual({ x: 50, y: 70, tam: 100 });
+    expect(l.contraContato).toEqual(LAYOUT_CAPA_PADRAO.contraContato);
+  });
+
+  it("a capa é gerada com os elementos em outros lugares e tamanhos", async () => {
+    const bytes = await gerarCapas({
+      ano: 2027,
+      titulo: "AGENDA",
+      cor: "#ffffff",
+      linha1: "Padaria do João",
+      linha2: "Sabor de todo dia",
+      contato: "(51) 99999-9999\n@padaria\nCharqueadas - RS\nAv. Principal, 100",
+      logo: pngMini(60, 30),
+      usarLogo: true,
+      layout: {
+        capaLogo: { x: 20, y: 10, tam: 50 },
+        capaTitulo: { x: 70, y: 40, tam: 150 },
+        capaNome: { x: 30, y: 90, tam: 120 },
+        contraContato: { x: 25, y: 85, tam: 80 },
+        contraLogo: { x: 80, y: 15, tam: 200 },
+      },
+    });
+    const d = await PDFDocument.load(bytes);
+    expect(d.getPageCount()).toBe(2);
+  }, 30000);
+});
+
+import { datasEspeciaisValidas } from "@/lib/preimpressao/agenda";
+import { NOMES_DE_EXEMPLO, nomeDeArquivo, nomesDoLote } from "@/components/preimpressao/agendaConfig";
+
+describe("datas do cliente e lista de nomes", () => {
+  it("datas válidas: tira data que não existe, nome vazio e repetidas; ordena; ícone desconhecido vira estrela", () => {
+    const d = datasEspeciaisValidas(2027, [
+      { mes: 3, dia: 14, nome: " Aniversário da empresa ", icone: "coracao" },
+      { mes: 2, dia: 30, nome: "Não existe", icone: "estrela" },
+      { mes: 1, dia: 5, nome: "Campanha", icone: "ouro" as never },
+      { mes: 3, dia: 14, nome: "Aniversário da empresa", icone: "coracao" },
+      { mes: 4, dia: 1, nome: "  ", icone: "ponto" },
+    ]);
+    expect(d).toEqual([
+      { mes: 1, dia: 5, nome: "Campanha", icone: "estrela" },
+      { mes: 3, dia: 14, nome: "Aniversário da empresa", icone: "coracao" },
+    ]);
+  });
+
+  it("gera o miolo com datas do cliente de todos os ícones e o nome da pessoa", async () => {
+    const m = await gerarMiolo({
+      ano: 2027,
+      capa: "AGENDA",
+      regionais: [],
+      pessoa: "Mariana Souza Albuquerque de Oliveira Santos",
+      datas: [
+        { mes: 1, dia: 5, nome: "Estrela", icone: "estrela" },
+        { mes: 1, dia: 6, nome: "Coração", icone: "coracao" },
+        { mes: 1, dia: 7, nome: "Losango", icone: "losango" },
+        { mes: 1, dia: 8, nome: "Bolinha", icone: "ponto" },
+        { mes: 1, dia: 9, nome: "Visto", icone: "visto" },
+      ],
+    });
+    expect(m.plano.paginas.length).toBeGreaterThan(300);
+    const sem = await gerarMiolo({ ano: 2027, capa: "AGENDA", regionais: [], modelo: "semanal", datas: [{ mes: 1, dia: 7, nome: "Reunião", icone: "visto" }] });
+    expect(sem.bytes.length).toBeGreaterThan(1000);
+  }, 60000);
+
+  it("lista de nomes: um por linha, sem vazios nem repetidos, no máximo 100", () => {
+    expect(nomesDoLote("  Ana  Paula \n\nana paula\nJoão\r\nMaria  ")).toEqual(["Ana Paula", "João", "Maria"]);
+    expect(nomesDoLote(NOMES_DE_EXEMPLO)).toHaveLength(12);
+    expect(nomesDoLote(Array.from({ length: 150 }, (_, i) => `Pessoa ${i}`).join("\n"))).toHaveLength(100);
+  });
+
+  it("nome de arquivo sem acento nem símbolos", () => {
+    expect(nomeDeArquivo("João Pedro d'Ávila")).toBe("Joao_Pedro_d_Avila");
+    expect(nomeDeArquivo("???")).toBe("agenda");
+  });
+});
+
+describe("páginas de abertura do cliente e cor de destaque", () => {
+  it("as páginas de abertura entram nos lugares escolhidos, antes das páginas enviadas, sem estragar a regra do planejamento", () => {
+    const p = planejarPaginas(2026, null, {
+      aberturas: [{ posicao: "inicio" }, { posicao: "inicio" }, { posicao: 4 }],
+      extras: [{ posicao: "inicio", paginas: 1 }],
+    });
+    expect(p.paginas.slice(5, 8)).toEqual([{ tipo: "abertura", item: 0 }, { tipo: "abertura", item: 1 }, { tipo: "extra", item: 0, pagina: 0 }]);
+    const antesDeAbril = p.paginas.findIndex((x) => x.tipo === "abertura" && x.item === 2);
+    expect(antesDeAbril).toBeGreaterThan(p.paginaDoMes[2]);
+    expect(antesDeAbril).toBeLessThan(p.paginaDoMes[3]);
+    p.paginaDoMes.forEach((i) => expect((i + 1) % 2).toBe(0));
+    expect(p.paginas.length % 2).toBe(0);
+  });
+
+  it("gera com os 3 modelos de abertura (texto longo demais não estoura), cor de destaque e domingos em destaque", async () => {
+    const longo = Array.from({ length: 80 }, (_, i) => `Linha ${i} do texto bem comprido que não cabe na página inteira de jeito nenhum`).join("\n");
+    const m = await gerarMiolo({
+      ano: 2027,
+      capa: "AGENDA",
+      regionais: [],
+      corDestaque: "#dc2626",
+      destaque: true,
+      aberturas: [
+        { titulo: "Quem somos", texto: "Primeiro parágrafo.\n\nSegundo parágrafo com mais palavras para quebrar em mais de uma linha dentro da página.", modelo: "foto", foto: pngMini(63, 40), posicao: "inicio" },
+        { titulo: "Cardápio", texto: "# Pizzas\nMargherita | R$ 42,00\nCalabresa com cebola e azeitonas pretas e um nome grande demais para caber | R$ 48,00\n\n" + longo, modelo: "lista", foto: null, posicao: "fim" },
+        { titulo: "", texto: longo, modelo: "texto", foto: null, posicao: 6 },
+        { titulo: "  ", texto: "   ", modelo: "texto", foto: null, posicao: 1 },
+      ],
+    });
+    expect(m.plano.paginas.filter((x) => x.tipo === "abertura")).toHaveLength(3);
+    const d = await PDFDocument.load(m.bytes);
+    expect(d.getPageCount()).toBe(m.plano.paginas.length);
+  }, 60000);
+
+  it("cor de destaque inválida é ignorada", async () => {
+    const m = await gerarMiolo({ ano: 2027, capa: "AGENDA", regionais: [], corDestaque: "vermelho" });
+    expect(m.bytes.length).toBeGreaterThan(1000);
+  }, 60000);
+});
+
+import { qrModulos, urlWhatsApp } from "@/lib/preimpressao/agenda";
+import { MENSAGENS_SUGERIDAS, qrDaConfig, configPadrao } from "@/components/preimpressao/agendaConfig";
+
+describe("mensagem do mês e QR Code", () => {
+  it("endereço do WhatsApp: aceita com ou sem 55 e com máscara; recusa número curto", () => {
+    expect(urlWhatsApp("(51) 99999-9999")).toBe("https://wa.me/5551999999999");
+    expect(urlWhatsApp("+55 51 3333-4444", "Olá! Vi a agenda.")).toBe("https://wa.me/555133334444?text=Ol%C3%A1!%20Vi%20a%20agenda.");
+    expect(urlWhatsApp("99999-9999")).toBeNull();
+    expect(urlWhatsApp("")).toBeNull();
+  });
+
+  it("QR Code: matriz quadrada com os 3 quadros de posição nos cantos", () => {
+    const m = qrModulos("https://wa.me/5551999999999");
+    const n = m.length;
+    expect(n).toBeGreaterThanOrEqual(21);
+    expect(m.every((l) => l.length === n)).toBe(true);
+    // quadro de posição: 7 × 7 com o contorno todo escuro
+    for (const [r0, c0] of [[0, 0], [0, n - 7], [n - 7, 0]]) {
+      for (let i = 0; i < 7; i++) {
+        expect(m[r0][c0 + i]).toBe(true);
+        expect(m[r0 + 6][c0 + i]).toBe(true);
+        expect(m[r0 + i][c0]).toBe(true);
+        expect(m[r0 + i][c0 + 6]).toBe(true);
+      }
+    }
+  });
+
+  it("da configuração: WhatsApp, link com ou sem https, desligado ou inválido", () => {
+    const base = { ...configPadrao(), qrAtivo: true };
+    expect(qrDaConfig({ ...base, qrTipo: "whatsapp", qrNumero: "(51) 99999-9999", qrMensagem: "" })).toEqual({ url: "https://wa.me/5551999999999", rotulo: "Chame no WhatsApp" });
+    expect(qrDaConfig({ ...base, qrTipo: "link", qrLink: "www.maxgraficadigital.com.br", qrRotulo: "Nosso site" })).toEqual({ url: "https://www.maxgraficadigital.com.br", rotulo: "Nosso site" });
+    expect(qrDaConfig({ ...base, qrTipo: "link", qrLink: "semponto" })).toBeNull();
+    expect(qrDaConfig({ ...base, qrAtivo: false, qrNumero: "(51) 99999-9999" })).toBeNull();
+    expect(MENSAGENS_SUGERIDAS).toHaveLength(12);
+  });
+
+  it("gera o miolo e as capas com mensagens, QR no verso e QR na contracapa", async () => {
+    const url = "https://wa.me/5551999999999";
+    const m = await gerarMiolo({ ano: 2027, capa: "AGENDA", regionais: [], mensagens: MENSAGENS_SUGERIDAS, pessoa: "Ana Paula", qr: { url, rotulo: "Chame no WhatsApp", noVerso: true } });
+    expect(m.bytes.length).toBeGreaterThan(1000);
+    const capas = await gerarCapas({ ano: 2027, titulo: "AGENDA", cor: "#16325c", linha1: "Max", linha2: "", contato: "(51) 99999-9999", logo: null, usarLogo: false, qr: { url, rotulo: "Chame no WhatsApp" }, layout: { contraQr: { x: 30, y: 70, tam: 120 } } });
+    expect((await PDFDocument.load(capas)).getPageCount()).toBe(2);
+  }, 60000);
+});
