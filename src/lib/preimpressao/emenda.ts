@@ -4,7 +4,7 @@
 // segurança. O sistema compara os rolos cadastrados e sugere o de melhor aproveitamento (menos rolo
 // gasto e menos emendas). A arte continua vetorial no PDF. Tudo no navegador, sem IA e sem custo.
 
-import { PDFDocument, StandardFonts, cmyk, concatTransformationMatrix, degrees, popGraphicsState, pushGraphicsState, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
+import { PDFDocument, StandardFonts, concatTransformationMatrix, degrees, popGraphicsState, pushGraphicsState, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import { LIMITE_ACROBAT_CM, PT_POR_CM, normalizarRotacao, origemRotacionada } from "./margem";
 
 // ─── Rolos e plano de corte ─────────────────────────────────────────
@@ -105,7 +105,6 @@ export const formatarCm = (v: number) => `${(Math.round(v * 10) / 10).toString()
 
 // ─── PDF ────────────────────────────────────────────────────────────
 
-const K50 = cmyk(0, 0, 0, 0.5);
 
 export interface ArteEmenda {
   tipo: "pdf" | "imagem";
@@ -121,7 +120,7 @@ export interface OpcoesEmenda {
   /** Escala da arte em % (100 = tamanho real). */
   escalaPct: number;
   sobreposicaoCm: number;
-  /** Linha-guia e "PARTE 1/3" (cinza 50%) na parte que fica por baixo da emenda. */
+  /** "PARTE 1/3" legível (preto com contorno branco) de pé, a 0,5 cm da borda da direita e da de cima. */
   guias: boolean;
 }
 
@@ -156,20 +155,26 @@ async function prepararArte(doc: PDFDocument, a: ArteEmenda, escala: number): Pr
   return { desenhar: (pg) => pg.drawPage(emb, { x: o.x, y: o.y, width: w * escala, height: h * escala, rotate: degrees(-rot) }) };
 }
 
-function guias(page: PDFPage, fonte: PDFFont, plano: PlanoEmenda, k: number, sobreposicaoCm: number) {
-  if (k >= plano.partes - 1) return; // a última parte não é coberta por nenhuma outra
+/**
+ * "PARTE 2/3" legível (preto com contorno branco, para ler em fundo claro ou em preto chapado), de pé (lido de cima
+ * para baixo), a 0,5 cm da borda da direita e da de cima. Na parte 1 até a penúltima essa faixa fica coberta pela
+ * parte seguinte; na última é a sobra de borda, que é refilada.
+ */
+function guias(page: PDFPage, fonte: PDFFont, plano: PlanoEmenda, k: number) {
   const largura = plano.larguraParte * PT_POR_CM;
   const comprimento = plano.comprimentoParte * PT_POR_CM;
-  const sobre = sobreposicaoCm * PT_POR_CM;
-  const xLinha = largura - sobre;
-  page.drawLine({ start: { x: xLinha, y: 0 }, end: { x: xLinha, y: comprimento }, thickness: 0.25, color: K50, dashArray: [4, 3] });
-  const texto = `PARTE ${k + 1}/${plano.partes}  -  a parte ${k + 2} cobre esta faixa (${sobreposicaoCm.toString().replace(".", ",")} cm)`;
-  const tam = Math.min(6, sobre * 0.45);
-  const tw = fonte.widthOfTextAtSize(texto, tam);
-  const passo = Math.max(tw + 60, 40 * PT_POR_CM);
-  for (let y = 1.5 * PT_POR_CM; y + tw < comprimento; y += passo) {
-    page.drawText(texto, { x: xLinha + sobre / 2 + tam * 0.35, y, size: tam, font: fonte, color: K50, rotate: degrees(90) });
+  const tam = 18;
+  const margem = 0.5 * PT_POR_CM;
+  const texto = `PARTE ${k + 1}/${plano.partes}`;
+  const x = largura - margem - tam * 0.72;
+  const y = comprimento - margem;
+  const c = tam * 0.07; // espessura do contorno
+  const desenha = (dx: number, dy: number, cor: ReturnType<typeof rgb>) => page.drawText(texto, { x: x + dx, y: y + dy, size: tam, font: fonte, color: cor, rotate: degrees(-90) });
+  for (let i = 0; i < 16; i++) {
+    const ang = (i / 16) * Math.PI * 2;
+    desenha(Math.cos(ang) * c, Math.sin(ang) * c, rgb(1, 1, 1));
   }
+  desenha(0, 0, rgb(0, 0, 0));
 }
 
 /**
@@ -184,7 +189,7 @@ export async function gerarEmenda(arte: ArteEmenda, plano: PlanoEmenda, o: Opcoe
   doc.setProducer("Sistema Max · Pré-impressão");
   doc.setCreator("Sistema Max · Emenda de adesivo");
   const desenho = await prepararArte(doc, arte, escala);
-  const fonte = await doc.embedFont(StandardFonts.Helvetica);
+  const fonte = await doc.embedFont(StandardFonts.HelveticaBold);
   const lista = indices ?? plano.faixas.map((_, k) => k);
   for (const k of lista) {
     const parte = plano.faixas[k];
@@ -201,7 +206,7 @@ export async function gerarEmenda(arte: ArteEmenda, plano: PlanoEmenda, o: Opcoe
     }
     desenho.desenhar(page);
     page.pushOperators(popGraphicsState());
-    if (o.guias) guias(page, fonte, plano, k, o.sobreposicaoCm);
+    if (o.guias) guias(page, fonte, plano, k);
   }
   return { bytes: await doc.save(), paginas: lista.length };
 }
