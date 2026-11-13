@@ -193,22 +193,55 @@ export function buscarFerramentas(texto: string): Ferramenta[] {
   });
 }
 
-const CHAVE_RECENTES = "preimpressao.recentes.v1";
+// ─── Favoritas e recentes (por usuário) ─────────────────────────────
 
-/** Últimas ferramentas abertas neste computador (a mais recente primeiro). */
-export function lerRecentes(max = 3): Ferramenta[] {
+/** Favoritas de quem nunca escolheu: a Organizar PDF fica em primeiro (o Acrobat Pro saiu dos computadores). */
+export const FAVORITAS_PADRAO: string[] = ["organizar"];
+
+/** Lista de favoritas válida (só chaves que existem, sem repetir) ou null se o valor não é uma lista. */
+export function normalizarFavoritos(valor: unknown): string[] | null {
+  if (!Array.isArray(valor)) return null;
+  const conhecidas = new Set(FERRAMENTAS.map((f) => f.key));
+  return [...new Set(valor.filter((k): k is string => typeof k === "string" && conhecidas.has(k)))];
+}
+
+/** Liga ou desliga uma favorita; a nova vai para o fim da lista. */
+export function alternarFavorito(lista: string[], key: string): string[] {
+  return lista.includes(key) ? lista.filter((k) => k !== key) : [...lista, key];
+}
+
+/** As ferramentas favoritas, na ordem em que foram escolhidas. */
+export function ferramentasFavoritas(favoritos: string[]): Ferramenta[] {
+  return favoritos.map((k) => FERRAMENTAS.find((f) => f.key === k)).filter((f): f is Ferramenta => !!f);
+}
+
+/** Favoritas primeiro (na ordem das favoritas); o resto fica como estava. */
+export function favoritasPrimeiro<T extends { key: string }>(itens: T[], favoritos: string[]): T[] {
+  const pos = (k: string) => {
+    const i = favoritos.indexOf(k);
+    return i < 0 ? Infinity : i;
+  };
+  return [...itens].sort((a, b) => pos(a.key) - pos(b.key));
+}
+
+const CHAVE_RECENTES = "preimpressao.recentes.v1";
+const chaveRecentes = (usuario?: string | null) => (usuario ? `${CHAVE_RECENTES}.${usuario}` : CHAVE_RECENTES);
+
+/** Últimas ferramentas abertas por este usuário neste computador (a mais recente primeiro). */
+export function lerRecentes(max = 3, usuario?: string | null): Ferramenta[] {
   try {
-    const keys = JSON.parse(window.localStorage.getItem(CHAVE_RECENTES) ?? "[]") as string[];
+    const keys = JSON.parse(window.localStorage.getItem(chaveRecentes(usuario)) ?? "[]") as string[];
     return keys.map((k) => FERRAMENTAS.find((f) => f.key === k)).filter((f): f is Ferramenta => !!f).slice(0, max);
   } catch {
     return [];
   }
 }
 
-export function marcarRecente(key: string) {
+export function marcarRecente(key: string, usuario?: string | null) {
   try {
-    const keys = (JSON.parse(window.localStorage.getItem(CHAVE_RECENTES) ?? "[]") as string[]).filter((k) => k !== key);
-    window.localStorage.setItem(CHAVE_RECENTES, JSON.stringify([key, ...keys].slice(0, 6)));
+    const c = chaveRecentes(usuario);
+    const keys = (JSON.parse(window.localStorage.getItem(c) ?? "[]") as string[]).filter((k) => k !== key);
+    window.localStorage.setItem(c, JSON.stringify([key, ...keys].slice(0, 6)));
   } catch {
     /* navegador sem localStorage */
   }
