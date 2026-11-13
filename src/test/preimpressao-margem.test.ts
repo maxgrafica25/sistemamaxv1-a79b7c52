@@ -316,37 +316,49 @@ describe("número do pedido no acabamento", () => {
     expect(textoDoPedido("x.pdf", "a".repeat(100), "digitado")).toHaveLength(40);
   });
 
-  it("banner: fica no meio da área a mais de cima; esquerda/direita respeitam 1 cm", () => {
+  it("banner: canto de cima da área a mais, a 2 cm das bordas, de cabeça para baixo", () => {
     const m = margensPara("banner", 10);
     const mPt = { top: m.top * PT_POR_CM, bottom: m.bottom * PT_POR_CM, left: 0, right: 0 };
-    const W = 80 * PT_POR_CM;
-    const H = 140 * PT_POR_CM;
-    const c = posicaoDoPedido(W, H, mPt, 30, 5, "centro", PT_POR_CM);
-    expect(c?.rot).toBe(0);
-    expect(c?.x).toBeCloseTo((W - 30) / 2, 3);
-    expect(c?.y).toBeGreaterThan(H - mPt.top);
-    expect(c?.y).toBeLessThan(H);
-    expect(posicaoDoPedido(W, H, mPt, 30, 5, "esquerda", PT_POR_CM)?.x).toBeCloseTo(PT_POR_CM, 3);
-    expect(posicaoDoPedido(W, H, mPt, 30, 5, "direita", PT_POR_CM)?.x).toBeCloseTo(W - PT_POR_CM - 30, 3);
+    const W = 160 * PT_POR_CM;
+    const H = 200 * PT_POR_CM;
+    const e = posicaoDoPedido(W, H, mPt, 30, 5, "esquerda", PT_POR_CM)!;
+    expect(e.rot).toBe(180);
+    // girado 180°: a origem é a ponta direita do texto; o texto ocupa de 2 cm até 2 cm + 30 pt
+    expect(e.x).toBeCloseTo(2 * PT_POR_CM + 30, 3);
+    expect(e.y).toBeCloseTo(H - 2 * PT_POR_CM, 3);
+    const d = posicaoDoPedido(W, H, mPt, 30, 5, "direita", PT_POR_CM)!;
+    expect(d.rot).toBe(180);
+    expect(d.x).toBeCloseTo(W - 2 * PT_POR_CM, 3);
+    expect(d.y).toBeCloseTo(H - 2 * PT_POR_CM, 3);
   });
 
-  it("faixa (sem área em cima): lateral esquerda, de baixo para cima, perto do topo; sem espaço = null", () => {
+  it("área a mais pequena: a distância diminui para o texto caber; sem espaço = null", () => {
+    const p = posicaoDoPedido(1000, 1000, { top: 40, bottom: 40, left: 0, right: 0 }, 30, 5, "esquerda", PT_POR_CM)!;
+    expect(p.y).toBeGreaterThan(1000 - 40);
+    expect(p.y).toBeLessThan(1000);
+    expect(posicaoDoPedido(200, 200, { top: 2, bottom: 2, left: 0, right: 0 }, 30, 5, "esquerda", 28)).toBeNull();
+    expect(espacoParaPedido(margensPara("banner", 10), 5)).toBe(true);
+    expect(espacoParaPedido(margensPara("banner", 0.1), 5)).toBe(false);
+    expect(espacoParaPedido(margensPara("faixa", 5), 5)).toBe(true);
+  });
+
+  it("faixa (sem área em cima): lateral correspondente, a 2 cm do topo, lido de cima para baixo", () => {
     const m = margensPara("faixa", 10);
     const mPt = { top: 0, bottom: 0, left: m.left * PT_POR_CM, right: m.right * PT_POR_CM };
     const W = 520 * PT_POR_CM;
     const H = 80 * PT_POR_CM;
-    const p = posicaoDoPedido(W, H, mPt, 40, 5, "centro", PT_POR_CM);
-    expect(p?.rot).toBe(90);
-    expect(p!.x).toBeLessThan(mPt.left);
-    expect(p!.y + 40).toBeCloseTo(H - PT_POR_CM, 3);
-    expect(posicaoDoPedido(200, 200, { top: 0.1, bottom: 0.1, left: 0, right: 0 }, 30, 5, "centro", 28)).toBeNull();
-    expect(espacoParaPedido(margensPara("banner", 10), 5)).toBe(true);
-    expect(espacoParaPedido(margensPara("banner", 0.2), 5)).toBe(false);
-    expect(espacoParaPedido(margensPara("faixa", 5), 5)).toBe(true);
+    const e = posicaoDoPedido(W, H, mPt, 40, 5, "esquerda", PT_POR_CM)!;
+    expect(e.rot).toBe(270);
+    expect(e.x).toBeCloseTo(2 * PT_POR_CM, 3);
+    expect(e.y).toBeCloseTo(H - 2 * PT_POR_CM, 3);
+    const d = posicaoDoPedido(W, H, mPt, 40, 5, "direita", PT_POR_CM)!;
+    expect(d.rot).toBe(270);
+    expect(d.x).toBeGreaterThan(W - mPt.right);
+    expect(d.x).toBeLessThan(W);
   });
 
   it("PDF e imagem em PDF recebem o texto em cinza 50% (K 0,5) dentro da área a mais", async () => {
-    const pedido = { texto: "PED 4521", tamPt: 5, lado: "centro" as const };
+    const pedido = { texto: "PED 4521", tamPt: 5, lado: "esquerda" as const };
     const r = await processarPdf(await pdfCom(80, 120), margensPara("banner", 10), null, pedido);
     const p = (await PDFDocument.load(r.bytes)).getPage(0);
     const c = conteudoPagina(p);

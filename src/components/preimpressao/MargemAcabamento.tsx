@@ -56,7 +56,7 @@ interface Config {
 }
 
 const CONFIG_KEY = "preimpressao.margem-acabamento.config.v1";
-const CONFIG_PADRAO: Config = { peca: "banner", cm: "10", saida: "mesmo", ilhos: false, ilhosEspaco: "30", ilhosRecuo: "2,5", pedido: false, pedidoFonte: "digitado", pedidoTam: String(PEDIDO_TAM_PADRAO_PT), pedidoLado: "centro" };
+const CONFIG_PADRAO: Config = { peca: "banner", cm: "10", saida: "mesmo", ilhos: false, ilhosEspaco: "30", ilhosRecuo: "2,5", pedido: false, pedidoFonte: "digitado", pedidoTam: String(PEDIDO_TAM_PADRAO_PT), pedidoLado: "esquerda" };
 
 function lerConfig(): Config {
   try {
@@ -73,7 +73,7 @@ function lerConfig(): Config {
       pedido: c.pedido === true,
       pedidoFonte: c.pedidoFonte === "nome" || c.pedidoFonte === "numero" ? c.pedidoFonte : "digitado",
       pedidoTam: typeof c.pedidoTam === "string" && c.pedidoTam.trim() ? c.pedidoTam : CONFIG_PADRAO.pedidoTam,
-      pedidoLado: c.pedidoLado === "esquerda" || c.pedidoLado === "direita" ? c.pedidoLado : "centro",
+      pedidoLado: c.pedidoLado === "direita" ? "direita" : "esquerda",
     };
   } catch {
     return CONFIG_PADRAO;
@@ -469,7 +469,7 @@ export default function MargemAcabamento() {
         <div className="space-y-3">
           <Chave ligado={config.pedido} onChange={(v) => setConfig((c) => ({ ...c, pedido: v }))}>
             <span className="font-medium">Número do pedido no acabamento</span>
-            <span className="block text-xs text-muted-foreground">Bem pequeno, em cinza 50%, na área a mais (atrás do banner), para a expedição achar o banner certo.</span>
+            <span className="block text-xs text-muted-foreground">Bem pequeno, em cinza 50%, de cabeça para baixo, no canto da área a mais (atrás do banner), a 2 cm das bordas, para a expedição achar o banner certo.</span>
           </Chave>
           {config.pedido && (
             <div className="space-y-3">
@@ -495,15 +495,14 @@ export default function MargemAcabamento() {
                   <Segmentado
                     valor={config.pedidoLado}
                     opcoes={[
-                      { valor: "esquerda" as LadoPedido, rotulo: "Esq." },
-                      { valor: "centro" as LadoPedido, rotulo: "Meio" },
-                      { valor: "direita" as LadoPedido, rotulo: "Dir." },
+                      { valor: "esquerda" as LadoPedido, rotulo: "Canto esq." },
+                      { valor: "direita" as LadoPedido, rotulo: "Canto dir." },
                     ]}
                     onChange={(v: LadoPedido) => setConfig((c) => ({ ...c, pedidoLado: v }))}
                   />
                 </div>
               </div>
-              {config.peca === "faixa" && <p className="text-xs text-muted-foreground">Na faixa não há área em cima: o número vai na lateral esquerda, de baixo para cima, perto do topo.</p>}
+              {config.peca === "faixa" && <p className="text-xs text-muted-foreground">Na faixa não há área em cima: o número vai na lateral (a 2 cm do topo e da borda), lido de cima para baixo.</p>}
             </div>
           )}
         </div>
@@ -654,14 +653,14 @@ function PreviaMargem({ peca, cm, ilhos, pedido }: { peca: Peca; cm: number | nu
           posicoesIlhos(arte.w, arte.h, 26, 7).map((p, i) => (
             <circle key={i} cx={x0 + ml + p.x} cy={y0 + mt + p.y} r="2.2" fill="#fff" stroke="#111" strokeWidth="0.7" style={t} />
           ))}
-        {/* número do pedido: bem pequeno, cinza, na área a mais de cima (faixa: na lateral) */}
+        {/* número do pedido: bem pequeno, cinza, de cabeça para baixo, no canto da área a mais de cima (faixa: na lateral) */}
         {pedido &&
           (mt > 0 ? (
-            <text x={100} y={y0 + mt / 2 + 1.5} textAnchor="middle" fontSize="4" fill="#808080" style={t}>
+            <text transform={`translate(${x0 + 6} ${y0 + 8}) rotate(180)`} textAnchor="end" fontSize="4" fill="#808080" style={t}>
               Pedido 12345
             </text>
           ) : (
-            <text transform={`translate(${x0 + ml / 2 + 1.5} ${y0 + H - 6}) rotate(-90)`} fontSize="4" fill="#808080" style={t}>
+            <text transform={`translate(${x0 + 6} ${y0 + 6}) rotate(90)`} fontSize="4" fill="#808080" style={t}>
               Pedido 12345
             </text>
           ))}
@@ -730,6 +729,7 @@ function LinhaArquivo({
   const info = item.info;
   const larguraArquivo = info?.dpi ? (info.larguraPx / info.dpi) * 2.54 : null;
   const [antes, depois] = item.medidas ? item.medidas.split(" → ") : [];
+  const [corrigindo, setCorrigindo] = useState(false);
   return (
     <li className="group flex flex-wrap sm:flex-nowrap items-start gap-3 sm:gap-4 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
       <div
@@ -786,24 +786,49 @@ function LinhaArquivo({
           </label>
         )}
         {imagem && info && (
-          <label className="flex w-fit items-center gap-2 pt-1 text-xs text-muted-foreground">
-            {info.dpi ? "Corrigir largura real" : "Largura real do banner"}
-            <span
-              className={cn(
-                "flex h-8 items-center rounded-full bg-muted/60 pr-3 ring-1 ring-transparent focus-within:ring-primary/40",
-                item.status === "falta_medida" && "ring-amber-500",
-              )}
-            >
-              <Input
-                inputMode="decimal"
-                className="h-8 w-20 border-0 bg-transparent text-center text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                placeholder={larguraArquivo ? larguraArquivo.toFixed(1).replace(".", ",") : "ex.: 90"}
-                value={item.larguraCm}
-                onChange={(e) => onLargura(e.target.value)}
-              />
-              cm
-            </span>
-          </label>
+          <div className="pt-1 text-xs text-muted-foreground">
+            {info.dpi && !corrigindo && !item.larguraCm.trim() ? (
+              <p className="flex flex-wrap items-center gap-x-2">
+                <span>
+                  Largura lida do arquivo: <span className="font-medium text-foreground">{larguraArquivo ? larguraArquivo.toFixed(1).replace(".", ",").replace(",0", "") : "?"} cm</span>
+                </span>
+                <button type="button" className="rounded-full px-2 py-0.5 text-primary underline-offset-2 hover:underline" onClick={() => setCorrigindo(true)}>
+                  Está errada? Corrigir
+                </button>
+              </p>
+            ) : (
+              <label className="flex w-fit flex-wrap items-center gap-2">
+                {info.dpi ? "Largura real do banner (para corrigir)" : "Largura real do banner"}
+                <span
+                  className={cn(
+                    "flex h-8 items-center rounded-full bg-muted/60 pr-3 ring-1 ring-transparent focus-within:ring-primary/40",
+                    item.status === "falta_medida" && "ring-amber-500",
+                  )}
+                >
+                  <Input
+                    inputMode="decimal"
+                    className="h-8 w-20 border-0 bg-transparent text-center text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    placeholder={larguraArquivo ? larguraArquivo.toFixed(1).replace(".", ",") : "ex.: 90"}
+                    value={item.larguraCm}
+                    onChange={(e) => onLargura(e.target.value)}
+                  />
+                  cm
+                </span>
+                {info.dpi && (
+                  <button
+                    type="button"
+                    className="rounded-full px-2 py-0.5 text-primary underline-offset-2 hover:underline"
+                    onClick={() => {
+                      onLargura("");
+                      setCorrigindo(false);
+                    }}
+                  >
+                    Usar a do arquivo
+                  </button>
+                )}
+              </label>
+            )}
+          </div>
         )}
       </div>
 
