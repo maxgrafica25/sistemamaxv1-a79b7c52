@@ -47,9 +47,16 @@ export const POLAROIDS: Record<TamanhoPolaroid, MedidasPolaroid> = {
 /** Proporção (largura ÷ altura) da janela da foto. */
 export const aspectoPolaroid = (t: TamanhoPolaroid) => POLAROIDS[t].foto.w / POLAROIDS[t].foto.h;
 
-// ─── Folha A4 ───────────────────────────────────────────────────────
+// ─── Folha ──────────────────────────────────────────────────────────
 
-export const A4 = { w: 210, h: 297 };
+export type PapelFolha = "a4" | "a3" | "sra3" | "formatao";
+
+export const PAPEIS: Record<PapelFolha, { nome: string; w: number; h: number }> = {
+  a4: { nome: "A4", w: 210, h: 297 },
+  a3: { nome: "A3", w: 297, h: 420 },
+  sra3: { nome: "SRA3", w: 320, h: 450 },
+  formatao: { nome: "Formatão", w: 328, h: 478 },
+};
 const MARGEM = 8;
 const ESPACO = 6;
 
@@ -68,12 +75,13 @@ export interface PlanoFolha {
   espaco: number;
 }
 
-/** Quantas cabem na A4 (em pé ou deitadas, o que render mais) e onde ficam. */
-export function planejarFolha(t: TamanhoPolaroid): PlanoFolha {
+/** Quantas cabem na folha (em pé ou deitadas, o que render mais) e onde ficam. */
+export function planejarFolha(t: TamanhoPolaroid, papel: PapelFolha = "a4"): PlanoFolha {
   const m = POLAROIDS[t];
+  const P = PAPEIS[papel];
   const calc = (pw: number, ph: number) => {
-    const cols = Math.max(0, Math.floor((A4.w - 2 * MARGEM + ESPACO) / (pw + ESPACO)));
-    const linhas = Math.max(0, Math.floor((A4.h - 2 * MARGEM + ESPACO) / (ph + ESPACO)));
+    const cols = Math.max(0, Math.floor((P.w - 2 * MARGEM + ESPACO) / (pw + ESPACO)));
+    const linhas = Math.max(0, Math.floor((P.h - 2 * MARGEM + ESPACO) / (ph + ESPACO)));
     return { cols, linhas, n: cols * linhas, pw, ph };
   };
   const a = calc(m.w, m.h);
@@ -82,7 +90,7 @@ export function planejarFolha(t: TamanhoPolaroid): PlanoFolha {
   const r = girada ? b : a;
   const gridW = r.cols * r.pw + (r.cols - 1) * ESPACO;
   const gridH = r.linhas * r.ph + (r.linhas - 1) * ESPACO;
-  return { cols: r.cols, linhas: r.linhas, girada, porFolha: r.n, pecaW: r.pw, pecaH: r.ph, x0: (A4.w - gridW) / 2, y0: (A4.h - gridH) / 2, espaco: ESPACO };
+  return { cols: r.cols, linhas: r.linhas, girada, porFolha: r.n, pecaW: r.pw, pecaH: r.ph, x0: (P.w - gridW) / 2, y0: (P.h - gridH) / 2, espaco: ESPACO };
 }
 
 export interface ResumoFolhas {
@@ -93,8 +101,8 @@ export interface ResumoFolhas {
   sobram: number;
 }
 
-export function resumoDeFolhas(t: TamanhoPolaroid, pecas: number): ResumoFolhas {
-  const pf = planejarFolha(t).porFolha;
+export function resumoDeFolhas(t: TamanhoPolaroid, pecas: number, papel: PapelFolha = "a4"): ResumoFolhas {
+  const pf = planejarFolha(t, papel).porFolha;
   if (!pf || !pecas) return { pecas, folhas: 0, porFolha: pf, sobram: 0 };
   const folhas = Math.ceil(pecas / pf);
   return { pecas, folhas, porFolha: pf, sobram: folhas * pf - pecas };
@@ -102,10 +110,11 @@ export function resumoDeFolhas(t: TamanhoPolaroid, pecas: number): ResumoFolhas 
 
 // ─── Filtros de cor (sem depender do canvas: valem em qualquer navegador) ─
 
-export type FiltroFoto = "nenhum" | "pb" | "vintage" | "quente" | "frio" | "desbotado";
+export type FiltroFoto = "nenhum" | "melhorar" | "pb" | "vintage" | "quente" | "frio" | "desbotado";
 
 export const FILTROS: { valor: FiltroFoto; rotulo: string }[] = [
   { valor: "nenhum", rotulo: "Original" },
+  { valor: "melhorar", rotulo: "Melhorar" },
   { valor: "pb", rotulo: "Preto e branco" },
   { valor: "vintage", rotulo: "Vintage" },
   { valor: "quente", rotulo: "Quente" },
@@ -118,11 +127,48 @@ const c255 = (v: number) => (v < 0 ? 0 : v > 255 ? 255 : v);
 /** Aplica o filtro nos pixels (RGBA) no próprio vetor. `w` e `h` servem para a vinheta do Vintage. */
 export function aplicarFiltro(data: Uint8ClampedArray, filtro: FiltroFoto, w = 0, h = 0): void {
   if (filtro === "nenhum") return;
+  // "Melhorar": estica o contraste (1% mais escuro e 1% mais claro viram preto e branco) e dá um leve toque de cor
+  let lo = 0;
+  let hi = 255;
+  if (filtro === "melhorar") {
+    const hist = new Array<number>(256).fill(0);
+    for (let i = 0; i < data.length; i += 4) hist[Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2])]++;
+    const n = data.length / 4;
+    let acc = 0;
+    for (let v = 0; v < 256; v++) {
+      acc += hist[v];
+      if (acc >= n * 0.01) {
+        lo = v;
+        break;
+      }
+    }
+    acc = 0;
+    for (let v = 255; v >= 0; v--) {
+      acc += hist[v];
+      if (acc >= n * 0.01) {
+        hi = v;
+        break;
+      }
+    }
+    if (hi - lo < 40) {
+      lo = 0;
+      hi = 255;
+    }
+  }
   for (let i = 0; i < data.length; i += 4) {
     let r = data[i];
     let g = data[i + 1];
     let b = data[i + 2];
-    if (filtro === "pb") {
+    if (filtro === "melhorar") {
+      const k = 255 / (hi - lo);
+      r = (r - lo) * k;
+      g = (g - lo) * k;
+      b = (b - lo) * k;
+      const l = 0.299 * r + 0.587 * g + 0.114 * b;
+      r = l + (r - l) * 1.08;
+      g = l + (g - l) * 1.08;
+      b = l + (b - l) * 1.08;
+    } else if (filtro === "pb") {
       const l = 0.299 * r + 0.587 * g + 0.114 * b;
       r = g = b = (l - 128) * 1.08 + 128;
     } else if (filtro === "quente") {
@@ -171,8 +217,48 @@ export interface VersoPolaroid {
   qr: string;
 }
 
+export type TipoAdesivo = "coracao" | "estrela" | "brilho" | "carinha" | "flor" | "lua" | "fita";
+
+export const ADESIVOS: { tipo: TipoAdesivo; rotulo: string }[] = [
+  { tipo: "coracao", rotulo: "Coração" },
+  { tipo: "estrela", rotulo: "Estrela" },
+  { tipo: "brilho", rotulo: "Brilho" },
+  { tipo: "carinha", rotulo: "Carinha" },
+  { tipo: "flor", rotulo: "Flor" },
+  { tipo: "lua", rotulo: "Lua" },
+  { tipo: "fita", rotulo: "Fita" },
+];
+
+/** Adesivo colocado em cada polaroid (a posição vale para todas). */
+export interface Adesivo {
+  id: string;
+  tipo: TipoAdesivo;
+  /** Centro, em % da largura e da altura da polaroid. */
+  x: number;
+  y: number;
+  /** Tamanho (largura) em mm. */
+  tam: number;
+  cor: string;
+  /** Giro em graus. */
+  giro: number;
+}
+
+export const MAX_ADESIVOS = 8;
+
+export const CORES_ADESIVO = [
+  { nome: "Vermelho", hex: "#e11d48" },
+  { nome: "Laranja", hex: "#f59e0b" },
+  { nome: "Amarelo", hex: "#facc15" },
+  { nome: "Verde", hex: "#22c55e" },
+  { nome: "Azul", hex: "#3b82f6" },
+  { nome: "Rosa", hex: "#ec4899" },
+  { nome: "Preto", hex: "#1f2937" },
+];
+
 export interface ConfigPolaroid {
   tamanho: TamanhoPolaroid;
+  papel: PapelFolha;
+  adesivos: Adesivo[];
   moldura: string;
   filtro: FiltroFoto;
   /** Legenda para quem não tem a sua. */
@@ -187,6 +273,8 @@ export interface ConfigPolaroid {
 
 export const configPolaroidPadrao: ConfigPolaroid = {
   tamanho: "classica",
+  papel: "a4",
+  adesivos: [],
   moldura: "#ffffff",
   filtro: "nenhum",
   legendaPadrao: "",
@@ -212,7 +300,12 @@ export interface ItemPolaroid {
   arquivo: string;
   qtd: number;
   legenda: string;
+  /** Filtro só desta foto; ausente ou "padrao" = o filtro geral. */
+  filtro?: FiltroFoto | "padrao";
 }
+
+/** Filtro que vale para um item (o dele ou o geral). */
+export const filtroDoItem = (i: Pick<ItemPolaroid, "filtro">, geral: FiltroFoto): FiltroFoto => (i.filtro && i.filtro !== "padrao" ? i.filtro : geral);
 
 export const MAX_PECAS = 600;
 export const MAX_COPIAS = 99;
@@ -351,19 +444,54 @@ function desenharQr(page: PDFPage, url: string, cx: number, cy: number, tam: num
   }
 }
 
-/** Gera o PDF A4 com as polaroids (e, se ligado, o verso de cada folha logo depois dela). */
-export async function gerarPolaroids(e: EntradaPolaroid): Promise<PolaroidsGeradas> {
+/** Desenha um adesivo (coordenadas locais da polaroid, em pontos). */
+function desenharAdesivo(page: PDFPage, a: Adesivo, pw: number, ph: number) {
+  const cx = (pw * a.x) / 100;
+  const cy = ph - (ph * a.y) / 100;
+  const R = mmPt(a.tam) / 2;
+  const cor = corParaRgb(a.cor);
+  const g = (a.giro * Math.PI) / 180;
+  page.pushOperators(pushGraphicsState(), concatTransformationMatrix(Math.cos(g), Math.sin(g), -Math.sin(g), Math.cos(g), cx, cy));
+  const preenche = (d: string, c = cor) => page.drawSvgPath(d, { x: 0, y: 0, scale: R, color: c, borderWidth: 0 });
+  if (a.tipo === "coracao") preenche("M 0 -0.35 C -0.5 -1 -1.25 -0.05 0 0.95 C 1.25 -0.05 0.5 -1 0 -0.35 Z");
+  else if (a.tipo === "estrela") {
+    const pts = Array.from({ length: 10 }, (_, i) => {
+      const t = ((-90 + i * 36) * Math.PI) / 180;
+      const r = i % 2 === 0 ? 1 : 0.45;
+      return `${(Math.cos(t) * r).toFixed(3)} ${(Math.sin(t) * r).toFixed(3)}`;
+    });
+    preenche(`M ${pts.join(" L ")} Z`);
+  } else if (a.tipo === "brilho") preenche("M 0 -1 C 0.12 -0.3 0.3 -0.12 1 0 C 0.3 0.12 0.12 0.3 0 1 C -0.12 0.3 -0.3 0.12 -1 0 C -0.3 -0.12 -0.12 -0.3 0 -1 Z");
+  else if (a.tipo === "lua") preenche("M 0.25 -1 A 1 1 0 1 0 0.25 1 A 0.72 0.72 0 1 1 0.25 -1 Z");
+  else if (a.tipo === "flor") {
+    for (let i = 0; i < 5; i++) {
+      const t = ((-90 + i * 72) * Math.PI) / 180;
+      page.drawCircle({ x: Math.cos(t) * R * 0.52, y: -Math.sin(t) * R * 0.52, size: R * 0.46, color: cor });
+    }
+    page.drawCircle({ x: 0, y: 0, size: R * 0.3, color: rgb(1, 0.85, 0.2) });
+  } else if (a.tipo === "carinha") {
+    page.drawCircle({ x: 0, y: 0, size: R, color: rgb(1, 0.83, 0.25) });
+    page.drawCircle({ x: -R * 0.34, y: R * 0.2, size: R * 0.12, color: rgb(0.2, 0.15, 0.1) });
+    page.drawCircle({ x: R * 0.34, y: R * 0.2, size: R * 0.12, color: rgb(0.2, 0.15, 0.1) });
+    page.drawSvgPath("M -0.52 0.12 Q 0 0.85 0.52 0.12", { x: 0, y: 0, scale: R, borderColor: rgb(0.2, 0.15, 0.1), borderWidth: 0.12, borderLineCap: 1 });
+  } else {
+    // fita adesiva: retângulo translúcido
+    page.drawRectangle({ x: -R, y: -R * 0.3, width: R * 2, height: R * 0.6, color: cor, opacity: 0.75, borderWidth: 0 });
+  }
+  page.pushOperators(popGraphicsState());
+}
+
+interface Desenhista {
+  pw: number;
+  ph: number;
+  frente: (page: PDFPage, p: ItemPolaroid) => void;
+  verso: (page: PDFPage) => void;
+  embutir: (p: ItemPolaroid) => Promise<void>;
+}
+
+async function criarDesenhista(doc: PDFDocument, e: EntradaPolaroid): Promise<Desenhista> {
   const { cfg } = e;
   const med = POLAROIDS[cfg.tamanho];
-  const plano = planejarFolha(cfg.tamanho);
-  const avisos: string[] = [];
-  const pecas: ItemPolaroid[] = [];
-  for (const i of e.itens) for (let c = 0; c < Math.min(MAX_COPIAS, Math.max(1, i.qtd)); c++) pecas.push(i);
-  if (pecas.length > MAX_PECAS) {
-    avisos.push(`Passou de ${MAX_PECAS} polaroids: só as primeiras ${MAX_PECAS} entram no PDF.`);
-    pecas.length = MAX_PECAS;
-  }
-  const doc = await PDFDocument.create();
   const { fonte, k } = await criarFonteManuscrita(doc, e.fonte);
   const negrito = await doc.embedFont(StandardFonts.HelveticaBold);
   const imagens = new Map<string, PDFImage>();
@@ -372,24 +500,14 @@ export async function gerarPolaroids(e: EntradaPolaroid): Promise<PolaroidsGerad
   const corMoldura = corParaRgb(cfg.moldura);
   const escuro = !ehClara(cfg.moldura);
   const corTexto = escuro ? rgb(0.95, 0.95, 0.95) : rgb(0.17, 0.17, 0.2);
-  const rot: 0 | 90 = plano.girada ? 90 : 0;
-  const posicao = (k: number, espelhar: boolean) => {
-    const c0 = k % plano.cols;
-    const c = espelhar ? plano.cols - 1 - c0 : c0;
-    const l = Math.floor(k / plano.cols);
-    const x = plano.x0 + c * (plano.pecaW + plano.espaco);
-    const y = plano.y0 + l * (plano.pecaH + plano.espaco);
-    return { bx: mmPt(x), by: mmPt(A4.h - y - plano.pecaH) };
-  };
 
   const frente = (page: PDFPage, p: ItemPolaroid) => {
     page.drawRectangle({ x: 0, y: 0, width: pw, height: ph, color: corMoldura });
     const fx = mmPt(med.lado);
     const fy = ph - mmPt(med.topo) - mmPt(med.foto.h);
-    const img = e.fotos.get(p.id);
-    if (img) page.drawImage(imagens.get(p.id) as PDFImage, { x: fx, y: fy, width: mmPt(med.foto.w), height: mmPt(med.foto.h) });
+    const img = imagens.get(p.id);
+    if (img) page.drawImage(img, { x: fx, y: fy, width: mmPt(med.foto.w), height: mmPt(med.foto.h) });
     else page.drawRectangle({ x: fx, y: fy, width: mmPt(med.foto.w), height: mmPt(med.foto.h), color: rgb(0.85, 0.86, 0.88) });
-    // área de baixo
     const baixo = fy; // altura da borda de baixo em pt
     const legenda = legendaDoItem(p, cfg);
     const cy = baixo / 2 + mmPt(0.5);
@@ -399,25 +517,16 @@ export async function gerarPolaroids(e: EntradaPolaroid): Promise<PolaroidsGerad
       const tam = 6.5;
       page.drawText(d, { x: pw - mmPt(med.lado) - negrito.widthOfTextAtSize(d, tam), y: mmPt(2.6), size: tam, font: negrito, color: escuro ? rgb(0.8, 0.8, 0.8) : rgb(0.45, 0.45, 0.5) });
     }
-    // enfeites
+    // enfeite simples (um só, sempre no mesmo lugar)
     if (cfg.enfeite === "fita") {
       const fw = mmPt(24);
       const fh = mmPt(7);
       page.drawRectangle({ x: pw / 2 - fw / 2, y: ph - mmPt(3.5), width: fw, height: fh, color: rgb(0.99, 0.86, 0.45), opacity: 0.8, rotate: degrees(-3), borderWidth: 0 });
     } else if (cfg.enfeite === "coracao" || cfg.enfeite === "estrela") {
-      const R = mmPt(2.6);
-      const x = mmPt(med.lado) + R;
-      const y = baixo / 2;
-      if (cfg.enfeite === "coracao") page.drawSvgPath("M 0 -0.35 C -0.5 -1 -1.25 -0.05 0 0.95 C 1.25 -0.05 0.5 -1 0 -0.35 Z", { x, y: y + R * 0.1, scale: R, color: rgb(0.88, 0.11, 0.28), borderWidth: 0 });
-      else {
-        const pts = Array.from({ length: 10 }, (_, i) => {
-          const a = ((-90 + i * 36) * Math.PI) / 180;
-          const r = i % 2 === 0 ? 1 : 0.45;
-          return `${(Math.cos(a) * r).toFixed(3)} ${(Math.sin(a) * r).toFixed(3)}`;
-        });
-        page.drawSvgPath(`M ${pts.join(" L ")} Z`, { x, y, scale: R, color: rgb(0.96, 0.62, 0.04), borderWidth: 0 });
-      }
+      desenharAdesivo(page, { id: "e", tipo: cfg.enfeite, x: ((med.lado + 2.6) / med.w) * 100, y: 100 - (baixo / 2 / ph) * 100, tam: 5.2, cor: cfg.enfeite === "coracao" ? "#e11d48" : "#f59e0b", giro: 0 }, pw, ph);
     }
+    // adesivos escolhidos pela pessoa
+    for (const a of cfg.adesivos) desenharAdesivo(page, a, pw, ph);
   };
 
   const verso = (page: PDFPage) => {
@@ -430,26 +539,65 @@ export async function gerarPolaroids(e: EntradaPolaroid): Promise<PolaroidsGerad
     if (qr) desenharQr(page, qr, pw / 2, mmPt(7) + qrTam / 2, qrTam);
   };
 
+  const embutir = async (p: ItemPolaroid) => {
+    const img = e.fotos.get(p.id);
+    if (img && !imagens.has(p.id)) imagens.set(p.id, img.tipo === "jpg" ? await doc.embedJpg(img.bytes) : await doc.embedPng(img.bytes));
+  };
+
+  return { pw, ph, frente, verso, embutir };
+}
+
+/** PDF de uma polaroid só (página do tamanho dela, sem marcas): para editar os adesivos olhando uma peça grande. */
+export async function gerarPecaUnica(e: EntradaPolaroid, item: ItemPolaroid, lado: "frente" | "verso" = "frente"): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  const d = await criarDesenhista(doc, e);
+  await d.embutir(item);
+  const page = doc.addPage([d.pw, d.ph]);
+  if (lado === "frente") d.frente(page, item);
+  else d.verso(page);
+  return doc.save();
+}
+
+/** Gera o PDF com as polaroids na folha escolhida (e, se ligado, o verso de cada folha logo depois dela). */
+export async function gerarPolaroids(e: EntradaPolaroid): Promise<PolaroidsGeradas> {
+  const { cfg } = e;
+  const P = PAPEIS[cfg.papel];
+  const plano = planejarFolha(cfg.tamanho, cfg.papel);
+  const avisos: string[] = [];
+  const pecas: ItemPolaroid[] = [];
+  for (const i of e.itens) for (let c = 0; c < Math.min(MAX_COPIAS, Math.max(1, i.qtd)); c++) pecas.push(i);
+  if (pecas.length > MAX_PECAS) {
+    avisos.push(`Passou de ${MAX_PECAS} polaroids: só as primeiras ${MAX_PECAS} entram no PDF.`);
+    pecas.length = MAX_PECAS;
+  }
+  const doc = await PDFDocument.create();
+  const d = await criarDesenhista(doc, e);
+  const rot: 0 | 90 = plano.girada ? 90 : 0;
+  const posicao = (k: number, espelhar: boolean) => {
+    const c0 = k % plano.cols;
+    const c = espelhar ? plano.cols - 1 - c0 : c0;
+    const l = Math.floor(k / plano.cols);
+    const x = plano.x0 + c * (plano.pecaW + plano.espaco);
+    const y = plano.y0 + l * (plano.pecaH + plano.espaco);
+    return { bx: mmPt(x), by: mmPt(P.h - y - plano.pecaH) };
+  };
+
   let folhas = 0;
   for (let ini = 0; ini < pecas.length; ini += plano.porFolha) {
     const lote = pecas.slice(ini, ini + plano.porFolha);
-    // as fotos que ainda não foram embutidas
-    for (const p of lote) {
-      const img = e.fotos.get(p.id);
-      if (img && !imagens.has(p.id)) imagens.set(p.id, img.tipo === "jpg" ? await doc.embedJpg(img.bytes) : await doc.embedPng(img.bytes));
-    }
-    const page = doc.addPage([mmPt(A4.w), mmPt(A4.h)]);
+    for (const p of lote) await d.embutir(p);
+    const page = doc.addPage([mmPt(P.w), mmPt(P.h)]);
     lote.forEach((p, i) => {
       const { bx, by } = posicao(i, false);
-      naFolha(page, bx, by, pw, ph, rot, () => frente(page, p));
+      naFolha(page, bx, by, d.pw, d.ph, rot, () => d.frente(page, p));
       marcas(page, bx, by, mmPt(plano.pecaW), mmPt(plano.pecaH));
     });
     folhas++;
     if (cfg.verso.ativo && (cfg.verso.mensagem.trim() || cfg.verso.qr.trim())) {
-      const pv = doc.addPage([mmPt(A4.w), mmPt(A4.h)]);
+      const pv = doc.addPage([mmPt(P.w), mmPt(P.h)]);
       lote.forEach((_, i) => {
         const { bx, by } = posicao(i, true);
-        naFolha(pv, bx, by, pw, ph, rot === 90 ? -90 : 0, () => verso(pv));
+        naFolha(pv, bx, by, d.pw, d.ph, rot === 90 ? -90 : 0, () => d.verso(pv));
         marcas(pv, bx, by, mmPt(plano.pecaW), mmPt(plano.pecaH));
       });
     }
@@ -476,8 +624,8 @@ export function conferirPolaroids(e: EntradaConferenciaPolaroid): ItemConferenci
   const med = POLAROIDS[e.cfg.tamanho];
   if (!e.itens.length) return [{ nivel: "erro", texto: "Solte as fotos para ver a conferência." }];
   const total = e.itens.reduce((a, i) => a + i.qtd, 0);
-  const r = resumoDeFolhas(e.cfg.tamanho, total);
-  out.push({ nivel: "ok", texto: `${total} polaroid(s) ${med.nome.toLowerCase()}(s) em ${r.folhas} folha(s) A4, ${r.porFolha} por folha${planejarFolha(e.cfg.tamanho).girada ? " (deitadas)" : ""}.` });
+  const r = resumoDeFolhas(e.cfg.tamanho, total, e.cfg.papel);
+  out.push({ nivel: "ok", texto: `${total} polaroid(s) ${med.nome.toLowerCase()}(s) em ${r.folhas} folha(s) ${PAPEIS[e.cfg.papel].nome}, ${r.porFolha} por folha${planejarFolha(e.cfg.tamanho, e.cfg.papel).girada ? " (deitadas)" : ""}.` });
   if (r.sobram > 0) out.push({ nivel: "atencao", texto: `Sobram ${r.sobram} lugar(es) vazio(s) na última folha. Use "Completar a folha" para aproveitar.` });
   if (total > MAX_PECAS) out.push({ nivel: "erro", texto: `Passou de ${MAX_PECAS} polaroids: o PDF só leva as primeiras ${MAX_PECAS}.` });
   const baixa: string[] = [];

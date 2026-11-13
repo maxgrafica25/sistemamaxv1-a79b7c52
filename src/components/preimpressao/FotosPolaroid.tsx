@@ -1,54 +1,51 @@
 // Pré-impressão → ferramenta "Fotos Polaroid".
-// Solta as fotos do cliente e o sistema monta polaroids (clássica, mini ou quadrada) em folhas A4, com
-// moldura colorida, legenda à mão, filtros, enfeites, verso com mensagem/QR e marcas de corte.
-// Tudo no navegador, sem custo.
+// Solta as fotos do cliente e o sistema monta polaroids (clássica, mini ou quadrada) em folhas A4, A3,
+// SRA3 ou Formatão, com moldura colorida, legenda à mão, filtros (geral ou por foto), adesivos que se
+// arrastam, verso com mensagem/QR e marcas de corte. Tudo no navegador, sem custo.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Check, Download, Loader2, Minus, Plus, X, XCircle } from "lucide-react";
+import { AlertTriangle, Check, Download, Loader2, Trash2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Imagem } from "@/lib/preimpressao/agenda";
-import { AJUSTE_PADRAO, type AjusteFoto } from "@/lib/preimpressao/cracha";
-import { ehImagem, lerFoto } from "@/lib/preimpressao/crachaNavegador";
+import { AJUSTE_PADRAO } from "@/lib/preimpressao/cracha";
 import { baixarBlob } from "@/lib/preimpressao/navegador";
 import {
+  ADESIVOS,
+  CORES_ADESIVO,
   FILTROS,
+  MAX_ADESIVOS,
   MAX_COPIAS,
   MOLDURAS,
+  PAPEIS,
   POLAROIDS,
   aspectoPolaroid,
   completarFolha,
-  configPolaroidPadrao,
   conferirPolaroids,
+  configPolaroidPadrao,
+  filtroDoItem,
+  gerarPecaUnica,
   gerarPolaroids,
   legendaDoItem,
   planejarFolha,
   resumoDeFolhas,
+  type Adesivo,
   type ConfigPolaroid,
   type Enfeite,
   type FiltroFoto,
   type FontePolaroid,
+  type PapelFolha,
   type PolaroidsGeradas,
   type TamanhoPolaroid,
+  type TipoAdesivo,
 } from "@/lib/preimpressao/polaroid";
 import { carregarFonteManuscrita, prepararFotoPolaroid } from "@/lib/preimpressao/polaroidNavegador";
 import { CrachaFotoAjuste } from "./CrachaFotoAjuste";
-import { Campo, Chave, DuasColunas, NotaPrivacidade, Painel, PreviaPdf, SeletorCor, Segmentado, SoltarArquivo } from "./ui";
+import { LinhaDeFoto } from "./ListaDeFotos";
+import { useListaDeFotos } from "./useListaDeFotos";
+import { PolaroidPrevia } from "./PolaroidPrevia";
+import { Campo, Chave, DuasColunas, NotaPrivacidade, Painel, Passo, Pilulas, PreviaPdf, SeletorCor, Segmentado, SoltarArquivo } from "./ui";
 import { useConfigSalva } from "./uteis";
-
-type FotoLida = Awaited<ReturnType<typeof lerFoto>>;
-
-interface ItemUI {
-  id: string;
-  foto: FotoLida;
-  url: string;
-  qtd: number;
-  legenda: string;
-  ajuste: AjusteFoto;
-}
-
-let seq = 0;
-const novoId = () => `f${Date.now().toString(36)}${(seq++).toString(36)}`;
 
 const ENFEITES: { valor: Enfeite; rotulo: string }[] = [
   { valor: "nenhum", rotulo: "Sem enfeite" },
@@ -57,77 +54,42 @@ const ENFEITES: { valor: Enfeite; rotulo: string }[] = [
   { valor: "estrela", rotulo: "Estrela" },
 ];
 
-function Pilulas<T extends string>({ valor, opcoes, onChange }: { valor: T; opcoes: { valor: T; rotulo: string }[]; onChange: (v: T) => void }) {
-  return (
-    <div className="flex flex-wrap gap-2" role="radiogroup">
-      {opcoes.map((o) => (
-        <button
-          key={o.valor}
-          type="button"
-          role="radio"
-          aria-checked={valor === o.valor}
-          onClick={() => onChange(o.valor)}
-          className={cn(
-            "rounded-full px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-            valor === o.valor ? "bg-foreground text-background" : "bg-muted/70 text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {o.rotulo}
-        </button>
-      ))}
-    </div>
-  );
-}
+let seqAdesivo = 0;
+const num = (v: string, atual: number, min: number, max: number) => {
+  const n = Number.parseFloat(v.replace(",", "."));
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : atual;
+};
 
 export default function FotosPolaroid() {
   const [cfg, set] = useConfigSalva<ConfigPolaroid>("preimpressao.polaroid.config.v1", configPolaroidPadrao);
-  const [itens, setItens] = useState<ItemUI[]>([]);
-  const [erroFotos, setErroFotos] = useState<string | null>(null);
+  const { itens, setItens, erro: erroFotos, receber, mudar, remover } = useListaDeFotos();
   const [ajustando, setAjustando] = useState<string | null>(null);
   const [fonte, setFonte] = useState<FontePolaroid | null>(null);
   const [recortes, setRecortes] = useState<Map<string, Imagem>>(new Map());
   const [pdf, setPdf] = useState<PolaroidsGeradas | null>(null);
+  const [peca, setPeca] = useState<Uint8Array | null>(null);
   const [gerando, setGerando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [pagina, setPagina] = useState(0);
+  const [aba, setAba] = useState<"folha" | "uma">("folha");
+  const [adSel, setAdSel] = useState<string | null>(null);
   const [qtdTodas, setQtdTodas] = useState(1);
   const cache = useRef(new Map<string, Imagem>());
-  const urls = useRef<string[]>([]);
 
   useEffect(() => {
     void carregarFonteManuscrita().then(setFonte);
-    const guardadas = urls.current;
-    return () => guardadas.forEach((u) => URL.revokeObjectURL(u));
   }, []);
+
+  // Configurações salvas antes dos adesivos e do papel não têm esses campos
+  const adesivos = useMemo(() => cfg.adesivos ?? [], [cfg.adesivos]);
+  const papel: PapelFolha = cfg.papel && PAPEIS[cfg.papel] ? cfg.papel : "a4";
+  const cfgOk = useMemo<ConfigPolaroid>(() => ({ ...cfg, adesivos, papel }), [cfg, adesivos, papel]);
 
   const aspecto = aspectoPolaroid(cfg.tamanho);
   const med = POLAROIDS[cfg.tamanho];
-  const plano = planejarFolha(cfg.tamanho);
+  const plano = planejarFolha(cfg.tamanho, papel);
   const total = itens.reduce((a, i) => a + i.qtd, 0);
-  const resumo = resumoDeFolhas(cfg.tamanho, total);
-
-  const receber = async (files: File[]) => {
-    const boas = files.filter((f) => ehImagem(f.name) || f.type.startsWith("image/"));
-    if (!boas.length) return setErroFotos("Envie fotos em JPG, PNG ou WebP.");
-    setErroFotos(null);
-    const novos: ItemUI[] = [];
-    let falhas = 0;
-    for (const f of boas) {
-      try {
-        const foto = await lerFoto(f);
-        const url = URL.createObjectURL(new Blob([foto.bytes], { type: foto.tipo || "image/jpeg" }));
-        urls.current.push(url);
-        novos.push({ id: novoId(), foto, url, qtd: 1, legenda: "", ajuste: AJUSTE_PADRAO });
-      } catch {
-        falhas++;
-      }
-    }
-    setItens((p) => [...p, ...novos]);
-    if (falhas) setErroFotos(`${falhas} arquivo(s) não abriram como foto.`);
-  };
-
-  const mudar = (id: string, p: Partial<ItemUI>) => setItens((prev) => prev.map((i) => (i.id === id ? { ...i, ...p } : i)));
-  const remover = (id: string) => setItens((prev) => prev.filter((i) => i.id !== id));
+  const resumo = resumoDeFolhas(cfg.tamanho, total, papel);
 
   // Recorte + filtro de cada foto (em cache)
   useEffect(() => {
@@ -135,11 +97,12 @@ export default function FotosPolaroid() {
     const t = setTimeout(async () => {
       const novo = new Map<string, Imagem>();
       for (const i of itens) {
-        const k = `${i.id}|${aspecto}|${cfg.filtro}|${i.ajuste.zoom}|${i.ajuste.x}|${i.ajuste.y}`;
+        const filtro = filtroDoItem(i, cfg.filtro);
+        const k = `${i.id}|${aspecto}|${filtro}|${i.ajuste.zoom}|${i.ajuste.x}|${i.ajuste.y}`;
         let img = cache.current.get(k);
         if (!img) {
           try {
-            img = await prepararFotoPolaroid(i.foto, aspecto, i.ajuste, cfg.filtro);
+            img = await prepararFotoPolaroid(i.foto, aspecto, i.ajuste, filtro);
           } catch {
             continue;
           }
@@ -156,7 +119,9 @@ export default function FotosPolaroid() {
     };
   }, [itens, aspecto, cfg.filtro]);
 
-  // PDF
+  const itensPdf = useMemo(() => itens.map((i) => ({ id: i.id, arquivo: i.foto.nome, qtd: i.qtd, legenda: i.legenda, filtro: i.filtro })), [itens]);
+
+  // PDF da folha
   useEffect(() => {
     if (!itens.length) {
       setPdf(null);
@@ -165,12 +130,7 @@ export default function FotosPolaroid() {
     let vivo = true;
     setGerando(true);
     const t = setTimeout(() => {
-      gerarPolaroids({
-        cfg,
-        itens: itens.map((i) => ({ id: i.id, arquivo: i.foto.nome, qtd: i.qtd, legenda: i.legenda })),
-        fotos: recortes,
-        fonte,
-      })
+      gerarPolaroids({ cfg: cfgOk, itens: itensPdf, fotos: recortes, fonte })
         .then((r) => {
           if (!vivo) return;
           setPdf(r);
@@ -183,11 +143,27 @@ export default function FotosPolaroid() {
       vivo = false;
       clearTimeout(t);
     };
-  }, [itens, cfg, recortes, fonte]);
+  }, [itens.length, itensPdf, cfgOk, recortes, fonte]);
+
+  // Uma polaroid grande (para colocar adesivos), com a 1ª foto ou uma moldura vazia
+  const modelo = useMemo(() => itensPdf[0] ?? { id: "demo", arquivo: "foto.jpg", qtd: 1, legenda: "" }, [itensPdf]);
+  useEffect(() => {
+    if (aba !== "uma") return;
+    let vivo = true;
+    const t = setTimeout(() => {
+      gerarPecaUnica({ cfg: cfgOk, itens: [modelo], fotos: recortes, fonte }, modelo)
+        .then((b) => vivo && setPeca(b))
+        .catch(() => vivo && setPeca(null));
+    }, 100);
+    return () => {
+      vivo = false;
+      clearTimeout(t);
+    };
+  }, [aba, cfgOk, modelo, recortes, fonte]);
 
   const conferencia = useMemo(
-    () => conferirPolaroids({ cfg, itens: itens.map((i) => ({ id: i.id, arquivo: i.foto.nome, qtd: i.qtd, legenda: i.legenda, w: i.foto.w, h: i.foto.h, zoom: i.ajuste.zoom })) }),
-    [cfg, itens],
+    () => conferirPolaroids({ cfg: cfgOk, itens: itens.map((i) => ({ id: i.id, arquivo: i.foto.nome, qtd: i.qtd, legenda: i.legenda, w: i.foto.w, h: i.foto.h, zoom: i.ajuste.zoom })) }),
+    [cfgOk, itens],
   );
 
   const comVerso = !!pdf && pdf.paginas > pdf.folhas;
@@ -199,15 +175,26 @@ export default function FotosPolaroid() {
     setItens((prev) => prev.map((i, k) => ({ ...i, qtd: Math.min(MAX_COPIAS, i.qtd + mais[k]) })));
   };
 
+  // Adesivos
+  const mudarAdesivo = (id: string, p: Partial<Adesivo>) => set("adesivos", adesivos.map((a) => (a.id === id ? { ...a, ...p } : a)));
+  const novoAdesivo = (tipo: TipoAdesivo) => {
+    if (adesivos.length >= MAX_ADESIVOS) return;
+    const a: Adesivo = { id: `ad${Date.now().toString(36)}${seqAdesivo++}`, tipo, x: 22 + ((adesivos.length * 17) % 56), y: 26 + ((adesivos.length * 13) % 40), tam: tipo === "fita" ? 22 : 11, cor: tipo === "fita" ? "#facc15" : "#e11d48", giro: tipo === "fita" ? -12 : 0 };
+    set("adesivos", [...adesivos, a]);
+    setAdSel(a.id);
+    setAba("uma");
+  };
+  const adesivoAtual = adesivos.find((a) => a.id === adSel);
+
   const esquerda = (
     <Painel className="space-y-5">
       <div>
         <h2 className="text-lg font-semibold">Fotos Polaroid</h2>
-        <p className="text-sm text-muted-foreground">Solte as fotos e o sistema monta as polaroids em folhas A4, já com marcas de corte.</p>
+        <p className="text-sm text-muted-foreground">Solte as fotos e o sistema monta as polaroids na folha, já com marcas de corte.</p>
       </div>
       <NotaPrivacidade />
 
-      <Campo titulo="1. Fotos" ajuda="Quantas quiser, de uma vez. Cada uma pode ter legenda, cópias e enquadramento próprios.">
+      <Campo titulo="1. Fotos" ajuda="Quantas quiser, de uma vez. Cada uma pode ter legenda, cópias, filtro e enquadramento próprios.">
         <SoltarArquivo
           titulo="Solte as fotos aqui"
           dica="JPG, PNG ou WebP"
@@ -223,40 +210,14 @@ export default function FotosPolaroid() {
         <>
           <div className="max-h-96 space-y-2 overflow-y-auto rounded-2xl bg-muted/40 p-2">
             {itens.map((i) => (
-              <div key={i.id} className="flex items-center gap-3 rounded-2xl bg-background p-2 ring-1 ring-border/60">
-                <img src={i.url} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-xs text-muted-foreground" title={i.foto.nome}>
-                      {i.foto.nome}
-                    </p>
-                    <button type="button" aria-label={`Remover ${i.foto.nome}`} className="text-muted-foreground hover:text-destructive" onClick={() => remover(i.id)}>
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <input
-                    value={i.legenda}
-                    onChange={(e) => mudar(i.id, { legenda: e.target.value.slice(0, 60) })}
-                    placeholder={legendaDoItem({ id: i.id, arquivo: i.foto.nome, qtd: 1, legenda: "" }, cfg) || "Legenda (opcional)"}
-                    aria-label={`Legenda de ${i.foto.nome}`}
-                    className="h-8 w-full rounded-full bg-muted/60 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                  />
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      <button type="button" aria-label="Menos uma cópia" className="flex h-7 w-7 items-center justify-center rounded-full bg-muted/70 hover:bg-muted" onClick={() => mudar(i.id, { qtd: Math.max(1, i.qtd - 1) })}>
-                        <Minus className="h-3.5 w-3.5" />
-                      </button>
-                      <span className="w-14 text-center text-sm font-semibold tabular-nums">{i.qtd} cópia{i.qtd > 1 ? "s" : ""}</span>
-                      <button type="button" aria-label="Mais uma cópia" className="flex h-7 w-7 items-center justify-center rounded-full bg-muted/70 hover:bg-muted" onClick={() => mudar(i.id, { qtd: Math.min(MAX_COPIAS, i.qtd + 1) })}>
-                        <Plus className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    <Button size="sm" variant="ghost" className="h-7 rounded-full px-3 text-xs" onClick={() => setAjustando(i.id)}>
-                      Enquadrar
-                    </Button>
-                  </div>
-                </div>
-              </div>
+              <LinhaDeFoto
+                key={i.id}
+                item={i}
+                placeholderLegenda={legendaDoItem({ id: i.id, arquivo: i.foto.nome, qtd: 1, legenda: "" }, cfg)}
+                onMudar={(p) => mudar(i.id, p)}
+                onRemover={() => remover(i.id)}
+                onEnquadrar={() => setAjustando(i.id)}
+              />
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -264,17 +225,11 @@ export default function FotosPolaroid() {
               Completar a folha{resumo.sobram ? ` (+${resumo.sobram})` : ""}
             </Button>
             <span className="text-xs text-muted-foreground">ou</span>
-            <div className="flex items-center gap-1">
-              <button type="button" aria-label="Menos" className="flex h-8 w-8 items-center justify-center rounded-full bg-muted/70" onClick={() => setQtdTodas((v) => Math.max(1, v - 1))}>
-                <Minus className="h-3.5 w-3.5" />
-              </button>
-              <span className="w-6 text-center text-sm font-semibold tabular-nums">{qtdTodas}</span>
-              <button type="button" aria-label="Mais" className="flex h-8 w-8 items-center justify-center rounded-full bg-muted/70" onClick={() => setQtdTodas((v) => Math.min(MAX_COPIAS, v + 1))}>
-                <Plus className="h-3.5 w-3.5" />
-              </button>
+            <div className="w-36">
+              <Passo valor={String(qtdTodas)} onChange={(v) => setQtdTodas(num(v, qtdTodas, 1, MAX_COPIAS))} min={1} max={MAX_COPIAS} rotulo="cópias de cada" largura="w-8" />
             </div>
             <Button size="sm" variant="secondary" className="rounded-full" onClick={() => setItens((p) => p.map((i) => ({ ...i, qtd: qtdTodas })))}>
-              Mesma quantidade em todas
+              Aplicar a todas
             </Button>
             <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setItens([])}>
               Limpar
@@ -283,23 +238,30 @@ export default function FotosPolaroid() {
         </>
       )}
 
-      <Campo titulo="2. Tamanho" ajuda={`${med.nome}: ${med.w} × ${med.h} mm, foto de ${med.foto.w} × ${med.foto.h} mm. Cabem ${plano.porFolha} por folha A4${plano.girada ? " (deitadas)" : ""}.`}>
-        <Segmentado
-          valor={cfg.tamanho}
-          opcoes={[
-            { valor: "classica" as const, rotulo: "Clássica" },
-            { valor: "mini" as const, rotulo: "Mini" },
-            { valor: "quadrada" as const, rotulo: "Quadrada" },
-          ]}
-          onChange={(v: TamanhoPolaroid) => set("tamanho", v)}
-        />
+      <Campo titulo="2. Tamanho e folha" ajuda={`${med.nome}: ${med.w} × ${med.h} mm, foto de ${med.foto.w} × ${med.foto.h} mm. Cabem ${plano.porFolha} por folha ${PAPEIS[papel].nome}${plano.girada ? " (deitadas)" : ""}.`}>
+        <div className="space-y-3">
+          <Segmentado
+            valor={cfg.tamanho}
+            opcoes={[
+              { valor: "classica" as const, rotulo: "Clássica" },
+              { valor: "mini" as const, rotulo: "Mini" },
+              { valor: "quadrada" as const, rotulo: "Quadrada" },
+            ]}
+            onChange={(v: TamanhoPolaroid) => set("tamanho", v)}
+          />
+          <Segmentado
+            valor={papel}
+            opcoes={(Object.keys(PAPEIS) as PapelFolha[]).map((k) => ({ valor: k, rotulo: PAPEIS[k].nome }))}
+            onChange={(v: PapelFolha) => set("papel", v)}
+          />
+        </div>
       </Campo>
 
       <Campo titulo="3. Moldura">
         <SeletorCor valor={cfg.moldura} sugestoes={MOLDURAS} onChange={(v) => set("moldura", v)} />
       </Campo>
 
-      <Campo titulo="4. Filtro nas fotos" ajuda="Vale para todas. Não muda o arquivo original.">
+      <Campo titulo="4. Filtro geral" ajuda="Vale para as fotos que não têm filtro próprio. Não muda o arquivo original.">
         <Pilulas valor={cfg.filtro} opcoes={FILTROS} onChange={(v: FiltroFoto) => set("filtro", v)} />
       </Campo>
 
@@ -327,7 +289,69 @@ export default function FotosPolaroid() {
         </div>
       </Campo>
 
-      <Campo titulo="6. Verso" ajuda="Mensagem e/ou QR Code atrás de cada polaroid. Imprima em frente e verso, virando pela borda longa: os lugares já saem espelhados.">
+      <Campo titulo="6. Adesivos" ajuda="Escolha um adesivo e arraste na polaroid ao lado. Eles saem em todas as polaroids, no mesmo lugar.">
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {ADESIVOS.map((a) => (
+              <Button key={a.tipo} size="sm" variant="secondary" className="rounded-full" onClick={() => novoAdesivo(a.tipo)} disabled={adesivos.length >= MAX_ADESIVOS}>
+                + {a.rotulo}
+              </Button>
+            ))}
+          </div>
+          {adesivos.length > 0 && (
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Adesivo escolhido">
+              {adesivos.map((a, n) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={adSel === a.id}
+                  onClick={() => {
+                    setAdSel(a.id);
+                    setAba("uma");
+                  }}
+                  className={cn("flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium", adSel === a.id ? "bg-foreground text-background" : "bg-muted/70 text-muted-foreground hover:text-foreground")}
+                >
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: a.cor }} />
+                  {ADESIVOS.find((x) => x.tipo === a.tipo)?.rotulo} {n + 1}
+                </button>
+              ))}
+            </div>
+          )}
+          {adesivoAtual && (
+            <div className="space-y-3 rounded-2xl bg-muted/40 p-3">
+              <div>
+                <p className="mb-1 text-xs text-muted-foreground">Tamanho</p>
+                <Passo valor={String(adesivoAtual.tam)} onChange={(v) => mudarAdesivo(adesivoAtual.id, { tam: num(v, adesivoAtual.tam, 4, 60) })} passo={1} min={4} max={60} sufixo="mm" rotulo="tamanho do adesivo" />
+              </div>
+              <div>
+                <p className="mb-1 text-xs text-muted-foreground">Giro</p>
+                <Passo valor={String(adesivoAtual.giro)} onChange={(v) => mudarAdesivo(adesivoAtual.id, { giro: num(v, adesivoAtual.giro, -180, 180) })} passo={15} min={-180} max={180} sufixo="°" rotulo="giro do adesivo" />
+              </div>
+              {adesivoAtual.tipo !== "carinha" && (
+                <div>
+                  <p className="mb-1 text-xs text-muted-foreground">Cor</p>
+                  <SeletorCor valor={adesivoAtual.cor} sugestoes={CORES_ADESIVO} onChange={(v) => mudarAdesivo(adesivoAtual.id, { cor: v })} />
+                </div>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="rounded-full text-destructive"
+                onClick={() => {
+                  set("adesivos", adesivos.filter((a) => a.id !== adesivoAtual.id));
+                  setAdSel(null);
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Tirar este adesivo
+              </Button>
+            </div>
+          )}
+        </div>
+      </Campo>
+
+      <Campo titulo="7. Verso" ajuda="Mensagem e/ou QR Code atrás de cada polaroid. Imprima em frente e verso, virando pela borda longa: os lugares já saem espelhados.">
         <div className="space-y-3">
           <Chave ligado={cfg.verso.ativo} onChange={(v) => set("verso", { ...cfg.verso, ativo: v })}>
             <span className="font-medium">Imprimir o verso</span>
@@ -359,19 +383,25 @@ export default function FotosPolaroid() {
   const direita = (
     <>
       <Painel className="space-y-4">
-        <PreviaPdf
-          bytes={pdf?.bytes ?? null}
-          paginas={pdf?.paginas ?? 0}
-          rotulos={rotulo}
-          pagina={pagina}
-          onPagina={setPagina}
-          ocupado={gerando}
-          vazio="Solte as fotos para ver as folhas"
+        <Segmentado
+          valor={aba}
+          opcoes={[
+            { valor: "folha" as const, rotulo: "Folha montada" },
+            { valor: "uma" as const, rotulo: "Uma polaroid (adesivos)" },
+          ]}
+          onChange={(v) => setAba(v)}
         />
-        {itens.length > 0 && (
-          <p className="text-center text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{total}</span> polaroid(s) em <span className="font-medium text-foreground">{resumo.folhas}</span> folha(s) A4 · {resumo.porFolha} por folha
-          </p>
+        {aba === "folha" ? (
+          <>
+            <PreviaPdf bytes={pdf?.bytes ?? null} paginas={pdf?.paginas ?? 0} rotulos={rotulo} pagina={pagina} onPagina={setPagina} ocupado={gerando} vazio="Solte as fotos para ver as folhas" />
+            {itens.length > 0 && (
+              <p className="text-center text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{total}</span> polaroid(s) em <span className="font-medium text-foreground">{resumo.folhas}</span> folha(s) {PAPEIS[papel].nome} · {resumo.porFolha} por folha
+              </p>
+            )}
+          </>
+        ) : (
+          <PolaroidPrevia bytes={peca} adesivos={adesivos} selecionado={adSel} onMover={(id, p) => mudarAdesivo(id, p)} ocupado={false} nome={modelo.arquivo} />
         )}
       </Painel>
 
@@ -397,7 +427,7 @@ export default function FotosPolaroid() {
       <Painel className="space-y-2 text-xs text-muted-foreground">
         <p className="font-medium text-foreground">Como imprimir</p>
         <ol className="list-decimal space-y-1 pl-4">
-          <li>Imprima em A4, tamanho real (100%), sem ajustar à página. Papel fotográfico ou couchê ficam melhores.</li>
+          <li>Imprima no tamanho real (100%), sem ajustar à página. Papel fotográfico ou couchê ficam melhores.</li>
           <li>Corte pelas marcas nos cantos de cada polaroid (guilhotina).</li>
           {cfg.verso.ativo && <li>Com verso: frente e verso, virando pela borda longa.</li>}
         </ol>

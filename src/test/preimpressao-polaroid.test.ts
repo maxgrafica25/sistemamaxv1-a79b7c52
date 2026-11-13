@@ -100,3 +100,38 @@ describe("caracteres que a fonte não tem", () => {
     expect(c.ids).toHaveLength(1);
   });
 });
+
+describe("papéis maiores, adesivos, filtro por foto e peça única", () => {
+  it("cabem mais em folhas maiores", () => {
+    expect(planejarFolha("classica", "a3").porFolha).toBeGreaterThan(planejarFolha("classica", "a4").porFolha);
+    expect(planejarFolha("classica", "sra3")).toMatchObject({ cols: 3 });
+    expect(resumoDeFolhas("mini", 16, "a3").folhas).toBe(1);
+    expect(resumoDeFolhas("mini", 20, "a3").folhas).toBe(2);
+  });
+  it("gera todos os tipos de adesivo, em papel A3, e a peça única", async () => {
+    const tipos = ["coracao", "estrela", "brilho", "carinha", "flor", "lua", "fita"] as const;
+    const adesivos = tipos.map((tipo, n) => ({ id: `a${n}`, tipo, x: 15 + n * 10, y: 20 + n * 8, tam: 10, cor: "#e11d48", giro: n * 15 }));
+    const cfg = { ...configPolaroidPadrao, papel: "a3" as const, adesivos };
+    const itens = [item(1, 2)];
+    const fotos = new Map([["i1", img]]);
+    const r = await gerarPolaroids({ cfg, itens, fotos });
+    const doc = await PDFDocument.load(r.bytes);
+    expect(doc.getPage(0).getWidth()).toBeCloseTo(297 * PT_POR_MM, 1);
+    const { gerarPecaUnica } = await import("@/lib/preimpressao/polaroid");
+    const um = await PDFDocument.load(await gerarPecaUnica({ cfg, itens, fotos }, itens[0]));
+    expect(um.getPage(0).getWidth()).toBeCloseTo(88 * PT_POR_MM, 1);
+    const verso = await PDFDocument.load(await gerarPecaUnica({ cfg: { ...cfg, verso: { ativo: true, mensagem: "Oi", qr: "" } }, itens, fotos }, itens[0], "verso"));
+    expect(verso.getPageCount()).toBe(1);
+  }, 60000);
+  it("filtro por foto vence o geral; melhorar estica o contraste", async () => {
+    const { filtroDoItem } = await import("@/lib/preimpressao/polaroid");
+    expect(filtroDoItem({ filtro: "pb" }, "vintage")).toBe("pb");
+    expect(filtroDoItem({ filtro: "padrao" }, "vintage")).toBe("vintage");
+    expect(filtroDoItem({}, "frio")).toBe("frio");
+    const d = new Uint8ClampedArray(4 * 100);
+    for (let i = 0; i < 100; i++) d.set([100 + i, 100 + i, 100 + i, 255], i * 4);
+    aplicarFiltro(d, "melhorar");
+    expect(d[0]).toBeLessThan(20);
+    expect(d[99 * 4]).toBeGreaterThan(240);
+  });
+});

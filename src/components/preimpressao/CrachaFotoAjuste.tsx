@@ -14,6 +14,7 @@ export function CrachaFotoAjuste({
   foto,
   forma,
   aspecto: aspectoPedido,
+  guiaRosto,
   ajuste,
   onFechar,
   onSalvar,
@@ -24,6 +25,8 @@ export function CrachaFotoAjuste({
   forma: FormaFoto;
   /** Proporção da moldura (largura ÷ altura); se faltar, vem da forma. */
   aspecto?: number;
+  /** Mostra um oval de apoio para centralizar o rosto (fotos de documento). */
+  guiaRosto?: boolean;
   ajuste: AjusteFoto;
   onFechar: () => void;
   onSalvar: (a: AjusteFoto) => void;
@@ -59,7 +62,7 @@ export function CrachaFotoAjuste({
       <DialogContent className="max-w-sm rounded-3xl">
         <DialogHeader>
           <DialogTitle>Ajustar a foto</DialogTitle>
-          <DialogDescription>{nome}. Arraste a foto para centralizar o rosto e use + para aproximar.</DialogDescription>
+          <DialogDescription>{nome}. Arraste a foto para centralizar o rosto e use + para aproximar.{guiaRosto ? " O rosto deve ficar dentro do oval." : ""}</DialogDescription>
         </DialogHeader>
         {foto && url && geo && (
           <div className="space-y-4">
@@ -91,7 +94,14 @@ export function CrachaFotoAjuste({
               }}
               onPointerUp={() => (arrasto.current = null)}
               onPointerCancel={() => (arrasto.current = null)}
-            />
+            >
+              {guiaRosto && (
+                <div className="pointer-events-none relative h-full w-full">
+                  <div className="absolute left-1/2 top-[10%] h-[62%] w-[50%] -translate-x-1/2 rounded-[50%] border-2 border-dashed border-white/90 shadow-[0_0_0_1px_rgba(0,0,0,0.35)]" />
+                  <div className="absolute bottom-[8%] left-[14%] right-[14%] h-[14%] rounded-t-[60%] border-2 border-b-0 border-dashed border-white/80" />
+                </div>
+              )}
+            </div>
             <div>
               <p className="mb-1 text-xs text-muted-foreground">Aproximar</p>
               <Passo
