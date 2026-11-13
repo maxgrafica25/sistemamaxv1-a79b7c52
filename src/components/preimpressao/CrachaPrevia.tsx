@@ -1,16 +1,24 @@
 // Prévia do crachá: o cartão desenhado, com o elemento escolhido marcado por um ponto.
 // Clique ou arraste para colocar o elemento onde quiser. Perto do meio ele gruda no centro.
+// Sem `onMover` é só para olhar.
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ELEMENTOS_CRACHA, dimensoes, zonaDoFuro, type ConfigCracha, type ElementoCracha } from "@/lib/preimpressao/cracha";
+import { dimensoes, zonaDoFuro, type Orientacao } from "@/lib/preimpressao/cracha";
 import { renderizarPaginaPdf } from "@/lib/preimpressao/navegador";
 import { BotaoRedondo } from "./ui";
 
+export interface PontoCracha {
+  chave: string;
+  x: number;
+  y: number;
+}
+
 export function CrachaPrevia({
   bytes,
-  cfg,
+  orientacao,
+  pontos = [],
   selecionado,
   onMover,
   ocupado,
@@ -19,22 +27,26 @@ export function CrachaPrevia({
   total,
   onIndice,
   mostrarFuro,
+  dica,
 }: {
   bytes: Uint8Array | null;
-  cfg: ConfigCracha;
-  selecionado: ElementoCracha;
-  onMover: (e: ElementoCracha, p: { x: number; y: number }) => void;
+  orientacao: Orientacao;
+  pontos?: PontoCracha[];
+  selecionado?: string;
+  onMover?: (chave: string, p: { x: number; y: number }) => void;
   ocupado: boolean;
   nome: string;
   indice: number;
   total: number;
   onIndice: (i: number) => void;
   mostrarFuro: boolean;
+  dica?: string;
 }) {
   const [img, setImg] = useState<string | null>(null);
   const [arrastando, setArrastando] = useState(false);
   const caixa = useRef<HTMLDivElement>(null);
-  const { w, h } = dimensoes(cfg.orientacao);
+  const { w, h } = dimensoes(orientacao);
+  const editavel = !!onMover && !!selecionado;
 
   useEffect(() => {
     if (!bytes) return setImg(null);
@@ -49,14 +61,14 @@ export function CrachaPrevia({
 
   const colocar = (cx: number, cy: number) => {
     const r = caixa.current?.getBoundingClientRect();
-    if (!r || !r.width) return;
+    if (!r || !r.width || !onMover || !selecionado) return;
     let x = ((cx - r.left) / r.width) * 100;
     const y = ((cy - r.top) / r.height) * 100;
     if (Math.abs(x - 50) < 2.5) x = 50;
     onMover(selecionado, { x: Math.min(100, Math.max(0, x)), y: Math.min(100, Math.max(0, y)) });
   };
 
-  const furo = zonaDoFuro(cfg.orientacao);
+  const furo = zonaDoFuro(orientacao);
 
   return (
     <div className="space-y-3">
@@ -64,8 +76,9 @@ export function CrachaPrevia({
         {img ? (
           <div
             ref={caixa}
-            className={cn("relative mx-auto w-fit max-w-full touch-none select-none", arrastando ? "cursor-grabbing" : "cursor-crosshair")}
+            className={cn("relative mx-auto w-fit max-w-full touch-none select-none", editavel && (arrastando ? "cursor-grabbing" : "cursor-crosshair"))}
             onPointerDown={(e) => {
+              if (!editavel) return;
               e.currentTarget.setPointerCapture(e.pointerId);
               setArrastando(true);
               colocar(e.clientX, e.clientY);
@@ -82,23 +95,20 @@ export function CrachaPrevia({
                 title="Região do furo do cordão: evite texto aqui"
               />
             )}
-            {ELEMENTOS_CRACHA.filter((e) => cfg.elementos[e.chave].ativo).map((e) => {
-              const l = cfg.elementos[e.chave];
-              const ativo = e.chave === selecionado;
-              return (
+            {editavel &&
+              pontos.map((p) => (
                 <span
-                  key={e.chave}
-                  data-elemento={e.chave}
-                  className={cn("pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white shadow", ativo ? "h-4 w-4 bg-primary" : "h-2.5 w-2.5 bg-foreground/50")}
-                  style={{ left: `${l.x}%`, top: `${l.y}%` }}
+                  key={p.chave}
+                  data-elemento={p.chave}
+                  className={cn("pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white shadow", p.chave === selecionado ? "h-4 w-4 bg-primary" : "h-2.5 w-2.5 bg-foreground/50")}
+                  style={{ left: `${p.x}%`, top: `${p.y}%` }}
                 />
-              );
-            })}
+              ))}
           </div>
         ) : (
           <div className="flex aspect-[3/4] items-center justify-center text-sm text-muted-foreground">{ocupado ? <Loader2 className="h-5 w-5 animate-spin" /> : "A pré-visualização aparece aqui"}</div>
         )}
-        <p className="mt-3 text-center text-xs text-muted-foreground">O ponto roxo é o elemento escolhido. Clique ou arraste para mudar de lugar.</p>
+        {(dica || editavel) && <p className="mt-3 text-center text-xs text-muted-foreground">{dica ?? "O ponto roxo é o elemento escolhido. Clique ou arraste para mudar de lugar."}</p>}
       </div>
       {total > 1 && (
         <div className="flex items-center justify-center gap-3 text-sm">

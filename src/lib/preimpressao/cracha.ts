@@ -53,6 +53,8 @@ export interface Pessoa {
   /** Nome do arquivo da foto (opcional; se vazio usa o nome da pessoa). */
   foto: string;
   incluir: boolean;
+  /** Valores dos campos extras do modelo (tipo sanguíneo, ASO, admissão…), pela id do campo. */
+  extras?: Record<string, string>;
 }
 
 export const LIMITE_PESSOAS = 1000;
@@ -124,29 +126,35 @@ const ORDEM_PADRAO: CampoLista[] = ["nome", "cargo", "setor", "matricula", "foto
 export interface ResultadoLista {
   pessoas: Pessoa[];
   /** Colunas reconhecidas, na ordem da tabela (ex.: ["nome", "cargo", "foto"]). */
-  colunas: (CampoLista | null)[];
+  colunas: (string | null)[];
   /** true = a 1ª linha era o cabeçalho. */
   cabecalho: boolean;
   excedeu: boolean;
 }
 
 /** Transforma a tabela em pessoas. Sem cabeçalho reconhecido, a ordem é nome, cargo, setor, matrícula, foto. */
-export function pessoasDaTabela(linhas: string[][]): ResultadoLista {
+export function pessoasDaTabela(linhas: string[][], extras: { id: string; rotulo: string }[] = []): ResultadoLista {
   if (!linhas.length) return { pessoas: [], colunas: [], cabecalho: false, excedeu: false };
-  const reconhecer = (t: string): CampoLista | null => {
+  const chaveExtra = new Map(extras.map((x) => [semAcento(x.rotulo).replace(/[^a-z0-9 ]/g, ""), x.id]));
+  const reconhecer = (t: string): CampoLista | string | null => {
     const k = semAcento(t).replace(/[^a-z0-9 ]/g, "");
     for (const c of ORDEM_PADRAO) if (SINONIMOS[c].includes(k)) return c;
-    return null;
+    const id = chaveExtra.get(k);
+    return id ? `x:${id}` : null;
   };
   const cab = linhas[0].map(reconhecer);
   const cabecalho = cab.some((c) => c !== null);
-  const colunas: (CampoLista | null)[] = cabecalho ? cab : linhas[0].map((_, i) => ORDEM_PADRAO[i] ?? null);
+  const colunas: (CampoLista | string | null)[] = cabecalho ? cab : linhas[0].map((_, i) => ORDEM_PADRAO[i] ?? null);
   const dados = cabecalho ? linhas.slice(1) : linhas;
   const pessoas: Pessoa[] = [];
   dados.slice(0, LIMITE_PESSOAS).forEach((l, i) => {
-    const p: Pessoa = { id: `p${i}`, nome: "", cargo: "", setor: "", matricula: "", foto: "", incluir: true };
+    const p: Pessoa = { id: `p${i}`, nome: "", cargo: "", setor: "", matricula: "", foto: "", incluir: true, extras: {} };
     colunas.forEach((c, j) => {
-      if (c && l[j] !== undefined && !p[c]) p[c] = l[j].trim();
+      if (!c || l[j] === undefined) return;
+      if (c.startsWith("x:")) {
+        const id = c.slice(2);
+        if (!p.extras?.[id]) p.extras = { ...p.extras, [id]: l[j].trim() };
+      } else if (!p[c as CampoLista]) p[c as CampoLista] = l[j].trim();
     });
     pessoas.push(p);
   });
@@ -246,8 +254,32 @@ export interface FaixaSetor {
   mm: number;
 }
 
+/** Campo de texto a mais no modelo (tipo sanguíneo, ASO, data de admissão…). */
+export interface CampoExtra {
+  id: string;
+  /** Nome do campo (também é o título da coluna na lista). */
+  rotulo: string;
+  /** Escreve "Tipo sanguíneo: O+" em vez de só "O+". */
+  mostrarRotulo: boolean;
+  layout: LayoutElemento;
+}
+
+export const MAX_EXTRAS = 8;
+
+export function novoCampoExtra(rotulo: string, n: number, orientacao: Orientacao): CampoExtra {
+  const pe = orientacao === "pe";
+  return {
+    id: `x${Date.now().toString(36)}${n}`,
+    rotulo: rotulo.trim().slice(0, 30),
+    mostrarRotulo: true,
+    layout: { ativo: true, x: pe ? 50 : 66, y: pe ? 80 + Math.min(n, 3) * 3.5 : 64 + Math.min(n, 4) * 5.5, tam: 6.5, cor: "#4b5563" },
+  };
+}
+
 export interface ConfigCracha {
   orientacao: Orientacao;
+  /** Campos a mais, além de nome, cargo, setor e matrícula. */
+  extras?: CampoExtra[];
   corFundo: string;
   forma: FormaFoto;
   elementos: Record<ElementoCracha, LayoutElemento>;
@@ -577,17 +609,15 @@ export async function gerarCartoes(e: EntradaCartoes): Promise<CartoesGerados> {
     }
 
     // Textos
-    const texto = (chave: "nome" | "cargo" | "setor" | "matricula", valor: string, fonte: PDFFont, maiusculo = false) => {
-      const l = cfg.elementos[chave];
-      if (!l.ativo || !valor.trim()) return;
-      const v = soSuportados(fonte, maiusculo ? valor.toLocaleUpperCase("pt-BR") : valor);
+    const textoLivre = (valor: string, l: LayoutElemento, fonte: PDFFont, nomeDoCampo: string) => {
+      const v = soSuportados(fonte, valor);
       if (!v.trim()) return;
       const cx = (W * l.x) / 100;
       const folga = Math.min(cx, W - cx) * 2 - mmPt(5);
       const medir = (s: string, pt: number) => fonte.widthOfTextAtSize(s, pt * fontes.k);
       const aj = ajustarTexto(medir, v, l.tam, Math.max(mmPt(10), folga));
-      if (aj.cortado) avisos.push({ pessoaId: p.id, texto: `${chave === "nome" ? "O nome" : chave === "cargo" ? "O cargo" : "O texto"} de ${p.nome || "uma pessoa"} não coube e foi cortado.` });
-      else if (aj.reduzido && aj.tam < l.tam * 0.75) avisos.push({ pessoaId: p.id, texto: `${chave === "nome" ? "O nome" : chave === "cargo" ? "O cargo" : "O texto"} de ${p.nome || "uma pessoa"} ficou com a letra bem menor para caber.` });
+      if (aj.cortado) avisos.push({ pessoaId: p.id, texto: `${nomeDoCampo} de ${p.nome || "uma pessoa"} não coube e foi cortado.` });
+      else if (aj.reduzido && aj.tam < l.tam * 0.75) avisos.push({ pessoaId: p.id, texto: `${nomeDoCampo} de ${p.nome || "uma pessoa"} ficou com a letra bem menor para caber.` });
       const pt = aj.tam * fontes.k;
       const entre = pt * 1.15;
       const cy = H - (H * l.y) / 100;
@@ -597,10 +627,21 @@ export async function gerarCartoes(e: EntradaCartoes): Promise<CartoesGerados> {
         page.drawText(linha, { x: cx - w / 2, y: topo - i * entre - pt * 0.35, size: pt, font: fonte, color: corParaRgb(l.cor) });
       });
     };
+    const texto = (chave: "nome" | "cargo" | "setor" | "matricula", valor: string, fonte: PDFFont, maiusculo = false) => {
+      const l = cfg.elementos[chave];
+      if (!l.ativo || !valor.trim()) return;
+      const nomeDoCampo = chave === "nome" ? "O nome" : chave === "cargo" ? "O cargo" : "O texto";
+      textoLivre(maiusculo ? valor.toLocaleUpperCase("pt-BR") : valor, l, fonte, nomeDoCampo);
+    };
     texto("nome", p.nome, fontes.negrito);
     texto("cargo", p.cargo, fontes.normal);
     texto("setor", p.setor, fontes.negrito, true);
     texto("matricula", p.matricula, fontes.normal);
+    for (const ex of cfg.extras ?? []) {
+      const valor = p.extras?.[ex.id]?.trim();
+      if (!ex.layout.ativo || !valor) continue;
+      textoLivre(ex.mostrarRotulo ? `${ex.rotulo}: ${valor}` : valor, ex.layout, fontes.normal, ex.rotulo);
+    }
 
     // QR Code
     const ql = cfg.elementos.qr;

@@ -136,3 +136,74 @@ describe("conferência dos crachás", () => {
     expect(ok.at(-1)?.nivel).toBe("ok");
   });
 });
+
+import { MAX_EXTRAS, novoCampoExtra } from "@/lib/preimpressao/cracha";
+import { conferirProntas, gerarProntas, listarCartoes, orientacaoSugerida, type ArtePronta } from "@/lib/preimpressao/crachaPronta";
+
+describe("campos extras do modelo (tipo sanguíneo, ASO, admissão…)", () => {
+  it("a coluna da lista com o nome do campo preenche o campo, com ou sem acento", () => {
+    const extra = novoCampoExtra("Tipo sanguíneo", 0, "pe");
+    const asso = novoCampoExtra("ASO", 1, "pe");
+    const r = pessoasDaTabela(lerTabela("Nome\tTipo sanguineo\tASO\tCargo\nAna\tO+\t12/03/2027\tGerente\nBia\tA-\t\tDev"), [extra, asso]);
+    expect(r.cabecalho).toBe(true);
+    expect(r.pessoas[0].extras).toEqual({ [extra.id]: "O+", [asso.id]: "12/03/2027" });
+    expect(r.pessoas[1].extras?.[extra.id]).toBe("A-");
+    expect(r.pessoas[0].cargo).toBe("Gerente");
+    expect(MAX_EXTRAS).toBeGreaterThan(3);
+  });
+  it("o PDF desenha os extras e avisa quando o texto é grande demais", async () => {
+    const extra = novoCampoExtra("Admissão", 0, "pe");
+    const cfg = { ...configCrachaPadrao("pe"), extras: [extra, { ...novoCampoExtra("Observação", 1, "pe"), mostrarRotulo: false }] };
+    const pessoa = { id: "p1", nome: "Ana", cargo: "Dev", setor: "TI", matricula: "1", foto: "", incluir: true, extras: { [extra.id]: "12/03/2027", [cfg.extras[1].id]: "X".repeat(120) } };
+    const r = await gerarCartoes({ cfg, pessoas: [pessoa], fotos: new Map(), fundo: null });
+    expect(r.ids).toHaveLength(1);
+    expect(r.avisos.length).toBeGreaterThan(0);
+  }, 60000);
+});
+
+describe("arte pronta (do cliente, Canva ou Corel)", () => {
+  const art = (n: string, o: Partial<ArtePronta> = {}): ArtePronta => ({ id: n, nome: n, tipo: "imagem", img, paginas: 1, aspecto: 54 / 85.6, px: { w: 638, h: 1011 }, copias: 1, ...o });
+  it("sugere a posição do cartão pela proporção da arte", () => {
+    expect(orientacaoSugerida(1.58)).toBe("deitado");
+    expect(orientacaoSugerida(0.63)).toBe("pe");
+  });
+  it("lista os cartões: um por arquivo/página, ou frente e verso alternados", () => {
+    expect(listarCartoes([art("a"), art("b", { paginas: 3 })], "nenhum").cartoes).toHaveLength(4);
+    const alt = listarCartoes([art("c", { paginas: 4 }), art("d", { paginas: 3 })], "alternado");
+    expect(alt.cartoes).toHaveLength(3);
+    expect(alt.cartoes[0].verso).toEqual({ arte: 0, pagina: 1 });
+    expect(alt.avisos[0]).toContain("par");
+  });
+  it("gera frente e verso com as cópias, nos dois sentidos", async () => {
+    for (const orientacao of ["pe", "deitado"] as const) {
+      const r = await gerarProntas({ orientacao, encaixe: "preencher", corFundo: "#ffffff", artes: [art("a", { copias: 3 }), art("b", { copias: 2 })], modoVerso: "igual", versoArte: art("v"), girarVerso: true });
+      expect(r).toMatchObject({ cartoes: 2, paginas: 5 });
+      const f = await PDFDocument.load(r.frente);
+      expect(f.getPageCount()).toBe(5);
+      const { w, h } = dimensoes(orientacao);
+      expect(f.getPage(0).getWidth()).toBeCloseTo(w * PT_POR_MM, 1);
+      expect(f.getPage(0).getHeight()).toBeCloseTo(h * PT_POR_MM, 1);
+      expect((await PDFDocument.load(r.verso as Uint8Array)).getPageCount()).toBe(5);
+    }
+    const so = await gerarProntas({ orientacao: "pe", encaixe: "inteira", corFundo: "#000000", artes: [art("a")], modoVerso: "nenhum", versoArte: null, girarVerso: false });
+    expect(so.verso).toBeNull();
+  }, 60000);
+  it("aceita PDF de várias páginas (um cartão por página)", async () => {
+    const doc = await PDFDocument.create();
+    for (let i = 0; i < 3; i++) doc.addPage([153, 243]).drawText(`Cartão ${i + 1}`, { x: 20, y: 120, size: 14 });
+    const bytes = await doc.save();
+    const a: ArtePronta = { id: "p", nome: "arte.pdf", tipo: "pdf", bytes, paginas: 3, aspecto: 153 / 243, copias: 2 };
+    const r = await gerarProntas({ orientacao: "pe", encaixe: "preencher", corFundo: "#ffffff", artes: [a], modoVerso: "nenhum", versoArte: null, girarVerso: false });
+    expect(r).toMatchObject({ cartoes: 3, paginas: 6 });
+  }, 60000);
+  it("conferência: proporção, posição contrária, arte pequena e verso sem arte", () => {
+    const base = { orientacao: "pe" as const, encaixe: "preencher" as const, modoVerso: "nenhum" as const, versoArte: null };
+    expect(conferirProntas({ ...base, artes: [] })[0].nivel).toBe("erro");
+    const t = (x: ReturnType<typeof conferirProntas>) => x.map((i) => i.texto).join("|");
+    expect(t(conferirProntas({ ...base, artes: [art("deitada", { aspecto: 1.58 })] }))).toContain("Troque a posição");
+    expect(t(conferirProntas({ ...base, artes: [art("quadrada", { aspecto: 1 })] }))).toContain("vai cortar");
+    expect(t(conferirProntas({ ...base, artes: [art("pequena", { px: { w: 300, h: 480 } })] }))).toContain("pequena");
+    expect(t(conferirProntas({ ...base, modoVerso: "igual", artes: [art("a")] }))).toContain("verso");
+    expect(conferirProntas({ ...base, artes: [art("ok")] }).at(-1)?.texto).toBe("Nenhum problema encontrado.");
+  });
+});
