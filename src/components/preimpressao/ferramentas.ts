@@ -7,7 +7,7 @@
 // Regra: tudo roda no navegador, sem servidor e sem custo (ver CLAUDE.md).
 
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
-import { BookOpen, CalendarDays, Crop, FileSearch, Files, Hash, LayoutGrid, Scissors, type LucideIcon } from "lucide-react";
+import { BookOpen, CalendarDays, IdCard, Crop, FileSearch, Files, Hash, LayoutGrid, Scissors, type LucideIcon } from "lucide-react";
 
 export interface Ferramenta {
   key: string;
@@ -45,6 +45,14 @@ export const GRUPOS: GrupoFerramentas[] = [
         entrada: "Só escolher o ano",
         icon: CalendarDays,
         Componente: lazy(() => import("./MioloAgenda")),
+      },
+      {
+        key: "crachas",
+        nome: "Crachás",
+        descricao: "Faz crachás com nome, cargo, setor e foto de cada pessoa, direto de uma lista do Excel, prontos para a Fargo C50 (frente, verso e prova).",
+        entrada: "Lista do Excel e fotos",
+        icon: IdCard,
+        Componente: lazy(() => import("./Crachas")),
       },
       {
         key: "numeracao",
