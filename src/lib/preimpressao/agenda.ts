@@ -236,6 +236,23 @@ export interface Extra {
   paginas: number;
 }
 
+/**
+ * Página de abertura do cliente, feita pelo sistema: "Quem somos", "Nossos produtos", cardápio…
+ * texto = título + parágrafos; foto = foto no alto (já cortada na proporção) + texto; lista = itens
+ * "nome | preço" (linha que começa com # é um subtítulo).
+ */
+export interface Abertura {
+  titulo: string;
+  texto: string;
+  modelo: "texto" | "foto" | "lista";
+  foto: Imagem | null;
+  posicao: PosicaoExtra;
+}
+
+export const MAX_ABERTURAS = 3;
+/** Largura × altura (mm) da área da foto na página de abertura: a foto deve ser cortada nessa proporção. */
+export const FOTO_ABERTURA_MM = { w: 126, h: 80 };
+
 export interface Identidade {
   logo: Imagem | null;
   /** Uma linha: nome, telefone, Instagram… */
@@ -281,6 +298,10 @@ export interface ConfigAgenda {
   extras?: Extra[];
   /** Datas do cliente, com ícone. */
   datas?: DataEspecial[];
+  /** Páginas de abertura do cliente (texto, foto e texto, ou lista). */
+  aberturas?: Abertura[];
+  /** Cor de destaque "#rrggbb" (pontinhos, círculos, ícones, ano na capa e, com "destaque", domingos e feriados); vazio = só preto. */
+  corDestaque?: string | null;
   /** Nome da pessoa dona desta agenda (aparece na capa do miolo, no verso da capa e em "Nome:"). */
   pessoa?: string;
 }
@@ -302,6 +323,9 @@ interface Cfg {
   extras: Extra[];
   datas: DataEspecial[];
   pessoa: string;
+  aberturas: Abertura[];
+  /** Cor de destaque (0–1) ou null. */
+  acento: [number, number, number] | null;
 }
 
 const limitar = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -325,6 +349,8 @@ function normalizar(c: ConfigAgenda): Cfg {
     extras: c.extras ?? [],
     datas: datasEspeciaisValidas(c.ano, c.datas),
     pessoa: (c.pessoa ?? "").trim().slice(0, 40),
+    aberturas: (c.aberturas ?? []).filter((a) => a.titulo.trim() || a.texto.trim()).slice(0, MAX_ABERTURAS),
+    acento: c.corDestaque && /^#[0-9a-f]{6}$/i.test(c.corDestaque.trim()) ? corParaRgb(c.corDestaque) : null,
   };
 }
 
@@ -343,7 +369,8 @@ export type TipoPagina =
   | { tipo: "fimDeSemana"; mes: number; sabado: number | null; domingo: number | null }
   | { tipo: "semana"; mes: number; dias: Dia[]; lado: "esq" | "dir" }
   | { tipo: "anotacoes" }
-  | { tipo: "extra"; item: number; pagina: number };
+  | { tipo: "extra"; item: number; pagina: number }
+  | { tipo: "abertura"; item: number };
 
 export interface Plano {
   paginas: TipoPagina[];
@@ -381,16 +408,22 @@ export function semanasDoAno(ano: number): { mes: number; dias: Dia[] }[] {
 export function planejarPaginas(
   ano: number,
   total?: number | null,
-  opc: { modelo?: "diario" | "semanal"; extras?: { posicao: PosicaoExtra; paginas: number }[] } = {},
+  opc: { modelo?: "diario" | "semanal"; extras?: { posicao: PosicaoExtra; paginas: number }[]; aberturas?: { posicao: PosicaoExtra }[] } = {},
 ): Plano {
   const semanal = opc.modelo === "semanal";
   const extras = opc.extras ?? [];
   const paginas: TipoPagina[] = [{ tipo: "capa" }, { tipo: "branca" }, { tipo: "dados" }, { tipo: "calendarioAno" }, { tipo: "calendariosVizinhos" }];
-  const inserirExtras = (pos: PosicaoExtra) =>
+  const aberturas = opc.aberturas ?? [];
+  const inserirExtras = (pos: PosicaoExtra) => {
+    // as páginas de abertura (feitas pelo sistema) vêm antes das páginas enviadas pelo cliente
+    aberturas.forEach((a, item) => {
+      if (a.posicao === pos) paginas.push({ tipo: "abertura", item });
+    });
     extras.forEach((e, item) => {
       if (e.posicao !== pos) return;
       for (let pagina = 0; pagina < e.paginas; pagina++) paginas.push({ tipo: "extra", item, pagina });
     });
+  };
   inserirExtras("inicio");
   const semanas = semanal ? semanasDoAno(ano) : [];
   const paginaDoMes: number[] = [];
@@ -468,6 +501,8 @@ interface Contexto {
   /** Fator de tamanho do texto (Montserrat é mais larga que Helvetica). */
   k: number;
   logo: PDFImage | null;
+  /** Cor de destaque (ou preto quando não há). */
+  acento: ReturnType<typeof rgb>;
 }
 
 /** Uma página sendo desenhada (medidas em mm a partir do canto superior esquerdo). */
@@ -527,7 +562,7 @@ class Folha {
         start: { x: this.X(x1), y: this.Y(y) },
         end: { x: this.X(x2), y: this.Y(y) },
         thickness: 0.8,
-        color: PRETO,
+        color: this.ctx.acento,
         lineCap: LineCapStyle.Round,
         dashArray: [0.01, passo * PT_POR_MM],
       });
@@ -535,7 +570,7 @@ class Folha {
   }
 
   circulo(cx: number, cy: number, r: number, espessura = 0.45) {
-    this.page.drawCircle({ x: this.X(cx), y: this.Y(cy), size: r * PT_POR_MM, borderWidth: espessura, borderColor: PRETO });
+    this.page.drawCircle({ x: this.X(cx), y: this.Y(cy), size: r * PT_POR_MM, borderWidth: espessura, borderColor: this.ctx.acento });
   }
 
   retangulo(x: number, y: number, w: number, h: number, espessura = 0.5) {
@@ -572,9 +607,10 @@ function iconeData(fo: Folha, tipo: IconeData, cx: number, cy: number, r: number
   const x = cx * PT_POR_MM;
   const y = (H - cy) * PT_POR_MM;
   const R = r * PT_POR_MM;
-  const preenche = (d: string) => fo.page.drawSvgPath(d, { x, y, scale: R, color: PRETO, borderWidth: 0 });
+  const cor = fo.ctx.acento;
+  const preenche = (d: string) => fo.page.drawSvgPath(d, { x, y, scale: R, color: cor, borderWidth: 0 });
   if (tipo === "ponto") {
-    fo.page.drawCircle({ x, y, size: R * 0.85, color: PRETO });
+    fo.page.drawCircle({ x, y, size: R * 0.85, color: cor });
   } else if (tipo === "losango") {
     preenche("M 0 -1 L 0.75 0 L 0 1 L -0.75 0 Z");
   } else if (tipo === "coracao") {
@@ -589,9 +625,15 @@ function iconeData(fo: Folha, tipo: IconeData, cx: number, cy: number, r: number
   } else {
     const t = Math.max(0.5, R * 0.32);
     const ponto = (dx: number, dy: number) => ({ x: x + dx * R, y: y - dy * R });
-    fo.page.drawLine({ start: ponto(-0.8, 0), end: ponto(-0.25, -0.6), thickness: t, color: PRETO, lineCap: LineCapStyle.Round });
-    fo.page.drawLine({ start: ponto(-0.25, -0.6), end: ponto(0.9, 0.7), thickness: t, color: PRETO, lineCap: LineCapStyle.Round });
+    fo.page.drawLine({ start: ponto(-0.8, 0), end: ponto(-0.25, -0.6), thickness: t, color: cor, lineCap: LineCapStyle.Round });
+    fo.page.drawLine({ start: ponto(-0.25, -0.6), end: ponto(0.9, 0.7), thickness: t, color: cor, lineCap: LineCapStyle.Round });
   }
+}
+
+/** Cor do número do dia: preto; em domingo/feriado com "destaque", a cor de destaque (ou cinza se não há). */
+function corDoDia(fo: Folha, destacar: boolean) {
+  if (!destacar) return PRETO;
+  return fo.ctx.cfg.acento ? fo.ctx.acento : CINZA_ESCURO;
 }
 
 /** Datas do cliente de um dia. */
@@ -661,10 +703,10 @@ function desenharCapa(fo: Folha) {
   const total = w1 + w2;
   const base = fo.dir - 1; // linha de base do texto girado: o corpo das letras fica à esquerda dela
   const y0 = (H + total) / 2; // começa embaixo e lê para cima
-  const rotaciona = (s: string, y: number, peso: Peso) =>
-    fo.page.drawText(s, { x: base * PT_POR_MM, y: (H - y) * PT_POR_MM, size: tam * k, font: fo.fonte(peso), color: PRETO, rotate: degrees(90) });
+  const rotaciona = (s: string, y: number, peso: Peso, cor = PRETO) =>
+    fo.page.drawText(s, { x: base * PT_POR_MM, y: (H - y) * PT_POR_MM, size: tam * k, font: fo.fonte(peso), color: cor, rotate: degrees(90) });
   rotaciona(leve, y0, "leve");
-  rotaciona(String(cfg.ano), y0 - w1, "extra");
+  rotaciona(String(cfg.ano), y0 - w1, "extra", fo.ctx.acento);
   const alturaLetra = (tam * k * 0.72) / PT_POR_MM;
   const xi = base - alturaLetra;
   fo.pontos(xi, 5, fo.dir, y0 - total - 4, 2.2);
@@ -890,7 +932,7 @@ function desenharPlanejamento(fo: Folha, mes: number) {
     const x = fo.esq + col * colW;
     const y = 36 + lin * linhaH;
     const sem = diaDaSemana(ano, mes, d);
-    const cor = cfg.destaque && (sem === 0 || ehFeriado(feriados, mes, d)) ? CINZA_ESCURO : PRETO;
+    const cor = corDoDia(fo, cfg.destaque && (sem === 0 || ehFeriado(feriados, mes, d)));
     fo.texto(String(d).padStart(2, "0"), x + 0.5, y + 4, 8, { cor });
     fo.texto(SEMANA_CURTA[sem], x + 0.5 + fo.largura(String(d).padStart(2, "0") + " ", 8), y + 4, 5.2, { cor });
     const ds = cfg.datas.filter((x) => x.mes === mes && x.dia === d);
@@ -904,7 +946,7 @@ function desenharPlanejamento(fo: Folha, mes: number) {
 function cabecalhoDia(fo: Folha, mes: number, dia: number, y0: number) {
   const { cfg, feriados } = fo.ctx;
   const sem = diaDaSemana(cfg.ano, mes, dia);
-  const cor = cfg.destaque && (sem === 0 || ehFeriado(feriados, mes, dia)) ? CINZA_ESCURO : PRETO;
+  const cor = corDoDia(fo, cfg.destaque && (sem === 0 || ehFeriado(feriados, mes, dia)));
   const num = String(dia).padStart(2, "0");
   const tamNum = 30;
   const wNum = fo.largura(num, tamNum, "extra");
@@ -1011,7 +1053,7 @@ function blocoDia(fo: Folha, d: Dia, x: number, y: number, w: number, h: number)
   if (!d) return;
   const { cfg, feriados } = fo.ctx;
   const sem = diaDaSemana(cfg.ano, d.mes, d.dia);
-  const cor = cfg.destaque && (sem === 0 || ehFeriado(feriados, d.mes, d.dia)) ? CINZA_ESCURO : PRETO;
+  const cor = corDoDia(fo, cfg.destaque && (sem === 0 || ehFeriado(feriados, d.mes, d.dia)));
   const num = String(d.dia).padStart(2, "0");
   fo.texto(num, x, y + 5.5, 12, { peso: "extra", cor });
   const wn = fo.largura(num, 12, "extra");
@@ -1052,6 +1094,90 @@ function desenharSemana(fo: Folha, mes: number, dias: Dia[], lado: "esq" | "dir"
     blocoDia(fo, dias[5], fo.esq, 22 + 2 * (altura + 2), meio, altura);
     blocoDia(fo, dias[6], fo.esq + meio + 4, 22 + 2 * (altura + 2), meio, altura);
   }
+}
+
+/** Quebra o texto em linhas que cabem em `maxMm`; "\n" separa parágrafos (linha vazia = respiro). */
+function quebrarLinhas(fo: Folha, texto: string, tam: number, maxMm: number, peso: Peso = "normal"): string[] {
+  const out: string[] = [];
+  for (const par of texto.split(/\r?\n/)) {
+    if (!par.trim()) {
+      out.push("");
+      continue;
+    }
+    let atual = "";
+    for (const pal of par.trim().split(/\s+/)) {
+      const teste = atual ? `${atual} ${pal}` : pal;
+      if (atual && fo.largura(teste, tam, peso) > maxMm) {
+        out.push(atual);
+        atual = pal;
+      } else atual = teste;
+    }
+    if (atual) out.push(atual);
+  }
+  return out;
+}
+
+/** Página de abertura do cliente: título no padrão das outras páginas e texto, foto e texto, ou lista com preços. */
+function desenharAbertura(fo: Folha, ab: Abertura, foto: PDFImage | null) {
+  const titulo = ab.titulo.trim().toUpperCase();
+  if (titulo) {
+    const partes = titulo.split(/\s+/);
+    const forte = partes.length > 1 ? partes[partes.length - 1] : partes[0];
+    const leve = partes.length > 1 ? partes.slice(0, -1).join(" ") : "";
+    fo.titulo(leve, forte, 14, 12);
+  }
+  const largura = fo.dir - fo.esq;
+  const fim = 192;
+  let y = 30;
+  if (ab.modelo === "foto" && foto && ab.foto) {
+    const alt = Math.min(largura * (ab.foto.h / ab.foto.w), 95);
+    fo.imagem(foto, fo.esq, y, largura, alt);
+    y += alt + 9;
+  }
+  if (ab.modelo === "lista") {
+    for (const bruta of ab.texto.split(/\r?\n/)) {
+      const linha = bruta.trim();
+      if (!linha) {
+        y += 3.5;
+        continue;
+      }
+      if (y > fim) break;
+      if (linha.startsWith("#")) {
+        const sub = linha.replace(/^#+\s*/, "").toUpperCase();
+        y += 2;
+        fo.texto(caber(fo, sub, 8, largura), fo.esq, y, 8, { peso: "negrito" });
+        fo.linha(fo.esq, y + 1.5, fo.dir, y + 1.5, 0.5);
+        y += 7;
+        continue;
+      }
+      const [nome, preco] = linha.split("|").map((x) => x.trim());
+      const wPreco = preco ? fo.largura(preco, 9, "negrito") : 0;
+      const nomeCabe = caber(fo, nome, 9, largura - wPreco - 8);
+      const wNome = fo.largura(nomeCabe, 9);
+      fo.texto(nomeCabe, fo.esq, y, 9);
+      if (preco) {
+        fo.texto(preco, fo.dir, y, 9, { peso: "negrito", alinhar: "d" });
+        const ini = fo.esq + wNome + 2;
+        const fimLinha = fo.dir - wPreco - 2;
+        if (fimLinha > ini) fo.page.drawLine({ start: { x: ini * PT_POR_MM, y: (H - y + 0.8) * PT_POR_MM }, end: { x: fimLinha * PT_POR_MM, y: (H - y + 0.8) * PT_POR_MM }, thickness: 0.5, color: CINZA, lineCap: LineCapStyle.Round, dashArray: [0.01, 1.4 * PT_POR_MM] });
+      }
+      y += 7;
+    }
+    return;
+  }
+  const paragrafos = ab.texto.split(/\r?\n\s*\r?\n/).filter((x) => x.trim());
+  paragrafos.forEach((par, i) => {
+    const lead = i === 0 && paragrafos.length > 1;
+    const tam = lead ? 11.5 : 9.5;
+    const entre = lead ? 6 : 5.2;
+    const linhas = quebrarLinhas(fo, par.replace(/\r?\n/g, " "), tam, largura, lead ? "leve" : "normal");
+    for (const l of linhas) {
+      if (y > fim) return;
+      fo.texto(l, fo.esq, y, tam, { peso: lead ? "leve" : "normal" });
+      y += entre;
+    }
+    y += 3.5;
+  });
 }
 
 function desenharAnotacoes(fo: Folha) {
@@ -1099,7 +1225,11 @@ export async function gerarMiolo(entrada: ConfigAgenda, externas?: FontesExterna
   const cfg = normalizar(entrada);
   const feriados = todosOsFeriados(cfg.ano, cfg.regionais);
   const luas = fasesDaLua(cfg.ano);
-  const plano = planejarPaginas(cfg.ano, cfg.total, { modelo: cfg.modelo, extras: cfg.extras.map((e) => ({ posicao: e.posicao, paginas: e.paginas })) });
+  const plano = planejarPaginas(cfg.ano, cfg.total, {
+    modelo: cfg.modelo,
+    extras: cfg.extras.map((e) => ({ posicao: e.posicao, paginas: e.paginas })),
+    aberturas: cfg.aberturas.map((a) => ({ posicao: a.posicao })),
+  });
   const doc = await PDFDocument.create();
   const { f, k, nome } = await criarFontes(doc, externas);
   const logo = cfg.identidade.logo ? await embutirImagem(doc, cfg.identidade.logo) : null;
@@ -1115,11 +1245,13 @@ export async function gerarMiolo(entrada: ConfigAgenda, externas?: FontesExterna
       extras.push({ tipo: "imagem", img: e.tipo === "jpg" ? await doc.embedJpg(e.bytes) : await doc.embedPng(e.bytes) });
     }
   }
-  const ctx: Contexto = { cfg, feriados, luas, f, k, logo };
+  const fotosAbertura: (PDFImage | null)[] = [];
+  for (const a of cfg.aberturas) fotosAbertura.push(a.modelo === "foto" && a.foto ? await embutirImagem(doc, a.foto) : null);
+  const ctx: Contexto = { cfg, feriados, luas, f, k, logo, acento: cfg.acento ? rgb(cfg.acento[0], cfg.acento[1], cfg.acento[2]) : PRETO };
   const larguraPt = W * PT_POR_MM;
   const alturaPt = H * PT_POR_MM;
   const semMarca = new Set(["capa", "branca", "extra"]);
-  const comRodape = new Set(["dados", "calendarioAno", "calendariosVizinhos", "planejamento", "dia", "fimDeSemana", "semana", "anotacoes"]);
+  const comRodape = new Set(["dados", "calendarioAno", "calendariosVizinhos", "planejamento", "dia", "fimDeSemana", "semana", "anotacoes", "abertura"]);
   const marcaSoDias = new Set(["dia", "fimDeSemana", "semana", "anotacoes"]);
   plano.paginas.forEach((p, i) => {
     const page = doc.addPage([larguraPt, alturaPt]);
@@ -1155,6 +1287,9 @@ export async function gerarMiolo(entrada: ConfigAgenda, externas?: FontesExterna
         break;
       case "anotacoes":
         desenharAnotacoes(fo);
+        break;
+      case "abertura":
+        desenharAbertura(fo, cfg.aberturas[p.item], fotosAbertura[p.item]);
         break;
       case "extra": {
         const e = extras[p.item];

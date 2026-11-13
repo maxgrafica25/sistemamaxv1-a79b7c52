@@ -284,3 +284,43 @@ describe("datas do cliente e lista de nomes", () => {
     expect(nomeDeArquivo("???")).toBe("agenda");
   });
 });
+
+describe("páginas de abertura do cliente e cor de destaque", () => {
+  it("as páginas de abertura entram nos lugares escolhidos, antes das páginas enviadas, sem estragar a regra do planejamento", () => {
+    const p = planejarPaginas(2026, null, {
+      aberturas: [{ posicao: "inicio" }, { posicao: "inicio" }, { posicao: 4 }],
+      extras: [{ posicao: "inicio", paginas: 1 }],
+    });
+    expect(p.paginas.slice(5, 8)).toEqual([{ tipo: "abertura", item: 0 }, { tipo: "abertura", item: 1 }, { tipo: "extra", item: 0, pagina: 0 }]);
+    const antesDeAbril = p.paginas.findIndex((x) => x.tipo === "abertura" && x.item === 2);
+    expect(antesDeAbril).toBeGreaterThan(p.paginaDoMes[2]);
+    expect(antesDeAbril).toBeLessThan(p.paginaDoMes[3]);
+    p.paginaDoMes.forEach((i) => expect((i + 1) % 2).toBe(0));
+    expect(p.paginas.length % 2).toBe(0);
+  });
+
+  it("gera com os 3 modelos de abertura (texto longo demais não estoura), cor de destaque e domingos em destaque", async () => {
+    const longo = Array.from({ length: 80 }, (_, i) => `Linha ${i} do texto bem comprido que não cabe na página inteira de jeito nenhum`).join("\n");
+    const m = await gerarMiolo({
+      ano: 2027,
+      capa: "AGENDA",
+      regionais: [],
+      corDestaque: "#dc2626",
+      destaque: true,
+      aberturas: [
+        { titulo: "Quem somos", texto: "Primeiro parágrafo.\n\nSegundo parágrafo com mais palavras para quebrar em mais de uma linha dentro da página.", modelo: "foto", foto: pngMini(63, 40), posicao: "inicio" },
+        { titulo: "Cardápio", texto: "# Pizzas\nMargherita | R$ 42,00\nCalabresa com cebola e azeitonas pretas e um nome grande demais para caber | R$ 48,00\n\n" + longo, modelo: "lista", foto: null, posicao: "fim" },
+        { titulo: "", texto: longo, modelo: "texto", foto: null, posicao: 6 },
+        { titulo: "  ", texto: "   ", modelo: "texto", foto: null, posicao: 1 },
+      ],
+    });
+    expect(m.plano.paginas.filter((x) => x.tipo === "abertura")).toHaveLength(3);
+    const d = await PDFDocument.load(m.bytes);
+    expect(d.getPageCount()).toBe(m.plano.paginas.length);
+  }, 60000);
+
+  it("cor de destaque inválida é ignorada", async () => {
+    const m = await gerarMiolo({ ano: 2027, capa: "AGENDA", regionais: [], corDestaque: "vermelho" });
+    expect(m.bytes.length).toBeGreaterThan(1000);
+  }, 60000);
+});

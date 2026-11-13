@@ -8,11 +8,12 @@ import { Check, ChevronDown, Circle, Diamond, Download, Heart, Loader2, Plus, St
 import { PDFDocument } from "pdf-lib";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ICONES_DATA, MAX_DATAS_ESPECIAIS, MESES_CURTOS, gerarCapas, gerarMiolo, miolosEmA4, type ConfigAgenda, type ConfigCapa, type DataEspecial, type ElementoCapa, type Feriado, type IconeData, type PosicaoElemento, type FontesExternas, type Imagem, type Miolo, type PosicaoExtra } from "@/lib/preimpressao/agenda";
-import { bytesParaDataUrl, carregarFontes, corDeFundoDaLogo, dataUrlParaBytes, prepararImagem, silhuetaDaLogo } from "@/lib/preimpressao/agendaNavegador";
+import { FOTO_ABERTURA_MM, ICONES_DATA, MAX_DATAS_ESPECIAIS, MESES_CURTOS, gerarCapas, gerarMiolo, miolosEmA4, type ConfigAgenda, type ConfigCapa, type DataEspecial, type ElementoCapa, type Feriado, type IconeData, type PosicaoElemento, type FontesExternas, type Imagem, type Miolo, type PosicaoExtra } from "@/lib/preimpressao/agenda";
+import { bytesParaDataUrl, carregarFontes, corDeFundoDaLogo, cortarImagem, dataUrlParaBytes, prepararImagem, silhuetaDaLogo } from "@/lib/preimpressao/agendaNavegador";
 import { detectarTipo } from "@/lib/preimpressao/margem";
 import { baixarBlob, baixarZip } from "@/lib/preimpressao/navegador";
 import { PosicaoElementos, PreviaCapaEditavel } from "./AgendaCapaEditor";
+import { AgendaAberturas } from "./AgendaAberturas";
 import { AgendaExtras, type ExtraUI } from "./AgendaExtras";
 import { AgendaIdentidade, AgendaLogo, AgendaMarcaDagua } from "./AgendaIdentidade";
 import { AgendaModelos } from "./AgendaModelos";
@@ -24,6 +25,14 @@ const SUGESTOES: Feriado[] = [{ dia: 20, mes: 9, nome: "Revolução Farroupilha 
 const MAX_REGIONAIS = 12;
 const MAX_EXTRAS = 6;
 const MAX_PAGINAS_EXTRAS = 40;
+const CORES_DESTAQUE = [
+  { nome: "Azul", hex: "#1d4ed8" },
+  { nome: "Vermelho", hex: "#dc2626" },
+  { nome: "Verde", hex: "#15803d" },
+  { nome: "Laranja", hex: "#ea580c" },
+  { nome: "Roxo", hex: "#7c3aed" },
+  { nome: "Rosa", hex: "#db2777" },
+];
 const CORES_CAPA = [
   { nome: "Grafite", hex: "#1f1f1f" },
   { nome: "Azul-marinho", hex: "#16325c" },
@@ -102,6 +111,8 @@ export default function MioloAgenda() {
   const [lote, setLote] = useState<{ feitos: number; total: number; atual: string } | null>(null);
   const [erroLote, setErroLote] = useState<string | null>(null);
   const cancelarLote = useRef(false);
+  const [fotoCarregando, setFotoCarregando] = useState<string | null>(null);
+  const [erroAbertura, setErroAbertura] = useState<string | null>(null);
 
   const ano = numeroEntre(String(config.ano), 2000, 2200, true);
   const total = config.total.trim() === "" ? null : numeroEntre(config.total, 2, 2000, true);
@@ -139,6 +150,8 @@ export default function MioloAgenda() {
     extras: extras.map((e) => ({ nome: e.nome, bytes: e.bytes, tipo: e.tipo, posicao: e.posicao, paginas: e.paginas })),
     datas: config.datas,
     pessoa,
+    aberturas: config.aberturas.map((a) => ({ titulo: a.titulo, texto: a.texto, modelo: a.modelo, foto: imagemDe(a.foto), posicao: a.posicao })),
+    corDestaque: config.acentoAtivo ? config.acentoCor : null,
   });
 
   const montarCapa = (nome: string): ConfigCapa => ({
@@ -195,6 +208,9 @@ export default function MioloAgenda() {
     config.destaque,
     config.datas,
     config.pessoa,
+    config.aberturas.map((a) => [a.titulo, a.texto, a.modelo, a.posicao, a.foto ? a.foto.dataUrl.length : 0]),
+    config.acentoAtivo,
+    config.acentoCor,
     logoChave,
     config.rodape,
     config.logoNaCapa,
@@ -342,6 +358,22 @@ export default function MioloAgenda() {
   const paginaCapa: 0 | 1 = atual >= 1 ? 1 : 0;
   const elementoAtivo = elementoDaPagina(paginaCapa, selCapa);
   const mudarElemento = (e: ElementoCapa, p: Partial<PosicaoElemento>) => set("capaLayout", { ...config.capaLayout, [e]: { ...config.capaLayout[e], ...p } });
+
+  const carregarFotoAbertura = async (id: string, files: File[]) => {
+    const f = files[0];
+    if (!f) return;
+    setFotoCarregando(id);
+    setErroAbertura(null);
+    try {
+      const img = await prepararImagem(new Uint8Array(await f.arrayBuffer()), f.name, 1600);
+      const cortada = await cortarImagem(img, FOTO_ABERTURA_MM.w / FOTO_ABERTURA_MM.h, 1100);
+      set("aberturas", config.aberturas.map((a) => (a.id === id ? { ...a, foto: { dataUrl: bytesParaDataUrl(cortada.bytes, cortada.tipo), w: cortada.w, h: cortada.h, tipo: cortada.tipo } } : a)));
+    } catch (e) {
+      setErroAbertura(e instanceof Error ? e.message : "Não consegui abrir a imagem.");
+    } finally {
+      setFotoCarregando(null);
+    }
+  };
 
   const adicionarData = (d: DataEspecial) => {
     if (config.datas.length >= MAX_DATAS_ESPECIAIS) return;
@@ -605,6 +637,10 @@ export default function MioloAgenda() {
             </Campo>
           </Bloco>
 
+          <Bloco titulo="Páginas de abertura" resumo={config.aberturas.length ? `${config.aberturas.length} página${config.aberturas.length > 1 ? "s" : ""}` : "Nenhuma"}>
+            <AgendaAberturas aberturas={config.aberturas} onChange={(l) => set("aberturas", l)} onFoto={(id, f) => void carregarFotoAbertura(id, f)} fotoCarregando={fotoCarregando} erro={erroAbertura} />
+          </Bloco>
+
           <Bloco titulo="Páginas do cliente" resumo={extras.length ? `${extras.length} arquivo${extras.length > 1 ? "s" : ""} · ${nExtras} página${nExtras > 1 ? "s" : ""}` : "Nenhuma"}>
             <AgendaExtras
               extras={extras}
@@ -663,9 +699,32 @@ export default function MioloAgenda() {
               <span className="block text-xs text-muted-foreground">No planejamento do mês.</span>
             </Chave>
             <Chave ligado={config.destaque} onChange={(v) => set("destaque", v)}>
-              <span className="font-medium">Domingos e feriados em cinza</span>
-              <span className="block text-xs text-muted-foreground">O número do dia fica mais clarinho.</span>
+              <span className="font-medium">Domingos e feriados em destaque</span>
+              <span className="block text-xs text-muted-foreground">O número do dia fica em cinza, ou na cor de destaque se ela estiver ligada.</span>
             </Chave>
+            <Chave ligado={config.acentoAtivo} onChange={(v) => set("acentoAtivo", v)}>
+              <span className="font-medium">Cor de destaque</span>
+              <span className="block text-xs text-muted-foreground">Pontinhos, círculos dos feriados, ícones e o ano na capa. Para impressão colorida; no preto e branco deixe desligada.</span>
+            </Chave>
+            {config.acentoAtivo && (
+              <div className="space-y-2 pl-1">
+                <SeletorCor valor={config.acentoCor} sugestoes={CORES_DESTAQUE} onChange={(hex) => set("acentoCor", hex)} />
+                {logoImg && (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-primary hover:underline"
+                    onClick={() =>
+                      void corDeFundoDaLogo(logoImg).then((hex) => {
+                        if (hex) set("acentoCor", hex);
+                        else setErroLogo("A logo não tem um fundo de uma cor só.");
+                      })
+                    }
+                  >
+                    Usar a cor da logo
+                  </button>
+                )}
+              </div>
+            )}
           </Bloco>
 
           <Campo titulo="Total de páginas" ajuda={miolo ? `O miolo precisa de ${miolo.plano.minimo} páginas. Se você pedir mais, o resto vira páginas de anotações no final.` : "Deixe vazio para só o necessário."}>

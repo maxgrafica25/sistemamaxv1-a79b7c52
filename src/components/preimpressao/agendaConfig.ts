@@ -1,6 +1,6 @@
 // Configuração do "Miolo de agenda" (o que fica salvo no navegador) e modelos salvos por cliente.
 
-import { ELEMENTOS_CAPA, LAYOUT_CAPA_PADRAO, datasEspeciaisValidas, layoutCapaValido, type DataEspecial, type ElementoCapa, type Feriado, type LayoutCapa } from "@/lib/preimpressao/agenda";
+import { ELEMENTOS_CAPA, LAYOUT_CAPA_PADRAO, datasEspeciaisValidas, layoutCapaValido, type DataEspecial, type ElementoCapa, type Feriado, type LayoutCapa, type PosicaoExtra } from "@/lib/preimpressao/agenda";
 
 /** Logo guardada no navegador como data URL (já reduzida). */
 export interface ImagemSalva {
@@ -9,6 +9,32 @@ export interface ImagemSalva {
   h: number;
   tipo: "png" | "jpg";
 }
+
+/** Página de abertura do cliente, como fica guardada na tela e nos modelos. */
+export interface AberturaUI {
+  id: string;
+  titulo: string;
+  texto: string;
+  modelo: "texto" | "foto" | "lista";
+  foto: ImagemSalva | null;
+  posicao: PosicaoExtra;
+}
+
+export const EXEMPLOS_ABERTURA: Record<AberturaUI["modelo"], { titulo: string; texto: string }> = {
+  texto: {
+    titulo: "Quem somos",
+    texto:
+      "Somos uma empresa de família, nascida no bairro e criada com muito trabalho.\n\nHá mais de dez anos cuidamos de cada cliente como se fosse o primeiro: atendimento de perto, prazo cumprido e qualidade que dá para ver.\n\nNossa promessa é simples: resolver o seu problema com honestidade. Venha conversar com a gente!",
+  },
+  foto: {
+    titulo: "Nossa casa",
+    texto: "Venha nos visitar! Aqui você encontra atendimento de perto e um café sempre fresquinho.\n\nSegunda a sexta, das 8h às 18h. Sábado, das 8h às 12h.",
+  },
+  lista: {
+    titulo: "Nossos produtos",
+    texto: "# Mais pedidos\nProduto exemplo 1 | R$ 25,00\nProduto exemplo 2 | R$ 38,00\nProduto exemplo 3 | R$ 12,50\n\n# Serviços\nServiço exemplo A | R$ 80,00\nServiço exemplo B | R$ 120,00",
+  },
+};
 
 export type Saida = "a5" | "a4";
 export type ModoAgenda = "miolo" | "capa";
@@ -55,6 +81,11 @@ export interface ConfigAgendaUI {
   /** Lista de nomes (um por linha) para gerar uma agenda para cada pessoa. */
   nomes: string;
   lote: "miolo" | "capa" | "ambos";
+  /** Páginas de abertura do cliente (até 3). */
+  aberturas: AberturaUI[];
+  /** Cor de destaque no miolo (pontinhos, círculos, ícones, ano na capa, domingos e feriados). */
+  acentoAtivo: boolean;
+  acentoCor: string;
 }
 
 /** Ano da próxima agenda: a partir de setembro já se prepara o ano seguinte. */
@@ -99,6 +130,9 @@ export function configPadrao(): ConfigAgendaUI {
     pessoa: "",
     nomes: "",
     lote: "ambos",
+    aberturas: [],
+    acentoAtivo: false,
+    acentoCor: "#1d4ed8",
   };
 }
 
@@ -157,6 +191,20 @@ export function modeloDeArquivo(json: unknown): Partial<ModeloAgenda> | null {
       if (l === null || (typeof l === "object" && typeof l.dataUrl === "string" && l.dataUrl.startsWith("data:image/") && typeof l.w === "number" && typeof l.h === "number")) out[k] = l;
     } else if (k === "capaLayout") {
       if (v && typeof v === "object") out[k] = layoutCapaValido(v as Partial<Record<string, never>>);
+    } else if (k === "aberturas") {
+      if (Array.isArray(v)) {
+        out[k] = v
+          .filter((a) => a && typeof a.titulo === "string" && typeof a.texto === "string" && ["texto", "foto", "lista"].includes(a.modelo))
+          .slice(0, 3)
+          .map((a, i) => ({
+            id: typeof a.id === "string" ? a.id : `ab${i}`,
+            titulo: a.titulo.slice(0, 40),
+            texto: a.texto.slice(0, 1600),
+            modelo: a.modelo,
+            foto: a.foto && typeof a.foto.dataUrl === "string" && a.foto.dataUrl.startsWith("data:image/") ? a.foto : null,
+            posicao: a.posicao === "fim" || (typeof a.posicao === "number" && a.posicao >= 1 && a.posicao <= 12) ? a.posicao : "inicio",
+          }));
+      }
     } else if (k === "datas") {
       if (Array.isArray(v)) out[k] = datasEspeciaisValidas(2024, v as DataEspecial[]);
     } else if (k === "regionais") {
