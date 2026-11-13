@@ -117,3 +117,18 @@ describe("PDF das partes", () => {
     expect(t).toContain("508");
   });
 });
+
+describe("direção forçada e arte exportada em escala", () => {
+  it("vertical forçada corta em colunas mesmo quando linhas gastaria menos", () => {
+    const livre = melhorCorte({ w: 400, h: 100 }, 107, 3, 2);
+    const vert = melhorCorte({ w: 400, h: 100 }, 107, 3, 2, "colunas");
+    expect(livre?.corte).toBe("linhas");
+    expect(vert?.corte).toBe("colunas");
+    expect(compararRolos({ w: 400, h: 100 }, [107, 137], 3, 2, "colunas").every((p) => p.corte === "colunas")).toBe(true);
+  });
+  it("arte exportada a 50% (125×75) sai no tamanho final 250×150", () => {
+    const f = tamanhoFinal({ tipo: "pdf", bytes: new Uint8Array(), wCm: 125, hCm: 75 }, 200);
+    expect(f.w).toBeCloseTo(250, 5);
+    expect(f.h).toBeCloseTo(150, 5);
+  });
+});
