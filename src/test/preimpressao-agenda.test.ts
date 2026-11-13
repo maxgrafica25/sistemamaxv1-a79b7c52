@@ -235,3 +235,52 @@ describe("posição dos elementos da capa", () => {
     expect(d.getPageCount()).toBe(2);
   }, 30000);
 });
+
+import { datasEspeciaisValidas } from "@/lib/preimpressao/agenda";
+import { NOMES_DE_EXEMPLO, nomeDeArquivo, nomesDoLote } from "@/components/preimpressao/agendaConfig";
+
+describe("datas do cliente e lista de nomes", () => {
+  it("datas válidas: tira data que não existe, nome vazio e repetidas; ordena; ícone desconhecido vira estrela", () => {
+    const d = datasEspeciaisValidas(2027, [
+      { mes: 3, dia: 14, nome: " Aniversário da empresa ", icone: "coracao" },
+      { mes: 2, dia: 30, nome: "Não existe", icone: "estrela" },
+      { mes: 1, dia: 5, nome: "Campanha", icone: "ouro" as never },
+      { mes: 3, dia: 14, nome: "Aniversário da empresa", icone: "coracao" },
+      { mes: 4, dia: 1, nome: "  ", icone: "ponto" },
+    ]);
+    expect(d).toEqual([
+      { mes: 1, dia: 5, nome: "Campanha", icone: "estrela" },
+      { mes: 3, dia: 14, nome: "Aniversário da empresa", icone: "coracao" },
+    ]);
+  });
+
+  it("gera o miolo com datas do cliente de todos os ícones e o nome da pessoa", async () => {
+    const m = await gerarMiolo({
+      ano: 2027,
+      capa: "AGENDA",
+      regionais: [],
+      pessoa: "Mariana Souza Albuquerque de Oliveira Santos",
+      datas: [
+        { mes: 1, dia: 5, nome: "Estrela", icone: "estrela" },
+        { mes: 1, dia: 6, nome: "Coração", icone: "coracao" },
+        { mes: 1, dia: 7, nome: "Losango", icone: "losango" },
+        { mes: 1, dia: 8, nome: "Bolinha", icone: "ponto" },
+        { mes: 1, dia: 9, nome: "Visto", icone: "visto" },
+      ],
+    });
+    expect(m.plano.paginas.length).toBeGreaterThan(300);
+    const sem = await gerarMiolo({ ano: 2027, capa: "AGENDA", regionais: [], modelo: "semanal", datas: [{ mes: 1, dia: 7, nome: "Reunião", icone: "visto" }] });
+    expect(sem.bytes.length).toBeGreaterThan(1000);
+  }, 60000);
+
+  it("lista de nomes: um por linha, sem vazios nem repetidos, no máximo 100", () => {
+    expect(nomesDoLote("  Ana  Paula \n\nana paula\nJoão\r\nMaria  ")).toEqual(["Ana Paula", "João", "Maria"]);
+    expect(nomesDoLote(NOMES_DE_EXEMPLO)).toHaveLength(12);
+    expect(nomesDoLote(Array.from({ length: 150 }, (_, i) => `Pessoa ${i}`).join("\n"))).toHaveLength(100);
+  });
+
+  it("nome de arquivo sem acento nem símbolos", () => {
+    expect(nomeDeArquivo("João Pedro d'Ávila")).toBe("Joao_Pedro_d_Avila");
+    expect(nomeDeArquivo("???")).toBe("agenda");
+  });
+});

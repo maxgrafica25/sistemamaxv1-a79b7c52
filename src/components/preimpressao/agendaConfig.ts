@@ -1,6 +1,6 @@
 // Configuração do "Miolo de agenda" (o que fica salvo no navegador) e modelos salvos por cliente.
 
-import { ELEMENTOS_CAPA, LAYOUT_CAPA_PADRAO, layoutCapaValido, type ElementoCapa, type Feriado, type LayoutCapa } from "@/lib/preimpressao/agenda";
+import { ELEMENTOS_CAPA, LAYOUT_CAPA_PADRAO, datasEspeciaisValidas, layoutCapaValido, type DataEspecial, type ElementoCapa, type Feriado, type LayoutCapa } from "@/lib/preimpressao/agenda";
 
 /** Logo guardada no navegador como data URL (já reduzida). */
 export interface ImagemSalva {
@@ -48,6 +48,13 @@ export interface ConfigAgendaUI {
   capaUsarLogo: boolean;
   /** Posição e tamanho de cada elemento da capa e da contracapa. */
   capaLayout: LayoutCapa;
+  /** Datas do cliente (com ícone) que entram no calendário e nas páginas. */
+  datas: DataEspecial[];
+  /** Nome desta agenda (capa do miolo, verso da capa, "Nome:" dos dados). */
+  pessoa: string;
+  /** Lista de nomes (um por linha) para gerar uma agenda para cada pessoa. */
+  nomes: string;
+  lote: "miolo" | "capa" | "ambos";
 }
 
 /** Ano da próxima agenda: a partir de setembro já se prepara o ano seguinte. */
@@ -88,6 +95,10 @@ export function configPadrao(): ConfigAgendaUI {
     capaContato: "",
     capaUsarLogo: true,
     capaLayout: structuredClone(LAYOUT_CAPA_PADRAO),
+    datas: [],
+    pessoa: "",
+    nomes: "",
+    lote: "ambos",
   };
 }
 
@@ -96,12 +107,15 @@ export function configPadrao(): ConfigAgendaUI {
 const CHAVE_MODELOS = "preimpressao.agenda.modelos.v1";
 
 /** O que um modelo guarda: tudo, menos o ano (muda a cada vez) e o formato de saída. */
-export type ModeloAgenda = Omit<ConfigAgendaUI, "ano" | "saida">;
+export type ModeloAgenda = Omit<ConfigAgendaUI, "ano" | "saida" | "pessoa" | "nomes" | "lote">;
 
 export function paraModelo(c: ConfigAgendaUI): ModeloAgenda {
-  const { ano: _ano, saida: _saida, ...resto } = c;
+  const { ano: _ano, saida: _saida, pessoa: _pessoa, nomes: _nomes, lote: _lote, ...resto } = c;
   void _ano;
   void _saida;
+  void _pessoa;
+  void _nomes;
+  void _lote;
   return resto;
 }
 
@@ -135,7 +149,7 @@ export function modeloDeArquivo(json: unknown): Partial<ModeloAgenda> | null {
   const origem = json as Record<string, unknown>;
   const out: Record<string, unknown> = {};
   for (const k of Object.keys(padrao)) {
-    if (k === "ano" || k === "saida") continue;
+    if (k === "ano" || k === "saida" || k === "pessoa" || k === "nomes" || k === "lote") continue;
     const v = origem[k];
     if (v === undefined) continue;
     if (k === "logo") {
@@ -143,6 +157,8 @@ export function modeloDeArquivo(json: unknown): Partial<ModeloAgenda> | null {
       if (l === null || (typeof l === "object" && typeof l.dataUrl === "string" && l.dataUrl.startsWith("data:image/") && typeof l.w === "number" && typeof l.h === "number")) out[k] = l;
     } else if (k === "capaLayout") {
       if (v && typeof v === "object") out[k] = layoutCapaValido(v as Partial<Record<string, never>>);
+    } else if (k === "datas") {
+      if (Array.isArray(v)) out[k] = datasEspeciaisValidas(2024, v as DataEspecial[]);
     } else if (k === "regionais") {
       if (Array.isArray(v)) out[k] = v.filter((f) => f && typeof f.dia === "number" && typeof f.mes === "number" && typeof f.nome === "string").slice(0, 12);
     } else if (typeof v === typeof padrao[k]) out[k] = v;
@@ -155,3 +171,36 @@ export function elementoDaPagina(pagina: 0 | 1, atual: ElementoCapa): ElementoCa
   const daPagina = ELEMENTOS_CAPA.filter((e) => e.pagina === pagina);
   return daPagina.some((e) => e.chave === atual) ? atual : daPagina[0].chave;
 }
+
+/** Nomes da lista (um por linha): sem vazios nem repetidos, até 100, cada um com no máximo 40 letras. */
+export function nomesDoLote(texto: string): string[] {
+  const vistos = new Set<string>();
+  const out: string[] = [];
+  for (const l of texto.split(/\r?\n/)) {
+    const n = l.trim().replace(/\s+/g, " ").slice(0, 40);
+    if (!n || vistos.has(n.toLowerCase())) continue;
+    vistos.add(n.toLowerCase());
+    out.push(n);
+  }
+  return out.slice(0, 100);
+}
+
+/** Nome de arquivo seguro: sem acento nem símbolos. */
+export function nomeDeArquivo(nome: string): string {
+  return nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || "agenda";
+}
+
+export const NOMES_DE_EXEMPLO = [
+  "Ana Paula Ribeiro",
+  "Carlos Eduardo Lima",
+  "Mariana Souza",
+  "João Pedro Almeida",
+  "Fernanda Costa",
+  "Ricardo Santos",
+  "Juliana Martins",
+  "Pedro Henrique Rocha",
+  "Camila Ferreira",
+  "Lucas Oliveira",
+  "Patrícia Gomes",
+  "Rafael Mendes",
+].join("\n");

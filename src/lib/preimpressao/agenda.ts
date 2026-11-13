@@ -88,6 +88,40 @@ export function todosOsFeriados(ano: number, regionais: Feriado[]): Feriado[] {
   return ordenarFeriados([...feriadosNacionais(ano), ...extras.map((f) => ({ ...f, nome: f.nome.trim() }))]);
 }
 
+/** Ícones das datas do cliente (aniversário da empresa, campanhas…). */
+export type IconeData = "estrela" | "coracao" | "losango" | "ponto" | "visto";
+
+export const ICONES_DATA: { chave: IconeData; rotulo: string }[] = [
+  { chave: "estrela", rotulo: "Estrela" },
+  { chave: "coracao", rotulo: "Coração" },
+  { chave: "losango", rotulo: "Losango" },
+  { chave: "ponto", rotulo: "Bolinha" },
+  { chave: "visto", rotulo: "Visto" },
+];
+
+/** Data do cliente (não é feriado): aparece com um ícone no calendário, no planejamento e no dia. */
+export interface DataEspecial extends Feriado {
+  icone: IconeData;
+}
+
+export const MAX_DATAS_ESPECIAIS = 12;
+
+/** Datas do cliente válidas no ano (data existente, nome preenchido, ícone conhecido), em ordem e sem repetir. */
+export function datasEspeciaisValidas(ano: number, datas?: DataEspecial[] | null): DataEspecial[] {
+  const icones = new Set<string>(ICONES_DATA.map((i) => i.chave));
+  const vistas = new Set<string>();
+  const out: DataEspecial[] = [];
+  for (const d of datas ?? []) {
+    const nome = (d.nome ?? "").trim().slice(0, 30);
+    if (!nome || !(d.mes >= 1 && d.mes <= 12) || !(d.dia >= 1 && d.dia <= diasNoMes(ano, d.mes))) continue;
+    const chave = `${d.mes}-${d.dia}-${nome}`;
+    if (vistas.has(chave)) continue;
+    vistas.add(chave);
+    out.push({ mes: d.mes, dia: d.dia, nome, icone: icones.has(d.icone) ? d.icone : "estrela" });
+  }
+  return out.sort((a, b) => a.mes - b.mes || a.dia - b.dia).slice(0, MAX_DATAS_ESPECIAIS);
+}
+
 export type FaseLua = "nova" | "crescente" | "cheia" | "minguante";
 
 const rad = (g: number) => (g * Math.PI) / 180;
@@ -245,6 +279,10 @@ export interface ConfigAgenda {
   identidade?: Partial<Identidade>;
   marcaDagua?: Partial<MarcaDagua>;
   extras?: Extra[];
+  /** Datas do cliente, com ícone. */
+  datas?: DataEspecial[];
+  /** Nome da pessoa dona desta agenda (aparece na capa do miolo, no verso da capa e em "Nome:"). */
+  pessoa?: string;
 }
 
 interface Cfg {
@@ -262,6 +300,8 @@ interface Cfg {
   identidade: Identidade;
   marcaDagua: MarcaDagua;
   extras: Extra[];
+  datas: DataEspecial[];
+  pessoa: string;
 }
 
 const limitar = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -283,6 +323,8 @@ function normalizar(c: ConfigAgenda): Cfg {
     identidade: { logo: null, rodape: "", logoNaCapa: true, logoNoVerso: true, rodapeEmTodas: true, ...c.identidade },
     marcaDagua: { ativa: false, tipo: "texto", texto: "", logo: null, opacidade: 0.08, escala: 60, onde: "todas", ...c.marcaDagua },
     extras: c.extras ?? [],
+    datas: datasEspeciaisValidas(c.ano, c.datas),
+    pessoa: (c.pessoa ?? "").trim().slice(0, 40),
   };
 }
 
@@ -525,6 +567,46 @@ class Folha {
   }
 }
 
+/** Ícone de uma data do cliente, centrado em (cx, cy) mm, com raio r mm. */
+function iconeData(fo: Folha, tipo: IconeData, cx: number, cy: number, r: number) {
+  const x = cx * PT_POR_MM;
+  const y = (H - cy) * PT_POR_MM;
+  const R = r * PT_POR_MM;
+  const preenche = (d: string) => fo.page.drawSvgPath(d, { x, y, scale: R, color: PRETO, borderWidth: 0 });
+  if (tipo === "ponto") {
+    fo.page.drawCircle({ x, y, size: R * 0.85, color: PRETO });
+  } else if (tipo === "losango") {
+    preenche("M 0 -1 L 0.75 0 L 0 1 L -0.75 0 Z");
+  } else if (tipo === "coracao") {
+    preenche("M 0 -0.35 C -0.5 -1 -1.25 -0.05 0 0.95 C 1.25 -0.05 0.5 -1 0 -0.35 Z");
+  } else if (tipo === "estrela") {
+    const pts = Array.from({ length: 10 }, (_, i) => {
+      const a = rad(-90 + i * 36);
+      const raio = i % 2 === 0 ? 1 : 0.42;
+      return `${(Math.cos(a) * raio).toFixed(3)} ${(Math.sin(a) * raio).toFixed(3)}`;
+    });
+    preenche(`M ${pts.join(" L ")} Z`);
+  } else {
+    const t = Math.max(0.5, R * 0.32);
+    const ponto = (dx: number, dy: number) => ({ x: x + dx * R, y: y - dy * R });
+    fo.page.drawLine({ start: ponto(-0.8, 0), end: ponto(-0.25, -0.6), thickness: t, color: PRETO, lineCap: LineCapStyle.Round });
+    fo.page.drawLine({ start: ponto(-0.25, -0.6), end: ponto(0.9, 0.7), thickness: t, color: PRETO, lineCap: LineCapStyle.Round });
+  }
+}
+
+/** Datas do cliente de um dia. */
+function datasDoDia(fo: Folha, mes: number, dia: number) {
+  return fo.ctx.cfg.datas.filter((d) => d.mes === mes && d.dia === dia);
+}
+
+/** Corta o texto (com "…") para caber em `maxMm`. */
+function caber(fo: Folha, s: string, tam: number, maxMm: number) {
+  if (fo.largura(s, tam) <= maxMm) return s;
+  let t = s;
+  while (t.length > 1 && fo.largura(t + "…", tam) > maxMm) t = t.slice(0, -1);
+  return t.trimEnd() + "…";
+}
+
 function ehFeriado(feriados: Feriado[], mes: number, dia: number) {
   return feriados.some((f) => f.mes === mes && f.dia === dia);
 }
@@ -563,6 +645,10 @@ function mesEmGrade(
     const cy = yy + lin * passo;
     fo.texto(String(d), cx, cy, tamNum, { alinhar: "c" });
     if (!o.semFeriados && ehFeriado(fo.ctx.feriados, mes, d)) fo.circulo(cx, cy - tamNum * 0.17, Math.min(celula * 0.5, passo * 0.62));
+    if (!o.semFeriados) {
+      const ds = datasDoDia(fo, mes, d);
+      if (ds.length) iconeData(fo, ds[0].icone, cx + celula * 0.4, cy - tamNum * 0.36, Math.min(1, passo * 0.27));
+    }
   }
 }
 
@@ -591,6 +677,13 @@ function desenharCapa(fo: Folha) {
     const alt = largura * (id.logo.h / id.logo.w);
     fo.imagem(logo, fo.esq, H - 14 - alt, largura, alt);
   }
+  // nome da pessoa dona da agenda, no canto de baixo (acima da logo, se houver)
+  if (cfg.pessoa) {
+    const largura = Math.min(44, xi - fo.esq - 8);
+    const altLogo = logo && id.logo && id.logoNaCapa ? largura * (id.logo.h / id.logo.w) + 5 : 0;
+    const nome = caber(fo, cfg.pessoa, 9, xi - fo.esq - 6);
+    fo.texto(nome, fo.esq, H - 14 - altLogo, 9, { peso: "negrito" });
+  }
 }
 
 function desenharVersoDaCapa(fo: Folha) {
@@ -605,6 +698,11 @@ function desenharVersoDaCapa(fo: Folha) {
     if (id.rodape.trim()) fo.texto(id.rodape.trim(), cx, 88 + alt / 2 + 9, 7, { alinhar: "c", cor: CINZA_ESCURO });
   } else if (id.logoNoVerso && id.rodape.trim()) {
     fo.texto(id.rodape.trim(), cx, 100, 8, { alinhar: "c", cor: CINZA_ESCURO });
+  }
+  if (cfg.pessoa) {
+    fo.texto("ESTA AGENDA É DE", cx, 150, 6.5, { alinhar: "c", peso: "leve", cor: CINZA_ESCURO });
+    fo.texto(caber(fo, cfg.pessoa, 14, fo.dir - fo.esq), cx, 158, 14, { alinhar: "c", peso: "negrito" });
+    fo.linha(cx - 25, 161.5, cx + 25, 161.5, 0.4, CINZA);
   }
 }
 
@@ -656,7 +754,7 @@ function marcaDagua(fo: Folha, marcaImg: PDFImage | null) {
   fo.page.drawText(t, { x: x0 * PT_POR_MM, y: y0 * PT_POR_MM, size: tam, font: fonte, color: PRETO, opacity: op, rotate: degrees(ang) });
 }
 
-function campos(fo: Folha, y: number, linhas: ([string] | [string, string])[], passo = 6.9) {
+function campos(fo: Folha, y: number, linhas: ([string] | [string, string])[], passo = 6.9, preencher: Record<string, string> = {}) {
   const meio = (fo.esq + fo.dir) / 2 + 2;
   let yy = y;
   for (const l of linhas) {
@@ -664,6 +762,8 @@ function campos(fo: Folha, y: number, linhas: ([string] | [string, string])[], p
       fo.texto(l[0] + ":", fo.esq, yy, 6.5);
       const x0 = fo.esq + fo.largura(l[0] + ": ", 6.5);
       fo.linha(x0, yy + 0.6, fo.dir, yy + 0.6, 0.45);
+      const valor = preencher[l[0]];
+      if (valor) fo.texto(caber(fo, valor, 8, fo.dir - x0 - 2), x0 + 1.5, yy - 0.1, 8, { peso: "negrito" });
     } else {
       fo.texto(l[0] + ":", fo.esq, yy, 6.5);
       fo.linha(fo.esq + fo.largura(l[0] + ": ", 6.5), yy + 0.6, meio - 1, yy + 0.6, 0.45);
@@ -677,7 +777,7 @@ function campos(fo: Folha, y: number, linhas: ([string] | [string, string])[], p
 
 function desenharDados(fo: Folha) {
   fo.titulo("DADOS", "PESSOAIS", 13);
-  let y = campos(fo, 22, [["Nome"], ["RG", "CPF"], ["Endereço"], ["Bairro", "CEP"], ["Cidade", "Estado"], ["Tel.", "Cel."], ["Outro"]]);
+  let y = campos(fo, 22, [["Nome"], ["RG", "CPF"], ["Endereço"], ["Bairro", "CEP"], ["Cidade", "Estado"], ["Tel.", "Cel."], ["Outro"]], 6.9, { Nome: fo.ctx.cfg.pessoa });
   fo.titulo("DADOS", "PROFISSIONAIS", y + 5);
   y = campos(fo, y + 14, [["Empresa"], ["CNPJ", "Insc. Estadual"], ["Endereço"], ["Complemento", "CEP"], ["Cidade", "Estado"], ["Telefone", "Whatsapp"], ["E-mail", "Site"], ["Facebook", "Instagram"]]);
   fo.titulo("EM CASO DE", "EMERGÊNCIA", y + 5);
@@ -701,21 +801,29 @@ function desenharCalendarioAno(fo: Folha) {
     if (col > 0) fo.linha(x, y - 4, x, y + 28, 0.4);
     if (col === 0 && lin > 0) fo.linha(fo.esq, y - 4.6, fo.dir, y - 4.6, 0.4);
   }
-  const feriados = fo.ctx.feriados;
   const yl = 168;
-  fo.texto("FERIADOS E DIAS SANTIFICADOS", fo.esq, yl, 8.5, { peso: "leve" });
-  fo.pontos(fo.esq + fo.largura("FERIADOS E DIAS SANTIFICADOS ", 8.5, "leve") + 2, yl - 4.5, fo.dir, yl + 0.5, 1.8);
-  const colunas = 3;
-  const porColuna = Math.ceil(feriados.length / colunas);
-  const passo = Math.min(4.6, 25 / Math.max(porColuna, 1));
+  const itens: { mes: number; dia: number; nome: string; icone?: IconeData }[] = [...fo.ctx.feriados, ...fo.ctx.cfg.datas].sort((x, z) => x.mes - z.mes || x.dia - z.dia);
+  const temData = fo.ctx.cfg.datas.length > 0;
+  fo.texto(temData ? "FERIADOS, DIAS SANTIFICADOS E DATAS ESPECIAIS" : "FERIADOS E DIAS SANTIFICADOS", fo.esq, yl, 8.5, { peso: "leve" });
+  const wTit = fo.largura(temData ? "FERIADOS, DIAS SANTIFICADOS E DATAS ESPECIAIS " : "FERIADOS E DIAS SANTIFICADOS ", 8.5, "leve");
+  fo.pontos(fo.esq + wTit + 2, yl - 4.5, fo.dir, yl + 0.5, 1.8);
+  // 3 colunas; se passar de 10 linhas, 4 colunas
+  let colunas = 3;
+  if (Math.ceil(itens.length / 3) > 9) colunas = 4;
+  const larguraCol = (fo.dir - fo.esq) / colunas;
+  const porColuna = Math.ceil(itens.length / colunas);
+  const passo = Math.min(4.6, 29 / Math.max(porColuna, 1));
   const tam = Math.min(6.3, passo * 1.35);
-  feriados.forEach((fer, i) => {
+  const deslocData = colunas === 3 ? 12 : 9.5;
+  itens.forEach((it, i) => {
     const c = Math.floor(i / porColuna);
     const r = i % porColuna;
-    const x = fo.esq + c * colW;
+    const x = fo.esq + c * larguraCol;
     const y = yl + 6 + r * passo;
-    fo.texto(String(fer.dia).padStart(2, "0") + " " + MESES_CURTOS[fer.mes - 1], x, y, tam);
-    fo.texto(fer.nome, x + 12, y, tam);
+    const recuo = it.icone ? 2.6 : 0;
+    if (it.icone) iconeData(fo, it.icone, x + 1, y - tam * 0.12, Math.min(0.9, passo * 0.28));
+    fo.texto(String(it.dia).padStart(2, "0") + " " + MESES_CURTOS[it.mes - 1], x + recuo, y, tam);
+    fo.texto(caber(fo, it.nome, tam, larguraCol - deslocData - recuo - 1.5), x + deslocData + recuo, y, tam);
   });
 }
 
@@ -766,10 +874,13 @@ function desenharPlanejamento(fo: Folha, mes: number) {
     fo.linha(xDiv, 20, xDiv, 31, 0.5);
     xTexto = xDiv + 3;
   }
-  feriados
-    .filter((f) => f.mes === mes)
-    .slice(0, 3)
-    .forEach((f, i) => fo.texto(`${String(f.dia).padStart(2, "0")} ${MESES_CURTOS[mes - 1]}  ${f.nome}`, xTexto, 24.5 + i * 3.6, 6.3));
+  const doMesTexto: { dia: number; nome: string; icone?: IconeData }[] = [...feriados.filter((f) => f.mes === mes), ...cfg.datas.filter((d) => d.mes === mes)].sort((a, b) => a.dia - b.dia);
+  doMesTexto.slice(0, 4).forEach((f, i) => {
+    const y = 23.2 + i * 3.4;
+    const recuo = f.icone ? 2.8 : 0;
+    if (f.icone) iconeData(fo, f.icone, xTexto + 1, y - 0.8, 0.9);
+    fo.texto(caber(fo, `${String(f.dia).padStart(2, "0")} ${MESES_CURTOS[mes - 1]}  ${f.nome}`, 6.3, fo.dir - xTexto - recuo), xTexto + recuo, y, 6.3);
+  });
   const n = diasNoMes(ano, mes);
   const colW = (fo.dir - fo.esq) / 4;
   const linhaH = 20.3;
@@ -782,6 +893,8 @@ function desenharPlanejamento(fo: Folha, mes: number) {
     const cor = cfg.destaque && (sem === 0 || ehFeriado(feriados, mes, d)) ? CINZA_ESCURO : PRETO;
     fo.texto(String(d).padStart(2, "0"), x + 0.5, y + 4, 8, { cor });
     fo.texto(SEMANA_CURTA[sem], x + 0.5 + fo.largura(String(d).padStart(2, "0") + " ", 8), y + 4, 5.2, { cor });
+    const ds = cfg.datas.filter((x) => x.mes === mes && x.dia === d);
+    if (ds.length) iconeData(fo, ds[0].icone, x + colW - 3.6, y + 2.8, 1.4);
     fo.linha(x, y + linhaH - 0.4, x + colW - 0.5, y + linhaH - 0.4, 0.5);
     fo.linha(x + colW - 0.5, y + 7, x + colW - 0.5, y + linhaH - 0.4, 0.5);
   }
@@ -849,10 +962,21 @@ function rodapeDoDia(fo: Folha, mes: number) {
   fo.texto(t, xt + 1.5, y + 0.9, 6.5);
 }
 
+/** Nome do feriado e das datas do cliente do dia, em cinza, abaixo do cabeçalho (com o ícone da data). */
 function anotarFeriado(fo: Folha, mes: number, dia: number, y: number) {
   const f = fo.ctx.feriados.find((x) => x.mes === mes && x.dia === dia);
-  if (!f) return;
-  fo.texto(f.nome, fo.recto ? fo.dir : fo.esq, y, 6.3, { alinhar: fo.recto ? "d" : "e", cor: CINZA });
+  const ds = datasDoDia(fo, mes, dia);
+  if (!f && !ds.length) return;
+  const texto = caber(fo, [f?.nome, ...ds.map((d) => d.nome)].filter(Boolean).join(" · "), 6.3, fo.dir - fo.esq - 5);
+  const w = fo.largura(texto, 6.3);
+  const recuo = ds.length ? 3 : 0;
+  if (fo.recto) {
+    fo.texto(texto, fo.dir, y, 6.3, { alinhar: "d", cor: CINZA_ESCURO });
+    if (ds.length) iconeData(fo, ds[0].icone, fo.dir - w - 1.8, y - 0.9, 1);
+  } else {
+    if (ds.length) iconeData(fo, ds[0].icone, fo.esq + 1, y - 0.9, 1);
+    fo.texto(texto, fo.esq + recuo, y, 6.3, { cor: CINZA_ESCURO });
+  }
 }
 
 function desenharDia(fo: Folha, mes: number, dia: number) {
@@ -893,7 +1017,14 @@ function blocoDia(fo: Folha, d: Dia, x: number, y: number, w: number, h: number)
   const wn = fo.largura(num, 12, "extra");
   fo.texto(`${SEMANA_LONGA[sem]} · ${MESES[d.mes - 1].slice(0, 3)}`, x + wn + 2, y + 5.5, 6.3);
   const fer = feriados.find((f) => f.mes === d.mes && f.dia === d.dia);
-  if (fer && w > 60) fo.texto(fer.nome, x + w, y + 5.5, 6, { alinhar: "d", cor: CINZA });
+  const ds = cfg.datas.filter((e) => e.mes === d.mes && e.dia === d.dia);
+  if ((fer || ds.length) && w > 60) {
+    const txt = caber(fo, [fer?.nome, ...ds.map((e) => e.nome)].filter(Boolean).join(" · "), 6, w - wn - 38);
+    fo.texto(txt, x + w, y + 5.5, 6, { alinhar: "d", cor: CINZA_ESCURO });
+    if (ds.length) iconeData(fo, ds[0].icone, x + w - fo.largura(txt, 6) - 1.8, y + 4.6, 1);
+  } else if (ds.length) {
+    iconeData(fo, ds[0].icone, x + w - 1.5, y + 3.5, 1.3);
+  }
   fo.linha(x, y + 7.5, x + w, y + 7.5, 0.6);
   for (let yy = y + 14.5; yy < y + h - 1; yy += 7) fo.linha(x, yy, x + w, yy, 0.3, CINZA_CLARO);
 }
