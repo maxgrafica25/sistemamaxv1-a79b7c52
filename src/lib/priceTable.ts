@@ -231,6 +231,10 @@ export const chainTiers = <T extends Pick<PriceTier, "min_qty" | "max_qty">>(tie
 
 // ─── Lucro dentro da faixa e nas vendas reais ────────────────────────
 
+/** Margem do preço por unidade: o que sobra de cada unidade depois das taxas e do custo, sem a preparação do pedido. */
+export const unitMargin = (price: number, cost: number, s: PriceSettings): number | null =>
+  price > 0 ? (price * (1 - s.feesPct) - cost) / price : null;
+
 /** Menor quantidade em que o pedido atinge `target` de lucro real (null = nunca, nesse preço). */
 export const qtyForProfit = (price: number, cost: number, s: PriceSettings, target: number): number | null => {
   const porUnidade = price * (1 - s.feesPct - target) - cost;

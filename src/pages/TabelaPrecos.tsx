@@ -27,6 +27,7 @@ import {
   qtyForProfit,
   salesSummary,
   tierProfitRange,
+  unitMargin,
   formatTierRanges,
   itemAttributes,
   matchesSearch,
@@ -111,7 +112,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "status", label: "Situação" },
 ];
 const STATUS_LABELS: Record<string, string> = {
-  abaixo: "Lucro abaixo da meta (2 un ou mais)",
+  abaixo: "Margem abaixo da meta",
   sem_custo: "Falta custo",
   erro: "Faixa com erro ou papel sem custo",
   tiny_diferente: "Preço diferente do Tiny",
@@ -294,7 +295,7 @@ export default function TabelaPrecos() {
       const cost = unitCost(item, { papers, equipments, minuteRate });
       const status: string[] = [];
       if (cost.missing) status.push("sem_custo");
-      else if (list.some((t) => t.min_qty >= 2 && (realProfitPct(t.price, t.min_qty, cost.total, { feesPct, targetPct, minuteRate }) ?? 1) < targetPct)) status.push("abaixo");
+      else if (list.some((t) => (unitMargin(t.price, cost.total, { feesPct, targetPct, minuteRate }) ?? 1) < targetPct)) status.push("abaixo");
       const tierErrors = tierProblems(list).some((p) => !p.message.startsWith("Degrau"));
       if (tierErrors || (item.calc_type === "impressao" && cost.paper <= 0)) status.push("erro");
       if (tiny && list.some((t) => podeEnviar(compararFaixa(t, tiny.produtos, conflitos), t.price))) status.push("tiny_diferente");
@@ -538,7 +539,7 @@ export default function TabelaPrecos() {
             <span className="inline-flex items-center gap-1 cursor-help underline decoration-dotted">Como ler <Info className="h-3.5 w-3.5" /></span>
           </HoverCardTrigger>
           <HoverCardContent className="w-96 text-sm space-y-2">
-            <p><strong>Lucro real na faixa</strong> = o que sobra do pedido depois de tirar as taxas, o custo das unidades e a preparação do pedido, do menor ao maior pedido da faixa (ex.: "−275% → 57%" = 1 un dá prejuízo, 50 un dão 57%). Embaixo: a partir de quantas unidades bate a meta.</p>
+            <p><strong>Margem</strong> = o que sobra de cada unidade depois de tirar as taxas (imposto, cartão e perda) e o custo. Verde: 33% ou mais. Amarelo: abaixo da meta. Vermelho e negativa: prejuízo. Passe o mouse para ver o efeito da preparação do pedido.</p>
             <p><strong>Vendas</strong> = o que foi vendido de verdade no Tiny nos últimos 90 dias, pelo SKU, e o lucro real dessas vendas com o custo de hoje.</p>
             <p><span className="text-emerald-600 font-medium">Verde</span>: atinge a meta. <span className="text-amber-600 font-medium">Amarelo</span>: lucro abaixo da meta. <span className="text-red-600 font-medium">Vermelho</span>: prejuízo.</p>
             <p><strong>Preço mínimo</strong> = menor preço por unidade que atinge a meta nessa quantidade.</p>
@@ -781,7 +782,7 @@ export default function TabelaPrecos() {
                           <TableHead className="h-8">Faixa (un)</TableHead>
                           <TableHead className="h-8 w-28">Preço/un</TableHead>
                           <TableHead className="h-8">Tiny</TableHead>
-                          <TableHead className="h-8 text-right">Lucro real na faixa</TableHead>
+                          <TableHead className="h-8 text-right">Margem</TableHead>
                           {temVendas && <TableHead className="h-8 text-right">Vendas ({vendas!.dias} dias)</TableHead>}
                           <TableHead className="h-8 text-right">Preço mínimo</TableHead>
                         </TableRow>
@@ -1439,26 +1440,27 @@ function HistoricoTinyDialog({ onClose, onVoltar }: { onClose: () => void; onVol
 // ─── Lucro na faixa e vendas reais ───────────────────────────────────
 
 function LucroFaixa({ t, custo, settings }: { t: Tier; custo: number; settings: PriceSettings }) {
-  const { from, to } = tierProfitRange(t, custo, settings);
   const meta = settings.targetPct;
-  const aPartir = from !== null && from < meta ? qtyForProfit(t.price, custo, settings, meta) : null;
-  const dentro = aPartir !== null && (t.max_qty === null || aPartir <= t.max_qty);
-  const igual = pct(from) === pct(to);
+  const margem = unitMargin(t.price, custo, settings);
+  const { from, to } = tierProfitRange(t, custo, settings);
+  const aPartir = qtyForProfit(t.price, custo, settings, meta);
   return (
-    <div className="leading-tight">
-      <span className={`font-medium tabular-nums ${profitClass(from, meta)}`}>{pct(from)}</span>
-      {!igual && (
-        <>
-          <span className="text-muted-foreground mx-1">→</span>
-          <span className={`font-medium tabular-nums ${profitClass(to, meta)}`}>{pct(to)}</span>
-        </>
-      )}
-      {from !== null && from < meta && (
-        <span className="block text-[11px] text-muted-foreground">
-          {dentro ? `meta a partir de ${aPartir!.toLocaleString("pt-BR")} un` : "não chega à meta"}
-        </span>
-      )}
-    </div>
+    <HoverCard openDelay={200}>
+      <HoverCardTrigger asChild>
+        <span className={`font-semibold tabular-nums cursor-help ${profitClass(margem, meta)}`}>{pct(margem)}</span>
+      </HoverCardTrigger>
+      <HoverCardContent className="w-72 text-sm space-y-1">
+        <p className="text-xs text-muted-foreground">Margem de cada unidade, depois das taxas e do custo.</p>
+        <p className="text-xs text-muted-foreground pt-1">Contando a preparação do pedido ({fmtMoney(prepCost(settings.minuteRate))}):</p>
+        <div className="flex justify-between"><span>Pedido de {t.min_qty} un</span><span className={profitClass(from, meta)}>{pct(from)}</span></div>
+        {t.max_qty !== null && t.max_qty !== t.min_qty && (
+          <div className="flex justify-between"><span>Pedido de {t.max_qty} un</span><span className={profitClass(to, meta)}>{pct(to)}</span></div>
+        )}
+        <p className="text-xs text-muted-foreground pt-1">
+          {aPartir === null ? "Nesse preço não chega à meta." : `Chega à meta a partir de ${aPartir.toLocaleString("pt-BR")} un por pedido.`}
+        </p>
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 

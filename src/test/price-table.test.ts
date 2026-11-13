@@ -156,3 +156,12 @@ describe("lucro dentro da faixa e nas vendas reais", () => {
     expect(mergeSales([v, v]).profitPct).toBeCloseTo(v.profitPct!, 9);
   });
 });
+
+describe("margem por unidade", () => {
+  it("é o que sobra de cada unidade depois das taxas e do custo", async () => {
+    const { unitMargin } = await import("@/lib/priceTable");
+    expect(unitMargin(1, 0.1, s)!).toBeCloseTo(0.68, 6);
+    expect(unitMargin(0.1, 0.1, s)!).toBeLessThan(0); // prejuízo
+    expect(unitMargin(0, 0.1, s)).toBeNull();
+  });
+});
