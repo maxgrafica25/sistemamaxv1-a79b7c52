@@ -12,6 +12,7 @@ import {
   ROLOS_PADRAO_CM,
   SOBREPOSICAO_PADRAO_CM,
   compararRolos,
+  type CorteEmenda,
   conferirEmenda,
   formatarCm,
   gerarEmenda,
@@ -32,11 +33,14 @@ interface Config {
   desligados: number[];
   margemRolo: string;
   sobreposicao: string;
-  escala: string;
+  /** Em que % do tamanho real a arte foi exportada (50 = metade). */
+  exportada: string;
+  /** Direção das emendas: vertical (colunas) é o padrão. */
+  direcao: CorteEmenda | "melhor";
   guias: boolean;
 }
 
-const PADRAO: Config = { rolos: ROLOS_PADRAO_CM, desligados: [], margemRolo: String(MARGEM_ROLO_PADRAO_CM), sobreposicao: String(SOBREPOSICAO_PADRAO_CM), escala: "100", guias: true };
+const PADRAO: Config = { rolos: ROLOS_PADRAO_CM, desligados: [], margemRolo: String(MARGEM_ROLO_PADRAO_CM), sobreposicao: String(SOBREPOSICAO_PADRAO_CM), exportada: "50", direcao: "colunas", guias: true };
 
 interface ArteLida {
   nome: string;
@@ -136,7 +140,7 @@ function MapaDeCortes({ art, plano, sobreposicao }: { art: { w: number; h: numbe
 }
 
 export default function EmendaAdesivo() {
-  const [salvo, set] = useConfigSalva<Config>("preimpressao.emenda.config.v1", PADRAO);
+  const [salvo, set] = useConfigSalva<Config>("preimpressao.emenda.config.v2", PADRAO);
   const cfg = useMemo<Config>(() => ({ ...PADRAO, ...salvo }), [salvo]);
   const [arte, setArte] = useState<ArteLida | null>(null);
   const [erroArte, setErroArte] = useState<string | null>(null);
@@ -153,7 +157,9 @@ export default function EmendaAdesivo() {
 
   const margem = valida(cfg.margemRolo, 0, 20);
   const sobre = valida(cfg.sobreposicao, 0.5, 20);
-  const escalaPct = valida(cfg.escala, 1, 1000);
+  const exportadaPct = valida(cfg.exportada, 1, 1000);
+  // Arte exportada a 50% → o PDF gerado já sai no tamanho final (200%).
+  const escalaPct = exportadaPct ? 10000 / exportadaPct : null;
   const ativos = useMemo(() => cfg.rolos.filter((r) => !cfg.desligados.includes(r)), [cfg.rolos, cfg.desligados]);
 
   // Tamanho da arte a 100%
@@ -174,13 +180,13 @@ export default function EmendaAdesivo() {
 
   const art = useMemo(() => (artEmenda && escalaPct ? tamanhoFinal(artEmenda, escalaPct) : null), [artEmenda, escalaPct]);
   const pronto = !!art && margem !== null && sobre !== null && ativos.length > 0;
-  const comparacao = useMemo(() => (art && margem !== null && sobre !== null ? compararRolos(art, ativos, margem, sobre) : []), [art, margem, sobre, ativos]);
+  const comparacao = useMemo(() => (art && margem !== null && sobre !== null ? compararRolos(art, ativos, margem, sobre, cfg.direcao) : []), [art, margem, sobre, ativos, cfg.direcao]);
   const sugerido = comparacao[0] ?? null;
   const plano: PlanoEmenda | null = useMemo(() => {
     if (!art || margem === null || sobre === null) return null;
-    if (escolhido !== null && ativos.includes(escolhido)) return melhorCorte(art, escolhido, margem, sobre);
+    if (escolhido !== null && ativos.includes(escolhido)) return melhorCorte(art, escolhido, margem, sobre, cfg.direcao);
     return sugerido;
-  }, [art, margem, sobre, escolhido, ativos, sugerido]);
+  }, [art, margem, sobre, escolhido, ativos, sugerido, cfg.direcao]);
 
   const receber = async (files: File[]) => {
     if (!files[0]) return;
@@ -272,7 +278,7 @@ export default function EmendaAdesivo() {
       </div>
       <NotaPrivacidade />
 
-      <Campo titulo="1. Arte inteira" ajuda="PDF, PNG, JPG ou EPS no tamanho final (1:1), ou em escala (use o campo “Escala” abaixo).">
+      <Campo titulo="1. Arte inteira" ajuda="PDF, PNG, JPG ou EPS, no tamanho real ou reduzido (informe abaixo em que tamanho foi exportada).">
         <SoltarArquivo
           titulo="Solte a arte aqui"
           dica="PDF, PNG, JPG ou EPS"
@@ -298,15 +304,32 @@ export default function EmendaAdesivo() {
           </div>
         )}
         <div className="mt-4">
-          <p className="mb-1 text-xs text-muted-foreground">Escala da arte (100% = a arte já está no tamanho final)</p>
-          <Passo valor={cfg.escala} onChange={(v) => set("escala", v)} passo={10} min={1} max={1000} sufixo="%" rotulo="escala da arte" invalido={escalaPct === null} />
+          <p className="mb-1 text-xs text-muted-foreground">Em que tamanho você exportou a arte? (50% = metade do tamanho real)</p>
+          <Passo valor={cfg.exportada} onChange={(v) => set("exportada", v)} passo={10} min={1} max={1000} sufixo="%" rotulo="tamanho da arte exportada" invalido={exportadaPct === null} />
           <div className="mt-2 flex flex-wrap gap-2">
             {["100", "50", "25", "10"].map((p) => (
-              <button key={p} type="button" onClick={() => set("escala", p === "100" ? "100" : String(Math.round(10000 / Number(p))))} className="rounded-full bg-muted/70 px-3 py-1 text-xs text-muted-foreground hover:text-foreground">
-                {p === "100" ? "1:1" : `arte em 1:${100 / Number(p)} → ${Math.round(10000 / Number(p))}%`}
+              <button key={p} type="button" onClick={() => set("exportada", p)} aria-pressed={cfg.exportada === p} className={cn("rounded-full px-3 py-1 text-xs", cfg.exportada === p ? "bg-foreground text-background" : "bg-muted/70 text-muted-foreground hover:text-foreground")}>
+                {p === "100" ? "100% (tamanho real)" : `${p}%`}
               </button>
             ))}
           </div>
+          {art && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Tamanho final: <span className="font-medium text-foreground">{formatarCm(art.w)} × {formatarCm(art.h)}</span>. O PDF gerado já sai nesse tamanho: imprima em 100%.
+            </p>
+          )}
+        </div>
+        <div className="mt-4">
+          <p className="mb-1 text-xs text-muted-foreground">Direção das emendas</p>
+          <Segmentado
+            valor={cfg.direcao}
+            onChange={(v) => set("direcao", v)}
+            opcoes={[
+              { valor: "colunas", rotulo: "Vertical" },
+              { valor: "linhas", rotulo: "Horizontal" },
+              { valor: "melhor", rotulo: "Automática" },
+            ]}
+          />
         </div>
       </Campo>
 

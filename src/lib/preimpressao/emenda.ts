@@ -84,8 +84,9 @@ export function planejarEmenda(art: { w: number; h: number }, rolo: number, marg
 }
 
 /** O melhor corte (colunas ou linhas) para um rolo: o que gasta menos rolo; empate, menos emendas. */
-export function melhorCorte(art: { w: number; h: number }, rolo: number, margemRolo: number, sobreposicao: number): PlanoEmenda | null {
-  const planos = (["colunas", "linhas"] as CorteEmenda[]).map((c) => planejarEmenda(art, rolo, margemRolo, sobreposicao, c)).filter((p): p is PlanoEmenda => !!p);
+export function melhorCorte(art: { w: number; h: number }, rolo: number, margemRolo: number, sobreposicao: number, direcao: CorteEmenda | "melhor" = "melhor"): PlanoEmenda | null {
+  const opcoes: CorteEmenda[] = direcao === "melhor" ? ["colunas", "linhas"] : [direcao];
+  const planos = opcoes.map((c) => planejarEmenda(art, rolo, margemRolo, sobreposicao, c)).filter((p): p is PlanoEmenda => !!p);
   planos.sort((a, b) => a.consumidoM2 - b.consumidoM2 || a.partes - b.partes);
   return planos[0] ?? null;
 }
@@ -94,9 +95,9 @@ export function melhorCorte(art: { w: number; h: number }, rolo: number, margemR
  * Compara os rolos cadastrados, do que melhor aproveita para o pior: menos rolo gasto (m²), depois menos
  * emendas, depois o rolo mais estreito.
  */
-export function compararRolos(art: { w: number; h: number }, rolos: number[], margemRolo: number, sobreposicao: number): PlanoEmenda[] {
+export function compararRolos(art: { w: number; h: number }, rolos: number[], margemRolo: number, sobreposicao: number, direcao: CorteEmenda | "melhor" = "melhor"): PlanoEmenda[] {
   const unicos = [...new Set(rolos.filter((r) => Number.isFinite(r) && r > 0))];
-  const planos = unicos.map((r) => melhorCorte(art, r, margemRolo, sobreposicao)).filter((p): p is PlanoEmenda => !!p);
+  const planos = unicos.map((r) => melhorCorte(art, r, margemRolo, sobreposicao, direcao)).filter((p): p is PlanoEmenda => !!p);
   return planos.sort((a, b) => a.consumidoM2 - b.consumidoM2 || a.partes - b.partes || a.rolo - b.rolo);
 }
 
@@ -218,7 +219,7 @@ export function conferirEmenda(art: { w: number; h: number }, plano: PlanoEmenda
   out.push({ nivel: "ok", texto: `Arte de ${formatarCm(art.w)} × ${formatarCm(art.h)}${o.escalaPct !== 100 ? ` (escala ${o.escalaPct}%)` : ""}. Rolo de ${plano.rolo} cm com ${formatarCm(o.margemRolo)} de borda: imprime até ${formatarCm(plano.imprimivel)}.` });
   if (plano.partes === 1) out.push({ nivel: "ok", texto: "Cabe inteira no rolo: não precisa de emenda." });
   else out.push({ nivel: "ok", texto: `${plano.partes} partes de ${formatarCm(plano.larguraParte)} × ${formatarCm(plano.comprimentoParte)}, ${plano.emendas} emenda(s) com ${formatarCm(o.sobreposicaoCm)} de sobreposição.` });
-  if (plano.corte === "linhas" && plano.partes > 1) out.push({ nivel: "ok", texto: "Neste rolo rende mais cortar pela altura: a arte gira 90° em cada parte (a arte fica como no mapa)." });
+  if (plano.corte === "linhas" && plano.partes > 1) out.push({ nivel: "ok", texto: "Emendas na horizontal: a arte gira 90° em cada parte (a arte fica como no mapa)." });
   if (plano.passaLimiteAcrobat) out.push({ nivel: "atencao", texto: `Alguma parte passa de ${LIMITE_ACROBAT_CM} cm: o Acrobat não abre páginas maiores (o RIP pode abrir).` });
   if (plano.partes > 1 && plano.larguraParte < 2 * o.sobreposicaoCm + 5) out.push({ nivel: "atencao", texto: "As partes ficaram muito estreitas perto da sobreposição. Confira se vale usar um rolo mais largo." });
   return out;
