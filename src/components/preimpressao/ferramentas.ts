@@ -7,7 +7,7 @@
 // Regra: tudo roda no navegador, sem servidor e sem custo (ver CLAUDE.md).
 
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
-import { BookOpen, CalendarDays, IdCard, Crop, FileSearch, Files, Hash, LayoutGrid, Scissors, type LucideIcon } from "lucide-react";
+import { BookOpen, CalendarDays, Camera, IdCard, Crop, FileSearch, Files, Hash, LayoutGrid, Scissors, type LucideIcon } from "lucide-react";
 
 export interface Ferramenta {
   key: string;
@@ -53,6 +53,14 @@ export const GRUPOS: GrupoFerramentas[] = [
         entrada: "Lista do Excel e fotos",
         icon: IdCard,
         Componente: lazy(() => import("./Crachas")),
+      },
+      {
+        key: "polaroid",
+        nome: "Fotos Polaroid",
+        descricao: "Monta fotos no estilo Polaroid em folhas A4, com moldura colorida, legenda de mão, filtros, enfeites, verso e marcas de corte.",
+        entrada: "Fotos JPG, PNG ou WebP",
+        icon: Camera,
+        Componente: lazy(() => import("./FotosPolaroid")),
       },
       {
         key: "numeracao",

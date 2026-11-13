@@ -13,6 +13,7 @@ export function CrachaFotoAjuste({
   nome,
   foto,
   forma,
+  aspecto: aspectoPedido,
   ajuste,
   onFechar,
   onSalvar,
@@ -21,6 +22,8 @@ export function CrachaFotoAjuste({
   nome: string;
   foto: (FotoCarregada & { tipo?: string }) | null;
   forma: FormaFoto;
+  /** Proporção da moldura (largura ÷ altura); se faltar, vem da forma. */
+  aspecto?: number;
   ajuste: AjusteFoto;
   onFechar: () => void;
   onSalvar: (a: AjusteFoto) => void;
@@ -40,7 +43,7 @@ export function CrachaFotoAjuste({
     return () => URL.revokeObjectURL(u);
   }, [foto]);
 
-  const aspecto = aspectoDaFoto(forma);
+  const aspecto = aspectoPedido ?? aspectoDaFoto(forma);
   const altura = Math.round(LARG / aspecto);
   const geo = useMemo(() => {
     if (!foto) return null;

@@ -175,6 +175,8 @@ export const LISTA_DE_EXEMPLO = [
 
 export interface FotoCarregada {
   nome: string;
+  /** Tipo MIME do arquivo (ex.: image/jpeg). */
+  tipo?: string;
   bytes: Uint8Array;
   w: number;
   h: number;
@@ -389,6 +391,28 @@ async function criarFontes(doc: PDFDocument, externas?: FontesExternas | null): 
   return { normal: await doc.embedFont(StandardFonts.Helvetica), negrito: await doc.embedFont(StandardFonts.HelveticaBold), k: 1 };
 }
 
+const conjuntos = new WeakMap<PDFFont, Set<number>>();
+
+/** Tira do texto o que a fonte não sabe desenhar (emojis, letras raras): evita erro no PDF e quadradinhos. */
+export function soSuportados(fonte: PDFFont, texto: string): string {
+  let set = conjuntos.get(fonte);
+  if (!set) {
+    set = new Set(fonte.getCharacterSet());
+    conjuntos.set(fonte, set);
+  }
+  let out = "";
+  for (const ch of texto.normalize("NFC")) {
+    const cp = ch.codePointAt(0) as number;
+    if (set.has(cp)) out += ch;
+    else {
+      // tenta sem o acento (ex.: ł → l não existe; mas ő → o)
+      const base = ch.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (base && base !== ch && [...base].every((b) => set.has(b.codePointAt(0) as number))) out += base;
+    }
+  }
+  return out.replace(/\s+/g, " ");
+}
+
 export function corParaRgb(hex: string) {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
   const v = m ? Number.parseInt(m[1], 16) : 0;
@@ -556,7 +580,8 @@ export async function gerarCartoes(e: EntradaCartoes): Promise<CartoesGerados> {
     const texto = (chave: "nome" | "cargo" | "setor" | "matricula", valor: string, fonte: PDFFont, maiusculo = false) => {
       const l = cfg.elementos[chave];
       if (!l.ativo || !valor.trim()) return;
-      const v = maiusculo ? valor.toLocaleUpperCase("pt-BR") : valor;
+      const v = soSuportados(fonte, maiusculo ? valor.toLocaleUpperCase("pt-BR") : valor);
+      if (!v.trim()) return;
       const cx = (W * l.x) / 100;
       const folga = Math.min(cx, W - cx) * 2 - mmPt(5);
       const medir = (s: string, pt: number) => fonte.widthOfTextAtSize(s, pt * fontes.k);
