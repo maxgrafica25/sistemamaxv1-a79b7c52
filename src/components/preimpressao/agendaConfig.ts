@@ -52,6 +52,8 @@ export interface ConfigAgendaUI {
   semanaComeca: "dom" | "seg";
   luas: boolean;
   destaque: boolean;
+  estiloCabecalho: "pontos" | "linha" | "limpo";
+  marcadores: boolean;
   logo: ImagemSalva | null;
   rodape: string;
   logoNaCapa: boolean;
@@ -118,6 +120,8 @@ export function configPadrao(): ConfigAgendaUI {
     semanaComeca: "dom",
     luas: true,
     destaque: false,
+    estiloCabecalho: "pontos",
+    marcadores: false,
     logo: null,
     rodape: "",
     logoNaCapa: true,

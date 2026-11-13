@@ -349,6 +349,10 @@ export interface ConfigAgenda {
   luas?: boolean;
   /** Domingos e feriados com o número em cinza. */
   destaque?: boolean;
+  /** Enfeite dos cabeçalhos: pontinhos (padrão), uma linha fina ou nada. */
+  estiloCabecalho?: EstiloCabecalho;
+  /** Selos ★ ♥ ✓ (contorno) para marcar à mão em cada dia. */
+  marcadores?: boolean;
   identidade?: Partial<Identidade>;
   marcaDagua?: Partial<MarcaDagua>;
   extras?: Extra[];
@@ -366,6 +370,8 @@ export interface ConfigAgenda {
   pessoa?: string;
 }
 
+export type EstiloCabecalho = "pontos" | "linha" | "limpo";
+
 interface Cfg {
   ano: number;
   capa: string;
@@ -378,6 +384,8 @@ interface Cfg {
   semanaComeca: "dom" | "seg";
   luas: boolean;
   destaque: boolean;
+  estiloCabecalho: EstiloCabecalho;
+  marcadores: boolean;
   identidade: Identidade;
   marcaDagua: MarcaDagua;
   extras: Extra[];
@@ -406,6 +414,8 @@ function normalizar(c: ConfigAgenda): Cfg {
     semanaComeca: c.semanaComeca ?? "dom",
     luas: c.luas ?? true,
     destaque: c.destaque ?? false,
+    estiloCabecalho: c.estiloCabecalho === "linha" || c.estiloCabecalho === "limpo" ? c.estiloCabecalho : "pontos",
+    marcadores: c.marcadores ?? false,
     identidade: { logo: null, rodape: "", logoNaCapa: true, logoNoVerso: true, rodapeEmTodas: true, ...c.identidade },
     marcaDagua: { ativa: false, tipo: "texto", texto: "", logo: null, opacidade: 0.08, escala: 60, onde: "todas", ...c.marcaDagua },
     extras: c.extras ?? [],
@@ -567,6 +577,8 @@ interface Contexto {
   logo: PDFImage | null;
   /** Cor de destaque (ou preto quando não há). */
   acento: ReturnType<typeof rgb>;
+  /** Avisos achados durante o desenho (texto cortado etc.), sem repetir. */
+  avisos: Set<string>;
 }
 
 /** Uma página sendo desenhada (medidas em mm a partir do canto superior esquerdo). */
@@ -633,6 +645,13 @@ class Folha {
     }
   }
 
+  /** Enfeite do cabeçalho conforme o estilo escolhido (pontinhos, linha fina ou nada). */
+  faixa(x1: number, y1: number, x2: number, y2: number, passo = 2.2) {
+    const estilo = this.ctx.cfg.estiloCabecalho;
+    if (estilo === "pontos") this.pontos(x1, y1, x2, y2, passo);
+    else if (estilo === "linha" && x2 > x1) this.linha(x1, (y1 + y2) / 2, x2, (y1 + y2) / 2, 0.7, this.ctx.acento);
+  }
+
   circulo(cx: number, cy: number, r: number, espessura = 0.45) {
     this.page.drawCircle({ x: this.X(cx), y: this.Y(cy), size: r * PT_POR_MM, borderWidth: espessura, borderColor: this.ctx.acento });
   }
@@ -657,11 +676,11 @@ class Folha {
       const x0 = this.dir - w1 - w2;
       if (leve) this.texto(leve + " ", x0, y, tamanho, { peso: "leve" });
       this.texto(forte, x0 + w1, y, tamanho, { peso: "negrito" });
-      this.pontos(this.esq, y - 6, x0 - 3, y + 1);
+      this.faixa(this.esq, y - 6, x0 - 3, y + 1);
     } else {
       if (leve) this.texto(leve + " ", this.esq, y, tamanho, { peso: "leve" });
       this.texto(forte, this.esq + w1, y, tamanho, { peso: "negrito" });
-      this.pontos(this.esq + w1 + w2 + 3, y - 6, this.dir, y + 1);
+      this.faixa(this.esq + w1 + w2 + 3, y - 6, this.dir, y + 1);
     }
   }
 }
@@ -692,6 +711,31 @@ function iconeData(fo: Folha, tipo: IconeData, cx: number, cy: number, r: number
     fo.page.drawLine({ start: ponto(-0.8, 0), end: ponto(-0.25, -0.6), thickness: t, color: cor, lineCap: LineCapStyle.Round });
     fo.page.drawLine({ start: ponto(-0.25, -0.6), end: ponto(0.9, 0.7), thickness: t, color: cor, lineCap: LineCapStyle.Round });
   }
+}
+
+/** Contorno de ★ ♥ ✓ para a pessoa marcar à mão, em (x, y) mm (canto esquerdo do primeiro selo). */
+function selosDoDia(fo: Folha, x: number, y: number) {
+  const cor = fo.ctx.acento;
+  const r = 1.7;
+  const gap = 5.2;
+  const baseX = (cx: number) => cx * PT_POR_MM;
+  const baseY = (H - y) * PT_POR_MM;
+  const R = r * PT_POR_MM;
+  const contorno = (d: string, cx: number) => fo.page.drawSvgPath(d, { x: baseX(cx), y: baseY, scale: R, borderColor: cor, borderWidth: 0.6 / R, borderLineCap: LineCapStyle.Round });
+  const pts = Array.from({ length: 10 }, (_, i) => {
+    const a = rad(-90 + i * 36);
+    const raio = i % 2 === 0 ? 1 : 0.45;
+    return `${(Math.cos(a) * raio).toFixed(3)} ${(Math.sin(a) * raio).toFixed(3)}`;
+  });
+  contorno(`M ${pts.join(" L ")} Z`, x + r);
+  contorno("M 0 -0.35 C -0.5 -1 -1.25 -0.05 0 0.95 C 1.25 -0.05 0.5 -1 0 -0.35 Z", x + r + gap);
+  contorno("M -0.8 0 L -0.25 0.6 L 0.9 -0.7", x + r + 2 * gap);
+}
+
+/** Selos no lado oposto ao do nome do feriado: recto → esquerda, verso → direita. */
+function marcadoresDoDia(fo: Folha, y: number) {
+  if (!fo.ctx.cfg.marcadores) return;
+  selosDoDia(fo, fo.recto ? fo.esq : fo.dir - 15.6, y);
 }
 
 /** Cor do número do dia: preto; em domingo/feriado com "destaque", a cor de destaque (ou cinza se não há). */
@@ -902,7 +946,7 @@ function desenharCalendarioAno(fo: Folha) {
   fo.texto("CALENDÁRIO", fo.esq, 12, 11, { peso: "leve" });
   const wt = fo.largura("CALENDÁRIO ", 11, "leve");
   fo.texto(String(ano), fo.esq + wt, 12, 11, { peso: "negrito" });
-  fo.pontos(fo.esq + wt + fo.largura(String(ano), 11, "negrito") + 3, 6.5, fo.dir, 13);
+  fo.faixa(fo.esq + wt + fo.largura(String(ano), 11, "negrito") + 3, 6.5, fo.dir, 13);
   const colW = (fo.dir - fo.esq) / 3;
   const linhaH = 34.5;
   for (let m = 1; m <= 12; m++) {
@@ -919,7 +963,7 @@ function desenharCalendarioAno(fo: Folha) {
   const temData = fo.ctx.cfg.datas.length > 0;
   fo.texto(temData ? "FERIADOS, DIAS SANTIFICADOS E DATAS ESPECIAIS" : "FERIADOS E DIAS SANTIFICADOS", fo.esq, yl, 8.5, { peso: "leve" });
   const wTit = fo.largura(temData ? "FERIADOS, DIAS SANTIFICADOS E DATAS ESPECIAIS " : "FERIADOS E DIAS SANTIFICADOS ", 8.5, "leve");
-  fo.pontos(fo.esq + wTit + 2, yl - 4.5, fo.dir, yl + 0.5, 1.8);
+  fo.faixa(fo.esq + wTit + 2, yl - 4.5, fo.dir, yl + 0.5, 1.8);
   // 3 colunas; se passar de 10 linhas, 4 colunas
   let colunas = 3;
   if (Math.ceil(itens.length / 3) > 9) colunas = 4;
@@ -976,7 +1020,11 @@ function desenharPlanejamento(fo: Folha, mes: number) {
   const ano = cfg.ano;
   fo.titulo("PLANEJAMENTO", MESES[mes - 1], 13);
   const mensagem = cfg.mensagens[mes - 1];
-  if (mensagem) fo.texto(caber(fo, `“${mensagem}”`, 7.5, fo.dir - fo.esq), fo.esq, 19.3, 7.5, { peso: "leve", cor: CINZA_ESCURO });
+  if (mensagem) {
+    const frase = caber(fo, `“${mensagem}”`, 7.5, fo.dir - fo.esq);
+    if (frase.endsWith("…")) fo.ctx.avisos.add(`A mensagem de ${MESES[mes - 1].toLowerCase()} é longa demais e foi cortada. Encurte o texto.`);
+    fo.texto(frase, fo.esq, 19.3, 7.5, { peso: "leve", cor: CINZA_ESCURO });
+  }
   let xTexto = fo.esq;
   if (cfg.luas) {
     const doMes = luas.filter((l) => l.mes === mes);
@@ -1035,14 +1083,14 @@ function cabecalhoDia(fo: Folha, mes: number, dia: number, y0: number) {
     fo.linha(xDiv, y0, xDiv, y0 + 12.5, 0.6);
     fo.texto(MESES[mes - 1], xDiv - 2.5, y0 + 6.5, 11, { peso: "negrito", alinhar: "d" });
     fo.texto(nomeSem, xDiv - 2.5, y0 + 11, 6.2, { alinhar: "d" });
-    fo.pontos(fo.esq, y0, xDiv - 2.5 - wTexto - 3, y0 + 12);
+    fo.faixa(fo.esq, y0, xDiv - 2.5 - wTexto - 3, y0 + 12);
   } else {
     fo.texto(num, fo.esq, yBase, tamNum, { peso: "extra", cor });
     const xDiv = fo.esq + wNum + 2.8;
     fo.linha(xDiv, y0, xDiv, y0 + 12.5, 0.6);
     fo.texto(MESES[mes - 1], xDiv + 2.5, y0 + 6.5, 11, { peso: "negrito" });
     fo.texto(nomeSem, xDiv + 2.5, y0 + 11, 6.2);
-    fo.pontos(xDiv + 2.5 + wTexto + 3, y0, fo.dir, y0 + 12);
+    fo.faixa(xDiv + 2.5 + wTexto + 3, y0, fo.dir, y0 + 12);
   }
 }
 
@@ -1098,6 +1146,7 @@ function desenharDia(fo: Folha, mes: number, dia: number) {
   const { cfg } = fo.ctx;
   cabecalhoDia(fo, mes, dia, 9);
   anotarFeriado(fo, mes, dia, 24);
+  marcadoresDoDia(fo, 22.6);
   const n = cfg.horaFim - cfg.horaInicio + 1;
   const pitch = Math.min(14, (171 - 29) / (n - 1 + 0.5));
   linhasDoDia(fo, 29, cfg.horaInicio, cfg.horaFim, pitch);
@@ -1110,9 +1159,11 @@ function desenharFimDeSemana(fo: Folha, mes: number, sabado: number | null, domi
     const ate = Math.min(cfg.horaFim, cfg.horaInicio + 4);
     cabecalhoDia(fo, mes, sabado, 9);
     anotarFeriado(fo, mes, sabado, 24);
+    marcadoresDoDia(fo, 22.6);
     linhasDoDia(fo, 29, cfg.horaInicio, ate, 13.2);
     cabecalhoDia(fo, mes, domingo, 93);
     anotarFeriado(fo, mes, domingo, 108);
+    marcadoresDoDia(fo, 106.6);
     linhasDoDia(fo, 113, cfg.horaInicio, ate, 13.2);
     rodapeDoDia(fo, mes);
   } else {
@@ -1214,7 +1265,10 @@ function desenharAbertura(fo: Folha, ab: Abertura, foto: PDFImage | null) {
         y += 3.5;
         continue;
       }
-      if (y > fim) break;
+      if (y > fim) {
+        fo.ctx.avisos.add(`O texto da página de abertura “${ab.titulo.trim() || "sem título"}” passou do fim da página e foi cortado.`);
+        break;
+      }
       if (linha.startsWith("#")) {
         const sub = linha.replace(/^#+\s*/, "").toUpperCase();
         y += 2;
@@ -1245,7 +1299,10 @@ function desenharAbertura(fo: Folha, ab: Abertura, foto: PDFImage | null) {
     const entre = lead ? 6 : 5.2;
     const linhas = quebrarLinhas(fo, par.replace(/\r?\n/g, " "), tam, largura, lead ? "leve" : "normal");
     for (const l of linhas) {
-      if (y > fim) return;
+      if (y > fim) {
+        fo.ctx.avisos.add(`O texto da página de abertura “${ab.titulo.trim() || "sem título"}” passou do fim da página e foi cortado.`);
+        return;
+      }
       fo.texto(l, fo.esq, y, tam, { peso: lead ? "leve" : "normal" });
       y += entre;
     }
@@ -1265,6 +1322,47 @@ export interface Miolo {
   feriados: Feriado[];
   /** Fonte usada (Montserrat quando as fontes foram carregadas). */
   fonte: "montserrat" | "helvetica";
+  /** Conferência final: o que está certo e o que merece um olhar antes de imprimir. */
+  conferencia: ItemConferencia[];
+}
+
+export interface ItemConferencia {
+  nivel: "ok" | "atencao" | "info";
+  texto: string;
+}
+
+/** Monta a lista de conferência do miolo (função pura, testável). */
+export function conferirMiolo(cfg: ConfigAgenda, plano: Plano, avisosDeDesenho: string[] = []): ItemConferencia[] {
+  const c = normalizar(cfg);
+  const out: ItemConferencia[] = [];
+  const total = plano.paginas.length;
+  out.push({ nivel: "ok", texto: `${total} páginas = ${total / 2} folhas impressas dos dois lados.` });
+  if (c.total && c.total < plano.minimo) {
+    out.push({ nivel: "atencao", texto: `Você pediu ${c.total} páginas, mas o conteúdo precisa de pelo menos ${plano.minimo}. O sistema usou ${total}.` });
+  }
+  out.push({ nivel: "ok", texto: "Margem interna de 14 mm: o furo do wire-o não pega no texto." });
+  const logos: [string, Imagem | null | undefined][] = [
+    ["A logo", c.identidade.logo],
+    ["A logo da marca-d'água", c.marcaDagua.ativa && c.marcaDagua.tipo === "logo" ? c.marcaDagua.logo : null],
+  ];
+  for (const [nome, img] of logos) {
+    if (img && Math.max(img.w, img.h) < 400) {
+      out.push({ nivel: "atencao", texto: `${nome} é pequena (${img.w} × ${img.h} px) e pode sair borrada. Use uma imagem com pelo menos 400 px.` });
+    }
+  }
+  for (const a of c.aberturas) {
+    if (a.modelo === "foto" && a.foto) {
+      const ppi = a.foto.w / (FOTO_ABERTURA_MM.w / 25.4);
+      if (ppi < 150) out.push({ nivel: "atencao", texto: `A foto da abertura “${a.titulo.trim() || "sem título"}” tem só ${Math.round(ppi)} ppi no tamanho impresso (o ideal é 150 ou mais).` });
+    }
+  }
+  if (c.marcaDagua.ativa && c.marcaDagua.opacidade > 0.15) {
+    out.push({ nivel: "atencao", texto: `A marca-d'água está forte (${Math.round(c.marcaDagua.opacidade * 100)}%) e pode atrapalhar a escrita. O comum é de 5% a 12%.` });
+  }
+  if (c.acento) out.push({ nivel: "info", texto: "Você escolheu uma cor de destaque: imprima o miolo em cor (em preto e branco ela sai cinza)." });
+  for (const a of avisosDeDesenho) out.push({ nivel: "atencao", texto: a });
+  if (!out.some((i) => i.nivel === "atencao")) out.push({ nivel: "ok", texto: "Nenhum problema encontrado." });
+  return out;
 }
 
 async function embutirImagem(doc: PDFDocument, img: Imagem): Promise<PDFImage> {
@@ -1320,7 +1418,7 @@ export async function gerarMiolo(entrada: ConfigAgenda, externas?: FontesExterna
   }
   const fotosAbertura: (PDFImage | null)[] = [];
   for (const a of cfg.aberturas) fotosAbertura.push(a.modelo === "foto" && a.foto ? await embutirImagem(doc, a.foto) : null);
-  const ctx: Contexto = { cfg, feriados, luas, f, k, logo, acento: cfg.acento ? rgb(cfg.acento[0], cfg.acento[1], cfg.acento[2]) : PRETO };
+  const ctx: Contexto = { cfg, feriados, luas, f, k, logo, acento: cfg.acento ? rgb(cfg.acento[0], cfg.acento[1], cfg.acento[2]) : PRETO, avisos: new Set() };
   const larguraPt = W * PT_POR_MM;
   const alturaPt = H * PT_POR_MM;
   const semMarca = new Set(["capa", "branca", "extra"]);
@@ -1384,7 +1482,7 @@ export async function gerarMiolo(entrada: ConfigAgenda, externas?: FontesExterna
     if (comRodape.has(p.tipo)) rodapeIdentidade(fo);
   });
   doc.setTitle(`Miolo de agenda ${cfg.ano}`);
-  return { bytes: await doc.save(), plano, feriados, fonte: nome };
+  return { bytes: await doc.save(), plano, feriados, fonte: nome, conferencia: conferirMiolo(entrada, plano, [...ctx.avisos]) };
 }
 
 /**
